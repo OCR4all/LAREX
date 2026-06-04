@@ -414,14 +414,52 @@ watch(tableRows, (nextRows) => {
   selectedItemIds.value = new Set(Array.from(selectedItemIds.value).filter(id => validIds.has(id)))
 }, { immediate: true })
 
-const hasActiveFilters = computed(() =>
-  Boolean(globalFilter.value)
-  || selectedTags.value.length > 0
-  || selectedSplits.value.length > 0
-  || selectedModes.value.length > 0
-  || selectedProjects.value.length > 0
-  || selectedStatuses.value.length > 0
-)
+const activeDatasetItemFilters = computed(() => {
+  const filters: Array<{ key: string, label: string, clear: () => void }> = []
+  if (globalFilter.value) {
+    filters.push({
+      key: 'search',
+      label: `Search: ${globalFilter.value}`,
+      clear: () => { globalFilter.value = '' }
+    })
+  }
+  for (const tag of selectedTags.value) {
+    filters.push({
+      key: `tag-${tag}`,
+      label: `Tag: ${tag}`,
+      clear: () => { selectedTags.value = selectedTags.value.filter(value => value !== tag) }
+    })
+  }
+  for (const split of selectedSplits.value) {
+    filters.push({
+      key: `split-${split}`,
+      label: `Split: ${splitLabel(split)}`,
+      clear: () => { selectedSplits.value = selectedSplits.value.filter(value => value !== split) }
+    })
+  }
+  for (const mode of selectedModes.value) {
+    filters.push({
+      key: `mode-${mode}`,
+      label: `Mode: ${modeLabel(mode)}`,
+      clear: () => { selectedModes.value = selectedModes.value.filter(value => value !== mode) }
+    })
+  }
+  for (const project of selectedProjects.value) {
+    filters.push({
+      key: `project-${project}`,
+      label: `Project: ${project}`,
+      clear: () => { selectedProjects.value = selectedProjects.value.filter(value => value !== project) }
+    })
+  }
+  for (const status of selectedStatuses.value) {
+    filters.push({
+      key: `status-${status}`,
+      label: `Status: ${itemStatusLabel(status as DatasetItemStatus)}`,
+      clear: () => { selectedStatuses.value = selectedStatuses.value.filter(value => value !== status) }
+    })
+  }
+  return filters
+})
 
 const nextReleaseTag = computed(() => {
   const nextVersion = Math.max(...(dataset.value?.releases || []).map(release => release.versionNumber), 0) + 1
@@ -1386,82 +1424,14 @@ useHead({
                   </template>
 
                   <template #right>
-                    <div class="flex items-center gap-2">
-                      <UButton
-                        v-if="hasActiveFilters"
-                        color="neutral"
-                        variant="ghost"
-                        size="sm"
-                        @click="resetContentFilters"
-                      >
-                        Clear Filters
-                      </UButton>
-                      <AppTableColumnsDropdown table-id="dataset-items" :columns="itemColumns" />
-                    </div>
+                    <AppTableColumnsDropdown table-id="dataset-items" :columns="itemColumns" />
                   </template>
                 </UDashboardToolbar>
 
-                <div v-if="hasActiveFilters" class="flex flex-wrap gap-2">
-                  <UBadge
-                    v-if="globalFilter"
-                    color="neutral"
-                    variant="soft"
-                    class="cursor-pointer"
-                    @click="globalFilter = ''"
-                  >
-                    Search: {{ globalFilter }} ×
-                  </UBadge>
-                  <UBadge
-                    v-for="tag in selectedTags"
-                    :key="`tag:${tag}`"
-                    color="neutral"
-                    variant="soft"
-                    class="cursor-pointer"
-                    @click="selectedTags = selectedTags.filter(value => value !== tag)"
-                  >
-                    Tag: {{ tag }} ×
-                  </UBadge>
-                  <UBadge
-                    v-for="split in selectedSplits"
-                    :key="`split:${split}`"
-                    color="neutral"
-                    variant="soft"
-                    class="cursor-pointer"
-                    @click="selectedSplits = selectedSplits.filter(value => value !== split)"
-                  >
-                    Split: {{ splitLabel(split as DatasetItemSplit) }} ×
-                  </UBadge>
-                  <UBadge
-                    v-for="mode in selectedModes"
-                    :key="`mode:${mode}`"
-                    color="neutral"
-                    variant="soft"
-                    class="cursor-pointer"
-                    @click="selectedModes = selectedModes.filter(value => value !== mode)"
-                  >
-                    Mode: {{ modeLabel(mode as DatasetItemMode) }} ×
-                  </UBadge>
-                  <UBadge
-                    v-for="project in selectedProjects"
-                    :key="`project:${project}`"
-                    color="neutral"
-                    variant="soft"
-                    class="cursor-pointer"
-                    @click="selectedProjects = selectedProjects.filter(value => value !== project)"
-                  >
-                    Project: {{ project }} ×
-                  </UBadge>
-                  <UBadge
-                    v-for="status in selectedStatuses"
-                    :key="`status:${status}`"
-                    color="neutral"
-                    variant="soft"
-                    class="cursor-pointer"
-                    @click="selectedStatuses = selectedStatuses.filter(value => value !== status)"
-                  >
-                    Status: {{ itemStatusLabel(status as DatasetItemStatus) }} ×
-                  </UBadge>
-                </div>
+                <AppTableActiveFilters
+                  :filters="activeDatasetItemFilters"
+                  @clear-all="resetContentFilters"
+                />
 
                 <div v-if="dataset.items.length === 0" class="p-6">
                   <UEmpty

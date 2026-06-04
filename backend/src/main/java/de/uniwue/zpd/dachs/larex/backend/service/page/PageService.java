@@ -62,6 +62,7 @@ public class PageService {
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
+    private final PageOrderService pageOrderService;
 
     public PageService(
             PageRepository pageRepository,
@@ -79,7 +80,8 @@ public class PageService {
             PageXmlVersionService pageXmlVersionService,
             HierarchicalFileStorageService hierarchicalFileStorageService,
             PageXmlCanonicalizationService pageXmlCanonicalizationService,
-            WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
+            WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
+            PageOrderService pageOrderService) {
 
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -97,6 +99,7 @@ public class PageService {
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
+        this.pageOrderService = pageOrderService;
     }
 
     public List<Page> getProjectPages(String projectId, String userId) {
@@ -104,7 +107,7 @@ public class PageService {
         if (projectOpt.isPresent()) {
             String workspaceId = projectOpt.get().getLibrary().getWorkspaceId();
             if (workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
-                return pageRepository.findByProjectId(projectId);
+                return pageOrderService.sortPages(pageRepository.findByProjectId(projectId));
             }
         }
         return List.of();
@@ -129,6 +132,25 @@ public class PageService {
         }
 
         String safeSort = (sortField == null || sortField.isBlank()) ? "name" : sortField;
+        if ("projectOrder".equalsIgnoreCase(safeSort) || "sortOrder".equalsIgnoreCase(safeSort)) {
+            List<Page> sortedPages;
+            if (search != null && !search.trim().isEmpty()) {
+                sortedPages = pageOrderService.sortPages(
+                        pageRepository.findPagesInProjectBySearch(projectId, search.trim().toLowerCase())
+                );
+            } else if (tags != null && !tags.isEmpty()) {
+                sortedPages = pageOrderService.sortPages(pageRepository.findByProjectIdAndTagsIn(projectId, tags));
+            } else {
+                sortedPages = pageOrderService.sortPages(pageRepository.findByProjectId(projectId));
+            }
+            int from = Math.min(Math.max(page, 0) * size, sortedPages.size());
+            int to = Math.min(from + size, sortedPages.size());
+            return new org.springframework.data.domain.PageImpl<>(
+                    sortedPages.subList(from, to),
+                    PageRequest.of(page, size),
+                    sortedPages.size()
+            );
+        }
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, safeSort));
 
         if (search != null && !search.trim().isEmpty()) {
@@ -329,7 +351,7 @@ public class PageService {
         if (projectOpt.isPresent()) {
             String workspaceId = projectOpt.get().getLibrary().getWorkspaceId();
             if (workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
-                return pageRepository.findByProjectIdAndTagsIn(projectId, tags);
+                return pageOrderService.sortPages(pageRepository.findByProjectIdAndTagsIn(projectId, tags));
             }
         }
         return List.of();

@@ -5,6 +5,7 @@ import { useFloatingAnchorPosition } from '@/composables/editor/use-floating-anc
 import { EDITOR_WORKSPACE_FLOATING_ANCHOR_ID } from '@/session/editor/editor-session'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import type { PageSortMode } from '@/utils/editor/page-sort'
 import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
 
 const props = defineProps<{
@@ -22,11 +23,13 @@ const props = defineProps<{
   isFiltering: boolean
   totalFilteredPagesAcrossProjects: number
   globalVariantItems: Array<{ label: string, value: string }>
+  pageSortMode: PageSortMode
 }>()
 
 const emit = defineEmits<{
   'update:pageNameFilter': [value: string]
   'update:filterPopoverOpen': [value: boolean]
+  'update:pageSortMode': [value: PageSortMode]
   'open-command-center': []
 }>()
 
@@ -56,6 +59,26 @@ const filterPopoverOpenModel = computed({
   get: () => props.filterPopoverOpen,
   set: (value: boolean) => emit('update:filterPopoverOpen', value)
 })
+
+const pageSortModeModel = computed({
+  get: () => props.pageSortMode,
+  set: (value: PageSortMode) => emit('update:pageSortMode', value)
+})
+
+const pageSortItems: Array<{ label: string, value: PageSortMode }> = [
+  { label: 'Project order', value: 'projectOrder:asc' },
+  { label: 'Project order desc', value: 'projectOrder:desc' },
+  { label: 'Alphabetical', value: 'name:asc' },
+  { label: 'Alphabetical desc', value: 'name:desc' },
+  { label: 'Min confidence', value: 'confidenceMin:asc' },
+  { label: 'Min confidence desc', value: 'confidenceMin:desc' },
+  { label: 'Max confidence', value: 'confidenceMax:asc' },
+  { label: 'Max confidence desc', value: 'confidenceMax:desc' },
+  { label: 'Mean confidence', value: 'confidenceMean:asc' },
+  { label: 'Mean confidence desc', value: 'confidenceMean:desc' },
+  { label: 'Median confidence', value: 'confidenceMedian:asc' },
+  { label: 'Median confidence desc', value: 'confidenceMedian:desc' }
+]
 
 function handleImageVariantChange(key: string | undefined) {
   editorStore.setPreferredImageVariantKey(key ?? null)
@@ -203,6 +226,15 @@ watch(() => props.imagePopoverDismissKey, () => {
                             size="sm"
                             class="w-full"
                             @update:model-value="handleImageVariantChange"
+                          />
+                        </div>
+                        <div class="space-y-1.5">
+                          <label class="text-xs font-medium text-muted">Page Sort</label>
+                          <USelect
+                            v-model="pageSortModeModel"
+                            :items="pageSortItems"
+                            size="sm"
+                            class="w-full"
                           />
                         </div>
                       </div>
@@ -355,6 +387,15 @@ watch(() => props.imagePopoverDismissKey, () => {
                                 @update:model-value="handleImageVariantChange"
                               />
                             </div>
+                            <div class="space-y-1.5">
+                              <label class="text-xs font-medium text-muted">Page Sort</label>
+                              <USelect
+                                v-model="pageSortModeModel"
+                                :items="pageSortItems"
+                                size="sm"
+                                class="w-full"
+                              />
+                            </div>
                           </div>
                         </template>
                       </UPopover>
@@ -476,6 +517,15 @@ watch(() => props.imagePopoverDismissKey, () => {
                       size="sm"
                       class="w-full"
                       @update:model-value="handleImageVariantChange"
+                    />
+                  </div>
+                  <div class="space-y-1.5">
+                    <label class="text-xs font-medium text-muted">Page Sort</label>
+                    <USelect
+                      v-model="pageSortModeModel"
+                      :items="pageSortItems"
+                      size="sm"
+                      class="w-full"
                     />
                   </div>
                 </div>

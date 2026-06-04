@@ -1,4 +1,4 @@
-import type { PageData, ImageVariant, XmlFile, ResolvedTag, PageIndexingStatus } from '@/stores/editor/types'
+import type { PageData, ImageVariant, XmlFile, ResolvedTag, PageIndexingStatus, TextConfidenceStats } from '@/stores/editor/types'
 
 export interface PageImageVariantPreviewResponse {
   id: string
@@ -19,6 +19,8 @@ export interface PageResponse {
   xmlFileCount?: number
   indexingStatus?: PageIndexingStatus
   imageVariants?: PageImageVariantPreviewResponse[]
+  sortOrder?: number | null
+  textConfidence?: TextConfidenceStats | null
 }
 
 function projectAnnotationContext(projectId: string, pageId: string) {
@@ -55,7 +57,7 @@ export function createSkeletonPageData(
   options?: { projectId?: string, projectName?: string }
 ): PageData[] {
   return pages.map(page => ({
-    imageVariants: (page.imageVariants ?? []).map((img) => ({
+    imageVariants: (page.imageVariants ?? []).map(img => ({
       id: img.id,
       // Use thumbnail URLs for sidebar previews; full blob URLs are loaded when the page is opened.
       url: options?.projectId ? `/api/projects/${options.projectId}/pages/images/${img.id}/thumbnail` : '',
@@ -71,6 +73,8 @@ export function createSkeletonPageData(
     xmlFiles: [],
     tags: page.tags ?? [],
     resolvedTags: page.resolvedTags ?? null,
+    sortOrder: page.sortOrder ?? null,
+    textConfidence: page.textConfidence ?? null,
     locked: page.locked ?? false,
     lockedReason: page.lockedReason ?? null,
     imageCount: page.imageCount ?? 0,
@@ -126,6 +130,8 @@ export async function loadSinglePageData(projectId: string, page: PageResponse):
       xmlFiles: mappedXmlFiles,
       tags: page.tags ?? [],
       resolvedTags: page.resolvedTags ?? null,
+      sortOrder: page.sortOrder ?? null,
+      textConfidence: page.textConfidence ?? null,
       locked: page.locked ?? false,
       lockedReason: page.lockedReason ?? null,
       indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
@@ -142,6 +148,8 @@ export async function loadSinglePageData(projectId: string, page: PageResponse):
       xmlFiles: [],
       tags: page.tags ?? [],
       resolvedTags: page.resolvedTags ?? null,
+      sortOrder: page.sortOrder ?? null,
+      textConfidence: page.textConfidence ?? null,
       locked: page.locked ?? false,
       lockedReason: page.lockedReason ?? null,
       indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',

@@ -322,50 +322,20 @@ const emptyStateActions = computed(() => {
               <UIcon name="i-lucide-git-merge" class="w-4 h-4" />
             </template>
           </USelectMenu>
-
-          <UButton
-            v-if="activeFilters.length > 0"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="resetAllFilters()"
-          >
-            Clear Filters
-          </UButton>
         </template>
 
         <template #right>
-          <div class="flex items-center gap-2">
-            <div v-if="activeFilters.length > 0" class="flex items-center gap-2">
-              <span class="text-xs text-neutral-500">Active filters:</span>
-              <component
-                :is="UBadge"
-                v-for="filter in activeFilters"
-                :key="`${filter.type}-${filter.value}`"
-                variant="soft"
-                color="neutral"
-                size="sm"
-                class="flex items-center gap-1"
-              >
-                {{ filter.label }}
-                <component
-                  :is="UButton"
-                  size="xs"
-                  color="neutral"
-                  variant="link"
-                  icon="i-lucide-x"
-                  :padded="false"
-                  @click="filter.clear()"
-                />
-              </component>
-            </div>
-            <AppTableColumnsDropdown table-id="workspace-codecs" :columns="columns" />
-          </div>
+          <AppTableColumnsDropdown table-id="workspace-codecs" :columns="columns" />
         </template>
       </UDashboardToolbar>
     </template>
 
     <template #body>
+      <AppTableActiveFilters
+        :filters="activeFilters"
+        @clear-all="resetAllFilters"
+      />
+
       <UEmpty
         v-if="codecs && codecs.length === 0"
         variant="naked"

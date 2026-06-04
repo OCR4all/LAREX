@@ -35,6 +35,7 @@
     "@types/sortablejs": "^1.15.9",
     "@unovis/ts": "^1.6.5",
     "@unovis/vue": "^1.6.5",
+    "@vueuse/integrations": "^14.3.0",
     "@vueuse/nuxt": "^14.3.0",
     "codemirror": "^6.0.2",
     "date-fns": "^4.1.0",

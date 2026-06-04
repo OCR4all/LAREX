@@ -35,6 +35,13 @@ export interface ResolvedTag {
 }
 
 export type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
+export interface TextConfidenceStats {
+  min: number
+  max: number
+  mean: number
+  median: number
+  count: number
+}
 export type AnnotationApiMode = 'PROJECT' | 'DATASET_LINK' | 'DATASET_COPY'
 
 export interface AnnotationApiContext {
@@ -61,6 +68,8 @@ export interface PageData {
   thumbnail?: string
   tags?: string[]
   resolvedTags?: ResolvedTag[] | null
+  sortOrder?: number | null
+  textConfidence?: TextConfidenceStats | null
   locked?: boolean
   lockedReason?: string | null
   /** Available from page list API before enrichment */

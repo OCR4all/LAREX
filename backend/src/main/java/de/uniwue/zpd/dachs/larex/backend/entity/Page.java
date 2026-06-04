@@ -44,6 +44,9 @@ public class Page {
     @Column(nullable = false)
     private boolean locked = false;
 
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
     @Column(name = "locked_reason", columnDefinition = "TEXT")
     private String lockedReason;
 
@@ -137,6 +140,14 @@ public class Page {
 
     public void setLocked(boolean locked) {
         this.locked = locked;
+    }
+
+    public Integer getSortOrder() {
+        return sortOrder;
+    }
+
+    public void setSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
     }
 
     public String getLockedReason() {

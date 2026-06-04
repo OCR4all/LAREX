@@ -200,6 +200,28 @@ const pageTagOptions = computed(() => {
     }))
 })
 
+const activeSourceFilters = computed(() => [
+  ...selectedProjectTagFilters.value.map(tag => ({
+    key: `project-tag:${tag}`,
+    label: `Project tag: ${tag}`,
+    clear: () => {
+      selectedProjectTagFilters.value = selectedProjectTagFilters.value.filter(value => value !== tag)
+    }
+  })),
+  ...selectedPageTagFilters.value.map(tag => ({
+    key: `page-tag:${tag}`,
+    label: `Page tag: ${tag}`,
+    clear: () => {
+      selectedPageTagFilters.value = selectedPageTagFilters.value.filter(value => value !== tag)
+    }
+  }))
+])
+
+function clearSourceFilters() {
+  selectedProjectTagFilters.value = []
+  selectedPageTagFilters.value = []
+}
+
 const sourceProjectIdsInOrder = computed(() => {
   const known = (sourceProjects.value ?? []).map(project => project.id)
   const missingSelected = Array.from(selectedSourceProjectIds.value).filter(projectId => !known.includes(projectId))
@@ -797,10 +819,15 @@ function closeWithResult() {
               </UButton>
             </div>
 
+            <AppTableActiveFilters
+              :filters="activeSourceFilters"
+              @clear-all="clearSourceFilters"
+            />
+
             <div class="border border-default rounded-sm overflow-hidden">
               <AppTable
-                table-id="codec-action-source-tree"
                 v-model:expanded="sourceTreeExpanded"
+                table-id="codec-action-source-tree"
                 :columns="sourceTreeColumns"
                 :data="sourceTreeRows"
                 :loading="sourceProjectsPending"

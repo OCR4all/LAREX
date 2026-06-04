@@ -32,6 +32,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
@@ -101,6 +102,7 @@ public class ProjectPackageService {
     private final ArchiveIoService archiveIoService;
     private final ToolkitPackageService toolkitPackageService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
+    private final PageOrderService pageOrderService;
     private final PageFilterIndexService pageFilterIndexService;
     private final StorageTrackingService storageTrackingService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
@@ -131,6 +133,7 @@ public class ProjectPackageService {
                                  ArchiveIoService archiveIoService,
                                  ToolkitPackageService toolkitPackageService,
                                  HierarchicalFileStorageService hierarchicalFileStorageService,
+                                 PageOrderService pageOrderService,
                                  PageFilterIndexService pageFilterIndexService,
                                  StorageTrackingService storageTrackingService,
                                  WorkspaceQuotaGuardService workspaceQuotaGuardService,
@@ -154,6 +157,7 @@ public class ProjectPackageService {
         this.archiveIoService = archiveIoService;
         this.toolkitPackageService = toolkitPackageService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
+        this.pageOrderService = pageOrderService;
         this.pageFilterIndexService = pageFilterIndexService;
         this.storageTrackingService = storageTrackingService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
@@ -528,7 +532,8 @@ public class ProjectPackageService {
                     page.getCreated(),
                     page.getUpdated(),
                     page.isLocked(),
-                    page.getLockedReason()
+                    page.getLockedReason(),
+                    page.getSortOrder()
             ));
 
             List<PageImage> images = new ArrayList<>(page.getImages() == null ? Set.<PageImage>of() : page.getImages());
@@ -679,14 +684,14 @@ public class ProjectPackageService {
     private List<Page> resolvePagesForExport(String projectId, List<String> selectedPageIds) {
         if (selectedPageIds == null || selectedPageIds.isEmpty()) {
             return pageRepository.findByProjectId(projectId).stream()
-                    .sorted(Comparator.comparing(Page::getName, String.CASE_INSENSITIVE_ORDER))
+                    .sorted(pageOrderService.projectOrderComparator())
                     .toList();
         }
 
         Set<String> selected = new HashSet<>(selectedPageIds);
         return pageRepository.findByProjectId(projectId).stream()
                 .filter(page -> selected.contains(page.getId()))
-                .sorted(Comparator.comparing(Page::getName, String.CASE_INSENSITIVE_ORDER))
+                .sorted(pageOrderService.projectOrderComparator())
                 .toList();
     }
 
@@ -807,7 +812,8 @@ public class ProjectPackageService {
         }
 
         Set<String> usedNames = new HashSet<>();
-        for (ProjectPackageDto.PageSnapshot snapshot : pageSnapshots) {
+        for (int index = 0; index < pageSnapshots.size(); index++) {
+            ProjectPackageDto.PageSnapshot snapshot = pageSnapshots.get(index);
             String pageName = uniquePageName(snapshot.name(), usedNames);
             usedNames.add(pageName.toLowerCase());
 
@@ -818,6 +824,7 @@ public class ProjectPackageService {
             page.setTags(snapshot.tags() == null ? List.of() : new ArrayList<>(snapshot.tags()));
             page.setLocked(snapshot.locked());
             page.setLockedReason(snapshot.lockedReason());
+            page.setSortOrder(snapshot.sortOrder() == null ? index * PageOrderService.SORT_ORDER_STEP : snapshot.sortOrder());
             page = pageRepository.save(page);
             pageBySourceId.put(snapshot.sourcePageId(), page);
         }

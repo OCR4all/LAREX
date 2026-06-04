@@ -17,6 +17,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import java.awt.Color;
@@ -26,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -49,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -66,6 +69,8 @@ class DocumentExportServiceTest {
     private AnnotationProcessingService annotationProcessingService;
     @Mock
     private PageXmlConversionService pageXmlConversionService;
+    @Mock
+    private PageOrderService pageOrderService;
 
     private DocumentExportService service;
 
@@ -75,9 +80,12 @@ class DocumentExportServiceTest {
                 projectRepository,
                 workspaceAccessService,
                 annotationProcessingService,
-                pageXmlConversionService
+                pageXmlConversionService,
+                pageOrderService
         );
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
+        lenient().when(pageOrderService.projectOrderComparator())
+                .thenReturn(Comparator.comparing(Page::getName, String.CASE_INSENSITIVE_ORDER));
     }
 
     @Test

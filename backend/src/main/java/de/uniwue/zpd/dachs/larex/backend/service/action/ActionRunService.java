@@ -40,6 +40,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
@@ -140,6 +141,7 @@ public class ActionRunService {
     private final AnnotationReadCache annotationReadCache;
     private final AnnotationProcessingService annotationProcessingService;
     private final PageXmlToAnnotationParser pageXmlToAnnotationParser;
+    private final PageOrderService pageOrderService;
     private final ActionAuditService actionAuditService;
     private final ActionProperties actionProperties;
     private final HttpClient httpClient;
@@ -174,6 +176,7 @@ public class ActionRunService {
                             AnnotationReadCache annotationReadCache,
                             AnnotationProcessingService annotationProcessingService,
                             PageXmlToAnnotationParser pageXmlToAnnotationParser,
+                            PageOrderService pageOrderService,
                             ActionAuditService actionAuditService,
                             ActionProperties actionProperties,
                             TransactionTemplate transactionTemplate) {
@@ -206,6 +209,7 @@ public class ActionRunService {
         this.annotationReadCache = annotationReadCache;
         this.annotationProcessingService = annotationProcessingService;
         this.pageXmlToAnnotationParser = pageXmlToAnnotationParser;
+        this.pageOrderService = pageOrderService;
         this.actionAuditService = actionAuditService;
         this.actionProperties = actionProperties;
         this.transactionTemplate = transactionTemplate;
@@ -650,8 +654,7 @@ public class ActionRunService {
                 ? pageXmlRepository.findByPage_IdIn(pageIds).stream().collect(Collectors.groupingBy(xml -> xml.getPage().getId()))
                 : Map.of();
 
-        List<ActionDto.MachinePageInput> pages = pageRepository.findByIdInAndProjectId(pageIds, run.getProjectId()).stream()
-                .sorted(Comparator.comparing(Page::getName))
+        List<ActionDto.MachinePageInput> pages = pageOrderService.sortPages(pageRepository.findByIdInAndProjectId(pageIds, run.getProjectId())).stream()
                 .map(page -> toMachinePageInput(page, imagesByPage, xmlByPage, imageVariantSelection, definition, publicApiBaseUrl, runId))
                 .flatMap(Optional::stream)
                 .toList();
@@ -1617,7 +1620,7 @@ public class ActionRunService {
         if (pages.isEmpty()) {
             throw new IllegalArgumentException("No pages selected");
         }
-        return pages;
+        return pageOrderService.sortPages(pages);
     }
 
     private List<Page> resolveRunPagesForUpdate(String projectId, List<String> requestedPageIds) {
@@ -1637,7 +1640,7 @@ public class ActionRunService {
         if (pages.isEmpty()) {
             throw new IllegalArgumentException("No pages selected");
         }
-        return pages;
+        return pageOrderService.sortPages(pages);
     }
 
     private void requireAssigned(String workspaceId, String projectId, String definitionId) {

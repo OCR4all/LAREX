@@ -12,7 +12,9 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusReadService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageTextConfidenceStatsService;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchPreviewService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
@@ -61,6 +63,8 @@ public class PageController {
     private final DocumentExportService documentExportService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final SearchPreviewService searchPreviewService;
+    private final PageOrderService pageOrderService;
+    private final PageTextConfidenceStatsService pageTextConfidenceStatsService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -71,7 +75,9 @@ public class PageController {
                           PageXmlConversionService pageXmlConversionService,
                           DocumentExportService documentExportService,
                           WorkspaceQuotaGuardService workspaceQuotaGuardService,
-                          SearchPreviewService searchPreviewService) {
+                          SearchPreviewService searchPreviewService,
+                          PageOrderService pageOrderService,
+                          PageTextConfidenceStatsService pageTextConfidenceStatsService) {
         this.pageService = pageService;
         this.subtaskService = subtaskService;
         this.pageFilterIndexService = pageFilterIndexService;
@@ -82,6 +88,8 @@ public class PageController {
         this.documentExportService = documentExportService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.searchPreviewService = searchPreviewService;
+        this.pageOrderService = pageOrderService;
+        this.pageTextConfidenceStatsService = pageTextConfidenceStatsService;
     }
 
     @GetMapping
@@ -91,7 +99,7 @@ public class PageController {
             @RequestParam(required = false) List<String> tags,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size,
-            @RequestParam(value = "sort", required = false, defaultValue = "name") String sort,
+            @RequestParam(value = "sort", required = false, defaultValue = "projectOrder") String sort,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
@@ -109,9 +117,11 @@ public class PageController {
 
             Map<String, PageDto.PageIndexingStatus> indexingStatuses =
                     pageIndexStatusReadService.resolveStatusesForProjectPages(projectId, paginated.getContent());
+            Map<String, PageDto.TextConfidenceStats> textConfidenceStats =
+                    pageTextConfidenceStatsService.resolveStats(projectId, paginated.getContent());
 
             List<PageDto.Response> content = paginated.getContent().stream()
-                    .map(p -> mapToResponse(p, tagLookup, indexingStatuses.get(p.getId())))
+                    .map(p -> mapToResponse(p, tagLookup, indexingStatuses.get(p.getId()), textConfidenceStats.get(p.getId())))
                     .toList();
             return ResponseEntity.ok(new PaginatedResponse<>(content, paginated.getNumber(), paginated.getSize(), paginated.getTotalElements(), paginated.getTotalPages()));
         }
@@ -128,12 +138,42 @@ public class PageController {
 
         Map<String, PageDto.PageIndexingStatus> indexingStatuses =
                 pageIndexStatusReadService.resolveStatusesForProjectPages(projectId, pages);
+        Map<String, PageDto.TextConfidenceStats> textConfidenceStats =
+                pageTextConfidenceStatsService.resolveStats(projectId, pages);
 
         List<PageDto.Response> response = pages.stream()
-                .map(p -> mapToResponse(p, tagLookup, indexingStatuses.get(p.getId())))
+                .map(p -> mapToResponse(p, tagLookup, indexingStatuses.get(p.getId()), textConfidenceStats.get(p.getId())))
                 .toList();
 
         return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/sort-order")
+    public ResponseEntity<List<PageDto.Response>> updatePageSortOrder(
+            @PathVariable String projectId,
+            @Valid @RequestBody PageDto.SortOrderRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        Optional<List<Page>> pagesOpt = pageOrderService.reorderProjectPages(projectId, request.pageIds(), userId);
+        if (pagesOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        List<Page> pages = pagesOpt.get();
+        Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
+        Map<String, PageDto.PageIndexingStatus> indexingStatuses =
+                pageIndexStatusReadService.resolveStatusesForProjectPages(projectId, pages);
+        Map<String, PageDto.TextConfidenceStats> textConfidenceStats =
+                pageTextConfidenceStatsService.resolveStats(projectId, pages);
+
+        return ResponseEntity.ok(pages.stream()
+                .map(page -> mapToResponse(
+                        page,
+                        tagLookup,
+                        indexingStatuses.get(page.getId()),
+                        textConfidenceStats.get(page.getId())
+                ))
+                .toList());
     }
 
     // ============================================================================
@@ -287,7 +327,12 @@ public class PageController {
         Optional<Page> pageOpt = pageService.getPageById(pageId, userId);
         Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
 
-        return pageOpt.map(page -> mapToResponse(page, tagLookup, pageIndexStatusReadService.resolveStatusForPage(page)))
+        return pageOpt.map(page -> mapToResponse(
+                        page,
+                        tagLookup,
+                        pageIndexStatusReadService.resolveStatusForPage(page),
+                        pageTextConfidenceStatsService.resolveStats(projectId, List.of(page)).get(page.getId())
+                ))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -307,7 +352,12 @@ public class PageController {
         );
 
         Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
-        return pageOpt.map(page -> mapToResponse(page, tagLookup, pageIndexStatusReadService.resolveStatusForPage(page)))
+        return pageOpt.map(page -> mapToResponse(
+                        page,
+                        tagLookup,
+                        pageIndexStatusReadService.resolveStatusForPage(page),
+                        pageTextConfidenceStatsService.resolveStats(projectId, List.of(page)).get(page.getId())
+                ))
                 .map(response -> ResponseEntity.status(HttpStatus.CREATED).body(response))
                 .orElse(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
     }
@@ -328,7 +378,12 @@ public class PageController {
         );
 
         Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
-        return pageOpt.map(page -> mapToResponse(page, tagLookup, pageIndexStatusReadService.resolveStatusForPage(page)))
+        return pageOpt.map(page -> mapToResponse(
+                        page,
+                        tagLookup,
+                        pageIndexStatusReadService.resolveStatusForPage(page),
+                        pageTextConfidenceStatsService.resolveStats(projectId, List.of(page)).get(page.getId())
+                ))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -567,7 +622,8 @@ public class PageController {
 
     private PageDto.Response mapToResponse(Page page,
                                           Map<String, TagSetDto.TagNode> tagLookup,
-                                          PageDto.PageIndexingStatus indexingStatus) {
+                                          PageDto.PageIndexingStatus indexingStatus,
+                                          PageDto.TextConfidenceStats textConfidenceStats) {
         List<PageDto.ResolvedTag> resolvedTags = null;
         if (tagLookup != null && !tagLookup.isEmpty() && page.getTags() != null) {
             resolvedTags = page.getTags().stream()
@@ -604,6 +660,8 @@ public class PageController {
                 resolvedTags,
                 page.getCreated(),
                 page.getUpdated(),
+                page.getSortOrder(),
+                textConfidenceStats,
                 page.getXmlFiles() != null ? page.getXmlFiles().size() : 0,
                 images.size(),
                 page.isLocked(),

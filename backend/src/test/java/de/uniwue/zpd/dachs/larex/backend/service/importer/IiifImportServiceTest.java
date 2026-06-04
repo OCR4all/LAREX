@@ -11,6 +11,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.importing.IiifImportJobRepos
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +23,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -34,8 +36,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -60,6 +64,8 @@ class IiifImportServiceTest {
     @Mock
     private WorkspaceQuotaGuardService workspaceQuotaGuardService;
     @Mock
+    private PageOrderService pageOrderService;
+    @Mock
     private AsyncIiifImportProcessor asyncIiifImportProcessor;
     @Mock
     private IiifRemoteRequestThrottler iiifRemoteRequestThrottler;
@@ -78,19 +84,28 @@ class IiifImportServiceTest {
                 iiifImportJobRepository,
                 workspaceAccessService,
                 workspaceQuotaGuardService,
+                pageOrderService,
                 asyncIiifImportProcessor,
                 iiifRemoteRequestThrottler,
                 new ObjectMapper(),
                 previewTaskExecutor
         );
+        lenient().when(pageOrderService.reserveAppendSortOrders(any(), anyInt())).thenAnswer(invocation -> {
+            int count = invocation.getArgument(1);
+            List<Integer> sortOrders = new ArrayList<>(count);
+            for (int index = 0; index < count; index++) {
+                sortOrders.add((index + 1) * PageOrderService.SORT_ORDER_STEP);
+            }
+            return sortOrders;
+        });
 
         Library library = new Library(WORKSPACE_ID, "Library");
         project = new Project("Project", "desc", library);
         project.setId(PROJECT_ID);
 
-        when(projectRepository.findById(PROJECT_ID)).thenReturn(Optional.of(project));
-        when(pageRepository.findByProjectIdAndLowerNameIn(eq(PROJECT_ID), anyCollection())).thenReturn(List.of());
-        when(pageImageRepository.findByPageIds(anyCollection())).thenReturn(List.of());
+        lenient().when(projectRepository.findById(PROJECT_ID)).thenReturn(Optional.of(project));
+        lenient().when(pageRepository.findByProjectIdAndLowerNameIn(eq(PROJECT_ID), anyCollection())).thenReturn(List.of());
+        lenient().when(pageImageRepository.findByPageIds(anyCollection())).thenReturn(List.of());
     }
 
     @Test
@@ -381,10 +396,84 @@ class IiifImportServiceTest {
         List<IiifJobCanvasPayload> payloads = service.readJobPayloads(savedJob.get());
         assertEquals(2, payloads.size());
         assertEquals("RENAME", payloads.get(0).action());
+        assertEquals(1000, payloads.get(0).sortOrder());
         assertEquals("folio 1r copy", payloads.get(0).finalPageName());
         assertNull(payloads.get(0).targetPageId());
         assertEquals("IMPORT", payloads.get(1).action());
+        assertEquals(2000, payloads.get(1).sortOrder());
         assertEquals("folio 1v", payloads.get(1).finalPageName());
+    }
+
+    @Test
+    void startImportJob_keepsReplacePagePositionAndAppendsNewPages() throws Exception {
+        Page existingPage = new Page();
+        existingPage.setId("page-1");
+        existingPage.setName("folio 1r");
+
+        when(pageRepository.findByProjectIdAndLowerNameIn(eq(PROJECT_ID), anyCollection())).thenReturn(List.of(existingPage));
+        when(pageRepository.findPageNamesByProjectId(PROJECT_ID)).thenReturn(List.of("folio 1r"));
+        when(iiifImportJobRepository.findActiveJobsForProject(eq(PROJECT_ID), anyList())).thenReturn(List.of());
+        when(workspaceQuotaGuardService.reserveBytesOrThrow(eq(WORKSPACE_ID), eq(2L * UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES), eq("iiif-import-job")))
+                .thenReturn(2L * UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES);
+
+        AtomicReference<IiifImportJob> savedJob = new AtomicReference<>();
+        when(iiifImportJobRepository.save(any(IiifImportJob.class))).thenAnswer(invocation -> {
+            IiifImportJob job = invocation.getArgument(0);
+            if (job.getId() == null) {
+                job.setId("job-replace");
+            }
+            savedJob.set(job);
+            return job;
+        });
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "manifest.json",
+                "application/json",
+                """
+                {
+                  "@context": "http://iiif.io/api/presentation/3/context.json",
+                  "id": "https://example.org/iiif/manifest/replace",
+                  "type": "Manifest",
+                  "label": { "en": ["Replace Test"] },
+                  "items": [
+                    {
+                      "id": "canvas-1",
+                      "type": "Canvas",
+                      "label": { "en": ["folio 1r"] },
+                      "items": [{ "items": [{ "body": { "type": "Image", "id": "https://example.org/images/1.jpg" } }] }]
+                    },
+                    {
+                      "id": "canvas-2",
+                      "type": "Canvas",
+                      "label": { "en": ["folio 1v"] },
+                      "items": [{ "items": [{ "body": { "type": "Image", "id": "https://example.org/images/2.jpg" } }] }]
+                    }
+                  ]
+                }
+                """.getBytes(StandardCharsets.UTF_8)
+        );
+
+        IiifImportDto.PreviewResponse preview = service.previewFromManifestFile(WORKSPACE_ID, PROJECT_ID, USER_ID, file);
+
+        service.startImportJob(
+                WORKSPACE_ID,
+                PROJECT_ID,
+                USER_ID,
+                new IiifImportDto.StartJobRequest(
+                        preview.previewToken(),
+                        null,
+                        List.of(new IiifImportDto.Resolution("canvas-1", "REPLACE", null))
+                )
+        );
+
+        List<IiifJobCanvasPayload> payloads = service.readJobPayloads(savedJob.get());
+        assertEquals(2, payloads.size());
+        assertEquals("REPLACE", payloads.get(0).action());
+        assertEquals("page-1", payloads.get(0).targetPageId());
+        assertNull(payloads.get(0).sortOrder());
+        assertEquals("IMPORT", payloads.get(1).action());
+        assertEquals(1000, payloads.get(1).sortOrder());
     }
 
     @Test
@@ -476,8 +565,8 @@ class IiifImportServiceTest {
         )));
         sourceJob.setWarningsJson("[]");
         sourceJob.setCanvasPayloadJson(new ObjectMapper().writeValueAsString(List.of(
-                new IiifJobCanvasPayload("canvas-1", "Canvas 1", 1, "Page 1", "Page 1", "desc", "IMPORT", "https://example.org/images/1.jpg", UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, null, "canvas-1", "{}", null, null, null, null),
-                new IiifJobCanvasPayload("canvas-2", "Canvas 2", 2, "Page 2", "Page 2", "desc", "IMPORT", "https://example.org/images/2.jpg", UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, null, "canvas-2", "{}", null, null, null, null)
+                new IiifJobCanvasPayload("canvas-1", "Canvas 1", 1, null, "Page 1", "Page 1", "desc", "IMPORT", "https://example.org/images/1.jpg", UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, null, "canvas-1", "{}", null, null, null, null),
+                new IiifJobCanvasPayload("canvas-2", "Canvas 2", 2, null, "Page 2", "Page 2", "desc", "IMPORT", "https://example.org/images/2.jpg", UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, null, "canvas-2", "{}", null, null, null, null)
         )));
         sourceJob.setResultsJson(new ObjectMapper().writeValueAsString(List.of(
                 new IiifImportDto.ItemResult("canvas-1", "Canvas 1", 1, "Page 1", "Page 1", "IMPORT", "FAILED", null, "HTTP 403"),

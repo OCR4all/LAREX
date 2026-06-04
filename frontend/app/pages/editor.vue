@@ -8,6 +8,7 @@ import {
   LazyProjectSlideoverXmlEditor,
   LazyCodecSlideoverAction,
   LazyActionSlideoverRun,
+  LazyEditorSlideoverPageOrder,
   LazyUiConfirmSlideover
 } from '#components'
 
@@ -42,6 +43,7 @@ import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rende
 import type { PageIndexingStatus } from '@/stores/editor/types'
 import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
 import { getCanvasId, getPagePanelId, getProjectPanelId, parseCanvasId, parseProjectPanelId } from '@/stores/editor/editor.keys'
+import { DEFAULT_PAGE_SORT_MODE, sortPagesForEditor, type PageSortMode } from '@/utils/editor/page-sort'
 import { useProjectDockviewRegistry } from '@/composables/editor/use-project-dockview-registry'
 import { useProjectTabCloseState } from '@/composables/editor/use-project-tab-close-state'
 import { useEditorCommandCenter } from '@/composables/editor/use-editor-command-center'
@@ -210,6 +212,7 @@ const logoMenuItems: DropdownMenuItem[][] = [[
 ]]
 
 const pageNameFilter = ref('')
+const pageSortMode = ref<PageSortMode>(DEFAULT_PAGE_SORT_MODE)
 
 const editorStore = useEditorStore()
 const actionRunsStore = useActionRunsStore()
@@ -307,6 +310,7 @@ const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover
 const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 const actionRunSlideover = overlay.create(LazyActionSlideoverRun)
+const pageOrderSlideover = overlay.create(LazyEditorSlideoverPageOrder)
 const openProjectPagesModal = overlay.create(LazyEditorModalOpenProjectPages)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 const handledActionRunTerminalEvents = ref<Set<number>>(new Set())
@@ -344,7 +348,6 @@ async function openSelectionsInEditor(
     const selectedPages = selection.pageIds
       ? allPages.filter(page => selection.pageIds?.includes(page.id))
       : allPages
-    const selectedPagesByName = naturalSortBy(selectedPages, 'name')
 
     const skeletonPages = createSkeletonPageData(selectedPages, {
       projectId,
@@ -360,7 +363,7 @@ async function openSelectionsInEditor(
       }
     }
     if (source === 'project-search' && selection.pageIds === null) {
-      const firstPageId = selectedPagesByName[0]?.id
+      const firstPageId = selectedPages[0]?.id
       if (firstPageId) {
         pageIdsToOpen.add(firstPageId)
       }
@@ -378,7 +381,7 @@ async function openSelectionsInEditor(
     const firstSelection = selections[0]
     if (!firstSelection) return
     const projectId = firstSelection.projectId
-    const firstPage = naturalSortBy(editorStore.getProjectPages(projectId), 'label')[0]
+    const firstPage = editorStore.getProjectPages(projectId)[0]
     if (!firstPage) return
     const variant = editorStore.getDisplayedVariantForPage(firstPage)
     await openEditorForPage(projectId, firstPage.id, variant?.id ?? undefined)
@@ -1181,9 +1184,51 @@ async function handleCopyProjectId(projectId: string) {
   await copyToClipboard(projectId, 'Project ID copied')
 }
 
+function mergeOrderedPageSummaries(projectId: string, responses: PageResponse[]) {
+  const existingById = new Map(editorStore.getProjectPages(projectId).map(page => [page.id, page]))
+  const projectName = getProjectTitle(projectId)
+  return createSkeletonPageData(responses, { projectId, projectName }).map((summary) => {
+    const existing = existingById.get(summary.id)
+    if (!existing) return summary
+
+    return {
+      ...existing,
+      ...summary,
+      imageVariants: existing.imageVariants.length > 0 ? existing.imageVariants : summary.imageVariants,
+      xmlFiles: existing.xmlFiles.length > 0 ? existing.xmlFiles : summary.xmlFiles,
+      annotationContext: existing.annotationContext ?? summary.annotationContext
+    }
+  })
+}
+
+async function openPageOrderSlideover(projectId: string) {
+  const pages = editorStore.getProjectPages(projectId)
+  if (pages.length === 0) return
+
+  const instance = pageOrderSlideover.open({
+    projectId,
+    projectName: getProjectTitle(projectId),
+    pages
+  })
+  const updatedPages = await instance.result as PageResponse[] | null
+  if (!updatedPages) return
+
+  editorStore.setProjectPages(projectId, mergeOrderedPageSummaries(projectId, updatedPages), {
+    replaceProject: true,
+    preserveLoaded: true
+  })
+  pageSortMode.value = DEFAULT_PAGE_SORT_MODE
+}
+
 function getProjectContextMenuItems(projectId: string): DropdownMenuItem[][] {
   const hasProject = Boolean(openedProjectById.value[projectId])
   return [[
+    {
+      label: 'Edit Page Order',
+      icon: 'i-lucide-list-ordered',
+      disabled: !hasProject || editorStore.getProjectPages(projectId).length === 0,
+      onSelect: () => { void openPageOrderSlideover(projectId) }
+    },
     {
       label: 'Copy Project Link',
       icon: 'i-lucide-link',
@@ -1786,7 +1831,7 @@ function getFilteredPagesForProject(projectId: string) {
     }
   }
 
-  return result
+  return sortPagesForEditor(result, pageSortMode.value)
 }
 
 const openedProjectsForSidebar = computed(() => {
@@ -2368,7 +2413,7 @@ async function applyProjectDeepLinkFromQuery(): Promise<void> {
       return
     }
 
-    const pages = naturalSortBy(editorStore.getProjectPages(projectId), 'label')
+    const pages = editorStore.getProjectPages(projectId)
     if (pages.length === 0) {
       toast.add({
         title: 'Unable to open linked project',
@@ -2662,6 +2707,7 @@ const onReady = (event: DockviewReadyEvent) => {
     <EditorLeftSidebar
       v-model:page-name-filter="pageNameFilter"
       v-model:filter-popover-open="editorFilterPopoverOpen"
+      v-model:page-sort-mode="pageSortMode"
       :left-rail-width-px="64"
       :use-floating-collapsed="useFloatingCollapsedSidebars"
       :image-popover-dismiss-key="collapsedImagePopoverDismissKey"

@@ -16,6 +16,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.importing.IiifImportJobRepos
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -44,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -78,6 +80,7 @@ public class IiifImportService {
     private final IiifImportJobRepository iiifImportJobRepository;
     private final WorkspaceAccessService workspaceAccessService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
+    private final PageOrderService pageOrderService;
     private final AsyncIiifImportProcessor asyncIiifImportProcessor;
     private final IiifRemoteRequestThrottler iiifRemoteRequestThrottler;
     private final ObjectMapper objectMapper;
@@ -92,6 +95,7 @@ public class IiifImportService {
                              IiifImportJobRepository iiifImportJobRepository,
                              WorkspaceAccessService workspaceAccessService,
                              WorkspaceQuotaGuardService workspaceQuotaGuardService,
+                             PageOrderService pageOrderService,
                              AsyncIiifImportProcessor asyncIiifImportProcessor,
                              IiifRemoteRequestThrottler iiifRemoteRequestThrottler,
                              ObjectMapper objectMapper,
@@ -102,6 +106,7 @@ public class IiifImportService {
         this.iiifImportJobRepository = iiifImportJobRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
+        this.pageOrderService = pageOrderService;
         this.asyncIiifImportProcessor = asyncIiifImportProcessor;
         this.iiifRemoteRequestThrottler = iiifRemoteRequestThrottler;
         this.objectMapper = objectMapper;
@@ -498,6 +503,10 @@ public class IiifImportService {
         Map<String, IiifImportDto.Resolution> resolutionByCanvasId = (resolutions == null ? List.<IiifImportDto.Resolution>of() : resolutions).stream()
                 .collect(Collectors.toMap(IiifImportDto.Resolution::canvasId, resolution -> resolution, (left, _right) -> left, LinkedHashMap::new));
         Set<String> selectedCanvasIdSet = normalizeSelectedCanvasIds(session.canvases(), selectedCanvasIds);
+        Iterator<Integer> appendSortOrders = pageOrderService.reserveAppendSortOrders(
+                project.getId(),
+                countCreatedPages(session.canvases(), selectedCanvasIdSet, resolutionByCanvasId)
+        ).iterator();
 
         Set<String> existingNames = pageRepository.findPageNamesByProjectId(project.getId()).stream()
                 .map(name -> name.toLowerCase(Locale.ROOT))
@@ -524,6 +533,7 @@ public class IiifImportService {
                             canvas.canvasId(),
                             canvas.canvasLabel(),
                             canvas.index(),
+                            null,
                             canvas.derivedPageName(),
                             canvas.existingPageName(),
                             null,
@@ -542,6 +552,7 @@ public class IiifImportService {
                             canvas.canvasId(),
                             canvas.canvasLabel(),
                             canvas.index(),
+                            null,
                             canvas.derivedPageName(),
                             canvas.existingPageName(),
                             null,
@@ -567,6 +578,7 @@ public class IiifImportService {
                                 canvas.canvasId(),
                                 canvas.canvasLabel(),
                                 canvas.index(),
+                                nextSortOrder(appendSortOrders),
                                 canvas.derivedPageName(),
                                 renamedPageName,
                                 buildPageDescription(session.manifest(), canvas),
@@ -596,6 +608,7 @@ public class IiifImportService {
                     canvas.canvasId(),
                     canvas.canvasLabel(),
                     canvas.index(),
+                    nextSortOrder(appendSortOrders),
                     canvas.derivedPageName(),
                     canvas.derivedPageName(),
                     buildPageDescription(session.manifest(), canvas),
@@ -613,6 +626,36 @@ public class IiifImportService {
         }
 
         return payloads;
+    }
+
+    private int countCreatedPages(List<IiifPreviewCanvas> canvases,
+                                  Set<String> selectedCanvasIdSet,
+                                  Map<String, IiifImportDto.Resolution> resolutionByCanvasId) {
+        int count = 0;
+        for (IiifPreviewCanvas canvas : canvases) {
+            if (!canvas.importable() || !selectedCanvasIdSet.contains(canvas.canvasId())) {
+                continue;
+            }
+            if (canvas.existingPageId() == null) {
+                count++;
+                continue;
+            }
+            IiifImportDto.Resolution resolution = resolutionByCanvasId.get(canvas.canvasId());
+            if (resolution == null) {
+                throw new IllegalArgumentException("Missing resolution for conflicting canvas: " + canvas.canvasLabel());
+            }
+            if ("RENAME".equals(normalizeResolutionAction(resolution.action()))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private Integer nextSortOrder(Iterator<Integer> appendSortOrders) {
+        if (!appendSortOrders.hasNext()) {
+            throw new IllegalStateException("Missing reserved page sort order for IIIF import");
+        }
+        return appendSortOrders.next();
     }
 
     private Set<String> normalizeSelectedCanvasIds(List<IiifPreviewCanvas> canvases, List<String> selectedCanvasIds) {

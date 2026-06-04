@@ -40,6 +40,7 @@ record IiifJobCanvasPayload(
         String canvasId,
         String canvasLabel,
         int index,
+        Integer sortOrder,
         String requestedPageName,
         String finalPageName,
         String pageDescription,

@@ -31,7 +31,7 @@ const props = defineProps<{
   taskId: string
   workspaceId: string
   linkedPageIds: string[]
-  onLinked?: (linkedPages: { pageId: string; pageName: string; projectId: string; projectName: string }[]) => void | Promise<void>
+  onLinked?: (linkedPages: { pageId: string, pageName: string, projectId: string, projectName: string }[]) => void | Promise<void>
 }>()
 
 const emit = defineEmits<{
@@ -68,7 +68,7 @@ const { data: pages, status: pagesStatus } = await useFetch<Page[]>(
 )
 
 const projectTags = computed(() => {
-  const tagCounts: Map<string, { label: string; count: number }> = new Map()
+  const tagCounts: Map<string, { label: string, count: number }> = new Map()
 
   for (const project of projects.value ?? []) {
     const rawTags = project.tags || []
@@ -98,7 +98,7 @@ const projectTags = computed(() => {
 })
 
 const pageTags = computed(() => {
-  const tagCounts: Map<string, { label: string; count: number }> = new Map()
+  const tagCounts: Map<string, { label: string, count: number }> = new Map()
 
   for (const page of pages.value ?? []) {
     const rawTags = page.tags || []
@@ -169,13 +169,41 @@ const filteredPages = computed(() => {
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(p =>
-      p.name.toLowerCase().includes(query) ||
-      (p.description || '').toLowerCase().includes(query)
+      p.name.toLowerCase().includes(query)
+      || (p.description || '').toLowerCase().includes(query)
     )
   }
 
   return result
 })
+
+const activePageFilters = computed(() => {
+  const filters: Array<{ key: string, label: string, clear: () => void }> = []
+
+  if (searchQuery.value.trim()) {
+    filters.push({
+      key: 'search',
+      label: `Search: ${searchQuery.value}`,
+      clear: () => { searchQuery.value = '' }
+    })
+  }
+
+  for (const tagId of pageTagFilter.value) {
+    const tagLabel = pageTags.value.find(tag => tag.value === tagId)?.label ?? tagId
+    filters.push({
+      key: `tag:${tagId}`,
+      label: `Tag: ${tagLabel}`,
+      clear: () => { pageTagFilter.value = pageTagFilter.value.filter(value => value !== tagId) }
+    })
+  }
+
+  return filters
+})
+
+function clearPageFilters() {
+  searchQuery.value = ''
+  pageTagFilter.value = []
+}
 
 const allSelected = computed(() =>
   filteredPages.value.length > 0 && filteredPages.value.every(p => selectedPageIds.value.has(p.id))
@@ -233,7 +261,7 @@ async function linkItems() {
   if (!linkSummary.value) return
 
   isLinking.value = true
-  const linkedPages: { pageId: string; pageName: string; projectId: string; projectName: string }[] = []
+  const linkedPages: { pageId: string, pageName: string, projectId: string, projectName: string }[] = []
 
   try {
     const pageIdsToLink = linkAllPages.value
@@ -268,10 +296,11 @@ async function linkItems() {
     await props.onLinked?.(linkedPages)
 
     emit('close')
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as { data?: { message?: string } }
     toast.add({
       title: 'Failed to link pages',
-      description: err?.data?.message,
+      description: error.data?.message,
       color: 'error'
     })
   } finally {
@@ -283,14 +312,14 @@ const columns: TableColumn<Page>[] = [
   {
     id: 'select',
     header: () => h(UCheckbox, {
-      modelValue: allSelected.value,
-      indeterminate: someSelected.value,
+      'modelValue': allSelected.value,
+      'indeterminate': someSelected.value,
       'onUpdate:modelValue': () => toggleSelectAll()
     }),
     cell: ({ row }) => h(UCheckbox, {
-      modelValue: isPageSelected(row.original.id),
+      'modelValue': isPageSelected(row.original.id),
       'onUpdate:modelValue': () => togglePageSelection(row.original.id),
-      onClick: (e: Event) => e.stopPropagation()
+      'onClick': (e: Event) => e.stopPropagation()
     })
   },
   {
@@ -401,17 +430,26 @@ const columns: TableColumn<Page>[] = [
                 icon="i-lucide-search"
               />
 
+              <AppTableActiveFilters
+                :filters="activePageFilters"
+                @clear-all="clearPageFilters"
+              />
+
               <div v-if="pagesStatus === 'pending'" class="flex items-center justify-center py-8">
                 <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
               </div>
 
               <div v-else-if="availablePages.length === 0" class="text-center py-6 text-muted">
                 <UIcon name="i-lucide-file-x" class="size-10 mx-auto mb-2" />
-                <p class="text-sm">All pages from this project are already linked</p>
+                <p class="text-sm">
+                  All pages from this project are already linked
+                </p>
               </div>
 
               <div v-else-if="filteredPages.length === 0" class="text-center py-6 text-muted">
-                <p class="text-sm">No pages match your {{ pageTagFilter.length > 0 && searchQuery ? 'filters' : (pageTagFilter.length > 0 ? 'tag filter' : 'search') }}</p>
+                <p class="text-sm">
+                  No pages match your {{ pageTagFilter.length > 0 && searchQuery ? 'filters' : (pageTagFilter.length > 0 ? 'tag filter' : 'search') }}
+                </p>
               </div>
 
               <div v-else class="max-h-64 overflow-auto border border-default rounded-sm">
@@ -425,7 +463,9 @@ const columns: TableColumn<Page>[] = [
           </template>
 
           <div v-if="linkSummary && linkSummary.pagesCount > 0" class="p-3 bg-info/10 border border-info/20 rounded-sm">
-            <p class="text-sm font-medium text-info">Summary</p>
+            <p class="text-sm font-medium text-info">
+              Summary
+            </p>
             <p class="text-sm text-muted mt-1 flex items-center gap-2">
               <UIcon name="i-lucide-files" class="size-4" />
               {{ linkSummary.pagesCount }} page{{ linkSummary.pagesCount !== 1 ? 's' : '' }} from "{{ selectedProject?.name }}" will be linked
@@ -433,14 +473,20 @@ const columns: TableColumn<Page>[] = [
           </div>
 
           <div v-else-if="availablePages.length === 0" class="p-3 bg-warning/10 border border-warning/20 rounded-sm">
-            <p class="text-sm text-warning">All pages from this project are already linked to this task.</p>
+            <p class="text-sm text-warning">
+              All pages from this project are already linked to this task.
+            </p>
           </div>
         </template>
 
         <div v-else class="text-center py-8 text-muted">
           <UIcon name="i-lucide-folder-search" class="size-12 mx-auto mb-3" />
-          <p class="font-medium">Select a project</p>
-          <p class="text-sm mt-1">Choose a project to see its pages</p>
+          <p class="font-medium">
+            Select a project
+          </p>
+          <p class="text-sm mt-1">
+            Choose a project to see its pages
+          </p>
         </div>
       </div>
     </template>

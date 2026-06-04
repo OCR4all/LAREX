@@ -374,43 +374,10 @@ function formatBytes(bytes: number) {
             placeholder="All types"
             class="w-full sm:w-40"
           />
-
-          <UButton
-            v-if="activeFilters.length > 0"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="clearFilters"
-          >
-            Clear Filters
-          </UButton>
         </template>
 
         <template #right>
-          <div class="flex items-center gap-2">
-            <div v-if="activeFilters.length > 0" class="flex items-center gap-2">
-              <span class="text-xs text-neutral-500">Active filters:</span>
-              <UBadge
-                v-for="filter in activeFilters"
-                :key="`${filter.type}-${filter.column || 'global'}`"
-                variant="soft"
-                color="neutral"
-                size="sm"
-                class="flex items-center gap-1"
-              >
-                {{ filter.label }}
-                <UButton
-                  size="2xs"
-                  color="neutral"
-                  variant="link"
-                  icon="i-lucide-x"
-                  :padded="false"
-                  @click="filter.clear()"
-                />
-              </UBadge>
-            </div>
-            <AppTableColumnsDropdown table-id="admin-quotas" :columns="columns" />
-          </div>
+          <AppTableColumnsDropdown table-id="admin-quotas" :columns="columns" />
         </template>
       </UDashboardToolbar>
     </template>
@@ -455,6 +422,11 @@ function formatBytes(bytes: number) {
       </div>
 
       <div>
+        <AppTableActiveFilters
+          :filters="activeFilters"
+          @clear-all="clearFilters"
+        />
+
         <UContextMenu :items="contextMenuItems">
           <AppTable
             table-id="admin-quotas"

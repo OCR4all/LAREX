@@ -6,7 +6,9 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageTextConfidenceStatsService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchPreviewService;
@@ -55,6 +57,10 @@ class PageControllerExportTest {
     private WorkspaceQuotaGuardService workspaceQuotaGuardService;
     @Mock
     private SearchPreviewService searchPreviewService;
+    @Mock
+    private PageOrderService pageOrderService;
+    @Mock
+    private PageTextConfidenceStatsService pageTextConfidenceStatsService;
 
     @org.junit.jupiter.api.io.TempDir
     Path tempDir;
@@ -71,7 +77,9 @@ class PageControllerExportTest {
                 pageXmlConversionService,
                 documentExportService,
                 workspaceQuotaGuardService,
-                searchPreviewService
+                searchPreviewService,
+                pageOrderService,
+                pageTextConfidenceStatsService
         );
 
         byte[] body = "hello".getBytes();
@@ -104,7 +112,9 @@ class PageControllerExportTest {
                 pageXmlConversionService,
                 documentExportService,
                 workspaceQuotaGuardService,
-                searchPreviewService
+                searchPreviewService,
+                pageOrderService,
+                pageTextConfidenceStatsService
         );
         ReflectionTestUtils.setField(controller, "uploadDir", tempDir.toString());
 

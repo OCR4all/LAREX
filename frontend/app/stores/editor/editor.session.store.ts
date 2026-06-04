@@ -1,5 +1,4 @@
 import type { PageData } from './types'
-import { naturalSortBy } from '@/utils/natural-sort'
 
 interface ProjectSessionState {
   openedPageIds: string[]
@@ -87,6 +86,7 @@ function saveSessionState(state: MultiProjectEditorSessionState): void {
   try {
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   } catch {
+    // Session persistence is best-effort; private browsing can reject writes.
   }
 }
 
@@ -105,11 +105,11 @@ function normalizeProjectState(value: unknown): ProjectSessionState {
   const candidate = (value && typeof value === 'object') ? value as Record<string, unknown> : {}
   const selectedVariantEntries: Array<[string, string | null]> = candidate.selectedVariantIdByPageId && typeof candidate.selectedVariantIdByPageId === 'object'
     ? Object.entries(candidate.selectedVariantIdByPageId as Record<string, unknown>)
-      .flatMap(([key, variantId]) => {
-        if (typeof key !== 'string') return []
-        if (typeof variantId !== 'string' && variantId !== null) return []
-        return [[key, variantId]]
-      })
+        .flatMap(([key, variantId]) => {
+          if (typeof key !== 'string') return []
+          if (typeof variantId !== 'string' && variantId !== null) return []
+          return [[key, variantId]]
+        })
     : []
 
   return {
@@ -140,11 +140,11 @@ function normalizeTextViewSettings(value: unknown): EditorTextViewSettings {
 
   const selectedIndices = Array.isArray(candidate.selectedIndices)
     ? [...new Set(
-      candidate.selectedIndices
-        .map(v => Number(v))
-        .filter((v): v is number => Number.isFinite(v) && v >= 0)
-        .map(v => Math.trunc(v))
-    )].sort((a, b) => a - b)
+        candidate.selectedIndices
+          .map(v => Number(v))
+          .filter((v): v is number => Number.isFinite(v) && v >= 0)
+          .map(v => Math.trunc(v))
+      )].sort((a, b) => a - b)
     : defaults.selectedIndices
 
   return {
@@ -311,7 +311,7 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
   function initProjectSession(projectId: string, pages: PageData[]) {
     addOpenedProject(projectId)
     const state = ensureProject(projectId)
-    const firstPageId = naturalSortBy(pages, 'label')[0]?.id ?? null
+    const firstPageId = pages[0]?.id ?? null
     state.openedPageIds = firstPageId ? [firstPageId] : []
     state.activePageId = firstPageId
     state.selectedVariantIdByPageId = {}

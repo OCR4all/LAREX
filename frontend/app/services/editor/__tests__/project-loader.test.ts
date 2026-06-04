@@ -7,6 +7,8 @@ describe('project-loader skeleton variants', () => {
       id: 'page-1',
       name: 'Page 1',
       thumbnailUrl: '/thumb',
+      sortOrder: 2000,
+      textConfidence: { min: 0.1, max: 0.9, mean: 0.5, median: 0.55, count: 4 },
       imageVariants: [
         { id: 'img-1', fileName: '0001.raw.jpg', variant: 'raw.jpg' },
         { id: 'img-2', fileName: '0001.nrm.jpg', variant: null }
@@ -29,5 +31,7 @@ describe('project-loader skeleton variants', () => {
         label: '0001.nrm.jpg'
       }
     ])
+    expect(pages[0]?.sortOrder).toBe(2000)
+    expect(pages[0]?.textConfidence).toEqual({ min: 0.1, max: 0.9, mean: 0.5, median: 0.55, count: 4 })
   })
 })

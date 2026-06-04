@@ -256,15 +256,6 @@ const emptyStateActions = computed(() => {
             value-key="value"
             class="w-36"
           />
-          <UButton
-            v-if="activeFilters.length > 0"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="resetAllFilters()"
-          >
-            Clear Filters
-          </UButton>
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="workspace-normalization-profiles" :columns="columns" />
@@ -273,6 +264,11 @@ const emptyStateActions = computed(() => {
     </template>
 
     <template #body>
+      <AppTableActiveFilters
+        :filters="activeFilters"
+        @clear-all="resetAllFilters"
+      />
+
       <UEmpty
         v-if="profiles && profiles.length === 0"
         variant="naked"

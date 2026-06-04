@@ -127,6 +127,50 @@ function handleRowSelect(_event: Event, row: TableRow<GlyphTableRow>) {
   emit('close', row.original.glyph)
 }
 
+const activeGlyphFilters = computed(() => {
+  const filters: Array<{ key: string, label: string, clear: () => void }> = []
+
+  if (query.value.trim()) {
+    filters.push({
+      key: 'search',
+      label: `Search: ${query.value}`,
+      clear: () => { query.value = '' }
+    })
+  }
+
+  if (!sources.mufi || sources.unicode) {
+    const selectedSources = [
+      sources.mufi ? 'MUFI' : null,
+      sources.unicode ? 'Unicode' : null
+    ].filter(Boolean).join(', ') || 'None'
+    filters.push({
+      key: 'sources',
+      label: `Sources: ${selectedSources}`,
+      clear: () => {
+        sources.mufi = true
+        sources.unicode = false
+      }
+    })
+  }
+
+  if (puaOnly.value) {
+    filters.push({
+      key: 'pua',
+      label: 'PUA only',
+      clear: () => { puaOnly.value = false }
+    })
+  }
+
+  return filters
+})
+
+function clearGlyphFilters() {
+  query.value = ''
+  sources.mufi = true
+  sources.unicode = false
+  puaOnly.value = false
+}
+
 const performSearch = async (reset = false) => {
   if (loading.value && !reset) return
 
@@ -210,12 +254,16 @@ const headerTitle = computed(() => props.title || `Glyph Picker${total.value ? `
             <UCheckbox v-model="sources.unicode" label="Unicode" />
             <UCheckbox v-model="puaOnly" label="PUA" />
           </div>
+          <AppTableActiveFilters
+            :filters="activeGlyphFilters"
+            @clear-all="clearGlyphFilters"
+          />
         </div>
 
         <div class="flex min-h-0 flex-1 flex-col px-2 pb-2">
           <AppTable
-            table-id="virtual-keyboard-glyph-picker"
             ref="tableRef"
+            table-id="virtual-keyboard-glyph-picker"
             :data="tableRows"
             :columns="columns"
             :empty="loading && tableRows.length === 0 ? 'Loading...' : 'No glyphs found.'"

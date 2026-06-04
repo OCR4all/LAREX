@@ -167,6 +167,11 @@ const {
   }
 })
 
+function clearProjectFilters() {
+  resetAllFilters()
+  router.replace({ query: {} })
+}
+
 const selectedProjectIds = ref<Set<string>>(new Set())
 const hasSelection = computed(() => selectedProjectIds.value.size > 0)
 const deletingProjectIds = ref<Set<string>>(new Set())
@@ -1021,49 +1026,13 @@ async function handleLegacyOcr4allImport(event: Event) {
           >
             Starred
           </UButton>
-
-          <UButton
-            v-if="activeFilters.length > 0"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="() => {
-              resetAllFilters()
-              router.replace({ query: {} })
-            }"
-          >
-            Clear Filters
-          </UButton>
         </template>
         <template #right>
-          <div class="flex items-center gap-2">
-            <div v-if="activeFilters.length > 0" class="flex items-center gap-2">
-              <span class="text-xs text-neutral-500">Active filters:</span>
-              <UBadge
-                v-for="filter in activeFilters"
-                :key="`${filter.type}-${filter.column || 'global'}`"
-                variant="soft"
-                color="neutral"
-                size="sm"
-                class="flex items-center gap-1"
-              >
-                {{ filter.label }}
-                <UButton
-                  size="xs"
-                  color="neutral"
-                  variant="link"
-                  icon="i-lucide-x"
-                  :padded="false"
-                  @click="filter.clear()"
-                />
-              </UBadge>
-            </div>
-            <AppTableColumnsDropdown
-              table-id="dashboard-projects-v2"
-              :columns="columns"
-              :default-visible-column-ids="DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS"
-            />
-          </div>
+          <AppTableColumnsDropdown
+            table-id="dashboard-projects-v2"
+            :columns="columns"
+            :default-visible-column-ids="DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS"
+          />
         </template>
       </UDashboardToolbar>
     </template>
@@ -1085,117 +1054,124 @@ async function handleLegacyOcr4allImport(event: Event) {
         </div>
       </div>
 
-      <UEmpty
-        v-else-if="data && data.length === 0"
-        variant="naked"
-        icon="i-lucide-book"
-        title="No projects found"
-        description="It looks like you haven't added any projects. Create one to get started."
-        :actions="emptyActions as any"
-      />
+      <template v-else>
+        <AppTableActiveFilters
+          :filters="activeFilters"
+          @clear-all="clearProjectFilters"
+        />
 
-      <UEmpty
-        v-else-if="data && filteredAndSortedData.length === 0 && activeFilters.length > 0"
-        variant="naked"
-        icon="i-lucide-search-x"
-        title="No projects match your filters"
-        description="Try adjusting or clearing your filters to see more results."
-        :actions="[{
-          icon: 'i-lucide-x',
-          label: 'Clear filters',
-          color: 'neutral',
-          variant: 'subtle',
-          onClick: () => { resetAllFilters(); router.replace({ query: {} }) }
-        }]"
-      />
+        <UEmpty
+          v-if="data && data.length === 0"
+          variant="naked"
+          icon="i-lucide-book"
+          title="No projects found"
+          description="It looks like you haven't added any projects. Create one to get started."
+          :actions="emptyActions as any"
+        />
 
-      <div v-else-if="data">
-        <UContextMenu :items="contextMenuItems as any">
-          <AppTable
-            table-id="dashboard-projects-v2"
-            :data="paginatedData"
-            :columns="columns"
-            :default-visible-column-ids="DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS"
-            class="flex-1"
-            @row-click="handleRowClick"
-            @contextmenu="handleRowContextMenu"
+        <div v-else-if="data">
+          <UEmpty
+            v-if="filteredAndSortedData.length === 0 && activeFilters.length > 0"
+            variant="naked"
+            icon="i-lucide-search-x"
+            title="No projects match your filters"
+            description="Try adjusting or clearing your filters to see more results."
+            :actions="[{
+              icon: 'i-lucide-x',
+              label: 'Clear filters',
+              color: 'neutral',
+              variant: 'subtle',
+              onClick: clearProjectFilters
+            }]"
           />
-        </UContextMenu>
 
-        <div v-if="totalItems > 0" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
-          <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-            <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} projects</span>
-          </div>
-
-          <div class="flex items-center gap-4">
-            <USelect
-              v-model="itemsPerPage"
-              :items="[5, 10, 15, 20, 50, 100]"
-              class="w-32"
-              size="sm"
+          <UContextMenu v-else :items="contextMenuItems as any">
+            <AppTable
+              table-id="dashboard-projects-v2"
+              :data="paginatedData"
+              :columns="columns"
+              :default-visible-column-ids="DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS"
+              class="flex-1"
+              @row-click="handleRowClick"
+              @contextmenu="handleRowContextMenu"
             />
+          </UContextMenu>
 
-            <UPagination
-              v-model:page="page"
-              :total="totalItems"
-              :items-per-page="itemsPerPage"
-              :disabled="totalPages <= 1"
-              show-edges
-              :sibling-count="1"
-            />
+          <div v-if="totalItems > 0" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+            <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+              <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} projects</span>
+            </div>
+
+            <div class="flex items-center gap-4">
+              <USelect
+                v-model="itemsPerPage"
+                :items="[5, 10, 15, 20, 50, 100]"
+                class="w-32"
+                size="sm"
+              />
+
+              <UPagination
+                v-model:page="page"
+                :total="totalItems"
+                :items-per-page="itemsPerPage"
+                :disabled="totalPages <= 1"
+                show-edges
+                :sibling-count="1"
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      <UiFloatingSelectionMenu
-        :selected-count="selectedProjectIds.size"
-        @clear="clearSelection"
-      >
-        <UButton
-          v-if="hasSelection"
-          icon="i-lucide-pencil"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          class="text-neutral-50 hover:bg-white/10"
-          :loading="isOpeningSelectedProjectsInEditor"
-          :disabled="!canOpenSelectedProjectsInEditor"
-          @click="handleOpenSelectedProjectsInEditor"
+        <UiFloatingSelectionMenu
+          :selected-count="selectedProjectIds.size"
+          @clear="clearSelection"
         >
-          Open in Editor
-        </UButton>
-        <UButton
-          icon="i-lucide-wand-sparkles"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          class="text-neutral-50 hover:bg-white/10"
-          @click="openCodecGenerateSlideover"
-        >
-          Generate Codec
-        </UButton>
-        <UButton
-          icon="i-lucide-badge-check"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          class="text-neutral-50 hover:bg-white/10"
-          @click="openCodecValidateSlideover"
-        >
-          Validate Codec
-        </UButton>
-        <UButton
-          icon="i-lucide-trash"
-          color="error"
-          variant="ghost"
-          size="sm"
-          class="hover:bg-white/10"
-          :disabled="!canDeleteSelectedProjects"
-          @click="handleDeleteSelectedProjects"
-        >
-          Delete
-        </UButton>
-      </UiFloatingSelectionMenu>
+          <UButton
+            v-if="hasSelection"
+            icon="i-lucide-pencil"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            class="text-neutral-50 hover:bg-white/10"
+            :loading="isOpeningSelectedProjectsInEditor"
+            :disabled="!canOpenSelectedProjectsInEditor"
+            @click="handleOpenSelectedProjectsInEditor"
+          >
+            Open in Editor
+          </UButton>
+          <UButton
+            icon="i-lucide-wand-sparkles"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            class="text-neutral-50 hover:bg-white/10"
+            @click="openCodecGenerateSlideover"
+          >
+            Generate Codec
+          </UButton>
+          <UButton
+            icon="i-lucide-badge-check"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            class="text-neutral-50 hover:bg-white/10"
+            @click="openCodecValidateSlideover"
+          >
+            Validate Codec
+          </UButton>
+          <UButton
+            icon="i-lucide-trash"
+            color="error"
+            variant="ghost"
+            size="sm"
+            class="hover:bg-white/10"
+            :disabled="!canDeleteSelectedProjects"
+            @click="handleDeleteSelectedProjects"
+          >
+            Delete
+          </UButton>
+        </UiFloatingSelectionMenu>
+      </template>
     </template>
   </UDashboardPanel>
 </template>

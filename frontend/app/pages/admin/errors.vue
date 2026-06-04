@@ -145,13 +145,45 @@ const totalPages = computed(() => Math.max(1, errorsPage.value.totalPages || 1))
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
-const hasActiveFilters = computed(() =>
-  Boolean(searchInput.value.trim())
-  || dayWindow.value !== 7
-  || statusFilter.value !== 'ALL'
-  || userFilter.value !== 'all'
-  || workspaceFilter.value !== 'all'
-)
+const activeErrorFilters = computed(() => {
+  const filters: Array<{ key: string, label: string, clear: () => void }> = []
+  if (searchInput.value.trim()) {
+    filters.push({
+      key: 'search',
+      label: `Search: ${searchInput.value}`,
+      clear: () => { searchInput.value = '' }
+    })
+  }
+  if (dayWindow.value !== 7) {
+    filters.push({
+      key: 'days',
+      label: `${dayWindow.value} days`,
+      clear: () => { dayWindow.value = 7 }
+    })
+  }
+  if (statusFilter.value !== 'ALL') {
+    filters.push({
+      key: 'status',
+      label: `Status: ${statusFilter.value}`,
+      clear: () => { statusFilter.value = 'ALL' }
+    })
+  }
+  if (userFilter.value !== 'all') {
+    filters.push({
+      key: 'user',
+      label: userOptions.value.find(option => option.value === userFilter.value)?.label ?? userFilter.value,
+      clear: () => { userFilter.value = 'all' }
+    })
+  }
+  if (workspaceFilter.value !== 'all') {
+    filters.push({
+      key: 'workspace',
+      label: workspaceOptions.value.find(option => option.value === workspaceFilter.value)?.label ?? workspaceFilter.value,
+      clear: () => { workspaceFilter.value = 'all' }
+    })
+  }
+  return filters
+})
 
 watch(totalPages, (value) => {
   if (page.value > value) {
@@ -316,16 +348,6 @@ function clearFilters() {
             value-key="value"
             class="w-44"
           />
-
-          <UButton
-            v-if="hasActiveFilters"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="clearFilters"
-          >
-            Clear Filters
-          </UButton>
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="admin-errors" :columns="columns" />
@@ -376,13 +398,20 @@ function clearFilters() {
           </div>
         </div>
 
-        <AppTable
-          table-id="admin-errors"
-          :data="rows"
-          :columns="columns"
-          :loading="pending"
-          :ui="datatableUi"
-        />
+        <div>
+          <AppTableActiveFilters
+            :filters="activeErrorFilters"
+            @clear-all="clearFilters"
+          />
+
+          <AppTable
+            table-id="admin-errors"
+            :data="rows"
+            :columns="columns"
+            :loading="pending"
+            :ui="datatableUi"
+          />
+        </div>
 
         <div class="flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
           <div class="text-sm text-muted">

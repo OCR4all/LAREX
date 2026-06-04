@@ -9,6 +9,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectTransferRequestRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceService;
 import java.io.IOException;
@@ -38,6 +39,7 @@ public class ProjectTransferService {
     private final WorkspaceQueryService workspaceQueryService;
     private final WorkspaceService workspaceService;
     private final ProjectStarService projectStarService;
+    private final PageOrderService pageOrderService;
     private final AuthorizationPolicyService authorizationPolicyService;
 
     public ProjectTransferService(
@@ -50,6 +52,7 @@ public class ProjectTransferService {
             WorkspaceQueryService workspaceQueryService,
             WorkspaceService workspaceService,
             ProjectStarService projectStarService,
+            PageOrderService pageOrderService,
             AuthorizationPolicyService authorizationPolicyService) {
         this.transferRequestRepository = transferRequestRepository;
         this.projectRepository = projectRepository;
@@ -60,6 +63,7 @@ public class ProjectTransferService {
         this.workspaceQueryService = workspaceQueryService;
         this.workspaceService = workspaceService;
         this.projectStarService = projectStarService;
+        this.pageOrderService = pageOrderService;
         this.authorizationPolicyService = authorizationPolicyService;
     }
 
@@ -311,7 +315,7 @@ public class ProjectTransferService {
         newProject = projectRepository.save(newProject);
 
         // Copy pages with images and XMLs
-        List<Page> sourcePages = pageRepository.findByProjectId(sourceProject.getId());
+        List<Page> sourcePages = pageOrderService.sortPages(pageRepository.findByProjectId(sourceProject.getId()));
         List<String> sourcePageIds = sourcePages.stream().map(Page::getId).toList();
         Map<String, List<PageImage>> imagesByPageId = pageImageRepository.findByPageIdIn(sourcePageIds).stream()
                 .collect(java.util.stream.Collectors.groupingBy(image -> image.getPage().getId()));
@@ -320,6 +324,7 @@ public class ProjectTransferService {
 
         for (Page sourcePage : sourcePages) {
             Page newPage = new Page(sourcePage.getName(), sourcePage.getDescription(), newProject);
+            newPage.setSortOrder(sourcePage.getSortOrder());
             newPage.setTags(new ArrayList<>(sourcePage.getTags()));
             newPage = pageRepository.save(newPage);
 

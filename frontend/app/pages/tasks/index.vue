@@ -43,6 +43,43 @@ const statusFilter = ref<TaskStatus | 'ALL'>('ALL')
 const assignedToMe = ref(true)
 const q = ref('')
 
+const activeTaskFilters = computed(() => {
+  const filters: Array<{ key: string, label: string, clear: () => void }> = []
+
+  if (q.value.trim()) {
+    filters.push({
+      key: 'search',
+      label: `Search: ${q.value}`,
+      clear: () => { q.value = '' }
+    })
+  }
+
+  if (statusFilter.value !== 'ALL') {
+    const statusLabel = statusFilterOptions.find(option => option.value === statusFilter.value)?.label ?? statusFilter.value
+    filters.push({
+      key: 'status',
+      label: `Status: ${statusLabel}`,
+      clear: () => { statusFilter.value = 'ALL' }
+    })
+  }
+
+  if (assignedToMe.value) {
+    filters.push({
+      key: 'assignedToMe',
+      label: 'Assigned to me',
+      clear: () => { assignedToMe.value = false }
+    })
+  }
+
+  return filters
+})
+
+function clearTaskFilters() {
+  q.value = ''
+  statusFilter.value = 'ALL'
+  assignedToMe.value = false
+}
+
 const tasksKey = computed(() => {
   if (!selectedWorkspace.value) return globalKey('pending', 'tasks', 'list')
   return wsKey(selectedWorkspace.value, 'tasks', 'list', statusFilter.value, String(assignedToMe.value))
@@ -520,24 +557,44 @@ const viewModeItems = [
         </div>
       </div>
 
-      <UEmpty
-        v-else-if="tasksSafeCount === 0"
-        variant="naked"
-        icon="i-lucide-clipboard-list"
-        title="No tasks found"
-        description="Create your first task to get started."
-        :actions="[
-          {
-            icon: 'i-lucide-clipboard-plus',
-            label: 'Create Task',
-            variant: 'solid',
-            disabled: !selectedWorkspace || !canCreateTasks,
-            onClick: openCreate
-          }
-        ]"
-      />
+      <div v-else-if="tasksSafeCount === 0">
+        <AppTableActiveFilters
+          :filters="activeTaskFilters"
+          @clear-all="clearTaskFilters"
+        />
+
+        <UEmpty
+          v-if="activeTaskFilters.length > 0"
+          variant="naked"
+          icon="i-lucide-search-x"
+          title="No tasks match your filters"
+          description="Try adjusting or clearing your filters to see more results."
+        />
+
+        <UEmpty
+          v-else
+          variant="naked"
+          icon="i-lucide-clipboard-list"
+          title="No tasks found"
+          description="Create your first task to get started."
+          :actions="[
+            {
+              icon: 'i-lucide-clipboard-plus',
+              label: 'Create Task',
+              variant: 'solid',
+              disabled: !selectedWorkspace || !canCreateTasks,
+              onClick: openCreate
+            }
+          ]"
+        />
+      </div>
 
       <div v-else-if="viewMode === 'table'">
+        <AppTableActiveFilters
+          :filters="activeTaskFilters"
+          @clear-all="clearTaskFilters"
+        />
+
         <UContextMenu :items="contextMenuItems">
           <AppTable
             table-id="tasks-index"

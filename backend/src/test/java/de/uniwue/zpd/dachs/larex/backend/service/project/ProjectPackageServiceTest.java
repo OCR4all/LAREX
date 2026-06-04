@@ -24,6 +24,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
@@ -37,8 +38,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.zip.ZipInputStream;
@@ -50,6 +53,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -91,6 +96,8 @@ class ProjectPackageServiceTest {
     @Mock
     private HierarchicalFileStorageService hierarchicalFileStorageService;
     @Mock
+    private PageOrderService pageOrderService;
+    @Mock
     private PageFilterIndexService pageFilterIndexService;
     @Mock
     private StorageTrackingService storageTrackingService;
@@ -126,6 +133,7 @@ class ProjectPackageServiceTest {
                 archiveIoService,
                 toolkitPackageService,
                 hierarchicalFileStorageService,
+                pageOrderService,
                 pageFilterIndexService,
                 storageTrackingService,
                 workspaceQuotaGuardService,
@@ -144,10 +152,13 @@ class ProjectPackageServiceTest {
 
         Project project = project();
         Page page = page(project);
+        page.setSortOrder(2000);
         project.setPages(new ArrayList<>(List.of(page)));
 
         when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
         when(pageRepository.findByProjectId("project-1")).thenReturn(List.of(page));
+        when(pageOrderService.projectOrderComparator())
+                .thenReturn(Comparator.comparing(Page::getName, String.CASE_INSENSITIVE_ORDER));
         when(pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc("xml-1")).thenReturn(List.of());
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.png")).thenReturn(imagePath);
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.xml")).thenReturn(xmlPath);
@@ -187,11 +198,14 @@ class ProjectPackageServiceTest {
         boolean foundManifest = false;
         boolean foundMets = false;
         boolean foundEmbedded = false;
+        Integer exportedSortOrder = null;
         try (ZipInputStream zipIn = new ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
             java.util.zip.ZipEntry entry;
             while ((entry = zipIn.getNextEntry()) != null) {
                 if ("manifest.json".equals(entry.getName())) {
                     foundManifest = true;
+                    ProjectPackageDto.PackageManifest manifest = objectMapper.readValue(zipIn.readAllBytes(), ProjectPackageDto.PackageManifest.class);
+                    exportedSortOrder = manifest.pages().getFirst().sortOrder();
                 }
                 if ("mets.xml".equals(entry.getName())) {
                     foundMets = true;
@@ -205,6 +219,54 @@ class ProjectPackageServiceTest {
         assertTrue(foundManifest);
         assertTrue(foundMets);
         assertTrue(foundEmbedded);
+        assertEquals(2000, exportedSortOrder);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void importPagesRestoresSortOrderWithIndexFallbackForLegacyPackages() {
+        ProjectPackageService service = new ProjectPackageService(
+                projectRepository,
+                projectPackageReleaseRepository,
+                libraryRepository,
+                pageRepository,
+                pageXmlRepository,
+                pageXmlVersionRepository,
+                codecRepository,
+                dictionaryRepository,
+                labelSetRepository,
+                tagSetRepository,
+                normalizationProfileRepository,
+                validationRulesetRepository,
+                workspaceAccessService,
+                new ArchiveIoService(new ObjectMapper().findAndRegisterModules()),
+                toolkitPackageService,
+                hierarchicalFileStorageService,
+                pageOrderService,
+                pageFilterIndexService,
+                storageTrackingService,
+                workspaceQuotaGuardService,
+                pageXmlConversionService,
+                pageXmlCanonicalizationService,
+                documentExportService,
+                new ObjectMapper().findAndRegisterModules()
+        );
+        when(pageRepository.save(any(Page.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<ProjectPackageDto.PageSnapshot> snapshots = List.of(
+                pageSnapshot("source-1", "Page 1", 5000),
+                pageSnapshot("source-2", "Page 2", null)
+        );
+
+        Map<String, Page> imported = (Map<String, Page>) ReflectionTestUtils.invokeMethod(
+                service,
+                "importPages",
+                project(),
+                snapshots
+        );
+
+        assertEquals(5000, imported.get("source-1").getSortOrder());
+        assertEquals(PageOrderService.SORT_ORDER_STEP, imported.get("source-2").getSortOrder());
     }
 
     private Project project() {
@@ -245,5 +307,19 @@ class ProjectPackageServiceTest {
         page.setImages(new HashSet<>(Set.of(image)));
         page.setXmlFiles(new HashSet<>(Set.of(xml)));
         return page;
+    }
+
+    private ProjectPackageDto.PageSnapshot pageSnapshot(String sourcePageId, String name, Integer sortOrder) {
+        return new ProjectPackageDto.PageSnapshot(
+                sourcePageId,
+                name,
+                "desc",
+                List.of(),
+                LocalDateTime.now(),
+                LocalDateTime.now(),
+                false,
+                null,
+                sortOrder
+        );
     }
 }

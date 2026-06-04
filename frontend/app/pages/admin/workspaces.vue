@@ -63,6 +63,14 @@ const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
 const hasActiveFilters = computed(() => Boolean(globalFilter.value.trim()))
+const activeWorkspaceFilters = computed(() => hasActiveFilters.value
+  ? [{
+      key: 'search',
+      label: `Search: ${globalFilter.value}`,
+      clear: () => { globalFilter.value = '' }
+    }]
+  : []
+)
 const paginatedRows = computed(() => {
   const start = (page.value - 1) * itemsPerPage.value
   return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
@@ -220,16 +228,6 @@ function clearFilters() {
               />
             </template>
           </UInput>
-
-          <UButton
-            v-if="hasActiveFilters"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="clearFilters"
-          >
-            Clear Filters
-          </UButton>
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="admin-workspaces" :columns="columns" />
@@ -268,6 +266,11 @@ function clearFilters() {
       </div>
 
       <div>
+        <AppTableActiveFilters
+          :filters="activeWorkspaceFilters"
+          @clear-all="clearFilters"
+        />
+
         <UContextMenu :items="contextMenuItems">
           <AppTable
             table-id="admin-workspaces"

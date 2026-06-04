@@ -354,15 +354,6 @@ async function leaveWorkspace(ws: WorkspaceRow) {
               />
             </template>
           </UInput>
-          <UButton
-            v-if="activeFilters.length > 0"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="resetAllFilters()"
-          >
-            Clear Filters
-          </UButton>
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="workspaces-list" :columns="columns" />
@@ -371,6 +362,11 @@ async function leaveWorkspace(ws: WorkspaceRow) {
     </template>
 
     <template #body>
+      <AppTableActiveFilters
+        :filters="activeFilters"
+        @clear-all="resetAllFilters"
+      />
+
       <div v-if="workspaces?.length">
         <UContextMenu :items="contextMenuItems as any">
           <AppTable

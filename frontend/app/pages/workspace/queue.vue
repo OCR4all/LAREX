@@ -50,6 +50,24 @@ watch(statusFilter, () => {
 
 const terminalCount = computed(() => runs.value.filter(run => isTerminalRun(run.status)).length)
 const hasActiveFilters = computed(() => debouncedSearch.value.length > 0 || statusFilter.value !== 'ALL')
+const activeRunFilters = computed(() => {
+  const filters: Array<{ key: string, label: string, clear: () => void }> = []
+  if (debouncedSearch.value) {
+    filters.push({
+      key: 'search',
+      label: `Search: ${debouncedSearch.value}`,
+      clear: () => { searchInput.value = '' }
+    })
+  }
+  if (statusFilter.value !== 'ALL') {
+    filters.push({
+      key: 'status',
+      label: statusOptions.find(option => option.value === statusFilter.value)?.label ?? statusFilter.value,
+      clear: () => { statusFilter.value = 'ALL' }
+    })
+  }
+  return filters
+})
 
 const filteredRuns = computed(() => runs.value
   .filter((run) => {
@@ -343,15 +361,6 @@ function formatDurationFromRun(run: ActionRun) {
             value-key="value"
             class="w-full sm:w-52"
           />
-          <UButton
-            v-if="hasActiveFilters"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="clearFilters"
-          >
-            Clear Filters
-          </UButton>
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="workspace-action-runs" :columns="columns" />
@@ -375,16 +384,22 @@ function formatDurationFromRun(run: ActionRun) {
           <USkeleton class="h-14 w-full" />
         </div>
 
-        <UEmpty
-          v-else-if="filteredRuns.length === 0"
-          variant="naked"
-          icon="i-lucide-filter-x"
-          title="No matching Action runs"
-          :description="hasActiveFilters ? 'Try adjusting the current filters.' : 'This workspace has no matching Action runs.'"
-        />
-
         <template v-else>
+          <AppTableActiveFilters
+            :filters="activeRunFilters"
+            @clear-all="clearFilters"
+          />
+
+          <UEmpty
+            v-if="filteredRuns.length === 0"
+            variant="naked"
+            icon="i-lucide-filter-x"
+            title="No matching Action runs"
+            :description="hasActiveFilters ? 'Try adjusting the current filters.' : 'This workspace has no matching Action runs.'"
+          />
+
           <AppTable
+            v-else
             table-id="workspace-action-runs"
             :columns="columns"
             :data="paginatedRuns"
@@ -392,7 +407,7 @@ function formatDurationFromRun(run: ActionRun) {
             class="flex-1 px-4 pb-4"
           />
 
-          <div class="flex items-center justify-between border-t border-default px-4 py-4">
+          <div v-if="filteredRuns.length > 0" class="flex items-center justify-between border-t border-default px-4 py-4">
             <div class="text-sm text-muted">
               Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} runs
             </div>

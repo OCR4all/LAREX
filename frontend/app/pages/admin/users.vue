@@ -146,7 +146,24 @@ const visiblePendingCount = computed(() => users.value.filter(user => user.onboa
 const visibleDisabledCount = computed(() => users.value.filter(user => user.onboardingState === 'DISABLED').length)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
-const hasActiveFilters = computed(() => Boolean(searchInput.value.trim()) || statusFilter.value !== 'ALL')
+const activeUserFilters = computed(() => {
+  const filters: Array<{ key: string, label: string, clear: () => void }> = []
+  if (searchInput.value.trim()) {
+    filters.push({
+      key: 'search',
+      label: `Search: ${searchInput.value}`,
+      clear: () => { searchInput.value = '' }
+    })
+  }
+  if (statusFilter.value !== 'ALL') {
+    filters.push({
+      key: 'status',
+      label: statusOptions.find(option => option.value === statusFilter.value)?.label ?? statusFilter.value,
+      clear: () => { statusFilter.value = 'ALL' }
+    })
+  }
+  return filters
+})
 
 watch(searchInput, useDebounceFn((value: string) => {
   debouncedSearch.value = value.trim()
@@ -693,16 +710,6 @@ async function submitGlobalRoleAction() {
             value-key="value"
             class="w-full sm:w-48"
           />
-
-          <UButton
-            v-if="hasActiveFilters"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="clearFilters"
-          >
-            Clear Filters
-          </UButton>
         </template>
 
         <template #right>
@@ -754,6 +761,11 @@ async function submitGlobalRoleAction() {
       </div>
 
       <div>
+        <AppTableActiveFilters
+          :filters="activeUserFilters"
+          @clear-all="clearFilters"
+        />
+
         <UContextMenu :items="contextMenuItems as any">
           <AppTable
             table-id="admin-users"

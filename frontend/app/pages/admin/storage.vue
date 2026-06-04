@@ -134,7 +134,24 @@ const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const filteredTotalSize = computed(() => orphanedFiles.value?.totalSizeBytes ?? 0)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
-const hasActiveFilters = computed(() => Boolean(typeFilter.value || searchQuery.value.trim()))
+const activeStorageFilters = computed(() => {
+  const filters: Array<{ key: string, label: string, clear: () => void }> = []
+  if (searchQuery.value.trim()) {
+    filters.push({
+      key: 'search',
+      label: `Search: ${searchQuery.value}`,
+      clear: () => { searchQuery.value = '' }
+    })
+  }
+  if (typeFilter.value) {
+    filters.push({
+      key: 'type',
+      label: typeOptions.find(option => option.value === typeFilter.value)?.label ?? typeFilter.value,
+      clear: () => { typeFilter.value = undefined }
+    })
+  }
+  return filters
+})
 
 watch([typeFilter, searchQuery], () => {
   page.value = 1
@@ -474,16 +491,6 @@ async function refreshAll() {
             class="w-full sm:w-40"
             value-key="value"
           />
-
-          <UButton
-            v-if="hasActiveFilters"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="clearFilters"
-          >
-            Clear Filters
-          </UButton>
         </template>
 
         <template #right>
@@ -604,13 +611,22 @@ async function refreshAll() {
           </span>
         </div>
 
+        <AppTableActiveFilters
+          :filters="activeStorageFilters"
+          @clear-all="clearFilters"
+        />
+
         <div v-if="!orphanedPending && totalItems === 0" class="py-12 text-center">
-          <UIcon name="i-lucide-check-circle" class="mx-auto text-4xl text-success mb-4" />
-          <p class="text-lg font-medium text-success">
-            No orphaned files found
+          <UIcon
+            :name="activeStorageFilters.length > 0 ? 'i-lucide-filter-x' : 'i-lucide-check-circle'"
+            class="mx-auto text-4xl mb-4"
+            :class="activeStorageFilters.length > 0 ? 'text-neutral-400' : 'text-success'"
+          />
+          <p class="text-lg font-medium" :class="activeStorageFilters.length > 0 ? 'text-highlighted' : 'text-success'">
+            {{ activeStorageFilters.length > 0 ? 'No orphaned files match your filters' : 'No orphaned files found' }}
           </p>
           <p class="text-sm text-muted mt-1">
-            All files in the upload directory are properly linked to database records.
+            {{ activeStorageFilters.length > 0 ? 'Try adjusting or clearing your filters to see more files.' : 'All files in the upload directory are properly linked to database records.' }}
           </p>
         </div>
 

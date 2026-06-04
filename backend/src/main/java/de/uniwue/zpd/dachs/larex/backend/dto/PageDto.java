@@ -34,6 +34,14 @@ public class PageDto {
             String variant
     ) {}
 
+    public record TextConfidenceStats(
+            double min,
+            double max,
+            double mean,
+            double median,
+            int count
+    ) {}
+
     public record Response(
             String id,
             String name,
@@ -42,6 +50,8 @@ public class PageDto {
             List<ResolvedTag> resolvedTags,
             LocalDateTime created,
             LocalDateTime updated,
+            Integer sortOrder,
+            TextConfidenceStats textConfidence,
             int xmlFileCount,
             int imageCount,
             boolean locked,
@@ -49,6 +59,10 @@ public class PageDto {
             String thumbnailUrl,
             PageIndexingStatus indexingStatus,
             List<ImageVariantPreview> imageVariants
+    ) {}
+
+    public record SortOrderRequest(
+            List<String> pageIds
     ) {}
 
     public record ImageResponse(

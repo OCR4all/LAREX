@@ -22,8 +22,10 @@ import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import type { DropdownMenuItem, BreadcrumbItem } from '@nuxt/ui'
 import { useMediaQuery } from '@vueuse/core'
+import { moveArrayElement, useSortable } from '@vueuse/integrations/useSortable'
 import type { Subtask } from '~/types/index'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
+import { createPageSortOrderRequest } from '@/utils/editor/page-sort'
 import { createPageXmlLabelSet } from '@/models/editor'
 import type { LabelSet as ApiLabelSet } from '@/types/label-set'
 import { useEditorStore } from '@/stores/editor/editor.store'
@@ -126,9 +128,17 @@ type ConflictInfo = {
 }
 
 const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
-const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'imageCount', 'updated']
+const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['projectOrderPosition', 'name', 'description', 'tags', 'imageCount', 'updated']
+const PROJECT_PAGE_TABLE_BODY_CLASS = 'project-pages-sortable-tbody [&>tr]:last:[&>td]:border-b-0'
 
 type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
+type TextConfidenceStats = {
+  min: number
+  max: number
+  mean: number
+  median: number
+  count: number
+}
 type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
 type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
 type SpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS'
@@ -178,6 +188,9 @@ type Page = {
   lockedReason?: string | null
   thumbnailUrl?: string | null
   indexingStatus?: PageIndexingStatus
+  sortOrder?: number | null
+  projectOrderPosition?: number
+  textConfidence?: TextConfidenceStats | null
   imageVariants?: Array<{
     id: string
     fileName: string
@@ -535,6 +548,8 @@ async function handleOpenInEditor() {
       imageCount: page.imageCount,
       xmlFileCount: page.xmlFileCount,
       indexingStatus: page.indexingStatus,
+      sortOrder: page.sortOrder ?? null,
+      textConfidence: page.textConfidence ?? null,
       imageVariants: page.imageVariants ?? []
     }))
 
@@ -1384,10 +1399,13 @@ const getPageDescription = (page: Page) => {
   return page.description
 }
 
-const pagesSafe = computed(() => (pages.value ?? []).map((page) => {
+const pagesSafe = computed(() => (pages.value ?? []).map((page, index) => {
   const description = getPageDescription(page)
-  if (description === page.description) return page
-  return { ...page, description }
+  return {
+    ...page,
+    description,
+    projectOrderPosition: index + 1
+  }
 }))
 const {
   sort,
@@ -1398,7 +1416,7 @@ const {
   setColumnFilter,
   clearColumnFilter,
   resetAllFilters
-} = useTableFilters(pagesSafe, { column: 'name', direction: 'asc' })
+} = useTableFilters(pagesSafe, { column: 'projectOrderPosition', direction: 'asc' })
 
 const xmlStatusFilter = ref<'all' | 'has_xml' | 'no_xml'>('all')
 
@@ -1407,6 +1425,31 @@ const xmlStatusOptions = [
   { value: 'has_xml', label: 'With XML' },
   { value: 'no_xml', label: 'Without XML' }
 ]
+const activeProjectPageFilters = computed(() => {
+  const filters: Array<{ key: string, label: string, clear: () => void }> = []
+  if (globalFilter.value) {
+    filters.push({
+      key: 'search',
+      label: `Search: ${globalFilter.value}`,
+      clear: () => { globalFilter.value = '' }
+    })
+  }
+  for (const tag of selectedTags.value) {
+    filters.push({
+      key: `tag-${tag}`,
+      label: `Tag: ${tag}`,
+      clear: () => { selectedTags.value = selectedTags.value.filter(value => value !== tag) }
+    })
+  }
+  if (xmlStatusFilter.value !== 'all') {
+    filters.push({
+      key: 'xml',
+      label: `XML: ${xmlStatusOptions.find(option => option.value === xmlStatusFilter.value)?.label}`,
+      clear: () => { xmlStatusFilter.value = 'all' }
+    })
+  }
+  return filters
+})
 
 const filteredPages = computed(() => {
   let result = filteredAndSortedPages.value
@@ -1456,6 +1499,115 @@ const paginatedPages = computed(() => {
   const start = (page.value - 1) * itemsPerPageRef.value
   return filteredPages.value.slice(start, start + itemsPerPageRef.value)
 })
+const visibleProjectPageRows = ref<Page[]>([])
+const projectPagesTableRef = ref<{ $el?: HTMLElement | null } | null>(null)
+const isPageOrderingMode = ref(false)
+const isSavingPageOrder = ref(false)
+const hasPageOrderFilters = computed(() => {
+  const tags = columnFilters.value['tags']
+  return globalFilter.value.trim().length > 0
+    || (Array.isArray(tags) && tags.length > 0)
+    || xmlStatusFilter.value !== 'all'
+})
+const canEditProjectPageOrder = computed(() =>
+  allow(workspaceCapabilities.value.canManageProjects)
+  && !project.value?.locked
+)
+const isProjectOrderTableView = computed(() =>
+  sort.value.column === 'projectOrderPosition'
+  && sort.value.direction === 'asc'
+  && !hasPageOrderFilters.value
+)
+const canDragProjectPageOrder = computed(() =>
+  isPageOrderingMode.value
+  && canEditProjectPageOrder.value
+  && isProjectOrderTableView.value
+  && !isSavingPageOrder.value
+)
+const projectPageTableUi = computed(() => ({
+  tbody: PROJECT_PAGE_TABLE_BODY_CLASS
+}))
+const projectPageTableBody = computed(() =>
+  projectPagesTableRef.value?.$el?.querySelector('tbody') ?? null
+)
+
+watch(paginatedPages, (nextPages) => {
+  visibleProjectPageRows.value = [...nextPages]
+}, { immediate: true })
+
+const pageTableSortable = useSortable(projectPageTableBody, visibleProjectPageRows, {
+  animation: 150,
+  handle: '.project-page-order-handle',
+  watchElement: true,
+  disabled: true,
+  onUpdate: (event) => {
+    if (typeof event.oldIndex !== 'number' || typeof event.newIndex !== 'number') return
+    moveArrayElement(visibleProjectPageRows, event.oldIndex, event.newIndex, event)
+    void nextTick(() => saveProjectPageOrderFromVisibleRows())
+  }
+})
+
+watch(canDragProjectPageOrder, (enabled) => {
+  pageTableSortable.option('disabled', !enabled)
+}, { immediate: true })
+
+function togglePageOrderingMode() {
+  if (isPageOrderingMode.value) {
+    isPageOrderingMode.value = false
+    return
+  }
+  if (!canEditProjectPageOrder.value) return
+
+  resetFilters()
+  sort.value = { column: 'projectOrderPosition', direction: 'asc' }
+  isPageOrderingMode.value = true
+}
+
+async function saveProjectPageOrderFromVisibleRows() {
+  if (!canDragProjectPageOrder.value || !pages.value) {
+    visibleProjectPageRows.value = [...paginatedPages.value]
+    return
+  }
+
+  const currentPages = [...pages.value]
+  const visibleIds = visibleProjectPageRows.value.map(page => page.id)
+  const expectedVisibleIds = paginatedPages.value.map(page => page.id)
+  if (visibleIds.length !== expectedVisibleIds.length || visibleIds.every((id, index) => id === expectedVisibleIds[index])) {
+    return
+  }
+
+  const start = (page.value - 1) * itemsPerPageRef.value
+  const orderedPages = [
+    ...currentPages.slice(0, start),
+    ...visibleIds.map(pageId => currentPages.find(page => page.id === pageId)).filter((page): page is Page => Boolean(page)),
+    ...currentPages.slice(start + visibleIds.length)
+  ]
+
+  if (orderedPages.length !== currentPages.length) {
+    visibleProjectPageRows.value = [...paginatedPages.value]
+    return
+  }
+
+  isSavingPageOrder.value = true
+  try {
+    const updatedPages = await $fetch<Page[]>(`/api/projects/${projectId}/pages/sort-order`, {
+      method: 'PUT',
+      body: createPageSortOrderRequest(orderedPages)
+    })
+    pages.value = updatedPages
+    toast.add({ title: 'Page order saved', color: 'success', icon: 'i-lucide-check' })
+  } catch (error) {
+    visibleProjectPageRows.value = [...paginatedPages.value]
+    toast.add({
+      title: 'Failed to save page order',
+      description: getErrorMessage(error, 'Could not save the page order.'),
+      color: 'error',
+      icon: 'i-lucide-triangle-alert'
+    })
+  } finally {
+    isSavingPageOrder.value = false
+  }
+}
 
 async function openAddToDatasetSlideover() {
   if (!hasSelection.value || !canManageDatasets.value) return
@@ -2182,6 +2334,59 @@ function renderPageTasksIndicator(page: Page, variant: 'icon' | 'badge' = 'icon'
 
 const pageColumns = [
   {
+    accessorKey: 'projectOrderPosition',
+    header: () => isPageOrderingMode.value
+      ? h(UIcon, {
+          name: 'i-lucide-grip-vertical',
+          class: 'mx-auto size-4 text-muted',
+          title: 'Drag to reorder'
+        })
+      : h('div', { class: 'flex items-center justify-center gap-1' }, [
+          h('span', 'Order'),
+          h(UButton, {
+            icon: sort.value.column === 'projectOrderPosition'
+              ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
+              : 'i-lucide-arrow-up-down',
+            size: 'xs',
+            variant: 'ghost',
+            color: sort.value.column === 'projectOrderPosition' ? 'primary' : 'neutral',
+            onClick: () => {
+              if (sort.value.column === 'projectOrderPosition') {
+                sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
+              } else {
+                sort.value = { column: 'projectOrderPosition', direction: 'asc' }
+              }
+            }
+          })
+        ]),
+    cell: ({ row }: { row: { original: Page } }) => isPageOrderingMode.value
+      ? h(UButton, {
+          'icon': 'i-lucide-grip-vertical',
+          'color': 'neutral',
+          'variant': 'ghost',
+          'size': 'xs',
+          'square': true,
+          'disabled': !canDragProjectPageOrder.value,
+          'loading': isSavingPageOrder.value,
+          'class': canDragProjectPageOrder.value
+            ? 'project-page-order-handle cursor-grab active:cursor-grabbing'
+            : 'cursor-not-allowed opacity-40',
+          'aria-label': 'Drag page to reorder',
+          'title': canDragProjectPageOrder.value
+            ? 'Drag page to reorder'
+            : 'Clear filters and column sorting to reorder pages'
+        })
+      : h('span', {
+          class: 'text-xs font-medium tabular-nums text-muted'
+        }, row.original.projectOrderPosition ?? ''),
+    meta: {
+      class: {
+        th: 'w-24 text-center',
+        td: 'w-24 text-center'
+      }
+    }
+  },
+  {
     id: 'select',
     header: () => h('input', {
       type: 'checkbox',
@@ -2669,20 +2874,23 @@ useHead({
             Refresh
           </UButton>
 
-          <UButton
-            icon="i-lucide-x"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="resetFilters"
-          >
-            Clear Filters
-          </UButton>
-
           <AppTableColumnsDropdown
             table-id="project-pages-v2"
             :columns="pageColumns"
             :default-visible-column-ids="DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS"
+          />
+
+          <UButton
+            :icon="isPageOrderingMode ? 'i-lucide-check' : 'i-lucide-list-ordered'"
+            color="neutral"
+            :variant="isPageOrderingMode ? 'soft' : 'ghost'"
+            size="sm"
+            square
+            :aria-label="isPageOrderingMode ? 'Finish ordering pages' : 'Order pages'"
+            :title="isPageOrderingMode ? 'Finish ordering pages' : 'Order pages'"
+            :disabled="!canEditProjectPageOrder || isSavingPageOrder"
+            :loading="isSavingPageOrder"
+            @click="togglePageOrderingMode"
           />
 
           <USeparator orientation="vertical" class="h-4" />
@@ -2771,40 +2979,11 @@ useHead({
 
         <div class="flex flex-1 flex-col gap-0 xl:min-h-0 xl:flex-row xl:items-stretch">
           <div class="min-w-0 flex-1 space-y-6 p-6">
-            <div v-if="globalFilter || selectedTags.length > 0 || xmlStatusFilter !== 'all'" class="flex items-center gap-2 flex-wrap">
-              <span class="text-xs text-neutral-500">Active filters:</span>
-              <UBadge
-                v-if="globalFilter"
-                color="neutral"
-                variant="soft"
-                size="sm"
-                class="cursor-pointer"
-                @click="globalFilter = ''"
-              >
-                Search: {{ globalFilter }} ×
-              </UBadge>
-              <UBadge
-                v-for="tag in selectedTags"
-                :key="tag"
-                color="neutral"
-                variant="soft"
-                size="sm"
-                class="cursor-pointer"
-                @click="selectedTags = selectedTags.filter(t => t !== tag)"
-              >
-                Tag: {{ tag }} ×
-              </UBadge>
-              <UBadge
-                v-if="xmlStatusFilter !== 'all'"
-                color="neutral"
-                variant="soft"
-                size="sm"
-                class="cursor-pointer"
-                @click="xmlStatusFilter = 'all'"
-              >
-                XML: {{ xmlStatusOptions.find(o => o.value === xmlStatusFilter)?.label }} ×
-              </UBadge>
-            </div>
+            <AppTableActiveFilters
+              :filters="activeProjectPageFilters"
+              :spacing="false"
+              @clear-all="resetFilters"
+            />
 
             <div v-if="pagesError" class="py-8 text-center">
               <div class="flex items-center justify-center gap-2 text-error">
@@ -2852,11 +3031,13 @@ useHead({
               <UContextMenu :items="contextMenuItems as any">
                 <AppTable
                   v-if="paginatedPages.length > 0"
+                  ref="projectPagesTableRef"
                   table-id="project-pages-v2"
                   :columns="pageColumns"
-                  :data="paginatedPages"
+                  :data="visibleProjectPageRows"
                   :default-visible-column-ids="DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS"
                   :loading="isManualPagesRefresh"
+                  :ui="projectPageTableUi"
                   class="flex-1"
                   @contextmenu="handlePageRowContextMenu"
                 />

@@ -273,6 +273,7 @@ public class AsyncIiifImportProcessor {
         page.setProject(project);
         page.setName(payload.finalPageName());
         page.setDescription(payload.pageDescription());
+        page.setSortOrder(payload.sortOrder());
         page.setTags(new ArrayList<>());
         return pageRepository.save(page);
     }

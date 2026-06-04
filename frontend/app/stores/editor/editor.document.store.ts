@@ -3,7 +3,6 @@ import type { LabelSet as ApiLabelSet, LabelDefinition as ApiLabelDefinition } f
 import type { DictionaryFormEntry } from '@/types/dictionary'
 import { LabelSet as LabelSetModel, LabelDefinition as LabelDefinitionModel } from '@/models/editor/labels'
 import { useEditorSessionStore } from './editor.session.store'
-import { naturalSortBy } from '@/utils/natural-sort'
 import { parseCanvasId, parsePagePanelId } from './editor.keys'
 
 function getVariantPreferenceKey(variant: ImageVariant): string {
@@ -156,7 +155,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
   }
 
   function sortPages(projectPages: PageData[]): PageData[] {
-    return naturalSortBy(projectPages, 'label')
+    return [...projectPages]
   }
 
   function normalizePages(projectId: string, projectPages: PageData[]): PageData[] {
@@ -166,7 +165,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     }))
   }
 
-  function setProjectPages(projectId: string, projectPages: PageData[], options?: { replaceProject?: boolean, markLoaded?: boolean }) {
+  function setProjectPages(projectId: string, projectPages: PageData[], options?: { replaceProject?: boolean, markLoaded?: boolean, preserveLoaded?: boolean }) {
     ensureProject(projectId)
 
     const incoming = sortPages(normalizePages(projectId, projectPages))
@@ -181,7 +180,11 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
       }
       loadedPageIdsByProjectId.value = {
         ...loadedPageIdsByProjectId.value,
-        [projectId]: markLoaded ? new Set(incoming.map(page => page.id)) : new Set()
+        [projectId]: markLoaded
+          ? new Set(incoming.map(page => page.id))
+          : options?.preserveLoaded === true
+            ? cloneSet(loadedPageIdsByProjectId.value[projectId] ?? new Set())
+            : new Set()
       }
     } else {
       const byId = new Map<string, PageData>()
@@ -338,6 +341,8 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
       imageCount?: number
       xmlFileCount?: number
       indexingStatus?: PageData['indexingStatus']
+      sortOrder?: number | null
+      textConfidence?: PageData['textConfidence']
     }>
   ) {
     if (!projectId || summaries.length === 0) return
@@ -361,7 +366,9 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
         lockedReason: summary.lockedReason ?? null,
         imageCount: summary.imageCount ?? page.imageCount,
         xmlFileCount: summary.xmlFileCount ?? page.xmlFileCount,
-        indexingStatus: summary.indexingStatus ?? page.indexingStatus
+        indexingStatus: summary.indexingStatus ?? page.indexingStatus,
+        sortOrder: summary.sortOrder ?? page.sortOrder ?? null,
+        textConfidence: summary.textConfidence ?? page.textConfidence ?? null
       }
     })
 

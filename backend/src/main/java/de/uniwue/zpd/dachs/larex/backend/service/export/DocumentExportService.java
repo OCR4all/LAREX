@@ -17,6 +17,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import de.uniwue.zpd.dachs.larex.backend.util.CoordinateUtils;
@@ -95,9 +96,6 @@ public class DocumentExportService {
     private static final String PDF_A_ICC_RESOURCE_PATH = "/color/sRGB.icc";
     private static final String PAGE2TEI_XSLT_RESOURCE_PATH = "/xslt/page2tei-0.xsl";
     private static final double UNCLEAR_CONFIDENCE_THRESHOLD = 0.75d;
-    private static final Comparator<Page> PAGE_NAME_COMPARATOR =
-            Comparator.comparing(Page::getName, String.CASE_INSENSITIVE_ORDER)
-                    .thenComparing(Page::getId);
     private static final Comparator<PageXml> PAGE_XML_COMPARATOR =
             Comparator.comparing((PageXml xml) -> xml.getVariant() == null ? "" : xml.getVariant(), String.CASE_INSENSITIVE_ORDER)
                     .thenComparing(PageXml::getId);
@@ -109,6 +107,7 @@ public class DocumentExportService {
     private final WorkspaceAccessService workspaceAccessService;
     private final AnnotationProcessingService annotationProcessingService;
     private final PageXmlConversionService pageXmlConversionService;
+    private final PageOrderService pageOrderService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -116,11 +115,13 @@ public class DocumentExportService {
     public DocumentExportService(ProjectRepository projectRepository,
                                  WorkspaceAccessService workspaceAccessService,
                                  AnnotationProcessingService annotationProcessingService,
-                                 PageXmlConversionService pageXmlConversionService) {
+                                 PageXmlConversionService pageXmlConversionService,
+                                 PageOrderService pageOrderService) {
         this.projectRepository = projectRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.annotationProcessingService = annotationProcessingService;
         this.pageXmlConversionService = pageXmlConversionService;
+        this.pageOrderService = pageOrderService;
     }
 
     public DocumentExportResult exportPage(String projectId,
@@ -207,7 +208,7 @@ public class DocumentExportService {
 
     private List<Page> resolvePages(Project project, List<String> selectedPageIds) {
         List<Page> sortedPages = project.getPages().stream()
-                .sorted(PAGE_NAME_COMPARATOR)
+                .sorted(pageOrderService.projectOrderComparator())
                 .toList();
 
         if (selectedPageIds == null || selectedPageIds.isEmpty()) {

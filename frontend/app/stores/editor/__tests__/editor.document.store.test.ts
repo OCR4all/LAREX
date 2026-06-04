@@ -4,10 +4,17 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { LabelSet } from '../../../models/editor/labels'
 import type { PageData } from '../types'
 
-;(globalThis as any).defineStore = defineStore
-;(globalThis as any).ref = ref
-;(globalThis as any).computed = computed
-;(globalThis as any).watch = watch
+type TestGlobal = typeof globalThis & {
+  defineStore: typeof defineStore
+  ref: typeof ref
+  computed: typeof computed
+  watch: typeof watch
+}
+
+;(globalThis as TestGlobal).defineStore = defineStore
+;(globalThis as TestGlobal).ref = ref
+;(globalThis as TestGlobal).computed = computed
+;(globalThis as TestGlobal).watch = watch
 
 async function createStores() {
   const { useEditorSessionStore } = await import('../editor.session.store')
@@ -110,7 +117,7 @@ describe('editor.document.store', () => {
     expect(store.getProjectPages('project-b').map(page => page.id)).toEqual(['b-1'])
   })
 
-  it('opens the first page by sorted label when initializing an editor session', async () => {
+  it('preserves incoming project page order when initializing an editor session', async () => {
     const { sessionStore, store } = await createStores()
 
     store.setPagesWithSession([
@@ -119,9 +126,9 @@ describe('editor.document.store', () => {
       createPage('project-1234', 'page-0100', '0100')
     ], 'project-1234', 'workspace-1')
 
-    expect(store.getProjectPages('project-1234').map(page => page.label)).toEqual(['0013', '0020', '0100'])
-    expect(sessionStore.getOpenedPageIds('project-1234')).toEqual(['page-0013'])
-    expect(sessionStore.getActivePageId('project-1234')).toBe('page-0013')
+    expect(store.getProjectPages('project-1234').map(page => page.label)).toEqual(['0020', '0013', '0100'])
+    expect(sessionStore.getOpenedPageIds('project-1234')).toEqual(['page-0020'])
+    expect(sessionStore.getActivePageId('project-1234')).toBe('page-0020')
   })
 
   it('returns null active metadata when active project has no metadata configured', async () => {

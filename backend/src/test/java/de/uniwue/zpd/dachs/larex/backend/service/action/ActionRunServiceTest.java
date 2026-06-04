@@ -25,6 +25,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
@@ -65,6 +66,7 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -139,6 +141,8 @@ class ActionRunServiceTest {
     @Mock
     private PageXmlToAnnotationParser pageXmlToAnnotationParser;
     @Mock
+    private PageOrderService pageOrderService;
+    @Mock
     private ActionAuditService actionAuditService;
     @Mock
     private TransactionTemplate transactionTemplate;
@@ -181,6 +185,7 @@ class ActionRunServiceTest {
                 annotationReadCache,
                 annotationProcessingService,
                 pageXmlToAnnotationParser,
+                pageOrderService,
                 actionAuditService,
                 actionProperties,
                 transactionTemplate
@@ -189,6 +194,7 @@ class ActionRunServiceTest {
         when(runRepository.findByStatusInAndLastHeartbeatAtBefore(anyCollection(), any())).thenReturn(List.of());
         when(runRepository.findByStatusInAndCompletedAtBefore(anyCollection(), any())).thenReturn(List.of());
         when(runRepository.findIdsByStatusOrderByCreatedAsc(ActionRun.Status.QUEUED)).thenReturn(List.of());
+        lenient().when(pageOrderService.sortPages(anyCollection())).thenAnswer(invocation -> List.copyOf(invocation.getArgument(0)));
     }
 
     @Test

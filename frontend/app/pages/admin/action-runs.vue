@@ -69,6 +69,38 @@ const hasActiveFilters = computed(() =>
   || processorFilter.value !== 'all'
   || workspaceFilter.value !== 'all'
 )
+const activeRunFilters = computed(() => {
+  const filters: Array<{ key: string, label: string, clear: () => void }> = []
+  if (debouncedSearch.value) {
+    filters.push({
+      key: 'search',
+      label: `Search: ${debouncedSearch.value}`,
+      clear: () => { searchInput.value = '' }
+    })
+  }
+  if (statusFilter.value !== 'ALL') {
+    filters.push({
+      key: 'status',
+      label: statusOptions.find(option => option.value === statusFilter.value)?.label ?? statusFilter.value,
+      clear: () => { statusFilter.value = 'ALL' }
+    })
+  }
+  if (processorFilter.value !== 'all') {
+    filters.push({
+      key: 'processor',
+      label: processorOptions.value.find(option => option.value === processorFilter.value)?.label ?? processorFilter.value,
+      clear: () => { processorFilter.value = 'all' }
+    })
+  }
+  if (workspaceFilter.value !== 'all') {
+    filters.push({
+      key: 'workspace',
+      label: workspaceOptions.value.find(option => option.value === workspaceFilter.value)?.label ?? workspaceFilter.value,
+      clear: () => { workspaceFilter.value = 'all' }
+    })
+  }
+  return filters
+})
 
 const filteredRuns = computed(() => runs.value
   .filter((run) => {
@@ -343,15 +375,6 @@ function setCancellingRun(runId: string, value: boolean) {
             value-key="value"
             class="w-full sm:w-56"
           />
-          <UButton
-            v-if="hasActiveFilters"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="clearFilters"
-          >
-            Clear Filters
-          </UButton>
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="admin-action-runs" :columns="columns" />
@@ -375,16 +398,22 @@ function setCancellingRun(runId: string, value: boolean) {
           <USkeleton class="h-14 w-full" />
         </div>
 
-        <UEmpty
-          v-else-if="filteredRuns.length === 0"
-          variant="naked"
-          icon="i-lucide-filter-x"
-          title="No matching Action runs"
-          :description="hasActiveFilters ? 'Try adjusting the current filters.' : 'No Action runs match the current view.'"
-        />
-
         <template v-else>
+          <AppTableActiveFilters
+            :filters="activeRunFilters"
+            @clear-all="clearFilters"
+          />
+
+          <UEmpty
+            v-if="filteredRuns.length === 0"
+            variant="naked"
+            icon="i-lucide-filter-x"
+            title="No matching Action runs"
+            :description="hasActiveFilters ? 'Try adjusting the current filters.' : 'No Action runs match the current view.'"
+          />
+
           <AppTable
+            v-else
             table-id="admin-action-runs"
             :data="paginatedRuns"
             :columns="columns"
@@ -392,7 +421,7 @@ function setCancellingRun(runId: string, value: boolean) {
             class="flex-1 px-4 pb-4"
           />
 
-          <div class="flex items-center justify-between border-t border-default px-4 py-4">
+          <div v-if="filteredRuns.length > 0" class="flex items-center justify-between border-t border-default px-4 py-4">
             <div class="text-sm text-muted">
               Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} runs
             </div>

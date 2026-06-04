@@ -85,7 +85,8 @@ public class ProjectPackageDto {
             LocalDateTime sourceCreated,
             LocalDateTime sourceUpdated,
             boolean locked,
-            String lockedReason
+            String lockedReason,
+            Integer sortOrder
     ) {
     }
 

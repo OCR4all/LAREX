@@ -54,4 +54,18 @@ public interface PageConfidenceIndexRepository extends JpaRepository<PageConfide
         @Param("projectId") String projectId,
         @Param("pageIds") Collection<String> pageIds
     );
+
+    @Query("""
+        SELECT p.page.id, p.confidence
+        FROM PageConfidenceIndex p
+        WHERE p.page.project.id = :projectId
+          AND p.page.id IN :pageIds
+          AND p.elementType = :elementType
+        ORDER BY p.page.id, p.confidence
+        """)
+    List<Object[]> findConfidenceValuesByProjectIdAndPageIdsAndElementType(
+        @Param("projectId") String projectId,
+        @Param("pageIds") Collection<String> pageIds,
+        @Param("elementType") PageConfidenceIndex.ElementType elementType
+    );
 }
