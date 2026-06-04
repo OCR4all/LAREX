@@ -128,7 +128,7 @@ type ConflictInfo = {
 }
 
 const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
-const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['projectOrderPosition', 'name', 'description', 'tags', 'imageCount', 'updated']
+const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'imageCount', 'updated']
 const PROJECT_PAGE_TABLE_BODY_CLASS = 'project-pages-sortable-tbody [&>tr]:last:[&>td]:border-b-0'
 
 type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
@@ -2334,6 +2334,22 @@ function renderPageTasksIndicator(page: Page, variant: 'icon' | 'badge' = 'icon'
 
 const pageColumns = [
   {
+    id: 'select',
+    header: () => h('input', {
+      type: 'checkbox',
+      checked: selectedPageIds.value.size === filteredPages.value.length && filteredPages.value.length > 0,
+      indeterminate: selectedPageIds.value.size > 0 && selectedPageIds.value.size < filteredPages.value.length,
+      onChange: toggleAllPages,
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    }),
+    cell: ({ row }: { row: { original: Page } }) => h('input', {
+      type: 'checkbox',
+      checked: selectedPageIds.value.has(row.original.id),
+      onChange: () => togglePageSelection(row.original.id),
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    })
+  },
+  {
     accessorKey: 'projectOrderPosition',
     header: () => isPageOrderingMode.value
       ? h(UIcon, {
@@ -2380,27 +2396,12 @@ const pageColumns = [
           class: 'text-xs font-medium tabular-nums text-muted'
         }, row.original.projectOrderPosition ?? ''),
     meta: {
+      label: 'Order',
       class: {
         th: 'w-24 text-center',
         td: 'w-24 text-center'
       }
     }
-  },
-  {
-    id: 'select',
-    header: () => h('input', {
-      type: 'checkbox',
-      checked: selectedPageIds.value.size === filteredPages.value.length && filteredPages.value.length > 0,
-      indeterminate: selectedPageIds.value.size > 0 && selectedPageIds.value.size < filteredPages.value.length,
-      onChange: toggleAllPages,
-      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
-    }),
-    cell: ({ row }: { row: { original: Page } }) => h('input', {
-      type: 'checkbox',
-      checked: selectedPageIds.value.has(row.original.id),
-      onChange: () => togglePageSelection(row.original.id),
-      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
-    })
   },
   {
     accessorKey: 'name',

@@ -13,6 +13,7 @@ type TableColumnLike = {
   header?: unknown
   columns?: unknown
   enableHiding?: unknown
+  meta?: unknown
 }
 
 export const FIXED_VISIBLE_COLUMN_IDS = new Set(['select', 'actions'])
@@ -58,9 +59,16 @@ export function normalizeTableColumns(columns: unknown[] | undefined): Normalize
       if (!id || seen.has(id)) continue
       seen.add(id)
 
-      const label = typeof value.header === 'string' && value.header.trim().length > 0
-        ? value.header.trim()
-        : humanizeColumnLabel(id)
+      const meta = value.meta && typeof value.meta === 'object'
+        ? value.meta as { label?: unknown }
+        : null
+      let label = humanizeColumnLabel(id)
+      if (typeof value.header === 'string' && value.header.trim().length > 0) {
+        label = value.header.trim()
+      }
+      if (typeof meta?.label === 'string' && meta.label.trim().length > 0) {
+        label = meta.label.trim()
+      }
 
       normalized.push({
         id,
