@@ -128,7 +128,19 @@ type ConflictInfo = {
 }
 
 const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
+const PROJECT_PAGES_TABLE_ID = 'project-pages-v2'
+const PROJECT_PAGE_ORDER_COLUMN_ID = 'projectOrderPosition'
 const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'imageCount', 'updated']
+const PROJECT_PAGE_HIDEABLE_COLUMN_IDS = [
+  PROJECT_PAGE_ORDER_COLUMN_ID,
+  'name',
+  'description',
+  'tags',
+  'imageCount',
+  'xmlFileCount',
+  'mySubtasks',
+  'updated'
+]
 const PROJECT_PAGE_TABLE_BODY_CLASS = 'project-pages-sortable-tbody [&>tr]:last:[&>td]:border-b-0'
 
 type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
@@ -1503,6 +1515,12 @@ const visibleProjectPageRows = ref<Page[]>([])
 const projectPagesTableRef = ref<{ $el?: HTMLElement | null } | null>(null)
 const isPageOrderingMode = ref(false)
 const isSavingPageOrder = ref(false)
+const projectOrderColumnWasHiddenBeforeOrdering = ref<boolean | null>(null)
+const { columnVisibility: projectPageColumnVisibility } = usePersistentTableColumnVisibility(
+  PROJECT_PAGES_TABLE_ID,
+  PROJECT_PAGE_HIDEABLE_COLUMN_IDS,
+  DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS
+)
 const hasPageOrderFilters = computed(() => {
   const tags = columnFilters.value['tags']
   return globalFilter.value.trim().length > 0
@@ -1550,6 +1568,47 @@ const pageTableSortable = useSortable(projectPageTableBody, visibleProjectPageRo
 watch(canDragProjectPageOrder, (enabled) => {
   pageTableSortable.option('disabled', !enabled)
 }, { immediate: true })
+
+function setProjectOrderColumnVisibility(visible: boolean) {
+  projectPageColumnVisibility.value = {
+    ...projectPageColumnVisibility.value,
+    [PROJECT_PAGE_ORDER_COLUMN_ID]: visible
+  }
+}
+
+function showProjectOrderColumnForOrdering() {
+  if (projectOrderColumnWasHiddenBeforeOrdering.value === null) {
+    projectOrderColumnWasHiddenBeforeOrdering.value = projectPageColumnVisibility.value[PROJECT_PAGE_ORDER_COLUMN_ID] === false
+  }
+  setProjectOrderColumnVisibility(true)
+}
+
+function restoreProjectOrderColumnAfterOrdering() {
+  const wasHidden = projectOrderColumnWasHiddenBeforeOrdering.value
+  projectOrderColumnWasHiddenBeforeOrdering.value = null
+  if (wasHidden) {
+    setProjectOrderColumnVisibility(false)
+  }
+}
+
+watch(isPageOrderingMode, (enabled) => {
+  if (enabled) {
+    showProjectOrderColumnForOrdering()
+  } else {
+    restoreProjectOrderColumnAfterOrdering()
+  }
+}, { flush: 'sync' })
+
+watch(projectPageColumnVisibility, (visibility) => {
+  if (!isPageOrderingMode.value || visibility[PROJECT_PAGE_ORDER_COLUMN_ID] !== false) return
+  setProjectOrderColumnVisibility(true)
+}, { deep: true })
+
+onBeforeUnmount(() => {
+  if (isPageOrderingMode.value) {
+    isPageOrderingMode.value = false
+  }
+})
 
 function togglePageOrderingMode() {
   if (isPageOrderingMode.value) {
@@ -2376,22 +2435,27 @@ const pageColumns = [
           })
         ]),
     cell: ({ row }: { row: { original: Page } }) => isPageOrderingMode.value
-      ? h(UButton, {
-          'icon': 'i-lucide-grip-vertical',
-          'color': 'neutral',
-          'variant': 'ghost',
-          'size': 'xs',
-          'square': true,
-          'disabled': !canDragProjectPageOrder.value,
-          'loading': isSavingPageOrder.value,
-          'class': canDragProjectPageOrder.value
-            ? 'project-page-order-handle cursor-grab active:cursor-grabbing'
-            : 'cursor-not-allowed opacity-40',
-          'aria-label': 'Drag page to reorder',
-          'title': canDragProjectPageOrder.value
-            ? 'Drag page to reorder'
-            : 'Clear filters and column sorting to reorder pages'
-        })
+      ? h('div', { class: 'flex items-center justify-center gap-2' }, [
+          h(UButton, {
+            'icon': 'i-lucide-grip-vertical',
+            'color': 'neutral',
+            'variant': 'ghost',
+            'size': 'xs',
+            'square': true,
+            'disabled': !canDragProjectPageOrder.value,
+            'loading': isSavingPageOrder.value,
+            'class': canDragProjectPageOrder.value
+              ? 'project-page-order-handle cursor-grab active:cursor-grabbing'
+              : 'cursor-not-allowed opacity-40',
+            'aria-label': 'Drag page to reorder',
+            'title': canDragProjectPageOrder.value
+              ? 'Drag page to reorder'
+              : 'Clear filters and column sorting to reorder pages'
+          }),
+          h('span', {
+            class: 'text-xs font-medium tabular-nums text-muted'
+          }, row.original.projectOrderPosition ?? '')
+        ])
       : h('span', {
           class: 'text-xs font-medium tabular-nums text-muted'
         }, row.original.projectOrderPosition ?? ''),
@@ -2876,7 +2940,7 @@ useHead({
           </UButton>
 
           <AppTableColumnsDropdown
-            table-id="project-pages-v2"
+            :table-id="PROJECT_PAGES_TABLE_ID"
             :columns="pageColumns"
             :default-visible-column-ids="DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS"
           />
@@ -3033,7 +3097,7 @@ useHead({
                 <AppTable
                   v-if="paginatedPages.length > 0"
                   ref="projectPagesTableRef"
-                  table-id="project-pages-v2"
+                  :table-id="PROJECT_PAGES_TABLE_ID"
                   :columns="pageColumns"
                   :data="visibleProjectPageRows"
                   :default-visible-column-ids="DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS"
