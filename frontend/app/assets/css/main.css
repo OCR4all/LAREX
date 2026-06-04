@@ -64,6 +64,10 @@
   font-family: var(--font-junicode), serif;
 }
 
+tbody[data-slot="tbody"] > tr[data-selectable="true"]:not([data-selected="true"]):hover {
+  background-color: transparent;
+}
+
 .editor-sidebar-image-scroll {
   /* Keep content clear of the thumb when overlay scrollbars are active */
   padding-inline-end: 0.25rem;
