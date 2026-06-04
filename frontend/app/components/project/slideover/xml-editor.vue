@@ -56,6 +56,7 @@ const saving = ref(false)
 const validating = ref(false)
 const validation = ref<XmlValidationResult | null>(null)
 const initialXml = ref('')
+const currentXml = ref('')
 
 const editorHost = ref<HTMLElement | null>(null)
 const searchAreaHost = ref<HTMLElement | null>(null)
@@ -68,7 +69,6 @@ const xmlSearchKeymap = keymap.of([
   ...searchKeymap
 ])
 
-const currentXml = computed(() => editorView?.state.doc.toString() ?? '')
 const isDirty = computed(() => currentXml.value !== initialXml.value)
 const isReadOnly = computed(() => Boolean(props.readOnly))
 const title = computed(() => isReadOnly.value ? 'View PAGE XML' : 'View/Edit PAGE XML')
@@ -110,6 +110,7 @@ async function loadXml() {
       `${resolvedXmlBasePath.value}/${props.xmlId}/text`
     )
     initialXml.value = response.xml
+    currentXml.value = response.xml
     validation.value = response.validation
   } catch (error: unknown) {
     const err = error as FetchErrorShape
@@ -122,7 +123,7 @@ async function loadXml() {
   } finally {
     loading.value = false
     await nextTick()
-    createEditor(initialXml.value)
+    createEditor(currentXml.value)
     if (validation.value) {
       applyDiagnostics(validation.value)
     }
@@ -133,6 +134,7 @@ function createEditor(content: string) {
   if (!editorHost.value) return
 
   editorView?.destroy()
+  currentXml.value = content
   editorView = new EditorView({
     state: EditorState.create({
       doc: content,
@@ -148,13 +150,19 @@ function createEditor(content: string) {
         EditorView.editable.of(!isReadOnly.value),
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
-          if (!update.docChanged || skipChangeValidation) return
-          void validateDebounced(update.state.doc.toString())
+          if (!update.docChanged) return
+          currentXml.value = update.state.doc.toString()
+          if (skipChangeValidation) return
+          void validateDebounced(currentXml.value)
         })
       ]
     }),
     parent: editorHost.value
   })
+}
+
+function getEditorXml() {
+  return editorView?.state.doc.toString() ?? currentXml.value
 }
 
 function buildThemeExtension() {
@@ -225,7 +233,7 @@ async function saveXml() {
 
   saving.value = true
   try {
-    const xmlText = editorView.state.doc.toString()
+    const xmlText = getEditorXml()
     await $fetch(`${resolvedXmlBasePath.value}/${props.xmlId}/text`, {
       method: 'PUT',
       body: { xml: xmlText }
@@ -233,6 +241,7 @@ async function saveXml() {
 
     skipChangeValidation = true
     initialXml.value = xmlText
+    currentXml.value = xmlText
     skipChangeValidation = false
 
     toast.add({
@@ -273,6 +282,7 @@ async function saveXml() {
 }
 
 async function closeWithGuard() {
+  currentXml.value = getEditorXml()
   if (isDirty.value) {
     const confirmed = await confirm({
       title: 'Discard unsaved XML changes?',
