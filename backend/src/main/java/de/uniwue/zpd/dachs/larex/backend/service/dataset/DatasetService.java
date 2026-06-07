@@ -23,11 +23,12 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
-import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.DatasetPackageArchiveService.ExportFile;
+import de.uniwue.zpd.dachs.larex.backend.service.dataset.DatasetPackageArchiveService.ExportSnapshot;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -46,7 +47,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -54,11 +54,9 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -81,7 +79,8 @@ public class DatasetService {
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     private final AuthorizationPolicyService authorizationPolicyService;
-    private final ArchiveIoService archiveIoService;
+    private final DatasetSplitService datasetSplitService;
+    private final DatasetPackageArchiveService datasetPackageArchiveService;
     private final ObjectMapper objectMapper;
 
     @Value("${file.upload-dir}")
@@ -102,7 +101,8 @@ public class DatasetService {
                           WorkspaceQuotaGuardService workspaceQuotaGuardService,
                           WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
                           AuthorizationPolicyService authorizationPolicyService,
-                          ArchiveIoService archiveIoService,
+                          DatasetSplitService datasetSplitService,
+                          DatasetPackageArchiveService datasetPackageArchiveService,
                           ObjectMapper objectMapper) {
         this.datasetRepository = datasetRepository;
         this.datasetItemRepository = datasetItemRepository;
@@ -116,7 +116,8 @@ public class DatasetService {
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
         this.authorizationPolicyService = authorizationPolicyService;
-        this.archiveIoService = archiveIoService;
+        this.datasetSplitService = datasetSplitService;
+        this.datasetPackageArchiveService = datasetPackageArchiveService;
         this.objectMapper = objectMapper;
     }
 
@@ -360,7 +361,7 @@ public class DatasetService {
         DatasetItem item = datasetItemRepository.findByIdAndDatasetId(itemId, datasetId)
                 .orElseThrow(() -> new ResourceNotFoundException("Dataset item", itemId));
         if (request.assignedSplit() != null) {
-            item.setAssignedSplit(normalizeSplitForTemplate(item.getDataset().getSplitTemplate(), request.assignedSplit()));
+            item.setAssignedSplit(datasetSplitService.normalizeSplitForTemplate(item.getDataset().getSplitTemplate(), request.assignedSplit()));
             item.setManualSplit(true);
         }
         datasetItemRepository.save(item);
@@ -472,7 +473,7 @@ public class DatasetService {
         }
 
         ExportSnapshot exportSnapshot = buildExportSnapshot(dataset, items, validationSnapshot.warnings(), null, LocalDateTime.now());
-        byte[] zipBytes = createPackageBytes(exportSnapshot);
+        byte[] zipBytes = datasetPackageArchiveService.createPackageBytes(exportSnapshot);
 
         dataset.setLastExportStatus(Dataset.ExportStatus.READY);
         dataset.setLastExportedAt(LocalDateTime.now());
@@ -528,11 +529,11 @@ public class DatasetService {
             Path packagePath = releaseRoot.resolve(fileName);
             reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
                     workspaceId,
-                    estimatePackageBytes(exportSnapshot),
+                    datasetPackageArchiveService.estimatePackageBytes(exportSnapshot),
                     "dataset-release"
             );
 
-            writePackageZip(packagePath, exportSnapshot);
+            datasetPackageArchiveService.writePackageZip(packagePath, exportSnapshot);
 
             String manifestJson = objectMapper.writeValueAsString(exportSnapshot.manifest());
             String statsJson = objectMapper.writeValueAsString(exportSnapshot.stats());
@@ -1114,181 +1115,14 @@ public class DatasetService {
     }
 
     private void regenerateSplitAssignments(Dataset dataset, List<DatasetItem> items) {
-        validateSplitConfiguration(dataset);
-        List<String> warnings = new ArrayList<>();
-
-        Dataset.SplitTemplate template = dataset.getSplitTemplate();
-        Map<DatasetItem.Split, Integer> targetCounts = targetCounts(template, dataset.getTrainPercentage(),
-                dataset.getValPercentage(), dataset.getTestPercentage(), items.size());
-
-        List<DatasetItem> preservedItems = items.stream()
-                .filter(item -> shouldPreserveSplit(item))
-                .toList();
-
-        Map<DatasetItem.Split, Integer> preservedCounts = new EnumMap<>(DatasetItem.Split.class);
-        for (DatasetItem.Split split : DatasetItem.Split.values()) {
-            preservedCounts.put(split, 0);
-        }
-        for (DatasetItem item : preservedItems) {
-            DatasetItem.Split split = normalizeSplitForTemplate(template, item.getAssignedSplit());
-            item.setAssignedSplit(split);
-            preservedCounts.put(split, preservedCounts.get(split) + 1);
-        }
-
-        for (Map.Entry<DatasetItem.Split, Integer> entry : preservedCounts.entrySet()) {
-            if (entry.getValue() > targetCounts.getOrDefault(entry.getKey(), 0)) {
-                warnings.add("Preserved assignments exceed target size for split " + entry.getKey().name().toLowerCase(Locale.ROOT) + ".");
-            }
-        }
-
-        List<DatasetItem> mutableItems = items.stream()
-                .filter(item -> !preservedItems.contains(item))
-                .toList();
-        Map<DatasetItem.Split, Integer> remainingCounts = new EnumMap<>(DatasetItem.Split.class);
-        for (DatasetItem.Split split : allowedSplits(template)) {
-            remainingCounts.put(split, Math.max(0, targetCounts.getOrDefault(split, 0) - preservedCounts.getOrDefault(split, 0)));
-        }
-
-        switch (dataset.getSplitAlgorithm()) {
-            case RANDOM_SEEDED -> assignRandomly(mutableItems, remainingCounts, template, dataset.getSplitSeed());
-            case GROUP_BY_SOURCE_PROJECT -> assignGrouped(
-                    mutableItems,
-                    remainingCounts,
-                    template,
-                    dataset.getSplitSeed(),
-                    item -> item.getSourceProjectId()
-            );
-            case MULTILABEL_STRATIFIED_BY_TAGS -> assignMultilabelStratified(mutableItems, remainingCounts, template, dataset.getSplitSeed(),
-                    dataset.getStratifyTagIds(), warnings);
-        }
+        List<String> warnings = datasetSplitService.regenerateSplitAssignments(dataset, items);
 
         for (DatasetItem item : items) {
-            item.setAssignedSplit(normalizeSplitForTemplate(template, item.getAssignedSplit()));
             datasetItemRepository.save(item);
         }
 
         dataset.setLastValidationWarningsJson(writeWarnings(warnings));
         datasetRepository.save(dataset);
-    }
-
-    private boolean shouldPreserveSplit(DatasetItem item) {
-        return item.getMode() == DatasetItem.Mode.COPY && item.getCopiedAt() != null;
-    }
-
-    private void assignRandomly(List<DatasetItem> items,
-                                Map<DatasetItem.Split, Integer> remainingCounts,
-                                Dataset.SplitTemplate template,
-                                Long seed) {
-        List<DatasetItem> shuffled = new ArrayList<>(items);
-        Collections.shuffle(shuffled, new Random(seed == null ? 42L : seed));
-        List<DatasetItem.Split> splitOrder = allowedSplits(template);
-        int cursor = 0;
-        for (DatasetItem.Split split : splitOrder) {
-            int amount = remainingCounts.getOrDefault(split, 0);
-            for (int i = 0; i < amount && cursor < shuffled.size(); i++) {
-                shuffled.get(cursor++).setAssignedSplit(split);
-            }
-        }
-        while (cursor < shuffled.size()) {
-            shuffled.get(cursor++).setAssignedSplit(fallbackSplit(template));
-        }
-    }
-
-    private void assignGrouped(List<DatasetItem> items,
-                               Map<DatasetItem.Split, Integer> remainingCounts,
-                               Dataset.SplitTemplate template,
-                               Long seed,
-                               java.util.function.Function<DatasetItem, String> grouper) {
-        Map<String, List<DatasetItem>> groups = items.stream()
-                .collect(Collectors.groupingBy(grouper, LinkedHashMap::new, Collectors.toList()));
-        List<Map.Entry<String, List<DatasetItem>>> entries = new ArrayList<>(groups.entrySet());
-        Collections.shuffle(entries, new Random(seed == null ? 42L : seed));
-        Map<DatasetItem.Split, Integer> assignedCounts = new EnumMap<>(DatasetItem.Split.class);
-        for (DatasetItem.Split split : allowedSplits(template)) {
-            assignedCounts.put(split, 0);
-        }
-
-        for (Map.Entry<String, List<DatasetItem>> entry : entries) {
-            DatasetItem.Split bestSplit = bestSplitForGroup(entry.getValue().size(), remainingCounts, assignedCounts, template);
-            for (DatasetItem item : entry.getValue()) {
-                item.setAssignedSplit(bestSplit);
-            }
-            assignedCounts.put(bestSplit, assignedCounts.get(bestSplit) + entry.getValue().size());
-        }
-    }
-
-    private void assignMultilabelStratified(List<DatasetItem> items,
-                                            Map<DatasetItem.Split, Integer> remainingCounts,
-                                            Dataset.SplitTemplate template,
-                                            Long seed,
-                                            List<String> stratifyTagIds,
-                                            List<String> warnings) {
-        List<String> effectiveTags = stratifyTagIds == null ? List.of() : stratifyTagIds.stream()
-                .filter(Objects::nonNull)
-                .filter(tag -> !tag.isBlank())
-                .distinct()
-                .toList();
-        if (effectiveTags.isEmpty()) {
-            warnings.add("Multilabel stratified splitting requested without stratify tags. Falling back to random seeded assignment.");
-            assignRandomly(items, remainingCounts, template, seed);
-            return;
-        }
-
-        Map<String, List<DatasetItem>> buckets = items.stream()
-                .collect(Collectors.groupingBy(item -> stratifySignature(item, effectiveTags), LinkedHashMap::new, Collectors.toList()));
-        Random random = new Random(seed == null ? 42L : seed);
-        Map<DatasetItem.Split, Integer> used = new EnumMap<>(DatasetItem.Split.class);
-        for (DatasetItem.Split split : allowedSplits(template)) {
-            used.put(split, 0);
-        }
-
-        for (List<DatasetItem> bucketItems : buckets.values()) {
-            List<DatasetItem> shuffledBucket = new ArrayList<>(bucketItems);
-            Collections.shuffle(shuffledBucket, random);
-            assignRandomly(shuffledBucket, deriveBucketTargets(shuffledBucket.size(), remainingCounts, template), template, random.nextLong());
-            for (DatasetItem item : shuffledBucket) {
-                used.put(item.getAssignedSplit(), used.getOrDefault(item.getAssignedSplit(), 0) + 1);
-            }
-        }
-    }
-
-    private Map<DatasetItem.Split, Integer> deriveBucketTargets(int bucketSize,
-                                                                Map<DatasetItem.Split, Integer> remainingCounts,
-                                                                Dataset.SplitTemplate template) {
-        int totalRemaining = remainingCounts.values().stream().mapToInt(Integer::intValue).sum();
-        if (totalRemaining <= 0) {
-            return Map.of(fallbackSplit(template), bucketSize);
-        }
-        Map<DatasetItem.Split, Integer> targets = new EnumMap<>(DatasetItem.Split.class);
-        int assigned = 0;
-        List<DatasetItem.Split> splits = allowedSplits(template);
-        for (int i = 0; i < splits.size(); i++) {
-            DatasetItem.Split split = splits.get(i);
-            if (i == splits.size() - 1) {
-                targets.put(split, Math.max(0, bucketSize - assigned));
-                continue;
-            }
-            double fraction = remainingCounts.getOrDefault(split, 0) / (double) totalRemaining;
-            int count = (int) Math.round(bucketSize * fraction);
-            targets.put(split, count);
-            assigned += count;
-        }
-        return targets;
-    }
-
-    private DatasetItem.Split bestSplitForGroup(int groupSize,
-                                                Map<DatasetItem.Split, Integer> remainingCounts,
-                                                Map<DatasetItem.Split, Integer> assignedCounts,
-                                                Dataset.SplitTemplate template) {
-        return allowedSplits(template).stream()
-                .min(Comparator.comparingInt(split -> {
-                    int remaining = remainingCounts.getOrDefault(split, 0) - assignedCounts.getOrDefault(split, 0);
-                    if (remaining >= groupSize) {
-                        return remaining - groupSize;
-                    }
-                    return Math.abs(remaining) + groupSize;
-                }))
-                .orElse(fallbackSplit(template));
     }
 
     private ValidationSnapshot validateItems(Dataset dataset,
@@ -1688,24 +1522,7 @@ public class DatasetService {
         dataset.setValPercentage(request.valPercentage() == null ? defaultVal : request.valPercentage());
         dataset.setTestPercentage(request.testPercentage() == null ? defaultTest : request.testPercentage());
         dataset.setStratifyTagIds(normalizeStrings(request.stratifyTagIds()));
-        validateSplitConfiguration(dataset);
-    }
-
-    private void validateSplitConfiguration(Dataset dataset) {
-        int train = defaultInt(dataset.getTrainPercentage());
-        int val = defaultInt(dataset.getValPercentage());
-        int test = dataset.getSplitTemplate() == Dataset.SplitTemplate.TRAIN_VAL ? 0 : defaultInt(dataset.getTestPercentage());
-
-        if (train < 0 || val < 0 || test < 0) {
-            throw new IllegalArgumentException("Split percentages must be non-negative");
-        }
-        int total = train + val + test;
-        if (total != 100) {
-            throw new IllegalArgumentException("Split percentages must add up to 100");
-        }
-        if (dataset.getSplitTemplate() == Dataset.SplitTemplate.TRAIN_VAL) {
-            dataset.setTestPercentage(0);
-        }
+        datasetSplitService.validateSplitConfiguration(dataset);
     }
 
     private void validateDatasetName(String workspaceId, String name, String existingDatasetId) {
@@ -1719,59 +1536,6 @@ public class DatasetService {
         if (exists) {
             throw new IllegalArgumentException("Dataset name already exists in this workspace");
         }
-    }
-
-    private Map<DatasetItem.Split, Integer> targetCounts(Dataset.SplitTemplate template,
-                                                         int trainPct,
-                                                         int valPct,
-                                                         int testPct,
-                                                         int itemCount) {
-        Map<DatasetItem.Split, Integer> counts = new EnumMap<>(DatasetItem.Split.class);
-        int train = (int) Math.round(itemCount * (trainPct / 100.0));
-        int val = (int) Math.round(itemCount * (valPct / 100.0));
-        int assigned = train + val;
-        int test = Math.max(0, itemCount - assigned);
-        counts.put(DatasetItem.Split.TRAIN, train);
-        counts.put(DatasetItem.Split.VAL, val);
-        if (template == Dataset.SplitTemplate.TRAIN_VAL_TEST) {
-            counts.put(DatasetItem.Split.TEST, test);
-        } else {
-            counts.put(DatasetItem.Split.TEST, 0);
-            if (assigned < itemCount) {
-                counts.put(DatasetItem.Split.VAL, counts.get(DatasetItem.Split.VAL) + (itemCount - assigned));
-            }
-        }
-        return counts;
-    }
-
-    private List<DatasetItem.Split> allowedSplits(Dataset.SplitTemplate template) {
-        if (template == Dataset.SplitTemplate.TRAIN_VAL) {
-            return List.of(DatasetItem.Split.TRAIN, DatasetItem.Split.VAL);
-        }
-        return List.of(DatasetItem.Split.TRAIN, DatasetItem.Split.VAL, DatasetItem.Split.TEST);
-    }
-
-    private DatasetItem.Split fallbackSplit(Dataset.SplitTemplate template) {
-        return template == Dataset.SplitTemplate.TRAIN_VAL ? DatasetItem.Split.VAL : DatasetItem.Split.TEST;
-    }
-
-    private DatasetItem.Split normalizeSplitForTemplate(Dataset.SplitTemplate template, DatasetItem.Split split) {
-        if (split == null) {
-            return DatasetItem.Split.TRAIN;
-        }
-        if (template == Dataset.SplitTemplate.TRAIN_VAL && split == DatasetItem.Split.TEST) {
-            return DatasetItem.Split.VAL;
-        }
-        return split;
-    }
-
-    private String stratifySignature(DatasetItem item, List<String> stratifyTagIds) {
-        Set<String> tags = new LinkedHashSet<>(defaultList(item.getSourcePageTags()));
-        List<String> matching = stratifyTagIds.stream()
-                .filter(tags::contains)
-                .sorted()
-                .toList();
-        return matching.isEmpty() ? "__UNTAGGED__" : String.join("|", matching);
     }
 
     private Path datasetRoot(String workspaceId, String datasetId, String itemId) {
@@ -1923,55 +1687,6 @@ public class DatasetService {
         }
     }
 
-    private long estimatePackageBytes(ExportSnapshot exportSnapshot) {
-        long fileBytes = exportSnapshot.files().stream().mapToLong(file -> {
-            try {
-                return Files.size(file.absolutePath());
-            } catch (IOException e) {
-                throw new IllegalStateException("Failed to read export file size", e);
-            }
-        }).sum();
-        return fileBytes + 1_048_576L;
-    }
-
-    private byte[] createPackageBytes(ExportSnapshot exportSnapshot) throws IOException {
-        return archiveIoService.createZip(zipOut -> {
-            writePackageEntries(zipOut, exportSnapshot);
-        });
-    }
-
-    private void writePackageZip(Path outputPath, ExportSnapshot exportSnapshot) throws IOException {
-        archiveIoService.writeZip(outputPath, zipOut -> {
-            writePackageEntries(zipOut, exportSnapshot);
-        });
-    }
-
-    private void writePackageEntries(java.util.zip.ZipOutputStream zipOut, ExportSnapshot exportSnapshot) throws IOException {
-        archiveIoService.writeJsonEntry(zipOut, "manifest.json", exportSnapshot.manifest());
-        archiveIoService.writeJsonEntry(zipOut, "stats.json", exportSnapshot.stats());
-
-        for (Map.Entry<DatasetItem.Split, List<Map<String, Object>>> entry : exportSnapshot.jsonlRowsBySplit().entrySet()) {
-            if (entry.getValue().isEmpty()) {
-                continue;
-            }
-            String content = entry.getValue().stream()
-                    .map(row -> {
-                        try {
-                            return objectMapper.writeValueAsString(row);
-                        } catch (IOException e) {
-                            throw new IllegalStateException("Failed to serialize JSONL row", e);
-                        }
-                    })
-                    .collect(Collectors.joining("\n")) + "\n";
-            String splitName = entry.getKey().name().toLowerCase(Locale.ROOT);
-            archiveIoService.writeBytesEntry(zipOut, "splits/" + splitName + ".jsonl", content.getBytes());
-        }
-
-        for (ExportFile exportFile : exportSnapshot.files()) {
-            archiveIoService.writeFileEntry(zipOut, exportFile.archivePath(), exportFile.absolutePath());
-        }
-    }
-
     private Path datasetReleaseRoot(String workspaceId, String datasetId, String releaseId) {
         return datasetRoot(workspaceId, datasetId, null)
                 .resolve("releases")
@@ -1991,15 +1706,6 @@ public class DatasetService {
     }
 
     private record ExportMaterial(ResolvedFile xml, List<ResolvedFile> images, LocalDateTime xmlSourceUpdatedAt) {
-    }
-
-    private record ExportFile(String archivePath, Path absolutePath) {
-    }
-
-    private record ExportSnapshot(Map<String, Object> manifest,
-                                  DatasetDto.StatsResponse stats,
-                                  Map<DatasetItem.Split, List<Map<String, Object>>> jsonlRowsBySplit,
-                                  List<ExportFile> files) {
     }
 
     private record MutableProjectPages(String projectId, String projectName, List<DatasetDto.EditorPageResponse> pages) {
