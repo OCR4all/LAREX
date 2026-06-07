@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import type { RegionKind } from '@/models/editor/region'
 import { getRegionKindDisplayName, getRegionKindIcon } from '@/utils/editor/region-colors'
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
 
 export interface MergeSettings {
   targetKind: RegionKind
   mergeChildren: boolean
 }
+
+useBlockEditorCanvasInteractions()
 
 const props = defineProps<{
   availableKinds: RegionKind[]

@@ -88,9 +88,19 @@ type ProjectData = {
   codecId?: string | null
   labelSetId?: string | null
   dictionaryId?: string | null
+  tagSetId?: string | null
   normalizationProfileId?: string | null
   validationRulesetId?: string | null
+  virtualKeyboardId?: string | null
+  allowCodecOverride?: boolean
+  allowDictionaryOverride?: boolean
+  allowVirtualKeyboardOverride?: boolean
+  allowLabelSetOverride?: boolean
+  allowTagSetOverride?: boolean
+  allowNormalizationProfileOverride?: boolean
+  allowValidationRulesetOverride?: boolean
   defaultGtIndex?: number | null
+  defaultRecognitionIndices?: number[] | null
   capabilities?: {
     canEdit: boolean
     canShare: boolean
@@ -220,8 +230,10 @@ function normalizeProjectForEdit(project: ProjectData) {
     codecId: project.codecId ?? undefined,
     labelSetId: project.labelSetId ?? undefined,
     dictionaryId: project.dictionaryId ?? undefined,
+    tagSetId: project.tagSetId ?? undefined,
     normalizationProfileId: project.normalizationProfileId ?? undefined,
-    validationRulesetId: project.validationRulesetId ?? undefined
+    validationRulesetId: project.validationRulesetId ?? undefined,
+    virtualKeyboardId: project.virtualKeyboardId ?? undefined
   }
 }
 
@@ -3189,22 +3201,24 @@ useHead({
             </UiFloatingSelectionMenu>
           </div>
 
-          <aside
-            v-if="isReleaseSidebarVisible"
-            class="hidden w-[340px] shrink-0 self-stretch border-l border-default bg-muted/40 xl:block"
-          >
-            <ProjectReleasePanel
-              :releases="releasesForSidebar"
-              :pending="releasesPending"
-              :error="releasesError"
-              :summary="releaseSidebarSummary"
-              :latest-release-id="latestReleaseId"
-              :can-share="canShareProject"
-              @create="openCreateRelease"
-              @share="openReleaseShare"
-              @download="downloadProjectRelease"
-            />
-          </aside>
+          <Transition name="release-sidebar">
+            <aside
+              v-if="isReleaseSidebarVisible"
+              class="hidden w-[340px] shrink-0 self-stretch border-l border-default bg-muted/40 xl:block"
+            >
+              <ProjectReleasePanel
+                :releases="releasesForSidebar"
+                :pending="releasesPending"
+                :error="releasesError"
+                :summary="releaseSidebarSummary"
+                :latest-release-id="latestReleaseId"
+                :can-share="canShareProject"
+                @create="openCreateRelease"
+                @share="openReleaseShare"
+                @download="downloadProjectRelease"
+              />
+            </aside>
+          </Transition>
         </div>
       </div>
     </template>
@@ -3853,5 +3867,35 @@ useHead({
 .normalization-preview-mark--insert {
   background: color-mix(in srgb, var(--ui-warning) 18%, transparent);
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ui-warning) 70%, transparent);
+}
+
+.release-sidebar-enter-active,
+.release-sidebar-leave-active {
+  overflow: hidden;
+  transition:
+    width 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.release-sidebar-enter-from,
+.release-sidebar-leave-to {
+  width: 0;
+  opacity: 0;
+  transform: translateX(1rem);
+}
+
+.release-sidebar-enter-to,
+.release-sidebar-leave-from {
+  width: 340px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .release-sidebar-enter-active,
+  .release-sidebar-leave-active {
+    transition: none;
+  }
 }
 </style>

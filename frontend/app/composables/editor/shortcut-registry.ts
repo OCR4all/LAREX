@@ -446,7 +446,19 @@ const RESERVED_SHORTCUT_BINDINGS = new Set([
 function isMacLikePlatform(platform?: string): boolean {
   if (platform) return platform.toLowerCase() === 'mac'
   if (typeof navigator === 'undefined') return false
-  return /mac|iphone|ipad|ipod/i.test(navigator.userAgent)
+
+  const nav = navigator as Navigator & {
+    userAgentData?: {
+      platform?: string
+    }
+  }
+  const platformHint = [
+    nav.userAgentData?.platform,
+    nav.platform,
+    nav.userAgent
+  ].filter((value): value is string => typeof value === 'string')
+
+  return platformHint.some(value => /mac|iphone|ipad|ipod/i.test(value))
 }
 
 function normalizeKeyToken(token: string): string | null {
@@ -465,7 +477,8 @@ function normalizeKeyToken(token: string): string | null {
 
 function normalizeCodeToken(code: string | undefined): string | null {
   if (!code) return null
-  if (code in CODE_TOKEN_MAP) return CODE_TOKEN_MAP[code]
+  const mappedToken = CODE_TOKEN_MAP[code]
+  if (mappedToken) return mappedToken
 
   const letterMatch = /^Key([A-Z])$/.exec(code)
   if (letterMatch) return letterMatch[1]?.toLowerCase() ?? null
@@ -588,15 +601,17 @@ export function serializeKeyboardEventToBinding(
   const isMac = isMacLikePlatform(options?.platform)
   const modifiers: string[] = []
 
-  if (isMac ? event.metaKey : event.ctrlKey) modifiers.push('meta')
-  if (isMac ? event.ctrlKey : event.metaKey) modifiers.push('ctrl')
+  if (event.metaKey || (!isMac && event.ctrlKey)) modifiers.push('meta')
+  if (event.ctrlKey && (isMac || event.metaKey)) modifiers.push('ctrl')
   if (event.altKey) modifiers.push('alt')
   if (event.shiftKey) modifiers.push('shift')
 
   const hasNonShiftModifier = modifiers.some(modifier => modifier !== 'shift')
+  const keyToken = normalizeKeyToken(event.key)
+  const codeToken = normalizeCodeToken(event.code)
   const key = hasNonShiftModifier
-    ? normalizeCodeToken(event.code) ?? normalizeKeyToken(event.key)
-    : normalizeKeyToken(event.key) ?? normalizeCodeToken(event.code)
+    ? (keyToken && /^[a-z0-9]$/.test(keyToken) ? keyToken : codeToken ?? keyToken)
+    : keyToken ?? codeToken
   if (!key || ['meta', 'ctrl', 'alt', 'shift'].includes(key)) return null
 
   return normalizeShortcutBinding([...modifiers, key].join('_'))

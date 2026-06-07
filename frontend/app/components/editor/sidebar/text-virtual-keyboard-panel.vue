@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
+import { toProjectToolkitSettings, useProjectToolkitPresets } from '@/composables/editor/use-project-toolkit-presets'
 import type { KeyboardItem } from '@/types/virtual-keyboard'
+import { LazyEditorModalToolkitResourceEdit, LazyUiConfirmSlideover } from '#components'
+import type { DropdownMenuItem } from '@nuxt/ui'
 
 interface WrappedKeyboardItem {
   id: string
@@ -20,8 +24,23 @@ const {
   selectedKeyboardId
 } = useVirtualKeyboards()
 const palette = useVirtualKeyboardPalette()
+const toast = useToast()
+const overlay = useOverlay()
+const workspace = useWorkspaceStore()
+const editorStore = useEditorStore()
+const sessionStore = useEditorSessionStore()
+const { patchProjectToolkitPresets } = useProjectToolkitPresets()
+const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
+const editModal = overlay.create(LazyEditorModalToolkitResourceEdit)
 
 const hasKeyboards = computed(() => (keyboards.value ?? []).length > 0)
+const selectedWorkspaceId = computed(() => workspace.selectedWorkspaceId as string)
+const keyboardsKey = computed(() => wsKey(selectedWorkspaceId.value, 'virtual-keyboards', 'list'))
+const activeProjectId = computed(() => sessionStore.activeProjectId)
+const canSetProjectPresets = computed(() => workspace.currentWorkspace?.capabilities?.canSetPresets ?? workspace.isCurrentUserOwner)
+const canCreateKeyboard = computed(() => workspace.canManageToolkit)
+const canSwitchVirtualKeyboard = computed(() => canSetProjectPresets.value || editorStore.projectToolkitSettings.allowVirtualKeyboardOverride)
+const isSavingDefault = ref(false)
 
 const layoutSelectItems = computed(() =>
   (keyboards.value ?? []).map(layout => ({ label: layout.name, value: layout.id }))
@@ -29,10 +48,17 @@ const layoutSelectItems = computed(() =>
 
 const selectedLayoutId = computed({
   get: () => selectedKeyboardId.value ?? selectedLayout.value?.id ?? '',
-  set: (id: string) => {
+  set: (id: string | null | undefined) => {
+    if (!canSwitchVirtualKeyboard.value) {
+      toast.add({ title: 'Virtual keyboard switching is fixed for this project', color: 'warning' })
+      return
+    }
     selectedKeyboardId.value = id || null
   }
 })
+const selectedKeyboard = computed(() => (keyboards.value ?? []).find(keyboard => keyboard.id === selectedLayoutId.value) ?? null)
+const canEditSelectedKeyboard = computed(() => Boolean(selectedKeyboard.value?.capabilities?.canEdit))
+const canClearVirtualKeyboard = computed(() => Boolean(selectedLayoutId.value) && canSwitchVirtualKeyboard.value)
 
 const keyboardRootRef = ref<HTMLElement | null>(null)
 const keyboardViewportRef = ref<HTMLDivElement | null>(null)
@@ -200,10 +226,100 @@ const onFocusOut = (event: FocusEvent) => {
   })
 }
 
-function openKeyboardEditor() {
-  if (!selectedKeyboardId.value) return
-  navigateTo(`/virtual-keyboard/${selectedKeyboardId.value}`)
+async function saveKeyboardDefault() {
+  const workspaceId = selectedWorkspaceId.value
+  const projectId = activeProjectId.value
+  if (!workspaceId || !projectId || !canSetProjectPresets.value) return
+
+  isSavingDefault.value = true
+  try {
+    const updated = await patchProjectToolkitPresets(workspaceId, projectId, {
+      virtualKeyboardId: selectedKeyboardId.value ?? null
+    })
+    editorStore.setProjectToolkitSettings(toProjectToolkitSettings(updated), projectId)
+    toast.add({ title: 'Project virtual keyboard default updated', color: 'success' })
+  } catch (error: unknown) {
+    toast.add({ title: 'Could not save keyboard default', description: error instanceof Error ? error.message : undefined, color: 'error' })
+  } finally {
+    isSavingDefault.value = false
+  }
 }
+
+async function confirmSaveKeyboardDefault() {
+  if (!canSetProjectPresets.value || isSavingDefault.value) return
+  const instance = confirmSlideover.open({
+    title: 'Set Default Virtual Keyboard',
+    message: 'This changes the project default virtual keyboard and affects all users working on this project.',
+    confirmLabel: 'Set Default',
+    confirmIcon: 'i-lucide-save',
+    confirmColor: 'warning'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+  await saveKeyboardDefault()
+}
+
+async function openKeyboardEditor() {
+  const keyboard = selectedKeyboard.value
+  const workspaceId = selectedWorkspaceId.value
+  if (!keyboard || !workspaceId || !canEditSelectedKeyboard.value) return
+
+  const reloadKeyboards = async () => {
+    await refreshNuxtData(keyboardsKey.value)
+  }
+
+  const instance = editModal.open({
+    title: `Edit Virtual Keyboard · ${keyboard.name}`,
+    src: `/virtual-keyboard/${keyboard.id}?embedded=toolkit-editor`,
+    onSaved: reloadKeyboards
+  })
+  await instance.result
+  await reloadKeyboards()
+}
+
+async function openKeyboardCreateModal() {
+  const workspaceId = selectedWorkspaceId.value
+  if (!workspaceId || !canCreateKeyboard.value) return
+
+  const reloadKeyboards = async () => {
+    await refreshNuxtData(keyboardsKey.value)
+  }
+
+  const instance = editModal.open({
+    title: 'Create Virtual Keyboard',
+    src: '/virtual-keyboard/new?embedded=toolkit-editor',
+    onSaved: reloadKeyboards
+  })
+  await instance.result
+  await reloadKeyboards()
+}
+
+const actionItems = computed<DropdownMenuItem[][]>(() => {
+  const items: DropdownMenuItem[] = []
+  if (canCreateKeyboard.value) {
+    items.push({
+      label: 'Create',
+      icon: 'i-lucide-plus',
+      onSelect: openKeyboardCreateModal
+    })
+  }
+  if (canSetProjectPresets.value) {
+    items.push({
+      label: 'Set as default',
+      icon: 'i-lucide-save',
+      disabled: isSavingDefault.value,
+      onSelect: confirmSaveKeyboardDefault
+    })
+  }
+  if (canEditSelectedKeyboard.value) {
+    items.push({
+      label: 'Edit',
+      icon: 'i-lucide-pencil',
+      onSelect: openKeyboardEditor
+    })
+  }
+  return items.length > 0 ? [items] : []
+})
 
 function updateKeyboardViewportWidth() {
   const width = keyboardViewportRef.value?.clientWidth ?? 0
@@ -243,6 +359,30 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="keyboardRootRef" class="p-3 space-y-3">
+    <div class="relative z-30 flex items-center gap-2">
+      <USelectMenu
+        v-model="selectedLayoutId"
+        class="min-w-0 flex-1"
+        :items="layoutSelectItems"
+        value-key="value"
+        :clear="canClearVirtualKeyboard"
+        :search-input="{ placeholder: 'Search keyboards...' }"
+        :disabled="!hasKeyboards || !canSwitchVirtualKeyboard"
+        placeholder="Choose a virtual keyboard"
+        size="sm"
+      />
+      <UDropdownMenu v-if="actionItems.length > 0" :items="actionItems" :content="{ align: 'end' }">
+        <UButton
+          size="sm"
+          variant="ghost"
+          color="neutral"
+          icon="i-lucide-more-vertical"
+          aria-label="Virtual keyboard actions"
+          :loading="isSavingDefault"
+        />
+      </UDropdownMenu>
+    </div>
+
     <UAlert
       v-if="!hasKeyboards"
       icon="i-lucide-keyboard-off"
@@ -252,27 +392,21 @@ onBeforeUnmount(() => {
       variant="soft"
     />
 
-    <template v-else-if="selectedLayout">
-      <div class="relative z-30 flex items-center gap-2">
-        <USelectMenu
-          v-model="selectedLayoutId"
-          class="min-w-0 flex-1"
-          :items="layoutSelectItems"
-          value-key="value"
-          :search-input="{ placeholder: 'Search keyboards...' }"
-          size="sm"
-        />
-        <UButton
-          size="sm"
-          variant="ghost"
-          color="neutral"
-          icon="i-lucide-external-link"
-          aria-label="Open virtual keyboard editor"
-          @click="openKeyboardEditor"
-        />
-      </div>
+    <template v-else>
+      <p v-if="!canSwitchVirtualKeyboard" class="text-xs text-muted">
+        This project uses a fixed virtual keyboard.
+      </p>
 
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+      <UAlert
+        v-if="!selectedLayout"
+        icon="i-lucide-keyboard"
+        title="No virtual keyboard selected"
+        :description="canSwitchVirtualKeyboard ? 'Choose a virtual keyboard to use it in this editor session.' : 'A project manager must set a default virtual keyboard.'"
+        color="neutral"
+        variant="soft"
+      />
+
+      <div v-else class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <span>{{ selectedLayout.cols }}x{{ selectedLayout.rows }} grid</span>
         <span v-if="isWrappedLayout">Wrapped to {{ wrapColumns }} columns per line</span>
         <span v-if="activeInputLabel" class="truncate max-w-full">{{ activeInputLabel }}</span>
@@ -280,6 +414,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div
+        v-if="selectedLayout"
         ref="keyboardViewportRef"
         class="relative z-0 overflow-y-auto overflow-x-hidden"
       >

@@ -2213,6 +2213,8 @@ const loadProjectLabelSet = async (projectId?: string | null, force = false) => 
     editorStore.setLabelSet(createPageXmlLabelSet())
     editorStore.clearProjectCodec()
     editorStore.clearProjectDictionary()
+    editorStore.clearProjectVirtualKeyboard()
+    editorStore.setProjectToolkitSettings({})
     return
   }
   if (!force && loadedProjectMetadata.value.has(projectId)) {
@@ -2224,9 +2226,36 @@ const loadProjectLabelSet = async (projectId?: string | null, force = false) => 
       labelSetId?: string | null
       codecId?: string | null
       dictionaryId?: string | null
+      tagSetId?: string | null
+      normalizationProfileId?: string | null
+      validationRulesetId?: string | null
+      virtualKeyboardId?: string | null
+      allowCodecOverride?: boolean
+      allowDictionaryOverride?: boolean
+      allowVirtualKeyboardOverride?: boolean
+      allowLabelSetOverride?: boolean
+      allowTagSetOverride?: boolean
+      allowNormalizationProfileOverride?: boolean
+      allowValidationRulesetOverride?: boolean
       defaultGtIndex?: number | null
       defaultRecognitionIndices?: number[] | null
     }>(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}`)
+    editorStore.setProjectToolkitSettings({
+      codecId: project.codecId ?? null,
+      labelSetId: project.labelSetId ?? null,
+      dictionaryId: project.dictionaryId ?? null,
+      tagSetId: project.tagSetId ?? null,
+      normalizationProfileId: project.normalizationProfileId ?? null,
+      validationRulesetId: project.validationRulesetId ?? null,
+      virtualKeyboardId: project.virtualKeyboardId ?? null,
+      allowCodecOverride: project.allowCodecOverride !== false,
+      allowDictionaryOverride: project.allowDictionaryOverride !== false,
+      allowVirtualKeyboardOverride: project.allowVirtualKeyboardOverride !== false,
+      allowLabelSetOverride: project.allowLabelSetOverride !== false,
+      allowTagSetOverride: project.allowTagSetOverride !== false,
+      allowNormalizationProfileOverride: project.allowNormalizationProfileOverride !== false,
+      allowValidationRulesetOverride: project.allowValidationRulesetOverride !== false
+    }, projectId)
     if (project.labelSetId) {
       const labelSet = await $fetch<ApiLabelSet>(`/api/workspaces/${selectedWorkspace.value}/label-sets/${project.labelSetId}`)
       editorStore.setLabelSetFromApi(labelSet, projectId)
@@ -2262,6 +2291,8 @@ const loadProjectLabelSet = async (projectId?: string | null, force = false) => 
     } else {
       editorStore.clearProjectDictionary(projectId)
     }
+
+    editorStore.setProjectVirtualKeyboard(project.virtualKeyboardId ?? null, projectId)
 
     editorStore.setProjectTextIndexDefaults({
       gtIndex: Number.isFinite(Number(project.defaultGtIndex)) ? Number(project.defaultGtIndex) : 0,

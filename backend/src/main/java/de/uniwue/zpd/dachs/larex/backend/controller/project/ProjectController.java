@@ -117,6 +117,14 @@ public class ProjectController {
                 request.tagSetId(),
                 request.normalizationProfileId(),
                 request.validationRulesetId(),
+                request.virtualKeyboardId(),
+                request.allowCodecOverride(),
+                request.allowDictionaryOverride(),
+                request.allowVirtualKeyboardOverride(),
+                request.allowLabelSetOverride(),
+                request.allowTagSetOverride(),
+                request.allowNormalizationProfileOverride(),
+                request.allowValidationRulesetOverride(),
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
                 userId
@@ -145,8 +153,48 @@ public class ProjectController {
                 request.tagSetId(),
                 request.normalizationProfileId(),
                 request.validationRulesetId(),
+                request.virtualKeyboardId(),
+                request.allowCodecOverride(),
+                request.allowDictionaryOverride(),
+                request.allowVirtualKeyboardOverride(),
+                request.allowLabelSetOverride(),
+                request.allowTagSetOverride(),
+                request.allowNormalizationProfileOverride(),
+                request.allowValidationRulesetOverride(),
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
+                userId
+        );
+
+        return projectOpt.map(project -> projectReadService.toResponse(project, userId))
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new ResourceNotFoundException("Project", projectId));
+    }
+
+    @PatchMapping("/{projectId}/toolkit-presets")
+    public ResponseEntity<ProjectDto.Response> updateToolkitPresets(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @Valid @RequestBody ProjectDto.ToolkitPresetsRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        Optional<Project> projectOpt = projectService.updateToolkitPresets(
+                workspaceId,
+                projectId,
+                request.codecId(),
+                request.labelSetId(),
+                request.dictionaryId(),
+                request.tagSetId(),
+                request.normalizationProfileId(),
+                request.validationRulesetId(),
+                request.virtualKeyboardId(),
+                request.allowCodecOverride(),
+                request.allowDictionaryOverride(),
+                request.allowVirtualKeyboardOverride(),
+                request.allowLabelSetOverride(),
+                request.allowTagSetOverride(),
+                request.allowNormalizationProfileOverride(),
+                request.allowValidationRulesetOverride(),
                 userId
         );
 

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
+
+useBlockEditorCanvasInteractions()
 
 const props = defineProps<{
   target: ContextMenuTarget
@@ -17,9 +20,9 @@ const polygon = computed(() => props.target.type === 'polygon' ? (props.target.e
 const polyline = computed(() => props.target.type === 'polyline' ? (props.target.element as RenderablePolyline) : null)
 
 const title = computed(() => props.target.type === 'polygon' ? 'Element Properties' : 'Baseline Properties')
-const elementId = computed(() => (props.target.element as any)?.id as string)
-const parentId = computed(() => (props.target.element as any)?.parentId as string | undefined)
-const pointsCount = computed(() => ((props.target.element as any)?.points?.length as number | undefined) ?? 0)
+const elementId = computed(() => polygon.value?.id ?? polyline.value?.id ?? '')
+const parentId = computed(() => polygon.value?.parentId)
+const pointsCount = computed(() => polygon.value?.points?.length ?? polyline.value?.points?.length ?? 0)
 
 const elementType = computed(() => {
   if (polygon.value) {

@@ -27,6 +27,7 @@ const emit = defineEmits<{
 const PAGE_SIZE = 100
 const OVERSCAN = 8
 const LOAD_AHEAD_THRESHOLD = 20
+const ROW_HEIGHT = 88
 
 const toast = useToast()
 const dictionaryKey = computed(() => props.dictionaryId ? wsKey(props.workspaceId, 'dictionaries', props.dictionaryId) : '')
@@ -59,6 +60,7 @@ const editingEntry = reactive<EditableDictionaryEntry>({
 })
 
 const scrollerRef = ref<HTMLElement | null>(null)
+let resizeObserver: ResizeObserver | null = null
 
 const canEdit = computed(() => props.editable && Boolean(props.workspaceId) && Boolean(props.dictionaryId))
 const canLoad = computed(() => Boolean(props.workspaceId) && Boolean(props.dictionaryId))
@@ -77,12 +79,16 @@ watch(searchInput, (value) => {
 
 onBeforeUnmount(() => {
   if (debounceTimer) clearTimeout(debounceTimer)
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
 })
 
 const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => ({
   count: virtualCount.value,
   getScrollElement: () => scrollerRef.value,
-  estimateSize: () => 72,
+  estimateSize: () => ROW_HEIGHT,
   overscan: OVERSCAN,
   getItemKey: index => entries.value[index]?.id ?? `loader-${index}`
 })))
@@ -95,12 +101,6 @@ const virtualRows = computed<Array<{ item: VirtualItem, entry?: DictionaryEntry 
 )
 
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
-
-function measureElement(el: Element | null) {
-  if (el instanceof HTMLElement) {
-    rowVirtualizer.value.measureElement(el)
-  }
-}
 
 async function fetchEntries(page: number, append: boolean) {
   if (!canLoad.value || !props.dictionaryId) {
@@ -140,10 +140,10 @@ async function fetchEntries(page: number, append: boolean) {
     currentPage.value = response.page ?? page
     hasLoaded.value = true
     emit('stats', { totalEntries: totalEntries.value })
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast.add({
       title: 'Failed to load dictionary entries',
-      description: error?.data?.message || error?.message,
+      description: extractApiErrorMessage(error, 'Failed to load dictionary entries'),
       color: 'error'
     })
   } finally {
@@ -170,6 +170,14 @@ watch([() => props.workspaceId, () => props.dictionaryId, debouncedSearch], asyn
   editingEntryId.value = null
   await refresh(true)
 }, { immediate: true })
+
+onMounted(() => {
+  if (typeof ResizeObserver === 'undefined' || !scrollerRef.value) return
+  resizeObserver = new ResizeObserver(() => {
+    rowVirtualizer.value.measure()
+  })
+  resizeObserver.observe(scrollerRef.value)
+})
 
 watch(virtualRows, (rows) => {
   const lastRow = rows.at(-1)
@@ -333,15 +341,15 @@ defineExpose({
         <div
           v-for="{ item, entry } in virtualRows"
           :key="String(item.key)"
-          :ref="(el) => measureElement(el as Element | null)"
           :style="{
             position: 'absolute',
             top: 0,
             left: 0,
             width: '100%',
+            height: `${item.size}px`,
             transform: `translateY(${item.start}px)`
           }"
-          class="border-b border-default last:border-b-0"
+          class="overflow-hidden border-b border-default last:border-b-0"
         >
           <div v-if="entry" class="p-3">
             <div v-if="editingEntryId === entry.id" class="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto_auto]">

@@ -8,6 +8,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const { allow } = useActionVisibility()
+const { uploadFormDataWithProgress, runTrackedProcessing } = useTrackedUpload()
 const overlay = useOverlay()
 const shareSlideover = overlay.create(LazyShareSlideover)
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
@@ -17,6 +18,7 @@ const workspaceId = computed(() => selectedWorkspace.value ?? '')
 
 const id = route.params.id as string
 const isNew = id === 'new'
+const isEmbeddedToolkitEditor = computed(() => route.query.embedded === 'toolkit-editor')
 const dictionaryKey = computed(() => wsKey(workspaceId.value, 'dictionaries', id))
 const dictionariesListKey = computed(() => wsKey(workspaceId.value, 'dictionaries', 'list'))
 const importDictionaryInput = ref<HTMLInputElement | null>(null)
@@ -105,6 +107,19 @@ const breadcrumbItems = computed(() => [
   }
 ])
 
+function toolkitEditorRoute(path: string) {
+  return isEmbeddedToolkitEditor.value ? { path, query: { embedded: 'toolkit-editor' } } : path
+}
+
+function notifyToolkitEditorSaved(resourceId: string) {
+  if (!import.meta.client || !isEmbeddedToolkitEditor.value) return
+  window.parent?.postMessage({
+    type: 'larex:toolkit-resource-saved',
+    resourceType: 'dictionary',
+    id: resourceId
+  }, window.location.origin)
+}
+
 async function refreshDictionaryState() {
   if (isNew) return
   const dictionary = await $fetch<Dictionary>(`/api/workspaces/${workspaceId.value}/dictionaries/${id}`)
@@ -143,7 +158,8 @@ async function saveDictionary() {
       })
       await refreshNuxtData(dictionariesListKey.value)
       toast.add({ title: 'Dictionary created', description: `Created "${created.name}"`, color: 'success' })
-      await navigateTo(`/dictionaries/${created.id}`)
+      notifyToolkitEditorSaved(created.id)
+      await navigateTo(toolkitEditorRoute(`/dictionaries/${created.id}`))
       return
     }
 
@@ -157,8 +173,9 @@ async function saveDictionary() {
       refreshNuxtData(dictionaryKey.value),
       refreshNuxtData(dictionariesListKey.value)
     ])
-  } catch (error: any) {
-    toast.add({ title: 'Failed to save dictionary', description: error?.data?.message || error?.message, color: 'error' })
+    notifyToolkitEditorSaved(id)
+  } catch (error: unknown) {
+    toast.add({ title: 'Failed to save dictionary', description: extractApiErrorMessage(error, 'Failed to save dictionary'), color: 'error' })
   } finally {
     toast.remove(progressToast.id)
     isSaving.value = false
@@ -248,66 +265,6 @@ function openImportDictionaryDialog() {
   importDictionaryInput.value?.click()
 }
 
-function addImportProgressToast(progress: number | null, fileName: string, stage: 'uploading' | 'processing') {
-  return toast.add({
-    title: stage === 'processing'
-      ? 'Processing dictionary import'
-      : (progress === null ? 'Uploading dictionary' : `Uploading dictionary (${progress}%)`),
-    description: stage === 'processing'
-      ? `${fileName || 'Dictionary file'} uploaded. Finishing import...`
-      : (fileName || 'Uploading dictionary file'),
-    color: 'neutral',
-    icon: 'i-lucide-loader-circle',
-    ui: { icon: 'animate-spin' },
-    close: false,
-    progress: false,
-    duration: 0
-  })
-}
-
-function uploadWithProgress<T>(url: string, formData: FormData, options?: {
-  onProgress?: (progress: number | null) => void
-  onStageChange?: (stage: 'uploading' | 'processing') => void
-}): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open('POST', url, true)
-    xhr.responseType = 'json'
-    options?.onStageChange?.('uploading')
-
-    xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable) {
-        options?.onProgress?.(null)
-        return
-      }
-      options?.onProgress?.(Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100))))
-    }
-    xhr.upload.onloadend = () => {
-      options?.onStageChange?.('processing')
-    }
-
-    xhr.onerror = () => {
-      reject(new Error('Upload failed'))
-    }
-
-    xhr.onload = () => {
-      const response = xhr.response
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(response as T)
-        return
-      }
-
-      const message
-        = typeof response === 'object' && response !== null && 'message' in response
-          ? String((response as { message?: string }).message || '')
-          : xhr.statusText || `Upload failed (${xhr.status})`
-      reject(new Error(message || `Upload failed (${xhr.status})`))
-    }
-
-    xhr.send(formData)
-  })
-}
-
 async function importEntries(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
@@ -321,22 +278,28 @@ async function importEntries(event: Event) {
   isImporting.value = true
   importProgress.value = null
   importStage.value = 'uploading'
-  let progressToast = addImportProgressToast(null, file.name, 'uploading')
 
   try {
     if (file.name.toLowerCase().endsWith('.larex-toolkit.json')) {
-      importStage.value = 'processing'
-      toast.remove(progressToast.id)
-      progressToast = addImportProgressToast(null, file.name, 'processing')
-      const content = await file.text()
-      const result = await $fetch<{
+      const result = await runTrackedProcessing<{
         resources?: Array<{ type: string, targetId: string, targetName: string }>
-      }>(`/api/workspaces/${workspaceId.value}/toolkit/import`, {
-        method: 'POST',
-        body: { content }
+      }>({
+        title: 'Importing dictionary package',
+        workspaceId: workspaceId.value,
+        files: [{ file }],
+        onStageChange: stage => (importStage.value = stage),
+        onProgress: progress => (importProgress.value = progress),
+        task: async () => {
+          const content = await file.text()
+          return await $fetch<{
+            resources?: Array<{ type: string, targetId: string, targetName: string }>
+          }>(`/api/workspaces/${workspaceId.value}/toolkit/import`, {
+            method: 'POST',
+            body: { content }
+          })
+        }
       })
 
-      toast.remove(progressToast.id)
       const imported = result.resources?.find(resource => resource.type === 'DICTIONARY')
       await refreshNuxtData(dictionariesListKey.value)
       if (imported?.targetId) {
@@ -345,7 +308,8 @@ async function importEntries(event: Event) {
           description: imported.targetName ? `Imported as "${imported.targetName}"` : undefined,
           color: 'success'
         })
-        await navigateTo(`/dictionaries/${imported.targetId}`)
+        notifyToolkitEditorSaved(imported.targetId)
+        await navigateTo(toolkitEditorRoute(`/dictionaries/${imported.targetId}`))
       }
       return
     }
@@ -365,19 +329,19 @@ async function importEntries(event: Event) {
       form.append('unicodeNormalization', unicodeNormalization.value)
       form.append('locked', String(locked.value))
 
-      const created = await uploadWithProgress<Dictionary>(`/api/upload-proxy/workspaces/${workspaceId.value}/dictionaries/import`, form, {
+      const created = await uploadFormDataWithProgress<Dictionary>({
+        title: 'Importing dictionary',
+        workspaceId: workspaceId.value,
+        files: [{ file }],
+        url: `/api/upload-proxy/workspaces/${workspaceId.value}/dictionaries/import`,
+        formData: form,
         onProgress: (progress) => {
           importProgress.value = progress
-          toast.remove(progressToast.id)
-          progressToast = addImportProgressToast(progress, file.name, importStage.value === 'processing' ? 'processing' : 'uploading')
         },
         onStageChange: (stage) => {
           importStage.value = stage
-          toast.remove(progressToast.id)
-          progressToast = addImportProgressToast(importProgress.value, file.name, stage)
         }
       })
-      toast.remove(progressToast.id)
       await Promise.all([
         refreshNuxtData(dictionariesListKey.value),
         refreshNuxtData(dictionaryKey.value)
@@ -387,24 +351,25 @@ async function importEntries(event: Event) {
         description: `Created "${created.name}"`,
         color: 'success'
       })
-      await navigateTo(`/dictionaries/${created.id}`)
+      notifyToolkitEditorSaved(created.id)
+      await navigateTo(toolkitEditorRoute(`/dictionaries/${created.id}`))
       return
     }
 
     form.append('mode', 'APPEND')
-    await uploadWithProgress(`/api/upload-proxy/workspaces/${workspaceId.value}/dictionaries/${id}/import`, form, {
+    await uploadFormDataWithProgress({
+      title: 'Importing dictionary entries',
+      workspaceId: workspaceId.value,
+      files: [{ file }],
+      url: `/api/upload-proxy/workspaces/${workspaceId.value}/dictionaries/${id}/import`,
+      formData: form,
       onProgress: (progress) => {
         importProgress.value = progress
-        toast.remove(progressToast.id)
-        progressToast = addImportProgressToast(progress, file.name, importStage.value === 'processing' ? 'processing' : 'uploading')
       },
       onStageChange: (stage) => {
         importStage.value = stage
-        toast.remove(progressToast.id)
-        progressToast = addImportProgressToast(importProgress.value, file.name, stage)
       }
     })
-    toast.remove(progressToast.id)
     await Promise.all([
       entryBrowserRef.value?.refresh(false) ?? Promise.resolve(),
       refreshDictionaryState(),
@@ -412,8 +377,8 @@ async function importEntries(event: Event) {
       refreshNuxtData(dictionariesListKey.value)
     ])
     toast.add({ title: 'Dictionary import complete', color: 'success' })
+    notifyToolkitEditorSaved(id)
   } catch (error: unknown) {
-    toast.remove(progressToast.id)
     toast.add({ title: 'Failed to import dictionary entries', description: extractApiErrorMessage(error, 'Failed to import dictionary entries'), color: 'error' })
   } finally {
     importProgress.value = null
@@ -497,11 +462,15 @@ const emptyStateActions = computed<Array<{ label: string, icon: string, color: '
 </script>
 
 <template>
-  <UDashboardPanel :id="`dictionary-${id}`" :ui="{ body: 'p-0 sm:p-0' }">
+  <UDashboardPanel
+    :id="`dictionary-${id}`"
+    :class="isEmbeddedToolkitEditor ? 'h-screen min-h-0 overflow-hidden' : undefined"
+    :ui="{ body: isEmbeddedToolkitEditor ? 'p-0 sm:p-0 min-h-0 overflow-hidden' : 'p-0 sm:p-0' }"
+  >
     <template #header>
-      <UDashboardNavbar :title="isNew ? 'Create Dictionary' : 'Edit Dictionary'">
+      <UDashboardNavbar :title="isEmbeddedToolkitEditor ? undefined : (isNew ? 'Create Dictionary' : 'Edit Dictionary')">
         <template #leading>
-          <LazyUDashboardSidebarCollapse />
+          <LazyUDashboardSidebarCollapse v-if="!isEmbeddedToolkitEditor" />
         </template>
         <template #right>
           <input
@@ -545,7 +514,7 @@ const emptyStateActions = computed<Array<{ label: string, icon: string, color: '
           </div>
         </template>
       </UDashboardNavbar>
-      <UDashboardToolbar>
+      <UDashboardToolbar v-if="!isEmbeddedToolkitEditor">
         <template #left>
           <UBreadcrumb :items="breadcrumbItems" />
         </template>
@@ -553,7 +522,7 @@ const emptyStateActions = computed<Array<{ label: string, icon: string, color: '
     </template>
 
     <template #body>
-      <div class="h-full flex overflow-hidden">
+      <div class="h-full min-h-0 flex overflow-hidden">
         <aside class="w-80 shrink-0 border-r border-neutral-200 dark:border-neutral-700 bg-neutral-50/30 dark:bg-neutral-800/50 overflow-y-auto">
           <div class="p-4 lg:p-5 space-y-5">
             <div class="space-y-1">

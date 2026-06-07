@@ -8,13 +8,16 @@ import de.uniwue.zpd.dachs.larex.backend.entity.NormalizationProfile;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.ValidationRuleset;
+import de.uniwue.zpd.dachs.larex.backend.entity.VirtualKeyboard;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
+import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
@@ -44,6 +47,7 @@ public class ProjectCrudService {
     private final TagSetRepository tagSetRepository;
     private final NormalizationProfileRepository normalizationProfileRepository;
     private final ValidationRulesetRepository validationRulesetRepository;
+    private final VirtualKeyboardRepository virtualKeyboardRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final WorkspaceQueryService workspaceQueryService;
     private final WorkspaceAccessService workspaceAccessService;
@@ -60,6 +64,7 @@ public class ProjectCrudService {
                               TagSetRepository tagSetRepository,
                               NormalizationProfileRepository normalizationProfileRepository,
                               ValidationRulesetRepository validationRulesetRepository,
+                              VirtualKeyboardRepository virtualKeyboardRepository,
                               WorkspaceMemberRepository workspaceMemberRepository,
                               WorkspaceQueryService workspaceQueryService,
                               WorkspaceAccessService workspaceAccessService,
@@ -75,6 +80,7 @@ public class ProjectCrudService {
         this.tagSetRepository = tagSetRepository;
         this.normalizationProfileRepository = normalizationProfileRepository;
         this.validationRulesetRepository = validationRulesetRepository;
+        this.virtualKeyboardRepository = virtualKeyboardRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.workspaceQueryService = workspaceQueryService;
         this.workspaceAccessService = workspaceAccessService;
@@ -106,6 +112,11 @@ public class ProjectCrudService {
     public Optional<Project> createProject(String workspaceId, String name, String description, List<String> tags,
                                            String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                            String normalizationProfileId, String validationRulesetId,
+                                           String virtualKeyboardId,
+                                           Boolean allowCodecOverride, Boolean allowDictionaryOverride,
+                                           Boolean allowVirtualKeyboardOverride, Boolean allowLabelSetOverride,
+                                           Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
+                                           Boolean allowValidationRulesetOverride,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                            String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
@@ -128,16 +139,18 @@ public class ProjectCrudService {
         AbstractWorkspace workspace = workspaceQueryService.findWorkspaceById(workspaceId).orElse(null);
 
         Codec codec = null;
-        if (codecId != null && !codecId.trim().isEmpty()) {
-            codec = codecRepository.findById(codecId).orElse(null);
+        if (hasText(codecId)) {
+            codec = codecRepository.findByIdAndLibraryWorkspaceId(codecId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Codec", codecId));
         } else if (workspace != null && workspace.getCodec() != null) {
             codec = workspace.getCodec();
         }
         project.setCodec(codec);
 
         LabelSet labelSet = null;
-        if (labelSetId != null && !labelSetId.trim().isEmpty()) {
-            labelSet = labelSetRepository.findById(labelSetId).orElse(null);
+        if (hasText(labelSetId)) {
+            labelSet = labelSetRepository.findByIdAndWorkspaceId(labelSetId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Label set", labelSetId));
         } else if (workspace != null && workspace.getLabelSet() != null) {
             labelSet = workspace.getLabelSet();
         } else {
@@ -148,36 +161,56 @@ public class ProjectCrudService {
         project.setLabelSet(labelSet);
 
         ControlledDictionary dictionary = null;
-        if (dictionaryId != null && !dictionaryId.trim().isEmpty()) {
-            dictionary = dictionaryRepository.findById(dictionaryId).orElse(null);
+        if (hasText(dictionaryId)) {
+            dictionary = dictionaryRepository.findByIdAndLibraryWorkspaceId(dictionaryId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Dictionary", dictionaryId));
         } else if (workspace != null && workspace.getDictionary() != null) {
             dictionary = workspace.getDictionary();
         }
         project.setDictionary(dictionary);
 
         TagSet tagSet = null;
-        if (tagSetId != null && !tagSetId.trim().isEmpty()) {
-            tagSet = tagSetRepository.findById(tagSetId).orElse(null);
+        if (hasText(tagSetId)) {
+            tagSet = tagSetRepository.findByIdAndWorkspaceId(tagSetId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Tag set", tagSetId));
         } else if (workspace != null && workspace.getTagSet() != null) {
             tagSet = workspace.getTagSet();
         }
         project.setTagSet(tagSet);
 
         NormalizationProfile normalizationProfile = null;
-        if (normalizationProfileId != null && !normalizationProfileId.trim().isEmpty()) {
-            normalizationProfile = normalizationProfileRepository.findById(normalizationProfileId).orElse(null);
+        if (hasText(normalizationProfileId)) {
+            normalizationProfile = normalizationProfileRepository.findByIdAndWorkspaceId(normalizationProfileId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Normalization profile", normalizationProfileId));
         } else if (workspace != null && workspace.getNormalizationProfile() != null) {
             normalizationProfile = workspace.getNormalizationProfile();
         }
         project.setNormalizationProfile(normalizationProfile);
 
         ValidationRuleset validationRuleset = null;
-        if (validationRulesetId != null && !validationRulesetId.trim().isEmpty()) {
-            validationRuleset = validationRulesetRepository.findById(validationRulesetId).orElse(null);
+        if (hasText(validationRulesetId)) {
+            validationRuleset = validationRulesetRepository.findByIdAndWorkspaceId(validationRulesetId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Validation ruleset", validationRulesetId));
         } else if (workspace != null && workspace.getValidationRuleset() != null) {
             validationRuleset = workspace.getValidationRuleset();
         }
         project.setValidationRuleset(validationRuleset);
+
+        VirtualKeyboard virtualKeyboard = null;
+        if (hasText(virtualKeyboardId)) {
+            virtualKeyboard = virtualKeyboardRepository.findByIdAndWorkspaceId(virtualKeyboardId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Virtual keyboard", virtualKeyboardId));
+        }
+        project.setVirtualKeyboard(virtualKeyboard);
+        applyToolkitOverrideFlags(project,
+                allowCodecOverride,
+                allowDictionaryOverride,
+                allowVirtualKeyboardOverride,
+                allowLabelSetOverride,
+                allowTagSetOverride,
+                allowNormalizationProfileOverride,
+                allowValidationRulesetOverride,
+                true);
 
         var resolvedTextIndexDefaults = TextIndexDefaultsUtil.resolve(
                 defaultGtIndex,
@@ -208,6 +241,11 @@ public class ProjectCrudService {
     public Optional<Project> updateProject(String projectId, String name, String description, List<String> tags,
                                            String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                            String normalizationProfileId, String validationRulesetId,
+                                           String virtualKeyboardId,
+                                           Boolean allowCodecOverride, Boolean allowDictionaryOverride,
+                                           Boolean allowVirtualKeyboardOverride, Boolean allowLabelSetOverride,
+                                           Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
+                                           Boolean allowValidationRulesetOverride,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                            String userId) {
         Optional<Project> projectOpt = getProjectById(projectId, userId);
@@ -225,41 +263,17 @@ public class ProjectCrudService {
                 project.setTags(tags);
             }
 
-            Codec codec = null;
-            if (codecId != null && !codecId.trim().isEmpty()) {
-                codec = codecRepository.findById(codecId).orElse(null);
-            }
-            project.setCodec(codec);
-
-            LabelSet labelSet = null;
-            if (labelSetId != null && !labelSetId.trim().isEmpty()) {
-                labelSet = labelSetRepository.findById(labelSetId).orElse(null);
-            }
-            project.setLabelSet(labelSet);
-
-            ControlledDictionary dictionary = null;
-            if (dictionaryId != null && !dictionaryId.trim().isEmpty()) {
-                dictionary = dictionaryRepository.findById(dictionaryId).orElse(null);
-            }
-            project.setDictionary(dictionary);
-
-            TagSet tagSet = null;
-            if (tagSetId != null && !tagSetId.trim().isEmpty()) {
-                tagSet = tagSetRepository.findById(tagSetId).orElse(null);
-            }
-            project.setTagSet(tagSet);
-
-            NormalizationProfile normalizationProfile = null;
-            if (normalizationProfileId != null && !normalizationProfileId.trim().isEmpty()) {
-                normalizationProfile = normalizationProfileRepository.findById(normalizationProfileId).orElse(null);
-            }
-            project.setNormalizationProfile(normalizationProfile);
-
-            ValidationRuleset validationRuleset = null;
-            if (validationRulesetId != null && !validationRulesetId.trim().isEmpty()) {
-                validationRuleset = validationRulesetRepository.findById(validationRulesetId).orElse(null);
-            }
-            project.setValidationRuleset(validationRuleset);
+            applyToolkitPresets(project, workspaceId, codecId, labelSetId, dictionaryId, tagSetId,
+                    normalizationProfileId, validationRulesetId, virtualKeyboardId);
+            applyToolkitOverrideFlags(project,
+                    allowCodecOverride,
+                    allowDictionaryOverride,
+                    allowVirtualKeyboardOverride,
+                    allowLabelSetOverride,
+                    allowTagSetOverride,
+                    allowNormalizationProfileOverride,
+                    allowValidationRulesetOverride,
+                    false);
 
             if (defaultGtIndex != null || defaultRecognitionIndices != null) {
                 var resolvedTextIndexDefaults = TextIndexDefaultsUtil.resolve(
@@ -286,6 +300,41 @@ public class ProjectCrudService {
             return Optional.of(projectRepository.save(project));
         }
         return Optional.empty();
+    }
+
+    public Optional<Project> updateToolkitPresets(String workspaceId, String projectId,
+                                                  String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                                  String normalizationProfileId, String validationRulesetId,
+                                                  String virtualKeyboardId,
+                                                  Boolean allowCodecOverride, Boolean allowDictionaryOverride,
+                                                  Boolean allowVirtualKeyboardOverride, Boolean allowLabelSetOverride,
+                                                  Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
+                                                  Boolean allowValidationRulesetOverride,
+                                                  String userId) {
+        workspaceAccessService.requireSetPresetsAccess(workspaceId, userId);
+        Optional<Project> projectOpt = projectRepository.findByIdAndLibraryWorkspaceIdForUpdate(projectId, workspaceId);
+        if (projectOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Project project = projectOpt.get();
+        if (project.isLocked()) {
+            throw new SecurityException("Cannot change toolkit presets for a locked project.");
+        }
+
+        applyToolkitPresets(project, workspaceId, codecId, labelSetId, dictionaryId, tagSetId,
+                normalizationProfileId, validationRulesetId, virtualKeyboardId);
+        applyToolkitOverrideFlags(project,
+                allowCodecOverride,
+                allowDictionaryOverride,
+                allowVirtualKeyboardOverride,
+                allowLabelSetOverride,
+                allowTagSetOverride,
+                allowNormalizationProfileOverride,
+                allowValidationRulesetOverride,
+                false);
+
+        return Optional.of(projectRepository.save(project));
     }
 
     public boolean deleteProject(String projectId, String userId) {
@@ -336,5 +385,75 @@ public class ProjectCrudService {
                 notificationService.createProjectCreatedNotification(member.getUserId(), message, projectId);
             }
         }
+    }
+
+    private void applyToolkitPresets(Project project, String workspaceId,
+                                     String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                     String normalizationProfileId, String validationRulesetId,
+                                     String virtualKeyboardId) {
+        project.setCodec(hasText(codecId)
+                ? codecRepository.findByIdAndLibraryWorkspaceId(codecId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Codec", codecId))
+                : null);
+        project.setLabelSet(hasText(labelSetId)
+                ? labelSetRepository.findByIdAndWorkspaceId(labelSetId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Label set", labelSetId))
+                : null);
+        project.setDictionary(hasText(dictionaryId)
+                ? dictionaryRepository.findByIdAndLibraryWorkspaceId(dictionaryId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Dictionary", dictionaryId))
+                : null);
+        project.setTagSet(hasText(tagSetId)
+                ? tagSetRepository.findByIdAndWorkspaceId(tagSetId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Tag set", tagSetId))
+                : null);
+        project.setNormalizationProfile(hasText(normalizationProfileId)
+                ? normalizationProfileRepository.findByIdAndWorkspaceId(normalizationProfileId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Normalization profile", normalizationProfileId))
+                : null);
+        project.setValidationRuleset(hasText(validationRulesetId)
+                ? validationRulesetRepository.findByIdAndWorkspaceId(validationRulesetId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Validation ruleset", validationRulesetId))
+                : null);
+        project.setVirtualKeyboard(hasText(virtualKeyboardId)
+                ? virtualKeyboardRepository.findByIdAndWorkspaceId(virtualKeyboardId, workspaceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Virtual keyboard", virtualKeyboardId))
+                : null);
+    }
+
+    private void applyToolkitOverrideFlags(Project project,
+                                           Boolean allowCodecOverride,
+                                           Boolean allowDictionaryOverride,
+                                           Boolean allowVirtualKeyboardOverride,
+                                           Boolean allowLabelSetOverride,
+                                           Boolean allowTagSetOverride,
+                                           Boolean allowNormalizationProfileOverride,
+                                           Boolean allowValidationRulesetOverride,
+                                           boolean defaultWhenNull) {
+        if (allowCodecOverride != null || defaultWhenNull) {
+            project.setAllowCodecOverride(allowCodecOverride == null || allowCodecOverride);
+        }
+        if (allowDictionaryOverride != null || defaultWhenNull) {
+            project.setAllowDictionaryOverride(allowDictionaryOverride == null || allowDictionaryOverride);
+        }
+        if (allowVirtualKeyboardOverride != null || defaultWhenNull) {
+            project.setAllowVirtualKeyboardOverride(allowVirtualKeyboardOverride == null || allowVirtualKeyboardOverride);
+        }
+        if (allowLabelSetOverride != null || defaultWhenNull) {
+            project.setAllowLabelSetOverride(allowLabelSetOverride == null || allowLabelSetOverride);
+        }
+        if (allowTagSetOverride != null || defaultWhenNull) {
+            project.setAllowTagSetOverride(allowTagSetOverride == null || allowTagSetOverride);
+        }
+        if (allowNormalizationProfileOverride != null || defaultWhenNull) {
+            project.setAllowNormalizationProfileOverride(allowNormalizationProfileOverride == null || allowNormalizationProfileOverride);
+        }
+        if (allowValidationRulesetOverride != null || defaultWhenNull) {
+            project.setAllowValidationRulesetOverride(allowValidationRulesetOverride == null || allowValidationRulesetOverride);
+        }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }

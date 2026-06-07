@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const props = withDefaults(defineProps<{
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
+
+withDefaults(defineProps<{
   title?: string
   description?: string
   confirmLabel?: string
@@ -18,6 +20,8 @@ const emit = defineEmits<{
 }>()
 
 const isOpen = ref(true)
+
+useBlockEditorCanvasInteractions(isOpen)
 
 function confirm() {
   emit('close', true)

@@ -155,7 +155,7 @@ const showNonAssignedIndicesModel = computed({
 })
 
 const activeProjectId = computed(() => sessionStore.projectId ?? null)
-const canEditProjectTextIndexDefaults = computed(() => workspaceStore.isCurrentUserOwner)
+const canEditProjectTextIndexDefaults = computed(() => workspaceStore.currentWorkspace?.capabilities?.canSetPresets ?? workspaceStore.isCurrentUserOwner)
 const isSavingTextIndexDefaults = ref(false)
 const textIndexDefaultsSaveError = ref<string | null>(null)
 const { refreshProjectCaches } = useDataRefresh()
@@ -177,7 +177,18 @@ async function saveProjectTextIndexDefaults(payload: { defaultGtIndex: number, d
         tags: project.tags ?? [],
         codecId: project.codecId ?? null,
         labelSetId: project.labelSetId ?? null,
+        dictionaryId: project.dictionaryId ?? null,
         tagSetId: project.tagSetId ?? null,
+        normalizationProfileId: project.normalizationProfileId ?? null,
+        validationRulesetId: project.validationRulesetId ?? null,
+        virtualKeyboardId: project.virtualKeyboardId ?? null,
+        allowCodecOverride: project.allowCodecOverride !== false,
+        allowDictionaryOverride: project.allowDictionaryOverride !== false,
+        allowVirtualKeyboardOverride: project.allowVirtualKeyboardOverride !== false,
+        allowLabelSetOverride: project.allowLabelSetOverride !== false,
+        allowTagSetOverride: project.allowTagSetOverride !== false,
+        allowNormalizationProfileOverride: project.allowNormalizationProfileOverride !== false,
+        allowValidationRulesetOverride: project.allowValidationRulesetOverride !== false,
         defaultGtIndex: payload.defaultGtIndex,
         defaultRecognitionIndices: payload.defaultRecognitionIndices
       }
@@ -248,15 +259,34 @@ const accordionItems = [
 
 const accordionModel = ref<string[]>(['metadata'])
 const allPanels = accordionItems.map(item => item.slot)
+const collapsedPopoverSlot = ref<string | null>(null)
 
 function expandAllPanelsForOnboarding() {
   accordionModel.value = [...allPanels]
+}
+
+function openCollapsedPopover(slot: string) {
+  collapsedPopoverSlot.value = slot
+}
+
+function closeCollapsedPopover() {
+  collapsedPopoverSlot.value = null
+}
+
+function handleCollapsedPopoverOpenUpdate(slot: string, open: boolean) {
+  if (open) {
+    openCollapsedPopover(slot)
+  }
 }
 
 function handleMetadataApply(payload: MetadataApplyPayload) {
   if (props.isPageLocked) return
   emit('apply-metadata', payload)
 }
+
+watch(() => props.collapsed, (collapsed) => {
+  if (!collapsed) closeCollapsedPopover()
+})
 
 onMounted(() => {
   window.addEventListener('larex:onboarding:expand-text-panels', expandAllPanelsForOnboarding as EventListener)
@@ -270,7 +300,14 @@ onBeforeUnmount(() => {
 <template>
   <div data-tour="editor-text-sidebar" class="h-full flex flex-col">
     <div v-if="collapsed" class="flex flex-col items-center gap-1 py-1">
-      <UPopover v-for="item in accordionItems" :key="item.slot" :content="{ side: 'left', align: 'start', sideOffset: 12 }">
+      <UPopover
+        v-for="item in accordionItems"
+        :key="item.slot"
+        :open="collapsedPopoverSlot === item.slot"
+        :dismissible="false"
+        :content="{ side: 'left', align: 'start', sideOffset: 12 }"
+        @update:open="(open: boolean) => handleCollapsedPopoverOpenUpdate(item.slot, open)"
+      >
         <UTooltip :text="item.label" :content="{ side: 'left' }">
           <UChip
             :show="item.slot === 'tasks' && openTaskCount > 0"
@@ -290,8 +327,17 @@ onBeforeUnmount(() => {
         </UTooltip>
         <template #content>
           <div class="w-80 max-h-[70vh] overflow-auto">
-            <div class="px-3 py-2 border-b border-default">
+            <div class="px-3 py-2 border-b border-default flex items-center justify-between gap-2">
               <span class="text-sm font-semibold">{{ item.label }}</span>
+              <UButton
+                type="button"
+                variant="ghost"
+                color="neutral"
+                size="xs"
+                icon="i-lucide-x"
+                :aria-label="`Close ${item.label}`"
+                @click.stop="closeCollapsedPopover"
+              />
             </div>
             <template v-if="item.slot === 'metadata'">
               <EditorSidebarMetadata

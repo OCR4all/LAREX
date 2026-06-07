@@ -278,7 +278,7 @@ watch(() => props.imagePopoverDismissKey, () => {
             </UButton>
           </UChip>
         </UTooltip>
-        <AppStatusPopoverTrigger collapsed />
+        <AppStatusPopoverTrigger collapsed force-popover />
       </div>
 
       <div class="flex justify-center">
@@ -438,7 +438,7 @@ watch(() => props.imagePopoverDismissKey, () => {
               </UButton>
             </UChip>
           </UTooltip>
-          <AppStatusPopoverTrigger collapsed />
+          <AppStatusPopoverTrigger collapsed force-popover />
         </div>
         <div class="border-t border-default" />
         <UserMenu :collapsed="true" />
@@ -565,7 +565,7 @@ watch(() => props.imagePopoverDismissKey, () => {
               </UButton>
             </UChip>
           </UTooltip>
-          <AppStatusPopoverTrigger :collapsed="false" />
+          <AppStatusPopoverTrigger :collapsed="false" force-popover />
         </div>
         <div class="border-t border-default" />
         <UserMenu :collapsed="false" />

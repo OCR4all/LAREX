@@ -2,6 +2,7 @@
 import { LazyWorkspaceSlideoverCreate, LazyLibrarySlideoverCreate } from '#components'
 
 const workspace = useWorkspaceStore()
+const route = useRoute()
 const open = ref(false)
 const { isNotificationsSlideoverOpen } = useDashboard()
 const { startDashboardTour, startCurrentPageTour } = useOnboarding()
@@ -31,6 +32,7 @@ const overlay = useOverlay()
 
 const createProjectSlideover = overlay.create(LazyLibrarySlideoverCreate)
 const createWorkspaceSlideover = overlay.create(LazyWorkspaceSlideoverCreate)
+const isEmbeddedToolkitEditor = computed(() => route.query.embedded === 'toolkit-editor')
 
 const handleOpenSidebarForOnboarding = () => {
   open.value = true
@@ -240,7 +242,15 @@ const groups = computed(() => {
 </script>
 
 <template>
-  <UDashboardGroup storage="cookie" storage-key="dashboard" unit="rem">
+  <div v-if="isEmbeddedToolkitEditor" class="h-screen min-h-0 overflow-hidden">
+    <slot />
+  </div>
+  <UDashboardGroup
+    v-else
+    storage="cookie"
+    storage-key="dashboard"
+    unit="rem"
+  >
     <LayoutSidebarDashboard v-model:open="open" />
 
     <UDashboardSearch

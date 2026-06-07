@@ -140,6 +140,8 @@ export const useEditorStore = defineStore('editor', () => {
     projectDictionaryUnicodeNormalization,
     projectDictionaryCanEdit,
     projectDictionaryLocked,
+    projectVirtualKeyboardId,
+    projectToolkitSettings,
     projectTextDefaultGtIndex,
     projectTextDefaultRecognitionIndices
   } = storeToRefs(documentStore)
@@ -167,6 +169,9 @@ export const useEditorStore = defineStore('editor', () => {
     clearProjectCodec,
     setProjectDictionary,
     clearProjectDictionary,
+    setProjectVirtualKeyboard,
+    clearProjectVirtualKeyboard,
+    setProjectToolkitSettings,
     setProjectTextIndexDefaults,
     clearProjectTextIndexDefaults
   } = documentStore
@@ -1466,6 +1471,8 @@ export const useEditorStore = defineStore('editor', () => {
     projectDictionaryUnicodeNormalization,
     projectDictionaryCanEdit,
     projectDictionaryLocked,
+    projectVirtualKeyboardId,
+    projectToolkitSettings,
     projectTextDefaultGtIndex,
     projectTextDefaultRecognitionIndices,
 
@@ -1507,6 +1514,9 @@ export const useEditorStore = defineStore('editor', () => {
     clearProjectCodec,
     setProjectDictionary,
     clearProjectDictionary,
+    setProjectVirtualKeyboard,
+    clearProjectVirtualKeyboard,
+    setProjectToolkitSettings,
     setProjectTextIndexDefaults,
     clearProjectTextIndexDefaults,
 

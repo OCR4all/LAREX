@@ -16,6 +16,7 @@ const workspaceId = computed(() => selectedWorkspace.value ?? '')
 
 const id = route.params.id as string
 const isNew = id === 'new'
+const isEmbeddedToolkitEditor = computed(() => route.query.embedded === 'toolkit-editor')
 
 const keyboardsKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards', 'list'))
 const keyboardKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards', id))
@@ -36,6 +37,19 @@ const breadcrumbItems = computed(() => [
     label: isNew ? 'New Keyboard' : (builderState.layoutName.value || id)
   }
 ])
+
+function toolkitEditorRoute(path: string) {
+  return isEmbeddedToolkitEditor.value ? { path, query: { embedded: 'toolkit-editor' } } : path
+}
+
+function notifyToolkitEditorSaved(resourceId: string) {
+  if (!import.meta.client || !isEmbeddedToolkitEditor.value) return
+  window.parent?.postMessage({
+    type: 'larex:toolkit-resource-saved',
+    resourceType: 'virtual-keyboard',
+    id: resourceId
+  }, window.location.origin)
+}
 
 const defaultLayout: KeyboardLayout = {
   id: '',
@@ -99,7 +113,8 @@ const handleSave = async () => {
       })
       toast.add({ title: 'Keyboard created', color: 'success' })
       refreshNuxtData(keyboardsKey.value)
-      await router.push(`/virtual-keyboard/${saved.id}`)
+      notifyToolkitEditorSaved(saved.id)
+      await router.push(toolkitEditorRoute(`/virtual-keyboard/${saved.id}`))
     } else {
       await $fetch<KeyboardLayout>(`/api/workspaces/${selectedWorkspace.value}/virtual-keyboards/${id}`, {
         method: 'PUT',
@@ -108,6 +123,7 @@ const handleSave = async () => {
       toast.add({ title: 'Keyboard updated', color: 'success' })
       refreshNuxtData(keyboardsKey.value)
       refreshNuxtData(keyboardKey.value)
+      notifyToolkitEditorSaved(id)
     }
   } catch {
     toast.add({ title: 'Error saving keyboard', color: 'error' })
@@ -179,18 +195,29 @@ const handleImportLayout = async (event: Event) => {
   if (!file) return
 
   try {
-    const content = await file.text()
-    const result = await $fetch<{
+    const { runTrackedProcessing } = useTrackedUpload()
+    const result = await runTrackedProcessing<{
       resources?: Array<{ type: string, targetId: string, targetName: string }>
-    }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
-      method: 'POST',
-      body: { content }
+    }>({
+      title: 'Importing keyboard package',
+      workspaceId: selectedWorkspace.value || 'workspace',
+      files: [{ file }],
+      task: async () => {
+        const content = await file.text()
+        return await $fetch<{
+          resources?: Array<{ type: string, targetId: string, targetName: string }>
+        }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
+          method: 'POST',
+          body: { content }
+        })
+      }
     })
 
     const imported = result.resources?.find(r => r.type === 'VIRTUAL_KEYBOARD')
     await refreshNuxtData(keyboardsKey.value)
     if (imported?.targetId) {
-      await router.push(`/virtual-keyboard/${imported.targetId}`)
+      notifyToolkitEditorSaved(imported.targetId)
+      await router.push(toolkitEditorRoute(`/virtual-keyboard/${imported.targetId}`))
     }
 
     toast.add({
@@ -286,11 +313,14 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
 </script>
 
 <template>
-  <UDashboardPanel :ui="{ body: 'p-0 sm:p-0' }">
+  <UDashboardPanel
+    :class="isEmbeddedToolkitEditor ? 'h-screen min-h-0 overflow-hidden' : undefined"
+    :ui="{ body: isEmbeddedToolkitEditor ? 'p-0 sm:p-0 min-h-0 overflow-hidden' : 'p-0 sm:p-0' }"
+  >
     <template #header>
-      <UDashboardNavbar data-tour="vk-builder-header" :title="isNew ? 'Create Keyboard' : 'Edit Keyboard'">
+      <UDashboardNavbar data-tour="vk-builder-header" :title="isEmbeddedToolkitEditor ? undefined : (isNew ? 'Create Keyboard' : 'Edit Keyboard')">
         <template #leading>
-          <LazyUDashboardSidebarCollapse />
+          <LazyUDashboardSidebarCollapse v-if="!isEmbeddedToolkitEditor" />
         </template>
         <template #right>
           <input
@@ -333,7 +363,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
       </UDashboardNavbar>
       <UDashboardToolbar>
         <template #left>
-          <UBreadcrumb :items="breadcrumbItems" />
+          <UBreadcrumb v-if="!isEmbeddedToolkitEditor" :items="breadcrumbItems" />
         </template>
         <template #right>
           <UTabs
@@ -348,13 +378,13 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
       </UDashboardToolbar>
     </template>
     <template #body>
-      <div class="h-full flex overflow-hidden">
+      <div class="h-full min-h-0 flex overflow-hidden">
         <VirtualKeyboardBuilderSidebar
           v-if="activeTab === 'builder'"
           :state="builderState"
         />
 
-        <section class="flex-1 bg-neutral-50/70 dark:bg-neutral-900 flex flex-col relative">
+        <section class="flex-1 min-h-0 bg-neutral-50/70 dark:bg-neutral-900 flex flex-col relative">
           <VirtualKeyboardBuilder
             v-if="activeTab === 'builder'"
             :state="builderState"

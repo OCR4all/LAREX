@@ -15,6 +15,7 @@ const codecListKey = computed(() => wsKey(workspaceId.value, 'codecs', 'list'))
 
 const id = route.params.id as string
 const isNew = id === 'new'
+const isEmbeddedToolkitEditor = computed(() => route.query.embedded === 'toolkit-editor')
 
 const codecKey = computed(() => wsKey(workspaceId.value, 'codecs', id))
 const loadedCapabilities = ref<ResourceCapabilities | null>(null)
@@ -72,6 +73,19 @@ const breadcrumbItems = computed(() => [
     label: isNew ? 'New Codec' : (name.value || 'Edit Codec')
   }
 ])
+
+function toolkitEditorRoute(path: string) {
+  return isEmbeddedToolkitEditor.value ? { path, query: { embedded: 'toolkit-editor' } } : path
+}
+
+function notifyToolkitEditorSaved(resourceId: string) {
+  if (!import.meta.client || !isEmbeddedToolkitEditor.value) return
+  window.parent?.postMessage({
+    type: 'larex:toolkit-resource-saved',
+    resourceType: 'codec',
+    id: resourceId
+  }, window.location.origin)
+}
 
 const getCodepoint = (char: string): string => {
   const codepoint = char.codePointAt(0)
@@ -287,18 +301,29 @@ const handleCodecImport = async (event: Event) => {
   if (!file) return
 
   try {
-    const content = await file.text()
-    const result = await $fetch<{
+    const { runTrackedProcessing } = useTrackedUpload()
+    const result = await runTrackedProcessing<{
       resources?: Array<{ type: string, targetId: string, targetName: string }>
-    }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
-      method: 'POST',
-      body: { content }
+    }>({
+      title: 'Importing codec package',
+      workspaceId: selectedWorkspace.value || 'workspace',
+      files: [{ file }],
+      task: async () => {
+        const content = await file.text()
+        return await $fetch<{
+          resources?: Array<{ type: string, targetId: string, targetName: string }>
+        }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
+          method: 'POST',
+          body: { content }
+        })
+      }
     })
 
     const imported = result.resources?.find(r => r.type === 'CODEC')
     await refreshNuxtData(codecListKey.value)
     if (imported?.targetId) {
-      await router.push(`/codecs/${imported.targetId}`)
+      notifyToolkitEditorSaved(imported.targetId)
+      await router.push(toolkitEditorRoute(`/codecs/${imported.targetId}`))
     }
 
     toast.add({
@@ -387,7 +412,8 @@ const handleSave = async () => {
       })
       toast.add({ title: 'Codec created', color: 'success' })
       await refreshNuxtData(codecListKey.value)
-      await router.push(`/codecs/${saved.id}`)
+      notifyToolkitEditorSaved(saved.id)
+      await router.push(toolkitEditorRoute(`/codecs/${saved.id}`))
     } else {
       await $fetch<Codec>(`/api/workspaces/${selectedWorkspace.value}/codecs/${id}`, {
         method: 'PUT',
@@ -396,6 +422,7 @@ const handleSave = async () => {
       toast.add({ title: 'Codec updated', color: 'success' })
       await refreshNuxtData(codecKey.value)
       await refreshNuxtData(codecListKey.value)
+      notifyToolkitEditorSaved(id)
     }
   } catch {
     toast.add({ title: 'Error saving codec', color: 'error' })
@@ -438,7 +465,8 @@ const handleGenerateFromSources = async () => {
   await refreshNuxtData(codecListKey.value)
 
   if (isNew || result.codec.id !== id) {
-    await router.push(`/codecs/${result.codec.id}`)
+    notifyToolkitEditorSaved(result.codec.id)
+    await router.push(toolkitEditorRoute(`/codecs/${result.codec.id}`))
     return
   }
 
@@ -447,6 +475,7 @@ const handleGenerateFromSources = async () => {
   tags.value = [...(result.codec.tags ?? [])]
   codec.value = [...(result.codec.codec ?? [])]
   await refreshNuxtData(codecKey.value)
+  notifyToolkitEditorSaved(result.codec.id)
 }
 
 const handleValidateAgainstSources = async () => {
@@ -511,11 +540,14 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
 </script>
 
 <template>
-  <UDashboardPanel :ui=" { body: 'p-0 sm:p-0' } ">
+  <UDashboardPanel
+    :class="isEmbeddedToolkitEditor ? 'h-screen min-h-0 overflow-hidden' : undefined"
+    :ui="{ body: isEmbeddedToolkitEditor ? 'p-0 sm:p-0 min-h-0 overflow-hidden' : 'p-0 sm:p-0' }"
+  >
     <template #header>
-      <UDashboardNavbar data-tour="codec-builder-header" :title="isNew ? 'Create Codec' : 'Edit Codec'">
+      <UDashboardNavbar data-tour="codec-builder-header" :title="isEmbeddedToolkitEditor ? undefined : (isNew ? 'Create Codec' : 'Edit Codec')">
         <template #leading>
-          <LazyUDashboardSidebarCollapse />
+          <LazyUDashboardSidebarCollapse v-if="!isEmbeddedToolkitEditor" />
         </template>
         <template #right>
           <input
@@ -558,7 +590,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
       </UDashboardNavbar>
       <UDashboardToolbar>
         <template #left>
-          <UBreadcrumb :items="breadcrumbItems" />
+          <UBreadcrumb v-if="!isEmbeddedToolkitEditor" :items="breadcrumbItems" />
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="codec-builder-characters" :columns="columns" />
@@ -567,7 +599,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
     </template>
 
     <template #body>
-      <div class="flex h-full">
+      <div class="flex h-full min-h-0">
         <aside class="w-80 bg-neutral-50/30 dark:bg-neutral-800/50 border-r border-neutral-200 dark:border-neutral-700 flex flex-col shrink-0">
           <div class="flex-1 p-4 space-y-4 overflow-y-auto">
             <UFormField data-tour="codec-builder-input" label="Name">

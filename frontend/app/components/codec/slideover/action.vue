@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
 import type {
   CodecSummary,
   CodecProjectScope,
@@ -9,8 +10,9 @@ import type {
   ValidateCodecAgainstSourcesRequest,
   ValidateCodecAgainstSourcesResponse
 } from '@/types/codec'
-import { createSkeletonPageData } from '@/services/editor/project-loader'
-import type { PageResponse } from '@/services/editor/project-loader'
+import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
+
+useBlockEditorCanvasInteractions()
 
 type SourceProject = {
   id: string

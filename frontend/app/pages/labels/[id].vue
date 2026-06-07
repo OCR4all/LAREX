@@ -2,6 +2,7 @@
 import type { LabelMapping, LabelScope, LabelSet, LabelSetCreateOrUpdateRequest } from '@/types/label-set'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import { LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
+import { isEditableLabelDefinition, isGroupMeta, type BuilderEntry } from '@/composables/use-label-builder'
 
 const route = useRoute()
 const router = useRouter()
@@ -70,18 +71,16 @@ const toEditableMapping = (mapping: LabelMapping) => ({
   }
 })
 
-const stripUiFields = (labelList: typeof labels.value): LabelSetCreateOrUpdateRequest['labels'] => {
+const stripUiFields = (labelList: BuilderEntry[]): LabelSetCreateOrUpdateRequest['labels'] => {
   const groupNameById = new Map<string, string>()
-  for (const item of labelList) {
-    const label = item as any
-    if (label?.isGroup && label.id) {
+  for (const label of labelList) {
+    if (isGroupMeta(label) && label.id) {
       groupNameById.set(label.id, label.name || label.id)
     }
   }
   return labelList
-    .map(item => item as any)
-    .filter(label => !label.isGroup)
-    .map((label: any) => {
+    .filter(isEditableLabelDefinition)
+    .map((label) => {
       const mappedGroup = label.group && groupNameById.has(label.group)
         ? groupNameById.get(label.group)
         : label.group
@@ -132,25 +131,23 @@ const ensureGroupMetas = () => {
   const groupIds = new Set<string>()
   const groupNameById = new Map<string, string>()
 
-  for (const item of labels.value) {
-    const label = item as any
-    if (label?.isGroup && label.id) {
+  for (const label of labels.value) {
+    if (isGroupMeta(label) && label.id) {
       groupNameById.set(label.id, label.name || label.id)
     }
   }
 
-  for (const item of labels.value) {
-    const label = item as any
-    if (label?.isGroup) continue
+  for (const label of labels.value) {
+    if (isGroupMeta(label)) continue
     if (label?.group && groupNameById.has(label.group)) {
-      label.group = groupNameById.get(label.group)
+      label.group = groupNameById.get(label.group) ?? label.group
     }
     if (label?.group) {
       groupIds.add(label.group)
     }
   }
 
-  labels.value = labels.value.filter(label => !(label as any)?.isGroup)
+  labels.value = labels.value.filter(isEditableLabelDefinition)
 
   for (const groupId of groupIds) {
     labels.value.push({ id: groupId, name: groupId, isGroup: true })
@@ -258,12 +255,22 @@ const handleImportFile = async (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   try {
-    const content = await file.text()
-    const result = await $fetch<{
+    const { runTrackedProcessing } = useTrackedUpload()
+    const result = await runTrackedProcessing<{
       resources?: Array<{ type: string, targetId: string, targetName: string }>
-    }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
-      method: 'POST',
-      body: { content }
+    }>({
+      title: 'Importing label set package',
+      workspaceId: selectedWorkspace.value || 'workspace',
+      files: [{ file }],
+      task: async () => {
+        const content = await file.text()
+        return await $fetch<{
+          resources?: Array<{ type: string, targetId: string, targetName: string }>
+        }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
+          method: 'POST',
+          body: { content }
+        })
+      }
     })
 
     const imported = result.resources?.find(r => r.type === 'LABEL_SET')

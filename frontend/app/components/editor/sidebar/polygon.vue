@@ -136,10 +136,25 @@ const items = [
 ]
 
 const openTaskCount = computed(() => props.openTasks?.length ?? 0)
+const collapsedPopoverSlot = ref<string | null>(null)
 
 const expandedRegions = ref<Set<string>>(new Set())
 const hiddenPolygonIdSet = computed(() => new Set(props.hiddenPolygonIds ?? []))
 const hiddenPolylineIdSet = computed(() => new Set(props.hiddenPolylineIds ?? []))
+
+function openCollapsedPopover(slot: string) {
+  collapsedPopoverSlot.value = slot
+}
+
+function closeCollapsedPopover() {
+  collapsedPopoverSlot.value = null
+}
+
+function handleCollapsedPopoverOpenUpdate(slot: string, open: boolean) {
+  if (open) {
+    openCollapsedPopover(slot)
+  }
+}
 
 const regions = computed(() =>
   props.polygons.filter(polygon => polygon.type === PolygonType.REGION && !polygon.parentId)
@@ -459,12 +474,23 @@ watch(() => props.selectedPolylineIds, (newIds) => {
     expandAncestors(id)
   }
 }, { deep: true })
+
+watch(() => props.collapsed, (collapsed) => {
+  if (!collapsed) closeCollapsedPopover()
+})
 </script>
 
 <template>
   <div class="h-full flex flex-col">
     <div v-if="collapsed" class="flex flex-col items-center gap-1 py-1">
-      <UPopover v-for="item in items" :key="item.slot" :content="{ side: 'left', align: 'start', sideOffset: 12 }">
+      <UPopover
+        v-for="item in items"
+        :key="item.slot"
+        :open="collapsedPopoverSlot === item.slot"
+        :dismissible="false"
+        :content="{ side: 'left', align: 'start', sideOffset: 12 }"
+        @update:open="(open: boolean) => handleCollapsedPopoverOpenUpdate(item.slot, open)"
+      >
         <UTooltip :text="item.label" :content="{ side: 'left' }">
           <UChip
             :show="item.slot === 'tasks' && openTaskCount > 0"
@@ -484,8 +510,17 @@ watch(() => props.selectedPolylineIds, (newIds) => {
         </UTooltip>
         <template #content>
           <div :class="[item.slot === 'reading-order' || item.slot === 'relations' ? 'w-md' : 'w-80', 'max-h-[70vh] overflow-auto']">
-            <div class="px-3 py-2 border-b border-default">
+            <div class="px-3 py-2 border-b border-default flex items-center justify-between gap-2">
               <span class="text-sm font-semibold">{{ item.label }}</span>
+              <UButton
+                type="button"
+                variant="ghost"
+                color="neutral"
+                size="xs"
+                icon="i-lucide-x"
+                :aria-label="`Close ${item.label}`"
+                @click.stop="closeCollapsedPopover"
+              />
             </div>
             <template v-if="item.slot === 'structure'">
               <div data-tour="editor-layout-structure-panel">

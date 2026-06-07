@@ -36,7 +36,7 @@ const buttonLabel = computed(() => {
           'shadow-md ring-1 ring-default',
           isOverlayOpen ? 'bg-elevated' : ''
         ]"
-        @click="toggleOverlay"
+        @click="toggleOverlay(null)"
       >
         <span class="relative inline-flex">
           <UIcon name="i-lucide-activity" class="size-5" />

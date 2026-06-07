@@ -18,21 +18,21 @@ import java.util.Optional;
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, String> {
 
-    @EntityGraph(attributePaths = {"library", "codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "tags"})
+    @EntityGraph(attributePaths = {"library", "codec", "dictionary", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "virtualKeyboard", "tags"})
     List<Project> findByLibraryId(String libraryId);
 
-    @EntityGraph(attributePaths = {"library", "codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "tags"})
+    @EntityGraph(attributePaths = {"library", "codec", "dictionary", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "virtualKeyboard", "tags"})
     Page<Project> findByLibraryId(String libraryId, Pageable pageable);
 
     List<Project> findByLibraryIdAndNameContainingIgnoreCase(String libraryId, String name);
 
-    @EntityGraph(attributePaths = {"library", "codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "tags"})
+    @EntityGraph(attributePaths = {"library", "codec", "dictionary", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "virtualKeyboard", "tags"})
     List<Project> findByLibraryWorkspaceId(String workspaceId);
 
-    @EntityGraph(attributePaths = {"library", "codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "tags"})
+    @EntityGraph(attributePaths = {"library", "codec", "dictionary", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "virtualKeyboard", "tags"})
     Page<Project> findByLibraryWorkspaceId(String workspaceId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"library", "codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "tags"})
+    @EntityGraph(attributePaths = {"library", "codec", "dictionary", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "virtualKeyboard", "tags"})
     Optional<Project> findWithAssociationsById(String projectId);
 
     Optional<Project> findByIdAndLibraryWorkspaceId(String projectId, String workspaceId);
@@ -48,18 +48,18 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
 
     List<Project> findByLibraryWorkspaceIdAndValidationRulesetId(String workspaceId, String validationRulesetId);
 
-    @EntityGraph(attributePaths = {"library", "codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "tags"})
+    @EntityGraph(attributePaths = {"library", "codec", "dictionary", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "virtualKeyboard", "tags"})
     @Query("SELECT DISTINCT p FROM Project p JOIN p.tags t WHERE t IN :tags")
     List<Project> findByTagsIn(@Param("tags") List<String> tags);
 
-    @EntityGraph(attributePaths = {"library", "codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "tags"})
+    @EntityGraph(attributePaths = {"library", "codec", "dictionary", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "virtualKeyboard", "tags"})
     @Query("SELECT DISTINCT p FROM Project p JOIN p.tags t WHERE p.library.workspaceId = :workspaceId AND t IN :tags")
     List<Project> findByLibraryWorkspaceIdAndTagsIn(@Param("workspaceId") String workspaceId, @Param("tags") List<String> tags);
 
     @Query("SELECT p.library.workspaceId, COUNT(p) FROM Project p WHERE p.library.workspaceId IN :workspaceIds GROUP BY p.library.workspaceId")
     List<Object[]> countByWorkspaceIds(@Param("workspaceIds") Collection<String> workspaceIds);
 
-    @EntityGraph(attributePaths = {"library", "codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "tags"})
+    @EntityGraph(attributePaths = {"library", "codec", "dictionary", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "virtualKeyboard", "tags"})
     @Query("SELECT DISTINCT p FROM Project p LEFT JOIN p.tags t WHERE " +
            "p.library.workspaceId = :workspaceId AND (" +
            "LOWER(p.name) LIKE %:query% OR " +
@@ -68,7 +68,7 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
     List<Project> findProjectsInWorkspaceBySearch(@Param("workspaceId") String workspaceId,
                                                   @Param("query") String query);
 
-    @EntityGraph(attributePaths = {"library", "codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "tags"})
+    @EntityGraph(attributePaths = {"library", "codec", "dictionary", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "virtualKeyboard", "tags"})
     @Query("SELECT DISTINCT p FROM Project p LEFT JOIN p.tags t WHERE " +
            "p.library.workspaceId = :workspaceId AND (" +
            "LOWER(p.name) LIKE %:query% OR " +
@@ -77,7 +77,7 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
     Page<Project> findProjectsInWorkspaceBySearch(@Param("workspaceId") String workspaceId,
                                                   @Param("query") String query, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"library", "codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "tags"})
+    @EntityGraph(attributePaths = {"library", "codec", "dictionary", "labelSet", "tagSet", "normalizationProfile", "validationRuleset", "virtualKeyboard", "tags"})
     @Query("SELECT DISTINCT p FROM Project p LEFT JOIN p.tags t WHERE " +
            "p.library.workspaceId IN :workspaceIds AND (" +
            "LOWER(p.name) LIKE %:query% OR " +

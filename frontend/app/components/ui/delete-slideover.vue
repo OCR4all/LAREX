@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
+
 type DeleteSlideoverItem = {
   id?: string
   label: string
@@ -16,6 +18,8 @@ const props = withDefaults(defineProps<{
 }>(), {
   loading: false
 })
+
+useBlockEditorCanvasInteractions()
 
 const emit = defineEmits<{
   close: [confirmed: boolean]

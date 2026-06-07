@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { PageXmlVersion } from '@/types/version'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
+
+useBlockEditorCanvasInteractions()
 
 const props = defineProps<{
   projectId: string
@@ -20,7 +23,7 @@ const annotationBasePath = computed(() =>
   props.annotationBasePath || `/api/projects/${props.projectId}/pages/${props.pageId}/annotations`
 )
 
-const { data: versions, status, refresh } = useFetch<PageXmlVersion[]>(
+const { data: versions, status } = useFetch<PageXmlVersion[]>(
   () => `${annotationBasePath.value}/${props.xmlId}/versions`,
   { lazy: true }
 )
@@ -87,10 +90,11 @@ async function handleRestore(version: PageXmlVersion) {
       icon: 'i-lucide-check'
     })
     emit('close', 'restored')
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to restore version'
     toast.add({
       title: 'Restore failed',
-      description: error.data?.message || 'Failed to restore version',
+      description: message,
       color: 'error',
       icon: 'i-lucide-alert-circle'
     })
@@ -98,7 +102,6 @@ async function handleRestore(version: PageXmlVersion) {
     restoringId.value = null
   }
 }
-
 </script>
 
 <template>

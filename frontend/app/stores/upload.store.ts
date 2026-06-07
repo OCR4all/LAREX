@@ -39,6 +39,7 @@ export interface ActiveUpload {
   projectName: string
   workspaceId: string
   status: UploadSessionStatus
+  cancelable?: boolean
   totalFiles: number
   processedFiles: number
   failedFiles: number
@@ -55,6 +56,8 @@ function isTerminalStatus(status: ActiveUpload['status']): boolean {
 function isActiveStatus(status: ActiveUpload['status']): boolean {
   return status === 'PENDING' || status === 'UPLOADING' || status === 'PROCESSING'
 }
+
+type RegisterUploadOptions = Partial<Pick<ActiveUpload, 'status' | 'processedFiles' | 'failedFiles' | 'progressPercent' | 'created' | 'error' | 'cancelable'>>
 
 export const useUploadStore = defineStore('upload', () => {
   const activeUploads = ref<Map<string, ActiveUpload>>(new Map())
@@ -90,7 +93,8 @@ export const useUploadStore = defineStore('upload', () => {
     projectId: string,
     projectName: string,
     workspaceId: string,
-    files: UploadUiFile[]
+    files: UploadUiFile[],
+    options: RegisterUploadOptions = {}
   ) {
     if (dismissedSessionIds.value.has(sessionId)) {
       return
@@ -107,13 +111,15 @@ export const useUploadStore = defineStore('upload', () => {
       projectId,
       projectName,
       workspaceId,
-      status: 'PENDING',
+      status: options.status ?? 'PENDING',
+      cancelable: options.cancelable ?? true,
       totalFiles: filesCopy.length,
-      processedFiles: 0,
-      failedFiles: 0,
-      progressPercent: 0,
+      processedFiles: options.processedFiles ?? 0,
+      failedFiles: options.failedFiles ?? 0,
+      progressPercent: options.progressPercent ?? 0,
       files: filesCopy,
-      created: new Date().toISOString()
+      created: options.created ?? new Date().toISOString(),
+      ...(options.error ? { error: options.error } : {})
     })
     showProgressPanel.value = true
     minimized.value = false

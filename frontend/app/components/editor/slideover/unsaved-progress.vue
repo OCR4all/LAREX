@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
+
+useBlockEditorCanvasInteractions()
+
 const props = withDefaults(defineProps<{
   title?: string
   message?: string

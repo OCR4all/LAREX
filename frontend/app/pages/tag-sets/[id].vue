@@ -179,12 +179,22 @@ const handleImportFile = async (e: Event) => {
   if (!file) return
 
   try {
-    const content = await file.text()
-    const result = await $fetch<{
+    const { runTrackedProcessing } = useTrackedUpload()
+    const result = await runTrackedProcessing<{
       resources?: Array<{ type: string, targetId: string, targetName: string }>
-    }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
-      method: 'POST',
-      body: { content }
+    }>({
+      title: 'Importing tag set package',
+      workspaceId: selectedWorkspace.value || 'workspace',
+      files: [{ file }],
+      task: async () => {
+        const content = await file.text()
+        return await $fetch<{
+          resources?: Array<{ type: string, targetId: string, targetName: string }>
+        }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
+          method: 'POST',
+          body: { content }
+        })
+      }
     })
 
     const imported = result.resources?.find(r => r.type === 'TAG_SET')

@@ -18,6 +18,40 @@ export type ProjectTextIndexDefaults = {
   recognitionIndices: number[]
 }
 
+export type ProjectToolkitSettings = {
+  codecId: string | null
+  labelSetId: string | null
+  dictionaryId: string | null
+  tagSetId: string | null
+  normalizationProfileId: string | null
+  validationRulesetId: string | null
+  virtualKeyboardId: string | null
+  allowCodecOverride: boolean
+  allowDictionaryOverride: boolean
+  allowVirtualKeyboardOverride: boolean
+  allowLabelSetOverride: boolean
+  allowTagSetOverride: boolean
+  allowNormalizationProfileOverride: boolean
+  allowValidationRulesetOverride: boolean
+}
+
+const DEFAULT_TOOLKIT_SETTINGS: ProjectToolkitSettings = {
+  codecId: null,
+  labelSetId: null,
+  dictionaryId: null,
+  tagSetId: null,
+  normalizationProfileId: null,
+  validationRulesetId: null,
+  virtualKeyboardId: null,
+  allowCodecOverride: true,
+  allowDictionaryOverride: true,
+  allowVirtualKeyboardOverride: true,
+  allowLabelSetOverride: true,
+  allowTagSetOverride: true,
+  allowNormalizationProfileOverride: true,
+  allowValidationRulesetOverride: true
+}
+
 const UNINDEXED_RECOGNITION_SENTINEL = -1
 
 function normalizeProjectTextIndexDefaults(input?: Partial<ProjectTextIndexDefaults> | null): ProjectTextIndexDefaults {
@@ -73,6 +107,10 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
   const projectDictionaryUnicodeNormalization = ref<string>('NFC')
   const projectDictionaryCanEdit = ref<boolean>(false)
   const projectDictionaryLocked = ref<boolean>(false)
+  const projectVirtualKeyboardIdByProjectId = ref<Record<string, string | null>>({})
+  const projectVirtualKeyboardId = ref<string | null>(null)
+  const projectToolkitSettingsByProjectId = ref<Record<string, ProjectToolkitSettings>>({})
+  const projectToolkitSettings = ref<ProjectToolkitSettings>({ ...DEFAULT_TOOLKIT_SETTINGS })
   const projectTextIndexDefaultsByProjectId = ref<Record<string, ProjectTextIndexDefaults>>({})
   const projectTextDefaultGtIndex = ref<number>(0)
   const projectTextDefaultRecognitionIndices = ref<number[]>([1])
@@ -101,6 +139,10 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     projectDictionaryUnicodeNormalization.value = dictionary?.unicodeNormalization ?? 'NFC'
     projectDictionaryCanEdit.value = dictionary?.canEdit ?? false
     projectDictionaryLocked.value = dictionary?.locked ?? false
+    projectVirtualKeyboardId.value = projectId ? (projectVirtualKeyboardIdByProjectId.value[projectId] ?? null) : null
+    projectToolkitSettings.value = projectId
+      ? { ...DEFAULT_TOOLKIT_SETTINGS, ...(projectToolkitSettingsByProjectId.value[projectId] ?? {}) }
+      : { ...DEFAULT_TOOLKIT_SETTINGS }
 
     const textDefaults = projectId ? projectTextIndexDefaultsByProjectId.value[projectId] : undefined
     const normalizedTextDefaults = normalizeProjectTextIndexDefaults(textDefaults)
@@ -231,6 +273,12 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
 
     const { [projectId]: _dictionary, ...remainingDictionaries } = projectDictionaryByProjectId.value
     projectDictionaryByProjectId.value = remainingDictionaries
+
+    const { [projectId]: _keyboard, ...remainingVirtualKeyboards } = projectVirtualKeyboardIdByProjectId.value
+    projectVirtualKeyboardIdByProjectId.value = remainingVirtualKeyboards
+
+    const { [projectId]: _toolkitSettings, ...remainingToolkitSettings } = projectToolkitSettingsByProjectId.value
+    projectToolkitSettingsByProjectId.value = remainingToolkitSettings
 
     const { [projectId]: _textDefaults, ...remainingTextDefaults } = projectTextIndexDefaultsByProjectId.value
     projectTextIndexDefaultsByProjectId.value = remainingTextDefaults
@@ -563,6 +611,44 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     setProjectDictionary({ id: null, forms: [], caseSensitive: false, unicodeNormalization: 'NFC', canEdit: false, locked: false }, projectId)
   }
 
+  function setProjectVirtualKeyboard(id: string | null, projectId?: string) {
+    const targetProjectId = projectId ?? activeProjectId.value
+    if (!targetProjectId) {
+      projectVirtualKeyboardId.value = id
+      return
+    }
+    projectVirtualKeyboardIdByProjectId.value = {
+      ...projectVirtualKeyboardIdByProjectId.value,
+      [targetProjectId]: id
+    }
+    if (activeProjectId.value === targetProjectId) {
+      projectVirtualKeyboardId.value = id
+    }
+  }
+
+  function clearProjectVirtualKeyboard(projectId?: string) {
+    setProjectVirtualKeyboard(null, projectId)
+  }
+
+  function setProjectToolkitSettings(settings: Partial<ProjectToolkitSettings>, projectId?: string) {
+    const targetProjectId = projectId ?? activeProjectId.value
+    const normalized = {
+      ...DEFAULT_TOOLKIT_SETTINGS,
+      ...settings
+    }
+    if (!targetProjectId) {
+      projectToolkitSettings.value = normalized
+      return
+    }
+    projectToolkitSettingsByProjectId.value = {
+      ...projectToolkitSettingsByProjectId.value,
+      [targetProjectId]: normalized
+    }
+    if (activeProjectId.value === targetProjectId) {
+      projectToolkitSettings.value = normalized
+    }
+  }
+
   function setProjectTextIndexDefaults(defaults: Partial<ProjectTextIndexDefaults>, projectId?: string) {
     const targetProjectId = projectId ?? activeProjectId.value
     const normalized = normalizeProjectTextIndexDefaults(defaults)
@@ -608,6 +694,10 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     projectDictionaryCanEdit,
     projectDictionaryLocked,
     projectDictionaryByProjectId,
+    projectVirtualKeyboardId,
+    projectVirtualKeyboardIdByProjectId,
+    projectToolkitSettings,
+    projectToolkitSettingsByProjectId,
     projectTextIndexDefaultsByProjectId,
     projectTextDefaultGtIndex,
     projectTextDefaultRecognitionIndices,
@@ -637,6 +727,9 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     clearProjectCodec,
     setProjectDictionary,
     clearProjectDictionary,
+    setProjectVirtualKeyboard,
+    clearProjectVirtualKeyboard,
+    setProjectToolkitSettings,
     setProjectTextIndexDefaults,
     clearProjectTextIndexDefaults
   }

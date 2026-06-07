@@ -16,6 +16,7 @@ import {
   type ShortcutDefinition
 } from '@/composables/editor/shortcut-registry'
 import { useShortcutBindings } from '@/composables/editor/use-shortcut-bindings'
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
 
 const props = defineProps<{
   open: boolean
@@ -31,6 +32,8 @@ const isOpen = computed({
   get: () => props.open,
   set: value => emit('update:open', value)
 })
+
+useBlockEditorCanvasInteractions(isOpen)
 
 const searchQuery = ref('')
 const captureError = ref('')

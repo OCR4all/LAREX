@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { Dictionary } from '@/types/dictionary'
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
+
+useBlockEditorCanvasInteractions()
 
 const props = defineProps<{
   workspaceId: string
@@ -28,8 +31,12 @@ const { data: dictionary } = await useFetch<Dictionary>(
       <div class="space-y-4">
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
-            <p class="text-sm font-medium truncate">{{ dictionary?.name || 'Dictionary' }}</p>
-            <p v-if="dictionary?.description" class="text-xs text-muted line-clamp-2">{{ dictionary.description }}</p>
+            <p class="text-sm font-medium truncate">
+              {{ dictionary?.name || 'Dictionary' }}
+            </p>
+            <p v-if="dictionary?.description" class="text-xs text-muted line-clamp-2">
+              {{ dictionary.description }}
+            </p>
           </div>
           <UButton
             color="neutral"

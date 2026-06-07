@@ -16,6 +16,7 @@ import { normalizeRelation } from '@/utils/editor/relations'
 import { useEditorSession, usePageVisibilityState } from '@/session/editor/editor-session'
 import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
 import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
+import { useEditorCanvasInteractionBlocker } from '@/composables/editor/use-canvas-interaction-blocker'
 import { CompoundCommand, CreateRelationCommand, UpdateRelationCommand, UpdateTextContentVariantsCommand } from '@/commands'
 import { PolygonType, type RegionKind, type Relation, type TextContentVariantData } from '@/models/editor'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
@@ -66,6 +67,7 @@ const {
 const toast = useToast()
 const editorOverlay = useOverlay()
 const mergeSettingsSlideover = editorOverlay.create(LazyEditorSlideoverMergeSettings)
+const { isCanvasInteractionBlocked } = useEditorCanvasInteractionBlocker()
 
 const colorMode = useColorMode()
 const WORLD_COORD_THRESHOLD = 2.5
@@ -1098,6 +1100,7 @@ function dispatchActionTargetPicked(payload: { targetSelection: ActionTargetSele
 }
 
 function handleActionWandMouseDown(event: MouseEvent) {
+  if (isCanvasInteractionBlocked.value) return
   if (!editorUiStore.actionWandActive || event.button !== 0 || !canvas.value) return
   if (!isCanvasWritable.value) {
     editorUiStore.setActionWandActive(false)
@@ -1142,10 +1145,53 @@ function handleActionWandMouseDown(event: MouseEvent) {
 }
 
 function handleActionWandKeyDown(event: KeyboardEvent) {
+  if (isCanvasInteractionBlocked.value) return
   if (!editorUiStore.actionWandActive || event.key !== 'Escape') return
   event.preventDefault()
   event.stopImmediatePropagation()
   editorUiStore.setActionWandActive(false)
+}
+
+function handleBlockedCanvasPointerEvent(event: Event) {
+  if (!isCanvasInteractionBlocked.value) return false
+  event.preventDefault()
+  event.stopPropagation()
+  return true
+}
+
+function handleEditorWheel(event: WheelEvent) {
+  if (handleBlockedCanvasPointerEvent(event)) return
+  editorInteractions.onWheel(event)
+}
+
+function handleEditorMouseDown(event: MouseEvent) {
+  if (handleBlockedCanvasPointerEvent(event)) return
+  editorInteractions.onMouseDown(event)
+}
+
+function handleEditorDoubleClick(event: MouseEvent) {
+  if (handleBlockedCanvasPointerEvent(event)) return
+  editorInteractions.onDoubleClick(event)
+}
+
+function handleEditorMouseMove(event: MouseEvent) {
+  if (isCanvasInteractionBlocked.value) return
+  editorInteractions.onMouseMove(event)
+}
+
+function handleEditorMouseUp(event: MouseEvent) {
+  if (isCanvasInteractionBlocked.value) return
+  editorInteractions.onMouseUp(event)
+}
+
+function handleEditorMouseLeave() {
+  if (isCanvasInteractionBlocked.value) return
+  editorInteractions.onMouseLeave()
+}
+
+function handleEditorKeyDown(event: KeyboardEvent) {
+  if (isCanvasInteractionBlocked.value) return
+  editorInteractions.onKeyDown(event)
 }
 
 function attachInteractions() {
@@ -1153,16 +1199,16 @@ function attachInteractions() {
   const el = canvas.value
   if (!el) return
 
-  el.addEventListener('wheel', editorInteractions.onWheel, { passive: false })
+  el.addEventListener('wheel', handleEditorWheel, { passive: false })
   el.addEventListener('mousedown', handleActionWandMouseDown, { capture: true })
   el.addEventListener('mousedown', activateEditor)
-  el.addEventListener('mousedown', editorInteractions.onMouseDown)
-  el.addEventListener('dblclick', editorInteractions.onDoubleClick)
-  window.addEventListener('mousemove', editorInteractions.onMouseMove)
-  window.addEventListener('mouseup', editorInteractions.onMouseUp)
-  window.addEventListener('mouseleave', editorInteractions.onMouseLeave)
+  el.addEventListener('mousedown', handleEditorMouseDown)
+  el.addEventListener('dblclick', handleEditorDoubleClick)
+  window.addEventListener('mousemove', handleEditorMouseMove)
+  window.addEventListener('mouseup', handleEditorMouseUp)
+  window.addEventListener('mouseleave', handleEditorMouseLeave)
   window.addEventListener('keydown', handleActionWandKeyDown, true)
-  window.addEventListener('keydown', editorInteractions.onKeyDown, true)
+  window.addEventListener('keydown', handleEditorKeyDown, true)
 
   interactionsAttached = true
 }
@@ -1172,17 +1218,17 @@ function detachInteractions() {
   const el = canvas.value
 
   if (el) {
-    el.removeEventListener('wheel', editorInteractions.onWheel)
+    el.removeEventListener('wheel', handleEditorWheel)
     el.removeEventListener('mousedown', handleActionWandMouseDown, { capture: true })
-    el.removeEventListener('mousedown', editorInteractions.onMouseDown)
+    el.removeEventListener('mousedown', handleEditorMouseDown)
     el.removeEventListener('mousedown', activateEditor)
-    el.removeEventListener('dblclick', editorInteractions.onDoubleClick)
+    el.removeEventListener('dblclick', handleEditorDoubleClick)
   }
-  window.removeEventListener('mousemove', editorInteractions.onMouseMove)
-  window.removeEventListener('mouseup', editorInteractions.onMouseUp)
-  window.removeEventListener('mouseleave', editorInteractions.onMouseLeave)
+  window.removeEventListener('mousemove', handleEditorMouseMove)
+  window.removeEventListener('mouseup', handleEditorMouseUp)
+  window.removeEventListener('mouseleave', handleEditorMouseLeave)
   window.removeEventListener('keydown', handleActionWandKeyDown, true)
-  window.removeEventListener('keydown', editorInteractions.onKeyDown, true)
+  window.removeEventListener('keydown', handleEditorKeyDown, true)
 
   interactionsAttached = false
 }
@@ -2694,7 +2740,7 @@ watch(() => props.src, (newSrc) => {
             :class="[
               isCanvasEditable ? (isCanvasWritable ? 'cursor-grab' : 'cursor-default') : 'cursor-default pointer-events-none'
             ]"
-            @contextmenu="(event) => { if (isCanvasWritable) editorInteractions.handleCanvasContextMenu(event) }"
+            @contextmenu="(event) => { if (isCanvasWritable && !isCanvasInteractionBlocked) editorInteractions.handleCanvasContextMenu(event) }"
           />
         </template>
         <template #item-leading="{ item }">
@@ -2705,6 +2751,23 @@ watch(() => props.src, (newSrc) => {
           </div>
         </template>
       </UContextMenu>
+
+      <div
+        v-if="isCanvasInteractionBlocked"
+        class="absolute inset-0 z-[960] cursor-default"
+        aria-hidden="true"
+        @wheel.prevent.stop
+        @mousedown.prevent.stop
+        @mouseup.prevent.stop
+        @mousemove.prevent.stop
+        @dblclick.prevent.stop
+        @contextmenu.prevent.stop
+        @pointerdown.prevent.stop
+        @pointermove.prevent.stop
+        @pointerup.prevent.stop
+        @pointercancel.prevent.stop
+        @scroll.prevent.stop
+      />
 
       <div
         v-if="canvasTextCorrectionVisible && correctionOverlayStyle"

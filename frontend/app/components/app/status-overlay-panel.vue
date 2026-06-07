@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import { useMediaQuery } from '@vueuse/core'
+
 const {
   isOverlayOpen,
   isOverlayMinimized,
+  overlayAnchorId,
   closeOverlay,
   toggleOverlayMinimized
 } = useStatusCenter()
+
+const isMobile = useMediaQuery('(max-width: 1023px)')
+const shouldShowFixedOverlay = computed(() => isMobile.value && isOverlayOpen.value && overlayAnchorId.value === null)
 </script>
 
 <template>
@@ -17,12 +23,13 @@ const {
     leave-to-class="translate-y-3 opacity-0"
   >
     <div
-      v-if="isOverlayOpen"
-      class="fixed bottom-4 right-4 z-50"
+      v-if="shouldShowFixedOverlay"
+      class="fixed bottom-4 left-4 z-50"
     >
       <AppStatusPopoverContent
         show-close
         show-minimize
+        compact
         :minimized="isOverlayMinimized"
         @close="closeOverlay"
         @toggle-minimized="toggleOverlayMinimized"

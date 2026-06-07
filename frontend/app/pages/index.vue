@@ -40,6 +40,7 @@ const projectsKey = computed(() => {
 
 const overlay = useOverlay()
 const toast = useToast()
+const { uploadFormDataWithProgress } = useTrackedUpload()
 const collaborationPageSummary = useCollaborationPageSummary()
 const editorStore = useEditorStore()
 const sessionStore = useEditorSessionStore()
@@ -806,22 +807,13 @@ async function handleProjectPackageImport(event: Event) {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await fetch(`/api/upload-proxy/workspaces/${selectedWorkspace.value}/projects/import-package`, {
-      method: 'POST',
-      body: formData
+    const result = await uploadFormDataWithProgress<{ projectName?: string }>({
+      title: 'Importing project package',
+      workspaceId: selectedWorkspace.value,
+      files: [{ file }],
+      url: `/api/upload-proxy/workspaces/${selectedWorkspace.value}/projects/import-package`,
+      formData
     })
-
-    if (!response.ok) {
-      let payload: unknown = null
-      try {
-        payload = await response.json()
-      } catch {
-        payload = null
-      }
-      throw new Error(extractApiMessageFromPayload(payload, `Import failed (${response.status})`))
-    }
-
-    const result = await response.json() as { projectName?: string }
     toast.add({
       title: 'Project package imported',
       description: result.projectName ? `Created "${result.projectName}"` : undefined,
@@ -865,22 +857,16 @@ async function handleLegacyOcr4allImport(event: Event) {
       formData.append('paths', relativePath)
     }
 
-    const response = await fetch(`/api/upload-proxy/workspaces/${selectedWorkspace.value}/projects/import-legacy-ocr4all`, {
-      method: 'POST',
-      body: formData
+    const result = await uploadFormDataWithProgress<{ projectName?: string, pageCount?: number }>({
+      title: 'Importing OCR4all project',
+      workspaceId: selectedWorkspace.value,
+      files: files.map(file => ({
+        file,
+        fileName: file.webkitRelativePath || file.name
+      })),
+      url: `/api/upload-proxy/workspaces/${selectedWorkspace.value}/projects/import-legacy-ocr4all`,
+      formData
     })
-
-    if (!response.ok) {
-      let payload: unknown = null
-      try {
-        payload = await response.json()
-      } catch {
-        payload = null
-      }
-      throw new Error(extractApiMessageFromPayload(payload, `Import failed (${response.status})`))
-    }
-
-    const result = await response.json() as { projectName?: string, pageCount?: number }
     toast.add({
       title: 'OCR4all project imported',
       description: result.projectName

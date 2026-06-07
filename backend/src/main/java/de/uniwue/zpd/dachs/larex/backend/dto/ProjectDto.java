@@ -24,8 +24,33 @@ public class ProjectDto {
             String tagSetId,
             String normalizationProfileId,
             String validationRulesetId,
+            String virtualKeyboardId,
+            Boolean allowCodecOverride,
+            Boolean allowDictionaryOverride,
+            Boolean allowVirtualKeyboardOverride,
+            Boolean allowLabelSetOverride,
+            Boolean allowTagSetOverride,
+            Boolean allowNormalizationProfileOverride,
+            Boolean allowValidationRulesetOverride,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices
+    ) {}
+
+    public record ToolkitPresetsRequest(
+            String codecId,
+            String labelSetId,
+            String dictionaryId,
+            String tagSetId,
+            String normalizationProfileId,
+            String validationRulesetId,
+            String virtualKeyboardId,
+            Boolean allowCodecOverride,
+            Boolean allowDictionaryOverride,
+            Boolean allowVirtualKeyboardOverride,
+            Boolean allowLabelSetOverride,
+            Boolean allowTagSetOverride,
+            Boolean allowNormalizationProfileOverride,
+            Boolean allowValidationRulesetOverride
     ) {}
 
     public record Response(
@@ -48,6 +73,14 @@ public class ProjectDto {
             String tagSetId,
             String normalizationProfileId,
             String validationRulesetId,
+            String virtualKeyboardId,
+            boolean allowCodecOverride,
+            boolean allowDictionaryOverride,
+            boolean allowVirtualKeyboardOverride,
+            boolean allowLabelSetOverride,
+            boolean allowTagSetOverride,
+            boolean allowNormalizationProfileOverride,
+            boolean allowValidationRulesetOverride,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices,
             AuthorizationCapabilitiesDto.ProjectCapabilities capabilities
@@ -70,11 +103,18 @@ public class ProjectDto {
                                   boolean isStarred, Long storageUsedBytes, boolean locked, String lockedReason,
                                   String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                   String normalizationProfileId, String validationRulesetId,
+                                  String virtualKeyboardId,
+                                  boolean allowCodecOverride, boolean allowDictionaryOverride,
+                                  boolean allowVirtualKeyboardOverride, boolean allowLabelSetOverride,
+                                  boolean allowTagSetOverride, boolean allowNormalizationProfileOverride,
+                                  boolean allowValidationRulesetOverride,
                                   Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                   AuthorizationCapabilitiesDto.ProjectCapabilities capabilities) {
             return new Response(id, name, description, tags, resolvedTags, created, updated, pageCount, isStarred,
                     storageUsedBytes, formatBytes(storageUsedBytes), locked, lockedReason, codecId, labelSetId, dictionaryId, tagSetId,
-                    normalizationProfileId, validationRulesetId,
+                    normalizationProfileId, validationRulesetId, virtualKeyboardId,
+                    allowCodecOverride, allowDictionaryOverride, allowVirtualKeyboardOverride, allowLabelSetOverride,
+                    allowTagSetOverride, allowNormalizationProfileOverride, allowValidationRulesetOverride,
                     defaultGtIndex, defaultRecognitionIndices, capabilities);
         }
     }

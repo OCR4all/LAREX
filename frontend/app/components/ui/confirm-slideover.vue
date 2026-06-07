@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
+
 withDefaults(defineProps<{
   title?: string
   message?: string
@@ -21,6 +23,8 @@ withDefaults(defineProps<{
 const emit = defineEmits<{
   close: [result: boolean]
 }>()
+
+useBlockEditorCanvasInteractions()
 </script>
 
 <template>

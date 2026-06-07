@@ -7,6 +7,7 @@ import type { LabelSetSummary } from '~/types/label-set'
 import type { NormalizationProfileSummary } from '~/types/normalization-profile'
 import type { TagSetSummary } from '~/types/tag-set'
 import type { ValidationRulesetSummary } from '~/types/validation-ruleset'
+import type { KeyboardLayout } from '@/types/virtual-keyboard'
 
 const UNDEFINED_RECOGNITION_SENTINEL = -1
 type SelectOption = { label: string, value: string }
@@ -22,6 +23,14 @@ interface Project {
   tagSetId?: string
   normalizationProfileId?: string
   validationRulesetId?: string
+  virtualKeyboardId?: string
+  allowCodecOverride?: boolean
+  allowDictionaryOverride?: boolean
+  allowVirtualKeyboardOverride?: boolean
+  allowLabelSetOverride?: boolean
+  allowTagSetOverride?: boolean
+  allowNormalizationProfileOverride?: boolean
+  allowValidationRulesetOverride?: boolean
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
 }
@@ -46,6 +55,14 @@ const schema = z.object({
   tagSetId: z.string().optional().or(z.literal('')),
   normalizationProfileId: z.string().optional().or(z.literal('')),
   validationRulesetId: z.string().optional().or(z.literal('')),
+  virtualKeyboardId: z.string().optional().or(z.literal('')),
+  allowCodecOverride: z.boolean().optional(),
+  allowDictionaryOverride: z.boolean().optional(),
+  allowVirtualKeyboardOverride: z.boolean().optional(),
+  allowLabelSetOverride: z.boolean().optional(),
+  allowTagSetOverride: z.boolean().optional(),
+  allowNormalizationProfileOverride: z.boolean().optional(),
+  allowValidationRulesetOverride: z.boolean().optional(),
   defaultGtIndexInput: z.union([z.string(), z.number()]).optional(),
   defaultGtIndexUndefined: z.boolean().optional(),
   defaultRecognitionIndicesInput: z.array(z.union([z.string(), z.number()])).optional(),
@@ -64,6 +81,14 @@ const state = ref<Schema>({
   tagSetId: props.project.tagSetId || '',
   normalizationProfileId: props.project.normalizationProfileId || '',
   validationRulesetId: props.project.validationRulesetId || '',
+  virtualKeyboardId: props.project.virtualKeyboardId || '',
+  allowCodecOverride: props.project.allowCodecOverride !== false,
+  allowDictionaryOverride: props.project.allowDictionaryOverride !== false,
+  allowVirtualKeyboardOverride: props.project.allowVirtualKeyboardOverride !== false,
+  allowLabelSetOverride: props.project.allowLabelSetOverride !== false,
+  allowTagSetOverride: props.project.allowTagSetOverride !== false,
+  allowNormalizationProfileOverride: props.project.allowNormalizationProfileOverride !== false,
+  allowValidationRulesetOverride: props.project.allowValidationRulesetOverride !== false,
   defaultGtIndexInput: String(props.project.defaultGtIndex ?? 0),
   defaultGtIndexUndefined: props.project.defaultGtIndex == null,
   defaultRecognitionIndicesInput: Array.isArray(props.project.defaultRecognitionIndices) && props.project.defaultRecognitionIndices.length > 0
@@ -122,12 +147,21 @@ const { data: validationRulesets, error: validationRulesetsError } = await useFe
   }
 )
 
+const { data: virtualKeyboards, error: virtualKeyboardsError } = await useFetch<KeyboardLayout[]>(
+  `/api/workspaces/${workspace.selectedWorkspaceId}/virtual-keyboards`,
+  {
+    key: wsKey(workspace.selectedWorkspaceId!, 'virtual-keyboards', 'list'),
+    default: () => []
+  }
+)
+
 const codecsSafe = computed<SelectOption[]>(() => (codecs.value ?? []).map(codec => ({ label: codec.name, value: codec.id })))
 const labelSetsSafe = computed<SelectOption[]>(() => (labelSets.value ?? []).map(set => ({ label: set.meta.name, value: set.id })))
 const dictionariesSafe = computed<SelectOption[]>(() => (dictionaries.value ?? []).map(dictionary => ({ label: dictionary.name, value: dictionary.id })))
 const tagSetsSafe = computed<SelectOption[]>(() => (tagSets.value ?? []).map(tagSet => ({ label: tagSet.meta.name, value: tagSet.id })))
 const normalizationProfilesSafe = computed<SelectOption[]>(() => (normalizationProfiles.value ?? []).map(profile => ({ label: profile.name, value: profile.id })))
 const validationRulesetsSafe = computed<SelectOption[]>(() => (validationRulesets.value ?? []).map(ruleset => ({ label: ruleset.name, value: ruleset.id })))
+const virtualKeyboardsSafe = computed<SelectOption[]>(() => (virtualKeyboards.value ?? []).map(keyboard => ({ label: keyboard.name, value: keyboard.id })))
 
 const { data: workspaceDefaults } = await useFetch<WorkspaceDefaults>(
   `/api/workspaces/${workspace.selectedWorkspaceId}`,
@@ -137,7 +171,8 @@ const { data: workspaceDefaults } = await useFetch<WorkspaceDefaults>(
 )
 
 const effectiveTagSetId = computed(() => state.value.tagSetId || null)
-const canEditTextIndexDefaults = computed(() => workspace.isCurrentUserOwner)
+const canSetProjectPresets = computed(() => workspace.currentWorkspace?.capabilities?.canSetPresets ?? workspace.isCurrentUserOwner)
+const canEditTextIndexDefaults = computed(() => canSetProjectPresets.value)
 const openConfigurationPanels = ref<string[]>([])
 const configurationPanelItems = [
   { label: 'Presets', value: 'presets', slot: 'presets', icon: 'i-lucide-sliders-horizontal' },
@@ -205,6 +240,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         tagSetId: event.data.tagSetId || null,
         normalizationProfileId: event.data.normalizationProfileId || null,
         validationRulesetId: event.data.validationRulesetId || null,
+        virtualKeyboardId: event.data.virtualKeyboardId || null,
+        allowCodecOverride: event.data.allowCodecOverride !== false,
+        allowDictionaryOverride: event.data.allowDictionaryOverride !== false,
+        allowVirtualKeyboardOverride: event.data.allowVirtualKeyboardOverride !== false,
+        allowLabelSetOverride: event.data.allowLabelSetOverride !== false,
+        allowTagSetOverride: event.data.allowTagSetOverride !== false,
+        allowNormalizationProfileOverride: event.data.allowNormalizationProfileOverride !== false,
+        allowValidationRulesetOverride: event.data.allowValidationRulesetOverride !== false,
         ...(defaultGtIndex !== undefined ? { defaultGtIndex } : {}),
         ...(defaultRecognitionIndices.length > 0 ? { defaultRecognitionIndices } : {})
       }
@@ -327,6 +370,58 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                   :disabled="isSubmitting || !!validationRulesetsError || validationRulesetsSafe.length === 0"
                 />
               </UFormField>
+              <UFormField label="Virtual Keyboard" name="virtualKeyboardId" hint="Default virtual keyboard for text editing">
+                <USelect
+                  v-model="state.virtualKeyboardId"
+                  :items="virtualKeyboardsSafe"
+                  placeholder="Select a virtual keyboard"
+                  class="w-full"
+                  :disabled="isSubmitting || !!virtualKeyboardsError || virtualKeyboardsSafe.length === 0"
+                />
+              </UFormField>
+              <div class="rounded-sm border border-default divide-y divide-default">
+                <div class="px-3 py-2">
+                  <p class="text-sm font-medium">Editor Tool Overrides</p>
+                  <p class="text-xs text-muted">Allow editors to temporarily use a different resource than the project default.</p>
+                </div>
+                <div class="p-3 grid gap-3">
+                  <USwitch
+                    v-model="state.allowCodecOverride"
+                    label="Allow codec switching"
+                    :disabled="isSubmitting || !canSetProjectPresets"
+                  />
+                  <USwitch
+                    v-model="state.allowDictionaryOverride"
+                    label="Allow dictionary switching"
+                    :disabled="isSubmitting || !canSetProjectPresets"
+                  />
+                  <USwitch
+                    v-model="state.allowVirtualKeyboardOverride"
+                    label="Allow virtual keyboard switching"
+                    :disabled="isSubmitting || !canSetProjectPresets"
+                  />
+                  <USwitch
+                    v-model="state.allowLabelSetOverride"
+                    label="Allow label set switching"
+                    :disabled="isSubmitting || !canSetProjectPresets"
+                  />
+                  <USwitch
+                    v-model="state.allowTagSetOverride"
+                    label="Allow tag set switching"
+                    :disabled="isSubmitting || !canSetProjectPresets"
+                  />
+                  <USwitch
+                    v-model="state.allowNormalizationProfileOverride"
+                    label="Allow normalization profile switching"
+                    :disabled="isSubmitting || !canSetProjectPresets"
+                  />
+                  <USwitch
+                    v-model="state.allowValidationRulesetOverride"
+                    label="Allow validation ruleset switching"
+                    :disabled="isSubmitting || !canSetProjectPresets"
+                  />
+                </div>
+              </div>
             </div>
           </template>
 
@@ -365,7 +460,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 </div>
               </UFormField>
               <p v-if="!canEditTextIndexDefaults" class="text-xs text-muted">
-                Only the workspace owner can change project text-index defaults.
+                You do not have permission to change project text-index defaults.
               </p>
             </div>
           </template>

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   createShortcutPreferences,
   getEffectiveShortcutBindings,
@@ -8,6 +8,15 @@ import {
 } from '../shortcut-registry'
 
 describe('shortcut-registry', () => {
+  const originalNavigator = globalThis.navigator
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: originalNavigator,
+      configurable: true
+    })
+  })
+
   it('serializes keyboard events to canonical bindings', () => {
     expect(serializeKeyboardEventToBinding({
       key: 'Z',
@@ -35,6 +44,82 @@ describe('shortcut-registry', () => {
       altKey: true,
       shiftKey: false
     }, { platform: 'mac' })).toBe('meta_alt_g')
+  })
+
+  it('recognizes Command undo and redo from navigator platform hints', () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        platform: 'MacIntel',
+        userAgent: 'Mozilla/5.0'
+      },
+      configurable: true
+    })
+
+    expect(serializeKeyboardEventToBinding({
+      key: 'z',
+      code: 'KeyZ',
+      ctrlKey: false,
+      metaKey: true,
+      altKey: false,
+      shiftKey: false
+    })).toBe('meta_z')
+
+    expect(serializeKeyboardEventToBinding({
+      key: 'y',
+      code: 'KeyY',
+      ctrlKey: false,
+      metaKey: true,
+      altKey: false,
+      shiftKey: false
+    })).toBe('meta_y')
+  })
+
+  it('keeps real Command key presses as meta bindings even when platform detection is wrong', () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        platform: 'Linux x86_64',
+        userAgent: 'Mozilla/5.0'
+      },
+      configurable: true
+    })
+
+    expect(serializeKeyboardEventToBinding({
+      key: 'z',
+      code: 'KeyZ',
+      ctrlKey: false,
+      metaKey: true,
+      altKey: false,
+      shiftKey: false
+    })).toBe('meta_z')
+  })
+
+  it('uses layout key values for modified letter shortcuts on QWERTZ keyboards', () => {
+    expect(serializeKeyboardEventToBinding({
+      key: 'z',
+      code: 'KeyY',
+      ctrlKey: false,
+      metaKey: true,
+      altKey: false,
+      shiftKey: false
+    }, { platform: 'mac' })).toBe('meta_z')
+
+    expect(serializeKeyboardEventToBinding({
+      key: 'y',
+      code: 'KeyZ',
+      ctrlKey: false,
+      metaKey: true,
+      altKey: false,
+      shiftKey: false
+    }, { platform: 'mac' })).toBe('meta_y')
+
+    expect(serializeKeyboardEventToBinding({
+      key: 'Z',
+      code: 'KeyY',
+      ctrlKey: false,
+      metaKey: true,
+      altKey: false,
+      shiftKey: true
+    }, { platform: 'mac' })).toBe('meta_shift_z')
   })
 
   it('uses keyboard code for modified shortcuts when the key is layout-shifted', () => {

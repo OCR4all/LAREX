@@ -3,6 +3,7 @@ import type { UserProfile, UpdateUserProfileRequest } from '~/types'
 
 const toast = useToast()
 const { resetTours } = useOnboarding()
+const { uploadFormDataWithProgress } = useTrackedUpload()
 const isResettingTour = ref(false)
 
 const handleResetTours = async () => {
@@ -174,9 +175,12 @@ const handleImageUpload = async (event: Event) => {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await $fetch<{ avatarUrl: string }>('/api/upload-proxy/profile/image', {
-      method: 'POST',
-      body: formData
+    const response = await uploadFormDataWithProgress<{ avatarUrl: string }>({
+      title: 'Uploading profile image',
+      workspaceId: 'user-profile',
+      files: [{ file }],
+      url: '/api/upload-proxy/profile/image',
+      formData
     })
 
     form.avatar = resolveManagedProfileAvatarSrc(response.avatarUrl) || ''

@@ -6,6 +6,9 @@ import { basicSetup } from 'codemirror'
 import { lintGutter, setDiagnostics } from '@codemirror/lint'
 import { closeSearchPanel, highlightSelectionMatches, openSearchPanel, search, searchKeymap, searchPanelOpen } from '@codemirror/search'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
+
+useBlockEditorCanvasInteractions()
 
 type XmlValidationResult = {
   valid: boolean

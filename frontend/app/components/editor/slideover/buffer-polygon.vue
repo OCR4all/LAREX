@@ -2,10 +2,13 @@
 import { Polygon } from '@/models/editor/geometry'
 import type { RenderablePolygon } from '@/types/editor/rendering'
 import { isPointInPolygon } from '@/utils/editor/hit-detection'
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
 
 export interface BufferResult {
   distance: number
 }
+
+useBlockEditorCanvasInteractions()
 
 const props = defineProps<{
   polygon: RenderablePolygon

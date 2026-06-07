@@ -64,6 +64,10 @@ describe('editor.document.store', () => {
     store.setLabelSet(new LabelSet('label-b', 'Label B', []), 'project-b')
     store.setProjectCodec('codec-a', ['a'], 'project-a')
     store.setProjectCodec('codec-b', ['b'], 'project-b')
+    store.setProjectDictionary({ id: 'dictionary-a', forms: [], canEdit: true, locked: false }, 'project-a')
+    store.setProjectDictionary({ id: 'dictionary-b', forms: [], canEdit: false, locked: true }, 'project-b')
+    store.setProjectVirtualKeyboard('keyboard-a', 'project-a')
+    store.setProjectVirtualKeyboard('keyboard-b', 'project-b')
     store.setProjectTextIndexDefaults({ gtIndex: 0, recognitionIndices: [1, 2] }, 'project-a')
     store.setProjectTextIndexDefaults({ gtIndex: 3, recognitionIndices: [4] }, 'project-b')
 
@@ -73,6 +77,9 @@ describe('editor.document.store', () => {
     expect(store.labelSet?.id).toBe('label-a')
     expect(store.projectCodecId).toBe('codec-a')
     expect(store.projectCodecCharacters).toEqual(['a'])
+    expect(store.projectDictionaryId).toBe('dictionary-a')
+    expect(store.projectDictionaryCanEdit).toBe(true)
+    expect(store.projectVirtualKeyboardId).toBe('keyboard-a')
     expect(store.projectTextDefaultGtIndex).toBe(0)
     expect(store.projectTextDefaultRecognitionIndices).toEqual([1, 2])
 
@@ -82,6 +89,10 @@ describe('editor.document.store', () => {
     expect(store.labelSet?.id).toBe('label-b')
     expect(store.projectCodecId).toBe('codec-b')
     expect(store.projectCodecCharacters).toEqual(['b'])
+    expect(store.projectDictionaryId).toBe('dictionary-b')
+    expect(store.projectDictionaryCanEdit).toBe(false)
+    expect(store.projectDictionaryLocked).toBe(true)
+    expect(store.projectVirtualKeyboardId).toBe('keyboard-b')
     expect(store.projectTextDefaultGtIndex).toBe(3)
     expect(store.projectTextDefaultRecognitionIndices).toEqual([4])
 
@@ -144,5 +155,52 @@ describe('editor.document.store', () => {
     expect(store.labelSet).toBeNull()
     expect(store.projectCodecId).toBeNull()
     expect(store.projectCodecCharacters).toEqual([])
+  })
+
+  it('stores effective toolkit selections and defaults separately per project', async () => {
+    const { sessionStore, store } = await createStores()
+
+    sessionStore.addOpenedProject('project-a')
+    sessionStore.addOpenedProject('project-b')
+
+    store.setProjectToolkitSettings({
+      codecId: null,
+      dictionaryId: null,
+      virtualKeyboardId: null,
+      allowCodecOverride: true,
+      allowDictionaryOverride: true,
+      allowVirtualKeyboardOverride: true
+    }, 'project-a')
+    store.setProjectToolkitSettings({
+      codecId: 'codec-default-b',
+      dictionaryId: 'dictionary-default-b',
+      virtualKeyboardId: 'keyboard-default-b',
+      allowCodecOverride: false,
+      allowDictionaryOverride: false,
+      allowVirtualKeyboardOverride: false
+    }, 'project-b')
+
+    store.setProjectCodec('codec-temp-a', ['a'], 'project-a')
+    store.setProjectDictionary({ id: 'dictionary-temp-a', forms: [], locked: false }, 'project-a')
+    store.setProjectVirtualKeyboard('keyboard-temp-a', 'project-a')
+    store.setProjectCodec('codec-default-b', ['b'], 'project-b')
+    store.setProjectDictionary({ id: 'dictionary-default-b', forms: [], locked: false }, 'project-b')
+    store.setProjectVirtualKeyboard('keyboard-default-b', 'project-b')
+
+    sessionStore.setActiveProject('project-a')
+    await nextTick()
+    expect(store.projectToolkitSettings.allowCodecOverride).toBe(true)
+    expect(store.projectCodecId).toBe('codec-temp-a')
+    expect(store.projectDictionaryId).toBe('dictionary-temp-a')
+    expect(store.projectVirtualKeyboardId).toBe('keyboard-temp-a')
+
+    sessionStore.setActiveProject('project-b')
+    await nextTick()
+    expect(store.projectToolkitSettings.allowCodecOverride).toBe(false)
+    expect(store.projectToolkitSettings.allowDictionaryOverride).toBe(false)
+    expect(store.projectToolkitSettings.allowVirtualKeyboardOverride).toBe(false)
+    expect(store.projectCodecId).toBe('codec-default-b')
+    expect(store.projectDictionaryId).toBe('dictionary-default-b')
+    expect(store.projectVirtualKeyboardId).toBe('keyboard-default-b')
   })
 })

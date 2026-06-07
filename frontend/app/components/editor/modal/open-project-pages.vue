@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
+
 type WorkspaceProject = {
   id: string
   name: string
@@ -27,6 +29,8 @@ const emit = defineEmits<{
 const toast = useToast()
 const isOpen = ref(true)
 
+useBlockEditorCanvasInteractions(isOpen)
+
 const { data: projects, pending: isProjectsLoading } = await useFetch<WorkspaceProject[]>(
   () => `/api/workspaces/${props.workspaceId}/projects`,
   { default: () => [] }
@@ -52,10 +56,11 @@ async function ensurePagesLoaded(projectId: string) {
       ...pagesByProjectId.value,
       [projectId]: pages
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as { data?: { message?: unknown }, message?: unknown }
     toast.add({
       title: 'Failed to load project pages',
-      description: err?.data?.message ?? err?.message,
+      description: String(error.data?.message ?? error.message ?? ''),
       color: 'error'
     })
     pagesByProjectId.value = {

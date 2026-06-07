@@ -83,6 +83,31 @@ public class Project {
     @JoinColumn(name = "validation_ruleset_id")
     private ValidationRuleset validationRuleset;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "virtual_keyboard_id")
+    private VirtualKeyboard virtualKeyboard;
+
+    @Column(name = "allow_codec_override", nullable = false)
+    private boolean allowCodecOverride = true;
+
+    @Column(name = "allow_dictionary_override", nullable = false)
+    private boolean allowDictionaryOverride = true;
+
+    @Column(name = "allow_virtual_keyboard_override", nullable = false)
+    private boolean allowVirtualKeyboardOverride = true;
+
+    @Column(name = "allow_label_set_override", nullable = false)
+    private boolean allowLabelSetOverride = true;
+
+    @Column(name = "allow_tag_set_override", nullable = false)
+    private boolean allowTagSetOverride = true;
+
+    @Column(name = "allow_normalization_profile_override", nullable = false)
+    private boolean allowNormalizationProfileOverride = true;
+
+    @Column(name = "allow_validation_ruleset_override", nullable = false)
+    private boolean allowValidationRulesetOverride = true;
+
     @Column(name = "default_gt_index")
     private Integer defaultGtIndex;
 
@@ -239,6 +264,70 @@ public class Project {
 
     public void setValidationRuleset(ValidationRuleset validationRuleset) {
         this.validationRuleset = validationRuleset;
+    }
+
+    public VirtualKeyboard getVirtualKeyboard() {
+        return virtualKeyboard;
+    }
+
+    public void setVirtualKeyboard(VirtualKeyboard virtualKeyboard) {
+        this.virtualKeyboard = virtualKeyboard;
+    }
+
+    public boolean isAllowCodecOverride() {
+        return allowCodecOverride;
+    }
+
+    public void setAllowCodecOverride(boolean allowCodecOverride) {
+        this.allowCodecOverride = allowCodecOverride;
+    }
+
+    public boolean isAllowDictionaryOverride() {
+        return allowDictionaryOverride;
+    }
+
+    public void setAllowDictionaryOverride(boolean allowDictionaryOverride) {
+        this.allowDictionaryOverride = allowDictionaryOverride;
+    }
+
+    public boolean isAllowVirtualKeyboardOverride() {
+        return allowVirtualKeyboardOverride;
+    }
+
+    public void setAllowVirtualKeyboardOverride(boolean allowVirtualKeyboardOverride) {
+        this.allowVirtualKeyboardOverride = allowVirtualKeyboardOverride;
+    }
+
+    public boolean isAllowLabelSetOverride() {
+        return allowLabelSetOverride;
+    }
+
+    public void setAllowLabelSetOverride(boolean allowLabelSetOverride) {
+        this.allowLabelSetOverride = allowLabelSetOverride;
+    }
+
+    public boolean isAllowTagSetOverride() {
+        return allowTagSetOverride;
+    }
+
+    public void setAllowTagSetOverride(boolean allowTagSetOverride) {
+        this.allowTagSetOverride = allowTagSetOverride;
+    }
+
+    public boolean isAllowNormalizationProfileOverride() {
+        return allowNormalizationProfileOverride;
+    }
+
+    public void setAllowNormalizationProfileOverride(boolean allowNormalizationProfileOverride) {
+        this.allowNormalizationProfileOverride = allowNormalizationProfileOverride;
+    }
+
+    public boolean isAllowValidationRulesetOverride() {
+        return allowValidationRulesetOverride;
+    }
+
+    public void setAllowValidationRulesetOverride(boolean allowValidationRulesetOverride) {
+        this.allowValidationRulesetOverride = allowValidationRulesetOverride;
     }
 
     public Integer getDefaultGtIndex() {

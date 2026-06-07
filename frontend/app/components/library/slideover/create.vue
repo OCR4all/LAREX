@@ -7,6 +7,7 @@ import type { LabelSetSummary } from '~/types/label-set'
 import type { NormalizationProfileSummary } from '~/types/normalization-profile'
 import type { TagSetSummary } from '~/types/tag-set'
 import type { ValidationRulesetSummary } from '~/types/validation-ruleset'
+import type { KeyboardLayout } from '@/types/virtual-keyboard'
 
 type SelectOption = { label: string, value: string }
 type WorkspaceDefaults = {
@@ -41,6 +42,14 @@ const schema = z.object({
   tagSetId: z.string().optional(),
   normalizationProfileId: z.string().optional(),
   validationRulesetId: z.string().optional(),
+  virtualKeyboardId: z.string().optional(),
+  allowCodecOverride: z.boolean().optional(),
+  allowDictionaryOverride: z.boolean().optional(),
+  allowVirtualKeyboardOverride: z.boolean().optional(),
+  allowLabelSetOverride: z.boolean().optional(),
+  allowTagSetOverride: z.boolean().optional(),
+  allowNormalizationProfileOverride: z.boolean().optional(),
+  allowValidationRulesetOverride: z.boolean().optional(),
   defaultGtIndexInput: z.union([z.string(), z.number()]).optional(),
   defaultGtIndexUndefined: z.boolean().optional(),
   defaultRecognitionIndicesInput: z.array(z.union([z.string(), z.number()])).optional(),
@@ -59,6 +68,14 @@ const state = reactive<Partial<Schema>>({
   tagSetId: undefined,
   normalizationProfileId: undefined,
   validationRulesetId: undefined,
+  virtualKeyboardId: undefined,
+  allowCodecOverride: true,
+  allowDictionaryOverride: true,
+  allowVirtualKeyboardOverride: true,
+  allowLabelSetOverride: true,
+  allowTagSetOverride: true,
+  allowNormalizationProfileOverride: true,
+  allowValidationRulesetOverride: true,
   defaultGtIndexInput: '0',
   defaultGtIndexUndefined: true,
   defaultRecognitionIndicesInput: ['1'],
@@ -132,6 +149,15 @@ const { data: validationRulesets, error: validationRulesetsError } = await useFe
   }
 )
 
+const virtualKeyboardsKey = computed(() => wsKey(selectedWorkspace.value, 'virtual-keyboards', 'list'))
+const { data: virtualKeyboards, error: virtualKeyboardsError } = await useFetch<KeyboardLayout[]>(
+  () => `/api/workspaces/${selectedWorkspace.value}/virtual-keyboards`,
+  {
+    key: virtualKeyboardsKey,
+    default: () => []
+  }
+)
+
 const codecsSafe = computed<SelectOption[]>(() => (codecs.value ?? []).map(codec => ({
   label: codec.name,
   value: codec.id
@@ -156,10 +182,14 @@ const validationRulesetsSafe = computed<SelectOption[]>(() => (validationRuleset
   label: ruleset.name,
   value: ruleset.id
 })))
+const virtualKeyboardsSafe = computed<SelectOption[]>(() => (virtualKeyboards.value ?? []).map(keyboard => ({
+  label: keyboard.name,
+  value: keyboard.id
+})))
 
 const hasAppliedLabelSetDefault = ref(false)
 const hasAppliedTextIndexDefaults = ref(false)
-const canEditTextIndexDefaults = computed(() => workspace.isCurrentUserOwner)
+const canEditTextIndexDefaults = computed(() => workspace.currentWorkspace?.capabilities?.canSetPresets ?? workspace.isCurrentUserOwner)
 const openConfigurationPanels = ref<string[]>([])
 const configurationPanelItems = [
   { label: 'Presets', value: 'presets', slot: 'presets', icon: 'i-lucide-sliders-horizontal' },
@@ -276,6 +306,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       tagSetId: event.data.tagSetId,
       normalizationProfileId: event.data.normalizationProfileId,
       validationRulesetId: event.data.validationRulesetId,
+      virtualKeyboardId: event.data.virtualKeyboardId,
+      allowCodecOverride: event.data.allowCodecOverride !== false,
+      allowDictionaryOverride: event.data.allowDictionaryOverride !== false,
+      allowVirtualKeyboardOverride: event.data.allowVirtualKeyboardOverride !== false,
+      allowLabelSetOverride: event.data.allowLabelSetOverride !== false,
+      allowTagSetOverride: event.data.allowTagSetOverride !== false,
+      allowNormalizationProfileOverride: event.data.allowNormalizationProfileOverride !== false,
+      allowValidationRulesetOverride: event.data.allowValidationRulesetOverride !== false,
       ...(parsedGtIndex !== undefined ? { defaultGtIndex: parsedGtIndex } : {}),
       ...(parsedRecognitionIndices.length > 0 ? { defaultRecognitionIndices: parsedRecognitionIndices } : {})
     }
@@ -408,6 +446,29 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                   :disabled="!!validationRulesetsError || validationRulesetsSafe.length === 0"
                 />
               </UFormField>
+              <UFormField label="Virtual Keyboard" name="virtualKeyboardId" hint="Default virtual keyboard for text editing">
+                <USelect
+                  v-model="state.virtualKeyboardId"
+                  :items="virtualKeyboardsSafe"
+                  placeholder="Select a virtual keyboard"
+                  :disabled="!!virtualKeyboardsError || virtualKeyboardsSafe.length === 0"
+                />
+              </UFormField>
+              <div class="rounded-sm border border-default divide-y divide-default">
+                <div class="px-3 py-2">
+                  <p class="text-sm font-medium">Editor Tool Overrides</p>
+                  <p class="text-xs text-muted">Allow editors to temporarily use a different resource than the project default.</p>
+                </div>
+                <div class="p-3 grid gap-3">
+                  <USwitch v-model="state.allowCodecOverride" label="Allow codec switching" />
+                  <USwitch v-model="state.allowDictionaryOverride" label="Allow dictionary switching" />
+                  <USwitch v-model="state.allowVirtualKeyboardOverride" label="Allow virtual keyboard switching" />
+                  <USwitch v-model="state.allowLabelSetOverride" label="Allow label set switching" />
+                  <USwitch v-model="state.allowTagSetOverride" label="Allow tag set switching" />
+                  <USwitch v-model="state.allowNormalizationProfileOverride" label="Allow normalization profile switching" />
+                  <USwitch v-model="state.allowValidationRulesetOverride" label="Allow validation ruleset switching" />
+                </div>
+              </div>
             </div>
           </template>
 

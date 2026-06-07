@@ -1,14 +1,19 @@
 package de.uniwue.zpd.dachs.larex.backend.service.project;
 
+import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
+import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.entity.VirtualKeyboard;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
+import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
@@ -28,10 +33,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -64,6 +71,8 @@ class ProjectCrudServiceTest {
     private NormalizationProfileRepository normalizationProfileRepository;
     @Mock
     private ValidationRulesetRepository validationRulesetRepository;
+    @Mock
+    private VirtualKeyboardRepository virtualKeyboardRepository;
 
     @Mock
     private WorkspaceMemberRepository workspaceMemberRepository;
@@ -98,6 +107,7 @@ class ProjectCrudServiceTest {
                 tagSetRepository,
                 normalizationProfileRepository,
                 validationRulesetRepository,
+                virtualKeyboardRepository,
                 workspaceMemberRepository,
                 workspaceQueryService,
                 workspaceAccessService,
@@ -125,6 +135,14 @@ class ProjectCrudServiceTest {
                 WORKSPACE_ID,
                 PROJECT_NAME,
                 "desc",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -167,6 +185,14 @@ class ProjectCrudServiceTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 USER_ID
         );
 
@@ -190,7 +216,7 @@ class ProjectCrudServiceTest {
         explicit.setName("Explicit");
 
         prepareCreateProjectBase(workspace);
-        when(labelSetRepository.findById("labelset-explicit")).thenReturn(Optional.of(explicit));
+        when(labelSetRepository.findByIdAndWorkspaceId("labelset-explicit", WORKSPACE_ID)).thenReturn(Optional.of(explicit));
 
         Optional<Project> created = service.createProject(
                 WORKSPACE_ID,
@@ -205,12 +231,20 @@ class ProjectCrudServiceTest {
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 USER_ID
         );
 
         assertTrue(created.isPresent());
         assertSame(explicit, created.get().getLabelSet());
-        verify(labelSetRepository).findById("labelset-explicit");
+        verify(labelSetRepository).findByIdAndWorkspaceId("labelset-explicit", WORKSPACE_ID);
         verify(labelSetRepository, never()).findByNameAndWorkspaceId(anyString(), anyString());
     }
 
@@ -234,6 +268,108 @@ class ProjectCrudServiceTest {
         verify(workspaceQuotaRefreshService).scheduleUsageRefresh(WORKSPACE_ID);
     }
 
+    @Test
+    void updateToolkitPresets_managerCanSetResourcesAndLocks() {
+        Project project = projectInWorkspace();
+        Codec codec = new Codec();
+        codec.setId("codec-1");
+        ControlledDictionary dictionary = new ControlledDictionary();
+        dictionary.setId("dictionary-1");
+        VirtualKeyboard keyboard = new VirtualKeyboard();
+        keyboard.setId("keyboard-1");
+
+        when(projectRepository.findByIdAndLibraryWorkspaceIdForUpdate("project-1", WORKSPACE_ID))
+                .thenReturn(Optional.of(project));
+        when(codecRepository.findByIdAndLibraryWorkspaceId("codec-1", WORKSPACE_ID)).thenReturn(Optional.of(codec));
+        when(dictionaryRepository.findByIdAndLibraryWorkspaceId("dictionary-1", WORKSPACE_ID)).thenReturn(Optional.of(dictionary));
+        when(virtualKeyboardRepository.findByIdAndWorkspaceId("keyboard-1", WORKSPACE_ID)).thenReturn(Optional.of(keyboard));
+        when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Optional<Project> updated = service.updateToolkitPresets(
+                WORKSPACE_ID,
+                "project-1",
+                "codec-1",
+                null,
+                "dictionary-1",
+                null,
+                null,
+                null,
+                "keyboard-1",
+                false,
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                USER_ID
+        );
+
+        assertTrue(updated.isPresent());
+        assertSame(codec, updated.get().getCodec());
+        assertSame(dictionary, updated.get().getDictionary());
+        assertSame(keyboard, updated.get().getVirtualKeyboard());
+        assertTrue(!updated.get().isAllowCodecOverride());
+        assertTrue(!updated.get().isAllowDictionaryOverride());
+        assertTrue(!updated.get().isAllowVirtualKeyboardOverride());
+    }
+
+    @Test
+    void updateToolkitPresets_editorCannotSaveDefaults() {
+        doThrow(new SecurityException("Preset management access required"))
+                .when(workspaceAccessService).requireSetPresetsAccess(WORKSPACE_ID, USER_ID);
+
+        assertThrows(SecurityException.class, () -> service.updateToolkitPresets(
+                WORKSPACE_ID,
+                "project-1",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                USER_ID
+        ));
+
+        verify(projectRepository, never()).findByIdAndLibraryWorkspaceIdForUpdate(anyString(), anyString());
+    }
+
+    @Test
+    void updateToolkitPresets_rejectsResourceOutsideWorkspace() {
+        Project project = projectInWorkspace();
+        when(projectRepository.findByIdAndLibraryWorkspaceIdForUpdate("project-1", WORKSPACE_ID))
+                .thenReturn(Optional.of(project));
+        when(codecRepository.findByIdAndLibraryWorkspaceId("codec-other", WORKSPACE_ID)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.updateToolkitPresets(
+                WORKSPACE_ID,
+                "project-1",
+                "codec-other",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                USER_ID
+        ));
+    }
+
     private void prepareCreateProjectBase(TeamWorkspace workspace) {
         Library library = new Library(WORKSPACE_ID, "Library");
         library.setId(LIBRARY_ID);
@@ -243,5 +379,13 @@ class ProjectCrudServiceTest {
         when(workspaceQueryService.findWorkspaceById(WORKSPACE_ID)).thenReturn(Optional.of(workspace));
         when(workspaceMemberRepository.findByWorkspaceId(WORKSPACE_ID)).thenReturn(List.of());
         when(projectRepository.save(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    private Project projectInWorkspace() {
+        Library library = new Library(WORKSPACE_ID, "Library");
+        library.setId(LIBRARY_ID);
+        Project project = new Project(PROJECT_NAME, "desc", library);
+        project.setId("project-1");
+        return project;
     }
 }

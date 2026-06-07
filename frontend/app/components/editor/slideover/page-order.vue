@@ -3,6 +3,9 @@ import { VueDraggable } from 'vue-draggable-plus'
 import type { PageData } from '@/stores/editor/types'
 import type { PageResponse } from '@/services/editor/project-loader'
 import { createPageSortOrderRequest } from '@/utils/editor/page-sort'
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
+
+useBlockEditorCanvasInteractions()
 
 const props = defineProps<{
   projectId: string

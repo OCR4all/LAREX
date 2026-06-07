@@ -98,6 +98,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [imported: boolean] }>()
 
+const { uploadFormDataWithProgress } = useTrackedUpload()
 const toast = useToast()
 
 const sourceMode = ref<'url' | 'file'>('url')
@@ -282,16 +283,6 @@ function formatBytes(bytes: number | null | undefined): string {
   return `${value.toFixed(1)} ${units[unit]}`
 }
 
-async function parseErrorResponse(response: Response, fallback: string): Promise<string> {
-  try {
-    const data = await response.json()
-    return extractApiErrorMessage({ data, statusCode: response.status }, fallback)
-  } catch {
-    const text = await response.text().catch(() => '')
-    return text || fallback
-  }
-}
-
 async function requestPreview() {
   isLoadingPreview.value = true
   stopPreviewPolling()
@@ -308,14 +299,14 @@ async function requestPreview() {
       }
       const form = new FormData()
       form.append('file', manifestFile.value)
-      const response = await fetch(`/api/upload-proxy/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/preview-jobs`, {
-        method: 'POST',
-        body: form
+      data = await uploadFormDataWithProgress<PreviewJobResponse>({
+        title: 'Uploading IIIF manifest',
+        workspaceId: props.workspaceId,
+        projectId: props.projectId,
+        files: [{ file: manifestFile.value }],
+        url: `/api/upload-proxy/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/preview-jobs`,
+        formData: form
       })
-      if (!response.ok) {
-        throw new Error(await parseErrorResponse(response, 'Failed to preview IIIF manifest'))
-      }
-      data = await response.json() as PreviewJobResponse
     }
 
     preview.value = data

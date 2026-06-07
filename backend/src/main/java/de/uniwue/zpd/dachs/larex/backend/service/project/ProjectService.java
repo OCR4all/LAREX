@@ -31,16 +31,48 @@ public class ProjectService {
 
     public Optional<Project> createProject(String workspaceId, String name, String description, List<String> tags, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                            String normalizationProfileId, String validationRulesetId,
+                                           String virtualKeyboardId,
+                                           Boolean allowCodecOverride, Boolean allowDictionaryOverride,
+                                           Boolean allowVirtualKeyboardOverride, Boolean allowLabelSetOverride,
+                                           Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
+                                           Boolean allowValidationRulesetOverride,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices, String userId) {
         return projectCrudService.createProject(workspaceId, name, description, tags, codecId, labelSetId, dictionaryId, tagSetId,
-                normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices, userId);
+                normalizationProfileId, validationRulesetId, virtualKeyboardId,
+                allowCodecOverride, allowDictionaryOverride, allowVirtualKeyboardOverride, allowLabelSetOverride,
+                allowTagSetOverride, allowNormalizationProfileOverride, allowValidationRulesetOverride,
+                defaultGtIndex, defaultRecognitionIndices, userId);
     }
 
     public Optional<Project> updateProject(String projectId, String name, String description, List<String> tags, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                            String normalizationProfileId, String validationRulesetId,
+                                           String virtualKeyboardId,
+                                           Boolean allowCodecOverride, Boolean allowDictionaryOverride,
+                                           Boolean allowVirtualKeyboardOverride, Boolean allowLabelSetOverride,
+                                           Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
+                                           Boolean allowValidationRulesetOverride,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices, String userId) {
         return projectCrudService.updateProject(projectId, name, description, tags, codecId, labelSetId, dictionaryId, tagSetId,
-                normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices, userId);
+                normalizationProfileId, validationRulesetId, virtualKeyboardId,
+                allowCodecOverride, allowDictionaryOverride, allowVirtualKeyboardOverride, allowLabelSetOverride,
+                allowTagSetOverride, allowNormalizationProfileOverride, allowValidationRulesetOverride,
+                defaultGtIndex, defaultRecognitionIndices, userId);
+    }
+
+    public Optional<Project> updateToolkitPresets(String workspaceId, String projectId,
+                                                  String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                                  String normalizationProfileId, String validationRulesetId,
+                                                  String virtualKeyboardId,
+                                                  Boolean allowCodecOverride, Boolean allowDictionaryOverride,
+                                                  Boolean allowVirtualKeyboardOverride, Boolean allowLabelSetOverride,
+                                                  Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
+                                                  Boolean allowValidationRulesetOverride,
+                                                  String userId) {
+        return projectCrudService.updateToolkitPresets(workspaceId, projectId, codecId, labelSetId, dictionaryId, tagSetId,
+                normalizationProfileId, validationRulesetId, virtualKeyboardId,
+                allowCodecOverride, allowDictionaryOverride, allowVirtualKeyboardOverride, allowLabelSetOverride,
+                allowTagSetOverride, allowNormalizationProfileOverride, allowValidationRulesetOverride,
+                userId);
     }
 
     public boolean deleteProject(String projectId, String userId) {

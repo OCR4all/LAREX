@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { parse } from 'yaml'
 import { extractApiErrorDetails } from '@/utils/api-error'
+import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
 import type {
   ActionParameterDefinition,
   ActionRun,
@@ -13,6 +14,8 @@ import type {
   ActionTarget,
   ActionImageVariantSelection
 } from '@/types/action'
+
+useBlockEditorCanvasInteractions()
 
 type ActionRunPageImageVariantSummary = {
   id: string

@@ -10,10 +10,12 @@ withDefaults(defineProps<{
   showClose?: boolean
   showMinimize?: boolean
   minimized?: boolean
+  compact?: boolean
 }>(), {
   showClose: false,
   showMinimize: false,
-  minimized: false
+  minimized: false,
+  compact: false
 })
 
 const emit = defineEmits<{
@@ -64,6 +66,7 @@ const issueSeverityMeta: Record<string, { color: 'error' | 'warning' | 'neutral'
   warning: { color: 'warning', icon: 'i-lucide-triangle-alert' },
   info: { color: 'neutral', icon: 'i-lucide-info' }
 }
+const fallbackIssueSeverityMeta = issueSeverityMeta.warning!
 
 watch(jobs, (currentJobs) => {
   const currentKeys = new Set(currentJobs.map(getJobKey))
@@ -80,7 +83,7 @@ function formatBytes(bytes: number): string {
 
 function canCancelJob(job: StatusJob): boolean {
   return job.kind === 'upload'
-    ? isActiveUpload(job.upload.status)
+    ? job.upload.cancelable !== false && isActiveUpload(job.upload.status)
     : job.run.canCancel && isActiveAction(job.run.status)
 }
 
@@ -203,11 +206,11 @@ function shouldUseJobShimmer(job: StatusJob) {
 <template>
   <div
     :class="[
-      minimized ? 'w-[min(16rem,calc(100vw-2rem))]' : 'w-[min(28rem,calc(100vw-2rem))]',
+      minimized ? 'w-[min(16rem,calc(100vw-2rem))]' : compact ? 'w-[min(22rem,calc(100vw-2rem))]' : 'w-[min(28rem,calc(100vw-2rem))]',
       'overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950'
     ]"
   >
-    <div :class="['flex items-center justify-between gap-3 border-b border-default', minimized ? 'px-3 py-2' : 'px-4 py-3']">
+    <div :class="['flex items-center justify-between gap-3 border-b border-default', minimized || compact ? 'px-3 py-2' : 'px-4 py-3']">
       <div class="flex min-w-0 items-center gap-2">
         <UIcon :class="minimized ? 'size-4' : 'size-5'" name="i-lucide-activity" class="shrink-0 text-primary" />
         <div class="min-w-0">
@@ -272,7 +275,7 @@ function shouldUseJobShimmer(job: StatusJob) {
       />
     </div>
 
-    <div v-else class="max-h-110 overflow-y-auto">
+    <div v-else :class="[compact ? 'max-h-[min(60vh,24rem)]' : 'max-h-110', 'overflow-y-auto']">
       <div v-if="issues.length === 0 && jobs.length === 0" class="px-4 py-6 text-center text-sm text-muted">
         All clear
       </div>
@@ -286,7 +289,7 @@ function shouldUseJobShimmer(job: StatusJob) {
           <div class="flex items-start justify-between gap-3">
             <div class="flex min-w-0 items-start gap-2">
               <UIcon
-                :name="issueSeverityMeta[issue.severity]?.icon || issueSeverityMeta.warning.icon"
+                :name="issueSeverityMeta[issue.severity]?.icon || fallbackIssueSeverityMeta.icon"
                 :class="issue.severity === 'error' ? 'text-error' : issue.severity === 'warning' ? 'text-warning' : 'text-muted'"
                 class="mt-0.5 size-4 shrink-0"
               />
@@ -303,7 +306,7 @@ function shouldUseJobShimmer(job: StatusJob) {
               </div>
             </div>
             <UBadge
-              :color="issueSeverityMeta[issue.severity]?.color || issueSeverityMeta.warning.color"
+              :color="issueSeverityMeta[issue.severity]?.color || fallbackIssueSeverityMeta.color"
               size="xs"
               variant="soft"
             >

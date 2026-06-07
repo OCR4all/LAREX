@@ -27,6 +27,7 @@ export function useStatusCenter() {
   const { issues, hasIssues } = useStatusIssues()
   const isOverlayOpen = useState('app.statusCenter.overlayOpen', () => false)
   const isOverlayMinimized = useState('app.statusCenter.overlayMinimized', () => false)
+  const overlayAnchorId = useState<string | null>('app.statusCenter.overlayAnchorId', () => null)
 
   const jobs = computed(() => buildStatusJobs(uploadStore.uploadsArray, actionRunsStore.runsArray))
   const activeJobs = computed(() => jobs.value.filter(job => job.active))
@@ -80,25 +81,36 @@ export function useStatusCenter() {
     }
   })
 
-  function openOverlay() {
+  function openOverlay(anchorId: string | null = null) {
+    overlayAnchorId.value = anchorId
     isOverlayOpen.value = true
   }
 
   function closeOverlay() {
     isOverlayOpen.value = false
+    overlayAnchorId.value = null
   }
 
-  function toggleOverlay() {
-    isOverlayOpen.value = !isOverlayOpen.value
+  function toggleOverlay(anchorId: string | null = null) {
+    if (isOverlayOpen.value && overlayAnchorId.value === anchorId) {
+      closeOverlay()
+      return
+    }
+    openOverlay(anchorId)
   }
 
   function toggleOverlayMinimized() {
     isOverlayMinimized.value = !isOverlayMinimized.value
   }
 
+  function setOverlayAnchor(anchorId: string | null) {
+    overlayAnchorId.value = anchorId
+  }
+
   return {
     isOverlayOpen,
     isOverlayMinimized,
+    overlayAnchorId,
     jobs,
     activeJobs,
     terminalJobs,
@@ -113,6 +125,7 @@ export function useStatusCenter() {
     openOverlay,
     closeOverlay,
     toggleOverlay,
-    toggleOverlayMinimized
+    toggleOverlayMinimized,
+    setOverlayAnchor
   }
 }
