@@ -1,8 +1,5 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.config.ActionProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
@@ -10,7 +7,6 @@ import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorAssignment;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
@@ -80,12 +76,10 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -103,11 +97,6 @@ public class ActionRunService {
 
     private static final Logger log = LoggerFactory.getLogger(ActionRunService.class);
     private static final int ACTION_PROTOCOL_VERSION = 1;
-    private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
-    private static final TypeReference<Map<String, Object>> OBJECT_MAP = new TypeReference<>() {};
-    private static final TypeReference<ActionDto.TargetSelection> TARGET_SELECTION = new TypeReference<>() {};
-    private static final TypeReference<ActionDto.ImageVariantSelection> IMAGE_VARIANT_SELECTION = new TypeReference<>() {};
-    private static final String IMAGE_VARIANT_SELECTION_PARAMETER_KEY = "_larexImageVariantSelection";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final Pattern ACTION_RUN_SECRET_PATTERN = Pattern.compile("lrx_act_[A-Za-z0-9_-]{20,}");
     private static final Pattern BEARER_TOKEN_PATTERN = Pattern.compile("(?i)\\bBearer\\s+[A-Za-z0-9._~+\\-/]+=*");
@@ -126,7 +115,6 @@ public class ActionRunService {
     private final GlobalAdminService globalAdminService;
     private final ActionDefinitionService definitionService;
     private final ActionEndpointAuthService endpointAuthService;
-    private final ObjectMapper objectMapper;
     private final TaskExecutor importTaskExecutor;
     private final HierarchicalFileStorageService fileStorageService;
     private final ThumbnailService thumbnailService;
@@ -144,6 +132,9 @@ public class ActionRunService {
     private final PageOrderService pageOrderService;
     private final ActionAuditService actionAuditService;
     private final ActionProperties actionProperties;
+    private final ActionRunPayloadService payloadService;
+    private final ActionRunResponseMapper responseMapper;
+    private final ActionResultPageMergeService resultPageMergeService;
     private final HttpClient httpClient;
     private final TransactionTemplate transactionTemplate;
 
@@ -161,7 +152,6 @@ public class ActionRunService {
                             GlobalAdminService globalAdminService,
                             ActionDefinitionService definitionService,
                             ActionEndpointAuthService endpointAuthService,
-                            ObjectMapper objectMapper,
                             @org.springframework.beans.factory.annotation.Qualifier("importTaskExecutor") TaskExecutor importTaskExecutor,
                             HierarchicalFileStorageService fileStorageService,
                             ThumbnailService thumbnailService,
@@ -179,6 +169,9 @@ public class ActionRunService {
                             PageOrderService pageOrderService,
                             ActionAuditService actionAuditService,
                             ActionProperties actionProperties,
+                            ActionRunPayloadService payloadService,
+                            ActionRunResponseMapper responseMapper,
+                            ActionResultPageMergeService resultPageMergeService,
                             TransactionTemplate transactionTemplate) {
         this.definitionRepository = definitionRepository;
         this.assignmentRepository = assignmentRepository;
@@ -194,7 +187,6 @@ public class ActionRunService {
         this.globalAdminService = globalAdminService;
         this.definitionService = definitionService;
         this.endpointAuthService = endpointAuthService;
-        this.objectMapper = objectMapper;
         this.importTaskExecutor = importTaskExecutor;
         this.fileStorageService = fileStorageService;
         this.thumbnailService = thumbnailService;
@@ -212,6 +204,9 @@ public class ActionRunService {
         this.pageOrderService = pageOrderService;
         this.actionAuditService = actionAuditService;
         this.actionProperties = actionProperties;
+        this.payloadService = payloadService;
+        this.responseMapper = responseMapper;
+        this.resultPageMergeService = resultPageMergeService;
         this.transactionTemplate = transactionTemplate;
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
@@ -393,9 +388,9 @@ public class ActionRunService {
         run.setCreatedByUserId(userId);
         run.setStatus(initialStatus);
         run.setLockMode(definition.getLockMode());
-        run.setPageIdsJson(writeJson(pages.stream().map(Page::getId).toList()));
-        run.setTargetSelectionJson(writeJson(targetSelection));
-        run.setParametersJson(writeJson(parameters));
+        run.setPageIdsJson(payloadService.writeJson(pages.stream().map(Page::getId).toList()));
+        run.setTargetSelectionJson(payloadService.writeJson(targetSelection));
+        run.setParametersJson(payloadService.writeJson(parameters));
         run.setPublicApiBaseUrl(publicApiBaseUrl);
         String rawSecret = issueRunSecret(run);
         run.setStatusMessage(initialStatusMessage);
@@ -418,7 +413,7 @@ public class ActionRunService {
         } else {
             dispatchQueuedRunsAfterCommit();
         }
-        return new ActionDto.StartRunResponse(toRunResponse(savedRun, project.getName(), userId));
+        return new ActionDto.StartRunResponse(responseMapper.toRunResponse(savedRun, project.getName(), userId));
     }
 
     @Transactional(readOnly = true)
@@ -427,10 +422,10 @@ public class ActionRunService {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         List<ActionRun> runs = runRepository.findByWorkspaceIdAndProjectIdOrderByCreatedDesc(workspaceId, projectId);
         Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
-        Map<String, Integer> queuePositions = queuePositionsByRunId(runs);
+        Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
         return runs.stream()
                 .filter(run -> !dismissedRunIds.contains(run.getId()))
-                .map(run -> toRunResponse(run, project.getName(), userId, queuePositions))
+                .map(run -> responseMapper.toRunResponse(run, project.getName(), userId, queuePositions))
                 .toList();
     }
 
@@ -440,10 +435,10 @@ public class ActionRunService {
         List<ActionRun> runs = runRepository.findByWorkspaceIdOrderByCreatedDesc(workspaceId);
         Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
         Map<String, String> projectLabels = projectLabelsById(workspaceId);
-        Map<String, Integer> queuePositions = queuePositionsByRunId(runs);
+        Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
         return runs.stream()
                 .filter(run -> !dismissedRunIds.contains(run.getId()))
-                .map(run -> toRunResponse(
+                .map(run -> responseMapper.toRunResponse(
                         run,
                         projectLabels.getOrDefault(run.getProjectId(), run.getProjectId()),
                         userId,
@@ -457,7 +452,7 @@ public class ActionRunService {
         Project project = requireProject(workspaceId, projectId);
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         ActionRun run = requireRun(workspaceId, projectId, runId);
-        return toRunDetailResponse(run, project.getName(), userId);
+        return responseMapper.toRunDetailResponse(run, project.getName(), userId);
     }
 
     @Transactional(readOnly = true)
@@ -468,7 +463,7 @@ public class ActionRunService {
         if (!workspaceId.equals(run.getWorkspaceId())) {
             throw new IllegalArgumentException("Action run not found");
         }
-        return toRunDetailResponse(run, resolveProjectLabel(run.getProjectId()), userId);
+        return responseMapper.toRunDetailResponse(run, resolveProjectLabel(run.getProjectId()), userId);
     }
 
     public ActionDto.StartRunResponse retryRun(String workspaceId,
@@ -492,9 +487,9 @@ public class ActionRunService {
         requireExecuteAccess(definition, workspaceId, userId);
 
         project = requireProjectForUpdate(workspaceId, projectId);
-        ActionDto.TargetSelection targetSelection = readTargetSelection(sourceRun);
+        ActionDto.TargetSelection targetSelection = payloadService.readTargetSelection(sourceRun);
         requireTargetSupported(definition, targetSelection.type());
-        List<Page> pages = resolveRunPagesForUpdate(projectId, readPageIds(sourceRun));
+        List<Page> pages = resolveRunPagesForUpdate(projectId, payloadService.readPageIds(sourceRun));
         ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, projectId);
         boolean dispatchImmediately = concurrency.available();
         if (!dispatchImmediately && !enqueueIfBusy) {
@@ -512,7 +507,7 @@ public class ActionRunService {
                 targetSelection,
                 userId,
                 publicApiBaseUrl,
-                readObjectMap(sourceRun.getParametersJson()),
+                payloadService.readObjectMap(sourceRun.getParametersJson()),
                 dispatchImmediately ? Status.PENDING : Status.QUEUED,
                 dispatchImmediately ? "Created" : "Queued; waiting for an available slot",
                 "ACTION_RUN_RETRY",
@@ -529,9 +524,9 @@ public class ActionRunService {
         requireGlobalAdmin();
         requireDefinition(definitionId);
         List<ActionRun> runs = runRepository.findByProcessorDefinitionIdOrderByCreatedDesc(definitionId);
-        Map<String, Integer> queuePositions = queuePositionsByRunId(runs);
+        Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
         return runs.stream()
-                .map(run -> toAdminRunResponse(run, queuePositions))
+                .map(run -> responseMapper.toAdminRunResponse(run, queuePositions))
                 .toList();
     }
 
@@ -539,9 +534,9 @@ public class ActionRunService {
     public List<ActionDto.AdminRunResponse> listAllAdminRuns() {
         requireGlobalAdmin();
         List<ActionRun> runs = runRepository.findAllByOrderByCreatedDesc();
-        Map<String, Integer> queuePositions = queuePositionsByRunId(runs);
+        Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
         return runs.stream()
-                .map(run -> toAdminRunResponse(run, queuePositions))
+                .map(run -> responseMapper.toAdminRunResponse(run, queuePositions))
                 .toList();
     }
 
@@ -567,7 +562,7 @@ public class ActionRunService {
         if (!definitionId.equals(run.getProcessorDefinition().getId())) {
             throw new IllegalArgumentException("Action run not found");
         }
-        return toAdminRunResponse(run);
+        return responseMapper.toAdminRunResponse(run);
     }
 
     public ActionDto.ClearRunsResponse clearTerminalAdminRuns(String definitionId) {
@@ -636,16 +631,16 @@ public class ActionRunService {
         ActionRun run = requireRun(workspaceId, projectId, runId);
         requireCancelAccess(workspaceId, run, userId);
         ActionRun saved = cancelRunInternal(run, userId, "ACTION_RUN_CANCEL");
-        return toRunResponse(saved, resolveProjectLabel(saved.getProjectId()), userId);
+        return responseMapper.toRunResponse(saved, resolveProjectLabel(saved.getProjectId()), userId);
     }
 
     @Transactional(readOnly = true)
     public ActionDto.MachineInputResponse buildMachineInput(String runId, String authorizationHeader, String publicApiBaseUrl) {
         ActionRun run = authenticateRun(runId, authorizationHeader);
         ActionProcessorDefinition definition = run.getProcessorDefinition();
-        List<String> pageIds = readPageIds(run);
-        Map<String, Object> parameters = readObjectMap(run.getParametersJson());
-        ActionDto.ImageVariantSelection imageVariantSelection = readImageVariantSelection(parameters);
+        List<String> pageIds = payloadService.readPageIds(run);
+        Map<String, Object> parameters = payloadService.readObjectMap(run.getParametersJson());
+        ActionDto.ImageVariantSelection imageVariantSelection = payloadService.readImageVariantSelection(parameters);
 
         Map<String, List<PageImage>> imagesByPage = definition.isAcceptsImages()
                 ? pageImageRepository.findByPageIdIn(pageIds).stream().collect(Collectors.groupingBy(image -> image.getPage().getId()))
@@ -667,7 +662,7 @@ public class ActionRunService {
                 run.getId(),
                 definition.getProcessorKey(),
                 run.getProjectId(),
-                processorParameters(parameters),
+                payloadService.processorParameters(parameters),
                 pages,
                 buildMachineTargetSelection(run, includedPageIds),
                 imageVariantSelection,
@@ -678,7 +673,7 @@ public class ActionRunService {
     @Transactional(readOnly = true)
     public MachineFile resolveMachineFile(String runId, String authorizationHeader, String type, String fileId) {
         ActionRun run = authenticateRun(runId, authorizationHeader);
-        List<String> pageIds = readPageIds(run);
+        List<String> pageIds = payloadService.readPageIds(run);
         if ("images".equals(type)) {
             if (!run.getProcessorDefinition().isAcceptsImages()) {
                 throw new SecurityException("Image inputs are not allowed for this run");
@@ -763,7 +758,7 @@ public class ActionRunService {
                                                 MultiValueMap<String, MultipartFile> files) throws IOException {
         ActionRun run = authenticateRunForUpdate(runId, authorizationHeader);
         if (run.getStatus() == Status.COMPLETED || run.getStatus() == Status.FAILED) {
-            return toRunResponse(run);
+            return responseMapper.toRunResponse(run);
         }
         if (run.isCancelRequested() || run.getStatus() == Status.CANCELLED || run.getStatus() == Status.CANCEL_REQUESTED) {
             throw new SecurityException("This run has been cancelled");
@@ -772,7 +767,7 @@ public class ActionRunService {
             throw new IllegalArgumentException("Unsupported Action result protocol version");
         }
 
-        List<String> pageIds = readPageIds(run);
+        List<String> pageIds = payloadService.readPageIds(run);
         ActionProcessorDefinition definition = run.getProcessorDefinition();
         List<ActionDto.ResultFile> resultFiles = manifest.files() == null ? List.of() : manifest.files();
         List<ActionDto.ResultPatch> resultPatches = manifest.patches() == null ? List.of() : manifest.patches();
@@ -813,7 +808,7 @@ public class ActionRunService {
                     throw new IllegalArgumentException("Unsupported result type: " + resultFile.type());
                 }
             }
-            run.setResultSummaryJson(writeJson(stored));
+            run.setResultSummaryJson(payloadService.writeJson(stored));
             run.setStatus("failed".equalsIgnoreCase(manifest.status()) ? Status.FAILED : Status.COMPLETED);
             run.setStatusMessage(limit(redactProcessorSecrets(manifest.message()), 2000));
             run.setProgressPercent(run.getStatus() == Status.COMPLETED ? 100 : run.getProgressPercent());
@@ -827,7 +822,7 @@ public class ActionRunService {
                     run.getCreatedByUserId(), definition.getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                     Map.of("resultCount", stored.size()));
             dispatchQueuedRunsAfterCommit();
-            return toRunResponse(savedRun);
+            return responseMapper.toRunResponse(savedRun);
         } catch (IOException | RuntimeException e) {
             String failureMessage = describeException(e);
             run.setStatus(Status.FAILED);
@@ -855,7 +850,7 @@ public class ActionRunService {
         if (!validation.valid()) {
             throw new IllegalArgumentException("Result XML is invalid");
         }
-        ActionDto.TargetSelection targetSelection = readTargetSelection(run);
+        ActionDto.TargetSelection targetSelection = payloadService.readTargetSelection(run);
         if (targetSelection.type() != ActionTarget.PAGE) {
             return storeScopedXmlResult(run, resultFile, file);
         }
@@ -915,7 +910,7 @@ public class ActionRunService {
     }
 
     private Map<String, Object> storeScopedXmlResult(ActionRun run, ActionDto.ResultFile resultFile, MultipartFile file) throws IOException {
-        ActionDto.TargetSelection targetSelection = readTargetSelection(run);
+        ActionDto.TargetSelection targetSelection = payloadService.readTargetSelection(run);
         PageXml existingXml = primaryPageXml(resultFile.pageId());
         PageDto existing = annotationProcessingService.parseXmlToAnnotation(existingXml.getId());
         PageDto incoming = parseResultPageXml(file, existingXml);
@@ -928,7 +923,7 @@ public class ActionRunService {
             if (selectedRegionIds.isEmpty()) {
                 throw new SecurityException("Scoped XML result has no selected region target scope");
             }
-            merged = replaceTargetRegions(existing, incoming, selectedRegionIds);
+            merged = resultPageMergeService.replaceTargetRegions(existing, incoming, selectedRegionIds);
         } else if (targetSelection.type() == ActionTarget.TEXT_LINE) {
             Set<String> selectedTextLineIds = targetSelection.pages().stream()
                     .filter(page -> resultFile.pageId().equals(page.pageId()))
@@ -937,7 +932,7 @@ public class ActionRunService {
             if (selectedTextLineIds.isEmpty()) {
                 throw new SecurityException("Scoped XML result has no selected textline target scope");
             }
-            merged = replaceTargetTextLines(existing, incoming, selectedTextLineIds);
+            merged = resultPageMergeService.replaceTargetTextLines(existing, incoming, selectedTextLineIds);
         } else {
             merged = incoming;
         }
@@ -1117,189 +1112,6 @@ public class ActionRunService {
                 .orElseThrow(() -> new IllegalArgumentException("No PAGE XML found for page " + pageId));
     }
 
-    private PageDto replaceTargetRegions(PageDto existing, PageDto incoming, Set<String> selectedRegionIds) {
-        Map<String, RegionDto> incomingRegions = new HashMap<>();
-        collectRegions(incoming.regions(), incomingRegions);
-        List<String> missing = selectedRegionIds.stream()
-                .filter(id -> !incomingRegions.containsKey(id))
-                .toList();
-        if (!missing.isEmpty()) {
-            throw new IllegalArgumentException("Returned PAGE XML does not contain selected region(s): " + String.join(", ", missing));
-        }
-        List<RegionDto> regions = replaceRegions(existing.regions(), selectedRegionIds, incomingRegions);
-        return copyPageDto(existing, regions);
-    }
-
-    private List<RegionDto> replaceRegions(List<RegionDto> regions, Set<String> selectedRegionIds, Map<String, RegionDto> incomingRegions) {
-        if (regions == null) {
-            return null;
-        }
-        List<RegionDto> next = new ArrayList<>();
-        for (RegionDto region : regions) {
-            RegionDto incoming = region.id() == null ? null : incomingRegions.get(region.id());
-            if (incoming != null && selectedRegionIds.contains(region.id())) {
-                next.add(copyRegionDto(region, incoming.textLines(), incoming.nestedRegions()));
-            } else {
-                next.add(copyRegionDto(region, region.textLines(), replaceRegions(region.nestedRegions(), selectedRegionIds, incomingRegions)));
-            }
-        }
-        return next;
-    }
-
-    private PageDto replaceTargetTextLines(PageDto existing, PageDto incoming, Set<String> selectedTextLineIds) {
-        Map<String, TextLineDto> incomingTextLines = new HashMap<>();
-        collectTextLines(incoming.regions(), incomingTextLines);
-        List<String> missing = selectedTextLineIds.stream()
-                .filter(id -> !incomingTextLines.containsKey(id))
-                .toList();
-        if (!missing.isEmpty()) {
-            throw new IllegalArgumentException("Returned PAGE XML does not contain selected textline(s): " + String.join(", ", missing));
-        }
-        return copyPageDto(existing, replaceTextLinesInRegions(existing.regions(), selectedTextLineIds, incomingTextLines));
-    }
-
-    private List<RegionDto> replaceTextLinesInRegions(List<RegionDto> regions,
-                                                      Set<String> selectedTextLineIds,
-                                                      Map<String, TextLineDto> incomingTextLines) {
-        if (regions == null) {
-            return null;
-        }
-        List<RegionDto> next = new ArrayList<>();
-        for (RegionDto region : regions) {
-            List<TextLineDto> textLines = region.textLines();
-            List<TextLineDto> nextTextLines = textLines;
-            if (textLines != null) {
-                nextTextLines = new ArrayList<>();
-                for (TextLineDto line : textLines) {
-                    TextLineDto incoming = line.id() == null ? null : incomingTextLines.get(line.id());
-                    nextTextLines.add(incoming != null && selectedTextLineIds.contains(line.id()) ? incoming : line);
-                }
-            }
-            List<RegionDto> nextNested = replaceTextLinesInRegions(region.nestedRegions(), selectedTextLineIds, incomingTextLines);
-            next.add(copyRegionDto(region, nextTextLines, nextNested));
-        }
-        return next;
-    }
-
-    private void collectTextLines(List<RegionDto> regions, Map<String, TextLineDto> byId) {
-        if (regions == null) {
-            return;
-        }
-        for (RegionDto region : regions) {
-            if (region.textLines() != null) {
-                for (TextLineDto textLine : region.textLines()) {
-                    if (textLine.id() != null) {
-                        byId.put(textLine.id(), textLine);
-                    }
-                }
-            }
-            collectTextLines(region.nestedRegions(), byId);
-        }
-    }
-
-    private void collectRegions(List<RegionDto> regions, Map<String, RegionDto> byId) {
-        if (regions == null) {
-            return;
-        }
-        for (RegionDto region : regions) {
-            if (region.id() != null) {
-                byId.put(region.id(), region);
-            }
-            collectRegions(region.nestedRegions(), byId);
-        }
-    }
-
-    private PageDto copyPageDto(PageDto source, List<RegionDto> regions) {
-        return new PageDto(
-                source.imageFilename(),
-                source.imageWidth(),
-                source.imageHeight(),
-                source.imageXResolution(),
-                source.imageYResolution(),
-                source.imageResolutionUnit(),
-                source.metadata(),
-                source.pcGtsId(),
-                source.type(),
-                source.custom(),
-                source.orientation(),
-                source.primaryLanguage(),
-                source.secondaryLanguage(),
-                source.primaryScript(),
-                source.secondaryScript(),
-                source.readingDirection(),
-                source.textLineOrder(),
-                source.confidence(),
-                source.border(),
-                source.printSpace(),
-                regions,
-                source.readingOrder(),
-                source.alternativeImages(),
-                source.labels(),
-                source.userDefined(),
-                source.textStyle(),
-                source.layers(),
-                source.relations(),
-                source.formatVersion(),
-                source.labelIds()
-        );
-    }
-
-    private RegionDto copyRegionDto(RegionDto source, List<TextLineDto> textLines, List<RegionDto> nestedRegions) {
-        return new RegionDto(
-                source.id(),
-                source.kind(),
-                source.coords(),
-                textLines,
-                source.textContentVariants(),
-                source.alternativeImages(),
-                source.labels(),
-                source.userDefined(),
-                source.roles(),
-                source.grid(),
-                source.textStyle(),
-                source.type(),
-                source.orientation(),
-                source.textColour(),
-                source.bgColour(),
-                source.reverseVideo(),
-                source.fontSize(),
-                source.fontFamily(),
-                source.serif(),
-                source.monospace(),
-                source.xHeight(),
-                source.leading(),
-                source.kerning(),
-                source.align(),
-                source.textColourRgb(),
-                source.bgColourRgb(),
-                source.readingDirection(),
-                source.readingOrientation(),
-                source.textLineOrder(),
-                source.indented(),
-                source.primaryLanguage(),
-                source.secondaryLanguage(),
-                source.primaryScript(),
-                source.secondaryScript(),
-                source.production(),
-                source.numColours(),
-                source.embText(),
-                source.colourDepth(),
-                source.lineColour(),
-                source.lineSeparators(),
-                source.rows(),
-                source.columns(),
-                source.colour(),
-                source.penColour(),
-                source.borderPresent(),
-                nestedRegions,
-                source.confidence(),
-                source.custom(),
-                source.comments(),
-                source.continuation(),
-                source.labelIds()
-        );
-    }
-
     private void dispatchQueuedRunsAsync() {
         importTaskExecutor.execute(() -> {
             for (String runId : runRepository.findIdsByStatusOrderByCreatedAsc(Status.QUEUED)) {
@@ -1344,7 +1156,7 @@ public class ActionRunService {
             run.setProcessorDefinition(definition);
 
             Project project = requireProjectForUpdate(run.getWorkspaceId(), run.getProjectId());
-            List<Page> pages = resolveRunPagesForUpdate(run.getProjectId(), readPageIds(run));
+            List<Page> pages = resolveRunPagesForUpdate(run.getProjectId(), payloadService.readPageIds(run));
             ConcurrencyDecision concurrency = evaluateConcurrency(definition, run.getWorkspaceId(), run.getProjectId());
             if (!concurrency.available() || hasBlockingLocks(project, pages)) {
                 return;
@@ -1421,8 +1233,8 @@ public class ActionRunService {
             return;
         }
         ActionProcessorDefinition definition = run.getProcessorDefinition();
-        Map<String, Object> runParameters = readObjectMap(run.getParametersJson());
-        ActionDto.ImageVariantSelection imageVariantSelection = readImageVariantSelection(runParameters);
+        Map<String, Object> runParameters = payloadService.readObjectMap(run.getParametersJson());
+        ActionDto.ImageVariantSelection imageVariantSelection = payloadService.readImageVariantSelection(runParameters);
         List<String> processorPageIds = processorPageIds(run, definition, imageVariantSelection);
         Set<String> processorPageIdSet = new LinkedHashSet<>(processorPageIds);
         run.setStatus(Status.DISPATCHING);
@@ -1437,7 +1249,7 @@ public class ActionRunService {
         payload.put("projectId", run.getProjectId());
         payload.put("pageIds", processorPageIds);
         payload.put("targetSelection", buildMachineTargetSelection(run, processorPageIdSet));
-        payload.put("parameters", processorParameters(runParameters));
+        payload.put("parameters", payloadService.processorParameters(runParameters));
         payload.put("imageVariantSelection", imageVariantSelection);
         payload.put("secret", rawSecret);
         payload.put("pullUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/input");
@@ -1446,7 +1258,7 @@ public class ActionRunService {
 
         definitionService.requireEndpointUrlAllowed(definition.getEndpointUrl());
         URI endpointUri = URI.create(definition.getEndpointUrl());
-        String body = writeJson(payload);
+        String body = payloadService.writeJson(payload);
         Map<String, String> authHeaders = endpointAuthService.buildDispatchHeaders(
                 definitionService.readParsedDocument(definition).endpoint().auth(),
                 definition.getProcessorKey(),
@@ -1573,7 +1385,7 @@ public class ActionRunService {
             project.setLockedAt(null);
             projectRepository.save(project);
         }
-        List<Page> pages = pageRepository.findAllByIdIn(readPageIds(run));
+        List<Page> pages = pageRepository.findAllByIdIn(payloadService.readPageIds(run));
         for (Page page : pages) {
             if (run.getId().equals(page.getLockedByActionRunId())) {
                 page.setLocked(false);
@@ -1911,106 +1723,6 @@ public class ActionRunService {
         );
     }
 
-    private ActionDto.RunResponse toRunResponse(ActionRun run) {
-        return toRunResponse(run, resolveProjectLabel(run.getProjectId()), null);
-    }
-
-    private ActionDto.RunResponse toRunResponse(ActionRun run, String projectLabel, String userId) {
-        return toRunResponse(run, projectLabel, userId, Map.of());
-    }
-
-    private ActionDto.RunResponse toRunResponse(
-            ActionRun run,
-            String projectLabel,
-            String userId,
-            Map<String, Integer> queuePositions
-    ) {
-        ActionProcessorDefinition definition = run.getProcessorDefinition();
-        List<String> pageIds = readPageIds(run);
-        return new ActionDto.RunResponse(
-                run.getId(),
-                definition.getId(),
-                definition.getProcessorKey(),
-                definition.getName(),
-                run.getWorkspaceId(),
-                run.getProjectId(),
-                projectLabel,
-                pageIds.size(),
-                pageIds,
-                readTargetSelection(run),
-                run.getStatus(),
-                run.getLockMode(),
-                run.getProgressPercent(),
-                queuePosition(run, queuePositions),
-                run.getStatusMessage(),
-                run.getErrorMessage(),
-                canCancelRun(run.getWorkspaceId(), run, userId),
-                run.isCancelRequested(),
-                run.getLastHeartbeatAt(),
-                run.getCreated(),
-                run.getUpdated(),
-                run.getCompletedAt()
-        );
-    }
-
-    private ActionDto.RunDetailResponse toRunDetailResponse(ActionRun run, String projectLabel, String userId) {
-        return new ActionDto.RunDetailResponse(
-                toRunResponse(run, projectLabel, userId),
-                run.getLogText(),
-                logEventRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
-                        .map(this::toLogEventResponse)
-                        .toList(),
-                readResultSummary(run.getResultSummaryJson()),
-                durationSeconds(run)
-        );
-    }
-
-    private ActionDto.AdminRunResponse toAdminRunResponse(ActionRun run) {
-        return toAdminRunResponse(run, Map.of());
-    }
-
-    private ActionDto.AdminRunResponse toAdminRunResponse(ActionRun run, Map<String, Integer> queuePositions) {
-        ActionProcessorDefinition definition = run.getProcessorDefinition();
-        Project project = projectRepository.findById(run.getProjectId()).orElse(null);
-        return new ActionDto.AdminRunResponse(
-                run.getId(),
-                definition.getId(),
-                definition.getProcessorKey(),
-                definition.getName(),
-                run.getWorkspaceId(),
-                run.getWorkspaceId(),
-                run.getProjectId(),
-                project == null ? run.getProjectId() : project.getName(),
-                readPageIds(run).size(),
-                run.getStatus(),
-                run.getProgressPercent(),
-                queuePosition(run, queuePositions),
-                run.getStatusMessage(),
-                run.getErrorMessage(),
-                globalAdminService.isGlobalAdmin(),
-                run.isCancelRequested(),
-                run.getLogText(),
-                logEventRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
-                        .map(this::toLogEventResponse)
-                        .toList(),
-                readResultSummary(run.getResultSummaryJson()),
-                run.getLastHeartbeatAt(),
-                run.getCreated(),
-                run.getUpdated(),
-                run.getCompletedAt(),
-                durationSeconds(run)
-        );
-    }
-
-    private ActionDto.ActionRunLogEventResponse toLogEventResponse(ActionRunLogEvent event) {
-        return new ActionDto.ActionRunLogEventResponse(
-                event.getId(),
-                event.getLevel(),
-                event.getMessage(),
-                event.getCreated()
-        );
-    }
-
     private Map<String, Object> resolveRunParameters(ActionProcessorDefinition definition,
                                                      ActionDto.ImageVariantSelection imageVariantSelection) {
         ActionDefinitionDocument document = definitionService.readParsedDocument(definition);
@@ -2021,7 +1733,7 @@ public class ActionRunService {
             resolved.put(entry.getKey(), defaultParameterValue(entry.getValue()));
         }
         if (imageVariantSelection != null) {
-            resolved.put(IMAGE_VARIANT_SELECTION_PARAMETER_KEY, normalizeImageVariantSelection(imageVariantSelection));
+            resolved.put(ActionRunPayloadService.IMAGE_VARIANT_SELECTION_PARAMETER_KEY, normalizeImageVariantSelection(imageVariantSelection));
         }
         return resolved;
     }
@@ -2108,25 +1820,6 @@ public class ActionRunService {
         return parameter.type() == null ? "string" : parameter.type().trim().toLowerCase(Locale.ROOT);
     }
 
-    private Object readResultSummary(String json) {
-        if (json == null || json.isBlank()) {
-            return null;
-        }
-        try {
-            return objectMapper.readValue(json, Object.class);
-        } catch (JsonProcessingException e) {
-            return json;
-        }
-    }
-
-    private Long durationSeconds(ActionRun run) {
-        if (run.getCreated() == null) {
-            return null;
-        }
-        LocalDateTime end = run.getCompletedAt() == null ? run.getUpdated() : run.getCompletedAt();
-        return end == null ? null : ChronoUnit.SECONDS.between(run.getCreated(), end);
-    }
-
     private List<Status> terminalStatuses() {
         return List.of(Status.COMPLETED, Status.FAILED, Status.CANCELLED);
     }
@@ -2156,87 +1849,6 @@ public class ActionRunService {
         private String message() {
             return "Action concurrency limit reached (" + active + "/" + maxActiveRuns + " active " + scope.toLowerCase(Locale.ROOT) + " run(s))";
         }
-    }
-
-    private Integer queuePosition(ActionRun run) {
-        return queuePosition(run, Map.of());
-    }
-
-    private Integer queuePosition(ActionRun run, Map<String, Integer> queuePositions) {
-        if (run.getStatus() != Status.QUEUED) {
-            return null;
-        }
-        Integer precomputed = queuePositions.get(run.getId());
-        if (precomputed != null) {
-            return precomputed;
-        }
-
-        ActionProcessorDefinition definition = run.getProcessorDefinition();
-        String scope = concurrencyScope(definition);
-        int position = 0;
-        for (ActionRun queuedRun : runRepository.findByProcessorDefinitionIdAndStatusOrderByCreatedAsc(definition.getId(), Status.QUEUED)) {
-            if (!sameConcurrencyScope(run, queuedRun, scope)) {
-                continue;
-            }
-            position += 1;
-            if (run.getId().equals(queuedRun.getId())) {
-                return position;
-            }
-        }
-        return null;
-    }
-
-    private Map<String, Integer> queuePositionsByRunId(List<ActionRun> runs) {
-        Set<String> definitionIds = runs.stream()
-                .filter(run -> run.getStatus() == Status.QUEUED)
-                .map(run -> run.getProcessorDefinition().getId())
-                .collect(Collectors.toSet());
-        if (definitionIds.isEmpty()) {
-            return Map.of();
-        }
-
-        Map<String, Integer> positions = new HashMap<>();
-        for (String definitionId : definitionIds) {
-            List<ActionRun> queuedRuns = runRepository.findByProcessorDefinitionIdAndStatusOrderByCreatedAsc(definitionId, Status.QUEUED);
-            if (queuedRuns.isEmpty()) {
-                continue;
-            }
-            String scope = concurrencyScope(queuedRuns.getFirst().getProcessorDefinition());
-            Map<String, Integer> perScopeCounters = new HashMap<>();
-            for (ActionRun queuedRun : queuedRuns) {
-                String scopeKey = queueScopeKey(scope, queuedRun);
-                int position = perScopeCounters.merge(scopeKey, 1, Integer::sum);
-                positions.put(queuedRun.getId(), position);
-            }
-        }
-        return positions;
-    }
-
-    private String queueScopeKey(String scope, ActionRun run) {
-        return switch (scope) {
-            case "GLOBAL" -> "GLOBAL";
-            case "WORKSPACE" -> run.getWorkspaceId();
-            default -> run.getWorkspaceId() + "::" + run.getProjectId();
-        };
-    }
-
-    private String concurrencyScope(ActionProcessorDefinition definition) {
-        ActionDefinitionDocument.Concurrency concurrency = definitionService.readParsedDocument(definition).concurrency();
-        return concurrency == null || concurrency.scope() == null || concurrency.scope().isBlank()
-                ? "PROJECT"
-                : concurrency.scope().trim().toUpperCase(Locale.ROOT);
-    }
-
-    private boolean sameConcurrencyScope(ActionRun left, ActionRun right, String scope) {
-        if (!Objects.equals(left.getProcessorDefinition().getId(), right.getProcessorDefinition().getId())) {
-            return false;
-        }
-        return switch (scope) {
-            case "GLOBAL" -> true;
-            case "WORKSPACE" -> Objects.equals(left.getWorkspaceId(), right.getWorkspaceId());
-            default -> Objects.equals(left.getWorkspaceId(), right.getWorkspaceId())
-                    && Objects.equals(left.getProjectId(), right.getProjectId());
-        };
     }
 
     private Map<String, String> projectLabelsById(String workspaceId) {
@@ -2351,7 +1963,7 @@ public class ActionRunService {
             }
             Set<String> regionIds = new LinkedHashSet<>();
             Set<String> textLineIds = new LinkedHashSet<>();
-            collectTargetIds(pageDto.regions(), regionIds, textLineIds);
+            resultPageMergeService.collectTargetIds(pageDto.regions(), regionIds, textLineIds);
             if (type == ActionTarget.REGION) {
                 if (safeList(page.regionIds()).isEmpty()) {
                     throw new IllegalArgumentException("Region-targeted Actions require at least one region id");
@@ -2375,48 +1987,14 @@ public class ActionRunService {
         }
     }
 
-    private void collectTargetIds(List<RegionDto> regions, Set<String> regionIds, Set<String> textLineIds) {
-        if (regions == null) {
-            return;
-        }
-        for (RegionDto region : regions) {
-            if (region.id() != null) {
-                regionIds.add(region.id());
-            }
-            if (region.textLines() != null) {
-                for (TextLineDto line : region.textLines()) {
-                    if (line.id() != null) {
-                        textLineIds.add(line.id());
-                    }
-                }
-            }
-            collectTargetIds(region.nestedRegions(), regionIds, textLineIds);
-        }
-    }
-
     private void requireTargetSupported(ActionProcessorDefinition definition, ActionTarget target) {
         if (!definitionService.readTargetTypes(definition).contains(target)) {
             throw new IllegalArgumentException("Action does not support target: " + target);
         }
     }
 
-    private ActionDto.TargetSelection readTargetSelection(ActionRun run) {
-        if (run.getTargetSelectionJson() != null && !run.getTargetSelectionJson().isBlank()) {
-            try {
-                return objectMapper.readValue(run.getTargetSelectionJson(), TARGET_SELECTION);
-            } catch (JsonProcessingException ignored) {
-            }
-        }
-        return new ActionDto.TargetSelection(
-                ActionTarget.PAGE,
-                readPageIds(run).stream()
-                        .map(pageId -> new ActionDto.TargetSelectionPage(pageId, List.of(), List.of()))
-                        .toList()
-        );
-    }
-
     private ActionDto.MachineTargetSelection buildMachineTargetSelection(ActionRun run, Set<String> includedPageIds) {
-        ActionDto.TargetSelection selection = readTargetSelection(run);
+        ActionDto.TargetSelection selection = payloadService.readTargetSelection(run);
         List<ActionDto.MachineTargetPage> pages = selection.pages().stream()
                 .filter(page -> includedPageIds == null || includedPageIds.contains(page.pageId()))
                 .map(page -> buildMachineTargetPage(page, selection.type()))
@@ -2468,7 +2046,7 @@ public class ActionRunService {
     private List<String> processorPageIds(ActionRun run,
                                           ActionProcessorDefinition definition,
                                           ActionDto.ImageVariantSelection imageVariantSelection) {
-        List<String> pageIds = readPageIds(run);
+        List<String> pageIds = payloadService.readPageIds(run);
         if (!definition.isAcceptsImages() || imageVariantSelection == null) {
             return pageIds;
         }
@@ -2582,50 +2160,6 @@ public class ActionRunService {
     private void validateResultFileSize(MultipartFile file) {
         if (file.getSize() > actionProperties.getResults().getMaxFileBytes()) {
             throw new IllegalArgumentException("Action result file exceeds size limit");
-        }
-    }
-
-    private List<String> readPageIds(ActionRun run) {
-        try {
-            return objectMapper.readValue(run.getPageIdsJson(), STRING_LIST);
-        } catch (JsonProcessingException e) {
-            return List.of();
-        }
-    }
-
-    private Map<String, Object> readObjectMap(String json) {
-        if (json == null || json.isBlank()) {
-            return Map.of();
-        }
-        try {
-            return objectMapper.readValue(json, OBJECT_MAP);
-        } catch (JsonProcessingException e) {
-            return Map.of();
-        }
-    }
-
-    private ActionDto.ImageVariantSelection readImageVariantSelection(Map<String, Object> parameters) {
-        Object value = parameters.get(IMAGE_VARIANT_SELECTION_PARAMETER_KEY);
-        if (value == null) {
-            return null;
-        }
-        return objectMapper.convertValue(value, IMAGE_VARIANT_SELECTION);
-    }
-
-    private Map<String, Object> processorParameters(Map<String, Object> parameters) {
-        if (!parameters.containsKey(IMAGE_VARIANT_SELECTION_PARAMETER_KEY)) {
-            return parameters;
-        }
-        Map<String, Object> result = new LinkedHashMap<>(parameters);
-        result.remove(IMAGE_VARIANT_SELECTION_PARAMETER_KEY);
-        return result;
-    }
-
-    private String writeJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Could not serialize Action payload", e);
         }
     }
 

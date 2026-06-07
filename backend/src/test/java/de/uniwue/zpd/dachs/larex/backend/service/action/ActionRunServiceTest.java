@@ -155,6 +155,18 @@ class ActionRunServiceTest {
     void setUp() {
         objectMapper = new ObjectMapper();
         actionProperties = new ActionProperties();
+        ActionRunPayloadService payloadService = new ActionRunPayloadService(objectMapper);
+        ActionRunResponseMapper responseMapper = new ActionRunResponseMapper(
+                runRepository,
+                logEventRepository,
+                projectRepository,
+                workspaceAccessService,
+                globalAdminService,
+                definitionService,
+                payloadService,
+                objectMapper
+        );
+        ActionResultPageMergeService resultPageMergeService = new ActionResultPageMergeService();
         service = new ActionRunService(
                 definitionRepository,
                 assignmentRepository,
@@ -170,7 +182,6 @@ class ActionRunServiceTest {
                 globalAdminService,
                 definitionService,
                 endpointAuthService,
-                objectMapper,
                 importTaskExecutor,
                 fileStorageService,
                 thumbnailService,
@@ -188,6 +199,9 @@ class ActionRunServiceTest {
                 pageOrderService,
                 actionAuditService,
                 actionProperties,
+                payloadService,
+                responseMapper,
+                resultPageMergeService,
                 transactionTemplate
         );
         when(runDismissalRepository.findRunIdsByUserIdAndRunIds(anyString(), anyCollection())).thenReturn(Set.of());
