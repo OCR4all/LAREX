@@ -4,7 +4,7 @@ import type {
   RegionDto,
   RelationDto,
   TextLineDto
-} from '@/services/editor/page-conversion.service'
+} from '@/types/page-dto'
 
 export type CollaborativeRegionNode = {
   data: Omit<RegionDto, 'nestedRegions' | 'textLines'>
