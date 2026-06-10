@@ -59,7 +59,7 @@ export function useProjectActions(options: ProjectActionsOptions) {
     run.projectId === options.projectId && ['QUEUED', 'PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS'].includes(run.status)
   ).length)
 
-  watch(activeActionRunCount, (count, previousCount) =>s {
+  watch(activeActionRunCount, (count, previousCount) => {
     if (previousCount && count === 0) {
       void options.refreshProjectPagesData()
     }

@@ -7,6 +7,7 @@ import { getVisiblePolygonAtPoint, triangulatePolygon } from '@/utils/editor/hit
 import { clipToWorldCoords, getWorldCoordsFromEvent, imageToWorld, pixelsToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
 import { getPagePanelId, parseCanvasId } from '@/stores/editor/editor.keys'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
+import { useEditorCanvasCollaborationDisplay } from '@/composables/editor/use-editor-canvas-collaboration-display'
 import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
@@ -24,7 +25,6 @@ import type { ActionProcessingRenderTarget, CommentOverlayLabel, RenderablePolyg
 import type { ActionTargetSelection } from '@/types/action'
 import type { SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import { visibilityService } from '@/services/editor/visibility-service'
-import type { CollaborationPresence, CollaborationRoomMember, CollaborationUserIdentity } from '@/types/collaboration'
 import { getCollaborationColor } from '@/types/collaboration'
 import {
   collectTextlineIdsInPageOrder,
@@ -124,6 +124,7 @@ const canvasState = computed(() => editorStore.canvases?.[props.canvasId] ?? nul
 const xmlFileId = computed(() => canvasState.value?.xmlFileId ?? null)
 const selectedRegionId = computed(() => canvasState.value?.selectedRegionId ?? null)
 const selectedBaselineId = computed(() => canvasState.value?.selectedBaselineId ?? null)
+const canvasIdRef = computed(() => props.canvasId)
 const remoteCollaborators = computed(() => collaboration.getCanvasCollaborators(props.canvasId))
 const canvasEditor = computed(() => collaboration.getCanvasEditor(props.canvasId))
 const isCanvasEditable = computed(() => collaboration.canEditCanvas(props.canvasId))
@@ -136,106 +137,24 @@ const pendingTakeover = computed(() => collaboration.getCanvasPendingTakeover(pr
 const canForceTakeover = computed(() => !isCanvasEditable.value && collaboration.canForceTakeoverCanvas(props.canvasId))
 const collaborationSyncSuspended = ref(false)
 const collaboratorsPopoverOpen = ref(false)
+const {
+  collaborationVisibleParticipants,
+  editingParticipants,
+  viewingParticipants,
+  collaborationSummaryLabel,
+  showCollaboratorsPopover,
+  avatarSrc,
+  avatarFallback,
+  collaborationAvatarStyle,
+  collaboratorActivityLabel,
+  collaboratorStatus
+} = useEditorCanvasCollaborationDisplay({
+  canvasId: canvasIdRef,
+  hexToRgba
+})
 
 const hiddenPolygonIds = computed(() => usePageVisibilityState(pageId.value).value?.hiddenPolygonIds ?? [])
 const hiddenPolylineIds = computed(() => usePageVisibilityState(pageId.value).value?.hiddenPolylineIds ?? [])
-
-interface CollaborationDisplayParticipant {
-  key: string
-  user: CollaborationUserIdentity
-  presence: CollaborationPresence | null
-  role: 'editing' | 'viewing'
-  isCurrentUser: boolean
-}
-
-function latestMember(current: CollaborationRoomMember | undefined, next: CollaborationRoomMember): CollaborationRoomMember {
-  if (!current) return next
-  return new Date(next.lastSeenAt).getTime() >= new Date(current.lastSeenAt).getTime() ? next : current
-}
-
-function avatarSrc(user: CollaborationUserIdentity): string | undefined {
-  return resolveManagedProfileAvatarSrc(user.avatar)
-}
-
-function avatarFallback(user: CollaborationUserIdentity): string {
-  return getAvatarInitials({
-    name: user.displayName,
-    username: user.username
-  })
-}
-
-function collaborationAvatarStyle(userId: string): Record<string, string> {
-  const color = getCollaborationColor(userId)
-  return {
-    backgroundColor: hexToRgba(color, 0.18),
-    color,
-    borderColor: hexToRgba(color, 0.4)
-  }
-}
-
-function collaboratorActivityLabel(participant: CollaborationDisplayParticipant): string {
-  const modeLabel = participant.presence?.uiMode === 'text' ? ' in text view' : ''
-  if (participant.role === 'editing') {
-    return participant.presence?.active ? `Editing${modeLabel}` : 'Idle'
-  }
-
-  return `Viewing${modeLabel}`
-}
-
-function collaboratorStatus(participant: CollaborationDisplayParticipant): { label: string, color: 'primary' | 'neutral' } | null {
-  if (participant.role !== 'editing') return null
-
-  return participant.presence?.active
-    ? { label: 'Live', color: 'primary' }
-    : { label: 'Idle', color: 'neutral' }
-}
-
-const collaborationRoom = computed(() => collaboration.getRoomForCanvas(props.canvasId))
-
-const collaborationParticipants = computed<CollaborationDisplayParticipant[]>(() => {
-  const room = collaborationRoom.value
-  if (!room) return []
-
-  const dedupedMembers = new Map<string, CollaborationRoomMember>()
-  for (const member of room.presence.members) {
-    dedupedMembers.set(member.user.id, latestMember(dedupedMembers.get(member.user.id), member))
-  }
-
-  if (!dedupedMembers.has(room.identity.user.id)) {
-    dedupedMembers.set(room.identity.user.id, {
-      peerId: `self:${room.identity.user.id}`,
-      user: room.identity.user,
-      presence: null,
-      joinedAt: new Date().toISOString(),
-      lastSeenAt: new Date().toISOString()
-    })
-  }
-
-  const editorId = room.lease.editor?.user.id ?? null
-
-  return [...dedupedMembers.values()]
-    .map<CollaborationDisplayParticipant>(member => ({
-      key: member.user.id,
-      user: member.user,
-      presence: member.presence,
-      role: member.user.id === editorId ? 'editing' : 'viewing',
-      isCurrentUser: member.user.id === room.identity.user.id
-    }))
-    .sort((left, right) => {
-      if (left.role !== right.role) return left.role === 'editing' ? -1 : 1
-      if (left.isCurrentUser !== right.isCurrentUser) return left.isCurrentUser ? -1 : 1
-      return left.user.displayName.localeCompare(right.user.displayName)
-    })
-})
-
-const collaborationVisibleParticipants = computed(() => collaborationParticipants.value.slice(0, 3))
-const editingParticipants = computed(() => collaborationParticipants.value.filter(participant => participant.role === 'editing'))
-const viewingParticipants = computed(() => collaborationParticipants.value.filter(participant => participant.role === 'viewing'))
-const collaborationSummaryLabel = computed(() => {
-  const count = collaborationParticipants.value.length
-  return `${count} collaborator${count === 1 ? '' : 's'}`
-})
-const showCollaboratorsPopover = computed(() => collaborationParticipants.value.length > 1)
 
 const activateEditor = () => editorStore.setActiveCanvas(props.canvasId)
 
@@ -544,6 +463,7 @@ const propertiesInReadingOrder = computed(() => {
   const target = propertiesTarget.value
   if (!target || target.type !== 'polygon') return false
   const polygon = target.element
+  if (!polygon) return false
   if (polygon.type !== 'region') return false
   return editorCommands.isRegionInCurrentReadingOrder(polygon.id)
 })
@@ -555,10 +475,12 @@ function handlePropertiesClose() {
 async function handlePropertiesDelete() {
   const target = propertiesTarget.value
   if (!target) return
+  const element = target.element
+  if (!element) return
   if (target.type === 'polygon') {
-    await editorCommands.deletePolygon(target.element.id)
+    await editorCommands.deletePolygon(element.id)
   } else {
-    await editorCommands.deletePolyline(target.element.id)
+    await editorCommands.deletePolyline(element.id)
   }
   editorCommands.closeProperties()
 }
@@ -566,10 +488,12 @@ async function handlePropertiesDelete() {
 function handlePropertiesDuplicate() {
   const target = propertiesTarget.value
   if (!target) return
+  const element = target.element
+  if (!element) return
   if (target.type === 'polygon') {
-    editorCommands.duplicatePolygon(target.element.id)
+    editorCommands.duplicatePolygon(element.id)
   } else {
-    editorCommands.duplicatePolyline(target.element.id)
+    editorCommands.duplicatePolyline(element.id)
   }
   editorCommands.closeProperties()
 }
@@ -578,6 +502,7 @@ function handlePropertiesToggleReadingOrder() {
   const target = propertiesTarget.value
   if (!target || target.type !== 'polygon') return
   const polygon = target.element
+  if (!polygon) return
   if (polygon.type !== 'region') return
   editorCommands.toggleReadingOrder(polygon.id)
 }

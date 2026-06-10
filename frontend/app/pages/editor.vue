@@ -39,10 +39,9 @@ import type { LabelSet as ApiLabelSet, LabelDefinition as ApiLabelDefinition } f
 import type { ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import type { ActionRun, ActionTargetSelection } from '@/types/action'
 import type { Dictionary } from '@/types/dictionary'
-import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
+import type { RenderablePolyline } from '@/types/editor/rendering'
 import type { PageIndexingStatus } from '@/stores/editor/types'
-import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
-import { getCanvasId, getPagePanelId, getProjectPanelId, parseCanvasId, parseProjectPanelId } from '@/stores/editor/editor.keys'
+import { getCanvasId, getPagePanelId, getProjectPanelId } from '@/stores/editor/editor.keys'
 import { DEFAULT_PAGE_SORT_MODE, sortPagesForEditor, type PageSortMode } from '@/utils/editor/page-sort'
 import { useProjectDockviewRegistry } from '@/composables/editor/use-project-dockview-registry'
 import { useProjectTabCloseState } from '@/composables/editor/use-project-tab-close-state'
@@ -56,9 +55,12 @@ import { useEditorSidebarState } from '@/composables/editor/use-editor-sidebar-s
 import { useEditorSessionRestore } from '@/composables/editor/use-editor-session-restore'
 import { useEditorTaskState } from '@/composables/editor/use-editor-task-state'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
+import { useEditorActiveCanvasStatus } from '@/composables/editor/use-editor-active-canvas-status'
+import { useEditorDeepLinks } from '@/composables/editor/use-editor-deep-links'
+import { useEditorDockviewTabs } from '@/composables/editor/use-editor-dockview-tabs'
+import { useEditorLayoutState } from '@/composables/editor/use-editor-layout-state'
 import { UpdateReadingOrderCommand } from '@/commands'
 import type { ReadingOrder } from '@/models/editor'
-import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 import { resolveAdjacentPageId } from '@/utils/editor/page-navigation'
 
 definePageMeta({ layout: 'editor' })
@@ -87,7 +89,6 @@ const themeLarexDark: DockviewTheme = {
 const dockviewTheme = computed(() => colorMode.value === 'dark' ? themeLarexDark : themeLarexLight)
 
 const dockviewApi = ref<DockviewReadyEvent['api'] | null>(null)
-type RegisteredDockviewApi = Exclude<typeof dockviewApi.value, null>
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (typeof error !== 'object' || error === null) return fallback
@@ -127,80 +128,6 @@ function syncEditorWorkspaceAnchorRegistration(): void {
   }
 }
 
-const rootLayoutClass = computed(() => {
-  switch (editorStore.toolbarLayout) {
-    case 'docked-top':
-      return 'grid grid-rows-[auto_1fr_auto] grid-cols-1 h-full'
-
-    case 'docked-bottom':
-      return 'grid grid-rows-[1fr_auto_auto] grid-cols-1 h-full'
-
-    case 'docked-left':
-      return 'grid grid-cols-[auto_1fr] grid-rows-[1fr_auto] h-full'
-
-    case 'docked-right':
-      return 'grid grid-cols-[1fr_auto] grid-rows-[1fr_auto] h-full'
-
-    case 'floating':
-    default:
-      return 'grid grid-rows-[1fr_auto] grid-cols-1 h-full'
-  }
-})
-
-const toolbarClass = computed(() => {
-  switch (editorStore.toolbarLayout) {
-    case 'floating':
-      return 'z-50'
-
-    case 'docked-top':
-      return 'row-start-1 col-span-full'
-
-    case 'docked-bottom':
-      return 'row-start-2 col-span-full'
-
-    case 'docked-left':
-      return 'col-start-1 row-span-full'
-
-    case 'docked-right':
-      return 'col-start-2 row-span-full'
-
-    default:
-      return 'row-start-1 col-span-full'
-  }
-})
-
-const contentClass = computed(() => {
-  switch (editorStore.toolbarLayout) {
-    case 'docked-top':
-      return 'row-start-2 col-span-full'
-    case 'docked-bottom':
-      return 'row-start-1 col-span-full'
-    case 'docked-left':
-      return 'row-start-1 col-start-2'
-    case 'docked-right':
-      return 'row-start-1 col-start-1'
-    case 'floating':
-    default:
-      return 'row-start-1 col-span-full'
-  }
-})
-
-const statusBarClass = computed(() => {
-  switch (editorStore.toolbarLayout) {
-    case 'docked-top':
-      return 'row-start-3 col-span-full'
-    case 'docked-bottom':
-      return 'row-start-3 col-span-full'
-    case 'docked-left':
-      return 'row-start-2 col-start-2'
-    case 'docked-right':
-      return 'row-start-2 col-start-1'
-    case 'floating':
-    default:
-      return 'row-start-2 col-span-full'
-  }
-})
-
 const logoMenuItems: DropdownMenuItem[][] = [[
   {
     label: 'Back to Dashboard',
@@ -219,9 +146,34 @@ const actionRunsStore = useActionRunsStore()
 const editorUiStore = useEditorUiStore()
 const imageLoader = useEditorImageLoader()
 const sessionStore = useEditorSessionStore()
+
+const {
+  rootLayoutClass,
+  toolbarClass,
+  contentClass,
+  statusBarClass
+} = useEditorLayoutState(computed(() => editorStore.toolbarLayout))
+
 const collaboration = useEditorCollaboration()
 const projectDockviewRegistry = useProjectDockviewRegistry()
 const projectTabCloseState = useProjectTabCloseState()
+
+const {
+  getProjectTitle,
+  ensureProjectPanelExists,
+  ensurePagePanelExists,
+  onReady
+} = useEditorDockviewTabs({
+  getDockviewApi: () => dockviewApi.value,
+  setDockviewApi: (api) => {
+    dockviewApi.value = api
+  },
+  projectDockviewRegistry,
+  projectTabCloseState,
+  clearProjectTabState,
+  tryCreateInitialPanels: () => tryCreateInitialPanels()
+})
+
 const toast = useToast()
 const { refreshTaskCaches } = useDataRefresh()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
@@ -1370,369 +1322,45 @@ async function closeCurrentTabAndOpenAdjacentPage(direction: 'next' | 'prev') {
   await openEditorForPage(adjacent.projectId, adjacent.pageId)
 }
 
-const activeCanvasId = computed(() => editorStore.activeCanvasId)
-const isSavingActiveCanvas = computed(() => {
-  const id = activeCanvasId.value
-  if (!id) return false
-  return editorStore.canvases[id]?.isSavingAnnotations === true
+const {
+  activeCanvasId,
+  isSavingActiveCanvas,
+  activeUiMode,
+  useFloatingCollapsedSidebars,
+  activeControls,
+  activeSelectedPolygonId,
+  activeSelectedPolylineId,
+  activeHoveredPolygonId,
+  activePolygons,
+  activePolylines,
+  activePolygonsForSidebar,
+  activePolylinesForSidebar,
+  activeHoveredEntity,
+  activeSelectedEntity,
+  activePageSummary,
+  activeCollaborators,
+  activeCanvasEditor,
+  activePendingTakeover,
+  activeCanvasCanEdit,
+  activePageLockReason,
+  activeAnnotationMode,
+  canOpenActiveCanvasXmlEditor,
+  activeSelectedPolygonIds,
+  activeSelectedPolylineIds,
+  activeHiddenPolygonIds,
+  activeHiddenPolylineIds,
+  activePageId,
+  activeDocument,
+  activePage,
+  isActivePageLocked
+} = useEditorActiveCanvasStatus({
+  resolveCanvasAnnotationContext
 })
-const activeUiMode = computed(() => editorStore.effectiveUiMode(activeCanvasId.value))
-const useFloatingCollapsedSidebars = computed(() => activeUiMode.value !== 'text' || editorUiStore.textModeSubmode === 'visual')
 const collapsedImagePopoverDismissKey = ref(0)
 
 watch(activeUiMode, (mode) => {
   if (mode !== 'text') return
   void maybeAutoStartContextTour('/editor', { editorMode: 'text' })
-})
-
-const activeControls = computed<EditorCanvasControls | null>(() => {
-  const id = activeCanvasId.value
-  if (!id) return null
-  return getEditorSession(id)?.controls.value ?? null
-})
-
-const activeSelectedPolygonId = computed(() => {
-  const controls = activeControls.value
-  const index = controls?.selectedPolygonIndex?.value ?? -1
-  const polygons = controls?.polygons ?? []
-  return index >= 0 ? polygons[index]?.id ?? null : null
-})
-
-const activeSelectedPolylineId = computed(() => {
-  const controls = activeControls.value
-  const index = controls?.selectedPolylineIndex?.value ?? -1
-  const polylines = controls?.polylines ?? []
-  return index >= 0 ? polylines[index]?.id ?? null : null
-})
-
-const activeHoveredPolygonId = computed(() => {
-  const controls = activeControls.value
-  return controls?.hoveredPolygonId?.value ?? null
-})
-
-const activeHoveredPolylineId = computed(() => {
-  const controls = activeControls.value
-  return controls?.hoveredPolylineId?.value ?? null
-})
-
-type StatusEntityInfo = {
-  regionType: RegionKind | 'TextLine' | 'Baseline' | 'Polyline'
-  subtype?: string
-  id: string
-  label?: string
-  width?: number
-  height?: number
-  childCount?: number
-}
-
-type StatusPageSummary = {
-  pageId: string
-  variantLabel?: string
-  totalRegions: number
-  textRegions: number
-  imageRegions: number
-  lineDrawings: number
-  tableRegions: number
-  otherRegions: number
-}
-
-const activePolygons = computed<RenderablePolygon[]>(() => (activeControls.value?.polygons ?? []) as RenderablePolygon[])
-const activePolylines = computed<RenderablePolyline[]>(() => (activeControls.value?.polylines ?? []) as RenderablePolyline[])
-const activePolygonsForSidebar = computed<TreeItemData[]>(() => activePolygons.value as unknown as TreeItemData[])
-const activePolylinesForSidebar = computed<TreeItemData[]>(() => activePolylines.value as unknown as TreeItemData[])
-
-function getBounds(points?: { x: number, y: number }[]): { width: number, height: number } | null {
-  if (!points || points.length === 0) return null
-
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-
-  for (const point of points) {
-    if (point.x < minX) minX = point.x
-    if (point.y < minY) minY = point.y
-    if (point.x > maxX) maxX = point.x
-    if (point.y > maxY) maxY = point.y
-  }
-
-  return {
-    width: Math.max(0, Math.round(maxX - minX)),
-    height: Math.max(0, Math.round(maxY - minY))
-  }
-}
-
-function getChildCount(id: string, polygons: RenderablePolygon[], polylines: RenderablePolyline[]): number {
-  let count = 0
-  for (const polygon of polygons) {
-    if (polygon.parentId === id) count += 1
-  }
-  for (const polyline of polylines) {
-    if (polyline.parentId === id) count += 1
-  }
-  return count
-}
-
-function buildEntityFromPolygon(
-  polygon: RenderablePolygon,
-  polygons: RenderablePolygon[],
-  polylines: RenderablePolyline[]
-): StatusEntityInfo {
-  const isTextLine = polygon.type === PolygonType.TEXTLINE || polygon.type === 'textline'
-  const regionType = isTextLine ? 'TextLine' : (polygon.regionKind ?? 'CustomRegion')
-  const subtype = !isTextLine ? polygon.regionSubtype : undefined
-
-  const label = polygon.regionSubtype || polygon.label
-
-  const bounds = getBounds(polygon.points)
-  const childCount = getChildCount(polygon.id, polygons, polylines)
-
-  return {
-    regionType,
-    subtype,
-    id: polygon.id,
-    label: label || undefined,
-    width: bounds?.width,
-    height: bounds?.height,
-    childCount
-  }
-}
-
-function buildEntityFromPolyline(
-  polyline: RenderablePolyline,
-  polygons: RenderablePolygon[],
-  polylines: RenderablePolyline[]
-): StatusEntityInfo {
-  const regionType = polyline.type === PolygonType.BASELINE || polyline.type === 'baseline' ? 'Baseline' : 'Polyline'
-  let label = polyline.label
-
-  if (!label || label === 'baseline') {
-    if (polyline.parentId) {
-      const parentPolygon = polygons.find(polygon => polygon.id === polyline.parentId)
-      label = parentPolygon?.regionSubtype || parentPolygon?.label || parentPolygon?.id
-    }
-  }
-
-  const bounds = getBounds(polyline.points)
-  const childCount = getChildCount(polyline.id, polygons, polylines)
-
-  return {
-    regionType,
-    id: polyline.id,
-    label: label || undefined,
-    width: bounds?.width,
-    height: bounds?.height,
-    childCount
-  }
-}
-
-const activeHoveredEntity = computed<StatusEntityInfo | null>(() => {
-  const polygons = activePolygons.value
-  const polylines = activePolylines.value
-
-  if (activeHoveredPolylineId.value) {
-    const polyline = polylines.find(item => item.id === activeHoveredPolylineId.value)
-    return polyline ? buildEntityFromPolyline(polyline, polygons, polylines) : null
-  }
-
-  if (activeHoveredPolygonId.value) {
-    const polygon = polygons.find(item => item.id === activeHoveredPolygonId.value)
-    return polygon ? buildEntityFromPolygon(polygon, polygons, polylines) : null
-  }
-
-  return null
-})
-
-const activeSelectedEntity = computed<StatusEntityInfo | null>(() => {
-  const polygons = activePolygons.value
-  const polylines = activePolylines.value
-
-  if (activeSelectedPolylineId.value) {
-    const polyline = polylines.find(item => item.id === activeSelectedPolylineId.value)
-    return polyline ? buildEntityFromPolyline(polyline, polygons, polylines) : null
-  }
-
-  if (activeSelectedPolygonId.value) {
-    const polygon = polygons.find(item => item.id === activeSelectedPolygonId.value)
-    return polygon ? buildEntityFromPolygon(polygon, polygons, polylines) : null
-  }
-
-  return null
-})
-
-function collectRegionCounts(regions: Region[] | undefined) {
-  const counts = {
-    totalRegions: 0,
-    textRegions: 0,
-    imageRegions: 0,
-    lineDrawings: 0,
-    tableRegions: 0,
-    otherRegions: 0
-  }
-
-  if (!regions) return counts
-
-  const stack = [...regions]
-  while (stack.length) {
-    const region = stack.pop()
-    if (!region) continue
-    counts.totalRegions += 1
-
-    switch (region.kind) {
-      case 'TextRegion':
-        counts.textRegions += 1
-        break
-      case 'ImageRegion':
-        counts.imageRegions += 1
-        break
-      case 'LineDrawingRegion':
-        counts.lineDrawings += 1
-        break
-      case 'TableRegion':
-        counts.tableRegions += 1
-        break
-      default:
-        counts.otherRegions += 1
-        break
-    }
-
-    if (region.regions && region.regions.length) {
-      stack.push(...region.regions)
-    }
-  }
-
-  return counts
-}
-
-function collectRegionCountsFromPolygons(polygons: RenderablePolygon[] | undefined) {
-  const counts = {
-    totalRegions: 0,
-    textRegions: 0,
-    imageRegions: 0,
-    lineDrawings: 0,
-    tableRegions: 0,
-    otherRegions: 0
-  }
-
-  if (!polygons) return counts
-
-  for (const polygon of polygons) {
-    if (polygon.type !== PolygonType.REGION && polygon.type !== 'region') continue
-    counts.totalRegions += 1
-
-    switch (polygon.regionKind) {
-      case 'TextRegion':
-        counts.textRegions += 1
-        break
-      case 'ImageRegion':
-        counts.imageRegions += 1
-        break
-      case 'LineDrawingRegion':
-        counts.lineDrawings += 1
-        break
-      case 'TableRegion':
-        counts.tableRegions += 1
-        break
-      default:
-        counts.otherRegions += 1
-        break
-    }
-  }
-
-  return counts
-}
-
-const activePageSummary = computed<StatusPageSummary | null>(() => {
-  const page = activePage.value
-  if (!page) return null
-
-  const hasSyncedPolygons = Array.isArray(activeControls.value?.polygons)
-  const counts = hasSyncedPolygons
-    ? collectRegionCountsFromPolygons(activePolygons.value)
-    : collectRegionCounts(page.regions)
-  const pageId = activePageId.value ?? null
-  const activeProjectId = currentProjectId.value ?? undefined
-  const pageData = pageId ? editorStore.getPage(pageId, activeProjectId) : undefined
-  const pageLabel = pageData?.label || pageId || page.imageFilename || '—'
-  const variantLabel = pageData ? editorStore.getDisplayedVariantForPage(pageData)?.label : undefined
-
-  return {
-    pageId: pageLabel,
-    variantLabel,
-    totalRegions: counts.totalRegions,
-    textRegions: counts.textRegions,
-    imageRegions: counts.imageRegions,
-    lineDrawings: counts.lineDrawings,
-    tableRegions: counts.tableRegions,
-    otherRegions: counts.otherRegions
-  }
-})
-
-const activeCollaborators = computed(() => {
-  const canvasId = activeCanvasId.value
-  if (!canvasId) return []
-  return collaboration.getCanvasCollaborators(canvasId)
-})
-
-const activeCanvasEditor = computed(() => {
-  const canvasId = activeCanvasId.value
-  if (!canvasId) return null
-  return collaboration.getCanvasEditor(canvasId)
-})
-
-const activePendingTakeover = computed(() => {
-  const canvasId = activeCanvasId.value
-  if (!canvasId) return null
-  return collaboration.getCanvasPendingTakeover(canvasId)
-})
-
-const activeCanvasCanEdit = computed(() => {
-  const canvasId = activeCanvasId.value
-  if (!canvasId) return true
-  return collaboration.canEditCanvas(canvasId)
-})
-
-const activePageLockReason = computed(() => {
-  return activeControls.value?.pageLockReason?.value ?? null
-})
-
-const activeAnnotationMode = computed<'PROJECT' | 'DATASET_LINK' | 'DATASET_COPY' | null>(() => {
-  const canvasId = activeCanvasId.value
-  if (!canvasId) return null
-  const annotationContext = resolveCanvasAnnotationContext(canvasId)
-  return annotationContext?.mode ?? null
-})
-
-const canOpenActiveCanvasXmlEditor = computed(() => {
-  const canvasId = activeCanvasId.value
-  if (!canvasId) return false
-  const canvas = editorStore.canvases[canvasId]
-  return Boolean(canvas?.projectId && canvas.pageId && canvas.xmlFileId)
-})
-
-const activeSelectedPolygonIds = computed(() => activeControls.value?.selectedPolygonIds?.value ?? [])
-const activeSelectedPolylineIds = computed(() => activeControls.value?.selectedPolylineIds?.value ?? [])
-const activeHiddenPolygonIds = computed(() => activeControls.value?.hiddenPolygonIds?.value ?? [])
-const activeHiddenPolylineIds = computed(() => activeControls.value?.hiddenPolylineIds?.value ?? [])
-const activePageId = computed(() => {
-  const canvasId = activeCanvasId.value
-  const canvasPageId = canvasId ? (editorStore.canvases[canvasId]?.pageId ?? null) : null
-  if (canvasPageId) return canvasPageId
-
-  const controlsPageId = activeControls.value?.pageId?.value ?? null
-  if (!controlsPageId) return null
-  const parsedCanvas = parseCanvasId(controlsPageId)
-  return parsedCanvas?.pageId ?? controlsPageId
-})
-
-const activeDocument = computed(() => {
-  const canvasId = activeCanvasId.value
-  if (!canvasId) return null
-  return getEditorSession(canvasId)?.document.value ?? null
-})
-
-const activePage = computed(() => {
-  return activeDocument.value?.page ?? null
 })
 
 const {
@@ -1773,19 +1401,6 @@ const textSidebarSelectedElement = computed<Region | TextLine | RenderablePolyli
   }
 
   return findTextLineById(page.regions, selectedPolygonId) ?? findRegionById(page.regions, selectedPolygonId)
-})
-
-const isActivePageLocked = computed(() => {
-  const pageId = activePageId.value
-  const projectId = currentProjectId.value
-  if (!pageId) return false
-  const actionLockReason = actionRunsStore.getPageActionLockReason(projectId, pageId)
-  if (actionLockReason) return true
-
-  const page = editorStore.getPage(pageId, projectId ?? undefined)
-  if (!page?.locked) return false
-
-  return !page.lockedReason?.startsWith('LAREX Action running:')
 })
 
 const {
@@ -2082,68 +1697,7 @@ if (import.meta.client) {
   })
 }
 
-function getProjectTitle(projectId: string): string {
-  const pages = editorStore.getProjectPages(projectId)
-  return pages[0]?.projectName ?? projectId
-}
-
-function getPageTitle(projectId: string, pageId: string): string {
-  return editorStore.getPage(pageId, projectId)?.label ?? pageId
-}
-
-function ensureProjectPanelExists(api: RegisteredDockviewApi, projectId: string) {
-  const panelId = getProjectPanelId(projectId)
-  const existing = api.getPanel(panelId)
-  if (existing) return
-
-  api.addPanel({
-    id: panelId,
-    component: 'EditorDockviewProjectPanel',
-    tabComponent: 'EditorDockviewProjectTab',
-    title: getProjectTitle(projectId),
-    params: {
-      projectId,
-      projectName: getProjectTitle(projectId)
-    }
-  })
-}
-
-function ensurePagePanelExists(projectId: string, pageId: string) {
-  const api = projectDockviewRegistry.get(projectId)
-  if (!api) return
-
-  const panelId = getPagePanelId(projectId, pageId)
-  if (api.getPanel(panelId)) return
-
-  const canvasId = getCanvasId(projectId, pageId)
-  const canvas = editorStore.canvases[canvasId]
-  api.addPanel({
-    id: panelId,
-    component: 'EditorDockviewDefaultPanel',
-    tabComponent: 'EditorDockviewTab',
-    title: getPageTitle(projectId, pageId),
-    params: {
-      projectId,
-      pageId,
-      canvasId,
-      variantId: canvas?.imageVariantId ?? undefined
-    }
-  })
-}
-
 const loadedProjectMetadata = ref<Set<string>>(new Set())
-const isApplyingPageDeepLink = ref(false)
-
-function getSingleQueryValue(value: unknown): string | null {
-  if (Array.isArray(value)) {
-    const first = value[0]
-    value = typeof first === 'string' ? first : null
-  }
-  if (typeof value !== 'string') return null
-
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
 
 async function ensureProjectPagesLoaded(projectId: string, pageId: string): Promise<boolean> {
   if (editorStore.getPage(pageId, projectId)) return true
@@ -2364,129 +1918,13 @@ async function openEditorForPage(projectId: string, pageId: string, variantId?: 
   projectDockviewRegistry.get(projectId)?.getPanel(getPagePanelId(projectId, pageId))?.api.setActive()
 }
 
-async function applyPageDeepLinkFromQuery(): Promise<void> {
-  if (isApplyingPageDeepLink.value) return
-
-  const projectId = getSingleQueryValue(route.query.projectId)
-  const pageId = getSingleQueryValue(route.query.pageId)
-  const variantId = getSingleQueryValue(route.query.variantId) ?? undefined
-  const editorMode = getSingleQueryValue(route.query.editorMode)
-  const textView = getSingleQueryValue(route.query.textView)
-  const textSearch = getSingleQueryValue(route.query.textSearch)
-  if (!projectId || !pageId) return
-
-  isApplyingPageDeepLink.value = true
-  try {
-    await openEditorForPage(projectId, pageId, variantId)
-
-    const wasOpened = sessionStore.getOpenedPageIds(projectId).includes(pageId)
-    if (!wasOpened) {
-      toast.add({
-        title: 'Unable to open linked page',
-        description: 'The page does not exist or you do not have access to it.',
-        color: 'error',
-        icon: 'i-lucide-alert-circle'
-      })
-      return
-    }
-
-    if (editorMode === 'text') {
-      editorStore.setUiMode('text')
-      const nextTextSubmode = textView === 'expert' || textView === 'textline' || textView === 'region'
-        ? 'expert'
-        : 'visual'
-      editorUiStore.setTextModeSubmode(nextTextSubmode)
-      sessionStore.updateTextViewSettings(current => ({
-        ...current,
-        mode: 'textline',
-        searchQuery: textSearch ?? current.searchQuery
-      }))
-    }
-
-    const nextQuery = { ...route.query }
-    delete nextQuery.projectId
-    delete nextQuery.pageId
-    delete nextQuery.variantId
-    delete nextQuery.editorMode
-    delete nextQuery.textView
-    delete nextQuery.textSearch
-    await router.replace({ path: route.path, query: nextQuery })
-  } catch (error) {
-    toast.add({
-      title: 'Failed to open linked page',
-      description: getErrorMessage(error, 'An unexpected error occurred while opening the page link.'),
-      color: 'error',
-      icon: 'i-lucide-alert-circle'
-    })
-  } finally {
-    isApplyingPageDeepLink.value = false
-  }
-}
-
-async function applyProjectDeepLinkFromQuery(): Promise<void> {
-  if (isApplyingPageDeepLink.value) return
-
-  const scope = getSingleQueryValue(route.query.scope)
-  const projectId = getSingleQueryValue(route.query.projectId)
-  const pageId = getSingleQueryValue(route.query.pageId)
-  if (scope !== 'project' || !projectId || pageId) return
-
-  isApplyingPageDeepLink.value = true
-  try {
-    const loaded = await ensureFullProjectPagesLoaded(projectId)
-    if (!loaded) {
-      toast.add({
-        title: 'Unable to open linked project',
-        description: 'The project does not exist or you do not have access to it.',
-        color: 'error',
-        icon: 'i-lucide-alert-circle'
-      })
-      return
-    }
-
-    const pages = editorStore.getProjectPages(projectId)
-    if (pages.length === 0) {
-      toast.add({
-        title: 'Unable to open linked project',
-        description: 'No accessible pages were found for this project.',
-        color: 'error',
-        icon: 'i-lucide-alert-circle'
-      })
-      return
-    }
-
-    const firstPage = pages[0]
-    if (firstPage) {
-      await openEditorForPage(projectId, firstPage.id)
-    }
-
-    const nextQuery = { ...route.query }
-    delete nextQuery.projectId
-    delete nextQuery.scope
-    delete nextQuery.variantId
-    await router.replace({ path: route.path, query: nextQuery })
-  } catch (error) {
-    toast.add({
-      title: 'Failed to open linked project',
-      description: getErrorMessage(error, 'An unexpected error occurred while opening the project link.'),
-      color: 'error',
-      icon: 'i-lucide-alert-circle'
-    })
-  } finally {
-    isApplyingPageDeepLink.value = false
-  }
-}
-
-async function applyEditorDeepLinkFromQuery(): Promise<void> {
-  const projectId = getSingleQueryValue(route.query.projectId)
-  const pageId = getSingleQueryValue(route.query.pageId)
-  if (projectId && pageId) {
-    await applyPageDeepLinkFromQuery()
-    return
-  }
-
-  await applyProjectDeepLinkFromQuery()
-}
+const { applyEditorDeepLinkFromQuery } = useEditorDeepLinks({
+  route,
+  router,
+  ensureFullProjectPagesLoaded,
+  openEditorForPage,
+  getErrorMessage
+})
 
 function handleSelectPage(pageId: string, variantId?: string, projectId?: string) {
   collapsedImagePopoverDismissKey.value++
@@ -2691,38 +2129,6 @@ const {
   },
   getEditorMode: () => editorStore.effectiveUiMode(editorStore.activeCanvasId)
 })
-
-const onReady = (event: DockviewReadyEvent) => {
-  dockviewApi.value = event.api
-
-  event.api.onDidActivePanelChange((panel) => {
-    if (!panel) return
-    const projectId = parseProjectPanelId(panel.id)
-    if (projectId) {
-      sessionStore.setActiveProject(projectId)
-    }
-  })
-
-  event.api.onDidRemovePanel((panel) => {
-    const panelId = panel.id
-    setTimeout(() => {
-      const stillExists = dockviewApi.value?.getPanel?.(panelId)
-      if (stillExists) return
-
-      const projectId = parseProjectPanelId(panelId)
-      if (projectId) {
-        projectTabCloseState.consumeAutoClosed(projectId)
-        projectTabCloseState.consumeExplicitClose(projectId)
-        clearProjectTabState(projectId)
-      }
-    }, 100)
-  })
-
-  for (const projectId of sessionStore.openedProjectIds) {
-    ensureProjectPanelExists(event.api, projectId)
-  }
-  tryCreateInitialPanels()
-}
 </script>
 
 <template>
