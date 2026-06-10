@@ -21,11 +21,8 @@ import {
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import type { DropdownMenuItem, BreadcrumbItem } from '@nuxt/ui'
-import { useMediaQuery } from '@vueuse/core'
-import { moveArrayElement, useSortable } from '@vueuse/integrations/useSortable'
 import type { Subtask } from '~/types/index'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
-import { createPageSortOrderRequest } from '@/utils/editor/page-sort'
 import { createPageXmlLabelSet } from '@/models/editor'
 import type { LabelSet as ApiLabelSet } from '@/types/label-set'
 import { useEditorStore } from '@/stores/editor/editor.store'
@@ -33,8 +30,8 @@ import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodec
 import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse } from '@/types/dictionary'
 import type { ApplySourcesResponse, NormalizePreview, NormalizeSourcesResponse, NormalizationProfile, NormalizationProjectScope, NormalizeTarget } from '@/types/normalization-profile'
 import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/types/validation-ruleset'
-import type { ProjectPackageRelease } from '@/types/project-package-release'
 import UiColorTag from '@/components/ui/color-tag.vue'
+import type { ConflictInfo, Page, PageIndexingStatus, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -66,160 +63,12 @@ onMounted(() => {
 })
 
 const projectKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', projectId))
-const projectReleasesKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', projectId, 'releases'))
 const projectPagesKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', projectId, 'pages'))
 const projectStatusKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', projectId, 'status'))
 const starredProjectsKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', 'starred'))
 const projectsListKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', 'list'))
 
-type ProjectData = {
-  id: string
-  name: string
-  description: string
-  tags: string[]
-  created: string
-  updated: string
-  pageCount: number
-  isStarred: boolean
-  storageUsedBytes: number
-  storageUsedFormatted: string
-  locked: boolean
-  lockedReason: string | null
-  codecId?: string | null
-  labelSetId?: string | null
-  dictionaryId?: string | null
-  tagSetId?: string | null
-  normalizationProfileId?: string | null
-  validationRulesetId?: string | null
-  virtualKeyboardId?: string | null
-  allowCodecOverride?: boolean
-  allowDictionaryOverride?: boolean
-  allowVirtualKeyboardOverride?: boolean
-  allowLabelSetOverride?: boolean
-  allowTagSetOverride?: boolean
-  allowNormalizationProfileOverride?: boolean
-  allowValidationRulesetOverride?: boolean
-  defaultGtIndex?: number | null
-  defaultRecognitionIndices?: number[] | null
-  capabilities?: {
-    canEdit: boolean
-    canShare: boolean
-    canDelete: boolean
-    canDeletePages: boolean
-    canUpload: boolean
-    canExportPackage: boolean
-    canExecuteActions: boolean
-    canManageActions: boolean
-  }
-}
-
-type ResolvedTag = {
-  id: string
-  label: string
-  color: string | null
-}
-
-type ConflictInfo = {
-  conflictId: string
-  conflictType: 'IMAGE_VARIANT_EXISTS' | 'XML_FILE_EXISTS'
-  existingFileName: string
-  newFileName: string
-  existingFilePath: string
-  newFilePath: string | null
-  conflictTimestamp: string
-  pageId: string
-  pageName: string
-  details: {
-    existingFileSize: string | null
-    newFileSize: string | null
-    existingFileModified: string | null
-    newFileModified: string | null
-  }
-}
-
 const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
-const PROJECT_PAGES_TABLE_ID = 'project-pages-v2'
-const PROJECT_PAGE_ORDER_COLUMN_ID = 'projectOrderPosition'
-const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'imageCount', 'updated']
-const PROJECT_PAGE_HIDEABLE_COLUMN_IDS = [
-  PROJECT_PAGE_ORDER_COLUMN_ID,
-  'name',
-  'description',
-  'tags',
-  'imageCount',
-  'xmlFileCount',
-  'mySubtasks',
-  'updated'
-]
-const PROJECT_PAGE_TABLE_BODY_CLASS = 'project-pages-sortable-tbody [&>tr]:last:[&>td]:border-b-0'
-
-type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
-type TextConfidenceStats = {
-  min: number
-  max: number
-  mean: number
-  median: number
-  count: number
-}
-type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
-type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
-type SpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS'
-type PdfProfile = 'SEARCHABLE' | 'IMAGES_ONLY' | 'TEXT_PAGES' | 'PDFA_SEARCHABLE'
-type TeiProfile = 'STANDARD' | 'LAYOUT'
-type ExportDialogMode = 'page' | 'project' | 'package'
-type ProjectActionScope = 'all' | 'selection'
-type DocxOptions = {
-  preserveLineBreaks: boolean
-  forcePageBreaks: boolean
-  includeImageNames: boolean
-  markUnclearWords: boolean
-}
-type ExportDialogResult = {
-  format: ExportFormat | null
-  targetPageXmlVersion: string
-  includePageDelimiters: boolean
-  textLevel: TextLevel
-  textVariantIndex: number
-  pdfProfile: PdfProfile
-  teiProfile: TeiProfile
-  spreadsheetProfiles: SpreadsheetProfile[]
-  docxOptions: DocxOptions
-  embeddedOutputs: Array<{
-    format: Exclude<ExportFormat, 'PAGE_XML'>
-    includePageDelimiters?: boolean
-    textLevel?: TextLevel
-    textVariantIndex?: number
-    pdfProfile?: PdfProfile
-    teiProfile?: TeiProfile
-    spreadsheetProfiles?: SpreadsheetProfile[]
-    docxOptions?: DocxOptions
-  }>
-}
-
-type Page = {
-  id: string
-  name: string
-  description: string
-  tags: string[]
-  resolvedTags: ResolvedTag[] | null
-  created: string
-  updated: string
-  xmlFileCount: number
-  imageCount: number
-  locked?: boolean
-  lockedReason?: string | null
-  thumbnailUrl?: string | null
-  indexingStatus?: PageIndexingStatus
-  sortOrder?: number | null
-  projectOrderPosition?: number
-  textConfidence?: TextConfidenceStats | null
-  imageVariants?: Array<{
-    id: string
-    fileName: string
-    variant?: string | null
-  }>
-}
-
 function getPageCollaborationSummary(pageId: string) {
   return collaborationPageSummary.getPageSummary(pageId, projectId)
 }
@@ -241,15 +90,6 @@ const { data: project, error: projectError, pending: projectPending, refresh: re
   key: projectKey,
   watch: [selectedWorkspace]
 })
-
-const { data: releases, error: releasesError, pending: releasesPending, refresh: refreshReleases } = await useFetch<ProjectPackageRelease[]>(
-  () => `/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/releases`,
-  {
-    key: projectReleasesKey,
-    watch: [selectedWorkspace],
-    default: () => []
-  }
-)
 
 function getErrorStatusCode(error: unknown): number | null {
   const candidate = error as {
@@ -310,9 +150,56 @@ const canManageDatasets = computed(() => allow(workspaceCapabilities.value.canMa
 const canUploadProject = computed(() => allow(projectCapabilities.value.canUpload))
 const canExecuteProjectActions = computed(() => allow(projectCapabilities.value.canExecuteActions))
 const canShareProject = computed(() => allow(projectCapabilities.value.canShare))
+const canManageProjects = computed(() => allow(workspaceCapabilities.value.canManageProjects))
+const canDeleteProjectPages = computed(() => allow(projectCapabilities.value.canDeletePages))
 
 const { data: pages, error: pagesError, pending: pagesPending, refresh: refreshPagesFetch } = await useFetch<Page[]>(() => `/api/projects/${projectId}/pages`, {
   key: projectPagesKey
+})
+
+const {
+  PROJECT_PAGES_TABLE_ID,
+  DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS,
+  pagesSafe,
+  sort,
+  globalFilter,
+  tagFilterOperator,
+  xmlStatusFilter,
+  xmlStatusOptions,
+  activeProjectPageFilters,
+  filteredPages,
+  selectedPageIds,
+  hasSelection,
+  canBulkDeletePages,
+  togglePageSelection,
+  toggleAllPages,
+  clearSelection,
+  page,
+  itemsPerPage,
+  totalItems,
+  totalPagesCount,
+  paginatedPages,
+  visibleProjectPageRows,
+  projectPagesTableRef,
+  isPageOrderingMode,
+  isSavingPageOrder,
+  canEditProjectPageOrder,
+  canDragProjectPageOrder,
+  projectPageTableUi,
+  togglePageOrderingMode,
+  getScopedPageIds,
+  uniqueTags,
+  selectedTags,
+  tagOperatorOptions,
+  resetFilters,
+  getPageDescription
+} = useProjectPagesTable({
+  projectId,
+  pages,
+  project,
+  canManageProjects,
+  canDeletePages: canDeleteProjectPages,
+  getErrorMessage
 })
 
 const PAGE_INDEX_STATUS_POLL_MS = 3000
@@ -622,6 +509,42 @@ const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
 const iiifImportSlideover = overlay.create(LazyProjectSlideoverIiifImport)
 const actionRunSlideover = overlay.create(LazyActionSlideoverRun)
 
+const {
+  downloadBlobResponse,
+  exportPageOutput,
+  exportProjectOutput,
+  exportProjectPackage
+} = useProjectExports({
+  projectId,
+  selectedWorkspace,
+  project,
+  selectedPageIds,
+  exportTargetSlideover,
+  confirmSlideover
+})
+const {
+  releasesError,
+  releasesPending,
+  isReleaseSidebarVisible,
+  isReleaseSlideoverOpen,
+  isReleasePanelVisible,
+  releasesForSidebar,
+  latestReleaseId,
+  releaseSidebarSummary,
+  toggleReleasePanel,
+  openCreateRelease,
+  openReleaseShare,
+  downloadProjectRelease
+} = await useProjectReleases({
+  projectId,
+  selectedWorkspace,
+  project,
+  canShareProject,
+  createReleaseSlideover,
+  releaseShareSlideover,
+  downloadBlobResponse
+})
+
 const router = useRouter()
 const isDeletingProject = ref(false)
 
@@ -647,6 +570,16 @@ async function refreshProjectPagesData() {
   ])
 }
 
+const { openActionRunSlideover } = useProjectActions({
+  projectId,
+  selectedWorkspace,
+  project,
+  pagesSafe,
+  actionRunSlideover,
+  getScopedPageIds,
+  refreshProjectPagesData
+})
+
 async function openIiifImportSlideover() {
   if (!project.value) return
 
@@ -661,38 +594,6 @@ async function openIiifImportSlideover() {
     await refreshProjectPagesData()
   }
 }
-
-async function openActionRunSlideover(scope: ProjectActionScope = 'all') {
-  if (!project.value || !selectedWorkspace.value) return
-
-  const instance = actionRunSlideover.open({
-    workspaceId: selectedWorkspace.value,
-    projectId: project.value.id,
-    projectName: project.value.name,
-    pageIds: getScopedPageIds(scope),
-    pages: pagesSafe.value.map(page => ({
-      id: page.id,
-      name: page.name,
-      imageCount: page.imageCount ?? 0,
-      xmlFileCount: page.xmlFileCount ?? 0,
-      imageVariants: page.imageVariants ?? []
-    }))
-  })
-  const changed = await instance.result
-  if (changed) {
-    await refreshProjectPagesData()
-  }
-}
-
-const activeActionRunCount = computed(() => actionRunsStore.runsArray.filter(run =>
-  run.projectId === projectId && ['QUEUED', 'PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS'].includes(run.status)
-).length)
-
-watch(activeActionRunCount, (count, previousCount) => {
-  if ((previousCount ?? 0) > 0 && count === 0) {
-    void refreshProjectPagesData()
-  }
-})
 
 const projectNotFoundActions = computed<Array<Record<string, unknown>>>(() => [
   {
@@ -791,476 +692,6 @@ async function handleDeleteProject() {
     toast.remove(progressToast.id)
     isDeletingProject.value = false
   }
-}
-
-async function exportProjectPackage(scope: ProjectActionScope = 'all') {
-  if (!selectedWorkspace.value || !project.value) return
-
-  const options = await requestExportOptions('package')
-  if (!options) return
-
-  const payload = {
-    pageIds: getExportPageIds(scope),
-    targetPageXmlVersion: options.targetPageXmlVersion,
-    embeddedOutputs: options.embeddedOutputs
-  }
-  const fallbackName = `${project.value.name.replace(/\\s+/g, '-').toLowerCase()}.larex-project.zip`
-
-  try {
-    const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/export-package`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-
-    if (!response.ok) {
-      throw new Error(`Export failed (${response.status})`)
-    }
-
-    await downloadBlobResponse(response, fallbackName)
-
-    toast.add({
-      title: 'Project package exported',
-      color: 'success',
-      icon: 'i-lucide-download'
-    })
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to export project package'
-    toast.add({
-      title: 'Export failed',
-      description: message,
-      color: 'error'
-    })
-  }
-}
-
-async function openCreateRelease() {
-  if (!allow(projectCapabilities.value.canShare)) return
-  if (!project.value) return
-
-  const instance = createReleaseSlideover.open({
-    projectId,
-    suggestedTag: nextReleaseTag.value
-  })
-  const createdReleaseId = await instance.result as string | null
-  if (!createdReleaseId) return
-  await refreshReleases()
-}
-
-async function openReleaseShare(release: ProjectPackageRelease) {
-  const instance = releaseShareSlideover.open({
-    projectId,
-    release
-  })
-  const shouldRefresh = await instance.result as boolean | null
-  if (shouldRefresh) {
-    await refreshReleases()
-  }
-}
-
-async function downloadProjectRelease(release: ProjectPackageRelease) {
-  if (!selectedWorkspace.value || !project.value) return
-
-  try {
-    const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/releases/${release.id}/download`)
-    if (!response.ok) {
-      const message = await response.text()
-      throw new Error(message || `Download failed (${response.status})`)
-    }
-    await downloadBlobResponse(response, release.packageFileName || `${project.value.name}-${release.versionTag}.larex-project.zip`)
-  } catch (error: unknown) {
-    toast.add({
-      title: 'Release download failed',
-      description: extractApiErrorMessage(error, 'Failed to download release package'),
-      color: 'error'
-    })
-  }
-}
-
-async function exportProjectOutput(scope: ProjectActionScope = 'all') {
-  if (!selectedWorkspace.value || !project.value) return
-
-  const options = await requestExportOptions('project')
-  if (!options) return
-
-  const format = normalizeExportFormat(options.format)
-  if (!format) return
-
-  const fallbackName = `${project.value.name.replace(/\\s+/g, '-').toLowerCase()}.${formatExtension(format)}`
-  const payload = {
-    format,
-    pageIds: getExportPageIds(scope),
-    includePageDelimiters: options.includePageDelimiters,
-    textLevel: normalizeTextLevel(options.textLevel),
-    textVariantIndex: Number.isFinite(options.textVariantIndex) ? options.textVariantIndex : 0,
-    pdfProfile: normalizePdfProfile(options.pdfProfile),
-    teiProfile: normalizeTeiProfile(options.teiProfile),
-    spreadsheetProfiles: normalizeSpreadsheetProfiles(options.spreadsheetProfiles),
-    docxOptions: normalizeDocxOptions(options.docxOptions)
-  }
-
-  try {
-    const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/export`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-
-    if (!response.ok) {
-      throw new Error(`Export failed (${response.status})`)
-    }
-
-    await downloadBlobResponse(response, fallbackName)
-
-    toast.add({
-      title: 'Project output exported',
-      color: 'success',
-      icon: 'i-lucide-download'
-    })
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to export project output'
-    toast.add({
-      title: 'Export failed',
-      description: message,
-      color: 'error'
-    })
-  }
-}
-
-async function exportPageOutput(page: Page) {
-  const options = await requestExportOptions('page')
-  if (!options) return
-
-  const format = normalizeExportFormat(options.format)
-  if (!format) return
-
-  if (format === 'PAGE_XML') {
-    await exportPageXml(page, options.targetPageXmlVersion)
-    return
-  }
-
-  const fallbackName = `${page.name}.${formatExtension(format)}`
-
-  try {
-    const response = await fetch(`/api/projects/${projectId}/pages/${page.id}/export`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        format,
-        targetPageXmlVersion: options.targetPageXmlVersion,
-        textLevel: normalizeTextLevel(options.textLevel),
-        textVariantIndex: Number.isFinite(options.textVariantIndex) ? options.textVariantIndex : 0,
-        pdfProfile: normalizePdfProfile(options.pdfProfile),
-        teiProfile: normalizeTeiProfile(options.teiProfile),
-        spreadsheetProfiles: normalizeSpreadsheetProfiles(options.spreadsheetProfiles),
-        docxOptions: normalizeDocxOptions(options.docxOptions)
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error(`Export failed (${response.status})`)
-    }
-
-    await downloadBlobResponse(response, fallbackName)
-
-    toast.add({
-      title: 'Page output exported',
-      color: 'success',
-      icon: 'i-lucide-download'
-    })
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to export output'
-    toast.add({
-      title: 'Export failed',
-      description: message,
-      color: 'error'
-    })
-  }
-}
-
-async function exportPageXml(page: Page, targetPageXmlVersion?: string) {
-  try {
-    const xmlFiles = await $fetch<{ id: string }[]>(`/api/projects/${projectId}/pages/${page.id}/xml`)
-    if (!xmlFiles?.length) {
-      toast.add({
-        title: 'No XML files',
-        description: 'This page has no XML files to export.',
-        color: 'warning'
-      })
-      return
-    }
-
-    const xmlId = xmlFiles[0]!.id
-    const selectedVersion = targetPageXmlVersion ?? PAGE_XML_PRIMARY_VERSION
-    const query = new URLSearchParams({ targetPageXmlVersion: selectedVersion })
-    const response = await fetch(`/api/projects/${projectId}/pages/xml/${xmlId}/export?${query.toString()}`)
-    if (!response.ok) {
-      throw new Error(`Export failed (${response.status})`)
-    }
-
-    await downloadBlobResponse(response, `${page.name}.xml`)
-
-    if (xmlFiles.length > 1) {
-      toast.add({
-        title: 'Multiple XML files found',
-        description: 'Exported the first XML variant for this page.',
-        color: 'info'
-      })
-    }
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to export XML'
-    toast.add({
-      title: 'Export failed',
-      description: message,
-      color: 'error'
-    })
-  }
-}
-
-const PAGE_XML_PRIMARY_VERSION = '2019-07-15'
-
-function normalizePageXmlVersion(value: unknown): string {
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    const match = trimmed.match(/\d{4}-\d{2}-\d{2}/)
-    return match ? match[0] : PAGE_XML_PRIMARY_VERSION
-  }
-  if (value && typeof value === 'object' && 'value' in value && typeof value.value === 'string') {
-    return normalizePageXmlVersion(value.value)
-  }
-  return PAGE_XML_PRIMARY_VERSION
-}
-
-function normalizeExportFormat(value: unknown): ExportFormat | null {
-  if (typeof value === 'string') {
-    return value as ExportFormat
-  }
-  if (value && typeof value === 'object' && 'value' in value && typeof value.value === 'string') {
-    return value.value as ExportFormat
-  }
-  return null
-}
-
-function normalizeTextLevel(value: unknown): TextLevel {
-  if (typeof value === 'string' && ['PAGE', 'REGION', 'TEXT_LINE'].includes(value)) {
-    return value as TextLevel
-  }
-  if (value && typeof value === 'object' && 'value' in value && typeof value.value === 'string') {
-    return normalizeTextLevel(value.value)
-  }
-  return 'PAGE'
-}
-
-function normalizePdfProfile(value: unknown): PdfProfile {
-  if (typeof value === 'string' && ['SEARCHABLE', 'IMAGES_ONLY', 'TEXT_PAGES', 'PDFA_SEARCHABLE'].includes(value)) {
-    return value as PdfProfile
-  }
-  if (value && typeof value === 'object' && 'value' in value && typeof value.value === 'string') {
-    return normalizePdfProfile(value.value)
-  }
-  return 'SEARCHABLE'
-}
-
-function normalizeTeiProfile(value: unknown): TeiProfile {
-  if (typeof value === 'string' && ['STANDARD', 'LAYOUT'].includes(value)) {
-    return value as TeiProfile
-  }
-  if (value && typeof value === 'object' && 'value' in value && typeof value.value === 'string') {
-    return normalizeTeiProfile(value.value)
-  }
-  return 'STANDARD'
-}
-
-function normalizeSpreadsheetProfiles(value: unknown): SpreadsheetProfile[] {
-  if (Array.isArray(value)) {
-    return value
-      .map(item => typeof item === 'string' ? item : (item && typeof item === 'object' && 'value' in item && typeof item.value === 'string' ? item.value : null))
-      .filter((item): item is SpreadsheetProfile => item === 'PAGE_METADATA' || item === 'TAGS' || item === 'REGIONS')
-  }
-  return ['PAGE_METADATA']
-}
-
-function normalizeDocxOptions(value: unknown): DocxOptions {
-  const source = value && typeof value === 'object' ? value as Partial<DocxOptions> : {}
-  return {
-    preserveLineBreaks: source.preserveLineBreaks !== false,
-    forcePageBreaks: source.forcePageBreaks !== false,
-    includeImageNames: source.includeImageNames === true,
-    markUnclearWords: source.markUnclearWords === true
-  }
-}
-
-function formatExtension(format: ExportFormat): string {
-  switch (format) {
-    case 'PAGE_XML':
-      return 'xml'
-    case 'ALTO_XML':
-      return 'alto.xml'
-    case 'TXT':
-      return 'txt'
-    case 'PDF':
-      return 'pdf'
-    case 'DOCX':
-      return 'docx'
-    case 'TEI':
-      return 'tei.xml'
-    case 'CSV':
-      return 'csv'
-    case 'XLSX':
-      return 'xlsx'
-  }
-}
-
-async function downloadBlobResponse(response: Response, fallbackName: string) {
-  const blob = await response.blob()
-  const contentDisposition = response.headers.get('content-disposition')
-  const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
-  const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
-
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileName
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-
-const nextReleaseTag = computed(() => {
-  const maxVersion = (releases.value || []).reduce((currentMax, release) => Math.max(currentMax, Number(release.versionNumber) || 0), 0)
-  return `v${maxVersion + 1}`
-})
-
-const isReleaseSidebarVisible = ref(false)
-const isReleaseSlideoverOpen = ref(false)
-const useReleaseSidebarLayout = useMediaQuery('(min-width: 1280px)')
-const isReleasePanelVisible = computed(() =>
-  useReleaseSidebarLayout.value ? isReleaseSidebarVisible.value : isReleaseSlideoverOpen.value
-)
-
-function toggleReleasePanel() {
-  if (useReleaseSidebarLayout.value) {
-    isReleaseSidebarVisible.value = !isReleaseSidebarVisible.value
-    return
-  }
-
-  isReleaseSlideoverOpen.value = !isReleaseSlideoverOpen.value
-}
-
-watch(useReleaseSidebarLayout, (useSidebar) => {
-  if (useSidebar) {
-    isReleaseSlideoverOpen.value = false
-  }
-})
-
-const releasesForSidebar = computed(() => {
-  const source = [...(releases.value ?? [])]
-
-  return source.sort((a, b) => {
-    const versionDiff = (Number(b.versionNumber) || 0) - (Number(a.versionNumber) || 0)
-    if (versionDiff !== 0) return versionDiff
-
-    const createdDiff = new Date(b.created).getTime() - new Date(a.created).getTime()
-    if (createdDiff !== 0) return createdDiff
-
-    return new Date(b.updated).getTime() - new Date(a.updated).getTime()
-  })
-})
-
-const latestReleaseId = computed(() => releasesForSidebar.value[0]?.id ?? null)
-const latestReleaseUpdatedAt = computed(() => releasesForSidebar.value[0]?.updated ?? releasesForSidebar.value[0]?.created ?? null)
-const releaseSidebarSummary = computed(() => {
-  const count = releasesForSidebar.value.length
-  const countLabel = `${count} ${count === 1 ? 'release' : 'releases'}`
-
-  if (!latestReleaseUpdatedAt.value) {
-    return countLabel
-  }
-
-  return `${countLabel} · Last updated ${formatDate(latestReleaseUpdatedAt.value)}`
-})
-
-function formatDate(value?: string | null) {
-  if (!value) return '—'
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium'
-  }).format(new Date(value))
-}
-
-async function requestExportOptions(mode: ExportDialogMode): Promise<ExportDialogResult | null> {
-  const selector = exportTargetSlideover.open({
-    mode,
-    title: mode === 'page'
-      ? 'Export Page'
-      : mode === 'project'
-        ? 'Export Project Output'
-        : 'Export Project Package',
-    description: mode === 'page'
-      ? 'Choose the page export format and options.'
-      : mode === 'project'
-        ? 'Choose the project output format and options.'
-        : 'Choose package export options and optional embedded outputs.',
-    initialTargetVersion: PAGE_XML_PRIMARY_VERSION,
-    confirmLabel: mode === 'package' ? 'Export Package' : 'Export'
-  })
-
-  const result = await selector.result as ExportDialogResult | null
-  if (!result) {
-    return null
-  }
-
-  const normalizedFormat = normalizeExportFormat(result.format)
-  const normalizedTargetVersion = normalizePageXmlVersion(result.targetPageXmlVersion)
-  const confirmedTarget = await confirmLegacyPageXmlVersion(normalizedTargetVersion)
-  if (!confirmedTarget) {
-    return null
-  }
-
-  return {
-    ...result,
-    format: normalizedFormat,
-    targetPageXmlVersion: confirmedTarget,
-    textLevel: normalizeTextLevel(result.textLevel),
-    textVariantIndex: Number.isFinite(result.textVariantIndex) ? result.textVariantIndex : 0,
-    pdfProfile: normalizePdfProfile(result.pdfProfile),
-    teiProfile: normalizeTeiProfile(result.teiProfile),
-    spreadsheetProfiles: normalizeSpreadsheetProfiles(result.spreadsheetProfiles),
-    docxOptions: normalizeDocxOptions(result.docxOptions),
-    embeddedOutputs: result.embeddedOutputs
-      .flatMap((output) => {
-        const format = normalizeExportFormat(output.format)
-        if (!format || format === 'PAGE_XML') return []
-
-        return [{
-          format,
-          includePageDelimiters: output.includePageDelimiters,
-          textLevel: normalizeTextLevel(output.textLevel),
-          textVariantIndex: Number.isFinite(output.textVariantIndex) ? output.textVariantIndex : 0,
-          pdfProfile: normalizePdfProfile(output.pdfProfile),
-          teiProfile: normalizeTeiProfile(output.teiProfile),
-          spreadsheetProfiles: normalizeSpreadsheetProfiles(output.spreadsheetProfiles),
-          docxOptions: normalizeDocxOptions(output.docxOptions)
-        }]
-      })
-  }
-}
-
-async function confirmLegacyPageXmlVersion(selectedVersion: string): Promise<string | null> {
-  if (selectedVersion === PAGE_XML_PRIMARY_VERSION) {
-    return selectedVersion
-  }
-
-  const confirmation = confirmSlideover.open({
-    title: 'Confirm Legacy PAGE XML Export',
-    message: 'Exporting to an older PAGE XML schema may drop PAGE 2019-only data. Continue anyway?',
-    confirmLabel: 'Export anyway',
-    confirmColor: 'warning',
-    confirmIcon: 'i-lucide-triangle-alert'
-  })
-
-  const confirmed = await confirmation.result as boolean
-  return confirmed ? selectedVersion : null
 }
 
 const actionItems = computed<DropdownMenuItem[][]>(() => {
@@ -1415,271 +846,6 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
   return [projectItems, larexActionItems, exportItems, toolkitItems].filter(group => group.length > 1)
 })
 
-const autoCreatedDescription = 'Auto-created from bulk upload'
-
-const getPageDescription = (page: Page) => {
-  const description = page.description?.trim()
-  if (!description || description === autoCreatedDescription) return ''
-  return page.description
-}
-
-const pagesSafe = computed(() => (pages.value ?? []).map((page, index) => {
-  const description = getPageDescription(page)
-  return {
-    ...page,
-    description,
-    projectOrderPosition: index + 1
-  }
-}))
-const {
-  sort,
-  globalFilter,
-  columnFilters,
-  tagFilterOperator,
-  filteredAndSortedData: filteredAndSortedPages,
-  setColumnFilter,
-  clearColumnFilter,
-  resetAllFilters
-} = useTableFilters(pagesSafe, { column: 'projectOrderPosition', direction: 'asc' })
-
-const xmlStatusFilter = ref<'all' | 'has_xml' | 'no_xml'>('all')
-
-const xmlStatusOptions = [
-  { value: 'all', label: 'All Pages' },
-  { value: 'has_xml', label: 'With XML' },
-  { value: 'no_xml', label: 'Without XML' }
-]
-const activeProjectPageFilters = computed(() => {
-  const filters: Array<{ key: string, label: string, clear: () => void }> = []
-  if (globalFilter.value) {
-    filters.push({
-      key: 'search',
-      label: `Search: ${globalFilter.value}`,
-      clear: () => { globalFilter.value = '' }
-    })
-  }
-  for (const tag of selectedTags.value) {
-    filters.push({
-      key: `tag-${tag}`,
-      label: `Tag: ${tag}`,
-      clear: () => { selectedTags.value = selectedTags.value.filter(value => value !== tag) }
-    })
-  }
-  if (xmlStatusFilter.value !== 'all') {
-    filters.push({
-      key: 'xml',
-      label: `XML: ${xmlStatusOptions.find(option => option.value === xmlStatusFilter.value)?.label}`,
-      clear: () => { xmlStatusFilter.value = 'all' }
-    })
-  }
-  return filters
-})
-
-const filteredPages = computed(() => {
-  let result = filteredAndSortedPages.value
-  if (xmlStatusFilter.value !== 'all') {
-    result = result.filter((page) => {
-      const hasXml = page.xmlFileCount > 0
-      return xmlStatusFilter.value === 'has_xml' ? hasXml : !hasXml
-    })
-  }
-  return result
-})
-
-const selectedPageIds = ref<Set<string>>(new Set())
-const hasSelection = computed(() => selectedPageIds.value.size > 0)
-const canBulkDeletePages = computed(() =>
-  allow(projectCapabilities.value.canDeletePages) && !project.value?.locked
-)
-
-function togglePageSelection(pageId: string) {
-  const newSet = new Set(selectedPageIds.value)
-  if (newSet.has(pageId)) {
-    newSet.delete(pageId)
-  } else {
-    newSet.add(pageId)
-  }
-  selectedPageIds.value = newSet
-}
-
-function toggleAllPages() {
-  if (selectedPageIds.value.size === filteredPages.value.length) {
-    selectedPageIds.value = new Set()
-  } else {
-    selectedPageIds.value = new Set(filteredPages.value.map(p => p.id))
-  }
-}
-
-function clearSelection() {
-  selectedPageIds.value = new Set()
-}
-
-const page = ref(1)
-const itemsPerPageRef = ref(10)
-const totalItems = computed(() => filteredPages.value.length)
-const totalPagesCount = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))
-const itemsPerPage = useItemsPerPageModel(page, itemsPerPageRef, totalItems)
-const paginatedPages = computed(() => {
-  const start = (page.value - 1) * itemsPerPageRef.value
-  return filteredPages.value.slice(start, start + itemsPerPageRef.value)
-})
-const visibleProjectPageRows = ref<Page[]>([])
-const projectPagesTableRef = ref<{ $el?: HTMLElement | null } | null>(null)
-const isPageOrderingMode = ref(false)
-const isSavingPageOrder = ref(false)
-const projectOrderColumnWasHiddenBeforeOrdering = ref<boolean | null>(null)
-const { columnVisibility: projectPageColumnVisibility } = usePersistentTableColumnVisibility(
-  PROJECT_PAGES_TABLE_ID,
-  PROJECT_PAGE_HIDEABLE_COLUMN_IDS,
-  DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS
-)
-const hasPageOrderFilters = computed(() => {
-  const tags = columnFilters.value['tags']
-  return globalFilter.value.trim().length > 0
-    || (Array.isArray(tags) && tags.length > 0)
-    || xmlStatusFilter.value !== 'all'
-})
-const canEditProjectPageOrder = computed(() =>
-  allow(workspaceCapabilities.value.canManageProjects)
-  && !project.value?.locked
-)
-const isProjectOrderTableView = computed(() =>
-  sort.value.column === 'projectOrderPosition'
-  && sort.value.direction === 'asc'
-  && !hasPageOrderFilters.value
-)
-const canDragProjectPageOrder = computed(() =>
-  isPageOrderingMode.value
-  && canEditProjectPageOrder.value
-  && isProjectOrderTableView.value
-  && !isSavingPageOrder.value
-)
-const projectPageTableUi = computed(() => ({
-  tbody: PROJECT_PAGE_TABLE_BODY_CLASS
-}))
-const projectPageTableBody = computed(() =>
-  projectPagesTableRef.value?.$el?.querySelector('tbody') ?? null
-)
-
-watch(paginatedPages, (nextPages) => {
-  visibleProjectPageRows.value = [...nextPages]
-}, { immediate: true })
-
-const pageTableSortable = useSortable(projectPageTableBody, visibleProjectPageRows, {
-  animation: 150,
-  handle: '.project-page-order-handle',
-  watchElement: true,
-  disabled: true,
-  onUpdate: (event) => {
-    if (typeof event.oldIndex !== 'number' || typeof event.newIndex !== 'number') return
-    moveArrayElement(visibleProjectPageRows, event.oldIndex, event.newIndex, event)
-    void nextTick(() => saveProjectPageOrderFromVisibleRows())
-  }
-})
-
-watch(canDragProjectPageOrder, (enabled) => {
-  pageTableSortable.option('disabled', !enabled)
-}, { immediate: true })
-
-function setProjectOrderColumnVisibility(visible: boolean) {
-  projectPageColumnVisibility.value = {
-    ...projectPageColumnVisibility.value,
-    [PROJECT_PAGE_ORDER_COLUMN_ID]: visible
-  }
-}
-
-function showProjectOrderColumnForOrdering() {
-  if (projectOrderColumnWasHiddenBeforeOrdering.value === null) {
-    projectOrderColumnWasHiddenBeforeOrdering.value = projectPageColumnVisibility.value[PROJECT_PAGE_ORDER_COLUMN_ID] === false
-  }
-  setProjectOrderColumnVisibility(true)
-}
-
-function restoreProjectOrderColumnAfterOrdering() {
-  const wasHidden = projectOrderColumnWasHiddenBeforeOrdering.value
-  projectOrderColumnWasHiddenBeforeOrdering.value = null
-  if (wasHidden) {
-    setProjectOrderColumnVisibility(false)
-  }
-}
-
-watch(isPageOrderingMode, (enabled) => {
-  if (enabled) {
-    showProjectOrderColumnForOrdering()
-  } else {
-    restoreProjectOrderColumnAfterOrdering()
-  }
-}, { flush: 'sync' })
-
-watch(projectPageColumnVisibility, (visibility) => {
-  if (!isPageOrderingMode.value || visibility[PROJECT_PAGE_ORDER_COLUMN_ID] !== false) return
-  setProjectOrderColumnVisibility(true)
-}, { deep: true })
-
-onBeforeUnmount(() => {
-  if (isPageOrderingMode.value) {
-    isPageOrderingMode.value = false
-  }
-})
-
-function togglePageOrderingMode() {
-  if (isPageOrderingMode.value) {
-    isPageOrderingMode.value = false
-    return
-  }
-  if (!canEditProjectPageOrder.value) return
-
-  resetFilters()
-  sort.value = { column: 'projectOrderPosition', direction: 'asc' }
-  isPageOrderingMode.value = true
-}
-
-async function saveProjectPageOrderFromVisibleRows() {
-  if (!canDragProjectPageOrder.value || !pages.value) {
-    visibleProjectPageRows.value = [...paginatedPages.value]
-    return
-  }
-
-  const currentPages = [...pages.value]
-  const visibleIds = visibleProjectPageRows.value.map(page => page.id)
-  const expectedVisibleIds = paginatedPages.value.map(page => page.id)
-  if (visibleIds.length !== expectedVisibleIds.length || visibleIds.every((id, index) => id === expectedVisibleIds[index])) {
-    return
-  }
-
-  const start = (page.value - 1) * itemsPerPageRef.value
-  const orderedPages = [
-    ...currentPages.slice(0, start),
-    ...visibleIds.map(pageId => currentPages.find(page => page.id === pageId)).filter((page): page is Page => Boolean(page)),
-    ...currentPages.slice(start + visibleIds.length)
-  ]
-
-  if (orderedPages.length !== currentPages.length) {
-    visibleProjectPageRows.value = [...paginatedPages.value]
-    return
-  }
-
-  isSavingPageOrder.value = true
-  try {
-    const updatedPages = await $fetch<Page[]>(`/api/projects/${projectId}/pages/sort-order`, {
-      method: 'PUT',
-      body: createPageSortOrderRequest(orderedPages)
-    })
-    pages.value = updatedPages
-    toast.add({ title: 'Page order saved', color: 'success', icon: 'i-lucide-check' })
-  } catch (error) {
-    visibleProjectPageRows.value = [...paginatedPages.value]
-    toast.add({
-      title: 'Failed to save page order',
-      description: getErrorMessage(error, 'Could not save the page order.'),
-      color: 'error',
-      icon: 'i-lucide-triangle-alert'
-    })
-  } finally {
-    isSavingPageOrder.value = false
-  }
-}
-
 async function openAddToDatasetSlideover() {
   if (!hasSelection.value || !canManageDatasets.value) return
 
@@ -1729,14 +895,6 @@ async function openBulkDeleteSlideover() {
     refreshPagesData(),
     refreshProject()
   ])
-}
-
-function getScopedPageIds(scope: ProjectActionScope): string[] {
-  return scope === 'selection' ? Array.from(selectedPageIds.value) : []
-}
-
-function getExportPageIds(scope: ProjectActionScope): string[] | null {
-  return scope === 'selection' ? Array.from(selectedPageIds.value) : null
 }
 
 function getCodecSources(scope: ProjectActionScope): CodecProjectScope[] {
@@ -2175,21 +1333,6 @@ async function openValidationRulesetModal(scope: ProjectActionScope = 'all') {
   }
 }
 
-watch([globalFilter, columnFilters, xmlStatusFilter], () => {
-  page.value = 1
-}, { deep: true })
-
-watch(totalPagesCount, (value) => {
-  if (page.value > value) {
-    page.value = value
-  }
-})
-
-const resetFilters = () => {
-  resetAllFilters()
-  xmlStatusFilter.value = 'all'
-}
-
 const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
   const exportItems: DropdownMenuItem[] = [
     {
@@ -2271,38 +1414,6 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
 
   return [exportItems, toolkitItems]
 })
-
-const uniqueTags = computed(() => {
-  if (!pages.value) return []
-  const tagCounts = new Map<string, number>()
-  pages.value.forEach((page) => {
-    page.tags.forEach((tag) => {
-      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
-    })
-  })
-  return Array.from(tagCounts.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([tag, count]) => ({ label: tag, value: tag, count }))
-})
-
-const selectedTags = computed({
-  get: () => {
-    const tags = columnFilters.value['tags']
-    return Array.isArray(tags) ? tags : []
-  },
-  set: (value: string[]) => {
-    if (value.length === 0) {
-      clearColumnFilter('tags')
-    } else {
-      setColumnFilter('tags', value)
-    }
-  }
-})
-
-const tagOperatorOptions = [
-  { label: 'Match any (OR)', value: 'or' },
-  { label: 'Match all (AND)', value: 'and' }
-]
 
 function renderPageEditorIndicator(page: Page) {
   const summary = getPageCollaborationSummary(page.id)
