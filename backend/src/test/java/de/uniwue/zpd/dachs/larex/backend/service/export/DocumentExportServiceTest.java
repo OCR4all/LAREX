@@ -85,7 +85,15 @@ class DocumentExportServiceTest {
                 workspaceAccessService,
                 annotationProcessingService,
                 pageXmlConversionService,
-                pageOrderService
+                pageOrderService,
+                new TextDocumentExportWriter(
+                        new PlainTextExportWriter(),
+                        new DocxExportWriter(),
+                        new TeiExportWriter(annotationProcessingService),
+                        new PdfExportWriter()
+                ),
+                new AltoExportWriter(annotationProcessingService),
+                new SpreadsheetExportWriter()
         );
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
         lenient().when(pageOrderService.projectOrderComparator())
