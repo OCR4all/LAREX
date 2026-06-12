@@ -34,6 +34,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
+import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -57,6 +58,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -166,17 +168,22 @@ class ProjectPackageServiceTest {
                 .thenReturn(PageXmlConversionService.PRIMARY_PAGE_VERSION);
         when(pageXmlConversionService.isLegacyTargetVersion(PageXmlConversionService.PRIMARY_PAGE_VERSION))
                 .thenReturn(false);
-        when(pageXmlConversionService.convertFileToVersion(xmlPath, PageXmlConversionService.PRIMARY_PAGE_VERSION))
-                .thenReturn("<PcGts/>".getBytes());
+        doAnswer(invocation -> {
+            invocation.<java.io.OutputStream>getArgument(2).write("<PcGts/>".getBytes());
+            return null;
+        }).when(pageXmlConversionService).writeFileToVersion(eq(xmlPath), eq(PageXmlConversionService.PRIMARY_PAGE_VERSION), any());
         when(toolkitPackageService.buildProjectToolkitSnapshot("ws-1", null, null, null, null, null, null))
                 .thenReturn(new ToolkitPackageDto.ToolkitPackage(
                         new ToolkitPackageDto.PackageMeta("1.0", LocalDateTime.now(), "ws-1", "Workspace"),
                         List.of()
                 ));
+        Path embeddedPath = tempDir.resolve("embedded-project.txt");
+        Files.writeString(embeddedPath, "embedded");
         when(documentExportService.exportEmbeddedProjectOutputs(eq(project), eq(List.of(page)), anyList()))
-                .thenReturn(List.of(new DocumentExportService.EmbeddedProjectOutput("exports/project.txt", "embedded".getBytes())));
+                .thenReturn(List.of(new DocumentExportService.EmbeddedProjectOutput("exports/project.txt", embeddedPath, Files.size(embeddedPath))));
 
-        byte[] zipBytes = service.exportProjectPackageInternal(
+        ByteArrayOutputStream zipOut = new ByteArrayOutputStream();
+        service.writeProjectPackageInternal(
                 "ws-1",
                 "project-1",
                 new ProjectPackageDto.ExportRequest(
@@ -192,8 +199,10 @@ class ProjectPackageServiceTest {
                                 null,
                                 null
                         ))
-                )
+                ),
+                zipOut
         );
+        byte[] zipBytes = zipOut.toByteArray();
 
         boolean foundManifest = false;
         boolean foundMets = false;

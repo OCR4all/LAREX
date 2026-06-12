@@ -35,6 +35,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -460,7 +461,7 @@ public class DatasetService {
         return new DatasetDto.ValidationResponse(snapshot.status(), snapshot.stats(), snapshot.warnings(), snapshot.issues());
     }
 
-    public byte[] exportDatasetPackage(String workspaceId, String datasetId, String userId) throws IOException {
+    public void writeDatasetPackage(String workspaceId, String datasetId, String userId, OutputStream outputStream) throws IOException {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         Dataset dataset = requireDataset(workspaceId, datasetId);
         List<DatasetItem> items = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(datasetId);
@@ -473,12 +474,11 @@ public class DatasetService {
         }
 
         ExportSnapshot exportSnapshot = buildExportSnapshot(dataset, items, validationSnapshot.warnings(), null, LocalDateTime.now());
-        byte[] zipBytes = datasetPackageArchiveService.createPackageBytes(exportSnapshot);
+        datasetPackageArchiveService.writePackageZip(outputStream, exportSnapshot);
 
         dataset.setLastExportStatus(Dataset.ExportStatus.READY);
         dataset.setLastExportedAt(LocalDateTime.now());
         datasetRepository.save(dataset);
-        return zipBytes;
     }
 
     public List<DatasetDto.ReleaseSummaryResponse> listReleases(String workspaceId, String datasetId, String userId) {

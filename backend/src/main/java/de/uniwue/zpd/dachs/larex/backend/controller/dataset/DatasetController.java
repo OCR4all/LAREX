@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.IOException;
 import java.util.List;
@@ -148,17 +149,18 @@ public class DatasetController {
     }
 
     @PostMapping("/{datasetId}/export-package")
-    public ResponseEntity<byte[]> exportPackage(
+    public ResponseEntity<StreamingResponseBody> exportPackage(
             @PathVariable String workspaceId,
             @PathVariable String datasetId,
             @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
-        byte[] packageBytes = datasetService.exportDatasetPackage(workspaceId, datasetId, userId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
         headers.setContentDisposition(ContentDisposition.attachment()
                 .filename("dataset-" + datasetId + ".zip")
                 .build());
-        return ResponseEntity.ok().headers(headers).body(packageBytes);
+        StreamingResponseBody body = outputStream ->
+                datasetService.writeDatasetPackage(workspaceId, datasetId, userId, outputStream);
+        return ResponseEntity.ok().headers(headers).body(body);
     }
 
     @GetMapping("/{datasetId}/releases")

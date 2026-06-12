@@ -8,7 +8,9 @@ import com.maxnth.page4j.io.UnsupportedFormatVersionException;
 import com.maxnth.page4j.io.xml.XmlFormatVersion;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -93,19 +95,26 @@ public class PageXmlConversionService {
     }
 
     public byte[] convertFileToVersion(Path xmlPath, String targetVersion) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        writeFileToVersion(xmlPath, targetVersion, outputStream);
+        return outputStream.toByteArray();
+    }
+
+    public void writeFileToVersion(Path xmlPath, String targetVersion, OutputStream outputStream) throws IOException {
         String normalizedTarget = normalizeTargetVersion(targetVersion);
         Page page = readPage(xmlPath);
         String sourceVersion = extractVersion(page.getFormatVersion() != null ? page.getFormatVersion().toString() : null);
 
         if (normalizedTarget.equals(sourceVersion)) {
-            return Files.readAllBytes(xmlPath);
+            Files.copy(xmlPath, outputStream);
+            return;
         }
 
         convertPageToVersion(page, normalizedTarget);
         Path tempPath = Files.createTempFile(xmlPath.getParent(), xmlPath.getFileName().toString(), ".tmp-export");
         try {
             writePage(page, tempPath, normalizedTarget);
-            return Files.readAllBytes(tempPath);
+            Files.copy(tempPath, outputStream);
         } finally {
             Files.deleteIfExists(tempPath);
         }

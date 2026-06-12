@@ -15,7 +15,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -59,15 +61,17 @@ class ProjectControllerExportTest {
 
         byte[] body = "hello".getBytes();
         var request = new DocumentExportDto.ProjectExportRequest(DocumentExportDto.ExportFormat.TXT, null, null, true, null, null, null, null, null, null);
-        when(documentExportService.exportProject("ws-1", "project-1", "user-1", request))
-                .thenReturn(new DocumentExportService.DocumentExportResult("Project.txt", "text/plain", body));
+        when(documentExportService.exportProjectStream("ws-1", "project-1", "user-1", request))
+                .thenReturn(new DocumentExportService.StreamingDocumentExportResult("Project.txt", "text/plain", outputStream -> outputStream.write(body)));
 
-        ResponseEntity<byte[]> response = controller.exportProjectOutput("ws-1", "project-1", request, "user-1");
+        ResponseEntity<StreamingResponseBody> response = controller.exportProjectOutput("ws-1", "project-1", request, "user-1");
+        ByteArrayOutputStream streamedBody = new ByteArrayOutputStream();
+        response.getBody().writeTo(streamedBody);
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals("text/plain", response.getHeaders().getContentType().toString());
         assertEquals("attachment; filename=\"Project.txt\"", response.getHeaders().getFirst("Content-Disposition"));
-        assertArrayEquals(body, response.getBody());
+        assertArrayEquals(body, streamedBody.toByteArray());
     }
 
     @Test

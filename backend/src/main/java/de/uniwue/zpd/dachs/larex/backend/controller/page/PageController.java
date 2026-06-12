@@ -37,6 +37,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -427,24 +428,24 @@ public class PageController {
     }
 
     @PostMapping("/{pageId}/export")
-    public ResponseEntity<byte[]> exportPage(
+    public ResponseEntity<?> exportPage(
             @PathVariable String projectId,
             @PathVariable String pageId,
             @RequestBody DocumentExportDto.PageExportRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
-        DocumentExportService.DocumentExportResult exportResult =
-                documentExportService.exportPage(projectId, pageId, userId, request);
+        DocumentExportService.StreamingDocumentExportResult exportResult =
+                documentExportService.exportPageStream(projectId, pageId, userId, request);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(exportResult.contentType()));
         headers.setContentDisposition(ContentDisposition.attachment()
                 .filename(exportResult.fileName())
                 .build());
-        headers.setContentLength(exportResult.bytes().length);
+        StreamingResponseBody body = exportResult.writer()::write;
 
         return ResponseEntity.ok()
                 .headers(headers)
-                .body(exportResult.bytes());
+                .body(body);
     }
 
     @GetMapping("/{pageId}/xml/{xmlId}/text")
@@ -796,7 +797,7 @@ public class PageController {
     }
 
     @GetMapping("/xml/{xmlId}/blob")
-    public ResponseEntity<Resource> getXmlBlob(
+    public ResponseEntity<?> getXmlBlob(
             @PathVariable String projectId,
             @PathVariable String xmlId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
@@ -804,7 +805,7 @@ public class PageController {
     }
 
     @GetMapping("/xml/{xmlId}/export")
-    public ResponseEntity<Resource> exportXml(
+    public ResponseEntity<?> exportXml(
             @PathVariable String projectId,
             @PathVariable String xmlId,
             @RequestParam(required = false) String targetPageXmlVersion,
@@ -812,7 +813,7 @@ public class PageController {
         return streamXml(xmlId, userId, true, targetPageXmlVersion);
     }
 
-    private ResponseEntity<Resource> streamXml(String xmlId, String userId, boolean asAttachment, String targetPageXmlVersion) {
+    private ResponseEntity<?> streamXml(String xmlId, String userId, boolean asAttachment, String targetPageXmlVersion) {
         try {
             PageXml xml = pageService.getXmlById(xmlId, userId);
             if (xml == null) {
@@ -841,12 +842,11 @@ public class PageController {
 
             if (asAttachment && xml.getSchema() == XmlSchema.PAGE_XML) {
                 String normalizedTarget = pageXmlConversionService.normalizeTargetVersion(targetPageXmlVersion);
-                byte[] convertedBytes = pageXmlConversionService.convertFileToVersion(filePath, normalizedTarget);
-                ByteArrayResource converted = new ByteArrayResource(convertedBytes);
-                headers.setContentLength(convertedBytes.length);
+                StreamingResponseBody body = outputStream ->
+                        pageXmlConversionService.writeFileToVersion(filePath, normalizedTarget, outputStream);
                 return ResponseEntity.ok()
                         .headers(headers)
-                        .body(converted);
+                        .body(body);
             }
 
             headers.setContentLength(resource.contentLength());

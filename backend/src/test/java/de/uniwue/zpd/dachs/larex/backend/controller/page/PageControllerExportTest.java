@@ -24,7 +24,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,6 +34,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -83,21 +86,23 @@ class PageControllerExportTest {
         );
 
         byte[] body = "hello".getBytes();
-        when(documentExportService.exportPage("project-1", "page-1", "user-1",
+        when(documentExportService.exportPageStream("project-1", "page-1", "user-1",
                 new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.TXT, null, null, null, null, null, null, null, null)))
-                .thenReturn(new DocumentExportService.DocumentExportResult("Alpha.txt", "text/plain", body));
+                .thenReturn(new DocumentExportService.StreamingDocumentExportResult("Alpha.txt", "text/plain", outputStream -> outputStream.write(body)));
 
-        ResponseEntity<byte[]> response = controller.exportPage(
+        ResponseEntity<?> response = controller.exportPage(
                 "project-1",
                 "page-1",
                 new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.TXT, null, null, null, null, null, null, null, null),
                 "user-1"
         );
+        ByteArrayOutputStream streamedBody = new ByteArrayOutputStream();
+        ((StreamingResponseBody) response.getBody()).writeTo(streamedBody);
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals("text/plain", response.getHeaders().getContentType().toString());
         assertEquals("attachment; filename=\"Alpha.txt\"", response.getHeaders().getFirst("Content-Disposition"));
-        assertArrayEquals(body, response.getBody());
+        assertArrayEquals(body, streamedBody.toByteArray());
     }
 
     @Test
@@ -134,7 +139,7 @@ class PageControllerExportTest {
 
         when(pageService.getXmlById("xml-1", "user-1")).thenReturn(xml);
 
-        ResponseEntity<Resource> response = controller.exportXml(
+        ResponseEntity<?> response = controller.exportXml(
                 "project-1",
                 "xml-1",
                 "2019-07-15",
@@ -144,5 +149,6 @@ class PageControllerExportTest {
         assertEquals(200, response.getStatusCode().value());
         assertEquals("application/xml", response.getHeaders().getContentType().toString());
         assertNotNull(response.getBody());
+        assertTrue(response.getBody() instanceof Resource);
     }
 }

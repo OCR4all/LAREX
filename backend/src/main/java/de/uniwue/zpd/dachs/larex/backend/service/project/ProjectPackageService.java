@@ -44,6 +44,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationServ
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -168,18 +169,20 @@ public class ProjectPackageService {
     }
 
     @Transactional(readOnly = true)
-    public byte[] exportProjectPackage(String workspaceId,
-                                       String projectId,
-                                       String userId,
-                                       ProjectPackageDto.ExportRequest request) throws IOException {
+    public void writeProjectPackage(String workspaceId,
+                                    String projectId,
+                                    String userId,
+                                    ProjectPackageDto.ExportRequest request,
+                                    OutputStream outputStream) throws IOException {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-        return exportProjectPackageInternal(workspaceId, projectId, request);
+        writeProjectPackageInternal(workspaceId, projectId, request, outputStream);
     }
 
     @Transactional(readOnly = true)
-    public byte[] exportProjectPackageInternal(String workspaceId,
-                                               String projectId,
-                                               ProjectPackageDto.ExportRequest request) throws IOException {
+    public void writeProjectPackageInternal(String workspaceId,
+                                            String projectId,
+                                            ProjectPackageDto.ExportRequest request,
+                                            OutputStream outputStream) throws IOException {
         Project project = requireProject(workspaceId, projectId);
         List<Page> pages = resolvePagesForExport(projectId, request == null ? null : request.pageIds());
         PackageSnapshot packageSnapshot = buildPackageSnapshot(
@@ -188,7 +191,11 @@ public class ProjectPackageService {
                 request == null ? null : request.targetPageXmlVersion(),
                 request == null ? null : request.embeddedOutputs()
         );
-        return createPackageBytes(packageSnapshot);
+        try {
+            writePackageZip(outputStream, packageSnapshot);
+        } finally {
+            cleanupEmbeddedOutputs(packageSnapshot);
+        }
     }
 
     public List<ProjectPackageDto.ReleaseSummaryResponse> listReleases(String workspaceId,
@@ -234,8 +241,9 @@ public class ProjectPackageService {
         Path releaseRoot = projectReleaseRoot(workspaceId, projectId, release.getId());
         long reservedBytes = 0L;
 
+        PackageSnapshot packageSnapshot = null;
         try {
-            PackageSnapshot packageSnapshot = buildPackageSnapshot(project, pages, targetPageXmlVersion, embeddedOutputs);
+            packageSnapshot = buildPackageSnapshot(project, pages, targetPageXmlVersion, embeddedOutputs);
             String fileName = sanitizeSegment(project.getName()) + "-" + sanitizeSegment(versionTag) + ".larex-project.zip";
             Path packagePath = releaseRoot.resolve(fileName);
             reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
@@ -263,6 +271,8 @@ public class ProjectPackageService {
                 workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
             }
             throw e;
+        } finally {
+            cleanupEmbeddedOutputs(packageSnapshot);
         }
     }
 
@@ -1366,18 +1376,18 @@ public class ProjectPackageService {
         }).sum();
 
         long embeddedBytes = packageSnapshot.embeddedOutputs().stream()
-                .mapToLong(output -> output.bytes() == null ? 0L : output.bytes().length)
+                .mapToLong(DocumentExportService.EmbeddedProjectOutput::contentLength)
                 .sum();
 
         return sourceBytes + versionBytes + embeddedBytes + packageSnapshot.metsBytes().length + 1_048_576L;
     }
 
-    private byte[] createPackageBytes(PackageSnapshot packageSnapshot) throws IOException {
-        return archiveIoService.createZip(zipOut -> writePackageEntries(zipOut, packageSnapshot));
-    }
-
     private void writePackageZip(Path outputPath, PackageSnapshot packageSnapshot) throws IOException {
         archiveIoService.writeZip(outputPath, zipOut -> writePackageEntries(zipOut, packageSnapshot));
+    }
+
+    private void writePackageZip(OutputStream outputStream, PackageSnapshot packageSnapshot) throws IOException {
+        archiveIoService.writeZip(outputStream, zipOut -> writePackageEntries(zipOut, packageSnapshot));
     }
 
     private void writePackageEntries(java.util.zip.ZipOutputStream zipOut, PackageSnapshot packageSnapshot) throws IOException {
@@ -1387,8 +1397,11 @@ public class ProjectPackageService {
         for (ProjectPackageDto.FileEntry fileEntry : packageSnapshot.manifest().files()) {
             Path source = resolveUploadPath(fileEntry.archivePath(), fileEntry.kind(), fileEntry.sourceId(), packageSnapshot.exportBundle());
             if (fileEntry.kind() == ProjectPackageDto.FileKind.XML && fileEntry.xmlSchema() == XmlSchema.PAGE_XML) {
-                byte[] convertedBytes = pageXmlConversionService.convertFileToVersion(source, packageSnapshot.targetPageXmlVersion());
-                archiveIoService.writeBytesEntry(zipOut, fileEntry.archivePath(), convertedBytes);
+                archiveIoService.writeStreamEntry(
+                        zipOut,
+                        fileEntry.archivePath(),
+                        entryOut -> pageXmlConversionService.writeFileToVersion(source, packageSnapshot.targetPageXmlVersion(), entryOut)
+                );
             } else {
                 archiveIoService.writeFileEntry(zipOut, fileEntry.archivePath(), source);
             }
@@ -1413,7 +1426,19 @@ public class ProjectPackageService {
         }
 
         for (DocumentExportService.EmbeddedProjectOutput output : packageSnapshot.embeddedOutputs()) {
-            archiveIoService.writeBytesEntry(zipOut, output.archivePath(), output.bytes());
+            archiveIoService.writeFileEntry(zipOut, output.archivePath(), output.absolutePath());
+        }
+    }
+
+    private void cleanupEmbeddedOutputs(PackageSnapshot packageSnapshot) {
+        if (packageSnapshot == null) {
+            return;
+        }
+        for (DocumentExportService.EmbeddedProjectOutput output : packageSnapshot.embeddedOutputs()) {
+            try {
+                Files.deleteIfExists(output.absolutePath());
+            } catch (IOException ignored) {
+            }
         }
     }
 

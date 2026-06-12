@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -41,7 +42,9 @@ class DatasetPackageArchiveServiceTest {
                 List.of(new DatasetPackageArchiveService.ExportFile("files/page.xml", sourceFile))
         );
 
-        byte[] packageBytes = service.createPackageBytes(snapshot);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        service.writePackageZip(outputStream, snapshot);
+        byte[] packageBytes = outputStream.toByteArray();
 
         Map<String, String> entries = zipEntries(packageBytes);
         assertThat(entries).containsKeys("manifest.json", "stats.json", "splits/train.jsonl", "files/page.xml");

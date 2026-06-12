@@ -29,6 +29,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -269,13 +270,12 @@ public class ProjectController {
     }
 
     @PostMapping("/{projectId}/export-package")
-    public ResponseEntity<byte[]> exportProjectPackage(
+    public ResponseEntity<StreamingResponseBody> exportProjectPackage(
             @PathVariable String workspaceId,
             @PathVariable String projectId,
             @RequestBody(required = false) ProjectPackageDto.ExportRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
 
-        byte[] packageBytes = projectPackageService.exportProjectPackage(workspaceId, projectId, userId, request);
         String projectName = projectService.getProjectById(projectId, userId)
                 .map(Project::getName)
                 .orElse(projectId);
@@ -287,9 +287,12 @@ public class ProjectController {
                 .filename(filename)
                 .build());
 
+        StreamingResponseBody body = outputStream ->
+                projectPackageService.writeProjectPackage(workspaceId, projectId, userId, request, outputStream);
+
         return ResponseEntity.ok()
                 .headers(headers)
-                .body(packageBytes);
+                .body(body);
     }
 
     @GetMapping("/{projectId}/releases")
@@ -356,25 +359,25 @@ public class ProjectController {
     }
 
     @PostMapping("/{projectId}/export")
-    public ResponseEntity<byte[]> exportProjectOutput(
+    public ResponseEntity<StreamingResponseBody> exportProjectOutput(
             @PathVariable String workspaceId,
             @PathVariable String projectId,
             @RequestBody DocumentExportDto.ProjectExportRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
 
-        DocumentExportService.DocumentExportResult exportResult =
-                documentExportService.exportProject(workspaceId, projectId, userId, request);
+        DocumentExportService.StreamingDocumentExportResult exportResult =
+                documentExportService.exportProjectStream(workspaceId, projectId, userId, request);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(exportResult.contentType()));
         headers.setContentDisposition(ContentDisposition.attachment()
                 .filename(exportResult.fileName())
                 .build());
-        headers.setContentLength(exportResult.bytes().length);
+        StreamingResponseBody body = exportResult.writer()::write;
 
         return ResponseEntity.ok()
                 .headers(headers)
-                .body(exportResult.bytes());
+                .body(body);
     }
 
     private String sanitizeFileName(String value, String fallback) {

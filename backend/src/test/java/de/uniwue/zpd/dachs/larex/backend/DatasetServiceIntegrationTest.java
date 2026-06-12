@@ -36,6 +36,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -141,7 +142,7 @@ class DatasetServiceIntegrationTest {
         Files.writeString(source.xmlPath(), "xml-v2", StandardCharsets.UTF_8);
         Files.writeString(source.imagePath(), "img-v2", StandardCharsets.UTF_8);
 
-        byte[] archive = datasetService.exportDatasetPackage(source.workspaceId(), dataset.id(), "user-1");
+        byte[] archive = writeDatasetPackage(source.workspaceId(), dataset.id());
         Path extracted = archiveIoService.extractZipToTempDir(new ByteArrayInputStream(archive), "dataset-link-export");
 
         assertEquals("xml-v2", Files.readString(findSingleFile(extracted, "files/xml")));
@@ -171,7 +172,7 @@ class DatasetServiceIntegrationTest {
         Files.writeString(source.xmlPath(), "xml-mutated", StandardCharsets.UTF_8);
         Files.writeString(source.imagePath(), "img-mutated", StandardCharsets.UTF_8);
 
-        byte[] archive = datasetService.exportDatasetPackage(source.workspaceId(), dataset.id(), "user-1");
+        byte[] archive = writeDatasetPackage(source.workspaceId(), dataset.id());
         Path extracted = archiveIoService.extractZipToTempDir(new ByteArrayInputStream(archive), "dataset-copy-export");
 
         assertEquals("xml-original", Files.readString(findSingleFile(extracted, "files/xml")));
@@ -206,7 +207,7 @@ class DatasetServiceIntegrationTest {
 
         IllegalStateException thrown = assertThrows(
                 IllegalStateException.class,
-                () -> datasetService.exportDatasetPackage(source.workspaceId(), dataset.id(), "user-1")
+                () -> writeDatasetPackage(source.workspaceId(), dataset.id())
         );
         assertTrue(thrown.getMessage().contains("broken items"));
     }
@@ -490,6 +491,12 @@ class DatasetServiceIntegrationTest {
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("No archive file found for " + prefix));
         }
+    }
+
+    private byte[] writeDatasetPackage(String workspaceId, String datasetId) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        datasetService.writeDatasetPackage(workspaceId, datasetId, "user-1", outputStream);
+        return outputStream.toByteArray();
     }
 
     private String extractSharePublicId(String downloadUrl) {

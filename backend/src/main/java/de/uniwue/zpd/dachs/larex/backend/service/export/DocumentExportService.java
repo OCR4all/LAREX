@@ -25,6 +25,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -128,6 +129,16 @@ public class DocumentExportService {
                                            String pageId,
                                            String userId,
                                            DocumentExportDto.PageExportRequest request) throws IOException {
+        StreamingDocumentExportResult streamingResult = exportPageStream(projectId, pageId, userId, request);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        streamingResult.writer().write(outputStream);
+        return new DocumentExportResult(streamingResult.fileName(), streamingResult.contentType(), outputStream.toByteArray());
+    }
+
+    public StreamingDocumentExportResult exportPageStream(String projectId,
+                                                          String pageId,
+                                                          String userId,
+                                                          DocumentExportDto.PageExportRequest request) throws IOException {
         DocumentExportDto.ExportFormat format = requireSupportedPageFormat(request);
         Project project = projectRepository.findWithAssociationsById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
@@ -139,17 +150,66 @@ public class DocumentExportService {
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
         if (format == DocumentExportDto.ExportFormat.PAGE_XML) {
-            return exportPageXml(page, request == null ? null : request.targetPageXmlVersion());
+            return exportPageXmlStream(page, request == null ? null : request.targetPageXmlVersion());
         }
 
         List<PreparedPageExport> preparedPages = preparePages(project, List.of(page));
-        return renderExport(project, preparedPages, ExportOptions.fromPageRequest(request), true);
+        return renderExportStream(project, preparedPages, ExportOptions.fromPageRequest(request), true);
+    }
+
+    public StreamingDocumentExportResult exportPageXmlStream(String projectId,
+                                                             String pageId,
+                                                             String userId,
+                                                             String targetPageXmlVersion) throws IOException {
+        Project project = projectRepository.findWithAssociationsById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+        workspaceAccessService.requireWorkspaceAccess(project.getLibrary().getWorkspaceId(), userId);
+
+        Page page = project.getPages().stream()
+                .filter(candidate -> Objects.equals(candidate.getId(), pageId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
+
+        return exportPageXmlStream(page, targetPageXmlVersion);
+    }
+
+    private StreamingDocumentExportResult exportPageXmlStream(Page page, String targetPageXmlVersion) throws IOException {
+        PageXml pageXml = resolvePrimaryPageXml(page);
+        if (pageXml == null) {
+            throw new IllegalArgumentException("No PAGE XML file found for page: " + page.getId());
+        }
+
+        Path xmlPath = resolveUploadPath(pageXml.getFilePath());
+        if (xmlPath == null || !Files.exists(xmlPath)) {
+            throw new IllegalArgumentException("PAGE XML file not found for page: " + page.getId());
+        }
+
+        String normalizedTarget = pageXmlConversionService.normalizeTargetVersion(targetPageXmlVersion);
+        String fileName = sanitizeFileName(pageXml.getFileName(), sanitizeFileName(page.getName(), "page") + ".xml");
+        String contentType = pageXml.getMimeType() == null || pageXml.getMimeType().isBlank()
+                ? DocumentExportDto.ExportFormat.PAGE_XML.getContentType()
+                : pageXml.getMimeType();
+        return new StreamingDocumentExportResult(
+                fileName,
+                contentType,
+                outputStream -> pageXmlConversionService.writeFileToVersion(xmlPath, normalizedTarget, outputStream)
+        );
     }
 
     public DocumentExportResult exportProject(String workspaceId,
                                               String projectId,
                                               String userId,
                                               DocumentExportDto.ProjectExportRequest request) throws IOException {
+        StreamingDocumentExportResult streamingResult = exportProjectStream(workspaceId, projectId, userId, request);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        streamingResult.writer().write(outputStream);
+        return new DocumentExportResult(streamingResult.fileName(), streamingResult.contentType(), outputStream.toByteArray());
+    }
+
+    public StreamingDocumentExportResult exportProjectStream(String workspaceId,
+                                                             String projectId,
+                                                             String userId,
+                                                             DocumentExportDto.ProjectExportRequest request) throws IOException {
         DocumentExportDto.ExportFormat format = requireSupportedProjectFormat(request);
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
 
@@ -161,7 +221,7 @@ public class DocumentExportService {
 
         List<Page> selectedPages = resolvePages(project, request.pageIds());
         List<PreparedPageExport> preparedPages = preparePages(project, selectedPages);
-        return renderExport(project, preparedPages, ExportOptions.fromProjectRequest(request), false);
+        return renderExportStream(project, preparedPages, ExportOptions.fromProjectRequest(request), false);
     }
 
     public List<EmbeddedProjectOutput> exportEmbeddedProjectOutputs(Project project,
@@ -182,9 +242,22 @@ public class DocumentExportService {
                 throw new IllegalArgumentException("Unsupported embedded project output format: " + request.format());
             }
 
-            DocumentExportResult export = renderExport(project, preparedPages, ExportOptions.fromEmbeddedRequest(request), false);
+            StreamingDocumentExportResult export = renderExportStream(project, preparedPages, ExportOptions.fromEmbeddedRequest(request), false);
             String archivePath = "exports/" + export.fileName();
-            outputsByPath.putIfAbsent(archivePath, new EmbeddedProjectOutput(archivePath, export.bytes()));
+            if (outputsByPath.containsKey(archivePath)) {
+                continue;
+            }
+
+            Path tempFile = Files.createTempFile("larex-embedded-export-", fileExtension(export.fileName()));
+            try {
+                try (OutputStream outputStream = Files.newOutputStream(tempFile)) {
+                    export.writer().write(outputStream);
+                }
+            } catch (IOException | RuntimeException e) {
+                Files.deleteIfExists(tempFile);
+                throw e;
+            }
+            outputsByPath.put(archivePath, new EmbeddedProjectOutput(archivePath, tempFile, Files.size(tempFile)));
         }
 
         return List.copyOf(outputsByPath.values());
@@ -247,15 +320,15 @@ public class DocumentExportService {
         return preparedPages;
     }
 
-    private DocumentExportResult renderExport(Project project,
-                                              List<PreparedPageExport> pages,
-                                              ExportOptions options,
-                                              boolean pageScope) throws IOException {
+    private StreamingDocumentExportResult renderExportStream(Project project,
+                                                             List<PreparedPageExport> pages,
+                                                             ExportOptions options,
+                                                             boolean pageScope) throws IOException {
         if (options.format() == DocumentExportDto.ExportFormat.CSV || options.format() == DocumentExportDto.ExportFormat.XLSX) {
             if (pageScope) {
                 throw new IllegalArgumentException("Spreadsheet export is only available for projects");
             }
-            return renderSpreadsheetExport(project, pages, options);
+            return renderSpreadsheetExportStream(project, pages, options);
         }
 
         String baseName = pages.size() == 1
@@ -263,38 +336,42 @@ public class DocumentExportService {
                 : sanitizeFileName(project.getName(), "project");
 
         return switch (options.format()) {
-            case TXT -> new DocumentExportResult(
+            case TXT -> new StreamingDocumentExportResult(
                     baseName + ".txt",
                     DocumentExportDto.ExportFormat.TXT.getContentType(),
-                    renderText(pages, options.includePageDelimiters(), options.textLevel(), options.textVariantIndex())
+                    outputStream -> writeText(outputStream, pages, options.includePageDelimiters(), options.textLevel(), options.textVariantIndex())
             );
-            case DOCX -> new DocumentExportResult(
+            case DOCX -> new StreamingDocumentExportResult(
                     baseName + ".docx",
                     DocumentExportDto.ExportFormat.DOCX.getContentType(),
-                    renderDocx(project, pages, options.docxOptions(), pageScope)
+                    outputStream -> writeDocx(outputStream, project, pages, options.docxOptions(), pageScope)
             );
-            case TEI -> new DocumentExportResult(
+            case TEI -> new StreamingDocumentExportResult(
                     baseName + ".tei.xml",
                     DocumentExportDto.ExportFormat.TEI.getContentType(),
-                    renderTei(project, pages, options.teiProfile())
+                    outputStream -> outputStream.write(renderTei(project, pages, options.teiProfile()))
             );
-            case PDF -> new DocumentExportResult(
+            case PDF -> new StreamingDocumentExportResult(
                     baseName + ".pdf",
                     DocumentExportDto.ExportFormat.PDF.getContentType(),
-                    renderPdf(project, pages, options.pdfProfile())
+                    outputStream -> writePdf(outputStream, project, pages, options.pdfProfile())
             );
-            case ALTO_XML -> renderAlto(project, pages);
+            case ALTO_XML -> renderAltoStream(project, pages);
             case PAGE_XML -> throw new IllegalArgumentException("PAGE XML export is only supported on the legacy page endpoint");
             case CSV, XLSX -> throw new IllegalStateException("Spreadsheet formats handled above");
         };
     }
 
-    private DocumentExportResult renderAlto(Project project, List<PreparedPageExport> pages) throws IOException {
+    private StreamingDocumentExportResult renderAltoStream(Project project, List<PreparedPageExport> pages) throws IOException {
         if (pages.size() == 1) {
             PreparedPageExport page = pages.getFirst();
             String xml = annotationProcessingService.exportAnnotationToXml(page.pageDto(), XmlSchema.ALTO_XML, page.pageXml().getId());
             String fileName = sanitizeFileName(page.page().getName(), "page") + ".alto.xml";
-            return new DocumentExportResult(fileName, DocumentExportDto.ExportFormat.ALTO_XML.getContentType(), xml.getBytes(StandardCharsets.UTF_8));
+            return new StreamingDocumentExportResult(
+                    fileName,
+                    DocumentExportDto.ExportFormat.ALTO_XML.getContentType(),
+                    outputStream -> outputStream.write(xml.getBytes(StandardCharsets.UTF_8))
+            );
         }
 
         Map<String, byte[]> entries = new LinkedHashMap<>();
@@ -304,7 +381,11 @@ public class DocumentExportService {
             entries.put(fileName, xml.getBytes(StandardCharsets.UTF_8));
         }
         String baseName = sanitizeFileName(project.getName(), "project");
-        return new DocumentExportResult(baseName + ".alto.zip", "application/zip", zipEntries(entries));
+        return new StreamingDocumentExportResult(
+                baseName + ".alto.zip",
+                "application/zip",
+                outputStream -> writeZipEntries(outputStream, entries)
+        );
     }
 
     private byte[] renderText(List<PreparedPageExport> pages,
@@ -330,12 +411,20 @@ public class DocumentExportService {
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    private byte[] renderDocx(Project project,
-                              List<PreparedPageExport> pages,
-                              ResolvedDocxOptions options,
-                              boolean pageScope) throws IOException {
-        try (XWPFDocument document = new XWPFDocument();
-             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+    private void writeText(OutputStream outputStream,
+                           List<PreparedPageExport> pages,
+                           boolean includePageDelimiters,
+                           DocumentExportDto.TextLevel textLevel,
+                           int textVariantIndex) throws IOException {
+        outputStream.write(renderText(pages, includePageDelimiters, textLevel, textVariantIndex));
+    }
+
+    private void writeDocx(OutputStream outputStream,
+                           Project project,
+                           List<PreparedPageExport> pages,
+                           ResolvedDocxOptions options,
+                           boolean pageScope) throws IOException {
+        try (XWPFDocument document = new XWPFDocument()) {
             XWPFParagraph titleParagraph = document.createParagraph();
             titleParagraph.setAlignment(ParagraphAlignment.CENTER);
             XWPFRun titleRun = titleParagraph.createRun();
@@ -377,7 +466,6 @@ public class DocumentExportService {
             }
 
             document.write(outputStream);
-            return outputStream.toByteArray();
         }
     }
 
@@ -589,12 +677,12 @@ public class DocumentExportService {
         sourceDesc.appendChild(source);
     }
 
-    private byte[] renderPdf(Project project,
-                             List<PreparedPageExport> pages,
-                             DocumentExportDto.PdfProfile pdfProfile) throws IOException {
+    private void writePdf(OutputStream outputStream,
+                          Project project,
+                          List<PreparedPageExport> pages,
+                          DocumentExportDto.PdfProfile pdfProfile) throws IOException {
         DocumentExportDto.PdfProfile resolvedProfile = resolvePdfProfile(pdfProfile);
-        try (PDDocument document = new PDDocument();
-             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+        try (PDDocument document = new PDDocument()) {
             PDFont font = loadPdfFont(document);
 
             for (PreparedPageExport preparedPage : pages) {
@@ -613,7 +701,6 @@ public class DocumentExportService {
             }
 
             document.save(outputStream);
-            return outputStream.toByteArray();
         }
     }
 
@@ -704,9 +791,9 @@ public class DocumentExportService {
         catalog.setMetadata(metadata);
     }
 
-    private DocumentExportResult renderSpreadsheetExport(Project project,
-                                                         List<PreparedPageExport> pages,
-                                                         ExportOptions options) throws IOException {
+    private StreamingDocumentExportResult renderSpreadsheetExportStream(Project project,
+                                                                        List<PreparedPageExport> pages,
+                                                                        ExportOptions options) throws IOException {
         List<DocumentExportDto.SpreadsheetProfile> profiles = resolveSpreadsheetProfiles(options.spreadsheetProfiles());
         String baseName = sanitizeFileName(project.getName(), "project");
         Map<String, byte[]> entries = new LinkedHashMap<>();
@@ -722,11 +809,19 @@ public class DocumentExportService {
 
         if (entries.size() == 1) {
             Map.Entry<String, byte[]> entry = entries.entrySet().iterator().next();
-            return new DocumentExportResult(entry.getKey(), options.format().getContentType(), entry.getValue());
+            return new StreamingDocumentExportResult(
+                    entry.getKey(),
+                    options.format().getContentType(),
+                    outputStream -> outputStream.write(entry.getValue())
+            );
         }
 
         String suffix = options.format() == DocumentExportDto.ExportFormat.CSV ? "-csv.zip" : "-xlsx.zip";
-        return new DocumentExportResult(baseName + suffix, "application/zip", zipEntries(entries));
+        return new StreamingDocumentExportResult(
+                baseName + suffix,
+                "application/zip",
+                outputStream -> writeZipEntries(outputStream, entries)
+        );
     }
 
     private byte[] renderCsv(Project project,
@@ -1316,26 +1411,6 @@ public class DocumentExportService {
         );
     }
 
-    private DocumentExportResult exportPageXml(Page page, String targetPageXmlVersion) throws IOException {
-        PageXml pageXml = resolvePrimaryPageXml(page);
-        if (pageXml == null) {
-            throw new IllegalArgumentException("No PAGE XML file found for page: " + page.getId());
-        }
-
-        Path xmlPath = resolveUploadPath(pageXml.getFilePath());
-        if (xmlPath == null || !Files.exists(xmlPath)) {
-            throw new IllegalArgumentException("PAGE XML file not found for page: " + page.getId());
-        }
-
-        String normalizedTarget = pageXmlConversionService.normalizeTargetVersion(targetPageXmlVersion);
-        byte[] bytes = pageXmlConversionService.convertFileToVersion(xmlPath, normalizedTarget);
-        String fileName = sanitizeFileName(pageXml.getFileName(), sanitizeFileName(page.getName(), "page") + ".xml");
-        String contentType = pageXml.getMimeType() == null || pageXml.getMimeType().isBlank()
-                ? DocumentExportDto.ExportFormat.PAGE_XML.getContentType()
-                : pageXml.getMimeType();
-        return new DocumentExportResult(fileName, contentType, bytes);
-    }
-
     private byte[] serializeXml(Document document) throws Exception {
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
         transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
@@ -1425,6 +1500,33 @@ public class DocumentExportService {
         }
     }
 
+    private void writeZipEntries(OutputStream outputStream, Map<String, byte[]> entries) throws IOException {
+        ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream, StandardCharsets.UTF_8);
+        for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
+            zipOutputStream.putNextEntry(new ZipEntry(entry.getKey()));
+            try {
+                zipOutputStream.write(entry.getValue());
+            } finally {
+                zipOutputStream.closeEntry();
+            }
+        }
+        zipOutputStream.finish();
+    }
+
+    private String fileExtension(String fileNameOrPath) {
+        if (fileNameOrPath == null || fileNameOrPath.isBlank()) {
+            return ".tmp";
+        }
+        String normalized = fileNameOrPath.replace('\\', '/');
+        int slash = normalized.lastIndexOf('/');
+        String name = slash >= 0 ? normalized.substring(slash + 1) : normalized;
+        int dot = name.lastIndexOf('.');
+        if (dot <= 0 || dot == name.length() - 1) {
+            return ".tmp";
+        }
+        return name.substring(dot);
+    }
+
     private String csvCell(String value) {
         String normalized = value == null ? "" : value;
         boolean needsQuotes = normalized.contains(",")
@@ -1506,9 +1608,22 @@ public class DocumentExportService {
     ) {
     }
 
+    public record StreamingDocumentExportResult(
+            String fileName,
+            String contentType,
+            ExportWriter writer
+    ) {
+    }
+
+    @FunctionalInterface
+    public interface ExportWriter {
+        void write(OutputStream outputStream) throws IOException;
+    }
+
     public record EmbeddedProjectOutput(
             String archivePath,
-            byte[] bytes
+            Path absolutePath,
+            long contentLength
     ) {
     }
 

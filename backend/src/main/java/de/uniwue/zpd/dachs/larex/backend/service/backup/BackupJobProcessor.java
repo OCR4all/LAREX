@@ -120,14 +120,15 @@ public class BackupJobProcessor {
                         return;
                     }
 
-                    byte[] projectPackage = projectPackageService.exportProjectPackageInternal(
-                            workspaceId,
-                            project.getId(),
-                            new ProjectPackageDto.ExportRequest(null)
-                    );
-
                     String projectEntryPath = "dump/projects/" + workspaceId + "/" + project.getId() + ".larex-project.zip";
-                    archiveIoService.writeBytesEntry(zipOut, projectEntryPath, projectPackage);
+                    archiveIoService.writeStreamEntry(zipOut, projectEntryPath, entryOut ->
+                            projectPackageService.writeProjectPackageInternal(
+                                    workspaceId,
+                                    project.getId(),
+                                    new ProjectPackageDto.ExportRequest(null),
+                                    entryOut
+                            )
+                    );
                     projectEntries.add(new DumpProjectEntry(project.getId(), project.getName(), projectEntryPath));
 
                     processed[0]++;

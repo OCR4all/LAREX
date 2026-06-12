@@ -51,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -477,8 +478,10 @@ class DocumentExportServiceTest {
 
         when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
         when(pageXmlConversionService.normalizeTargetVersion("2017-07-15")).thenReturn("2017-07-15");
-        when(pageXmlConversionService.convertFileToVersion(xmlPath, "2017-07-15"))
-                .thenReturn("<converted/>".getBytes(StandardCharsets.UTF_8));
+        doAnswer(invocation -> {
+            invocation.<java.io.OutputStream>getArgument(2).write("<converted/>".getBytes(StandardCharsets.UTF_8));
+            return null;
+        }).when(pageXmlConversionService).writeFileToVersion(eq(xmlPath), eq("2017-07-15"), any());
 
         DocumentExportService.DocumentExportResult result = service.exportPage(
                 "project-1",

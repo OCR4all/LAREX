@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.backup;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
+import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -23,23 +24,18 @@ public class ArchiveIoService {
         this.objectMapper = objectMapper;
     }
 
-    public byte[] createZip(ZipWriter writer) throws IOException {
-        Path temp = Files.createTempFile("larex-archive-", ".zip");
-        try {
-            writeZip(temp, writer);
-            return Files.readAllBytes(temp);
-        } finally {
-            Files.deleteIfExists(temp);
-        }
-    }
-
     public void writeZip(Path outputPath, ZipWriter writer) throws IOException {
         Path parent = outputPath.toAbsolutePath().normalize().getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
-        try (OutputStream out = Files.newOutputStream(outputPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-             ZipOutputStream zipOut = new ZipOutputStream(out)) {
+        try (OutputStream out = Files.newOutputStream(outputPath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+            writeZip(out, writer);
+        }
+    }
+
+    public void writeZip(OutputStream outputStream, ZipWriter writer) throws IOException {
+        try (ZipOutputStream zipOut = new ZipOutputStream(new NonClosingOutputStream(outputStream))) {
             writer.write(zipOut);
         }
     }
@@ -54,19 +50,22 @@ public class ArchiveIoService {
     }
 
     public void writeBytesEntry(ZipOutputStream zipOut, String entryName, byte[] bytes) throws IOException {
-        String normalizedName = normalizeArchivePath(entryName);
-        ZipEntry entry = new ZipEntry(normalizedName);
-        zipOut.putNextEntry(entry);
-        zipOut.write(bytes);
-        zipOut.closeEntry();
+        writeStreamEntry(zipOut, entryName, entryOut -> entryOut.write(bytes));
     }
 
     public void writeFileEntry(ZipOutputStream zipOut, String entryName, Path sourceFile) throws IOException {
+        writeStreamEntry(zipOut, entryName, entryOut -> Files.copy(sourceFile, entryOut));
+    }
+
+    public void writeStreamEntry(ZipOutputStream zipOut, String entryName, EntryWriter writer) throws IOException {
         String normalizedName = normalizeArchivePath(entryName);
         ZipEntry entry = new ZipEntry(normalizedName);
         zipOut.putNextEntry(entry);
-        Files.copy(sourceFile, zipOut);
-        zipOut.closeEntry();
+        try {
+            writer.write(zipOut);
+        } finally {
+            zipOut.closeEntry();
+        }
     }
 
     public Path extractZipToTempDir(InputStream inputStream, String prefix) throws IOException {
@@ -117,5 +116,21 @@ public class ArchiveIoService {
     @FunctionalInterface
     public interface ZipWriter {
         void write(ZipOutputStream zipOut) throws IOException;
+    }
+
+    @FunctionalInterface
+    public interface EntryWriter {
+        void write(OutputStream outputStream) throws IOException;
+    }
+
+    private static class NonClosingOutputStream extends FilterOutputStream {
+        private NonClosingOutputStream(OutputStream out) {
+            super(out);
+        }
+
+        @Override
+        public void close() throws IOException {
+            flush();
+        }
     }
 }

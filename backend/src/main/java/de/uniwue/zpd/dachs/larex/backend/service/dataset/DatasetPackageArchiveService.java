@@ -6,7 +6,11 @@ import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,12 +41,12 @@ public class DatasetPackageArchiveService {
         return fileBytes + 1_048_576L;
     }
 
-    public byte[] createPackageBytes(ExportSnapshot exportSnapshot) throws IOException {
-        return archiveIoService.createZip(zipOut -> writePackageEntries(zipOut, exportSnapshot));
-    }
-
     public void writePackageZip(Path outputPath, ExportSnapshot exportSnapshot) throws IOException {
         archiveIoService.writeZip(outputPath, zipOut -> writePackageEntries(zipOut, exportSnapshot));
+    }
+
+    public void writePackageZip(OutputStream outputStream, ExportSnapshot exportSnapshot) throws IOException {
+        archiveIoService.writeZip(outputStream, zipOut -> writePackageEntries(zipOut, exportSnapshot));
     }
 
     private void writePackageEntries(java.util.zip.ZipOutputStream zipOut, ExportSnapshot exportSnapshot) throws IOException {
@@ -52,12 +56,15 @@ public class DatasetPackageArchiveService {
             if (entry.getValue().isEmpty()) {
                 continue;
             }
-            StringBuilder builder = new StringBuilder();
-            for (Map<String, Object> row : entry.getValue()) {
-                builder.append(objectMapper.writeValueAsString(row)).append('\n');
-            }
             String splitName = entry.getKey().name().toLowerCase(Locale.ROOT);
-            archiveIoService.writeBytesEntry(zipOut, "splits/" + splitName + ".jsonl", builder.toString().getBytes(StandardCharsets.UTF_8));
+            archiveIoService.writeStreamEntry(zipOut, "splits/" + splitName + ".jsonl", entryOut -> {
+                Writer writer = new BufferedWriter(new OutputStreamWriter(entryOut, StandardCharsets.UTF_8));
+                for (Map<String, Object> row : entry.getValue()) {
+                    writer.write(objectMapper.writeValueAsString(row));
+                    writer.write('\n');
+                }
+                writer.flush();
+            });
         }
         for (ExportFile exportFile : exportSnapshot.files()) {
             archiveIoService.writeFileEntry(zipOut, exportFile.archivePath(), exportFile.absolutePath());
