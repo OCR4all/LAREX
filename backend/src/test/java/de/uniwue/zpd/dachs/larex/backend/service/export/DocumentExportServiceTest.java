@@ -29,8 +29,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.zip.ZipInputStream;
 import javax.imageio.ImageIO;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -255,6 +258,44 @@ class DocumentExportServiceTest {
 
         assertEquals("Alpha.alto.xml", result.fileName());
         assertTrue(new String(result.bytes(), StandardCharsets.UTF_8).contains("<alto"));
+    }
+
+    @Test
+    void exportProjectAlto_streamsZipEntriesFromAltoExporter() throws Exception {
+        Project project = project("project-1", "Demo Project");
+        Page alpha = page(project, "page-1", "Alpha", "alpha.xml", null);
+        Page beta = page(project, "page-2", "Beta", "beta.xml", null);
+        project.setPages(new ArrayList<>(List.of(beta, alpha)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(pageDto(
+                "alpha.png",
+                List.of(textRegion("r1", List.of(textLine("l1", "alpha", 0, simpleBaseline(10, 30, 160, 30))))),
+                null
+        ));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-2")).thenReturn(pageDto(
+                "beta.png",
+                List.of(textRegion("r2", List.of(textLine("l2", "beta", 0, simpleBaseline(10, 30, 160, 30))))),
+                null
+        ));
+        when(annotationProcessingService.exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.ALTO_XML), eq("xml-page-1")))
+                .thenReturn("<alto>alpha</alto>");
+        when(annotationProcessingService.exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.ALTO_XML), eq("xml-page-2")))
+                .thenReturn("<alto>beta</alto>");
+
+        DocumentExportService.DocumentExportResult result = service.exportProject(
+                "ws-1",
+                "project-1",
+                "user-1",
+                new DocumentExportDto.ProjectExportRequest(DocumentExportDto.ExportFormat.ALTO_XML, null, null, false, null, null, null, null, null, null)
+        );
+
+        Map<String, String> entries = zipEntries(result.bytes());
+        assertEquals("Demo Project.alto.zip", result.fileName());
+        assertEquals("<alto>alpha</alto>", entries.get("Alpha.alto.xml"));
+        assertEquals("<alto>beta</alto>", entries.get("Beta.alto.xml"));
+        verify(annotationProcessingService).exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.ALTO_XML), eq("xml-page-1"));
+        verify(annotationProcessingService).exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.ALTO_XML), eq("xml-page-2"));
     }
 
     @Test
@@ -502,6 +543,19 @@ class DocumentExportServiceTest {
         project.setId(id);
         project.setDefaultGtIndex(0);
         return project;
+    }
+
+    private Map<String, String> zipEntries(byte[] zipBytes) throws Exception {
+        Map<String, String> entries = new LinkedHashMap<>();
+        try (ZipInputStream zipInputStream = new ZipInputStream(new ByteArrayInputStream(zipBytes), StandardCharsets.UTF_8)) {
+            var entry = zipInputStream.getNextEntry();
+            while (entry != null) {
+                entries.put(entry.getName(), new String(zipInputStream.readAllBytes(), StandardCharsets.UTF_8));
+                zipInputStream.closeEntry();
+                entry = zipInputStream.getNextEntry();
+            }
+        }
+        return entries;
     }
 
     private Page page(Project project, String id, String name, String xmlRelativePath, String imageRelativePath) {

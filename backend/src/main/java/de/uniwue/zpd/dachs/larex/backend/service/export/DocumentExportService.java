@@ -374,18 +374,27 @@ public class DocumentExportService {
             );
         }
 
-        Map<String, byte[]> entries = new LinkedHashMap<>();
-        for (PreparedPageExport page : pages) {
-            String xml = annotationProcessingService.exportAnnotationToXml(page.pageDto(), XmlSchema.ALTO_XML, page.pageXml().getId());
-            String fileName = sanitizeFileName(page.page().getName(), "page") + ".alto.xml";
-            entries.put(fileName, xml.getBytes(StandardCharsets.UTF_8));
-        }
         String baseName = sanitizeFileName(project.getName(), "project");
         return new StreamingDocumentExportResult(
                 baseName + ".alto.zip",
                 "application/zip",
-                outputStream -> writeZipEntries(outputStream, entries)
+                outputStream -> writeAltoZipEntries(outputStream, pages)
         );
+    }
+
+    private void writeAltoZipEntries(OutputStream outputStream, List<PreparedPageExport> pages) throws IOException {
+        ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream, StandardCharsets.UTF_8);
+        for (PreparedPageExport page : pages) {
+            String fileName = sanitizeFileName(page.page().getName(), "page") + ".alto.xml";
+            zipOutputStream.putNextEntry(new ZipEntry(fileName));
+            try {
+                String xml = annotationProcessingService.exportAnnotationToXml(page.pageDto(), XmlSchema.ALTO_XML, page.pageXml().getId());
+                zipOutputStream.write(xml.getBytes(StandardCharsets.UTF_8));
+            } finally {
+                zipOutputStream.closeEntry();
+            }
+        }
+        zipOutputStream.finish();
     }
 
     private byte[] renderText(List<PreparedPageExport> pages,
@@ -1484,19 +1493,6 @@ public class DocumentExportService {
             return outputStream.toByteArray();
         } catch (SaxonApiException e) {
             throw new IOException("Failed to transform PAGE XML to TEI via page2tei", e);
-        }
-    }
-
-    private byte[] zipEntries(Map<String, byte[]> entries) throws IOException {
-        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-             ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream, StandardCharsets.UTF_8)) {
-            for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
-                zipOutputStream.putNextEntry(new ZipEntry(entry.getKey()));
-                zipOutputStream.write(entry.getValue());
-                zipOutputStream.closeEntry();
-            }
-            zipOutputStream.finish();
-            return outputStream.toByteArray();
         }
     }
 
