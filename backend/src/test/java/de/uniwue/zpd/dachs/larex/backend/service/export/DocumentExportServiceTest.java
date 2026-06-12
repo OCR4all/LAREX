@@ -472,6 +472,46 @@ class DocumentExportServiceTest {
     }
 
     @Test
+    void exportProjectCsvWithMultipleProfiles_streamsZipEntries() throws Exception {
+        Project project = project("project-1", "Demo Project");
+        project.setTags(List.of("project-tag"));
+        Page page = page(project, "page-1", "Alpha", "alpha.xml", null);
+        page.setTags(List.of("page-tag"));
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(pageDto(
+                "alpha.png",
+                List.of(textRegion("r1", List.of(textLine("l1", "csv text", 0, simpleBaseline(10, 30, 120, 30))))),
+                null
+        ));
+
+        DocumentExportService.DocumentExportResult result = service.exportProject(
+                "ws-1",
+                "project-1",
+                "user-1",
+                new DocumentExportDto.ProjectExportRequest(
+                        DocumentExportDto.ExportFormat.CSV,
+                        null,
+                        null,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(DocumentExportDto.SpreadsheetProfile.PAGE_METADATA, DocumentExportDto.SpreadsheetProfile.TAGS),
+                        null
+                )
+        );
+
+        Map<String, String> entries = zipEntries(result.bytes());
+        assertEquals("Demo Project-csv.zip", result.fileName());
+        assertTrue(entries.get("Demo Project-page_metadata.csv").contains("workspaceId,workspaceName,projectId,projectName,pageId,pageName"));
+        assertTrue(entries.get("Demo Project-tags.csv").contains("project-tag"));
+        assertTrue(entries.get("Demo Project-tags.csv").contains("page-tag"));
+    }
+
+    @Test
     void exportPagePdf_supportsUnicodeText() throws Exception {
         Path imagePath = tempDir.resolve("images/unicode.png");
         Files.createDirectories(imagePath.getParent());

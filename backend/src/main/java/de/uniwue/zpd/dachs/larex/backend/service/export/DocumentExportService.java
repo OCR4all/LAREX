@@ -805,23 +805,14 @@ public class DocumentExportService {
                                                                         ExportOptions options) throws IOException {
         List<DocumentExportDto.SpreadsheetProfile> profiles = resolveSpreadsheetProfiles(options.spreadsheetProfiles());
         String baseName = sanitizeFileName(project.getName(), "project");
-        Map<String, byte[]> entries = new LinkedHashMap<>();
 
-        for (DocumentExportDto.SpreadsheetProfile profile : profiles) {
-            String profileSlug = profile.name().toLowerCase(Locale.ROOT);
-            if (options.format() == DocumentExportDto.ExportFormat.CSV) {
-                entries.put(baseName + "-" + profileSlug + ".csv", renderCsv(project, pages, profile));
-            } else {
-                entries.put(baseName + "-" + profileSlug + ".xlsx", renderXlsx(project, pages, profile));
-            }
-        }
-
-        if (entries.size() == 1) {
-            Map.Entry<String, byte[]> entry = entries.entrySet().iterator().next();
+        if (profiles.size() == 1) {
+            DocumentExportDto.SpreadsheetProfile profile = profiles.getFirst();
+            String fileName = spreadsheetFileName(baseName, profile, options.format());
             return new StreamingDocumentExportResult(
-                    entry.getKey(),
+                    fileName,
                     options.format().getContentType(),
-                    outputStream -> outputStream.write(entry.getValue())
+                    outputStream -> writeSpreadsheetProfile(outputStream, project, pages, profile, options.format())
             );
         }
 
@@ -829,27 +820,64 @@ public class DocumentExportService {
         return new StreamingDocumentExportResult(
                 baseName + suffix,
                 "application/zip",
-                outputStream -> writeZipEntries(outputStream, entries)
+                outputStream -> writeSpreadsheetZipEntries(outputStream, project, pages, profiles, options.format(), baseName)
         );
     }
 
-    private byte[] renderCsv(Project project,
-                             List<PreparedPageExport> pages,
-                             DocumentExportDto.SpreadsheetProfile profile) {
-        List<List<String>> rows = spreadsheetRows(project, pages, profile);
-        StringBuilder builder = new StringBuilder();
-        for (List<String> row : rows) {
-            builder.append(row.stream().map(this::csvCell).reduce((left, right) -> left + "," + right).orElse(""));
-            builder.append('\n');
+    private void writeSpreadsheetZipEntries(OutputStream outputStream,
+                                            Project project,
+                                            List<PreparedPageExport> pages,
+                                            List<DocumentExportDto.SpreadsheetProfile> profiles,
+                                            DocumentExportDto.ExportFormat format,
+                                            String baseName) throws IOException {
+        ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream, StandardCharsets.UTF_8);
+        for (DocumentExportDto.SpreadsheetProfile profile : profiles) {
+            zipOutputStream.putNextEntry(new ZipEntry(spreadsheetFileName(baseName, profile, format)));
+            try {
+                writeSpreadsheetProfile(zipOutputStream, project, pages, profile, format);
+            } finally {
+                zipOutputStream.closeEntry();
+            }
         }
-        return builder.toString().getBytes(StandardCharsets.UTF_8);
+        zipOutputStream.finish();
     }
 
-    private byte[] renderXlsx(Project project,
-                              List<PreparedPageExport> pages,
-                              DocumentExportDto.SpreadsheetProfile profile) throws IOException {
-        try (XSSFWorkbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+    private void writeSpreadsheetProfile(OutputStream outputStream,
+                                         Project project,
+                                         List<PreparedPageExport> pages,
+                                         DocumentExportDto.SpreadsheetProfile profile,
+                                         DocumentExportDto.ExportFormat format) throws IOException {
+        if (format == DocumentExportDto.ExportFormat.CSV) {
+            writeCsv(outputStream, project, pages, profile);
+            return;
+        }
+        writeXlsx(outputStream, project, pages, profile);
+    }
+
+    private String spreadsheetFileName(String baseName,
+                                       DocumentExportDto.SpreadsheetProfile profile,
+                                       DocumentExportDto.ExportFormat format) {
+        String profileSlug = profile.name().toLowerCase(Locale.ROOT);
+        String extension = format == DocumentExportDto.ExportFormat.CSV ? ".csv" : ".xlsx";
+        return baseName + "-" + profileSlug + extension;
+    }
+
+    private void writeCsv(OutputStream outputStream,
+                          Project project,
+                          List<PreparedPageExport> pages,
+                          DocumentExportDto.SpreadsheetProfile profile) throws IOException {
+        List<List<String>> rows = spreadsheetRows(project, pages, profile);
+        for (List<String> row : rows) {
+            outputStream.write(row.stream().map(this::csvCell).reduce((left, right) -> left + "," + right).orElse("").getBytes(StandardCharsets.UTF_8));
+            outputStream.write('\n');
+        }
+    }
+
+    private void writeXlsx(OutputStream outputStream,
+                           Project project,
+                           List<PreparedPageExport> pages,
+                           DocumentExportDto.SpreadsheetProfile profile) throws IOException {
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet(profile.name());
             List<List<String>> rows = spreadsheetRows(project, pages, profile);
 
@@ -866,7 +894,6 @@ public class DocumentExportService {
             }
 
             workbook.write(outputStream);
-            return outputStream.toByteArray();
         }
     }
 
@@ -1494,19 +1521,6 @@ public class DocumentExportService {
         } catch (SaxonApiException e) {
             throw new IOException("Failed to transform PAGE XML to TEI via page2tei", e);
         }
-    }
-
-    private void writeZipEntries(OutputStream outputStream, Map<String, byte[]> entries) throws IOException {
-        ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream, StandardCharsets.UTF_8);
-        for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
-            zipOutputStream.putNextEntry(new ZipEntry(entry.getKey()));
-            try {
-                zipOutputStream.write(entry.getValue());
-            } finally {
-                zipOutputStream.closeEntry();
-            }
-        }
-        zipOutputStream.finish();
     }
 
     private String fileExtension(String fileNameOrPath) {
