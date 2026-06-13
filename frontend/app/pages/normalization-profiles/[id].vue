@@ -10,6 +10,7 @@ type ReplacementMode = 'plain' | 'regex'
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const backgroundDownloads = useBackgroundDownloads()
 const { allow } = useActionVisibility()
 const overlay = useOverlay()
 const shareSlideover = overlay.create(LazyShareSlideover)
@@ -345,19 +346,22 @@ async function exportProfile() {
   if (isExporting.value || isNew) return
   try {
     isExporting.value = true
-    const response = await fetch(`/api/workspaces/${workspaceId.value}/toolkit/export`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selectors: [{ type: 'NORMALIZATION_PROFILE', ids: [id] }] })
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Exporting normalization profile',
+      subtitle: name.value || 'Normalization profile',
+      statusLabel: 'Generating',
+      completedLabel: 'Exported',
+      icon: 'i-lucide-list-restart',
+      task: async (job) => {
+        const response = await fetch(`/api/workspaces/${workspaceId.value}/toolkit/export`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ selectors: [{ type: 'NORMALIZATION_PROFILE', ids: [id] }] })
+        })
+        if (!response.ok) throw new Error(`Export failed (${response.status})`)
+        await backgroundDownloads.downloadBlobResponse(response, `${name.value || 'normalization-profile'}.larex-toolkit.json`, job)
+      }
     })
-    if (!response.ok) throw new Error(`Export failed (${response.status})`)
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${name.value || 'normalization-profile'}.larex-toolkit.json`
-    link.click()
-    window.URL.revokeObjectURL(url)
     toast.add({ title: 'Normalization profile exported', color: 'success' })
   } catch (error: unknown) {
     toast.add({ title: 'Failed to export normalization profile', description: extractApiErrorMessage(error, 'Failed to export normalization profile'), color: 'error' })

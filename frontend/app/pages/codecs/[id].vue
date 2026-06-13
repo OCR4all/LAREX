@@ -7,6 +7,7 @@ import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const backgroundDownloads = useBackgroundDownloads()
 const { allow } = useActionVisibility()
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
@@ -341,51 +342,54 @@ const handleCodecImport = async (event: Event) => {
 
 const handleCodecExport = () => {
   if (isNew) {
-    const data = {
-      name: name.value,
-      description: description.value,
-      tags: tags.value,
-      codec: codec.value
-    }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${name.value.replace(/\\s+/g, '-').toLowerCase() || 'codec'}-${Date.now()}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    void backgroundDownloads.runBackgroundJob({
+      title: 'Downloading codec',
+      subtitle: name.value || 'Codec',
+      statusLabel: 'Preparing',
+      completedLabel: 'Downloaded',
+      icon: 'i-lucide-download',
+      task: async (job) => {
+        const data = {
+          name: name.value,
+          description: description.value,
+          tags: tags.value,
+          codec: codec.value
+        }
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        await backgroundDownloads.downloadBlob(blob, `${name.value.replace(/\\s+/g, '-').toLowerCase() || 'codec'}-${Date.now()}.json`, job)
+      }
+    }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Failed to export codec'
+      toast.add({ title: 'Export failed', description: message, color: 'error' })
+    })
     return
   }
 
   void (async () => {
     try {
-      const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/toolkit/export`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          includeAll: false,
-          selectors: [{ type: 'CODEC', ids: [id] }]
-        })
+      await backgroundDownloads.runBackgroundJob({
+        title: 'Exporting codec',
+        subtitle: name.value || 'Codec',
+        statusLabel: 'Generating',
+        completedLabel: 'Exported',
+        icon: 'i-lucide-file-code',
+        task: async (job) => {
+          const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/toolkit/export`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              includeAll: false,
+              selectors: [{ type: 'CODEC', ids: [id] }]
+            })
+          })
+
+          if (!response.ok) {
+            throw new Error(`Export failed (${response.status})`)
+          }
+
+          await backgroundDownloads.downloadBlobResponse(response, `${name.value.replace(/\\s+/g, '-').toLowerCase() || 'codec'}.larex-toolkit.json`, job)
+        }
       })
-
-      if (!response.ok) {
-        throw new Error(`Export failed (${response.status})`)
-      }
-
-      const blob = await response.blob()
-      const fallbackName = `${name.value.replace(/\\s+/g, '-').toLowerCase() || 'codec'}.larex-toolkit.json`
-      const contentDisposition = response.headers.get('content-disposition')
-      const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
-      const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
-
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
 
       toast.add({ title: 'Codec exported', color: 'success' })
     } catch (error: unknown) {

@@ -8,6 +8,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const overlay = useOverlay()
+const backgroundDownloads = useBackgroundDownloads()
 const shareSlideover = overlay.create(LazyShareSlideover)
 const { allow } = useActionVisibility()
 
@@ -132,46 +133,49 @@ const handleSave = async () => {
 
 const handleExportLayout = () => {
   if (isNew) {
-    const data = builderState.currentLayout.value
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${builderState.currentLayout.value.name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    void backgroundDownloads.runBackgroundJob({
+      title: 'Downloading keyboard',
+      subtitle: builderState.currentLayout.value.name,
+      statusLabel: 'Preparing',
+      completedLabel: 'Downloaded',
+      icon: 'i-lucide-download',
+      task: async (job) => {
+        const data = builderState.currentLayout.value
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        await backgroundDownloads.downloadBlob(blob, `${builderState.currentLayout.value.name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.json`, job)
+      }
+    }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Failed to export keyboard'
+      toast.add({ title: 'Export failed', description: message, color: 'error' })
+    })
     return
   }
 
   void (async () => {
     try {
-      const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/toolkit/export`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          includeAll: false,
-          selectors: [{ type: 'VIRTUAL_KEYBOARD', ids: [id] }]
-        })
+      await backgroundDownloads.runBackgroundJob({
+        title: 'Exporting keyboard',
+        subtitle: builderState.layoutName.value,
+        statusLabel: 'Generating',
+        completedLabel: 'Exported',
+        icon: 'i-lucide-keyboard',
+        task: async (job) => {
+          const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/toolkit/export`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              includeAll: false,
+              selectors: [{ type: 'VIRTUAL_KEYBOARD', ids: [id] }]
+            })
+          })
+
+          if (!response.ok) {
+            throw new Error(`Export failed (${response.status})`)
+          }
+
+          await backgroundDownloads.downloadBlobResponse(response, `${builderState.layoutName.value.replace(/\s+/g, '-').toLowerCase()}.larex-toolkit.json`, job)
+        }
       })
-
-      if (!response.ok) {
-        throw new Error(`Export failed (${response.status})`)
-      }
-
-      const blob = await response.blob()
-      const fallbackName = `${builderState.layoutName.value.replace(/\s+/g, '-').toLowerCase()}.larex-toolkit.json`
-      const contentDisposition = response.headers.get('content-disposition')
-      const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
-      const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
-
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
 
       toast.add({ title: 'Keyboard exported', color: 'success' })
     } catch (error: unknown) {

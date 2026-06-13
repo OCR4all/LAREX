@@ -27,6 +27,7 @@ const emit = defineEmits<{ close: [string | null] }>()
 
 const toast = useToast()
 const overlay = useOverlay()
+const backgroundDownloads = useBackgroundDownloads()
 const exportTargetSlideover = overlay.create(LazyProjectSlideoverExportTarget)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 const { selectedWorkspace } = await useWorkspaceBootstrap()
@@ -162,6 +163,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (!selectedWorkspace.value) return
   if (!await confirmLegacyPageXmlVersion()) return
 
+  const workspaceId = selectedWorkspace.value
   creating.value = true
   const payload: ProjectPackageCreateReleaseRequest = {
     versionTag: event.data.versionTag?.trim() || null,
@@ -171,9 +173,17 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   }
 
   try {
-    const release = await $fetch<ProjectPackageRelease>(`/api/workspaces/${selectedWorkspace.value}/projects/${props.projectId}/releases`, {
-      method: 'POST',
-      body: payload
+    const release = await backgroundDownloads.runBackgroundJob({
+      title: 'Creating project release',
+      subtitle: payload.versionTag || 'Next release',
+      statusLabel: 'Generating',
+      completedLabel: 'Created',
+      icon: 'i-lucide-package-plus',
+      retryable: false,
+      task: async () => await $fetch<ProjectPackageRelease>(`/api/workspaces/${workspaceId}/projects/${props.projectId}/releases`, {
+        method: 'POST',
+        body: payload
+      })
     })
 
     toast.add({

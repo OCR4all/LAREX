@@ -30,6 +30,7 @@ const emit = defineEmits<{ close: [boolean] }>()
 const attrs = useAttrs()
 
 const toast = useToast()
+const backgroundDownloads = useBackgroundDownloads()
 const isLoading = ref(true)
 const pageImages = ref<PageImage[]>([])
 const imageStates = ref<Record<string, 'loading' | 'loaded' | 'error'>>({})
@@ -194,13 +195,26 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
 }
 
-function downloadImage(image: PageImage) {
-  const a = document.createElement('a')
-  a.href = `/api/projects/${props.projectId}/pages/images/${image.id}/export`
-  a.download = image.fileName
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
+async function downloadImage(image: PageImage) {
+  try {
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Downloading page image',
+      subtitle: image.fileName,
+      statusLabel: 'Preparing',
+      completedLabel: 'Downloaded',
+      icon: 'i-lucide-image-down',
+      task: async (job) => {
+        const response = await fetch(`/api/projects/${props.projectId}/pages/images/${image.id}/export`)
+        if (!response.ok) {
+          throw new Error(`Download failed (${response.status})`)
+        }
+        await backgroundDownloads.downloadBlobResponse(response, image.fileName, job)
+      }
+    })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to download image'
+    toast.add({ title: 'Download failed', description: message, color: 'error' })
+  }
 }
 
 async function fetchPageImages() {

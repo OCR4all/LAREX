@@ -8,6 +8,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const overlay = useOverlay()
+const backgroundDownloads = useBackgroundDownloads()
 const { allow } = useActionVisibility()
 const shareSlideover = overlay.create(LazyShareSlideover)
 const metadataSlideover = overlay.create(LazyLabelBuilderSlideoverMetadata)
@@ -299,33 +300,29 @@ const exportSet = async () => {
   }
 
   try {
-    const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/toolkit/export`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        includeAll: false,
-        selectors: [{ type: 'LABEL_SET', ids: [id] }]
-      })
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Exporting label set',
+      subtitle: getString(asRecord(meta).name, 'Label set'),
+      statusLabel: 'Generating',
+      completedLabel: 'Exported',
+      icon: 'i-lucide-tags',
+      task: async (job) => {
+        const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/toolkit/export`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            includeAll: false,
+            selectors: [{ type: 'LABEL_SET', ids: [id] }]
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error(`Export failed (${response.status})`)
+        }
+
+        await backgroundDownloads.downloadBlobResponse(response, `${getString(asRecord(meta).name, 'label-set').replace(/\\s+/g, '-').toLowerCase()}.larex-toolkit.json`, job)
+      }
     })
-
-    if (!response.ok) {
-      throw new Error(`Export failed (${response.status})`)
-    }
-
-    const blob = await response.blob()
-    const fallbackName = `${getString(asRecord(meta).name, 'label-set').replace(/\\s+/g, '-').toLowerCase()}.larex-toolkit.json`
-    const contentDisposition = response.headers.get('content-disposition')
-    const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
-    const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
-
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
 
     toast.add({ title: 'Label set exported', color: 'success' })
   } catch (error: unknown) {
@@ -336,14 +333,21 @@ const exportSet = async () => {
 
 const exportSetLocal = async () => {
   const doExport = () => {
-    const data = { meta, labels: labels.value, exportedAt: new Date().toISOString() }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${getString(asRecord(meta).name, 'label-set').replace(/\s+/g, '-').toLowerCase()}-labelset.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    void backgroundDownloads.runBackgroundJob({
+      title: 'Downloading label set',
+      subtitle: getString(asRecord(meta).name, 'Label set'),
+      statusLabel: 'Preparing',
+      completedLabel: 'Downloaded',
+      icon: 'i-lucide-download',
+      task: async (job) => {
+        const data = { meta, labels: labels.value, exportedAt: new Date().toISOString() }
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        await backgroundDownloads.downloadBlob(blob, `${getString(asRecord(meta).name, 'label-set').replace(/\s+/g, '-').toLowerCase()}-labelset.json`, job)
+      }
+    }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Failed to export label set'
+      toast.add({ title: 'Export failed', description: message, color: 'error' })
+    })
   }
 
   if (totalErrors.value > 0) {

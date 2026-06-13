@@ -20,6 +20,7 @@ import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 const route = useRoute()
 const toast = useToast()
 const overlay = useOverlay()
+const backgroundDownloads = useBackgroundDownloads()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const createReleaseSlideover = overlay.create(LazyDatasetSlideoverRelease)
 const releaseShareSlideover = overlay.create(LazyDatasetSlideoverReleaseShare)
@@ -849,17 +850,29 @@ async function validateDataset() {
 async function exportDatasetPackage() {
   if (!selectedWorkspace.value || !dataset.value) return
 
+  const workspaceId = selectedWorkspace.value
+  const datasetId = dataset.value.id
+  const datasetName = dataset.value.name
   exporting.value = true
   try {
-    const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/datasets/${dataset.value.id}/export-package`, {
-      method: 'POST'
-    })
-    if (!response.ok) {
-      const message = await response.text()
-      throw new Error(message || `Export failed (${response.status})`)
-    }
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Exporting dataset package',
+      subtitle: datasetName,
+      statusLabel: 'Generating',
+      completedLabel: 'Exported',
+      icon: 'i-lucide-package',
+      task: async (job) => {
+        const response = await fetch(`/api/workspaces/${workspaceId}/datasets/${datasetId}/export-package`, {
+          method: 'POST'
+        })
+        if (!response.ok) {
+          const message = await response.text()
+          throw new Error(message || `Export failed (${response.status})`)
+        }
 
-    await downloadBlobResponse(response, `${dataset.value.name.replace(/\s+/g, '-').toLowerCase()}.larex-dataset.zip`)
+        await backgroundDownloads.downloadBlobResponse(response, `${datasetName.replace(/\s+/g, '-').toLowerCase()}.larex-dataset.zip`, job)
+      }
+    })
     toast.add({ title: 'Dataset package exported', color: 'success' })
     await refresh()
   } catch (cause: unknown) {
@@ -897,13 +910,25 @@ async function openReleaseShare(release: DatasetRelease) {
 async function downloadReleasePackage(release: DatasetRelease) {
   if (!selectedWorkspace.value || !dataset.value) return
 
+  const workspaceId = selectedWorkspace.value
+  const datasetId = dataset.value.id
+  const datasetName = dataset.value.name
   try {
-    const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/datasets/${dataset.value.id}/releases/${release.id}/download`)
-    if (!response.ok) {
-      const message = await response.text()
-      throw new Error(message || `Download failed (${response.status})`)
-    }
-    await downloadBlobResponse(response, release.packageFileName || `${dataset.value.name}-${release.versionTag}.zip`)
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Downloading dataset release',
+      subtitle: `${datasetName} · ${release.versionTag}`,
+      statusLabel: 'Preparing',
+      completedLabel: 'Downloaded',
+      icon: 'i-lucide-download',
+      task: async (job) => {
+        const response = await fetch(`/api/workspaces/${workspaceId}/datasets/${datasetId}/releases/${release.id}/download`)
+        if (!response.ok) {
+          const message = await response.text()
+          throw new Error(message || `Download failed (${response.status})`)
+        }
+        await backgroundDownloads.downloadBlobResponse(response, release.packageFileName || `${datasetName}-${release.versionTag}.zip`, job)
+      }
+    })
   } catch (cause: unknown) {
     toast.add({
       title: 'Release download failed',
@@ -1121,21 +1146,6 @@ async function openSelectedItemsInEditor() {
   const ids = selectedItems.value.map(row => row.id)
   if (ids.length === 0) return
   await openDatasetInEditor(ids)
-}
-
-async function downloadBlobResponse(response: Response, fallbackName: string) {
-  const blob = await response.blob()
-  const contentDisposition = response.headers.get('content-disposition')
-  const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
-  const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = fileName
-  document.body.appendChild(anchor)
-  anchor.click()
-  document.body.removeChild(anchor)
-  URL.revokeObjectURL(url)
 }
 
 useHead({

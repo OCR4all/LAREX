@@ -38,6 +38,7 @@ type ProjectExportsOptions = {
 
 export function useProjectExports(options: ProjectExportsOptions) {
   const toast = useToast()
+  const backgroundDownloads = useBackgroundDownloads()
 
   function getExportPageIds(scope: ProjectActionScope): string[] | null {
     return scope === 'selection' ? Array.from(options.selectedPageIds.value) : null
@@ -57,17 +58,26 @@ export function useProjectExports(options: ProjectExportsOptions) {
     const fallbackName = `${options.project.value.name.replace(/\s+/g, '-').toLowerCase()}.larex-project.zip`
 
     try {
-      const response = await fetch(`/api/workspaces/${options.selectedWorkspace.value}/projects/${options.projectId}/export-package`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      await backgroundDownloads.runBackgroundJob({
+        title: 'Exporting project package',
+        subtitle: options.project.value.name,
+        statusLabel: 'Generating',
+        completedLabel: 'Exported',
+        icon: 'i-lucide-package',
+        task: async (job) => {
+          const response = await fetch(`/api/workspaces/${options.selectedWorkspace.value}/projects/${options.projectId}/export-package`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          })
+
+          if (!response.ok) {
+            throw new Error(`Export failed (${response.status})`)
+          }
+
+          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job)
+        }
       })
-
-      if (!response.ok) {
-        throw new Error(`Export failed (${response.status})`)
-      }
-
-      await downloadBlobResponse(response, fallbackName)
 
       toast.add({
         title: 'Project package exported',
@@ -107,17 +117,26 @@ export function useProjectExports(options: ProjectExportsOptions) {
     }
 
     try {
-      const response = await fetch(`/api/workspaces/${options.selectedWorkspace.value}/projects/${options.projectId}/export`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      await backgroundDownloads.runBackgroundJob({
+        title: 'Exporting project output',
+        subtitle: `${options.project.value.name} · ${format}`,
+        statusLabel: 'Generating',
+        completedLabel: 'Exported',
+        icon: 'i-lucide-file-output',
+        task: async (job) => {
+          const response = await fetch(`/api/workspaces/${options.selectedWorkspace.value}/projects/${options.projectId}/export`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          })
+
+          if (!response.ok) {
+            throw new Error(`Export failed (${response.status})`)
+          }
+
+          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job)
+        }
       })
-
-      if (!response.ok) {
-        throw new Error(`Export failed (${response.status})`)
-      }
-
-      await downloadBlobResponse(response, fallbackName)
 
       toast.add({
         title: 'Project output exported',
@@ -149,26 +168,35 @@ export function useProjectExports(options: ProjectExportsOptions) {
     const fallbackName = `${page.name}.${formatExtension(format)}`
 
     try {
-      const response = await fetch(`/api/projects/${options.projectId}/pages/${page.id}/export`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          format,
-          targetPageXmlVersion: exportOptions.targetPageXmlVersion,
-          textLevel: normalizeTextLevel(exportOptions.textLevel),
-          textVariantIndex: Number.isFinite(exportOptions.textVariantIndex) ? exportOptions.textVariantIndex : 0,
-          pdfProfile: normalizePdfProfile(exportOptions.pdfProfile),
-          teiProfile: normalizeTeiProfile(exportOptions.teiProfile),
-          spreadsheetProfiles: normalizeSpreadsheetProfiles(exportOptions.spreadsheetProfiles),
-          docxOptions: normalizeDocxOptions(exportOptions.docxOptions)
-        })
+      await backgroundDownloads.runBackgroundJob({
+        title: 'Exporting page output',
+        subtitle: `${page.name} · ${format}`,
+        statusLabel: 'Generating',
+        completedLabel: 'Exported',
+        icon: 'i-lucide-file-output',
+        task: async (job) => {
+          const response = await fetch(`/api/projects/${options.projectId}/pages/${page.id}/export`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              format,
+              targetPageXmlVersion: exportOptions.targetPageXmlVersion,
+              textLevel: normalizeTextLevel(exportOptions.textLevel),
+              textVariantIndex: Number.isFinite(exportOptions.textVariantIndex) ? exportOptions.textVariantIndex : 0,
+              pdfProfile: normalizePdfProfile(exportOptions.pdfProfile),
+              teiProfile: normalizeTeiProfile(exportOptions.teiProfile),
+              spreadsheetProfiles: normalizeSpreadsheetProfiles(exportOptions.spreadsheetProfiles),
+              docxOptions: normalizeDocxOptions(exportOptions.docxOptions)
+            })
+          })
+
+          if (!response.ok) {
+            throw new Error(`Export failed (${response.status})`)
+          }
+
+          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job)
+        }
       })
-
-      if (!response.ok) {
-        throw new Error(`Export failed (${response.status})`)
-      }
-
-      await downloadBlobResponse(response, fallbackName)
 
       toast.add({
         title: 'Page output exported',
@@ -197,15 +225,24 @@ export function useProjectExports(options: ProjectExportsOptions) {
         return
       }
 
-      const xmlId = xmlFiles[0]!.id
-      const selectedVersion = targetPageXmlVersion ?? PAGE_XML_PRIMARY_VERSION
-      const query = new URLSearchParams({ targetPageXmlVersion: selectedVersion })
-      const response = await fetch(`/api/projects/${options.projectId}/pages/xml/${xmlId}/export?${query.toString()}`)
-      if (!response.ok) {
-        throw new Error(`Export failed (${response.status})`)
-      }
+      await backgroundDownloads.runBackgroundJob({
+        title: 'Exporting PAGE XML',
+        subtitle: page.name,
+        statusLabel: 'Converting',
+        completedLabel: 'Exported',
+        icon: 'i-lucide-file-code',
+        task: async (job) => {
+          const xmlId = xmlFiles[0]!.id
+          const selectedVersion = targetPageXmlVersion ?? PAGE_XML_PRIMARY_VERSION
+          const query = new URLSearchParams({ targetPageXmlVersion: selectedVersion })
+          const response = await fetch(`/api/projects/${options.projectId}/pages/xml/${xmlId}/export?${query.toString()}`)
+          if (!response.ok) {
+            throw new Error(`Export failed (${response.status})`)
+          }
 
-      await downloadBlobResponse(response, `${page.name}.xml`)
+          await backgroundDownloads.downloadBlobResponse(response, `${page.name}.xml`, job)
+        }
+      })
 
       if (xmlFiles.length > 1) {
         toast.add({
@@ -301,7 +338,7 @@ export function useProjectExports(options: ProjectExportsOptions) {
 
   return {
     PAGE_XML_PRIMARY_VERSION,
-    downloadBlobResponse,
+    downloadBlobResponse: backgroundDownloads.downloadBlobResponse,
     exportPageOutput,
     exportPageXml,
     exportProjectOutput,
@@ -317,22 +354,6 @@ export function useProjectExports(options: ProjectExportsOptions) {
     normalizeTextLevel,
     requestExportOptions
   }
-}
-
-export async function downloadBlobResponse(response: Response, fallbackName: string) {
-  const blob = await response.blob()
-  const contentDisposition = response.headers.get('content-disposition')
-  const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
-  const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
-
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileName
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
 }
 
 function normalizePageXmlVersion(value: unknown): string {

@@ -11,6 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [string | null] }>()
 
 const toast = useToast()
+const backgroundDownloads = useBackgroundDownloads()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 
 const schema = z.object({
@@ -33,6 +34,7 @@ const submit = () => formRef.value?.submit()
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (!selectedWorkspace.value) return
 
+  const workspaceId = selectedWorkspace.value
   creating.value = true
   const payload: DatasetCreateReleaseRequest = {
     versionTag: event.data.versionTag?.trim() || null,
@@ -40,9 +42,17 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   }
 
   try {
-    const release = await $fetch<DatasetRelease>(`/api/workspaces/${selectedWorkspace.value}/datasets/${props.datasetId}/releases`, {
-      method: 'POST',
-      body: payload
+    const release = await backgroundDownloads.runBackgroundJob({
+      title: 'Creating dataset release',
+      subtitle: payload.versionTag || 'Next release',
+      statusLabel: 'Generating',
+      completedLabel: 'Created',
+      icon: 'i-lucide-package-plus',
+      retryable: false,
+      task: async () => await $fetch<DatasetRelease>(`/api/workspaces/${workspaceId}/datasets/${props.datasetId}/releases`, {
+        method: 'POST',
+        body: payload
+      })
     })
 
     toast.add({

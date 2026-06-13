@@ -24,12 +24,13 @@ function stopPolling() {
 export function useStatusCenter() {
   const uploadStore = useUploadStore()
   const actionRunsStore = useActionRunsStore()
+  const backgroundJobsStore = useBackgroundJobsStore()
   const { issues, hasIssues } = useStatusIssues()
   const isOverlayOpen = useState('app.statusCenter.overlayOpen', () => false)
   const isOverlayMinimized = useState('app.statusCenter.overlayMinimized', () => false)
   const overlayAnchorId = useState<string | null>('app.statusCenter.overlayAnchorId', () => null)
 
-  const jobs = computed(() => buildStatusJobs(uploadStore.uploadsArray, actionRunsStore.runsArray))
+  const jobs = computed(() => buildStatusJobs(uploadStore.uploadsArray, actionRunsStore.runsArray, backgroundJobsStore.jobsArray))
   const activeJobs = computed(() => jobs.value.filter(job => job.active))
   const terminalJobs = computed(() => jobs.value.filter(job => job.terminal))
   const hasActiveJobs = computed(() => activeJobs.value.length > 0)

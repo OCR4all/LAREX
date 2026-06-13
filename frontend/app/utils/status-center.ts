@@ -1,5 +1,6 @@
 import type { ActiveUpload } from '@/stores/upload.store'
 import type { TrackedActionRun } from '@/stores/action-runs.store'
+import type { BackgroundJob } from '@/stores/background-jobs.store'
 
 export type JobStatusColor = 'primary' | 'success' | 'error' | 'warning' | 'neutral'
 
@@ -33,6 +34,21 @@ export type StatusJob
     active: boolean
     terminal: boolean
     run: TrackedActionRun
+  }
+  | {
+    kind: 'background'
+    id: string
+    title: string
+    subtitle: string
+    status: string
+    statusLabel: string
+    progress: number | null
+    progressLabel: string
+    color: JobStatusColor
+    icon: string
+    active: boolean
+    terminal: boolean
+    backgroundJob: BackgroundJob
   }
 
 const uploadStatusLabels: Record<string, string> = {
@@ -77,6 +93,14 @@ export function isTerminalAction(status: TrackedActionRun['status']): boolean {
   return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
 }
 
+export function isActiveBackgroundJob(status: BackgroundJob['status']): boolean {
+  return status === 'PENDING' || status === 'RUNNING'
+}
+
+export function isTerminalBackgroundJob(status: BackgroundJob['status']): boolean {
+  return status === 'COMPLETED' || status === 'FAILED'
+}
+
 export function getUploadStatusColor(status: ActiveUpload['status']): JobStatusColor {
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED' || status === 'CANCELLED') return 'error'
@@ -87,6 +111,13 @@ export function getActionStatusColor(status: TrackedActionRun['status']): JobSta
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED' || status === 'CANCELLED') return 'error'
   if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'warning'
+  return 'primary'
+}
+
+export function getBackgroundJobStatusColor(status: BackgroundJob['status']): JobStatusColor {
+  if (status === 'COMPLETED') return 'success'
+  if (status === 'FAILED') return 'error'
+  if (status === 'PENDING') return 'warning'
   return 'primary'
 }
 
@@ -131,10 +162,12 @@ export function getJobKey(job: StatusJob): string {
 }
 
 export function getJobTimestamp(job: StatusJob): number {
-  return Date.parse(job.kind === 'upload' ? job.upload.created : job.run.created)
+  if (job.kind === 'upload') return Date.parse(job.upload.created)
+  if (job.kind === 'action') return Date.parse(job.run.created)
+  return Date.parse(job.backgroundJob.created)
 }
 
-export function buildStatusJobs(uploads: ActiveUpload[], runs: TrackedActionRun[]): StatusJob[] {
+export function buildStatusJobs(uploads: ActiveUpload[], runs: TrackedActionRun[], backgroundJobs: BackgroundJob[] = []): StatusJob[] {
   const uploadJobs: StatusJob[] = uploads.map(upload => ({
     kind: 'upload',
     id: upload.sessionId,
@@ -167,7 +200,23 @@ export function buildStatusJobs(uploads: ActiveUpload[], runs: TrackedActionRun[
     run
   }))
 
-  return [...uploadJobs, ...actionJobs].sort((left, right) => {
+  const localJobs: StatusJob[] = backgroundJobs.map(job => ({
+    kind: 'background',
+    id: job.id,
+    title: job.title,
+    subtitle: job.subtitle,
+    status: job.status,
+    statusLabel: job.statusLabel,
+    progress: job.progressPercent,
+    progressLabel: job.progressPercent === null ? job.statusLabel : `${job.progressPercent}%`,
+    color: getBackgroundJobStatusColor(job.status),
+    icon: job.icon,
+    active: isActiveBackgroundJob(job.status),
+    terminal: isTerminalBackgroundJob(job.status),
+    backgroundJob: job
+  }))
+
+  return [...uploadJobs, ...actionJobs, ...localJobs].sort((left, right) => {
     if (left.active !== right.active) return left.active ? -1 : 1
     return getJobTimestamp(right) - getJobTimestamp(left)
   })

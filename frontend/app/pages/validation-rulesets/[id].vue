@@ -22,6 +22,7 @@ interface ValidationPreviewIssue {
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const backgroundDownloads = useBackgroundDownloads()
 const { allow } = useActionVisibility()
 const overlay = useOverlay()
 const shareSlideover = overlay.create(LazyShareSlideover)
@@ -323,19 +324,22 @@ async function exportRuleset() {
   if (isExporting.value || isNew) return
   try {
     isExporting.value = true
-    const response = await fetch(`/api/workspaces/${workspaceId.value}/toolkit/export`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selectors: [{ type: 'VALIDATION_RULESET', ids: [id] }] })
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Exporting validation ruleset',
+      subtitle: name.value || 'Validation ruleset',
+      statusLabel: 'Generating',
+      completedLabel: 'Exported',
+      icon: 'i-lucide-shield-check',
+      task: async (job) => {
+        const response = await fetch(`/api/workspaces/${workspaceId.value}/toolkit/export`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ selectors: [{ type: 'VALIDATION_RULESET', ids: [id] }] })
+        })
+        if (!response.ok) throw new Error(`Export failed (${response.status})`)
+        await backgroundDownloads.downloadBlobResponse(response, `${name.value || 'validation-ruleset'}.larex-toolkit.json`, job)
+      }
     })
-    if (!response.ok) throw new Error(`Export failed (${response.status})`)
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${name.value || 'validation-ruleset'}.larex-toolkit.json`
-    link.click()
-    window.URL.revokeObjectURL(url)
     toast.add({ title: 'Validation ruleset exported', color: 'success' })
   } catch (error: unknown) {
     toast.add({ title: 'Failed to export validation ruleset', description: extractApiErrorMessage(error, 'Failed to export validation ruleset'), color: 'error' })
@@ -497,10 +501,20 @@ async function exportRuleset() {
                     <UInput v-model="rule.pattern" :disabled="!canEditRuleset || isSaving" />
                   </UFormField>
                   <UFormField label="Severity">
-                    <USelect :model-value="rule.severity ?? 'WARNING'" :items="['INFO', 'WARNING', 'ERROR']" :disabled="!canEditRuleset || isSaving" @update:model-value="rule.severity = $event as ValidationSeverity" />
+                    <USelect
+                      :model-value="rule.severity ?? 'WARNING'"
+                      :items="['INFO', 'WARNING', 'ERROR']"
+                      :disabled="!canEditRuleset || isSaving"
+                      @update:model-value="rule.severity = $event as ValidationSeverity"
+                    />
                   </UFormField>
                   <UFormField label="Flags">
-                    <UInput :model-value="rule.flags ?? ''" placeholder="i, m, s, u, x" :disabled="!canEditRuleset || isSaving" @update:model-value="rule.flags = $event" />
+                    <UInput
+                      :model-value="rule.flags ?? ''"
+                      placeholder="i, m, s, u, x"
+                      :disabled="!canEditRuleset || isSaving"
+                      @update:model-value="rule.flags = $event"
+                    />
                   </UFormField>
                 </div>
 

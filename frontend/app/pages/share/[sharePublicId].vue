@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 definePageMeta({
   layout: false
 })
@@ -13,7 +12,7 @@ const route = useRoute()
 const secret = ref('')
 const errorMessage = ref('')
 const isSubmitting = ref(false)
-const downloadFrameSrc = ref('')
+const backgroundDownloads = useBackgroundDownloads()
 
 const sharePublicId = computed(() => String(route.params.sharePublicId || ''))
 
@@ -37,9 +36,20 @@ async function startDownload() {
       }
     })
 
-    downloadFrameSrc.value = ''
-    await nextTick()
-    downloadFrameSrc.value = result.downloadUrl
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Downloading shared release',
+      subtitle: sharePublicId.value,
+      statusLabel: 'Preparing',
+      completedLabel: 'Downloaded',
+      icon: 'i-lucide-download',
+      task: async (job) => {
+        const response = await fetch(result.downloadUrl)
+        if (!response.ok) {
+          throw new Error(`Download failed (${response.status})`)
+        }
+        await backgroundDownloads.downloadBlobResponse(response, 'release.zip', job)
+      }
+    })
   } catch (error: unknown) {
     errorMessage.value = extractApiErrorMessage(error, 'Share link or secret is invalid.')
   } finally {
@@ -97,12 +107,13 @@ async function startDownload() {
       <p class="text-center text-xs text-muted">
         Keep the secret private. Anyone with this link and secret can download the release while it remains active.
       </p>
+
+      <div class="flex justify-center">
+        <AppStatusPopoverTrigger force-popover />
+      </div>
     </div>
 
-    <iframe
-      title="download-target"
-      class="hidden"
-      :src="downloadFrameSrc"
-    />
+    <AppStatusFloatingMobile />
+    <AppStatusOverlayPanel />
   </main>
 </template>

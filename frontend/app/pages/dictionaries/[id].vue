@@ -7,6 +7,7 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const backgroundDownloads = useBackgroundDownloads()
 const { allow } = useActionVisibility()
 const { uploadFormDataWithProgress, runTrackedProcessing } = useTrackedUpload()
 const overlay = useOverlay()
@@ -223,39 +224,30 @@ async function deleteDictionary() {
 async function exportDictionary() {
   if (isExporting.value) return
 
-  const progressToast = toast.add({
-    title: 'Exporting dictionary',
-    description: name.value || 'Dictionary',
-    color: 'neutral',
-    icon: 'i-lucide-loader-circle',
-    ui: { icon: 'animate-spin' },
-    close: false,
-    progress: false,
-    duration: 0
-  })
-
   try {
     isExporting.value = true
-    const response = await fetch(`/api/workspaces/${workspaceId.value}/toolkit/export`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selectors: [{ type: 'DICTIONARY', ids: [id] }] })
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Exporting dictionary',
+      subtitle: name.value || 'Dictionary',
+      statusLabel: 'Generating',
+      completedLabel: 'Exported',
+      icon: 'i-lucide-book-open',
+      task: async (job) => {
+        const response = await fetch(`/api/workspaces/${workspaceId.value}/toolkit/export`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ selectors: [{ type: 'DICTIONARY', ids: [id] }] })
+        })
+        if (!response.ok) {
+          throw new Error(`Export failed (${response.status})`)
+        }
+        await backgroundDownloads.downloadBlobResponse(response, `${name.value || 'dictionary'}.larex-toolkit.json`, job)
+      }
     })
-    if (!response.ok) {
-      throw new Error(`Export failed (${response.status})`)
-    }
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${name.value || 'dictionary'}.larex-toolkit.json`
-    link.click()
-    window.URL.revokeObjectURL(url)
     toast.add({ title: 'Dictionary exported', color: 'success' })
   } catch (error: unknown) {
     toast.add({ title: 'Failed to export dictionary', description: extractApiErrorMessage(error, 'Failed to export dictionary'), color: 'error' })
   } finally {
-    toast.remove(progressToast.id)
     isExporting.value = false
   }
 }

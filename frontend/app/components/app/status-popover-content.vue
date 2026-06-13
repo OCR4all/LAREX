@@ -26,6 +26,7 @@ const emit = defineEmits<{
 const uploadStore = useUploadStore()
 const uploadSessionActions = useUploadSessionActions()
 const actionRunsStore = useActionRunsStore()
+const backgroundJobsStore = useBackgroundJobsStore()
 const toast = useToast()
 const UChatShimmer = resolveComponent('UChatShimmer')
 const {
@@ -82,12 +83,14 @@ function formatBytes(bytes: number): string {
 }
 
 function canCancelJob(job: StatusJob): boolean {
+  if (job.kind === 'background') return false
   return job.kind === 'upload'
     ? job.upload.cancelable !== false && isActiveUpload(job.upload.status)
     : job.run.canCancel && isActiveAction(job.run.status)
 }
 
 function isCancellingJob(job: StatusJob): boolean {
+  if (job.kind === 'background') return false
   return job.kind === 'upload'
     ? uploadStore.isCancelling(job.id)
     : actionRunsStore.isCancelling(job.id)
@@ -112,6 +115,14 @@ function isDismissingJob(job: StatusJob): boolean {
   return dismissingJobKeys.value.has(getJobKey(job))
 }
 
+function canRetryJob(job: StatusJob): boolean {
+  return job.kind === 'background' && job.status === 'FAILED' && backgroundJobsStore.canRetryJob(job.id)
+}
+
+function isRetryingJob(job: StatusJob): boolean {
+  return job.kind === 'background' && backgroundJobsStore.isRetrying(job.id)
+}
+
 function setDismissingJob(job: StatusJob, value: boolean) {
   const key = getJobKey(job)
   const next = new Set(dismissingJobKeys.value)
@@ -128,7 +139,7 @@ async function cancelJob(job: StatusJob) {
   try {
     if (job.kind === 'upload') {
       await uploadSessionActions.cancelUploadBySessionId(job.id)
-    } else {
+    } else if (job.kind === 'action') {
       await actionRunsStore.cancelRun(job.run)
     }
   } catch (error) {
@@ -148,8 +159,10 @@ async function dismissJob(job: StatusJob) {
   try {
     if (job.kind === 'upload') {
       uploadStore.removeUpload(job.id)
-    } else {
+    } else if (job.kind === 'action') {
       await actionRunsStore.dismissRun(job.run)
+    } else {
+      backgroundJobsStore.removeJob(job.id)
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not persist dismissal.'
@@ -164,12 +177,28 @@ async function dismissJob(job: StatusJob) {
   }
 }
 
+async function retryJob(job: StatusJob) {
+  if (!canRetryJob(job) || isRetryingJob(job)) return
+  try {
+    await backgroundJobsStore.retryJob(job.id)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not retry job.'
+    toast.add({
+      title: 'Retry failed',
+      description: message,
+      color: 'error',
+      icon: 'i-lucide-alert-circle'
+    })
+  }
+}
+
 async function clearCompletedJobs() {
   if (clearingCompletedJobs.value) return
   clearingCompletedJobs.value = true
   try {
     uploadStore.clearCompletedUploads()
     await actionRunsStore.dismissCompletedRuns()
+    backgroundJobsStore.clearCompletedJobs()
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not persist all dismissals.'
     toast.add({
@@ -199,7 +228,11 @@ function actionStatusDetail(job: Extract<StatusJob, { kind: 'action' }>) {
 }
 
 function shouldUseJobShimmer(job: StatusJob) {
-  return job.kind === 'action' && job.active
+  return (job.kind === 'action' || job.kind === 'background') && job.active
+}
+
+function backgroundJobDetail(job: Extract<StatusJob, { kind: 'background' }>) {
+  return job.backgroundJob.error || job.backgroundJob.detail || job.subtitle
 }
 </script>
 
@@ -386,6 +419,9 @@ function shouldUseJobShimmer(job: StatusJob) {
                     <template v-if="job.kind === 'action'">
                       {{ actionStatusDetail(job) }}
                     </template>
+                    <template v-else-if="job.kind === 'background'">
+                      {{ backgroundJobDetail(job) }}
+                    </template>
                     <template v-else>
                       {{ job.progressLabel }}
                     </template>
@@ -404,6 +440,9 @@ function shouldUseJobShimmer(job: StatusJob) {
               </p>
               <p v-if="job.kind === 'action' && job.run.errorMessage" class="mt-1 text-xs text-error">
                 {{ job.run.errorMessage }}
+              </p>
+              <p v-if="job.kind === 'background' && job.backgroundJob.error" class="mt-1 text-xs text-error">
+                {{ job.backgroundJob.error }}
               </p>
 
               <UCollapsible v-if="job.kind === 'upload' && job.upload.files.length > 0" class="mt-2">
@@ -450,7 +489,17 @@ function shouldUseJobShimmer(job: StatusJob) {
                   Cancel
                 </UButton>
                 <UButton
-                  v-else-if="job.terminal"
+                  v-if="canRetryJob(job)"
+                  variant="ghost"
+                  size="xs"
+                  icon="i-lucide-rotate-cw"
+                  :loading="isRetryingJob(job)"
+                  @click="retryJob(job)"
+                >
+                  Retry
+                </UButton>
+                <UButton
+                  v-if="job.terminal"
                   variant="ghost"
                   size="xs"
                   icon="i-lucide-trash-2"

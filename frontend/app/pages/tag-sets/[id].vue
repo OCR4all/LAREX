@@ -12,6 +12,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const overlay = useOverlay()
+const backgroundDownloads = useBackgroundDownloads()
 const { allow } = useActionVisibility()
 
 const metadataSlideover = overlay.create(LazyTagSetBuilderSlideoverMetadata)
@@ -223,33 +224,29 @@ const exportTagSet = async () => {
   }
 
   try {
-    const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/toolkit/export`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        includeAll: false,
-        selectors: [{ type: 'TAG_SET', ids: [id] }]
-      })
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Exporting tag set',
+      subtitle: meta.name || 'Tag set',
+      statusLabel: 'Generating',
+      completedLabel: 'Exported',
+      icon: 'i-lucide-network',
+      task: async (job) => {
+        const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/toolkit/export`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            includeAll: false,
+            selectors: [{ type: 'TAG_SET', ids: [id] }]
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error(`Export failed (${response.status})`)
+        }
+
+        await backgroundDownloads.downloadBlobResponse(response, `${(meta.name || 'tag-set').replace(/\\s+/g, '-').toLowerCase()}.larex-toolkit.json`, job)
+      }
     })
-
-    if (!response.ok) {
-      throw new Error(`Export failed (${response.status})`)
-    }
-
-    const blob = await response.blob()
-    const fallbackName = `${(meta.name || 'tag-set').replace(/\\s+/g, '-').toLowerCase()}.larex-toolkit.json`
-    const contentDisposition = response.headers.get('content-disposition')
-    const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
-    const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
-
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
 
     toast.add({ title: 'Tag set exported', color: 'success' })
   } catch (error: unknown) {
@@ -260,14 +257,21 @@ const exportTagSet = async () => {
 
 const exportTagSetLocal = async () => {
   const doExport = () => {
-    const data = { meta, tags: tags.value, exportedAt: new Date().toISOString() }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${(meta.name || 'tag-set').replace(/\s+/g, '-').toLowerCase()}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    void backgroundDownloads.runBackgroundJob({
+      title: 'Downloading tag set',
+      subtitle: meta.name || 'Tag set',
+      statusLabel: 'Preparing',
+      completedLabel: 'Downloaded',
+      icon: 'i-lucide-download',
+      task: async (job) => {
+        const data = { meta, tags: tags.value, exportedAt: new Date().toISOString() }
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        await backgroundDownloads.downloadBlob(blob, `${(meta.name || 'tag-set').replace(/\s+/g, '-').toLowerCase()}.json`, job)
+      }
+    }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Failed to export tag set'
+      toast.add({ title: 'Export failed', description: message, color: 'error' })
+    })
   }
 
   if (totalErrors.value > 0) {

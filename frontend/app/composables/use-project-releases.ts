@@ -19,11 +19,12 @@ type ProjectReleasesOptions = {
   canShareProject: Ref<boolean>
   createReleaseSlideover: unknown
   releaseShareSlideover: unknown
-  downloadBlobResponse: (response: Response, fallbackName: string) => Promise<void>
+  downloadBlobResponse: (response: Response, fallbackName: string, controls?: { update: (updates: { subtitle?: string, statusLabel?: string, progressPercent?: number | null, icon?: string }) => void }) => Promise<void>
 }
 
 export async function useProjectReleases(options: ProjectReleasesOptions) {
   const toast = useToast()
+  const backgroundDownloads = useBackgroundDownloads()
   const projectReleasesKey = computed(() => wsKey(options.selectedWorkspace.value as string, 'projects', options.projectId, 'releases'))
   const { data: releases, error: releasesError, pending: releasesPending, refresh: refreshReleases } = await useFetch<ProjectPackageRelease[]>(
     () => `/api/workspaces/${options.selectedWorkspace.value}/projects/${options.projectId}/releases`,
@@ -117,13 +118,24 @@ export async function useProjectReleases(options: ProjectReleasesOptions) {
   async function downloadProjectRelease(release: ProjectPackageRelease) {
     if (!options.selectedWorkspace.value || !options.project.value) return
 
+    const workspaceId = options.selectedWorkspace.value
+    const projectName = options.project.value.name
     try {
-      const response = await fetch(`/api/workspaces/${options.selectedWorkspace.value}/projects/${options.projectId}/releases/${release.id}/download`)
-      if (!response.ok) {
-        const message = await response.text()
-        throw new Error(message || `Download failed (${response.status})`)
-      }
-      await options.downloadBlobResponse(response, release.packageFileName || `${options.project.value.name}-${release.versionTag}.larex-project.zip`)
+      await backgroundDownloads.runBackgroundJob({
+        title: 'Downloading project release',
+        subtitle: `${projectName} · ${release.versionTag}`,
+        statusLabel: 'Preparing',
+        completedLabel: 'Downloaded',
+        icon: 'i-lucide-download',
+        task: async (job) => {
+          const response = await fetch(`/api/workspaces/${workspaceId}/projects/${options.projectId}/releases/${release.id}/download`)
+          if (!response.ok) {
+            const message = await response.text()
+            throw new Error(message || `Download failed (${response.status})`)
+          }
+          await options.downloadBlobResponse(response, release.packageFileName || `${projectName}-${release.versionTag}.larex-project.zip`, job)
+        }
+      })
     } catch (error: unknown) {
       toast.add({
         title: 'Release download failed',
