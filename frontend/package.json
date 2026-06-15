@@ -20,17 +20,17 @@
     "@codemirror/search": "^6.7.0",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.0",
-    "@iconify-json/lucide": "^1.2.108",
-    "@iconify-json/simple-icons": "^1.2.82",
+    "@iconify-json/lucide": "^1.2.111",
+    "@iconify-json/simple-icons": "^1.2.85",
     "@lezer/highlight": "^1.2.3",
     "@nuxt/a11y": "1.0.0-alpha.1",
     "@nuxt/fonts": "0.11.4",
     "@nuxt/image": "2.0.0",
-    "@nuxt/ui": "^4.7.1",
+    "@nuxt/ui": "^4.8.2",
     "@nuxtjs/tailwindcss": "7.0.0-beta.1",
     "@pinia/nuxt": "0.11.2",
     "@tailwindcss/vite": "^4.3.0",
-    "@tanstack/vue-virtual": "^3.13.24",
+    "@tanstack/vue-virtual": "^3.13.28",
     "@types/diff-match-patch": "^1.0.36",
     "@types/sortablejs": "^1.15.9",
     "@unovis/ts": "^1.6.5",
@@ -38,15 +38,15 @@
     "@vueuse/integrations": "^14.3.0",
     "@vueuse/nuxt": "^14.3.0",
     "codemirror": "^6.0.2",
-    "date-fns": "^4.1.0",
+    "date-fns": "^4.4.0",
     "diff-match-patch": "^1.0.5",
-    "dockview-core": "^6.2.2",
-    "dockview-vue": "^6.2.2",
+    "dockview-core": "^6.6.1",
+    "dockview-vue": "^6.6.1",
     "driver.js": "^1.4.0",
     "earcut": "^3.0.2",
     "jwt-decode": "^4.0.0",
     "martinez-polygon-clipping": "^0.8.1",
-    "nuxt": "^4.4.5",
+    "nuxt": "^4.4.7",
     "nuxt-auth-utils": "0.5.23",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
@@ -61,11 +61,11 @@
     "@nuxt/eslint": "^1.15.2",
     "@types/earcut": "^3.0.0",
     "@types/rbush": "^4.0.0",
-    "eslint": "^10.4.0",
-    "happy-dom": "^20.9.0",
+    "eslint": "^10.4.1",
+    "happy-dom": "^20.10.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.6",
-    "vue-tsc": "^3.2.9"
+    "vitest": "^4.1.8",
+    "vue-tsc": "^3.3.3"
   },
   "resolutions": {
     "unimport": "4.1.1"
@@ -84,5 +84,5 @@
       "vue-demi"
     ]
   },
-  "packageManager": "pnpm@11.1.2"
+  "packageManager": "pnpm@11.5.2"
 }
