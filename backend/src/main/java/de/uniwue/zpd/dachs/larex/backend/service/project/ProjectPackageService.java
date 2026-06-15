@@ -198,6 +198,45 @@ public class ProjectPackageService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public void writeBasicProjectExport(String workspaceId,
+                                        String projectId,
+                                        String userId,
+                                        ProjectPackageDto.ExportRequest request,
+                                        OutputStream outputStream) throws IOException {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        writeBasicProjectExportInternal(workspaceId, projectId, request, outputStream);
+    }
+
+    @Transactional(readOnly = true)
+    public void writeBasicProjectExportInternal(String workspaceId,
+                                                String projectId,
+                                                ProjectPackageDto.ExportRequest request,
+                                                OutputStream outputStream) throws IOException {
+        Project project = requireProject(workspaceId, projectId);
+        List<Page> pages = resolvePagesForExport(projectId, request == null ? null : request.pageIds());
+        String targetPageXmlVersion = pageXmlConversionService.normalizeTargetVersion(
+                request == null ? null : request.targetPageXmlVersion()
+        );
+        List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputRequests =
+                request == null ? null : request.embeddedOutputs();
+        List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs =
+                embeddedOutputRequests == null || embeddedOutputRequests.isEmpty()
+                        ? List.of()
+                        : documentExportService.exportEmbeddedProjectOutputs(project, pages, embeddedOutputRequests);
+
+        try {
+            archiveIoService.writeZip(outputStream, zipOut -> writeBasicProjectExportEntries(
+                    zipOut,
+                    pages,
+                    targetPageXmlVersion,
+                    embeddedOutputs
+            ));
+        } finally {
+            cleanupEmbeddedOutputs(embeddedOutputs);
+        }
+    }
+
     public List<ProjectPackageDto.ReleaseSummaryResponse> listReleases(String workspaceId,
                                                                        String projectId,
                                                                        String userId) {
@@ -1430,11 +1469,67 @@ public class ProjectPackageService {
         }
     }
 
+    private void writeBasicProjectExportEntries(java.util.zip.ZipOutputStream zipOut,
+                                                List<Page> pages,
+                                                String targetPageXmlVersion,
+                                                List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs) throws IOException {
+        Map<String, Integer> usedEntryPaths = new HashMap<>();
+
+        for (Page page : pages) {
+            List<PageImage> images = new ArrayList<>(page.getImages() == null ? Set.<PageImage>of() : page.getImages());
+            images.sort(Comparator.comparing((PageImage image) -> image.getVariant() == null ? "" : image.getVariant(), String.CASE_INSENSITIVE_ORDER)
+                    .thenComparing(PageImage::getId));
+            for (PageImage image : images) {
+                String entryPath = uniqueArchivePath(
+                        sanitizeArchiveName(image.getFileName(), image.getVariant() + fileExtension(image.getFileName())),
+                        usedEntryPaths
+                );
+                archiveIoService.writeFileEntry(
+                        zipOut,
+                        entryPath,
+                        hierarchicalFileStorageService.resolveUploadPath(image.getFilePath())
+                );
+            }
+
+            List<PageXml> xmlFiles = new ArrayList<>(page.getXmlFiles() == null ? Set.<PageXml>of() : page.getXmlFiles());
+            xmlFiles.sort(Comparator.comparing((PageXml xml) -> xml.getVariant() == null ? "" : xml.getVariant(), String.CASE_INSENSITIVE_ORDER)
+                    .thenComparing(PageXml::getId));
+            for (PageXml xml : xmlFiles) {
+                String entryPath = uniqueArchivePath(
+                        sanitizeArchiveName(xml.getFileName(), xml.getVariant() + fileExtension(xml.getFileName())),
+                        usedEntryPaths
+                );
+                Path source = hierarchicalFileStorageService.resolveUploadPath(xml.getFilePath());
+                if (xml.getSchema() == XmlSchema.PAGE_XML) {
+                    archiveIoService.writeStreamEntry(
+                            zipOut,
+                            entryPath,
+                            entryOut -> pageXmlConversionService.writeFileToVersion(source, targetPageXmlVersion, entryOut)
+                    );
+                } else {
+                    archiveIoService.writeFileEntry(zipOut, entryPath, source);
+                }
+            }
+        }
+
+        for (DocumentExportService.EmbeddedProjectOutput output : embeddedOutputs) {
+            String entryPath = uniqueArchivePath(sanitizeArchiveName(output.archivePath(), "export"), usedEntryPaths);
+            archiveIoService.writeFileEntry(zipOut, entryPath, output.absolutePath());
+        }
+    }
+
     private void cleanupEmbeddedOutputs(PackageSnapshot packageSnapshot) {
         if (packageSnapshot == null) {
             return;
         }
-        for (DocumentExportService.EmbeddedProjectOutput output : packageSnapshot.embeddedOutputs()) {
+        cleanupEmbeddedOutputs(packageSnapshot.embeddedOutputs());
+    }
+
+    private void cleanupEmbeddedOutputs(List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs) {
+        if (embeddedOutputs == null) {
+            return;
+        }
+        for (DocumentExportService.EmbeddedProjectOutput output : embeddedOutputs) {
             try {
                 Files.deleteIfExists(output.absolutePath());
             } catch (IOException ignored) {
@@ -1477,6 +1572,62 @@ public class ProjectPackageService {
                 .replaceAll("-{2,}", "-")
                 .replaceAll("(^[-.]+|[-.]+$)", "");
         return sanitized.isBlank() ? "release" : sanitized;
+    }
+
+    private String sanitizeArchiveName(String value, String fallback) {
+        String normalized = normalizeNullableText(value);
+        if (normalized == null) {
+            normalized = fallback;
+        }
+        String fileName = normalized.replace('\\', '/');
+        int slash = fileName.lastIndexOf('/');
+        if (slash >= 0) {
+            fileName = fileName.substring(slash + 1);
+        }
+        String sanitized = fileName
+                .replaceAll("[\\\\/:*?\"<>|]+", " ")
+                .replaceAll("\\p{Cntrl}+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+        return sanitized.isBlank() ? fallback : sanitized;
+    }
+
+    private String uniqueArchivePath(String requestedPath, Map<String, Integer> usedPaths) {
+        String normalized = archiveIoService.normalizeArchivePath(requestedPath);
+        String lowerCasePath = normalized.toLowerCase(Locale.ROOT);
+        int duplicateIndex = usedPaths.getOrDefault(lowerCasePath, 0);
+        if (duplicateIndex == 0) {
+            usedPaths.put(lowerCasePath, 1);
+            return normalized;
+        }
+
+        String parent = "";
+        String name = normalized;
+        int slash = normalized.lastIndexOf('/');
+        if (slash >= 0) {
+            parent = normalized.substring(0, slash + 1);
+            name = normalized.substring(slash + 1);
+        }
+
+        String stem = name;
+        String extension = "";
+        int dot = name.lastIndexOf('.');
+        if (dot > 0 && dot < name.length() - 1) {
+            stem = name.substring(0, dot);
+            extension = name.substring(dot);
+        }
+
+        String candidate;
+        String candidateKey;
+        do {
+            candidate = parent + stem + " (" + duplicateIndex + ")" + extension;
+            candidateKey = candidate.toLowerCase(Locale.ROOT);
+            duplicateIndex++;
+        } while (usedPaths.containsKey(candidateKey));
+
+        usedPaths.put(lowerCasePath, duplicateIndex);
+        usedPaths.put(candidateKey, 1);
+        return candidate;
     }
 
     private Path projectReleaseRoot(String workspaceId, String projectId, String releaseId) {

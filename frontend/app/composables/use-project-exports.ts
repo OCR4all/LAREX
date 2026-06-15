@@ -44,6 +44,56 @@ export function useProjectExports(options: ProjectExportsOptions) {
     return scope === 'selection' ? Array.from(options.selectedPageIds.value) : null
   }
 
+  async function exportBasicProject(scope: ProjectActionScope = 'all') {
+    if (!options.selectedWorkspace.value || !options.project.value) return
+
+    const exportOptions = await requestExportOptions('basic')
+    if (!exportOptions) return
+
+    const payload = {
+      pageIds: getExportPageIds(scope),
+      targetPageXmlVersion: exportOptions.targetPageXmlVersion,
+      embeddedOutputs: exportOptions.embeddedOutputs
+    }
+    const fallbackName = `${options.project.value.name.replace(/\s+/g, '-').toLowerCase()}.zip`
+
+    try {
+      await backgroundDownloads.runBackgroundJob({
+        title: 'Exporting project',
+        subtitle: options.project.value.name,
+        statusLabel: 'Generating',
+        completedLabel: 'Exported',
+        icon: 'i-lucide-file-archive',
+        task: async (job) => {
+          const response = await fetch(`/api/workspaces/${options.selectedWorkspace.value}/projects/${options.projectId}/export-basic`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          })
+
+          if (!response.ok) {
+            throw new Error(`Export failed (${response.status})`)
+          }
+
+          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job)
+        }
+      })
+
+      toast.add({
+        title: 'Project exported',
+        color: 'success',
+        icon: 'i-lucide-download'
+      })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to export project'
+      toast.add({
+        title: 'Export failed',
+        description: message,
+        color: 'error'
+      })
+    }
+  }
+
   async function exportProjectPackage(scope: ProjectActionScope = 'all') {
     if (!options.selectedWorkspace.value || !options.project.value) return
 
@@ -267,15 +317,19 @@ export function useProjectExports(options: ProjectExportsOptions) {
       title: mode === 'page'
         ? 'Export Page'
         : mode === 'project'
-          ? 'Export Project Output'
-          : 'Export Project Package',
+          ? 'Export Converted Output'
+          : mode === 'basic'
+            ? 'Export Project'
+            : 'Export LAREX Package',
       description: mode === 'page'
         ? 'Choose the page export format and options.'
         : mode === 'project'
-          ? 'Choose the project output format and options.'
-          : 'Choose package export options and optional embedded outputs.',
+          ? 'Choose the converted output format and options.'
+          : mode === 'basic'
+            ? 'Create a flat zip with image variants and XML files using original filenames.'
+            : 'Create a structured package for transfer to another LAREX instance without data loss.',
       initialTargetVersion: PAGE_XML_PRIMARY_VERSION,
-      confirmLabel: mode === 'package' ? 'Export Package' : 'Export'
+      confirmLabel: mode === 'package' ? 'Export LAREX Package' : 'Export'
     })
 
     const result = await selector.result
@@ -339,6 +393,7 @@ export function useProjectExports(options: ProjectExportsOptions) {
   return {
     PAGE_XML_PRIMARY_VERSION,
     downloadBlobResponse: backgroundDownloads.downloadBlobResponse,
+    exportBasicProject,
     exportPageOutput,
     exportPageXml,
     exportProjectOutput,

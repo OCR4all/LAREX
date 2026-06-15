@@ -4,7 +4,7 @@ type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
 type SpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS'
 type PdfProfile = 'SEARCHABLE' | 'IMAGES_ONLY' | 'TEXT_PAGES' | 'PDFA_SEARCHABLE'
 type TeiProfile = 'STANDARD' | 'LAYOUT'
-type ExportDialogMode = 'page' | 'project' | 'package'
+type ExportDialogMode = 'page' | 'project' | 'basic' | 'package'
 
 type DocxOptions = {
   preserveLineBreaks: boolean
@@ -139,8 +139,9 @@ const emit = defineEmits<{
 }>()
 
 const formatOptions = computed(() => props.mode === 'page' ? pageFormatOptions : projectFormatOptions)
+const isArchiveMode = computed(() => props.mode === 'basic' || props.mode === 'package')
 const selectedFormat = ref<ExportFormat | undefined>(
-  props.mode === 'package'
+  isArchiveMode.value
     ? undefined
     : (props.initialFormat ?? formatOptions.value[0]?.value)
 )
@@ -176,7 +177,7 @@ const embeddedTxtTextLevel = ref<TextLevel>(props.initialEmbeddedTxtTextLevel)
 const embeddedTxtTextVariantIndex = ref<number>(props.initialEmbeddedTxtTextVariantIndex)
 
 const usesPageXmlOptions = computed(() =>
-  props.mode === 'package' || selectedFormat.value === 'PAGE_XML'
+  isArchiveMode.value || selectedFormat.value === 'PAGE_XML'
 )
 
 const showDirectTxtDelimiter = computed(() =>
@@ -204,23 +205,23 @@ const showDirectDocxOptions = computed(() =>
 )
 
 const showEmbeddedTxtOptions = computed(() =>
-  props.mode === 'package' && embeddedSelection.TXT
+  isArchiveMode.value && embeddedSelection.TXT
 )
 
 const showEmbeddedPdfOptions = computed(() =>
-  props.mode === 'package' && embeddedSelection.PDF
+  isArchiveMode.value && embeddedSelection.PDF
 )
 
 const showEmbeddedTeiOptions = computed(() =>
-  props.mode === 'package' && embeddedSelection.TEI
+  isArchiveMode.value && embeddedSelection.TEI
 )
 
 const showEmbeddedSpreadsheetOptions = computed(() =>
-  props.mode === 'package' && (embeddedSelection.CSV || embeddedSelection.XLSX)
+  isArchiveMode.value && (embeddedSelection.CSV || embeddedSelection.XLSX)
 )
 
 const showEmbeddedDocxOptions = computed(() =>
-  props.mode === 'package' && embeddedSelection.DOCX
+  isArchiveMode.value && embeddedSelection.DOCX
 )
 
 const isLegacyTarget = computed(() => targetVersion.value !== PAGE_XML_PRIMARY_VERSION)
@@ -235,7 +236,7 @@ function closeWithResult() {
   const spreadsheetProfiles = selectedSpreadsheetProfiles()
   const embeddedOutputs: ExportDialogResult['embeddedOutputs'] = []
 
-  if (props.mode === 'package') {
+  if (isArchiveMode.value) {
     if (embeddedSelection.ALTO_XML) embeddedOutputs.push({ format: 'ALTO_XML' })
     if (embeddedSelection.TXT) {
       embeddedOutputs.push({
@@ -258,7 +259,7 @@ function closeWithResult() {
   }
 
   emit('close', {
-    format: props.mode === 'package' ? null : (selectedFormat.value ?? null),
+    format: isArchiveMode.value ? null : (selectedFormat.value ?? null),
     targetPageXmlVersion: targetVersion.value,
     includePageDelimiters: includePageDelimiters.value,
     textLevel: textLevel.value,
@@ -291,7 +292,7 @@ function closeWithResult() {
         </p>
 
         <UFormField
-          v-if="props.mode !== 'package'"
+          v-if="!isArchiveMode"
           label="Output format"
           name="format"
         >
@@ -443,15 +444,17 @@ function closeWithResult() {
         </div>
 
         <div
-          v-if="props.mode === 'package'"
+          v-if="isArchiveMode"
           class="space-y-3 rounded-lg border border-default p-4"
         >
           <div>
             <p class="text-sm font-medium">
-              Package extras
+              {{ props.mode === 'package' ? 'Package extras' : 'Converted outputs' }}
             </p>
             <p class="text-xs text-muted mt-1">
-              <code>mets.xml</code> is included automatically. Optional outputs are added under <code>exports/</code>.
+              {{ props.mode === 'package'
+                ? 'METS and the structured import manifest are included automatically. Optional outputs are added to the package.'
+                : 'Images and XML files are included automatically. Optional outputs are added to the same flat zip.' }}
             </p>
           </div>
 
@@ -623,7 +626,7 @@ function closeWithResult() {
         <UButton
           color="primary"
           variant="solid"
-          :disabled="props.mode !== 'package' && !selectedFormat"
+          :disabled="!isArchiveMode && !selectedFormat"
           @click="closeWithResult"
         >
           {{ props.confirmLabel }}

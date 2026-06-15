@@ -279,7 +279,7 @@ public class ProjectController {
         String projectName = projectService.getProjectById(projectId, userId)
                 .map(Project::getName)
                 .orElse(projectId);
-        String filename = sanitizeFileName(projectName, "project") + ".zip";
+        String filename = sanitizeFileName(projectName, "project") + ".larex-project.zip";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
@@ -289,6 +289,32 @@ public class ProjectController {
 
         StreamingResponseBody body = outputStream ->
                 projectPackageService.writeProjectPackage(workspaceId, projectId, userId, request, outputStream);
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(body);
+    }
+
+    @PostMapping("/{projectId}/export-basic")
+    public ResponseEntity<StreamingResponseBody> exportBasicProject(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @RequestBody(required = false) ProjectPackageDto.ExportRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+
+        String projectName = projectService.getProjectById(projectId, userId)
+                .map(Project::getName)
+                .orElse(projectId);
+        String filename = sanitizeFileName(projectName, "project") + ".zip";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(filename)
+                .build());
+
+        StreamingResponseBody body = outputStream ->
+                projectPackageService.writeBasicProjectExport(workspaceId, projectId, userId, request, outputStream);
 
         return ResponseEntity.ok()
                 .headers(headers)

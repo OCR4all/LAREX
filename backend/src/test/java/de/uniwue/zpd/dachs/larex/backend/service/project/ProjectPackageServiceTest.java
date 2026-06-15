@@ -55,6 +55,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -229,6 +230,130 @@ class ProjectPackageServiceTest {
         assertTrue(foundMets);
         assertTrue(foundEmbedded);
         assertEquals(2000, exportedSortOrder);
+    }
+
+    @Test
+    void exportBasicProject_writesFlatArchiveWithOriginalFilenames() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        ArchiveIoService archiveIoService = new ArchiveIoService(objectMapper);
+        ProjectPackageService service = new ProjectPackageService(
+                projectRepository,
+                projectPackageReleaseRepository,
+                libraryRepository,
+                pageRepository,
+                pageXmlRepository,
+                pageXmlVersionRepository,
+                codecRepository,
+                dictionaryRepository,
+                labelSetRepository,
+                tagSetRepository,
+                normalizationProfileRepository,
+                validationRulesetRepository,
+                workspaceAccessService,
+                archiveIoService,
+                toolkitPackageService,
+                hierarchicalFileStorageService,
+                pageOrderService,
+                pageFilterIndexService,
+                storageTrackingService,
+                workspaceQuotaGuardService,
+                pageXmlConversionService,
+                pageXmlCanonicalizationService,
+                documentExportService,
+                objectMapper
+        );
+        ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
+
+        Path imagePath = tempDir.resolve("uploads/page.png");
+        Path secondImagePath = tempDir.resolve("uploads/page-copy.png");
+        Path xmlPath = tempDir.resolve("uploads/page.xml");
+        Path secondXmlPath = tempDir.resolve("uploads/page-copy.xml");
+        Files.createDirectories(imagePath.getParent());
+        Files.writeString(imagePath, "img");
+        Files.writeString(secondImagePath, "img2");
+        Files.writeString(xmlPath, "<PcGts/>");
+        Files.writeString(secondXmlPath, "<PcGts/>");
+
+        Project project = project();
+        Page page = page(project);
+        PageImage secondImage = new PageImage();
+        secondImage.setId("img-2");
+        secondImage.setFileName("page.png");
+        secondImage.setFilePath("uploads/page-copy.png");
+        secondImage.setMimeType("image/png");
+        secondImage.setVariant("secondary");
+        secondImage.setBaseName("page");
+        secondImage.setPage(page);
+        page.getImages().add(secondImage);
+        PageXml secondXml = new PageXml();
+        secondXml.setId("xml-2");
+        secondXml.setFileName("page.xml");
+        secondXml.setFilePath("uploads/page-copy.xml");
+        secondXml.setMimeType("application/xml");
+        secondXml.setVariant("secondary");
+        secondXml.setBaseName("page");
+        secondXml.setSchema(XmlSchema.PAGE_XML);
+        secondXml.setSchemaVersion(PageXmlConversionService.PRIMARY_PAGE_VERSION);
+        secondXml.setPage(page);
+        page.getXmlFiles().add(secondXml);
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(pageRepository.findByProjectId("project-1")).thenReturn(List.of(page));
+        when(pageOrderService.projectOrderComparator())
+                .thenReturn(Comparator.comparing(Page::getName, String.CASE_INSENSITIVE_ORDER));
+        when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.png")).thenReturn(imagePath);
+        when(hierarchicalFileStorageService.resolveUploadPath("uploads/page-copy.png")).thenReturn(secondImagePath);
+        when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.xml")).thenReturn(xmlPath);
+        when(hierarchicalFileStorageService.resolveUploadPath("uploads/page-copy.xml")).thenReturn(secondXmlPath);
+        when(pageXmlConversionService.normalizeTargetVersion(PageXmlConversionService.PRIMARY_PAGE_VERSION))
+                .thenReturn(PageXmlConversionService.PRIMARY_PAGE_VERSION);
+        doAnswer(invocation -> {
+            invocation.<java.io.OutputStream>getArgument(2).write("<PcGts/>".getBytes());
+            return null;
+        }).when(pageXmlConversionService).writeFileToVersion(any(Path.class), eq(PageXmlConversionService.PRIMARY_PAGE_VERSION), any());
+        Path embeddedPath = tempDir.resolve("project.txt");
+        Files.writeString(embeddedPath, "embedded");
+        when(documentExportService.exportEmbeddedProjectOutputs(eq(project), eq(List.of(page)), anyList()))
+                .thenReturn(List.of(new DocumentExportService.EmbeddedProjectOutput("exports/project.txt", embeddedPath, Files.size(embeddedPath))));
+
+        ByteArrayOutputStream zipOut = new ByteArrayOutputStream();
+        service.writeBasicProjectExportInternal(
+                "ws-1",
+                "project-1",
+                new ProjectPackageDto.ExportRequest(
+                        null,
+                        PageXmlConversionService.PRIMARY_PAGE_VERSION,
+                        List.of(new DocumentExportDto.EmbeddedProjectOutputRequest(
+                                DocumentExportDto.ExportFormat.TXT,
+                                true,
+                                DocumentExportDto.TextLevel.TEXT_LINE,
+                                1,
+                                null,
+                                null,
+                                null,
+                                null
+                        ))
+                ),
+                zipOut
+        );
+
+        Set<String> entries = new HashSet<>();
+        try (ZipInputStream zipIn = new ZipInputStream(new java.io.ByteArrayInputStream(zipOut.toByteArray()))) {
+            java.util.zip.ZipEntry entry;
+            while ((entry = zipIn.getNextEntry()) != null) {
+                entries.add(entry.getName());
+            }
+        }
+
+        assertTrue(entries.contains("page.png"));
+        assertTrue(entries.contains("page (1).png"));
+        assertTrue(entries.contains("page.xml"));
+        assertTrue(entries.contains("page (1).xml"));
+        assertTrue(entries.contains("project.txt"));
+        assertFalse(entries.contains("manifest.json"));
+        assertFalse(entries.contains("mets.xml"));
+        assertFalse(entries.stream().anyMatch(name -> name.contains("/") || name.contains("img-1") || name.contains("xml-1")));
     }
 
     @Test

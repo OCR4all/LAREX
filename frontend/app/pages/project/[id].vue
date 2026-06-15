@@ -512,6 +512,7 @@ const actionRunSlideover = overlay.create(LazyActionSlideoverRun)
 const {
   downloadBlobResponse,
   exportPageOutput,
+  exportBasicProject,
   exportProjectOutput,
   exportProjectPackage
 } = useProjectExports({
@@ -763,7 +764,15 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
       label: 'Export'
     },
     {
-      label: 'Export output (full project)',
+      label: 'Export project (basic)',
+      icon: 'i-lucide-file-archive',
+      disabled: (pages.value?.length ?? 0) === 0 || !allow(projectCapabilities.value.canExportPackage),
+      onSelect: () => {
+        void exportBasicProject('all')
+      }
+    },
+    {
+      label: 'Export converted output (full project)',
       icon: 'i-lucide-file-output',
       disabled: (pages.value?.length ?? 0) === 0 || !allow(projectCapabilities.value.canExportPackage),
       onSelect: () => {
@@ -771,8 +780,8 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
       }
     },
     {
-      label: 'Export package (full project)',
-      icon: 'i-lucide-file-archive',
+      label: 'Export LAREX package (transfer)',
+      icon: 'i-lucide-package',
       disabled: (pages.value?.length ?? 0) === 0 || !allow(projectCapabilities.value.canExportPackage),
       onSelect: () => {
         void exportProjectPackage('all')
@@ -1340,7 +1349,15 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
       label: 'Export'
     },
     {
-      label: 'Export Output (selected pages)',
+      label: 'Export project (selected pages)',
+      icon: 'i-lucide-file-archive',
+      disabled: !hasSelection.value || !allow(projectCapabilities.value.canExportPackage),
+      onSelect: () => {
+        void exportBasicProject('selection')
+      }
+    },
+    {
+      label: 'Export converted output (selected pages)',
       icon: 'i-lucide-file-output',
       disabled: !hasSelection.value || !allow(projectCapabilities.value.canExportPackage),
       onSelect: () => {
@@ -1348,8 +1365,8 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
       }
     },
     {
-      label: 'Export package (selected pages)',
-      icon: 'i-lucide-file-archive',
+      label: 'Export LAREX package (selected pages)',
+      icon: 'i-lucide-package',
       disabled: !hasSelection.value || !allow(projectCapabilities.value.canExportPackage),
       onSelect: () => {
         void exportProjectPackage('selection')
