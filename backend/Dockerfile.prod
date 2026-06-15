@@ -1,4 +1,4 @@
-FROM gradle:jdk21-corretto AS builder
+FROM gradle:jdk25-corretto AS builder
 LABEL maintainer="maximilian.noeth@uni-wuerzburg.de"
 LABEL description="Build stage for the LAREX backend"
 

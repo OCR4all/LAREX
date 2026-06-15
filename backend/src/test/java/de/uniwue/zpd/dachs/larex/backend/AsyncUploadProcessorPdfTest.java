@@ -21,9 +21,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -62,10 +62,10 @@ class AsyncUploadProcessorPdfTest {
     registry.add("larex.upload.temp-directory", () -> tempDir.toString());
   }
 
-  @MockBean
+  @MockitoBean
   private NotificationService notificationService;
 
-  @MockBean
+  @MockitoBean
   private StorageTrackingService storageTrackingService;
 
   @Autowired
@@ -74,7 +74,7 @@ class AsyncUploadProcessorPdfTest {
   @Autowired
   private ChunkedUploadService chunkedUploadService;
 
-  @SpyBean
+  @MockitoSpyBean
   private HierarchicalFileStorageService hierarchicalFileStorageService;
 
   @Autowired

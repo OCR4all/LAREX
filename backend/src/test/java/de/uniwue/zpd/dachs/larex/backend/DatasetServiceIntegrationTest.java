@@ -29,10 +29,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.ResponseEntity;
 import org.springframework.core.io.Resource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.ByteArrayInputStream;
@@ -90,16 +90,16 @@ class DatasetServiceIntegrationTest {
     @Autowired
     private PublicDatasetReleaseController publicDatasetReleaseController;
 
-    @MockBean
+    @MockitoBean
     private WorkspaceAccessService workspaceAccessService;
 
-    @MockBean
+    @MockitoBean
     private WorkspaceQuotaGuardService workspaceQuotaGuardService;
 
-    @MockBean
+    @MockitoBean
     private WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
 
-    @MockBean
+    @MockitoBean
     private AuthorizationPolicyService authorizationPolicyService;
 
     @TempDir

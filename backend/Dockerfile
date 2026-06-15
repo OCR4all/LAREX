@@ -1,4 +1,4 @@
-FROM gradle:jdk21-corretto
+FROM gradle:jdk25-corretto
 LABEL description="Development environment for Spring Boot application with hot reload"
 
 WORKDIR /app

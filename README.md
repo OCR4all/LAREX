@@ -5,7 +5,7 @@ LAREX (Layout Analysis and Recognition) is a full-stack web application for anno
 ## Stack
 
 - Frontend: Nuxt 4
-- Backend: Spring Boot (Java 21)
+- Backend: Spring Boot 4 (Java 25)
 - Database: PostgreSQL
 - Authentication: Keycloak
 - Deployment: Docker Compose

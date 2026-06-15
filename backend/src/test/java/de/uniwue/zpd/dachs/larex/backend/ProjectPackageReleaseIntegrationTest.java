@@ -28,10 +28,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
@@ -89,13 +89,13 @@ class ProjectPackageReleaseIntegrationTest {
     @Autowired
     private HierarchicalFileStorageService hierarchicalFileStorageService;
 
-    @MockBean
+    @MockitoBean
     private WorkspaceAccessService workspaceAccessService;
 
-    @MockBean
+    @MockitoBean
     private WorkspaceQuotaGuardService workspaceQuotaGuardService;
 
-    @MockBean
+    @MockitoBean
     private AuthorizationPolicyService authorizationPolicyService;
 
     @TempDir
@@ -219,6 +219,7 @@ class ProjectPackageReleaseIntegrationTest {
 
         ResponseEntity<Resource> getResponse = publicProjectReleaseController.downloadSharedRelease(sharePublicId, "Bearer " + share.secret());
         assertEquals(200, getResponse.getStatusCode().value());
+        assert getResponse.getBody() != null;
         Path extracted = archiveIoService.extractZipToTempDir(getResponse.getBody().getInputStream(), "project-public-share");
         assertTrue(Files.readString(findFileContaining(extracted, "files/xml", source.firstXml().getId())).contains("page-a-v1.png"));
 
@@ -322,9 +323,7 @@ class ProjectPackageReleaseIntegrationTest {
                     .filter(path -> {
                         String relative = root.relativize(path).toString().replace('\\', '/');
                         return relative.startsWith(prefix + "/") && relative.contains(idFragment);
-                    })
-                    .sorted(Comparator.comparing(Path::toString))
-                    .findFirst()
+                    }).min(Comparator.comparing(Path::toString))
                     .orElseThrow(() -> new IllegalStateException("No archive file found for " + prefix + " and " + idFragment));
         }
     }
