@@ -123,15 +123,25 @@ class PageXmlCanonicalizationServiceTest {
         verify(pageXmlRepository).save(pageXml);
     }
 
-    private String exported2019Xml() throws Exception {
-        return fixtureFromRepo("uploads/xml/versions/04321d9b-e0c5-4dcd-9b8c-17eb694f127d/1.xml");
+    private String exported2019Xml() {
+        return pageXml("2019-07-15");
     }
 
-    private String exported2017Xml() throws Exception {
-        return fixtureFromRepo("uploads/xml/versions/b2be1140-fb1b-491a-8151-ea82afaaebe4/1.xml");
+    private String exported2017Xml() {
+        return pageXml("2017-07-15");
     }
 
-    private String fixtureFromRepo(String relativePath) throws Exception {
-        return Files.readString(Path.of(relativePath), StandardCharsets.UTF_8);
+    private String pageXml(String version) {
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/%s">
+                  <Metadata>
+                    <Creator>tester</Creator>
+                    <Created>2026-03-05T10:00:00</Created>
+                    <LastChange>2026-03-05T10:00:00</LastChange>
+                  </Metadata>
+                  <Page imageFilename="img.png" imageWidth="1000" imageHeight="1000"/>
+                </PcGts>
+                """.formatted(version);
     }
 }

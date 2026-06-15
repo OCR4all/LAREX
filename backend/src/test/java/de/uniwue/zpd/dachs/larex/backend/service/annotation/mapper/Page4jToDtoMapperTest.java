@@ -151,7 +151,7 @@ class Page4jToDtoMapperTest {
         assertNotNull(dto.relations());
         assertEquals(1, dto.relations().relations().size());
         assertEquals("rel-1", dto.relations().relations().get(0).id());
-        assertEquals("Join", dto.relations().relations().get(0).type());
+        assertEquals("join", dto.relations().relations().get(0).type());
         assertEquals("r1", dto.relations().relations().get(0).sourceRegionRef());
         assertEquals("r2", dto.relations().relations().get(0).targetRegionRef());
         assertEquals("custom-field", dto.relations().relations().get(0).custom());

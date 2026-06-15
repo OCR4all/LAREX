@@ -785,7 +785,9 @@ public class DtoToPage4jMapper {
         setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
         setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_continuation, dto.continuation());
         setDoubleAttr(region.getAttributes(), DefaultXmlNames.ATTR_conf, dto.confidence());
-        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_type, dto.type());
+        if (!(region instanceof TextRegion)) {
+            setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_type, dto.type());
+        }
         setDoubleAttr(region.getAttributes(), DefaultXmlNames.ATTR_orientation, dto.orientation());
         setIntegerAttr(region.getAttributes(), DefaultXmlNames.ATTR_numColours, dto.numColours());
         setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_embText, dto.embText());
@@ -861,9 +863,6 @@ public class DtoToPage4jMapper {
                 continue;
             }
             Variable variable = createUserVariable(attr);
-            if (variable == null) {
-                continue;
-            }
             if (hasText(attr.description())) {
                 variable.setDescription(attr.description().trim());
             }
