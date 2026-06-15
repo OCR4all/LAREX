@@ -54,6 +54,7 @@ export interface KeyboardShortcutsOptions {
     zoomIn: () => void
     zoomOut: () => void
     fitToContent: () => void
+    resetView: () => void
     centerOnSelection: () => void
     toggleLeftSidebar?: () => void
     toggleRightSidebar?: () => void
@@ -338,6 +339,10 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
       case 'fitToContent':
         if (isInputFocused()) return false
         callbacks.fitToContent()
+        return true
+      case 'resetView':
+        if (isInputFocused()) return false
+        callbacks.resetView()
         return true
       case 'centerOnSelection':
         if (isInputFocused()) return false

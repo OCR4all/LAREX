@@ -259,11 +259,17 @@ export const SHORTCUT_DEFINITIONS = {
     scope: 'global',
     defaultBindings: ['meta_0']
   },
+  resetView: {
+    description: 'Reset view',
+    group: 'view',
+    scope: 'global',
+    defaultBindings: ['space']
+  },
   centerOnSelection: {
     description: 'Center on selection',
     group: 'view',
     scope: 'global',
-    defaultBindings: ['f', 'space']
+    defaultBindings: ['f']
   },
 
   toggleLeftSidebar: {

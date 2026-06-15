@@ -302,6 +302,7 @@ export function useCanvasControl(canvasId: string): EditorCanvasControls {
     setAutoSelect,
     setRegionType,
     setViewMode,
+    resetView: undefined,
 
     canUndo,
     canRedo,

@@ -44,11 +44,23 @@ export function useMouseInteraction() {
   let clickTimer: ReturnType<typeof setTimeout> | null = null
   let scrollTimer: ReturnType<typeof setTimeout> | null = null
   let clickCount = 0
+  let suppressWheelUntil = 0
 
   const config = {
     dragThreshold: 5,
     clickTimeout: TIMING.CLICK_TIMEOUT,
-    scrollTimeout: 150
+    scrollTimeout: 150,
+    wheelMomentumSuppressTimeout: 250
+  }
+
+  function clearScrollState() {
+    if (scrollTimer) {
+      clearTimeout(scrollTimer)
+      scrollTimer = null
+    }
+    if (actionState.action === 'scrolling') {
+      actionState.action = 'idle'
+    }
   }
 
   /**
@@ -180,6 +192,14 @@ export function useMouseInteraction() {
   ) {
     if (!canvas) return
     e.preventDefault()
+
+    const now = Date.now()
+    if (now < suppressWheelUntil) {
+      suppressWheelUntil = now + config.scrollTimeout
+      clearScrollState()
+      return
+    }
+
     actionState.action = 'scrolling'
     updatePosition(e.clientX, e.clientY)
 
@@ -277,6 +297,8 @@ export function useMouseInteraction() {
    * Reset view to default state.
    */
   function resetView() {
+    suppressWheelUntil = Date.now() + config.wheelMomentumSuppressTimeout
+    clearScrollState()
     view.zoom = 1.0
     view.offsetX = 0
     view.offsetY = 0
@@ -308,6 +330,7 @@ export function useMouseInteraction() {
   function cleanup() {
     if (clickTimer) clearTimeout(clickTimer)
     if (scrollTimer) clearTimeout(scrollTimer)
+    suppressWheelUntil = 0
   }
 
   return {

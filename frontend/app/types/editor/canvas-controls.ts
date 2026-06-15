@@ -66,6 +66,7 @@ export interface EditorCanvasControls {
   setAutoSelect: (value: boolean) => void
   setRegionType: (value: PolygonType) => void
   setViewMode: (value: ViewMode, options?: SetViewModeOptions) => void
+  resetView?: () => void
 
   canUndo: ComputedRef<boolean>
   canRedo: ComputedRef<boolean>

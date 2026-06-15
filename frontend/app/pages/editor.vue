@@ -1655,6 +1655,9 @@ if (import.meta.client) {
       },
       fitToContent: () => {
       },
+      resetView: () => {
+        activeControls.value?.resetView?.()
+      },
       centerOnSelection: () => {
       },
       toggleLeftSidebar: () => {

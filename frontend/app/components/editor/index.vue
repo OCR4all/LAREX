@@ -237,6 +237,9 @@ const { isDrawingMode, isMoveMode, isPolygonMode, isRectangleMode, isPolylineMod
 
 const mouseInteraction = useMouseInteraction()
 const view = mouseInteraction.view
+canvasControls.resetView = () => {
+  mouseInteraction.resetView()
+}
 
 const emitPresence = useThrottleFn(() => {
   const targetProjectId = projectId.value
