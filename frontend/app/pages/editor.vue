@@ -1660,6 +1660,7 @@ if (import.meta.client) {
       },
       centerOnSelection: () => {
       },
+      addHoveredToReadingOrder: () => activeControls.value?.addHoveredElementToReadingOrder?.() ?? false,
       toggleLeftSidebar: () => {
         editorUiStore.toggleLeftCollapsed()
       },

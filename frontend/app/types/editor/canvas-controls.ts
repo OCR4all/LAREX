@@ -67,6 +67,7 @@ export interface EditorCanvasControls {
   setRegionType: (value: PolygonType) => void
   setViewMode: (value: ViewMode, options?: SetViewModeOptions) => void
   resetView?: () => void
+  addHoveredElementToReadingOrder?: () => boolean
 
   canUndo: ComputedRef<boolean>
   canRedo: ComputedRef<boolean>

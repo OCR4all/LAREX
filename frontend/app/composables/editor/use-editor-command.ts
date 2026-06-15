@@ -1230,9 +1230,9 @@ export function useEditorCommand(
   /**
    * Add a polygon to the reading order
    */
-  function addPolygonToReadingOrder(polygonId: string): void {
+  function addPolygonToReadingOrder(polygonId: string): boolean {
     const session = getEditorSession(canvasId)
-    if (!session?.document.value?.page) return
+    if (!session?.document.value?.page) return false
 
     const page = session.document.value.page
 
@@ -1246,12 +1246,17 @@ export function useEditorCommand(
       }
     }
 
+    if (isRegionInReadingOrder(page.readingOrder, polygonId)) {
+      return false
+    }
+
     const commandCtx: CommandContext = { canvasId, session }
     commander.execute(new UpdateReadingOrderCommand({
       readingOrder: addToReadingOrder(page.readingOrder, polygonId)
     }), commandCtx)
 
     log.debug('Added region to reading order:', polygonId)
+    return true
   }
 
   /**
@@ -1413,6 +1418,7 @@ export function useEditorCommand(
     closeProperties,
     isRegionInCurrentReadingOrder,
     toggleReadingOrder,
+    addPolygonToReadingOrder,
     duplicatePolygon,
     duplicatePolyline,
 

@@ -421,6 +421,13 @@ const editorCommands = useEditorCommand(
   selectedPolylineIds,
   openContextMergeSettingsSlideover
 )
+canvasControls.addHoveredElementToReadingOrder = () => {
+  const polygonId = hoveredPolygonId.value
+  if (!polygonId) return false
+  const polygon = polygons.find(candidate => candidate.id === polygonId)
+  if (!polygon || polygon.type !== PolygonType.REGION) return false
+  return editorCommands.addPolygonToReadingOrder(polygon.id)
+}
 const contextMenuOpen = ref(false)
 
 type UiContextMenuItem = {

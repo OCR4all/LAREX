@@ -56,6 +56,7 @@ export interface KeyboardShortcutsOptions {
     fitToContent: () => void
     resetView: () => void
     centerOnSelection: () => void
+    addHoveredToReadingOrder?: () => boolean
     toggleLeftSidebar?: () => void
     toggleRightSidebar?: () => void
     deleteSelected?: () => void
@@ -348,6 +349,9 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         if (isInputFocused()) return false
         callbacks.centerOnSelection()
         return true
+      case 'addHoveredToReadingOrder':
+        if (isInputFocused()) return false
+        return callbacks.addHoveredToReadingOrder?.() ?? false
       case 'toggleLeftSidebar':
         if (isInputFocused()) return false
         callbacks.toggleLeftSidebar?.()

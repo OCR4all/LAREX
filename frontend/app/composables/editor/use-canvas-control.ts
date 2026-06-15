@@ -303,6 +303,7 @@ export function useCanvasControl(canvasId: string): EditorCanvasControls {
     setRegionType,
     setViewMode,
     resetView: undefined,
+    addHoveredElementToReadingOrder: undefined,
 
     canUndo,
     canRedo,

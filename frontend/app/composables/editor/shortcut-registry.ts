@@ -271,6 +271,12 @@ export const SHORTCUT_DEFINITIONS = {
     scope: 'global',
     defaultBindings: ['f']
   },
+  addHoveredToReadingOrder: {
+    description: 'Add hovered region to reading order',
+    group: 'editing',
+    scope: 'global',
+    defaultBindings: ['a']
+  },
 
   toggleLeftSidebar: {
     description: 'Toggle left sidebar',
