@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { VNodeRef } from 'vue'
 import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
 import type { WorkspaceTextSearchClusterGroup, WorkspaceTextSearchHit, WorkspaceTextSearchResponse } from '@/types/search'
 
@@ -36,7 +37,7 @@ function isClusterRow(row: SearchListRow): row is WorkspaceTextSearchClusterGrou
 
 const searchInput = ref(getStringQueryValue(route.query.q, ''))
 
-watch(() => getStringQueryValue(route.query.q, ''), (value) => {
+watch(() => getStringQueryValue(route.query.q, ''), (value: string) => {
   if (value !== searchInput.value) {
     searchInput.value = value
   }
@@ -278,7 +279,7 @@ const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => (
   getScrollElement: () => scrollerRef.value,
   estimateSize: () => viewMode.value === 'hits' ? 280 : 420,
   overscan: OVERSCAN,
-  getItemKey: (index) => {
+  getItemKey: (index: number) => {
     const row = displayRows.value[index]
     if (!row) return `loader-${index}`
     return isClusterRow(row)

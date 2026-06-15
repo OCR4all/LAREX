@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { CalendarDate, type DateValue } from '@internationalized/date'
+import { CalendarDate } from '@internationalized/date'
 import { format, parseISO } from 'date-fns'
+import type { UCalendar } from '#components'
 
 type PickerSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+type CalendarModelValue = Parameters<typeof UCalendar>[0]['modelValue']
 
 const props = withDefaults(defineProps<{
   modelValue?: string | null
@@ -110,10 +112,10 @@ function clearSelection() {
   }
 }
 
-const calendarModelValue = computed<DateValue | null>(() => {
+const calendarModelValue = computed<CalendarModelValue>(() => {
   const value = selectedDate.value
   if (!value) return null
-  return value as DateValue
+  return value as unknown as CalendarModelValue
 })
 
 function handleCalendarChange(value: unknown) {

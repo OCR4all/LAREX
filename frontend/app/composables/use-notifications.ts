@@ -154,7 +154,7 @@ export const useNotifications = () => {
 
       if (!hasFetchedInitialNotifications.value) {
         hasFetchedInitialNotifications.value = true
-        return
+        return true
       }
 
       for (const notification of state.value.notifications) {
@@ -182,7 +182,7 @@ export const useNotifications = () => {
 
       if (!hasFetchedInitialInvitations.value) {
         hasFetchedInitialInvitations.value = true
-        return
+        return true
       }
 
       for (const invitation of state.value.invitations) {

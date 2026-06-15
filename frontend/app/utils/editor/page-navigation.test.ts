@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { PageData } from '@/stores/editor/types'
 import { resolveAdjacentPageId } from './page-navigation'
 
+function pageAt(pages: PageData[], index: number): PageData {
+  const page = pages[index]
+  if (!page) {
+    throw new Error(`Expected page at index ${index}`)
+  }
+  return page
+}
+
 function createPage(id: string): PageData {
   return {
     id,
@@ -18,14 +26,14 @@ describe('resolveAdjacentPageId', () => {
 
     expect(resolveAdjacentPageId({
       allPages,
-      availablePages: [allPages[0], allPages[2]],
+      availablePages: [pageAt(allPages, 0), pageAt(allPages, 2)],
       currentPageId: 'p1',
       direction: 'next'
     })).toBe('p3')
 
     expect(resolveAdjacentPageId({
       allPages,
-      availablePages: [allPages[0], allPages[2]],
+      availablePages: [pageAt(allPages, 0), pageAt(allPages, 2)],
       currentPageId: 'p3',
       direction: 'prev'
     })).toBe('p1')
@@ -36,14 +44,14 @@ describe('resolveAdjacentPageId', () => {
 
     expect(resolveAdjacentPageId({
       allPages,
-      availablePages: [allPages[0], allPages[3]],
+      availablePages: [pageAt(allPages, 0), pageAt(allPages, 3)],
       currentPageId: 'p2',
       direction: 'next'
     })).toBe('p4')
 
     expect(resolveAdjacentPageId({
       allPages,
-      availablePages: [allPages[0], allPages[3]],
+      availablePages: [pageAt(allPages, 0), pageAt(allPages, 3)],
       currentPageId: 'p3',
       direction: 'prev'
     })).toBe('p1')

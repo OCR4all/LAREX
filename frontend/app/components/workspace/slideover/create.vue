@@ -133,7 +133,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     }
     emit('close', true)
   } catch (error: unknown) {
-    const errorMessage = extractApiErrorMessage(error) || 'An error occurred'
+    const errorMessage = extractApiErrorMessage(error, 'An error occurred')
     toast.add({
       title: 'Error',
       description: errorMessage,

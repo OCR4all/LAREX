@@ -46,7 +46,7 @@ function hsbToHex(h: number, s: number, b: number) {
 
   const toHex = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, '0')
 
-  const sectors = [
+  const sectors: Array<[number, number, number]> = [
     [c, x, 0], // 0–60
     [x, c, 0], // 60–120
     [0, c, x], // 120–180
@@ -54,7 +54,8 @@ function hsbToHex(h: number, s: number, b: number) {
     [x, 0, c], // 240–300
     [c, 0, x] // 300–360
   ]
-  const [r, g, bl] = sectors[Math.floor(h / 60)]
+  const sectorIndex = Math.min(sectors.length - 1, Math.max(0, Math.floor(h / 60)))
+  const [r, g, bl] = sectors[sectorIndex] ?? [0, 0, 0]
 
   return `#${toHex(r)}${toHex(g)}${toHex(bl)}`
 }
