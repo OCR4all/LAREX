@@ -69,7 +69,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     for (const tag of selectedTags.value) {
       filters.push({
         key: `tag-${tag}`,
-        label: `Tag: ${tag}`,
+        label: `Tag: ${getTagLabel(tag)}`,
         clear: () => { selectedTags.value = selectedTags.value.filter(value => value !== tag) }
       })
     }
@@ -305,14 +305,18 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
   const uniqueTags = computed(() => {
     if (!options.pages.value) return []
     const tagCounts = new Map<string, number>()
+    const tagLabels = new Map<string, string>()
     options.pages.value.forEach((page) => {
+      page.resolvedTags?.forEach((tag) => {
+        tagLabels.set(tag.id, tag.label || tag.id)
+      })
       page.tags.forEach((tag) => {
         tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
       })
     })
     return Array.from(tagCounts.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([tag, count]) => ({ label: tag, value: tag, count }))
+      .sort((a, b) => getTagLabel(a[0], tagLabels).localeCompare(getTagLabel(b[0], tagLabels)))
+      .map(([tag, count]) => ({ label: getTagLabel(tag, tagLabels), value: tag, count }))
   })
 
   const selectedTags = computed({
@@ -338,6 +342,20 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     resetAllFilters()
     xmlStatusFilter.value = 'all'
   }
+
+  function getTagLabel(tagId: string, labels = currentTagLabels.value) {
+    return labels.get(tagId) || tagId
+  }
+
+  const currentTagLabels = computed(() => {
+    const labels = new Map<string, string>()
+    options.pages.value?.forEach((page) => {
+      page.resolvedTags?.forEach((tag) => {
+        labels.set(tag.id, tag.label || tag.id)
+      })
+    })
+    return labels
+  })
 
   function getPageDescription(page: Page) {
     const description = page.description?.trim()
