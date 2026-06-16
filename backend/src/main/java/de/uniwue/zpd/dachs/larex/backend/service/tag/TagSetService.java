@@ -50,9 +50,16 @@ public class TagSetService {
     @CacheEvict(value = "tagSets", allEntries = true)
     public TagSetDto.Response createTagSet(String userId, String workspaceId, JsonNode requestJson) {
         workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
+        return createTagSetFromRequest(userId, workspaceId, parseAndValidateRequest(requestJson));
+    }
 
-        TagSetDto.CreateOrUpdateRequest request = parseAndValidateRequest(requestJson);
+    @CacheEvict(value = "tagSets", allEntries = true)
+    public TagSetDto.Response createTagSet(String userId, String workspaceId, TagSetDto.CreateOrUpdateRequest request) {
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
+        return createTagSetFromRequest(userId, workspaceId, validateRequest(request));
+    }
 
+    private TagSetDto.Response createTagSetFromRequest(String userId, String workspaceId, TagSetDto.CreateOrUpdateRequest request) {
         String name = request.meta().name();
         String description = request.meta().description();
         List<String> tags = request.meta().tags() != null ? request.meta().tags() : new ArrayList<>();
@@ -70,9 +77,16 @@ public class TagSetService {
     @CacheEvict(value = "tagSets", allEntries = true)
     public TagSetDto.Response updateTagSet(String userId, String workspaceId, String tagSetId, JsonNode requestJson) {
         workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
+        return updateTagSetFromRequest(userId, workspaceId, tagSetId, parseAndValidateRequest(requestJson));
+    }
 
-        TagSetDto.CreateOrUpdateRequest request = parseAndValidateRequest(requestJson);
+    @CacheEvict(value = "tagSets", allEntries = true)
+    public TagSetDto.Response updateTagSet(String userId, String workspaceId, String tagSetId, TagSetDto.CreateOrUpdateRequest request) {
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
+        return updateTagSetFromRequest(userId, workspaceId, tagSetId, validateRequest(request));
+    }
 
+    private TagSetDto.Response updateTagSetFromRequest(String userId, String workspaceId, String tagSetId, TagSetDto.CreateOrUpdateRequest request) {
         TagSet tagSet = tagSetRepository.findByIdAndWorkspaceId(tagSetId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tag set not found: " + tagSetId));
 
@@ -108,6 +122,14 @@ public class TagSetService {
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Invalid tag set payload: " + e.getOriginalMessage());
         }
+    }
+
+    private TagSetDto.CreateOrUpdateRequest validateRequest(TagSetDto.CreateOrUpdateRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request body is required");
+        }
+        tagSetDefinitionValidator.validate(request);
+        return request;
     }
 
     @CacheEvict(value = "tagSets", allEntries = true)

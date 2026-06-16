@@ -1,6 +1,5 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.tag;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.TagSetDto;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagSetService;
@@ -53,7 +52,7 @@ public class TagSetController {
     @PostMapping
     public ResponseEntity<TagSetDto.Response> createTagSet(
             @PathVariable String workspaceId,
-            @RequestBody JsonNode request,
+            @Valid @RequestBody TagSetDto.CreateOrUpdateRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         TagSetDto.Response tagSet = tagSetService.createTagSet(userId, workspaceId, request);
@@ -64,7 +63,7 @@ public class TagSetController {
     public ResponseEntity<TagSetDto.Response> updateTagSet(
             @PathVariable String workspaceId,
             @PathVariable String tagSetId,
-            @RequestBody JsonNode request,
+            @Valid @RequestBody TagSetDto.CreateOrUpdateRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         TagSetDto.Response tagSet = tagSetService.updateTagSet(userId, workspaceId, tagSetId, request);
