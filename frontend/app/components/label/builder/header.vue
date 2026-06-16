@@ -32,9 +32,6 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
 
 <template>
   <UDashboardNavbar data-tour="label-builder-header" :title="isNew ? 'New Label Set' : (isSystem ? 'View Label Set' : 'Edit Label Set')">
-    <template #leading>
-      <LazyUDashboardSidebarCollapse />
-    </template>
     <template #right>
       <div class="flex items-center gap-2">
         <ToolkitHelpPopover

@@ -1157,10 +1157,6 @@ useHead({
   <UDashboardPanel id="dataset-detail" :ui="{ body: 'p-0 sm:p-0' }">
     <template #header>
       <UDashboardNavbar>
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
-
         <template #title>
           <span class="truncate">{{ dataset?.name || 'Dataset' }}</span>
         </template>

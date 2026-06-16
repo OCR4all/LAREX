@@ -353,9 +353,6 @@ async function exportRuleset() {
   <UDashboardPanel id="validation-ruleset-detail" :ui="{ body: 'p-0 sm:p-0' }">
     <template #header>
       <UDashboardNavbar :title="isNew ? 'Create Validation Ruleset' : 'Edit Validation Ruleset'">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <div class="flex items-center gap-2">
             <ToolkitHelpPopover

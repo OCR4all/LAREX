@@ -492,9 +492,6 @@ const viewModeItems = [
   <UDashboardPanel id="tasks" data-tour="tasks-panel">
     <template #header>
       <UDashboardNavbar title="Tasks">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             v-if="selectedWorkspace && canCreateTasks"

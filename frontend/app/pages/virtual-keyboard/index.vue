@@ -264,9 +264,6 @@ const emptyStateActions = computed(() => {
   <UDashboardPanel id="virtual-keyboards" data-tour="vk-panel">
     <template #header>
       <UDashboardNavbar title="Virtual Keyboards">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             v-if="canManageToolkit"

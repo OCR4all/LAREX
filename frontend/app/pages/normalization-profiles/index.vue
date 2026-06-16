@@ -216,9 +216,6 @@ const emptyStateActions = computed(() => {
   <UDashboardPanel id="normalization-profiles">
     <template #header>
       <UDashboardNavbar title="Normalization Profiles">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             v-if="canManageToolkit"

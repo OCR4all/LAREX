@@ -1916,10 +1916,6 @@ useHead({
   <UDashboardPanel :id="projectId" :ui="{ body: 'p-0 sm:p-0' }">
     <template #header>
       <UDashboardNavbar>
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-
         <template #title>
           <UBreadcrumb :items="items">
             <template #separator>
@@ -2068,35 +2064,39 @@ useHead({
           </USelectMenu>
         </template>
         <template #right>
-          <UButton
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            :loading="isManualPagesRefresh"
-            @click="refreshPagesData({ manual: true })"
-          >
-            Refresh
-          </UButton>
+          <UTooltip text="Refresh">
+            <UButton
+              icon="i-lucide-refresh-cw"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :loading="isManualPagesRefresh"
+              @click="refreshPagesData({ manual: true })"
+            />
+          </UTooltip>
 
-          <AppTableColumnsDropdown
-            :table-id="PROJECT_PAGES_TABLE_ID"
-            :columns="pageColumns"
-            :default-visible-column-ids="DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS"
-          />
+          <UTooltip text="Columns">
+            <AppTableColumnsDropdown
+              :table-id="PROJECT_PAGES_TABLE_ID"
+              :columns="pageColumns"
+              :default-visible-column-ids="DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS"
+            />
+          </UTooltip>
 
-          <UButton
-            :icon="isPageOrderingMode ? 'i-lucide-check' : 'i-lucide-list-ordered'"
-            color="neutral"
-            :variant="isPageOrderingMode ? 'soft' : 'ghost'"
-            size="sm"
-            square
-            :aria-label="isPageOrderingMode ? 'Finish ordering pages' : 'Order pages'"
-            :title="isPageOrderingMode ? 'Finish ordering pages' : 'Order pages'"
-            :disabled="!canEditProjectPageOrder || isSavingPageOrder"
-            :loading="isSavingPageOrder"
-            @click="togglePageOrderingMode"
-          />
+          <UTooltip text="Page order">
+            <UButton
+              :icon="isPageOrderingMode ? 'i-lucide-check' : 'i-lucide-list-ordered'"
+              color="neutral"
+              :variant="isPageOrderingMode ? 'soft' : 'ghost'"
+              size="sm"
+              square
+              :aria-label="isPageOrderingMode ? 'Finish ordering pages' : 'Order pages'"
+              :title="isPageOrderingMode ? 'Finish ordering pages' : 'Order pages'"
+              :disabled="!canEditProjectPageOrder || isSavingPageOrder"
+              :loading="isSavingPageOrder"
+              @click="togglePageOrderingMode"
+            />
+          </UTooltip>
 
           <USeparator orientation="vertical" class="h-4" />
 

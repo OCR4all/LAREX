@@ -323,9 +323,6 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
   >
     <template #header>
       <UDashboardNavbar data-tour="vk-builder-header" :title="isEmbeddedToolkitEditor ? undefined : (isNew ? 'Create Keyboard' : 'Edit Keyboard')">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse v-if="!isEmbeddedToolkitEditor" />
-        </template>
         <template #right>
           <input
             ref="importFileInput"

@@ -284,9 +284,6 @@ const emptyStateActions = computed(() => {
   <UDashboardPanel id="tag-sets" data-tour="tag-sets-panel">
     <template #header>
       <UDashboardNavbar title="Tags">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             v-if="canManageToolkit"

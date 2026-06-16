@@ -130,11 +130,7 @@ async function rebuildGlobalIndex() {
 <template>
   <UDashboardPanel id="admin-search-index">
     <template #header>
-      <UDashboardNavbar title="Search Index">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-      </UDashboardNavbar>
+      <UDashboardNavbar title="Search Index" />
     </template>
 
     <template #body>

@@ -375,9 +375,6 @@ async function exportProfile() {
   <UDashboardPanel id="normalization-profile-detail" :ui="{ body: 'p-0 sm:p-0' }">
     <template #header>
       <UDashboardNavbar :title="isNew ? 'Create Normalization Profile' : 'Edit Normalization Profile'">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <div class="flex items-center gap-2">
             <ToolkitHelpPopover

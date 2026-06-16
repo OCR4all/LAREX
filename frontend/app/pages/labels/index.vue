@@ -312,9 +312,6 @@ const emptyStateActions = computed(() => {
   <UDashboardPanel id="labels" data-tour="labels-panel">
     <template #header>
       <UDashboardNavbar title="Labels">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             v-if="canManageToolkit"

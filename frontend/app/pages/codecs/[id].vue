@@ -550,9 +550,6 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
   >
     <template #header>
       <UDashboardNavbar data-tour="codec-builder-header" :title="isEmbeddedToolkitEditor ? undefined : (isNew ? 'Create Codec' : 'Edit Codec')">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse v-if="!isEmbeddedToolkitEditor" />
-        </template>
         <template #right>
           <input
             ref="importCodecInput"

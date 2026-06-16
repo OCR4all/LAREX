@@ -318,9 +318,6 @@ function formatBytes(bytes: number) {
   <UDashboardPanel>
     <template #header>
       <UDashboardNavbar title="Storage Quota Management" :ui="{ right: 'gap-3' }">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             color="neutral"

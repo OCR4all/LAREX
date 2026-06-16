@@ -90,11 +90,7 @@ function formatDetailValue(value: unknown) {
 <template>
   <UDashboardPanel id="admin-actuator">
     <template #header>
-      <UDashboardNavbar title="Application Health">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-      </UDashboardNavbar>
+      <UDashboardNavbar title="Application Health" />
 
       <UDashboardToolbar>
         <template #left>

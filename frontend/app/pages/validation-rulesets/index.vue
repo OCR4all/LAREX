@@ -216,9 +216,6 @@ const emptyStateActions = computed(() => {
   <UDashboardPanel id="validation-rulesets">
     <template #header>
       <UDashboardNavbar title="Validation Rulesets">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             v-if="canManageToolkit"

@@ -333,9 +333,6 @@ function setCancellingRun(runId: string, value: boolean) {
   <UDashboardPanel id="admin-action-runs">
     <template #header>
       <UDashboardNavbar title="Action Runs">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             color="neutral"

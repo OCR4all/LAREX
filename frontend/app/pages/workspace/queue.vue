@@ -319,9 +319,6 @@ function formatDurationFromRun(run: ActionRun) {
   <UDashboardPanel id="workspace-queue">
     <template #header>
       <UDashboardNavbar :title="`${currentWorkspace?.name || 'Workspace'} Queue`">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UFieldGroup>
             <UButton

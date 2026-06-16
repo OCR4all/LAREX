@@ -284,9 +284,6 @@ const emptyStateActions = computed(() => {
   <UDashboardPanel id="dictionaries">
     <template #header>
       <UDashboardNavbar title="Dictionaries">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             v-if="canManageToolkit"

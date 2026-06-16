@@ -368,9 +368,6 @@ const tabItems = [
   <UDashboardPanel id="task-detail">
     <template #header>
       <UDashboardNavbar title="Edit Task">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UFieldGroup v-if="task && canEdit">
             <UButton

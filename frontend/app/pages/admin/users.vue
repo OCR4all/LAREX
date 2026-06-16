@@ -662,9 +662,6 @@ async function submitGlobalRoleAction() {
   <UDashboardPanel>
     <template #header>
       <UDashboardNavbar title="User Management" :ui="{ right: 'gap-3' }">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             color="neutral"

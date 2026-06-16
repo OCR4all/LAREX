@@ -27,11 +27,7 @@ const workspaceName = computed(() => currentWorkspace.value?.name || 'Workspace'
 <template>
   <UDashboardPanel id="workspace-settings" :ui="{ body: 'lg:py-12' }">
     <template #header>
-      <UDashboardNavbar :title="`${workspaceName} Settings`">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-      </UDashboardNavbar>
+      <UDashboardNavbar :title="`${workspaceName} Settings`" />
 
       <UDashboardToolbar>
         <UNavigationMenu :items="links" highlight class="-mx-1 flex-1" />

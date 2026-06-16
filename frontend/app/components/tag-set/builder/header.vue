@@ -44,9 +44,6 @@ const dropdownItems = computed(() => {
 <template>
   <div>
     <UDashboardNavbar data-tour="tag-builder-header" :title="props.isNew ? 'New Tag Set' : meta.name || 'Tag Set'">
-      <template #leading>
-        <LazyUDashboardSidebarCollapse />
-      </template>
       <template #right>
         <div class="flex items-center gap-2">
           <UBadge v-if="totalErrors > 0" color="error" variant="soft">

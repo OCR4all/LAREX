@@ -245,9 +245,6 @@ const emptyStateActions = computed(() => {
   <UDashboardPanel id="codecs" data-tour="codecs-panel">
     <template #header>
       <UDashboardNavbar title="Codecs">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             v-if="canManageToolkit"

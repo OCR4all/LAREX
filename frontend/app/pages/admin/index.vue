@@ -19,11 +19,7 @@ const adminSections = [
 <template>
   <UDashboardPanel id="admin-overview">
     <template #header>
-      <UDashboardNavbar title="Overview">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-      </UDashboardNavbar>
+      <UDashboardNavbar title="Overview" />
     </template>
 
     <template #body>

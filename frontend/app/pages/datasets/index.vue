@@ -249,9 +249,6 @@ const emptyStateActions = computed(() => {
   <UDashboardPanel id="datasets">
     <template #header>
       <UDashboardNavbar title="Datasets">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             v-if="canManageDatasets"

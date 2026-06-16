@@ -868,9 +868,6 @@ function lineColumnToOffset(source: string, line: number, column: number) {
   <UDashboardPanel id="admin-actions" :ui="{ body: 'p-0 sm:p-0' }">
     <template #header>
       <UDashboardNavbar title="Actions" :ui="{ right: 'gap-2' }">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton icon="i-lucide-plus" @click="createNewDefinition">
             New Action

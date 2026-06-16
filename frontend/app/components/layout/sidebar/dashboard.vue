@@ -309,26 +309,32 @@ function openNotifications() {
         v-if="!isMobileSidebar"
         :class="collapsed ? 'mt-auto flex flex-col items-center gap-2' : 'mt-auto flex items-center justify-between'"
       >
-        <UTooltip :text="'Notifications'" :content="{ side: 'right' }">
-          <UChip
-            :show="unreadCount > 0"
-            :text="unreadCount"
-            color="error"
-            position="top-right"
-          >
-            <UButton
-              color="neutral"
-              variant="ghost"
-              square
-              :size="collapsed ? 'sm' : 'md'"
-              aria-label="Open notifications"
-              @click="openNotifications"
+        <UDashboardSidebarCollapse
+          square
+          :size="collapsed ? 'sm' : 'md'"
+        />
+        <div :class="collapsed ? 'flex flex-col items-center gap-2' : 'flex items-center gap-1'">
+          <UTooltip :text="'Notifications'" :content="{ side: collapsed ? 'right' : 'top' }">
+            <UChip
+              :show="unreadCount > 0"
+              :text="unreadCount"
+              color="error"
+              position="top-right"
             >
-              <UIcon name="i-lucide-bell" class="size-4" />
-            </UButton>
-          </UChip>
-        </UTooltip>
-        <AppStatusPopoverTrigger :collapsed="collapsed" />
+              <UButton
+                color="neutral"
+                variant="ghost"
+                square
+                :size="collapsed ? 'sm' : 'md'"
+                aria-label="Open notifications"
+                @click="openNotifications"
+              >
+                <UIcon name="i-lucide-bell" class="size-4" />
+              </UButton>
+            </UChip>
+          </UTooltip>
+          <AppStatusPopoverTrigger :collapsed="collapsed" />
+        </div>
       </div>
     </template>
 

@@ -321,9 +321,6 @@ async function leaveWorkspace(ws: WorkspaceRow) {
   <UDashboardPanel id="workspaces">
     <template #header>
       <UDashboardNavbar title="Workspaces">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <UButton
             v-if="canCreateTeamWorkspace"

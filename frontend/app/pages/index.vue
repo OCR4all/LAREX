@@ -894,9 +894,6 @@ async function handleLegacyOcr4allImport(event: Event) {
   <UDashboardPanel id="projects">
     <template #header>
       <UDashboardNavbar title="Projects">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse />
-        </template>
         <template #right>
           <input
             ref="importProjectPackageInput"

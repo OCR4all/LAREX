@@ -337,11 +337,7 @@ function handleScroll() {
 <template>
   <UDashboardPanel id="workspace-search">
     <template #header>
-      <UDashboardNavbar title="Workspace Search">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-      </UDashboardNavbar>
+      <UDashboardNavbar title="Workspace Search" />
 
       <UDashboardToolbar>
         <template #left>

@@ -461,9 +461,6 @@ const emptyStateActions = computed<Array<{ label: string, icon: string, color: '
   >
     <template #header>
       <UDashboardNavbar :title="isEmbeddedToolkitEditor ? undefined : (isNew ? 'Create Dictionary' : 'Edit Dictionary')">
-        <template #leading>
-          <LazyUDashboardSidebarCollapse v-if="!isEmbeddedToolkitEditor" />
-        </template>
         <template #right>
           <input
             ref="importDictionaryInput"

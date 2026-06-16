@@ -234,11 +234,7 @@ function getStatusColor(status: string): 'success' | 'error' | 'neutral' | 'prim
 <template>
   <UDashboardPanel id="admin-import">
     <template #header>
-      <UDashboardNavbar title="Server-Side Import">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-      </UDashboardNavbar>
+      <UDashboardNavbar title="Server-Side Import" />
     </template>
 
     <template #body>

@@ -203,11 +203,7 @@ function statusColor(status: BackupJobSummary['status']) {
 <template>
   <UDashboardPanel id="admin-backup">
     <template #header>
-      <UDashboardNavbar title="Backup & Reseed">
-        <template #leading>
-          <UDashboardSidebarCollapse />
-        </template>
-      </UDashboardNavbar>
+      <UDashboardNavbar title="Backup & Reseed" />
     </template>
 
     <template #body>
