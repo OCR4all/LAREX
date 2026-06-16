@@ -322,11 +322,11 @@ function forwardUnhoverRegion(): void {
 
 <style scoped>
 .group-children {
-  border-left: 2px solid var(--color-cararra-200);
+  border-left: 2px solid var(--color-smoke-200);
   padding-left: 0.5rem;
 }
 
 .dark .group-children {
-  border-left-color: var(--color-cararra-700);
+  border-left-color: var(--color-smoke-700);
 }
 </style>

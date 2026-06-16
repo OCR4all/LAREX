@@ -5,8 +5,8 @@ export default defineAppConfig({
   },
   ui: {
     colors: {
-      primary: 'burnt-sienna',
-      neutral: 'cararra'
+      primary: 'navy',
+      neutral: 'smoke'
     },
     slideover: {
       slots: {

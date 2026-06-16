@@ -36,7 +36,7 @@ useSeoMeta({
 <template>
   <UApp :toaster="toaster">
     <AppHealthStatusBanner />
-    <NuxtLoadingIndicator color="#e1552e" />
+    <NuxtLoadingIndicator color="#3D8DFCFF" />
 
     <NuxtLayout>
       <NuxtPage />

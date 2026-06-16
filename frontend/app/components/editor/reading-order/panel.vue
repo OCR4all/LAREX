@@ -626,27 +626,27 @@ defineExpose({
 
 :deep(.sortable-ghost) {
   opacity: var(--sortable-ghost-opacity);
-  background: color-mix(in srgb, var(--color-burnt-sienna-500) 20%, transparent) !important;
+  background: color-mix(in srgb, var(--color-navy-500) 20%, transparent) !important;
   border-radius: 0.375rem;
 }
 
 :deep(.sortable-chosen) {
-  background: color-mix(in srgb, var(--color-burnt-sienna-500) 10%, transparent);
+  background: color-mix(in srgb, var(--color-navy-500) 10%, transparent);
 }
 
 :deep(.sortable-drag) {
   opacity: 1;
-  background: var(--color-cararra-50);
+  background: var(--color-smoke-50);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-radius: 0.375rem;
 }
 
 :deep(.dark .sortable-drag) {
-  background: var(--color-cararra-900);
+  background: var(--color-smoke-900);
 }
 
 .drag-handle:hover {
-  color: var(--color-cararra-500);
+  color: var(--color-smoke-500);
 }
 
 kbd {

@@ -1085,7 +1085,7 @@ onBeforeUnmount(() => {
       class="@container group relative rounded-md border transition-all duration-150"
       :class="[
         props.focusMode ? 'border-transparent shadow-none' : '',
-        props.isSelected ? 'border-burnt-sienna-500 ring-1 ring-primary/12' : 'border-neutral-200 dark:border-neutral-800 hover:border-default/22'
+        props.isSelected ? 'border-navy-500 ring-1 ring-primary/12' : 'border-neutral-200 dark:border-neutral-800 hover:border-default/22'
       ]"
       @click="emit('selectTextline', props.textline.id)"
     >
