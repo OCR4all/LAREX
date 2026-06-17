@@ -18,7 +18,7 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { View, ImageSize, AspectRatioScale, Point, PcGts as DocumentModel } from '@/models/editor'
-import { RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, BACKGROUND_ELEMENT, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, type RGBA } from '@/utils/editor/editor-constants'
+import { RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, type RGBA } from '@/utils/editor/editor-constants'
 import { WEBGL_CORE, WEBGL_GEOMETRY } from '@/webgl/editor/webgl-constants'
 import type { RenderablePolygon, RenderablePolyline, WebGLRenderState, ViewMode } from '@/types/editor/rendering'
 import { createScopedLogger } from '@/services/editor/logger-service'
@@ -89,6 +89,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   let imageProgram: WebGLProgram | null = null
   let imageTexture: WebGLTexture | null = null
   let imageVao: WebGLVertexArrayObject | null = null
+  let imageLoadSequence = 0
   const imageSize = ref<ImageSize>({ width: 1, height: 1 })
 
   function getActiveDocument(): DocumentModel | undefined {
@@ -1836,12 +1837,11 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   }
 
   async function loadAndRender(src: string): Promise<void> {
-    try {
-      const img = await loadImage(src)
-      updateTexture(img)
-    } catch (err) {
-      log.error('Image load error:', err)
-    }
+    const sequence = imageLoadSequence + 1
+    imageLoadSequence = sequence
+    const img = await loadImage(src)
+    if (sequence !== imageLoadSequence) return
+    updateTexture(img)
   }
 
   function renderFrame(
@@ -1895,6 +1895,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
    * Cleanup function
    */
   function cleanup(): void {
+    imageLoadSequence += 1
     stopRenderLoop()
 
     fillRenderer?.cleanup()

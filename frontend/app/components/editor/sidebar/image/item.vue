@@ -45,6 +45,7 @@ const emit = defineEmits<{
 }>()
 
 const editorStore = useEditorStore()
+const imageLoader = useEditorImageLoader()
 const actionRunsStore = useActionRunsStore()
 const pageSummaries = useCollaborationPageSummary()
 const toast = useToast()
@@ -126,6 +127,28 @@ const collaborationTooltip = computed(() => {
 
   return `${summary.viewerCount} viewer${summary.viewerCount === 1 ? '' : 's'} watching`
 })
+
+const previewImageLoaded = ref(false)
+const previewImageFailed = ref(false)
+const hasPreviewImage = computed(() => Boolean(props.previewUrl) && !previewImageFailed.value)
+const previewImageSrc = computed(() => hasPreviewImage.value ? props.previewUrl ?? undefined : undefined)
+
+watch(() => props.previewUrl, () => {
+  previewImageLoaded.value = props.previewUrl ? imageLoader.isPreviewUrlLoaded(props.previewUrl) : false
+  previewImageFailed.value = false
+}, { immediate: true })
+
+function handlePreviewImageLoad() {
+  if (props.previewUrl) {
+    imageLoader.markPreviewUrlLoaded(props.previewUrl)
+  }
+  previewImageLoaded.value = true
+}
+
+function handlePreviewImageError() {
+  previewImageLoaded.value = false
+  previewImageFailed.value = true
+}
 
 const annotationModeBadge = computed<{
   label: string
@@ -288,17 +311,25 @@ async function handleCopyPageId() {
         </div>
       </UTooltip>
 
-      <div class="relative aspect-3/4 bg-neutra-950">
+      <div class="relative aspect-3/4 bg-neutral-950">
+        <USkeleton
+          v-if="hasPreviewImage && !previewImageLoaded"
+          class="absolute inset-0 h-full w-full rounded-none"
+        />
         <img
-          v-if="previewUrl"
-          :src="previewUrl"
+          v-if="hasPreviewImage"
+          :src="previewImageSrc"
           :alt="`Page ${pageLabel}`"
-          class="absolute inset-0 w-full h-full object-cover"
-          loading="lazy"
+          class="absolute inset-0 h-full w-full object-cover transition-opacity duration-200"
+          :class="previewImageLoaded ? 'opacity-100' : 'opacity-0'"
+          loading="eager"
+          decoding="async"
+          @load="handlePreviewImageLoad"
+          @error="handlePreviewImageError"
         >
 
         <div
-          v-else
+          v-if="!hasPreviewImage"
           class="absolute inset-0 flex items-center justify-center bg-linear-to-br from-neutral-900 to-neutral-950 text-neutral-400"
         >
           <Icon name="i-lucide-file-text" class="h-5 w-5" />

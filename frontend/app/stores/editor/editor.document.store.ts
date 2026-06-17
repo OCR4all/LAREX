@@ -501,7 +501,10 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
 
   function getPreviewUrlForPage(page: PageData): string | null {
     const variant = getDisplayedVariantForPage(page)
-    return variant?.url ?? page.thumbnail ?? page.imageVariants?.[0]?.url ?? null
+    if (variant?.id && page.projectId) {
+      return `/api/projects/${page.projectId}/pages/images/${variant.id}/thumbnail`
+    }
+    return page.thumbnail ?? variant?.url ?? page.imageVariants?.[0]?.url ?? null
   }
 
   function resolveVariantForPage(page: PageData, specificVariantId?: string): ImageVariant | null {

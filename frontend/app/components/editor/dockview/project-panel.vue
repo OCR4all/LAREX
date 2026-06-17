@@ -47,11 +47,8 @@ const projectId = computed(() => {
   return props.params.params?.projectId ?? parseProjectPanelId(props.params.api.id) ?? null
 })
 
-const projectName = computed(() => {
-  return props.params.params?.projectName ?? projectId.value ?? 'Project'
-})
-
 const innerDockviewApi = ref<ProjectDockviewApi | null>(null)
+const requestedPagePanelIds = new Set<string>()
 
 function getTitleForPage(pageId: string): string {
   const id = projectId.value
@@ -64,10 +61,11 @@ function ensurePagePanelExists(api: ProjectDockviewApi, pageId: string) {
   if (!id) return
 
   const panelId = getPagePanelId(id, pageId)
-  if (api.getPanel(panelId)) return
+  if (api.getPanel(panelId) || requestedPagePanelIds.has(panelId)) return
 
   const canvasId = getCanvasId(id, pageId)
   const canvas = editorStore.canvases[canvasId]
+  requestedPagePanelIds.add(panelId)
   api.addPanel({
     id: panelId,
     component: 'EditorDockviewDefaultPanel',
@@ -103,8 +101,8 @@ const onReady = (event: DockviewReadyEvent) => {
   if (!id) return
 
   innerDockviewApi.value = event.api
-  registry.register(id, event.api)
   restoreProjectPanels()
+  registry.register(id, event.api)
 
   event.api.onWillShowOverlay((overlayEvent) => {
     const transfer = overlayEvent.getData()
@@ -149,6 +147,7 @@ const onReady = (event: DockviewReadyEvent) => {
       const canvasId = getCanvasId(parsed.projectId, parsed.pageId)
       editorStore.unregisterCanvas(canvasId)
       sessionStore.removeOpenedPage(parsed.projectId, parsed.pageId)
+      requestedPagePanelIds.delete(panel.id)
 
       if (
         sessionStore.getOpenedPageIds(parsed.projectId).length === 0

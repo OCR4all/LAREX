@@ -2,6 +2,7 @@ import type { PageData } from '@/stores/editor/types'
 
 const isLoading = ref(false)
 const loadedThumbnails = ref(new Set<string>())
+const loadedPreviewUrls = ref(new Set<string>())
 const loadedImages = ref(new Set<string>())
 const pendingImageIds = ref(new Set<string>())
 
@@ -173,6 +174,14 @@ function isThumbnailLoaded(pageId: string): boolean {
   return loadedThumbnails.value.has(pageId)
 }
 
+function isPreviewUrlLoaded(url: string): boolean {
+  return loadedPreviewUrls.value.has(url)
+}
+
+function markPreviewUrlLoaded(url: string): void {
+  loadedPreviewUrls.value.add(url)
+}
+
 function isImageLoaded(variantId: string): boolean {
   return loadedImages.value.has(variantId)
 }
@@ -181,12 +190,15 @@ export function useEditorImageLoader() {
   return {
     isLoading: readonly(isLoading),
     loadedThumbnails: readonly(loadedThumbnails),
+    loadedPreviewUrls: readonly(loadedPreviewUrls),
     loadedImages: readonly(loadedImages),
     pendingImageIds: readonly(pendingImageIds),
     loadThumbnails,
     prefetchImages,
     prefetchImagesBidirectional,
     isThumbnailLoaded,
+    isPreviewUrlLoaded,
+    markPreviewUrlLoaded,
     isImageLoaded
   }
 }

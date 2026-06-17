@@ -99,6 +99,24 @@ const isLoadingAnnotations = computed(() => {
   return editorStore.canvases?.[props.canvasId]?.isLoadingAnnotations ?? false
 })
 
+type CanvasImageLoadStatus = 'idle' | 'loading' | 'ready' | 'error'
+
+const imageLoadStatus = ref<CanvasImageLoadStatus>('idle')
+const imageLoadRequestId = ref(0)
+
+const isLoadingImage = computed(() => imageLoadStatus.value === 'loading' || imageLoadStatus.value === 'idle')
+const hasImageLoadError = computed(() => imageLoadStatus.value === 'error')
+const canShowCanvasContent = computed(() => imageLoadStatus.value === 'ready' && !isLoadingAnnotations.value)
+const showCanvasReadinessOverlay = computed(() => !canShowCanvasContent.value)
+const canvasReadinessLabel = computed(() => {
+  if (hasImageLoadError.value) return 'Image could not be loaded'
+  if (isLoadingImage.value && isLoadingAnnotations.value) return 'Loading image and annotations...'
+  if (isLoadingImage.value) return 'Loading image...'
+  if (isLoadingAnnotations.value) return 'Loading annotations...'
+  return 'Preparing canvas...'
+})
+const canvasImageErrorDescription = 'The image request failed. Check the file and try again.'
+
 const pageId = computed(() => {
   const fromStore = editorStore.canvases?.[props.canvasId]?.pageId
   if (fromStore) return fromStore
@@ -196,6 +214,37 @@ const canvas = ref<HTMLCanvasElement | null>(null)
 const correctionOverlayContainerRef = ref<HTMLDivElement | null>(null)
 const webglRenderer = useWebglRenderer(canvas)
 const suppressCorrectionZoomPreferenceUpdate = ref(false)
+
+async function loadCanvasImage(src: string): Promise<void> {
+  if (!src) {
+    imageLoadStatus.value = 'idle'
+    return
+  }
+
+  const requestId = imageLoadRequestId.value + 1
+  imageLoadRequestId.value = requestId
+  imageLoadStatus.value = 'loading'
+
+  try {
+    await webglRenderer.loadAndRender(src)
+    if (imageLoadRequestId.value !== requestId) return
+
+    imageLoadStatus.value = 'ready'
+    if (renderEnabled.value) {
+      await nextTick()
+      editorRenderer.render()
+    }
+  } catch (error) {
+    if (imageLoadRequestId.value !== requestId) return
+
+    imageLoadStatus.value = 'error'
+    console.error('Failed to load editor canvas image:', error)
+  }
+}
+
+function retryCanvasImage() {
+  void loadCanvasImage(currentImageSrc.value)
+}
 
 const editorState = useEditorState(session.spatialIndex)
 const {
@@ -2428,7 +2477,7 @@ onMounted(() => {
     getStats: webglRenderer.getGeometryCacheStats
   })
 
-  webglRenderer.loadAndRender(currentImageSrc.value)
+  void loadCanvasImage(currentImageSrc.value)
 
   if (canvas.value) {
     canvasDimensions.value = {
@@ -2465,6 +2514,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  imageLoadRequestId.value += 1
+
   if (stopUiModeWatch) stopUiModeWatch()
 
   stopCorrectionOverlayDrag()
@@ -2483,10 +2534,7 @@ onBeforeUnmount(() => {
 watch(() => props.src, (newSrc) => {
   if (newSrc) {
     currentImageSrc.value = newSrc
-    webglRenderer.loadAndRender(newSrc)
-    if (renderEnabled.value) {
-      nextTick(() => editorRenderer.render())
-    }
+    void loadCanvasImage(newSrc)
   }
 })
 </script>
@@ -2662,7 +2710,7 @@ watch(() => props.src, (newSrc) => {
       </div>
     </div>
 
-    <div ref="correctionOverlayContainerRef" class="relative flex-1 min-h-0" :class="{ 'editor-checkerboard': showCheckerboard }">
+    <div ref="correctionOverlayContainerRef" class="relative isolate flex-1 min-h-0 overflow-hidden" :class="{ 'editor-checkerboard': showCheckerboard }">
       <div class="absolute inset-0 pointer-events-none" :style="{ backgroundColor: editorBackgroundColor }" />
       <UContextMenu
         v-model:open="contextMenuOpen"
@@ -2673,9 +2721,10 @@ watch(() => props.src, (newSrc) => {
             ref="canvas"
             class="block w-full h-full bg-transparent relative z-10"
             :class="[
-              isCanvasEditable ? (isCanvasWritable ? 'cursor-grab' : 'cursor-default') : 'cursor-default pointer-events-none'
+              isCanvasEditable && canShowCanvasContent ? (isCanvasWritable ? 'cursor-grab' : 'cursor-default') : 'cursor-default pointer-events-none',
+              canShowCanvasContent ? 'opacity-100' : 'opacity-0'
             ]"
-            @contextmenu="(event) => { if (isCanvasWritable && !isCanvasInteractionBlocked) editorInteractions.handleCanvasContextMenu(event) }"
+            @contextmenu="(event) => { if (canShowCanvasContent && isCanvasWritable && !isCanvasInteractionBlocked) editorInteractions.handleCanvasContextMenu(event) }"
           />
         </template>
         <template #item-leading="{ item }">
@@ -3022,12 +3071,45 @@ watch(() => props.src, (newSrc) => {
 
       <Transition name="fade">
         <div
-          v-if="isLoadingAnnotations"
-          class="absolute inset-0 z-[999] flex items-center justify-center backdrop-blur-md bg-black/30"
+          v-if="showCanvasReadinessOverlay"
+          class="absolute inset-0 z-40 flex items-center justify-center overflow-hidden bg-default/95"
+          aria-live="polite"
+          @wheel.prevent.stop
+          @contextmenu.prevent.stop
         >
-          <div class="flex items-center gap-3 px-5 py-3 rounded-xl bg-black/50 shadow-xl ring-1 ring-white/10">
-            <Icon name="i-lucide-loader-2" class="h-5 w-5 text-white animate-spin" />
-            <span class="text-sm font-medium text-white drop-shadow-md">Loading annotations...</span>
+          <template v-if="hasImageLoadError">
+            <div class="flex max-w-sm flex-col items-center gap-3 rounded-md border border-error/30 bg-default px-5 py-4 text-center shadow-xl">
+              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-error/10 text-error">
+                <Icon name="i-lucide-image-off" class="h-5 w-5" />
+              </div>
+              <div class="space-y-1">
+                <p class="text-sm font-medium text-highlighted">
+                  {{ canvasReadinessLabel }}
+                </p>
+                <p class="text-xs text-muted">
+                  {{ canvasImageErrorDescription }}
+                </p>
+              </div>
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="soft"
+                icon="i-lucide-refresh-cw"
+                @click.stop="retryCanvasImage"
+              >
+                Retry
+              </UButton>
+            </div>
+          </template>
+
+          <div v-else class="absolute inset-0">
+            <USkeleton class="absolute inset-0 h-full w-full rounded-none" />
+            <div class="absolute inset-0 flex items-center justify-center bg-default/20 backdrop-blur-[1px]">
+              <div class="flex items-center gap-3 rounded-md border border-default bg-default/90 px-4 py-2.5 shadow-lg">
+                <Icon name="i-lucide-loader-2" class="h-4 w-4 animate-spin text-muted" />
+                <span class="text-sm font-medium text-highlighted">{{ canvasReadinessLabel }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </Transition>

@@ -161,7 +161,6 @@ const projectTabCloseState = useProjectTabCloseState()
 const {
   getProjectTitle,
   ensureProjectPanelExists,
-  ensurePagePanelExists,
   onReady
 } = useEditorDockviewTabs({
   getDockviewApi: () => dockviewApi.value,
@@ -1897,11 +1896,19 @@ async function openEditorForPage(projectId: string, pageId: string, variantId?: 
   const canvasId = getCanvasId(projectId, pageId)
   const existingCanvas = editorStore.canvases[canvasId]
   const isAlreadyLoaded = existingCanvas?.pageId === pageId && existingCanvas?.projectId === projectId
+  const requestedVariant = variantId
+    ? page.imageVariants.find(variant => variant.id === variantId) ?? null
+    : editorStore.getDisplayedVariantForPage(page)
+  const previewSrc = editorStore.getPreviewUrlForPage(page)
 
-  await loadProjectLabelSet(projectId)
-
-  if (!isAlreadyLoaded) {
-    await editorStore.loadPageIntoCanvas(canvasId, projectId, pageId, variantId)
+  if (!existingCanvas) {
+    editorStore.registerCanvas(canvasId, {
+      projectId,
+      pageId,
+      imageVariantId: requestedVariant?.id ?? variantId ?? null,
+      imageSrc: previewSrc,
+      isLoadingAnnotations: true
+    })
   } else if (variantId && existingCanvas?.imageVariantId !== variantId) {
     editorStore.switchImageVariantForCanvas(canvasId, variantId)
   }
@@ -1918,8 +1925,14 @@ async function openEditorForPage(projectId: string, pageId: string, variantId?: 
   ensureProjectPanelExists(api, projectId)
   api.getPanel(getProjectPanelId(projectId))?.api.setActive()
   await projectDockviewRegistry.waitFor(projectId)
-  ensurePagePanelExists(projectId, pageId)
+  await nextTick()
   projectDockviewRegistry.get(projectId)?.getPanel(getPagePanelId(projectId, pageId))?.api.setActive()
+
+  void loadProjectLabelSet(projectId)
+
+  if (!isAlreadyLoaded) {
+    void editorStore.loadPageIntoCanvas(canvasId, projectId, pageId, variantId)
+  }
 }
 
 const { applyEditorDeepLinkFromQuery } = useEditorDeepLinks({
