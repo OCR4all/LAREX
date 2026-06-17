@@ -16,6 +16,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     watch: true // Ensure reactivity across components
   })
 
+  const adminWorkspaceIdCookie = useCookie<string | null>('adminWorkspaceId', {
+    default: () => null,
+    maxAge: 60 * 60 * 24 * 365, // 1 year
+    sameSite: 'lax',
+    watch: true
+  })
+
   if (import.meta.client && !selectedWorkspaceIdCookie.value) {
     try {
       const legacyCookie = useCookie<{ selectedWorkspaceId?: string } | null>('workspace')
@@ -48,8 +55,53 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const loadError = ref<string | null>(null)
   const hasFetched = ref(false)
 
-  const isAdminMode = ref(false)
+  const isAdminMode = ref(Boolean(adminWorkspaceIdCookie.value))
   const adminWorkspace = ref<Workspace | null>(null)
+
+  function clearAdminSelection() {
+    isAdminMode.value = false
+    adminWorkspace.value = null
+    adminWorkspaceIdCookie.value = null
+  }
+
+  async function fetchWorkspaceById(workspaceId: string): Promise<Workspace | null> {
+    const requestFetch = import.meta.server ? useRequestFetch() : $fetch
+
+    try {
+      return await requestFetch<Workspace>(`/api/workspaces/${workspaceId}`)
+    } catch {
+      return null
+    }
+  }
+
+  async function restoreAdminWorkspaceSelection(): Promise<string | null> {
+    const persistedAdminWorkspaceId = adminWorkspaceIdCookie.value
+
+    if (!persistedAdminWorkspaceId) {
+      return null
+    }
+
+    if (
+      adminWorkspace.value?.id !== persistedAdminWorkspaceId
+      || !adminWorkspace.value?.capabilities
+    ) {
+      const resolvedWorkspace = await fetchWorkspaceById(persistedAdminWorkspaceId)
+
+      if (!resolvedWorkspace) {
+        clearAdminSelection()
+        return null
+      }
+
+      adminWorkspace.value = resolvedWorkspace
+    }
+
+    isAdminMode.value = true
+    if (selectedWorkspaceIdCookie.value !== persistedAdminWorkspaceId) {
+      selectedWorkspaceIdCookie.value = persistedAdminWorkspaceId
+    }
+
+    return persistedAdminWorkspaceId
+  }
 
   const selectedWorkspaceId = computed({
     get: () => selectedWorkspaceIdCookie.value,
@@ -57,8 +109,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   })
 
   function selectWorkspace(id: string) {
-    isAdminMode.value = false
-    adminWorkspace.value = null
+    clearAdminSelection()
     selectedWorkspaceIdCookie.value = id
   }
 
@@ -68,6 +119,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function selectWorkspaceAsAdmin(workspace: Workspace) {
     isAdminMode.value = true
     adminWorkspace.value = workspace
+    adminWorkspaceIdCookie.value = workspace.id
     selectedWorkspaceIdCookie.value = workspace.id
   }
 
@@ -75,11 +127,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
    * Exit admin mode and return to user's own workspaces
    */
   function exitAdminMode() {
-    isAdminMode.value = false
-    adminWorkspace.value = null
+    clearAdminSelection()
     const first = workspaces.value[0]
     if (first?.id) {
       selectedWorkspaceIdCookie.value = first.id
+    } else {
+      selectedWorkspaceIdCookie.value = null
     }
   }
 
@@ -166,6 +219,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       await fetchWorkspaces()
     }
 
+    const adminWorkspaceId = await restoreAdminWorkspaceSelection()
+    if (adminWorkspaceId) {
+      return adminWorkspaceId
+    }
+
     if (savedWorkspaceId) {
       const exists = workspaces.value.find(w => w.id === savedWorkspaceId)
       if (exists) {
@@ -179,14 +237,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const first = workspaces.value[0]
     if (first?.id) {
       selectedWorkspaceIdCookie.value = first.id
-      if (!import.meta.server) {
-        isAdminMode.value = false
-        adminWorkspace.value = null
-      }
+      clearAdminSelection()
       return first.id
     }
 
     selectedWorkspaceIdCookie.value = null
+    clearAdminSelection()
     return null
   }
 
@@ -198,8 +254,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     workspaces.value = []
     loadError.value = null
     hasFetched.value = false
-    isAdminMode.value = false
-    adminWorkspace.value = null
+    clearAdminSelection()
   }
 
   /**

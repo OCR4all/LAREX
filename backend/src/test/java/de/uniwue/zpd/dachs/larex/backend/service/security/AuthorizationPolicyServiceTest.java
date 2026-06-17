@@ -66,6 +66,13 @@ class AuthorizationPolicyServiceTest {
         assertTrue(caps.canSetPresets());
     }
 
+        @Test
+        void canAccessWorkspace_globalAdmin_doesNotRequireMembership() {
+                when(globalAdminService.isGlobalAdmin()).thenReturn(true);
+
+                assertTrue(service.canAccessWorkspace("ws-admin-target", "admin-user"));
+        }
+
     @Test
     void workspaceRoleMatrix_teamWorkspace_ownerCuratorEditorPendingNonMember_areConsistent() {
         String workspaceId = "ws-1";

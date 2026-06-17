@@ -249,6 +249,19 @@ class ProjectCrudServiceTest {
     }
 
     @Test
+    void getWorkspaceProjects_returnsProjectsWhenWorkspaceAccessIsGranted() {
+        List<Project> projects = List.of(projectInWorkspace());
+
+        when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, USER_ID)).thenReturn(true);
+        when(projectRepository.findByLibraryWorkspaceId(WORKSPACE_ID)).thenReturn(projects);
+
+        List<Project> result = service.getWorkspaceProjects(WORKSPACE_ID, USER_ID);
+
+        assertSame(projects, result);
+        verify(projectRepository).findByLibraryWorkspaceId(WORKSPACE_ID);
+    }
+
+    @Test
     void deleteProject_schedulesQuotaRefresh() {
         Library library = new Library(WORKSPACE_ID, "Library");
         library.setId(LIBRARY_ID);
