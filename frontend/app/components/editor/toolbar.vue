@@ -745,7 +745,7 @@ const cutDropdownItems = computed(() => [
     },
     {
       label: 'Cut Rectangle',
-      icon: 'i-lucide-square-minus',
+      icon: 'i-carbon-cut-out',
       kbds: getTooltipProps('cutRectangle').kbds,
       disabled: !currentCanvasState.value || !canEditCurrentCanvas.value,
       class: isCutRectangleMode.value ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
@@ -753,7 +753,7 @@ const cutDropdownItems = computed(() => [
     },
     {
       label: 'Cut Polygon',
-      icon: 'i-lucide-pen-tool',
+      icon: 'i-ooui-cut-ltr',
       kbds: getTooltipProps('cutPolygon').kbds,
       disabled: !currentCanvasState.value || !canEditCurrentCanvas.value,
       class: isCutPolygonMode.value ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
@@ -771,11 +771,11 @@ const cutToolConfig: Record<CutToolMode, { icon: string, shortcutId: CutShortcut
     shortcutId: 'cutLine'
   },
   polygon: {
-    icon: 'i-lucide-pen-tool',
+    icon: 'i-ooui-cut-ltr',
     shortcutId: 'cutPolygon'
   },
   rectangle: {
-    icon: 'i-lucide-square-minus',
+    icon: 'i-carbon-cut-out',
     shortcutId: 'cutRectangle'
   }
 }
