@@ -188,6 +188,29 @@ const props = defineProps({
   }
 })
 
+const toolbarActiveToolClass = 'bg-navy-600 text-white hover:bg-navy-700 active:bg-navy-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-600 dark:bg-navy-600 dark:text-white dark:hover:bg-navy-700 dark:active:bg-navy-700'
+const toolbarActiveDropdownItemClass = 'text-white before:bg-navy-600 data-highlighted:text-white data-highlighted:before:bg-navy-700 data-[state=open]:text-white data-[state=open]:before:bg-navy-700'
+const toolbarActiveDropdownItemUi = {
+  itemLeadingIcon: 'text-white group-data-highlighted:text-white group-data-[state=open]:text-white',
+  itemTrailingIcon: 'text-white group-data-highlighted:text-white group-data-[state=open]:text-white'
+} as const
+const toolbarTabsUi = {
+  indicator: 'bg-navy-600',
+  trigger: 'data-[state=active]:text-white focus-visible:outline-navy-600'
+} as const
+
+function activeToolClass(active: boolean): string | undefined {
+  return active ? toolbarActiveToolClass : undefined
+}
+
+function activeDropdownItemClass(active: boolean): string {
+  return active ? toolbarActiveDropdownItemClass : ''
+}
+
+function activeDropdownItemUi(active: boolean): typeof toolbarActiveDropdownItemUi | undefined {
+  return active ? toolbarActiveDropdownItemUi : undefined
+}
+
 const currentCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
 const floatingAnchorId = computed(() => EDITOR_WORKSPACE_FLOATING_ANCHOR_ID)
 
@@ -693,8 +716,8 @@ const regionDropdownItems = computed<DropdownMenuItem[][]>(() => [
       kbds: getTooltipProps('regionRectangle').kbds,
       color: 'neutral',
       active: isRegionTypeRegion.value && isRectangleMode.value,
-      activeColor: 'primary',
-      activeVariant: 'solid',
+      class: activeDropdownItemClass(isRegionTypeRegion.value && isRectangleMode.value),
+      ui: activeDropdownItemUi(isRegionTypeRegion.value && isRectangleMode.value),
       disabled: !currentCanvasState.value || !canCreateRegion.value,
       onSelect: () => setEntryAndMode('region', 'rectangle')
     },
@@ -704,8 +727,8 @@ const regionDropdownItems = computed<DropdownMenuItem[][]>(() => [
       kbds: getTooltipProps('regionPolygon').kbds,
       color: 'neutral',
       active: isRegionTypeRegion.value && isPolygonMode.value,
-      activeColor: 'primary',
-      activeVariant: 'solid',
+      class: activeDropdownItemClass(isRegionTypeRegion.value && isPolygonMode.value),
+      ui: activeDropdownItemUi(isRegionTypeRegion.value && isPolygonMode.value),
       disabled: !currentCanvasState.value || !canCreateRegion.value,
       onSelect: () => setEntryAndMode('region', 'polygon')
     }
@@ -719,7 +742,9 @@ const textlineDropdownItems = computed(() => [
       icon: 'i-lucide-square',
       kbds: getTooltipProps('textlineRectangle').kbds,
       disabled: !currentCanvasState.value || !canCreateTextline.value,
-      class: (isRegionTypeTextline.value && isRectangleMode.value) ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
+      active: isRegionTypeTextline.value && isRectangleMode.value,
+      class: activeDropdownItemClass(isRegionTypeTextline.value && isRectangleMode.value),
+      ui: activeDropdownItemUi(isRegionTypeTextline.value && isRectangleMode.value),
       onSelect: () => setEntryAndMode('textline', 'rectangle')
     },
     {
@@ -727,7 +752,9 @@ const textlineDropdownItems = computed(() => [
       icon: 'i-lucide-pen-tool',
       kbds: getTooltipProps('textlinePolygon').kbds,
       disabled: !currentCanvasState.value || !canCreateTextline.value,
-      class: (isRegionTypeTextline.value && isPolygonMode.value) ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
+      active: isRegionTypeTextline.value && isPolygonMode.value,
+      class: activeDropdownItemClass(isRegionTypeTextline.value && isPolygonMode.value),
+      ui: activeDropdownItemUi(isRegionTypeTextline.value && isPolygonMode.value),
       onSelect: () => setEntryAndMode('textline', 'polygon')
     }
   ]
@@ -740,7 +767,9 @@ const cutDropdownItems = computed(() => [
       icon: 'i-lucide-scissors',
       kbds: getTooltipProps('cutLine').kbds,
       disabled: !currentCanvasState.value || !canEditCurrentCanvas.value,
-      class: isCutLineMode.value ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
+      active: isCutLineMode.value,
+      class: activeDropdownItemClass(isCutLineMode.value),
+      ui: activeDropdownItemUi(isCutLineMode.value),
       onSelect: () => handleToggleCutMode('line')
     },
     {
@@ -748,7 +777,9 @@ const cutDropdownItems = computed(() => [
       icon: 'i-carbon-cut-out',
       kbds: getTooltipProps('cutRectangle').kbds,
       disabled: !currentCanvasState.value || !canEditCurrentCanvas.value,
-      class: isCutRectangleMode.value ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
+      active: isCutRectangleMode.value,
+      class: activeDropdownItemClass(isCutRectangleMode.value),
+      ui: activeDropdownItemUi(isCutRectangleMode.value),
       onSelect: () => handleToggleCutMode('rectangle')
     },
     {
@@ -756,7 +787,9 @@ const cutDropdownItems = computed(() => [
       icon: 'i-ooui-cut-ltr',
       kbds: getTooltipProps('cutPolygon').kbds,
       disabled: !currentCanvasState.value || !canEditCurrentCanvas.value,
-      class: isCutPolygonMode.value ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
+      active: isCutPolygonMode.value,
+      class: activeDropdownItemClass(isCutPolygonMode.value),
+      ui: activeDropdownItemUi(isCutPolygonMode.value),
       onSelect: () => handleToggleCutMode('polygon')
     }
   ]
@@ -908,8 +941,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                     :icon="vkModeIcon"
                     :active="virtualKeyboardMode !== 'off'"
                     color="neutral"
-                    active-color="primary"
-                    active-variant="solid"
+                    :class="activeToolClass(virtualKeyboardMode !== 'off')"
                     :disabled="!hasKeyboards"
                     @click="cycleVirtualKeyboardMode"
                   />
@@ -921,8 +953,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                     icon="i-lucide-chevron-up"
                     color="neutral"
                     :active="virtualKeyboardMode !== 'off'"
-                    active-color="primary"
-                    active-variant="solid"
+                    :class="activeToolClass(virtualKeyboardMode !== 'off')"
                     :disabled="!hasKeyboards"
                     aria-label="Virtual keyboard mode"
                   />
@@ -942,6 +973,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             :orientation="isVertical ? 'vertical' : 'horizontal'"
             size="sm"
             color="neutral"
+            :ui="toolbarTabsUi"
             :content="false"
             :items="textModeSubmodeItems"
           >
@@ -1036,8 +1068,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-mouse-pointer-2"
                 color="neutral"
                 :active="isSelectMode && !uiStore.actionWandActive"
-                active-color="primary"
-                active-variant="solid"
+                :class="activeToolClass(isSelectMode && !uiStore.actionWandActive)"
                 :disabled="!currentCanvasState"
                 @click="handleToggleSelectMode"
               />
@@ -1050,8 +1081,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-move"
                 color="neutral"
                 :active="isMoveMode"
-                active-color="primary"
-                active-variant="solid"
+                :class="activeToolClass(isMoveMode)"
                 :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleMoveMode"
               />
@@ -1073,8 +1103,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   icon="i-lucide-square"
                   color="neutral"
                   :active="isRegionTypeRegion && isRectangleMode"
-                  active-color="primary"
-                  active-variant="solid"
+                  :class="activeToolClass(isRegionTypeRegion && isRectangleMode)"
                   :disabled="!currentCanvasState || !canCreateRegion"
                   @click="setEntryAndMode('region', 'rectangle')"
                 />
@@ -1087,8 +1116,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   icon="i-lucide-pen-tool"
                   color="neutral"
                   :active="isRegionTypeRegion && isPolygonMode"
-                  active-color="primary"
-                  active-variant="solid"
+                  :class="activeToolClass(isRegionTypeRegion && isPolygonMode)"
                   :disabled="!currentCanvasState || !canCreateRegion"
                   @click="setEntryAndMode('region', 'polygon')"
                 />
@@ -1109,8 +1137,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   icon="i-lucide-square"
                   color="neutral"
                   :active="isRegionTypeTextline && isRectangleMode"
-                  active-color="primary"
-                  active-variant="solid"
+                  :class="activeToolClass(isRegionTypeTextline && isRectangleMode)"
                   :disabled="!currentCanvasState || !canCreateTextline"
                   @click="setEntryAndMode('textline', 'rectangle')"
                 />
@@ -1123,8 +1150,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   icon="i-lucide-pen-tool"
                   color="neutral"
                   :active="isRegionTypeTextline && isPolygonMode"
-                  active-color="primary"
-                  active-variant="solid"
+                  :class="activeToolClass(isRegionTypeTextline && isPolygonMode)"
                   :disabled="!currentCanvasState || !canCreateTextline"
                   @click="setEntryAndMode('textline', 'polygon')"
                 />
@@ -1141,8 +1167,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                     size="md"
                     color="neutral"
                     :active="isRegionTypeRegion && (isPolygonMode || isRectangleMode)"
-                    active-color="primary"
-                    active-variant="solid"
+                    :class="activeToolClass(isRegionTypeRegion && (isPolygonMode || isRectangleMode))"
                     :disabled="!currentCanvasState || !canCreateRegion"
                     @click="setEntryAndMode('region', getPrimaryShapeForEntry('region'))"
                   >
@@ -1157,8 +1182,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                     icon="i-lucide-chevron-up"
                     color="neutral"
                     :active="isRegionTypeRegion && (isPolygonMode || isRectangleMode)"
-                    active-color="primary"
-                    active-variant="solid"
+                    :class="activeToolClass(isRegionTypeRegion && (isPolygonMode || isRectangleMode))"
                     :disabled="!currentCanvasState || !canCreateRegion"
                     aria-label="Region tools"
                   />
@@ -1180,8 +1204,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                     size="md"
                     color="neutral"
                     :active="isRegionTypeTextline && (isPolygonMode || isRectangleMode)"
-                    active-color="primary"
-                    active-variant="solid"
+                    :class="activeToolClass(isRegionTypeTextline && (isPolygonMode || isRectangleMode))"
                     :disabled="!currentCanvasState || !canCreateTextline"
                     @click="setEntryAndMode('textline', getPrimaryShapeForEntry('textline'))"
                   >
@@ -1199,8 +1222,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                     icon="i-lucide-chevron-up"
                     color="neutral"
                     :active="isRegionTypeTextline && (isPolygonMode || isRectangleMode)"
-                    active-color="primary"
-                    active-variant="solid"
+                    :class="activeToolClass(isRegionTypeTextline && (isPolygonMode || isRectangleMode))"
                     :disabled="!currentCanvasState || !canCreateTextline"
                     aria-label="Textline tools"
                   />
@@ -1222,8 +1244,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
               icon="i-lucide-activity"
               color="neutral"
               :active="isRegionTypeBaseline && isPolylineMode"
-              active-color="primary"
-              active-variant="solid"
+              :class="activeToolClass(isRegionTypeBaseline && isPolylineMode)"
               :disabled="!currentCanvasState || !canCreateBaseline"
               @click="setEntryAndMode('baseline', 'polyline')"
             />
@@ -1243,8 +1264,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-scissors"
                 color="neutral"
                 :active="isCutLineMode"
-                active-color="primary"
-                active-variant="solid"
+                :class="activeToolClass(isCutLineMode)"
                 :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleCutMode('line')"
               />
@@ -1257,8 +1277,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-square-minus"
                 color="neutral"
                 :active="isCutRectangleMode"
-                active-color="primary"
-                active-variant="solid"
+                :class="activeToolClass(isCutRectangleMode)"
                 :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleCutMode('rectangle')"
               />
@@ -1271,8 +1290,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-pen-tool"
                 color="neutral"
                 :active="isCutPolygonMode"
-                active-color="primary"
-                active-variant="solid"
+                :class="activeToolClass(isCutPolygonMode)"
                 :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleCutMode('polygon')"
               />
@@ -1287,8 +1305,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   size="md"
                   color="neutral"
                   :active="isCutMode"
-                  active-color="primary"
-                  active-variant="solid"
+                  :class="activeToolClass(isCutMode)"
                   :disabled="!currentCanvasState || !canEditCurrentCanvas"
                   @click="handleToggleCutMode(preferredCutMode)"
                 >
@@ -1303,8 +1320,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   icon="i-lucide-chevron-up"
                   color="neutral"
                   :active="isCutMode"
-                  active-color="primary"
-                  active-variant="solid"
+                  :class="activeToolClass(isCutMode)"
                   :disabled="!currentCanvasState || !canEditCurrentCanvas"
                   aria-label="Cut tools"
                 />
@@ -1334,8 +1350,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
               icon="i-lucide-wand-sparkles"
               color="neutral"
               :active="uiStore.actionWandActive"
-              active-color="primary"
-              active-variant="solid"
+              :class="activeToolClass(uiStore.actionWandActive)"
               :disabled="!currentCanvasState || !canEditCurrentCanvas"
               @click="handleToggleActionWand"
             />
@@ -1353,6 +1368,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             :orientation="isVertical ? 'vertical' : 'horizontal'"
             size="sm"
             color="neutral"
+            :ui="toolbarTabsUi"
             :content="false"
             :items="viewModeItems"
           >
@@ -1440,6 +1456,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
           :orientation="isVertical ? 'vertical' : 'horizontal'"
           size="sm"
           color="neutral"
+          :ui="toolbarTabsUi"
           :content="false"
           :items="editorModeItems"
         >
