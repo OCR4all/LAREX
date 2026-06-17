@@ -86,6 +86,9 @@ public class EditorPreference {
     @Column(name = "text_item_layout")
     private String textItemLayout;
 
+    @Column(name = "text_view_auto_select_first_line")
+    private Boolean textViewAutoSelectFirstLine;
+
     @Column(name = "canvas_text_correction_overlay_snap_to_line")
     private Boolean canvasTextCorrectionOverlaySnapToLine;
 
@@ -205,6 +208,9 @@ public class EditorPreference {
 
     public String getTextItemLayout() { return textItemLayout; }
     public void setTextItemLayout(String textItemLayout) { this.textItemLayout = textItemLayout; }
+
+    public Boolean getTextViewAutoSelectFirstLine() { return textViewAutoSelectFirstLine; }
+    public void setTextViewAutoSelectFirstLine(Boolean textViewAutoSelectFirstLine) { this.textViewAutoSelectFirstLine = textViewAutoSelectFirstLine; }
 
     public Boolean getCanvasTextCorrectionOverlaySnapToLine() { return canvasTextCorrectionOverlaySnapToLine; }
     public void setCanvasTextCorrectionOverlaySnapToLine(Boolean canvasTextCorrectionOverlaySnapToLine) { this.canvasTextCorrectionOverlaySnapToLine = canvasTextCorrectionOverlaySnapToLine; }

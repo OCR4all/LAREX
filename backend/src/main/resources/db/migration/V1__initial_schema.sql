@@ -467,6 +467,7 @@ CREATE TABLE public.editor_preferences (
     right_collapsed boolean,
     right_width_px integer,
     show_polygon_label_fill boolean,
+    text_view_auto_select_first_line boolean,
     text_view_cutout_height integer,
     text_view_font_size integer,
     text_view_padding integer,
@@ -2836,5 +2837,4 @@ ALTER TABLE ONLY public.action_run_dismissals
 --
 -- PostgreSQL database dump complete
 --
-
 

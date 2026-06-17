@@ -26,6 +26,7 @@ export interface EditorPreferences {
   textViewPadding: number | null
   textViewCutoutHeight: number | null
   textItemLayout: TextItemLayout | null
+  textViewAutoSelectFirstLine: boolean | null
   canvasTextCorrectionOverlaySnapToLine: boolean | null
   canvasTextCorrectionOverlayXRatio: number | null
   canvasTextCorrectionOverlayYRatio: number | null
@@ -69,6 +70,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   textViewPadding: null,
   textViewCutoutHeight: null,
   textItemLayout: null,
+  textViewAutoSelectFirstLine: null,
   canvasTextCorrectionOverlaySnapToLine: null,
   canvasTextCorrectionOverlayXRatio: null,
   canvasTextCorrectionOverlayYRatio: null,

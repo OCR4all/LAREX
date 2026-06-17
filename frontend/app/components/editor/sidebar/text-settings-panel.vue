@@ -5,6 +5,7 @@ const padding = defineModel<number>('padding', { default: 10 })
 const fontSize = defineModel<number>('fontSize', { default: 18 })
 const cutoutHeight = defineModel<number>('cutoutHeight', { default: 72 })
 const textItemLayout = defineModel<TextItemLayout>('textItemLayout', { default: 'side-by-side' })
+const autoSelectFirstLine = defineModel<boolean>('autoSelectFirstLine', { default: true })
 const showComments = defineModel<boolean>('showComments', { default: false })
 const focusMode = defineModel<boolean>('focusMode', { default: false })
 
@@ -68,6 +69,16 @@ const layoutTabItems = [
         </span>
       </div>
       <USwitch v-model="focusMode" />
+    </div>
+
+    <div class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <span class="text-sm font-medium block">Auto-select First Line</span>
+        <span class="text-xs text-muted">
+          Select the first textline when Visual Text opens without an active line.
+        </span>
+      </div>
+      <USwitch v-model="autoSelectFirstLine" />
     </div>
 
     <div class="flex items-center justify-between gap-3">

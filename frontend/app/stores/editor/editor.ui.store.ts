@@ -84,6 +84,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const textViewPadding = ref<number>(10)
   const textViewCutoutHeight = ref<number>(72)
   const textItemLayout = ref<TextItemLayout>('side-by-side')
+  const textViewAutoSelectFirstLine = ref<boolean>(true)
   const textModeSubmode = ref<TextModeSubmode>('visual')
   const canvasTextCorrectionOverlaySnapToLine = ref<boolean>(true)
   const canvasTextCorrectionOverlayXRatio = ref<number | null>(null)
@@ -167,6 +168,9 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
         : 72
     }
     if (prefs.textItemLayout !== null) textItemLayout.value = prefs.textItemLayout
+    if (prefs.textViewAutoSelectFirstLine !== null) {
+      textViewAutoSelectFirstLine.value = Boolean(prefs.textViewAutoSelectFirstLine)
+    }
     if (prefs.textModeSubmode === 'expert' || prefs.textModeSubmode === 'visual') {
       textModeSubmode.value = prefs.textModeSubmode
     }
@@ -495,6 +499,11 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     editorPreferences.updatePreference('textItemLayout', layout)
   }
 
+  function setTextViewAutoSelectFirstLine(enabled: boolean) {
+    textViewAutoSelectFirstLine.value = Boolean(enabled)
+    editorPreferences.updatePreference('textViewAutoSelectFirstLine', textViewAutoSelectFirstLine.value)
+  }
+
   function setTextModeSubmode(mode: TextModeSubmode) {
     textModeSubmode.value = mode
     editorPreferences.updatePreference('textModeSubmode', mode)
@@ -660,6 +669,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     textViewPadding,
     textViewCutoutHeight,
     textItemLayout,
+    textViewAutoSelectFirstLine,
     textModeSubmode,
     canvasTextCorrectionOverlaySnapToLine,
     canvasTextCorrectionOverlayXRatio,
@@ -731,6 +741,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     setTextViewPadding,
     setTextViewCutoutHeight,
     setTextItemLayout,
+    setTextViewAutoSelectFirstLine,
     setTextModeSubmode,
     setCanvasTextCorrectionOverlaySnapToLine,
     setCanvasTextCorrectionOverlayPosition,

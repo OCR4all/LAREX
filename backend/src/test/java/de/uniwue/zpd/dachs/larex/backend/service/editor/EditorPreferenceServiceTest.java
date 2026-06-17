@@ -139,6 +139,7 @@ class EditorPreferenceServiceTest {
                 null,
                 null,
                 null,
+                null,
                 shortcutBindings,
                 null,
                 null,

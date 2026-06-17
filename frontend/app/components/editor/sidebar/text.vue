@@ -9,6 +9,7 @@ import type { Region } from '@/models/editor/region'
 import type { TextLine } from '@/models/editor/text'
 import type { LinkedTask, Subtask } from '~/types/index'
 import { PolygonType } from '@/models/editor'
+import type { ProjectData } from '@/types/project-page'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { MetadataApplyPayload } from '@/types/editor/metadata'
 
@@ -58,6 +59,11 @@ const cutoutHeightModel = computed({
 const textItemLayoutModel = computed({
   get: () => uiStore.textItemLayout,
   set: next => uiStore.setTextItemLayout(next)
+})
+
+const autoSelectFirstLineModel = computed({
+  get: () => uiStore.textViewAutoSelectFirstLine,
+  set: next => uiStore.setTextViewAutoSelectFirstLine(Boolean(next))
 })
 
 const focusModeModel = computed({
@@ -168,8 +174,8 @@ async function saveProjectTextIndexDefaults(payload: { defaultGtIndex: number, d
   textIndexDefaultsSaveError.value = null
   isSavingTextIndexDefaults.value = true
   try {
-    const project = await $fetch<any>(`/api/workspaces/${workspaceId}/projects/${projectId}`)
-    const updated = await $fetch<any>(`/api/workspaces/${workspaceId}/projects/${projectId}`, {
+    const project = await $fetch<ProjectData>(`/api/workspaces/${workspaceId}/projects/${projectId}`)
+    const updated = await $fetch<ProjectData>(`/api/workspaces/${workspaceId}/projects/${projectId}`, {
       method: 'PUT',
       body: {
         name: project.name,
@@ -198,8 +204,9 @@ async function saveProjectTextIndexDefaults(payload: { defaultGtIndex: number, d
       recognitionIndices: updated.defaultRecognitionIndices ?? payload.defaultRecognitionIndices
     }, projectId)
     await refreshProjectCaches(workspaceId, projectId)
-  } catch (error: any) {
-    textIndexDefaultsSaveError.value = error?.data?.message || error?.message || 'Failed to save defaults'
+  } catch (error: unknown) {
+    const apiError = error as { data?: { message?: string }, message?: string }
+    textIndexDefaultsSaveError.value = apiError.data?.message || apiError.message || 'Failed to save defaults'
   } finally {
     isSavingTextIndexDefaults.value = false
   }
@@ -365,6 +372,7 @@ onBeforeUnmount(() => {
                 v-model:font-size="fontSizeModel"
                 v-model:cutout-height="cutoutHeightModel"
                 v-model:text-item-layout="textItemLayoutModel"
+                v-model:auto-select-first-line="autoSelectFirstLineModel"
                 v-model:focus-mode="focusModeModel"
                 v-model:show-comments="showCommentsModel"
               />
@@ -457,6 +465,7 @@ onBeforeUnmount(() => {
             v-model:font-size="fontSizeModel"
             v-model:cutout-height="cutoutHeightModel"
             v-model:text-item-layout="textItemLayoutModel"
+            v-model:auto-select-first-line="autoSelectFirstLineModel"
             v-model:focus-mode="focusModeModel"
             v-model:show-comments="showCommentsModel"
           />

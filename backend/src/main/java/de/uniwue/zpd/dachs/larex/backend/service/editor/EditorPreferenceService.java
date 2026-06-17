@@ -44,6 +44,7 @@ public class EditorPreferenceService {
         if (dto.textViewPadding() != null) pref.setTextViewPadding(dto.textViewPadding());
         if (dto.textViewCutoutHeight() != null) pref.setTextViewCutoutHeight(dto.textViewCutoutHeight());
         if (dto.textItemLayout() != null) pref.setTextItemLayout(dto.textItemLayout());
+        if (dto.textViewAutoSelectFirstLine() != null) pref.setTextViewAutoSelectFirstLine(dto.textViewAutoSelectFirstLine());
         if (dto.canvasTextCorrectionOverlaySnapToLine() != null) pref.setCanvasTextCorrectionOverlaySnapToLine(dto.canvasTextCorrectionOverlaySnapToLine());
         if (dto.canvasTextCorrectionOverlayXRatio() != null) pref.setCanvasTextCorrectionOverlayXRatio(dto.canvasTextCorrectionOverlayXRatio());
         if (dto.canvasTextCorrectionOverlayYRatio() != null) pref.setCanvasTextCorrectionOverlayYRatio(dto.canvasTextCorrectionOverlayYRatio());

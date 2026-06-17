@@ -214,6 +214,7 @@ const canvas = ref<HTMLCanvasElement | null>(null)
 const correctionOverlayContainerRef = ref<HTMLDivElement | null>(null)
 const webglRenderer = useWebglRenderer(canvas)
 const suppressCorrectionZoomPreferenceUpdate = ref(false)
+const correctionViewInitialized = ref(false)
 
 async function loadCanvasImage(src: string): Promise<void> {
   if (!src) {
@@ -1998,6 +1999,52 @@ const isDictionaryCheckLoadingForGt = computed(() => {
 
 const pageOrderTextlineIds = computed(() => collectTextlineIdsInPageOrder(session.document.value?.page?.regions))
 
+function getFirstVisualTextlineId(): string | null {
+  const availableTextlineIds = new Set(
+    polygons
+      .filter(polygon => isTextlinePolygonType(polygon.type))
+      .map(polygon => polygon.id)
+  )
+
+  for (const textlineId of pageOrderTextlineIds.value) {
+    if (availableTextlineIds.has(textlineId)) return textlineId
+  }
+
+  return polygons.find(polygon => isTextlinePolygonType(polygon.type))?.id ?? null
+}
+
+function autoSelectFirstVisualTextline(): void {
+  if (!isTextVisualMode.value || !editorUiStore.preferencesLoaded || !editorUiStore.textViewAutoSelectFirstLine) return
+  if (correctionViewInitialized.value) return
+  if (!canShowCanvasContent.value || selectedTextlinePolygon.value) return
+
+  const firstTextlineId = getFirstVisualTextlineId()
+  if (!firstTextlineId) return
+
+  canvasControls.selectPolylineById?.(null, { focusMode: 'none' })
+  canvasControls.selectPolygonById?.(firstTextlineId, { focusMode: 'fit-width' })
+}
+
+watch(
+  () => [
+    isTextVisualMode.value,
+    editorUiStore.preferencesLoaded,
+    editorUiStore.textViewAutoSelectFirstLine,
+    canShowCanvasContent.value,
+    selectedTextlinePolygon.value?.id ?? null,
+    pageOrderTextlineIds.value.join('\u0000'),
+    polygons.length
+  ] as const,
+  () => {
+    nextTick(autoSelectFirstVisualTextline)
+  },
+  { immediate: true }
+)
+
+watch(pageId, () => {
+  correctionViewInitialized.value = false
+})
+
 function queueCorrectionInputFocus() {
   focusCorrectionInputQueued.value = true
   nextTick(() => {
@@ -2230,7 +2277,11 @@ watch(
 watch(
   () => [isTextVisualMode.value, selectedTextlinePolygon.value?.id ?? null, activeGtIndex.value] as const,
   ([enabled, selectedId, gtIndex], [prevEnabled, prevSelectedId, prevGtIndex]) => {
-    if (!enabled || !selectedId) return
+    if (!enabled) {
+      correctionViewInitialized.value = false
+      return
+    }
+    if (!selectedId) return
 
     const selectionChanged = selectedId !== prevSelectedId
     const justEnabled = enabled && !prevEnabled
@@ -2242,18 +2293,23 @@ watch(
     }
 
     if (selectionChanged || justEnabled) {
-      const persistedCorrectionZoom = getPersistedCorrectionZoom()
-      if (persistedCorrectionZoom !== null) {
-        withSuppressedCorrectionZoomPreferenceUpdate(() => {
-          canvasControls.selectPolygonById?.(selectedId, { focusMode: 'none' })
-          const polygon = selectedTextlinePolygon.value
-          centerCorrectionViewOnTextlineWithZoom(polygon, persistedCorrectionZoom)
-        })
+      const shouldUseDefaultFit = !correctionViewInitialized.value
+
+      if (shouldUseDefaultFit) {
+        canvasControls.selectPolygonById?.(selectedId, { focusMode: 'fit-width' })
       } else {
-        withSuppressedCorrectionZoomPreferenceUpdate(() => {
+        const persistedCorrectionZoom = getPersistedCorrectionZoom()
+        if (persistedCorrectionZoom !== null) {
+          withSuppressedCorrectionZoomPreferenceUpdate(() => {
+            canvasControls.selectPolygonById?.(selectedId, { focusMode: 'none' })
+            const polygon = selectedTextlinePolygon.value
+            centerCorrectionViewOnTextlineWithZoom(polygon, persistedCorrectionZoom)
+          })
+        } else {
           canvasControls.selectPolygonById?.(selectedId, { focusMode: 'fit-width' })
-        })
+        }
       }
+      correctionViewInitialized.value = true
       queueCorrectionInputFocus()
     }
   }
