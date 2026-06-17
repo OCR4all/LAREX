@@ -1,7 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.label;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
 import de.uniwue.zpd.dachs.larex.backend.dto.LabelSetDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;

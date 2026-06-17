@@ -1,6 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.importer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifImportDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.IiifImportJob;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;

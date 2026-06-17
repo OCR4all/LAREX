@@ -1,6 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.dictionary;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;

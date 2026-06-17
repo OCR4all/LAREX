@@ -1,7 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionAuditEvent;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionAuditEventRepository;
@@ -47,7 +47,7 @@ public class ActionAuditService {
             event.setProjectId(projectId);
             event.setDetailsJson(details == null || details.isEmpty() ? null : objectMapper.writeValueAsString(details));
             auditRepository.save(event);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.warn("Failed to serialize Action audit event details for {}", action, e);
         } catch (RuntimeException e) {
             log.warn("Failed to persist Action audit event {}", action, e);
@@ -83,7 +83,7 @@ public class ActionAuditService {
         }
         try {
             return objectMapper.readValue(detailsJson, Object.class);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return detailsJson;
         }
     }

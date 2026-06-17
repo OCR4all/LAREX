@@ -1,7 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.admin;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditAction;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditEventDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditOutcome;
@@ -69,7 +69,7 @@ public class AdminUserAuditService {
 
         try {
             return objectMapper.writeValueAsString(details);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return "{\"error\":\"Failed to serialize audit details\"}";
         }
     }

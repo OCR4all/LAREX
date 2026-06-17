@@ -1,7 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.notification;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.config.NotificationBridgeProperties;
 import de.uniwue.zpd.dachs.larex.backend.entity.Notification;
 import java.io.IOException;
@@ -63,7 +63,7 @@ public class NotificationBridgeClient {
             if (response.statusCode() >= 400) {
                 logger.warn("Notification bridge rejected push from source {} with status {}", source, response.statusCode());
             }
-        } catch (JsonProcessingException error) {
+        } catch (JacksonException error) {
             logger.warn("Failed to serialize notification bridge payload from source {}", source, error);
         } catch (IllegalStateException error) {
             logger.warn("Failed to sign notification bridge payload from source {}", source, error);

@@ -1,10 +1,10 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.JsonLocation;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.TokenStreamLocation;
+import tools.jackson.databind.DatabindException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.dataformat.yaml.YAMLFactory;
 import de.uniwue.zpd.dachs.larex.backend.config.ActionProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 
 @Service
 @Transactional
@@ -301,10 +301,10 @@ public class ActionDefinitionService {
         ActionDefinitionDocument document;
         try {
             document = yamlMapper.readValue(yaml, ActionDefinitionDocument.class);
-        } catch (JsonMappingException e) {
+        } catch (DatabindException e) {
             diagnostics.add(mappingError(e));
             throw new ValidationException(diagnostics);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             diagnostics.add(parseError(e));
             throw new ValidationException(diagnostics);
         }
@@ -398,7 +398,7 @@ public class ActionDefinitionService {
                     document.parameters() == null ? Map.of() : document.parameters()
             );
             return new ParsedDefinition(document, parsedJson, preview);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             diagnostics.add(error("$", "Could not serialize parsed definition"));
             throw new ValidationException(diagnostics);
         }
@@ -407,7 +407,7 @@ public class ActionDefinitionService {
     public ActionDefinitionDocument readParsedDocument(ActionProcessorDefinition definition) {
         try {
             return jsonMapper.readValue(definition.getParsedJson(), ActionDefinitionDocument.class);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Stored Action definition is invalid", e);
         }
     }
@@ -542,7 +542,7 @@ public class ActionDefinitionService {
         try {
             List<ActionTarget> targets = jsonMapper.readValue(definition.getTargetTypesJson(), ACTION_TARGET_LIST);
             return targets == null || targets.isEmpty() ? List.of(ActionTarget.PAGE) : targets;
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return List.of(ActionTarget.PAGE);
         }
     }
@@ -645,7 +645,7 @@ public class ActionDefinitionService {
     private String writeJson(Object value) {
         try {
             return jsonMapper.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Could not serialize Action definition value", e);
         }
     }
@@ -876,13 +876,13 @@ public class ActionDefinitionService {
         return value.trim();
     }
 
-    private ActionDto.ValidationDiagnostic mappingError(JsonMappingException e) {
+    private ActionDto.ValidationDiagnostic mappingError(DatabindException e) {
         String path = e.getPath().stream()
-                .map(ref -> ref.getFieldName() == null ? String.valueOf(ref.getIndex()) : ref.getFieldName())
+            .map(ref -> ref.getPropertyName() == null ? String.valueOf(ref.getIndex()) : ref.getPropertyName())
                 .filter(part -> part != null && !part.isBlank())
                 .reduce((left, right) -> left + "." + right)
                 .orElse("$");
-        JsonLocation location = e.getLocation();
+        TokenStreamLocation location = e.getLocation();
         return new ActionDto.ValidationDiagnostic(
                 "error",
                 path,
@@ -892,8 +892,8 @@ public class ActionDefinitionService {
         );
     }
 
-    private ActionDto.ValidationDiagnostic parseError(JsonProcessingException e) {
-        JsonLocation location = e.getLocation();
+    private ActionDto.ValidationDiagnostic parseError(JacksonException e) {
+        TokenStreamLocation location = e.getLocation();
         return new ActionDto.ValidationDiagnostic(
                 "error",
                 "$",

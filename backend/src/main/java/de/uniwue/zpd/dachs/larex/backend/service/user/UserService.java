@@ -1,7 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.user;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.AuthProvisioningProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.UserProvisioningMode;
 import de.uniwue.zpd.dachs.larex.backend.config.security.KeycloakAdminProperties;

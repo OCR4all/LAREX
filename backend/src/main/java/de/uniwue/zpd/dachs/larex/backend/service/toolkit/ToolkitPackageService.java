@@ -1,9 +1,10 @@
 package de.uniwue.zpd.dachs.larex.backend.service.toolkit;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DictionaryDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.KeyboardItemDto;
@@ -888,7 +889,7 @@ public class ToolkitPackageService {
         if (entry.getMetadataJson() != null && !entry.getMetadataJson().isBlank()) {
             try {
                 metadata = objectMapper.readTree(entry.getMetadataJson());
-            } catch (IOException ignored) {
+            } catch (JacksonException ignored) {
                 metadata = null;
             }
         }
@@ -1265,7 +1266,7 @@ public class ToolkitPackageService {
             ObjectNode source = (ObjectNode) node;
             ObjectNode sorted = objectMapper.createObjectNode();
             List<String> fieldNames = new ArrayList<>();
-            source.fieldNames().forEachRemaining(fieldNames::add);
+            fieldNames.addAll(source.propertyNames());
             fieldNames.stream().sorted(String::compareTo).forEach(fieldName -> sorted.set(fieldName, sortNode(source.get(fieldName))));
             return sorted;
         }

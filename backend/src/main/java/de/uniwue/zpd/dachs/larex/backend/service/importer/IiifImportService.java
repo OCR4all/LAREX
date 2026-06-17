@@ -1,9 +1,9 @@
 package de.uniwue.zpd.dachs.larex.backend.service.importer;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifImportDto;
@@ -1466,7 +1466,7 @@ public class IiifImportService {
         if (node == null || node.isMissingNode() || node.isNull()) {
             return Collections.emptyList();
         }
-        return node::elements;
+        return node;
     }
 
     private boolean hasText(String value) {
@@ -1489,7 +1489,7 @@ public class IiifImportService {
     private String writeJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Failed to serialize IIIF import state", e);
         }
     }
@@ -1500,7 +1500,7 @@ public class IiifImportService {
         }
         try {
             return objectMapper.readValue(json, typeReference);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return fallback;
         }
     }
@@ -1510,7 +1510,7 @@ public class IiifImportService {
         if (job.getManifestSummaryJson() != null && !job.getManifestSummaryJson().isBlank()) {
             try {
                 manifest = objectMapper.readValue(job.getManifestSummaryJson(), IiifImportDto.ManifestSummary.class);
-            } catch (JsonProcessingException ignored) {
+            } catch (JacksonException ignored) {
                 // Keep null when stale or invalid.
             }
         }

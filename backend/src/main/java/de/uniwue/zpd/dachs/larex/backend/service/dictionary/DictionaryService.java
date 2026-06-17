@@ -1,8 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.dictionary;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
@@ -749,7 +749,7 @@ public class DictionaryService {
                     Boolean.TRUE.equals(payload.locked()),
                     entries
             );
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalArgumentException("Failed to parse JSON dictionary import", e);
         }
     }
@@ -887,13 +887,13 @@ public class DictionaryService {
 
     private List<ImportedEntry> parseJsonObjectEntries(JsonNode root) {
         List<ImportedEntry> entries = new ArrayList<>();
-        root.fields().forEachRemaining(field -> {
+        root.properties().forEach(field -> {
             String form = normalizeSurfaceForm(field.getKey());
             if (form == null) {
                 return;
             }
             JsonNode value = field.getValue();
-            JsonNode metadata = (value != null && value.isContainerNode()) ? value : null;
+            JsonNode metadata = (value != null && value.isContainer()) ? value : null;
             entries.add(new ImportedEntry(form, null, metadata));
         });
         return entries;
@@ -1332,7 +1332,7 @@ public class DictionaryService {
         }
         try {
             return objectMapper.writeValueAsString(metadata);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalArgumentException("Failed to serialize dictionary entry metadata", e);
         }
     }
@@ -1344,7 +1344,7 @@ public class DictionaryService {
         }
         try {
             return objectMapper.readTree(value);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return null;
         }
     }

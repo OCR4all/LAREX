@@ -1,7 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.dataset;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DatasetDto;
@@ -1580,7 +1581,7 @@ public class DatasetService {
     private String writeWarnings(List<String> warnings) {
         try {
             return objectMapper.writeValueAsString(defaultList(warnings));
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Failed to serialize validation warnings", e);
         }
     }
@@ -1591,7 +1592,7 @@ public class DatasetService {
         }
         try {
             return objectMapper.readValue(warningsJson, new TypeReference<>() {});
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             return List.of();
         }
     }

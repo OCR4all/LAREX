@@ -1,6 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.project;
 
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.JsonNodeFactory;
 import de.uniwue.zpd.dachs.larex.backend.entity.KeyboardItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.ResourceTransferRequest;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;

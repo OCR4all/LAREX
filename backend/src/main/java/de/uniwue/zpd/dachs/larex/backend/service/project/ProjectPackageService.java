@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.project;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
@@ -1164,7 +1165,7 @@ public class ProjectPackageService {
     private String writeEmbeddedOutputsJson(List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs) {
         try {
             return objectMapper.writeValueAsString(copyEmbeddedOutputs(embeddedOutputs));
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Failed to serialize embedded outputs", e);
         }
     }
@@ -1176,7 +1177,7 @@ public class ProjectPackageService {
         try {
             return objectMapper.readerForListOf(DocumentExportDto.EmbeddedProjectOutputRequest.class)
                     .readValue(embeddedOutputsJson);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Failed to read embedded outputs", e);
         }
     }

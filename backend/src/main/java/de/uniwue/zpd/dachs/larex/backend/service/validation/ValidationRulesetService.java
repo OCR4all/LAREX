@@ -1,8 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.validation;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ValidationRulesetDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.NormalizationProfile;
@@ -253,7 +253,7 @@ public class ValidationRulesetService {
     public List<ValidationRulesetDto.Rule> readRules(ValidationRuleset ruleset) {
         try {
             return objectMapper.readValue(ruleset.getRulesJson(), RULE_LIST_TYPE);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Failed to deserialize validation ruleset " + ruleset.getId(), e);
         }
     }
@@ -283,7 +283,7 @@ public class ValidationRulesetService {
         }
         try {
             ruleset.setRulesJson(objectMapper.writeValueAsString(rules));
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Failed to serialize validation rules", e);
         }
     }

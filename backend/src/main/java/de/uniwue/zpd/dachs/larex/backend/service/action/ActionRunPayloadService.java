@@ -1,8 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
@@ -32,7 +32,7 @@ public class ActionRunPayloadService {
     public List<String> readPageIds(ActionRun run) {
         try {
             return objectMapper.readValue(run.getPageIdsJson(), STRING_LIST);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return List.of();
         }
     }
@@ -43,7 +43,7 @@ public class ActionRunPayloadService {
         }
         try {
             return objectMapper.readValue(json, OBJECT_MAP);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return Map.of();
         }
     }
@@ -69,7 +69,7 @@ public class ActionRunPayloadService {
         if (run.getTargetSelectionJson() != null && !run.getTargetSelectionJson().isBlank()) {
             try {
                 return objectMapper.readValue(run.getTargetSelectionJson(), TARGET_SELECTION);
-            } catch (JsonProcessingException ignored) {
+            } catch (JacksonException ignored) {
             }
         }
         return new ActionDto.TargetSelection(
@@ -83,7 +83,7 @@ public class ActionRunPayloadService {
     public String writeJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Could not serialize Action payload", e);
         }
     }

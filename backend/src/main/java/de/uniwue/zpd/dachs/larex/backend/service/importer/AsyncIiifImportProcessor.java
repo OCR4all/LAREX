@@ -1,8 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.importer;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifImportDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.IiifImportJob;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
@@ -397,7 +397,7 @@ public class AsyncIiifImportProcessor {
         }
         try {
             return objectMapper.readValue(json, JOB_PAYLOAD_LIST_TYPE);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Failed to read IIIF import payload", e);
         }
     }
@@ -408,7 +408,7 @@ public class AsyncIiifImportProcessor {
         }
         try {
             return new ArrayList<>(objectMapper.readValue(json, ITEM_RESULT_LIST_TYPE));
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return new ArrayList<>();
         }
     }
@@ -416,7 +416,7 @@ public class AsyncIiifImportProcessor {
     private String writeJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Failed to serialize IIIF import results", e);
         }
     }

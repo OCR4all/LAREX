@@ -1,8 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.util;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.util.Map;
 
@@ -17,8 +17,8 @@ public final class JsonNodeUtils {
             return new SanitizationResult(null, false);
         }
 
-        JsonNode copy = input.isContainerNode() ? input.deepCopy() : input;
-        boolean changed = copy.isContainerNode() && removeFieldRecursivelyInPlace(copy, fieldName);
+        JsonNode copy = input.isContainer() ? input.deepCopy() : input;
+        boolean changed = copy.isContainer() && removeFieldRecursivelyInPlace(copy, fieldName);
         return new SanitizationResult(copy, changed);
     }
 

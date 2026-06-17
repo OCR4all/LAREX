@@ -1,6 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.editor;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import de.uniwue.zpd.dachs.larex.backend.entity.EditorPreference;
 import de.uniwue.zpd.dachs.larex.backend.service.editor.EditorPreferenceService;
 import org.springframework.http.ResponseEntity;

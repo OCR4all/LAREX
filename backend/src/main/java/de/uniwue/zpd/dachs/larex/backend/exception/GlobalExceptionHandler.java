@@ -1,7 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.exception;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.ErrorResponseDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ErrorEventCaptureRequest;
 import de.uniwue.zpd.dachs.larex.backend.dto.StorageQuotaErrorResponseDto;
@@ -466,7 +466,7 @@ public class GlobalExceptionHandler {
     private String serializeDetails(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return null;
         }
     }

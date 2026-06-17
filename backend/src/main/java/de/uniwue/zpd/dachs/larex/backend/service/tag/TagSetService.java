@@ -1,8 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.tag;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.TagSetDto;
@@ -119,7 +119,7 @@ public class TagSetService {
             TagSetDto.CreateOrUpdateRequest request = objectMapper.treeToValue(requestJson, TagSetDto.CreateOrUpdateRequest.class);
             tagSetDefinitionValidator.validate(request);
             return request;
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalArgumentException("Invalid tag set payload: " + e.getOriginalMessage());
         }
     }

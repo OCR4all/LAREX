@@ -32,7 +32,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-websocket")
-	implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
+	implementation("tools.jackson.dataformat:jackson-dataformat-yaml")
     implementation("org.keycloak:keycloak-admin-client:26.0.8")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("net.coobird:thumbnailator:0.4.20")

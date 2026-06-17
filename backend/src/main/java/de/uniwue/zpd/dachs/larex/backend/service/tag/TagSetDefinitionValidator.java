@@ -1,6 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.tag;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import de.uniwue.zpd.dachs.larex.backend.dto.TagSetDto;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -98,7 +98,7 @@ public class TagSetDefinitionValidator {
             throw new IllegalArgumentException(path + " must be an object");
         }
 
-        Iterator<String> fieldNames = node.fieldNames();
+        Iterator<String> fieldNames = node.propertyNames().iterator();
         while (fieldNames.hasNext()) {
             String fieldName = fieldNames.next();
             if (!allowedFields.contains(fieldName)) {

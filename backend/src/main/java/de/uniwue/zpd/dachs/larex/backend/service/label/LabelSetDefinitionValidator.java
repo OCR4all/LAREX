@@ -4,7 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.LabelSetDto;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import org.springframework.stereotype.Component;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -126,7 +126,7 @@ public class LabelSetDefinitionValidator {
             throw new IllegalArgumentException(path + " must be an object");
         }
 
-        Iterator<String> fieldNames = node.fieldNames();
+        Iterator<String> fieldNames = node.propertyNames().iterator();
         while (fieldNames.hasNext()) {
             String fieldName = fieldNames.next();
             if (!allowedFields.contains(fieldName)) {

@@ -1,6 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.toolkit;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.service.toolkit.ToolkitPackageService;
 import org.springframework.http.ContentDisposition;

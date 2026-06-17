@@ -8,9 +8,9 @@ import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
 import de.uniwue.zpd.dachs.larex.backend.util.JsonNodeUtils;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -108,7 +108,7 @@ public class LabelSetService {
             LabelSetDto.CreateOrUpdateRequest normalizedRequest = normalizeRegionCustomSubTypes(request);
             labelSetDefinitionValidator.validate(normalizedRequest);
             return normalizedRequest;
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalArgumentException("Invalid label set payload: " + e.getOriginalMessage());
         }
     }

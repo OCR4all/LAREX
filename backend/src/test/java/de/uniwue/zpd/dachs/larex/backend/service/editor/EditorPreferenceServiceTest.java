@@ -1,6 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.editor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.controller.editor.EditorPreferenceController.EditorPreferenceDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.EditorPreference;
 import de.uniwue.zpd.dachs.larex.backend.repository.editor.EditorPreferenceRepository;
@@ -108,8 +108,8 @@ class EditorPreferenceServiceTest {
     private EditorPreferenceDto preferenceDto(
             String backgroundColor,
             Boolean showPolygonLabelFill,
-            com.fasterxml.jackson.databind.JsonNode shortcutBindings,
-            com.fasterxml.jackson.databind.JsonNode onboardingTourCompletion,
+            tools.jackson.databind.JsonNode shortcutBindings,
+            tools.jackson.databind.JsonNode onboardingTourCompletion,
             Boolean onboardingToursOptedOut
     ) {
         return new EditorPreferenceDto(

@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.project;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
@@ -117,7 +118,7 @@ class ProjectPackageServiceTest {
 
     @Test
     void exportProjectPackage_embedsAuxiliaryOutputsUnderExportsDirectory() throws Exception {
-        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
         ArchiveIoService archiveIoService = new ArchiveIoService(objectMapper);
         ProjectPackageService service = new ProjectPackageService(
                 projectRepository,
@@ -234,7 +235,7 @@ class ProjectPackageServiceTest {
 
     @Test
     void exportBasicProject_writesFlatArchiveWithOriginalFilenames() throws Exception {
-        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
         ArchiveIoService archiveIoService = new ArchiveIoService(objectMapper);
         ProjectPackageService service = new ProjectPackageService(
                 projectRepository,
@@ -373,7 +374,7 @@ class ProjectPackageServiceTest {
                 normalizationProfileRepository,
                 validationRulesetRepository,
                 workspaceAccessService,
-                new ArchiveIoService(new ObjectMapper().findAndRegisterModules()),
+                new ArchiveIoService(JsonMapper.builder().findAndAddModules().build()),
                 toolkitPackageService,
                 hierarchicalFileStorageService,
                 pageOrderService,
@@ -383,7 +384,7 @@ class ProjectPackageServiceTest {
                 pageXmlConversionService,
                 pageXmlCanonicalizationService,
                 documentExportService,
-                new ObjectMapper().findAndRegisterModules()
+                JsonMapper.builder().findAndAddModules().build()
         );
         when(pageRepository.save(any(Page.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
