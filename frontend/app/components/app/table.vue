@@ -53,7 +53,51 @@ const tableUi = computed(() => ({
   ...((attrs.ui as Record<string, unknown> | undefined) ?? {})
 }))
 
-function withDefaultDateCells(columns: unknown[] | undefined): unknown[] | undefined {
+type TableRow = {
+  getValue: (columnId: string) => unknown
+  original?: Record<string, unknown>
+}
+
+type TableCellProps = {
+  row: TableRow
+}
+
+function renderEmptyTableCell() {
+  return h('div', { class: 'text-neutral-400 dark:text-neutral-500 text-sm' }, '—')
+}
+
+function isEmptyTableValue(value: unknown) {
+  return value === null
+    || value === undefined
+    || (typeof value === 'string' && value.trim().length === 0)
+}
+
+function isEmptyTableCellContent(content: unknown) {
+  return content === null
+    || content === undefined
+    || (typeof content === 'string' && content.trim().length === 0)
+    || (Array.isArray(content) && content.length === 0)
+}
+
+function createDefaultTableCell(
+  id: string,
+  dateColumnIds: Set<string>
+) {
+  return ({ row }: TableCellProps) => {
+    if (dateColumnIds.has(id)) {
+      return h(AppDateTime, {
+        createdAt: row.original?.created as DateTimeInput,
+        updatedAt: row.original?.updated as DateTimeInput,
+        value: row.getValue(id) as DateTimeInput
+      })
+    }
+
+    const value = row.getValue(id)
+    return isEmptyTableValue(value) ? renderEmptyTableCell() : value
+  }
+}
+
+function withDefaultCells(columns: unknown[] | undefined): unknown[] | undefined {
   if (!columns?.length) return columns
 
   const dateColumnIds = new Set(props.dateColumnIds)
@@ -65,21 +109,22 @@ function withDefaultDateCells(columns: unknown[] | undefined): unknown[] | undef
     if (Array.isArray(column.columns) && column.columns.length > 0) {
       return {
         ...column,
-        columns: withDefaultDateCells(column.columns)
+        columns: withDefaultCells(column.columns)
       }
     }
 
     const id = getTableColumnId(column)
-    if (!id || !dateColumnIds.has(id) || column.cell) return column
+    if (!id) return column
+
+    const baseCell = typeof column.cell === 'function'
+      ? column.cell as (props: TableCellProps) => unknown
+      : createDefaultTableCell(id, dateColumnIds)
 
     return {
       ...column,
-      cell: ({ row }: { row: { getValue: (columnId: string) => unknown, original?: Record<string, unknown> } }) => {
-        return h(AppDateTime, {
-          createdAt: row.original?.created as DateTimeInput,
-          updatedAt: row.original?.updated as DateTimeInput,
-          value: row.getValue(id) as DateTimeInput
-        })
+      cell: (cellProps: TableCellProps) => {
+        const content = baseCell(cellProps)
+        return isEmptyTableCellContent(content) ? renderEmptyTableCell() : content
       }
     }
   })
@@ -104,7 +149,7 @@ const { columnVisibility } = usePersistentTableColumnVisibility(
 
 const tableColumns = computed(() => {
   const visibleColumns = filterVisibleTableColumns(props.columns, columnVisibility.value)
-  return withDefaultDateCells(visibleColumns) as TableColumn<unknown, unknown>[] | undefined
+  return withDefaultCells(visibleColumns) as TableColumn<unknown, unknown>[] | undefined
 })
 </script>
 
