@@ -47,6 +47,11 @@ const collapsedRailImagePopoverOpen = ref(false)
 const DEFAULT_FLOATING_SIDEBAR_TOP = 120
 const DEFAULT_FLOATING_LEFT_SIDEBAR_GAP = 24
 const DEFAULT_FLOATING_LEFT_SIDEBAR_LEFT = 24
+const utilityButtonClass = 'size-7 justify-center p-0'
+const utilityIconClass = 'size-4'
+const notificationChipUi = {
+  base: 'h-4 min-w-4 translate-x-1 -translate-y-1 px-1 text-[10px] leading-none ring-2 ring-bg'
+}
 
 await ensureInitialData()
 
@@ -262,19 +267,23 @@ watch(() => props.imagePopoverDismissKey, () => {
         <UTooltip text="Notifications" :content="{ side: 'right' }">
           <UChip
             inset
+            size="3xl"
             :show="unreadCount > 0"
             :text="unreadCount"
             color="error"
+            position="top-right"
+            :ui="notificationChipUi"
           >
             <UButton
               color="neutral"
               variant="ghost"
               square
               size="sm"
+              :class="utilityButtonClass"
               aria-label="Open notifications"
               @click="openNotifications"
             >
-              <UIcon name="i-lucide-bell" class="size-4" />
+              <UIcon name="i-lucide-bell" :class="utilityIconClass" />
             </UButton>
           </UChip>
         </UTooltip>
@@ -422,19 +431,23 @@ watch(() => props.imagePopoverDismissKey, () => {
           <UTooltip text="Notifications" :content="{ side: 'right' }">
             <UChip
               inset
+              size="3xl"
               :show="unreadCount > 0"
               :text="unreadCount"
               color="error"
               position="top-right"
+              :ui="notificationChipUi"
             >
               <UButton
                 color="neutral"
                 variant="ghost"
+                square
                 size="sm"
+                :class="utilityButtonClass"
                 aria-label="Open notifications"
                 @click="openNotifications"
               >
-                <UIcon name="i-lucide-bell" class="size-4" />
+                <UIcon name="i-lucide-bell" :class="utilityIconClass" />
               </UButton>
             </UChip>
           </UTooltip>
@@ -548,20 +561,24 @@ watch(() => props.imagePopoverDismissKey, () => {
         <div class="flex items-center justify-between">
           <UTooltip text="Notifications" :content="{ side: 'top' }">
             <UChip
+              inset
+              size="3xl"
               :show="unreadCount > 0"
               :text="unreadCount"
               color="error"
               position="top-right"
+              :ui="notificationChipUi"
             >
               <UButton
                 color="neutral"
                 variant="ghost"
                 square
                 size="md"
+                :class="utilityButtonClass"
                 aria-label="Open notifications"
                 @click="openNotifications"
               >
-                <UIcon name="i-lucide-bell" class="size-4" />
+                <UIcon name="i-lucide-bell" :class="utilityIconClass" />
               </UButton>
             </UChip>
           </UTooltip>
