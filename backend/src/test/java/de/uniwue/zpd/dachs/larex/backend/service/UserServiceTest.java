@@ -33,6 +33,7 @@ import org.keycloak.representations.idm.UserRepresentation;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
 import java.util.List;
@@ -778,7 +779,8 @@ class UserServiceTest {
                 keycloakAdmin,
                 keycloakAdminProperties,
                 adminUserAuditService,
-                properties
+                properties,
+                JsonMapper.builder().findAndAddModules().build()
         );
     }
 

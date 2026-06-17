@@ -51,7 +51,6 @@ public class UserService {
     private static final String GLOBAL_ADMIN_ROLE = "GLOBAL_ADMIN";
     private static final String GLOBAL_CURATOR_ROLE = "GLOBAL_CURATOR";
     private static final int IDENTITY_PROVIDER_ERROR_DETAIL_MAX_LENGTH = 240;
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final Keycloak keycloakAdmin;
     private final String realm;
@@ -60,12 +59,14 @@ public class UserService {
     private final Integer actionEmailLifespanSeconds;
     private final AdminUserAuditService adminUserAuditService;
     private final AuthProvisioningProperties authProvisioningProperties;
+    private final ObjectMapper objectMapper;
 
     public UserService(
             Keycloak keycloakAdmin,
             KeycloakAdminProperties keycloakAdminProperties,
             AdminUserAuditService adminUserAuditService,
-            AuthProvisioningProperties authProvisioningProperties) {
+            AuthProvisioningProperties authProvisioningProperties,
+            ObjectMapper objectMapper) {
         KeycloakAdminProperties.ActionEmail actionEmail = keycloakAdminProperties.actionEmail();
 
         this.keycloakAdmin = keycloakAdmin;
@@ -75,6 +76,7 @@ public class UserService {
         this.actionEmailLifespanSeconds = actionEmail.lifespanSeconds();
         this.adminUserAuditService = adminUserAuditService;
         this.authProvisioningProperties = authProvisioningProperties;
+        this.objectMapper = objectMapper;
     }
 
     private enum AdminMutationAction {
@@ -1128,7 +1130,7 @@ public class UserService {
         }
 
         try {
-            JsonNode root = OBJECT_MAPPER.readTree(normalizedBody);
+            JsonNode root = objectMapper.readTree(normalizedBody);
             String preferredMessage = firstNonBlank(
                     readJsonText(root, "errorMessage"),
                     readJsonText(root, "error_description"),
