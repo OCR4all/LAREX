@@ -157,7 +157,9 @@ function getDisplayName(comment: TaskComment) {
           </div>
 
           <div v-else>
-            <p class="mt-1 text-sm whitespace-pre-wrap">{{ comment.content }}</p>
+            <p class="mt-1 text-sm whitespace-pre-wrap">
+              {{ comment.content }}
+            </p>
 
             <div v-if="comment.userId === currentUserId" class="mt-2 flex gap-2">
               <UButton
@@ -186,7 +188,9 @@ function getDisplayName(comment: TaskComment) {
 
     <div v-else class="text-center py-8 text-muted">
       <UIcon name="i-lucide-message-square" class="size-8 mb-2 mx-auto opacity-50" />
-      <p class="text-sm">No comments yet. Be the first to comment!</p>
+      <p class="text-sm">
+        No comments yet. Be the first to comment!
+      </p>
     </div>
   </div>
 </template>

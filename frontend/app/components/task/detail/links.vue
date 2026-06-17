@@ -78,7 +78,7 @@ async function openLinkItemsSlideover() {
     taskId: props.taskId,
     workspaceId: props.workspaceId,
     linkedPageIds: linkedPageIds.value,
-    onLinked: async (linkedPages: { pageId: string; pageName: string; projectId: string; projectName: string }[]) => {
+    onLinked: async (linkedPages: { pageId: string, pageName: string, projectId: string, projectName: string }[]) => {
       emit('refresh')
 
       if (linkedPages.length > 0) {
@@ -144,7 +144,9 @@ async function unlinkAllPagesFromProject(projectId: string) {
       <h4 class="text-sm font-semibold flex items-center gap-2">
         <UIcon name="i-lucide-files" class="size-4" />
         Linked Pages
-        <UBadge size="xs" color="neutral" variant="subtle">{{ links.pageLinks.length }}</UBadge>
+        <UBadge size="xs" color="neutral" variant="subtle">
+          {{ links.pageLinks.length }}
+        </UBadge>
       </h4>
 
       <UAccordion
@@ -195,7 +197,12 @@ async function unlinkAllPagesFromProject(projectId: string) {
                 <span class="text-sm truncate">{{ page.pageName }}</span>
               </NuxtLink>
               <div class="flex items-center gap-1 shrink-0">
-                <UBadge v-if="page.linkType === 'BY_TAG'" size="xs" color="info" variant="subtle">
+                <UBadge
+                  v-if="page.linkType === 'BY_TAG'"
+                  size="xs"
+                  color="info"
+                  variant="subtle"
+                >
                   {{ page.tagFilter }}
                 </UBadge>
                 <UButton
@@ -217,8 +224,12 @@ async function unlinkAllPagesFromProject(projectId: string) {
       <div class="p-4 bg-elevated/30 rounded-full w-fit mx-auto mb-4">
         <UIcon name="i-lucide-link" class="size-8 text-muted" />
       </div>
-      <p class="text-muted font-medium">No linked pages</p>
-      <p class="text-sm text-muted mt-1">Link pages from projects to associate them with this task</p>
+      <p class="text-muted font-medium">
+        No linked pages
+      </p>
+      <p class="text-sm text-muted mt-1">
+        Link pages from projects to associate them with this task
+      </p>
     </div>
   </div>
 </template>

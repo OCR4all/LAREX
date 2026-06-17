@@ -98,20 +98,20 @@ const searchResults = computed(() => {
 
   const query = searchQuery.value.toLowerCase()
   return availableMembers.value
-    .filter(m => {
+    .filter((m) => {
       if (assignedUserIds.value.includes(m.id)) return false
       return (
-        m.username?.toLowerCase().includes(query) ||
-        m.email?.toLowerCase().includes(query) ||
-        m.firstName?.toLowerCase().includes(query) ||
-        m.lastName?.toLowerCase().includes(query) ||
-        m.displayName?.toLowerCase().includes(query)
+        m.username?.toLowerCase().includes(query)
+        || m.email?.toLowerCase().includes(query)
+        || m.firstName?.toLowerCase().includes(query)
+        || m.lastName?.toLowerCase().includes(query)
+        || m.displayName?.toLowerCase().includes(query)
       )
     })
     .slice(0, 10)
 })
 
-function addAssignee(user: UserProfile & { role?: string; displayName?: string }) {
+function addAssignee(user: UserProfile & { role?: string, displayName?: string }) {
   assignedUserIds.value = [...assignedUserIds.value, user.id]
   assignedUsers.value = [...assignedUsers.value, user]
   searchQuery.value = ''
@@ -209,14 +209,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     const taskId = taskLocal.value.id
     const updated = canEditTaskDetails.value
       ? await $fetch<Task>(`/api/tasks/${taskId}`, {
-        method: 'PUT',
-        body: {
-          title: payload.title,
-          description: payload.description,
-          priority: payload.priority,
-          dueDate: payload.dueDate
-        }
-      })
+          method: 'PUT',
+          body: {
+            title: payload.title,
+            description: payload.description,
+            priority: payload.priority,
+            dueDate: payload.dueDate
+          }
+        })
       : taskLocal.value
 
     if (props.isAdmin) {
@@ -277,19 +277,40 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
         @submit="onSubmit"
       >
         <UFormField label="Title" name="title" required>
-          <UInput data-tour="task-form-title" v-model="state.title" :disabled="isSubmitting || !canEditTaskDetails" placeholder="Task title" />
+          <UInput
+            v-model="state.title"
+            data-tour="task-form-title"
+            :disabled="isSubmitting || !canEditTaskDetails"
+            placeholder="Task title"
+          />
         </UFormField>
 
         <UFormField label="Description" name="description">
-          <UTextarea v-model="state.description" :disabled="isSubmitting || !canEditTaskDetails" :rows="4" placeholder="Optional details" />
+          <UTextarea
+            v-model="state.description"
+            :disabled="isSubmitting || !canEditTaskDetails"
+            :rows="4"
+            placeholder="Optional details"
+          />
         </UFormField>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <UFormField label="Status" name="status">
-            <USelect data-tour="task-form-status" v-model="state.status" :items="statusItems" value-key="value" :disabled="isSubmitting" />
+            <USelect
+              v-model="state.status"
+              data-tour="task-form-status"
+              :items="statusItems"
+              value-key="value"
+              :disabled="isSubmitting"
+            />
           </UFormField>
           <UFormField label="Priority" name="priority">
-            <USelect v-model="state.priority" :items="priorityItems" value-key="value" :disabled="isSubmitting || !canEditTaskDetails" />
+            <USelect
+              v-model="state.priority"
+              :items="priorityItems"
+              value-key="value"
+              :disabled="isSubmitting || !canEditTaskDetails"
+            />
           </UFormField>
         </div>
 
@@ -303,7 +324,12 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
 
         <USeparator />
 
-        <UFormField data-tour="task-form-assignees" label="Assignees" name="assignees" :hint="isAdmin ? 'Search workspace members' : 'Only you'">
+        <UFormField
+          data-tour="task-form-assignees"
+          label="Assignees"
+          name="assignees"
+          :hint="isAdmin ? 'Search workspace members' : 'Only you'"
+        >
           <div class="space-y-2">
             <div v-if="isAdmin" class="relative">
               <UInput
@@ -381,10 +407,22 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <UButton data-tour="task-form-close" color="neutral" variant="outline" :disabled="isSubmitting" @click="emit('close')">
+        <UButton
+          data-tour="task-form-close"
+          color="neutral"
+          variant="outline"
+          :disabled="isSubmitting"
+          @click="emit('close')"
+        >
           Close
         </UButton>
-        <UButton data-tour="task-form-save" icon="i-lucide-save" :loading="isSubmitting" :disabled="isSubmitting" @click="submit">
+        <UButton
+          data-tour="task-form-save"
+          icon="i-lucide-save"
+          :loading="isSubmitting"
+          :disabled="isSubmitting"
+          @click="submit"
+        >
           Save
         </UButton>
       </div>

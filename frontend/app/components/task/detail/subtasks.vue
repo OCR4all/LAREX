@@ -502,7 +502,12 @@ async function onDragEnd() {
               class="shrink-0"
               @click.stop
             >
-              <UBadge color="neutral" variant="subtle" size="xs" class="cursor-pointer hover:bg-elevated">
+              <UBadge
+                color="neutral"
+                variant="subtle"
+                size="xs"
+                class="cursor-pointer hover:bg-elevated"
+              >
                 <UIcon name="i-lucide-file" class="size-3 mr-1" />
                 {{ subtask.pageName }}
               </UBadge>
@@ -511,7 +516,6 @@ async function onDragEnd() {
           <p v-if="getDisplayDescription(subtask)" class="text-xs text-muted truncate">
             {{ getDisplayDescription(subtask) }}
           </p>
-
         </div>
 
         <div v-if="!selectionMode && taskAssignees && taskAssignees.length > 0" class="shrink-0">

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const toast = useToast()
@@ -74,7 +73,7 @@ const { data: importJobs, refresh: refreshJobs } = await useFetch<ImportJob[]>('
 })
 
 watch(selectedWorkspaceId, () => {
-      selectedProjectId.value = undefined
+  selectedProjectId.value = undefined
   if (selectedWorkspaceId.value) {
     refreshProjects()
   }

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 interface WorkspaceStorageQuota extends StorageQuotaLike {
   currentUsageFormatted: string
   reservedBytes: number

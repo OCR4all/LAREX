@@ -143,7 +143,7 @@ describe('editor.session.store', () => {
     store.initWorkspaceSession('workspace-1')
     store.addOpenedProject('project-a')
     store.addOpenedPage('project-a', 'page-a1')
-    store.updateTextViewSettings((current) => ({
+    store.updateTextViewSettings(current => ({
       ...current,
       gtIndex: 3,
       showDiff: true,
@@ -179,7 +179,7 @@ describe('editor.session.store', () => {
     store.initWorkspaceSession('workspace-1')
     store.addOpenedProject('project-a')
     store.addOpenedPage('project-a', 'page-a1')
-    store.updateTextViewSettings((current) => ({
+    store.updateTextViewSettings(current => ({
       ...current,
       showDiff: true,
       confidenceRange: [0.25, 0.75],
@@ -247,7 +247,7 @@ describe('editor.session.store', () => {
     const store = await createStore()
 
     store.initWorkspaceSession('workspace-1')
-    store.updateTextViewSettings((current) => ({
+    store.updateTextViewSettings(current => ({
       ...current,
       mode: 'textline',
       onlyMissingGt: true

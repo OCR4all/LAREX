@@ -99,7 +99,8 @@ function onGradientMouseDown(e: MouseEvent) {
   const onMove = (ev: MouseEvent) => updateGradient(ev)
   const onUp = () => {
     document.removeEventListener('mousemove', onMove)
-    document.removeEventListener('mouseup', onUp) }
+    document.removeEventListener('mouseup', onUp)
+  }
   document.addEventListener('mousemove', onMove)
   document.addEventListener('mouseup', onUp)
 }

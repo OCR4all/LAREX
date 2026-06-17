@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 interface ColorTagProps {
   color: string
   variant?: TagVariant

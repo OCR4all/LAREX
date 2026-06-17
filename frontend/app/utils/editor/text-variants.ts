@@ -30,11 +30,11 @@ export function ensureGtVariantAtIndex(
   variants: EditableTextVariant[] | undefined,
   gtIndex: number
 ): {
-    variants: EditableTextVariant[]
-    gtIndex: number
-    gtPos: number
-    created: boolean
-  } {
+  variants: EditableTextVariant[]
+  gtIndex: number
+  gtPos: number
+  created: boolean
+} {
   const normalizedGtIndex = normalizeGtIndex(gtIndex)
   const nextVariants = normalizeEditableTextVariants(variants)
   let gtPos = nextVariants.findIndex(variant => variant.index === normalizedGtIndex)
@@ -63,12 +63,12 @@ export function setGtVariantUnicode(
   gtIndex: number,
   unicode: string
 ): {
-    variants: EditableTextVariant[]
-    gtIndex: number
-    gtPos: number
-    created: boolean
-    changed: boolean
-  } {
+  variants: EditableTextVariant[]
+  gtIndex: number
+  gtPos: number
+  created: boolean
+  changed: boolean
+} {
   const ensured = ensureGtVariantAtIndex(variants, gtIndex)
   const currentGt = ensured.variants[ensured.gtPos]
   if (!currentGt) {
@@ -101,4 +101,3 @@ export function setGtVariantUnicode(
     changed: true
   }
 }
-

@@ -47,4 +47,3 @@ export function parsePagePanelId(panelId: string): ParsedCompositeKey | null {
 export function parseCanvasId(canvasId: string): ParsedCompositeKey | null {
   return splitCompositeKey(canvasId, CANVAS_PREFIX)
 }
-

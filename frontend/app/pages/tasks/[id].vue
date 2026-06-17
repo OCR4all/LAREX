@@ -167,7 +167,7 @@ const reminderTimeInput = ref('')
 const isCreatingReminder = ref(false)
 
 function toDatetimeLocal(date: Date) {
-  return format(date, "yyyy-MM-dd'T'HH:mm")
+  return format(date, 'yyyy-MM-dd\'T\'HH:mm')
 }
 
 function setReminderPreset(date: Date) {
@@ -270,7 +270,7 @@ async function openEditSlideover() {
 const linkedPageIds = computed(() => (links.value?.pageLinks ?? []).map(l => l.pageId))
 
 const pagesByProject = computed(() => {
-  const groups = new Map<string, { projectId: string; projectName: string; pages: typeof links.value.pageLinks }>()
+  const groups = new Map<string, { projectId: string, projectName: string, pages: typeof links.value.pageLinks }>()
 
   for (const link of links.value?.pageLinks ?? []) {
     const projectId = link.projectId || 'unknown'
@@ -298,7 +298,7 @@ async function openLinkItemsSlideover() {
     taskId: taskId.value,
     workspaceId: workspaceId.value,
     linkedPageIds: linkedPageIds.value,
-    onLinked: async (linkedPages: { pageId: string; pageName: string; projectId: string; projectName: string }[]) => {
+    onLinked: async (linkedPages: { pageId: string, pageName: string, projectId: string, projectName: string }[]) => {
       await refreshLinks()
 
       if (linkedPages.length > 0) {
@@ -402,14 +402,18 @@ const tabItems = [
       <div v-else-if="!task" class="flex flex-col items-center justify-center py-16 text-muted">
         <UIcon name="i-lucide-alert-circle" class="size-12 mb-4" />
         <p>Task not found</p>
-        <UButton class="mt-4" @click="goBack">Go back to tasks</UButton>
+        <UButton class="mt-4" @click="goBack">
+          Go back to tasks
+        </UButton>
       </div>
 
       <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
         <div class="lg:col-span-2 space-y-6">
           <div class="space-y-4">
             <div class="flex items-start justify-between gap-4">
-              <h1 class="text-2xl font-semibold">{{ task.title }}</h1>
+              <h1 class="text-2xl font-semibold">
+                {{ task.title }}
+              </h1>
               <div class="flex items-center gap-2">
                 <UBadge :color="statusColor(task.status)" variant="subtle" size="lg">
                   {{ task.status.replace('_', ' ') }}
@@ -421,9 +425,13 @@ const tabItems = [
             </div>
 
             <div v-if="task.description" class="prose prose-sm max-w-none text-muted">
-              <p class="whitespace-pre-wrap">{{ task.description }}</p>
+              <p class="whitespace-pre-wrap">
+                {{ task.description }}
+              </p>
             </div>
-            <p v-else class="text-sm text-muted italic">No description provided</p>
+            <p v-else class="text-sm text-muted italic">
+              No description provided
+            </p>
           </div>
 
           <div class="flex flex-wrap gap-2">
@@ -513,7 +521,12 @@ const tabItems = [
               <h3 class="text-sm font-medium flex items-center gap-2">
                 <UIcon name="i-lucide-link" class="size-4" />
                 Linked Pages
-                <UBadge v-if="links?.pageLinks?.length" size="xs" color="neutral" variant="subtle">
+                <UBadge
+                  v-if="links?.pageLinks?.length"
+                  size="xs"
+                  color="neutral"
+                  variant="subtle"
+                >
                   {{ links.pageLinks.length }}
                 </UBadge>
               </h3>
@@ -545,7 +558,9 @@ const tabItems = [
                   </template>
                   <span class="truncate">{{ group.projectName }}</span>
                   <template #trailing>
-                    <UBadge size="xs" color="neutral" variant="subtle">{{ group.pages.length }}</UBadge>
+                    <UBadge size="xs" color="neutral" variant="subtle">
+                      {{ group.pages.length }}
+                    </UBadge>
                   </template>
                 </UButton>
                 <template #content>
@@ -577,7 +592,9 @@ const tabItems = [
           </div>
 
           <div class="bg-elevated/30 rounded-sm p-4 space-y-3">
-            <h3 class="text-sm font-medium">Assignees</h3>
+            <h3 class="text-sm font-medium">
+              Assignees
+            </h3>
             <div v-if="task.assignedUsers?.length" class="space-y-2">
               <div
                 v-for="assignee in task.assignedUsers"
@@ -592,11 +609,15 @@ const tabItems = [
                 </div>
               </div>
             </div>
-            <p v-else class="text-sm text-muted">No assignees</p>
+            <p v-else class="text-sm text-muted">
+              No assignees
+            </p>
           </div>
 
           <div class="bg-elevated/30 rounded-sm p-4 space-y-2">
-            <h3 class="text-sm font-medium">Due Date</h3>
+            <h3 class="text-sm font-medium">
+              Due Date
+            </h3>
             <div v-if="task.dueDate" class="space-y-1">
               <p class="text-sm" :class="isOverdue ? 'text-error font-medium' : ''">
                 {{ formattedDueDate }}
@@ -606,11 +627,15 @@ const tabItems = [
                 <span v-if="isOverdue" class="ml-1">(overdue)</span>
               </p>
             </div>
-            <p v-else class="text-sm text-muted">No due date set</p>
+            <p v-else class="text-sm text-muted">
+              No due date set
+            </p>
           </div>
 
           <div class="bg-elevated/30 rounded-sm p-4 space-y-3">
-            <h3 class="text-sm font-medium">Reminders</h3>
+            <h3 class="text-sm font-medium">
+              Reminders
+            </h3>
 
             <div class="space-y-2">
               <UiDateTimePicker
@@ -682,7 +707,9 @@ const tabItems = [
           </div>
 
           <div class="bg-elevated/30 rounded-sm p-4 space-y-2">
-            <h3 class="text-sm font-medium">Created by</h3>
+            <h3 class="text-sm font-medium">
+              Created by
+            </h3>
             <div v-if="task.createdBy" class="flex items-center gap-2">
               <UAvatar :alt="task.createdBy.username" size="sm" />
               <div class="flex-1 min-w-0">
@@ -694,7 +721,9 @@ const tabItems = [
           </div>
 
           <div class="bg-elevated/30 rounded-sm p-4 space-y-2">
-            <h3 class="text-sm font-medium">Timestamps</h3>
+            <h3 class="text-sm font-medium">
+              Timestamps
+            </h3>
             <div class="text-sm text-muted space-y-1">
               <p>Created: {{ format(parseISO(task.created), 'PPp') }}</p>
               <p>Updated: {{ format(parseISO(task.updated), 'PPp') }}</p>

@@ -315,7 +315,6 @@ function handleOpenChange(open: boolean) {
                   {{ globalRoles?.globalCurator ? 'Yes' : 'No' }}
                 </UBadge>
               </div>
-
             </div>
 
             <p class="text-sm text-muted">

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 type PdfFileInfo = {
   fileName: string
   defaultPrefix: string
@@ -20,7 +19,7 @@ type PdfPrefixState = {
 
 const stateByFileName = ref<Record<string, PdfPrefixState>>(
   Object.fromEntries(
-    props.files.map((f) => [
+    props.files.map(f => [
       f.fileName,
       { useFileName: true, customPrefix: f.defaultPrefix }
     ])

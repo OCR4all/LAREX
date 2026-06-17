@@ -83,7 +83,7 @@ export default defineNuxtConfig({
         'reka-ui',
         'vue-draggable-plus',
         'yaml',
-        'zod',
+        'zod'
       ]
     }
   },

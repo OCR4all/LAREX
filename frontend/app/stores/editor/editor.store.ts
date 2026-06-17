@@ -509,7 +509,7 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   function hasUnsavedChangesForPage(pageId: string, projectId?: string): boolean {
-    return Object.values(canvases.value).some(canvas => {
+    return Object.values(canvases.value).some((canvas) => {
       if (canvas.pageId !== pageId || canvas.hasUnsavedChanges !== true) return false
       if (!projectId) return true
       return canvas.projectId === projectId

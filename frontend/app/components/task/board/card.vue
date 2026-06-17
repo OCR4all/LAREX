@@ -55,7 +55,9 @@ const additionalCount = computed(() => {
 
     <div class="space-y-2">
       <div class="flex items-start justify-between gap-2">
-        <h4 class="text-sm font-medium line-clamp-2">{{ task.title }}</h4>
+        <h4 class="text-sm font-medium line-clamp-2">
+          {{ task.title }}
+        </h4>
         <UBadge
           :color="priorityColor"
           variant="subtle"

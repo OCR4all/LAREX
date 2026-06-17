@@ -2,7 +2,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, readonly, ref } from 'vue'
 
-;(globalThis as any).computed = computed
+;
+
+(globalThis as any).computed = computed
 ;(globalThis as any).readonly = readonly
 
 describe('use-status-issues', () => {

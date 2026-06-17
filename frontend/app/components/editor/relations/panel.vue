@@ -373,7 +373,12 @@ watch(selectedRelation, (relation) => {
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <UFormField label="Relation ID">
-            <UInput :model-value="draft.id" placeholder="Auto-generate if blank" :disabled="readOnly" @update:model-value="value => updateDraftField('id', value ?? '')" />
+            <UInput
+              :model-value="draft.id"
+              placeholder="Auto-generate if blank"
+              :disabled="readOnly"
+              @update:model-value="value => updateDraftField('id', value ?? '')"
+            />
           </UFormField>
 
           <UFormField label="Type">
@@ -450,11 +455,21 @@ watch(selectedRelation, (relation) => {
         </div>
 
         <UFormField label="Custom">
-          <UTextarea :model-value="draft.custom" :rows="2" :disabled="readOnly" @update:model-value="value => updateDraftField('custom', value ?? '')" />
+          <UTextarea
+            :model-value="draft.custom"
+            :rows="2"
+            :disabled="readOnly"
+            @update:model-value="value => updateDraftField('custom', value ?? '')"
+          />
         </UFormField>
 
         <UFormField label="Comments">
-          <UTextarea :model-value="draft.comments" :rows="2" :disabled="readOnly" @update:model-value="value => updateDraftField('comments', value ?? '')" />
+          <UTextarea
+            :model-value="draft.comments"
+            :rows="2"
+            :disabled="readOnly"
+            @update:model-value="value => updateDraftField('comments', value ?? '')"
+          />
         </UFormField>
 
         <MetadataLabelGroupsForm
@@ -556,7 +571,12 @@ watch(selectedRelation, (relation) => {
           >
             Repick Target
           </UButton>
-          <UButton size="xs" color="primary" :disabled="readOnly" @click="saveSelectedRelation">
+          <UButton
+            size="xs"
+            color="primary"
+            :disabled="readOnly"
+            @click="saveSelectedRelation"
+          >
             Save Changes
           </UButton>
         </div>
@@ -569,11 +589,21 @@ watch(selectedRelation, (relation) => {
         </p>
 
         <UFormField label="Custom">
-          <UTextarea :model-value="selectedDraft.custom" :rows="2" :disabled="readOnly" @update:model-value="value => updateSelectedDraftField('custom', value ?? '')" />
+          <UTextarea
+            :model-value="selectedDraft.custom"
+            :rows="2"
+            :disabled="readOnly"
+            @update:model-value="value => updateSelectedDraftField('custom', value ?? '')"
+          />
         </UFormField>
 
         <UFormField label="Comments">
-          <UTextarea :model-value="selectedDraft.comments" :rows="2" :disabled="readOnly" @update:model-value="value => updateSelectedDraftField('comments', value ?? '')" />
+          <UTextarea
+            :model-value="selectedDraft.comments"
+            :rows="2"
+            :disabled="readOnly"
+            @update:model-value="value => updateSelectedDraftField('comments', value ?? '')"
+          />
         </UFormField>
 
         <MetadataLabelGroupsForm

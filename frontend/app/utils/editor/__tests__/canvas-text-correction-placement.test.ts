@@ -40,4 +40,3 @@ describe('canvas-text-correction-placement', () => {
     expect(rightClamped.left).toBe(272)
   })
 })
-

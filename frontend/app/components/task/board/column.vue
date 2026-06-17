@@ -41,7 +41,9 @@ function onAdd(event: any) {
       <UBadge :color="color" variant="subtle" size="sm">
         {{ tasks.length }}
       </UBadge>
-      <h3 class="text-sm font-medium">{{ title }}</h3>
+      <h3 class="text-sm font-medium">
+        {{ title }}
+      </h3>
     </div>
 
     <VueDraggable
@@ -71,7 +73,9 @@ function onAdd(event: any) {
         v-if="localTasks.length === 0"
         class="h-full flex items-center justify-center p-4 text-center text-muted"
       >
-        <p class="text-xs">Drop tasks here</p>
+        <p class="text-xs">
+          Drop tasks here
+        </p>
       </div>
     </VueDraggable>
   </div>

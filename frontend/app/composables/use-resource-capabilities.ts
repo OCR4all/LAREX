@@ -13,14 +13,14 @@ import {
 
 type CapabilityKind = 'dataset' | 'project' | 'task' | 'resource'
 
-type CapabilityByKind<T extends CapabilityKind> =
-  T extends 'dataset'
+type CapabilityByKind<T extends CapabilityKind>
+  = T extends 'dataset'
     ? DatasetCapabilities
     : T extends 'project'
-    ? ProjectCapabilities
-    : T extends 'task'
-      ? TaskCapabilities
-      : ResourceCapabilities
+      ? ProjectCapabilities
+      : T extends 'task'
+        ? TaskCapabilities
+        : ResourceCapabilities
 
 type ResourceWithCapabilities<T extends CapabilityKind> = {
   capabilities?: Partial<CapabilityByKind<T>> | null

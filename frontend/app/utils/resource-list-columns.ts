@@ -122,15 +122,15 @@ export function renderDropdownActionsCell(items: DropdownMenuItem[][], component
     h(
       components.UDropdownMenu,
       {
-        content: { align: 'end' },
+        'content': { align: 'end' },
         items,
         'aria-label': 'Actions dropdown'
       },
       () => h(components.UButton, {
-        icon: 'i-lucide-ellipsis-vertical',
-        color: 'neutral',
-        variant: 'ghost',
-        class: 'ml-auto',
+        'icon': 'i-lucide-ellipsis-vertical',
+        'color': 'neutral',
+        'variant': 'ghost',
+        'class': 'ml-auto',
         'aria-label': 'Actions dropdown'
       })
     )

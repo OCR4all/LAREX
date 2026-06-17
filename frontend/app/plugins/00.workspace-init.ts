@@ -1,4 +1,4 @@
-import error from "~/error.vue";
+import error from '~/error.vue'
 
 /**
  * SSR Workspace Initialization Plugin

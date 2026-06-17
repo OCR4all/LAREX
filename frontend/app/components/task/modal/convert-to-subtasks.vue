@@ -3,7 +3,7 @@ import type { UserProfile } from '~/types/index'
 
 const props = defineProps<{
   taskId: string
-  pages: { pageId: string; pageName: string; projectId?: string; projectName?: string }[]
+  pages: { pageId: string, pageName: string, projectId?: string, projectName?: string }[]
   taskAssignees?: UserProfile[]
   taskDescription?: string | null
   onConverted?: () => void | Promise<void>
@@ -45,7 +45,7 @@ const effectiveDescription = computed(() => {
 })
 
 const pagesByProject = computed(() => {
-  const groups = new Map<string, { projectName: string; pages: typeof props.pages }>()
+  const groups = new Map<string, { projectName: string, pages: typeof props.pages }>()
 
   for (const page of props.pages) {
     const projectId = page.projectId || 'unknown'
@@ -140,7 +140,9 @@ function skip() {
         </p>
 
         <div class="p-3 bg-elevated/50 border border-default rounded-sm max-h-48 overflow-auto">
-          <p class="text-xs text-muted mb-2 font-medium">Subtasks to create:</p>
+          <p class="text-xs text-muted mb-2 font-medium">
+            Subtasks to create:
+          </p>
           <div class="space-y-3">
             <div v-for="group in pagesByProject" :key="group.projectName">
               <p v-if="hasMultipleProjects" class="text-xs font-medium text-muted mb-1 flex items-center gap-1">

@@ -381,8 +381,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               </UFormField>
               <div class="rounded-sm border border-default divide-y divide-default">
                 <div class="px-3 py-2">
-                  <p class="text-sm font-medium">Editor Tool Overrides</p>
-                  <p class="text-xs text-muted">Allow editors to temporarily use a different resource than the project default.</p>
+                  <p class="text-sm font-medium">
+                    Editor Tool Overrides
+                  </p>
+                  <p class="text-xs text-muted">
+                    Allow editors to temporarily use a different resource than the project default.
+                  </p>
                 </div>
                 <div class="p-3 grid gap-3">
                   <USwitch

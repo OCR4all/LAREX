@@ -37,7 +37,7 @@ export function usePagePrefetch() {
       state.value.pendingPrefetches.add(cacheKey)
 
       try {
-        const xmlFiles = await $fetch<Array<{ id: string; schema: string }>>(`/api/projects/${projectId}/pages/${pageId}/xml`)
+        const xmlFiles = await $fetch<Array<{ id: string, schema: string }>>(`/api/projects/${projectId}/pages/${pageId}/xml`)
         const pageXmlFile = xmlFiles.find(xml => xml.schema === 'PAGE_XML')
 
         if (!pageXmlFile) {

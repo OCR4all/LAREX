@@ -39,4 +39,3 @@ describe('text-variants', () => {
     expect(result.variants[0]?.unicode).toBe('gt')
   })
 })
-

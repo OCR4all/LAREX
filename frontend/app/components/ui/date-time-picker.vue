@@ -150,9 +150,9 @@ function handleCalendarChange(value: unknown) {
       <div class="w-[19rem] space-y-3 p-3">
         <UCalendar
           :model-value="calendarModelValue"
-          @update:model-value="handleCalendarChange"
           :month-controls="true"
           :year-controls="true"
+          @update:model-value="handleCalendarChange"
         />
 
         <div class="grid grid-cols-2 gap-2">

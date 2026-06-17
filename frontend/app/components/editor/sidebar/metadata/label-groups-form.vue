@@ -38,7 +38,12 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
         <UInput v-model="group.prefix" placeholder="Prefix" :disabled="props.readOnly" />
       </UFormField>
       <UFormField label="Comments">
-        <UTextarea v-model="group.comments" placeholder="Comments..." :rows="2" :disabled="props.readOnly" />
+        <UTextarea
+          v-model="group.comments"
+          placeholder="Comments..."
+          :rows="2"
+          :disabled="props.readOnly"
+        />
       </UFormField>
 
       <div class="space-y-2">
