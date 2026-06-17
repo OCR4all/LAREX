@@ -270,9 +270,9 @@ async function handleCopyPageId() {
     <div
       :class="[
         'group relative rounded-sm overflow-hidden cursor-pointer transition-all duration-200',
-        'bg-neutral-900 border',
+        'bg-neutral-900 border-2',
         isSelected
-          ? 'border-primary-500 ring-2 ring-primary-500/20'
+          ? 'border-primary-500 ring-2 ring-primary-500/25'
           : 'border-neutral-800 hover:border-neutral-700'
       ]"
       @click="handleSelectPage"

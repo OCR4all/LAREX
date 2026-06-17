@@ -30,10 +30,14 @@ const props = withDefaults(defineProps<{
 const editorStore = useEditorStore()
 const sessionStore = useEditorSessionStore()
 const ESTIMATED_ROW_HEIGHT = 400
+const BACK_TO_SELECTION_OVERLAY_TOP_OFFSET = 12
 
 const currentPageId = computed(() => editorStore.currentPageId)
 const scrollMargin = ref(0)
 const estimatedRowHeight = ref(ESTIMATED_ROW_HEIGHT)
+const scrollViewport = ref({ top: 0, height: 0 })
+const backToSelectionOverlayAnchor = ref<{ top: number, left: number } | null>(null)
+const canRenderBackToSelectionOverlay = ref(false)
 
 const filteredPages = computed<PageData[]>(() => {
   const q = props.filter.trim().toLowerCase()
@@ -60,18 +64,72 @@ const scrollElement = ref<HTMLElement | null>(null)
 let resizeObserver: ResizeObserver | null = null
 let syncLayoutFrameId: number | null = null
 
+function updateScrollViewport() {
+  const scroller = scrollElement.value
+  scrollViewport.value = scroller
+    ? { top: scroller.scrollTop, height: scroller.clientHeight }
+    : { top: 0, height: 0 }
+}
+
+function createsFixedContainingBlock(element: HTMLElement): boolean {
+  const styles = window.getComputedStyle(element)
+  return styles.transform !== 'none'
+    || styles.perspective !== 'none'
+    || styles.filter !== 'none'
+    || styles.backdropFilter !== 'none'
+    || styles.contain.includes('paint')
+    || styles.contain.includes('layout')
+    || styles.contain.includes('strict')
+    || styles.contain.includes('content')
+    || styles.willChange.split(',').some(value => ['transform', 'perspective', 'filter'].includes(value.trim()))
+}
+
+function getFixedContainingBlock(element: HTMLElement): HTMLElement | null {
+  let parent = element.parentElement
+  while (parent) {
+    if (createsFixedContainingBlock(parent)) return parent
+    parent = parent.parentElement
+  }
+  return null
+}
+
+function updateBackToSelectionOverlayAnchor() {
+  const scroller = scrollElement.value
+  const listRoot = listRootRef.value
+  if (!scroller || !listRoot || !import.meta.client) {
+    backToSelectionOverlayAnchor.value = null
+    return
+  }
+
+  const scrollerRect = scroller.getBoundingClientRect()
+  const listRootRect = listRoot.getBoundingClientRect()
+  const containingBlockRect = getFixedContainingBlock(scroller)?.getBoundingClientRect()
+
+  backToSelectionOverlayAnchor.value = {
+    top: scrollerRect.top - (containingBlockRect?.top ?? 0) + BACK_TO_SELECTION_OVERLAY_TOP_OFFSET,
+    left: listRootRect.left - (containingBlockRect?.left ?? 0) + listRootRect.width / 2
+  }
+}
+
 function attachScrollElement(nextScrollElement: HTMLElement | null) {
   const previousScrollElement = scrollElement.value
   if (previousScrollElement === nextScrollElement) return
 
   if (previousScrollElement) {
+    previousScrollElement.removeEventListener('scroll', updateScrollViewport)
     resizeObserver?.unobserve(previousScrollElement)
   }
 
   scrollElement.value = nextScrollElement
 
   if (nextScrollElement) {
+    nextScrollElement.addEventListener('scroll', updateScrollViewport, { passive: true })
+    updateScrollViewport()
+    updateBackToSelectionOverlayAnchor()
     resizeObserver?.observe(nextScrollElement)
+  } else {
+    updateScrollViewport()
+    updateBackToSelectionOverlayAnchor()
   }
 }
 
@@ -103,6 +161,79 @@ const virtualPageRows = computed<Array<{ item: VirtualItem, page: PageData }>>((
       return page ? [{ item, page }] : []
     })
 })
+
+const activePageIndex = computed(() => {
+  const pageId = currentPageId.value
+  if (!pageId) return -1
+  return filteredPages.value.findIndex(page => page.id === pageId)
+})
+
+const activePageScrollPosition = computed(() => {
+  const index = activePageIndex.value
+  if (index < 0) return null
+  return rowVirtualizer.value.getOffsetForIndex(index, 'start')?.[0] ?? null
+})
+
+const activePageBounds = computed(() => {
+  const index = activePageIndex.value
+  const start = activePageScrollPosition.value
+  if (index < 0 || start === null) return null
+
+  const measuredItem = rowVirtualizer.value.getVirtualItems().find(item => item.index === index)
+  return {
+    start,
+    end: start + (measuredItem?.size ?? estimatedRowHeight.value)
+  }
+})
+
+const backToSelectionDirection = computed<'up' | 'down' | null>(() => {
+  const activeBounds = activePageBounds.value
+  if (!activeBounds) return null
+
+  const { top, height } = scrollViewport.value
+  if (height <= 0) return null
+
+  const viewportBottom = top + height
+  const visibilityPadding = 8
+
+  if (activeBounds.start < top + visibilityPadding) return 'up'
+  if (activeBounds.end > viewportBottom - visibilityPadding) return 'down'
+  return null
+})
+
+const showBackToSelection = computed(() => backToSelectionDirection.value !== null)
+const showBackToSelectionOverlay = computed(() =>
+  canRenderBackToSelectionOverlay.value
+  && backToSelectionOverlayAnchor.value !== null
+  && scrollElement.value !== null
+)
+const backToSelectionIcon = computed(() =>
+  backToSelectionDirection.value === 'up'
+    ? 'i-lucide-arrow-up'
+    : 'i-lucide-arrow-down'
+)
+const backToSelectionTooltip = computed(() =>
+  backToSelectionDirection.value === 'up'
+    ? 'Back to selection above'
+    : 'Back to selection below'
+)
+const backToSelectionOverlayStyle = computed(() => {
+  const anchor = backToSelectionOverlayAnchor.value
+  return {
+    top: `${anchor?.top ?? 0}px`,
+    left: `${anchor?.left ?? 0}px`
+  }
+})
+
+function scrollToActivePage() {
+  const index = activePageIndex.value
+  if (index < 0) return
+
+  rowVirtualizer.value.scrollToIndex(index, {
+    align: 'center',
+    behavior: 'smooth'
+  })
+}
 
 function calculateEstimatedRowHeight(): number {
   const root = listRootRef.value
@@ -148,6 +279,8 @@ function syncVirtualizerLayout(forceMeasure: boolean = false) {
       scrollMargin.value = nextScrollMargin
     }
 
+    updateBackToSelectionOverlayAnchor()
+
     if (forceMeasure || didScrollMarginChange || didEstimatedHeightChange) {
       rowVirtualizer.value.measure()
     }
@@ -155,16 +288,26 @@ function syncVirtualizerLayout(forceMeasure: boolean = false) {
 }
 
 onMounted(() => {
+  canRenderBackToSelectionOverlay.value = true
   if (import.meta.client && typeof ResizeObserver !== 'undefined' && listRootRef.value) {
     resizeObserver = new ResizeObserver(() => {
+      updateScrollViewport()
+      updateBackToSelectionOverlayAnchor()
       syncVirtualizerLayout()
     })
     resizeObserver.observe(listRootRef.value)
+  }
+  if (import.meta.client) {
+    window.addEventListener('resize', updateBackToSelectionOverlayAnchor, { passive: true })
   }
   syncVirtualizerLayout(true)
 })
 
 onBeforeUnmount(() => {
+  canRenderBackToSelectionOverlay.value = false
+  if (import.meta.client) {
+    window.removeEventListener('resize', updateBackToSelectionOverlayAnchor)
+  }
   attachScrollElement(null)
   if (syncLayoutFrameId !== null) {
     cancelAnimationFrame(syncLayoutFrameId)
@@ -181,7 +324,12 @@ watch(() => props.projectId, () => {
 watch(() => filteredPages.value.length, () => {
   nextTick(() => {
     syncVirtualizerLayout(true)
+    updateScrollViewport()
   })
+})
+
+watch(currentPageId, () => {
+  nextTick(updateScrollViewport)
 })
 
 function getDisplayedVariant(page: PageData) {
@@ -223,7 +371,31 @@ function handlePageUnload(page: PageData) {
 </script>
 
 <template>
-  <div ref="listRootRef" class="px-3 space-y-3 py-2">
+  <div ref="listRootRef" class="relative px-3 py-2">
+    <Teleport v-if="showBackToSelectionOverlay && scrollElement" :to="scrollElement">
+      <div
+        class="fixed z-50 pointer-events-none -translate-x-1/2 transition-opacity duration-150 ease-out"
+        :class="showBackToSelection ? 'opacity-100' : 'opacity-0'"
+        :style="backToSelectionOverlayStyle"
+      >
+        <UTooltip :text="backToSelectionTooltip" :content="{ side: 'right' }">
+          <UButton
+            color="primary"
+            variant="solid"
+            size="sm"
+            :icon="backToSelectionIcon"
+            square
+            :class="[
+              'rounded-full shadow-xl ring-1 ring-default',
+              showBackToSelection ? 'pointer-events-auto' : 'pointer-events-none'
+            ]"
+            :aria-label="backToSelectionTooltip"
+            @click.stop="scrollToActivePage"
+          />
+        </UTooltip>
+      </div>
+    </Teleport>
+
     <div v-if="filteredPages.length === 0" class="text-sm text-muted px-1 py-2">
       No pages match this filter.
     </div>
