@@ -45,8 +45,8 @@ services:
 
   keycloak:
     environment:
-      KC_DB_USERNAME: ${POSTGRES_USER:-larex}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-larex_dev_pw}
+      KC_DB_USERNAME: ${KEYCLOAK_POSTGRES_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD:-keycloak_dev_pw}
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       KC_HOSTNAME: http://keycloak.localhost
@@ -76,6 +76,14 @@ services:
       - "traefik.http.routers.keycloak.rule=Host(`keycloak.localhost`)"
       - "traefik.http.routers.keycloak.entrypoints=web"
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+
+  keycloak-postgres:
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_POSTGRES_DB:-keycloak}
+      POSTGRES_USER: ${KEYCLOAK_POSTGRES_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD:-keycloak_dev_pw}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_POSTGRES_USER:-keycloak} -d ${KEYCLOAK_POSTGRES_DB:-keycloak}"]
 
   app:
     environment:
@@ -116,10 +124,11 @@ services:
 
   postgres:
     environment:
+      POSTGRES_DB: ${POSTGRES_DB:-larex_backend}
       POSTGRES_USER: ${POSTGRES_USER:-larex}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-larex_dev_pw}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-larex} -d larexdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-larex} -d ${POSTGRES_DB:-larex_backend}"]
 
 networks:
   backend:

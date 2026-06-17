@@ -1,4 +1,32 @@
 services:
+  keycloak-postgres:
+    image: postgres:18.2-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_POSTGRES_DB:-keycloak}
+      POSTGRES_USER: ${KEYCLOAK_POSTGRES_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD:-change-me}
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - keycloak_postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_POSTGRES_USER:-keycloak} -d ${KEYCLOAK_POSTGRES_DB:-keycloak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.5.5
     restart: unless-stopped
@@ -7,9 +35,9 @@ services:
       - "${LAREX_BIND_IP:-127.0.0.1}:${KEYCLOAK_PUBLISHED_PORT:-8090}:8080"
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/larexdb
-      KC_DB_USERNAME: ${POSTGRES_USER:-larex_prod}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/${KEYCLOAK_POSTGRES_DB:-keycloak}
+      KC_DB_USERNAME: ${KEYCLOAK_POSTGRES_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_POSTGRES_PASSWORD:-change-me}
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-change-me}
       KC_HOSTNAME: https://${KEYCLOAK_PUBLIC_HOST:-auth.example.org}
@@ -46,7 +74,7 @@ services:
     networks:
       - backend
     depends_on:
-      postgres:
+      keycloak-postgres:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
@@ -87,3 +115,4 @@ networks:
 
 volumes:
   keycloak_data:
+  keycloak_postgres_data:

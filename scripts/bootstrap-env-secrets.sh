@@ -135,6 +135,7 @@ ensure_key() {
 }
 
 ensure_key "POSTGRES_PASSWORD" "$(random_password)"
+ensure_key "KEYCLOAK_POSTGRES_PASSWORD" "$(random_password)"
 ensure_key "KEYCLOAK_ADMIN_PASSWORD" "$(random_password)"
 ensure_key "KEYCLOAK_ADMIN_CLIENT_SECRET" "$(random_secret)"
 ensure_key "NUXT_SESSION_PASSWORD" "$(random_secret)"

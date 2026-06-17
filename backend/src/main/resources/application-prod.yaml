@@ -11,16 +11,17 @@ spring:
       max-file-size: 100MB
       max-request-size: 500MB
   datasource:
-    url: jdbc:postgresql://postgres:5432/larexdb
+    url: jdbc:postgresql://postgres:5432/${POSTGRES_DB:larex_backend}
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
   jpa:
     hibernate:
-      # Just for fast "production-like" deployment, needs to be replaced with "validate" + flyway in production
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    locations: classpath:db/migration
   security:
     oauth2:
       resourceserver:

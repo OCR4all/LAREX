@@ -32,7 +32,7 @@ services:
   postgres:
     image: postgres:18.2-alpine
     environment:
-      POSTGRES_DB: larexdb
+      POSTGRES_DB: larex_backend
       POSTGRES_USER: larex
       POSTGRES_PASSWORD: larex_dev_pw
       PGDATA: /var/lib/postgresql/data
@@ -41,7 +41,22 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U larex -d larexdb"]
+      test: ["CMD-SHELL", "pg_isready -U larex -d larex_backend"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak-postgres:
+    image: postgres:18.2-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak_dev_pw
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - keycloak_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,9 +66,9 @@ services:
     command: start-dev --import-realm
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/larexdb
-      KC_DB_USERNAME: larex
-      KC_DB_PASSWORD: larex_dev_pw
+      KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak_dev_pw
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_HOSTNAME: http://keycloak.localhost
@@ -69,7 +84,7 @@ services:
       - "traefik.http.routers.keycloak.entrypoints=web"
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
     depends_on:
-      postgres:
+      keycloak-postgres:
         condition: service_healthy
 
   mailpit:
@@ -170,6 +185,7 @@ services:
 
 volumes:
   postgres_data:
+  keycloak_postgres_data:
   gradle_cache:
 
 networks:

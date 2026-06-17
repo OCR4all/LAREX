@@ -405,7 +405,7 @@ tasks:
   db:shell:
     desc: Open PostgreSQL shell
     cmds:
-      - 'docker compose -f {{.COMPOSE_FILE}} exec postgres psql -U larex -d larexdb'
+      - 'docker compose -f {{.COMPOSE_FILE}} exec postgres psql -U larex -d larex_backend'
 
   keycloak:shell:
     desc: Open Keycloak container shell

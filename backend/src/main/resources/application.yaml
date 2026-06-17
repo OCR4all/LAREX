@@ -16,15 +16,17 @@ spring:
       max-file-size: 100MB
       max-request-size: 500MB
   datasource:
-    url: jdbc:postgresql://postgres:5432/larexdb
+    url: jdbc:postgresql://postgres:5432/larex_backend
     username: larex
     password: larex_dev_pw
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    locations: classpath:db/migration
   security:
     oauth2:
       resourceserver:
