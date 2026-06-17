@@ -76,6 +76,35 @@ export function useCutDrawing(
       .map(p => p.id)
   }
 
+  function getDirectlyCutSelectedPolygon(targetElementIds: string[]): RenderablePolygon | null {
+    const selectedIndex = selectedPolygonIndex?.value ?? -1
+    const selectedPolygon = selectedIndex >= 0 ? polygons[selectedIndex] : undefined
+    if (!selectedPolygon || !targetElementIds.includes(selectedPolygon.id)) return null
+    return selectedPolygon
+  }
+
+  function moveSelectionAfterDirectSelectedCut(
+    selectedBeforeCut: RenderablePolygon | null,
+    result: { createdCount: number, deletedCount: number } | undefined
+  ): void {
+    if (!selectedBeforeCut) return
+    if (!result || (result.createdCount <= 0 && result.deletedCount <= 0)) return
+
+    const session = getEditorSession(canvasId)
+    const controls = session?.controls.value
+    const nextSelectionId = selectedBeforeCut.parentId ?? null
+
+    controls?.selectPolygonById?.(nextSelectionId, { focusMode: 'none' })
+    controls?.unhoverPolygon?.()
+    controls?.unhoverPolyline?.()
+
+    if (!controls?.selectPolygonById && selectedPolygonIndex) {
+      selectedPolygonIndex.value = nextSelectionId
+        ? polygons.findIndex(p => p.id === nextSelectionId)
+        : -1
+    }
+  }
+
   /**
    * Set the current cut mode
    */
@@ -128,17 +157,20 @@ export function useCutDrawing(
 
     const editorStore = useEditorStore()
     const minAreaThreshold = editorStore.globalSettings.cutMinAreaThreshold
+    const targetElementIds = getCurrentLevelTargetElementIds()
+    const selectedBeforeCut = getDirectlyCutSelectedPolygon(targetElementIds)
 
     const cutCommand = new CutElementsCommand({
       mode: 'line',
       cutPoints: [...currentPoints],
-      targetElementIds: getCurrentLevelTargetElementIds(),
+      targetElementIds,
       minAreaThreshold
     })
 
     const session = getEditorSession(canvasId)
     const commandCtx = session ? { canvasId, session } : undefined
     const result = commander.execute(cutCommand, commandCtx)
+    moveSelectionAfterDirectSelectedCut(selectedBeforeCut, result)
 
     log.debug('Cut line result:', result)
 
@@ -206,17 +238,20 @@ export function useCutDrawing(
 
     const editorStore = useEditorStore()
     const minAreaThreshold = editorStore.globalSettings.cutMinAreaThreshold
+    const targetElementIds = getCurrentLevelTargetElementIds()
+    const selectedBeforeCut = getDirectlyCutSelectedPolygon(targetElementIds)
 
     const cutCommand = new CutElementsCommand({
       mode: 'polygon',
       cutPoints: [...currentPoints],
-      targetElementIds: getCurrentLevelTargetElementIds(),
+      targetElementIds,
       minAreaThreshold
     })
 
     const session = getEditorSession(canvasId)
     const commandCtx = session ? { canvasId, session } : undefined
     const result = commander.execute(cutCommand, commandCtx)
+    moveSelectionAfterDirectSelectedCut(selectedBeforeCut, result)
 
     log.debug('Cut polygon result:', result)
 
@@ -305,17 +340,20 @@ export function useCutDrawing(
 
     const editorStore = useEditorStore()
     const minAreaThreshold = editorStore.globalSettings.cutMinAreaThreshold
+    const targetElementIds = getCurrentLevelTargetElementIds()
+    const selectedBeforeCut = getDirectlyCutSelectedPolygon(targetElementIds)
 
     const cutCommand = new CutElementsCommand({
       mode: 'rectangle',
       cutPoints: [...rectPreviewPoints],
-      targetElementIds: getCurrentLevelTargetElementIds(),
+      targetElementIds,
       minAreaThreshold
     })
 
     const session = getEditorSession(canvasId)
     const commandCtx = session ? { canvasId, session } : undefined
     const result = commander.execute(cutCommand, commandCtx)
+    moveSelectionAfterDirectSelectedCut(selectedBeforeCut, result)
 
     log.debug('Cut rectangle result:', result)
 
