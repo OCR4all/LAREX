@@ -33,7 +33,7 @@ function getTextSubtypeColor(index: number): string {
   return TEXT_SUBTYPE_COLORS[index % TEXT_SUBTYPE_COLORS.length] || '#4CAF50'
 }
 
-function createMapping(altoBlockType: string | null, pageRegionType: string | null, textType: string | null = null): LabelMapping {
+function createMapping(altoBlockType: string | null, pageRegionType: string | null, textType: string | null = null, customSubType: string | null = null): LabelMapping {
   return {
     altoXml: {
       role: 'TAGREFS' as const,
@@ -43,7 +43,7 @@ function createMapping(altoBlockType: string | null, pageRegionType: string | nu
     pageXml: {
       regionType: pageRegionType,
       textType: textType,
-      customSubType: null,
+      customSubType,
       customKey: 'structure',
       customData: ''
     }
@@ -117,7 +117,7 @@ export function createPageXmlLabelSet(): LabelSet {
     createMapping('ComposedBlock', 'UnknownRegion'))
 
   addLabel('custom-region', 'Custom Region', 'region', '#00BFA5', 'Custom region type for content not covered by standard types', false, null,
-    createMapping('ComposedBlock', null))
+    createMapping('ComposedBlock', 'UnknownRegion', null, 'custom'))
 
   const textSubtypes = [
     { id: 'paragraph', name: 'Paragraph', desc: 'Body text paragraph' },

@@ -20,7 +20,7 @@ const log = createScopedLogger('EditorCommand')
 export interface ContextMenuItem {
   id: string
   label: string
-  icon: string
+  icon?: string
   color?: string
   labelDefinition?: LabelDefinition
   danger?: boolean
@@ -184,13 +184,9 @@ function buildLabelSetSubmenu(labels: LabelDefinition[], currentKind?: RegionKin
   for (const label of labels) {
     if (label.scope !== 'region') continue
     const isCurrent = isLabelMatchCurrent(label, currentKind, currentSubtype, currentCustom)
-    const fallbackIcon = label.mapping?.pageXml?.regionType
-      ? getRegionKindIcon(label.mapping.pageXml.regionType as RegionKind)
-      : 'i-lucide-tag'
     const item: ContextMenuItem = {
       id: `label-set-${label.id}`,
       label: label.name + (isCurrent ? ' ✓' : ''),
-      icon: fallbackIcon,
       color: label.color,
       labelDefinition: label
     }
@@ -206,7 +202,6 @@ function buildLabelSetSubmenu(labels: LabelDefinition[], currentKind?: RegionKin
   const groupedItems = Array.from(grouped.entries()).map(([group, items]) => ({
     id: `label-group-${group}`,
     label: group,
-    icon: 'i-lucide-folder',
     submenu: items
   }))
 

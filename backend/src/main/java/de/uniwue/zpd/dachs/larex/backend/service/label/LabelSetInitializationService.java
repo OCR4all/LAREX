@@ -163,6 +163,7 @@ public class LabelSetInitializationService {
 
                 LabelSetDto.PageXml pageXml = label.mapping().pageXml();
                 LabelSetDto.PageRegionType regionType = pageXml.regionType();
+                LabelSetDto.PageRegionType desiredRegionType = regionType;
                 String desiredGroup = label.group();
                 String desiredColor = label.color();
                 String desiredCustomSubType = pageXml.customSubType();
@@ -170,8 +171,13 @@ public class LabelSetInitializationService {
                 if (label.scope() == LabelSetDto.LabelScope.REGION && desiredCustomSubType == null) {
                     desiredCustomSubType = EMPTY_CUSTOM_SUBTYPE;
                 }
+                if (label.scope() == LabelSetDto.LabelScope.REGION
+                        && regionType == null
+                        && "custom".equals(desiredCustomSubType)) {
+                    desiredRegionType = LabelSetDto.PageRegionType.UnknownRegion;
+                }
 
-                if (regionType == LabelSetDto.PageRegionType.TextRegion) {
+                if (desiredRegionType == LabelSetDto.PageRegionType.TextRegion) {
                     desiredGroup = "Text";
                     if (pageXml.textType() == null || pageXml.textType().isBlank()) {
                         desiredColor = getRegionColor(LabelSetDto.PageRegionType.TextRegion);
@@ -181,17 +187,21 @@ public class LabelSetInitializationService {
                             desiredColor = getTextSubtypeColor(idx);
                         }
                     }
-                } else if (regionType != null) {
-                    desiredColor = getRegionColor(regionType);
+                } else if (desiredRegionType != null) {
+                    desiredColor = getRegionColor(desiredRegionType);
                 } else if ("custom".equals(pageXml.customSubType())) {
                     desiredColor = getCustomRegionColor();
                 }
+                if (desiredRegionType == LabelSetDto.PageRegionType.UnknownRegion && "custom".equals(desiredCustomSubType)) {
+                    desiredColor = getCustomRegionColor();
+                }
 
-                boolean mappingChanged = !equalsString(pageXml.customSubType(), desiredCustomSubType);
+                boolean mappingChanged = pageXml.regionType() != desiredRegionType
+                        || !equalsString(pageXml.customSubType(), desiredCustomSubType);
                 LabelSetDto.Mapping desiredMapping = label.mapping();
                 if (mappingChanged) {
                     LabelSetDto.PageXml desiredPageXml = new LabelSetDto.PageXml(
-                            pageXml.regionType(),
+                            desiredRegionType,
                             pageXml.textType(),
                             desiredCustomSubType,
                             pageXml.customKey(),
@@ -243,7 +253,7 @@ public class LabelSetInitializationService {
         );
 
         LabelSetDto.PageXml pageXml = new LabelSetDto.PageXml(
-                null,
+                LabelSetDto.PageRegionType.UnknownRegion,
                 null,
                 "custom",
                 "structure",

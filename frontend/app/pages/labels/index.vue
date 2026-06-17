@@ -220,7 +220,7 @@ const getDuplicateName = (baseName: string) => {
 }
 
 const handleDuplicate = async (row: LabelSetRow) => {
-  if (!allow(row.capabilities?.canEdit)) return
+  if (!canManageToolkit.value) return
   try {
     const source = await $fetch<LabelSet>(`/api/workspaces/${workspaceId.value}/label-sets/${row.id}`)
     const name = getDuplicateName(source.meta?.name ?? row.name)
@@ -246,6 +246,7 @@ const handleDuplicate = async (row: LabelSetRow) => {
 
 const items = (row: LabelSetRow): DropdownMenuItem[][] => {
   const canEdit = allow(row.capabilities?.canEdit)
+  const canDuplicate = canManageToolkit.value
   const canDelete = allow(row.capabilities?.canDelete)
   const actions: DropdownMenuItem[] = []
 
@@ -255,6 +256,9 @@ const items = (row: LabelSetRow): DropdownMenuItem[][] => {
       icon: 'i-lucide-edit',
       onSelect: () => navigateTo(`/labels/${row.id}`)
     })
+  }
+
+  if (canDuplicate) {
     actions.push({
       label: 'Duplicate',
       icon: 'i-lucide-copy-plus',

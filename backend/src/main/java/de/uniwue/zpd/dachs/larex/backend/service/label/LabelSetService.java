@@ -128,15 +128,24 @@ public class LabelSetService {
             }
 
             LabelSetDto.PageXml pageXml = label.mapping().pageXml();
-            if (pageXml.customSubType() != null) {
+            String normalizedCustomSubType = pageXml.customSubType();
+            if (normalizedCustomSubType == null) {
+                normalizedCustomSubType = "";
+            }
+            LabelSetDto.PageRegionType normalizedRegionType = pageXml.regionType();
+            if (normalizedRegionType == null && "custom".equals(normalizedCustomSubType)) {
+                normalizedRegionType = LabelSetDto.PageRegionType.UnknownRegion;
+            }
+
+            if (normalizedCustomSubType.equals(pageXml.customSubType()) && normalizedRegionType == pageXml.regionType()) {
                 normalizedLabels.add(label);
                 continue;
             }
 
             LabelSetDto.PageXml normalizedPageXml = new LabelSetDto.PageXml(
-                    pageXml.regionType(),
+                    normalizedRegionType,
                     pageXml.textType(),
-                    "",
+                    normalizedCustomSubType,
                     pageXml.customKey(),
                     pageXml.customData()
             );

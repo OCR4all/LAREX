@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DropdownMenuItem } from '@nuxt/ui'
 import type { LabelMapping, LabelScope, LabelSet, LabelSetCreateOrUpdateRequest } from '@/types/label-set'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import { LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
@@ -38,13 +39,31 @@ const {
   totalErrors,
   createLabel,
   deleteLabel,
+  deleteSelectedLabels,
   duplicateLabel,
   selectLabel,
   createMapping,
-  optimizeColors
+  optimizeColors,
+  selectedLabelIds,
+  selectedLabels,
+  clearSelection,
+  groupSelectedLabels,
+  moveSelectedToGroup
 } = useLabelBuilder()
 
 const fileInput = ref<HTMLInputElement | null>(null)
+const groupNameInput = ref('')
+const showGroupDialog = ref(false)
+
+const selectedLabelCount = computed(() => selectedLabelIds.value.size)
+const groupNames = computed(() => labels.value.filter(isGroupMeta).map(group => group.name))
+const moveToGroupItems = computed<DropdownMenuItem[]>(() =>
+  groupNames.value.map(groupName => ({
+    label: groupName,
+    icon: 'i-lucide-folder-input',
+    onSelect: () => handleMoveSelectedToGroup(groupName)
+  }))
+)
 
 const asRecord = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== 'object') return {}
@@ -411,6 +430,56 @@ const handleDelete = async (labelId: string) => {
   }
 }
 
+const openGroupSelectedDialog = () => {
+  if (isReadOnlyLabelSet.value || selectedLabelCount.value < 2) return
+  groupNameInput.value = ''
+  showGroupDialog.value = true
+}
+
+const confirmGroupSelected = () => {
+  if (isReadOnlyLabelSet.value || selectedLabelCount.value < 2) return
+  const count = selectedLabelCount.value
+  const groupName = groupNameInput.value.trim() || 'Group'
+  const groupId = groupSelectedLabels(groupName)
+  groupNameInput.value = ''
+  showGroupDialog.value = false
+  if (groupId) {
+    toast.add({ title: 'Labels grouped', description: `${count} label${count === 1 ? '' : 's'} moved to "${groupId}".`, color: 'success' })
+  }
+}
+
+const cancelGroupSelected = () => {
+  groupNameInput.value = ''
+  showGroupDialog.value = false
+}
+
+const handleMoveSelectedToGroup = (groupName: string) => {
+  if (isReadOnlyLabelSet.value || selectedLabelCount.value === 0) return
+  const count = selectedLabelCount.value
+  moveSelectedToGroup(groupName)
+  toast.add({ title: 'Labels moved', description: `${count} label${count === 1 ? '' : 's'} moved to "${groupName}".`, color: 'success' })
+}
+
+const handleDeleteSelected = async () => {
+  if (isReadOnlyLabelSet.value || selectedLabelCount.value === 0) return
+
+  const count = selectedLabelCount.value
+  const names = selectedLabels.value.map(label => label.name || 'Untitled')
+  const instance = confirmModal.open({
+    title: count === 1 ? 'Delete Selected Label?' : 'Delete Selected Labels?',
+    description: count === 1
+      ? `Are you sure you want to delete "${names[0] ?? 'this label'}"?`
+      : `Delete ${count} selected labels? This action cannot be undone.`,
+    confirmLabel: count === 1 ? 'Delete Label' : 'Delete Labels',
+    confirmColor: 'error'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  deleteSelectedLabels()
+  toast.add({ title: count === 1 ? 'Label deleted' : 'Labels deleted', description: `${count} label${count === 1 ? '' : 's'} removed.`, color: 'success' })
+}
+
 const handleScopeSwitch = async (targetScope: LabelScope) => {
   if (isReadOnlyLabelSet.value) return
   if (!activeLabel.value) return
@@ -522,6 +591,85 @@ const openSettings = () => {
         </section>
       </div>
 
+      <UiFloatingSelectionMenu
+        :selected-count="selectedLabelCount"
+        @clear="clearSelection"
+      >
+        <UButton
+          v-if="!isReadOnlyLabelSet && selectedLabelCount > 1"
+          icon="i-lucide-folder-plus"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          class="text-neutral-50 hover:bg-white/10"
+          aria-label="Group selected labels"
+          @click="openGroupSelectedDialog"
+        >
+          <span class="hidden sm:inline">Group</span>
+        </UButton>
+
+        <UDropdownMenu
+          v-if="!isReadOnlyLabelSet && moveToGroupItems.length > 0"
+          :items="moveToGroupItems"
+          :content="{ align: 'end' }"
+        >
+          <UButton
+            icon="i-lucide-folder-input"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            class="text-neutral-50 hover:bg-white/10"
+            aria-label="Move selected labels to group"
+          >
+            <span class="hidden sm:inline">Move</span>
+          </UButton>
+        </UDropdownMenu>
+
+        <UButton
+          v-if="!isReadOnlyLabelSet"
+          icon="i-lucide-trash-2"
+          color="error"
+          variant="ghost"
+          size="sm"
+          class="hover:bg-white/10"
+          aria-label="Delete selected labels"
+          @click="handleDeleteSelected"
+        >
+          <span class="hidden sm:inline">Delete</span>
+        </UButton>
+      </UiFloatingSelectionMenu>
+
+      <div v-if="showGroupDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" @click="cancelGroupSelected">
+        <UCard class="w-80 max-w-full" @click.stop>
+          <template #header>
+            <div class="flex items-center gap-2">
+              <UIcon name="i-lucide-folder-plus" class="w-5 h-5" />
+              <span class="font-semibold">Create Group</span>
+            </div>
+          </template>
+
+          <UFormField label="Group name">
+            <UInput
+              v-model="groupNameInput"
+              placeholder="Enter group name"
+              autofocus
+              @keyup.enter="confirmGroupSelected"
+            />
+          </UFormField>
+
+          <template #footer>
+            <div class="flex justify-end gap-2">
+              <UButton color="neutral" variant="ghost" @click="cancelGroupSelected">
+                Cancel
+              </UButton>
+              <UButton color="primary" @click="confirmGroupSelected">
+                Create
+              </UButton>
+            </div>
+          </template>
+        </UCard>
+      </div>
+
       <input
         ref="fileInput"
         type="file"
@@ -532,17 +680,3 @@ const openSettings = () => {
     </template>
   </UDashboardPanel>
 </template>
-const toEditableMapping = (mapping: LabelMapping) => ({
-  altoXml: {
-    role: mapping.altoXml.role,
-    tag: mapping.altoXml.tag ?? '',
-    ...(mapping.altoXml.blockType ? { blockType: mapping.altoXml.blockType } : {})
-  },
-  pageXml: {
-    ...(mapping.pageXml.regionType ? { regionType: mapping.pageXml.regionType } : {}),
-    ...(mapping.pageXml.textType ? { textType: mapping.pageXml.textType } : {}),
-    customSubType: mapping.pageXml.customSubType ?? '',
-    customKey: mapping.pageXml.customKey,
-    customData: mapping.pageXml.customData ?? ''
-  }
-})

@@ -57,6 +57,7 @@ const labels = ref<BuilderEntry[]>([])
 const activeLabel = ref<EditableLabelDefinition | null>(null)
 const searchQuery = ref('')
 const selectedLabelIds = ref<Set<string>>(new Set())
+const lastSelectedLabelId = ref<string | null>(null)
 
 function normalizeEditableLabel(label: LabelDefinition): EditableLabelDefinition {
   return {
@@ -138,10 +139,34 @@ export const useLabelBuilder = () => {
     } else {
       selectedLabelIds.value.add(labelId)
     }
+    lastSelectedLabelId.value = labelId
+  }
+
+  const selectLabelRange = (labelId: string, orderedLabelIds: string[], extendRange: boolean) => {
+    if (!extendRange || !lastSelectedLabelId.value) {
+      toggleSelection(labelId)
+      return
+    }
+
+    const anchorIndex = orderedLabelIds.indexOf(lastSelectedLabelId.value)
+    const targetIndex = orderedLabelIds.indexOf(labelId)
+    if (anchorIndex === -1 || targetIndex === -1) {
+      toggleSelection(labelId)
+      return
+    }
+
+    const start = Math.min(anchorIndex, targetIndex)
+    const end = Math.max(anchorIndex, targetIndex)
+    for (let index = start; index <= end; index++) {
+      const id = orderedLabelIds[index]
+      if (id) selectedLabelIds.value.add(id)
+    }
+    lastSelectedLabelId.value = labelId
   }
 
   const clearSelection = () => {
     selectedLabelIds.value.clear()
+    lastSelectedLabelId.value = null
   }
 
   const selectedLabels = computed(() => {
@@ -282,6 +307,16 @@ export const useLabelBuilder = () => {
     if (activeLabel.value?.id === id) activeLabel.value = null
   }
 
+  const deleteSelectedLabels = () => {
+    if (selectedLabelIds.value.size === 0) return
+    const ids = new Set(selectedLabelIds.value)
+    labels.value = labels.value.filter(label => isGroupMeta(label) || !ids.has(label.id))
+    if (activeLabel.value && ids.has(activeLabel.value.id)) {
+      activeLabel.value = null
+    }
+    clearSelection()
+  }
+
   const selectLabel = (l: BuilderEntry) => {
     if (isGroupMeta(l)) return
     activeLabel.value = l
@@ -401,9 +436,9 @@ export const useLabelBuilder = () => {
   return {
     meta, labels, activeLabel, filters, searchQuery, filteredLabels,
     PRESET_COLORS, PAGE_REGIONS, PAGE_TEXT_TYPES, ALTO_BLOCK_TYPES,
-    createLabel, duplicateLabel, deleteLabel, selectLabel, createMapping,
+    createLabel, duplicateLabel, deleteLabel, deleteSelectedLabels, selectLabel, createMapping,
     getErrors, hasError, totalErrors, optimizeColors,
-    selectedLabelIds, toggleSelection, clearSelection, selectedLabels, canGroup,
+    selectedLabelIds, toggleSelection, selectLabelRange, clearSelection, selectedLabels, canGroup,
     groupSelectedLabels, dissolveGroup, moveSelectedToGroup, mergeGroups
   }
 }

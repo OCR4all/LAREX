@@ -18,17 +18,11 @@ const {
   searchQuery,
   getErrors,
   selectedLabelIds,
-  toggleSelection,
-  clearSelection,
-  canGroup,
-  groupSelectedLabels,
+  selectLabelRange,
   dissolveGroup,
-  moveSelectedToGroup,
   mergeGroups
 } = useLabelBuilder()
 
-const groupNameInput = ref('')
-const showGroupDialog = ref(false)
 const expandedGroups = ref<Set<string>>(new Set())
 type LabelGroup = { groupMeta: GroupMeta, labels: EditableLabelDefinition[] }
 
@@ -60,26 +54,19 @@ const labelsWithGroups = computed<{ grouped: LabelGroup[], ungrouped: EditableLa
 
 const isSelected = (id: string) => selectedLabelIds.value.has(id)
 
-const handleGroup = () => {
-  if (!canGroup.value) return
-  showGroupDialog.value = true
-}
-
-const confirmGroup = () => {
-  const name = groupNameInput.value.trim() || 'Group'
-  const groupId = groupSelectedLabels(name)
-  if (groupId) {
-    const next = new Set(expandedGroups.value)
-    next.add(groupId)
-    expandedGroups.value = next
+const visibleLabelIds = computed(() => {
+  const ids: string[] = []
+  for (const group of labelsWithGroups.value.grouped) {
+    if (isGroupExpanded(group.groupMeta.id)) {
+      ids.push(...group.labels.map(label => label.id))
+    }
   }
-  groupNameInput.value = ''
-  showGroupDialog.value = false
-}
+  ids.push(...labelsWithGroups.value.ungrouped.map(label => label.id))
+  return ids
+})
 
-const cancelGroup = () => {
-  groupNameInput.value = ''
-  showGroupDialog.value = false
+const handleSelectionClick = (event: MouseEvent, labelId: string) => {
+  selectLabelRange(labelId, visibleLabelIds.value, event.shiftKey)
 }
 
 const isGroupExpanded = (groupId: string) => expandedGroups.value.has(groupId)
@@ -119,10 +106,6 @@ const getMergeItems = (groupId: string) => {
     }))
   return items.length > 0 ? items : [{ label: 'No other groups', disabled: true }]
 }
-
-const handleMoveSelectedToGroup = (groupId: string) => {
-  moveSelectedToGroup(groupId)
-}
 </script>
 
 <template>
@@ -136,31 +119,6 @@ const handleMoveSelectedToGroup = (groupId: string) => {
       <div class="flex gap-2 text-xs font-bold text-neutral-500">
         <UCheckbox v-model="filters.region" label="Regions" />
         <UCheckbox v-model="filters.line" label="Lines" />
-      </div>
-      <USeparator class="my-2" />
-      <UButton
-        v-if="canGroup"
-        block
-        color="primary"
-        variant="solid"
-        icon="i-lucide-folder-plus"
-        :disabled="isSystem"
-        @click="handleGroup"
-      >
-        Group Selected ({{ selectedLabelIds.size }})
-      </UButton>
-      <div v-if="selectedLabelIds.size > 0" class="flex items-center justify-center gap-2">
-        <UBadge color="primary" variant="solid">
-          {{ selectedLabelIds.size }}
-        </UBadge>
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          @click="clearSelection"
-        >
-          Clear
-        </UButton>
       </div>
     </div>
 
@@ -189,15 +147,6 @@ const handleMoveSelectedToGroup = (groupId: string) => {
               </UBadge>
             </div>
             <div class="flex items-center gap-1">
-              <UButton
-                v-if="!isSystem && selectedLabelIds.size > 0"
-                size="xs"
-                color="primary"
-                variant="ghost"
-                @click="handleMoveSelectedToGroup(groupMeta.id)"
-              >
-                Add Selected
-              </UButton>
               <UDropdownMenu v-if="!isSystem" :items="getMergeItems(groupMeta.id)">
                 <UButton
                   size="xs"
@@ -231,16 +180,10 @@ const handleMoveSelectedToGroup = (groupId: string) => {
               <UCheckbox
                 :model-value="isSelected(label.id)"
                 class="absolute left-2 top-1/2 -translate-y-1/2"
-                @click.stop
-                @update:model-value="toggleSelection(label.id)"
+                @click.stop.prevent="handleSelectionClick($event, label.id)"
               />
               <div class="flex items-center gap-3 pl-8">
-                <div class="w-8 h-8 rounded-sm flex items-center justify-center shrink-0 border border-white/10 relative" :style="{ backgroundColor: label.color + '20' }">
-                  <div class="w-2 h-2 rounded-sm" :style="{ backgroundColor: label.color }" />
-                  <div class="absolute -top-1 -right-1 w-3 h-3 rounded-sm text-[8px] flex items-center justify-center font-bold text-white shadow-sm" :class="label.scope === 'line' ? 'bg-emerald-600' : 'bg-primary-600'">
-                    {{ label.scope === 'line' ? '≡' : '□' }}
-                  </div>
-                </div>
+                <span class="h-9 w-1.5 rounded-sm shrink-0" :style="{ backgroundColor: label.color }" />
                 <div class="flex-1 min-w-0">
                   <h3 class="text-sm font-semibold truncate text-neutral-900 dark:text-neutral-200 max-w-8/12">
                     {{ label.name || 'Untitled' }}
@@ -293,16 +236,10 @@ const handleMoveSelectedToGroup = (groupId: string) => {
             <UCheckbox
               :model-value="isSelected(label.id)"
               class="absolute left-2 top-1/2 -translate-y-1/2"
-              @click.stop
-              @update:model-value="toggleSelection(label.id)"
+              @click.stop.prevent="handleSelectionClick($event, label.id)"
             />
             <div class="flex items-center gap-3 pl-8">
-              <div class="w-8 h-8 rounded-sm flex items-center justify-center shrink-0 border border-white/10 relative" :style="{ backgroundColor: label.color + '20' }">
-                <div class="w-2 h-2 rounded-sm" :style="{ backgroundColor: label.color }" />
-                <div class="absolute -top-1 -right-1 w-3 h-3 rounded-sm text-[8px] flex items-center justify-center font-bold text-white shadow-sm" :class="label.scope === 'line' ? 'bg-emerald-600' : 'bg-primary-600'">
-                  {{ label.scope === 'line' ? '≡' : '□' }}
-                </div>
-              </div>
+              <span class="h-9 w-1.5 rounded-sm shrink-0" :style="{ backgroundColor: label.color }" />
               <div class="flex-1 min-w-0">
                 <h3 class="text-sm font-semibold truncate text-neutral-900 dark:text-neutral-200 max-w-8/12">
                   {{ label.name || 'Untitled' }}
@@ -345,37 +282,6 @@ const handleMoveSelectedToGroup = (groupId: string) => {
       >
         Create New Label
       </UButton>
-
-      <div v-if="showGroupDialog" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" @click="cancelGroup">
-        <UCard class="w-80 max-w-full" @click.stop>
-          <template #header>
-            <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-folder-plus" class="w-5 h-5" />
-              <span class="font-semibold">Create Group</span>
-            </div>
-          </template>
-
-          <UFormField label="Group name">
-            <UInput
-              v-model="groupNameInput"
-              placeholder="Enter group name"
-              autofocus
-              @keyup.enter="confirmGroup"
-            />
-          </UFormField>
-
-          <template #footer>
-            <div class="flex justify-end gap-2">
-              <UButton color="neutral" variant="ghost" @click="cancelGroup">
-                Cancel
-              </UButton>
-              <UButton color="primary" @click="confirmGroup">
-                Create
-              </UButton>
-            </div>
-          </template>
-        </UCard>
-      </div>
     </div>
   </aside>
 </template>

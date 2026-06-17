@@ -131,6 +131,26 @@ class LabelSetDefinitionValidatorTest {
         assertThrows(IllegalArgumentException.class, () -> validator.validate(request));
     }
 
+    @Test
+    void validate_allowsCustomRegionAsUnknownRegionSubtype() {
+        LabelSetDto.Label label = createRegionLabel(
+                "label-1",
+                "Custom Region",
+                LabelSetDto.PageRegionType.UnknownRegion,
+                null,
+                "custom",
+                "structure",
+                ""
+        );
+
+        LabelSetDto.CreateOrUpdateRequest request = new LabelSetDto.CreateOrUpdateRequest(
+                new LabelSetDto.Meta("Test Label Set", "", List.of(), false, false),
+                List.of(label)
+        );
+
+        assertDoesNotThrow(() -> validator.validate(request));
+    }
+
     private static LabelSetDto.CreateOrUpdateRequest createRequest(
             LabelSetDto.PageRegionType regionType,
             String textType
