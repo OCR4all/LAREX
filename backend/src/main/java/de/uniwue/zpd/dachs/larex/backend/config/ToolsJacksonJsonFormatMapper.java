@@ -8,6 +8,12 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.lang.reflect.Type;
 
+/**
+ * Hibernate 7 still uses a Jackson 2-based JSON FormatMapper by default, while
+ * this application persists JSON columns as Jackson 3 tools.jackson types.
+ * <p>
+ * TODO: Remove this mapper once Hibernate provides native Jackson 3 JSON mapper support.
+ */
 public final class ToolsJacksonJsonFormatMapper extends AbstractJsonFormatMapper {
 
     private final ObjectMapper objectMapper;
