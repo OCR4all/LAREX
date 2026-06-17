@@ -60,7 +60,7 @@ const backgroundColor = computed(() => {
   if (props.variant === 'monochrome') {
     return 'currentColor'
   }
-  return '#3D8DFCFF'
+  return '#1678E4FF'
 })
 
 const textColor = computed(() => {

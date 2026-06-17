@@ -1,7 +1,7 @@
 <#--
   This file has been claimed for ownership from @keycloakify/email-native version 260007.0.0.
   To relinquish ownership and restore this file to its original content, run the following command:
-  
+
   $ npx keycloakify own --path "email/html/template.ftl" --revert
 -->
 
@@ -53,7 +53,7 @@
         }
 
         .email-body a {
-            color: #3d8dfc;
+            color: #1678e4;
         }
 
         .email-body strong,
@@ -96,7 +96,7 @@
                                 role="presentation"
                                 width="100%"
                                 bgcolor="#ffffff"
-                                style="width:100%; background-color:#ffffff; border:1px solid #e0e0e0; border-top:4px solid #3d8dfc; border-radius:6px;"
+                                style="width:100%; background-color:#ffffff; border:1px solid #e0e0e0; border-top:4px solid #1678e4; border-radius:6px;"
                             >
                                 <tr>
                                     <td class="email-card-body" style="padding:32px 32px 24px;">
@@ -108,7 +108,7 @@
                                                             <#if themeResourcesUrl?has_content>
                                                                 <td style="padding-right:12px; vertical-align:middle;">
                                                                     <img
-                                                                        src="${themeResourcesUrl}/img/larex-logo.png"
+                                                                        src="${themeResourcesUrl}/img/logo.png"
                                                                         alt="LAREX"
                                                                         width="32"
                                                                         height="32"

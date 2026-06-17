@@ -17,7 +17,7 @@ import { Icon } from "@iconify/react";
 import { FieldDescription } from "@/components/ui/field";
 import AnimatedGradient from "@/components/fancy/background/animated-gradient-with-svg";
 
-import Logo from "./assets/larex_logo.svg";
+import Logo from "./assets/logo.svg";
 import themePackage from "../../package.json";
 
 export default function Template(props: TemplateProps<KcContext, I18n>) {
@@ -49,23 +49,23 @@ export default function Template(props: TemplateProps<KcContext, I18n>) {
   // Gradient colors based on theme
   const gradientColors = isDark
     ? [
-        "#3d8dfc", // navy-500
         "#1678e4", // navy-600
         "#1062bc", // navy-700
         "#0a4f9a", // navy-800
+        "#073d78", // navy-900
         "#282828", // smoke-800
         "#181818", // smoke-900
       ]
     : [
-        "#3d8dfc", // navy-500
         "#1678e4", // navy-600
+        "#1062bc", // navy-700
         "#73a2fd", // navy-400
         "#9ab8fd", // navy-300
         "#f2f2f2", // smoke-50
         "#ebebeb", // smoke-100
       ];
 
-  const baseBackgroundClass = isDark ? "bg-navy-800" : "bg-navy-500";
+  const baseBackgroundClass = isDark ? "bg-navy-800" : "bg-navy-600";
 
   useEffect(() => {
     document.title = documentTitle ?? msgStr("loginTitle", realm.displayName);

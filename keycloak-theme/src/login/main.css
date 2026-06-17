@@ -5,38 +5,38 @@
 
 @theme inline {
   --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  
-  /* Navy color palette for Tailwind utilities */
-  --color-navy-50: oklch(0.965 0.016 274.87);
-  --color-navy-100: oklch(0.932 0.031 269.84);
-  --color-navy-200: oklch(0.863 0.065 268.79);
-  --color-navy-300: oklch(0.786 0.104 265.98);
-  --color-navy-400: oklch(0.718 0.143 262.61);
-  --color-navy-500: oklch(0.651 0.183 257.46);
-  --color-navy-600: oklch(0.581 0.184 255.48);
-  --color-navy-700: oklch(0.503 0.159 255.41);
-  --color-navy-800: oklch(0.434 0.138 255.46);
-  --color-navy-900: oklch(0.365 0.115 255.33);
-  --color-navy-950: oklch(0.251 0.08 255.53);
-  
-  /* Smoke color palette for Tailwind utilities */
-  --color-smoke-50: #f2f2f2;
-  --color-smoke-100: #ebebeb;
-  --color-smoke-200: #e0e0e0;
-  --color-smoke-300: #d0d0d0;
-  --color-smoke-400: #b0b0b0;
-  --color-smoke-500: #888888;
-  --color-smoke-600: #5e5e5e;
-  --color-smoke-700: #404040;
-  --color-smoke-800: #282828;
-  --color-smoke-900: #181818;
-  --color-smoke-950: #0a0a0a;
-  
+
+  /* Navy color palette (primary) */
+  --navy-50: #F0F3FFFF;
+  --navy-100: #E0E8FEFF;
+  --navy-200: #C0D1FEFF;
+  --navy-300: #9AB8FDFF;
+  --navy-400: #73A2FDFF;
+  --navy-500: #3D8DFCFF;
+  --navy-600: #1678e4;
+  --navy-700: #1062BCFF;
+  --navy-800: #0A4F9AFF;
+  --navy-900: #063D79FF;
+  --navy-950: #022147FF;
+
+  /* Smoke color palette (neutral/background) */
+  --smoke-50: #f2f2f2;
+  --smoke-100: #ebebeb;
+  --smoke-200: #e0e0e0;
+  --smoke-300: #d0d0d0;
+  --smoke-400: #b0b0b0;
+  --smoke-500: #888888;
+  --smoke-600: #5e5e5e;
+  --smoke-700: #404040;
+  --smoke-800: #282828;
+  --smoke-900: #181818;
+  --smoke-950: #0a0a0a;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -71,21 +71,21 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  
+  --radius: 0.5rem;
+
   /* Navy color palette (primary) */
-  --navy-50: oklch(0.965 0.016 274.87);
-  --navy-100: oklch(0.932 0.031 269.84);
-  --navy-200: oklch(0.863 0.065 268.79);
-  --navy-300: oklch(0.786 0.104 265.98);
-  --navy-400: oklch(0.718 0.143 262.61);
-  --navy-500: oklch(0.651 0.183 257.46);
-  --navy-600: oklch(0.581 0.184 255.48);
-  --navy-700: oklch(0.503 0.159 255.41);
-  --navy-800: oklch(0.434 0.138 255.46);
-  --navy-900: oklch(0.365 0.115 255.33);
-  --navy-950: oklch(0.251 0.08 255.53);
-  
+  --navy-50: #F0F3FFFF;
+  --navy-100: #E0E8FEFF;
+  --navy-200: #C0D1FEFF;
+  --navy-300: #9AB8FDFF;
+  --navy-400: #73A2FDFF;
+  --navy-500: #3D8DFCFF;
+  --navy-600: #1678e4;
+  --navy-700: #1062BCFF;
+  --navy-800: #0A4F9AFF;
+  --navy-900: #063D79FF;
+  --navy-950: #022147FF;
+
   /* Smoke color palette (neutral/background) */
   --smoke-50: #f2f2f2;
   --smoke-100: #ebebeb;
@@ -98,7 +98,7 @@
   --smoke-800: #282828;
   --smoke-900: #181818;
   --smoke-950: #0a0a0a;
-  
+
   /* Light theme using smoke backgrounds and navy primary */
   --background: var(--smoke-50);
   --foreground: var(--smoke-950);
@@ -106,7 +106,7 @@
   --card-foreground: var(--smoke-950);
   --popover: var(--smoke-50);
   --popover-foreground: var(--smoke-950);
-  --primary: var(--navy-500);
+  --primary: var(--navy-600);
   --primary-foreground: #ffffff;
   --secondary: var(--smoke-200);
   --secondary-foreground: var(--smoke-900);
@@ -117,20 +117,20 @@
   --destructive: #dc2626;
   --border: var(--smoke-200);
   --input: var(--smoke-200);
-  --ring: var(--navy-500);
-  --chart-1: var(--navy-500);
+  --ring: var(--navy-600);
+  --chart-1: var(--navy-600);
   --chart-2: var(--navy-400);
   --chart-3: var(--navy-600);
   --chart-4: var(--navy-300);
   --chart-5: var(--navy-700);
   --sidebar: var(--smoke-100);
   --sidebar-foreground: var(--smoke-950);
-  --sidebar-primary: var(--navy-500);
+  --sidebar-primary: var(--navy-600);
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: var(--smoke-200);
   --sidebar-accent-foreground: var(--smoke-900);
   --sidebar-border: var(--smoke-200);
-  --sidebar-ring: var(--navy-500);
+  --sidebar-ring: var(--navy-600);
 }
 
 .dark {
@@ -141,7 +141,7 @@
   --card-foreground: var(--smoke-100);
   --popover: var(--smoke-900);
   --popover-foreground: var(--smoke-100);
-  --primary: var(--navy-500);
+  --primary: var(--navy-600);
   --primary-foreground: #ffffff;
   --secondary: var(--smoke-800);
   --secondary-foreground: var(--smoke-100);
@@ -152,7 +152,7 @@
   --destructive: #ef4444;
   --border: var(--smoke-800);
   --input: var(--smoke-800);
-  --ring: var(--navy-500);
+  --ring: var(--navy-600);
   --chart-1: var(--navy-400);
   --chart-2: var(--navy-500);
   --chart-3: var(--navy-300);
@@ -160,12 +160,12 @@
   --chart-5: var(--navy-200);
   --sidebar: var(--smoke-900);
   --sidebar-foreground: var(--smoke-100);
-  --sidebar-primary: var(--navy-500);
+  --sidebar-primary: var(--navy-600);
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: var(--smoke-800);
   --sidebar-accent-foreground: var(--smoke-100);
   --sidebar-border: var(--smoke-800);
-  --sidebar-ring: var(--navy-500);
+  --sidebar-ring: var(--navy-600);
 }
 
 @layer base {
