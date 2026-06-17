@@ -49,23 +49,23 @@ export default function Template(props: TemplateProps<KcContext, I18n>) {
   // Gradient colors based on theme
   const gradientColors = isDark
     ? [
-        "#e1552e", // burnt-sienna-500
-        "#d23e24", // burnt-sienna-600
-        "#af2e1f", // burnt-sienna-700
-        "#8c2720", // burnt-sienna-800
-        "#33332f", // cararra-800
-        "#1c1c19", // cararra-900
+        "#3d8dfc", // navy-500
+        "#1678e4", // navy-600
+        "#1062bc", // navy-700
+        "#0a4f9a", // navy-800
+        "#282828", // smoke-800
+        "#181818", // smoke-900
       ]
     : [
-        "#e1552e", // burnt-sienna-500
-        "#d23e24", // burnt-sienna-600
-        "#e77952", // burnt-sienna-400
-        "#eea683", // burnt-sienna-300
-        "#f7f6f3", // cararra-50
-        "#f0eee6", // cararra-100
+        "#3d8dfc", // navy-500
+        "#1678e4", // navy-600
+        "#73a2fd", // navy-400
+        "#9ab8fd", // navy-300
+        "#f2f2f2", // smoke-50
+        "#ebebeb", // smoke-100
       ];
 
-  const baseBackgroundClass = isDark ? "bg-burnt-sienna-800" : "bg-burnt-sienna-500";
+  const baseBackgroundClass = isDark ? "bg-navy-800" : "bg-navy-500";
 
   useEffect(() => {
     document.title = documentTitle ?? msgStr("loginTitle", realm.displayName);

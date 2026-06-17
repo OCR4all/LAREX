@@ -21,7 +21,7 @@
         body {
             margin: 0;
             padding: 0;
-            background-color: #f7f6f3;
+            background-color: #f2f2f2;
         }
 
         table {
@@ -38,7 +38,7 @@
         }
 
         .email-body {
-            color: #33332f;
+            color: #282828;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             font-size: 16px;
             line-height: 1.65;
@@ -53,18 +53,18 @@
         }
 
         .email-body a {
-            color: #e1552e;
+            color: #3d8dfc;
         }
 
         .email-body strong,
         .email-body b {
-            color: #1c1c19;
+            color: #0a0a0a;
         }
 
         .email-body code {
-            background-color: #f0eee6;
+            background-color: #ebebeb;
             border-radius: 6px;
-            color: #1c1c19;
+            color: #0a0a0a;
             display: inline-block;
             font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
             padding: 2px 6px;
@@ -85,8 +85,8 @@
         }
     </style>
 </head>
-<body bgcolor="#f7f6f3" style="margin:0; padding:0; background-color:#f7f6f3;">
-    <table role="presentation" width="100%" bgcolor="#f7f6f3" style="width:100%; background-color:#f7f6f3;">
+<body bgcolor="#f2f2f2" style="margin:0; padding:0; background-color:#f2f2f2;">
+    <table role="presentation" width="100%" bgcolor="#f2f2f2" style="width:100%; background-color:#f2f2f2;">
         <tr>
             <td align="center" class="email-shell-padding" style="padding:32px 16px;">
                 <table role="presentation" width="100%" class="email-shell" style="width:100%; max-width:600px;">
@@ -96,13 +96,13 @@
                                 role="presentation"
                                 width="100%"
                                 bgcolor="#ffffff"
-                                style="width:100%; background-color:#ffffff; border:1px solid #d5d2c5; border-top:4px solid #e1552e; border-radius:6px;"
+                                style="width:100%; background-color:#ffffff; border:1px solid #e0e0e0; border-top:4px solid #3d8dfc; border-radius:6px;"
                             >
                                 <tr>
                                     <td class="email-card-body" style="padding:32px 32px 24px;">
                                         <table role="presentation" width="100%" style="width:100%;">
                                             <tr>
-                                                <td style="padding-bottom:24px; border-bottom:1px solid #f0eee6;">
+                                                <td style="padding-bottom:24px; border-bottom:1px solid #ebebeb;">
                                                     <table role="presentation" style="width:auto;">
                                                         <tr>
                                                             <#if themeResourcesUrl?has_content>
@@ -117,7 +117,7 @@
                                                                 </td>
                                                             </#if>
                                                             <td style="vertical-align:middle;">
-                                                                <div style="color:#1c1c19; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:18px; font-weight:700; letter-spacing:0.04em;">
+                                                                <div style="color:#0a0a0a; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:18px; font-weight:700; letter-spacing:0.04em;">
                                                                     LAREX
                                                                 </div>
                                                             </td>
@@ -126,7 +126,7 @@
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td class="email-body" style="padding-top:24px; color:#33332f; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:16px; line-height:1.65; word-break:break-word;">
+                                                <td class="email-body" style="padding-top:24px; color:#282828; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:16px; line-height:1.65; word-break:break-word;">
                                                     <#nested>
                                                 </td>
                                             </tr>
@@ -137,7 +137,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td align="center" style="color:#7e7c74; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:13px; line-height:1.5; padding:0 16px;">
+                        <td align="center" style="color:#888888; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:13px; line-height:1.5; padding:0 16px;">
                             Sent by ${realmName!'LAREX'}
                         </td>
                     </tr>

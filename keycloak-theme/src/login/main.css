@@ -11,31 +11,31 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   
-  /* Burnt Sienna color palette for Tailwind utilities */
-  --color-burnt-sienna-50: #fdf4ef;
-  --color-burnt-sienna-100: #fbe6d9;
-  --color-burnt-sienna-200: #f5cab3;
-  --color-burnt-sienna-300: #eea683;
-  --color-burnt-sienna-400: #e77952;
-  --color-burnt-sienna-500: #e1552e;
-  --color-burnt-sienna-600: #d23e24;
-  --color-burnt-sienna-700: #af2e1f;
-  --color-burnt-sienna-800: #8c2720;
-  --color-burnt-sienna-900: #71231d;
-  --color-burnt-sienna-950: #3d0f0d;
+  /* Navy color palette for Tailwind utilities */
+  --color-navy-50: oklch(0.965 0.016 274.87);
+  --color-navy-100: oklch(0.932 0.031 269.84);
+  --color-navy-200: oklch(0.863 0.065 268.79);
+  --color-navy-300: oklch(0.786 0.104 265.98);
+  --color-navy-400: oklch(0.718 0.143 262.61);
+  --color-navy-500: oklch(0.651 0.183 257.46);
+  --color-navy-600: oklch(0.581 0.184 255.48);
+  --color-navy-700: oklch(0.503 0.159 255.41);
+  --color-navy-800: oklch(0.434 0.138 255.46);
+  --color-navy-900: oklch(0.365 0.115 255.33);
+  --color-navy-950: oklch(0.251 0.08 255.53);
   
-  /* Cararra color palette for Tailwind utilities */
-  --color-cararra-50: #f7f6f3;
-  --color-cararra-100: #f0eee6;
-  --color-cararra-200: #d5d2c5;
-  --color-cararra-300: #b6b3a9;
-  --color-cararra-400: #9b998f;
-  --color-cararra-500: #7e7c74;
-  --color-cararra-600: #65635d;
-  --color-cararra-700: #4a4944;
-  --color-cararra-800: #33332f;
-  --color-cararra-900: #1c1c19;
-  --color-cararra-950: #11110f;
+  /* Smoke color palette for Tailwind utilities */
+  --color-smoke-50: #f2f2f2;
+  --color-smoke-100: #ebebeb;
+  --color-smoke-200: #e0e0e0;
+  --color-smoke-300: #d0d0d0;
+  --color-smoke-400: #b0b0b0;
+  --color-smoke-500: #888888;
+  --color-smoke-600: #5e5e5e;
+  --color-smoke-700: #404040;
+  --color-smoke-800: #282828;
+  --color-smoke-900: #181818;
+  --color-smoke-950: #0a0a0a;
   
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -73,99 +73,99 @@
 :root {
   --radius: 0.625rem;
   
-  /* Burnt Sienna color palette (primary) */
-  --burnt-sienna-50: #fdf4ef;
-  --burnt-sienna-100: #fbe6d9;
-  --burnt-sienna-200: #f5cab3;
-  --burnt-sienna-300: #eea683;
-  --burnt-sienna-400: #e77952;
-  --burnt-sienna-500: #e1552e;
-  --burnt-sienna-600: #d23e24;
-  --burnt-sienna-700: #af2e1f;
-  --burnt-sienna-800: #8c2720;
-  --burnt-sienna-900: #71231d;
-  --burnt-sienna-950: #3d0f0d;
+  /* Navy color palette (primary) */
+  --navy-50: oklch(0.965 0.016 274.87);
+  --navy-100: oklch(0.932 0.031 269.84);
+  --navy-200: oklch(0.863 0.065 268.79);
+  --navy-300: oklch(0.786 0.104 265.98);
+  --navy-400: oklch(0.718 0.143 262.61);
+  --navy-500: oklch(0.651 0.183 257.46);
+  --navy-600: oklch(0.581 0.184 255.48);
+  --navy-700: oklch(0.503 0.159 255.41);
+  --navy-800: oklch(0.434 0.138 255.46);
+  --navy-900: oklch(0.365 0.115 255.33);
+  --navy-950: oklch(0.251 0.08 255.53);
   
-  /* Cararra color palette (neutral/background) */
-  --cararra-50: #f7f6f3;
-  --cararra-100: #f0eee6;
-  --cararra-200: #d5d2c5;
-  --cararra-300: #b6b3a9;
-  --cararra-400: #9b998f;
-  --cararra-500: #7e7c74;
-  --cararra-600: #65635d;
-  --cararra-700: #4a4944;
-  --cararra-800: #33332f;
-  --cararra-900: #1c1c19;
-  --cararra-950: #11110f;
+  /* Smoke color palette (neutral/background) */
+  --smoke-50: #f2f2f2;
+  --smoke-100: #ebebeb;
+  --smoke-200: #e0e0e0;
+  --smoke-300: #d0d0d0;
+  --smoke-400: #b0b0b0;
+  --smoke-500: #888888;
+  --smoke-600: #5e5e5e;
+  --smoke-700: #404040;
+  --smoke-800: #282828;
+  --smoke-900: #181818;
+  --smoke-950: #0a0a0a;
   
-  /* Light theme using cararra backgrounds and burnt-sienna primary */
-  --background: var(--cararra-50);
-  --foreground: var(--cararra-950);
-  --card: var(--cararra-100);
-  --card-foreground: var(--cararra-950);
-  --popover: var(--cararra-50);
-  --popover-foreground: var(--cararra-950);
-  --primary: var(--burnt-sienna-500);
+  /* Light theme using smoke backgrounds and navy primary */
+  --background: var(--smoke-50);
+  --foreground: var(--smoke-950);
+  --card: var(--smoke-100);
+  --card-foreground: var(--smoke-950);
+  --popover: var(--smoke-50);
+  --popover-foreground: var(--smoke-950);
+  --primary: var(--navy-500);
   --primary-foreground: #ffffff;
-  --secondary: var(--cararra-200);
-  --secondary-foreground: var(--cararra-900);
-  --muted: var(--cararra-200);
-  --muted-foreground: var(--cararra-500);
-  --accent: var(--cararra-200);
-  --accent-foreground: var(--cararra-900);
+  --secondary: var(--smoke-200);
+  --secondary-foreground: var(--smoke-900);
+  --muted: var(--smoke-200);
+  --muted-foreground: var(--smoke-500);
+  --accent: var(--smoke-200);
+  --accent-foreground: var(--smoke-900);
   --destructive: #dc2626;
-  --border: var(--cararra-200);
-  --input: var(--cararra-200);
-  --ring: var(--burnt-sienna-500);
-  --chart-1: var(--burnt-sienna-500);
-  --chart-2: var(--burnt-sienna-400);
-  --chart-3: var(--burnt-sienna-600);
-  --chart-4: var(--burnt-sienna-300);
-  --chart-5: var(--burnt-sienna-700);
-  --sidebar: var(--cararra-100);
-  --sidebar-foreground: var(--cararra-950);
-  --sidebar-primary: var(--burnt-sienna-500);
+  --border: var(--smoke-200);
+  --input: var(--smoke-200);
+  --ring: var(--navy-500);
+  --chart-1: var(--navy-500);
+  --chart-2: var(--navy-400);
+  --chart-3: var(--navy-600);
+  --chart-4: var(--navy-300);
+  --chart-5: var(--navy-700);
+  --sidebar: var(--smoke-100);
+  --sidebar-foreground: var(--smoke-950);
+  --sidebar-primary: var(--navy-500);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: var(--cararra-200);
-  --sidebar-accent-foreground: var(--cararra-900);
-  --sidebar-border: var(--cararra-200);
-  --sidebar-ring: var(--burnt-sienna-500);
+  --sidebar-accent: var(--smoke-200);
+  --sidebar-accent-foreground: var(--smoke-900);
+  --sidebar-border: var(--smoke-200);
+  --sidebar-ring: var(--navy-500);
 }
 
 .dark {
-  /* Dark theme using cararra dark backgrounds and burnt-sienna primary */
-  --background: var(--cararra-950);
-  --foreground: var(--cararra-100);
-  --card: var(--cararra-900);
-  --card-foreground: var(--cararra-100);
-  --popover: var(--cararra-900);
-  --popover-foreground: var(--cararra-100);
-  --primary: var(--burnt-sienna-500);
+  /* Dark theme using smoke dark backgrounds and navy primary */
+  --background: var(--smoke-950);
+  --foreground: var(--smoke-100);
+  --card: var(--smoke-900);
+  --card-foreground: var(--smoke-100);
+  --popover: var(--smoke-900);
+  --popover-foreground: var(--smoke-100);
+  --primary: var(--navy-500);
   --primary-foreground: #ffffff;
-  --secondary: var(--cararra-800);
-  --secondary-foreground: var(--cararra-100);
-  --muted: var(--cararra-800);
-  --muted-foreground: var(--cararra-400);
-  --accent: var(--cararra-800);
-  --accent-foreground: var(--cararra-100);
+  --secondary: var(--smoke-800);
+  --secondary-foreground: var(--smoke-100);
+  --muted: var(--smoke-800);
+  --muted-foreground: var(--smoke-400);
+  --accent: var(--smoke-800);
+  --accent-foreground: var(--smoke-100);
   --destructive: #ef4444;
-  --border: var(--cararra-800);
-  --input: var(--cararra-800);
-  --ring: var(--burnt-sienna-500);
-  --chart-1: var(--burnt-sienna-400);
-  --chart-2: var(--burnt-sienna-500);
-  --chart-3: var(--burnt-sienna-300);
-  --chart-4: var(--burnt-sienna-600);
-  --chart-5: var(--burnt-sienna-200);
-  --sidebar: var(--cararra-900);
-  --sidebar-foreground: var(--cararra-100);
-  --sidebar-primary: var(--burnt-sienna-500);
+  --border: var(--smoke-800);
+  --input: var(--smoke-800);
+  --ring: var(--navy-500);
+  --chart-1: var(--navy-400);
+  --chart-2: var(--navy-500);
+  --chart-3: var(--navy-300);
+  --chart-4: var(--navy-600);
+  --chart-5: var(--navy-200);
+  --sidebar: var(--smoke-900);
+  --sidebar-foreground: var(--smoke-100);
+  --sidebar-primary: var(--navy-500);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: var(--cararra-800);
-  --sidebar-accent-foreground: var(--cararra-100);
-  --sidebar-border: var(--cararra-800);
-  --sidebar-ring: var(--burnt-sienna-500);
+  --sidebar-accent: var(--smoke-800);
+  --sidebar-accent-foreground: var(--smoke-100);
+  --sidebar-border: var(--smoke-800);
+  --sidebar-ring: var(--navy-500);
 }
 
 @layer base {
