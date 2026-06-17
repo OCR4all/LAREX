@@ -14,7 +14,7 @@ COPY src ./src
 RUN gradle build --no-daemon -x test
 
 
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 LABEL description="Production image for the LAREX backend"
 
 WORKDIR /app
