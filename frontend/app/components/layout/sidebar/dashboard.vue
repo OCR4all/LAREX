@@ -196,7 +196,7 @@ function openNotifications() {
       <div data-slot="body" class="flex flex-col gap-4 flex-1 overflow-y-auto px-4 py-2 sm:px-6">
         <UDashboardSearchButton
           :collapsed="false"
-          class="bg-transparent ring-default"
+          label="Quick Search..."
           :kbds="['meta', 'k']"
           data-tour="search-button"
         />
@@ -277,8 +277,8 @@ function openNotifications() {
     <template #default="{ collapsed }">
       <UDashboardSearchButton
         :collapsed="collapsed"
-        class="bg-transparent ring-default"
         :kbds="['meta', 'k']"
+        label="Quick Search..."
         data-tour="search-button"
       />
 
