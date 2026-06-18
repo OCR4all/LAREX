@@ -17,9 +17,12 @@ import {
   type ClearActionRunsResponse,
   type BulkCancelActionRunsResponse,
   type ActionHealthCheckResponse,
-  type ActionAuditEvent
+  type ActionAuditEvent,
+  type ActionEndpointSecret,
+  type ActionEndpointSecretRevealResponse
 } from '@/types/action'
 import { extractApiErrorMessage } from '@/utils/api-error'
+import { copyTextToClipboard } from '@/utils/clipboard'
 import { generateRandomActionSlug } from '@/utils/random-action-slug'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
@@ -45,6 +48,11 @@ const { data: workspaces } = await useFetch<AdminWorkspace[]>('/api/admin/worksp
   default: () => []
 })
 
+const { data: endpointSecrets, pending: loadingEndpointSecrets, refresh: refreshEndpointSecrets } = await useFetch<ActionEndpointSecret[]>('/api/admin/actions/endpoint-secrets', {
+  key: globalKey('admin', 'actions', 'endpoint-secrets'),
+  default: () => []
+})
+
 const selectedId = ref<string | null>(null)
 const draftDefinition = ref<ActionDefinitionResponse | null>(null)
 const editorHost = ref<HTMLElement | null>(null)
@@ -59,6 +67,9 @@ const clearingRuns = ref(false)
 const bulkCancellingRuns = ref(false)
 const loadingAudit = ref(false)
 const testingEndpoint = ref(false)
+const creatingEndpointSecret = ref(false)
+const rotatingEndpointSecretId = ref<string | null>(null)
+const deletingEndpointSecretId = ref<string | null>(null)
 const diagnostics = ref<ActionValidationDiagnostic[]>([])
 const validation = ref<ActionValidationResponse | null>(null)
 const initialYaml = ref(DEFAULT_ACTION_YAML)
@@ -68,10 +79,16 @@ const selectedAvailabilityWorkspaceIds = ref<string[]>([])
 const workspaceAvailability = ref<ActionWorkspaceAvailability[]>([])
 const isRunsPanelVisible = ref(false)
 const isAuditPanelVisible = ref(false)
+const isSecretsPanelVisible = ref(false)
+const isEndpointSecretSlideoverOpen = ref(false)
 const runs = ref<AdminActionRun[]>([])
 const auditEvents = ref<ActionAuditEvent[]>([])
 const expandedAuditEventIds = ref<string[]>([])
 const cancellingRunIds = ref<Set<string>>(new Set())
+const endpointSecretRefInput = ref('')
+const endpointSecretDisplayNameInput = ref('')
+const endpointSecretDescriptionInput = ref('')
+const recentEndpointSecretReveal = ref<ActionEndpointSecretRevealResponse | null>(null)
 
 let editorView: EditorView | null = null
 const themeCompartment = new Compartment()
@@ -123,6 +140,21 @@ const runPanelSummary = computed(() => {
   parts.push(`${terminalRuns.value.length} history`)
   return parts.join(', ')
 })
+const knownSecretRefs = computed(() => {
+  const refs = new Set<string>()
+  for (const definition of definitions.value) {
+    const matches = definition.yaml.matchAll(/secretRef:\s*['"]?([a-zA-Z0-9._-]+)['"]?/g)
+    for (const match of matches) {
+      if (match[1]) refs.add(match[1])
+    }
+  }
+  const currentMatches = currentYaml.value.matchAll(/secretRef:\s*['"]?([a-zA-Z0-9._-]+)['"]?/g)
+  for (const match of currentMatches) {
+    if (match[1]) refs.add(match[1])
+  }
+  return [...refs].sort((left, right) => left.localeCompare(right))
+})
+const canCreateEndpointSecret = computed(() => endpointSecretRefInput.value.trim().length > 0 && !creatingEndpointSecret.value)
 
 onMounted(() => {
   if (!syncDefinitionSelectionFromRoute()) {
@@ -558,6 +590,7 @@ function discardDraft() {
 async function toggleRunsPanel() {
   if (!selectedPersistedDefinition.value) return
   isAuditPanelVisible.value = false
+  isSecretsPanelVisible.value = false
   isRunsPanelVisible.value = !isRunsPanelVisible.value
   if (isRunsPanelVisible.value) {
     await loadRuns()
@@ -567,10 +600,34 @@ async function toggleRunsPanel() {
 async function toggleAuditPanel() {
   if (!selectedPersistedDefinition.value) return
   isRunsPanelVisible.value = false
+  isSecretsPanelVisible.value = false
   isAuditPanelVisible.value = !isAuditPanelVisible.value
   if (isAuditPanelVisible.value) {
     await loadAuditEvents()
   }
+}
+
+function toggleSecretsPanel() {
+  isRunsPanelVisible.value = false
+  isAuditPanelVisible.value = false
+  isSecretsPanelVisible.value = !isSecretsPanelVisible.value
+}
+
+function resetEndpointSecretForm() {
+  endpointSecretRefInput.value = ''
+  endpointSecretDisplayNameInput.value = ''
+  endpointSecretDescriptionInput.value = ''
+}
+
+function openEndpointSecretSlideover() {
+  recentEndpointSecretReveal.value = null
+  resetEndpointSecretForm()
+  isEndpointSecretSlideoverOpen.value = true
+}
+
+function prepareAnotherEndpointSecret() {
+  recentEndpointSecretReveal.value = null
+  resetEndpointSecretForm()
 }
 
 async function loadRuns() {
@@ -708,6 +765,122 @@ async function testSelectedEndpoint() {
   } finally {
     testingEndpoint.value = false
   }
+}
+
+async function createEndpointSecret() {
+  if (!canCreateEndpointSecret.value) return
+  creatingEndpointSecret.value = true
+  try {
+    const created = await $fetch<ActionEndpointSecretRevealResponse>('/api/admin/actions/endpoint-secrets', {
+      method: 'POST',
+      body: {
+        ref: endpointSecretRefInput.value.trim(),
+        displayName: endpointSecretDisplayNameInput.value.trim() || null,
+        description: endpointSecretDescriptionInput.value.trim() || null
+      }
+    })
+    recentEndpointSecretReveal.value = created
+    resetEndpointSecretForm()
+    await refreshEndpointSecrets()
+    toast.add({ title: 'Endpoint secret generated', color: 'success', icon: 'i-lucide-key-round' })
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Secret creation failed',
+      description: extractApiErrorMessage(error, 'Could not create endpoint secret.'),
+      color: 'error',
+      icon: 'i-lucide-alert-circle'
+    })
+  } finally {
+    creatingEndpointSecret.value = false
+  }
+}
+
+async function rotateEndpointSecret(secret: ActionEndpointSecret) {
+  if (!secret.id) return
+  const instance = confirmSlideover.open({
+    title: 'Rotate Endpoint Secret?',
+    message: `Generate a new secret value for "${secret.ref}"? Update the processor deployment before sending new jobs that use this ref.`,
+    confirmLabel: 'Rotate Secret',
+    confirmColor: 'warning',
+    confirmIcon: 'i-lucide-rotate-cw'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  rotatingEndpointSecretId.value = secret.id
+  try {
+    recentEndpointSecretReveal.value = await $fetch<ActionEndpointSecretRevealResponse>(`/api/admin/actions/endpoint-secrets/${secret.id}/rotate`, {
+      method: 'POST'
+    })
+    isEndpointSecretSlideoverOpen.value = true
+    await refreshEndpointSecrets()
+    toast.add({ title: 'Endpoint secret rotated', color: 'success', icon: 'i-lucide-rotate-cw' })
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Rotation failed',
+      description: extractApiErrorMessage(error, 'Could not rotate endpoint secret.'),
+      color: 'error',
+      icon: 'i-lucide-alert-circle'
+    })
+  } finally {
+    rotatingEndpointSecretId.value = null
+  }
+}
+
+async function deleteEndpointSecret(secret: ActionEndpointSecret) {
+  if (!secret.id) return
+  const instance = confirmSlideover.open({
+    title: 'Delete Endpoint Secret?',
+    message: `Delete endpoint secret "${secret.ref}"? This is only allowed when no Action processor definition references it.`,
+    confirmLabel: 'Delete Secret',
+    confirmColor: 'error',
+    confirmIcon: 'i-lucide-trash-2'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  deletingEndpointSecretId.value = secret.id
+  try {
+    await $fetch(`/api/admin/actions/endpoint-secrets/${secret.id}`, { method: 'DELETE' })
+    if (recentEndpointSecretReveal.value?.secret.id === secret.id) {
+      recentEndpointSecretReveal.value = null
+    }
+    await refreshEndpointSecrets()
+    toast.add({ title: 'Endpoint secret deleted', color: 'success', icon: 'i-lucide-trash-2' })
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Delete failed',
+      description: extractApiErrorMessage(error, 'Could not delete endpoint secret.'),
+      color: 'error',
+      icon: 'i-lucide-alert-circle'
+    })
+  } finally {
+    deletingEndpointSecretId.value = null
+  }
+}
+
+async function copyEndpointSecret() {
+  if (!recentEndpointSecretReveal.value) return
+  await copyTextToClipboard(recentEndpointSecretReveal.value.plaintext, {
+    successTitle: 'Endpoint secret copied',
+    failureDescription: 'Unable to copy the endpoint secret to the clipboard.'
+  })
+}
+
+function isRotatingEndpointSecret(secretId: string) {
+  return rotatingEndpointSecretId.value === secretId
+}
+
+function isDeletingEndpointSecret(secretId: string) {
+  return deletingEndpointSecretId.value === secretId
+}
+
+function endpointSecretSourceLabel(secret: ActionEndpointSecret) {
+  return secret.source === 'DATABASE' ? 'Managed' : 'Env fallback'
+}
+
+function endpointSecretSourceColor(secret: ActionEndpointSecret): 'success' | 'neutral' {
+  return secret.source === 'DATABASE' ? 'success' : 'neutral'
 }
 
 function openUpload() {
@@ -1063,7 +1236,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
           <UButton
             v-if="selectedPersistedDefinition"
             color="neutral"
-            variant="ghost"
+            :variant="isRunsPanelVisible ? 'soft' : 'ghost'"
             size="sm"
             :icon="isRunsPanelVisible ? 'i-lucide-panel-right-close' : 'i-lucide-panel-right-open'"
             :aria-label="isRunsPanelVisible ? 'Hide runs sidebar' : 'Show runs sidebar'"
@@ -1074,13 +1247,23 @@ function lineColumnToOffset(source: string, line: number, column: number) {
           <UButton
             v-if="selectedPersistedDefinition"
             color="neutral"
-            variant="ghost"
+            :variant="isAuditPanelVisible ? 'soft' : 'ghost'"
             size="sm"
             :icon="isAuditPanelVisible ? 'i-lucide-panel-right-close' : 'i-lucide-shield-check'"
             :aria-label="isAuditPanelVisible ? 'Hide audit sidebar' : 'Show audit sidebar'"
             @click="toggleAuditPanel"
           >
             Audit
+          </UButton>
+          <UButton
+            color="neutral"
+            :variant="isSecretsPanelVisible ? 'soft' : 'ghost'"
+            size="sm"
+            :icon="isSecretsPanelVisible ? 'i-lucide-panel-right-close' : 'i-lucide-key-round'"
+            :aria-label="isSecretsPanelVisible ? 'Hide secrets sidebar' : 'Show secrets sidebar'"
+            @click="toggleSecretsPanel"
+          >
+            Secrets
           </UButton>
         </template>
       </UDashboardToolbar>
@@ -1236,255 +1419,501 @@ function lineColumnToOffset(source: string, line: number, column: number) {
           </div>
         </section>
 
-        <aside
-          v-if="isRunsPanelVisible"
-          class="w-96 shrink-0 border-l border-neutral-200 bg-neutral-50/30 dark:border-neutral-700 dark:bg-neutral-800/50 overflow-y-auto"
-        >
-          <div class="border-b border-neutral-200 p-4 dark:border-neutral-700 lg:p-5">
-            <div class="mb-3 flex items-center justify-between gap-2">
-              <div>
-                <h2 class="text-sm font-semibold">
-                  Action Runs
-                </h2>
-                <p class="text-xs text-muted">
-                  {{ runPanelSummary }}
-                </p>
+        <Transition name="action-sidebar">
+          <aside
+            v-if="isRunsPanelVisible"
+            class="w-96 shrink-0 border-l border-neutral-200 bg-neutral-50/30 dark:border-neutral-700 dark:bg-neutral-800/50 overflow-y-auto"
+          >
+            <div class="border-b border-neutral-200 p-4 dark:border-neutral-700 lg:p-5">
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <h2 class="text-sm font-semibold">
+                    Action Runs
+                  </h2>
+                  <p class="text-xs text-muted">
+                    {{ runPanelSummary }}
+                  </p>
+                </div>
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-x"
+                  size="sm"
+                  @click="isRunsPanelVisible = false"
+                />
               </div>
-              <UButton
-                color="neutral"
-                variant="ghost"
-                icon="i-lucide-x"
-                size="sm"
-                @click="isRunsPanelVisible = false"
-              />
+              <UFieldGroup class="w-full">
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  icon="i-lucide-refresh-cw"
+                  size="sm"
+                  :loading="loadingRuns"
+                  @click="loadRuns"
+                >
+                  Refresh
+                </UButton>
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  icon="i-lucide-table-properties"
+                  size="sm"
+                  :to="selectedPersistedDefinition ? `/admin/action-runs?definitionId=${selectedPersistedDefinition.id}` : '/admin/action-runs'"
+                >
+                  Open Full Table
+                </UButton>
+              </UFieldGroup>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <UButton
+                  color="warning"
+                  variant="outline"
+                  icon="i-lucide-ban"
+                  size="sm"
+                  :loading="bulkCancellingRuns"
+                  :disabled="!hasInterruptibleRuns"
+                  @click="cancelActiveRuns"
+                >
+                  Cancel active jobs
+                </UButton>
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  icon="i-lucide-trash-2"
+                  size="sm"
+                  :loading="clearingRuns"
+                  :disabled="terminalRuns.length === 0"
+                  @click="clearTerminalRuns"
+                >
+                  Clear completed
+                </UButton>
+              </div>
             </div>
-            <UFieldGroup class="w-full">
+
+            <div class="p-3 lg:p-4">
+              <div v-if="loadingRuns" class="space-y-2">
+                <USkeleton class="h-20 w-full" />
+                <USkeleton class="h-20 w-full" />
+              </div>
+              <div v-else-if="runs.length === 0" class="rounded-sm border border-default p-3 text-sm text-muted">
+                No runs recorded for this Action.
+              </div>
+              <div v-else class="space-y-4">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div class="rounded-sm border border-default bg-default p-3">
+                    <p class="text-xs uppercase tracking-wide text-muted">
+                      Queued
+                    </p>
+                    <p class="mt-2 text-lg font-semibold text-warning">
+                      {{ queuedRuns.length }}
+                    </p>
+                  </div>
+                  <div class="rounded-sm border border-default bg-default p-3">
+                    <p class="text-xs uppercase tracking-wide text-muted">
+                      Active
+                    </p>
+                    <p class="mt-2 text-lg font-semibold text-primary">
+                      {{ activeRuns.length }}
+                    </p>
+                  </div>
+                  <div class="rounded-sm border border-default bg-default p-3">
+                    <p class="text-xs uppercase tracking-wide text-muted">
+                      History
+                    </p>
+                    <p class="mt-2 text-lg font-semibold text-muted">
+                      {{ terminalRuns.length }}
+                    </p>
+                  </div>
+                </div>
+
+                <section class="rounded-sm border border-default bg-default">
+                  <div class="border-b border-default px-3 py-2">
+                    <p class="text-sm font-medium">
+                      Recent Runs
+                    </p>
+                  </div>
+                  <div class="divide-y divide-default">
+                    <div v-for="run in recentRuns" :key="run.id" class="flex items-start gap-3 p-3">
+                      <UIcon
+                        :name="statusIcon(run.status)"
+                        class="mt-0.5 size-4 shrink-0"
+                        :class="runStatusTextClass(run.status)"
+                      />
+                      <div class="min-w-0 flex-1">
+                        <div class="flex items-center justify-between gap-2">
+                          <p class="truncate text-sm font-medium">
+                            {{ runPrimaryLabel(run) }}
+                          </p>
+                          <UBadge size="sm" variant="soft" :color="statusColor(run.status)">
+                            {{ run.progressPercent }}%
+                          </UBadge>
+                        </div>
+                        <p class="mt-1 truncate text-xs text-muted">
+                          {{ runSecondaryLabel(run) }}
+                        </p>
+                        <p class="mt-1 text-xs text-muted">
+                          {{ formatDate(run.created) }} · {{ formatDuration(run.durationSeconds) }}
+                        </p>
+                      </div>
+                      <UButton
+                        v-if="canCancelAdminRun(run)"
+                        color="warning"
+                        variant="ghost"
+                        icon="i-lucide-ban"
+                        size="sm"
+                        :loading="isCancellingRun(run.id)"
+                        aria-label="Cancel Action run"
+                        @click="cancelAdminRun(run)"
+                      />
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </aside>
+        </Transition>
+
+        <Transition name="action-sidebar">
+          <aside
+            v-if="isAuditPanelVisible"
+            class="w-96 shrink-0 border-l border-neutral-200 bg-neutral-50/30 dark:border-neutral-700 dark:bg-neutral-800/50 overflow-y-auto"
+          >
+            <div class="border-b border-neutral-200 p-4 dark:border-neutral-700 lg:p-5">
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <h2 class="text-sm font-semibold">
+                    Audit Events
+                  </h2>
+                  <p class="text-xs text-muted">
+                    Last {{ auditEvents.length }} event{{ auditEvents.length === 1 ? '' : 's' }} for this Action
+                  </p>
+                </div>
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-x"
+                  size="sm"
+                  @click="isAuditPanelVisible = false"
+                />
+              </div>
               <UButton
                 color="neutral"
                 variant="outline"
                 icon="i-lucide-refresh-cw"
                 size="sm"
-                :loading="loadingRuns"
-                @click="loadRuns"
+                :loading="loadingAudit"
+                @click="loadAuditEvents"
               >
                 Refresh
               </UButton>
-              <UButton
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-table-properties"
-                size="sm"
-                :to="selectedPersistedDefinition ? `/admin/action-runs?definitionId=${selectedPersistedDefinition.id}` : '/admin/action-runs'"
-              >
-                Open Full Table
-              </UButton>
-            </UFieldGroup>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <UButton
-                color="warning"
-                variant="outline"
-                icon="i-lucide-ban"
-                size="sm"
-                :loading="bulkCancellingRuns"
-                :disabled="!hasInterruptibleRuns"
-                @click="cancelActiveRuns"
-              >
-                Cancel active jobs
-              </UButton>
-              <UButton
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-trash-2"
-                size="sm"
-                :loading="clearingRuns"
-                :disabled="terminalRuns.length === 0"
-                @click="clearTerminalRuns"
-              >
-                Clear completed
-              </UButton>
             </div>
-          </div>
 
-          <div class="p-3 lg:p-4">
-            <div v-if="loadingRuns" class="space-y-2">
-              <USkeleton class="h-20 w-full" />
-              <USkeleton class="h-20 w-full" />
-            </div>
-            <div v-else-if="runs.length === 0" class="rounded-sm border border-default p-3 text-sm text-muted">
-              No runs recorded for this Action.
-            </div>
-            <div v-else class="space-y-4">
-              <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div class="rounded-sm border border-default bg-default p-3">
-                  <p class="text-xs uppercase tracking-wide text-muted">
-                    Queued
-                  </p>
-                  <p class="mt-2 text-lg font-semibold text-warning">
-                    {{ queuedRuns.length }}
-                  </p>
-                </div>
-                <div class="rounded-sm border border-default bg-default p-3">
-                  <p class="text-xs uppercase tracking-wide text-muted">
-                    Active
-                  </p>
-                  <p class="mt-2 text-lg font-semibold text-primary">
-                    {{ activeRuns.length }}
-                  </p>
-                </div>
-                <div class="rounded-sm border border-default bg-default p-3">
-                  <p class="text-xs uppercase tracking-wide text-muted">
-                    History
-                  </p>
-                  <p class="mt-2 text-lg font-semibold text-muted">
-                    {{ terminalRuns.length }}
-                  </p>
-                </div>
+            <div class="p-3 lg:p-4">
+              <div v-if="loadingAudit" class="space-y-2">
+                <USkeleton class="h-20 w-full" />
+                <USkeleton class="h-20 w-full" />
               </div>
-
-              <section class="rounded-sm border border-default bg-default">
-                <div class="border-b border-default px-3 py-2">
-                  <p class="text-sm font-medium">
-                    Recent Runs
-                  </p>
-                </div>
-                <div class="divide-y divide-default">
-                  <div v-for="run in recentRuns" :key="run.id" class="flex items-start gap-3 p-3">
-                    <UIcon
-                      :name="statusIcon(run.status)"
-                      class="mt-0.5 size-4 shrink-0"
-                      :class="runStatusTextClass(run.status)"
-                    />
-                    <div class="min-w-0 flex-1">
-                      <div class="flex items-center justify-between gap-2">
-                        <p class="truncate text-sm font-medium">
-                          {{ runPrimaryLabel(run) }}
-                        </p>
-                        <UBadge size="sm" variant="soft" :color="statusColor(run.status)">
-                          {{ run.progressPercent }}%
+              <div v-else-if="auditEvents.length === 0" class="rounded-sm border border-default p-3 text-sm text-muted">
+                No audit events recorded for this Action.
+              </div>
+              <div v-else class="divide-y divide-default rounded-sm border border-default bg-default">
+                <div v-for="event in auditEvents" :key="event.id" class="p-3">
+                  <button type="button" class="flex w-full items-start gap-3 text-left" @click="toggleAuditEventExpanded(event.id)">
+                    <UIcon :name="auditOutcomeIcon(event.outcome)" class="mt-0.5 size-4 shrink-0" :class="auditOutcomeTextClass(event.outcome)" />
+                    <span class="min-w-0 flex-1">
+                      <span class="flex items-center justify-between gap-2">
+                        <span class="truncate text-sm font-medium">{{ formatAuditAction(event.action) }}</span>
+                        <UBadge size="sm" variant="soft" :color="auditOutcomeColor(event.outcome)">
+                          {{ event.outcome }}
                         </UBadge>
-                      </div>
-                      <p class="mt-1 truncate text-xs text-muted">
-                        {{ runSecondaryLabel(run) }}
+                      </span>
+                      <span class="mt-1 block truncate text-xs text-muted">
+                        {{ event.actorUserId || 'System' }}
+                      </span>
+                      <span class="mt-1 block text-xs text-muted">
+                        {{ formatDate(event.created) }}
+                      </span>
+                    </span>
+                    <UIcon :name="isAuditEventExpanded(event.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="mt-0.5 size-4 shrink-0 text-muted" />
+                  </button>
+
+                  <div v-if="isAuditEventExpanded(event.id)" class="mt-3 space-y-3 border-t border-default pt-3">
+                    <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+                      <dt class="text-muted">
+                        Run
+                      </dt>
+                      <dd class="truncate">
+                        {{ event.runId || 'None' }}
+                      </dd>
+                      <dt class="text-muted">
+                        Workspace
+                      </dt>
+                      <dd class="truncate">
+                        {{ event.workspaceId || 'None' }}
+                      </dd>
+                      <dt class="text-muted">
+                        Project
+                      </dt>
+                      <dd class="truncate">
+                        {{ event.projectId || 'None' }}
+                      </dd>
+                    </dl>
+                    <div>
+                      <p class="mb-1 text-xs font-medium text-muted">
+                        Details
                       </p>
-                      <p class="mt-1 text-xs text-muted">
-                        {{ formatDate(run.created) }} · {{ formatDuration(run.durationSeconds) }}
-                      </p>
+                      <pre class="max-h-56 overflow-auto rounded-sm bg-elevated p-2 text-xs">{{ formatAuditDetails(event.details) }}</pre>
                     </div>
-                    <UButton
-                      v-if="canCancelAdminRun(run)"
-                      color="warning"
-                      variant="ghost"
-                      icon="i-lucide-ban"
-                      size="sm"
-                      :loading="isCancellingRun(run.id)"
-                      aria-label="Cancel Action run"
-                      @click="cancelAdminRun(run)"
-                    />
                   </div>
                 </div>
-              </section>
+              </div>
             </div>
-          </div>
-        </aside>
+          </aside>
+        </Transition>
 
-        <aside
-          v-if="isAuditPanelVisible"
-          class="w-96 shrink-0 border-l border-neutral-200 bg-neutral-50/30 dark:border-neutral-700 dark:bg-neutral-800/50 overflow-y-auto"
-        >
-          <div class="border-b border-neutral-200 p-4 dark:border-neutral-700 lg:p-5">
-            <div class="mb-3 flex items-center justify-between gap-2">
-              <div>
-                <h2 class="text-sm font-semibold">
-                  Audit Events
-                </h2>
-                <p class="text-xs text-muted">
-                  Last {{ auditEvents.length }} event{{ auditEvents.length === 1 ? '' : 's' }} for this Action
-                </p>
+        <Transition name="action-sidebar">
+          <aside
+            v-if="isSecretsPanelVisible"
+            class="w-96 shrink-0 border-l border-neutral-200 bg-neutral-50/30 dark:border-neutral-700 dark:bg-neutral-800/50 overflow-y-auto"
+          >
+            <div class="border-b border-neutral-200 p-4 dark:border-neutral-700 lg:p-5">
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <h2 class="text-sm font-semibold">
+                    Endpoint Secrets
+                  </h2>
+                  <p class="text-xs text-muted">
+                    HMAC secrets for Action processor dispatch
+                  </p>
+                </div>
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-x"
+                  size="sm"
+                  @click="isSecretsPanelVisible = false"
+                />
               </div>
               <UButton
                 color="neutral"
-                variant="ghost"
-                icon="i-lucide-x"
+                variant="outline"
+                icon="i-lucide-refresh-cw"
                 size="sm"
-                @click="isAuditPanelVisible = false"
-              />
+                :loading="loadingEndpointSecrets"
+                @click="() => refreshEndpointSecrets()"
+              >
+                Refresh
+              </UButton>
             </div>
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-refresh-cw"
-              size="sm"
-              :loading="loadingAudit"
-              @click="loadAuditEvents"
-            >
-              Refresh
-            </UButton>
-          </div>
 
-          <div class="p-3 lg:p-4">
-            <div v-if="loadingAudit" class="space-y-2">
-              <USkeleton class="h-20 w-full" />
-              <USkeleton class="h-20 w-full" />
-            </div>
-            <div v-else-if="auditEvents.length === 0" class="rounded-sm border border-default p-3 text-sm text-muted">
-              No audit events recorded for this Action.
-            </div>
-            <div v-else class="divide-y divide-default rounded-sm border border-default bg-default">
-              <div v-for="event in auditEvents" :key="event.id" class="p-3">
-                <button type="button" class="flex w-full items-start gap-3 text-left" @click="toggleAuditEventExpanded(event.id)">
-                  <UIcon :name="auditOutcomeIcon(event.outcome)" class="mt-0.5 size-4 shrink-0" :class="auditOutcomeTextClass(event.outcome)" />
-                  <span class="min-w-0 flex-1">
-                    <span class="flex items-center justify-between gap-2">
-                      <span class="truncate text-sm font-medium">{{ formatAuditAction(event.action) }}</span>
-                      <UBadge size="sm" variant="soft" :color="auditOutcomeColor(event.outcome)">
-                        {{ event.outcome }}
+            <div class="space-y-4 p-3 lg:p-4">
+              <UButton
+                icon="i-lucide-key-round"
+                block
+                @click="openEndpointSecretSlideover"
+              >
+                Generate Secret
+              </UButton>
+
+              <div v-if="loadingEndpointSecrets" class="space-y-2">
+                <USkeleton class="h-20 w-full" />
+                <USkeleton class="h-20 w-full" />
+              </div>
+              <div v-else-if="endpointSecrets.length === 0" class="rounded-sm border border-default p-3 text-sm text-muted">
+                No database-backed endpoint secrets have been created yet. Env-based secrets still work as fallback.
+              </div>
+              <div v-else class="divide-y divide-default rounded-sm border border-default bg-default">
+                <div
+                  v-for="secret in endpointSecrets"
+                  :key="`${secret.source}:${secret.ref}`"
+                  class="space-y-3 p-3"
+                >
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <p class="truncate text-sm font-medium">
+                        {{ secret.displayName || secret.ref }}
+                      </p>
+                      <UBadge size="sm" variant="soft" color="neutral">
+                        {{ secret.ref }}
                       </UBadge>
-                    </span>
-                    <span class="mt-1 block truncate text-xs text-muted">
-                      {{ event.actorUserId || 'System' }}
-                    </span>
-                    <span class="mt-1 block text-xs text-muted">
-                      {{ formatDate(event.created) }}
-                    </span>
-                  </span>
-                  <UIcon :name="isAuditEventExpanded(event.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="mt-0.5 size-4 shrink-0 text-muted" />
-                </button>
-
-                <div v-if="isAuditEventExpanded(event.id)" class="mt-3 space-y-3 border-t border-default pt-3">
-                  <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-                    <dt class="text-muted">
-                      Run
-                    </dt>
-                    <dd class="truncate">
-                      {{ event.runId || 'None' }}
-                    </dd>
-                    <dt class="text-muted">
-                      Workspace
-                    </dt>
-                    <dd class="truncate">
-                      {{ event.workspaceId || 'None' }}
-                    </dd>
-                    <dt class="text-muted">
-                      Project
-                    </dt>
-                    <dd class="truncate">
-                      {{ event.projectId || 'None' }}
-                    </dd>
-                  </dl>
-                  <div>
-                    <p class="mb-1 text-xs font-medium text-muted">
-                      Details
+                      <UBadge size="sm" variant="soft" :color="endpointSecretSourceColor(secret)">
+                        {{ endpointSecretSourceLabel(secret) }}
+                      </UBadge>
+                    </div>
+                    <p v-if="secret.description" class="mt-1 text-xs leading-5 text-muted">
+                      {{ secret.description }}
                     </p>
-                    <pre class="max-h-56 overflow-auto rounded-sm bg-elevated p-2 text-xs">{{ formatAuditDetails(event.details) }}</pre>
+                    <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted">
+                      <div class="col-span-2">
+                        <dt class="font-medium text-default">
+                          Env fallback
+                        </dt>
+                        <dd class="truncate">
+                          {{ secret.envName }}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt class="font-medium text-default">
+                          Last used
+                        </dt>
+                        <dd>{{ formatDate(secret.lastUsedAt) }}</dd>
+                      </div>
+                      <div>
+                        <dt class="font-medium text-default">
+                          Rotated
+                        </dt>
+                        <dd>{{ formatDate(secret.rotatedAt) }}</dd>
+                      </div>
+                      <div>
+                        <dt class="font-medium text-default">
+                          Created
+                        </dt>
+                        <dd>{{ formatDate(secret.createdAt) }}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div v-if="secret.source === 'DATABASE' && secret.id" class="flex flex-wrap gap-2">
+                    <UButton
+                      color="warning"
+                      variant="outline"
+                      icon="i-lucide-rotate-cw"
+                      size="sm"
+                      :loading="isRotatingEndpointSecret(secret.id)"
+                      @click="rotateEndpointSecret(secret)"
+                    >
+                      Rotate
+                    </UButton>
+                    <UButton
+                      color="error"
+                      variant="ghost"
+                      icon="i-lucide-trash-2"
+                      size="sm"
+                      :loading="isDeletingEndpointSecret(secret.id)"
+                      @click="deleteEndpointSecret(secret)"
+                    >
+                      Delete
+                    </UButton>
+                  </div>
+                  <div v-else class="text-xs leading-5 text-muted">
+                    This secret is supplied by deployment env and cannot be rotated or deleted from LAREX.
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </aside>
+          </aside>
+        </Transition>
       </div>
     </template>
   </UDashboardPanel>
+
+  <UiResponsiveSlideover
+    v-model:open="isEndpointSecretSlideoverOpen"
+    side="right"
+    :ui="{ content: 'sm:max-w-lg' }"
+  >
+    <template #header>
+      <UiSlideoverHeader
+        title="Endpoint Secret"
+        icon="i-lucide-key-round"
+      />
+    </template>
+
+    <template #body>
+      <div class="mx-auto flex w-full max-w-lg flex-col gap-4">
+        <section
+          v-if="recentEndpointSecretReveal"
+          class="space-y-4 rounded-sm border border-success/40 bg-success/10 p-4"
+        >
+          <UAlert
+            color="success"
+            variant="soft"
+            icon="i-lucide-key-round"
+            title="Copy this secret now"
+            description="The raw endpoint secret is shown only once after creation or rotation."
+          />
+          <UFormField :label="`Secret for ${recentEndpointSecretReveal.secret.ref}`">
+            <UInput :model-value="recentEndpointSecretReveal.plaintext" readonly />
+          </UFormField>
+          <div class="flex flex-wrap gap-2">
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-copy"
+              @click="copyEndpointSecret"
+            >
+              Copy Secret
+            </UButton>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-plus"
+              @click="prepareAnotherEndpointSecret"
+            >
+              Generate Another
+            </UButton>
+          </div>
+        </section>
+
+        <section v-else class="space-y-4">
+          <UAlert
+            color="primary"
+            variant="soft"
+            icon="i-lucide-shield-check"
+            title="Server-generated HMAC secret"
+            description="Create the secret value here, then copy it into the matching processor deployment."
+          />
+          <UFormField label="Secret ref" required>
+            <UInput
+              v-model="endpointSecretRefInput"
+              list="action-endpoint-secret-ref-options"
+              placeholder="processor-v1"
+            />
+            <datalist id="action-endpoint-secret-ref-options">
+              <option
+                v-for="ref in knownSecretRefs"
+                :key="ref"
+                :value="ref"
+              />
+            </datalist>
+          </UFormField>
+          <UFormField label="Display name">
+            <UInput
+              v-model="endpointSecretDisplayNameInput"
+              placeholder="Processor dispatch secret"
+            />
+          </UFormField>
+          <UFormField label="Description">
+            <UTextarea
+              v-model="endpointSecretDescriptionInput"
+              :rows="3"
+              placeholder="Where this secret is used"
+            />
+          </UFormField>
+        </section>
+      </div>
+    </template>
+
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :disabled="creatingEndpointSecret"
+          @click="isEndpointSecretSlideoverOpen = false"
+        >
+          Close
+        </UButton>
+        <UButton
+          v-if="!recentEndpointSecretReveal"
+          icon="i-lucide-key-round"
+          :loading="creatingEndpointSecret"
+          :disabled="!canCreateEndpointSecret"
+          @click="createEndpointSecret"
+        >
+          Generate Secret
+        </UButton>
+      </div>
+    </template>
+  </UiResponsiveSlideover>
 </template>
 
 <style scoped>
@@ -1500,5 +1929,35 @@ function lineColumnToOffset(source: string, line: number, column: number) {
 
 .action-yaml-editor :deep(.cm-scroller) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.action-sidebar-enter-active,
+.action-sidebar-leave-active {
+  overflow: hidden;
+  transition:
+    width 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.action-sidebar-enter-from,
+.action-sidebar-leave-to {
+  width: 0;
+  opacity: 0;
+  transform: translateX(1rem);
+}
+
+.action-sidebar-enter-to,
+.action-sidebar-leave-from {
+  width: 24rem;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-sidebar-enter-active,
+  .action-sidebar-leave-active {
+    transition: none;
+  }
 }
 </style>

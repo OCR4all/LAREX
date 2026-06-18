@@ -798,14 +798,14 @@ public class ActionDefinitionService {
         String secretRef = requirePattern(
                 auth == null ? null : auth.secretRef(),
                 "endpoint.auth.secretRef",
-                "[a-zA-Z0-9][a-zA-Z0-9._-]{1,126}",
+                ActionEndpointSecretRef.PATTERN,
                 diagnostics
         );
         if (secretRef != null && !endpointAuthService.hasSecret(secretRef)) {
             diagnostics.add(error(
                     "endpoint.auth.secretRef",
                     "No LAREX endpoint secret is configured for " + secretRef
-                            + " (" + endpointAuthService.envNameForSecretRef(secretRef) + ")"
+                            + " (admin-managed secret or " + endpointAuthService.envNameForSecretRef(secretRef) + ")"
             ));
         }
     }

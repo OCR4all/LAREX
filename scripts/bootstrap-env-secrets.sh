@@ -144,6 +144,7 @@ ensure_key "LAREX_INITIAL_ADMIN_TEMP_PASSWORD" "$(random_password)"
 ensure_key "LAREX_NOTIFICATIONS_BRIDGE_SECRET" "$(random_secret)"
 ensure_key "NUXT_NOTIFICATION_BRIDGE_SECRET" "$(random_secret)"
 ensure_key "NUXT_COLLABORATION_SECRET" "$(random_secret)"
+ensure_key "LAREX_ACTION_ENDPOINT_SECRET_ENCRYPTION_KEY" "$(random_secret)"
 ensure_key "LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1" "$(random_secret)"
 
 echo

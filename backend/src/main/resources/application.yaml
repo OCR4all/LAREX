@@ -173,6 +173,7 @@ larex:
     endpoint-allowed-origins: ${LAREX_ACTIONS_ENDPOINT_ALLOWED_ORIGINS:}
     endpoint-require-https: ${LAREX_ACTIONS_ENDPOINT_REQUIRE_HTTPS:true}
     endpoint-allow-insecure-local: ${LAREX_ACTIONS_ENDPOINT_ALLOW_INSECURE_LOCAL:true}
+    endpoint-secret-encryption-key: ${LAREX_ACTION_ENDPOINT_SECRET_ENCRYPTION_KEY:}
     endpoint-secrets: {}
   error-log:
     retention-days: ${LAREX_ERROR_LOG_RETENTION_DAYS:30}

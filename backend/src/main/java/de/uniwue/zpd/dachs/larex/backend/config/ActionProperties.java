@@ -14,6 +14,7 @@ public class ActionProperties {
     private boolean endpointRequireHttps = true;
     private boolean endpointAllowInsecureLocal = true;
     private Map<String, String> endpointSecrets = new LinkedHashMap<>();
+    private String endpointSecretEncryptionKey = "";
     private Dispatch dispatch = new Dispatch();
     private Timeout timeout = new Timeout();
     private Retention retention = new Retention();
@@ -74,6 +75,14 @@ public class ActionProperties {
 
     public void setEndpointSecrets(Map<String, String> endpointSecrets) {
         this.endpointSecrets = endpointSecrets == null ? new LinkedHashMap<>() : endpointSecrets;
+    }
+
+    public String getEndpointSecretEncryptionKey() {
+        return endpointSecretEncryptionKey;
+    }
+
+    public void setEndpointSecretEncryptionKey(String endpointSecretEncryptionKey) {
+        this.endpointSecretEncryptionKey = endpointSecretEncryptionKey == null ? "" : endpointSecretEncryptionKey;
     }
 
     public Dispatch getDispatch() {

@@ -32,16 +32,27 @@ public class ActionEndpointAuthService {
 
     private final ActionProperties actionProperties;
     private final Environment environment;
+    private final ActionEndpointSecretService endpointSecretService;
     private final Clock clock;
 
     @Autowired
-    public ActionEndpointAuthService(ActionProperties actionProperties, Environment environment) {
-        this(actionProperties, environment, Clock.systemUTC());
+    public ActionEndpointAuthService(ActionProperties actionProperties,
+                                     Environment environment,
+                                     ActionEndpointSecretService endpointSecretService) {
+        this(actionProperties, environment, endpointSecretService, Clock.systemUTC());
     }
 
     ActionEndpointAuthService(ActionProperties actionProperties, Environment environment, Clock clock) {
+        this(actionProperties, environment, null, clock);
+    }
+
+    ActionEndpointAuthService(ActionProperties actionProperties,
+                              Environment environment,
+                              ActionEndpointSecretService endpointSecretService,
+                              Clock clock) {
         this.actionProperties = actionProperties;
         this.environment = environment;
+        this.endpointSecretService = endpointSecretService;
         this.clock = clock;
     }
 
@@ -86,11 +97,14 @@ public class ActionEndpointAuthService {
     }
 
     public boolean hasSecret(String secretRef) {
+        if (endpointSecretService != null && endpointSecretService.hasDbSecret(secretRef)) {
+            return true;
+        }
         return lookupSecret(secretRef) != null;
     }
 
     public String envNameForSecretRef(String secretRef) {
-        String normalized = normalizeSecretRefForEnv(secretRef);
+        String normalized = ActionEndpointSecretRef.normalizeForEnv(secretRef);
         if (normalized == null) {
             return "LAREX_ACTION_ENDPOINT_SECRET_<SECRET_REF>";
         }
@@ -105,12 +119,22 @@ public class ActionEndpointAuthService {
     }
 
     private String resolveSecret(String secretRef) {
-        String secret = lookupSecret(secretRef);
+        String secret = lookupDbSecretForUse(secretRef);
+        if (secret == null || secret.isBlank()) {
+            secret = lookupSecret(secretRef);
+        }
         if (secret == null || secret.isBlank()) {
             throw new IllegalStateException("Action endpoint HMAC secret is not configured for secretRef: "
                     + secretRef + " (" + envNameForSecretRef(secretRef) + " or " + pluralEnvNameForSecretRef(secretRef) + ")");
         }
         return secret;
+    }
+
+    private String lookupDbSecretForUse(String secretRef) {
+        if (endpointSecretService == null) {
+            return null;
+        }
+        return endpointSecretService.resolveDbSecretForUse(secretRef);
     }
 
     private String lookupSecret(String secretRef) {
@@ -160,12 +184,12 @@ public class ActionEndpointAuthService {
             return exactSecret;
         }
 
-        String normalizedRef = normalizeSecretRefForEnv(secretRef);
+        String normalizedRef = ActionEndpointSecretRef.normalizeForEnv(secretRef);
         if (normalizedRef == null) {
             return null;
         }
         return endpointSecrets.entrySet().stream()
-                .filter(entry -> normalizedRef.equals(normalizeSecretRefForEnv(entry.getKey())))
+                .filter(entry -> normalizedRef.equals(ActionEndpointSecretRef.normalizeForEnv(entry.getKey())))
                 .map(Map.Entry::getValue)
                 .filter(value -> value != null && !value.isBlank())
                 .findFirst()
@@ -173,7 +197,7 @@ public class ActionEndpointAuthService {
     }
 
     private String pluralEnvNameForSecretRef(String secretRef) {
-        String normalized = normalizeSecretRefForEnv(secretRef);
+        String normalized = ActionEndpointSecretRef.normalizeForEnv(secretRef);
         if (normalized == null) {
             return "LAREX_ACTIONS_ENDPOINT_SECRETS_<SECRET_REF>";
         }
@@ -222,16 +246,5 @@ public class ActionEndpointAuthService {
         } catch (Exception e) {
             throw new IllegalStateException("Could not hash Action dispatch request body", e);
         }
-    }
-
-    private String normalizeSecretRefForEnv(String secretRef) {
-        if (secretRef == null || secretRef.isBlank()) {
-            return null;
-        }
-        return secretRef.trim()
-                .toUpperCase(Locale.ROOT)
-                .replaceAll("[^A-Z0-9]", "_")
-                .replaceAll("_+", "_")
-                .replaceAll("^_|_$", "");
     }
 }

@@ -66,6 +66,7 @@ larex:
     endpoint-allowed-origins: ${LAREX_ACTIONS_ENDPOINT_ALLOWED_ORIGINS:}
     endpoint-require-https: ${LAREX_ACTIONS_ENDPOINT_REQUIRE_HTTPS:true}
     endpoint-allow-insecure-local: ${LAREX_ACTIONS_ENDPOINT_ALLOW_INSECURE_LOCAL:true}
+    endpoint-secret-encryption-key: ${LAREX_ACTION_ENDPOINT_SECRET_ENCRYPTION_KEY:}
   backup:
     enabled: ${LAREX_BACKUP_ENABLED:true}
     allowed-paths: ${LAREX_BACKUP_ALLOWED_PATHS:/mnt/data,/mnt/data/backups}

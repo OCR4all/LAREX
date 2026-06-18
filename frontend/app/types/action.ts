@@ -216,6 +216,25 @@ export interface ActionAuditEvent {
   created: string
 }
 
+export interface ActionEndpointSecret {
+  id: string | null
+  ref: string
+  envName: string
+  displayName: string | null
+  description: string | null
+  createdBy: string | null
+  createdAt: string | null
+  updatedAt: string | null
+  lastUsedAt: string | null
+  rotatedAt: string | null
+  source: 'DATABASE' | 'ENV_FALLBACK'
+}
+
+export interface ActionEndpointSecretRevealResponse {
+  secret: ActionEndpointSecret
+  plaintext: string
+}
+
 export const DEFAULT_ACTION_YAML = `version: 1
 id: mock-image-copy
 name: Mock Image Copy

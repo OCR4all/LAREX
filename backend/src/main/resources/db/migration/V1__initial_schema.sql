@@ -96,6 +96,24 @@ CREATE TABLE public.action_processor_definitions (
 
 
 --
+-- Name: action_endpoint_secrets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.action_endpoint_secrets (
+    created timestamp(6) without time zone NOT NULL,
+    last_used_at timestamp(6) without time zone,
+    rotated_at timestamp(6) without time zone,
+    updated timestamp(6) without time zone NOT NULL,
+    ref character varying(128) NOT NULL,
+    created_by_user_id character varying(255) NOT NULL,
+    display_name character varying(255),
+    description text,
+    encrypted_secret text NOT NULL,
+    id character varying(255) NOT NULL
+);
+
+
+--
 -- Name: action_processor_workspace_availability; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1433,6 +1451,22 @@ ALTER TABLE ONLY public.action_processor_definitions
 
 
 --
+-- Name: action_endpoint_secrets action_endpoint_secrets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.action_endpoint_secrets
+    ADD CONSTRAINT action_endpoint_secrets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: action_endpoint_secrets action_endpoint_secrets_ref_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.action_endpoint_secrets
+    ADD CONSTRAINT action_endpoint_secrets_ref_key UNIQUE (ref);
+
+
+--
 -- Name: action_processor_workspace_availability action_processor_workspace_availability_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2164,6 +2198,13 @@ CREATE INDEX idx_action_audit_events_workspace_project ON public.action_audit_ev
 
 
 --
+-- Name: idx_action_endpoint_secret_ref; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_action_endpoint_secret_ref ON public.action_endpoint_secrets USING btree (ref);
+
+
+--
 -- Name: idx_action_availability_definition; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2837,4 +2878,3 @@ ALTER TABLE ONLY public.action_run_dismissals
 --
 -- PostgreSQL database dump complete
 --
-

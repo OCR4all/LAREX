@@ -1,5 +1,6 @@
 larex:
   actions:
+    endpoint-secret-encryption-key: ${LAREX_ACTION_ENDPOINT_SECRET_ENCRYPTION_KEY:dev-action-endpoint-secret-encryption-key-change-me}
     endpoint-secrets:
       mock-processor-v1: ${LAREX_ACTION_ENDPOINT_SECRET_MOCK_PROCESSOR_V1:dev-mock-action-secret-change-me}
       kraken-segmentation-v1: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:dev-kraken-segmentation-secret-change-me}

@@ -226,6 +226,31 @@ public class ActionDto {
             LocalDateTime created
     ) {}
 
+    public record EndpointSecretRequest(
+            @NotBlank String ref,
+            String displayName,
+            String description
+    ) {}
+
+    public record EndpointSecretResponse(
+            String id,
+            String ref,
+            String envName,
+            String displayName,
+            String description,
+            String createdBy,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            LocalDateTime lastUsedAt,
+            LocalDateTime rotatedAt,
+            String source
+    ) {}
+
+    public record EndpointSecretRevealResponse(
+            EndpointSecretResponse secret,
+            String plaintext
+    ) {}
+
     public record ActionRunLogEventResponse(
             String id,
             String level,
