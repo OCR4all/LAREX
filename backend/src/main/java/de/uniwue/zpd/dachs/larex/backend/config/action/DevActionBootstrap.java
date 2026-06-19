@@ -20,7 +20,6 @@ public class DevActionBootstrap implements ApplicationRunner {
     private static final Logger logger = LoggerFactory.getLogger(DevActionBootstrap.class);
     private static final String BOOTSTRAP_USER_ID = "dev-bootstrap";
     private static final String MOCK_PROCESSOR_KEY = "mock-image-copy";
-    private static final String KRAKEN_SEGMENTATION_KEY = "kraken-segmentation";
 
     private final ActionDefinitionService actionDefinitionService;
     private final ActionProcessorDefinitionRepository definitionRepository;
@@ -38,16 +37,10 @@ public class DevActionBootstrap implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
         DevProcessor mockProcessor = actionProperties.getDev().getMockProcessor();
-        DevProcessor krakenSegmentation = actionProperties.getDev().getKrakenSegmentation();
         upsertDevAction(
                 MOCK_PROCESSOR_KEY,
                 mockProcessor.isEnabled(),
                 mockProcessorYaml(mockProcessor.getEndpointUrl(), mockProcessor.getHealthUrl())
-        );
-        upsertDevAction(
-                KRAKEN_SEGMENTATION_KEY,
-                krakenSegmentation.isEnabled(),
-                krakenSegmentationYaml(krakenSegmentation.getEndpointUrl(), krakenSegmentation.getHealthUrl())
         );
     }
 
@@ -118,45 +111,4 @@ public class DevActionBootstrap implements ApplicationRunner {
                 """.formatted(endpointUrl, healthUrl);
     }
 
-    private String krakenSegmentationYaml(String endpointUrl, String healthUrl) {
-        return """
-                version: 1
-                id: kraken-segmentation
-                name: Kraken Segmentation
-                description: Runs Kraken OCR baseline segmentation on selected page images and imports PAGE XML.
-                category: LAYOUT
-                targets:
-                  - PAGE
-                  - REGION
-
-                endpoint:
-                  url: %s
-                  healthUrl: %s
-                  timeoutSeconds: 30
-                  auth:
-                    type: hmac
-                    secretRef: kraken-segmentation-v1
-
-                access:
-                  execute: CURATOR
-
-                locking:
-                  mode: PAGES
-
-                inputs:
-                  images: true
-                  xml: true
-
-                outputs:
-                  xml:
-                    enabled: true
-                    mode: upsert
-                  images:
-                    enabled: false
-
-                concurrency:
-                  maxActiveRuns: 1
-                  scope: PROJECT
-                """.formatted(endpointUrl, healthUrl);
-    }
 }

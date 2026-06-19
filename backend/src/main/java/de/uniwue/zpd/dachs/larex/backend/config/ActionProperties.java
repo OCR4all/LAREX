@@ -211,7 +211,6 @@ public class ActionProperties {
 
     public static class Dev {
         private DevProcessor mockProcessor = mockProcessorDefaults();
-        private DevProcessor krakenSegmentation = krakenSegmentationDefaults();
 
         public DevProcessor getMockProcessor() {
             return mockProcessor;
@@ -221,27 +220,11 @@ public class ActionProperties {
             this.mockProcessor = mockProcessor == null ? mockProcessorDefaults() : mockProcessor;
         }
 
-        public DevProcessor getKrakenSegmentation() {
-            return krakenSegmentation;
-        }
-
-        public void setKrakenSegmentation(DevProcessor krakenSegmentation) {
-            this.krakenSegmentation = krakenSegmentation == null ? krakenSegmentationDefaults() : krakenSegmentation;
-        }
-
         private static DevProcessor mockProcessorDefaults() {
             return new DevProcessor(
                     true,
                     "http://mock-action-processor:9000/dispatch",
                     "http://mock-action-processor:9000/health"
-            );
-        }
-
-        private static DevProcessor krakenSegmentationDefaults() {
-            return new DevProcessor(
-                    true,
-                    "http://kraken-segmentation-processor:9000/dispatch",
-                    "http://kraken-segmentation-processor:9000/health"
             );
         }
     }

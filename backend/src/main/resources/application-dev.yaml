@@ -3,13 +3,8 @@ larex:
     endpoint-secret-encryption-key: ${LAREX_ACTION_ENDPOINT_SECRET_ENCRYPTION_KEY:dev-action-endpoint-secret-encryption-key-change-me}
     endpoint-secrets:
       mock-processor-v1: ${LAREX_ACTION_ENDPOINT_SECRET_MOCK_PROCESSOR_V1:dev-mock-action-secret-change-me}
-      kraken-segmentation-v1: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:dev-kraken-segmentation-secret-change-me}
     dev:
       mock-processor:
         enabled: ${LAREX_DEV_MOCK_ACTION_ENABLED:true}
         endpoint-url: ${LAREX_DEV_MOCK_ACTION_ENDPOINT_URL:http://mock-action-processor:9000/dispatch}
         health-url: ${LAREX_DEV_MOCK_ACTION_HEALTH_URL:http://mock-action-processor:9000/health}
-      kraken-segmentation:
-        enabled: ${LAREX_DEV_KRAKEN_SEGMENTATION_ACTION_ENABLED:true}
-        endpoint-url: ${LAREX_DEV_KRAKEN_SEGMENTATION_ACTION_ENDPOINT_URL:http://kraken-segmentation-processor:9000/dispatch}
-        health-url: ${LAREX_DEV_KRAKEN_SEGMENTATION_ACTION_HEALTH_URL:http://kraken-segmentation-processor:9000/health}
