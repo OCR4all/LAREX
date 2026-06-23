@@ -252,6 +252,10 @@ const emptyStateActions = computed(() => {
             value-key="value"
             class="w-36"
           />
+          <AppTableClearFiltersButton
+            :active="activeFilters.length > 0"
+            @clear="resetAllFilters"
+          />
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="workspace-validation-rulesets" :columns="columns" />
@@ -260,11 +264,6 @@ const emptyStateActions = computed(() => {
     </template>
 
     <template #body>
-      <AppTableActiveFilters
-        :filters="activeFilters"
-        @clear-all="resetAllFilters"
-      />
-
       <UEmpty
         v-if="rulesets && rulesets.length === 0"
         variant="naked"

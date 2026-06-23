@@ -354,6 +354,10 @@ function clearFilters() {
             value-key="value"
             class="w-44"
           />
+          <AppTableClearFiltersButton
+            :active="activeErrorFilters.length > 0"
+            @clear="clearFilters"
+          />
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="admin-errors" :columns="columns" />
@@ -405,11 +409,6 @@ function clearFilters() {
         </div>
 
         <div>
-          <AppTableActiveFilters
-            :filters="activeErrorFilters"
-            @clear-all="clearFilters"
-          />
-
           <AppTable
             table-id="admin-errors"
             :data="rows"

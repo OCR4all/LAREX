@@ -372,6 +372,10 @@ function setCancellingRun(runId: string, value: boolean) {
             value-key="value"
             class="w-full sm:w-56"
           />
+          <AppTableClearFiltersButton
+            :active="activeRunFilters.length > 0"
+            @clear="clearFilters"
+          />
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="admin-action-runs" :columns="columns" />
@@ -396,11 +400,6 @@ function setCancellingRun(runId: string, value: boolean) {
         </div>
 
         <template v-else>
-          <AppTableActiveFilters
-            :filters="activeRunFilters"
-            @clear-all="clearFilters"
-          />
-
           <UEmpty
             v-if="filteredRuns.length === 0"
             variant="naked"

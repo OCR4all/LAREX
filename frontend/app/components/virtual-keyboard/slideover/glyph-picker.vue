@@ -248,16 +248,23 @@ const headerTitle = computed(() => props.title || `Glyph Picker${total.value ? `
     <template #body>
       <div class="flex h-full min-h-0 flex-col gap-4">
         <div class="space-y-3 px-2">
-          <UInput v-model="query" placeholder="Search by name, hex, or char..." autofocus />
+          <div class="flex items-center gap-2">
+            <UInput
+              v-model="query"
+              placeholder="Search by name, hex, or char..."
+              autofocus
+              class="min-w-0 flex-1"
+            />
+            <AppTableClearFiltersButton
+              :active="activeGlyphFilters.length > 0"
+              @clear="clearGlyphFilters"
+            />
+          </div>
           <div class="flex gap-4 text-xs">
             <UCheckbox v-model="sources.mufi" label="MUFI" />
             <UCheckbox v-model="sources.unicode" label="Unicode" />
             <UCheckbox v-model="puaOnly" label="PUA" />
           </div>
-          <AppTableActiveFilters
-            :filters="activeGlyphFilters"
-            @clear-all="clearGlyphFilters"
-          />
         </div>
 
         <div class="flex min-h-0 flex-1 flex-col px-2 pb-2">

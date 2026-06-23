@@ -424,16 +424,18 @@ const columns: TableColumn<Page>[] = [
                 />
               </div>
 
-              <UInput
-                v-model="searchQuery"
-                placeholder="Search pages..."
-                icon="i-lucide-search"
-              />
-
-              <AppTableActiveFilters
-                :filters="activePageFilters"
-                @clear-all="clearPageFilters"
-              />
+              <div class="flex items-center gap-2">
+                <UInput
+                  v-model="searchQuery"
+                  placeholder="Search pages..."
+                  icon="i-lucide-search"
+                  class="min-w-0 flex-1"
+                />
+                <AppTableClearFiltersButton
+                  :active="activePageFilters.length > 0"
+                  @clear="clearPageFilters"
+                />
+              </div>
 
               <div v-if="pagesStatus === 'pending'" class="flex items-center justify-center py-8">
                 <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />

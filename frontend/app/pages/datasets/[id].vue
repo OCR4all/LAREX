@@ -1427,17 +1427,16 @@ useHead({
                       multiple
                       class="w-44"
                     />
+                    <AppTableClearFiltersButton
+                      :active="activeDatasetItemFilters.length > 0"
+                      @clear="resetContentFilters"
+                    />
                   </template>
 
                   <template #right>
                     <AppTableColumnsDropdown table-id="dataset-items" :columns="itemColumns" />
                   </template>
                 </UDashboardToolbar>
-
-                <AppTableActiveFilters
-                  :filters="activeDatasetItemFilters"
-                  @clear-all="resetContentFilters"
-                />
 
                 <div v-if="dataset.items.length === 0" class="p-6">
                   <UEmpty

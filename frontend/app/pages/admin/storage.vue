@@ -488,6 +488,10 @@ async function refreshAll() {
             class="w-full sm:w-40"
             value-key="value"
           />
+          <AppTableClearFiltersButton
+            :active="activeStorageFilters.length > 0"
+            @clear="clearFilters"
+          />
         </template>
 
         <template #right>
@@ -607,11 +611,6 @@ async function refreshAll() {
             {{ totalItems }} files ({{ formatBytes(filteredTotalSize) }})
           </span>
         </div>
-
-        <AppTableActiveFilters
-          :filters="activeStorageFilters"
-          @clear-all="clearFilters"
-        />
 
         <div v-if="!orphanedPending && totalItems === 0" class="py-12 text-center">
           <UIcon

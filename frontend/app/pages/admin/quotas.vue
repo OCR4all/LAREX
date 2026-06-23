@@ -371,6 +371,10 @@ function formatBytes(bytes: number) {
             placeholder="All types"
             class="w-full sm:w-40"
           />
+          <AppTableClearFiltersButton
+            :active="activeFilters.length > 0"
+            @clear="clearFilters"
+          />
         </template>
 
         <template #right>
@@ -419,11 +423,6 @@ function formatBytes(bytes: number) {
       </div>
 
       <div>
-        <AppTableActiveFilters
-          :filters="activeFilters"
-          @clear-all="clearFilters"
-        />
-
         <UContextMenu :items="contextMenuItems">
           <AppTable
             table-id="admin-quotas"

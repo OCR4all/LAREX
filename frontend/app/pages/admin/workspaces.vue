@@ -225,6 +225,10 @@ function clearFilters() {
               />
             </template>
           </UInput>
+          <AppTableClearFiltersButton
+            :active="activeWorkspaceFilters.length > 0"
+            @clear="clearFilters"
+          />
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="admin-workspaces" :columns="columns" />
@@ -263,11 +267,6 @@ function clearFilters() {
       </div>
 
       <div>
-        <AppTableActiveFilters
-          :filters="activeWorkspaceFilters"
-          @clear-all="clearFilters"
-        />
-
         <UContextMenu :items="contextMenuItems">
           <AppTable
             table-id="admin-workspaces"

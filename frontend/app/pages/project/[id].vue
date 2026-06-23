@@ -2062,6 +2062,10 @@ useHead({
               <UIcon name="i-lucide-file-text" />
             </template>
           </USelectMenu>
+          <AppTableClearFiltersButton
+            :active="activeProjectPageFilters.length > 0"
+            @clear="resetFilters"
+          />
         </template>
         <template #right>
           <UTooltip text="Refresh">
@@ -2184,12 +2188,6 @@ useHead({
 
         <div class="flex flex-1 flex-col gap-0 xl:min-h-0 xl:flex-row xl:items-stretch">
           <div class="min-w-0 flex-1 space-y-6 p-6">
-            <AppTableActiveFilters
-              :filters="activeProjectPageFilters"
-              :spacing="false"
-              @clear-all="resetFilters"
-            />
-
             <div v-if="pagesError" class="py-8 text-center">
               <div class="flex items-center justify-center gap-2 text-error">
                 <UIcon name="i-lucide-alert-circle" />

@@ -358,6 +358,10 @@ function formatDurationFromRun(run: ActionRun) {
             value-key="value"
             class="w-full sm:w-52"
           />
+          <AppTableClearFiltersButton
+            :active="activeRunFilters.length > 0"
+            @clear="clearFilters"
+          />
         </template>
         <template #right>
           <AppTableColumnsDropdown table-id="workspace-action-runs" :columns="columns" />
@@ -382,11 +386,6 @@ function formatDurationFromRun(run: ActionRun) {
         </div>
 
         <template v-else>
-          <AppTableActiveFilters
-            :filters="activeRunFilters"
-            @clear-all="clearFilters"
-          />
-
           <UEmpty
             v-if="filteredRuns.length === 0"
             variant="naked"

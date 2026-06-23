@@ -525,6 +525,10 @@ const viewModeItems = [
             v-model="assignedToMe"
             label="Assigned to me"
           />
+          <AppTableClearFiltersButton
+            :active="activeTaskFilters.length > 0"
+            @clear="clearTaskFilters"
+          />
         </template>
         <template #right>
           <div class="flex items-center gap-2">
@@ -555,11 +559,6 @@ const viewModeItems = [
       </div>
 
       <div v-else-if="tasksSafeCount === 0">
-        <AppTableActiveFilters
-          :filters="activeTaskFilters"
-          @clear-all="clearTaskFilters"
-        />
-
         <UEmpty
           v-if="activeTaskFilters.length > 0"
           variant="naked"
@@ -587,11 +586,6 @@ const viewModeItems = [
       </div>
 
       <div v-else-if="viewMode === 'table'">
-        <AppTableActiveFilters
-          :filters="activeTaskFilters"
-          @clear-all="clearTaskFilters"
-        />
-
         <UContextMenu :items="contextMenuItems">
           <AppTable
             table-id="tasks-index"

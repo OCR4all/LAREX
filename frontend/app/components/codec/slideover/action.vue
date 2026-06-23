@@ -810,21 +810,22 @@ function closeWithResult() {
             </div>
             <div class="flex items-center justify-between gap-2 text-[11px] text-muted">
               <span>Page-tag options come from loaded pages.</span>
-              <UButton
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                icon="i-lucide-refresh-cw"
-                @click="loadAllSourceProjectPages"
-              >
-                Load all page tags
-              </UButton>
+              <div class="flex items-center gap-2">
+                <AppTableClearFiltersButton
+                  :active="activeSourceFilters.length > 0"
+                  @clear="clearSourceFilters"
+                />
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  icon="i-lucide-refresh-cw"
+                  @click="loadAllSourceProjectPages"
+                >
+                  Load all page tags
+                </UButton>
+              </div>
             </div>
-
-            <AppTableActiveFilters
-              :filters="activeSourceFilters"
-              @clear-all="clearSourceFilters"
-            />
 
             <div class="border border-default rounded-sm overflow-hidden">
               <AppTable

@@ -707,6 +707,10 @@ async function submitGlobalRoleAction() {
             value-key="value"
             class="w-full sm:w-48"
           />
+          <AppTableClearFiltersButton
+            :active="activeUserFilters.length > 0"
+            @clear="clearFilters"
+          />
         </template>
 
         <template #right>
@@ -758,11 +762,6 @@ async function submitGlobalRoleAction() {
       </div>
 
       <div>
-        <AppTableActiveFilters
-          :filters="activeUserFilters"
-          @clear-all="clearFilters"
-        />
-
         <UContextMenu :items="contextMenuItems as any">
           <AppTable
             table-id="admin-users"

@@ -319,6 +319,10 @@ const emptyStateActions = computed(() => {
               <UIcon name="i-lucide-git-merge" class="w-4 h-4" />
             </template>
           </USelectMenu>
+          <AppTableClearFiltersButton
+            :active="activeFilters.length > 0"
+            @clear="resetAllFilters"
+          />
         </template>
 
         <template #right>
@@ -328,11 +332,6 @@ const emptyStateActions = computed(() => {
     </template>
 
     <template #body>
-      <AppTableActiveFilters
-        :filters="activeFilters"
-        @clear-all="resetAllFilters"
-      />
-
       <UEmpty
         v-if="codecs && codecs.length === 0"
         variant="naked"

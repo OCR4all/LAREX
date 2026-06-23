@@ -1009,6 +1009,10 @@ async function handleLegacyOcr4allImport(event: Event) {
           >
             Starred
           </UButton>
+          <AppTableClearFiltersButton
+            :active="activeFilters.length > 0"
+            @clear="clearProjectFilters"
+          />
         </template>
         <template #right>
           <AppTableColumnsDropdown
@@ -1038,11 +1042,6 @@ async function handleLegacyOcr4allImport(event: Event) {
       </div>
 
       <template v-else>
-        <AppTableActiveFilters
-          :filters="activeFilters"
-          @clear-all="clearProjectFilters"
-        />
-
         <UEmpty
           v-if="data && data.length === 0"
           variant="naked"
