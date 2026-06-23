@@ -1,1 +1,10 @@
-minimumReleaseAge: 14400
+allowBuilds:
+  '@mongodb-js/zstd': true
+  '@parcel/watcher': true
+  better-sqlite3: true
+  core-js-pure: true
+  esbuild: true
+  node-liblzma: true
+  sharp: true
+  unrs-resolver: true
+  vue-demi: true

@@ -1,11 +1,11 @@
 ---
 title: LAREX Documentation
-description: Documentation for LAREX - Layout Analysis and Recognition application.
+description: Guides and references for LAREX users, administrators, developers, and Action processor authors.
 navigation:
   icon: i-lucide-book-open
 seo:
   title: LAREX Documentation
-  description: Complete documentation for LAREX web application.
+  description: Product documentation for LAREX data management, annotation, and processor execution workflows.
 ---
 
 ::u-page-hero
@@ -14,8 +14,8 @@ class: relative isolate pt-12 sm:pt-16
 ui:
   container: relative z-10
   wrapper: relative z-10
-  title: text-black
-  description: text-black font-medium
+  title: text-black max-w-5xl
+  description: text-black font-medium max-w-3xl
 ---
 #top
   :::div
@@ -29,7 +29,6 @@ ui:
       :::div
       ---
       class: h-full overflow-hidden rounded-lg bg-cover bg-center bg-no-repeat
-      style: background-image: url('/hero.webp');
       ---
       :::
     :::
@@ -39,47 +38,65 @@ ui:
 LAREX Documentation
 
 #description
-Complete documentation for developers and users of LAREX.
+Guides for managing facsimile projects, annotating PAGE XML, configuring workspaces, and running external processors through LAREX Actions.
 
 #links
   :::u-button
   ---
   color: neutral
   size: xl
-  to: /getting-started/introduction
+  to: /user-guide/workspace-library
   trailing-icon: i-lucide-arrow-right
   ---
-  Technical Documentation
+  Start Using LAREX
   :::
 
   :::u-button
   ---
   color: neutral
   size: xl
-  to: /user-guide/workspace-library
+  to: /actions/overview
   variant: outline
   trailing-icon: i-lucide-arrow-right
   ---
-  User Guide
+  LAREX Actions
   :::
-::
-
-::warning
-Documentation status: this documentation set is currently generated automatically.
-
-Content may be incomplete or inaccurate and is not guaranteed to be 100% correct.
-
-A human-authored overhaul is planned soon.
 ::
 
 ::u-page-section
 #title
-Technical Documentation
+Choose Your Path
 
 #description
-For developers, system administrators, and anyone setting up or extending LAREX.
+The documentation is organized around the work people actually do in LAREX.
 
   :::u-page-grid
+    ::::u-page-card
+    ---
+    class: col-span-2 md:col-span-1
+    to: /user-guide/workspace-library
+    icon: i-lucide-folder
+    ---
+    #title
+    Annotators and Curators
+
+    #description
+    Learn how to organize projects, upload pages, annotate layouts, correct text, search workspaces, and review resources.
+    ::::
+
+    ::::u-page-card
+    ---
+    class: col-span-2 md:col-span-1
+    to: /actions/overview
+    icon: i-lucide-wand-sparkles
+    ---
+    #title
+    LAREX Actions
+
+    #description
+    Set up processor definitions, run OCR/HTR or layout processors, and build Action processors with the Python SDK.
+    ::::
+
     ::::u-page-card
     ---
     class: col-span-2 md:col-span-1
@@ -87,36 +104,128 @@ For developers, system administrators, and anyone setting up or extending LAREX.
     icon: i-lucide-rocket
     ---
     #title
-    Getting Started
+    Developers
 
     #description
-    Introduction to LAREX, installation guide, project structure, and configuration.
+    Understand the application architecture, local setup, service boundaries, and command reference.
     ::::
 
     ::::u-page-card
     ---
     class: col-span-2 md:col-span-1
-    to: /development/local-setup
-    icon: i-lucide-code
-    ---
-    #title
-    Development
-
-    #description
-    Local development setup, Docker-based development, and command reference.
-    ::::
-
-    ::::u-page-card
-    ---
-    class: col-span-2 md:col-span-1
-    to: /deployment/production-deploy
+    to: /user-guide/admin-dashboard/overview
     icon: i-lucide-server
     ---
     #title
-    Deployment
+    Administrators
 
     #description
-    Production deployment guide, environment variables, service reference, and CI/CD.
+    Manage users, quotas, workspaces, storage, imports, monitoring, and global Action operations.
+    ::::
+  :::
+::
+
+::u-page-section
+#title
+Core Workflows
+
+  :::u-page-grid
+    ::::u-page-card
+    ---
+    class: col-span-2 md:col-span-1
+    to: /user-guide/projects
+    icon: i-lucide-file-text
+    ---
+    #title
+    Projects and Pages
+
+    #description
+    Create projects, import IIIF manifests, upload images/XML/PDFs, resolve conflicts, and manage page metadata.
+    ::::
+
+    ::::u-page-card
+    ---
+    class: col-span-2 md:col-span-1
+    to: /user-guide/editor-interface
+    icon: i-lucide-edit-3
+    ---
+    #title
+    Editor
+
+    #description
+    Work with the canvas, sidebars, annotation tools, text mode, metadata, relations, and saved PAGE XML.
+    ::::
+
+    ::::u-page-card
+    ---
+    class: col-span-2 md:col-span-1
+    to: /user-guide/larex-actions
+    icon: i-lucide-play
+    ---
+    #title
+    Run Processors
+
+    #description
+    Start Actions from projects or editor selections, monitor queues, cancel runs, retry failures, and inspect history.
+    ::::
+
+    ::::u-page-card
+    ---
+    class: col-span-2 md:col-span-1
+    to: /user-guide/workspace-search
+    icon: i-lucide-search
+    ---
+    #title
+    Search and Review
+
+    #description
+    Search transcriptions across workspaces and use dictionaries, normalization profiles, and validation rulesets.
+    ::::
+  :::
+::
+
+::u-page-section
+#title
+References
+
+  :::u-page-grid
+    ::::u-page-card
+    ---
+    class: col-span-2 md:col-span-1
+    to: /actions/yaml-reference
+    icon: i-lucide-file-code
+    ---
+    #title
+    Actions YAML
+
+    #description
+    Complete schema, defaults, limits, validation rules, and examples for Action definitions.
+    ::::
+
+    ::::u-page-card
+    ---
+    class: col-span-2 md:col-span-1
+    to: /actions/processor-sdk
+    icon: i-lucide-package
+    ---
+    #title
+    Processor SDK
+
+    #description
+    Build FastAPI or framework-neutral processors with signed dispatch verification and cooperative cancellation.
+    ::::
+
+    ::::u-page-card
+    ---
+    class: col-span-2 md:col-span-1
+    to: /development/command-reference
+    icon: i-lucide-terminal
+    ---
+    #title
+    Commands
+
+    #description
+    Taskfile, Docker Compose, backend, frontend, docs, and Keycloak theme commands.
     ::::
 
     ::::u-page-card
@@ -129,147 +238,7 @@ For developers, system administrators, and anyone setting up or extending LAREX.
     Troubleshooting
 
     #description
-    Solutions to common issues during development and production deployment.
-    ::::
-  :::
-::
-
-::u-page-section
-#title
-User Guide
-
-#description
-For end users who annotate and analyze documents in LAREX.
-
-  :::u-page-grid
-    ::::u-page-card
-    ---
-    class: col-span-2 md:col-span-1
-    to: /user-guide/workspace-library
-    icon: i-lucide-folder
-    ---
-    #title
-    Workspace and Library
-
-    #description
-    Workspaces, project library, and project management basics.
-    ::::
-
-    ::::u-page-card
-    ---
-    class: col-span-2 md:col-span-1
-    to: /user-guide/projects
-    icon: i-lucide-file-text
-    ---
-    #title
-    Projects
-
-    #description
-    Manage project pages, uploads, IIIF imports, filters, and project actions.
-    ::::
-
-    ::::u-page-card
-    ---
-    class: col-span-2 md:col-span-1
-    to: /user-guide/editor-interface
-    icon: i-lucide-edit-3
-    ---
-    #title
-    Editor Interface
-
-    #description
-    Editor layout, sidebars, panels, and core controls.
-    ::::
-
-    ::::u-page-card
-    ---
-    class: col-span-2 md:col-span-1
-    to: /user-guide/workspace-search
-    icon: i-lucide-search
-    ---
-    #title
-    Workspace Search
-
-    #description
-    Search persisted transcription text across projects and pages with ranked hits and clustered results.
-    ::::
-
-    ::::u-page-card
-    ---
-    class: col-span-2 md:col-span-1
-    to: /user-guide/annotation-tools
-    icon: i-lucide-pen-tool
-    ---
-    #title
-    Annotation Tools
-
-    #description
-    Create and edit regions, textlines, and baselines.
-    ::::
-
-    ::::u-page-card
-    ---
-    class: col-span-2 md:col-span-1
-    to: /user-guide/tag-sets
-    icon: i-lucide-tags
-    ---
-    #title
-    Tag Sets
-
-    #description
-    Build and manage hierarchical tags for projects and pages.
-    ::::
-
-    ::::u-page-card
-    ---
-    class: col-span-2 md:col-span-1
-    to: /user-guide/label-sets
-    icon: i-lucide-code-xml
-    ---
-    #title
-    Label Sets
-
-    #description
-    Define and manage label structures for annotation workflows.
-    ::::
-
-    ::::u-page-card
-    ---
-    class: col-span-2 md:col-span-1
-    to: /user-guide/virtual-keyboard
-    icon: i-lucide-keyboard
-    ---
-    #title
-    Virtual Keyboard
-
-    #description
-    Use the virtual keyboard for special characters and diacritics.
-    ::::
-
-    ::::u-page-card
-    ---
-    class: col-span-2 md:col-span-1
-    to: /user-guide/dictionaries
-    icon: i-lucide-book-copy
-    ---
-    #title
-    Dictionaries
-
-    #description
-    Create controlled dictionaries for token validation, suggestions, and editor review workflows.
-    ::::
-
-    ::::u-page-card
-    ---
-    class: col-span-2 md:col-span-1
-    to: /user-guide/keyboard-shortcuts
-    icon: i-lucide-command
-    ---
-    #title
-    Keyboard Shortcuts
-
-    #description
-    Current shortcut reference for the editor and text workflows.
+    Common local setup, Docker, authentication, upload, and processor execution problems.
     ::::
   :::
 ::

@@ -1,0 +1,84 @@
+@import "tailwindcss" theme(static);
+@import "@nuxt/ui";
+
+@theme static {
+  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  --breakpoint-3xl: 1920px;
+
+  --color-navy-50: oklch(0.965 0.016 274.87);
+  --color-navy-100: oklch(0.932 0.031 269.84);
+  --color-navy-200: oklch(0.863 0.065 268.79);
+  --color-navy-300: oklch(0.786 0.104 265.98);
+  --color-navy-400: oklch(0.718 0.143 262.61);
+  --color-navy-500: oklch(0.651 0.183 257.46);
+  --color-navy-600: oklch(0.581 0.184 255.48);
+  --color-navy-700: oklch(0.503 0.159 255.41);
+  --color-navy-800: oklch(0.434 0.138 255.46);
+  --color-navy-900: oklch(0.365 0.115 255.33);
+  --color-navy-950: oklch(0.251 0.08 255.53);
+
+  --color-smoke-50: #f2f2f2;
+  --color-smoke-100: #ebebeb;
+  --color-smoke-200: #e0e0e0;
+  --color-smoke-300: #d0d0d0;
+  --color-smoke-400: #b0b0b0;
+  --color-smoke-500: #888888;
+  --color-smoke-600: #5e5e5e;
+  --color-smoke-700: #404040;
+  --color-smoke-800: #282828;
+  --color-smoke-900: #181818;
+  --color-smoke-950: #0a0a0a;
+}
+
+:root {
+  --ui-radius: 0.25rem;
+  --ui-primary: #1c1c19;
+}
+
+.dark {
+  --ui-primary: #f0eee6;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--ui-text);
+  background: var(--ui-bg);
+}
+
+.docs-content {
+  color: var(--ui-text);
+}
+
+.docs-content :where(h1, h2, h3, h4) {
+  scroll-margin-top: 6rem;
+}
+
+.docs-content :where(pre) {
+  overflow-x: auto;
+}
+
+@keyframes background-gradient {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+
+  20% {
+    transform: translate(calc(100% * var(--tx-1, 1)), calc(100% * var(--ty-1, 1)));
+  }
+
+  40% {
+    transform: translate(calc(100% * var(--tx-2, -1)), calc(100% * var(--ty-2, 1)));
+  }
+
+  60% {
+    transform: translate(calc(100% * var(--tx-3, 1)), calc(100% * var(--ty-3, -1)));
+  }
+
+  80% {
+    transform: translate(calc(100% * var(--tx-4, -1)), calc(100% * var(--ty-4, -1)));
+  }
+}
