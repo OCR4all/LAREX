@@ -3,9 +3,9 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-RUN npm install -g pnpm@latest
+RUN corepack enable && corepack prepare pnpm@11.6.0 --activate
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 
 RUN pnpm install --frozen-lockfile
 
@@ -18,7 +18,6 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 COPY --from=builder /app/.output ./.output
-COPY --from=builder /app/node_modules ./.output/server/node_modules
 
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nuxt -u 1001
