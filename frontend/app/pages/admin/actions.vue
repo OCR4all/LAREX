@@ -24,12 +24,16 @@ import {
 import { extractApiErrorMessage } from '@/utils/api-error'
 import { copyTextToClipboard } from '@/utils/clipboard'
 import { generateRandomActionSlug } from '@/utils/random-action-slug'
+import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 type AdminWorkspace = {
   id: string
   name: string
+  isPersonal: boolean
+  ownerUserId: string
+  ownerUsername?: string | null
 }
 
 const route = useRoute()
@@ -103,11 +107,11 @@ const selectedDefinition = computed(() => selectedPersistedDefinition.value ?? (
 const currentYaml = computed(() => editorContent.value)
 const isDirty = computed(() => currentYaml.value !== initialYaml.value)
 const canSave = computed(() => validation.value?.valid === true && !saving.value && !validating.value)
-const workspaceById = computed(() => new Map(workspaces.value.map(workspace => [workspace.id, workspace.name])))
+const workspaceLabelById = computed(() => new Map(workspaces.value.map(workspace => [workspace.id, getWorkspaceDisplayName(workspace)])))
 const assignedWorkspaceIds = computed(() => new Set(workspaceAvailability.value.map(availability => availability.workspaceId)))
 const assignableWorkspaceOptions = computed(() => workspaces.value
   .filter(workspace => !assignedWorkspaceIds.value.has(workspace.id))
-  .map(workspace => ({ label: workspace.name, value: workspace.id })))
+  .map(workspace => ({ label: getWorkspaceDisplayName(workspace), value: workspace.id })))
 const filteredDefinitions = computed(() => {
   const items = draftDefinition.value ? [draftDefinition.value, ...definitions.value] : definitions.value
   const needle = workflowFilter.value.trim().toLowerCase()
@@ -1192,7 +1196,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                       >
                         <div class="min-w-0">
                           <p class="truncate text-sm font-medium">
-                            {{ workspaceById.get(availability.workspaceId) || availability.workspaceId }}
+                            {{ workspaceLabelById.get(availability.workspaceId) || availability.workspaceId }}
                           </p>
                           <p class="truncate text-xs text-muted">
                             Workspace availability

@@ -2,6 +2,7 @@
 import type { TableColumn } from '@nuxt/ui'
 import type { AdminErrorEventDetail, AdminErrorEventPage, AdminErrorEventSummary, AdminErrorSummary } from '@/types/admin-errors'
 import type { AdminUserPage } from '@/types/admin-users'
+import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -126,7 +127,15 @@ const { data: usersPage } = await useFetch<AdminUserPage>('/api/admin/users', {
   })
 })
 
-const { data: workspaces } = await useFetch<Array<{ id: string, name: string }>>('/api/admin/workspaces', {
+interface AdminWorkspace {
+  id: string
+  name: string
+  isPersonal: boolean
+  ownerUserId: string
+  ownerUsername?: string | null
+}
+
+const { data: workspaces } = await useFetch<AdminWorkspace[]>('/api/admin/workspaces', {
   key: globalKey('admin', 'errors', 'workspaces-filter'),
   default: () => []
 })
@@ -202,7 +211,7 @@ const userOptions = computed(() => [
 const workspaceOptions = computed(() => [
   { label: 'All workspaces', value: 'all' },
   ...(workspaces.value || []).map(workspace => ({
-    label: workspace.name,
+    label: getWorkspaceDisplayName(workspace),
     value: workspace.id
   }))
 ])

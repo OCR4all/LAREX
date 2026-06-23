@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { getWorkspaceDisplayName } from '@/utils/workspace-display'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const toast = useToast()
@@ -57,7 +59,20 @@ interface ImportJob {
   completedAt?: string
 }
 
-const { data: workspaces } = await useFetch<{ id: string, name: string }[]>('/api/admin/workspaces')
+interface AdminWorkspace {
+  id: string
+  name: string
+  isPersonal: boolean
+  ownerUserId: string
+  ownerUsername?: string | null
+}
+
+const { data: workspaces } = await useFetch<AdminWorkspace[]>('/api/admin/workspaces')
+
+const workspaceOptions = computed(() => (workspaces.value ?? []).map(workspace => ({
+  label: getWorkspaceDisplayName(workspace),
+  value: workspace.id
+})))
 
 const { data: projects, refresh: refreshProjects } = await useFetch<{ id: string, name: string }[]>(
   () => selectedWorkspaceId.value ? `/api/workspaces/${selectedWorkspaceId.value}/projects` : '/api/projects',
@@ -263,7 +278,7 @@ function getStatusColor(status: string): 'success' | 'error' | 'neutral' | 'prim
               <UFormField label="Workspace">
                 <USelectMenu
                   v-model="selectedWorkspaceId"
-                  :items="workspaces?.map(w => ({ label: w.name, value: w.id })) || []"
+                  :items="workspaceOptions"
                   placeholder="Select workspace"
                   value-key="value"
                 />
