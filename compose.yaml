@@ -105,6 +105,7 @@ services:
       - "8080:8080"
       - "5005:5005"
     environment:
+      LAREX_INSTANCE_NAME: ${LAREX_INSTANCE_NAME:-LAREX Local}
       SPRING_PROFILES_ACTIVE: dev
       KEYCLOAK_ADMIN_CLIENT_SECRET: PLEASE_CHANGE_IN_PRODUCTION
       KEYCLOAK_ACTION_EMAIL_CLIENT_ID: ${KEYCLOAK_ACTION_EMAIL_CLIENT_ID:-larex-frontend}
@@ -155,6 +156,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    environment:
+      NUXT_PUBLIC_INSTANCE_NAME: ${LAREX_INSTANCE_NAME:-LAREX Local}
     volumes:
       - ./frontend:/app:Z
       - /app/node_modules

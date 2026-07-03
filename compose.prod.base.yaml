@@ -31,6 +31,7 @@ services:
     image: ${LAREX_BACKEND_IMAGE:-ghcr.io/ocr4all/larex/backend:${LAREX_IMAGE_TAG:-latest}}
     restart: unless-stopped
     environment:
+      LAREX_INSTANCE_NAME: ${LAREX_INSTANCE_NAME:-LAREX}
       SPRING_PROFILES_ACTIVE: prod
       POSTGRES_DB: ${POSTGRES_DB:-larex_backend}
       POSTGRES_USER: ${POSTGRES_USER:-larex_prod}
@@ -104,6 +105,7 @@ services:
       NUXT_OAUTH_KEYCLOAK_REDIRECT_URL: ${NUXT_OAUTH_KEYCLOAK_REDIRECT_URL:-https://${LAREX_PUBLIC_HOST:-app.example.org}/auth/keycloak}
       NUXT_NOTIFICATION_BRIDGE_SECRET: ${NUXT_NOTIFICATION_BRIDGE_SECRET:-change-me}
       NUXT_COLLABORATION_SECRET: ${NUXT_COLLABORATION_SECRET:-change-me}
+      NUXT_PUBLIC_INSTANCE_NAME: ${LAREX_INSTANCE_NAME:-LAREX}
     networks:
       - backend
     depends_on:

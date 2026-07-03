@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const colorMode = useColorMode()
+const { instanceName } = useInstance()
 
 const color = computed(() => colorMode.value === 'dark' ? '#1b1718' : 'white')
 
@@ -19,8 +20,8 @@ useHead({
   }
 })
 
-const title = 'LAREX'
-const description = 'LAREX - Layout Analysis and Region Extraction for historical documents'
+const title = instanceName
+const description = `${instanceName} - Layout Analysis and Region Extraction for historical documents`
 
 useSeoMeta({
   title,

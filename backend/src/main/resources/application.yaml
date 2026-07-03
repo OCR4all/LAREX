@@ -68,7 +68,7 @@ file:
   upload-dir: ${LAREX_UPLOAD_DIR:/uploads}
 
 app:
-  name: ${APP_NAME:LAREX}
+  name: ${LAREX_INSTANCE_NAME:${APP_NAME:LAREX}}
   upload:
     profile-images:
       path: ${file.upload-dir}/profile-images

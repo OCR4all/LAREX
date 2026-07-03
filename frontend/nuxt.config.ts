@@ -37,7 +37,10 @@ export default defineNuxtConfig({
         redirectURL: 'http://larex.localhost/auth/keycloak'
       }
     },
-    apiBaseInternal: process.env.NUXT_API_BASE_INTERNAL || 'http://app:8080/api/v1'
+    apiBaseInternal: process.env.NUXT_API_BASE_INTERNAL || 'http://app:8080/api/v1',
+    public: {
+      instanceName: 'LAREX Local'
+    }
   },
 
   routeRules: {

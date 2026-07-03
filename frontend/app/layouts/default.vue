@@ -4,6 +4,8 @@ import { LazyWorkspaceSlideoverCreate, LazyLibrarySlideoverCreate } from '#compo
 const workspace = useWorkspaceStore()
 const route = useRoute()
 const open = ref(false)
+const { storageKey } = useInstance()
+const dashboardStorageKey = storageKey('dashboard')
 const { isNotificationsSlideoverOpen } = useDashboard()
 const { startDashboardTour, startCurrentPageTour } = useOnboarding()
 
@@ -248,7 +250,7 @@ const groups = computed(() => {
   <UDashboardGroup
     v-else
     storage="cookie"
-    storage-key="dashboard"
+    :storage-key="dashboardStorageKey"
     unit="rem"
   >
     <LayoutSidebarDashboard v-model:open="open" />
