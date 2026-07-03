@@ -5,7 +5,7 @@ version: '3'
 vars:
   VERSION:
     sh: cat VERSION
-  DOCKER_REGISTRY: ghcr.io/your-org/larex
+  DOCKER_REGISTRY: ghcr.io/ocr4all/larex
   COMPOSE_FILE: compose.yaml
   COMPOSE_DEV_DOCS_FILE: compose.dev.docs.yaml
   COMPOSE_PROD_BASE_FILE: compose.prod.base.yaml
@@ -308,7 +308,8 @@ tasks:
   build:docker:
     desc: Build production Docker images
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} build
+      - 'docker build -f backend/Dockerfile.prod -t {{.DOCKER_REGISTRY}}/backend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/backend:latest ./backend'
+      - 'docker build -f frontend/Dockerfile.prod -t {{.DOCKER_REGISTRY}}/frontend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/frontend:latest ./frontend'
 
   # ============================================================================
   # Versioning
@@ -359,8 +360,8 @@ tasks:
     desc: Build and tag Docker images for release
     cmds:
       - 'echo "Building release images for version {{.VERSION}}..."'
-      - 'docker build -t {{.DOCKER_REGISTRY}}/backend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/backend:latest ./backend'
-      - 'docker build -t {{.DOCKER_REGISTRY}}/frontend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/frontend:latest ./frontend'
+      - 'docker build -f backend/Dockerfile.prod -t {{.DOCKER_REGISTRY}}/backend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/backend:latest ./backend'
+      - 'docker build -f frontend/Dockerfile.prod -t {{.DOCKER_REGISTRY}}/frontend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/frontend:latest ./frontend'
 
   release:docker:push:
     desc: Push Docker images to registry

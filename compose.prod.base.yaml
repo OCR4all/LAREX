@@ -28,9 +28,7 @@ services:
         max-file: "3"
 
   app:
-    build:
-      context: backend
-      dockerfile: Dockerfile.prod
+    image: ${LAREX_BACKEND_IMAGE:-ghcr.io/ocr4all/larex/backend:${LAREX_IMAGE_TAG:-latest}}
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -93,9 +91,7 @@ services:
         max-file: "3"
 
   frontend:
-    build:
-      context: frontend
-      dockerfile: Dockerfile.prod
+    image: ${LAREX_FRONTEND_IMAGE:-ghcr.io/ocr4all/larex/frontend:${LAREX_IMAGE_TAG:-latest}}
     restart: unless-stopped
     environment:
       NUXT_SESSION_PASSWORD: ${NUXT_SESSION_PASSWORD:-replace-with-random-32-plus-character-secret}

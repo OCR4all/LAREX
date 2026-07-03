@@ -116,7 +116,7 @@ async function confirmBulkDelete() {
               text="XML available"
             >
               <UIcon
-                name="i-material-symbols-code-xml-rounded"
+                name="i-lucide-code-xml"
                 class="size-3.5 shrink-0 text-primary"
               />
             </UTooltip>

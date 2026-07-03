@@ -2,9 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -235,6 +236,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./backend
+          file: ./backend/Dockerfile.prod
           push: false
           tags: larex/backend:test
           cache-from: type=gha
@@ -244,6 +246,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
+          file: ./frontend/Dockerfile.prod
           push: false
           tags: larex/frontend:test
           cache-from: type=gha

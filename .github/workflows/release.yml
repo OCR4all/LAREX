@@ -15,8 +15,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME_BACKEND: ${{ github.repository }}/backend
-  IMAGE_NAME_FRONTEND: ${{ github.repository }}/frontend
+  IMAGE_NAME_BACKEND: ocr4all/larex/backend
+  IMAGE_NAME_FRONTEND: ocr4all/larex/frontend
 
 jobs:
   version:
@@ -90,6 +90,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./backend
+          file: ./backend/Dockerfile.prod
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
@@ -102,6 +103,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
+          file: ./frontend/Dockerfile.prod
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}

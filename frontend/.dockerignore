@@ -1,4 +1,5 @@
 node_modules
+.pnpm-store
 .nuxt
 .output
 .data
@@ -6,4 +7,5 @@ node_modules
 coverage
 dist
 .git
+.idea
 .DS_Store
