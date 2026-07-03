@@ -166,7 +166,7 @@ watch(() => editorStore.canvases, () => {
   if (!id || !api) return
 
   const canvases = Object.values(editorStore.canvases)
-    .filter(canvas => canvas.projectId === id && canvas.pageId)
+    .filter(canvas => canvas.projectId === id && canvas.pageId && !canvas.comparison)
 
   for (const canvas of canvases) {
     ensurePagePanelExists(api, canvas.pageId as string)
@@ -186,6 +186,7 @@ onBeforeUnmount(() => {
     <DockviewVue
       class="h-full w-full"
       :theme="dockviewTheme"
+      right-header-actions-component="EditorDockviewTabGroupMaximizeButton"
       default-tab-component="EditorDockviewTab"
       @ready="onReady"
     />

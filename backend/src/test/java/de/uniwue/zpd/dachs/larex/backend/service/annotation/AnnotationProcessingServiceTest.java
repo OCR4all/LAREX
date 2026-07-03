@@ -93,6 +93,39 @@ class AnnotationProcessingServiceTest {
     }
 
     @Test
+    void parseXmlVersionToAnnotation_parsesVersionFileWithoutCache() throws Exception {
+        AnnotationProcessingService service = service();
+        PageXml pageXml = pageXml("annotations/page.xml");
+        Path versionPath = prepareXmlPath("xml/versions/xml-1/1.xml", "<PcGts/>");
+        PageDto parsedDto = pageDto();
+
+        when(pageXmlRepository.findById("xml-1")).thenReturn(Optional.of(pageXml));
+        when(pageXmlVersionService.resolveVersionPath("version-1", "xml-1")).thenReturn(versionPath);
+        when(pageXmlParser.parse(versionPath, pageXml)).thenReturn(parsedDto);
+
+        PageDto actual = service.parseXmlVersionToAnnotation("xml-1", "version-1");
+
+        assertSame(parsedDto, actual);
+        verify(annotationReadCache, never()).getIfFresh(any(), any());
+        verify(annotationReadCache, never()).put(any(), any(), any());
+    }
+
+    @Test
+    void parseXmlVersionToAnnotation_rejectsNonPageXmlSchema() throws Exception {
+        AnnotationProcessingService service = service();
+        PageXml pageXml = pageXml("annotations/page.xml");
+        pageXml.setSchema(XmlSchema.ALTO_XML);
+
+        when(pageXmlRepository.findById("xml-1")).thenReturn(Optional.of(pageXml));
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> service.parseXmlVersionToAnnotation("xml-1", "version-1"));
+
+        verify(pageXmlVersionService, never()).resolveVersionPath(any(), any());
+        verify(pageXmlParser, never()).parse(any(), any());
+    }
+
+    @Test
     void saveAnnotationToXml_failsWhenVersionCreationFails() throws Exception {
         AnnotationProcessingService service = service();
         PageXml pageXml = pageXml("annotations/page.xml");

@@ -300,6 +300,34 @@ public class DatasetItemAnnotationController {
         }
     }
 
+    @GetMapping("/annotations/{xmlId}/versions/{versionId}/annotation")
+    public ResponseEntity<PageDto> getVersionAnnotation(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @PathVariable String itemId,
+            @PathVariable String xmlId,
+            @PathVariable String versionId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        try {
+            PageDto pageDto = datasetCopyAnnotationService.loadVersionAnnotation(
+                    workspaceId,
+                    datasetId,
+                    itemId,
+                    xmlId,
+                    versionId,
+                    userId
+            );
+            return ResponseEntity.ok(pageDto);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (UnsupportedOperationException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
     @PostMapping("/annotations/{xmlId}/versions/{versionId}/restore")
     public ResponseEntity<Void> restoreVersion(
             @PathVariable String workspaceId,

@@ -526,6 +526,56 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     })
   }
 
+  function getDiffHighlightColor(
+    highlight: NonNullable<RenderState['diffHighlights']>[string] | undefined,
+    alpha: number
+  ): RGBA | null {
+    if (!highlight) return null
+    if (highlight.tone === 'added') return [0.0, 0.95, 0.32, alpha]
+    if (highlight.tone === 'removed') return [1.0, 0.05, 0.05, alpha]
+    return [1.0, 0.82, 0.0, alpha]
+  }
+
+  function drawDiffPolygonFills(
+    renderState: RenderState,
+    aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
+    view: View,
+    triangulatePolygon: (points: Point[]) => number[]
+  ): void {
+    if (!fillRenderer || !renderState.diffHighlights) return
+    const localFillRenderer = fillRenderer
+    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
+    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
+    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+
+    renderState.polygons.forEach((polygon) => {
+      const highlight = renderState.diffHighlights?.[polygon.id]
+      const fillColor = getDiffHighlightColor(highlight, 0.48)
+      if (!fillColor) return
+      if (polygon.type !== PolygonType.REGION && polygon.type !== PolygonType.TEXTLINE) return
+
+      if (
+        !visibilityService.shouldShowPolygon(polygon, {
+          selectedPolygonIndex: renderState.selectedPolygonIndex.value,
+          selectedPolylineIndex: renderState.selectedPolylineIndex.value,
+          allPolygons: renderState.polygons,
+          allPolylines: renderState.polylines,
+          viewMode: normalizeViewMode(renderState.viewMode),
+          hiddenPolygonIds: hiddenPolygonIdSet,
+          hiddenPolylineIds: hiddenPolylineIdSet,
+          temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId
+        })
+      ) {
+        return
+      }
+
+      const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
+      if (triangleIndices.length >= 3) {
+        localFillRenderer.drawFill(polygon.points, triangleIndices, fillColor, scale, view)
+      }
+    })
+  }
+
   /**
    * Get triangulation with caching (if available)
    * Falls back to direct triangulation if cache is not initialized
@@ -986,6 +1036,12 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       }
 
       const polygonStyle = getResolvedPolygonStyle(polygon, {}, document)
+      const diffColor = getDiffHighlightColor(renderState.diffHighlights?.[polygon.id], 1)
+      if (diffColor) {
+        polygonStyle.strokeColor = diffColor
+        polygonStyle.nodeColor = diffColor
+        polygonStyle.strokeWidthMultiplier = Math.max(polygonStyle.strokeWidthMultiplier, 1.9)
+      }
       drawPolygonOutline(polygon, polygonStyle, getLineWidth(), aspectRatioScale, view)
     })
   }
@@ -1313,7 +1369,12 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         color = RENDER_COLORS.ACTIVE_YELLOW_POLYLINE
       }
 
-      drawThickLine(polyline.points, color, getLineWidth(), false, aspectRatioScale, view)
+      const diffColor = getDiffHighlightColor(renderState.diffHighlights?.[polyline.id], 1)
+      if (diffColor) {
+        color = diffColor
+      }
+
+      drawThickLine(polyline.points, color, getLineWidth() * (diffColor ? 2.1 : 1), false, aspectRatioScale, view)
 
       if (index === renderState.selectedPolylineIndex.value && gl && polygonProgram && polygonVao && polygonBuffer) {
         gl.useProgram(polygonProgram)
@@ -1781,6 +1842,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     drawBackgroundPolygons(renderState, aspectRatioScale, view)
     drawConfidenceHeatmapPolygons(renderState, aspectRatioScale, view, triangulatePolygon)
     drawActionProcessingTargets(renderState, aspectRatioScale, view, triangulatePolygon)
+    drawDiffPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)
     drawPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)
 
     drawNonSelectedPolygonOutlines(renderState, aspectRatioScale, view)

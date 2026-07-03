@@ -245,6 +245,20 @@ public class DatasetCopyAnnotationService {
         return copyXmlVersionService.getVersionContent(versionId, context.copyXml().getId());
     }
 
+    @Transactional(readOnly = true)
+    public PageDto loadVersionAnnotation(String workspaceId,
+                                         String datasetId,
+                                         String itemId,
+                                         String xmlId,
+                                         String versionId,
+                                         String userId) throws IOException {
+        DatasetCopyXmlAccessContext context = resolveAccessContext(workspaceId, datasetId, itemId, xmlId, userId);
+        ensurePageXmlSchema(context.copyXml());
+
+        Path versionPath = copyXmlVersionService.resolveVersionPath(versionId, context.copyXml().getId());
+        return pageXmlParser.parse(versionPath, toPseudoPageXml(context));
+    }
+
     @Transactional
     public void restoreVersion(String workspaceId,
                                String datasetId,

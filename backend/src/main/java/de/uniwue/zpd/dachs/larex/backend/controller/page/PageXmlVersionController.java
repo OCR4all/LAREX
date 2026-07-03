@@ -1,6 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.page;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlVersionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import org.slf4j.Logger;
@@ -22,11 +24,14 @@ public class PageXmlVersionController {
 
     private final PageXmlVersionService versionService;
     private final AnnotationLeaseService annotationLeaseService;
+    private final AnnotationProcessingService annotationProcessingService;
 
     public PageXmlVersionController(PageXmlVersionService versionService,
-                                    AnnotationLeaseService annotationLeaseService) {
+                                    AnnotationLeaseService annotationLeaseService,
+                                    AnnotationProcessingService annotationProcessingService) {
         this.versionService = versionService;
         this.annotationLeaseService = annotationLeaseService;
+        this.annotationProcessingService = annotationProcessingService;
     }
 
     @GetMapping
@@ -63,6 +68,28 @@ public class PageXmlVersionController {
             return ResponseEntity.notFound().build();
         } catch (IOException e) {
             log.error("Failed to read version content {}: {}", versionId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/{versionId}/annotation")
+    public ResponseEntity<PageDto> getVersionAnnotation(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @PathVariable String xmlId,
+            @PathVariable String versionId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        try {
+            annotationLeaseService.resolveRoomAccess(projectId, pageId, xmlId, userId);
+            PageDto pageDto = annotationProcessingService.parseXmlVersionToAnnotation(xmlId, versionId);
+            return ResponseEntity.ok(pageDto);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (UnsupportedOperationException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (IOException e) {
+            log.error("Failed to parse version annotation {}: {}", versionId, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

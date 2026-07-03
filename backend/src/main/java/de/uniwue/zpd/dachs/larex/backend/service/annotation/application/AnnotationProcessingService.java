@@ -135,6 +135,24 @@ public class AnnotationProcessingService {
     }
 
     /**
+     * Parse a stored PAGE XML version to PageDto format without changing the live XML file.
+     */
+    public PageDto parseXmlVersionToAnnotation(String xmlId, String versionId) throws IOException {
+        Optional<PageXml> xmlOpt = pageXmlRepository.findById(xmlId);
+        if (xmlOpt.isEmpty()) {
+            throw new IllegalArgumentException("XML file not found: " + xmlId);
+        }
+
+        PageXml xml = xmlOpt.get();
+        if (xml.getSchema() != XmlSchema.PAGE_XML) {
+            throw new UnsupportedOperationException("No parser available for schema: " + xml.getSchema());
+        }
+
+        Path versionPath = pageXmlVersionService.resolveVersionPath(versionId, xmlId);
+        return pageXmlParser.parse(versionPath, xml);
+    }
+
+    /**
      * Parse multiple XML files and merge them into a single PageDto.
      * This is useful when a page has multiple XML variants (e.g., PAGE + ALTO).
      */

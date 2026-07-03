@@ -50,6 +50,28 @@ export interface AnnotationApiContext {
   createAllowed: boolean
 }
 
+export interface PageComparisonCanvasState {
+  id: string
+  source: 'version' | 'action-result'
+  side: 'current' | 'version'
+  readOnly: true
+  baseCanvasId: string
+  pairedCanvasId?: string
+  version?: {
+    id: string
+    versionNumber: number
+    comment?: string | null
+    created?: string
+  }
+}
+
+export type PageComparisonDiffTone = 'added' | 'removed' | 'changed'
+
+export interface PageComparisonDiffHighlight {
+  tone: PageComparisonDiffTone
+  kind: 'region' | 'textline' | 'baseline'
+}
+
 export interface XmlFile {
   id: string
   fileName: string
@@ -155,4 +177,8 @@ export interface CanvasState {
   historyBaselineIndex?: number
   /** Current command history index */
   historyCurrentIndex?: number
+  /** Read-only comparison metadata for transient version/action-result canvases */
+  comparison?: PageComparisonCanvasState
+  /** Per-element visual diff treatment for read-only comparison canvases */
+  diffHighlights?: Record<string, PageComparisonDiffHighlight>
 }

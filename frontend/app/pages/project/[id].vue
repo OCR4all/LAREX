@@ -1855,7 +1855,8 @@ async function openVersionHistory(page: Page) {
     versionHistorySlideover.open({
       projectId,
       pageId: page.id,
-      xmlId: firstXml.id
+      xmlId: firstXml.id,
+      canCompare: false
     })
   } catch {
     toast.add({

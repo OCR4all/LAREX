@@ -81,9 +81,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div title="Toggle group maximization" class="maximize-button" @click="onClick">
+  <button
+    type="button"
+    title="Toggle group maximization"
+    class="maximize-button"
+    :aria-label="isMaximized ? 'Restore tab group' : 'Maximize tab group'"
+    @pointerdown.stop
+    @click.stop="onClick"
+  >
     <Icon :name="isMaximized ? 'i-lucide-minimize-2' : 'i-lucide-maximize-2'" :size="16" />
-  </div>
+  </button>
 </template>
 
 <style scoped>
@@ -93,6 +100,9 @@ onUnmounted(() => {
   align-items: center;
   width: 30px;
   height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
   cursor: pointer;
   color: var(--dv-tab-close-icon, #333);
 }

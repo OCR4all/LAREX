@@ -26,6 +26,12 @@ export interface SetViewModeOptions {
   persistAsLayoutPreference?: boolean
 }
 
+export interface EditorCanvasViewState {
+  zoom: number
+  offsetX: number
+  offsetY: number
+}
+
 export interface EditorCanvasControls {
   commander: Commander
   isCanvasEditable: ComputedRef<boolean>
@@ -66,6 +72,8 @@ export interface EditorCanvasControls {
   setAutoSelect: (value: boolean) => void
   setRegionType: (value: PolygonType) => void
   setViewMode: (value: ViewMode, options?: SetViewModeOptions) => void
+  view?: EditorCanvasViewState
+  setView?: (value: EditorCanvasViewState) => void
   resetView?: () => void
   addHoveredElementToReadingOrder?: () => boolean
 

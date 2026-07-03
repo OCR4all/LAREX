@@ -67,7 +67,7 @@ const {
 const toast = useToast()
 const editorOverlay = useOverlay()
 const mergeSettingsSlideover = editorOverlay.create(LazyEditorSlideoverMergeSettings)
-const { isCanvasInteractionBlocked } = useEditorCanvasInteractionBlocker()
+const { isCanvasInteractionBlocked: isCanvasInteractionGloballyBlocked } = useEditorCanvasInteractionBlocker()
 
 const colorMode = useColorMode()
 const WORLD_COORD_THRESHOLD = 2.5
@@ -139,6 +139,10 @@ const projectId = computed(() => {
 })
 
 const canvasState = computed(() => editorStore.canvases?.[props.canvasId] ?? null)
+const isComparisonCanvas = computed(() => Boolean(canvasState.value?.comparison))
+const isCanvasInteractionBlocked = computed(
+  () => isCanvasInteractionGloballyBlocked.value && !isComparisonCanvas.value
+)
 const xmlFileId = computed(() => canvasState.value?.xmlFileId ?? null)
 const selectedRegionId = computed(() => canvasState.value?.selectedRegionId ?? null)
 const selectedBaselineId = computed(() => canvasState.value?.selectedBaselineId ?? null)
@@ -197,6 +201,7 @@ const currentImageSrc = ref(props.src)
 
 const canvasControls = useCanvasControl(props.canvasId)
 const isCanvasWritable = computed(() => canvasControls.isCanvasEditable.value)
+const canReceiveCanvasInput = computed(() => isCanvasEditable.value || isComparisonCanvas.value)
 const pageLockReason = computed(() => canvasControls.pageLockReason.value)
 const pageLockActionName = computed(() => {
   const reason = pageLockReason.value
@@ -287,6 +292,8 @@ const { isDrawingMode, isMoveMode, isPolygonMode, isRectangleMode, isPolylineMod
 
 const mouseInteraction = useMouseInteraction()
 const view = mouseInteraction.view
+canvasControls.view = view
+canvasControls.setView = nextView => mouseInteraction.setView(nextView)
 canvasControls.resetView = () => {
   mouseInteraction.resetView()
 }
@@ -719,6 +726,7 @@ const actionProcessingTargets = computed<ActionProcessingRenderTarget | null>(()
     ? { page, polygonIds: [...polygonIds] }
     : null
 })
+const diffHighlights = computed(() => canvasState.value?.diffHighlights ?? undefined)
 
 const editorRenderer = useEditorRenderer(
   canvas, polygons, polylines, selectedPolygonIndex, selectedPolylineIndex, selectedPolygonIds, selectedPolylineIds,
@@ -739,7 +747,8 @@ const editorRenderer = useEditorRenderer(
   isCutRectangleMode,
   moveInteraction,
   bufferPreviewForRenderer,
-  actionProcessingTargets
+  actionProcessingTargets,
+  diffHighlights
 )
 const renderStats = computed(() => editorRenderer.renderStats.value)
 let actionProcessingAnimationFrame: number | null = null
@@ -2547,9 +2556,9 @@ onMounted(() => {
   editorRenderer.setupReadingOrderAnimationWatch()
 
   stopUiModeWatch = watch(
-    () => [effectiveUiMode.value, isTextVisualMode.value, isCanvasEditable.value] as const,
-    ([mode, visualTextMode, editable]) => {
-      if ((mode === 'text' && !visualTextMode) || !editable) {
+    () => [effectiveUiMode.value, isTextVisualMode.value, canReceiveCanvasInput.value] as const,
+    ([mode, visualTextMode, canReceiveInput]) => {
+      if ((mode === 'text' && !visualTextMode) || !canReceiveInput) {
         detachInteractions()
         webglRenderer.stopRenderLoop()
         stateActions.setHoveredPolygonId(null)
@@ -2777,7 +2786,7 @@ watch(() => props.src, (newSrc) => {
             ref="canvas"
             class="block w-full h-full bg-transparent relative z-10"
             :class="[
-              isCanvasEditable && canShowCanvasContent ? (isCanvasWritable ? 'cursor-grab' : 'cursor-default') : 'cursor-default pointer-events-none',
+              canReceiveCanvasInput && canShowCanvasContent ? (isCanvasWritable || isComparisonCanvas ? 'cursor-grab' : 'cursor-default') : 'cursor-default pointer-events-none',
               canShowCanvasContent ? 'opacity-100' : 'opacity-0'
             ]"
             @contextmenu="(event) => { if (canShowCanvasContent && isCanvasWritable && !isCanvasInteractionBlocked) editorInteractions.handleCanvasContextMenu(event) }"

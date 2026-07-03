@@ -5,6 +5,7 @@ import {
   LazyEditorSlideoverMergeSettings,
   LazyEditorSlideoverUnsavedProgress,
   LazyEditorVersionHistorySlideover,
+  LazyEditorModalPageVersionCompare,
   LazyProjectSlideoverXmlEditor,
   LazyCodecSlideoverAction,
   LazyActionSlideoverRun,
@@ -41,7 +42,9 @@ import type { ActionRun, ActionTargetSelection } from '@/types/action'
 import type { Dictionary } from '@/types/dictionary'
 import type { RenderablePolyline } from '@/types/editor/rendering'
 import type { PageIndexingStatus } from '@/stores/editor/types'
-import { getCanvasId, getPagePanelId, getProjectPanelId } from '@/stores/editor/editor.keys'
+import type { PageDto } from '@/types/page-dto'
+import type { PageXmlVersion } from '@/types/version'
+import { getCanvasId, getCompareCanvasId, getPagePanelId, getProjectPanelId } from '@/stores/editor/editor.keys'
 import { DEFAULT_PAGE_SORT_MODE, sortPagesForEditor, type PageSortMode } from '@/utils/editor/page-sort'
 import { useProjectDockviewRegistry } from '@/composables/editor/use-project-dockview-registry'
 import { useProjectTabCloseState } from '@/composables/editor/use-project-tab-close-state'
@@ -62,6 +65,7 @@ import { useEditorLayoutState } from '@/composables/editor/use-editor-layout-sta
 import { UpdateReadingOrderCommand } from '@/commands'
 import type { ReadingOrder } from '@/models/editor'
 import { resolveAdjacentPageId } from '@/utils/editor/page-navigation'
+import { convertPageDtoToPcGts, convertPcGtsToPageDto } from '@/services/editor/page-conversion.service'
 
 definePageMeta({ layout: 'editor' })
 
@@ -258,6 +262,7 @@ const overlay = useOverlay()
 const mergeSettingsSlideover = overlay.create(LazyEditorSlideoverMergeSettings)
 const unsavedProgressSlideover = overlay.create(LazyEditorSlideoverUnsavedProgress)
 const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover)
+const pageVersionCompareModal = overlay.create(LazyEditorModalPageVersionCompare)
 const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 const actionRunSlideover = overlay.create(LazyActionSlideoverRun)
@@ -683,25 +688,118 @@ async function openVersionHistory() {
   const annotationContext = resolveCanvasAnnotationContext(canvasId)
   if (!annotationContext) return
 
-  if (!collaboration.canEditCanvas(canvasId)) {
-    toast.add({
-      title: 'Page is locked',
-      description: 'Only the current editor can restore versions.',
-      color: 'warning'
-    })
-    return
-  }
-
   const instance = versionHistorySlideover.open({
     projectId: canvas.projectId,
     pageId: canvas.pageId,
     xmlId: canvas.xmlFileId,
-    annotationBasePath: annotationContext.basePath
+    annotationBasePath: annotationContext.basePath,
+    canRestore: collaboration.canEditCanvas(canvasId),
+    canCompare: true,
+    hasUnsavedChanges: canvas.hasUnsavedChanges === true
   })
   const result = await instance.result
   if (result === 'restored') {
     editorStore.invalidateAnnotationCache(canvas.pageId, canvas.projectId)
     await editorStore.loadPageIntoCanvas(canvasId, canvas.projectId, canvas.pageId)
+  } else if (result && typeof result === 'object' && result.action === 'compare') {
+    await openVersionComparison(canvasId, result.version, annotationContext.basePath)
+  }
+}
+
+async function openVersionComparison(canvasId: string, version: PageXmlVersion, annotationBasePath: string) {
+  const canvas = editorStore.canvases[canvasId]
+  const document = activeDocument.value
+  if (!canvas?.xmlFileId || !canvas.pageId || !canvas.projectId || !document) {
+    toast.add({
+      title: 'Compare unavailable',
+      description: 'Open a PAGE XML document before comparing versions.',
+      color: 'warning'
+    })
+    return
+  }
+
+  try {
+    const comparisonId = `version-${version.id}`
+    const currentCanvasId = getCompareCanvasId(canvas.projectId, canvas.pageId, comparisonId, 'current')
+    const versionCanvasId = getCompareCanvasId(canvas.projectId, canvas.pageId, comparisonId, 'version')
+    const page = editorStore.getPage(canvas.pageId, canvas.projectId)
+    const pageLabel = page?.label ?? canvas.pageId
+    const imageSrc = canvas.imageSrc ?? ''
+    const imageVariantId = canvas.imageVariantId ?? null
+    const currentSnapshot = convertPcGtsToPageDto(document)
+    const compared = await $fetch<PageDto>(`${annotationBasePath}/${canvas.xmlFileId}/versions/${version.id}/annotation`)
+
+    if (!editorStore.canvases[currentCanvasId]) {
+      editorStore.registerCanvas(currentCanvasId, {
+        projectId: canvas.projectId,
+        pageId: canvas.pageId,
+        imageVariantId,
+        imageSrc,
+        xmlFileId: canvas.xmlFileId,
+        annotationContext: canvas.annotationContext ?? { mode: 'PROJECT', basePath: annotationBasePath, createAllowed: false },
+        isLoadingAnnotations: false,
+        comparison: {
+          id: comparisonId,
+          source: 'version',
+          side: 'current',
+          readOnly: true,
+          baseCanvasId: canvasId,
+          pairedCanvasId: versionCanvasId,
+          version
+        }
+      })
+      editorStore.setCanvasDocument(currentCanvasId, convertPageDtoToPcGts(currentSnapshot))
+    }
+
+    if (!editorStore.canvases[versionCanvasId]) {
+      editorStore.registerCanvas(versionCanvasId, {
+        projectId: canvas.projectId,
+        pageId: canvas.pageId,
+        imageVariantId,
+        imageSrc,
+        xmlFileId: canvas.xmlFileId,
+        annotationContext: canvas.annotationContext ?? { mode: 'PROJECT', basePath: annotationBasePath, createAllowed: false },
+        isLoadingAnnotations: false,
+        comparison: {
+          id: comparisonId,
+          source: 'version',
+          side: 'version',
+          readOnly: true,
+          baseCanvasId: canvasId,
+          pairedCanvasId: currentCanvasId,
+          version
+        }
+      })
+      editorStore.setCanvasDocument(versionCanvasId, convertPageDtoToPcGts(compared))
+    }
+
+    const instance = pageVersionCompareModal.open({
+      pageLabel,
+      annotationBasePath,
+      xmlId: canvas.xmlFileId,
+      currentCanvasId,
+      versionCanvasId,
+      currentPage: currentSnapshot,
+      initialVersionPage: compared,
+      initialVersion: version,
+      canRestore: collaboration.canEditCanvas(canvasId),
+      hasUnsavedChanges: canvas.hasUnsavedChanges === true,
+      gtIndex: editorStore.projectTextDefaultGtIndex
+    })
+    const result = await instance.result
+    editorStore.unregisterCanvas(currentCanvasId)
+    editorStore.unregisterCanvas(versionCanvasId)
+    editorStore.setActiveCanvas(canvasId)
+    if (result === 'restored') {
+      editorStore.invalidateAnnotationCache(canvas.pageId, canvas.projectId)
+      await editorStore.loadPageIntoCanvas(canvasId, canvas.projectId, canvas.pageId)
+    }
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Compare failed',
+      description: getErrorMessage(error, 'Failed to load the selected version.'),
+      color: 'error'
+    })
   }
 }
 
@@ -980,29 +1078,27 @@ watch(() => actionRunsStore.terminalEvents, (events) => {
 }, { deep: false })
 
 const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
-  const layoutActions: DropdownMenuItem[] = []
+  const pageActions: DropdownMenuItem[] = [
+    {
+      label: 'Version History',
+      icon: 'i-lucide-history',
+      onSelect: () => {
+        void openVersionHistory()
+      }
+    },
+    {
+      label: 'View/Edit XML',
+      icon: 'i-lucide-file-pen-line',
+      disabled: !canOpenActiveCanvasXmlEditor.value,
+      onSelect: () => {
+        void openXmlEditor()
+      }
+    }
+  ]
 
   if (activeUiMode.value === 'layout') {
-    layoutActions.push(
-      {
-        label: 'Version History',
-        icon: 'i-lucide-history',
-        onSelect: () => {
-          void openVersionHistory()
-        }
-      },
-      {
-        label: 'View/Edit XML',
-        icon: 'i-lucide-file-pen-line',
-        disabled: !canOpenActiveCanvasXmlEditor.value,
-        onSelect: () => {
-          void openXmlEditor()
-        }
-      }
-    )
-
     if (canCompleteActivePageSubtasks.value) {
-      layoutActions.push({
+      pageActions.push({
         label: 'Save + Complete',
         icon: 'i-lucide-check-square',
         disabled: isSavingActiveCanvas.value || isCompletingOpenSubtasks.value || isActivePageLocked.value || !activeCanvasCanEdit.value,
@@ -1024,7 +1120,7 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  return layoutActions.length > 0 ? [layoutActions, toolkitActions] : [toolkitActions]
+  return [pageActions, toolkitActions]
 })
 
 const backendFilteredPageIdsByProjectId = ref<Record<string, string[]>>({})
@@ -1354,6 +1450,10 @@ const {
   isActivePageLocked
 } = useEditorActiveCanvasStatus({
   resolveCanvasAnnotationContext
+})
+const activeCanvasIsComparison = computed(() => {
+  const canvasId = activeCanvasId.value
+  return canvasId ? Boolean(editorStore.canvases[canvasId]?.comparison) : false
 })
 const collapsedImagePopoverDismissKey = ref(0)
 
@@ -2227,7 +2327,7 @@ const {
       :class="rootLayoutClass"
     >
       <EditorToolbar
-        v-if="activeCanvasId"
+        v-if="activeCanvasId && !activeCanvasIsComparison"
         :class="toolbarClass"
         @merge="handleMergeSelected"
       />
@@ -2262,7 +2362,7 @@ const {
     </main>
 
     <div
-      v-show="!editorUiStore.rightCollapsed"
+      v-show="!editorUiStore.rightCollapsed && !activeCanvasIsComparison"
       class="group h-full w-0 shrink-0 cursor-col-resize touch-none relative overflow-visible"
       @pointerdown="(e) => startResize('right', e)"
     >
@@ -2276,6 +2376,7 @@ const {
     </div>
 
     <EditorRightSidebar
+      v-if="!activeCanvasIsComparison"
       :right-rail-width-px="48"
       :use-floating-collapsed="useFloatingCollapsedSidebars"
       :is-saving-active-canvas="isSavingActiveCanvas"

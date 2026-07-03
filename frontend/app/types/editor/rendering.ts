@@ -1,6 +1,6 @@
 import type { Point, TextContentVariantData } from '@/models/editor'
 import type { RegionKind } from '@/models/editor/region'
-import type { ConfidenceHeatmapSettings } from '@/stores/editor/types'
+import type { ConfidenceHeatmapSettings, PageComparisonDiffHighlight } from '@/stores/editor/types'
 import type { ArrowSegment, ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
 
 export interface DraggedNodeInfo {
@@ -144,6 +144,7 @@ export interface WebGLRenderState {
 
   confidenceHeatmap?: ConfidenceHeatmapSettings
   actionProcessingTargets?: ActionProcessingRenderTarget | null
+  diffHighlights?: Record<string, PageComparisonDiffHighlight>
 }
 
 /**

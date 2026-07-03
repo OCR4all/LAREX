@@ -1306,6 +1306,11 @@ export const useEditorStore = defineStore('editor', () => {
       return false
     }
 
+    if (canvas.comparison?.readOnly) {
+      log.warn(`Canvas ${targetCanvasId} is a read-only comparison canvas and cannot be saved`)
+      return false
+    }
+
     const { pageId } = canvas
     if (!pageId) {
       log.warn('No page ID available for saving')

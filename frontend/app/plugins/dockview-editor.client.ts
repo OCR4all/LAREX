@@ -4,7 +4,7 @@ import textPanel from '~/components/editor/dockview/text-panel.vue'
 import editorTab from '~/components/editor/dockview/editor-tab.vue'
 import projectPanel from '~/components/editor/dockview/project-panel.vue'
 import projectTab from '~/components/editor/dockview/project-tab.vue'
-import editorTabGroupMaximize from '~/components/editor/tab-group-maxizimize-button.vue'
+import editorTabGroupMaximize from '~/components/editor/dockview/tab-group-maximize-button.vue'
 
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('EditorDockviewEditor', editor)

@@ -116,14 +116,17 @@ public class DatasetItemCopyXmlVersionService {
 
     @Transactional(readOnly = true)
     public String getVersionContent(String versionId, String copyXmlFileId) throws IOException {
-        DatasetItemCopyXmlVersion version = requireVersionForCopyFile(versionId, copyXmlFileId);
+        return Files.readString(resolveVersionPath(versionId, copyXmlFileId));
+    }
 
+    @Transactional(readOnly = true)
+    public Path resolveVersionPath(String versionId, String copyXmlFileId) throws IOException {
+        DatasetItemCopyXmlVersion version = requireVersionForCopyFile(versionId, copyXmlFileId);
         Path versionPath = resolvePath(version.getFilePath());
         if (!Files.exists(versionPath)) {
             throw new IOException("Version file not found on disk: " + versionPath);
         }
-
-        return Files.readString(versionPath);
+        return versionPath;
     }
 
     @Transactional

@@ -114,6 +114,11 @@ public class PageXmlVersionService {
 
     @Transactional(readOnly = true)
     public String getVersionContent(String versionId, String expectedPageXmlId) throws IOException {
+        return Files.readString(resolveVersionPath(versionId, expectedPageXmlId));
+    }
+
+    @Transactional(readOnly = true)
+    public PageXmlVersion requireVersion(String versionId, String expectedPageXmlId) {
         Optional<PageXmlVersion> versionOpt = versionRepository.findById(versionId);
         if (versionOpt.isEmpty()) {
             throw new IllegalArgumentException("Version not found: " + versionId);
@@ -123,13 +128,17 @@ public class PageXmlVersionService {
         if (expectedPageXmlId != null && (version.getPageXml() == null || !expectedPageXmlId.equals(version.getPageXml().getId()))) {
             throw new IllegalArgumentException("Version does not belong to requested XML file");
         }
+        return version;
+    }
 
+    @Transactional(readOnly = true)
+    public Path resolveVersionPath(String versionId, String expectedPageXmlId) throws IOException {
+        PageXmlVersion version = requireVersion(versionId, expectedPageXmlId);
         Path versionPath = uploadPathService.resolve(version.getFilePath());
         if (!Files.exists(versionPath)) {
             throw new IOException("Version file not found on disk: " + versionPath);
         }
-
-        return Files.readString(versionPath);
+        return versionPath;
     }
 
     @Transactional

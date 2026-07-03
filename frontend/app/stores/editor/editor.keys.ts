@@ -1,6 +1,7 @@
 const PROJECT_PANEL_PREFIX = 'project'
 const PAGE_PANEL_PREFIX = 'page'
 const CANVAS_PREFIX = 'editor'
+const COMPARE_CANVAS_PREFIX = 'compare-editor'
 
 type ParsedCompositeKey = {
   projectId: string
@@ -32,6 +33,10 @@ export function getPagePanelId(projectId: string, pageId: string): string {
 
 export function getCanvasId(projectId: string, pageId: string): string {
   return `${CANVAS_PREFIX}:${projectId}:${pageId}`
+}
+
+export function getCompareCanvasId(projectId: string, pageId: string, comparisonId: string, side: 'current' | 'version'): string {
+  return `${COMPARE_CANVAS_PREFIX}:${projectId}:${pageId}:${comparisonId}:${side}`
 }
 
 export function parseProjectPanelId(panelId: string): string | null {

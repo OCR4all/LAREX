@@ -1,7 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, reactive, ref } from 'vue'
 
-Object.assign(globalThis, { ref, reactive, computed })
+class TestMouseEvent {
+  button: number
+  clientX: number
+  clientY: number
+  shiftKey: boolean
+  type: string
+
+  constructor(type: string, init: MouseEventInit = {}) {
+    this.type = type
+    this.button = init.button ?? 0
+    this.clientX = init.clientX ?? 0
+    this.clientY = init.clientY ?? 0
+    this.shiftKey = init.shiftKey ?? false
+  }
+}
+
+Object.assign(globalThis, { ref, reactive, computed, MouseEvent: TestMouseEvent })
 
 const editorUiStoreMock = vi.hoisted(() => ({
   relationsEditor: {
@@ -17,7 +33,7 @@ vi.mock('@/stores/editor/editor.ui.store', () => ({
   useEditorUiStore: () => editorUiStoreMock
 }))
 
-type Mode = 'polygon' | 'rectangle' | 'polyline' | 'cut'
+type Mode = 'select' | 'polygon' | 'rectangle' | 'polyline' | 'cut'
 
 function eventStub(overrides: Partial<MouseEvent> = {}): MouseEvent {
   return {
@@ -47,11 +63,16 @@ async function createHarness(
   options: {
     polygons?: Array<{ id: string, points: Array<{ x: number, y: number }>, parentId?: string, type?: string }>
     polylines?: Array<{ id: string, points: Array<{ x: number, y: number }>, parentId?: string, type?: string }>
+    readOnly?: boolean
   } = {}
 ) {
   const useEditorInteractions = await loadUseEditorInteractions()
 
-  const canvas = ref<HTMLCanvasElement | null>({} as HTMLCanvasElement)
+  const canvas = ref<HTMLCanvasElement | null>({
+    clientWidth: 200,
+    clientHeight: 200,
+    getBoundingClientRect: () => ({ left: 0, top: 0, right: 200, bottom: 200, width: 200, height: 200 })
+  } as HTMLCanvasElement)
   const view = reactive({ zoom: 1, offsetX: 0, offsetY: 0 })
   const aspectRatioScale = ref({ scaleX: 1, scaleY: 1 })
 
@@ -68,7 +89,7 @@ async function createHarness(
   const isRectangleMode = ref(mode === 'rectangle')
   const isPolylineMode = ref(mode === 'polyline')
   const isMoveMode = ref(false)
-  const isDrawingMode = ref(true)
+  const isDrawingMode = ref(mode !== 'select')
 
   const actionState = reactive<{ action: string, startPosition: { x: number, y: number } | null }>({
     action: 'idle',
@@ -199,6 +220,7 @@ async function createHarness(
   }
 
   const canvasControls = {
+    isCanvasEditable: ref(options.readOnly !== true),
     viewMode: ref('default'),
     handleUndo: vi.fn(),
     handleRedo: vi.fn(),
@@ -275,6 +297,8 @@ async function createHarness(
     polylineDrawing,
     cutDrawing,
     canvasControls,
+    polygonEditing,
+    polylineEditing,
     stateActions,
     selectedPolygonIndex,
     selectedPolylineIndex,
@@ -387,6 +411,63 @@ describe('useEditorInteractions shift-pan routing', () => {
     expect(harness.canvasControls.handleUndo).not.toHaveBeenCalled()
     expect(event.preventDefault).toHaveBeenCalledOnce()
     expect(event.stopImmediatePropagation).toHaveBeenCalledOnce()
+  })
+
+  it('allows read-only canvases to pan without invoking edit or drawing handlers', async () => {
+    const harness = await createHarness('select', { readOnly: true })
+
+    harness.interactions.onMouseDown(eventStub({ clientX: 10, clientY: 10 }))
+    harness.interactions.onMouseMove(eventStub({ clientX: 40, clientY: 40 }))
+
+    expect(harness.mouseInteraction.startPanning).toHaveBeenCalledOnce()
+    expect(harness.mouseInteraction.updatePanning).toHaveBeenCalledOnce()
+    expect(harness.polygonDrawing.handleMouseDown).not.toHaveBeenCalled()
+    expect(harness.rectangleDrawing.handleMouseDown).not.toHaveBeenCalled()
+    expect(harness.polylineDrawing.handleMouseDown).not.toHaveBeenCalled()
+    expect(harness.polygonEditing.handleMouseDown).not.toHaveBeenCalled()
+    expect(harness.polylineEditing.handleMouseDown).not.toHaveBeenCalled()
+  })
+
+  it('allows read-only canvases to zoom with the wheel', async () => {
+    const harness = await createHarness('select', { readOnly: true })
+    const event = eventStub() as WheelEvent
+
+    harness.interactions.onWheel(event)
+
+    expect(harness.mouseInteraction.handleWheel).toHaveBeenCalledOnce()
+    expect(harness.mouseInteraction.handleWheel).toHaveBeenCalledWith(
+      event,
+      expect.anything(),
+      { scaleX: 1, scaleY: 1 }
+    )
+  })
+
+  it('allows read-only canvases to select and drill down through existing polygons', async () => {
+    const harness = await createHarness('select', {
+      readOnly: true,
+      polygons: [
+        {
+          id: 'region-a',
+          type: 'region',
+          points: [
+            { x: -0.5, y: -0.5 },
+            { x: 0.5, y: -0.5 },
+            { x: 0.5, y: 0.5 },
+            { x: -0.5, y: 0.5 }
+          ]
+        }
+      ]
+    })
+    harness.polygonEditing.handleSelection.mockImplementation(() => {
+      harness.selectedPolygonIndex.value = 0
+      return true
+    })
+
+    harness.interactions.onMouseDown(eventStub({ clientX: 100, clientY: 100 }))
+    harness.interactions.onMouseUp(eventStub({ clientX: 100, clientY: 100 }))
+
+    expect(harness.polygonEditing.handleSelection).toHaveBeenCalledOnce()
+    expect(harness.stateActions.replacePolygonSelection).toHaveBeenLastCalledWith(['region-a'])
   })
 
   it('moves one polygon level up on a normal Escape press', async () => {

@@ -685,6 +685,7 @@ export function useEditorCollaboration() {
   }
 
   const canEditCanvas = (canvasId: string): boolean => {
+    if (editorStore.getCanvas(canvasId)?.comparison?.readOnly) return false
     const room = getRoomForCanvas(canvasId)
     if (!room) return true
     if (!room.identity.canEdit) return false

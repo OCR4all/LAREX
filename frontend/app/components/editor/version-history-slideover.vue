@@ -10,10 +10,13 @@ const props = defineProps<{
   pageId: string
   xmlId: string
   annotationBasePath?: string
+  canRestore?: boolean
+  canCompare?: boolean
+  hasUnsavedChanges?: boolean
 }>()
 
 const emit = defineEmits<{
-  close: [result: 'restored' | 'closed']
+  close: [result: 'restored' | 'closed' | { action: 'compare', version: PageXmlVersion }]
 }>()
 
 const toast = useToast()
@@ -67,9 +70,13 @@ function versionMessage(version: PageXmlVersion): string {
 }
 
 async function handleRestore(version: PageXmlVersion) {
+  if (props.canRestore === false) return
+
   const confirmed = await confirm({
     title: `Restore to version ${version.versionNumber}?`,
-    message: 'Your current work will be saved as a new version first.',
+    message: props.hasUnsavedChanges
+      ? 'Unsaved changes in the current editor will be discarded. The currently saved XML will be preserved as a new version first.'
+      : 'The currently saved XML will be preserved as a new version first.',
     confirmLabel: 'Restore',
     confirmColor: 'warning',
     confirmIcon: 'i-lucide-history'
@@ -101,6 +108,10 @@ async function handleRestore(version: PageXmlVersion) {
   } finally {
     restoringId.value = null
   }
+}
+
+function handleCompare(version: PageXmlVersion) {
+  emit('close', { action: 'compare', version })
 }
 </script>
 
@@ -140,16 +151,28 @@ async function handleRestore(version: PageXmlVersion) {
                 {{ formatRelativeTime(version.created) }}
               </span>
             </div>
-            <UButton
-              size="xs"
-              color="neutral"
-              variant="subtle"
-              icon="i-lucide-undo-2"
-              label="Restore"
-              :loading="restoringId === version.id"
-              :disabled="restoringId !== null"
-              @click="handleRestore(version)"
-            />
+            <div class="flex items-center gap-1.5">
+              <UButton
+                v-if="props.canCompare !== false"
+                size="xs"
+                color="neutral"
+                variant="subtle"
+                icon="i-lucide-git-compare"
+                label="Compare"
+                :disabled="restoringId !== null"
+                @click="handleCompare(version)"
+              />
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="subtle"
+                icon="i-lucide-undo-2"
+                label="Restore"
+                :loading="restoringId === version.id"
+                :disabled="restoringId !== null || props.canRestore === false"
+                @click="handleRestore(version)"
+              />
+            </div>
           </div>
 
           <div class="mt-1.5 flex flex-col gap-0.5">

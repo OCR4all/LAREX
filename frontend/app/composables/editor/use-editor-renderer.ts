@@ -88,7 +88,8 @@ export function useEditorRenderer(
   isCutRectangleMode?: Ref<boolean>,
   moveInteraction?: { isMoving: () => boolean, state: { isInvalid: boolean, elementId: string | null } },
   bufferPreview?: Ref<{ polygonId: string, points: Point[] } | null>,
-  actionProcessingTargets?: Ref<ActionProcessingRenderTarget | null>
+  actionProcessingTargets?: Ref<ActionProcessingRenderTarget | null>,
+  diffHighlights?: Ref<WebGLRenderState['diffHighlights'] | undefined>
 ): UseEditorRendererReturn {
   const editorUiStore = useEditorUiStore()
   const { activeCursor: activeCustomCursor } = useEditorCustomCursor(computed(() => ({
@@ -183,7 +184,8 @@ export function useEditorRenderer(
         : undefined,
       bufferPreview: bufferPreview?.value ?? undefined,
       confidenceHeatmap: editorUiStore.confidenceHeatmap,
-      actionProcessingTargets: actionProcessingTargets?.value ?? null
+      actionProcessingTargets: actionProcessingTargets?.value ?? null,
+      diffHighlights: diffHighlights?.value
     }
 
     webglRenderer.renderFrame(renderState, aspectRatioScale, view, triangulatePolygon)
