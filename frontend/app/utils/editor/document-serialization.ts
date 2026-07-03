@@ -50,6 +50,7 @@ export function createDocumentFromFlatData(
   documentId: string,
   regions: FlatPolygon[],
   baselines: FlatPolyline[],
+  creator: string,
   imageSize?: ImageSize
 ): PcGts {
   const convertedRegions = regions.map(r => ({ ...r, points: maybeToWorld(r.points, imageSize) }))
@@ -118,7 +119,7 @@ export function createDocumentFromFlatData(
   }
 
   const now = new Date().toISOString()
-  const metadata = new Metadata({ creator: 'Umbra', created: now, lastChange: now })
+  const metadata = new Metadata({ creator, created: now, lastChange: now })
   const page = new Page({
     imageFilename: `${documentId}`,
     imageWidth: imageSize?.width ?? 1000,
@@ -212,11 +213,11 @@ function rehydrateRegion(raw: unknown): Region {
 /**
  * Best-effort PcGts JSON rehydration into class instances.
  */
-export function deserializeDocument(json: string, _imageSize?: ImageSize): PcGts {
+export function deserializeDocument(json: string, fallbackCreator: string, _imageSize?: ImageSize): PcGts {
   const raw = JSON.parse(json)
 
   const metadata = new Metadata({
-    creator: raw?.metadata?.creator ?? 'Umbra',
+    creator: raw?.metadata?.creator ?? fallbackCreator,
     created: raw?.metadata?.created ?? new Date().toISOString(),
     lastChange: raw?.metadata?.lastChange ?? raw?.metadata?.created ?? new Date().toISOString(),
     comments: raw?.metadata?.comments,

@@ -68,9 +68,15 @@ function xmlBasePathFromAnnotationContext(context: AnnotationApiContext): string
   return context.basePath.replace(/\/annotations$/, '/xml')
 }
 
-function createEmptyPcGts(params: { imageFilename: string, imageWidth: number, imageHeight: number, pcGtsId?: string }): PcGts {
+function createEmptyPcGts(params: {
+  imageFilename: string
+  imageWidth: number
+  imageHeight: number
+  creator?: string
+  pcGtsId?: string
+}): PcGts {
   const now = nowIso()
-  const metadata = new Metadata({ creator: 'umbra', created: now, lastChange: now })
+  const metadata = new Metadata({ creator: params.creator, created: now, lastChange: now })
   const page = new Page({
     imageFilename: params.imageFilename,
     imageWidth: params.imageWidth,
@@ -114,6 +120,7 @@ function findTextLineInRegions(regions: Region[], textLineId: string): { textReg
 }
 
 export const useEditorStore = defineStore('editor', () => {
+  const { user: sessionUser } = useUserSession()
   const uiStore = useEditorUiStore()
   const documentStore = useEditorDocumentStore()
   const sessionStore = useEditorSessionStore()
@@ -178,6 +185,11 @@ export const useEditorStore = defineStore('editor', () => {
 
   const canvases = ref<Record<string, CanvasState>>({})
   const activeCanvasId = ref<string | null>(null)
+
+  function authenticatedUsername(): string | undefined {
+    const username = sessionUser.value?.login?.trim()
+    return username || undefined
+  }
 
   const currentPageId = ref<string | null>(null)
   const currentImageVariantId = ref<string | null>(null)
@@ -409,6 +421,7 @@ export const useEditorStore = defineStore('editor', () => {
       imageFilename: `canvas-${id}`,
       imageWidth: 1000,
       imageHeight: 1000,
+      creator: authenticatedUsername(),
       pcGtsId: `pcgts-${id}`
     })
     const session = ensureEditorSession(id, { document: pcGts })
@@ -857,6 +870,7 @@ export const useEditorStore = defineStore('editor', () => {
       imageFilename: session.document.value?.page.imageFilename ?? `canvas-${canvas.id}`,
       imageWidth: session.document.value?.page.imageWidth ?? 1000,
       imageHeight: session.document.value?.page.imageHeight ?? 1000,
+      creator: session.document.value?.metadata.creator ?? authenticatedUsername(),
       pcGtsId: session.document.value?.pcGtsId
     })
     session.document.value = pcGts
@@ -950,6 +964,7 @@ export const useEditorStore = defineStore('editor', () => {
       imageFilename: metadataImageFilename,
       imageWidth: canvas.imageSize?.width ?? 1000,
       imageHeight: canvas.imageSize?.height ?? 1000,
+      creator: authenticatedUsername(),
       pcGtsId: `pcgts-${pageId}`
     })
     setCanvasDocument(canvasId, emptyPcGts)

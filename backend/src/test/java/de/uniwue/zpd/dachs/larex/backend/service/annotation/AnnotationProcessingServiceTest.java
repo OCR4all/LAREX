@@ -2,9 +2,12 @@ package de.uniwue.zpd.dachs.larex.backend.service.annotation;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -24,22 +27,27 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshSe
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -167,6 +175,71 @@ class AnnotationProcessingServiceTest {
         verify(workspaceQuotaRefreshService).scheduleUsageRefresh("ws-1");
     }
 
+    @Test
+    void createInitialAnnotationXml_usesStoredImageDimensionsAndAuthenticatedCreator() throws Exception {
+        AnnotationProcessingService service = service();
+        Page page = pageXml("unused.xml").getPage();
+        PageImage image = new PageImage(
+                "img.png",
+                "images/img.png",
+                "image/png",
+                1L,
+                "original",
+                "img",
+                page
+        );
+        image.setId("image-1");
+        page.setImages(Set.of(image));
+
+        Path imagePath = tempDir.resolve(image.getFilePath());
+        Files.createDirectories(imagePath.getParent());
+        ImageIO.write(new BufferedImage(1200, 1800, BufferedImage.TYPE_BYTE_GRAY), "png", imagePath.toFile());
+
+        when(pageRepository.findByIdAndProjectId("page-1", "project-1")).thenReturn(Optional.of(page));
+        when(pageXmlRepository.findByPage_Id("page-1")).thenReturn(List.of());
+        when(userService.getUserById("user-1"))
+                .thenReturn(Optional.of(new UserDto("user-1", "tester", null, null, null, null)));
+        when(pageXmlExporter.writeValidated(any(PageDto.class), isNull(), any(Path.class)))
+                .thenReturn(new PageXmlWriteResult(10L, List.of(), "2019-07-15"));
+        when(hierarchicalFileStorageService.storeFromPath(
+                any(Path.class),
+                eq("Page 1.xml"),
+                any(),
+                eq("ws-1"),
+                eq("project-1"),
+                eq(StoredFileType.XML),
+                eq("user-1"),
+                eq(true)
+        )).thenReturn(new HierarchicalFileStorageService.StoredFileDescriptor(
+                "stored-1",
+                "xml/page-1.xml",
+                "Page 1.xml",
+                "application/vnd.prima.page+xml",
+                "xml",
+                10L,
+                "checksum",
+                StoredFileType.XML
+        ));
+        when(pageXmlRepository.save(any(PageXml.class))).thenAnswer(invocation -> {
+            PageXml saved = invocation.getArgument(0);
+            saved.setId("xml-1");
+            return saved;
+        });
+
+        service.createInitialAnnotationXml(
+                "project-1",
+                "page-1",
+                pageDto("Umbra").withImageDimensions(200, 283),
+                "user-1"
+        );
+
+        ArgumentCaptor<PageDto> writtenPage = ArgumentCaptor.forClass(PageDto.class);
+        verify(pageXmlExporter).writeValidated(writtenPage.capture(), isNull(), any(Path.class));
+        assertEquals(1200, writtenPage.getValue().imageWidth());
+        assertEquals(1800, writtenPage.getValue().imageHeight());
+        assertEquals("tester", writtenPage.getValue().metadata().creator());
+    }
+
     private AnnotationProcessingService service() {
         AnnotationProcessingService service = new AnnotationProcessingService(
                 pageRepository,
@@ -214,6 +287,10 @@ class AnnotationProcessingServiceTest {
     }
 
     private PageDto pageDto() {
+        return pageDto(null);
+    }
+
+    private PageDto pageDto(String creator) {
         return new PageDto(
                 "img.png",
                 1000,
@@ -221,7 +298,7 @@ class AnnotationProcessingServiceTest {
                 null,
                 null,
                 null,
-                null,
+                creator == null ? null : new MetadataDto(creator, null, null, null, null),
                 "pcgts-1",
                 null,
                 null,

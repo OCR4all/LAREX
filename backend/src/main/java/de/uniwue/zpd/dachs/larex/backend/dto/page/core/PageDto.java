@@ -160,6 +160,44 @@ public record PageDto(
     }
 
     /**
+     * Return a copy with dimensions taken from the actual page image.
+     */
+    public PageDto withImageDimensions(int width, int height) {
+        return new PageDto(
+            imageFilename,
+            width,
+            height,
+            imageXResolution,
+            imageYResolution,
+            imageResolutionUnit,
+            metadata,
+            pcGtsId,
+            type,
+            custom,
+            orientation,
+            primaryLanguage,
+            secondaryLanguage,
+            primaryScript,
+            secondaryScript,
+            readingDirection,
+            textLineOrder,
+            confidence,
+            border,
+            printSpace,
+            regions,
+            readingOrder,
+            alternativeImages,
+            labels,
+            userDefined,
+            textStyle,
+            layers,
+            relations,
+            formatVersion,
+            labelIds
+        );
+    }
+
+    /**
      * Get total region count.
      */
     public int getRegionCount() {

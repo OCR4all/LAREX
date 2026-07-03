@@ -1,5 +1,5 @@
 /**
- * Coordinate transformation utilities for the Umbra image editor.
+ * Coordinate transformation utilities for the image editor.
  * Handles conversion between different coordinate systems:
  * - Screen coordinates (pixels)
  * - Clip coordinates (-1 to 1)

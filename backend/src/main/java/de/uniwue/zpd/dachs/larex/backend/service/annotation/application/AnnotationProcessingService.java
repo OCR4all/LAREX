@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.annotation.application;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
@@ -25,6 +26,9 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -34,6 +38,7 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -199,6 +204,10 @@ public class AnnotationProcessingService {
      */
     @Transactional
     public void saveAnnotationToXml(String xmlId, PageDto pageDto, String userId) throws IOException {
+        saveAnnotationToXml(xmlId, pageDto, userId, false);
+    }
+
+    private void saveAnnotationToXml(String xmlId, PageDto pageDto, String userId, boolean initializeCreator) throws IOException {
         long saveStartedAt = System.nanoTime();
         Optional<PageXml> xmlOpt = pageXmlRepository.findById(xmlId);
         if (xmlOpt.isEmpty()) {
@@ -218,7 +227,7 @@ public class AnnotationProcessingService {
         }
         long versionMs = (System.nanoTime() - versionStartedAt) / 1_000_000;
 
-        PageDto saveReadyPageDto = enrichMetadataForSave(pageDto, userId);
+        PageDto saveReadyPageDto = enrichMetadataForSave(pageDto, userId, initializeCreator);
         annotationReadCache.evict(xmlId);
 
         if (schema == XmlSchema.PAGE_XML) {
@@ -278,12 +287,12 @@ public class AnnotationProcessingService {
                 .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML)
                 .findFirst();
         if (existingPageXml.isPresent()) {
-            saveAnnotationToXml(existingPageXml.get().getId(), pageDto, userId);
+            saveAnnotationToXml(existingPageXml.get().getId(), useStoredImageDimensions(page, pageDto), userId, true);
             return existingPageXml.get();
         }
 
         String workspaceId = page.getProject().getLibrary().getWorkspaceId();
-        PageDto saveReadyPageDto = enrichMetadataForSave(pageDto, userId);
+        PageDto saveReadyPageDto = enrichMetadataForSave(useStoredImageDimensions(page, pageDto), userId, true);
 
         Path tempPath = Files.createTempFile("larex-initial-annotation-", ".xml");
         try {
@@ -358,7 +367,7 @@ public class AnnotationProcessingService {
         return schema == XmlSchema.PAGE_XML || schema == XmlSchema.ALTO_XML;
     }
 
-    private PageDto enrichMetadataForSave(PageDto dto, String userId) {
+    private PageDto enrichMetadataForSave(PageDto dto, String userId, boolean initializeCreator) {
         if (dto == null) {
             return null;
         }
@@ -373,9 +382,10 @@ public class AnnotationProcessingService {
         String externalRef = normalize(metadata != null ? metadata.externalRef() : null);
         var userDefined = metadata != null ? metadata.userDefined() : null;
         var items = metadata != null ? metadata.items() : null;
+        String saveCreator = initializeCreator || creator == null ? fallbackCreator : creator;
 
         var saveMetadata = new de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataDto(
-            creator != null ? creator : fallbackCreator,
+            saveCreator,
             created != null ? created : now,
             now,
             comments,
@@ -416,6 +426,76 @@ public class AnnotationProcessingService {
             dto.formatVersion(),
             dto.labelIds()
         );
+    }
+
+    private PageDto useStoredImageDimensions(Page page, PageDto dto) {
+        if (dto == null || page.getImages() == null || dto.imageFilename() == null) {
+            return dto;
+        }
+
+        Optional<PageImage> matchingImage = page.getImages().stream()
+                .filter(image -> dto.imageFilename().equals(image.getFileName()))
+                .findFirst();
+        if (matchingImage.isEmpty()) {
+            log.warn("Cannot verify initial PAGE XML dimensions for page {}: image '{}' was not found",
+                    page.getId(), dto.imageFilename());
+            return dto;
+        }
+
+        Optional<PageDto.Dimensions> dimensions = readImageDimensions(matchingImage.get());
+        if (dimensions.isEmpty()) {
+            return dto;
+        }
+
+        PageDto.Dimensions actual = dimensions.get();
+        if (actual.width() != dto.imageWidth() || actual.height() != dto.imageHeight()) {
+            log.info("Correcting initial PAGE XML dimensions for page {} from {}x{} to {}x{}",
+                    page.getId(), dto.imageWidth(), dto.imageHeight(), actual.width(), actual.height());
+        }
+        return dto.withImageDimensions(actual.width(), actual.height());
+    }
+
+    private Optional<PageDto.Dimensions> readImageDimensions(PageImage image) {
+        Path uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path imagePath = uploadRoot.resolve(image.getFilePath()).normalize();
+        if (!imagePath.startsWith(uploadRoot)) {
+            log.warn("Cannot read dimensions for image {}: path escapes the upload directory", image.getId());
+            return Optional.empty();
+        }
+        if (!Files.isRegularFile(imagePath)) {
+            log.warn("Cannot read dimensions for image {}: file does not exist at {}", image.getId(), imagePath);
+            return Optional.empty();
+        }
+
+        try (ImageInputStream input = ImageIO.createImageInputStream(imagePath.toFile())) {
+            if (input == null) {
+                log.warn("Cannot read dimensions for image {}: unsupported image input", image.getId());
+                return Optional.empty();
+            }
+
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) {
+                log.warn("Cannot read dimensions for image {}: no image reader is available", image.getId());
+                return Optional.empty();
+            }
+
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input, true, true);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                if (width <= 0 || height <= 0) {
+                    log.warn("Cannot read dimensions for image {}: invalid size {}x{}", image.getId(), width, height);
+                    return Optional.empty();
+                }
+                return Optional.of(new PageDto.Dimensions(width, height));
+            } finally {
+                reader.dispose();
+            }
+        } catch (IOException | RuntimeException e) {
+            log.warn("Cannot read dimensions for image {} at {}: {}", image.getId(), imagePath, e.getMessage());
+            return Optional.empty();
+        }
     }
 
     private String normalize(String value) {
