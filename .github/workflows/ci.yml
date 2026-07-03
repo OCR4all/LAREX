@@ -137,7 +137,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: keycloak-theme
-          path: keycloak-theme/build_keycloak/
+          path: keycloak-theme/dist_keycloak/
 
   docs:
     name: Docs Build
