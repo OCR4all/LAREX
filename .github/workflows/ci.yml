@@ -12,6 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  NODE_MAX_OLD_SPACE_SIZE: 6144
   NODE_VERSION: 22
 
 jobs:
@@ -102,7 +103,7 @@ jobs:
       - name: Build
         working-directory: frontend
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: --max-old-space-size=${{ env.NODE_MAX_OLD_SPACE_SIZE }}
         run: pnpm build
 
   keycloak-theme:
@@ -249,5 +250,7 @@ jobs:
           file: ./frontend/Dockerfile.prod
           push: false
           tags: larex/frontend:test
+          build-args: |
+            NODE_MAX_OLD_SPACE_SIZE=${{ env.NODE_MAX_OLD_SPACE_SIZE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

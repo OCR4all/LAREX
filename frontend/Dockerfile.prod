@@ -6,6 +6,8 @@ WORKDIR /app
 
 FROM base AS builder
 
+ARG NODE_MAX_OLD_SPACE_SIZE=6144
+
 # Copy package manifests first for layer caching and deterministic installs
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
@@ -15,7 +17,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm build
+RUN NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}" pnpm build
 
 FROM base AS runner
 

@@ -13,6 +13,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME_BACKEND: ocr4all/larex/backend
   IMAGE_NAME_FRONTEND: ocr4all/larex/frontend
+  NODE_MAX_OLD_SPACE_SIZE: 6144
 
 jobs:
   test:
@@ -86,5 +87,7 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
+          build-args: |
+            NODE_MAX_OLD_SPACE_SIZE=${{ env.NODE_MAX_OLD_SPACE_SIZE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
