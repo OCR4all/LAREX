@@ -5,6 +5,8 @@
   "emailTheme": "keycloakify-larex",
   "resetPasswordAllowed": true,
   "rememberMe": true,
+  "ssoSessionIdleTimeoutRememberMe": 604800,
+  "ssoSessionMaxLifespanRememberMe": 2592000,
   "attributes": {
     "frontendUrl": "${KEYCLOAK_FRONTEND_URL}"
   },
