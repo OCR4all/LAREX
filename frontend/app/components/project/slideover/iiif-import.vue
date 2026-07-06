@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
+import type { TabsItem } from '@nuxt/ui'
 
 type PreviewConflict = {
   canvasId: string
@@ -103,6 +104,18 @@ const { uploadFormDataWithProgress } = useTrackedUpload()
 const toast = useToast()
 
 const sourceMode = ref<'url' | 'file'>('url')
+const sourceTabs = [
+  {
+    label: 'Manifest URL',
+    value: 'url',
+    icon: 'i-lucide-link'
+  },
+  {
+    label: 'Manifest File',
+    value: 'file',
+    icon: 'i-lucide-file-json'
+  }
+] satisfies TabsItem[]
 const manifestUrl = ref('')
 const manifestFile = ref<File | null>(null)
 const preview = ref<PreviewJobResponse | null>(null)
@@ -507,11 +520,6 @@ function resetPreview() {
   stopPreviewPolling()
 }
 
-function handleFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  manifestFile.value = input.files?.[0] ?? null
-}
-
 async function close(imported: boolean) {
   stopPolling()
   stopPreviewPolling()
@@ -600,24 +608,14 @@ function submitCurrentStep() {
             <p class="text-sm text-muted">
               Import a public IIIF Presentation manifest into this project. Each importable canvas becomes a page with one local `iiif` image variant.
             </p>
-            <div class="flex gap-2">
-              <UButton
-                type="button"
-                :variant="sourceMode === 'url' ? 'solid' : 'outline'"
-                color="neutral"
-                @click="sourceMode = 'url'"
-              >
-                Manifest URL
-              </UButton>
-              <UButton
-                type="button"
-                :variant="sourceMode === 'file' ? 'solid' : 'outline'"
-                color="neutral"
-                @click="sourceMode = 'file'"
-              >
-                Manifest File
-              </UButton>
-            </div>
+            <UTabs
+              v-model="sourceMode"
+              :items="sourceTabs"
+              :content="false"
+              color="neutral"
+              class="w-full"
+              :ui="{ trigger: 'grow justify-center' }"
+            />
           </div>
 
           <div v-if="sourceMode === 'url'" class="space-y-2">
@@ -631,16 +629,16 @@ function submitCurrentStep() {
 
           <div v-else class="space-y-2">
             <UFormField label="Manifest File" required>
-              <input
-                type="file"
+              <UFileUpload
+                v-model="manifestFile"
                 accept=".json,application/json,application/ld+json"
-                class="block w-full text-sm"
-                @change="handleFileChange"
-              >
+                dropzone
+                icon="i-lucide-file-up"
+                label="Drop manifest here"
+                description="JSON or JSON-LD; drag and drop or click to browse"
+                class="min-h-40 w-full"
+              />
             </UFormField>
-            <p v-if="manifestFile" class="text-xs text-muted">
-              {{ manifestFile.name }}
-            </p>
           </div>
         </template>
 
