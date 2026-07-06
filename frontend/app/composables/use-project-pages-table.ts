@@ -48,7 +48,11 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     setColumnFilter,
     clearColumnFilter,
     resetAllFilters
-  } = useTableFilters(pagesSafe, { column: 'projectOrderPosition', direction: 'asc' })
+  } = useTableFilters(
+    pagesSafe,
+    { column: 'projectOrderPosition', direction: 'asc' },
+    PROJECT_PAGES_TABLE_ID
+  )
 
   const xmlStatusFilter = ref<'all' | 'has_xml' | 'no_xml'>('all')
   const xmlStatusOptions = [

@@ -41,7 +41,8 @@ const {
   paginatedData
 } = useResourceListPage({
   data: dictionariesSafe,
-  defaultSort: { column: 'name', direction: 'asc' }
+  defaultSort: { column: 'name', direction: 'asc' },
+  tableId: 'workspace-dictionaries'
 })
 
 const selectedDictionaryIds = ref<Set<string>>(new Set())

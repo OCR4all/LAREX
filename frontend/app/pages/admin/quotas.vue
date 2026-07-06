@@ -108,7 +108,11 @@ const quotaRows = computed<AdminQuotaRow[]>(() => {
   })
 })
 
-const { sort, globalFilter, columnFilters, filteredAndSortedData, activeFilters, resetAllFilters } = useTableFilters(quotaRows, { column: 'usagePercentage', direction: 'desc' })
+const { sort, globalFilter, columnFilters, filteredAndSortedData, activeFilters, resetAllFilters } = useTableFilters(
+  quotaRows,
+  { column: 'usagePercentage', direction: 'desc' },
+  'admin-quotas'
+)
 
 const page = ref(1)
 const itemsPerPage = ref(25)

@@ -38,7 +38,8 @@ const {
   paginatedData
 } = useResourceListPage({
   data: rulesetsSafe,
-  defaultSort: { column: 'name', direction: 'asc' }
+  defaultSort: { column: 'name', direction: 'asc' },
+  tableId: 'workspace-validation-rulesets'
 })
 
 const selectedRulesetIds = ref<Set<string>>(new Set())

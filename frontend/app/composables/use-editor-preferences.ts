@@ -2,6 +2,11 @@ import type { ToolbarLayout, VirtualKeyboardMode, TextItemLayout } from '@/store
 import type { ShortcutPreferences } from '@/composables/editor/shortcut-registry'
 
 type TableColumnVisibilityPreferences = Record<string, Record<string, boolean>>
+export type TableSortPreference = {
+  column: string
+  direction: 'asc' | 'desc'
+}
+type TableSortingPreferences = Record<string, TableSortPreference>
 
 export interface EditorPreferences {
   backgroundColor: string | null
@@ -39,6 +44,7 @@ export interface EditorPreferences {
   onboardingTourCompletion: Record<string, true> | null
   onboardingToursOptedOut: boolean | null
   tableColumnVisibility: TableColumnVisibilityPreferences | null
+  tableSorting: TableSortingPreferences | null
 }
 
 interface EditorPreferencesState {
@@ -82,7 +88,8 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   onboardingEditorTourVersion: null,
   onboardingTourCompletion: null,
   onboardingToursOptedOut: null,
-  tableColumnVisibility: null
+  tableColumnVisibility: null,
+  tableSorting: null
 }
 
 const SAVE_DEBOUNCE_MS = 1200

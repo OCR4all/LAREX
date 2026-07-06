@@ -15,6 +15,7 @@ type TagDescriptor = string | {
 type ResourceListPageOptions<T extends object> = {
   data: Ref<T[]> | ComputedRef<T[]>
   defaultSort: { column: string, direction: 'asc' | 'desc' }
+  tableId: string
   tagColumn?: string
   getTags?: (item: T) => TagDescriptor[]
 }
@@ -31,7 +32,7 @@ export function useResourceListPage<T extends object>(options: ResourceListPageO
     return Array.isArray(value) ? value as string[] : []
   })
 
-  const filters = useTableFilters(options.data, options.defaultSort)
+  const filters = useTableFilters(options.data, options.defaultSort, options.tableId)
 
   const uniqueTags = computed<TagOption[]>(() => {
     const tagCounts = new Map<string, { label: string, count: number }>()

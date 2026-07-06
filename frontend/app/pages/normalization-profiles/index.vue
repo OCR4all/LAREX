@@ -38,7 +38,8 @@ const {
   paginatedData
 } = useResourceListPage({
   data: profilesSafe,
-  defaultSort: { column: 'name', direction: 'asc' }
+  defaultSort: { column: 'name', direction: 'asc' },
+  tableId: 'workspace-normalization-profiles'
 })
 
 const selectedProfileIds = ref<Set<string>>(new Set())

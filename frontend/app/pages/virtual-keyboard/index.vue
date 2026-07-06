@@ -39,7 +39,8 @@ const {
   paginatedData
 } = useResourceListPage({
   data: keyboardsSafe,
-  defaultSort: { column: 'name', direction: 'asc' }
+  defaultSort: { column: 'name', direction: 'asc' },
+  tableId: 'workspace-virtual-keyboards'
 })
 
 const selectedKeyboardIds = ref<Set<string>>(new Set())

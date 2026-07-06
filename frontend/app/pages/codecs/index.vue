@@ -38,7 +38,8 @@ const {
   paginatedData
 } = useResourceListPage({
   data: codecsSafe,
-  defaultSort: { column: 'name', direction: 'asc' }
+  defaultSort: { column: 'name', direction: 'asc' },
+  tableId: 'workspace-codecs'
 })
 
 const selectedCodecIds = ref<Set<string>>(new Set())

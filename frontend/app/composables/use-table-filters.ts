@@ -2,6 +2,7 @@
  * Reusable composable for table sorting, filtering, and searching
  */
 export type TagFilterOperator = 'and' | 'or'
+export type TableSort = { column: string, direction: 'asc' | 'desc' }
 type ActiveFilter
   = | {
     type: 'global'
@@ -20,9 +21,12 @@ type ActiveFilter
 
 export const useTableFilters = <T extends object>(
   data: Ref<T[]> | ComputedRef<T[]>,
-  defaultSort: { column: string, direction: 'asc' | 'desc' } = { column: 'created', direction: 'desc' }
+  defaultSort: TableSort = { column: 'created', direction: 'desc' },
+  tableId?: string
 ) => {
-  const sort = ref(defaultSort)
+  const sort = tableId
+    ? usePersistentTableSorting(tableId, defaultSort)
+    : ref<TableSort>({ ...defaultSort })
   const globalFilter = ref('')
   const columnFilters = ref<Record<string, string | string[] | boolean>>({})
   const tagFilterOperator = ref<TagFilterOperator>('or')
@@ -145,7 +149,7 @@ export const useTableFilters = <T extends object>(
   const resetAllFilters = () => {
     globalFilter.value = ''
     columnFilters.value = {}
-    sort.value = defaultSort
+    sort.value = { ...defaultSort }
     tagFilterOperator.value = 'or'
   }
 

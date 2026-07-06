@@ -36,7 +36,7 @@ class EditorPreferenceServiceTest {
                 .put("version", 1)
                 .set("bindings", objectMapper.createObjectNode().putArray("redo").add("meta_y"));
 
-        EditorPreference updated = service.update("user-1", preferenceDto(null, null, shortcutBindings, null, null));
+        EditorPreference updated = service.update("user-1", preferenceDto(null, null, shortcutBindings, null, null, null));
 
         assertEquals(shortcutBindings, updated.getShortcutBindings());
         verify(repository).save(existing);
@@ -50,7 +50,7 @@ class EditorPreferenceServiceTest {
 
         EditorPreferenceService service = new EditorPreferenceService(repository);
 
-        EditorPreference updated = service.update("user-1", preferenceDto(null, true, null, null, null));
+        EditorPreference updated = service.update("user-1", preferenceDto(null, true, null, null, null, null));
 
         assertEquals(Boolean.TRUE, updated.getShowPolygonLabelFill());
         verify(repository).save(existing);
@@ -68,7 +68,7 @@ class EditorPreferenceServiceTest {
 
         EditorPreferenceService service = new EditorPreferenceService(repository);
 
-        EditorPreference updated = service.update("user-1", preferenceDto("#fff", null, null, null, null));
+        EditorPreference updated = service.update("user-1", preferenceDto("#fff", null, null, null, null, null));
 
         assertEquals("#fff", updated.getBackgroundColor());
         assertEquals(existing.getShortcutBindings(), updated.getShortcutBindings());
@@ -83,10 +83,31 @@ class EditorPreferenceServiceTest {
         EditorPreferenceService service = new EditorPreferenceService(repository);
         var completion = objectMapper.createObjectNode().put("tasks-index", true).put("editor-layout", true);
 
-        EditorPreference updated = service.update("user-1", preferenceDto(null, null, null, completion, true));
+        EditorPreference updated = service.update("user-1", preferenceDto(null, null, null, null, completion, true));
 
         assertEquals(completion, updated.getOnboardingTourCompletion());
         assertEquals(Boolean.TRUE, updated.getOnboardingToursOptedOut());
+        verify(repository).save(existing);
+    }
+
+    @Test
+    void updatePersistsTableSortingWhenProvided() {
+        EditorPreference existing = new EditorPreference("user-1");
+        when(repository.findByUserId("user-1")).thenReturn(Optional.of(existing));
+        when(repository.save(any(EditorPreference.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EditorPreferenceService service = new EditorPreferenceService(repository);
+        var tableSorting = objectMapper.createObjectNode()
+                .set("project-pages-v2", objectMapper.createObjectNode()
+                        .put("column", "name")
+                        .put("direction", "asc"));
+
+        EditorPreference updated = service.update(
+                "user-1",
+                preferenceDto(null, null, null, tableSorting, null, null)
+        );
+
+        assertEquals(tableSorting, updated.getTableSorting());
         verify(repository).save(existing);
     }
 
@@ -102,6 +123,7 @@ class EditorPreferenceServiceTest {
         assertEquals("missing", created.getUserId());
         assertNull(created.getShortcutBindings());
         assertNull(created.getTableColumnVisibility());
+        assertNull(created.getTableSorting());
         verify(repository).save(any(EditorPreference.class));
     }
 
@@ -109,6 +131,7 @@ class EditorPreferenceServiceTest {
             String backgroundColor,
             Boolean showPolygonLabelFill,
             tools.jackson.databind.JsonNode shortcutBindings,
+            tools.jackson.databind.JsonNode tableSorting,
             tools.jackson.databind.JsonNode onboardingTourCompletion,
             Boolean onboardingToursOptedOut
     ) {
@@ -142,6 +165,7 @@ class EditorPreferenceServiceTest {
                 null,
                 shortcutBindings,
                 null,
+                tableSorting,
                 null,
                 null,
                 onboardingTourCompletion,

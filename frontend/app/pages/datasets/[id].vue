@@ -241,7 +241,7 @@ const {
   setColumnFilter,
   clearColumnFilter,
   getUniqueColumnValues
-} = useTableFilters(tableRows, { column: 'sourcePageName', direction: 'asc' })
+} = useTableFilters(tableRows, { column: 'sourcePageName', direction: 'asc' }, 'dataset-items')
 
 const selectedTags = computed<string[]>({
   get: () => {

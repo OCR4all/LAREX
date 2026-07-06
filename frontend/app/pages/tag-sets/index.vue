@@ -54,7 +54,8 @@ const {
   paginatedData
 } = useResourceListPage({
   data: rows,
-  defaultSort: { column: 'name', direction: 'asc' }
+  defaultSort: { column: 'name', direction: 'asc' },
+  tableId: 'workspace-tag-sets'
 })
 
 const selectedTagSetIds = ref<Set<string>>(new Set())

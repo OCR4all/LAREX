@@ -158,6 +158,7 @@ const {
 } = useResourceListPage({
   data,
   defaultSort: { column: 'created', direction: 'desc' },
+  tableId: 'dashboard-projects-v2',
   getTags: (project) => {
     const rawTags = project.tags ?? []
     const resolvedTags = project.resolvedTags ?? []

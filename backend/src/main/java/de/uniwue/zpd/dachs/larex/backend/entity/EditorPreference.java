@@ -115,6 +115,10 @@ public class EditorPreference {
     @Column(name = "table_column_visibility", columnDefinition = "jsonb")
     private JsonNode tableColumnVisibility;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "table_sorting", columnDefinition = "jsonb")
+    private JsonNode tableSorting;
+
     @Column(name = "onboarding_dashboard_tour_version")
     private Integer onboardingDashboardTourVersion;
 
@@ -235,6 +239,9 @@ public class EditorPreference {
 
     public JsonNode getTableColumnVisibility() { return tableColumnVisibility; }
     public void setTableColumnVisibility(JsonNode tableColumnVisibility) { this.tableColumnVisibility = tableColumnVisibility; }
+
+    public JsonNode getTableSorting() { return tableSorting; }
+    public void setTableSorting(JsonNode tableSorting) { this.tableSorting = tableSorting; }
 
     public Integer getOnboardingDashboardTourVersion() { return onboardingDashboardTourVersion; }
     public void setOnboardingDashboardTourVersion(Integer onboardingDashboardTourVersion) { this.onboardingDashboardTourVersion = onboardingDashboardTourVersion; }

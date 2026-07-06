@@ -40,7 +40,8 @@ const {
   paginatedData
 } = useResourceListPage({
   data: datasetsSafe,
-  defaultSort: { column: 'updated', direction: 'desc' }
+  defaultSort: { column: 'updated', direction: 'desc' },
+  tableId: 'workspace-datasets'
 })
 
 const selectedDatasetIds = ref<Set<string>>(new Set())

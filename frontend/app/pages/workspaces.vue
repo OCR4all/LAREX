@@ -55,7 +55,7 @@ const {
   filteredAndSortedData,
   activeFilters,
   resetAllFilters
-} = useTableFilters(rows, { column: 'name', direction: 'asc' })
+} = useTableFilters(rows, { column: 'name', direction: 'asc' }, 'workspaces-list')
 
 const page = ref(1)
 const itemsPerPageRef = ref(10)

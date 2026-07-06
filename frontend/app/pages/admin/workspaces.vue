@@ -52,7 +52,11 @@ const datatableUi = {
   separator: 'h-0'
 }
 
-const { sort, globalFilter, filteredAndSortedData } = useTableFilters(rows, { column: 'created', direction: 'desc' })
+const { sort, globalFilter, filteredAndSortedData } = useTableFilters(
+  rows,
+  { column: 'created', direction: 'desc' },
+  'admin-workspaces'
+)
 
 const page = ref(1)
 const itemsPerPage = ref(25)
