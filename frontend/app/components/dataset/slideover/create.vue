@@ -60,12 +60,10 @@ const splitAlgorithmOptions: Array<{ label: string, value: Schema['splitAlgorith
   }
 ]
 
-const formRef = ref<HTMLFormElement | null>(null)
+const formId = useId()
 const creating = ref(false)
 const trainPercentage = ref(70)
 const valPercentage = ref(15)
-
-const submit = () => formRef.value?.submit()
 
 const testPercentage = computed(() => {
   if (state.splitTemplate === 'TRAIN_VAL') return 0
@@ -167,7 +165,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
     <template #body>
       <UForm
-        ref="formRef"
+        :id="formId"
         :schema="schema"
         :state="state"
         class="space-y-5"
@@ -264,10 +262,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           Cancel
         </UButton>
         <UButton
+          type="submit"
+          :form="formId"
           color="primary"
           icon="i-lucide-database"
           :loading="creating"
-          @click="submit"
         >
           Create Dataset
         </UButton>

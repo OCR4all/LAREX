@@ -52,6 +52,7 @@ const NEW_DATASET_TARGET = '__new__'
 
 const toast = useToast()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
+const formId = useId()
 
 const loading = ref(true)
 const submitting = ref(false)
@@ -370,144 +371,146 @@ onMounted(load)
     </template>
 
     <template #body>
-      <div v-if="loading" class="space-y-4">
-        <USkeleton class="h-20 w-full rounded-lg" />
-        <USkeleton class="h-24 w-full rounded-lg" />
-        <USkeleton class="h-32 w-full rounded-lg" />
-      </div>
-
-      <div v-else class="space-y-5">
-        <div class="grid gap-4 lg:grid-cols-2">
-          <UFormField label="Target dataset">
-            <USelect
-              v-model="addToDatasetTargetId"
-              :items="datasetTargetOptions"
-              value-key="value"
-            />
-          </UFormField>
-
-          <UFormField label="Storage mode">
-            <USelect
-              v-model="addToDatasetMode"
-              :items="datasetModeOptions"
-              value-key="value"
-            />
-          </UFormField>
+      <UForm :id="formId" @submit="submit">
+        <div v-if="loading" class="space-y-4">
+          <USkeleton class="h-20 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-32 w-full rounded-lg" />
         </div>
 
-        <div v-if="addToDatasetTargetId === NEW_DATASET_TARGET" class="space-y-4 rounded-lg border border-default p-4">
+        <div v-else class="space-y-5">
           <div class="grid gap-4 lg:grid-cols-2">
-            <UFormField label="Name" required>
-              <UInput v-model="newDatasetName" placeholder="Dataset name" />
+            <UFormField label="Target dataset">
+              <USelect
+                v-model="addToDatasetTargetId"
+                :items="datasetTargetOptions"
+                value-key="value"
+              />
             </UFormField>
 
-            <UFormField label="Tags">
-              <UInputTags
-                v-model="newDatasetTags"
-                icon="i-lucide-tags"
-                placeholder="Add dataset tags"
+            <UFormField label="Storage mode">
+              <USelect
+                v-model="addToDatasetMode"
+                :items="datasetModeOptions"
+                value-key="value"
               />
             </UFormField>
           </div>
 
-          <UFormField label="Description">
-            <UTextarea
-              v-model="newDatasetDescription"
-              :rows="3"
-              placeholder="Optional description"
-            />
-          </UFormField>
-        </div>
-
-        <UFormField
-          label="Global image variants"
-          :help="globalImageVariants.length > 0
-            ? 'Rows inherit these variants by default. Disable inheritance on a row to override it.'
-            : 'No global variants selected. Inherited rows will be skipped until you choose at least one.'"
-        >
-          <USelectMenu
-            v-model="globalImageVariants"
-            :items="globalImageVariantOptions"
-            value-key="value"
-            multiple
-            searchable
-            clear-search-on-close
-          />
-        </UFormField>
-
-        <UAlert
-          v-if="blockedEntries.length > 0"
-          color="warning"
-          variant="subtle"
-          title="Some pages cannot be added"
-          :description="`${blockedEntries.length} selected ${blockedEntries.length === 1 ? 'page is' : 'pages are'} missing XML variants or could not be loaded.`"
-        />
-
-        <UAlert
-          v-if="skippedEntries.length > 0"
-          color="neutral"
-          variant="subtle"
-          title="Some pages will be skipped"
-          :description="`${skippedEntries.length} selected ${skippedEntries.length === 1 ? 'page has' : 'pages have'} no currently selected image variant.`"
-        />
-
-        <div class="space-y-3 overflow-y-auto pr-1">
-          <div
-            v-for="entry in datasetSelectionEntries"
-            :key="entry.pageId"
-            class="space-y-4 rounded-lg border border-default p-4"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <p class="truncate font-medium">
-                  {{ entry.pageName }}
-                </p>
-                <p class="text-xs text-muted">
-                  {{ entry.pageId }}
-                </p>
-              </div>
-
-              <UBadge :color="entryStatus(entry).color" variant="soft">
-                {{ entryStatus(entry).label }}
-              </UBadge>
-            </div>
-
+          <div v-if="addToDatasetTargetId === NEW_DATASET_TARGET" class="space-y-4 rounded-lg border border-default p-4">
             <div class="grid gap-4 lg:grid-cols-2">
-              <UFormField label="XML annotation source" required>
-                <USelect
-                  v-model="entry.selectedXmlId"
-                  :items="entry.xmlOptions.map(option => ({ label: formatDatasetXmlLabel(option), value: option.id }))"
-                  value-key="value"
-                  :disabled="!!entry.error"
-                />
+              <UFormField label="Name" required>
+                <UInput v-model="newDatasetName" placeholder="Dataset name" />
               </UFormField>
 
-              <div class="space-y-3">
-                <UCheckbox
-                  :model-value="entry.useGlobalImageSelection"
-                  label="Use global image variants"
-                  @update:model-value="setEntryUseGlobal(entry, $event)"
+              <UFormField label="Tags">
+                <UInputTags
+                  v-model="newDatasetTags"
+                  icon="i-lucide-tags"
+                  placeholder="Add dataset tags"
                 />
+              </UFormField>
+            </div>
 
-                <UFormField
-                  label="Image variants"
-                  :help="entryHint(entry)"
-                >
-                  <USelectMenu
-                    v-model="entry.selectedImageIds"
-                    :items="entry.imageOptions.map(option => ({ label: formatDatasetImageLabel(option), value: option.id }))"
+            <UFormField label="Description">
+              <UTextarea
+                v-model="newDatasetDescription"
+                :rows="3"
+                placeholder="Optional description"
+              />
+            </UFormField>
+          </div>
+
+          <UFormField
+            label="Global image variants"
+            :help="globalImageVariants.length > 0
+              ? 'Rows inherit these variants by default. Disable inheritance on a row to override it.'
+              : 'No global variants selected. Inherited rows will be skipped until you choose at least one.'"
+          >
+            <USelectMenu
+              v-model="globalImageVariants"
+              :items="globalImageVariantOptions"
+              value-key="value"
+              multiple
+              searchable
+              clear-search-on-close
+            />
+          </UFormField>
+
+          <UAlert
+            v-if="blockedEntries.length > 0"
+            color="warning"
+            variant="subtle"
+            title="Some pages cannot be added"
+            :description="`${blockedEntries.length} selected ${blockedEntries.length === 1 ? 'page is' : 'pages are'} missing XML variants or could not be loaded.`"
+          />
+
+          <UAlert
+            v-if="skippedEntries.length > 0"
+            color="neutral"
+            variant="subtle"
+            title="Some pages will be skipped"
+            :description="`${skippedEntries.length} selected ${skippedEntries.length === 1 ? 'page has' : 'pages have'} no currently selected image variant.`"
+          />
+
+          <div class="space-y-3 overflow-y-auto pr-1">
+            <div
+              v-for="entry in datasetSelectionEntries"
+              :key="entry.pageId"
+              class="space-y-4 rounded-lg border border-default p-4"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="truncate font-medium">
+                    {{ entry.pageName }}
+                  </p>
+                  <p class="text-xs text-muted">
+                    {{ entry.pageId }}
+                  </p>
+                </div>
+
+                <UBadge :color="entryStatus(entry).color" variant="soft">
+                  {{ entryStatus(entry).label }}
+                </UBadge>
+              </div>
+
+              <div class="grid gap-4 lg:grid-cols-2">
+                <UFormField label="XML annotation source" required>
+                  <USelect
+                    v-model="entry.selectedXmlId"
+                    :items="entry.xmlOptions.map(option => ({ label: formatDatasetXmlLabel(option), value: option.id }))"
                     value-key="value"
-                    multiple
-                    searchable
-                    clear-search-on-close
-                    :disabled="!!entry.error || entry.useGlobalImageSelection"
+                    :disabled="!!entry.error"
                   />
                 </UFormField>
+
+                <div class="space-y-3">
+                  <UCheckbox
+                    :model-value="entry.useGlobalImageSelection"
+                    label="Use global image variants"
+                    @update:model-value="setEntryUseGlobal(entry, $event)"
+                  />
+
+                  <UFormField
+                    label="Image variants"
+                    :help="entryHint(entry)"
+                  >
+                    <USelectMenu
+                      v-model="entry.selectedImageIds"
+                      :items="entry.imageOptions.map(option => ({ label: formatDatasetImageLabel(option), value: option.id }))"
+                      value-key="value"
+                      multiple
+                      searchable
+                      clear-search-on-close
+                      :disabled="!!entry.error || entry.useGlobalImageSelection"
+                    />
+                  </UFormField>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -521,10 +524,11 @@ onMounted(load)
             Cancel
           </UButton>
           <UButton
+            type="submit"
+            :form="formId"
             color="primary"
             :loading="submitting"
             :disabled="!canSubmit"
-            @click="submit"
           >
             Add Pages
           </UButton>

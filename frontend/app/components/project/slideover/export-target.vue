@@ -138,6 +138,7 @@ const emit = defineEmits<{
   close: [result: ExportDialogResult | null]
 }>()
 
+const formId = useId()
 const formatOptions = computed(() => props.mode === 'page' ? pageFormatOptions : projectFormatOptions)
 const isArchiveMode = computed(() => props.mode === 'basic' || props.mode === 'package')
 const selectedFormat = ref<ExportFormat | undefined>(
@@ -286,7 +287,7 @@ function closeWithResult() {
     </template>
 
     <template #body>
-      <div class="space-y-5">
+      <UForm :id="formId" class="space-y-5" @submit="closeWithResult">
         <p class="text-sm text-muted">
           {{ props.description }}
         </p>
@@ -611,7 +612,7 @@ function closeWithResult() {
             />
           </div>
         </div>
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -624,10 +625,11 @@ function closeWithResult() {
           Cancel
         </UButton>
         <UButton
+          type="submit"
+          :form="formId"
           color="primary"
           variant="solid"
           :disabled="!isArchiveMode && !selectedFormat"
-          @click="closeWithResult"
         >
           {{ props.confirmLabel }}
         </UButton>

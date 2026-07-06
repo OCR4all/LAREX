@@ -19,6 +19,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [BufferResult | null] }>()
 
+const formId = useId()
 const distance = ref(0)
 const validationError = ref<string | null>(null)
 
@@ -82,7 +83,7 @@ const cancel = () => emit('close', null)
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-4">
+      <UForm :id="formId" class="flex flex-col gap-4" @submit="save">
         <UFormField label="Distance">
           <UInput
             v-model.number="distance"
@@ -110,7 +111,7 @@ const cancel = () => emit('close', null)
           :title="validationError"
           icon="i-lucide-alert-circle"
         />
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -118,7 +119,7 @@ const cancel = () => emit('close', null)
         <UButton color="neutral" variant="ghost" @click="cancel">
           Cancel
         </UButton>
-        <UButton :disabled="!canSave" @click="save">
+        <UButton type="submit" :form="formId" :disabled="!canSave">
           Apply
         </UButton>
       </div>

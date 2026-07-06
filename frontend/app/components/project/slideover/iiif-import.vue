@@ -98,6 +98,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [imported: boolean] }>()
 
+const formId = useId()
 const { uploadFormDataWithProgress } = useTrackedUpload()
 const toast = useToast()
 
@@ -570,6 +571,16 @@ function applyCanvasRange() {
     .filter(canvas => canvas.index >= start && canvas.index <= end)
     .map(canvas => canvas.canvasId)
 }
+
+function submitCurrentStep() {
+  if (currentStep.value === 'source') {
+    void requestPreview()
+    return
+  }
+  if (currentStep.value === 'preview' && isPreviewReady.value) {
+    void startImport()
+  }
+}
 </script>
 
 <template>
@@ -583,7 +594,7 @@ function applyCanvasRange() {
     </template>
 
     <template #body>
-      <div class="space-y-5">
+      <UForm :id="formId" class="space-y-5" @submit="submitCurrentStep">
         <template v-if="currentStep === 'source'">
           <div class="space-y-2">
             <p class="text-sm text-muted">
@@ -591,6 +602,7 @@ function applyCanvasRange() {
             </p>
             <div class="flex gap-2">
               <UButton
+                type="button"
                 :variant="sourceMode === 'url' ? 'solid' : 'outline'"
                 color="neutral"
                 @click="sourceMode = 'url'"
@@ -598,6 +610,7 @@ function applyCanvasRange() {
                 Manifest URL
               </UButton>
               <UButton
+                type="button"
                 :variant="sourceMode === 'file' ? 'solid' : 'outline'"
                 color="neutral"
                 @click="sourceMode = 'file'"
@@ -738,6 +751,7 @@ function applyCanvasRange() {
             </div>
             <div class="flex flex-wrap gap-2">
               <UButton
+                type="button"
                 color="neutral"
                 variant="outline"
                 size="sm"
@@ -746,6 +760,7 @@ function applyCanvasRange() {
                 Select all
               </UButton>
               <UButton
+                type="button"
                 color="neutral"
                 variant="outline"
                 size="sm"
@@ -763,6 +778,7 @@ function applyCanvasRange() {
               </UFormField>
               <UFormField label="Apply range">
                 <UButton
+                  type="button"
                   color="neutral"
                   variant="outline"
                   class="w-full justify-center"
@@ -997,7 +1013,7 @@ function applyCanvasRange() {
             </div>
           </div>
         </template>
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -1051,11 +1067,12 @@ function applyCanvasRange() {
 
         <UButton
           v-if="currentStep === 'source'"
+          type="submit"
+          :form="formId"
           color="primary"
           variant="solid"
           :loading="isLoadingPreview"
           :disabled="(sourceMode === 'url' && !manifestUrl.trim()) || (sourceMode === 'file' && !manifestFile)"
-          @click="requestPreview"
         >
           Preview Import
         </UButton>
@@ -1072,11 +1089,12 @@ function applyCanvasRange() {
 
         <UButton
           v-if="currentStep === 'preview' && isPreviewReady"
+          type="submit"
+          :form="formId"
           color="primary"
           variant="solid"
           :loading="isStartingImport"
           :disabled="!hasImportableCanvases || selectedImportableCanvasCount === 0"
-          @click="startImport"
         >
           Start Import
         </UButton>

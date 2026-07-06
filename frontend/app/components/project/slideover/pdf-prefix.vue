@@ -12,6 +12,7 @@ const emit = defineEmits<{
   close: [result: Record<string, string> | null]
 }>()
 
+const formId = useId()
 type PdfPrefixState = {
   useFileName: boolean
   customPrefix: string
@@ -68,7 +69,7 @@ function ensureFileState(fileName: string): PdfPrefixState {
     </template>
 
     <template #body>
-      <div class="space-y-4">
+      <UForm :id="formId" class="space-y-4" @submit="emit('close', resolvedPrefixes)">
         <div class="text-sm text-muted">
           Choose how pages created from the PDF should be named.
         </div>
@@ -102,7 +103,7 @@ function ensureFileState(fileName: string): PdfPrefixState {
             </div>
           </div>
         </div>
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -111,10 +112,11 @@ function ensureFileState(fileName: string): PdfPrefixState {
           Cancel
         </UButton>
         <UButton
+          type="submit"
+          :form="formId"
           color="primary"
           variant="solid"
           :disabled="hasInvalidPrefix"
-          @click="emit('close', resolvedPrefixes)"
         >
           Continue
         </UButton>

@@ -17,6 +17,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [MergeSettings | null] }>()
 
+const formId = useId()
 const targetKind = ref<RegionKind>(props.defaultKind ?? props.availableKinds[0] ?? 'TextRegion')
 const mergeChildren = ref(true)
 
@@ -39,7 +40,7 @@ const cancel = () => emit('close', null)
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-4">
+      <UForm :id="formId" class="flex flex-col gap-4" @submit="merge">
         <UFormField label="Target Region Type">
           <USelectMenu
             v-model="targetKind"
@@ -50,7 +51,7 @@ const cancel = () => emit('close', null)
         </UFormField>
 
         <UCheckbox v-model="mergeChildren" label="Merge children into new element" />
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -58,7 +59,12 @@ const cancel = () => emit('close', null)
         <UButton color="neutral" variant="ghost" @click="cancel">
           Cancel
         </UButton>
-        <UButton icon="i-lucide-merge" variant="solid" @click="merge">
+        <UButton
+          type="submit"
+          :form="formId"
+          icon="i-lucide-merge"
+          variant="solid"
+        >
           Merge
         </UButton>
       </div>

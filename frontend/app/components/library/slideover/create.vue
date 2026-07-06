@@ -82,10 +82,7 @@ const state = reactive<Partial<Schema>>({
   defaultRecognitionIndicesUndefined: false
 })
 
-const createProjectFormRef = ref<HTMLFormElement | null>(null)
-const submit = () => {
-  createProjectFormRef.value?.submit()
-}
+const formId = useId()
 
 const { data: codecs, error: codecsError } = await useFetch<CodecSummary[]>(
   () => `/api/workspaces/${selectedWorkspace.value}/codecs`,
@@ -369,7 +366,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
     <template #body>
       <UForm
-        ref="createProjectFormRef"
+        :id="formId"
         :schema="schema"
         :state="state"
         class="space-y-4"
@@ -529,7 +526,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         <UButton color="neutral" variant="ghost" @click="emit('close', false)">
           Cancel
         </UButton>
-        <UButton variant="solid" icon="i-lucide-package-plus" @click="submit">
+        <UButton
+          type="submit"
+          :form="formId"
+          variant="solid"
+          icon="i-lucide-package-plus"
+        >
           Submit
         </UButton>
       </div>

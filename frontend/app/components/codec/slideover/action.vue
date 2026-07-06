@@ -74,6 +74,7 @@ const newCodecTags = ref<string[]>([])
 const selectedCodecId = ref(props.defaultCodecId ?? '')
 
 const isSubmitting = ref(false)
+const formId = useId()
 const generateResult = ref<GenerateCodecFromSourcesResponse | null>(null)
 const validateResult = ref<ValidateCodecAgainstSourcesResponse | null>(null)
 
@@ -751,7 +752,7 @@ function closeWithResult() {
     </template>
 
     <template #body>
-      <div class="space-y-4">
+      <UForm :id="formId" class="space-y-4" @submit="handleSubmit">
         <UCard>
           <template #header>
             <div class="text-sm font-medium">
@@ -766,6 +767,7 @@ function closeWithResult() {
               </div>
               <div class="flex items-center gap-2">
                 <UButton
+                  type="button"
                   icon="i-lucide-list-checks"
                   color="neutral"
                   variant="soft"
@@ -775,6 +777,7 @@ function closeWithResult() {
                   Select all
                 </UButton>
                 <UButton
+                  type="button"
                   icon="i-lucide-list-x"
                   color="neutral"
                   variant="ghost"
@@ -816,6 +819,7 @@ function closeWithResult() {
                   @clear="clearSourceFilters"
                 />
                 <UButton
+                  type="button"
                   color="neutral"
                   variant="ghost"
                   size="xs"
@@ -1062,6 +1066,7 @@ function closeWithResult() {
 
             <div v-if="validateResult.missingCharacters.length > 0" class="space-y-2">
               <UButton
+                type="button"
                 size="sm"
                 variant="soft"
                 color="neutral"
@@ -1145,6 +1150,7 @@ function closeWithResult() {
                       {{ projectResult.valid ? 'Valid' : 'Missing' }}
                     </UBadge>
                     <UButton
+                      type="button"
                       size="xs"
                       color="neutral"
                       variant="soft"
@@ -1161,7 +1167,7 @@ function closeWithResult() {
             </div>
           </div>
         </UCard>
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -1170,11 +1176,12 @@ function closeWithResult() {
           Cancel
         </UButton>
         <UButton
+          type="submit"
+          :form="formId"
           color="neutral"
           variant="subtle"
           :disabled="!canSubmit"
           :loading="isSubmitting"
-          @click="handleSubmit"
         >
           {{ runButtonLabel }}
         </UButton>

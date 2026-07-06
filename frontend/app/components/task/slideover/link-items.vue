@@ -39,6 +39,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const formId = useId()
 
 const { data: projects, status: projectsStatus } = await useFetch<Project[]>(
   () => `/api/workspaces/${props.workspaceId}/projects`,
@@ -349,7 +350,7 @@ const columns: TableColumn<Page>[] = [
     </template>
 
     <template #body>
-      <div class="space-y-6">
+      <UForm :id="formId" class="space-y-6" @submit="linkItems">
         <div v-if="projectTags.length > 0" class="space-y-2">
           <label class="text-sm font-medium">Filter projects by tag</label>
           <USelectMenu
@@ -490,7 +491,7 @@ const columns: TableColumn<Page>[] = [
             Choose a project to see its pages
           </p>
         </div>
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -510,9 +511,10 @@ const columns: TableColumn<Page>[] = [
             Cancel
           </UButton>
           <UButton
+            type="submit"
+            :form="formId"
             :loading="isLinking"
             :disabled="!linkSummary || linkSummary.pagesCount === 0 || isLinking"
-            @click="linkItems"
           >
             Link {{ linkSummary?.pagesCount || '' }} Page{{ (linkSummary?.pagesCount ?? 0) !== 1 ? 's' : '' }}
           </UButton>

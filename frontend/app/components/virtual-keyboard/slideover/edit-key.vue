@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [KeyboardItem | null] }>()
 
+const formId = useId()
 const draft = reactive({ ...props.item })
 const overlay = useOverlay()
 const glyphPickerSlideover = overlay.create(LazyVirtualKeyboardSlideoverGlyphPicker)
@@ -41,12 +42,13 @@ const cancel = () => emit('close', null)
     </template>
 
     <template #body>
-      <div class="flex flex-col gap-4">
+      <UForm :id="formId" class="flex flex-col gap-4" @submit="save">
         <div class="grid grid-cols-2 gap-3">
           <UFormField label="Char">
             <UFieldGroup class="w-full">
               <UInput v-model="draft.char" class="rounded-r-none font-junicode text-center" />
               <UButton
+                type="button"
                 color="neutral"
                 variant="outline"
                 icon="i-lucide-search"
@@ -59,6 +61,7 @@ const cancel = () => emit('close', null)
             <UFieldGroup class="w-full">
               <UInput v-model="draft.shiftChar" class="rounded-r-none font-junicode text-center" />
               <UButton
+                type="button"
                 color="neutral"
                 variant="outline"
                 icon="i-lucide-search"
@@ -73,6 +76,7 @@ const cancel = () => emit('close', null)
           <span class="text-sm">Width: {{ draft.w }}</span>
           <div class="flex gap-2">
             <UButton
+              type="button"
               color="neutral"
               variant="outline"
               size="xs"
@@ -81,6 +85,7 @@ const cancel = () => emit('close', null)
               -
             </UButton>
             <UButton
+              type="button"
               color="neutral"
               variant="outline"
               size="xs"
@@ -93,6 +98,7 @@ const cancel = () => emit('close', null)
 
         <UButton
           v-if="item.id !== 0"
+          type="button"
           color="error"
           variant="soft"
           block
@@ -100,7 +106,7 @@ const cancel = () => emit('close', null)
         >
           Delete Key
         </UButton>
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -108,7 +114,12 @@ const cancel = () => emit('close', null)
         <UButton color="neutral" variant="ghost" @click="cancel">
           Cancel
         </UButton>
-        <UButton icon="i-lucide-save" variant="solid" @click="save">
+        <UButton
+          type="submit"
+          :form="formId"
+          icon="i-lucide-save"
+          variant="solid"
+        >
           Save
         </UButton>
       </div>

@@ -12,6 +12,7 @@ const emit = defineEmits<{
 const toast = useToast()
 const { refreshWorkspaceMembership } = useDataRefresh()
 
+const formId = useId()
 const searchQuery = ref('')
 const selectedUser = ref<UserProfile | null>(null)
 const selectedRole = ref<'CURATOR' | 'EDITOR'>('EDITOR')
@@ -85,10 +86,10 @@ async function handleSubmit() {
     selectedUser.value = null
     selectedRole.value = 'EDITOR'
     emit('close', true)
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast.add({
       title: 'Failed to send invitation',
-      description: error?.data?.message || 'Please try again',
+      description: extractApiErrorMessage(error, 'Please try again'),
       color: 'error'
     })
   } finally {
@@ -114,7 +115,7 @@ function handleClose() {
     </template>
 
     <template #body>
-      <div class="space-y-4">
+      <UForm :id="formId" class="space-y-4" @submit="handleSubmit">
         <UFormField label="Find user" name="user">
           <div class="relative">
             <UInput
@@ -159,6 +160,7 @@ function handleClose() {
                 </p>
               </div>
               <UButton
+                type="button"
                 icon="i-lucide-x"
                 size="xs"
                 color="neutral"
@@ -177,7 +179,7 @@ function handleClose() {
             class="w-full"
           />
         </UFormField>
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -190,9 +192,10 @@ function handleClose() {
           Cancel
         </UButton>
         <UButton
+          type="submit"
+          :form="formId"
           :disabled="!selectedUser"
           :loading="isSubmitting"
-          @click="handleSubmit"
         >
           Send Invite
         </UButton>

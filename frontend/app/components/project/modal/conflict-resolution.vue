@@ -48,6 +48,7 @@ interface ConflictResolution {
 
 const props = defineProps<Props>()
 const emit = defineEmits<{ close: [boolean] }>()
+const formId = useId()
 
 const workspace = useWorkspaceStore()
 
@@ -132,10 +133,10 @@ async function resolveConflicts() {
       refreshNuxtData(projectPagesKey.value),
       refreshNuxtData(projectStatusKey.value)
     ])
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast.add({
       title: 'Failed to resolve conflicts',
-      description: error.message || 'An error occurred while resolving conflicts',
+      description: extractApiErrorMessage(error, 'An error occurred while resolving conflicts'),
       color: 'error',
       icon: 'i-lucide-alert-circle'
     })
@@ -165,7 +166,7 @@ const successfulUploads = computed(() => {
     size="xl"
   >
     <template #body>
-      <div class="space-y-6">
+      <UForm :id="formId" class="space-y-6" @submit="resolveConflicts">
         <div class="bg-success/10 border border-success/30 rounded-sm p-4">
           <div class="flex items-start">
             <UIcon name="i-lucide-check-circle" class="text-success mt-0.5 mr-3" />
@@ -271,7 +272,7 @@ const successfulUploads = computed(() => {
             </div>
           </div>
         </div>
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -284,10 +285,11 @@ const successfulUploads = computed(() => {
           Cancel
         </UButton>
         <UButton
+          type="submit"
+          :form="formId"
           color="primary"
           variant="solid"
           :loading="isResolving"
-          @click="resolveConflicts"
         >
           Resolve Conflicts
         </UButton>

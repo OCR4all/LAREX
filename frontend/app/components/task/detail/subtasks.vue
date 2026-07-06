@@ -560,7 +560,7 @@ async function onDragEnd() {
       </div>
     </VueDraggable>
 
-    <form class="space-y-2" @submit.prevent="addSubtask">
+    <UForm class="space-y-2" @submit="addSubtask">
       <div class="flex items-center gap-2">
         <UInput
           v-model="newSubtaskTitle"
@@ -588,7 +588,7 @@ async function onDragEnd() {
         size="sm"
         :disabled="isAdding"
       />
-    </form>
+    </UForm>
 
     <div v-if="localSubtasks.length === 0 && !newSubtaskTitle" class="text-center py-6 text-sm text-muted">
       <UIcon name="i-lucide-list-checks" class="size-8 mb-2 mx-auto" />

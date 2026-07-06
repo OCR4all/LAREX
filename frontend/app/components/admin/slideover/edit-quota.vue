@@ -53,7 +53,7 @@ function resetToDefault() {
     </template>
 
     <template #body>
-      <div class="space-y-6">
+      <UForm class="space-y-6" @submit="save">
         <div>
           <label class="text-sm font-medium">Workspace ID</label>
           <p class="text-sm text-muted font-mono mt-1">
@@ -67,6 +67,7 @@ function resetToDefault() {
               <UButton
                 v-for="gb in presets"
                 :key="gb"
+                type="button"
                 size="sm"
                 :variant="quotaInGB === gb ? 'solid' : 'outline'"
                 :color="quotaInGB === gb ? 'primary' : 'neutral'"
@@ -94,6 +95,7 @@ function resetToDefault() {
           <div class="space-y-2">
             <UCheckbox v-model="isCustom" label="Mark as custom quota" />
             <UButton
+              type="button"
               size="sm"
               variant="ghost"
               color="neutral"
@@ -105,14 +107,19 @@ function resetToDefault() {
         </UFormField>
 
         <div class="flex gap-2 pt-4">
-          <UButton :loading="isSaving" @click="save">
+          <UButton type="submit" :loading="isSaving">
             Save
           </UButton>
-          <UButton variant="ghost" color="neutral" @click="emit('close')">
+          <UButton
+            type="button"
+            variant="ghost"
+            color="neutral"
+            @click="emit('close')"
+          >
             Cancel
           </UButton>
         </div>
-      </div>
+      </UForm>
     </template>
   </UiResponsiveSlideover>
 </template>

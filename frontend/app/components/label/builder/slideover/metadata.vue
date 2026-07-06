@@ -3,6 +3,7 @@ const props = defineProps<{ onSave?: () => void }>()
 const { meta } = useLabelBuilder()
 
 const emit = defineEmits<{ close: [] }>()
+const formId = useId()
 
 const handleSave = () => {
   props.onSave?.()
@@ -18,7 +19,7 @@ const handleSave = () => {
     </template>
 
     <template #body>
-      <div class="space-y-6">
+      <UForm :id="formId" class="space-y-6" @submit="handleSave">
         <UFormField label="Name" required>
           <UInput v-model="meta.name" placeholder="e.g. Medieval Layout" />
         </UFormField>
@@ -49,14 +50,14 @@ const handleSave = () => {
             PAGE XML is the primary format. Enable this to also configure ALTO XML mappings for export compatibility.
           </p>
         </div>
-      </div>
+      </UForm>
     </template>
     <template #footer>
       <div class="flex justify-end gap-2">
         <UButton variant="ghost" color="neutral" @click="emit('close')">
           Close
         </UButton>
-        <UButton icon="i-lucide-save" @click="handleSave">
+        <UButton type="submit" :form="formId" icon="i-lucide-save">
           Save
         </UButton>
       </div>

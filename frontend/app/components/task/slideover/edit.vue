@@ -22,10 +22,7 @@ const { refreshTaskOverview } = useTaskOverviewRefresh()
 const isLoading = ref(false)
 const isSubmitting = ref(false)
 
-const formRef = ref<HTMLFormElement | null>(null)
-const submit = () => {
-  formRef.value?.submit()
-}
+const formId = useId()
 
 const taskLocal = ref<Task | null>(props.task ?? null)
 
@@ -139,8 +136,8 @@ async function loadTaskById(taskId: string) {
     const task = await $fetch<Task>(`/api/tasks/${taskId}`)
     taskLocal.value = task
     applyTaskToState(task)
-  } catch (err: any) {
-    toast.add({ title: 'Failed to load task', description: err?.data?.message || 'An error occurred', color: 'error' })
+  } catch (error: unknown) {
+    toast.add({ title: 'Failed to load task', description: extractApiErrorMessage(error, 'An error occurred'), color: 'error' })
   } finally {
     isLoading.value = false
   }
@@ -237,8 +234,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     toast.add({ title: 'Task updated', color: 'success' })
     await props.onUpdated?.()
     emit('close')
-  } catch (err: any) {
-    toast.add({ title: 'Failed to save task', description: err?.data?.message || 'An error occurred', color: 'error' })
+  } catch (error: unknown) {
+    toast.add({ title: 'Failed to save task', description: extractApiErrorMessage(error, 'An error occurred'), color: 'error' })
   } finally {
     isSubmitting.value = false
   }
@@ -270,7 +267,7 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
 
       <UForm
         v-else
-        ref="formRef"
+        :id="formId"
         :schema="schema"
         :state="state"
         class="space-y-4"
@@ -417,11 +414,12 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
           Close
         </UButton>
         <UButton
+          type="submit"
+          :form="formId"
           data-tour="task-form-save"
           icon="i-lucide-save"
           :loading="isSubmitting"
           :disabled="isSubmitting"
-          @click="submit"
         >
           Save
         </UButton>

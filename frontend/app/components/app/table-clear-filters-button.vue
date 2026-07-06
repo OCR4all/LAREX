@@ -13,6 +13,7 @@ const emit = defineEmits<{
 <template>
   <UButton
     v-if="active"
+    type="button"
     icon="i-lucide-x"
     color="neutral"
     variant="ghost"

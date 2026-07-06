@@ -73,7 +73,7 @@ async function startDownload() {
           </div>
         </template>
 
-        <form class="space-y-4" @submit.prevent="startDownload">
+        <UForm class="space-y-4" @submit="startDownload">
           <UFormField label="Share secret">
             <UInput
               v-model="secret"
@@ -101,7 +101,7 @@ async function startDownload() {
           >
             Download Archive
           </UButton>
-        </form>
+        </UForm>
       </UCard>
 
       <p class="text-center text-xs text-muted">

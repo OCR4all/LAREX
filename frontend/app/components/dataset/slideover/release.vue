@@ -26,10 +26,8 @@ const state = reactive<Schema>({
   notes: ''
 })
 
-const formRef = ref<HTMLFormElement | null>(null)
+const formId = useId()
 const creating = ref(false)
-
-const submit = () => formRef.value?.submit()
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (!selectedWorkspace.value) return
@@ -84,7 +82,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
     <template #body>
       <UForm
-        ref="formRef"
+        :id="formId"
         :schema="schema"
         :state="state"
         class="space-y-5"
@@ -117,10 +115,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           Cancel
         </UButton>
         <UButton
+          type="submit"
+          :form="formId"
           color="primary"
           icon="i-lucide-tag"
           :loading="creating"
-          @click="submit"
         >
           Create Release
         </UButton>

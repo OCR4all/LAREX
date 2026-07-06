@@ -4,6 +4,7 @@ const emit = defineEmits<{ close: [] }>()
 
 const { meta, countTags } = useTagSetBuilder()
 
+const formId = useId()
 const tagCount = computed(() => countTags())
 const descriptionModel = computed({
   get: () => meta.description ?? '',
@@ -26,7 +27,7 @@ const handleSave = () => {
     </template>
 
     <template #body>
-      <div class="space-y-6">
+      <UForm :id="formId" class="space-y-6" @submit="handleSave">
         <UFormField label="Name" required>
           <UInput v-model="meta.name" placeholder="e.g. Document Types" />
         </UFormField>
@@ -83,7 +84,7 @@ const handleSave = () => {
             </div>
           </div>
         </div>
-      </div>
+      </UForm>
     </template>
 
     <template #footer>
@@ -91,7 +92,7 @@ const handleSave = () => {
         <UButton variant="ghost" color="neutral" @click="emit('close')">
           Close
         </UButton>
-        <UButton icon="i-lucide-save" @click="handleSave">
+        <UButton type="submit" :form="formId" icon="i-lucide-save">
           Save
         </UButton>
       </div>
