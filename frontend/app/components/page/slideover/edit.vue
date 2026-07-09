@@ -43,6 +43,7 @@ const state = reactive<Schema>({
 
 const toast = useToast()
 const isSubmitting = ref(false)
+const formId = useId()
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (isSubmitting.value) return
@@ -64,10 +65,10 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     await refreshNuxtData(projectPagesKey.value)
 
     emit('close', true)
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast.add({
       title: 'Failed to update page',
-      description: error.message || 'An error occurred',
+      description: extractApiErrorMessage(error, 'An error occurred'),
       color: 'error',
       icon: 'i-lucide-alert-circle'
     })
@@ -82,61 +83,73 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     :close="{ onClick: () => emit('close', false) }"
   >
     <template #header>
-      <UiSlideoverHeader :title="`Edit ${page.name}`" icon="i-lucide-edit" />
+      <UiSlideoverHeader
+        :title="`Edit ${page.name}`"
+        icon="i-lucide-edit"
+        description="Update the page name, description, and organizational tags."
+      />
     </template>
 
     <template #body>
       <UForm
+        :id="formId"
         :schema="schema"
         :state="state"
         class="space-y-4"
         @submit="onSubmit"
       >
-        <UFormField label="Page Name" name="name">
-          <UInput
-            v-model="state.name"
-            placeholder="Enter page name"
-            required
-          />
-        </UFormField>
+        <UiSlideoverSection
+          title="Page Details"
+          description="Metadata used to identify and organize this page."
+          icon="i-lucide-file-pen-line"
+        >
+          <div class="space-y-4">
+            <UFormField label="Page Name" name="name">
+              <UInput
+                v-model="state.name"
+                placeholder="Enter page name"
+                required
+              />
+            </UFormField>
 
-        <UFormField label="Description" name="description">
-          <UTextarea
-            v-model="state.description"
-            placeholder="Enter page description (optional)"
-            :rows="3"
-          />
-        </UFormField>
+            <UFormField label="Description" name="description">
+              <UTextarea
+                v-model="state.description"
+                placeholder="Enter page description (optional)"
+                :rows="3"
+              />
+            </UFormField>
 
-        <UFormField label="Tags" name="tags">
-          <TagSetTagSelector
-            v-model="state.tags"
-            :tag-set-id="project?.tagSetId"
-            :workspace-id="selectedWorkspace"
-            placeholder="Add tags"
-          />
-        </UFormField>
-
-        <div class="flex gap-2 justify-end pt-4">
-          <UButton
-            color="neutral"
-            variant="outline"
-            :disabled="isSubmitting"
-            @click="emit('close', false)"
-          >
-            Cancel
-          </UButton>
-          <UButton
-            type="submit"
-            color="primary"
-            variant="subtle"
-            icon="i-lucide-save"
-            :loading="isSubmitting"
-          >
-            Save Changes
-          </UButton>
-        </div>
+            <UFormField label="Tags" name="tags">
+              <TagSetTagSelector
+                v-model="state.tags"
+                :tag-set-id="project?.tagSetId"
+                :workspace-id="selectedWorkspace"
+                placeholder="Add tags"
+              />
+            </UFormField>
+          </div>
+        </UiSlideoverSection>
       </UForm>
+    </template>
+
+    <template #footer>
+      <UButton
+        color="neutral"
+        variant="ghost"
+        :disabled="isSubmitting"
+        @click="emit('close', false)"
+      >
+        Cancel
+      </UButton>
+      <UButton
+        :form="formId"
+        type="submit"
+        icon="i-lucide-save"
+        :loading="isSubmitting"
+      >
+        Save Changes
+      </UButton>
     </template>
   </UiResponsiveSlideover>
 </template>

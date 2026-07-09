@@ -257,6 +257,7 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
       <UiSlideoverHeader
         :title="titleText"
         :icon="isEditing ? 'i-lucide-pencil' : 'i-lucide-clipboard-plus'"
+        :description="isEditing ? 'Update task details, scheduling, and assignment.' : 'Define the task, schedule, and responsible workspace members.'"
       />
     </template>
 
@@ -273,132 +274,143 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
         class="space-y-4"
         @submit="onSubmit"
       >
-        <UFormField label="Title" name="title" required>
-          <UInput
-            v-model="state.title"
-            data-tour="task-form-title"
-            :disabled="isSubmitting || !canEditTaskDetails"
-            placeholder="Task title"
-          />
-        </UFormField>
-
-        <UFormField label="Description" name="description">
-          <UTextarea
-            v-model="state.description"
-            :disabled="isSubmitting || !canEditTaskDetails"
-            :rows="4"
-            placeholder="Optional details"
-          />
-        </UFormField>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <UFormField label="Status" name="status">
-            <USelect
-              v-model="state.status"
-              data-tour="task-form-status"
-              :items="statusItems"
-              value-key="value"
-              :disabled="isSubmitting"
-            />
-          </UFormField>
-          <UFormField label="Priority" name="priority">
-            <USelect
-              v-model="state.priority"
-              :items="priorityItems"
-              value-key="value"
-              :disabled="isSubmitting || !canEditTaskDetails"
-            />
-          </UFormField>
-        </div>
-
-        <UFormField label="Due date" name="dueDate">
-          <UiDateTimePicker
-            v-model="state.dueDate"
-            :disabled="isSubmitting || !canEditTaskDetails"
-            placeholder="Select due date"
-          />
-        </UFormField>
-
-        <USeparator />
-
-        <UFormField
-          data-tour="task-form-assignees"
-          label="Assignees"
-          name="assignees"
-          :hint="isAdmin ? 'Search workspace members' : 'Only you'"
+        <UiSlideoverSection
+          title="Task Details"
+          description="Core information, status, priority, and due date."
+          icon="i-lucide-clipboard-list"
         >
-          <div class="space-y-2">
-            <div v-if="isAdmin" class="relative">
+          <div class="space-y-4">
+            <UFormField label="Title" name="title" required>
               <UInput
-                v-model="searchQuery"
-                placeholder="Search workspace members..."
-                icon="i-lucide-search"
-                :disabled="isSubmitting"
+                v-model="state.title"
+                data-tour="task-form-title"
+                :disabled="isSubmitting || !canEditTaskDetails"
+                placeholder="Task title"
               />
-              <div
-                v-if="searchResults.length > 0"
-                class="absolute z-10 w-full mt-1 bg-default border border-default rounded-sm shadow-lg max-h-60 overflow-auto"
-              >
-                <button
-                  v-for="user in searchResults"
-                  :key="user.id"
-                  type="button"
-                  class="w-full px-4 py-2 text-left hover:bg-elevated/50 flex items-center gap-3"
-                  @click="addAssignee(user)"
+            </UFormField>
+
+            <UFormField label="Description" name="description">
+              <UTextarea
+                v-model="state.description"
+                :disabled="isSubmitting || !canEditTaskDetails"
+                :rows="4"
+                placeholder="Optional details"
+              />
+            </UFormField>
+
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <UFormField label="Status" name="status">
+                <USelect
+                  v-model="state.status"
+                  data-tour="task-form-status"
+                  :items="statusItems"
+                  value-key="value"
+                  :disabled="isSubmitting"
+                />
+              </UFormField>
+              <UFormField label="Priority" name="priority">
+                <USelect
+                  v-model="state.priority"
+                  :items="priorityItems"
+                  value-key="value"
+                  :disabled="isSubmitting || !canEditTaskDetails"
+                />
+              </UFormField>
+            </div>
+
+            <UFormField label="Due date" name="dueDate">
+              <UiDateTimePicker
+                v-model="state.dueDate"
+                :disabled="isSubmitting || !canEditTaskDetails"
+                placeholder="Select due date"
+              />
+            </UFormField>
+          </div>
+        </UiSlideoverSection>
+
+        <UiSlideoverSection
+          title="Assignees"
+          description="Choose the workspace members responsible for this task."
+          icon="i-lucide-users"
+        >
+          <UFormField
+            data-tour="task-form-assignees"
+            name="assignees"
+            :hint="isAdmin ? 'Search workspace members' : 'Only you'"
+          >
+            <div class="space-y-2">
+              <div v-if="isAdmin" class="relative">
+                <UInput
+                  v-model="searchQuery"
+                  placeholder="Search workspace members..."
+                  icon="i-lucide-search"
+                  :disabled="isSubmitting"
+                />
+                <div
+                  v-if="searchResults.length > 0"
+                  class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-sm border border-default bg-default shadow-lg"
                 >
-                  <UAvatar :alt="user.username" size="sm" />
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium truncate">
-                      {{ getDisplayName(user) }}
-                    </p>
-                    <p class="text-xs text-muted truncate">
-                      {{ user.email || user.username }}
-                      <span v-if="user.role" class="ml-1 text-xs opacity-60">({{ user.role }})</span>
-                    </p>
+                  <button
+                    v-for="user in searchResults"
+                    :key="user.id"
+                    type="button"
+                    class="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-elevated/50"
+                    @click="addAssignee(user)"
+                  >
+                    <UAvatar :alt="user.username" size="sm" />
+                    <div class="min-w-0 flex-1">
+                      <p class="truncate text-sm font-medium">
+                        {{ getDisplayName(user) }}
+                      </p>
+                      <p class="truncate text-xs text-muted">
+                        {{ user.email || user.username }}
+                        <span v-if="user.role" class="ml-1 text-xs opacity-60">({{ user.role }})</span>
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <template v-if="assignedUsers.length > 0">
+                  <div
+                    v-for="user in assignedUsers"
+                    :key="user.id"
+                    class="inline-flex items-center gap-2 rounded-sm border border-default bg-elevated/50 px-2 py-1"
+                  >
+                    <UAvatar :alt="user.username" size="xs" />
+                    <span class="text-xs">{{ user.username }}</span>
+                    <UButton
+                      v-if="isAdmin"
+                      icon="i-lucide-x"
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      :disabled="isSubmitting"
+                      @click="removeAssignee(user.id)"
+                    />
                   </div>
-                </button>
+                </template>
+                <template v-else>
+                  <div
+                    v-if="isAdmin && assignedUserIds.length > 0"
+                    class="inline-flex items-center gap-2 rounded-sm border border-default bg-elevated/50 px-2 py-1"
+                  >
+                    <UIcon name="i-lucide-users" class="size-4 text-muted" />
+                    <span class="text-xs">{{ assignedUserIds.length }} selected</span>
+                  </div>
+                  <div
+                    v-else
+                    class="inline-flex items-center gap-2 rounded-sm border border-default bg-elevated/50 px-2 py-1"
+                  >
+                    <UIcon name="i-lucide-user" class="size-4 text-muted" />
+                    <span class="text-xs">You</span>
+                  </div>
+                </template>
               </div>
             </div>
-
-            <div class="flex flex-wrap gap-2">
-              <template v-if="assignedUsers.length > 0">
-                <div
-                  v-for="user in assignedUsers"
-                  :key="user.id"
-                  class="inline-flex items-center gap-2 px-2 py-1 rounded-sm bg-elevated/50 border border-default"
-                >
-                  <UAvatar :alt="user.username" size="xs" />
-                  <span class="text-xs">{{ user.username }}</span>
-                  <UButton
-                    v-if="isAdmin"
-                    icon="i-lucide-x"
-                    size="xs"
-                    color="neutral"
-                    variant="ghost"
-                    :disabled="isSubmitting"
-                    @click="removeAssignee(user.id)"
-                  />
-                </div>
-              </template>
-              <template v-else>
-                <div
-                  v-if="isAdmin && assignedUserIds.length > 0"
-                  class="inline-flex items-center gap-2 px-2 py-1 rounded-sm bg-elevated/50 border border-default"
-                >
-                  <UIcon name="i-lucide-users" class="size-4 text-muted" />
-                  <span class="text-xs">{{ assignedUserIds.length }} selected</span>
-                </div>
-                <div
-                  v-else
-                  class="inline-flex items-center gap-2 px-2 py-1 rounded-sm bg-elevated/50 border border-default"
-                >
-                  <UIcon name="i-lucide-user" class="size-4 text-muted" />
-                  <span class="text-xs">You</span>
-                </div>
-              </template>
-            </div>
-          </div>
-        </UFormField>
+          </UFormField>
+        </UiSlideoverSection>
       </UForm>
     </template>
 

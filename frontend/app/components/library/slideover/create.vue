@@ -188,10 +188,19 @@ const hasAppliedLabelSetDefault = ref(false)
 const hasAppliedTextIndexDefaults = ref(false)
 const canEditTextIndexDefaults = computed(() => workspace.currentWorkspace?.capabilities?.canSetPresets ?? workspace.isCurrentUserOwner)
 const openConfigurationPanels = ref<string[]>([])
+const editorOverridesOpen = ref(false)
 const configurationPanelItems = [
-  { label: 'Presets', value: 'presets', slot: 'presets', icon: 'i-lucide-sliders-horizontal' },
   { label: 'Text Variants', value: 'text-variants', slot: 'text-variants', icon: 'i-lucide-text' }
 ]
+const enabledEditorOverrideCount = computed(() => [
+  state.allowCodecOverride,
+  state.allowDictionaryOverride,
+  state.allowVirtualKeyboardOverride,
+  state.allowLabelSetOverride,
+  state.allowTagSetOverride,
+  state.allowNormalizationProfileOverride,
+  state.allowValidationRulesetOverride
+].filter(value => value !== false).length)
 
 watch(selectedWorkspace, () => {
   hasAppliedLabelSetDefault.value = false
@@ -354,6 +363,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
 <template>
   <UiResponsiveSlideover
+    :ui="{ content: 'max-w-none xl:max-w-2xl' }"
     :close="{ onClick: () => emit('close', false) }"
   >
     <template #header>
@@ -369,113 +379,143 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         :id="formId"
         :schema="schema"
         :state="state"
-        class="space-y-4"
+        class="space-y-6"
         @submit="onSubmit"
       >
-        <UiFormSectionHeader title="Basic Info" />
-        <UFormField label="Name" name="name" required>
-          <UInput v-model="state.name" placeholder="Enter project name" />
-        </UFormField>
+        <UCard variant="subtle">
+          <template #header>
+            <div class="flex items-start gap-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
+                <UIcon name="i-lucide-file-plus-2" class="size-4 text-muted" />
+              </div>
+              <div class="min-w-0">
+                <h3 class="text-sm font-semibold text-highlighted">
+                  General
+                </h3>
+                <p class="mt-1 text-sm text-muted">
+                  The name, description, and tags shown throughout the workspace.
+                </p>
+              </div>
+            </div>
+          </template>
 
-        <UFormField label="Description" name="description">
-          <UInput v-model="state.description" placeholder="Brief description of your project" />
-        </UFormField>
+          <div class="grid gap-5">
+            <UFormField label="Name" name="name" required>
+              <UInput v-model="state.name" placeholder="Enter project name" />
+            </UFormField>
 
-        <UFormField label="Tags" name="tags">
-          <UInputTags v-model="state.tags" icon="i-lucide-tags" placeholder="Categorize your project via tags" />
-        </UFormField>
+            <UFormField label="Description" name="description">
+              <UInput v-model="state.description" placeholder="Brief description of your project" />
+            </UFormField>
+
+            <UFormField label="Tags" name="tags">
+              <UInputTags v-model="state.tags" icon="i-lucide-tags" placeholder="Categorize your project via tags" />
+            </UFormField>
+          </div>
+        </UCard>
+
+        <UCard variant="subtle">
+          <template #header>
+            <div class="flex items-start gap-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
+                <UIcon name="i-lucide-sliders-horizontal" class="size-4 text-muted" />
+              </div>
+              <div class="min-w-0">
+                <h3 class="text-sm font-semibold text-highlighted">
+                  Project Defaults
+                </h3>
+                <p class="mt-1 text-sm text-muted">
+                  Choose the resources and tools editors use when working in this project.
+                </p>
+              </div>
+            </div>
+          </template>
+
+          <div class="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2">
+            <UFormField label="Tag Set" name="tagSetId" help="Defines the tag structure available to this project.">
+              <USelect
+                v-model="state.tagSetId"
+                :items="tagSetsSafe"
+                placeholder="Select a tag set"
+                :disabled="!!tagSetsError || tagSetsSafe.length === 0"
+              />
+            </UFormField>
+
+            <UFormField label="Codec" name="codecId" help="The default codec for this project.">
+              <USelect
+                v-model="state.codecId"
+                :items="codecsSafe"
+                placeholder="Select a codec"
+                :disabled="!!codecsError || codecsSafe.length === 0"
+              />
+            </UFormField>
+
+            <UFormField label="Label Set" name="labelSetId" help="The labels available during editing.">
+              <USelect
+                v-model="state.labelSetId"
+                :items="labelSetsSafe"
+                placeholder="Select a label set"
+                :disabled="!!labelSetsError || labelSetsSafe.length === 0"
+              />
+            </UFormField>
+
+            <UFormField label="Dictionary" name="dictionaryId" help="Validates project ground-truth text.">
+              <USelect
+                v-model="state.dictionaryId"
+                :items="dictionariesSafe"
+                placeholder="Select a dictionary"
+                :disabled="!!dictionariesError || dictionariesSafe.length === 0"
+              />
+            </UFormField>
+
+            <UFormField label="Normalization Profile" name="normalizationProfileId" help="Normalizes text before QA and export.">
+              <USelect
+                v-model="state.normalizationProfileId"
+                :items="normalizationProfilesSafe"
+                placeholder="Select a normalization profile"
+                :disabled="!!normalizationProfilesError || normalizationProfilesSafe.length === 0"
+              />
+            </UFormField>
+
+            <UFormField label="Validation Ruleset" name="validationRulesetId" help="Flags suspicious transcription patterns.">
+              <USelect
+                v-model="state.validationRulesetId"
+                :items="validationRulesetsSafe"
+                placeholder="Select a validation ruleset"
+                :disabled="!!validationRulesetsError || validationRulesetsSafe.length === 0"
+              />
+            </UFormField>
+
+            <UFormField label="Virtual Keyboard" name="virtualKeyboardId" help="The default keyboard layout for text editing.">
+              <USelect
+                v-model="state.virtualKeyboardId"
+                :items="virtualKeyboardsSafe"
+                placeholder="Select a virtual keyboard"
+                :disabled="!!virtualKeyboardsError || virtualKeyboardsSafe.length === 0"
+              />
+            </UFormField>
+          </div>
+        </UCard>
 
         <UAccordion
           v-model="openConfigurationPanels"
           :items="configurationPanelItems"
           type="multiple"
+          class="rounded-lg bg-elevated/50 px-4 ring ring-default"
+          :ui="{
+            trigger: 'py-4 font-semibold',
+            body: 'pb-0'
+          }"
         >
-          <template #presets>
-            <div class="space-y-4 p-1">
-              <UFormField label="Tag Set" name="tagSetId" hint="Tag structure to use for this project">
-                <USelect
-                  v-model="state.tagSetId"
-                  :items="tagSetsSafe"
-                  placeholder="Select a tag set"
-                  :disabled="!!tagSetsError || tagSetsSafe.length === 0"
-                />
-              </UFormField>
-
-              <UFormField label="Codec" name="codecId" hint="Codec to use for this project">
-                <USelect
-                  v-model="state.codecId"
-                  :items="codecsSafe"
-                  placeholder="Select a codec"
-                  :disabled="!!codecsError || codecsSafe.length === 0"
-                />
-              </UFormField>
-
-              <UFormField label="Label Set" name="labelSetId" hint="Label set to use for this project">
-                <USelect
-                  v-model="state.labelSetId"
-                  :items="labelSetsSafe"
-                  placeholder="Select a label set"
-                  :disabled="!!labelSetsError || labelSetsSafe.length === 0"
-                />
-              </UFormField>
-
-              <UFormField label="Dictionary" name="dictionaryId" hint="Dictionary to validate project GT text against">
-                <USelect
-                  v-model="state.dictionaryId"
-                  :items="dictionariesSafe"
-                  placeholder="Select a dictionary"
-                  :disabled="!!dictionariesError || dictionariesSafe.length === 0"
-                />
-              </UFormField>
-              <UFormField label="Normalization Profile" name="normalizationProfileId" hint="Normalize text before QA and export">
-                <USelect
-                  v-model="state.normalizationProfileId"
-                  :items="normalizationProfilesSafe"
-                  placeholder="Select a normalization profile"
-                  :disabled="!!normalizationProfilesError || normalizationProfilesSafe.length === 0"
-                />
-              </UFormField>
-              <UFormField label="Validation Ruleset" name="validationRulesetId" hint="Run project text QA with this ruleset">
-                <USelect
-                  v-model="state.validationRulesetId"
-                  :items="validationRulesetsSafe"
-                  placeholder="Select a validation ruleset"
-                  :disabled="!!validationRulesetsError || validationRulesetsSafe.length === 0"
-                />
-              </UFormField>
-              <UFormField label="Virtual Keyboard" name="virtualKeyboardId" hint="Default virtual keyboard for text editing">
-                <USelect
-                  v-model="state.virtualKeyboardId"
-                  :items="virtualKeyboardsSafe"
-                  placeholder="Select a virtual keyboard"
-                  :disabled="!!virtualKeyboardsError || virtualKeyboardsSafe.length === 0"
-                />
-              </UFormField>
-              <div class="rounded-sm border border-default divide-y divide-default">
-                <div class="px-3 py-2">
-                  <p class="text-sm font-medium">
-                    Editor Tool Overrides
-                  </p>
-                  <p class="text-xs text-muted">
-                    Allow editors to temporarily use a different resource than the project default.
-                  </p>
-                </div>
-                <div class="p-3 grid gap-3">
-                  <USwitch v-model="state.allowCodecOverride" label="Allow codec switching" />
-                  <USwitch v-model="state.allowDictionaryOverride" label="Allow dictionary switching" />
-                  <USwitch v-model="state.allowVirtualKeyboardOverride" label="Allow virtual keyboard switching" />
-                  <USwitch v-model="state.allowLabelSetOverride" label="Allow label set switching" />
-                  <USwitch v-model="state.allowTagSetOverride" label="Allow tag set switching" />
-                  <USwitch v-model="state.allowNormalizationProfileOverride" label="Allow normalization profile switching" />
-                  <USwitch v-model="state.allowValidationRulesetOverride" label="Allow validation ruleset switching" />
-                </div>
-              </div>
+          <template #leading>
+            <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
+              <UIcon name="i-lucide-text" class="size-4 text-muted" />
             </div>
           </template>
 
           <template #text-variants>
-            <div class="space-y-4 p-1">
-              <UFormField label="Default GT Index" name="defaultGtIndexInput" hint="Single Ground Truth index used in the text editor.">
+            <div class="space-y-5 pb-4">
+              <UFormField label="Default GT Index" name="defaultGtIndexInput" help="The single ground-truth index used in the text editor.">
                 <div class="flex items-center gap-3">
                   <UInput
                     v-model="state.defaultGtIndexInput"
@@ -497,11 +537,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               <UFormField
                 label="Default Recognition Indices"
                 name="defaultRecognitionIndicesInput"
-                hint="Recognition indices used in the text editor (multiple allowed)."
+                help="Recognition indices used in the text editor; multiple values are allowed."
               >
-                <div class="flex items-center gap-3">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <UInputTags
                     v-model="state.defaultRecognitionIndicesInput"
+                    class="flex-1"
                     placeholder="Add indices (e.g. 1, 2)"
                     :disabled="!canEditTextIndexDefaults"
                   />
@@ -519,7 +560,107 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             </div>
           </template>
         </UAccordion>
+
+        <UCard variant="subtle" :ui="{ body: 'p-4 sm:p-4' }">
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex min-w-0 items-start gap-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
+                <UIcon name="i-lucide-settings-2" class="size-4 text-muted" />
+              </div>
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-highlighted">
+                  Editor Tool Overrides
+                </p>
+                <p class="mt-0.5 text-sm text-muted">
+                  {{ enabledEditorOverrideCount }} of 7 overrides enabled
+                </p>
+              </div>
+            </div>
+            <UButton
+              type="button"
+              color="neutral"
+              variant="outline"
+              trailing-icon="i-lucide-chevron-right"
+              @click="editorOverridesOpen = true"
+            >
+              Configure
+            </UButton>
+          </div>
+        </UCard>
       </UForm>
+
+      <UiResponsiveSlideover
+        v-model:open="editorOverridesOpen"
+        :ui="{ content: 'max-w-none xl:max-w-md' }"
+      >
+        <template #header>
+          <UiSlideoverHeader
+            title="Editor Tool Overrides"
+            icon="i-lucide-settings-2"
+            description="Choose which project defaults editors may temporarily replace."
+          />
+        </template>
+
+        <template #body>
+          <div class="divide-y divide-default overflow-hidden rounded-lg border border-default">
+            <USwitch
+              v-model="state.allowCodecOverride"
+              label="Allow codec switching"
+              description="Editors may select a different codec."
+              class="p-4"
+              :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+            />
+            <USwitch
+              v-model="state.allowDictionaryOverride"
+              label="Allow dictionary switching"
+              description="Editors may select a different dictionary."
+              class="p-4"
+              :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+            />
+            <USwitch
+              v-model="state.allowVirtualKeyboardOverride"
+              label="Allow virtual keyboard switching"
+              description="Editors may select a different keyboard layout."
+              class="p-4"
+              :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+            />
+            <USwitch
+              v-model="state.allowLabelSetOverride"
+              label="Allow label set switching"
+              description="Editors may select a different label set."
+              class="p-4"
+              :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+            />
+            <USwitch
+              v-model="state.allowTagSetOverride"
+              label="Allow tag set switching"
+              description="Editors may select a different tag set."
+              class="p-4"
+              :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+            />
+            <USwitch
+              v-model="state.allowNormalizationProfileOverride"
+              label="Allow normalization profile switching"
+              description="Editors may select a different normalization profile."
+              class="p-4"
+              :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+            />
+            <USwitch
+              v-model="state.allowValidationRulesetOverride"
+              label="Allow validation ruleset switching"
+              description="Editors may select a different validation ruleset."
+              class="p-4"
+              :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+            />
+          </div>
+        </template>
+
+        <template #footer>
+          <UButton @click="editorOverridesOpen = false">
+            Done
+          </UButton>
+        </template>
+      </UiResponsiveSlideover>
     </template>
     <template #footer>
       <div class="flex justify-end gap-1 pt-4">

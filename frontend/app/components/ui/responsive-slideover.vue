@@ -8,16 +8,20 @@ defineOptions({
 
 const props = withDefaults(defineProps<{
   side?: SlideoverProps['side']
+  inset?: SlideoverProps['inset']
   ui?: SlideoverProps['ui']
 }>(), {
-  side: 'right'
+  side: 'right',
+  inset: true
 })
 
 const isDesktop = useMediaQuery('(min-width: 1280px)')
 const responsiveSide = computed<SlideoverProps['side']>(() => isDesktop.value ? props.side : 'bottom')
+const hasCustomMaxWidth = computed(() => String(props.ui?.content ?? '').includes('max-w-'))
 const mergedUi = computed<SlideoverProps['ui']>(() => ({
   ...props.ui,
   content: [
+    hasCustomMaxWidth.value ? undefined : 'max-w-none xl:max-w-xl',
     props.ui?.content,
     responsiveSide.value === 'bottom' ? 'min-h-[50svh]' : undefined
   ]
@@ -29,6 +33,7 @@ const slots = useSlots()
   <USlideover
     v-bind="$attrs"
     :side="responsiveSide"
+    :inset="props.inset"
     :ui="mergedUi"
   >
     <template

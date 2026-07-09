@@ -160,7 +160,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     :close="{ onClick: () => emit('close', null) }"
   >
     <template #header>
-      <UiSlideoverHeader title="Create Dataset" icon="i-lucide-plus" />
+      <UiSlideoverHeader
+        title="Create Dataset"
+        icon="i-lucide-database"
+        description="Define the dataset and how its items should be split."
+      />
     </template>
 
     <template #body>
@@ -171,88 +175,102 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         class="space-y-5"
         @submit="onSubmit"
       >
-        <UiFormSectionHeader title="Basics" />
-
-        <UFormField label="Name" name="name" required>
-          <UInput v-model="state.name" placeholder="Dataset name" />
-        </UFormField>
-
-        <UFormField label="Description" name="description">
-          <UTextarea
-            v-model="state.description"
-            :rows="3"
-            placeholder="What does this dataset contain and what is it for?"
-          />
-        </UFormField>
-
-        <UFormField label="Tags" name="tags" hint="Use tags to group or search datasets later.">
-          <UInputTags
-            v-model="state.tags"
-            icon="i-lucide-tags"
-            placeholder="e.g. handwriting, layout, german"
-          />
-        </UFormField>
-
-        <UiFormSectionHeader title="Split Strategy" />
-
-        <UFormField label="Split layout" name="splitTemplate">
-          <USelect
-            v-model="state.splitTemplate"
-            :items="splitTemplateSelectOptions"
-            value-key="value"
-          />
-        </UFormField>
-
-        <UFormField label="Assignment algorithm" name="splitAlgorithm">
-          <USelect
-            v-model="state.splitAlgorithm"
-            :items="splitAlgorithmSelectOptions"
-            value-key="value"
-          />
-        </UFormField>
-
-        <UFormField label="Random seed" name="splitSeed" hint="Use the same seed to reproduce the same assignment.">
-          <UInput
-            v-model.number="state.splitSeed"
-            type="number"
-            min="0"
-            step="1"
-          />
-        </UFormField>
-
-        <div class="space-y-4 rounded-lg border border-default p-4">
-          <div class="flex flex-wrap gap-2">
-            <UBadge color="primary" variant="soft">
-              Train {{ trainPercentage }}%
-            </UBadge>
-            <UBadge color="neutral" variant="soft">
-              Validation {{ valPercentage }}%
-            </UBadge>
-            <UBadge :color="state.splitTemplate === 'TRAIN_VAL' ? 'neutral' : 'warning'" variant="soft">
-              Test {{ testPercentage }}%
-            </UBadge>
-          </div>
-          <USlider
-            v-model="splitSliderValue"
-            :min="5"
-            :max="95"
-            :step="1"
-            :min-steps-between-thumbs="5"
-            tooltip
-          />
-        </div>
-
-        <UFormField
-          label="Stratify tags"
-          name="stratifyTagIds"
-          hint="Only used by the tag-stratified algorithm. Leave empty for a plain seeded split."
+        <UiSlideoverSection
+          title="Basics"
+          description="Name and organize the dataset within this workspace."
+          icon="i-lucide-file-plus-2"
         >
-          <UInputTags
-            v-model="state.stratifyTagIds"
-            icon="i-lucide-tag"
-            placeholder="e.g. print, marginalia, rubric"
-          />
-        </UFormField>
+          <div class="space-y-5">
+            <UFormField label="Name" name="name" required>
+              <UInput v-model="state.name" placeholder="Dataset name" />
+            </UFormField>
+
+            <UFormField label="Description" name="description">
+              <UTextarea
+                v-model="state.description"
+                :rows="3"
+                placeholder="What does this dataset contain and what is it for?"
+              />
+            </UFormField>
+
+            <UFormField label="Tags" name="tags" help="Use tags to group or search datasets later.">
+              <UInputTags
+                v-model="state.tags"
+                icon="i-lucide-tags"
+                placeholder="e.g. handwriting, layout, german"
+              />
+            </UFormField>
+          </div>
+        </UiSlideoverSection>
+
+        <UiSlideoverSection
+          title="Split Strategy"
+          description="Configure reproducible train, validation, and test assignments."
+          icon="i-lucide-git-branch"
+        >
+          <div class="space-y-5">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <UFormField label="Split layout" name="splitTemplate">
+                <USelect
+                  v-model="state.splitTemplate"
+                  :items="splitTemplateSelectOptions"
+                  value-key="value"
+                />
+              </UFormField>
+
+              <UFormField label="Assignment algorithm" name="splitAlgorithm">
+                <USelect
+                  v-model="state.splitAlgorithm"
+                  :items="splitAlgorithmSelectOptions"
+                  value-key="value"
+                />
+              </UFormField>
+            </div>
+
+            <UFormField label="Random seed" name="splitSeed" help="Use the same seed to reproduce the same assignment.">
+              <UInput
+                v-model.number="state.splitSeed"
+                type="number"
+                min="0"
+                step="1"
+              />
+            </UFormField>
+
+            <div class="space-y-4 rounded-lg border border-default bg-default/50 p-4">
+              <div class="flex flex-wrap gap-2">
+                <UBadge color="primary" variant="soft">
+                  Train {{ trainPercentage }}%
+                </UBadge>
+                <UBadge color="neutral" variant="soft">
+                  Validation {{ valPercentage }}%
+                </UBadge>
+                <UBadge :color="state.splitTemplate === 'TRAIN_VAL' ? 'neutral' : 'warning'" variant="soft">
+                  Test {{ testPercentage }}%
+                </UBadge>
+              </div>
+              <USlider
+                v-model="splitSliderValue"
+                :min="5"
+                :max="95"
+                :step="1"
+                :min-steps-between-thumbs="5"
+                tooltip
+              />
+            </div>
+
+            <UFormField
+              label="Stratify tags"
+              name="stratifyTagIds"
+              help="Only used by the tag-stratified algorithm. Leave empty for a plain seeded split."
+            >
+              <UInputTags
+                v-model="state.stratifyTagIds"
+                icon="i-lucide-tag"
+                placeholder="e.g. print, marginalia, rubric"
+              />
+            </UFormField>
+          </div>
+        </UiSlideoverSection>
       </UForm>
     </template>
 

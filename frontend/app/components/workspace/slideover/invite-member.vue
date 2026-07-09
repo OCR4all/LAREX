@@ -111,74 +111,86 @@ function handleClose() {
     :close="{ onClick: handleClose }"
   >
     <template #header>
-      <UiSlideoverHeader title="Invite Member" icon="i-lucide-user-plus" />
+      <UiSlideoverHeader
+        title="Invite Member"
+        icon="i-lucide-user-plus"
+        description="Find a user and assign their initial workspace role."
+      />
     </template>
 
     <template #body>
       <UForm :id="formId" class="space-y-4" @submit="handleSubmit">
-        <UFormField label="Find user" name="user">
-          <div class="relative">
-            <UInput
-              v-model="searchQuery"
-              placeholder="Search by username or email..."
-              icon="i-lucide-search"
-              :loading="isSearching"
-              class="w-full"
-            />
+        <UiSlideoverSection
+          title="Invitation Details"
+          description="Select the recipient and the permissions they should receive."
+          icon="i-lucide-user-round-plus"
+        >
+          <div class="space-y-4">
+            <UFormField label="Find user" name="user">
+              <div class="relative">
+                <UInput
+                  v-model="searchQuery"
+                  placeholder="Search by username or email..."
+                  icon="i-lucide-search"
+                  :loading="isSearching"
+                  class="w-full"
+                />
 
-            <div
-              v-if="searchResults.length > 0 && !selectedUser"
-              class="absolute z-10 w-full mt-1 bg-default border border-default rounded-sm shadow-lg max-h-60 overflow-auto"
-            >
-              <button
-                v-for="user in searchResults"
-                :key="user.id"
-                type="button"
-                class="w-full px-4 py-2 text-left hover:bg-elevated/50 flex items-center gap-3"
-                @click="selectUser(user)"
-              >
-                <UAvatar :alt="user.username" size="sm" />
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium truncate">
-                    {{ user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username }}
-                  </p>
-                  <p class="text-xs text-muted truncate">
-                    {{ user.email || user.username }}
-                  </p>
+                <div
+                  v-if="searchResults.length > 0 && !selectedUser"
+                  class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-sm border border-default bg-default shadow-lg"
+                >
+                  <button
+                    v-for="user in searchResults"
+                    :key="user.id"
+                    type="button"
+                    class="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-elevated/50"
+                    @click="selectUser(user)"
+                  >
+                    <UAvatar :alt="user.username" size="sm" />
+                    <div class="min-w-0 flex-1">
+                      <p class="truncate text-sm font-medium">
+                        {{ user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username }}
+                      </p>
+                      <p class="truncate text-xs text-muted">
+                        {{ user.email || user.username }}
+                      </p>
+                    </div>
+                  </button>
                 </div>
-              </button>
-            </div>
 
-            <div v-if="selectedUser" class="mt-2 flex items-center gap-2 p-2 bg-elevated/50 rounded-sm">
-              <UAvatar :alt="selectedUser.username" size="sm" />
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium">
-                  {{ selectedUser.username }}
-                </p>
-                <p class="text-xs text-muted">
-                  {{ selectedUser.email }}
-                </p>
+                <div v-if="selectedUser" class="mt-2 flex items-center gap-2 rounded-sm bg-elevated/50 p-2">
+                  <UAvatar :alt="selectedUser.username" size="sm" />
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium">
+                      {{ selectedUser.username }}
+                    </p>
+                    <p class="text-xs text-muted">
+                      {{ selectedUser.email }}
+                    </p>
+                  </div>
+                  <UButton
+                    type="button"
+                    icon="i-lucide-x"
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    @click="selectedUser = null; searchQuery = ''"
+                  />
+                </div>
               </div>
-              <UButton
-                type="button"
-                icon="i-lucide-x"
-                size="xs"
-                color="neutral"
-                variant="ghost"
-                @click="selectedUser = null; searchQuery = ''"
-              />
-            </div>
-          </div>
-        </UFormField>
+            </UFormField>
 
-        <UFormField label="Role" name="role">
-          <USelect
-            v-model="selectedRole"
-            :items="roleOptions"
-            value-key="value"
-            class="w-full"
-          />
-        </UFormField>
+            <UFormField label="Role" name="role">
+              <USelect
+                v-model="selectedRole"
+                :items="roleOptions"
+                value-key="value"
+                class="w-full"
+              />
+            </UFormField>
+          </div>
+        </UiSlideoverSection>
       </UForm>
     </template>
 

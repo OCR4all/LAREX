@@ -14,6 +14,7 @@ const emit = defineEmits<{ close: [], saved: [] }>()
 const toast = useToast()
 const { refreshAdminQuotas } = useDataRefresh()
 const isSaving = ref(false)
+const formId = useId()
 
 const GB = 1024 * 1024 * 1024
 
@@ -49,77 +50,90 @@ function resetToDefault() {
 <template>
   <UiResponsiveSlideover :close="{ onClick: () => emit('close') }">
     <template #header>
-      <UiSlideoverHeader title="Edit Storage Quota" icon="i-lucide-database" />
+      <UiSlideoverHeader
+        title="Edit Storage Quota"
+        icon="i-lucide-database"
+        description="Set the workspace storage limit or restore the instance default."
+      />
     </template>
 
     <template #body>
-      <UForm class="space-y-6" @submit="save">
-        <div>
-          <label class="text-sm font-medium">Workspace ID</label>
-          <p class="text-sm text-muted font-mono mt-1">
-            {{ quota.workspaceId }}
-          </p>
-        </div>
-
-        <UFormField label="Quota Limit (GB)">
-          <div class="space-y-3">
-            <div class="flex flex-wrap gap-2">
-              <UButton
-                v-for="gb in presets"
-                :key="gb"
-                type="button"
-                size="sm"
-                :variant="quotaInGB === gb ? 'solid' : 'outline'"
-                :color="quotaInGB === gb ? 'primary' : 'neutral'"
-                @click="quotaInGB = gb; isCustom = true"
-              >
-                {{ gb }} GB
-              </UButton>
+      <UForm :id="formId" class="space-y-6" @submit="save">
+        <UiSlideoverSection
+          title="Quota Configuration"
+          description="Choose a preset or enter a custom storage allowance."
+          icon="i-lucide-hard-drive"
+        >
+          <div class="space-y-6">
+            <div>
+              <label class="text-sm font-medium">Workspace ID</label>
+              <p class="mt-1 font-mono text-sm text-muted">
+                {{ quota.workspaceId }}
+              </p>
             </div>
-            <UInput
-              v-model.number="quotaInGB"
-              type="number"
-              :min="0"
-              :step="0.1"
-              placeholder="Enter GB"
-              @input="isCustom = true"
-            >
-              <template #trailing>
-                <span class="text-muted text-sm">GB</span>
-              </template>
-            </UInput>
-          </div>
-        </UFormField>
 
-        <UFormField label="Options">
-          <div class="space-y-2">
-            <UCheckbox v-model="isCustom" label="Mark as custom quota" />
-            <UButton
-              type="button"
-              size="sm"
-              variant="ghost"
-              color="neutral"
-              @click="resetToDefault"
-            >
-              Reset to default ({{ Math.round((defaultQuota / GB) * 100) / 100 }} GB)
-            </UButton>
-          </div>
-        </UFormField>
+            <UFormField label="Quota Limit (GB)">
+              <div class="space-y-3">
+                <div class="flex flex-wrap gap-2">
+                  <UButton
+                    v-for="gb in presets"
+                    :key="gb"
+                    type="button"
+                    size="sm"
+                    :variant="quotaInGB === gb ? 'solid' : 'outline'"
+                    :color="quotaInGB === gb ? 'primary' : 'neutral'"
+                    @click="quotaInGB = gb; isCustom = true"
+                  >
+                    {{ gb }} GB
+                  </UButton>
+                </div>
+                <UInput
+                  v-model.number="quotaInGB"
+                  type="number"
+                  :min="0"
+                  :step="0.1"
+                  placeholder="Enter GB"
+                  @input="isCustom = true"
+                >
+                  <template #trailing>
+                    <span class="text-sm text-muted">GB</span>
+                  </template>
+                </UInput>
+              </div>
+            </UFormField>
 
-        <div class="flex gap-2 pt-4">
-          <UButton type="submit" :loading="isSaving">
-            Save
-          </UButton>
-          <UButton
-            type="button"
-            variant="ghost"
-            color="neutral"
-            @click="emit('close')"
-          >
-            Cancel
-          </UButton>
-        </div>
+            <UFormField label="Options">
+              <div class="space-y-2">
+                <UCheckbox v-model="isCustom" label="Mark as custom quota" />
+                <UButton
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  color="neutral"
+                  @click="resetToDefault"
+                >
+                  Reset to default ({{ Math.round((defaultQuota / GB) * 100) / 100 }} GB)
+                </UButton>
+              </div>
+            </UFormField>
+          </div>
+        </UiSlideoverSection>
       </UForm>
+    </template>
+
+    <template #footer>
+      <UButton
+        type="button"
+        variant="ghost"
+        color="neutral"
+        :disabled="isSaving"
+        @click="emit('close')"
+      >
+        Cancel
+      </UButton>
+      <UButton :form="formId" type="submit" :loading="isSaving">
+        Save
+      </UButton>
     </template>
   </UiResponsiveSlideover>
 </template>

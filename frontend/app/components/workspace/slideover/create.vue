@@ -41,6 +41,7 @@ const selectedUser = ref<UserProfile | null>(null)
 const searchResults = ref<UserProfile[]>([])
 const isSearching = ref(false)
 const isCreating = ref(false)
+const formId = useId()
 
 const roleOptions = [
   { label: 'Editor', value: 'EDITOR' as const },
@@ -150,110 +151,131 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     :close="{ onClick: () => emit('close', false) }"
   >
     <template #header>
-      <UiSlideoverHeader title="Create Workspace" icon="i-bxs-layer-plus" />
+      <UiSlideoverHeader
+        title="Create Workspace"
+        icon="i-bxs-layer-plus"
+        description="Set up a workspace and optionally invite its first members."
+      />
     </template>
 
     <template #body>
       <UForm
+        :id="formId"
         :schema="schema"
         :state="state"
         class="space-y-4"
         @submit="onSubmit"
       >
-        <UFormField label="Name" name="name">
-          <UInput v-model="state.name" />
-        </UFormField>
+        <UiSlideoverSection
+          title="Workspace Details"
+          description="The workspace name and description shown to its members."
+          icon="i-lucide-panels-top-left"
+        >
+          <div class="space-y-4">
+            <UFormField label="Name" name="name">
+              <UInput v-model="state.name" />
+            </UFormField>
 
-        <UFormField label="Description" name="description">
-          <UInput v-model="state.description" />
-        </UFormField>
-
-        <USeparator />
-
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <UFormField label="Invite Members" name="invites" class="mb-0" />
-            <span class="text-xs text-muted">{{ invitedUsers.length }} invited</span>
+            <UFormField label="Description" name="description">
+              <UInput v-model="state.description" />
+            </UFormField>
           </div>
+        </UiSlideoverSection>
 
-          <div class="relative">
-            <UInput
-              v-model="searchQuery"
-              placeholder="Search by username or email..."
-              icon="i-lucide-search"
-              :loading="isSearching"
-              class="w-full"
-            />
+        <UiSlideoverSection
+          title="Initial Members"
+          description="Invite editors or curators while creating the workspace."
+          icon="i-lucide-users-round"
+        >
+          <div class="space-y-3">
+            <div class="flex items-center justify-end">
+              <span class="text-xs text-muted">{{ invitedUsers.length }} invited</span>
+            </div>
 
-            <div
-              v-if="searchResults.length > 0 && !selectedUser"
-              class="absolute z-10 w-full mt-1 bg-default border border-default rounded-sm shadow-lg max-h-60 overflow-auto"
-            >
-              <button
-                v-for="user in searchResults"
-                :key="user.id"
-                type="button"
-                class="w-full px-4 py-2 text-left hover:bg-elevated/50 flex items-center gap-3"
-                @click="selectUser(user)"
+            <div class="relative">
+              <UInput
+                v-model="searchQuery"
+                placeholder="Search by username or email..."
+                icon="i-lucide-search"
+                :loading="isSearching"
+                class="w-full"
+              />
+
+              <div
+                v-if="searchResults.length > 0 && !selectedUser"
+                class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-sm border border-default bg-default shadow-lg"
+              >
+                <button
+                  v-for="user in searchResults"
+                  :key="user.id"
+                  type="button"
+                  class="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-elevated/50"
+                  @click="selectUser(user)"
+                >
+                  <UAvatar :alt="user.username" size="sm" />
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-medium">
+                      {{ user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username }}
+                    </p>
+                    <p class="truncate text-xs text-muted">
+                      {{ user.email || user.username }}
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div v-if="invitedUsers.length > 0" class="space-y-2">
+              <div
+                v-for="user in invitedUsers"
+                :key="user.userId"
+                class="flex items-center gap-2 rounded-sm bg-elevated/50 p-2"
               >
                 <UAvatar :alt="user.username" size="sm" />
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium truncate">
-                    {{ user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username }}
-                  </p>
-                  <p class="text-xs text-muted truncate">
-                    {{ user.email || user.username }}
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium">
+                    {{ user.username }}
                   </p>
                 </div>
-              </button>
-            </div>
-          </div>
-
-          <div v-if="invitedUsers.length > 0" class="mt-3 space-y-2">
-            <div
-              v-for="user in invitedUsers"
-              :key="user.userId"
-              class="flex items-center gap-2 p-2 bg-elevated/50 rounded-sm"
-            >
-              <UAvatar :alt="user.username" size="sm" />
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium truncate">
-                  {{ user.username }}
-                </p>
+                <USelect
+                  v-model="user.role"
+                  :items="roleOptions"
+                  value-key="value"
+                  class="w-32"
+                  size="sm"
+                  @update:model-value="(val: 'CURATOR' | 'EDITOR') => updateUserRole(user.userId, val)"
+                />
+                <UButton
+                  icon="i-lucide-x"
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  @click="removeUser(user.userId)"
+                />
               </div>
-              <USelect
-                v-model="user.role"
-                :items="roleOptions"
-                value-key="value"
-                class="w-32"
-                size="sm"
-                @update:model-value="(val: 'CURATOR' | 'EDITOR') => updateUserRole(user.userId, val)"
-              />
-              <UButton
-                icon="i-lucide-x"
-                size="xs"
-                color="neutral"
-                variant="ghost"
-                @click="removeUser(user.userId)"
-              />
             </div>
           </div>
-        </div>
-
-        <div class="flex justify-end gap-1 pt-4">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            :disabled="isCreating"
-            @click="emit('close', false)"
-          >
-            Cancel
-          </UButton>
-          <UButton variant="solid" type="submit" :loading="isCreating">
-            Create Workspace
-          </UButton>
-        </div>
+        </UiSlideoverSection>
       </UForm>
+    </template>
+
+    <template #footer>
+      <UButton
+        color="neutral"
+        variant="ghost"
+        :disabled="isCreating"
+        @click="emit('close', false)"
+      >
+        Cancel
+      </UButton>
+      <UButton
+        :form="formId"
+        variant="solid"
+        type="submit"
+        :loading="isCreating"
+      >
+        Create Workspace
+      </UButton>
     </template>
   </UiResponsiveSlideover>
 </template>
