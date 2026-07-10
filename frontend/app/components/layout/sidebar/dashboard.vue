@@ -95,6 +95,7 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
 const adminNavigation = computed<NavigationMenuItem[]>(() => {
   const systemChildren = withActive([
     { label: 'Actuator', icon: 'i-lucide-heart-pulse', to: '/admin/actuator' },
+    { label: 'IIIF Settings', icon: 'i-lucide-gauge', to: '/admin/iiif-settings' },
     { label: 'Errors', icon: 'i-lucide-bug', to: '/admin/errors' }
   ])
   const actionChildren = withActive([

@@ -1,6 +1,7 @@
 import type { ActiveUpload } from '@/stores/upload.store'
 import type { TrackedActionRun } from '@/stores/action-runs.store'
 import type { BackgroundJob } from '@/stores/background-jobs.store'
+import type { IiifImportJob } from '@/types/iiif-import'
 
 export type JobStatusColor = 'primary' | 'success' | 'error' | 'warning' | 'neutral'
 
@@ -49,6 +50,21 @@ export type StatusJob
     active: boolean
     terminal: boolean
     backgroundJob: BackgroundJob
+  }
+  | {
+    kind: 'iiif'
+    id: string
+    title: string
+    subtitle: string
+    status: string
+    statusLabel: string
+    progress: number | null
+    progressLabel: string
+    color: JobStatusColor
+    icon: string
+    active: boolean
+    terminal: boolean
+    iiifJob: IiifImportJob
   }
 
 const uploadStatusLabels: Record<string, string> = {
@@ -101,6 +117,14 @@ export function isTerminalBackgroundJob(status: BackgroundJob['status']): boolea
   return status === 'COMPLETED' || status === 'FAILED'
 }
 
+export function isActiveIiifImport(status: IiifImportJob['status']): boolean {
+  return status === 'PENDING' || status === 'IMPORTING'
+}
+
+export function isTerminalIiifImport(status: IiifImportJob['status']): boolean {
+  return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+}
+
 export function getUploadStatusColor(status: ActiveUpload['status']): JobStatusColor {
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED' || status === 'CANCELLED') return 'error'
@@ -117,6 +141,13 @@ export function getActionStatusColor(status: TrackedActionRun['status']): JobSta
 export function getBackgroundJobStatusColor(status: BackgroundJob['status']): JobStatusColor {
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED') return 'error'
+  if (status === 'PENDING') return 'warning'
+  return 'primary'
+}
+
+export function getIiifImportStatusColor(status: IiifImportJob['status']): JobStatusColor {
+  if (status === 'COMPLETED') return 'success'
+  if (status === 'FAILED' || status === 'CANCELLED') return 'error'
   if (status === 'PENDING') return 'warning'
   return 'primary'
 }
@@ -164,10 +195,16 @@ export function getJobKey(job: StatusJob): string {
 export function getJobTimestamp(job: StatusJob): number {
   if (job.kind === 'upload') return Date.parse(job.upload.created)
   if (job.kind === 'action') return Date.parse(job.run.created)
-  return Date.parse(job.backgroundJob.created)
+  if (job.kind === 'background') return Date.parse(job.backgroundJob.created)
+  return Date.parse(job.iiifJob.created)
 }
 
-export function buildStatusJobs(uploads: ActiveUpload[], runs: TrackedActionRun[], backgroundJobs: BackgroundJob[] = []): StatusJob[] {
+export function buildStatusJobs(
+  uploads: ActiveUpload[],
+  runs: TrackedActionRun[],
+  backgroundJobs: BackgroundJob[] = [],
+  iiifImports: IiifImportJob[] = []
+): StatusJob[] {
   const uploadJobs: StatusJob[] = uploads.map(upload => ({
     kind: 'upload',
     id: upload.sessionId,
@@ -216,7 +253,23 @@ export function buildStatusJobs(uploads: ActiveUpload[], runs: TrackedActionRun[
     backgroundJob: job
   }))
 
-  return [...uploadJobs, ...actionJobs, ...localJobs].sort((left, right) => {
+  const iiifJobs: StatusJob[] = iiifImports.map(job => ({
+    kind: 'iiif',
+    id: job.id,
+    title: 'IIIF import',
+    subtitle: `${job.projectName} · ${job.totalCanvases} canvas${job.totalCanvases === 1 ? '' : 'es'}`,
+    status: job.status,
+    statusLabel: job.status === 'PENDING' ? 'Queued' : job.status === 'IMPORTING' ? 'Importing' : job.status.charAt(0) + job.status.slice(1).toLowerCase(),
+    progress: job.status === 'PENDING' ? null : job.progressPercent,
+    progressLabel: job.status === 'PENDING' ? 'Waiting' : `${job.progressPercent}%`,
+    color: getIiifImportStatusColor(job.status),
+    icon: 'i-lucide-images',
+    active: isActiveIiifImport(job.status),
+    terminal: isTerminalIiifImport(job.status),
+    iiifJob: job
+  }))
+
+  return [...uploadJobs, ...actionJobs, ...localJobs, ...iiifJobs].sort((left, right) => {
     if (left.active !== right.active) return left.active ? -1 : 1
     return getJobTimestamp(right) - getJobTimestamp(left)
   })

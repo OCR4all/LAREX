@@ -3,10 +3,12 @@ package de.uniwue.zpd.dachs.larex.backend.service.importer;
 import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifImportDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.IiifImportJob;
+import de.uniwue.zpd.dachs.larex.backend.entity.IiifImportJobItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.repository.importing.IiifImportJobItemRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.importing.IiifImportJobRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -41,6 +43,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,13 +63,15 @@ class IiifImportServiceTest {
     @Mock
     private IiifImportJobRepository iiifImportJobRepository;
     @Mock
+    private IiifImportJobItemRepository iiifImportJobItemRepository;
+    @Mock
     private WorkspaceAccessService workspaceAccessService;
     @Mock
     private WorkspaceQuotaGuardService workspaceQuotaGuardService;
     @Mock
     private PageOrderService pageOrderService;
     @Mock
-    private AsyncIiifImportProcessor asyncIiifImportProcessor;
+    private IiifImportQueueService iiifImportQueueService;
     @Mock
     private IiifRemoteRequestThrottler iiifRemoteRequestThrottler;
     @Mock
@@ -82,10 +87,11 @@ class IiifImportServiceTest {
                 pageRepository,
                 pageImageRepository,
                 iiifImportJobRepository,
+                iiifImportJobItemRepository,
                 workspaceAccessService,
                 workspaceQuotaGuardService,
                 pageOrderService,
-                asyncIiifImportProcessor,
+                iiifImportQueueService,
                 iiifRemoteRequestThrottler,
                 new ObjectMapper(),
                 previewTaskExecutor
@@ -133,7 +139,10 @@ class IiifImportServiceTest {
                             {
                               "body": {
                                 "type": "Image",
-                                "id": "https://example.org/images/1/full.jpg"
+                                "id": "https://example.org/images/1/full.jpg",
+                                "format": "image/jpeg",
+                                "width": 3000,
+                                "height": 2000
                               }
                             }
                           ]
@@ -169,17 +178,19 @@ class IiifImportServiceTest {
         assertEquals("https://example.org/thumb.jpg", response.manifest().thumbnailUrl());
         assertEquals(2, response.totalCanvases());
         assertEquals(2, response.importableCanvasCount());
-        assertEquals(2, response.unknownSizeCanvasCount());
-        assertEquals(2L * UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, response.estimatedStorageBytes());
+        assertEquals(1, response.unknownSizeCanvasCount());
+        assertEquals(4_500_000L + UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, response.estimatedStorageBytes());
 
         IiifImportDto.CanvasPreview first = response.canvases().get(0);
         assertEquals("Page 1", first.pageName());
         assertEquals("https://example.org/images/1/full.jpg", first.imageUrl());
+        assertEquals(4_500_000L, first.estimatedBytes());
 
         IiifImportDto.CanvasPreview second = response.canvases().get(1);
         assertEquals("Example Manifest-0002", second.pageName());
         assertEquals("https://example.org/image-service/2/full/max/0/default.jpg", second.imageUrl());
-        assertTrue(response.warnings().stream().anyMatch(warning -> warning.contains("using a default estimate")));
+        assertTrue(response.warnings().stream().anyMatch(warning -> warning.contains("approximated from manifest dimensions")));
+        verifyNoInteractions(iiifRemoteRequestThrottler);
     }
 
     @Test
@@ -209,9 +220,12 @@ class IiifImportServiceTest {
                         {
                           "@id": "https://example.org/canvas/1",
                           "label": "folio 1r",
+                          "width": 1000,
+                          "height": 2000,
                           "images": [
                             {
                               "resource": {
+                                "format": "image/png",
                                 "service": { "@id": "https://example.org/image-service/1" }
                               }
                             }
@@ -240,6 +254,8 @@ class IiifImportServiceTest {
         assertEquals("IMAGE_VARIANT_EXISTS", first.conflict().conflictType());
         assertTrue(first.conflict().existingIiifImage());
         assertEquals("https://example.org/image-service/1/full/full/0/default.jpg", first.imageUrl());
+        assertEquals(1_500_000L, first.estimatedBytes());
+        assertEquals(0, response.unknownSizeCanvasCount());
 
         IiifImportDto.CanvasPreview second = response.canvases().get(1);
         assertFalse(second.importable());
@@ -389,9 +405,10 @@ class IiifImportServiceTest {
 
         assertEquals("job-1", response.id());
         assertEquals("PENDING", response.status());
+        assertEquals(1, response.queuePosition());
         assertEquals(2L * UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, response.estimatedStorageBytes());
         verify(workspaceQuotaGuardService).reserveBytesOrThrow(WORKSPACE_ID, 2L * UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, "iiif-import-job");
-        verify(asyncIiifImportProcessor).processImportJob("job-1");
+        verify(iiifImportQueueService).enqueue("job-1");
 
         List<IiifJobCanvasPayload> payloads = service.readJobPayloads(savedJob.get());
         assertEquals(2, payloads.size());
@@ -568,10 +585,20 @@ class IiifImportServiceTest {
                 new IiifJobCanvasPayload("canvas-1", "Canvas 1", 1, null, "Page 1", "Page 1", "desc", "IMPORT", "https://example.org/images/1.jpg", UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, null, "canvas-1", "{}", null, null, null, null),
                 new IiifJobCanvasPayload("canvas-2", "Canvas 2", 2, null, "Page 2", "Page 2", "desc", "IMPORT", "https://example.org/images/2.jpg", UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, null, "canvas-2", "{}", null, null, null, null)
         )));
-        sourceJob.setResultsJson(new ObjectMapper().writeValueAsString(List.of(
-                new IiifImportDto.ItemResult("canvas-1", "Canvas 1", 1, "Page 1", "Page 1", "IMPORT", "FAILED", null, "HTTP 403"),
-                new IiifImportDto.ItemResult("canvas-2", "Canvas 2", 2, "Page 2", "Page 2", "IMPORT", "IMPORTED", "page-2", "Imported")
-        )));
+        sourceJob.setResultsJson(null);
+        when(iiifImportJobItemRepository.findByJobIdOrderByCanvasIndexAsc("job-source"))
+                .thenReturn(List.of(
+                        IiifImportJobItem.fromResult(
+                                "job-source",
+                                new IiifImportDto.ItemResult("canvas-1", "Canvas 1", 1, "Page 1", "Page 1", "IMPORT", "FAILED", null, "HTTP 403"),
+                                null
+                        ),
+                        IiifImportJobItem.fromResult(
+                                "job-source",
+                                new IiifImportDto.ItemResult("canvas-2", "Canvas 2", 2, "Page 2", "Page 2", "IMPORT", "IMPORTED", "page-2", "Imported"),
+                                1_000L
+                        )
+                ));
 
         when(iiifImportJobRepository.findByIdAndWorkspaceIdAndProjectId("job-source", WORKSPACE_ID, PROJECT_ID))
                 .thenReturn(Optional.of(sourceJob));
@@ -596,6 +623,106 @@ class IiifImportServiceTest {
     }
 
     @Test
+    void cancelPendingImportReleasesItsQuotaReservationImmediately() {
+        IiifImportJob job = new IiifImportJob();
+        job.setId("job-pending");
+        job.setProjectId(PROJECT_ID);
+        job.setWorkspaceId(WORKSPACE_ID);
+        job.setCreatedByUserId(USER_ID);
+        job.setSourceType(IiifImportJob.SourceType.MANIFEST_URL);
+        job.setSourceReference("https://example.org/manifest");
+        job.setStatus(IiifImportJob.Status.PENDING);
+        job.setReservedBytes(25L * 1024L * 1024L);
+        job.setWarningsJson("[]");
+        job.setResultsJson("[]");
+        when(iiifImportJobRepository.findByIdAndWorkspaceIdAndProjectId(
+                "job-pending", WORKSPACE_ID, PROJECT_ID)).thenReturn(Optional.of(job));
+        when(iiifImportJobRepository.save(job)).thenReturn(job);
+
+        IiifImportDto.JobResponse response = service.cancelImportJob(
+                WORKSPACE_ID, PROJECT_ID, USER_ID, "job-pending");
+
+        assertEquals("CANCELLED", response.status());
+        assertNull(response.queuePosition());
+        assertTrue(job.isQuotaReservationReleased());
+        verify(workspaceQuotaGuardService).releaseReservation(WORKSPACE_ID, 25L * 1024L * 1024L);
+    }
+
+    @Test
+    void listImportJobsReturnsCurrentUsersUndismissedWorkspaceJobsWithProjectName() {
+        IiifImportJob job = createCompletedJob("job-visible");
+        IiifImportJobItem item = IiifImportJobItem.fromResult(
+                job.getId(),
+                new IiifImportDto.ItemResult(
+                        "canvas-1", "Canvas 1", 1, "Page 1", "Page 1",
+                        "IMPORT", "IMPORTED", "page-1", "Imported"
+                ),
+                1_000L
+        );
+        when(iiifImportJobRepository
+                .findTop100ByWorkspaceIdAndCreatedByUserIdAndDismissedFalseOrderByCreatedDesc(WORKSPACE_ID, USER_ID))
+                .thenReturn(List.of(job));
+        when(projectRepository.findAllById(anyCollection())).thenReturn(List.of(project));
+        when(iiifImportJobItemRepository.findByJobIdInOrderByJobIdAscCanvasIndexAsc(List.of(job.getId())))
+                .thenReturn(List.of(item));
+
+        List<IiifImportDto.JobResponse> response = service.listImportJobs(WORKSPACE_ID, USER_ID);
+
+        assertEquals(1, response.size());
+        assertEquals("job-visible", response.getFirst().id());
+        assertEquals("Project", response.getFirst().projectName());
+        assertEquals(1, response.getFirst().results().size());
+        assertEquals("canvas-1", response.getFirst().results().getFirst().canvasId());
+        verify(workspaceAccessService).requireWorkspaceAccess(WORKSPACE_ID, USER_ID);
+        verify(iiifImportJobItemRepository)
+                .findByJobIdInOrderByJobIdAscCanvasIndexAsc(List.of(job.getId()));
+    }
+
+    @Test
+    void listImportJobsResolvesQueuePositionsInOneOrderedLookup() {
+        IiifImportJob first = createCompletedJob("job-first");
+        first.setStatus(IiifImportJob.Status.PENDING);
+        IiifImportJob visible = createCompletedJob("job-visible");
+        visible.setStatus(IiifImportJob.Status.PENDING);
+        when(iiifImportJobRepository
+                .findTop100ByWorkspaceIdAndCreatedByUserIdAndDismissedFalseOrderByCreatedDesc(WORKSPACE_ID, USER_ID))
+                .thenReturn(List.of(visible));
+        when(iiifImportJobRepository.findPendingJobIdsInQueueOrder())
+                .thenReturn(List.of(first.getId(), visible.getId()));
+        when(projectRepository.findAllById(anyCollection())).thenReturn(List.of(project));
+
+        List<IiifImportDto.JobResponse> response = service.listImportJobs(WORKSPACE_ID, USER_ID);
+
+        assertEquals(2, response.getFirst().queuePosition());
+    }
+
+    @Test
+    void dismissImportJobPersistsTerminalJobDismissal() {
+        IiifImportJob job = createCompletedJob("job-completed");
+        when(iiifImportJobRepository.findByIdAndWorkspaceIdAndCreatedByUserId(
+                "job-completed", WORKSPACE_ID, USER_ID)).thenReturn(Optional.of(job));
+
+        service.dismissImportJob(WORKSPACE_ID, USER_ID, "job-completed");
+
+        assertTrue(job.isDismissed());
+        verify(iiifImportJobRepository).save(job);
+    }
+
+    @Test
+    void dismissImportJobRejectsActiveJob() {
+        IiifImportJob job = createCompletedJob("job-active");
+        job.setStatus(IiifImportJob.Status.IMPORTING);
+        when(iiifImportJobRepository.findByIdAndWorkspaceIdAndCreatedByUserId(
+                "job-active", WORKSPACE_ID, USER_ID)).thenReturn(Optional.of(job));
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> service.dismissImportJob(WORKSPACE_ID, USER_ID, "job-active")
+        );
+        assertFalse(job.isDismissed());
+    }
+
+    @Test
     void startImportJob_rejectsExpiredPreviewToken() {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -608,5 +735,19 @@ class IiifImportServiceTest {
         );
 
         assertEquals("IIIF preview has expired. Preview the manifest again.", exception.getMessage());
+    }
+
+    private IiifImportJob createCompletedJob(String id) {
+        IiifImportJob job = new IiifImportJob();
+        job.setId(id);
+        job.setProjectId(PROJECT_ID);
+        job.setWorkspaceId(WORKSPACE_ID);
+        job.setCreatedByUserId(USER_ID);
+        job.setSourceType(IiifImportJob.SourceType.MANIFEST_URL);
+        job.setSourceReference("https://example.org/manifest");
+        job.setStatus(IiifImportJob.Status.COMPLETED);
+        job.setWarningsJson("[]");
+        job.setResultsJson("[]");
+        return job;
     }
 }

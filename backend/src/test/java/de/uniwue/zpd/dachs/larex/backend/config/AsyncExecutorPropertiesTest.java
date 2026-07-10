@@ -38,6 +38,14 @@ class AsyncExecutorPropertiesTest {
                         "larex.import.async.core-pool-size=5",
                         "larex.import.async.max-pool-size=6",
                         "larex.import.async.queue-capacity=600",
+                        "larex.iiif.download-min-interval-ms=75",
+                        "larex.iiif.max-image-download-bytes=104857600",
+                        "larex.iiif.preview-async.core-pool-size=2",
+                        "larex.iiif.preview-async.max-pool-size=3",
+                        "larex.iiif.preview-async.queue-capacity=80",
+                        "larex.iiif.download-async.core-pool-size=3",
+                        "larex.iiif.download-async.max-pool-size=4",
+                        "larex.iiif.download-async.queue-capacity=40",
                         "larex.annotation.read-cache.maximum-size=123",
                         "larex.annotation.read-cache.expire-after-access-minutes=20",
                         "larex.annotation.post-save.core-pool-size=6",
@@ -66,6 +74,11 @@ class AsyncExecutorPropertiesTest {
                     assertThat(importProperties.getMaxScanDepth()).isEqualTo(12);
                     assertThat(importProperties.getMaxFilesPerJob()).isEqualTo(12000);
                     assertExecutorPool(importProperties.getAsync(), 5, 6, 600);
+                    IiifProperties iiifProperties = context.getBean(IiifProperties.class);
+                    assertThat(iiifProperties.getDownloadMinIntervalMs()).isEqualTo(75);
+                    assertThat(iiifProperties.getMaxImageDownloadBytes()).isEqualTo(104857600);
+                    assertExecutorPool(iiifProperties.getPreviewAsync(), 2, 3, 80);
+                    assertExecutorPool(iiifProperties.getDownloadAsync(), 3, 4, 40);
                     AnnotationProperties annotationProperties = context.getBean(AnnotationProperties.class);
                     assertThat(annotationProperties.getReadCache().getMaximumSize()).isEqualTo(123);
                     assertThat(annotationProperties.getReadCache().getExpireAfterAccessMinutes()).isEqualTo(20);
@@ -81,9 +94,14 @@ class AsyncExecutorPropertiesTest {
 
     @Test
     void keepsImportExecutorDefaultsWhenNoPropertiesAreConfigured() {
-        contextRunner.run(context ->
-                assertExecutorPool(context.getBean(ImportProperties.class).getAsync(), 1, 2, 10)
-        );
+        contextRunner.run(context -> {
+            assertExecutorPool(context.getBean(ImportProperties.class).getAsync(), 1, 2, 10);
+            IiifProperties iiifProperties = context.getBean(IiifProperties.class);
+            assertThat(iiifProperties.getDownloadMinIntervalMs()).isEqualTo(100);
+            assertThat(iiifProperties.getMaxImageDownloadBytes()).isEqualTo(536870912);
+            assertExecutorPool(iiifProperties.getPreviewAsync(), 2, 4, 100);
+            assertExecutorPool(iiifProperties.getDownloadAsync(), 1, 2, 50);
+        });
     }
 
     private void assertExecutorPool(ExecutorPoolProperties pool,
@@ -100,6 +118,7 @@ class AsyncExecutorPropertiesTest {
             AsyncExecutorProperties.class,
             UploadProperties.class,
             ImportProperties.class,
+            IiifProperties.class,
             AnnotationProperties.class,
             StorageProperties.class
     })

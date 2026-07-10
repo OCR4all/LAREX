@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.exception;
 
+import java.util.Locale;
+
 /**
  * Exception thrown when a file operation would exceed the workspace storage quota.
  */
@@ -26,11 +28,7 @@ public class StorageQuotaExceededException extends RuntimeException {
             Long reservedBytes,
             Double usagePercentage
     ) {
-        super(String.format(
-                "Workspace storage quota exceeded. Uploads and imports are blocked until storage is freed or the quota is increased. Requested: %d bytes, Available: %d bytes.",
-                requiredBytes,
-                availableBytes
-        ));
+        super(buildMessage(blockedOperation, requiredBytes, availableBytes));
         this.workspaceId = workspaceId;
         this.blockedOperation = blockedOperation;
         this.requiredBytes = requiredBytes;
@@ -39,6 +37,32 @@ public class StorageQuotaExceededException extends RuntimeException {
         this.currentUsageBytes = currentUsageBytes;
         this.reservedBytes = reservedBytes;
         this.usagePercentage = usagePercentage;
+    }
+
+    private static String buildMessage(String blockedOperation, Long requiredBytes, Long availableBytes) {
+        String operation = "iiif-import-job".equals(blockedOperation) ? "This IIIF import" : "This operation";
+        return String.format(
+                "Not enough workspace storage. %s needs %s, but only %s is available. Free up storage or ask an administrator to increase the workspace quota.",
+                operation,
+                formatBytes(requiredBytes),
+                formatBytes(availableBytes)
+        );
+    }
+
+    private static String formatBytes(Long bytes) {
+        if (bytes == null || bytes <= 0) {
+            return "0 B";
+        }
+        String[] units = {"B", "KB", "MB", "GB", "TB"};
+        double value = bytes;
+        int unit = 0;
+        while (value >= 1024 && unit < units.length - 1) {
+            value /= 1024;
+            unit++;
+        }
+        return unit == 0
+                ? String.format(Locale.ROOT, "%.0f %s", value, units[unit])
+                : String.format(Locale.ROOT, "%.1f %s", value, units[unit]);
     }
     
     public String getWorkspaceId() {

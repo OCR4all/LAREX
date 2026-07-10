@@ -220,6 +220,13 @@ const groups = computed(() => {
       to: '/admin/errors',
       onSelect: () => { open.value = false }
     }, {
+      id: 'go-admin-iiif-settings',
+      label: 'Go to IIIF Settings',
+      icon: 'i-lucide-gauge',
+      suffix: 'Configure IIIF download pacing',
+      to: '/admin/iiif-settings',
+      onSelect: () => { open.value = false }
+    }, {
       id: 'go-admin-action-runs-nav',
       label: 'Go to Action Runs',
       icon: 'i-lucide-list-ordered',

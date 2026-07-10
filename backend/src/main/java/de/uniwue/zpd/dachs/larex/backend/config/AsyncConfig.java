@@ -18,6 +18,7 @@ import java.util.concurrent.ThreadPoolExecutor;
         AsyncExecutorProperties.class,
         UploadProperties.class,
         ImportProperties.class,
+        IiifProperties.class,
         AnnotationProperties.class,
         StorageProperties.class
 })
@@ -28,17 +29,20 @@ public class AsyncConfig {
     private final AsyncExecutorProperties asyncProperties;
     private final UploadProperties uploadProperties;
     private final ImportProperties importProperties;
+    private final IiifProperties iiifProperties;
     private final AnnotationProperties annotationProperties;
     private final StorageProperties storageProperties;
 
     public AsyncConfig(AsyncExecutorProperties asyncProperties,
                        UploadProperties uploadProperties,
                        ImportProperties importProperties,
+                       IiifProperties iiifProperties,
                        AnnotationProperties annotationProperties,
                        StorageProperties storageProperties) {
         this.asyncProperties = asyncProperties;
         this.uploadProperties = uploadProperties;
         this.importProperties = importProperties;
+        this.iiifProperties = iiifProperties;
         this.annotationProperties = annotationProperties;
         this.storageProperties = storageProperties;
     }
@@ -67,6 +71,16 @@ public class AsyncConfig {
     @Bean(name = "importTaskExecutor")
     public ThreadPoolTaskExecutor importTaskExecutor() {
         return taskExecutor("import", importProperties.getAsync(), "import-", 120, null);
+    }
+
+    @Bean(name = "iiifPreviewTaskExecutor")
+    public ThreadPoolTaskExecutor iiifPreviewTaskExecutor() {
+        return taskExecutor("IIIF preview", iiifProperties.getPreviewAsync(), "iiif-preview-", 60, null);
+    }
+
+    @Bean(name = "iiifDownloadTaskExecutor")
+    public ThreadPoolTaskExecutor iiifDownloadTaskExecutor() {
+        return taskExecutor("IIIF download", iiifProperties.getDownloadAsync(), "iiif-download-", 120, null);
     }
 
     @Bean(name = "annotationPostSaveTaskExecutor")

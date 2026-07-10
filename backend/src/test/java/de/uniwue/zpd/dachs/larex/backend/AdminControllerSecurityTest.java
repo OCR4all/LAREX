@@ -6,9 +6,11 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserOnboardingState;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.IiifSettingsDto;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserManagementException;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminService;
+import de.uniwue.zpd.dachs.larex.backend.service.admin.IiifSettingsService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -30,6 +33,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -46,6 +50,72 @@ class AdminControllerSecurityTest {
 
     @MockitoBean
     private PageFilterIndexService pageFilterIndexService;
+
+    @MockitoBean
+    private IiifSettingsService iiifSettingsService;
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void iiifSettings_forbiddenForNonAdmin() throws Exception {
+        mockMvc.perform(get("/admin/settings/iiif"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(put("/admin/settings/iiif")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "downloadMinIntervalMs": 25
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "admin-1", roles = "GLOBAL_ADMIN")
+    void iiifSettings_canBeReadAndUpdatedByAdmin() throws Exception {
+        IiifSettingsDto.Response response = new IiifSettingsDto.Response(
+                100,
+                25,
+                25,
+                LocalDateTime.of(2026, 7, 6, 12, 0),
+                "admin-1"
+        );
+        when(iiifSettingsService.getSettings()).thenReturn(response);
+        when(iiifSettingsService.updateSettings(25, "admin-1")).thenReturn(response);
+
+        mockMvc.perform(get("/admin/settings/iiif"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deploymentDefaultDownloadMinIntervalMs").value(100))
+                .andExpect(jsonPath("$.overrideDownloadMinIntervalMs").value(25))
+                .andExpect(jsonPath("$.effectiveDownloadMinIntervalMs").value(25));
+
+        mockMvc.perform(put("/admin/settings/iiif")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "downloadMinIntervalMs": 25
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.updatedByUserId").value("admin-1"));
+
+        verify(iiifSettingsService).updateSettings(25, "admin-1");
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void iiifSettings_rejectsOutOfRangeInterval() throws Exception {
+        mockMvc.perform(put("/admin/settings/iiif")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "downloadMinIntervalMs": 60001
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verify(iiifSettingsService, never()).updateSettings(any(), any());
+    }
 
     @Test
     @WithMockUser(roles = "USER")

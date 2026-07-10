@@ -6,11 +6,17 @@ import {
 let actionPollTimer: ReturnType<typeof setInterval> | null = null
 let pollSubscriberCount = 0
 
-function startPolling(actionRunsStore: ReturnType<typeof useActionRunsStore>) {
+function startPolling(
+  actionRunsStore: ReturnType<typeof useActionRunsStore>,
+  iiifImportJobsStore: ReturnType<typeof useIiifImportJobsStore>
+) {
   if (!import.meta.client || actionPollTimer) return
   actionPollTimer = setInterval(() => {
     if (actionRunsStore.hasActiveRuns) {
       void actionRunsStore.refreshActiveRuns()
+    }
+    if (iiifImportJobsStore.hasActiveJobs) {
+      void iiifImportJobsStore.refreshActiveJobs()
     }
   }, 2500)
 }
@@ -25,12 +31,19 @@ export function useStatusCenter() {
   const uploadStore = useUploadStore()
   const actionRunsStore = useActionRunsStore()
   const backgroundJobsStore = useBackgroundJobsStore()
+  const iiifImportJobsStore = useIiifImportJobsStore()
+  const workspaceStore = useWorkspaceStore()
   const { issues, hasIssues } = useStatusIssues()
   const isOverlayOpen = useState('app.statusCenter.overlayOpen', () => false)
   const isOverlayMinimized = useState('app.statusCenter.overlayMinimized', () => false)
   const overlayAnchorId = useState<string | null>('app.statusCenter.overlayAnchorId', () => null)
 
-  const jobs = computed(() => buildStatusJobs(uploadStore.uploadsArray, actionRunsStore.runsArray, backgroundJobsStore.jobsArray))
+  const jobs = computed(() => buildStatusJobs(
+    uploadStore.uploadsArray,
+    actionRunsStore.runsArray,
+    backgroundJobsStore.jobsArray,
+    iiifImportJobsStore.jobsArray
+  ))
   const activeJobs = computed(() => jobs.value.filter(job => job.active))
   const terminalJobs = computed(() => jobs.value.filter(job => job.terminal))
   const hasActiveJobs = computed(() => activeJobs.value.length > 0)
@@ -57,7 +70,16 @@ export function useStatusCenter() {
   onMounted(() => {
     pollSubscriberCount += 1
     if (pollSubscriberCount === 1) {
-      startPolling(actionRunsStore)
+      startPolling(actionRunsStore, iiifImportJobsStore)
+    }
+    if (workspaceStore.selectedWorkspaceId) {
+      void iiifImportJobsStore.refreshWorkspaceJobs(workspaceStore.selectedWorkspaceId)
+    }
+  })
+
+  watch(() => workspaceStore.selectedWorkspaceId, (workspaceId) => {
+    if (import.meta.client && workspaceId) {
+      void iiifImportJobsStore.refreshWorkspaceJobs(workspaceId)
     }
   })
 

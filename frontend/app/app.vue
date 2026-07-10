@@ -4,7 +4,7 @@ const { instanceName } = useInstance()
 
 const color = computed(() => colorMode.value === 'dark' ? '#1b1718' : 'white')
 
-const toaster = { expand: false, position: 'bottom-right' as const }
+const toaster = { expand: false, position: 'bottom-center' as const }
 
 useHead({
   meta: [

@@ -50,6 +50,17 @@ public class WorkspaceQuotaGuardService {
         quotaService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
     }
 
+    public boolean isQuotaEnforcementEnabled() {
+        return storageProperties.isQuotaEnforcementEnabled();
+    }
+
+    public long getAvailableBytes(String workspaceId) {
+        if (!storageProperties.isQuotaEnforcementEnabled()) {
+            return Long.MAX_VALUE;
+        }
+        return quotaService.getOrCreateQuota(workspaceId).getAvailableBytes();
+    }
+
     public long totalMultipartBytes(List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {
             return 0L;

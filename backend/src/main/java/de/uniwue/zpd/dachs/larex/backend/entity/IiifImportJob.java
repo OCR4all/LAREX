@@ -107,6 +107,18 @@ public class IiifImportJob {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    @Column(nullable = false)
+    private boolean dismissed = false;
+
+    @Column(name = "lease_owner")
+    private String leaseOwner;
+
+    @Column(name = "lease_expires_at")
+    private LocalDateTime leaseExpiresAt;
+
+    @Column(name = "last_heartbeat_at")
+    private LocalDateTime lastHeartbeatAt;
+
     public String getId() {
         return id;
     }
@@ -289,6 +301,44 @@ public class IiifImportJob {
 
     public void setCompletedAt(LocalDateTime completedAt) {
         this.completedAt = completedAt;
+    }
+
+    public boolean isDismissed() {
+        return dismissed;
+    }
+
+    public void setDismissed(boolean dismissed) {
+        this.dismissed = dismissed;
+    }
+
+    public String getLeaseOwner() {
+        return leaseOwner;
+    }
+
+    public void setLeaseOwner(String leaseOwner) {
+        this.leaseOwner = leaseOwner;
+    }
+
+    public LocalDateTime getLeaseExpiresAt() {
+        return leaseExpiresAt;
+    }
+
+    public void setLeaseExpiresAt(LocalDateTime leaseExpiresAt) {
+        this.leaseExpiresAt = leaseExpiresAt;
+    }
+
+    public LocalDateTime getLastHeartbeatAt() {
+        return lastHeartbeatAt;
+    }
+
+    public void setLastHeartbeatAt(LocalDateTime lastHeartbeatAt) {
+        this.lastHeartbeatAt = lastHeartbeatAt;
+    }
+
+    public void clearLease() {
+        leaseOwner = null;
+        leaseExpiresAt = null;
+        lastHeartbeatAt = null;
     }
 
     public int getProgressPercent() {

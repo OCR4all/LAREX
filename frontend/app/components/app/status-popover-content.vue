@@ -2,6 +2,7 @@
 import {
   getJobKey,
   isActiveAction,
+  isActiveIiifImport,
   isActiveUpload,
   type StatusJob
 } from '@/utils/status-center'
@@ -27,6 +28,7 @@ const uploadStore = useUploadStore()
 const uploadSessionActions = useUploadSessionActions()
 const actionRunsStore = useActionRunsStore()
 const backgroundJobsStore = useBackgroundJobsStore()
+const iiifImportJobsStore = useIiifImportJobsStore()
 const toast = useToast()
 const UChatShimmer = resolveComponent('UChatShimmer')
 const {
@@ -84,16 +86,20 @@ function formatBytes(bytes: number): string {
 
 function canCancelJob(job: StatusJob): boolean {
   if (job.kind === 'background') return false
-  return job.kind === 'upload'
-    ? job.upload.cancelable !== false && isActiveUpload(job.upload.status)
-    : job.run.canCancel && isActiveAction(job.run.status)
+  if (job.kind === 'upload') {
+    return job.upload.cancelable !== false && isActiveUpload(job.upload.status)
+  }
+  if (job.kind === 'action') {
+    return job.run.canCancel && isActiveAction(job.run.status)
+  }
+  return isActiveIiifImport(job.iiifJob.status)
 }
 
 function isCancellingJob(job: StatusJob): boolean {
   if (job.kind === 'background') return false
-  return job.kind === 'upload'
-    ? uploadStore.isCancelling(job.id)
-    : actionRunsStore.isCancelling(job.id)
+  if (job.kind === 'upload') return uploadStore.isCancelling(job.id)
+  if (job.kind === 'action') return actionRunsStore.isCancelling(job.id)
+  return iiifImportJobsStore.isCancelling(job.id)
 }
 
 function isJobCollapsed(job: StatusJob): boolean {
@@ -141,6 +147,8 @@ async function cancelJob(job: StatusJob) {
       await uploadSessionActions.cancelUploadBySessionId(job.id)
     } else if (job.kind === 'action') {
       await actionRunsStore.cancelRun(job.run)
+    } else if (job.kind === 'iiif') {
+      await iiifImportJobsStore.cancelJob(job.iiifJob)
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not cancel job.'
@@ -161,8 +169,10 @@ async function dismissJob(job: StatusJob) {
       uploadStore.removeUpload(job.id)
     } else if (job.kind === 'action') {
       await actionRunsStore.dismissRun(job.run)
-    } else {
+    } else if (job.kind === 'background') {
       backgroundJobsStore.removeJob(job.id)
+    } else {
+      await iiifImportJobsStore.dismissJob(job.iiifJob)
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not persist dismissal.'
@@ -199,6 +209,7 @@ async function clearCompletedJobs() {
     uploadStore.clearCompletedUploads()
     await actionRunsStore.dismissCompletedRuns()
     backgroundJobsStore.clearCompletedJobs()
+    await iiifImportJobsStore.dismissCompletedJobs()
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not persist all dismissals.'
     toast.add({
@@ -228,11 +239,21 @@ function actionStatusDetail(job: Extract<StatusJob, { kind: 'action' }>) {
 }
 
 function shouldUseJobShimmer(job: StatusJob) {
-  return (job.kind === 'action' || job.kind === 'background') && job.active
+  return (job.kind === 'action' || job.kind === 'background' || job.kind === 'iiif') && job.active
 }
 
 function backgroundJobDetail(job: Extract<StatusJob, { kind: 'background' }>) {
   return job.backgroundJob.error || job.backgroundJob.detail || job.subtitle
+}
+
+function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
+  if (job.iiifJob.queuePosition && job.iiifJob.queuePosition > 0) {
+    return `Queue position ${job.iiifJob.queuePosition}`
+  }
+  if (job.iiifJob.status === 'IMPORTING') {
+    return `${job.iiifJob.processedCanvases} / ${job.iiifJob.totalCanvases} canvases processed`
+  }
+  return job.iiifJob.errorMessage || job.subtitle
 }
 </script>
 
@@ -240,7 +261,7 @@ function backgroundJobDetail(job: Extract<StatusJob, { kind: 'background' }>) {
   <div
     :class="[
       minimized ? 'w-[min(16rem,calc(100vw-2rem))]' : compact ? 'w-[min(22rem,calc(100vw-2rem))]' : 'w-[min(28rem,calc(100vw-2rem))]',
-      'overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950'
+      'overflow-hidden'
     ]"
   >
     <div :class="['flex items-center justify-between gap-3 border-b border-default', minimized || compact ? 'px-3 py-2' : 'px-4 py-3']">
@@ -422,6 +443,9 @@ function backgroundJobDetail(job: Extract<StatusJob, { kind: 'background' }>) {
                     <template v-else-if="job.kind === 'background'">
                       {{ backgroundJobDetail(job) }}
                     </template>
+                    <template v-else-if="job.kind === 'iiif'">
+                      {{ iiifJobDetail(job) }}
+                    </template>
                     <template v-else>
                       {{ job.progressLabel }}
                     </template>
@@ -443,6 +467,9 @@ function backgroundJobDetail(job: Extract<StatusJob, { kind: 'background' }>) {
               </p>
               <p v-if="job.kind === 'background' && job.backgroundJob.error" class="mt-1 text-xs text-error">
                 {{ job.backgroundJob.error }}
+              </p>
+              <p v-if="job.kind === 'iiif' && job.iiifJob.errorMessage" class="mt-1 text-xs text-error">
+                {{ job.iiifJob.errorMessage }}
               </p>
 
               <UCollapsible v-if="job.kind === 'upload' && job.upload.files.length > 0" class="mt-2">

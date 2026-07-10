@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ActiveUpload } from '@/stores/upload.store'
 import type { TrackedActionRun } from '@/stores/action-runs.store'
 import type { BackgroundJob } from '@/stores/background-jobs.store'
+import type { IiifImportJob } from '@/types/iiif-import'
 import { buildStatusJobs, shouldAutoOpenStatusPopover } from '../status-center'
 
 function createUpload(overrides: Partial<ActiveUpload> = {}): ActiveUpload {
@@ -78,6 +79,33 @@ function createBackgroundJob(overrides: Partial<BackgroundJob> = {}): Background
   }
 }
 
+function createIiifImport(overrides: Partial<IiifImportJob> = {}): IiifImportJob {
+  return {
+    id: 'iiif-1',
+    projectId: 'project-1',
+    projectName: 'IIIF Project',
+    workspaceId: 'ws-1',
+    sourceType: 'MANIFEST_URL',
+    sourceReference: 'https://example.org/manifest',
+    status: 'PENDING',
+    queuePosition: 2,
+    totalCanvases: 12,
+    processedCanvases: 0,
+    skippedCanvases: 0,
+    failedCanvases: 0,
+    progressPercent: 0,
+    estimatedStorageBytes: 120 * 1024 * 1024,
+    manifest: null,
+    warnings: [],
+    results: [],
+    errorMessage: null,
+    created: '2026-05-29T10:03:00.000Z',
+    updated: '2026-05-29T10:03:00.000Z',
+    completedAt: null,
+    ...overrides
+  }
+}
+
 describe('status-center utils', () => {
   it('combines uploads and action runs into jobs', () => {
     const jobs = buildStatusJobs([createUpload()], [createRun()])
@@ -126,6 +154,33 @@ describe('status-center utils', () => {
     expect(jobs[0]?.kind).toBe('background')
     expect(jobs[0]?.terminal).toBe(true)
     expect(jobs[0]?.color).toBe('error')
+  })
+
+  it('includes queued IIIF imports with their persisted queue state', () => {
+    const jobs = buildStatusJobs([], [], [], [createIiifImport()])
+
+    expect(jobs).toHaveLength(1)
+    expect(jobs[0]?.kind).toBe('iiif')
+    expect(jobs[0]?.title).toBe('IIIF import')
+    expect(jobs[0]?.subtitle).toBe('IIIF Project · 12 canvases')
+    expect(jobs[0]?.statusLabel).toBe('Queued')
+    expect(jobs[0]?.progress).toBeNull()
+    expect(jobs[0]?.color).toBe('warning')
+  })
+
+  it('treats completed IIIF imports as terminal jobs', () => {
+    const jobs = buildStatusJobs([], [], [], [createIiifImport({
+      status: 'COMPLETED',
+      queuePosition: null,
+      processedCanvases: 12,
+      progressPercent: 100,
+      completedAt: '2026-05-29T10:04:00.000Z'
+    })])
+
+    expect(jobs[0]?.kind).toBe('iiif')
+    expect(jobs[0]?.terminal).toBe(true)
+    expect(jobs[0]?.statusLabel).toBe('Completed')
+    expect(jobs[0]?.color).toBe('success')
   })
 
   it('auto-opens only when active job count increases', () => {

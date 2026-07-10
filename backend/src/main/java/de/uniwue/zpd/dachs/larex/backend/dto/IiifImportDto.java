@@ -112,10 +112,12 @@ public class IiifImportDto {
     public record JobResponse(
             String id,
             String projectId,
+            String projectName,
             String workspaceId,
             String sourceType,
             String sourceReference,
             String status,
+            Integer queuePosition,
             int totalCanvases,
             int processedCanvases,
             int skippedCanvases,
@@ -130,4 +132,6 @@ public class IiifImportDto {
             LocalDateTime updated,
             LocalDateTime completedAt
     ) {}
+
+    public record DismissResponse(int dismissedCount) {}
 }

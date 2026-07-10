@@ -3,6 +3,7 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const adminSections = [
   { title: 'Actuator', description: 'Monitor application health and system info', icon: 'i-lucide-heart-pulse', to: '/admin/actuator', group: 'System' },
+  { title: 'IIIF Settings', description: 'Configure adaptive IIIF download pacing', icon: 'i-lucide-gauge', to: '/admin/iiif-settings', group: 'System' },
   { title: 'Quotas', description: 'Manage storage quotas for workspaces', icon: 'i-lucide-hard-drive', to: '/admin/quotas', group: 'Data Management' },
   { title: 'Import', description: 'Import files from server directories', icon: 'i-lucide-folder-input', to: '/admin/import', group: 'Data Management' },
   { title: 'Backup', description: 'Create dumps and reseed file-based data', icon: 'i-lucide-database-backup', to: '/admin/backup', group: 'Data Management' },

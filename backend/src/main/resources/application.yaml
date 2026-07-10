@@ -153,6 +153,24 @@ larex:
       core-pool-size: ${LAREX_IMPORT_ASYNC_CORE_POOL:1}
       max-pool-size: ${LAREX_IMPORT_ASYNC_MAX_POOL:2}
       queue-capacity: ${LAREX_IMPORT_ASYNC_QUEUE:10}
+  iiif:
+    # Minimum delay between IIIF image download starts to the same host.
+    # Set to 0 to rely only on adaptive Retry-After/backoff handling.
+    download-min-interval-ms: ${LAREX_IIIF_DOWNLOAD_MIN_INTERVAL_MS:100}
+    # Hard cap for one streamed IIIF image response (default: 512 MiB).
+    max-image-download-bytes: ${LAREX_IIIF_MAX_IMAGE_DOWNLOAD_BYTES:536870912}
+    preview-async:
+      core-pool-size: ${LAREX_IIIF_PREVIEW_ASYNC_CORE_POOL:2}
+      max-pool-size: ${LAREX_IIIF_PREVIEW_ASYNC_MAX_POOL:4}
+      queue-capacity: ${LAREX_IIIF_PREVIEW_ASYNC_QUEUE:100}
+    download-async:
+      core-pool-size: ${LAREX_IIIF_DOWNLOAD_ASYNC_CORE_POOL:1}
+      max-pool-size: ${LAREX_IIIF_DOWNLOAD_ASYNC_MAX_POOL:2}
+      queue-capacity: ${LAREX_IIIF_DOWNLOAD_ASYNC_QUEUE:50}
+    # Active jobs are reclaimed after a worker stops renewing its lease.
+    worker-lease-duration-ms: ${LAREX_IIIF_WORKER_LEASE_DURATION_MS:120000}
+    worker-heartbeat-interval-ms: ${LAREX_IIIF_WORKER_HEARTBEAT_INTERVAL_MS:30000}
+    worker-recovery-interval-ms: ${LAREX_IIIF_WORKER_RECOVERY_INTERVAL_MS:5000}
   backup:
     # Enable admin dump/reseed feature (default: true)
     enabled: ${LAREX_BACKUP_ENABLED:true}

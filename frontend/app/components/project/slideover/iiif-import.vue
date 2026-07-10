@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
 import type { TabsItem } from '@nuxt/ui'
+import type { IiifImportJob } from '@/types/iiif-import'
 
 type PreviewConflict = {
   canvasId: string
@@ -59,33 +60,6 @@ type PreviewJobResponse = {
   completedAt: string | null
 }
 
-type JobResult = {
-  canvasId: string
-  canvasLabel: string
-  index: number
-  requestedPageName: string
-  finalPageName: string
-  action: string
-  status: string
-  pageId: string | null
-  message: string
-}
-
-type JobResponse = {
-  id: string
-  status: string
-  totalCanvases: number
-  processedCanvases: number
-  skippedCanvases: number
-  failedCanvases: number
-  progressPercent: number
-  estimatedStorageBytes: number
-  manifest: ManifestSummary | null
-  warnings: string[]
-  results: JobResult[]
-  errorMessage: string | null
-}
-
 type ResolutionState = {
   action: 'KEEP_EXISTING' | 'RENAME' | 'REPLACE'
   pageName: string
@@ -94,7 +68,7 @@ type ResolutionState = {
 const props = defineProps<{
   projectId: string
   workspaceId: string
-  onFinished?: (job: JobResponse) => void | Promise<void>
+  onFinished?: (job: IiifImportJob) => void | Promise<void>
 }>()
 
 const emit = defineEmits<{ close: [imported: boolean] }>()
@@ -102,6 +76,7 @@ const emit = defineEmits<{ close: [imported: boolean] }>()
 const formId = useId()
 const { uploadFormDataWithProgress } = useTrackedUpload()
 const toast = useToast()
+const iiifImportJobsStore = useIiifImportJobsStore()
 
 const sourceMode = ref<'url' | 'file'>('url')
 const sourceTabs = [
@@ -119,7 +94,7 @@ const sourceTabs = [
 const manifestUrl = ref('')
 const manifestFile = ref<File | null>(null)
 const preview = ref<PreviewJobResponse | null>(null)
-const job = ref<JobResponse | null>(null)
+const job = ref<IiifImportJob | null>(null)
 const resolutions = ref<Record<string, ResolutionState>>({})
 
 function ensureResolutionState(canvasId: string): ResolutionState {
@@ -297,6 +272,10 @@ function formatBytes(bytes: number | null | undefined): string {
   return `${value.toFixed(1)} ${units[unit]}`
 }
 
+function formatCanvasEstimatedSize(bytes: number | null): string {
+  return bytes == null ? '≈ 10.0 MB fallback' : `≈ ${formatBytes(bytes)}`
+}
+
 async function requestPreview() {
   isLoadingPreview.value = true
   stopPreviewPolling()
@@ -344,7 +323,7 @@ async function startImport() {
   isStartingImport.value = true
   hasReportedJobFinished.value = false
   try {
-    const response = await $fetch<JobResponse>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/jobs`, {
+    const response = await $fetch<IiifImportJob>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/jobs`, {
       method: 'POST',
       body: {
         previewToken: preview.value.previewToken,
@@ -357,6 +336,7 @@ async function startImport() {
       }
     })
     job.value = response
+    iiifImportJobsStore.upsertJob(response)
     if (isTerminalJobStatus(response.status)) {
       stopPolling()
       await handleFinishedJob(response)
@@ -365,7 +345,7 @@ async function startImport() {
     }
   } catch (error: unknown) {
     toast.add({
-      title: 'Import failed to start',
+      title: isStorageQuotaError(error) ? 'Not enough workspace storage' : 'Import failed to start',
       description: extractApiErrorMessage(error, 'Failed to start IIIF import'),
       color: 'error'
     })
@@ -379,10 +359,11 @@ async function retryFailedImport() {
   isRetryingFailedImport.value = true
   hasReportedJobFinished.value = false
   try {
-    const response = await $fetch<JobResponse>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/jobs/${job.value.id}/retry-failed`, {
+    const response = await $fetch<IiifImportJob>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/jobs/${job.value.id}/retry-failed`, {
       method: 'POST'
     })
     job.value = response
+    iiifImportJobsStore.upsertJob(response)
     if (isTerminalJobStatus(response.status)) {
       stopPolling()
       await handleFinishedJob(response)
@@ -420,7 +401,7 @@ function schedulePreviewPoll() {
   }, 500)
 }
 
-async function handleFinishedJob(latest: JobResponse) {
+async function handleFinishedJob(latest: IiifImportJob) {
   if (hasReportedJobFinished.value) return
   hasReportedJobFinished.value = true
 
@@ -445,8 +426,9 @@ async function handleFinishedJob(latest: JobResponse) {
 async function refreshJob() {
   if (!job.value) return
   try {
-    const latest = await $fetch<JobResponse>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/jobs/${job.value.id}`)
+    const latest = await $fetch<IiifImportJob>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/jobs/${job.value.id}`)
     job.value = latest
+    iiifImportJobsStore.upsertJob(latest)
     if (isTerminalJobStatus(latest.status)) {
       stopPolling()
       await handleFinishedJob(latest)
@@ -491,9 +473,10 @@ async function cancelImport() {
   if (!job.value) return
   isCancelling.value = true
   try {
-    job.value = await $fetch<JobResponse>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/jobs/${job.value.id}`, {
+    job.value = await $fetch<IiifImportJob>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/jobs/${job.value.id}`, {
       method: 'DELETE'
     })
+    iiifImportJobsStore.upsertJob(job.value)
     stopPolling()
     if (job.value && isTerminalJobStatus(job.value.status)) {
       await handleFinishedJob(job.value)
@@ -699,6 +682,12 @@ function submitCurrentStep() {
               <div class="font-medium">
                 {{ formatBytes(preview.estimatedStorageBytes) }}
               </div>
+              <div class="mt-1 text-xs text-muted">
+                Approximate; based on manifest dimensions and image format.
+                <template v-if="preview.unknownSizeCanvasCount > 0">
+                  {{ preview.unknownSizeCanvasCount }} {{ preview.unknownSizeCanvasCount === 1 ? 'image uses' : 'images use' }} the 10 MB fallback.
+                </template>
+              </div>
             </div>
             <div class="rounded-sm border border-default p-3">
               <div class="text-muted">
@@ -866,7 +855,7 @@ function submitCurrentStep() {
                           Canvas: {{ canvas.index }}
                         </div>
                         <div class="text-xs text-muted">
-                          Size: {{ formatBytes(canvas.estimatedBytes) }}
+                          Size: {{ formatCanvasEstimatedSize(canvas.estimatedBytes) }}
                         </div>
                       </div>
                       <UBadge :color="canvas.importable ? 'success' : 'warning'" variant="subtle">
@@ -887,17 +876,22 @@ function submitCurrentStep() {
           <UAlert
             color="info"
             variant="subtle"
-            title="IIIF import running"
-            :description="job.manifest?.label || undefined"
+            :title="job.status === 'PENDING' ? 'IIIF import queued' : 'IIIF import running'"
+            :description="job.status === 'PENDING'
+              ? `Position ${job.queuePosition ?? '…'} in the download queue`
+              : job.manifest?.label || undefined"
           >
             <template #icon>
-              <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin" />
+              <UIcon
+                :name="job.status === 'PENDING' ? 'i-lucide-clock-3' : 'i-lucide-loader-circle'"
+                :class="['size-5', { 'animate-spin': job.status !== 'PENDING' }]"
+              />
             </template>
           </UAlert>
 
           <div class="space-y-2">
             <div class="flex justify-between text-sm">
-              <span>{{ jobProgressValue === null ? 'Preparing import' : 'Import progress' }}</span>
+              <span>{{ job.status === 'PENDING' ? 'Waiting for download slot' : jobProgressValue === null ? 'Preparing import' : 'Import progress' }}</span>
               <span>
                 {{ job.processedCanvases + job.skippedCanvases + job.failedCanvases }} / {{ job.totalCanvases }}
                 <template v-if="jobProgressValue !== null">

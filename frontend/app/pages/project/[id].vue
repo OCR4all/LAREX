@@ -26,6 +26,7 @@ import { createSkeletonPageData, type PageResponse } from '@/services/editor/pro
 import { createPageXmlLabelSet } from '@/models/editor'
 import type { LabelSet as ApiLabelSet } from '@/types/label-set'
 import { useEditorStore } from '@/stores/editor/editor.store'
+import type { IiifImportTerminalEvent } from '@/stores/iiif-import-jobs.store'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse } from '@/types/dictionary'
 import type { ApplySourcesResponse, NormalizePreview, NormalizeSourcesResponse, NormalizationProfile, NormalizationProjectScope, NormalizeTarget } from '@/types/normalization-profile'
@@ -44,6 +45,7 @@ const route = useRoute()
 const toast = useToast()
 const editorStore = useEditorStore()
 const actionRunsStore = useActionRunsStore()
+const iiifImportJobsStore = useIiifImportJobsStore()
 const collaborationPageSummary = useCollaborationPageSummary()
 const pagePrefetch = usePagePrefetch()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
@@ -570,6 +572,25 @@ async function refreshProjectPagesData() {
     workspaceId ? refreshNuxtData(wsKey(workspaceId, 'storage', 'quota')) : Promise.resolve()
   ])
 }
+
+let lastHandledIiifTerminalSequence = 0
+watch(() => iiifImportJobsStore.terminalEvents.at(-1)?.sequence, () => {
+  let event: IiifImportTerminalEvent | undefined
+  for (let index = iiifImportJobsStore.terminalEvents.length - 1; index >= 0; index--) {
+    const candidate = iiifImportJobsStore.terminalEvents[index]
+    if (candidate
+      && candidate.sequence > lastHandledIiifTerminalSequence
+      && candidate.job.projectId === projectId
+      && candidate.job.processedCanvases > 0) {
+      event = candidate
+      break
+    }
+  }
+  if (event) {
+    lastHandledIiifTerminalSequence = event.sequence
+    void refreshProjectPagesData()
+  }
+}, { immediate: true })
 
 const { openActionRunSlideover } = useProjectActions({
   projectId,

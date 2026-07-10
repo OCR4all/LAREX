@@ -8,10 +8,12 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifImportDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.IiifImportJob;
+import de.uniwue.zpd.dachs.larex.backend.entity.IiifImportJobItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
+import de.uniwue.zpd.dachs.larex.backend.repository.importing.IiifImportJobItemRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.importing.IiifImportJobRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -33,7 +35,6 @@ import java.net.ConnectException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
-import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
@@ -64,8 +65,14 @@ public class IiifImportService {
     static final String IIIF_IMAGE_VARIANT = "iiif";
     static final String EXTERNAL_SOURCE_TYPE = "IIIF_CANVAS";
     private static final long UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES = 10L * 1024L * 1024L;
+    private static final long MIN_DIMENSION_BASED_ESTIMATE_BYTES = 256L * 1024L;
+    private static final double IMAGE_SIZE_SAFETY_MARGIN = 1.25d;
+    private static final double JPEG_BYTES_PER_PIXEL = 0.60d;
+    private static final double WEBP_BYTES_PER_PIXEL = 0.40d;
+    private static final double PNG_BYTES_PER_PIXEL = 1.50d;
+    private static final double TIFF_BYTES_PER_PIXEL = 3.00d;
+    private static final double UNKNOWN_FORMAT_BYTES_PER_PIXEL = 0.80d;
     private static final int MAX_COLLECTION_MANIFESTS = 50;
-    private static final int MAX_REMOTE_SIZE_PROBES = 50;
     private static final int MAX_HTTP_ATTEMPTS = 3;
     private static final Duration PREVIEW_CACHE_TTL = Duration.ofMinutes(15);
     private static final Duration PREVIEW_JOB_CACHE_TTL = Duration.ofMinutes(30);
@@ -78,10 +85,11 @@ public class IiifImportService {
     private final PageRepository pageRepository;
     private final PageImageRepository pageImageRepository;
     private final IiifImportJobRepository iiifImportJobRepository;
+    private final IiifImportJobItemRepository iiifImportJobItemRepository;
     private final WorkspaceAccessService workspaceAccessService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final PageOrderService pageOrderService;
-    private final AsyncIiifImportProcessor asyncIiifImportProcessor;
+    private final IiifImportQueueService iiifImportQueueService;
     private final IiifRemoteRequestThrottler iiifRemoteRequestThrottler;
     private final ObjectMapper objectMapper;
     private final TaskExecutor previewTaskExecutor;
@@ -93,21 +101,23 @@ public class IiifImportService {
                              PageRepository pageRepository,
                              PageImageRepository pageImageRepository,
                              IiifImportJobRepository iiifImportJobRepository,
+                             IiifImportJobItemRepository iiifImportJobItemRepository,
                              WorkspaceAccessService workspaceAccessService,
                              WorkspaceQuotaGuardService workspaceQuotaGuardService,
                              PageOrderService pageOrderService,
-                             AsyncIiifImportProcessor asyncIiifImportProcessor,
+                             IiifImportQueueService iiifImportQueueService,
                              IiifRemoteRequestThrottler iiifRemoteRequestThrottler,
                              ObjectMapper objectMapper,
-                             @Qualifier("importTaskExecutor") TaskExecutor previewTaskExecutor) {
+                             @Qualifier("iiifPreviewTaskExecutor") TaskExecutor previewTaskExecutor) {
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
         this.iiifImportJobRepository = iiifImportJobRepository;
+        this.iiifImportJobItemRepository = iiifImportJobItemRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.pageOrderService = pageOrderService;
-        this.asyncIiifImportProcessor = asyncIiifImportProcessor;
+        this.iiifImportQueueService = iiifImportQueueService;
         this.iiifRemoteRequestThrottler = iiifRemoteRequestThrottler;
         this.objectMapper = objectMapper;
         this.previewTaskExecutor = previewTaskExecutor;
@@ -345,6 +355,74 @@ public class IiifImportService {
         return toJobResponse(job);
     }
 
+    @Transactional(readOnly = true)
+    public List<IiifImportDto.JobResponse> listImportJobs(String workspaceId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        List<IiifImportJob> jobs = iiifImportJobRepository
+                .findTop100ByWorkspaceIdAndCreatedByUserIdAndDismissedFalseOrderByCreatedDesc(workspaceId, userId);
+        Map<String, String> projectNames = projectRepository.findAllById(
+                        jobs.stream().map(IiifImportJob::getProjectId).collect(Collectors.toSet())
+                )
+                .stream()
+                .collect(Collectors.toMap(Project::getId, Project::getName));
+        Map<String, Integer> queuePositions = new HashMap<>();
+        if (jobs.stream().anyMatch(job -> job.getStatus() == IiifImportJob.Status.PENDING)) {
+            List<String> pendingJobIds = iiifImportJobRepository.findPendingJobIdsInQueueOrder();
+            for (int index = 0; index < pendingJobIds.size(); index++) {
+                queuePositions.put(pendingJobIds.get(index), index + 1);
+            }
+        }
+        List<IiifImportJobItem> jobItems = jobs.isEmpty()
+                ? List.of()
+                : iiifImportJobItemRepository.findByJobIdInOrderByJobIdAscCanvasIndexAsc(
+                jobs.stream().map(IiifImportJob::getId).toList()
+        );
+        Map<String, List<IiifImportDto.ItemResult>> resultsByJobId = jobItems
+                .stream()
+                .collect(Collectors.groupingBy(
+                        IiifImportJobItem::getJobId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(IiifImportJobItem::toResult, Collectors.toList())
+                ));
+        return jobs.stream()
+                .map(job -> toJobResponse(
+                        job,
+                        projectNames.getOrDefault(job.getProjectId(), job.getProjectId()),
+                        queuePositions.get(job.getId()),
+                        resultsOrLegacy(job, resultsByJobId.get(job.getId()))
+                ))
+                .toList();
+    }
+
+    public void dismissImportJob(String workspaceId, String userId, String jobId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        IiifImportJob job = iiifImportJobRepository
+                .findByIdAndWorkspaceIdAndCreatedByUserId(jobId, workspaceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("IIIF import job", jobId));
+        if (!isTerminal(job.getStatus())) {
+            throw new IllegalStateException("Only completed IIIF import jobs can be dismissed.");
+        }
+        job.setDismissed(true);
+        iiifImportJobRepository.save(job);
+    }
+
+    public IiifImportDto.DismissResponse dismissImportJobHistory(String workspaceId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        List<IiifImportJob> jobs = iiifImportJobRepository
+                .findByWorkspaceIdAndCreatedByUserIdAndDismissedFalseAndStatusIn(
+                        workspaceId,
+                        userId,
+                        List.of(
+                                IiifImportJob.Status.COMPLETED,
+                                IiifImportJob.Status.FAILED,
+                                IiifImportJob.Status.CANCELLED
+                        )
+                );
+        jobs.forEach(job -> job.setDismissed(true));
+        iiifImportJobRepository.saveAll(jobs);
+        return new IiifImportDto.DismissResponse(jobs.size());
+    }
+
     public IiifImportDto.JobResponse cancelImportJob(String workspaceId, String projectId, String userId, String jobId) {
         requireProjectManageAccess(workspaceId, projectId, userId);
         IiifImportJob job = iiifImportJobRepository.findByIdAndWorkspaceIdAndProjectId(jobId, workspaceId, projectId)
@@ -354,9 +432,17 @@ public class IiifImportService {
                 || job.getStatus() == IiifImportJob.Status.CANCELLED) {
             return toJobResponse(job);
         }
+        boolean wasPending = job.getStatus() == IiifImportJob.Status.PENDING;
         job.setStatus(IiifImportJob.Status.CANCELLED);
+        job.clearLease();
         job.appendToLog("Cancellation requested");
-        return toJobResponse(iiifImportJobRepository.save(job));
+        job = iiifImportJobRepository.save(job);
+        if (wasPending && !job.isQuotaReservationReleased() && job.getReservedBytes() > 0) {
+            workspaceQuotaGuardService.releaseReservation(workspaceId, job.getReservedBytes());
+            job.setQuotaReservationReleased(true);
+            job = iiifImportJobRepository.save(job);
+        }
+        return toJobResponse(job);
     }
 
     @Transactional(readOnly = true)
@@ -371,7 +457,11 @@ public class IiifImportService {
     }
 
     public void saveJobResults(IiifImportJob job, List<IiifImportDto.ItemResult> results) {
-        job.setResultsJson(writeJson(results));
+        iiifImportJobItemRepository.deleteByJobId(job.getId());
+        iiifImportJobItemRepository.saveAll(results.stream()
+                .map(result -> IiifImportJobItem.fromResult(job.getId(), result, null))
+                .toList());
+        job.setResultsJson(null);
         iiifImportJobRepository.save(job);
     }
 
@@ -380,7 +470,12 @@ public class IiifImportService {
     }
 
     public List<IiifImportDto.ItemResult> readJobResults(IiifImportJob job) {
-        return readJson(job.getResultsJson(), ITEM_RESULT_LIST_TYPE, List.of());
+        List<IiifImportDto.ItemResult> itemResults = iiifImportJobItemRepository
+                .findByJobIdOrderByCanvasIndexAsc(job.getId())
+                .stream()
+                .map(IiifImportJobItem::toResult)
+                .toList();
+        return resultsOrLegacy(job, itemResults);
     }
 
     private IiifImportDto.JobResponse createImportJob(String workspaceId,
@@ -416,7 +511,7 @@ public class IiifImportService {
             job.setManifestSummaryJson(manifest == null ? null : writeJson(manifest));
             job.setWarningsJson(writeJson(warnings == null ? List.of() : warnings));
             job.setCanvasPayloadJson(writeJson(payloads));
-            job.setResultsJson("[]");
+            job.setResultsJson(null);
             job.appendToLog(logMessage);
             job = iiifImportJobRepository.save(job);
 
@@ -439,26 +534,21 @@ public class IiifImportService {
         JsonNode root = objectMapper.readTree(manifestBytes);
         ParsedManifest parsedManifest = parseManifest(root, sourceType, sourceReference, sourceUrl, progressSink);
         List<String> warnings = new ArrayList<>(parsedManifest.warnings());
-        boolean probeRemoteSizes = parsedManifest.canvases().stream().filter(ParsedCanvas::importable).count() <= MAX_REMOTE_SIZE_PROBES;
-        if (!probeRemoteSizes) {
-            warnings.add("Skipped remote image size probing for this preview because it contains more than "
-                    + MAX_REMOTE_SIZE_PROBES
-                    + " importable canvases. Quota preflight uses default estimates to avoid rate limiting.");
-        }
         int importableCanvasCount = (int) parsedManifest.canvases().stream().filter(ParsedCanvas::importable).count();
+        if (importableCanvasCount > 0) {
+            warnings.add("Image storage sizes are approximated from manifest dimensions and image formats when available; "
+                    + "images without usable dimensions use " + formatBytes(UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES)
+                    + " each, and actual downloads may differ.");
+        }
         if (progressSink != null) {
             progressSink.onManifestParsed(parsedManifest.manifest(), parsedManifest.canvases().size(), importableCanvasCount, warnings);
         }
-        List<IiifPreviewCanvas> canvases = enrichCanvases(projectId, parsedManifest, probeRemoteSizes, progressSink);
+        List<IiifPreviewCanvas> canvases = enrichCanvases(projectId, parsedManifest, progressSink);
         int unknownSizeCanvasCount = (int) canvases.stream().filter(c -> c.importable() && c.estimatedBytes() == null).count();
         long estimatedStorageBytes = canvases.stream()
                 .filter(IiifPreviewCanvas::importable)
                 .mapToLong(canvas -> canvas.estimatedBytes() == null ? UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES : canvas.estimatedBytes())
                 .sum();
-        if (unknownSizeCanvasCount > 0) {
-            warnings.add(unknownSizeCanvasCount + " canvas image sizes could not be determined; using a default estimate of "
-                    + formatBytes(UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES) + " each for quota preflight.");
-        }
 
         IiifPreviewSession session = new IiifPreviewSession(
                 workspaceId,
@@ -678,7 +768,6 @@ public class IiifImportService {
 
     private List<IiifPreviewCanvas> enrichCanvases(String projectId,
                                                    ParsedManifest parsedManifest,
-                                                   boolean probeRemoteSizes,
                                                    PreviewProgressSink progressSink) {
         Set<String> lowerPageNames = parsedManifest.canvases().stream()
                 .map(ParsedCanvas::derivedPageName)
@@ -694,7 +783,12 @@ public class IiifImportService {
         for (ParsedCanvas canvas : parsedManifest.canvases()) {
             Page existingPage = existingPagesByLowerName.get(canvas.derivedPageName().toLowerCase(Locale.ROOT));
             boolean existingIiifImage = existingPage != null && existingIiifImagesByPageId.getOrDefault(existingPage.getId(), false);
-            Long estimatedBytes = canvas.importable() && probeRemoteSizes ? estimateRemoteSize(canvas.imageUrl()) : null;
+            Long estimatedBytes = estimateImageBytes(
+                    canvas.imageWidth(),
+                    canvas.imageHeight(),
+                    canvas.imageFormat(),
+                    canvas.imageUrl()
+            );
             IiifPreviewCanvas previewCanvas = new IiifPreviewCanvas(
                     canvas.canvasId(),
                     canvas.canvasLabel(),
@@ -991,6 +1085,9 @@ public class IiifImportService {
             ParsedImageChoice imageChoice = extractV3ImageChoice(canvasNode, canvasWarnings);
             String imageUrl = imageChoice == null ? null : imageChoice.imageUrl();
             String thumbnailUrl = imageChoice == null ? null : imageChoice.thumbnailUrl();
+            Long imageWidth = resolveImageDimension(imageChoice == null ? null : imageChoice.width(), canvasNode, "width");
+            Long imageHeight = resolveImageDimension(imageChoice == null ? null : imageChoice.height(), canvasNode, "height");
+            String imageFormat = imageChoice == null ? null : imageChoice.format();
             String derivedPageName = uniquePageName(buildPageNameCandidate(canvasLabel, manifestLabel, index), nameCounts, index);
             boolean importable = imageUrl != null;
             if (!importable) {
@@ -1005,6 +1102,9 @@ public class IiifImportService {
                     importable,
                     imageUrl,
                     thumbnailUrl,
+                    imageWidth,
+                    imageHeight,
+                    imageFormat,
                     List.copyOf(canvasWarnings),
                     manifestId,
                     manifestLabel,
@@ -1038,6 +1138,9 @@ public class IiifImportService {
                 ParsedImageChoice imageChoice = extractV2ImageChoice(canvasNode, canvasWarnings);
                 String imageUrl = imageChoice == null ? null : imageChoice.imageUrl();
                 String thumbnailUrl = imageChoice == null ? null : imageChoice.thumbnailUrl();
+                Long imageWidth = resolveImageDimension(imageChoice == null ? null : imageChoice.width(), canvasNode, "width");
+                Long imageHeight = resolveImageDimension(imageChoice == null ? null : imageChoice.height(), canvasNode, "height");
+                String imageFormat = imageChoice == null ? null : imageChoice.format();
                 String derivedPageName = uniquePageName(buildPageNameCandidate(canvasLabel, manifestLabel, index), nameCounts, index);
                 boolean importable = imageUrl != null;
                 if (!importable) {
@@ -1052,6 +1155,9 @@ public class IiifImportService {
                         importable,
                         imageUrl,
                         thumbnailUrl,
+                        imageWidth,
+                        imageHeight,
+                        imageFormat,
                         List.copyOf(canvasWarnings),
                         manifestId,
                         manifestLabel,
@@ -1089,13 +1195,17 @@ public class IiifImportService {
 
         String serviceUrl = extractImageServiceUrl(body);
         String bodyId = extractNodeId(body);
+        JsonNode service = extractImageServiceNode(body);
+        Long width = firstPositiveLong(body.path("width"), service == null ? null : service.path("width"));
+        Long height = firstPositiveLong(body.path("height"), service == null ? null : service.path("height"));
+        String format = blankToNull(body.path("format").asText(null));
         if ("Image".equalsIgnoreCase(body.path("type").asText()) && hasText(bodyId)) {
-            return new ParsedImageChoice(bodyId, serviceUrl == null ? bodyId : buildImageServiceThumbnailUrl(serviceUrl));
+            return new ParsedImageChoice(bodyId, serviceUrl == null ? bodyId : buildImageServiceThumbnailUrl(serviceUrl), width, height, format);
         }
         if (serviceUrl != null) {
-            return new ParsedImageChoice(buildImageServiceUrl(serviceUrl, "3"), buildImageServiceThumbnailUrl(serviceUrl));
+            return new ParsedImageChoice(buildImageServiceUrl(serviceUrl, "3"), buildImageServiceThumbnailUrl(serviceUrl), width, height, format);
         }
-        return hasText(bodyId) ? new ParsedImageChoice(bodyId, bodyId) : null;
+        return hasText(bodyId) ? new ParsedImageChoice(bodyId, bodyId, width, height, format) : null;
     }
 
     private ParsedImageChoice extractV2ImageChoice(JsonNode canvasNode, List<String> warnings) {
@@ -1103,11 +1213,15 @@ public class IiifImportService {
             JsonNode resource = imageNode.path("resource");
             String serviceUrl = extractImageServiceUrl(resource);
             String direct = extractNodeId(resource);
+            JsonNode service = extractImageServiceNode(resource);
+            Long width = firstPositiveLong(resource.path("width"), service == null ? null : service.path("width"));
+            Long height = firstPositiveLong(resource.path("height"), service == null ? null : service.path("height"));
+            String format = blankToNull(resource.path("format").asText(null));
             if (hasText(direct)) {
-                return new ParsedImageChoice(direct, serviceUrl == null ? direct : buildImageServiceThumbnailUrl(serviceUrl));
+                return new ParsedImageChoice(direct, serviceUrl == null ? direct : buildImageServiceThumbnailUrl(serviceUrl), width, height, format);
             }
             if (serviceUrl != null) {
-                return new ParsedImageChoice(buildImageServiceUrl(serviceUrl, "2"), buildImageServiceThumbnailUrl(serviceUrl));
+                return new ParsedImageChoice(buildImageServiceUrl(serviceUrl, "2"), buildImageServiceThumbnailUrl(serviceUrl), width, height, format);
             }
         }
         warnings.add("Canvas has no IIIF image resource.");
@@ -1187,42 +1301,10 @@ public class IiifImportService {
         return serviceUrl == null ? null : buildImageServiceUrl(serviceUrl, presentationVersion);
     }
 
-    private Long estimateRemoteSize(String imageUrl) {
-        if (!hasText(imageUrl)) {
-            return null;
-        }
-        try {
-            for (int attempt = 0; attempt < MAX_HTTP_ATTEMPTS; attempt++) {
-                iiifRemoteRequestThrottler.awaitRequestSlot(imageUrl);
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(new URI(imageUrl))
-                        .timeout(HTTP_TIMEOUT)
-                        .method("HEAD", HttpRequest.BodyPublishers.noBody())
-                        .header("User-Agent", "LAREX IIIF Import")
-                        .build();
-                HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
-                if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                    return parseContentLength(response.headers());
-                }
-                if (response.statusCode() == 429 && attempt < MAX_HTTP_ATTEMPTS - 1) {
-                    iiifRemoteRequestThrottler.deferAfterRateLimit(imageUrl, response.headers(), attempt);
-                    continue;
-                }
-                return null;
-            }
-            return null;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return null;
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
     private byte[] fetchBytes(String url, String acceptHeader) throws IOException {
         try {
             for (int attempt = 0; attempt < MAX_HTTP_ATTEMPTS; attempt++) {
-                iiifRemoteRequestThrottler.awaitRequestSlot(url);
+                iiifRemoteRequestThrottler.awaitPreviewRequestSlot(url);
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(new URI(url))
                         .timeout(HTTP_TIMEOUT)
@@ -1234,7 +1316,8 @@ public class IiifImportService {
                 if (response.statusCode() >= 200 && response.statusCode() < 300) {
                     return response.body();
                 }
-                if (response.statusCode() == 429 && attempt < MAX_HTTP_ATTEMPTS - 1) {
+                if (iiifRemoteRequestThrottler.isRateLimitResponse(response.statusCode(), response.headers())
+                        && attempt < MAX_HTTP_ATTEMPTS - 1) {
                     iiifRemoteRequestThrottler.deferAfterRateLimit(url, response.headers(), attempt);
                     continue;
                 }
@@ -1265,17 +1348,6 @@ public class IiifImportService {
             case 429 -> "The IIIF server is rate limiting requests (HTTP 429). Please wait a moment and try again.";
             default -> "Failed to fetch the IIIF manifest URL: HTTP " + statusCode;
         };
-    }
-
-    private Long parseContentLength(HttpHeaders headers) {
-        Optional<String> header = headers.firstValue("content-length");
-        if (header.isEmpty()) return null;
-        try {
-            long value = Long.parseLong(header.get());
-            return value > 0 ? value : null;
-        } catch (NumberFormatException ignored) {
-            return null;
-        }
     }
 
     private Project requireProjectManageAccess(String workspaceId, String projectId, String userId) {
@@ -1405,16 +1477,76 @@ public class IiifImportService {
     }
 
     private String extractImageServiceUrl(JsonNode node) {
+        JsonNode service = extractImageServiceNode(node);
+        return service == null ? null : extractNodeId(service);
+    }
+
+    private JsonNode extractImageServiceNode(JsonNode node) {
         JsonNode service = node.path("service");
         if (service.isMissingNode() || service.isNull()) return null;
         if (service.isArray()) {
             for (JsonNode item : service) {
                 String id = extractNodeId(item);
-                if (hasText(id)) return id;
+                if (hasText(id)) return item;
             }
             return null;
         }
-        return extractNodeId(service);
+        return hasText(extractNodeId(service)) ? service : null;
+    }
+
+    private Long resolveImageDimension(Long imageDimension, JsonNode canvasNode, String fieldName) {
+        return imageDimension != null ? imageDimension : positiveLong(canvasNode.path(fieldName));
+    }
+
+    private Long firstPositiveLong(JsonNode primary, JsonNode fallback) {
+        Long value = positiveLong(primary);
+        return value != null ? value : positiveLong(fallback);
+    }
+
+    private Long positiveLong(JsonNode node) {
+        if (node == null || !node.canConvertToLong()) return null;
+        long value = node.asLong();
+        return value > 0 ? value : null;
+    }
+
+    private Long estimateImageBytes(Long width, Long height, String declaredFormat, String imageUrl) {
+        if (width == null || height == null || width <= 0 || height <= 0) {
+            return null;
+        }
+        double bytesPerPixel = estimatedBytesPerPixel(declaredFormat, imageUrl);
+        double estimate = (double) width * (double) height * bytesPerPixel * IMAGE_SIZE_SAFETY_MARGIN;
+        if (!Double.isFinite(estimate) || estimate >= Long.MAX_VALUE) {
+            return Long.MAX_VALUE;
+        }
+        return Math.max(MIN_DIMENSION_BASED_ESTIMATE_BYTES, Math.round(estimate));
+    }
+
+    private double estimatedBytesPerPixel(String declaredFormat, String imageUrl) {
+        String urlHint = imageUrl == null ? "" : imageUrl.toLowerCase(Locale.ROOT);
+        Double urlFactor = imageFormatFactor(urlHint);
+        if (urlFactor != null) return urlFactor;
+        String formatHint = declaredFormat == null ? "" : declaredFormat.toLowerCase(Locale.ROOT);
+        Double declaredFactor = imageFormatFactor(formatHint);
+        return declaredFactor == null ? UNKNOWN_FORMAT_BYTES_PER_PIXEL : declaredFactor;
+    }
+
+    private Double imageFormatFactor(String formatHint) {
+        String normalized = formatHint.split("[?#]", 2)[0];
+        if (normalized.contains("image/webp") || normalized.endsWith(".webp")) return WEBP_BYTES_PER_PIXEL;
+        if (normalized.contains("image/png") || normalized.endsWith(".png")) return PNG_BYTES_PER_PIXEL;
+        if (normalized.contains("image/tiff")
+                || normalized.contains("image/bmp")
+                || normalized.endsWith(".tif")
+                || normalized.endsWith(".tiff")
+                || normalized.endsWith(".bmp")) {
+            return TIFF_BYTES_PER_PIXEL;
+        }
+        if (normalized.contains("image/jpeg")
+                || normalized.endsWith(".jpg")
+                || normalized.endsWith(".jpeg")) {
+            return JPEG_BYTES_PER_PIXEL;
+        }
+        return null;
     }
 
     private String extractNodeId(JsonNode node) {
@@ -1506,6 +1638,26 @@ public class IiifImportService {
     }
 
     private IiifImportDto.JobResponse toJobResponse(IiifImportJob job) {
+        String projectName = projectRepository.findById(job.getProjectId())
+                .map(Project::getName)
+                .orElse(job.getProjectId());
+        return toJobResponse(job, projectName);
+    }
+
+    private IiifImportDto.JobResponse toJobResponse(IiifImportJob job, String projectName) {
+        return toJobResponse(job, projectName, resolveQueuePosition(job));
+    }
+
+    private IiifImportDto.JobResponse toJobResponse(IiifImportJob job, String projectName, Integer queuePosition) {
+        return toJobResponse(job, projectName, queuePosition, readJobResults(job));
+    }
+
+    private IiifImportDto.JobResponse toJobResponse(
+            IiifImportJob job,
+            String projectName,
+            Integer queuePosition,
+            List<IiifImportDto.ItemResult> results
+    ) {
         IiifImportDto.ManifestSummary manifest = null;
         if (job.getManifestSummaryJson() != null && !job.getManifestSummaryJson().isBlank()) {
             try {
@@ -1515,15 +1667,16 @@ public class IiifImportService {
             }
         }
         List<String> warnings = readJson(job.getWarningsJson(), STRING_LIST_TYPE, List.of());
-        List<IiifImportDto.ItemResult> results = readJson(job.getResultsJson(), ITEM_RESULT_LIST_TYPE, List.of());
 
         return new IiifImportDto.JobResponse(
                 job.getId(),
                 job.getProjectId(),
+                projectName,
                 job.getWorkspaceId(),
                 job.getSourceType() == null ? null : job.getSourceType().name(),
                 job.getSourceReference(),
                 job.getStatus().name(),
+                queuePosition,
                 job.getTotalCanvases(),
                 job.getProcessedCanvases(),
                 job.getSkippedCanvases(),
@@ -1538,6 +1691,33 @@ public class IiifImportService {
                 job.getUpdated(),
                 job.getCompletedAt()
         );
+    }
+
+    private List<IiifImportDto.ItemResult> resultsOrLegacy(
+            IiifImportJob job,
+            List<IiifImportDto.ItemResult> itemResults
+    ) {
+        if (itemResults != null && !itemResults.isEmpty()) {
+            return itemResults;
+        }
+        return readJson(job.getResultsJson(), ITEM_RESULT_LIST_TYPE, List.of());
+    }
+
+    private boolean isTerminal(IiifImportJob.Status status) {
+        return status == IiifImportJob.Status.COMPLETED
+                || status == IiifImportJob.Status.FAILED
+                || status == IiifImportJob.Status.CANCELLED;
+    }
+
+    private Integer resolveQueuePosition(IiifImportJob job) {
+        if (job.getStatus() != IiifImportJob.Status.PENDING) {
+            return null;
+        }
+        if (job.getCreated() == null || job.getId() == null) {
+            return 1;
+        }
+        long jobsAhead = iiifImportJobRepository.countPendingBefore(job.getCreated(), job.getId());
+        return Math.toIntExact(jobsAhead + 1);
     }
 
     private String formatBytes(long bytes) {
@@ -1557,13 +1737,13 @@ public class IiifImportService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    asyncIiifImportProcessor.processImportJob(jobId);
+                    iiifImportQueueService.enqueue(jobId);
                 }
             });
             return;
         }
 
-        asyncIiifImportProcessor.processImportJob(jobId);
+        iiifImportQueueService.enqueue(jobId);
     }
 
     private interface PreviewProgressSink {
@@ -1756,7 +1936,10 @@ public class IiifImportService {
 
     private record ParsedImageChoice(
             String imageUrl,
-            String thumbnailUrl
+            String thumbnailUrl,
+            Long width,
+            Long height,
+            String format
     ) {}
 
     private record ParsedCanvas(
@@ -1767,6 +1950,9 @@ public class IiifImportService {
             boolean importable,
             String imageUrl,
             String thumbnailUrl,
+            Long imageWidth,
+            Long imageHeight,
+            String imageFormat,
             List<String> warnings,
             String sourceManifestId,
             String sourceManifestLabel,
