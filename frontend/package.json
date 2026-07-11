@@ -71,5 +71,5 @@
   "resolutions": {
     "unimport": "4.1.1"
   },
-  "packageManager": "pnpm@11.5.2"
+  "packageManager": "pnpm@11.9.0"
 }
