@@ -39,7 +39,8 @@ export default defineNuxtConfig({
     },
     apiBaseInternal: process.env.NUXT_API_BASE_INTERNAL || 'http://app:8080/api/v1',
     public: {
-      instanceName: 'LAREX Local'
+      instanceName: 'LAREX Local',
+      documentationUrl: 'https://docs.larex.kallimachos.de'
     }
   },
 

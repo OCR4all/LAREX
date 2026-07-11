@@ -7,6 +7,7 @@ defineProps<{
 
 const colorMode = useColorMode()
 const { user } = useUserSession()
+const { documentationUrl } = useRuntimeConfig().public
 
 const displayName = computed(() => {
   return user.value?.name || user.value?.login || 'User'
@@ -83,7 +84,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
   }], [{
     label: 'Documentation',
     icon: 'i-lucide-book-open',
-    to: 'https://github.com/maxnth',
+    to: documentationUrl,
     target: '_blank'
   }, {
     label: 'GitHub repository',
