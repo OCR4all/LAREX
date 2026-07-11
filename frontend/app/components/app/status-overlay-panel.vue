@@ -24,7 +24,7 @@ const shouldShowFixedOverlay = computed(() => isMobile.value && isOverlayOpen.va
   >
     <div
       v-if="shouldShowFixedOverlay"
-      class="fixed bottom-4 left-4 z-50"
+      class="fixed bottom-4 left-4 z-50 rounded-lg border border-neutral-100 bg-white shadow-lg dark:border-neutral-900 dark:bg-black"
     >
       <AppStatusPopoverContent
         show-close
