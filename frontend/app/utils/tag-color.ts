@@ -81,9 +81,9 @@ function hslToRgb({ h, s, l }: HSL): RGB {
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
   const m = ln - c / 2
 
-  let rn = 0
-  let gn = 0
-  let bn = 0
+  let rn: number
+  let gn: number
+  let bn: number
   if (h < 60) {
     rn = c
     gn = x

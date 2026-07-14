@@ -9,7 +9,7 @@ export function buildAuthUrl(): string {
     return baseUrl
   }
 
-  let isDark = false
+  let isDark: boolean
 
   try {
     const colorMode = useColorMode()

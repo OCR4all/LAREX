@@ -56,7 +56,7 @@ export const refreshTokenIfExpired = async (event: H3Event, session: AuthSession
   try {
     decoded = jwtDecode<TokenData>(session.secure.accessToken)
   } catch (error: unknown) {
-    throw new Error(`Invalid access token: ${getErrorMessage(error)}`)
+    throw new Error(`Invalid access token: ${getErrorMessage(error)}`, { cause: error })
   }
 
   const now = Math.floor(Date.now() / 1000)
@@ -123,7 +123,7 @@ export const refreshAccessToken = async (event: H3Event, session: AuthSession) =
 
     return refreshedSecure
   } catch (error: unknown) {
-    throw new Error(`Token refresh failed: ${getErrorMessage(error)}`)
+    throw new Error(`Token refresh failed: ${getErrorMessage(error)}`, { cause: error })
   }
 }
 

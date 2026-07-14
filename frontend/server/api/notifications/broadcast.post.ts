@@ -85,7 +85,7 @@ export default defineEventHandler(async (event) => {
     userId?: string
     notification?: Record<string, unknown>
     source?: string
-  } | null = null
+  } | null
 
   try {
     body = JSON.parse(rawBody) as {

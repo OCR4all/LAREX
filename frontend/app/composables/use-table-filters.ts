@@ -112,7 +112,7 @@ export const useTableFilters = <T extends object>(
         const aVal = getValueByPath(a, sort.value.column)
         const bVal = getValueByPath(b, sort.value.column)
 
-        let comparison = 0
+        let comparison: number
 
         if (aVal instanceof Date && bVal instanceof Date) {
           comparison = aVal.getTime() - bVal.getTime()
