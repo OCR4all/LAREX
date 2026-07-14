@@ -80,7 +80,7 @@ function navigateToProject(projectId: string) {
                 color="neutral"
                 variant="ghost"
                 size="xs"
-                @click="isPopoverOpen = false"
+                @click="() => { isPopoverOpen = false }"
               />
             </div>
 

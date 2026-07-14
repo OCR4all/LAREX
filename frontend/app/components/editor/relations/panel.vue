@@ -328,7 +328,7 @@ watch(selectedRelation, (relation) => {
               color="neutral"
               icon="i-lucide-arrow-left"
               :disabled="readOnly"
-              @click="isCreateSectionOpen = false"
+              @click="() => { isCreateSectionOpen = false }"
             >
               Back
             </UButton>

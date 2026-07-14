@@ -34,7 +34,7 @@ const {
               icon="i-lucide-x"
               :padded="false"
               size="xs"
-              @click="searchQuery = ''"
+              @click="() => { searchQuery = '' }"
             />
           </template>
         </UInput>
@@ -46,7 +46,7 @@ const {
           icon="i-lucide-plus"
           size="xs"
           variant="soft"
-          @click="createTag()"
+          @click="() => { createTag() }"
         />
 
         <div class="flex items-center gap-1">

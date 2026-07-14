@@ -17,7 +17,7 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
         size="xs"
         variant="soft"
         :disabled="props.readOnly"
-        @click="groups.push({ externalModel: '', externalId: '', prefix: '', comments: '', labels: [] })"
+        @click="() => { groups.push({ externalModel: '', externalId: '', prefix: '', comments: '', labels: [] }) }"
       >
         Add Group
       </UButton>
@@ -54,7 +54,7 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
             size="xs"
             variant="ghost"
             :disabled="props.readOnly"
-            @click="group.labels.push({ value: '', type: '', comments: '' })"
+            @click="() => { group.labels.push({ value: '', type: '', comments: '' }) }"
           >
             Add Label
           </UButton>
@@ -80,7 +80,7 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
             color="error"
             variant="ghost"
             :disabled="props.readOnly"
-            @click="group.labels.splice(labelIndex, 1)"
+            @click="() => { group.labels.splice(labelIndex, 1) }"
           >
             Remove Label
           </UButton>
@@ -93,7 +93,7 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
         color="error"
         variant="ghost"
         :disabled="props.readOnly"
-        @click="groups.splice(groupIndex, 1)"
+        @click="() => { groups.splice(groupIndex, 1) }"
       >
         Remove Group
       </UButton>

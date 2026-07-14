@@ -17,15 +17,26 @@ const props = withDefaults(defineProps<{
 
 const isDesktop = useMediaQuery('(min-width: 1280px)')
 const responsiveSide = computed<SlideoverProps['side']>(() => isDesktop.value ? props.side : 'bottom')
-const hasCustomMaxWidth = computed(() => String(props.ui?.content ?? '').includes('max-w-'))
-const mergedUi = computed<SlideoverProps['ui']>(() => ({
-  ...props.ui,
-  content: [
-    hasCustomMaxWidth.value ? undefined : 'max-w-none xl:max-w-xl',
-    props.ui?.content,
-    responsiveSide.value === 'bottom' ? 'min-h-[50svh]' : undefined
-  ]
-}))
+const mergedUi = computed<SlideoverProps['ui']>(() => {
+  const customContent = props.ui?.content
+  const hasCustomMaxWidth = String(customContent ?? '').includes('max-w-')
+  const responsiveMinHeight = responsiveSide.value === 'bottom' ? 'min-h-[50svh]' : undefined
+
+  return {
+    ...props.ui,
+    content: (defaults: string) => {
+      const content = typeof customContent === 'function'
+        ? customContent(defaults)
+        : [defaults, customContent]
+
+      return [
+        hasCustomMaxWidth ? undefined : 'max-w-none xl:max-w-xl',
+        content,
+        responsiveMinHeight
+      ]
+    }
+  }
+})
 const slots = useSlots()
 </script>
 

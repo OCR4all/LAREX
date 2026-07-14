@@ -2963,7 +2963,7 @@ watch(() => props.src, (newSrc) => {
             size="xs"
             color="neutral"
             :variant="showDiffModel ? 'soft' : 'ghost'"
-            @click="showDiffModel = !showDiffModel"
+            @click="() => { showDiffModel = !showDiffModel }"
           >
             Diff
           </UButton>
@@ -2971,7 +2971,7 @@ watch(() => props.src, (newSrc) => {
             size="xs"
             color="neutral"
             :variant="showCommentsModel ? 'soft' : 'ghost'"
-            @click="showCommentsModel = !showCommentsModel"
+            @click="() => { showCommentsModel = !showCommentsModel }"
           >
             Comments
           </UButton>
@@ -2979,7 +2979,7 @@ watch(() => props.src, (newSrc) => {
             size="xs"
             color="neutral"
             :variant="showRecognitionInCorrectionOverlay ? 'soft' : 'ghost'"
-            @click="showRecognitionInCorrectionOverlay = !showRecognitionInCorrectionOverlay"
+            @click="() => { showRecognitionInCorrectionOverlay = !showRecognitionInCorrectionOverlay }"
           >
             Recognition
           </UButton>
@@ -2989,7 +2989,7 @@ watch(() => props.src, (newSrc) => {
             :variant="highlightUnknownCodecCharsModel ? 'soft' : 'ghost'"
             :disabled="!hasProjectCodec"
             :title="hasProjectCodec ? 'Toggle codec checks' : 'No project codec configured'"
-            @click="highlightUnknownCodecCharsModel = !highlightUnknownCodecCharsModel"
+            @click="() => { highlightUnknownCodecCharsModel = !highlightUnknownCodecCharsModel }"
           >
             Codec
           </UButton>
@@ -2999,7 +2999,7 @@ watch(() => props.src, (newSrc) => {
             :variant="highlightUnknownDictionaryTokensModel ? 'soft' : 'ghost'"
             :disabled="!hasProjectDictionary"
             :title="hasProjectDictionary ? 'Toggle dictionary checks' : 'No project dictionary configured'"
-            @click="highlightUnknownDictionaryTokensModel = !highlightUnknownDictionaryTokensModel"
+            @click="() => { highlightUnknownDictionaryTokensModel = !highlightUnknownDictionaryTokensModel }"
           >
             Dictionary
           </UButton>

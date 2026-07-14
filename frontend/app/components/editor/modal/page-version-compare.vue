@@ -458,7 +458,7 @@ function close() {
                 :variant="linkedViews ? 'soft' : 'ghost'"
                 size="sm"
                 :aria-label="linkedViews ? 'Unlink canvas navigation' : 'Link canvas navigation'"
-                @click="linkedViews = !linkedViews"
+                @click="() => { linkedViews = !linkedViews }"
               />
             </UTooltip>
             <div class="flex rounded-sm border border-default bg-default p-0.5">

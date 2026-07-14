@@ -127,7 +127,7 @@ function handleCustomize() {
                   variant="ghost"
                   size="sm"
                   aria-label="Close"
-                  @click="isOpen = false"
+                  @click="() => { isOpen = false }"
                 />
               </div>
             </div>

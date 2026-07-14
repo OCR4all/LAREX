@@ -373,7 +373,7 @@ defineExpose({
                 color="neutral"
                 variant="ghost"
                 :disabled="savingEntryIds.has(entry.id)"
-                @click="editingEntryId = null"
+                @click="() => { editingEntryId = null }"
               >
                 Cancel
               </UButton>

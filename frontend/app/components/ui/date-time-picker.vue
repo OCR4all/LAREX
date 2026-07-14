@@ -202,7 +202,7 @@ function handleCalendarChange(value: unknown) {
               size="xs"
               color="primary"
               :disabled="disabled || !selectedDate"
-              @click="isOpen = false"
+              @click="() => { isOpen = false }"
             >
               Done
             </UButton>

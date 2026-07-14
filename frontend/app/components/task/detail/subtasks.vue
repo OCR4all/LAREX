@@ -371,7 +371,7 @@ async function onDragEnd() {
                   size="xs"
                   color="neutral"
                   variant="ghost"
-                  @click="bulkDescriptionOpen = false"
+                  @click="() => { bulkDescriptionOpen = false }"
                 >
                   Cancel
                 </UButton>

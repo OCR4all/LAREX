@@ -17,7 +17,7 @@ const items = defineModel<MetadataItemFormState[]>({ required: true })
         type="button"
         size="xs"
         variant="soft"
-        @click="items.push({ type: undefined, name: '', value: '', date: '', labels: [] })"
+        @click="() => { items.push({ type: undefined, name: '', value: '', date: '', labels: [] }) }"
       >
         Add
       </UButton>
@@ -48,7 +48,7 @@ const items = defineModel<MetadataItemFormState[]>({ required: true })
         size="xs"
         color="error"
         variant="ghost"
-        @click="items.splice(itemIndex, 1)"
+        @click="() => { items.splice(itemIndex, 1) }"
       >
         Remove Item
       </UButton>

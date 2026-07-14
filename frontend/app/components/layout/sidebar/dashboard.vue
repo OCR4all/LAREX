@@ -177,7 +177,7 @@ function openNotifications() {
           icon="i-lucide-x"
           aria-label="Close sidebar"
           class="shrink-0"
-          @click="sidebarOpen = false"
+          @click="() => { sidebarOpen = false }"
         />
 
         <div class="flex content-center w-full h-full px-4 justify-between">

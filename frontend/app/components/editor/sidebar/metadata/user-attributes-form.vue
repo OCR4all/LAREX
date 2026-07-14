@@ -16,7 +16,7 @@ const attributes = defineModel<UserAttributeFormState[]>({ required: true })
         type="button"
         size="xs"
         variant="soft"
-        @click="attributes.push({ name: '', description: '', type: undefined, value: '' })"
+        @click="() => { attributes.push({ name: '', description: '', type: undefined, value: '' }) }"
       >
         Add
       </UButton>
@@ -44,7 +44,7 @@ const attributes = defineModel<UserAttributeFormState[]>({ required: true })
         size="xs"
         color="error"
         variant="ghost"
-        @click="attributes.splice(attributeIndex, 1)"
+        @click="() => { attributes.splice(attributeIndex, 1) }"
       >
         Remove
       </UButton>

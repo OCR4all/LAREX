@@ -275,7 +275,7 @@ const emptyStateActions = computed(() => {
                 variant="link"
                 icon="i-lucide-x"
                 :padded="false"
-                @click="globalFilter = ''"
+                @click="() => { globalFilter = '' }"
               />
             </template>
           </UInput>

@@ -375,7 +375,7 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
               size="xs"
               icon="i-lucide-rotate-cw"
               :loading="isRetrying(issue.id)"
-              @click="retryIssue(issue.id)"
+              @click="() => { void retryIssue(issue.id) }"
             >
               {{ issue.retryLabel }}
             </UButton>

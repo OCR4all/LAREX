@@ -581,7 +581,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               color="neutral"
               variant="outline"
               trailing-icon="i-lucide-chevron-right"
-              @click="editorOverridesOpen = true"
+              @click="() => { editorOverridesOpen = true }"
             >
               Configure
             </UButton>
@@ -656,7 +656,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         </template>
 
         <template #footer>
-          <UButton @click="editorOverridesOpen = false">
+          <UButton @click="() => { editorOverridesOpen = false }">
             Done
           </UButton>
         </template>

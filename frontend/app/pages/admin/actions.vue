@@ -1443,7 +1443,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                   variant="ghost"
                   icon="i-lucide-x"
                   size="sm"
-                  @click="isRunsPanelVisible = false"
+                  @click="() => { isRunsPanelVisible = false }"
                 />
               </div>
               <UFieldGroup class="w-full">
@@ -1596,7 +1596,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                   variant="ghost"
                   icon="i-lucide-x"
                   size="sm"
-                  @click="isAuditPanelVisible = false"
+                  @click="() => { isAuditPanelVisible = false }"
                 />
               </div>
               <UButton
@@ -1694,7 +1694,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                   variant="ghost"
                   icon="i-lucide-x"
                   size="sm"
-                  @click="isSecretsPanelVisible = false"
+                  @click="() => { isSecretsPanelVisible = false }"
                 />
               </div>
               <UButton
@@ -1914,7 +1914,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
           color="neutral"
           variant="ghost"
           :disabled="creatingEndpointSecret"
-          @click="isEndpointSecretSlideoverOpen = false"
+          @click="() => { isEndpointSecretSlideoverOpen = false }"
         >
           Close
         </UButton>

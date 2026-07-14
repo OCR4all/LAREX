@@ -12,7 +12,7 @@ const images = defineModel<AlternativeImageFormState[]>({ required: true })
         type="button"
         size="xs"
         variant="soft"
-        @click="images.push({ filename: '', comments: '', confidence: undefined })"
+        @click="() => { images.push({ filename: '', comments: '', confidence: undefined }) }"
       >
         Add
       </UButton>
@@ -44,7 +44,7 @@ const images = defineModel<AlternativeImageFormState[]>({ required: true })
         size="xs"
         color="error"
         variant="ghost"
-        @click="images.splice(imageIndex, 1)"
+        @click="() => { images.splice(imageIndex, 1) }"
       >
         Remove
       </UButton>

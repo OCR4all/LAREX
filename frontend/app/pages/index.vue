@@ -919,7 +919,7 @@ async function handleLegacyOcr4allImport(event: Event) {
               color="neutral"
               variant="outline"
               icon="i-lucide-package-plus"
-              @click="projectSlideoverCreate.open()"
+              @click="() => { projectSlideoverCreate.open() }"
             />
             <UDropdownMenu :items="projectsActionItems" :content="{ align: 'end' }">
               <UButton
@@ -946,7 +946,7 @@ async function handleLegacyOcr4allImport(event: Event) {
                 variant="link"
                 icon="i-lucide-x"
                 :padded="false"
-                @click="globalFilter = ''"
+                @click="() => { globalFilter = '' }"
               />
             </template>
           </UInput>

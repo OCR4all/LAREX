@@ -397,7 +397,7 @@ const openSettings = () => {
               variant="solid"
               size="lg"
               class="mt-4"
-              @click="createTag()"
+              @click="() => { createTag() }"
             >
               Create Tag
             </UButton>

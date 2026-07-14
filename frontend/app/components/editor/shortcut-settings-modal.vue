@@ -255,7 +255,7 @@ watchEffect((onCleanup) => {
                   variant="ghost"
                   size="sm"
                   aria-label="Close"
-                  @click="isOpen = false"
+                  @click="() => { isOpen = false }"
                 />
               </div>
             </div>
@@ -459,7 +459,7 @@ watchEffect((onCleanup) => {
                 variant="ghost"
                 size="sm"
                 label="Cancel"
-                @click="isOpen = false"
+                @click="() => { isOpen = false }"
               />
               <UButton
                 color="primary"

@@ -470,7 +470,7 @@ defineExpose({ visible })
               variant="ghost"
               size="xs"
               icon="i-lucide-info"
-              @click.stop="showInfo = !showInfo"
+              @click.stop="() => { showInfo = !showInfo }"
               @mousedown.prevent.stop
             />
             <div v-if="showInfo" class="absolute top-12 left-3 w-56 bg-elevated border border-default p-3 rounded-sm shadow-xl text-xs z-50">
@@ -485,7 +485,7 @@ defineExpose({ visible })
               :icon="editMode ? 'i-lucide-check' : 'i-lucide-pencil'"
               :title="editMode ? 'Finish editing keyboard' : 'Edit keyboard layout'"
               :loading="isSavingLayout"
-              @click.stop="editMode = !editMode"
+              @click.stop="() => { editMode = !editMode }"
               @mousedown.prevent.stop
             />
 

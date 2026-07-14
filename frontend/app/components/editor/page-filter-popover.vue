@@ -203,7 +203,7 @@ function handleClearAll() {
               :key="opt.value"
               :color="filterOperator === opt.value ? 'primary' : 'neutral'"
               :variant="filterOperator === opt.value ? 'solid' : 'outline'"
-              @click="filterOperator = opt.value"
+              @click="() => { filterOperator = opt.value }"
             >
               {{ opt.value.toUpperCase() }}
             </UButton>
