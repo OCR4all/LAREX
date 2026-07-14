@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
-import type { WatchStopHandle } from 'vue'
-import { LazyEditorCommentsLabelsOverlay, LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay, LazyEditorSlideoverMergeSettings } from '#components'
+import { triggerRef, type WatchStopHandle } from 'vue'
+import { LazyEditorCommentsLabelsOverlay, LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay, LazyEditorSlideoverLabelConflicts, LazyEditorSlideoverMergeSettings } from '#components'
 import { getVisiblePolygonAtPoint, triangulatePolygon } from '@/utils/editor/hit-detection'
 import { clipToWorldCoords, getWorldCoordsFromEvent, imageToWorld, pixelsToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
 import { getPagePanelId, parseCanvasId } from '@/stores/editor/editor.keys'
@@ -10,11 +10,12 @@ import { useEditorCollaboration } from '@/composables/editor/use-editor-collabor
 import { useEditorCanvasCollaborationDisplay } from '@/composables/editor/use-editor-canvas-collaboration-display'
 import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
 import { useEditorStore } from '@/stores/editor/editor.store'
+import { useEditorDocumentStore } from '@/stores/editor/editor.document.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import { normalizeRelation } from '@/utils/editor/relations'
-import { useEditorSession, usePageVisibilityState } from '@/session/editor/editor-session'
+import { getEditorSession, useEditorSession, usePageVisibilityState } from '@/session/editor/editor-session'
 import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
 import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import { useEditorCanvasInteractionBlocker } from '@/composables/editor/use-canvas-interaction-blocker'
@@ -31,6 +32,7 @@ import {
   getAdjacentTextlineId
 } from '@/utils/editor/textline-navigation'
 import { findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
+import { findRegionLabelConflicts } from '@/utils/editor/region-label-conflicts'
 import { ensureGtVariantAtIndex, normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
 import { computeCanvasTextCorrectionPlacement } from '@/utils/editor/canvas-text-correction-placement'
 import { ZOOM } from '@/utils/editor/editor-constants'
@@ -52,6 +54,7 @@ const props = defineProps({
 })
 
 const editorStore = useEditorStore()
+const editorDocumentStore = useEditorDocumentStore()
 const editorUiStore = useEditorUiStore()
 const sessionStore = useEditorSessionStore()
 const workspaceStore = useWorkspaceStore()
@@ -67,6 +70,7 @@ const {
 const toast = useToast()
 const editorOverlay = useOverlay()
 const mergeSettingsSlideover = editorOverlay.create(LazyEditorSlideoverMergeSettings)
+const labelConflictsSlideover = editorOverlay.create(LazyEditorSlideoverLabelConflicts)
 const { isCanvasInteractionBlocked: isCanvasInteractionGloballyBlocked } = useEditorCanvasInteractionBlocker()
 
 const colorMode = useColorMode()
@@ -140,6 +144,10 @@ const projectId = computed(() => {
 
 const canvasState = computed(() => editorStore.canvases?.[props.canvasId] ?? null)
 const isComparisonCanvas = computed(() => Boolean(canvasState.value?.comparison))
+const canvasLabelSet = computed(() => {
+  const currentProjectId = projectId.value
+  return currentProjectId ? (editorDocumentStore.labelSetByProjectId[currentProjectId] ?? null) : null
+})
 const isCanvasInteractionBlocked = computed(
   () => isCanvasInteractionGloballyBlocked.value && !isComparisonCanvas.value
 )
@@ -200,6 +208,17 @@ const overlapMinAreaThreshold = computed(() => editorStore.globalSettings.cutMin
 const currentImageSrc = ref(props.src)
 
 const canvasControls = useCanvasControl(props.canvasId)
+const regionLabelConflictSummary = computed(() => {
+  // Command history is the stable canvas-level revision signal for apply/undo/redo.
+  // Reading it here also refreshes conflicts for commands that mutate PAGE models in place.
+  void canvasControls.historyState.currentIndex
+  if (isComparisonCanvas.value) return findRegionLabelConflicts(null, null)
+  const currentDocument = getEditorSession(props.canvasId)?.document.value
+  return findRegionLabelConflicts(currentDocument?.page.regions, canvasLabelSet.value)
+})
+const regionLabelConflictGroups = computed(() => regionLabelConflictSummary.value.groups)
+const regionLabelConflictIds = computed(() => regionLabelConflictSummary.value.regionIds)
+const regionLabelConflictCount = computed(() => regionLabelConflictSummary.value.totalRegions)
 const isCanvasWritable = computed(() => canvasControls.isCanvasEditable.value)
 const canReceiveCanvasInput = computed(() => isCanvasEditable.value || isComparisonCanvas.value)
 const pageLockReason = computed(() => canvasControls.pageLockReason.value)
@@ -214,6 +233,19 @@ const pageLockDescription = computed(() => {
   if (!reason) return null
   return pageLockActionName.value ? 'Action running' : reason
 })
+
+async function openLabelConflictResolver(): Promise<void> {
+  const currentProjectId = projectId.value
+  if (!currentProjectId || regionLabelConflictCount.value === 0) return
+  const instance = labelConflictsSlideover.open({
+    canvasId: props.canvasId,
+    projectId: currentProjectId
+  })
+  const applied = await instance.result
+  if (applied) {
+    triggerRef(session.document)
+  }
+}
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const correctionOverlayContainerRef = ref<HTMLDivElement | null>(null)
@@ -748,7 +780,8 @@ const editorRenderer = useEditorRenderer(
   moveInteraction,
   bufferPreviewForRenderer,
   actionProcessingTargets,
-  diffHighlights
+  diffHighlights,
+  regionLabelConflictIds
 )
 const renderStats = computed(() => editorRenderer.renderStats.value)
 let actionProcessingAnimationFrame: number | null = null
@@ -2773,6 +2806,32 @@ watch(() => props.src, (newSrc) => {
           Resync
         </UButton>
       </div>
+    </div>
+
+    <div
+      v-if="regionLabelConflictCount > 0"
+      class="flex min-h-10 items-center justify-between gap-3 border-b border-error/30 bg-error/10 px-3 py-2 text-[13px]"
+    >
+      <div class="flex min-w-0 items-center gap-2.5">
+        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-error/15 text-error">
+          <Icon name="i-lucide-tags" class="h-3.5 w-3.5" />
+        </div>
+        <p class="truncate text-[13px] text-highlighted">
+          {{ regionLabelConflictCount }} region{{ regionLabelConflictCount === 1 ? '' : 's' }} use
+          {{ regionLabelConflictGroups.length }} label mapping{{ regionLabelConflictGroups.length === 1 ? '' : 's' }}
+          outside <span class="font-medium">{{ canvasLabelSet?.name }}</span>.
+        </p>
+      </div>
+
+      <UButton
+        size="xs"
+        color="error"
+        variant="soft"
+        icon="i-lucide-wand-sparkles"
+        class="h-7 shrink-0 px-2.5 text-[11px]"
+        label="Resolve labels"
+        @click="openLabelConflictResolver"
+      />
     </div>
 
     <div ref="correctionOverlayContainerRef" class="relative isolate flex-1 min-h-0 overflow-hidden" :class="{ 'editor-checkerboard': showCheckerboard }">

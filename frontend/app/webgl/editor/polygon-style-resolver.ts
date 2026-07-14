@@ -20,6 +20,7 @@ export interface ResolvePolygonRenderStyleOptions {
   labelSet?: LabelSet | null
   showPersistentFill?: boolean
   invalid?: boolean
+  labelConflict?: boolean
   renderPhase?: PolygonRenderPhase
 }
 
@@ -55,6 +56,16 @@ export function resolvePolygonRenderStyle(
       strokeWidthMultiplier: 1,
       persistentFill: null,
       nodeColor: RENDER_COLORS.INVALID_RED
+    }
+  }
+
+  if (options.labelConflict && polygon.type === PolygonType.REGION) {
+    return {
+      strokeColor: RENDER_COLORS.LABEL_CONFLICT_RED,
+      strokePattern: 'solid',
+      strokeWidthMultiplier: 1.6,
+      persistentFill: null,
+      nodeColor: RENDER_COLORS.LABEL_CONFLICT_RED
     }
   }
 

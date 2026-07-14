@@ -70,7 +70,6 @@ public class LabelSetInitializationService {
                 "PAGE XML Standard",
                 "Standard PAGE XML region types based on the PAGE XML schema. This is a system-provided labelset that cannot be modified.",
                 List.of("PAGE XML", "Standard", "System"),
-                false,
                 true
         );
 
@@ -120,7 +119,6 @@ public class LabelSetInitializationService {
         String description = getRegionDescription(regionType);
         String color = getRegionColor(regionType);
 
-        LabelSetDto.AltoXml altoXml = createAltoXml(regionType);
         LabelSetDto.PageXml pageXml = new LabelSetDto.PageXml(
                 regionType,
                 null,
@@ -129,7 +127,7 @@ public class LabelSetInitializationService {
                 ""
         );
 
-        LabelSetDto.Mapping mapping = new LabelSetDto.Mapping(altoXml, pageXml);
+        LabelSetDto.Mapping mapping = new LabelSetDto.Mapping(pageXml);
 
         return new LabelSetDto.Label(
                 "page-region-" + id,
@@ -207,7 +205,7 @@ public class LabelSetInitializationService {
                             pageXml.customKey(),
                             pageXml.customData()
                     );
-                    desiredMapping = new LabelSetDto.Mapping(label.mapping().altoXml(), desiredPageXml);
+                    desiredMapping = new LabelSetDto.Mapping(desiredPageXml);
                 }
 
                 if (!equalsString(label.group(), desiredGroup) || !equalsString(label.color(), desiredColor) || mappingChanged) {
@@ -246,12 +244,6 @@ public class LabelSetInitializationService {
         String name = "Custom Region";
         String description = "Custom region type for content not covered by standard PAGE XML types";
 
-        LabelSetDto.AltoXml altoXml = new LabelSetDto.AltoXml(
-                LabelSetDto.AltoRole.TAGREFS,
-                "CustomRegion",
-                LabelSetDto.AltoBlockType.ComposedBlock
-        );
-
         LabelSetDto.PageXml pageXml = new LabelSetDto.PageXml(
                 LabelSetDto.PageRegionType.UnknownRegion,
                 null,
@@ -260,7 +252,7 @@ public class LabelSetInitializationService {
                 ""
         );
 
-        LabelSetDto.Mapping mapping = new LabelSetDto.Mapping(altoXml, pageXml);
+        LabelSetDto.Mapping mapping = new LabelSetDto.Mapping(pageXml);
 
         return new LabelSetDto.Label(
                 "page-region-" + id,
@@ -279,12 +271,6 @@ public class LabelSetInitializationService {
         String name = formatTextTypeName(textType);
         String description = "TextRegion with subtype: " + textType;
 
-        LabelSetDto.AltoXml altoXml = new LabelSetDto.AltoXml(
-                LabelSetDto.AltoRole.TAGREFS,
-                "TextBlock-" + textType,
-                LabelSetDto.AltoBlockType.TextBlock
-        );
-
         LabelSetDto.PageXml pageXml = new LabelSetDto.PageXml(
                 LabelSetDto.PageRegionType.TextRegion,
                 textType,
@@ -293,7 +279,7 @@ public class LabelSetInitializationService {
                 ""
         );
 
-        LabelSetDto.Mapping mapping = new LabelSetDto.Mapping(altoXml, pageXml);
+        LabelSetDto.Mapping mapping = new LabelSetDto.Mapping(pageXml);
 
         return new LabelSetDto.Label(
                 "page-text-subtype-" + id,
@@ -309,12 +295,6 @@ public class LabelSetInitializationService {
     }
 
     private LabelSetDto.Label createTextLineLabel(int id) {
-        LabelSetDto.AltoXml altoXml = new LabelSetDto.AltoXml(
-                LabelSetDto.AltoRole.TAGREFS,
-                "TextLine",
-                null
-        );
-
         LabelSetDto.PageXml pageXml = new LabelSetDto.PageXml(
                 null,
                 null,
@@ -323,7 +303,7 @@ public class LabelSetInitializationService {
                 ""
         );
 
-        LabelSetDto.Mapping mapping = new LabelSetDto.Mapping(altoXml, pageXml);
+        LabelSetDto.Mapping mapping = new LabelSetDto.Mapping(pageXml);
 
         return new LabelSetDto.Label(
                 "page-line-" + id,
@@ -336,25 +316,6 @@ public class LabelSetInitializationService {
                 null,
                 mapping
         );
-    }
-
-    private LabelSetDto.AltoXml createAltoXml(LabelSetDto.PageRegionType regionType) {
-        return switch (regionType) {
-            case TextRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "TextRegion", LabelSetDto.AltoBlockType.TextBlock);
-            case ImageRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "ImageRegion", LabelSetDto.AltoBlockType.Illustration);
-            case LineDrawingRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "LineDrawingRegion", LabelSetDto.AltoBlockType.GraphicalElement);
-            case GraphicRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "GraphicRegion", LabelSetDto.AltoBlockType.GraphicalElement);
-            case TableRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "TableRegion", LabelSetDto.AltoBlockType.ComposedBlock);
-            case ChartRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "ChartRegion", LabelSetDto.AltoBlockType.ComposedBlock);
-            case MapRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "MapRegion", LabelSetDto.AltoBlockType.ComposedBlock);
-            case SeparatorRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "SeparatorRegion", LabelSetDto.AltoBlockType.GraphicalElement);
-            case MathsRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "MathsRegion", LabelSetDto.AltoBlockType.ComposedBlock);
-            case ChemRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "ChemRegion", LabelSetDto.AltoBlockType.ComposedBlock);
-            case MusicRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "MusicRegion", LabelSetDto.AltoBlockType.ComposedBlock);
-            case AdvertRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "AdvertRegion", LabelSetDto.AltoBlockType.ComposedBlock);
-            case NoiseRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "NoiseRegion", LabelSetDto.AltoBlockType.ComposedBlock);
-            case UnknownRegion -> new LabelSetDto.AltoXml(LabelSetDto.AltoRole.TAGREFS, "UnknownRegion", LabelSetDto.AltoBlockType.ComposedBlock);
-        };
     }
 
     private boolean isTextCapableRegion(LabelSetDto.PageRegionType regionType) {

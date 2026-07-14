@@ -1,6 +1,4 @@
 import type {
-  AltoBlockType,
-  AltoRole,
   LabelDefinition,
   LabelMapping,
   LabelScope,
@@ -12,16 +10,10 @@ import { createCanonicalRegionMappingSignatureFromLabel } from '@/utils/editor/p
 const PRESET_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#64748b']
 const PAGE_REGIONS = ['TextRegion', 'ImageRegion', 'LineDrawingRegion', 'GraphicRegion', 'TableRegion', 'ChartRegion', 'MapRegion', 'SeparatorRegion', 'MathsRegion', 'ChemRegion', 'MusicRegion', 'AdvertRegion', 'NoiseRegion', 'UnknownRegion']
 const PAGE_TEXT_TYPES = ['paragraph', 'heading', 'caption', 'header', 'footer', 'page-number', 'drop-capital', 'credit', 'floating', 'signature-mark', 'catch-word', 'marginalia', 'footnote', 'footnote-continued', 'endnote', 'TOC-entry', 'list-label', 'other', 'custom']
-const ALTO_BLOCK_TYPES = ['TextBlock', 'Illustration', 'GraphicalElement', 'ComposedBlock']
 
-const meta = reactive({ name: 'My Custom Label Set', description: 'Optimized for historical document layout analysis', tags: [] as string[], altoEnabled: false, isSystem: false })
+const meta = reactive({ name: 'My Custom Label Set', description: 'Optimized for historical document layout analysis', tags: [] as string[], isSystem: false })
 const filters = reactive({ region: true, line: true })
 type EditableLabelMapping = {
-  altoXml: {
-    role: AltoRole
-    tag: string
-    blockType?: AltoBlockType
-  }
   pageXml: {
     regionType?: PageRegionType
     textType?: PageTextType
@@ -65,11 +57,6 @@ function normalizeEditableLabel(label: LabelDefinition): EditableLabelDefinition
     description: label.description ?? '',
     group: label.group ?? null,
     mapping: {
-      altoXml: {
-        role: label.mapping.altoXml.role,
-        tag: label.mapping.altoXml.tag ?? '',
-        ...(label.mapping.altoXml.blockType ? { blockType: label.mapping.altoXml.blockType } : {})
-      },
       pageXml: {
         ...(label.mapping.pageXml.regionType ? { regionType: label.mapping.pageXml.regionType } : {}),
         ...(label.mapping.pageXml.textType ? { textType: label.mapping.pageXml.textType } : {}),
@@ -89,22 +76,18 @@ const createMapping = (name = '', scope: LabelScope = 'region'): LabelMapping =>
   if (scope === 'line') {
     if (lowerName.includes('drop')) customData = 'type:drop-capital'
     return {
-      altoXml: { role: 'TAGREFS', tag: name.replace(/\s+/g, '') || '' },
       pageXml: { customKey, customData }
     }
   }
 
   let pageRegion: PageRegionType = 'TextRegion'
   let pageText: PageTextType = 'paragraph'
-  let altoBlock: AltoBlockType = 'TextBlock'
   const customSubType = ''
 
   if (lowerName.includes('image')) {
     pageRegion = 'ImageRegion'
-    altoBlock = 'Illustration'
   } else if (lowerName.includes('table')) {
     pageRegion = 'TableRegion'
-    altoBlock = 'ComposedBlock'
   } else if (lowerName.includes('music')) {
     pageRegion = 'MusicRegion'
   } else if (lowerName.includes('header')) {
@@ -120,7 +103,6 @@ const createMapping = (name = '', scope: LabelScope = 'region'): LabelMapping =>
   }
 
   return {
-    altoXml: { blockType: altoBlock, role: 'TAGREFS', tag: name.replace(/\s+/g, '') || '' },
     pageXml: { regionType: pageRegion, textType: pageRegion === 'TextRegion' ? pageText : '', customSubType, customKey, customData }
   }
 }
@@ -377,22 +359,6 @@ export const useLabelBuilder = () => {
       }
     }
 
-    if (label.scope === 'line') return errors
-
-    const pageType = label.mapping.pageXml.regionType
-    const altoType = label.mapping.altoXml?.blockType
-    const effectiveHasText = pageType === 'TextRegion'
-    const effectiveIsContainer = altoType === 'ComposedBlock'
-
-    if (effectiveHasText) {
-      if (pageType !== 'TextRegion') errors.push({ code: 'textConflict', message: `Text Content enabled but PAGE XML type is '${pageType}'.` })
-      if (meta.altoEnabled && altoType !== 'TextBlock' && altoType !== 'ComposedBlock') errors.push({ code: 'textConflict', message: `Text Content enabled but ALTO XML type is '${altoType}'.` })
-    }
-
-    if (effectiveIsContainer && meta.altoEnabled) {
-      if (altoType !== 'ComposedBlock') errors.push({ code: 'containerConflict', message: `Container enabled but ALTO XML type is '${altoType}'.` })
-    }
-
     return errors
   }
 
@@ -435,7 +401,7 @@ export const useLabelBuilder = () => {
 
   return {
     meta, labels, activeLabel, filters, searchQuery, filteredLabels,
-    PRESET_COLORS, PAGE_REGIONS, PAGE_TEXT_TYPES, ALTO_BLOCK_TYPES,
+    PRESET_COLORS, PAGE_REGIONS, PAGE_TEXT_TYPES,
     createLabel, duplicateLabel, deleteLabel, deleteSelectedLabels, selectLabel, createMapping,
     getErrors, hasError, totalErrors, optimizeColors,
     selectedLabelIds, toggleSelection, selectLabelRange, clearSelection, selectedLabels, canGroup,

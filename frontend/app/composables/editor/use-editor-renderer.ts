@@ -89,7 +89,8 @@ export function useEditorRenderer(
   moveInteraction?: { isMoving: () => boolean, state: { isInvalid: boolean, elementId: string | null } },
   bufferPreview?: Ref<{ polygonId: string, points: Point[] } | null>,
   actionProcessingTargets?: Ref<ActionProcessingRenderTarget | null>,
-  diffHighlights?: Ref<WebGLRenderState['diffHighlights'] | undefined>
+  diffHighlights?: Ref<WebGLRenderState['diffHighlights'] | undefined>,
+  labelConflictIds?: Ref<string[]>
 ): UseEditorRendererReturn {
   const editorUiStore = useEditorUiStore()
   const { activeCursor: activeCustomCursor } = useEditorCustomCursor(computed(() => ({
@@ -137,6 +138,7 @@ export function useEditorRenderer(
     const renderState: WebGLRenderState = {
       polygons,
       polylines,
+      labelConflictIds: labelConflictIds?.value ?? [],
       hoveredPolygonIndex: polygonEditing.hoveredPolygonIndex,
       selectedPolygonIndex,
       hoveredPolylineIndex: polylineEditing.hoveredPolylineIndex,
@@ -232,6 +234,7 @@ export function useEditorRenderer(
       () => moveInteraction?.state.isInvalid,
       bufferPreview,
       actionProcessingTargets,
+      labelConflictIds,
       view,
       aspectRatioScale,
       canvasDimensions,

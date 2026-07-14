@@ -61,8 +61,7 @@ class LabelSetServiceTest {
                   "meta": {
                     "name": "PAGE XML Standard (Copy)",
                     "description": "",
-                    "tags": [],
-                    "altoEnabled": false
+                    "tags": []
                   },
                   "labels": [
                     {
@@ -75,11 +74,6 @@ class LabelSetServiceTest {
                       "isContainer": false,
                       "group": null,
                       "mapping": {
-                        "altoXml": {
-                          "role": "TAGREFS",
-                          "tag": "CustomRegion",
-                          "blockType": "ComposedBlock"
-                        },
                         "pageXml": {
                           "regionType": null,
                           "textType": null,

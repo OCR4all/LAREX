@@ -47,14 +47,17 @@ export default defineAppConfig({
         root: 'w-full'
       }
     },
+    // Select content is portaled to the document body, outside slideover and modal stacking contexts.
     select: {
       slots: {
-        base: 'w-full'
+        base: 'w-full',
+        content: 'z-[90]'
       }
     },
     selectMenu: {
       slots: {
-        base: 'w-full'
+        base: 'w-full',
+        content: 'z-[90]'
       }
     },
     textarea: {

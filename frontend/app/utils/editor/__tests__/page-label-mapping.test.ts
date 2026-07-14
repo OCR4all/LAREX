@@ -20,7 +20,6 @@ function createRegionLabel(overrides: Partial<LabelDefinition> = {}): LabelDefin
     isContainer: false,
     group: null,
     mapping: overrides.mapping ?? {
-      altoXml: { role: 'TAGREFS', tag: 'Label', blockType: 'TextBlock' },
       pageXml: {
         regionType: 'TextRegion',
         textType: 'paragraph',
@@ -51,7 +50,6 @@ describe('page-label-mapping', () => {
   it('merges label custom payload into structure block while preserving unrelated blocks', () => {
     const label = createRegionLabel({
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'Custom', blockType: 'TextBlock' },
         pageXml: {
           regionType: 'TextRegion',
           textType: 'custom',
@@ -84,7 +82,6 @@ describe('page-label-mapping', () => {
   it('builds distinct canonical signatures for custom text labels with different payload', () => {
     const a = createRegionLabel({
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'A', blockType: 'TextBlock' },
         pageXml: {
           regionType: 'TextRegion',
           textType: 'custom',
@@ -97,7 +94,6 @@ describe('page-label-mapping', () => {
     const b = createRegionLabel({
       id: 'l2',
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'B', blockType: 'TextBlock' },
         pageXml: {
           regionType: 'TextRegion',
           textType: 'custom',
@@ -116,7 +112,6 @@ describe('page-label-mapping', () => {
       id: 'generic',
       name: 'Generic Article',
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'GenericArticle', blockType: 'TextBlock' },
         pageXml: {
           regionType: 'TextRegion',
           textType: 'custom',
@@ -130,7 +125,6 @@ describe('page-label-mapping', () => {
       id: 'specific',
       name: 'Lead Article',
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'LeadArticle', blockType: 'TextBlock' },
         pageXml: {
           regionType: 'TextRegion',
           textType: 'custom',
@@ -155,7 +149,6 @@ describe('page-label-mapping', () => {
       id: 'plain-other',
       name: 'Other',
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'Other', blockType: 'TextBlock' },
         pageXml: {
           regionType: 'TextRegion',
           textType: 'other',
@@ -169,7 +162,6 @@ describe('page-label-mapping', () => {
       id: 'custom-foo',
       name: 'Foo',
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'Foo', blockType: 'TextBlock' },
         pageXml: {
           regionType: 'TextRegion',
           textType: 'custom',
@@ -200,7 +192,6 @@ describe('page-label-mapping', () => {
       id: 'custom',
       name: 'Foo',
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'Foo', blockType: 'TextBlock' },
         pageXml: {
           regionType: 'TextRegion',
           textType: 'custom',
@@ -225,7 +216,6 @@ describe('page-label-mapping', () => {
       id: 'custom',
       name: 'Foo',
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'Foo', blockType: 'TextBlock' },
         pageXml: {
           regionType: 'TextRegion',
           textType: 'custom',

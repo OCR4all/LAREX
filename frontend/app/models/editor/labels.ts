@@ -37,12 +37,6 @@ export class LabelSet {
 
 export type LabelScope = 'region' | 'line'
 
-export interface AltoXmlMapping {
-  role: 'TAGREFS' | 'STYLEREFS'
-  tag: string
-  blockType?: string | null
-}
-
 export interface PageXmlMapping {
   regionType?: string | null
   textType?: string | null
@@ -52,7 +46,6 @@ export interface PageXmlMapping {
 }
 
 export interface LabelMapping {
-  altoXml: AltoXmlMapping
   pageXml: PageXmlMapping
 }
 

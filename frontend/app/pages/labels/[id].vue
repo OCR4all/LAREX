@@ -77,11 +77,6 @@ const getString = (value: unknown, fallback = ''): string => {
 }
 
 const toEditableMapping = (mapping: LabelMapping) => ({
-  altoXml: {
-    role: mapping.altoXml.role,
-    tag: mapping.altoXml.tag ?? '',
-    ...(mapping.altoXml.blockType ? { blockType: mapping.altoXml.blockType } : {})
-  },
   pageXml: {
     ...(mapping.pageXml.regionType ? { regionType: mapping.pageXml.regionType } : {}),
     ...(mapping.pageXml.textType ? { textType: mapping.pageXml.textType } : {}),
@@ -105,9 +100,7 @@ const stripUiFields = (labelList: BuilderEntry[]): LabelSetCreateOrUpdateRequest
         ? groupNameById.get(label.group)
         : label.group
       const pageRegionType = label.mapping?.pageXml?.regionType
-      const altoBlockType = label.mapping?.altoXml?.blockType
       const normalizedHasText = label.scope === 'line' || pageRegionType === 'TextRegion'
-      const normalizedIsContainer = label.scope === 'region' && altoBlockType === 'ComposedBlock'
       return {
         id: label.id,
         scope: label.scope,
@@ -116,7 +109,7 @@ const stripUiFields = (labelList: BuilderEntry[]): LabelSetCreateOrUpdateRequest
         color: label.color,
         // TODO: Remove these persisted flags after PAGE-only label metadata is finalized.
         hasText: normalizedHasText,
-        isContainer: normalizedIsContainer,
+        isContainer: label.scope === 'region' && label.isContainer,
         group: mappedGroup || null,
         mapping: label.mapping
       }
@@ -128,8 +121,7 @@ const toStrictPayload = (): LabelSetCreateOrUpdateRequest => {
     meta: {
       name: meta.name,
       description: meta.description || '',
-      tags: meta.tags || [],
-      altoEnabled: meta.altoEnabled || false
+      tags: meta.tags || []
     },
     labels: stripUiFields(labels.value)
   }
@@ -140,7 +132,6 @@ const resetToDefaults = () => {
     name: 'My Custom Label Set',
     description: 'Optimized for historical document layout analysis',
     tags: [],
-    altoEnabled: false,
     isSystem: false
   })
   labels.value = []
@@ -517,7 +508,7 @@ const openSettings = () => {
         help-title="About Label Sets"
         help-description="Label sets define structural annotation vocabularies and their export mappings for region and line annotation workflows."
         :help-items="[
-          'Use scopes and mappings to align labels with your PAGE and ALTO export model.',
+          'Use scopes and mappings to align labels with your PAGE XML model.',
           'Keep labels visually distinct so annotators can read segmentation state quickly.',
           'Import, export, and share label sets as reusable workspace toolkit resources.'
         ]"

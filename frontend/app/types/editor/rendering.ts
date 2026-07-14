@@ -87,6 +87,8 @@ export interface ActionProcessingRenderTarget {
 export interface WebGLRenderState {
   polygons: RenderablePolygon[]
   polylines: RenderablePolyline[]
+  /** Region IDs whose PAGE mappings are absent from the active project label set. */
+  labelConflictIds?: string[]
 
   hoveredPolygonIndex: Ref<number>
   selectedPolygonIndex: Ref<number>

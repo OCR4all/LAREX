@@ -140,6 +140,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   let polygonBuffer: WebGLBuffer | null = null
   let fillProgram: WebGLProgram | null = null
   let actionProcessingProgram: WebGLProgram | null = null
+  let labelConflictProgram: WebGLProgram | null = null
+  let activeLabelConflictIds = new Set<string>()
 
   /**
    * Initialize the WebGL renderer and all subsystems
@@ -169,7 +171,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         throw new Error('Required resources not initialized')
       }
 
-      fillRenderer = new FillRenderer(gl, fillProgram, resourcePool, actionProcessingProgram)
+      fillRenderer = new FillRenderer(gl, fillProgram, resourcePool, actionProcessingProgram, labelConflictProgram)
       batchedLineRenderer = new BatchedLineRenderer(gl, lineProgram, resourcePool)
 
       if (!polygonProgram) throw new Error('Polygon program not initialized')
@@ -398,6 +400,21 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     actionProcessingProgram = shaderManager.registerProgram('action-processing-fill', actionProcessingVsSource, actionProcessingFsSource)
 
+    const labelConflictFsSource = `#version 300 es
+      precision mediump float;
+      uniform vec4 u_baseColor;
+      uniform vec4 u_stripeColor;
+      out vec4 outColor;
+
+      void main() {
+        float stripePosition = mod(gl_FragCoord.x + gl_FragCoord.y, 14.0);
+        float edge = max(fwidth(stripePosition), 0.75);
+        float stripe = 1.0 - smoothstep(3.25 - edge, 3.25 + edge, stripePosition);
+        outColor = mix(u_baseColor, u_stripeColor, stripe);
+      }`
+
+    labelConflictProgram = shaderManager.registerProgram('label-conflict-fill', fillVsSource, labelConflictFsSource)
+
     polygonVao = gl.createVertexArray()
     gl.bindVertexArray(polygonVao)
     polygonBuffer = gl.createBuffer()
@@ -501,6 +518,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       document,
       labelSet,
       showPersistentFill: editorUiStore.globalSettings.showPolygonLabelFill,
+      labelConflict: activeLabelConflictIds.has(polygon.id),
       ...options
     })
   }
@@ -730,6 +748,43 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         localFillRenderer.drawFill(polygon.points, triangleIndices, polygonStyle.persistentFill, scale, view)
       }
     })
+  }
+
+  function drawLabelConflictFills(
+    renderState: RenderState,
+    aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
+    view: View,
+    triangulatePolygon: (points: Point[]) => number[]
+  ): void {
+    if (!fillRenderer || activeLabelConflictIds.size === 0) return
+
+    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
+    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
+    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+
+    for (const polygon of renderState.polygons) {
+      if (polygon.type !== PolygonType.REGION || !activeLabelConflictIds.has(polygon.id)) continue
+      if (!visibilityService.shouldShowPolygon(polygon, {
+        selectedPolygonIndex: renderState.selectedPolygonIndex.value,
+        selectedPolylineIndex: renderState.selectedPolylineIndex.value,
+        allPolygons: renderState.polygons,
+        allPolylines: renderState.polylines,
+        viewMode: normalizeViewMode(renderState.viewMode),
+        hiddenPolygonIds: hiddenPolygonIdSet,
+        hiddenPolylineIds: hiddenPolylineIdSet,
+        temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId
+      })) continue
+
+      const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
+      fillRenderer.drawLabelConflictFill(
+        polygon.points,
+        triangleIndices,
+        scale,
+        view,
+        RENDER_COLORS.LABEL_CONFLICT_FILL,
+        RENDER_COLORS.LABEL_CONFLICT_STRIPE
+      )
+    }
   }
 
   /**
@@ -1760,6 +1815,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   ): void {
     if (!gl) return
 
+    activeLabelConflictIds = new Set(renderState.labelConflictIds ?? [])
+
     const dpr = window.devicePixelRatio || WEBGL_CORE.DEFAULT_DEVICE_PIXEL_RATIO
     const canvas = getGlCanvasElement()
     if (!canvas) return
@@ -1844,6 +1901,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     drawActionProcessingTargets(renderState, aspectRatioScale, view, triangulatePolygon)
     drawDiffPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)
     drawPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)
+    drawLabelConflictFills(renderState, aspectRatioScale, view, triangulatePolygon)
 
     drawNonSelectedPolygonOutlines(renderState, aspectRatioScale, view)
     drawMultiSelectedPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)
@@ -2015,6 +2073,9 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     imageProgram = null
     polygonProgram = null
     fillProgram = null
+    actionProcessingProgram = null
+    labelConflictProgram = null
+    activeLabelConflictIds = new Set()
   }
 
   onBeforeUnmount(() => {

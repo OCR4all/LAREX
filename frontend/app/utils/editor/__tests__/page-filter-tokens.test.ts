@@ -16,10 +16,6 @@ function label(overrides: Partial<LabelDefinition>): LabelDefinition {
     hasText: overrides.hasText ?? true,
     isContainer: overrides.isContainer ?? false,
     mapping: overrides.mapping ?? {
-      altoXml: {
-        role: 'TAGREFS',
-        tag: 'label'
-      },
       pageXml: {
         customKey: 'structure',
         regionType: 'TextRegion',
@@ -36,7 +32,6 @@ describe('page-filter-tokens', () => {
     const paragraph = createCanonicalTokenFromLabelDefinition(label({
       id: 'l-paragraph',
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'paragraph' },
         pageXml: {
           customKey: 'structure',
           regionType: 'TextRegion',
@@ -50,7 +45,6 @@ describe('page-filter-tokens', () => {
     const heading = createCanonicalTokenFromLabelDefinition(label({
       id: 'l-heading',
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'heading' },
         pageXml: {
           customKey: 'structure',
           regionType: 'TextRegion',
@@ -70,7 +64,6 @@ describe('page-filter-tokens', () => {
     const token = createCanonicalTokenFromLabelDefinition(label({
       scope: 'line',
       mapping: {
-        altoXml: { role: 'TAGREFS', tag: 'line' },
         pageXml: {
           customKey: 'structure',
           customData: 'zeta:2; alpha:1',
@@ -106,7 +99,6 @@ describe('page-filter-tokens', () => {
         id: 'text-p',
         name: 'Paragraph',
         mapping: {
-          altoXml: { role: 'TAGREFS', tag: 'paragraph' },
           pageXml: {
             customKey: 'structure',
             regionType: 'TextRegion',
@@ -120,7 +112,6 @@ describe('page-filter-tokens', () => {
         id: 'text-h',
         name: 'Heading',
         mapping: {
-          altoXml: { role: 'TAGREFS', tag: 'heading' },
           pageXml: {
             customKey: 'structure',
             regionType: 'TextRegion',
@@ -134,7 +125,6 @@ describe('page-filter-tokens', () => {
         id: 'text-h-duplicate',
         name: 'Heading duplicate',
         mapping: {
-          altoXml: { role: 'TAGREFS', tag: 'heading-dup' },
           pageXml: {
             customKey: 'structure',
             regionType: 'TextRegion',

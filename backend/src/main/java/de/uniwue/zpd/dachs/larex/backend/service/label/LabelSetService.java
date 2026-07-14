@@ -149,7 +149,7 @@ public class LabelSetService {
                     pageXml.customKey(),
                     pageXml.customData()
             );
-            LabelSetDto.Mapping normalizedMapping = new LabelSetDto.Mapping(label.mapping().altoXml(), normalizedPageXml);
+            LabelSetDto.Mapping normalizedMapping = new LabelSetDto.Mapping(normalizedPageXml);
             LabelSetDto.Label normalizedLabel = new LabelSetDto.Label(
                     label.id(),
                     label.scope(),
@@ -262,7 +262,6 @@ public class LabelSetService {
             definition.meta().name(),
             definition.meta().description(),
             tags,
-            definition.meta().altoEnabled(),
             labelSet.isSystem()
         );
 
@@ -290,7 +289,6 @@ public class LabelSetService {
             definition.meta().name(),
             definition.meta().description(),
             tags,
-            definition.meta().altoEnabled(),
             labelSet.isSystem()
         );
 

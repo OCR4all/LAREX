@@ -4,19 +4,15 @@ import type { Scale } from '@/utils/editor/webgl-utils'
 import { RENDER_COLORS, type RGBA } from '@/utils/editor/editor-constants'
 import { WEBGL_BATCH, WEBGL_BUFFER_LAYOUT, WEBGL_FILL_GEOMETRY, WEBGL_GEOMETRY } from '@/webgl/editor/webgl-constants'
 
-interface PolygonFillData {
-  polygon: Point[]
-  color: RGBA
-  triangleIndices: readonly number[]
-}
-
 export class FillRenderer {
   private gl: WebGL2RenderingContext
   private pool: ResourcePool
   private program: WebGLProgram
   private processingProgram: WebGLProgram | null
+  private conflictProgram: WebGLProgram | null
   private vao: WebGLVertexArrayObject
   private processingVao: WebGLVertexArrayObject | null = null
+  private conflictVao: WebGLVertexArrayObject | null = null
   private positionBuffer: WebGLBuffer
   private indexBuffer: WebGLBuffer
 
@@ -26,10 +22,17 @@ export class FillRenderer {
   private currentBatchSize = 0
   private maxBatchSize = WEBGL_BATCH.FILL_MAX_VERTICES // vertices
 
-  constructor(gl: WebGL2RenderingContext, program: WebGLProgram, pool: ResourcePool, processingProgram?: WebGLProgram | null) {
+  constructor(
+    gl: WebGL2RenderingContext,
+    program: WebGLProgram,
+    pool: ResourcePool,
+    processingProgram?: WebGLProgram | null,
+    conflictProgram?: WebGLProgram | null
+  ) {
     this.gl = gl
     this.program = program
     this.processingProgram = processingProgram ?? null
+    this.conflictProgram = conflictProgram ?? null
     this.pool = pool
 
     this.batchedVertices = new Float32Array(this.maxBatchSize * WEBGL_FILL_GEOMETRY.POSITION_COMPONENTS)
@@ -44,6 +47,10 @@ export class FillRenderer {
     if (this.processingProgram) {
       this.processingVao = gl.createVertexArray()!
       this.setupVAO(this.processingVao, this.processingProgram)
+    }
+    if (this.conflictProgram) {
+      this.conflictVao = gl.createVertexArray()!
+      this.setupVAO(this.conflictVao, this.conflictProgram)
     }
   }
 
@@ -163,6 +170,54 @@ export class FillRenderer {
       this.gl.DYNAMIC_DRAW
     )
 
+    this.gl.drawArrays(this.gl.TRIANGLES, 0, vertexCount)
+
+    this.gl.disable(this.gl.BLEND)
+    this.gl.bindVertexArray(null)
+  }
+
+  drawLabelConflictFill(
+    polygonPoints: Point[],
+    triangleIndices: readonly number[],
+    scale: Scale,
+    view: View,
+    baseColor: RGBA,
+    stripeColor: RGBA
+  ): void {
+    if (!this.conflictProgram || !this.conflictVao) return
+    if (triangleIndices.length < WEBGL_GEOMETRY.MIN_TRIANGLE_INDEX_COUNT) return
+
+    const vertexCount = triangleIndices.length
+    const fillVertices = this.pool.getFloat32Array('label-conflict-fill-vertices', vertexCount * 2)
+
+    for (let i = 0; i < triangleIndices.length; i++) {
+      const triangleIndex = triangleIndices[i]!
+      const vertex = polygonPoints[triangleIndex]!
+      fillVertices[i * 2] = vertex.x
+      fillVertices[i * 2 + 1] = vertex.y
+    }
+
+    this.gl.bindVertexArray(this.conflictVao)
+    this.gl.useProgram(this.conflictProgram)
+    this.gl.enable(this.gl.BLEND)
+    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA)
+
+    this.setTransformUniforms(this.conflictProgram, scale, view)
+    this.gl.uniform4f(
+      this.gl.getUniformLocation(this.conflictProgram, 'u_baseColor'),
+      baseColor[0], baseColor[1], baseColor[2], baseColor[3]
+    )
+    this.gl.uniform4f(
+      this.gl.getUniformLocation(this.conflictProgram, 'u_stripeColor'),
+      stripeColor[0], stripeColor[1], stripeColor[2], stripeColor[3]
+    )
+
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer)
+    this.gl.bufferData(
+      this.gl.ARRAY_BUFFER,
+      fillVertices.subarray(0, vertexCount * 2),
+      this.gl.DYNAMIC_DRAW
+    )
     this.gl.drawArrays(this.gl.TRIANGLES, 0, vertexCount)
 
     this.gl.disable(this.gl.BLEND)
@@ -343,6 +398,9 @@ export class FillRenderer {
     this.gl.deleteVertexArray(this.vao)
     if (this.processingVao) {
       this.gl.deleteVertexArray(this.processingVao)
+    }
+    if (this.conflictVao) {
+      this.gl.deleteVertexArray(this.conflictVao)
     }
     this.gl.deleteBuffer(this.positionBuffer)
     this.gl.deleteBuffer(this.indexBuffer)

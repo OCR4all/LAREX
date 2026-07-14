@@ -49,7 +49,7 @@ public class LabelSetDefinitionValidator {
         requireObject(root, "$", Set.of("meta", "labels"));
 
         JsonNode meta = root.get("meta");
-        requireObject(meta, "$.meta", Set.of("name", "description", "altoEnabled", "tags"));
+        requireObject(meta, "$.meta", Set.of("name", "description", "tags"));
 
         JsonNode labels = root.get("labels");
         if (labels == null || !labels.isArray()) {
@@ -72,10 +72,7 @@ public class LabelSetDefinitionValidator {
             ));
 
             JsonNode mapping = label.get("mapping");
-            requireObject(mapping, base + ".mapping", Set.of("altoXml", "pageXml"));
-
-            JsonNode altoXml = mapping.get("altoXml");
-            requireObject(altoXml, base + ".mapping.altoXml", Set.of("role", "tag", "blockType"));
+            requireObject(mapping, base + ".mapping", Set.of("pageXml"));
 
             JsonNode pageXml = mapping.get("pageXml");
             requireObject(pageXml, base + ".mapping.pageXml", Set.of(
@@ -117,7 +114,7 @@ public class LabelSetDefinitionValidator {
         }
 
         for (LabelSetDto.Label label : request.labels()) {
-            validateLabel(label, request.meta().isAltoEnabled());
+            validateLabel(label);
         }
     }
 
@@ -135,16 +132,12 @@ public class LabelSetDefinitionValidator {
         }
     }
 
-    private void validateLabel(LabelSetDto.Label label, boolean altoEnabled) {
+    private void validateLabel(LabelSetDto.Label label) {
         LabelSetDto.Mapping mapping = label.mapping();
-        LabelSetDto.AltoXml altoXml = mapping.altoXml();
         LabelSetDto.PageXml pageXml = mapping.pageXml();
 
         // Validate scope-dependent shape
         if (label.scope() == LabelSetDto.LabelScope.LINE) {
-            if (altoEnabled && altoXml.blockType() != null) {
-                throw new IllegalArgumentException("Label '" + label.name() + "' (line) must not specify altoXml.blockType");
-            }
             if (pageXml.regionType() != null) {
                 throw new IllegalArgumentException("Label '" + label.name() + "' (line) must not specify pageXml.regionType");
             }
@@ -155,9 +148,6 @@ public class LabelSetDefinitionValidator {
                 throw new IllegalArgumentException("Label '" + label.name() + "' (line) must not specify pageXml.customSubType");
             }
         } else if (label.scope() == LabelSetDto.LabelScope.REGION) {
-            if (altoEnabled && altoXml.blockType() == null) {
-                throw new IllegalArgumentException("Label '" + label.name() + "' (region) must specify altoXml.blockType");
-            }
             if (pageXml.regionType() == null) {
                 throw new IllegalArgumentException("Label '" + label.name() + "' (region) must specify pageXml.regionType");
             }
@@ -177,19 +167,9 @@ public class LabelSetDefinitionValidator {
                 }
             }
 
-            // Semantic constraints - only check ALTO-related ones when altoEnabled
             if (label.hasText()) {
                 if (pageXml.regionType() != LabelSetDto.PageRegionType.TextRegion) {
                     throw new IllegalArgumentException("Label '" + label.name() + "' hasText=true requires pageXml.regionType=TextRegion");
-                }
-                if (altoEnabled && altoXml.blockType() != LabelSetDto.AltoBlockType.TextBlock && altoXml.blockType() != LabelSetDto.AltoBlockType.ComposedBlock) {
-                    throw new IllegalArgumentException("Label '" + label.name() + "' hasText=true requires altoXml.blockType=TextBlock or ComposedBlock");
-                }
-            }
-
-            if (label.isContainer() && altoEnabled) {
-                if (altoXml.blockType() != LabelSetDto.AltoBlockType.ComposedBlock) {
-                    throw new IllegalArgumentException("Label '" + label.name() + "' isContainer=true requires altoXml.blockType=ComposedBlock");
                 }
             }
         }
@@ -197,16 +177,6 @@ public class LabelSetDefinitionValidator {
         // Always validate that textType (if present) is within allowed values.
         if (pageXml.textType() != null && !ALLOWED_TEXT_TYPES.contains(pageXml.textType())) {
             throw new IllegalArgumentException("Label '" + label.name() + "' has invalid pageXml.textType: " + pageXml.textType());
-        }
-
-        // ALTO validation only when enabled
-        if (altoEnabled) {
-            if (altoXml.role() == null) {
-                throw new IllegalArgumentException("Label '" + label.name() + "' must specify altoXml.role");
-            }
-            if (altoXml.tag() == null || altoXml.tag().isBlank()) {
-                throw new IllegalArgumentException("Label '" + label.name() + "' must specify altoXml.tag");
-            }
         }
 
         // Ensure customKey is always meaningful

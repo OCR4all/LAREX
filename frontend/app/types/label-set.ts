@@ -1,9 +1,6 @@
 import type { ResourceCapabilities } from './capabilities'
 
 export type LabelScope = 'region' | 'line'
-export type AltoRole = 'TAGREFS' | 'STYLEREFS'
-
-export type AltoBlockType = 'TextBlock' | 'Illustration' | 'GraphicalElement' | 'ComposedBlock'
 
 export type PageRegionType
   = | 'TextRegion'
@@ -47,14 +44,7 @@ export interface LabelSetMeta {
   name: string
   description?: string | null
   tags?: string[] | null
-  altoEnabled?: boolean
   isSystem?: boolean
-}
-
-export interface AltoXmlMapping {
-  role: AltoRole
-  tag: string
-  blockType?: AltoBlockType | null
 }
 
 export interface PageXmlMapping {
@@ -66,7 +56,6 @@ export interface PageXmlMapping {
 }
 
 export interface LabelMapping {
-  altoXml: AltoXmlMapping
   pageXml: PageXmlMapping
 }
 

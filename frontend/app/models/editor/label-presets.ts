@@ -33,13 +33,8 @@ function getTextSubtypeColor(index: number): string {
   return TEXT_SUBTYPE_COLORS[index % TEXT_SUBTYPE_COLORS.length] || '#4CAF50'
 }
 
-function createMapping(altoBlockType: string | null, pageRegionType: string | null, textType: string | null = null, customSubType: string | null = null): LabelMapping {
+function createMapping(pageRegionType: string | null, textType: string | null = null, customSubType: string | null = null): LabelMapping {
   return {
-    altoXml: {
-      role: 'TAGREFS' as const,
-      tag: pageRegionType || altoBlockType || '',
-      blockType: altoBlockType
-    },
     pageXml: {
       regionType: pageRegionType,
       textType: textType,
@@ -75,49 +70,49 @@ export function createPageXmlLabelSet(): LabelSet {
   }
 
   addLabel('text-region', 'Text Region', 'region', '#4CAF50', 'Pure text content region', true, 'Text',
-    createMapping('TextBlock', 'TextRegion'))
+    createMapping('TextRegion'))
 
   addLabel('image-region', 'Image Region', 'region', '#FF5722', 'Photographic or pictorial image region', false, null,
-    createMapping('Illustration', 'ImageRegion'))
+    createMapping('ImageRegion'))
 
   addLabel('line-drawing-region', 'Line Drawing Region', 'region', '#607D8B', 'Single color illustration without solid areas', false, null,
-    createMapping('GraphicalElement', 'LineDrawingRegion'))
+    createMapping('LineDrawingRegion'))
 
   addLabel('graphic-region', 'Graphic Region', 'region', '#795548', 'Simple graphic such as a company logo', false, null,
-    createMapping('GraphicalElement', 'GraphicRegion'))
+    createMapping('GraphicRegion'))
 
   addLabel('table-region', 'Table Region', 'region', '#2196F3', 'Tabular data in any form', false, null,
-    createMapping('ComposedBlock', 'TableRegion'))
+    createMapping('TableRegion'))
 
   addLabel('chart-region', 'Chart Region', 'region', '#9C27B0', 'Chart or graph region', false, null,
-    createMapping('ComposedBlock', 'ChartRegion'))
+    createMapping('ChartRegion'))
 
   addLabel('map-region', 'Map Region', 'region', '#8BC34A', 'Map or cartographic content', false, null,
-    createMapping('ComposedBlock', 'MapRegion'))
+    createMapping('MapRegion'))
 
   addLabel('separator-region', 'Separator Region', 'region', '#9E9E9E', 'Line separating columns or paragraphs', false, null,
-    createMapping('GraphicalElement', 'SeparatorRegion'))
+    createMapping('SeparatorRegion'))
 
   addLabel('maths-region', 'Maths Region', 'region', '#FF9800', 'Equations and mathematical symbols', false, null,
-    createMapping('ComposedBlock', 'MathsRegion'))
+    createMapping('MathsRegion'))
 
   addLabel('chem-region', 'Chemistry Region', 'region', '#00BCD4', 'Chemical formulas', false, null,
-    createMapping('ComposedBlock', 'ChemRegion'))
+    createMapping('ChemRegion'))
 
   addLabel('music-region', 'Music Region', 'region', '#CDDC39', 'Musical notations', false, null,
-    createMapping('ComposedBlock', 'MusicRegion'))
+    createMapping('MusicRegion'))
 
   addLabel('advert-region', 'Advertisement Region', 'region', '#E91E63', 'Advertisement content', false, null,
-    createMapping('ComposedBlock', 'AdvertRegion'))
+    createMapping('AdvertRegion'))
 
   addLabel('noise-region', 'Noise Region', 'region', '#F44336', 'Noise or artifact (scanner noise, etc.)', false, null,
-    createMapping('ComposedBlock', 'NoiseRegion'))
+    createMapping('NoiseRegion'))
 
   addLabel('unknown-region', 'Unknown Region', 'region', '#757575', 'Region of unknown type', false, null,
-    createMapping('ComposedBlock', 'UnknownRegion'))
+    createMapping('UnknownRegion'))
 
   addLabel('custom-region', 'Custom Region', 'region', '#00BFA5', 'Custom region type for content not covered by standard types', false, null,
-    createMapping('ComposedBlock', 'UnknownRegion', null, 'custom'))
+    createMapping('UnknownRegion', null, 'custom'))
 
   const textSubtypes = [
     { id: 'paragraph', name: 'Paragraph', desc: 'Body text paragraph' },
@@ -149,12 +144,12 @@ export function createPageXmlLabelSet(): LabelSet {
       subtype.desc,
       true,
       'Text',
-      createMapping('TextBlock', 'TextRegion', subtype.id)
+      createMapping('TextRegion', subtype.id)
     )
   }
 
   addLabel('text-line', 'Text Line', 'line', '#3B82F6', 'A line of text within a text region', false, null,
-    createMapping(null, null))
+    createMapping(null))
 
   return new LabelSet(
     'page-xml',
@@ -173,23 +168,23 @@ export function createSimpleDocumentLabelSet(): LabelSet {
   const labels: LabelDefinition[] = [
     new LabelDefinition(
       'text', 'Text', 'region', '#4CAF50', 'Text content', true, false, null,
-      { altoXml: { role: 'TAGREFS', tag: 'Text', blockType: 'TextBlock' }, pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
+      { pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
     ),
     new LabelDefinition(
       'image', 'Image', 'region', '#2196F3', 'Image content', false, false, null,
-      { altoXml: { role: 'TAGREFS', tag: 'Image', blockType: 'Illustration' }, pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
+      { pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
     ),
     new LabelDefinition(
       'table', 'Table', 'region', '#9C27B0', 'Table content', false, false, null,
-      { altoXml: { role: 'TAGREFS', tag: 'Table', blockType: 'ComposedBlock' }, pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
+      { pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
     ),
     new LabelDefinition(
       'title', 'Title', 'region', '#FF9800', 'Document title', true, false, null,
-      { altoXml: { role: 'TAGREFS', tag: 'Title', blockType: 'TextBlock' }, pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
+      { pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
     ),
     new LabelDefinition(
       'caption', 'Caption', 'region', '#00BCD4', 'Image or table caption', true, false, null,
-      { altoXml: { role: 'TAGREFS', tag: 'Caption', blockType: 'TextBlock' }, pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
+      { pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
     )
   ]
 
@@ -210,27 +205,27 @@ export function createNewspaperLabelSet(): LabelSet {
   const labels: LabelDefinition[] = [
     new LabelDefinition(
       'headline', 'Headline', 'region', '#F44336', 'Article headline', true, false, null,
-      { altoXml: { role: 'TAGREFS', tag: 'Headline', blockType: 'TextBlock' }, pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
+      { pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
     ),
     new LabelDefinition(
       'article', 'Article', 'region', '#4CAF50', 'Article body text', true, false, null,
-      { altoXml: { role: 'TAGREFS', tag: 'Article', blockType: 'TextBlock' }, pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
+      { pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
     ),
     new LabelDefinition(
       'photo', 'Photo', 'region', '#2196F3', 'Photograph', false, false, null,
-      { altoXml: { role: 'TAGREFS', tag: 'Photo', blockType: 'Illustration' }, pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
+      { pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
     ),
     new LabelDefinition(
       'caption', 'Caption', 'region', '#00BCD4', 'Photo caption', true, false, null,
-      { altoXml: { role: 'TAGREFS', tag: 'Caption', blockType: 'TextBlock' }, pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
+      { pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
     ),
     new LabelDefinition(
       'byline', 'Byline', 'region', '#9C27B0', 'Author byline', true, false, null,
-      { altoXml: { role: 'TAGREFS', tag: 'Byline', blockType: 'TextBlock' }, pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
+      { pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
     ),
     new LabelDefinition(
       'advertisement', 'Advertisement', 'region', '#FF9800', 'Advertisement', false, false, null,
-      { altoXml: { role: 'TAGREFS', tag: 'Advertisement', blockType: 'ComposedBlock' }, pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
+      { pageXml: { regionType: null, textType: null, customKey: 'structure', customData: '' } }
     )
   ]
 

@@ -68,6 +68,30 @@ describe('resolvePolygonRenderStyle', () => {
     expect(style.nodeColor).toEqual(RENDER_COLORS.INVALID_RED)
   })
 
+  it('renders unmatched region labels with a strong red conflict outline', () => {
+    const style = resolvePolygonRenderStyle(makePolygon(), {
+      labelConflict: true,
+      showPersistentFill: true
+    })
+
+    expect(style.strokeColor).toEqual(RENDER_COLORS.LABEL_CONFLICT_RED)
+    expect(style.strokePattern).toBe('solid')
+    expect(style.strokeWidthMultiplier).toBe(1.6)
+    expect(style.persistentFill).toBeNull()
+    expect(style.nodeColor).toEqual(RENDER_COLORS.LABEL_CONFLICT_RED)
+  })
+
+  it('does not apply region label conflict styling to textlines', () => {
+    const style = resolvePolygonRenderStyle(makePolygon({
+      id: 'line-conflict',
+      type: PolygonType.TEXTLINE
+    }), {
+      labelConflict: true
+    })
+
+    expect(style.strokeColor).toEqual(RENDER_COLORS.SELECTED_BLUE)
+  })
+
   it('drops persistent fill for textlines while keeping it for regions', () => {
     const regionStyle = resolvePolygonRenderStyle(makePolygon(), {
       showPersistentFill: true

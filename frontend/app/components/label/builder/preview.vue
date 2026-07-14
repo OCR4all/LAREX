@@ -48,13 +48,10 @@ const currentLabel = computed(() => activeLabel.value)
           <span class="text-emerald-700 dark:text-emerald-400">&lt;{{ currentLabel.mapping.pageXml.regionType }}</span>
           <span v-if="currentLabel.mapping.pageXml.textType && currentLabel.mapping.pageXml.textType !== 'custom'"> type="{{ currentLabel.mapping.pageXml.textType }}"</span>
           <span v-if="currentLabel.mapping.pageXml.textType === 'custom'"> type="other" custom="{{ buildTextRegionCustomPreview(currentLabel.mapping.pageXml) || '' }}"</span>
-          <br>
-          <span class="text-primary-700 dark:text-primary-400">&lt;{{ currentLabel.mapping.altoXml.blockType }}</span>
-          <span> {{ currentLabel.mapping.altoXml.role }}="{{ currentLabel.mapping.altoXml.tag }}"</span>&gt;
+          &gt;
         </div>
         <div v-else>
-          <span class="text-emerald-700 dark:text-emerald-400">&lt;TextLine</span> custom="{{ currentLabel.mapping.pageXml.customKey }} { {{ currentLabel.mapping.pageXml.customData }}; }"<br>
-          <span class="text-primary-600 dark:text-primary-400">&lt;TextLine</span> {{ currentLabel.mapping.altoXml.role }}="{{ currentLabel.mapping.altoXml.tag }}"&gt;
+          <span class="text-emerald-700 dark:text-emerald-400">&lt;TextLine</span> custom="{{ currentLabel.mapping.pageXml.customKey }} { {{ currentLabel.mapping.pageXml.customData }}; }"&gt;
         </div>
       </div>
       <div v-else class="text-[10px] text-neutral-500">

@@ -229,8 +229,7 @@ const handleDuplicate = async (row: LabelSetRow) => {
       meta: {
         name,
         description: source.meta?.description ?? '',
-        tags: source.meta?.tags ?? [],
-        altoEnabled: source.meta?.altoEnabled ?? false
+        tags: source.meta?.tags ?? []
       },
       labels: source.labels ?? []
     }

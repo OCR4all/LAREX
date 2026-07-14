@@ -4,15 +4,10 @@ const props = defineProps<{
 }>()
 defineEmits(['changeScope'])
 const {
-  meta, activeLabel, PRESET_COLORS, PAGE_REGIONS, PAGE_TEXT_TYPES, ALTO_BLOCK_TYPES,
+  activeLabel, PRESET_COLORS, PAGE_REGIONS, PAGE_TEXT_TYPES,
   getErrors
 } = useLabelBuilder()
 const currentLabel = computed(() => activeLabel.value)
-const autoFillTag = () => {
-  if (currentLabel.value && !currentLabel.value.mapping.altoXml.tag) {
-    currentLabel.value.mapping.altoXml.tag = currentLabel.value.name.replace(/\s+/g, '')
-  }
-}
 
 const errors = computed(() => getErrors(currentLabel.value))
 const conflicts = computed(() => {
@@ -66,7 +61,6 @@ const conflicts = computed(() => {
             variant="subtle"
             placeholder="Give the label a name"
             :disabled="props.isSystem"
-            @input="autoFillTag"
           />
         </UFormField>
         <UFormField label="Description">
@@ -134,44 +128,6 @@ const conflicts = computed(() => {
                 :disabled="props.isSystem"
               >
               <span class="pr-2 text-neutral-500 text-xs">; }</span>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="meta.altoEnabled" class="space-y-4">
-          <div class="flex items-center gap-2 border-b border-neutral-700/50 pb-2">
-            <span class="text-xs font-bold text-white bg-neutral-700 px-1.5 py-0.5 rounded">ALTO XML</span>
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div v-if="currentLabel.scope === 'region'">
-              <label class="label-title">Block Type</label>
-              <select v-model="currentLabel.mapping.altoXml.blockType" class="input-std" :disabled="props.isSystem">
-                <option v-for="type in ALTO_BLOCK_TYPES" :key="type" :value="type">
-                  {{ type }}
-                </option>
-              </select>
-            </div>
-            <div class="grid grid-cols-2 gap-2 col-span-2 md:col-span-1">
-              <div>
-                <label class="label-title">Tag Role</label>
-                <select v-model="currentLabel.mapping.altoXml.role" class="input-std text-xs" :disabled="props.isSystem">
-                  <option value="TAGREFS">
-                    Structure
-                  </option>
-                  <option value="STYLEREFS">
-                    Style
-                  </option>
-                </select>
-              </div>
-              <div>
-                <label class="label-title">Value ID</label>
-                <input
-                  v-model="currentLabel.mapping.altoXml.tag"
-                  type="text"
-                  class="input-std font-mono"
-                  :disabled="props.isSystem"
-                >
-              </div>
             </div>
           </div>
         </div>

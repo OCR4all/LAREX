@@ -75,7 +75,7 @@ class LabelSetDefinitionValidatorTest {
         );
 
         LabelSetDto.CreateOrUpdateRequest request = new LabelSetDto.CreateOrUpdateRequest(
-                new LabelSetDto.Meta("Test Label Set", "", List.of(), false, false),
+                new LabelSetDto.Meta("Test Label Set", "", List.of(), false),
                 List.of(first, second)
         );
 
@@ -104,7 +104,7 @@ class LabelSetDefinitionValidatorTest {
         );
 
         LabelSetDto.CreateOrUpdateRequest request = new LabelSetDto.CreateOrUpdateRequest(
-                new LabelSetDto.Meta("Test Label Set", "", List.of(), false, false),
+                new LabelSetDto.Meta("Test Label Set", "", List.of(), false),
                 List.of(first, second)
         );
 
@@ -124,7 +124,7 @@ class LabelSetDefinitionValidatorTest {
         );
 
         LabelSetDto.CreateOrUpdateRequest request = new LabelSetDto.CreateOrUpdateRequest(
-                new LabelSetDto.Meta("Test Label Set", "", List.of(), false, false),
+                new LabelSetDto.Meta("Test Label Set", "", List.of(), false),
                 List.of(label)
         );
 
@@ -144,7 +144,7 @@ class LabelSetDefinitionValidatorTest {
         );
 
         LabelSetDto.CreateOrUpdateRequest request = new LabelSetDto.CreateOrUpdateRequest(
-                new LabelSetDto.Meta("Test Label Set", "", List.of(), false, false),
+                new LabelSetDto.Meta("Test Label Set", "", List.of(), false),
                 List.of(label)
         );
 
@@ -158,7 +158,7 @@ class LabelSetDefinitionValidatorTest {
         LabelSetDto.Label label = createRegionLabel("label-1", "Label 1", regionType, textType, "", "structure", "");
 
         return new LabelSetDto.CreateOrUpdateRequest(
-                new LabelSetDto.Meta("Test Label Set", "", List.of(), false, false),
+                new LabelSetDto.Meta("Test Label Set", "", List.of(), false),
                 List.of(label)
         );
     }
@@ -183,11 +183,6 @@ class LabelSetDefinitionValidatorTest {
                 false,
                 null,
                 new LabelSetDto.Mapping(
-                        new LabelSetDto.AltoXml(
-                                LabelSetDto.AltoRole.TAGREFS,
-                                name.replace(" ", ""),
-                                hasText ? LabelSetDto.AltoBlockType.TextBlock : LabelSetDto.AltoBlockType.Illustration
-                        ),
                         new LabelSetDto.PageXml(regionType, textType, customSubType, customKey, customData)
                 )
         );

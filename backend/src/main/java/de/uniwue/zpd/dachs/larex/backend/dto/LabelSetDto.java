@@ -26,14 +26,8 @@ public class LabelSetDto {
                         @Size(max = 100, message = "Cannot have more than 100 tags")
                         List<String> tags,
 
-                        Boolean altoEnabled,
-
                         Boolean isSystem
         ) {
-                public boolean isAltoEnabled() {
-                        return altoEnabled != null && altoEnabled;
-                }
-
                 public boolean getIsSystem() {
                         return isSystem != null && isSystem;
                 }
@@ -68,18 +62,6 @@ public class LabelSetDto {
                 }
         }
 
-        public enum AltoRole {
-                TAGREFS,
-                STYLEREFS
-        }
-
-        public enum AltoBlockType {
-                TextBlock,
-                Illustration,
-                GraphicalElement,
-                ComposedBlock
-        }
-
         public enum PageRegionType {
                 TextRegion,
                 ImageRegion,
@@ -98,15 +80,6 @@ public class LabelSetDto {
         }
 
         @JsonIgnoreProperties(ignoreUnknown = false)
-        public record AltoXml(
-                        AltoRole role,
-
-                        String tag,
-
-                        AltoBlockType blockType
-        ) {}
-
-        @JsonIgnoreProperties(ignoreUnknown = false)
         public record PageXml(
                         PageRegionType regionType,
 
@@ -122,10 +95,6 @@ public class LabelSetDto {
 
         @JsonIgnoreProperties(ignoreUnknown = false)
         public record Mapping(
-                        @NotNull(message = "Mapping.altoXml is required")
-                        @Valid
-                        AltoXml altoXml,
-
                         @NotNull(message = "Mapping.pageXml is required")
                         @Valid
                         PageXml pageXml
