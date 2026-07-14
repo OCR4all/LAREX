@@ -17,6 +17,7 @@ const priorityColor = computed(() => {
     case 'MEDIUM': return 'info'
     case 'HIGH': return 'warning'
     case 'URGENT': return 'error'
+    default: return 'neutral'
   }
 })
 

@@ -157,7 +157,7 @@ async function unlinkAllPagesFromProject(projectId: string) {
           item: 'border border-default rounded-sm mb-2 last:mb-0 overflow-hidden'
         }"
       >
-        <template #leading="{ item }">
+        <template #leading>
           <div class="flex items-center gap-2">
             <UIcon name="i-lucide-folder" class="size-4 text-muted" />
           </div>

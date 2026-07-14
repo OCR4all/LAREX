@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
@@ -100,6 +99,9 @@ function createFetchMock(options: {
     const workspaceByIdMatch = url.match(/^\/api\/workspaces\/([^/]+)$/)
     if (workspaceByIdMatch) {
       const workspaceId = workspaceByIdMatch[1]
+      if (!workspaceId) {
+        throw new Error(`Invalid workspace URL: ${url}`)
+      }
       const workspace = workspaceById[workspaceId]
       if (!workspace) {
         throw new Error(`Workspace not found: ${workspaceId}`)

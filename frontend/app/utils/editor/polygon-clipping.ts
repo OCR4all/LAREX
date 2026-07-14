@@ -13,7 +13,6 @@ type MartinezPosition = [number, number]
 type MartinezRing = MartinezPosition[]
 type MartinezPolygon = MartinezRing[]
 type MartinezMultiPolygon = MartinezPolygon[]
-type MartinezGeometry = MartinezPolygon | MartinezMultiPolygon
 
 /**
  * Point representation
@@ -731,62 +730,6 @@ function findLargestPolygonIndex(polygons: Polygon[]): number {
  */
 function filterSmallPolygons(polygons: Polygon[], minArea: number = 0.0001): Polygon[] {
   return polygons.filter(p => p && calculatePolygonArea(p) >= minArea)
-}
-
-/**
- * Create a cutting polygon from a line by extending it and creating a thin rectangle.
- * This is used for line-based cutting where we need to convert the line to a shape
- * that can be used with boolean operations.
- *
- * @param linePoints - Points defining the cut line (at least 2 points)
- * @param thickness - Thickness of the cutting shape (default: very thin)
- * @returns A polygon representing the cutting line
- */
-function createCuttingPolygonFromLine(linePoints: Point[], thickness: number = 0.0001): Polygon {
-  if (linePoints.length < 2) return []
-
-  const extendedPoints: Point[] = []
-  const offsetPoints: Point[] = []
-
-  for (let i = 0; i < linePoints.length; i++) {
-    const current = linePoints[i]
-    if (!current) continue
-
-    let normal = { x: 0, y: 1 } // Default normal
-
-    if (i < linePoints.length - 1) {
-      const next = linePoints[i + 1]
-      if (next) {
-        const dx = next.x - current.x
-        const dy = next.y - current.y
-        const len = Math.sqrt(dx * dx + dy * dy)
-        if (len > 1e-10) {
-          normal = { x: -dy / len, y: dx / len }
-        }
-      }
-    } else if (i > 0) {
-      const prev = linePoints[i - 1]
-      if (prev) {
-        const dx = current.x - prev.x
-        const dy = current.y - prev.y
-        const len = Math.sqrt(dx * dx + dy * dy)
-        if (len > 1e-10) {
-          normal = { x: -dy / len, y: dx / len }
-        }
-      }
-    }
-
-    extendedPoints.push({
-      x: current.x + normal.x * thickness,
-      y: current.y + normal.y * thickness
-    })
-    offsetPoints.push({
-      x: current.x - normal.x * thickness,
-      y: current.y - normal.y * thickness
-    })
-  }
-
-  return [...extendedPoints, ...offsetPoints.reverse()]
 }
 
 /**

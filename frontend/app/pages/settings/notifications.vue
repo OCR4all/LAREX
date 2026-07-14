@@ -3,7 +3,6 @@ import type { NotificationType } from '~/types'
 
 const toast = useToast()
 const {
-  preferences,
   types,
   isLoading,
   isSaving,

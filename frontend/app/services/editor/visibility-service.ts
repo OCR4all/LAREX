@@ -15,8 +15,7 @@ export interface Polygon extends BaseElement {
   type?: string
 }
 
-export interface Polyline extends BaseElement {
-}
+export type Polyline = BaseElement
 
 export interface VisibilityContext {
   selectedPolygonIndex: number

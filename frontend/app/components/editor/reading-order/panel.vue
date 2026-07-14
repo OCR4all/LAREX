@@ -4,8 +4,6 @@ import type {
   ReadingOrder,
   ReadingOrderNode,
   ReadingOrderGroup,
-  OrderedGroup,
-  UnorderedGroup,
   RegionRef
 } from '@/models/editor'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
@@ -66,14 +64,6 @@ onMounted(() => {
 
 function isGroup(node: ReadingOrderNode): node is ReadingOrderGroup {
   return 'elements' in node && Array.isArray((node as ReadingOrderGroup).elements)
-}
-
-function isOrderedGroup(node: ReadingOrderNode): node is OrderedGroup {
-  return isGroup(node) && (node.kind === 'OrderedGroup' || node.kind === 'OrderedGroupIndexed')
-}
-
-function isUnorderedGroup(node: ReadingOrderNode): node is UnorderedGroup {
-  return isGroup(node) && (node.kind === 'UnorderedGroup' || node.kind === 'UnorderedGroupIndexed')
 }
 
 function isRegionRef(node: ReadingOrderNode): node is RegionRef {
@@ -191,29 +181,6 @@ function toggleGroupExpanded(groupId: string): void {
   } else {
     expandedGroups.value.add(groupId)
   }
-}
-
-function emitUpdate(): void {
-  if (props.readOnly) return
-  const seen = new Set<string>()
-  const cloned = deepClone(props.modelValue)
-
-  function dedupe(elements: ReadingOrderNode[]): ReadingOrderNode[] {
-    const result: ReadingOrderNode[] = []
-    for (const node of elements) {
-      if (seen.has(node.id)) continue
-      seen.add(node.id)
-
-      if (isGroup(node)) {
-        node.elements = dedupe(node.elements)
-      }
-      result.push(node)
-    }
-    return result
-  }
-
-  cloned.root.elements = dedupe(cloned.root.elements)
-  emit('update:modelValue', cloned)
 }
 
 function handleRootElementsUpdate(newElements: ReadingOrderNode[]): void {

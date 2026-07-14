@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, reactive, ref } from 'vue'
+import { ref } from 'vue'
 import type { SelectionFocusOptions } from '@/types/editor/canvas-controls'
 
 const editorStoreMock = vi.hoisted(() => ({
@@ -24,6 +24,12 @@ vi.mock('@/stores/editor/editor.ui.store', () => ({
   })
 }))
 
+vi.mock('@/stores/action-runs.store', () => ({
+  useActionRunsStore: () => ({
+    getPageActionLockReason: () => null
+  })
+}))
+
 vi.mock('@/composables/editor/use-editor-collaboration', () => ({
   useEditorCollaboration: () => ({
     canEditCanvas: () => true
@@ -31,15 +37,6 @@ vi.mock('@/composables/editor/use-editor-collaboration', () => ({
 }))
 
 async function loadUseCanvasControl() {
-  const globalScope = globalThis as typeof globalThis & {
-    computed: typeof computed
-    reactive: typeof reactive
-    ref: typeof ref
-  }
-  globalScope.computed = computed
-  globalScope.reactive = reactive
-  globalScope.ref = ref
-
   const module = await import('../use-canvas-control')
   return module.useCanvasControl
 }

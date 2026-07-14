@@ -894,11 +894,6 @@ export const useEditorStore = defineStore('editor', () => {
     return normalizeAnnotationContext(page?.annotationContext, projectId, pageId)
   }
 
-  function getAnnotationContextForPage(projectId: string, pageId: string): AnnotationApiContext {
-    const page = documentStore.getPage(pageId, projectId)
-    return normalizeAnnotationContext(page?.annotationContext, projectId, pageId)
-  }
-
   function buildAnnotationCacheKey(projectId: string, pageId: string, context: AnnotationApiContext, xmlId: string): string {
     return `${projectId}:${pageId}:${context.basePath}:${xmlId}`
   }

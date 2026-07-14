@@ -1,4 +1,4 @@
-/* eslint-disable import/newline-after-import, @typescript-eslint/no-explicit-any */
+/* eslint-disable import/newline-after-import */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, readonly, ref, watch } from 'vue'
 

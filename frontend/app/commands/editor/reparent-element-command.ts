@@ -1,6 +1,6 @@
 import type { Command, CommandContext } from './types'
-import { PcGts, TextLine } from '@/models/editor'
-import type { Region, TextRegion } from '@/models/editor'
+import { PcGts } from '@/models/editor'
+import type { TextRegion } from '@/models/editor'
 import { isTextRegion, canContainTextLines } from '@/models/editor/region'
 import { visibilityService } from '@/services/editor/visibility-service'
 import { findRegionRecursive, findTextLineRecursive, rebuildSpatialIndexFromPcGts } from '@/utils/editor/pcgts-editor-primitives'

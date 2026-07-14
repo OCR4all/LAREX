@@ -31,7 +31,6 @@ const props = withDefaults(defineProps<{
 })
 
 // Dynamic table slots preserve their row types at each AppTable call site.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 defineSlots<Record<string, (props?: any) => any>>()
 
 const attrs = useAttrs()

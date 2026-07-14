@@ -99,10 +99,13 @@ const matchColor = computed(() => {
           <span v-if="showProjectName" class="text-sm text-muted truncate">{{ hit.projectName }}</span>
         </div>
 
+        <!-- SearchService escapes source text before adding the supported <mark> tags. -->
+        <!-- eslint-disable vue/no-v-html -->
         <div
           :class="compact ? 'text-sm leading-5.5 text-toned break-words font-junicode' : 'text-sm leading-6 text-toned break-words font-junicode'"
           v-html="hit.snippetHtml"
         />
+        <!-- eslint-enable vue/no-v-html -->
 
         <div class="flex flex-wrap gap-2">
           <UButton

@@ -329,7 +329,9 @@ export function usePolylineEditing(
 
     resetDraggingState()
     justFinishedDragging.value = true
-    setTimeout(() => { justFinishedDragging.value = false }, TIMING.DRAG_COMPLETION_DELAY)
+    setTimeout(() => {
+      justFinishedDragging.value = false
+    }, TIMING.DRAG_COMPLETION_DELAY)
   }
 
   /**

@@ -4,9 +4,6 @@ import type { Polygon, Polyline } from '@/services/editor/visibility-service'
 import type { SpatialIndexService } from '@/services/editor/spatial-index-service'
 import type { Point, View } from '@/models/editor'
 import type { ViewMode } from '@/types/editor/rendering'
-import { createScopedLogger } from '@/services/editor/logger-service'
-
-const log = createScopedLogger('HitDetection')
 
 const SNAP_DISTANCE = 0.015
 

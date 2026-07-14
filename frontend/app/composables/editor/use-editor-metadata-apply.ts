@@ -1,4 +1,4 @@
-import { computed, triggerRef, type ComputedRef } from 'vue'
+import { triggerRef, type ComputedRef } from 'vue'
 import { baselineIdForTextLineId } from '@/utils/editor/pcgts-editor-primitives'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { Polygon } from '@/models/editor'

@@ -5,7 +5,7 @@ type MaybeRefOrGetter<T> = T | Ref<T> | ComputedRef<T> | (() => T)
 type IndexStatusPollingOptions = {
   ids: MaybeRefOrGetter<string[]>
   hasPending: (id: string) => boolean
-  poll: (id: string) => Promise<boolean | void>
+  poll: (id: string) => Promise<boolean | undefined>
   intervalMs?: number
   enabled?: MaybeRefOrGetter<boolean>
   signature?: MaybeRefOrGetter<string>

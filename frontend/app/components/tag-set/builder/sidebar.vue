@@ -8,8 +8,6 @@ const emit = defineEmits<{
 
 const {
   tags,
-  activeTag,
-  expandedIds,
   searchQuery,
   filteredTags,
   createTag,

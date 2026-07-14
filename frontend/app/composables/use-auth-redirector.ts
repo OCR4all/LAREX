@@ -21,6 +21,7 @@ export const useAuthRedirector = () => {
       const workspaceStore = useWorkspaceStore()
       workspaceStore.clearState()
     } catch {
+      // The workspace store may not be initialized when the authentication failure occurs.
     }
 
     const isInitialized = useState<boolean>('app.isInitialized')

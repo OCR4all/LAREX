@@ -1,4 +1,3 @@
-import type { PageData } from '@/stores/editor/types'
 import type { PageDto } from '@/services/editor/page-conversion.service'
 
 interface PrefetchState {

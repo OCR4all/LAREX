@@ -26,7 +26,7 @@ export const useNotificationPreferences = () => {
     desktopPermission: 'default'
   }))
 
-  const { isSupported, show: showWebNotification, permissionGranted } = useWebNotification({
+  const { isSupported, permissionGranted } = useWebNotification({
     title: '',
     body: '',
     icon: '/favicon.ico'

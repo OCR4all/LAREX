@@ -28,8 +28,6 @@ import {
   createGenericRegionMetadataFormState,
   createTextLineMetadataFormState,
   createBaselineMetadataFormState,
-  createEmptyTextStyleFormState,
-  createEmptyTableCellRoleFormState,
   type DocumentMetadataFormState,
   type PageMetadataFormState,
   type TextRegionMetadataFormState,

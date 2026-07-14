@@ -42,6 +42,7 @@ export default defineEventHandler(async (event) => {
   try {
     body = await readBody(event)
   } catch {
+    // The backend accepts an empty body for this operation.
   }
 
   const backendUrl = `${config.apiBaseInternal}/projects/${projectId}/pages/${pageId}`

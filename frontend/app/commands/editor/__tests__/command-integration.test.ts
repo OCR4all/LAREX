@@ -9,7 +9,6 @@ import {
   createTestContext,
   createTestDocument,
   createTestTextRegion,
-  countTotalRegions,
   findRegionById
 } from './test-utils'
 import { computed, ref } from 'vue'

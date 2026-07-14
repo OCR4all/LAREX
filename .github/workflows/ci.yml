@@ -92,13 +92,17 @@ jobs:
         working-directory: frontend
         run: pnpm install
 
-      #- name: Run linting
-      #  working-directory: frontend
-      #  run: pnpm lint
+      - name: Run linting
+        working-directory: frontend
+        run: pnpm lint
 
-      #- name: Run type checking
-      #  working-directory: frontend
-      #  run: pnpm typecheck
+      - name: Run type checking
+        working-directory: frontend
+        run: pnpm typecheck
+
+      - name: Run tests
+        working-directory: frontend
+        run: pnpm test
 
       - name: Build
         working-directory: frontend

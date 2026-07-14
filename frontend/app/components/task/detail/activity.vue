@@ -30,18 +30,18 @@ const clusteredActivity = computed<ActivityGroup[]>(() => {
   for (const log of props.activity) {
     const lastGroup = groups[groups.length - 1]
     const lastLog = lastGroup?.logs[lastGroup.logs.length - 1]
-    const shouldCluster =
-      lastGroup &&
-      lastLog &&
-      clusterableTypes.has(log.activityType) &&
-      lastGroup.activityType === log.activityType &&
-      lastGroup.userId === log.userId &&
-      Math.abs(
-        differenceInMinutes(
-          parseISO(lastLog.created),
-          parseISO(log.created)
-        )
-      ) <= 10
+    const shouldCluster
+      = lastGroup
+        && lastLog
+        && clusterableTypes.has(log.activityType)
+        && lastGroup.activityType === log.activityType
+        && lastGroup.userId === log.userId
+        && Math.abs(
+          differenceInMinutes(
+            parseISO(lastLog.created),
+            parseISO(log.created)
+          )
+        ) <= 10
 
     if (shouldCluster) {
       lastGroup.count += 1
@@ -111,18 +111,18 @@ function getActivityIcon(type: TaskActivityType): string {
   }
 }
 
+function parseJson<T>(value?: string | null): T | null {
+  if (!value) return null
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return null
+  }
+}
+
 function getActivityDescription(log: TaskActivityLog): string {
   const name = getDisplayName(log)
   const details = log.details
-
-  const parseJson = <T>(value?: string | null): T | null => {
-    if (!value) return null
-    try {
-      return JSON.parse(value) as T
-    } catch {
-      return null
-    }
-  }
 
   switch (log.activityType) {
     case 'CREATED':
@@ -143,15 +143,15 @@ function getActivityDescription(log: TaskActivityLog): string {
       }
       return `${name} changed due date`
     case 'ASSIGNEES_CHANGED':
-      {
-        const parsed = parseJson<{ added?: string[]; removed?: string[] }>(details)
-        const addedCount = parsed?.added?.length ?? 0
-        const removedCount = parsed?.removed?.length ?? 0
-        if (addedCount || removedCount) {
-          return `${name} updated assignees (${addedCount} added, ${removedCount} removed)`
-        }
-        return `${name} updated assignees`
+    {
+      const parsed = parseJson<{ added?: string[], removed?: string[] }>(details)
+      const addedCount = parsed?.added?.length ?? 0
+      const removedCount = parsed?.removed?.length ?? 0
+      if (addedCount || removedCount) {
+        return `${name} updated assignees (${addedCount} added, ${removedCount} removed)`
       }
+      return `${name} updated assignees`
+    }
     case 'COMMENT_ADDED':
       return `${name} added a comment`
     case 'COMMENT_UPDATED':
@@ -165,21 +165,21 @@ function getActivityDescription(log: TaskActivityLog): string {
     case 'SUBTASK_DELETED':
       return details ? `${name} deleted “${details}”` : `${name} deleted a subtask`
     case 'LINK_ADDED':
-      {
-        const parsed = parseJson<{ type?: string; id?: string }>(details)
-        if (parsed?.type) {
-          return `${name} linked ${parsed.type}`
-        }
-        return `${name} linked to a page/project`
+    {
+      const parsed = parseJson<{ type?: string, id?: string }>(details)
+      if (parsed?.type) {
+        return `${name} linked ${parsed.type}`
       }
+      return `${name} linked to a page/project`
+    }
     case 'LINK_REMOVED':
-      {
-        const parsed = parseJson<{ type?: string; id?: string }>(details)
-        if (parsed?.type) {
-          return `${name} removed ${parsed.type}`
-        }
-        return `${name} removed a link`
+    {
+      const parsed = parseJson<{ type?: string, id?: string }>(details)
+      if (parsed?.type) {
+        return `${name} removed ${parsed.type}`
       }
+      return `${name} removed a link`
+    }
     default:
       return `${name} made a change`
   }
@@ -222,15 +222,21 @@ function getGroupedDescription(group: ActivityGroup): string {
           <UIcon :name="getActivityIcon(group.activityType)" class="size-4 text-muted" />
         </div>
         <div class="flex-1 min-w-0 pt-1">
-          <p class="text-sm">{{ getGroupedDescription(group) }}</p>
-          <p class="text-xs text-muted mt-0.5">{{ formatTime(group.created) }}</p>
+          <p class="text-sm">
+            {{ getGroupedDescription(group) }}
+          </p>
+          <p class="text-xs text-muted mt-0.5">
+            {{ formatTime(group.created) }}
+          </p>
         </div>
       </div>
     </div>
 
     <div v-else class="text-center py-8 text-muted">
       <UIcon name="i-lucide-activity" class="size-8 mb-2 mx-auto opacity-50" />
-      <p class="text-sm">No activity yet</p>
+      <p class="text-sm">
+        No activity yet
+      </p>
     </div>
   </div>
 </template>

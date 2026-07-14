@@ -132,7 +132,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   async function dismissRun(run: TrackedActionRun) {
     try {
       if (isTerminalStatus(run.status)) {
-        await $fetch<void>(
+        await $fetch<unknown>(
           `/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/runs/${run.id}/dismiss`,
           { method: 'POST' }
         )

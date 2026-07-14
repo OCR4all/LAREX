@@ -180,6 +180,7 @@ export function parseCustomLabels(custom?: string): CustomLabelData {
       }
     }
   } catch {
+    // Preserve malformed custom data as raw PAGE XML metadata.
   }
 
   return { rawCustom: custom }

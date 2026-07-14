@@ -38,11 +38,6 @@ const confidenceRangeModel = computed<[number, number]>({
     confidenceRange.value = min <= max ? [min, max] : [max, min]
   }
 })
-
-const hasConfidenceFilter = computed(() => {
-  const [min, max] = normalizedConfidenceRange.value
-  return min > 0 || max < 1
-})
 </script>
 
 <template>

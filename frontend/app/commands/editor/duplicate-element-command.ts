@@ -1,8 +1,7 @@
 import type { Command, CommandContext } from './types'
 import { PcGts, TextLine, isTextRegion } from '@/models/editor'
-import type { Point, Region, TextRegion } from '@/models/editor'
+import type { Point, Region } from '@/models/editor'
 import { Polygon, Polyline } from '@/models/editor/geometry'
-import { toPlainPoints } from './utils'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
   findRegionRecursive,

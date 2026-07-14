@@ -327,7 +327,6 @@ export function useReadingOrderVisualization(
         merged.maxY += padding
 
         const isOrdered = isOrderedGroup(node)
-        const group = node as ReadingOrderGroup
         bounds.push({
           points: bboxToPoints(merged),
           color: isOrdered ? ORDERED_GROUP_COLOR : UNORDERED_GROUP_COLOR,

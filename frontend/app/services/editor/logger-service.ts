@@ -42,6 +42,7 @@ function isProduction(): boolean {
       const config = useRuntimeConfig()
       return config.public?.env === 'production' || import.meta.env?.PROD === true
     } catch {
+      // Runtime config is unavailable when this utility runs outside a Nuxt context.
     }
   }
   if (typeof import.meta !== 'undefined' && import.meta.env?.PROD) {

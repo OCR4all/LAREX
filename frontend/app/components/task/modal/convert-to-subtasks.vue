@@ -97,7 +97,7 @@ async function convertToSubtasks() {
           }
         })
         successCount++
-      } catch (err) {
+      } catch {
         failCount++
       }
     }
