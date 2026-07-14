@@ -10,7 +10,26 @@ export default defineAppConfig({
     },
     slideover: {
       slots: {
+        overlay: 'z-[60]',
+        content: 'z-[60]',
         footer: 'justify-end'
+      }
+    },
+    modal: {
+      slots: {
+        overlay: 'z-[70]',
+        content: 'z-[70]'
+      }
+    },
+    dashboardSearch: {
+      slots: {
+        modal: 'z-[80]'
+      }
+    },
+    table: {
+      slots: {
+        td: 'text-default [&_.text-dimmed]:text-default [&_.text-muted]:text-default [&_.text-toned]:text-default',
+        empty: 'text-default'
       }
     },
     formField: {

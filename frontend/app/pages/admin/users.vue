@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import * as z from 'zod'
-import type { FormSubmitEvent, TableColumn } from '@nuxt/ui'
+import type { DropdownMenuItem, FormSubmitEvent, TableColumn } from '@nuxt/ui'
 import { LazyUiConfirmSlideover } from '#components'
 import type {
   AdminGlobalRoles,
@@ -23,6 +23,7 @@ const { user: sessionUser } = useUserSession()
 const UAvatar = resolveComponent('UAvatar')
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
+const UDropdownMenu = resolveComponent('UDropdownMenu')
 
 const currentUserId = computed(() => sessionUser.value?.id || '')
 
@@ -181,7 +182,6 @@ watch(totalPages, (newTotalPages) => {
 })
 
 type UserRowAction = {
-  key: string
   label: string
   icon: string
   color: 'neutral' | 'primary' | 'error'
@@ -192,9 +192,8 @@ type UserRowAction = {
 function getRowActions(user: AdminUser): UserRowAction[] {
   const actions: UserRowAction[] = [
     {
-      key: `details-${user.id}`,
       label: 'Details',
-      icon: 'i-lucide-info',
+      icon: 'i-lucide-eye',
       color: 'neutral',
       onSelect: () => openUserDetails(user.id)
     }
@@ -202,9 +201,8 @@ function getRowActions(user: AdminUser): UserRowAction[] {
 
   if (canResendSetup(user)) {
     actions.push({
-      key: `resend-${user.id}`,
       label: 'Resend Setup',
-      icon: 'i-lucide-send',
+      icon: 'i-lucide-mail',
       color: 'primary',
       loading: isActionPending(user.id, 'resend'),
       onSelect: () => resendSetupEmail(user)
@@ -213,9 +211,8 @@ function getRowActions(user: AdminUser): UserRowAction[] {
 
   if (canEnable(user)) {
     actions.push({
-      key: `enable-${user.id}`,
       label: 'Enable',
-      icon: 'i-lucide-check-circle',
+      icon: 'i-lucide-user-check',
       color: 'primary',
       loading: isActionPending(user.id, 'enable'),
       onSelect: () => enableUser(user)
@@ -224,9 +221,8 @@ function getRowActions(user: AdminUser): UserRowAction[] {
 
   if (canDisable(user)) {
     actions.push({
-      key: `disable-${user.id}`,
       label: 'Disable',
-      icon: 'i-lucide-ban',
+      icon: 'i-lucide-user-x',
       color: 'error',
       loading: isActionPending(user.id, 'disable'),
       onSelect: () => disableUser(user)
@@ -234,6 +230,26 @@ function getRowActions(user: AdminUser): UserRowAction[] {
   }
 
   return actions
+}
+
+function toDropdownMenuItem(action: UserRowAction): DropdownMenuItem {
+  return {
+    label: action.label,
+    icon: action.icon,
+    color: action.color,
+    disabled: action.loading,
+    onSelect: action.onSelect
+  }
+}
+
+function getRowActionMenuItems(user: AdminUser): DropdownMenuItem[][] {
+  const actions = getRowActions(user)
+  const regularActions = actions.filter(action => action.color !== 'error').map(toDropdownMenuItem)
+  const destructiveActions = actions.filter(action => action.color === 'error').map(toDropdownMenuItem)
+
+  return destructiveActions.length > 0
+    ? [regularActions, destructiveActions]
+    : [regularActions]
 }
 
 const columns = computed<TableColumn<AdminUser>[]>(() => [
@@ -248,14 +264,7 @@ const columns = computed<TableColumn<AdminUser>[]>(() => [
       }),
       h('div', { class: 'min-w-0' }, [
         h('div', { class: 'font-medium truncate' }, displayName(row.original)),
-        h('div', { class: 'flex flex-wrap items-center gap-2 text-sm text-muted' }, [
-          h('span', { class: 'truncate' }, row.original.email || row.original.username),
-          h(UBadge, {
-            color: identitySourceColor(row.original.identitySource),
-            variant: 'subtle',
-            size: 'sm'
-          }, () => identitySourceLabel(row.original.identitySource))
-        ])
+        h('div', { class: 'truncate text-sm text-muted' }, row.original.email || row.original.username)
       ])
     ])
   },
@@ -264,11 +273,21 @@ const columns = computed<TableColumn<AdminUser>[]>(() => [
     header: 'Username'
   },
   {
+    accessorKey: 'identitySource',
+    header: 'Type',
+    cell: ({ row }) => h(UBadge, {
+      color: identitySourceColor(row.original.identitySource),
+      variant: 'subtle',
+      size: 'md'
+    }, () => identitySourceLabel(row.original.identitySource))
+  },
+  {
     accessorKey: 'onboardingState',
     header: 'Status',
     cell: ({ row }) => h(UBadge, {
       color: statusColor(row.original.onboardingState),
-      variant: 'soft'
+      variant: 'soft',
+      size: 'md'
     }, () => statusLabel(row.original.onboardingState))
   },
   {
@@ -281,17 +300,24 @@ const columns = computed<TableColumn<AdminUser>[]>(() => [
     header: () => h('div', { class: 'text-right' }, 'Actions'),
     cell: ({ row }) => {
       const user = row.original
-      const actions = getRowActions(user).map(action => h(UButton, {
-        key: action.key,
-        size: 'xs',
-        variant: 'ghost',
-        color: action.color,
-        label: action.label,
-        loading: action.loading,
-        onClick: action.onSelect
-      }))
+      const isLoading = getRowActions(user).some(action => action.loading)
 
-      return h('div', { class: 'flex flex-wrap justify-end gap-2' }, actions)
+      return h('div', { class: 'flex justify-end' }, [
+        h(UDropdownMenu, {
+          items: getRowActionMenuItems(user),
+          content: { align: 'end' }
+        }, () => h(UButton, {
+          'icon': 'i-lucide-ellipsis-vertical',
+          'color': 'neutral',
+          'variant': 'ghost',
+          'size': 'sm',
+          'square': true,
+          'loading': isLoading,
+          'disabled': isLoading,
+          'aria-label': `Actions for ${displayName(user)}`,
+          'onClick': (event: Event) => event.stopPropagation()
+        }))
+      ])
     }
   }
 ])
@@ -299,13 +325,7 @@ const columns = computed<TableColumn<AdminUser>[]>(() => [
 const contextMenuUser = ref<AdminUser | null>(null)
 const contextMenuItems = computed(() => {
   if (!contextMenuUser.value) return []
-  return [getRowActions(contextMenuUser.value).map(action => ({
-    label: action.label,
-    icon: action.icon,
-    color: action.color,
-    disabled: action.loading,
-    onSelect: action.onSelect
-  }))]
+  return getRowActionMenuItems(contextMenuUser.value)
 })
 
 function handleRowContextMenu(_event: Event, row: { original: AdminUser }) {
@@ -354,10 +374,10 @@ function identitySourceLabel(source: AdminUserIdentitySource): string {
   }
 }
 
-function identitySourceColor(source: AdminUserIdentitySource): 'success' | 'info' | 'neutral' {
+function identitySourceColor(source: AdminUserIdentitySource): 'info' | 'neutral' {
   switch (source) {
     case 'LOCAL':
-      return 'success'
+      return 'neutral'
     case 'LDAP':
       return 'info'
     case 'SERVICE_ACCOUNT':

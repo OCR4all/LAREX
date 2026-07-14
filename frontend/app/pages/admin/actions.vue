@@ -1818,81 +1818,93 @@ function lineColumnToOffset(source: string, line: number, column: number) {
       <UiSlideoverHeader
         title="Endpoint Secret"
         icon="i-lucide-key-round"
+        description="Generate and securely copy processor endpoint credentials."
       />
     </template>
 
     <template #body>
-      <div class="mx-auto flex w-full max-w-lg flex-col gap-4">
-        <section
+      <div class="mx-auto w-full max-w-lg">
+        <UiSlideoverSection
           v-if="recentEndpointSecretReveal"
-          class="space-y-4 rounded-sm border border-success/40 bg-success/10 p-4"
+          title="Secret Generated"
+          description="Store this value now. It cannot be shown again."
+          icon="i-lucide-key-round"
         >
-          <UAlert
-            color="success"
-            variant="soft"
-            icon="i-lucide-key-round"
-            title="Copy this secret now"
-            description="The raw endpoint secret is shown only once after creation or rotation."
-          />
-          <UFormField :label="`Secret for ${recentEndpointSecretReveal.secret.ref}`">
-            <UInput :model-value="recentEndpointSecretReveal.plaintext" readonly />
-          </UFormField>
-          <div class="flex flex-wrap gap-2">
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-copy"
-              @click="copyEndpointSecret"
-            >
-              Copy Secret
-            </UButton>
-            <UButton
-              color="neutral"
-              variant="ghost"
-              icon="i-lucide-plus"
-              @click="prepareAnotherEndpointSecret"
-            >
-              Generate Another
-            </UButton>
+          <div class="space-y-4">
+            <UAlert
+              color="success"
+              variant="soft"
+              icon="i-lucide-shield-check"
+              title="Copy this secret now"
+              description="The raw endpoint secret is shown only once after creation or rotation."
+            />
+            <UFormField :label="`Secret for ${recentEndpointSecretReveal.secret.ref}`">
+              <UInput :model-value="recentEndpointSecretReveal.plaintext" readonly />
+            </UFormField>
+            <div class="flex flex-wrap gap-2">
+              <UButton
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-copy"
+                @click="copyEndpointSecret"
+              >
+                Copy Secret
+              </UButton>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-plus"
+                @click="prepareAnotherEndpointSecret"
+              >
+                Generate Another
+              </UButton>
+            </div>
           </div>
-        </section>
+        </UiSlideoverSection>
 
-        <section v-else class="space-y-4">
-          <UAlert
-            color="primary"
-            variant="soft"
-            icon="i-lucide-shield-check"
-            title="Server-generated HMAC secret"
-            description="Create the secret value here, then copy it into the matching processor deployment."
-          />
-          <UFormField label="Secret ref" required>
-            <UInput
-              v-model="endpointSecretRefInput"
-              list="action-endpoint-secret-ref-options"
-              placeholder="processor-v1"
+        <UiSlideoverSection
+          v-else
+          title="Secret Configuration"
+          description="Identify the processor deployment that will use this credential."
+          icon="i-lucide-shield-check"
+        >
+          <div class="space-y-4">
+            <UAlert
+              color="primary"
+              variant="soft"
+              icon="i-lucide-shield-check"
+              title="Server-generated HMAC secret"
+              description="Create the secret value here, then copy it into the matching processor deployment."
             />
-            <datalist id="action-endpoint-secret-ref-options">
-              <option
-                v-for="ref in knownSecretRefs"
-                :key="ref"
-                :value="ref"
+            <UFormField label="Secret ref" required>
+              <UInput
+                v-model="endpointSecretRefInput"
+                list="action-endpoint-secret-ref-options"
+                placeholder="processor-v1"
               />
-            </datalist>
-          </UFormField>
-          <UFormField label="Display name">
-            <UInput
-              v-model="endpointSecretDisplayNameInput"
-              placeholder="Processor dispatch secret"
-            />
-          </UFormField>
-          <UFormField label="Description">
-            <UTextarea
-              v-model="endpointSecretDescriptionInput"
-              :rows="3"
-              placeholder="Where this secret is used"
-            />
-          </UFormField>
-        </section>
+              <datalist id="action-endpoint-secret-ref-options">
+                <option
+                  v-for="ref in knownSecretRefs"
+                  :key="ref"
+                  :value="ref"
+                />
+              </datalist>
+            </UFormField>
+            <UFormField label="Display name">
+              <UInput
+                v-model="endpointSecretDisplayNameInput"
+                placeholder="Processor dispatch secret"
+              />
+            </UFormField>
+            <UFormField label="Description">
+              <UTextarea
+                v-model="endpointSecretDescriptionInput"
+                :rows="3"
+                placeholder="Where this secret is used"
+              />
+            </UFormField>
+          </div>
+        </UiSlideoverSection>
       </div>
     </template>
 

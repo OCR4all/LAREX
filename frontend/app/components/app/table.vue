@@ -63,7 +63,7 @@ type TableCellProps = {
 }
 
 function renderEmptyTableCell() {
-  return h('div', { class: 'text-neutral-400 dark:text-neutral-500 text-sm' }, '—')
+  return h('div', { class: 'text-sm text-default' }, '—')
 }
 
 function isEmptyTableValue(value: unknown) {

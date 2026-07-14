@@ -148,6 +148,10 @@ function handleOpenChange(open: boolean) {
     emit('close')
   }
 }
+
+function handleGlobalCuratorUpdate(enabled: boolean) {
+  emit('globalRoleAction', enabled ? 'grant' : 'revoke')
+}
 </script>
 
 <template>
@@ -157,67 +161,76 @@ function handleOpenChange(open: boolean) {
     @update:open="handleOpenChange"
   >
     <template #header>
-      <UiSlideoverHeader title="User Details" icon="i-lucide-user-round" />
+      <UiSlideoverHeader
+        title="User Details"
+        icon="i-lucide-user-round"
+        description="Review account information, permissions, and recent administrative activity."
+      />
     </template>
 
     <template #body>
-      <div class="space-y-8">
-        <div v-if="pending && !user" class="text-sm text-muted">
-          Loading user details...
+      <div class="space-y-6">
+        <div v-if="pending && !user" class="space-y-4">
+          <USkeleton class="h-28 w-full rounded-lg" />
+          <USkeleton class="h-64 w-full rounded-lg" />
         </div>
 
-        <div v-else-if="error" class="rounded-2xl border border-error/20 bg-error/5 px-4 py-3 text-sm text-error">
-          {{ error }}
-        </div>
+        <UAlert
+          v-else-if="error"
+          color="error"
+          variant="soft"
+          icon="i-lucide-circle-alert"
+          title="Could not load user details"
+          :description="error"
+        />
 
         <template v-else-if="user">
-          <section class="flex items-start gap-4">
-            <UAvatar
-              :src="user.avatar || undefined"
-              :alt="user.username"
-              :fallback="avatarFallback(user)"
-              size="lg"
-              class="shrink-0"
-            />
+          <UCard variant="subtle">
+            <div class="flex items-start gap-4">
+              <UAvatar
+                :src="user.avatar || undefined"
+                :alt="user.username"
+                :fallback="avatarFallback(user)"
+                size="xl"
+                class="shrink-0"
+              />
 
-            <div class="min-w-0 flex-1">
-              <div class="text-base font-semibold text-highlighted break-words">
-                {{ displayName(user) }}
-              </div>
+              <div class="min-w-0 flex-1">
+                <div class="text-lg font-semibold text-highlighted break-words">
+                  {{ displayName(user) }}
+                </div>
 
-              <div class="mt-1 text-sm text-muted break-all">
-                {{ user.email || user.username }}
-              </div>
+                <div class="mt-1 text-sm text-muted break-all">
+                  {{ user.email || user.username }}
+                </div>
 
-              <div class="mt-3 flex flex-wrap items-center gap-2">
-                <UBadge
-                  :color="statusColor(user.onboardingState)"
-                  variant="soft"
-                >
-                  {{ statusLabel(user.onboardingState) }}
-                </UBadge>
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                  <UBadge
+                    :color="statusColor(user.onboardingState)"
+                    variant="soft"
+                  >
+                    {{ statusLabel(user.onboardingState) }}
+                  </UBadge>
 
-                <div
-                  class="inline-flex items-center gap-2 text-sm font-medium"
-                  :class="user.emailVerified ? 'text-success' : 'text-warning'"
-                >
-                  <UIcon
-                    :name="user.emailVerified ? 'i-lucide-check-circle' : 'i-lucide-alert-circle'"
-                    class="size-5 shrink-0"
-                  />
-                  <span>{{ user.emailVerified ? 'Verified' : 'Unverified' }}</span>
+                  <UBadge
+                    :color="user.emailVerified ? 'success' : 'warning'"
+                    variant="subtle"
+                    :icon="user.emailVerified ? 'i-lucide-circle-check' : 'i-lucide-circle-alert'"
+                  >
+                    {{ user.emailVerified ? 'Email verified' : 'Email unverified' }}
+                  </UBadge>
                 </div>
               </div>
             </div>
-          </section>
+          </UCard>
 
-          <section class="space-y-4">
-            <h3 class="text-xs font-medium uppercase tracking-wide text-muted">
-              Account Information
-            </h3>
-
+          <UiSlideoverSection
+            title="Account Information"
+            description="Identity and account lifecycle details."
+            icon="i-lucide-id-card"
+          >
             <div class="space-y-3">
-              <div class="flex flex-col gap-3 rounded-lg border border-default px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex flex-col gap-2 rounded-lg bg-elevated/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3 text-muted">
                   <UIcon name="i-lucide-user" class="size-4 shrink-0" />
                   <span class="text-sm">Username</span>
@@ -227,7 +240,7 @@ function handleOpenChange(open: boolean) {
                 </div>
               </div>
 
-              <div class="flex flex-col gap-3 rounded-lg border border-default px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex flex-col gap-2 rounded-lg bg-elevated/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3 text-muted">
                   <UIcon name="i-lucide-hash" class="size-4 shrink-0" />
                   <span class="text-sm">User ID</span>
@@ -247,7 +260,7 @@ function handleOpenChange(open: boolean) {
                 </div>
               </div>
 
-              <div class="flex flex-col gap-3 rounded-lg border border-default px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex flex-col gap-2 rounded-lg bg-elevated/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3 text-muted">
                   <UIcon name="i-lucide-globe" class="size-4 shrink-0" />
                   <span class="text-sm">Identity Source</span>
@@ -260,7 +273,7 @@ function handleOpenChange(open: boolean) {
                 </div>
               </div>
 
-              <div class="flex flex-col gap-3 rounded-lg border border-default px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex flex-col gap-2 rounded-lg bg-elevated/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3 text-muted">
                   <UIcon name="i-lucide-calendar-days" class="size-4 shrink-0" />
                   <span class="text-sm">Created</span>
@@ -270,22 +283,43 @@ function handleOpenChange(open: boolean) {
                 </div>
               </div>
             </div>
-          </section>
+          </UiSlideoverSection>
 
-          <USeparator />
-
-          <section class="space-y-4">
-            <h3 class="text-xs font-medium uppercase tracking-wide text-muted">
-              Global Permissions
-            </h3>
-
+          <UiSlideoverSection
+            title="Global Permissions"
+            description="Access granted across all workspaces and resources."
+            icon="i-lucide-shield-check"
+          >
             <div class="space-y-3">
-              <div class="flex items-center justify-between gap-4 rounded-lg border border-default bg-elevated/30 px-4 py-3">
+              <div class="flex items-center justify-between gap-4 rounded-lg bg-elevated/50 px-4 py-3">
                 <div class="flex min-w-0 items-center gap-3">
                   <UIcon name="i-lucide-shield" class="size-4 shrink-0 text-muted" />
                   <div class="min-w-0">
-                    <div class="text-sm font-medium text-highlighted">
-                      Global Admin
+                    <div class="flex items-center gap-1">
+                      <div class="text-sm font-medium text-highlighted">
+                        Global Admin
+                      </div>
+                      <UPopover :content="{ align: 'start', side: 'bottom', sideOffset: 8 }">
+                        <UButton
+                          icon="i-lucide-info"
+                          color="neutral"
+                          variant="ghost"
+                          size="xs"
+                          square
+                          aria-label="About Global Admin access"
+                        />
+
+                        <template #content>
+                          <div class="max-w-xs space-y-1 p-3">
+                            <p class="text-sm font-medium text-highlighted">
+                              Managed in Keycloak
+                            </p>
+                            <p class="text-xs leading-5 text-muted">
+                              Global Admin can only be granted in the Keycloak interface for security reasons.
+                            </p>
+                          </div>
+                        </template>
+                      </UPopover>
                     </div>
                     <div class="text-sm text-muted">
                       Full administrative access
@@ -298,7 +332,7 @@ function handleOpenChange(open: boolean) {
                 </UBadge>
               </div>
 
-              <div class="flex items-center justify-between gap-4 rounded-lg border border-default bg-elevated/30 px-4 py-3">
+              <div class="flex items-center justify-between gap-4 rounded-lg bg-elevated/50 px-4 py-3">
                 <div class="flex min-w-0 items-center gap-3">
                   <UIcon name="i-lucide-key" class="size-4 shrink-0 text-muted" />
                   <div class="min-w-0">
@@ -311,9 +345,13 @@ function handleOpenChange(open: boolean) {
                   </div>
                 </div>
 
-                <UBadge color="neutral" variant="subtle">
-                  {{ globalRoles?.globalCurator ? 'Yes' : 'No' }}
-                </UBadge>
+                <USwitch
+                  :model-value="globalRoles?.globalCurator ?? false"
+                  :disabled="user.serviceAccount"
+                  size="lg"
+                  aria-label="Toggle Global Curator access"
+                  @update:model-value="handleGlobalCuratorUpdate"
+                />
               </div>
             </div>
 
@@ -321,39 +359,29 @@ function handleOpenChange(open: boolean) {
               Changes take effect after token refresh or re-login.
             </p>
 
-            <div v-if="!user.serviceAccount" class="flex flex-wrap gap-3">
-              <UButton
-                :color="globalRoles?.globalCurator ? 'error' : 'neutral'"
-                variant="outline"
-                :icon="globalRoles?.globalCurator ? 'i-lucide-user-minus' : 'i-lucide-user-plus'"
-                @click="emit('globalRoleAction', globalRoles?.globalCurator ? 'revoke' : 'grant')"
-              >
-                {{ globalRoles?.globalCurator ? 'Revoke Curator' : 'Grant Curator' }}
-              </UButton>
-            </div>
-
-            <p v-else class="text-sm text-muted">
+            <p v-if="user.serviceAccount" class="text-sm text-muted">
               Service accounts cannot be changed.
             </p>
-          </section>
+          </UiSlideoverSection>
 
-          <div
+          <UAlert
             v-if="user.identitySource === 'LDAP'"
-            class="rounded-2xl border border-info/25 bg-info/10 px-4 py-3 text-sm text-info"
+            color="info"
+            variant="soft"
+            icon="i-lucide-building-2"
+            title="Externally managed account"
+            description="Account lifecycle changes must be handled in your directory or identity provider."
+          />
+
+          <UiSlideoverSection
+            title="Audit Events"
+            description="Recent administrative activity for this account."
+            icon="i-lucide-history"
           >
-            Account lifecycle changes must be handled in your directory or identity provider.
-          </div>
-
-          <USeparator />
-
-          <section class="space-y-4">
-            <div class="mb-3 flex items-center justify-between">
-              <h3 class="text-xs font-medium uppercase tracking-wide text-muted">
-                Audit Events
-              </h3>
+            <div class="mb-4 flex justify-end">
               <UButton
                 size="sm"
-                variant="ghost"
+                variant="outline"
                 color="neutral"
                 icon="i-lucide-refresh-cw"
                 :loading="pending"
@@ -365,7 +393,7 @@ function handleOpenChange(open: boolean) {
 
             <div
               v-if="auditEvents.length === 0"
-              class="rounded-lg border border-dashed border-default px-6 py-10 text-center text-sm text-muted"
+              class="rounded-lg border border-dashed border-default bg-elevated/20 px-6 py-10 text-center text-sm text-muted"
             >
               No audit events recorded for this user.
             </div>
@@ -374,7 +402,7 @@ function handleOpenChange(open: boolean) {
               <div
                 v-for="event in auditEvents"
                 :key="event.id"
-                class="rounded-lg border border-default bg-default px-4 py-3"
+                class="rounded-lg bg-elevated/50 px-4 py-3"
               >
                 <div class="flex flex-col gap-2">
                   <div class="flex flex-wrap items-center gap-2.5">
@@ -412,7 +440,7 @@ function handleOpenChange(open: boolean) {
                 </div>
               </div>
             </div>
-          </section>
+          </UiSlideoverSection>
         </template>
       </div>
     </template>
