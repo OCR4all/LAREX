@@ -18,11 +18,12 @@ LAREX (Layout Analysis and Recognition) is a full-stack web application for anno
 | Local production-like | Production images/runtime with Traefik, `*.localhost`, and Mailpit | `docker compose --env-file .env.prod.local -f compose.prod.base.yaml -f compose.prod.auth.bundled-keycloak.yaml -f compose.prod.local.yaml up -d` |
 | Opinionated production | Production images/runtime with loopback-bound ports for your own reverse proxy | `docker compose --env-file .env.prod -f compose.prod.base.yaml -f compose.prod.auth.bundled-keycloak.yaml -f compose.prod.publish.localhost.yaml up -d` |
 
-Production supports three small overrides:
+Production supports two small overrides:
 
 - External Keycloak: replace `compose.prod.auth.bundled-keycloak.yaml` with `compose.prod.auth.external-keycloak.yaml`
 - Bundled Nginx: add `-f compose.prod.nginx.yaml`
-- Bundled Kraken segmentation processor: add `-f compose.prod.kraken.yaml`
+
+OCR and layout processors, including Kraken, run as separately deployed Action endpoints rather than bundled Compose services. See the [Actions overview](docs/content/6.actions/1.overview.md) and [processor examples](docs/content/6.actions/8.examples.md).
 
 Docs self-hosting is also available as optional overrides:
 
@@ -61,14 +62,6 @@ docker compose --env-file .env.prod.local \
   -f compose.prod.local.yaml \
   up -d
 
-# with bundled Kraken segmentation processor
-docker compose --env-file .env.prod.local \
-  -f compose.prod.base.yaml \
-  -f compose.prod.auth.bundled-keycloak.yaml \
-  -f compose.prod.local.yaml \
-  -f compose.prod.kraken.yaml \
-  up -d
-
 # with self-hosted docs
 docker compose --env-file .env.prod.local \
   -f compose.prod.base.yaml \
@@ -86,14 +79,6 @@ docker compose --env-file .env.prod \
   -f compose.prod.base.yaml \
   -f compose.prod.auth.bundled-keycloak.yaml \
   -f compose.prod.publish.localhost.yaml \
-  up -d
-
-# with bundled Kraken segmentation processor
-docker compose --env-file .env.prod \
-  -f compose.prod.base.yaml \
-  -f compose.prod.auth.bundled-keycloak.yaml \
-  -f compose.prod.publish.localhost.yaml \
-  -f compose.prod.kraken.yaml \
   up -d
 
 # with self-hosted docs
@@ -117,11 +102,9 @@ task docker:up
 task docker:up:docs
 task docker:prod:up
 task docker:prod:up:docs
-task docker:prod:up:kraken
 task docker:prod:init-env
 task docker:prod:local:up
 task docker:prod:local:up:docs
-task docker:prod:local:up:kraken
 task docker:prod:local:init-env
 ```
 

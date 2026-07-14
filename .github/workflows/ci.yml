@@ -216,7 +216,7 @@ jobs:
 
       - name: Check for removed deployment references
         run: |
-          if grep -R -n -E 'compose\.prod\.traefik\.yaml|compose\.prod\.external-keycloak\.yaml|\.env\.prod\.traefik\.example|\.env\.prod\.external-keycloak\.example|API_HOSTNAME|compose\.prod\.local\.nginx\.yaml' README.md docs Taskfile.yml; then
+          if grep -R -n -E 'compose\.prod\.traefik\.yaml|compose\.prod\.external-keycloak\.yaml|\.env\.prod\.traefik\.example|\.env\.prod\.external-keycloak\.example|API_HOSTNAME|compose\.prod\.local\.nginx\.yaml|compose\.prod\.kraken\.yaml' README.md docs Taskfile.yml; then
             echo "Found stale deployment references"
             exit 1
           fi
