@@ -2007,7 +2007,7 @@ useHead({
               multiple
               accept="image/*,.xml,application/pdf,.pdf"
               class="hidden"
-              @change="(e) => handleFileUpload((e.target as HTMLInputElement).files)"
+              @change="(e: Event) => handleFileUpload((e.target as HTMLInputElement).files)"
             >
           </div>
         </template>

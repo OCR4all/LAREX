@@ -198,7 +198,7 @@ const hueColor = computed(() => hsbToHex(hue.value, 100, 100))
         :value="hexInput.toUpperCase().slice(1)"
         class="flex-1 h-8 px-2 text-sm bg-muted rounded-sm border border-default font-mono"
         maxlength="6"
-        @input="(e) => onHexInput({ target: { value: '#' + (e.target as HTMLInputElement).value } } as any)"
+        @input="(e: Event) => onHexInput({ target: { value: '#' + (e.target as HTMLInputElement).value } } as any)"
       >
       <span class="text-xs text-muted">{{ Math.round(localOpacity * 100) }}%</span>
     </div>

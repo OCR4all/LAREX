@@ -2848,7 +2848,7 @@ watch(() => props.src, (newSrc) => {
               canReceiveCanvasInput && canShowCanvasContent ? (isCanvasWritable || isComparisonCanvas ? 'cursor-grab' : 'cursor-default') : 'cursor-default pointer-events-none',
               canShowCanvasContent ? 'opacity-100' : 'opacity-0'
             ]"
-            @contextmenu="(event) => { if (canShowCanvasContent && isCanvasWritable && !isCanvasInteractionBlocked) editorInteractions.handleCanvasContextMenu(event) }"
+            @contextmenu="(event: MouseEvent) => { if (canShowCanvasContent && isCanvasWritable && !isCanvasInteractionBlocked) editorInteractions.handleCanvasContextMenu(event) }"
           />
         </template>
         <template #item-leading="{ item }">

@@ -2310,7 +2310,7 @@ const {
     <div
       v-show="!editorUiStore.leftCollapsed"
       class="group h-full w-0 shrink-0 cursor-col-resize touch-none relative overflow-visible"
-      @pointerdown="(e) => startResize('left', e)"
+      @pointerdown="(e: PointerEvent) => startResize('left', e)"
     >
       <span class="absolute inset-y-0 left-1/2 w-2 -translate-x-1/2" />
       <span
@@ -2364,7 +2364,7 @@ const {
     <div
       v-show="!editorUiStore.rightCollapsed && !activeCanvasIsComparison"
       class="group h-full w-0 shrink-0 cursor-col-resize touch-none relative overflow-visible"
-      @pointerdown="(e) => startResize('right', e)"
+      @pointerdown="(e: PointerEvent) => startResize('right', e)"
     >
       <span class="absolute inset-y-0 left-1/2 w-2 -translate-x-1/2" />
       <span
