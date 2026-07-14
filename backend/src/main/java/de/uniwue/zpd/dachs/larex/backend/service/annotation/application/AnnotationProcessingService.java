@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.exception.AnnotationAlreadyExistsException;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
@@ -287,8 +288,7 @@ public class AnnotationProcessingService {
                 .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML)
                 .findFirst();
         if (existingPageXml.isPresent()) {
-            saveAnnotationToXml(existingPageXml.get().getId(), useStoredImageDimensions(page, pageDto), userId, true);
-            return existingPageXml.get();
+            throw new AnnotationAlreadyExistsException(existingPageXml.get().getId());
         }
 
         String workspaceId = page.getProject().getLibrary().getWorkspaceId();

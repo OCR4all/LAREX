@@ -9,6 +9,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.exception.AnnotationAlreadyExistsException;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
@@ -238,6 +239,25 @@ class AnnotationProcessingServiceTest {
         assertEquals(1200, writtenPage.getValue().imageWidth());
         assertEquals(1800, writtenPage.getValue().imageHeight());
         assertEquals("tester", writtenPage.getValue().metadata().creator());
+    }
+
+    @Test
+    void createInitialAnnotationXml_doesNotOverwriteExistingPageXml() throws Exception {
+        AnnotationProcessingService service = service();
+        PageXml existing = pageXml("annotations/page.xml");
+
+        when(pageRepository.findByIdAndProjectId("page-1", "project-1"))
+                .thenReturn(Optional.of(existing.getPage()));
+        when(pageXmlRepository.findByPage_Id("page-1")).thenReturn(List.of(existing));
+
+        AnnotationAlreadyExistsException error = assertThrows(
+                AnnotationAlreadyExistsException.class,
+                () -> service.createInitialAnnotationXml("project-1", "page-1", pageDto(), "user-1")
+        );
+
+        assertEquals("xml-1", error.getXmlId());
+        verify(pageXmlVersionService, never()).createVersion(any(), any(), any());
+        verify(pageXmlExporter, never()).writeValidated(any(), any(), any());
     }
 
     private AnnotationProcessingService service() {

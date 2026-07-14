@@ -3,6 +3,8 @@ package de.uniwue.zpd.dachs.larex.backend.controller.annotation;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.exception.AnnotationAlreadyExistsException;
+import de.uniwue.zpd.dachs.larex.backend.exception.AnnotationLeaseLockedException;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
 import org.slf4j.Logger;
@@ -48,12 +50,21 @@ public class AnnotationEditorController {
 
         try {
             log.info("Creating initial annotations for page {}", pageId);
+            annotationLeaseService.assertPageWriteAccess(projectId, pageId, userId);
             PageXml xml = annotationProcessingService.createInitialAnnotationXml(projectId, pageId, pageDto, userId);
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                     "xmlId", xml.getId(),
                     "fileName", xml.getFileName(),
                     "schema", xml.getSchema().name(),
                     "schemaVersion", xml.getSchemaVersion() == null ? "" : xml.getSchemaVersion()
+            ));
+        } catch (AnnotationLeaseLockedException e) {
+            throw e;
+        } catch (AnnotationAlreadyExistsException e) {
+            log.warn("Initial annotation already exists for page {} as XML {}", pageId, e.getXmlId());
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                    "error", e.getMessage(),
+                    "xmlId", e.getXmlId()
             ));
         } catch (IllegalArgumentException e) {
             log.warn("Not found when creating annotations: {}", e.getMessage());
@@ -79,6 +90,7 @@ public class AnnotationEditorController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         try {
+            annotationLeaseService.resolveRoomAccess(projectId, pageId, xmlId, userId);
             PageDto pageDto = annotationProcessingService.parseXmlToAnnotation(xmlId);
             return ResponseEntity.ok(pageDto);
         } catch (IllegalArgumentException e) {
@@ -100,6 +112,7 @@ public class AnnotationEditorController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         try {
+            annotationLeaseService.resolvePageAccess(projectId, pageId, userId);
             PageDto pageDto = annotationProcessingService.parseMultipleXmlToAnnotation(pageId);
             return ResponseEntity.ok(pageDto);
         } catch (IllegalArgumentException e) {
@@ -126,6 +139,8 @@ public class AnnotationEditorController {
             annotationProcessingService.saveAnnotationToXml(xmlId, pageDto, userId);
             log.info("Successfully saved annotations for page {}", pageId);
             return ResponseEntity.ok().build();
+        } catch (AnnotationLeaseLockedException e) {
+            throw e;
         } catch (IllegalArgumentException e) {
             log.warn("Not found when saving annotations: {}", e.getMessage());
             return ResponseEntity.notFound().build();
@@ -154,6 +169,7 @@ public class AnnotationEditorController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         try {
+            annotationLeaseService.resolveRoomAccess(projectId, pageId, xmlId, userId);
             String xmlContent = annotationProcessingService.exportAnnotationToXml(
                 pageDto, targetSchema, xmlId);
 

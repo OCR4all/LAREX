@@ -47,18 +47,48 @@ public class AnnotationLeaseService {
     }
 
     public RoomAccessContext resolveRoomAccess(String projectId, String pageId, String xmlId, String userId) {
-        Optional<Page> pageOpt = pageService.getPageById(pageId, userId);
+        PageAccessContext pageContext = resolvePageAccess(projectId, pageId, userId);
         PageXml xml = pageService.getXmlById(xmlId, userId);
-        if (pageOpt.isEmpty() || xml == null) {
+        if (xml == null) {
+            throw new IllegalArgumentException("Annotation page not found");
+        }
+
+        if (xml.getPage() == null || !pageId.equals(xml.getPage().getId())) {
+            throw new IllegalArgumentException("Annotation XML mismatch");
+        }
+
+        AnnotationCollaborationDto.UserSummary user = resolveUserSummary(userId);
+
+        return new RoomAccessContext(
+                pageContext.workspaceId(),
+                projectId,
+                pageId,
+                xmlId,
+                buildRoomKey(projectId, pageId, xmlId),
+                pageContext.page().getProject().getName(),
+                pageContext.page().getName(),
+                pageContext.canEdit(),
+                pageContext.canForceTakeover(),
+                user,
+                xml
+        );
+    }
+
+    /**
+     * Resolve and validate access to a page-scoped annotation route.
+     *
+     * <p>The page lookup includes workspace membership validation. The explicit project check
+     * prevents callers from mixing otherwise valid resource IDs in the route.</p>
+     */
+    public PageAccessContext resolvePageAccess(String projectId, String pageId, String userId) {
+        Optional<Page> pageOpt = pageService.getPageById(pageId, userId);
+        if (pageOpt.isEmpty()) {
             throw new IllegalArgumentException("Annotation page not found");
         }
 
         Page page = pageOpt.get();
-        if (!projectId.equals(page.getProject().getId())) {
+        if (page.getProject() == null || !projectId.equals(page.getProject().getId())) {
             throw new IllegalArgumentException("Annotation project mismatch");
-        }
-        if (xml.getPage() == null || !pageId.equals(xml.getPage().getId())) {
-            throw new IllegalArgumentException("Annotation XML mismatch");
         }
 
         String workspaceId = page.getProject().getLibrary().getWorkspaceId();
@@ -67,21 +97,25 @@ public class AnnotationLeaseService {
                 && !page.isLocked();
         boolean canForceTakeover = authorizationPolicyService.canManageProjects(workspaceId, userId);
 
-        AnnotationCollaborationDto.UserSummary user = resolveUserSummary(userId);
-
-        return new RoomAccessContext(
+        return new PageAccessContext(
                 workspaceId,
                 projectId,
                 pageId,
-                xmlId,
-                buildRoomKey(projectId, pageId, xmlId),
-                page.getProject().getName(),
-                page.getName(),
                 canEdit,
                 canForceTakeover,
-                user,
-                xml
+                page
         );
+    }
+
+    public void assertPageWriteAccess(String projectId, String pageId, String userId) {
+        PageAccessContext context = resolvePageAccess(projectId, pageId, userId);
+        if (!context.canEdit()) {
+            throw new AnnotationLeaseLockedException(
+                    "This page is currently read-only.",
+                    null,
+                    "editing-disabled"
+            );
+        }
     }
 
     public AnnotationCollaborationDto.LeaseState getLeaseState(RoomAccessContext context) {
@@ -645,6 +679,15 @@ public class AnnotationLeaseService {
             boolean canForceTakeover,
             AnnotationCollaborationDto.UserSummary user,
             PageXml pageXml
+    ) {}
+
+    public record PageAccessContext(
+            String workspaceId,
+            String projectId,
+            String pageId,
+            boolean canEdit,
+            boolean canForceTakeover,
+            Page page
     ) {}
 
     private static final class LeaseRecord {
