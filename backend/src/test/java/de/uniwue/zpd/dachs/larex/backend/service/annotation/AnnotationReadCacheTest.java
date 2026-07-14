@@ -74,7 +74,6 @@ class AnnotationReadCacheTest {
                 null,
                 null,
                 null,
-                null,
                 null
         );
     }

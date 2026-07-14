@@ -595,8 +595,7 @@ public class NormalizationProfileService {
                         pageDto.textStyle(),
                         pageDto.layers(),
                         pageDto.relations(),
-                        pageDto.formatVersion(),
-                        pageDto.labelIds()
+                        pageDto.formatVersion()
                 ),
                 changedRowCount
         );
@@ -683,8 +682,7 @@ public class NormalizationProfileService {
                         region.confidence(),
                         region.custom(),
                         region.comments(),
-                        region.continuation(),
-                        region.labelIds()
+                        region.continuation()
                 ),
                 changedRowCount
         );

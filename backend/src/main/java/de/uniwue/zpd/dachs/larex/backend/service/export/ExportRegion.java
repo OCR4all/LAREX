@@ -13,7 +13,6 @@ record ExportRegion(
         PolygonDto coords,
         Integer rows,
         Integer columns,
-        List<String> labelIds,
         String custom,
         String text,
         List<ExportTextLine> lines

@@ -446,7 +446,6 @@ class PageFilterIndexServiceTest {
             null,
             regions,
             readingOrder,
-            null,
             null
         );
     }
@@ -499,7 +498,6 @@ class PageFilterIndexServiceTest {
             confidence,
             custom,
             comments,
-            null,
             null
         );
     }

@@ -84,11 +84,7 @@ public record PageDto(
     
     // Format version
     /** PAGE XML format version used */
-    String formatVersion,
-    
-    // TODO: Labels integration - map page4j Labels to LabelSet
-    /** Label IDs from LabelSet applied at page level */
-    List<String> labelIds
+    String formatVersion
 ) {
     public PageDto(
         String imageFilename,
@@ -113,8 +109,7 @@ public record PageDto(
         PolygonDto printSpace,
         List<RegionDto> regions,
         ReadingOrderDto readingOrder,
-        String formatVersion,
-        List<String> labelIds
+        String formatVersion
     ) {
         this(
             imageFilename,
@@ -145,8 +140,7 @@ public record PageDto(
             null,
             null,
             null,
-            formatVersion,
-            labelIds
+            formatVersion
         );
     }
 
@@ -192,8 +186,7 @@ public record PageDto(
             textStyle,
             layers,
             relations,
-            formatVersion,
-            labelIds
+            formatVersion
         );
     }
 

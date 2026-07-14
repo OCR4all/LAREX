@@ -115,7 +115,6 @@ final class ExportRegionExtractor {
                 region.coords(),
                 region.rows(),
                 region.columns(),
-                region.labelIds(),
                 region.custom(),
                 text,
                 lines

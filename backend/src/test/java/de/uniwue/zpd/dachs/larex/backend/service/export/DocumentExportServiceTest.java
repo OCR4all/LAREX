@@ -660,8 +660,7 @@ class DocumentExportServiceTest {
                 null,
                 regions,
                 readingOrder,
-                "2019-07-15",
-                List.of()
+                "2019-07-15"
         );
     }
 
@@ -705,8 +704,7 @@ class DocumentExportServiceTest {
                 null,
                 null,
                 null,
-                null,
-                List.of()
+                null
         );
     }
 

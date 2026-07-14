@@ -247,8 +247,7 @@ function collectRegion(
       'custom',
       'comments',
       'continuation',
-      'confidence',
-      'labelIds'
+      'confidence'
     ])
   })
 

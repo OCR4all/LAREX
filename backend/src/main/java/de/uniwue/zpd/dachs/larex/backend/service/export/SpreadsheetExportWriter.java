@@ -194,7 +194,7 @@ public class SpreadsheetExportWriter {
         List<List<String>> rows = new ArrayList<>();
         rows.add(List.of(
                 "workspaceId", "projectId", "projectName", "pageId", "pageName", "regionId", "parentRegionId", "kind", "type",
-                "readingOrderIndex", "text", "bboxX", "bboxY", "bboxWidth", "bboxHeight", "polygon", "rows", "columns", "labelIds", "custom"
+                "readingOrderIndex", "text", "bboxX", "bboxY", "bboxWidth", "bboxHeight", "polygon", "rows", "columns", "custom"
         ));
 
         for (ExportPage page : pages) {
@@ -219,7 +219,6 @@ public class SpreadsheetExportWriter {
                         polygonToString(region.coords()),
                         region.rows() == null ? "" : Integer.toString(region.rows()),
                         region.columns() == null ? "" : Integer.toString(region.columns()),
-                        region.labelIds() == null ? "" : String.join("|", region.labelIds()),
                         nullToEmpty(region.custom())
                 ));
             }

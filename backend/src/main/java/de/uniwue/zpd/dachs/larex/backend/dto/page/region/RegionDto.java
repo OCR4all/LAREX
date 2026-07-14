@@ -125,11 +125,7 @@ public record RegionDto(
     /** Comments */
     String comments,
     /** Continuation flag */
-    Boolean continuation,
-    
-    // TODO: Labels integration - map page4j Labels to LabelSet
-    /** Label IDs from LabelSet (for bi-directional mapping) */
-    List<String> labelIds
+    Boolean continuation
 ) {
     public RegionDto(
         String id,
@@ -159,8 +155,7 @@ public record RegionDto(
         Double confidence,
         String custom,
         String comments,
-        Boolean continuation,
-        List<String> labelIds
+        Boolean continuation
     ) {
         this(
             id,
@@ -212,8 +207,7 @@ public record RegionDto(
             confidence,
             custom,
             comments,
-            continuation,
-            labelIds
+            continuation
         );
     }
 

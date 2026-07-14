@@ -423,8 +423,7 @@ public class AnnotationProcessingService {
             dto.textStyle(),
             dto.layers(),
             dto.relations(),
-            dto.formatVersion(),
-            dto.labelIds()
+            dto.formatVersion()
         );
     }
 

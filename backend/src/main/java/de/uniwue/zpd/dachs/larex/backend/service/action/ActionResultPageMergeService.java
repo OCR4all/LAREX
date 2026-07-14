@@ -155,8 +155,7 @@ public class ActionResultPageMergeService {
                 source.textStyle(),
                 source.layers(),
                 source.relations(),
-                source.formatVersion(),
-                source.labelIds()
+                source.formatVersion()
         );
     }
 
@@ -211,8 +210,7 @@ public class ActionResultPageMergeService {
                 source.confidence(),
                 source.custom(),
                 source.comments(),
-                source.continuation(),
-                source.labelIds()
+                source.continuation()
         );
     }
 }

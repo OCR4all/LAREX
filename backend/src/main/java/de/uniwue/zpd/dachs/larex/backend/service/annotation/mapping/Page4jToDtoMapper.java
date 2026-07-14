@@ -136,8 +136,7 @@ public class Page4jToDtoMapper {
             toTextStyleDto(page),
             toLayersDto(layout.getLayers()),
             toRelationsDto(layout.getRelations()),
-            page.getFormatVersion() != null ? page.getFormatVersion().toString() : null,
-            mapLabelsToLabelIds(page)
+            page.getFormatVersion() != null ? page.getFormatVersion().toString() : null
         );
     }
 
@@ -277,8 +276,7 @@ public class Page4jToDtoMapper {
             getDoubleAttr(region, DefaultXmlNames.ATTR_conf),
             getStringAttr(region, DefaultXmlNames.ATTR_custom),
             getStringAttr(region, DefaultXmlNames.ATTR_comments),
-            getBooleanAttr(region, DefaultXmlNames.ATTR_continuation),
-            mapRegionLabelsToLabelIds(region)
+            getBooleanAttr(region, DefaultXmlNames.ATTR_continuation)
         );
     }
 
@@ -923,11 +921,4 @@ public class Page4jToDtoMapper {
         };
     }
 
-    private List<String> mapLabelsToLabelIds(Page page) {
-        return null;
-    }
-
-    private List<String> mapRegionLabelsToLabelIds(Region region) {
-        return null;
-    }
 }

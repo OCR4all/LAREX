@@ -153,7 +153,6 @@ class AnnotationToPageXmlExporterSparseTest {
             null,
             "larex { labelAlias:Foo; labelId:1; } structure { type:foo; }",
             null,
-            null,
             null
         );
         PageDto dto = createPageDto(region);
@@ -199,7 +198,6 @@ class AnnotationToPageXmlExporterSparseTest {
             null,
             List.of(region),
             null,
-            null,
             null
         );
     }
@@ -225,7 +223,6 @@ class AnnotationToPageXmlExporterSparseTest {
             null,
             null,
             primaryLanguage,
-            null,
             null,
             null,
             null,
@@ -274,8 +271,7 @@ class AnnotationToPageXmlExporterSparseTest {
             null,
             null,
             null,
-            continuation,
-            null
+            continuation
         );
     }
 

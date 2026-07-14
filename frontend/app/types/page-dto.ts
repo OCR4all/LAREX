@@ -235,7 +235,6 @@ export interface RegionDto {
   custom?: string
   comments?: string
   continuation?: boolean
-  labelIds?: string[]
 }
 
 export interface GroupMemberDto {
@@ -339,5 +338,4 @@ export interface PageDto {
   layers?: LayersDto
   relations?: RelationsDto
   formatVersion?: string
-  labelIds?: string[]
 }

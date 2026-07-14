@@ -334,7 +334,6 @@ class AnnotationProcessingServiceTest {
                 null,
                 null,
                 null,
-                null,
                 null
         );
     }

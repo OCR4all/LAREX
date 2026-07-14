@@ -152,7 +152,6 @@ public class DtoToPage4jMapper {
             setRelations(layout, dto.relations());
         }
 
-        mapLabelIdsToLabels(page, dto.labelIds());
         prunePageAttributes(page, dto);
         removeEmptyStringAttributes(page);
         return page;
@@ -231,7 +230,6 @@ public class DtoToPage4jMapper {
             }
         }
 
-        mapLabelIdsToRegionLabels(region, dto.labelIds());
     }
 
     private void setRoles(Region region, TableCellRoleDto roleDto) {
@@ -756,12 +754,6 @@ public class DtoToPage4jMapper {
             case UnknownRegion -> RegionType.UnknownRegion;
             case CustomRegion -> RegionType.CustomRegion;
         };
-    }
-
-    private void mapLabelIdsToLabels(Page page, List<String> labelIds) {
-    }
-
-    private void mapLabelIdsToRegionLabels(Region region, List<String> labelIds) {
     }
 
     private void setPageAttributes(Page page, PageDto dto) {
