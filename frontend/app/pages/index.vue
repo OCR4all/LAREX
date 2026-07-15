@@ -4,8 +4,13 @@ import type { Row } from '@tanstack/vue-table'
 import {
   LazyCodecSlideoverAction,
   LazyLibrarySlideoverCreate,
+  LazyProjectSlideoverBatchDictionary,
+  LazyProjectSlideoverBatchNormalization,
+  LazyProjectSlideoverBatchRuleset,
+  LazyProjectSlideoverExportTarget,
   LazyShareSlideover,
   LazyProjectSlideoverEdit,
+  LazyUiConfirmSlideover,
   LazyUiDeleteSlideover,
   NuxtLink,
   UAvatar,
@@ -15,13 +20,14 @@ import {
   UIcon,
   UPopover
 } from '#components'
-import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
+import type { CodecProjectScope, GenerateCodecFromSourcesResponse } from '@/types/codec'
 import { DEFAULT_PROJECT_CAPABILITIES } from '@/types/capabilities'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { naturalSortBy } from '@/utils/natural-sort'
+import { getResponseFileName, isCompleteZipBlob, readResponseBlob } from '@/composables/use-background-downloads'
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
@@ -73,6 +79,13 @@ const editSlideover = overlay.create(LazyProjectSlideoverEdit)
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 
 const shareSlideover = overlay.create(LazyShareSlideover)
+const batchDictionarySlideover = overlay.create(LazyProjectSlideoverBatchDictionary)
+const batchNormalizationSlideover = overlay.create(LazyProjectSlideoverBatchNormalization)
+const batchRulesetSlideover = overlay.create(LazyProjectSlideoverBatchRuleset)
+const exportTargetSlideover = overlay.create(LazyProjectSlideoverExportTarget)
+const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
+const { requestExportOptions } = useProjectExportDialog(exportTargetSlideover, confirmSlideover)
+const backgroundDownloads = useBackgroundDownloads()
 const importProjectPackageInput = ref<HTMLInputElement | null>(null)
 const importLegacyOcr4allInput = ref<HTMLInputElement | null>(null)
 
@@ -100,6 +113,9 @@ type ProjectListItem = {
   locked: boolean
   lockedReason: string | null
   tagSetId?: string | null
+  codecId?: string | null
+  dictionaryId?: string | null
+  validationRulesetId?: string | null
   capabilities?: {
     canEdit: boolean
     canShare: boolean
@@ -178,7 +194,24 @@ const selectedProjectIds = ref<Set<string>>(new Set())
 const hasSelection = computed(() => selectedProjectIds.value.size > 0)
 const deletingProjectIds = ref<Set<string>>(new Set())
 const isOpeningSelectedProjectsInEditor = ref(false)
+const isBatchExporting = ref(false)
 const selectedProjects = computed(() => (data.value ?? []).filter(project => selectedProjectIds.value.has(project.id)))
+const canShareSelectedProjects = computed(() =>
+  selectedProjects.value.length > 0
+  && selectedProjects.value.length === selectedProjectIds.value.size
+  && selectedProjects.value.every(project => allow(getProjectCapabilities(project).canShare) && !project.locked)
+)
+const canExportSelectedProjects = computed(() =>
+  !isBatchExporting.value
+  && selectedProjects.value.length > 0
+  && selectedProjects.value.length === selectedProjectIds.value.size
+  && selectedProjects.value.every(project => allow(getProjectCapabilities(project).canExportPackage) && project.pageCount > 0)
+)
+const canNormalizeSelectedProjects = computed(() =>
+  selectedProjects.value.length > 0
+  && selectedProjects.value.length === selectedProjectIds.value.size
+  && selectedProjects.value.every(project => allow(getProjectCapabilities(project).canEdit) && !project.locked)
+)
 const canDeleteSelectedProjects = computed(() =>
   selectedProjects.value.length > 0
   && selectedProjects.value.every((project) => {
@@ -415,7 +448,10 @@ function getProjectCapabilities(project: ProjectListItem) {
 function toEditableProject(project: ProjectListItem) {
   return {
     ...project,
-    tagSetId: project.tagSetId ?? undefined
+    codecId: project.codecId ?? undefined,
+    dictionaryId: project.dictionaryId ?? undefined,
+    tagSetId: project.tagSetId ?? undefined,
+    validationRulesetId: project.validationRulesetId ?? undefined
   }
 }
 
@@ -675,6 +711,148 @@ async function openShareSlideover(project: ProjectListItem) {
   await refreshNuxtData(projectsKey.value)
 }
 
+async function openBatchShareSlideover() {
+  if (!selectedWorkspace.value || !canShareSelectedProjects.value) return
+
+  const instance = shareSlideover.open({
+    resources: selectedProjects.value.map(project => ({ id: project.id, name: project.name })),
+    resourceType: 'PROJECT',
+    currentWorkspaceId: selectedWorkspace.value
+  })
+  const transferred = await instance.result
+  if (!transferred) return
+
+  clearSelection()
+  await refreshNuxtData(projectsKey.value)
+}
+
+type BatchExportMode = 'basic' | 'project' | 'package'
+
+async function exportSelectedProjects(mode: BatchExportMode) {
+  if (!selectedWorkspace.value || !canExportSelectedProjects.value) return
+
+  const exportOptions = await requestExportOptions(mode)
+  if (!exportOptions || (mode === 'project' && !exportOptions.format)) return
+
+  const projectCount = selectedProjects.value.length
+  const modeLabel = mode === 'basic'
+    ? 'project export'
+    : mode === 'project'
+      ? 'converted output'
+      : 'LAREX package'
+
+  isBatchExporting.value = true
+  try {
+    await backgroundDownloads.runBackgroundJob({
+      title: `Exporting ${projectCount} projects`,
+      subtitle: modeLabel,
+      statusLabel: 'Generating archive',
+      completedLabel: 'Exported',
+      icon: mode === 'package' ? 'i-lucide-package' : 'i-lucide-file-archive',
+      task: async (job) => {
+        const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/projects/batch-export`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectIds: selectedProjects.value.map(project => project.id),
+            mode: mode === 'basic' ? 'BASIC' : mode === 'project' ? 'CONVERTED' : 'PACKAGE',
+            targetPageXmlVersion: exportOptions.targetPageXmlVersion,
+            embeddedOutputs: exportOptions.embeddedOutputs,
+            format: exportOptions.format,
+            includePageDelimiters: exportOptions.includePageDelimiters,
+            textLevel: exportOptions.textLevel,
+            textVariantIndex: exportOptions.textVariantIndex,
+            pdfProfile: exportOptions.pdfProfile,
+            teiProfile: exportOptions.teiProfile,
+            spreadsheetProfiles: exportOptions.spreadsheetProfiles,
+            docxOptions: exportOptions.docxOptions
+          })
+        })
+        if (!response.ok) throw new Error(`Batch export failed (${response.status})`)
+        const fileName = getResponseFileName(response, 'larex-projects-export.zip')
+        const archive = await readResponseBlob(response, job)
+        if (!await isCompleteZipBlob(archive)) {
+          throw new Error('The batch export stream ended before the ZIP archive was finalized. Please retry the export.')
+        }
+        await backgroundDownloads.downloadBlob(archive, fileName, job)
+      }
+    })
+
+    toast.add({
+      title: 'Projects exported',
+      description: `${projectCount} project${projectCount === 1 ? '' : 's'} were added to one archive.`,
+      color: 'success',
+      icon: 'i-lucide-download'
+    })
+  } catch (error) {
+    toast.add({
+      title: 'Batch export failed',
+      description: extractApiErrorMessage(error, 'Could not export the selected projects.'),
+      color: 'error'
+    })
+  } finally {
+    isBatchExporting.value = false
+  }
+}
+
+const selectedToolkitProjects = computed(() => selectedProjects.value.map(project => ({
+  id: project.id,
+  name: project.name
+})))
+
+async function openBatchDictionarySlideover() {
+  if (!selectedWorkspace.value || !hasSelection.value) return
+
+  const instance = batchDictionarySlideover.open({
+    workspaceId: selectedWorkspace.value,
+    projects: selectedToolkitProjects.value
+  })
+  await instance.result
+}
+
+async function openBatchNormalizationSlideover() {
+  if (!selectedWorkspace.value || !canNormalizeSelectedProjects.value) return
+
+  const instance = batchNormalizationSlideover.open({
+    workspaceId: selectedWorkspace.value,
+    projects: selectedToolkitProjects.value
+  })
+  const completed = await instance.result
+  if (completed) await refreshNuxtData(projectsKey.value)
+}
+
+async function openBatchRulesetSlideover() {
+  if (!selectedWorkspace.value || !hasSelection.value) return
+
+  const instance = batchRulesetSlideover.open({
+    workspaceId: selectedWorkspace.value,
+    projects: selectedToolkitProjects.value
+  })
+  await instance.result
+}
+
+const batchExportItems = computed<DropdownMenuItem[][]>(() => [[
+  { type: 'label', label: 'Export selected projects' },
+  {
+    label: 'Basic project export',
+    icon: 'i-lucide-file-archive',
+    disabled: !canExportSelectedProjects.value,
+    onSelect: () => { void exportSelectedProjects('basic') }
+  },
+  {
+    label: 'Converted output',
+    icon: 'i-lucide-file-output',
+    disabled: !canExportSelectedProjects.value,
+    onSelect: () => { void exportSelectedProjects('project') }
+  },
+  {
+    label: 'LAREX packages',
+    icon: 'i-lucide-package',
+    disabled: !canExportSelectedProjects.value,
+    onSelect: () => { void exportSelectedProjects('package') }
+  }
+]])
+
 function getRowItems(row: Row<ProjectListItem>) {
   const capabilities = getProjectCapabilities(row.original)
   const groups: DropdownMenuItem[][] = [[
@@ -762,16 +940,33 @@ async function openCodecGenerateSlideover() {
   await refreshNuxtData(wsKey(selectedWorkspace.value, 'codecs', 'list'))
 }
 
-async function openCodecValidateSlideover() {
-  if (!selectedWorkspace.value || !hasSelection.value) return
-
-  const instance = codecActionSlideover.open({
-    mode: 'validate',
-    workspaceId: selectedWorkspace.value,
-    sources: selectedSources.value
-  })
-  await instance.result as ValidateCodecAgainstSourcesResponse | null
-}
+const batchToolkitItems = computed<DropdownMenuItem[][]>(() => [[
+  { type: 'label', label: 'Run on selected projects' },
+  {
+    label: 'Generate Codec',
+    icon: 'i-lucide-binary',
+    disabled: !hasSelection.value,
+    onSelect: () => { void openCodecGenerateSlideover() }
+  },
+  {
+    label: 'Check Dictionary',
+    icon: 'i-lucide-spell-check-2',
+    disabled: !hasSelection.value,
+    onSelect: () => { void openBatchDictionarySlideover() }
+  },
+  {
+    label: 'Normalize Text',
+    icon: 'i-lucide-wand-sparkles',
+    disabled: !canNormalizeSelectedProjects.value,
+    onSelect: () => { void openBatchNormalizationSlideover() }
+  },
+  {
+    label: 'Validate with Ruleset',
+    icon: 'i-lucide-list-checks',
+    disabled: !hasSelection.value,
+    onSelect: () => { void openBatchRulesetSlideover() }
+  }
+]])
 
 function triggerProjectPackageImport() {
   importProjectPackageInput.value?.click()
@@ -1123,25 +1318,43 @@ async function handleLegacyOcr4allImport(event: Event) {
             Open in Editor
           </UButton>
           <UButton
-            icon="i-lucide-wand-sparkles"
+            icon="i-lucide-share-2"
             color="neutral"
             variant="ghost"
             size="sm"
             class="text-neutral-50 hover:bg-white/10"
-            @click="openCodecGenerateSlideover"
+            :disabled="!canShareSelectedProjects"
+            @click="openBatchShareSlideover"
           >
-            Generate Codec
+            Share
           </UButton>
-          <UButton
-            icon="i-lucide-badge-check"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            class="text-neutral-50 hover:bg-white/10"
-            @click="openCodecValidateSlideover"
-          >
-            Validate Codec
-          </UButton>
+          <UDropdownMenu :items="batchExportItems" :content="{ align: 'center', side: 'top' }">
+            <UButton
+              icon="i-lucide-download"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="text-neutral-50 hover:bg-white/10"
+              :loading="isBatchExporting"
+              :disabled="!canExportSelectedProjects"
+            >
+              Export
+              <UIcon name="i-lucide-chevron-down" class="size-4" />
+            </UButton>
+          </UDropdownMenu>
+          <UDropdownMenu :items="batchToolkitItems" :content="{ align: 'center', side: 'top' }">
+            <UButton
+              icon="i-lucide-tool-case"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="text-neutral-50 hover:bg-white/10"
+              :disabled="!hasSelection"
+            >
+              Toolkit
+              <UIcon name="i-lucide-chevron-down" class="size-4" />
+            </UButton>
+          </UDropdownMenu>
           <UButton
             icon="i-lucide-trash"
             color="error"

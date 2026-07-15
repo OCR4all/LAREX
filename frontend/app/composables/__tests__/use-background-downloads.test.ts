@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   getResponseFileName,
+  isCompleteZipBlob,
   readResponseBlob,
   type BackgroundJobControls
 } from '../use-background-downloads'
@@ -36,5 +37,20 @@ describe('background downloads', () => {
       progressPercent: 100,
       detail: '5 B / 5 B'
     }))
+  })
+
+  it('distinguishes finalized ZIP archives from truncated responses', async () => {
+    const finalizedZip = new Blob([new Uint8Array([
+      0x50, 0x4B, 0x05, 0x06,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0
+    ])])
+    const truncatedZip = new Blob([new Uint8Array([
+      0x50, 0x4B, 0x03, 0x04,
+      1, 2, 3, 4, 5, 6
+    ])])
+
+    await expect(isCompleteZipBlob(finalizedZip)).resolves.toBe(true)
+    await expect(isCompleteZipBlob(truncatedZip)).resolves.toBe(false)
   })
 })

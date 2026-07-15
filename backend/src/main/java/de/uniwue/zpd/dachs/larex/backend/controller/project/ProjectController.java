@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifImportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.ProjectBatchExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectTransferDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UploadConflictDto;
@@ -15,6 +16,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectTransferService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectPackageService;
+import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectBatchExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.importer.IiifImportService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadConflictService;
@@ -45,6 +47,7 @@ public class ProjectController {
     private final ProjectTransferService projectTransferService;
     private final ProjectReadService projectReadService;
     private final ProjectPackageService projectPackageService;
+    private final ProjectBatchExportService projectBatchExportService;
     private final LegacyOcr4allImportService legacyOcr4allImportService;
     private final DocumentExportService documentExportService;
     private final IiifImportService iiifImportService;
@@ -53,6 +56,7 @@ public class ProjectController {
     public ProjectController(ProjectService projectService, ProjectTransferService projectTransferService,
                            ProjectReadService projectReadService,
                            ProjectPackageService projectPackageService,
+                           ProjectBatchExportService projectBatchExportService,
                            LegacyOcr4allImportService legacyOcr4allImportService,
                            DocumentExportService documentExportService,
                            IiifImportService iiifImportService,
@@ -61,6 +65,7 @@ public class ProjectController {
         this.projectTransferService = projectTransferService;
         this.projectReadService = projectReadService;
         this.projectPackageService = projectPackageService;
+        this.projectBatchExportService = projectBatchExportService;
         this.legacyOcr4allImportService = legacyOcr4allImportService;
         this.documentExportService = documentExportService;
         this.iiifImportService = iiifImportService;
@@ -315,6 +320,29 @@ public class ProjectController {
 
         StreamingResponseBody body = outputStream ->
                 projectPackageService.writeBasicProjectExport(workspaceId, projectId, userId, request, outputStream);
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(body);
+    }
+
+    @PostMapping("/batch-export")
+    public ResponseEntity<StreamingResponseBody> exportProjects(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody ProjectBatchExportDto.ExportRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        ProjectBatchExportService.PreparedBatchExport batch =
+                projectBatchExportService.prepareBatchExport(workspaceId, userId, request);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("larex-projects-export.zip")
+                .build());
+
+        StreamingResponseBody body = outputStream ->
+                projectBatchExportService.writeBatchExport(batch, outputStream);
 
         return ResponseEntity.ok()
                 .headers(headers)

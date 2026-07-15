@@ -2,9 +2,11 @@ package de.uniwue.zpd.dachs.larex.backend.dto;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.ProjectTransferRequest;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class ProjectTransferDto {
 
@@ -19,6 +21,27 @@ public class ProjectTransferDto {
             String message,
             
             ProjectTransferRequest.TransferType transferType
+    ) {}
+
+    public record BatchCreateRequest(
+            @NotEmpty(message = "At least one project is required")
+            @Size(max = 100, message = "Cannot share more than 100 projects at once")
+            List<@NotBlank(message = "Project ID must not be blank") String> projectIds,
+
+            @NotBlank(message = "Target workspace ID is required")
+            String targetWorkspaceId,
+
+            @Size(max = 500, message = "Message cannot exceed 500 characters")
+            String message,
+
+            ProjectTransferRequest.TransferType transferType
+    ) {}
+
+    public record BatchCreateResponse(
+            List<Response> transfers,
+            List<String> failedProjectIds,
+            int successCount,
+            int failedCount
     ) {}
 
     public record Response(

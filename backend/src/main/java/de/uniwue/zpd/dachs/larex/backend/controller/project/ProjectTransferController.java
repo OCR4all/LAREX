@@ -40,6 +40,31 @@ public class ProjectTransferController {
                 .orElse(ResponseEntity.badRequest().build());
     }
 
+    @PostMapping("/bulk")
+    public ResponseEntity<ProjectTransferDto.BatchCreateResponse> requestTransfers(
+            @Valid @RequestBody ProjectTransferDto.BatchCreateRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        List<String> projectIds = request.projectIds().stream().distinct().toList();
+        List<ProjectTransferRequest> transfers = projectTransferService.requestProjectTransfers(
+                projectIds,
+                request.targetWorkspaceId(),
+                userId,
+                request.message(),
+                request.transferType() != null ? request.transferType() : ProjectTransferRequest.TransferType.MOVE
+        );
+        List<String> succeededIds = transfers.stream().map(ProjectTransferRequest::getProjectId).toList();
+        List<String> failedIds = projectIds.stream().filter(id -> !succeededIds.contains(id)).toList();
+        List<ProjectTransferDto.Response> responses = projectTransferService.toResponses(transfers);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(new ProjectTransferDto.BatchCreateResponse(
+                responses,
+                failedIds,
+                responses.size(),
+                failedIds.size()
+        ));
+    }
+
     @GetMapping("/my-requests")
     public ResponseEntity<List<ProjectTransferDto.Response>> getMyRequests(
             @AuthenticationPrincipal(expression = "subject") String userId) {

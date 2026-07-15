@@ -5,6 +5,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.importer.IiifImportService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.LegacyOcr4allImportService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectPackageService;
+import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectBatchExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectTransferService;
@@ -38,6 +39,8 @@ class ProjectControllerExportTest {
     @Mock
     private ProjectPackageService projectPackageService;
     @Mock
+    private ProjectBatchExportService projectBatchExportService;
+    @Mock
     private LegacyOcr4allImportService legacyOcr4allImportService;
     @Mock
     private DocumentExportService documentExportService;
@@ -53,6 +56,7 @@ class ProjectControllerExportTest {
                 projectTransferService,
                 projectReadService,
                 projectPackageService,
+                projectBatchExportService,
                 legacyOcr4allImportService,
                 documentExportService,
                 iiifImportService,
@@ -81,6 +85,7 @@ class ProjectControllerExportTest {
                 projectTransferService,
                 projectReadService,
                 projectPackageService,
+                projectBatchExportService,
                 legacyOcr4allImportService,
                 documentExportService,
                 iiifImportService,

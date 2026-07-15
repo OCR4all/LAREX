@@ -118,6 +118,19 @@ public class ProjectTransferService {
         }
     }
 
+    public List<ProjectTransferRequest> requestProjectTransfers(List<String> projectIds,
+                                                                String targetWorkspaceId,
+                                                                String requestedByUserId,
+                                                                String message,
+                                                                ProjectTransferRequest.TransferType transferType) {
+        List<ProjectTransferRequest> requests = new ArrayList<>();
+        for (String projectId : new java.util.LinkedHashSet<>(projectIds)) {
+            requestProjectTransfer(projectId, targetWorkspaceId, requestedByUserId, message, transferType)
+                    .ifPresent(requests::add);
+        }
+        return requests;
+    }
+
     public boolean approveTransferRequest(String requestId, String approvingUserId) {
         Optional<ProjectTransferRequest> requestOpt = transferRequestRepository.findById(requestId);
         if (requestOpt.isEmpty()) {

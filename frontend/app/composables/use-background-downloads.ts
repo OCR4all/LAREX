@@ -119,6 +119,28 @@ export async function readResponseBlob(response: Response, controls?: Background
   })
 }
 
+export async function isCompleteZipBlob(blob: Blob): Promise<boolean> {
+  const minimumEndRecordSize = 22
+  const maximumCommentSize = 65_535
+  if (blob.size < minimumEndRecordSize) return false
+
+  const tailSize = Math.min(blob.size, minimumEndRecordSize + maximumCommentSize)
+  const tail = new Uint8Array(await blob.slice(blob.size - tailSize).arrayBuffer())
+
+  for (let index = tail.length - minimumEndRecordSize; index >= 0; index--) {
+    const hasEndSignature = tail[index] === 0x50
+      && tail[index + 1] === 0x4B
+      && tail[index + 2] === 0x05
+      && tail[index + 3] === 0x06
+    if (!hasEndSignature) continue
+
+    const commentLength = tail[index + 20]! | (tail[index + 21]! << 8)
+    if (index + minimumEndRecordSize + commentLength === tail.length) return true
+  }
+
+  return false
+}
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'
   const k = 1024

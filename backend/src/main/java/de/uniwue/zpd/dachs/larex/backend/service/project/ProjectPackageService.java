@@ -200,6 +200,29 @@ public class ProjectPackageService {
     }
 
     @Transactional(readOnly = true)
+    public void writeProjectPackageEntries(String workspaceId,
+                                           String projectId,
+                                           String userId,
+                                           ProjectPackageDto.ExportRequest request,
+                                           java.util.zip.ZipOutputStream zipOut,
+                                           String entryPrefix) throws IOException {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        Project project = requireProject(workspaceId, projectId);
+        List<Page> pages = resolvePagesForExport(projectId, request == null ? null : request.pageIds());
+        PackageSnapshot packageSnapshot = buildPackageSnapshot(
+                project,
+                pages,
+                request == null ? null : request.targetPageXmlVersion(),
+                request == null ? null : request.embeddedOutputs()
+        );
+        try {
+            writePackageEntries(zipOut, packageSnapshot, entryPrefix);
+        } finally {
+            cleanupEmbeddedOutputs(packageSnapshot);
+        }
+    }
+
+    @Transactional(readOnly = true)
     public void writeBasicProjectExport(String workspaceId,
                                         String projectId,
                                         String userId,
@@ -233,6 +256,33 @@ public class ProjectPackageService {
                     targetPageXmlVersion,
                     embeddedOutputs
             ));
+        } finally {
+            cleanupEmbeddedOutputs(embeddedOutputs);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void writeBasicProjectExportEntries(String workspaceId,
+                                               String projectId,
+                                               String userId,
+                                               ProjectPackageDto.ExportRequest request,
+                                               java.util.zip.ZipOutputStream zipOut,
+                                               String entryPrefix) throws IOException {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        Project project = requireProject(workspaceId, projectId);
+        List<Page> pages = resolvePagesForExport(projectId, request == null ? null : request.pageIds());
+        String targetPageXmlVersion = pageXmlConversionService.normalizeTargetVersion(
+                request == null ? null : request.targetPageXmlVersion()
+        );
+        List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputRequests =
+                request == null ? null : request.embeddedOutputs();
+        List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs =
+                embeddedOutputRequests == null || embeddedOutputRequests.isEmpty()
+                        ? List.of()
+                        : documentExportService.exportEmbeddedProjectOutputs(project, pages, embeddedOutputRequests);
+
+        try {
+            writeBasicProjectExportEntries(zipOut, pages, targetPageXmlVersion, embeddedOutputs, entryPrefix);
         } finally {
             cleanupEmbeddedOutputs(embeddedOutputs);
         }
@@ -1423,33 +1473,39 @@ public class ProjectPackageService {
     }
 
     private void writePackageZip(Path outputPath, PackageSnapshot packageSnapshot) throws IOException {
-        archiveIoService.writeZip(outputPath, zipOut -> writePackageEntries(zipOut, packageSnapshot));
+        archiveIoService.writeZip(outputPath, zipOut -> writePackageEntries(zipOut, packageSnapshot, ""));
     }
 
     private void writePackageZip(OutputStream outputStream, PackageSnapshot packageSnapshot) throws IOException {
-        archiveIoService.writeZip(outputStream, zipOut -> writePackageEntries(zipOut, packageSnapshot));
+        archiveIoService.writeZip(outputStream, zipOut -> writePackageEntries(zipOut, packageSnapshot, ""));
     }
 
-    private void writePackageEntries(java.util.zip.ZipOutputStream zipOut, PackageSnapshot packageSnapshot) throws IOException {
-        archiveIoService.writeJsonEntry(zipOut, "manifest.json", packageSnapshot.manifest());
-        archiveIoService.writeBytesEntry(zipOut, "mets.xml", packageSnapshot.metsBytes());
+    private void writePackageEntries(java.util.zip.ZipOutputStream zipOut,
+                                     PackageSnapshot packageSnapshot,
+                                     String entryPrefix) throws IOException {
+        archiveIoService.writeJsonEntry(zipOut, prefixedArchivePath(entryPrefix, "manifest.json"), packageSnapshot.manifest());
+        archiveIoService.writeBytesEntry(zipOut, prefixedArchivePath(entryPrefix, "mets.xml"), packageSnapshot.metsBytes());
 
         for (ProjectPackageDto.FileEntry fileEntry : packageSnapshot.manifest().files()) {
             Path source = resolveUploadPath(fileEntry.archivePath(), fileEntry.kind(), fileEntry.sourceId(), packageSnapshot.exportBundle());
             if (fileEntry.kind() == ProjectPackageDto.FileKind.XML && fileEntry.xmlSchema() == XmlSchema.PAGE_XML) {
                 archiveIoService.writeStreamEntry(
                         zipOut,
-                        fileEntry.archivePath(),
+                        prefixedArchivePath(entryPrefix, fileEntry.archivePath()),
                         entryOut -> pageXmlConversionService.writeFileToVersion(source, packageSnapshot.targetPageXmlVersion(), entryOut)
                 );
             } else {
-                archiveIoService.writeFileEntry(zipOut, fileEntry.archivePath(), source);
+                archiveIoService.writeFileEntry(zipOut, prefixedArchivePath(entryPrefix, fileEntry.archivePath()), source);
             }
 
             if (fileEntry.thumbnailArchivePath() != null) {
                 Path thumbnailPath = resolveThumbnailUploadPath(fileEntry.sourceId(), packageSnapshot.exportBundle());
                 if (thumbnailPath != null && Files.exists(thumbnailPath)) {
-                    archiveIoService.writeFileEntry(zipOut, fileEntry.thumbnailArchivePath(), thumbnailPath);
+                    archiveIoService.writeFileEntry(
+                            zipOut,
+                            prefixedArchivePath(entryPrefix, fileEntry.thumbnailArchivePath()),
+                            thumbnailPath
+                    );
                 }
             }
         }
@@ -1457,16 +1513,16 @@ public class ProjectPackageService {
         for (ProjectPackageDto.XmlVersionEntry versionEntry : packageSnapshot.manifest().xmlVersions()) {
             Path sourcePath = packageSnapshot.exportBundle().versionPathByArchivePath().get(versionEntry.archivePath());
             if (sourcePath != null && Files.exists(sourcePath)) {
-                archiveIoService.writeFileEntry(zipOut, versionEntry.archivePath(), sourcePath);
+                archiveIoService.writeFileEntry(zipOut, prefixedArchivePath(entryPrefix, versionEntry.archivePath()), sourcePath);
             }
         }
 
         for (Map.Entry<String, ToolkitPackageDto.ToolkitResource> entry : packageSnapshot.exportBundle().toolkitResourceByPath().entrySet()) {
-            archiveIoService.writeJsonEntry(zipOut, entry.getKey(), entry.getValue());
+            archiveIoService.writeJsonEntry(zipOut, prefixedArchivePath(entryPrefix, entry.getKey()), entry.getValue());
         }
 
         for (DocumentExportService.EmbeddedProjectOutput output : packageSnapshot.embeddedOutputs()) {
-            archiveIoService.writeFileEntry(zipOut, output.archivePath(), output.absolutePath());
+            archiveIoService.writeFileEntry(zipOut, prefixedArchivePath(entryPrefix, output.archivePath()), output.absolutePath());
         }
     }
 
@@ -1474,6 +1530,14 @@ public class ProjectPackageService {
                                                 List<Page> pages,
                                                 String targetPageXmlVersion,
                                                 List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs) throws IOException {
+        writeBasicProjectExportEntries(zipOut, pages, targetPageXmlVersion, embeddedOutputs, "");
+    }
+
+    private void writeBasicProjectExportEntries(java.util.zip.ZipOutputStream zipOut,
+                                                List<Page> pages,
+                                                String targetPageXmlVersion,
+                                                List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs,
+                                                String entryPrefix) throws IOException {
         Map<String, Integer> usedEntryPaths = new HashMap<>();
 
         for (Page page : pages) {
@@ -1487,7 +1551,7 @@ public class ProjectPackageService {
                 );
                 archiveIoService.writeFileEntry(
                         zipOut,
-                        entryPath,
+                        prefixedArchivePath(entryPrefix, entryPath),
                         hierarchicalFileStorageService.resolveUploadPath(image.getFilePath())
                 );
             }
@@ -1504,19 +1568,27 @@ public class ProjectPackageService {
                 if (xml.getSchema() == XmlSchema.PAGE_XML) {
                     archiveIoService.writeStreamEntry(
                             zipOut,
-                            entryPath,
+                            prefixedArchivePath(entryPrefix, entryPath),
                             entryOut -> pageXmlConversionService.writeFileToVersion(source, targetPageXmlVersion, entryOut)
                     );
                 } else {
-                    archiveIoService.writeFileEntry(zipOut, entryPath, source);
+                    archiveIoService.writeFileEntry(zipOut, prefixedArchivePath(entryPrefix, entryPath), source);
                 }
             }
         }
 
         for (DocumentExportService.EmbeddedProjectOutput output : embeddedOutputs) {
             String entryPath = uniqueArchivePath(sanitizeArchiveName(output.archivePath(), "export"), usedEntryPaths);
-            archiveIoService.writeFileEntry(zipOut, entryPath, output.absolutePath());
+            archiveIoService.writeFileEntry(zipOut, prefixedArchivePath(entryPrefix, entryPath), output.absolutePath());
         }
+    }
+
+    private String prefixedArchivePath(String entryPrefix, String entryPath) {
+        String normalizedEntryPath = archiveIoService.normalizeArchivePath(entryPath);
+        if (entryPrefix == null || entryPrefix.isBlank()) {
+            return normalizedEntryPath;
+        }
+        return archiveIoService.normalizeArchivePath(entryPrefix) + "/" + normalizedEntryPath;
     }
 
     private void cleanupEmbeddedOutputs(PackageSnapshot packageSnapshot) {

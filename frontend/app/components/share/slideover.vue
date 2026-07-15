@@ -9,8 +9,9 @@ interface Workspace {
 }
 
 const props = defineProps<{
-  resourceId: string
-  resourceName: string
+  resourceId?: string
+  resourceName?: string
+  resources?: Array<{ id: string, name: string }>
   resourceType: TransferableResourceType
   currentWorkspaceId: string
 }>()
@@ -46,16 +47,75 @@ const state = ref<Schema>({
 const isSubmitting = ref(false)
 const formId = useId()
 
+const selectedResources = computed(() => {
+  if (props.resources?.length) {
+    return props.resources.filter(resource => resource.id)
+  }
+  return props.resourceId
+    ? [{ id: props.resourceId, name: props.resourceName || props.resourceId }]
+    : []
+})
+
+const isBatchProjectShare = computed(() =>
+  props.resourceType === 'PROJECT' && selectedResources.value.length > 1
+)
+
+const shareTitle = computed(() => isBatchProjectShare.value
+  ? `Share ${selectedResources.value.length} projects`
+  : `Share ${selectedResources.value[0]?.name || props.resourceName || 'resource'}`
+)
+
 const endpoint = computed(() =>
   props.resourceType === 'PROJECT' ? '/api/project-transfers' : '/api/resource-transfers'
 )
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
+  if (selectedResources.value.length === 0) return
+
   isSubmitting.value = true
   try {
+    if (isBatchProjectShare.value) {
+      const response = await $fetch<{ successCount: number, failedCount: number }>('/api/project-transfers/bulk', {
+        method: 'POST',
+        body: {
+          projectIds: selectedResources.value.map(resource => resource.id),
+          targetWorkspaceId: event.data.targetWorkspaceId,
+          transferType: event.data.transferType,
+          message: event.data.message
+        }
+      })
+
+      if (response.successCount === 0) {
+        toast.add({
+          title: 'No requests created',
+          description: 'The selected projects could not be shared. Check existing transfers and permissions.',
+          color: 'error'
+        })
+        return
+      }
+
+      await Promise.all([
+        refreshUserTransfers(),
+        refreshWorkspaceTransfers(props.currentWorkspaceId),
+        refreshWorkspaceTransfers(event.data.targetWorkspaceId)
+      ])
+      toast.add({
+        title: event.data.transferType === 'MOVE' ? 'Transfer requests created' : 'Copy requests created',
+        description: response.failedCount > 0
+          ? `${response.successCount} created; ${response.failedCount} could not be created.`
+          : `${response.successCount} project${response.successCount === 1 ? '' : 's'} shared.`,
+        color: response.failedCount > 0 ? 'warning' : 'success',
+        icon: response.failedCount > 0 ? 'i-lucide-triangle-alert' : 'i-lucide-check'
+      })
+      emit('transferred')
+      emit('close', true)
+      return
+    }
+
+    const resource = selectedResources.value[0]!
     const body = props.resourceType === 'PROJECT'
-      ? { projectId: props.resourceId, targetWorkspaceId: event.data.targetWorkspaceId, transferType: event.data.transferType, message: event.data.message }
-      : { resourceId: props.resourceId, resourceType: props.resourceType, targetWorkspaceId: event.data.targetWorkspaceId, transferType: event.data.transferType, message: event.data.message }
+      ? { projectId: resource.id, targetWorkspaceId: event.data.targetWorkspaceId, transferType: event.data.transferType, message: event.data.message }
+      : { resourceId: resource.id, resourceType: props.resourceType, targetWorkspaceId: event.data.targetWorkspaceId, transferType: event.data.transferType, message: event.data.message }
 
     await $fetch(endpoint.value, { method: 'POST', body })
     await Promise.all([
@@ -85,9 +145,9 @@ const transferTypeOptions = [
   >
     <template #header>
       <UiSlideoverHeader
-        :title="`Share ${resourceName}`"
+        :title="shareTitle"
         icon="i-lucide-share-2"
-        description="Request a move or copy to another workspace."
+        :description="isBatchProjectShare ? 'Request a move or copy for all selected projects.' : 'Request a move or copy to another workspace.'"
       />
     </template>
 
@@ -133,7 +193,7 @@ const transferTypeOptions = [
               icon="i-lucide-info"
               color="info"
               variant="subtle"
-              title="Move will lock the resource until approved"
+              :title="isBatchProjectShare ? 'Move will lock the projects until approved' : 'Move will lock the resource until approved'"
             />
           </div>
         </UiSlideoverSection>
@@ -154,7 +214,7 @@ const transferTypeOptions = [
         type="submit"
         icon="i-lucide-forward"
         :loading="isSubmitting"
-        :disabled="!state.targetWorkspaceId"
+        :disabled="!state.targetWorkspaceId || selectedResources.length === 0"
       >
         {{ state.transferType === 'MOVE' ? 'Request Move' : 'Request Copy' }}
       </UButton>

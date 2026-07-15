@@ -57,6 +57,12 @@ public class ArchiveIoService {
         writeStreamEntry(zipOut, entryName, entryOut -> Files.copy(sourceFile, entryOut));
     }
 
+    public void writeDirectoryEntry(ZipOutputStream zipOut, String entryName) throws IOException {
+        String normalizedName = normalizeArchivePath(entryName) + "/";
+        zipOut.putNextEntry(new ZipEntry(normalizedName));
+        zipOut.closeEntry();
+    }
+
     public void writeStreamEntry(ZipOutputStream zipOut, String entryName, EntryWriter writer) throws IOException {
         String normalizedName = normalizeArchivePath(entryName);
         ZipEntry entry = new ZipEntry(normalizedName);

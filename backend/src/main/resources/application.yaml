@@ -7,6 +7,9 @@ spring:
     restart:
       enabled: true
   mvc:
+    async:
+      # Streaming exports can legitimately take longer than Spring MVC's 30-second default.
+      request-timeout: ${LAREX_ASYNC_REQUEST_TIMEOUT:30m}
     servlet:
       path: /api/v1
   servlet:

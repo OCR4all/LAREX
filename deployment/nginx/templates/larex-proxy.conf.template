@@ -36,14 +36,14 @@ server {
     location /api/upload-proxy/ {
         proxy_request_buffering off;
         proxy_buffering off;
-        proxy_read_timeout 600s;
-        proxy_send_timeout 600s;
+        proxy_read_timeout 1800s;
+        proxy_send_timeout 1800s;
         proxy_pass http://frontend:3000;
     }
 
     location / {
-        proxy_read_timeout 600s;
-        proxy_send_timeout 600s;
+        proxy_read_timeout 1800s;
+        proxy_send_timeout 1800s;
         proxy_pass http://frontend:3000;
     }
 }
