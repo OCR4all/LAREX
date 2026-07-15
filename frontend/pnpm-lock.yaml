@@ -110,6 +110,9 @@ importers:
       earcut:
         specifier: ^3.2.3
         version: 3.2.3
+      h3:
+        specifier: ^1.15.11
+        version: 1.15.11
       jwt-decode:
         specifier: ^4.0.0
         version: 4.0.0
@@ -140,6 +143,9 @@ importers:
       tailwindcss:
         specifier: ^4.3.2
         version: 4.3.2
+      vue:
+        specifier: ^3.5.39
+        version: 3.5.39(typescript@6.0.3)
       vue-draggable-plus:
         specifier: ^0.6.1
         version: 0.6.1(@types/sortablejs@1.15.9)

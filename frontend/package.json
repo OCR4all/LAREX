@@ -48,6 +48,7 @@
     "dockview-vue": "^6.6.1",
     "driver.js": "^1.6.0",
     "earcut": "^3.2.3",
+    "h3": "^1.15.11",
     "jwt-decode": "^4.0.0",
     "martinez-polygon-clipping": "^0.8.1",
     "nuxt": "^4.4.8",
@@ -58,6 +59,7 @@
     "reka-ui": "^2.9.10",
     "sortablejs": "^1.15.7",
     "tailwindcss": "^4.3.2",
+    "vue": "^3.5.39",
     "vue-draggable-plus": "^0.6.1",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"
