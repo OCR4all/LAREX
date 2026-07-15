@@ -186,6 +186,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           title="Initial Members"
           description="Invite editors or curators while creating the workspace."
           icon="i-lucide-users-round"
+          class="overflow-visible"
         >
           <div class="space-y-3">
             <div class="flex items-center justify-end">
