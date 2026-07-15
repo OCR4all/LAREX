@@ -166,8 +166,8 @@ const {
   sort,
   globalFilter,
   tagFilterOperator,
-  xmlStatusFilter,
-  xmlStatusOptions,
+  annotationStatusFilter,
+  annotationStatusOptions,
   activeProjectPageFilters,
   filteredPages,
   selectedPageIds,
@@ -1491,24 +1491,6 @@ function renderPageEditorIndicator(page: Page) {
   })
 }
 
-function renderPageXmlIndicator(page: Page) {
-  if (page.xmlFileCount <= 0) return null
-
-  return h(UPopover, {
-    mode: 'hover',
-    content: { side: 'top' }
-  }, {
-    default: () => h(UBadge, {
-      'aria-label': 'XML available',
-      'color': 'primary',
-      'variant': 'outline',
-      'size': 'sm',
-      'class': 'px-1.5'
-    }, () => h(UIcon, { name: 'i-lucide-code-xml', class: 'size-3.5' })),
-    content: () => h('div', { class: 'p-2 text-sm text-highlighted' }, 'XML available')
-  })
-}
-
 function renderOpenTasksContent(page: Page, count: number) {
   const subtasks = openSubtasksByPage.value?.[page.id] || []
 
@@ -1665,7 +1647,6 @@ const pageColumns = [
             })
           : null,
         h('p', { class: 'min-w-0 truncate font-medium' }, row.original.name),
-        renderPageXmlIndicator(row.original),
         renderPageTasksIndicator(row.original),
         renderPageEditorIndicator(row.original)
       ])
@@ -1718,6 +1699,26 @@ const pageColumns = [
     }
   },
   {
+    id: 'annotationState',
+    header: 'Annotation',
+    cell: ({ row }: { row: { original: Page } }) => {
+      const hasAnnotation = row.original.xmlFileCount > 0
+      const label = hasAnnotation ? 'Annotation available' : 'No annotation available'
+
+      return h(UBadge, {
+        'aria-label': label,
+        'title': label,
+        'color': hasAnnotation ? 'success' : 'error',
+        'variant': 'soft',
+        'size': 'sm',
+        'class': 'px-1.5'
+      }, () => h(UIcon, {
+        name: hasAnnotation ? 'i-lucide-check' : 'i-lucide-x',
+        class: 'size-3.5'
+      }))
+    }
+  },
+  {
     accessorKey: 'imageCount',
     header: () => h('div', { class: 'flex items-center justify-end gap-2' }, [
       h('span', 'Images'),
@@ -1738,15 +1739,6 @@ const pageColumns = [
       })
     ]),
     cell: ({ row }: { row: { original: Page } }) => h('div', { class: 'text-right font-medium' }, row.original.imageCount)
-  },
-  {
-    accessorKey: 'xmlFileCount',
-    header: 'XML',
-    cell: ({ row }: { row: { original: Page } }) => h(UBadge, {
-      color: row.original.xmlFileCount > 0 ? 'success' : 'neutral',
-      variant: 'soft',
-      size: 'sm'
-    }, () => row.original.xmlFileCount > 0 ? 'Yes' : 'No')
   },
   {
     id: 'mySubtasks',
@@ -2075,8 +2067,8 @@ useHead({
           </USelectMenu>
 
           <USelectMenu
-            v-model="xmlStatusFilter"
-            :items="xmlStatusOptions"
+            v-model="annotationStatusFilter"
+            :items="annotationStatusOptions"
             value-key="value"
             class="w-40"
           >

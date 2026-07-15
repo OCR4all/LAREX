@@ -6,14 +6,14 @@ import type { Page, ProjectActionScope, ProjectData } from '@/types/project-page
 const AUTO_CREATED_DESCRIPTION = 'Auto-created from bulk upload'
 export const PROJECT_PAGES_TABLE_ID = 'project-pages-v2'
 export const PROJECT_PAGE_ORDER_COLUMN_ID = 'projectOrderPosition'
-export const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'imageCount', 'updated']
+export const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'annotationState', 'imageCount', 'updated']
 export const PROJECT_PAGE_HIDEABLE_COLUMN_IDS = [
   PROJECT_PAGE_ORDER_COLUMN_ID,
   'name',
   'description',
   'tags',
   'imageCount',
-  'xmlFileCount',
+  'annotationState',
   'mySubtasks',
   'updated'
 ]
@@ -54,11 +54,11 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     PROJECT_PAGES_TABLE_ID
   )
 
-  const xmlStatusFilter = ref<'all' | 'has_xml' | 'no_xml'>('all')
-  const xmlStatusOptions = [
+  const annotationStatusFilter = ref<'all' | 'has_xml' | 'no_xml'>('all')
+  const annotationStatusOptions = [
     { value: 'all', label: 'All Pages' },
-    { value: 'has_xml', label: 'With XML' },
-    { value: 'no_xml', label: 'Without XML' }
+    { value: 'has_xml', label: 'With Annotation' },
+    { value: 'no_xml', label: 'Without Annotation' }
   ]
 
   const activeProjectPageFilters = computed(() => {
@@ -77,11 +77,11 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
         clear: () => { selectedTags.value = selectedTags.value.filter(value => value !== tag) }
       })
     }
-    if (xmlStatusFilter.value !== 'all') {
+    if (annotationStatusFilter.value !== 'all') {
       filters.push({
-        key: 'xml',
-        label: `XML: ${xmlStatusOptions.find(option => option.value === xmlStatusFilter.value)?.label}`,
-        clear: () => { xmlStatusFilter.value = 'all' }
+        key: 'annotation',
+        label: `Annotation: ${annotationStatusOptions.find(option => option.value === annotationStatusFilter.value)?.label}`,
+        clear: () => { annotationStatusFilter.value = 'all' }
       })
     }
     return filters
@@ -89,10 +89,10 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
 
   const filteredPages = computed(() => {
     let result = filteredAndSortedPages.value
-    if (xmlStatusFilter.value !== 'all') {
+    if (annotationStatusFilter.value !== 'all') {
       result = result.filter((page) => {
-        const hasXml = page.xmlFileCount > 0
-        return xmlStatusFilter.value === 'has_xml' ? hasXml : !hasXml
+        const hasAnnotation = page.xmlFileCount > 0
+        return annotationStatusFilter.value === 'has_xml' ? hasAnnotation : !hasAnnotation
       })
     }
     return result
@@ -136,7 +136,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     return filteredPages.value.slice(start, start + itemsPerPageRef.value)
   })
 
-  watch([globalFilter, columnFilters, xmlStatusFilter], () => {
+  watch([globalFilter, columnFilters, annotationStatusFilter], () => {
     page.value = 1
   }, { deep: true })
 
@@ -160,7 +160,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     const tags = columnFilters.value['tags']
     return globalFilter.value.trim().length > 0
       || (Array.isArray(tags) && tags.length > 0)
-      || xmlStatusFilter.value !== 'all'
+      || annotationStatusFilter.value !== 'all'
   })
   const canEditProjectPageOrder = computed(() =>
     options.canManageProjects.value && !options.project.value?.locked
@@ -344,7 +344,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
 
   function resetFilters() {
     resetAllFilters()
-    xmlStatusFilter.value = 'all'
+    annotationStatusFilter.value = 'all'
   }
 
   function getTagLabel(tagId: string, labels = currentTagLabels.value) {
@@ -376,8 +376,8 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     globalFilter,
     columnFilters,
     tagFilterOperator,
-    xmlStatusFilter,
-    xmlStatusOptions,
+    annotationStatusFilter,
+    annotationStatusOptions,
     activeProjectPageFilters,
     filteredPages,
     selectedPageIds,
