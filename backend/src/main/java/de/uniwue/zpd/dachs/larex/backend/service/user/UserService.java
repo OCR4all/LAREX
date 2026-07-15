@@ -485,31 +485,51 @@ public class UserService {
     }
 
     public List<UserDto> searchUsers(String query, int limit) {
-        if (query == null || query.trim().length() < 2) {
+        int cappedLimit = Math.max(0, Math.min(limit, 50));
+        if (cappedLimit == 0) {
             return List.of();
         }
 
         RealmResource realmResource = keycloakAdmin.realm(realm);
-        String searchTerm = query.trim();
+        String searchTerm = query == null ? "" : query.trim();
+
+        if (searchTerm.isEmpty()) {
+            int candidateLimit = Math.min(cappedLimit * 2, 50);
+            return realmResource.users().list(0, candidateLimit).stream()
+                    .filter(this::isInvitableUser)
+                    .map(this::mapToUserDto)
+                    .limit(cappedLimit)
+                    .toList();
+        }
+
+        if (searchTerm.length() < 2) {
+            return List.of();
+        }
 
         List<UserRepresentation> usernameResults = realmResource.users().searchByUsername(searchTerm, true);
         List<UserRepresentation> emailResults = realmResource.users().searchByEmail(searchTerm, true);
-        List<UserRepresentation> broadResults = realmResource.users().search(searchTerm, 0, limit);
+        List<UserRepresentation> broadResults = realmResource.users().search(searchTerm, 0, cappedLimit);
 
-        Map<String, UserDto> uniqueUsers = new HashMap<>();
+        Map<String, UserDto> uniqueUsers = new LinkedHashMap<>();
 
         for (UserRepresentation user : usernameResults) {
-            uniqueUsers.putIfAbsent(user.getId(), mapToUserDto(user));
+            if (isInvitableUser(user)) {
+                uniqueUsers.putIfAbsent(user.getId(), mapToUserDto(user));
+            }
         }
         for (UserRepresentation user : emailResults) {
-            uniqueUsers.putIfAbsent(user.getId(), mapToUserDto(user));
+            if (isInvitableUser(user)) {
+                uniqueUsers.putIfAbsent(user.getId(), mapToUserDto(user));
+            }
         }
         for (UserRepresentation user : broadResults) {
-            uniqueUsers.putIfAbsent(user.getId(), mapToUserDto(user));
+            if (isInvitableUser(user)) {
+                uniqueUsers.putIfAbsent(user.getId(), mapToUserDto(user));
+            }
         }
 
         return uniqueUsers.values().stream()
-                .limit(limit)
+                .limit(cappedLimit)
                 .toList();
     }
 
@@ -1039,6 +1059,10 @@ public class UserService {
         }
         String username = user.getUsername();
         return username != null && username.startsWith(SERVICE_ACCOUNT_USERNAME_PREFIX);
+    }
+
+    private boolean isInvitableUser(UserRepresentation user) {
+        return Boolean.TRUE.equals(user.isEnabled()) && !isServiceAccount(user);
     }
 
     private String resolveCreatedUserId(Response response, UsersResource usersResource, String username, String email) {

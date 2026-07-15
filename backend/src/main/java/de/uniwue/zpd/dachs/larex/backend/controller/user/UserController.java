@@ -31,7 +31,7 @@ public class UserController {
      */
     @GetMapping("/search")
     public ResponseEntity<List<UserDto>> searchUsers(
-            @RequestParam("q") String query,
+            @RequestParam(value = "q", defaultValue = "") String query,
             @RequestParam(value = "limit", defaultValue = "10") int limit) {
         List<UserDto> users = userService.searchUsers(query, Math.min(limit, 50));
         return ResponseEntity.ok(users);

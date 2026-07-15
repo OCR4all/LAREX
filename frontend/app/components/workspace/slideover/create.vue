@@ -39,30 +39,52 @@ const invitedUsers = ref<InvitedUser[]>([])
 const searchQuery = ref('')
 const selectedUser = ref<UserProfile | null>(null)
 const searchResults = ref<UserProfile[]>([])
+const suggestedUsers = ref<UserProfile[] | null>(null)
 const isSearching = ref(false)
 const isCreating = ref(false)
 const formId = useId()
+let searchRequestId = 0
 
 const roleOptions = [
   { label: 'Editor', value: 'EDITOR' as const },
   { label: 'Curator', value: 'CURATOR' as const }
 ]
 
-const debouncedSearch = useDebounceFn(async (query: string) => {
-  if (!query || query.length < 2) {
-    searchResults.value = []
-    return
-  }
-
+async function fetchUsers(query: string) {
+  const requestId = ++searchRequestId
   isSearching.value = true
   try {
-    const results = await $fetch<UserProfile[]>(`/api/users/search?q=${encodeURIComponent(query)}&limit=10`)
-    searchResults.value = results.filter(u => !invitedUsers.value.some(invited => invited.userId === u.id))
+    const results = await $fetch<UserProfile[]>('/api/users/search', {
+      query: {
+        q: query,
+        limit: 10
+      }
+    })
+    if (requestId !== searchRequestId) return null
+    return results
   } catch (error) {
     console.error('Failed to search users:', error)
-    searchResults.value = []
+    if (requestId === searchRequestId) {
+      searchResults.value = []
+    }
+    return null
   } finally {
-    isSearching.value = false
+    if (requestId === searchRequestId) {
+      isSearching.value = false
+    }
+  }
+}
+
+function excludeInvitedUsers(users: UserProfile[]) {
+  return users.filter(user => !invitedUsers.value.some(invited => invited.userId === user.id))
+}
+
+const debouncedSearch = useDebounceFn(async (query: string) => {
+  if (searchQuery.value.trim() !== query || selectedUser.value) return
+
+  const results = await fetchUsers(query)
+  if (results && searchQuery.value.trim() === query && !selectedUser.value) {
+    searchResults.value = excludeInvitedUsers(results)
   }
 }, 300)
 
@@ -70,8 +92,32 @@ watch(searchQuery, (query) => {
   if (selectedUser.value && query !== selectedUser.value.username) {
     selectedUser.value = null
   }
-  debouncedSearch(query)
+
+  const normalizedQuery = query.trim()
+  if (selectedUser.value || normalizedQuery.length < 2) {
+    searchRequestId++
+    isSearching.value = false
+    searchResults.value = []
+    return
+  }
+
+  debouncedSearch(normalizedQuery)
 })
+
+async function showUserSuggestions() {
+  if (selectedUser.value || searchQuery.value.trim()) return
+
+  if (suggestedUsers.value) {
+    searchResults.value = excludeInvitedUsers(suggestedUsers.value)
+    return
+  }
+
+  const results = await fetchUsers('')
+  if (results && !searchQuery.value.trim() && !selectedUser.value) {
+    suggestedUsers.value = results
+    searchResults.value = excludeInvitedUsers(results)
+  }
+}
 
 function selectUser(user: UserProfile) {
   selectedUser.value = user
@@ -200,6 +246,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 icon="i-lucide-search"
                 :loading="isSearching"
                 class="w-full"
+                @focus="showUserSuggestions"
               />
 
               <div
