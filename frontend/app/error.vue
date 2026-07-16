@@ -5,15 +5,25 @@ defineProps<{
   error: NuxtError
 }>()
 
-const gradientColors
-  = [
-    '#e1552e',
-    '#d23e24',
-    '#af2e1f',
-    '#8c2720',
-    '#33332f',
-    '#1c1c19'
-  ]
+const colorMode = useColorMode()
+
+const gradientColors = computed(() => colorMode.value === 'dark'
+  ? [
+      '#1678e4', // navy-600
+      '#1062bc', // navy-700
+      '#0a4f9a', // navy-800
+      '#073d78', // navy-900
+      '#282828', // smoke-800
+      '#181818' // smoke-900
+    ]
+  : [
+      '#1678e4', // navy-600
+      '#1062bc', // navy-700
+      '#73a2fd', // navy-400
+      '#9ab8fd', // navy-300
+      '#f2f2f2', // smoke-50
+      '#ebebeb' // smoke-100
+    ])
 
 useSeoMeta({
   title: 'An Error Occurred',
@@ -28,7 +38,7 @@ useHead({
 </script>
 
 <template>
-  <UMain class="min-h-screen flex items-center justify-center overflow-hidden bg-neutral-700">
+  <UMain class="min-h-screen flex items-center justify-center overflow-hidden bg-navy-600 dark:bg-navy-800">
     <UiAnimatedGradient
       :colors="gradientColors"
       :speed="45"
