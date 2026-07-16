@@ -57,6 +57,8 @@ public class ProjectReadService {
         List<String> projectIds = projects.stream().map(Project::getId).toList();
         Set<String> starredProjectIds = projectStarService.getAllStarredProjectIds(userId);
         Map<String, Long> pageCountByProjectId = toLongMap(pageRepository.countByProjectIds(projectIds));
+        Map<String, Long> completedPageCountByProjectId = toLongMap(
+                pageRepository.countByProjectIdsAndWorkflowState(projectIds, de.uniwue.zpd.dachs.larex.backend.entity.Page.WorkflowState.DONE));
         Map<String, Long> imageBytesByProjectId = toLongMap(pageImageRepository.sumFileSizeByProjectIds(projectIds));
         Map<String, Long> xmlBytesByProjectId = toLongMap(pageXmlRepository.sumFileSizeByProjectIds(projectIds));
         Map<String, Map<String, TagSetDto.TagNode>> tagLookupByProjectId = tagLookupService.buildTagLookupForProjects(projects);
@@ -70,6 +72,12 @@ public class ProjectReadService {
             Map<String, TagSetDto.TagNode> projectTagLookup = tagLookupByProjectId.getOrDefault(project.getId(), Map.of());
             List<PageDto.ResolvedTag> resolvedTags = resolveTags(project.getTags(), projectTagLookup);
 
+            int pageCount = pageCountByProjectId.getOrDefault(project.getId(), 0L).intValue();
+            int completedPageCount = completedPageCountByProjectId.getOrDefault(project.getId(), 0L).intValue();
+            int completionPercentage = pageCount == 0
+                    ? 0
+                    : (int) Math.round((completedPageCount * 100.0) / pageCount);
+
             responses.add(ProjectDto.Response.of(
                     project.getId(),
                     project.getName(),
@@ -78,7 +86,9 @@ public class ProjectReadService {
                     resolvedTags,
                     project.getCreated(),
                     project.getUpdated(),
-                    pageCountByProjectId.getOrDefault(project.getId(), 0L).intValue(),
+                    pageCount,
+                    completedPageCount,
+                    completionPercentage,
                     starredProjectIds.contains(project.getId()),
                     storageUsedBytes,
                     project.isLocked(),

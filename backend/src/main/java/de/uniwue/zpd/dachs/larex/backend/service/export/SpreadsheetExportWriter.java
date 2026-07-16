@@ -132,7 +132,7 @@ public class SpreadsheetExportWriter {
         List<List<String>> rows = new ArrayList<>();
         rows.add(List.of(
                 "workspaceId", "workspaceName", "projectId", "projectName", "pageId", "pageName", "pageDescription",
-                "created", "updated", "locked", "imageCount", "xmlFileCount", "primaryImageFileName", "primaryXmlFileName", "defaultGtIndex"
+                "created", "updated", "workflowState", "locked", "imageCount", "xmlFileCount", "primaryImageFileName", "primaryXmlFileName", "defaultGtIndex"
         ));
 
         for (ExportPage page : pages) {
@@ -146,7 +146,8 @@ public class SpreadsheetExportWriter {
                     nullToEmpty(page.page().getDescription()),
                     timeValue(page.page().getCreated()),
                     timeValue(page.page().getUpdated()),
-                    Boolean.toString(page.page().isLocked()),
+                    page.page().getWorkflowState().name(),
+                    Boolean.toString(page.page().isEffectivelyLocked()),
                     Integer.toString(page.page().getImages() == null ? 0 : page.page().getImages().size()),
                     Integer.toString(page.page().getXmlFiles() == null ? 0 : page.page().getXmlFiles().size()),
                     page.image() == null ? "" : nullToEmpty(page.image().getFileName()),

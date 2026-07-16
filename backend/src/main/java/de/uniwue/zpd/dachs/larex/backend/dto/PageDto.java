@@ -1,6 +1,9 @@
 package de.uniwue.zpd.dachs.larex.backend.dto;
 
+import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
@@ -54,6 +57,7 @@ public class PageDto {
             TextConfidenceStats textConfidence,
             int xmlFileCount,
             int imageCount,
+            Page.WorkflowState workflowState,
             boolean locked,
             String lockedReason,
             String thumbnailUrl,
@@ -63,6 +67,18 @@ public class PageDto {
 
     public record SortOrderRequest(
             List<String> pageIds
+    ) {}
+
+    public record WorkflowStateRequest(
+            @NotNull(message = "Workflow state is required")
+            Page.WorkflowState workflowState
+    ) {}
+
+    public record BulkWorkflowStateRequest(
+            @NotEmpty(message = "Page IDs are required")
+            List<String> pageIds,
+            @NotNull(message = "Workflow state is required")
+            Page.WorkflowState workflowState
     ) {}
 
     public record ImageResponse(

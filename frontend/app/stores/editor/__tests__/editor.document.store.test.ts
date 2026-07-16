@@ -128,6 +128,29 @@ describe('editor.document.store', () => {
     expect(store.getProjectPages('project-b').map(page => page.id)).toEqual(['b-1'])
   })
 
+  it('preserves page summary state when enriching its editor data', async () => {
+    const { store } = await createStores()
+    const page = {
+      ...createPage('project-a', 'a-1'),
+      workflowState: 'DONE' as const,
+      imageCount: 2,
+      xmlFileCount: 1
+    }
+    store.setProjectPages('project-a', [page], { replaceProject: true })
+
+    store.enrichPage('a-1', {
+      ...createPage('project-a', 'a-1'),
+      imageVariants: [{ id: 'full-image', url: '/images/full.jpg', label: 'full' }]
+    }, 'project-a')
+
+    expect(store.getPage('a-1', 'project-a')).toMatchObject({
+      workflowState: 'DONE',
+      imageCount: 2,
+      xmlFileCount: 1,
+      imageVariants: [{ id: 'full-image' }]
+    })
+  })
+
   it('preserves incoming project page order when initializing an editor session', async () => {
     const { sessionStore, store } = await createStores()
 

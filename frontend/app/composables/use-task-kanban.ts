@@ -3,17 +3,16 @@ import type { Task, TaskStatus } from '~/types/index'
 export interface KanbanColumn {
   id: TaskStatus
   title: string
-  color: 'neutral' | 'info' | 'success' | 'error'
   tasks: Task[]
 }
 
-type KanbanColumnMeta = Pick<KanbanColumn, 'id' | 'title' | 'color'>
+type KanbanColumnMeta = Pick<KanbanColumn, 'id' | 'title'>
 
 export const KANBAN_COLUMNS: KanbanColumnMeta[] = [
-  { id: 'OPEN', title: 'Open', color: 'neutral' },
-  { id: 'IN_PROGRESS', title: 'In Progress', color: 'info' },
-  { id: 'COMPLETED', title: 'Completed', color: 'success' },
-  { id: 'CANCELLED', title: 'Cancelled', color: 'error' }
+  { id: 'OPEN', title: 'Open' },
+  { id: 'IN_PROGRESS', title: 'In Progress' },
+  { id: 'COMPLETED', title: 'Completed' },
+  { id: 'CANCELLED', title: 'Cancelled' }
 ]
 
 export function useTaskKanban(tasks: Ref<Task[] | null | undefined>) {

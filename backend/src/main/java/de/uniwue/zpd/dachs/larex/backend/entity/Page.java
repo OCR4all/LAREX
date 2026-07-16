@@ -44,6 +44,10 @@ public class Page {
     @Column(nullable = false)
     private boolean locked = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "workflow_state", nullable = false, length = 32)
+    private WorkflowState workflowState = WorkflowState.OPEN;
+
     @Column(name = "sort_order")
     private Integer sortOrder;
 
@@ -84,6 +88,12 @@ public class Page {
         this.name = name;
         this.description = description;
         this.project = project;
+    }
+
+    public enum WorkflowState {
+        OPEN,
+        IN_PROGRESS,
+        DONE
     }
 
     public String getId() {
@@ -140,6 +150,28 @@ public class Page {
 
     public void setLocked(boolean locked) {
         this.locked = locked;
+    }
+
+    public WorkflowState getWorkflowState() {
+        return workflowState;
+    }
+
+    public void setWorkflowState(WorkflowState workflowState) {
+        this.workflowState = workflowState == null ? WorkflowState.OPEN : workflowState;
+    }
+
+    public boolean isEffectivelyLocked() {
+        return (project != null && project.isLocked()) || locked || workflowState == WorkflowState.DONE;
+    }
+
+    public String getEffectiveLockedReason() {
+        if (project != null && project.isLocked()) {
+            return project.getLockedReason() == null ? "Project is locked" : project.getLockedReason();
+        }
+        if (locked) {
+            return lockedReason;
+        }
+        return workflowState == WorkflowState.DONE ? "Page workflow state is Done" : null;
     }
 
     public Integer getSortOrder() {

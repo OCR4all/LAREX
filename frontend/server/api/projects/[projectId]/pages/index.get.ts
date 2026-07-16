@@ -1,10 +1,11 @@
-import { pageCacheUtils } from '#server/utils/page-cache'
-
 /**
  * GET /api/projects/{projectId}/pages
  *
- * Returns the list of pages for a project with server-side caching.
- * Cache is invalidated via WebSocket when pages are modified.
+ * Returns the current list of pages for a project.
+ *
+ * Page summaries include mutable workflow and effective-lock state. Those values
+ * can change through page operations, tasks, Actions, and collaboration, so this
+ * endpoint must not use the server-side page-list cache.
  */
 export default defineEventHandler(async (event) => {
   const projectId = getRouterParam(event, 'projectId')
@@ -37,15 +38,7 @@ export default defineEventHandler(async (event) => {
 
   const updatedSession = await getUserSession(event)
 
-  const cached = pageCacheUtils.getPageList(projectId)
-  if (cached) {
-    console.log(`[PageCache] Cache hit for project ${projectId} page list`)
-    setHeader(event, 'X-Cache', 'HIT')
-    return cached
-  }
-
-  console.log(`[PageCache] Cache miss for project ${projectId} page list`)
-  setHeader(event, 'X-Cache', 'MISS')
+  setHeader(event, 'Cache-Control', 'no-store')
 
   const backendUrl = `${config.apiBaseInternal}/projects/${projectId}/pages`
   const headers = {
@@ -54,15 +47,11 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const data = await $fetch(backendUrl, {
+    return await $fetch(backendUrl, {
       method: 'GET',
       headers,
       query: getQuery(event)
     })
-
-    pageCacheUtils.setPageList(projectId, data)
-
-    return data
   } catch (error: unknown) {
     const statusCode = Number(
       (error as { response?: { status?: number } })?.response?.status ?? 500

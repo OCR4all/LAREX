@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 
 @Repository
@@ -34,4 +35,8 @@ public interface TaskPageLinkRepository extends JpaRepository<TaskPageLink, Stri
      * Delete all task-page links for pages in a given list (used when deleting a project).
      */
     void deleteByPageIdIn(List<String> pageIds);
+
+    @Query("SELECT tpl.pageId, t FROM TaskPageLink tpl JOIN Task t ON tpl.taskId = t.id " +
+           "WHERE tpl.pageId IN :pageIds AND t.syncLinkedPageStates = true")
+    List<Object[]> findSyncEnabledTasksByPageIds(@Param("pageIds") Collection<String> pageIds);
 }

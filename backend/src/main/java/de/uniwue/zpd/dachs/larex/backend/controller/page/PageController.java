@@ -15,6 +15,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusRe
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageTextConfidenceStatsService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchPreviewService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
@@ -66,6 +67,7 @@ public class PageController {
     private final SearchPreviewService searchPreviewService;
     private final PageOrderService pageOrderService;
     private final PageTextConfidenceStatsService pageTextConfidenceStatsService;
+    private final PageWorkflowService pageWorkflowService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -78,7 +80,8 @@ public class PageController {
                           WorkspaceQuotaGuardService workspaceQuotaGuardService,
                           SearchPreviewService searchPreviewService,
                           PageOrderService pageOrderService,
-                          PageTextConfidenceStatsService pageTextConfidenceStatsService) {
+                          PageTextConfidenceStatsService pageTextConfidenceStatsService,
+                          PageWorkflowService pageWorkflowService) {
         this.pageService = pageService;
         this.subtaskService = subtaskService;
         this.pageFilterIndexService = pageFilterIndexService;
@@ -91,6 +94,7 @@ public class PageController {
         this.searchPreviewService = searchPreviewService;
         this.pageOrderService = pageOrderService;
         this.pageTextConfidenceStatsService = pageTextConfidenceStatsService;
+        this.pageWorkflowService = pageWorkflowService;
     }
 
     @GetMapping
@@ -174,6 +178,39 @@ public class PageController {
                         indexingStatuses.get(page.getId()),
                         textConfidenceStats.get(page.getId())
                 ))
+                .toList());
+    }
+
+    @PutMapping("/{pageId}/workflow-state")
+    public ResponseEntity<PageDto.Response> updateWorkflowState(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @Valid @RequestBody PageDto.WorkflowStateRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        Page page = pageWorkflowService.updateState(projectId, pageId, request.workflowState(), userId);
+        Map<String, PageDto.PageIndexingStatus> indexingStatuses =
+                pageIndexStatusReadService.resolveStatusesForProjectPages(projectId, List.of(page));
+        Map<String, PageDto.TextConfidenceStats> textConfidenceStats =
+                pageTextConfidenceStatsService.resolveStats(projectId, List.of(page));
+        return ResponseEntity.ok(mapToResponse(page, tagLookupService.buildTagLookupForProject(projectId),
+                indexingStatuses.get(pageId), textConfidenceStats.get(pageId)));
+    }
+
+    @PutMapping("/bulk/workflow-state")
+    public ResponseEntity<List<PageDto.Response>> bulkUpdateWorkflowState(
+            @PathVariable String projectId,
+            @Valid @RequestBody PageDto.BulkWorkflowStateRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        List<Page> pages = pageWorkflowService.bulkUpdateState(
+                projectId, request.pageIds(), request.workflowState(), userId);
+        Map<String, PageDto.PageIndexingStatus> indexingStatuses =
+                pageIndexStatusReadService.resolveStatusesForProjectPages(projectId, pages);
+        Map<String, PageDto.TextConfidenceStats> textConfidenceStats =
+                pageTextConfidenceStatsService.resolveStats(projectId, pages);
+        Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
+        return ResponseEntity.ok(pages.stream()
+                .map(page -> mapToResponse(page, tagLookup, indexingStatuses.get(page.getId()),
+                        textConfidenceStats.get(page.getId())))
                 .toList());
     }
 
@@ -665,8 +702,9 @@ public class PageController {
                 textConfidenceStats,
                 page.getXmlFiles() != null ? page.getXmlFiles().size() : 0,
                 images.size(),
-                page.isLocked(),
-                page.getLockedReason(),
+                page.getWorkflowState(),
+                page.isEffectivelyLocked(),
+                page.getEffectiveLockedReason(),
                 thumbnailUrl,
                 indexingStatus != null ? indexingStatus : PageDto.PageIndexingStatus.NOT_APPLICABLE,
                 imageVariants

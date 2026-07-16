@@ -94,7 +94,7 @@ public class AnnotationLeaseService {
         String workspaceId = page.getProject().getLibrary().getWorkspaceId();
         boolean canEdit = authorizationPolicyService.canAccessWorkspace(workspaceId, userId)
                 && !page.getProject().isLocked()
-                && !page.isLocked();
+                && !page.isEffectivelyLocked();
         boolean canForceTakeover = authorizationPolicyService.canManageProjects(workspaceId, userId);
 
         return new PageAccessContext(
@@ -115,6 +115,31 @@ public class AnnotationLeaseService {
                     null,
                     "editing-disabled"
             );
+        }
+    }
+
+    public void assertNoOtherActiveEditor(String pageId, String allowedUserId) {
+        List<NotificationIntent> notifications = new ArrayList<>();
+        AnnotationLeaseLockedException lockedException = null;
+        synchronized (leases) {
+            for (Map.Entry<String, LeaseRecord> entry : leases.entrySet()) {
+                LeaseRecord record = getActiveRecord(entry.getKey(), notifications);
+                if (record == null || !pageId.equals(record.pageId) || record.owner == null || record.owner.user == null) {
+                    continue;
+                }
+                if (allowedUserId == null || !allowedUserId.equals(record.owner.user.id())) {
+                    lockedException = new AnnotationLeaseLockedException(
+                            displayName(record.owner.user) + " is currently editing this page.",
+                            record.owner.user,
+                            "lease-held-by-other-user"
+                    );
+                    break;
+                }
+            }
+        }
+        dispatchNotifications(notifications);
+        if (lockedException != null) {
+            throw lockedException;
         }
     }
 

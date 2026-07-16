@@ -67,29 +67,9 @@ class SimpleLRUCache<K, V> {
   }
 }
 
-const pageListCache = new SimpleLRUCache<string, CacheEntry<any>>(100, 5 * 60 * 1000)
-
 const pageMetadataCache = new SimpleLRUCache<string, CacheEntry<any>>(500, 5 * 60 * 1000)
 
 export const pageCacheUtils = {
-  /**
-   * Get cached page list for a project
-   */
-  getPageList(projectId: string): any | undefined {
-    const entry = pageListCache.get(projectId)
-    return entry?.data
-  },
-
-  /**
-   * Set cached page list for a project
-   */
-  setPageList(projectId: string, data: any): void {
-    pageListCache.set(projectId, {
-      data,
-      timestamp: Date.now()
-    })
-  },
-
   /**
    * Get cached page metadata
    */
@@ -111,12 +91,11 @@ export const pageCacheUtils = {
   },
 
   /**
-   * Invalidate page list cache for a project and notify clients via WebSocket
+   * Notify clients that a project's page list changed.
+   * Page lists themselves are not cached because they contain mutable workflow
+   * and effective-lock state.
    */
   invalidatePageList(projectId: string): void {
-    pageListCache.delete(projectId)
-    console.log(`[PageCache] Invalidated page list cache for project ${projectId}`)
-
     websocketUtils.broadcast({
       type: 'CACHE_INVALIDATION',
       payload: {
@@ -150,8 +129,6 @@ export const pageCacheUtils = {
    * Invalidate all cache entries for a project
    */
   invalidateProject(projectId: string): void {
-    pageListCache.delete(projectId)
-
     for (const key of pageMetadataCache.keys()) {
       if (key.startsWith(`${projectId}:`)) {
         pageMetadataCache.delete(key)
@@ -174,7 +151,6 @@ export const pageCacheUtils = {
    * Clear all caches
    */
   clearAll(): void {
-    pageListCache.clear()
     pageMetadataCache.clear()
     console.log('[PageCache] Cleared all caches')
   },
@@ -184,7 +160,7 @@ export const pageCacheUtils = {
    */
   getStats() {
     return {
-      pageListCacheSize: pageListCache.size,
+      pageListCacheSize: 0,
       pageMetadataCacheSize: pageMetadataCache.size
     }
   }

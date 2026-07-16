@@ -338,6 +338,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     if (idx === -1) return
 
     projectPages[idx] = {
+      ...projectPages[idx],
       ...enrichedData,
       projectId: targetProjectId
     }
@@ -386,6 +387,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
       resolvedTags?: PageData['resolvedTags']
       locked?: boolean
       lockedReason?: string | null
+      workflowState?: PageData['workflowState']
       imageCount?: number
       xmlFileCount?: number
       indexingStatus?: PageData['indexingStatus']
@@ -412,6 +414,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
         resolvedTags: summary.resolvedTags ?? page.resolvedTags,
         locked: summary.locked ?? false,
         lockedReason: summary.lockedReason ?? null,
+        workflowState: summary.workflowState ?? page.workflowState ?? 'OPEN',
         imageCount: summary.imageCount ?? page.imageCount,
         xmlFileCount: summary.xmlFileCount ?? page.xmlFileCount,
         indexingStatus: summary.indexingStatus ?? page.indexingStatus,

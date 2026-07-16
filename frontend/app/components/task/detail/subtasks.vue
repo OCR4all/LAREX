@@ -19,6 +19,7 @@ const localSubtasks = ref<Subtask[]>([])
 const newSubtaskTitle = ref('')
 const newSubtaskDescription = ref('')
 const isAdding = ref(false)
+const addSubtaskOpen = ref(false)
 const editingId = ref<string | null>(null)
 const editingTitle = ref('')
 const editingDescription = ref('')
@@ -184,6 +185,12 @@ function getDisplayDescription(subtask: Subtask) {
   return subtask.description || subtask.taskDescription || null
 }
 
+function closeAddSubtask() {
+  addSubtaskOpen.value = false
+  newSubtaskTitle.value = ''
+  newSubtaskDescription.value = ''
+}
+
 watch(() => props.subtasks, (newVal) => {
   localSubtasks.value = [...newVal]
   const existingIds = new Set(newVal.map(s => s.id))
@@ -202,8 +209,7 @@ async function addSubtask() {
         description: newSubtaskDescription.value.trim() || null
       }
     })
-    newSubtaskTitle.value = ''
-    newSubtaskDescription.value = ''
+    closeAddSubtask()
     emit('refresh')
   } catch (err: any) {
     toast.add({ title: 'Failed to add subtask', description: err?.data?.message, color: 'error' })
@@ -303,6 +309,92 @@ async function onDragEnd() {
 
 <template>
   <div class="space-y-4">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <p class="text-sm font-semibold text-highlighted">
+          {{ localSubtasks.length }} subtask{{ localSubtasks.length === 1 ? '' : 's' }}
+        </p>
+        <p v-if="progress.total > 0" class="text-xs text-muted">
+          {{ progress.completed }} completed
+        </p>
+      </div>
+
+      <UPopover
+        v-model:open="addSubtaskOpen"
+        :content="{ align: 'end', sideOffset: 8 }"
+      >
+        <UButton
+          icon="i-lucide-plus"
+          color="primary"
+          variant="soft"
+          size="sm"
+        >
+          Add subtask
+        </UButton>
+
+        <template #content>
+          <UForm
+            class="w-80 max-w-[calc(100vw-2rem)] space-y-3 p-3"
+            @submit="addSubtask"
+          >
+            <div>
+              <p class="text-sm font-semibold text-highlighted">
+                Add subtask
+              </p>
+              <p class="mt-0.5 text-xs text-muted">
+                Break this task into a smaller piece of work.
+              </p>
+            </div>
+
+            <UFormField label="Title" required>
+              <UInput
+                v-model="newSubtaskTitle"
+                placeholder="What needs to be done?"
+                size="sm"
+                class="w-full"
+                :disabled="isAdding"
+                autofocus
+              />
+            </UFormField>
+
+            <UFormField label="Description">
+              <UTextarea
+                v-model="newSubtaskDescription"
+                placeholder="Optional description"
+                :rows="3"
+                size="sm"
+                class="w-full"
+                :disabled="isAdding"
+              />
+            </UFormField>
+
+            <div class="flex justify-end gap-2">
+              <UButton
+                type="button"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :disabled="isAdding"
+                @click="closeAddSubtask"
+              >
+                Cancel
+              </UButton>
+              <UButton
+                type="submit"
+                icon="i-lucide-plus"
+                color="primary"
+                size="sm"
+                :loading="isAdding"
+                :disabled="!newSubtaskTitle.trim()"
+              >
+                Add
+              </UButton>
+            </div>
+          </UForm>
+        </template>
+      </UPopover>
+    </div>
+
     <div v-if="progress.total > 0" class="space-y-2">
       <div class="flex items-center justify-between text-sm">
         <span class="text-muted">Progress</span>
@@ -560,39 +652,9 @@ async function onDragEnd() {
       </div>
     </VueDraggable>
 
-    <UForm class="space-y-2" @submit="addSubtask">
-      <div class="flex items-center gap-2">
-        <UInput
-          v-model="newSubtaskTitle"
-          placeholder="Add a subtask..."
-          size="sm"
-          class="flex-1"
-          :disabled="isAdding"
-        />
-        <UButton
-          type="submit"
-          icon="i-lucide-plus"
-          color="primary"
-          variant="soft"
-          size="sm"
-          :loading="isAdding"
-          :disabled="!newSubtaskTitle.trim()"
-        >
-          Add
-        </UButton>
-      </div>
-      <UTextarea
-        v-model="newSubtaskDescription"
-        placeholder="Optional description"
-        :rows="2"
-        size="sm"
-        :disabled="isAdding"
-      />
-    </UForm>
-
-    <div v-if="localSubtasks.length === 0 && !newSubtaskTitle" class="text-center py-6 text-sm text-muted">
+    <div v-if="localSubtasks.length === 0" class="py-6 text-center text-sm text-muted">
       <UIcon name="i-lucide-list-checks" class="size-8 mb-2 mx-auto" />
-      <p>No subtasks yet. Add one above.</p>
+      <p>No subtasks yet. Add the first one to get started.</p>
     </div>
   </div>
 </template>

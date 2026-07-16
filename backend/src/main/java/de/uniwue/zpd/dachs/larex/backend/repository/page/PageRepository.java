@@ -29,6 +29,12 @@ public interface PageRepository extends JpaRepository<Page, String> {
 
     Optional<Page> findByIdAndProjectId(String pageId, String projectId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"project"})
+    @Query("SELECT p FROM Page p WHERE p.id = :pageId AND p.project.id = :projectId")
+    Optional<Page> findByIdAndProjectIdForUpdate(@Param("pageId") String pageId,
+                                                 @Param("projectId") String projectId);
+
     @EntityGraph(attributePaths = {"images", "xmlFiles", "project"})
     @Query("SELECT DISTINCT p FROM Page p JOIN p.tags t WHERE p.project.id = :projectId AND t IN :tags")
     List<Page> findByProjectIdAndTagsIn(@Param("projectId") String projectId, @Param("tags") List<String> tags);
@@ -88,6 +94,17 @@ public interface PageRepository extends JpaRepository<Page, String> {
 
     @Query("SELECT p.project.id, COUNT(p) FROM Page p WHERE p.project.id IN :projectIds GROUP BY p.project.id")
     List<Object[]> countByProjectIds(@Param("projectIds") Collection<String> projectIds);
+
+    @Query("SELECT p.project.id, COUNT(p) FROM Page p WHERE p.project.id IN :projectIds " +
+           "AND p.workflowState = :workflowState " +
+           "GROUP BY p.project.id")
+    List<Object[]> countByProjectIdsAndWorkflowState(@Param("projectIds") Collection<String> projectIds,
+                                                     @Param("workflowState") Page.WorkflowState workflowState);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"project"})
+    @Query("SELECT p FROM Page p WHERE p.id IN :pageIds ORDER BY p.id")
+    List<Page> findAllByIdInForUpdate(@Param("pageIds") Collection<String> pageIds);
 
     List<Page> findByProjectIdAndNameIn(String projectId, Collection<String> names);
 

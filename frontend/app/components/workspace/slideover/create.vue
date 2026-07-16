@@ -277,7 +277,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               <div
                 v-for="user in invitedUsers"
                 :key="user.userId"
-                class="flex items-center gap-2 rounded-sm bg-elevated/50 p-2"
+                class="flex items-center gap-2 rounded-sm bg-elevated border border-neutral-300 dark:border-neutral-700 p-2"
               >
                 <UAvatar :alt="user.username" size="sm" />
                 <div class="min-w-0 flex-1">

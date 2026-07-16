@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TaskLinks, TaskPageLink } from '~/types/index'
-import { LazyTaskSlideoverLinkItems, LazyTaskModalConvertToSubtasks } from '#components'
+import { LazyTaskSlideoverLinkItems, LazyTaskModalConvertToSubtasks, LazyUiConfirmSlideover } from '#components'
 
 type ProjectPageGroup = {
   projectId: string
@@ -31,6 +31,8 @@ const overlay = useOverlay()
 
 const linkItemsSlideover = overlay.create(LazyTaskSlideoverLinkItems)
 const convertToSubtasksModal = overlay.create(LazyTaskModalConvertToSubtasks)
+const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
+const unlinkingProjectId = ref<string | null>(null)
 
 const linkedPageIds = computed(() => props.links.pageLinks.map(l => l.pageId))
 
@@ -111,6 +113,19 @@ async function unlinkAllPagesFromProject(projectId: string) {
   const group = pagesByProject.value.find(g => g.projectId === projectId)
   if (!group) return
 
+  const confirmation = confirmSlideover.open({
+    title: 'Unlink all project pages?',
+    message: `This will unlink all ${group.pages.length} page${group.pages.length === 1 ? '' : 's'} from “${group.projectName}” and this task. The pages themselves will not be deleted.`,
+    confirmLabel: 'Unlink all pages',
+    cancelLabel: 'Keep links',
+    confirmColor: 'error',
+    confirmIcon: 'i-lucide-unlink',
+    showCancel: true
+  })
+  const confirmed = await confirmation.result
+  if (!confirmed) return
+
+  unlinkingProjectId.value = projectId
   try {
     await Promise.all(
       group.pages.map(page =>
@@ -123,6 +138,8 @@ async function unlinkAllPagesFromProject(projectId: string) {
     toast.add({ title: `Unlinked ${group.pages.length} pages from ${group.projectName}`, color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Failed to unlink pages', description: err?.data?.message, color: 'error' })
+  } finally {
+    unlinkingProjectId.value = null
   }
 }
 </script>
@@ -153,9 +170,6 @@ async function unlinkAllPagesFromProject(projectId: string) {
         v-model="openProjects"
         type="multiple"
         :items="accordionItems"
-        :ui="{
-          item: 'border border-default rounded-sm mb-2 last:mb-0 overflow-hidden'
-        }"
       >
         <template #leading>
           <div class="flex items-center gap-2">
@@ -174,9 +188,12 @@ async function unlinkAllPagesFromProject(projectId: string) {
             <UButton
               icon="i-lucide-unlink"
               size="xs"
-              color="neutral"
+              color="error"
               variant="ghost"
               title="Unlink all pages from this project"
+              aria-label="Unlink all pages from this project"
+              :loading="unlinkingProjectId === item.value"
+              :disabled="unlinkingProjectId !== null"
               @click.stop="unlinkAllPagesFromProject(item.value)"
             />
           </div>
@@ -191,6 +208,8 @@ async function unlinkAllPagesFromProject(projectId: string) {
             >
               <NuxtLink
                 :to="`/project/${page.projectId}`"
+                target="_blank"
+                rel="noopener noreferrer"
                 class="flex items-center gap-2 min-w-0 hover:text-primary transition-colors flex-1"
               >
                 <UIcon name="i-lucide-file" class="size-4 text-muted shrink-0" />

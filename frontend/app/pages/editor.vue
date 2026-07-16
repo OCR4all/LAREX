@@ -50,6 +50,7 @@ import { useProjectDockviewRegistry } from '@/composables/editor/use-project-doc
 import { useProjectTabCloseState } from '@/composables/editor/use-project-tab-close-state'
 import { useEditorCommandCenter } from '@/composables/editor/use-editor-command-center'
 import type { OpenProjectPagesSelection } from '@/components/editor/modal/open-project-pages.vue'
+import type { PageWorkflowState } from '@/types/project-page'
 
 import EditorEmpty from '@/components/editor/empty.vue'
 import { useEditorIndexStatusPolling } from '@/composables/editor/use-editor-index-status-polling'
@@ -144,6 +145,11 @@ const logoMenuItems: DropdownMenuItem[][] = [[
 
 const pageNameFilter = ref('')
 const pageSortMode = ref<PageSortMode>(DEFAULT_PAGE_SORT_MODE)
+const editorWorkflowStateOptions: Array<{ label: string, value: PageWorkflowState, icon: string }> = [
+  { label: 'Open', value: 'OPEN', icon: 'i-lucide-circle' },
+  { label: 'In progress', value: 'IN_PROGRESS', icon: 'i-lucide-loader-circle' },
+  { label: 'Done', value: 'DONE', icon: 'i-lucide-circle-check' }
+]
 
 const editorStore = useEditorStore()
 const actionRunsStore = useActionRunsStore()
@@ -211,7 +217,8 @@ const {
   confidenceRange: backendConfidenceRange,
   confidenceElementTypes: backendConfidenceElementTypes,
   hasComments: backendHasComments,
-  onlyWithOpenSubtasks
+  onlyWithOpenSubtasks,
+  workflowStates: pageWorkflowStateFilters
 } = usePageFilter(currentProjectIdForFilter)
 
 const availableLabelsForFilter = computed<ApiLabelDefinition[]>(() => {
@@ -1093,6 +1100,20 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
       onSelect: () => {
         void openXmlEditor()
       }
+    },
+    {
+      label: `Page state: ${editorWorkflowStateOptions.find(option => option.value === activeWorkflowState.value)?.label ?? 'Open'}`,
+      icon: 'i-lucide-list-checks',
+      children: editorWorkflowStateOptions.map(option => ({
+        label: option.label,
+        icon: option.icon,
+        type: 'checkbox' as const,
+        checked: activeWorkflowState.value === option.value,
+        disabled: !canChangeActiveWorkflowState.value || activeWorkflowState.value === option.value,
+        onSelect: () => {
+          void updateActiveWorkflowState(option.value)
+        }
+      }))
     }
   ]
 
@@ -1455,6 +1476,62 @@ const activeCanvasIsComparison = computed(() => {
   const canvasId = activeCanvasId.value
   return canvasId ? Boolean(editorStore.canvases[canvasId]?.comparison) : false
 })
+const activeWorkflowState = computed<PageWorkflowState>(() => {
+  if (!activePageId.value || !currentProjectId.value) return 'OPEN'
+  return editorStore.getPage(activePageId.value, currentProjectId.value)?.workflowState ?? 'OPEN'
+})
+const canChangeActiveWorkflowState = computed(() => {
+  if (!activePageId.value || !currentProjectId.value || activeCanvasIsComparison.value) return false
+  const page = editorStore.getPage(activePageId.value, currentProjectId.value)
+  const workflowOnlyLock = page?.workflowState === 'DONE' && page.lockedReason === 'Page workflow state is Done'
+  return Boolean(selectedWorkspace.value && activeAnnotationMode.value === 'PROJECT' && (!page?.locked || workflowOnlyLock))
+})
+
+async function updateActiveWorkflowState(workflowState: PageWorkflowState) {
+  const projectId = currentProjectId.value
+  const pageId = activePageId.value
+  if (!projectId || !pageId || workflowState === activeWorkflowState.value || !canChangeActiveWorkflowState.value) return
+
+  if (workflowState === 'DONE') {
+    const saved = await handleSaveDocument()
+    if (!saved) return
+  }
+
+  try {
+    const updated = await $fetch<PageResponse>(`/api/projects/${projectId}/pages/${pageId}/workflow-state`, {
+      method: 'PUT',
+      body: { workflowState }
+    })
+    editorStore.patchProjectPageSummaries(projectId, [updated])
+
+    const projectPagesCacheKey = wsKey(selectedWorkspace.value as string, 'projects', projectId, 'pages')
+    clearNuxtData(projectPagesCacheKey)
+
+    const canvasId = activeCanvasId.value
+    if (canvasId) {
+      if (workflowState === 'DONE') {
+        await collaboration.releaseCanvasLease(canvasId)
+      } else {
+        await collaboration.ensureCanvasRoom(canvasId)
+        const session = getEditorSession(canvasId)
+        if (session) collaboration.attachCanvasSession(canvasId, session)
+      }
+    }
+
+    await Promise.all([
+      refreshNuxtData(wsKey(selectedWorkspace.value as string, 'projects', projectId)),
+      refreshNuxtData(wsKey(selectedWorkspace.value as string, 'projects', 'list'))
+    ])
+    const label = workflowState === 'IN_PROGRESS' ? 'In progress' : workflowState === 'DONE' ? 'Done' : 'Open'
+    toast.add({ title: `Page marked ${label}`, color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Failed to update page state',
+      description: extractApiErrorMessage(error, 'Could not update the page workflow state.'),
+      color: 'error'
+    })
+  }
+}
 const collapsedImagePopoverDismissKey = ref(0)
 
 watch(activeUiMode, (mode) => {
@@ -1537,6 +1614,11 @@ function getFilteredPagesForProject(projectId: string) {
     result = result.filter(p => pageIdsWithSubtasks.has(p.id))
   }
 
+  if (pageWorkflowStateFilters.value.length > 0) {
+    const selectedStates = new Set(pageWorkflowStateFilters.value)
+    result = result.filter(page => selectedStates.has(page.workflowState ?? 'OPEN'))
+  }
+
   if (hasBackendFilters.value) {
     const filteredIds = backendFilteredPageIdsByProjectId.value[projectId]
     if (filteredIds) {
@@ -1568,6 +1650,7 @@ const openedProjectById = computed(() => {
 const isPageListFilteringActive = computed(() => {
   return pageNameFilter.value.trim().length > 0
     || onlyWithOpenSubtasks.value
+    || pageWorkflowStateFilters.value.length > 0
     || hasBackendFilters.value
 })
 

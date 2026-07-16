@@ -17,7 +17,7 @@ import { collectPolylinesFromPcGts, collectPolygonsFromPcGts } from './editor.co
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { convertPageDtoToPcGts, convertPcGtsToPageDto, type PageDto } from '@/services/editor/page-conversion.service'
 import { LRUCache } from '@/utils/lru-cache'
-import { loadSinglePageData, type PageResponse } from '@/services/editor/project-loader'
+import { loadSinglePageData } from '@/services/editor/project-loader'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 
 const log = createScopedLogger('EditorStore')
@@ -922,7 +922,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (!documentStore.isPageLoaded(pageId, projectId)) {
       canvas.isLoadingAnnotations = true
       try {
-        const enrichedData = await loadSinglePageData(projectId, { id: page.id, name: page.label } as PageResponse)
+        const enrichedData = await loadSinglePageData(projectId, page)
         documentStore.enrichPage(pageId, { ...enrichedData, projectId, projectName: page.projectName }, projectId)
         page = documentStore.getPage(pageId, projectId)!
       } catch (err) {

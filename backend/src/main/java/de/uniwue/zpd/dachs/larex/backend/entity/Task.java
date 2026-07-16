@@ -58,6 +58,9 @@ public class Task {
     @Column(name = "workspace_id", nullable = false)
     private String workspaceId;
 
+    @Column(name = "sync_linked_page_states", nullable = false)
+    private boolean syncLinkedPageStates = false;
+
     public enum TaskStatus {
         OPEN,
         IN_PROGRESS,
@@ -185,5 +188,13 @@ public class Task {
 
     public void setWorkspaceId(String workspaceId) {
         this.workspaceId = workspaceId;
+    }
+
+    public boolean isSyncLinkedPageStates() {
+        return syncLinkedPageStates;
+    }
+
+    public void setSyncLinkedPageStates(boolean syncLinkedPageStates) {
+        this.syncLinkedPageStates = syncLinkedPageStates;
     }
 }

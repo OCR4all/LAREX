@@ -292,7 +292,7 @@ public class PageService {
                         page.getProject().getLibrary().getWorkspaceId(),
                         userId
                 ))
-                .filter(page -> !page.getProject().isLocked() && !page.isLocked())
+                .filter(page -> !page.getProject().isLocked() && !page.isEffectivelyLocked())
                 .toList();
         if (pagesToDelete.isEmpty()) {
             return 0;
@@ -559,10 +559,10 @@ public class PageService {
                     ? "Project is locked"
                     : page.getProject().getLockedReason());
         }
-        if (page.isLocked()) {
-            throw new IllegalStateException(page.getLockedReason() == null
+        if (page.isEffectivelyLocked()) {
+            throw new IllegalStateException(page.getEffectiveLockedReason() == null
                     ? "Page is locked"
-                    : page.getLockedReason());
+                    : page.getEffectiveLockedReason());
         }
     }
 

@@ -8,6 +8,13 @@ import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.task.SubtaskRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskActivityLogRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskCommentRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskProjectLinkRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskReminderRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
@@ -33,6 +40,13 @@ public class TaskService {
     private final UserService userService;
     private final TaskActivityService activityService;
     private final AuthorizationPolicyService authorizationPolicyService;
+    private final SubtaskRepository subtaskRepository;
+    private final TaskActivityLogRepository taskActivityLogRepository;
+    private final TaskCommentRepository taskCommentRepository;
+    private final TaskPageLinkRepository taskPageLinkRepository;
+    private final TaskProjectLinkRepository taskProjectLinkRepository;
+    private final TaskReminderRepository taskReminderRepository;
+    private final PageWorkflowService pageWorkflowService;
 
     public TaskService(
             TaskRepository taskRepository,
@@ -42,6 +56,13 @@ public class TaskService {
             NotificationService notificationService,
             UserService userService,
             AuthorizationPolicyService authorizationPolicyService,
+            SubtaskRepository subtaskRepository,
+            TaskActivityLogRepository taskActivityLogRepository,
+            TaskCommentRepository taskCommentRepository,
+            TaskPageLinkRepository taskPageLinkRepository,
+            TaskProjectLinkRepository taskProjectLinkRepository,
+            TaskReminderRepository taskReminderRepository,
+            PageWorkflowService pageWorkflowService,
             @org.springframework.context.annotation.Lazy TaskActivityService activityService
     ) {
         this.taskRepository = taskRepository;
@@ -51,6 +72,13 @@ public class TaskService {
         this.notificationService = notificationService;
         this.userService = userService;
         this.authorizationPolicyService = authorizationPolicyService;
+        this.subtaskRepository = subtaskRepository;
+        this.taskActivityLogRepository = taskActivityLogRepository;
+        this.taskCommentRepository = taskCommentRepository;
+        this.taskPageLinkRepository = taskPageLinkRepository;
+        this.taskProjectLinkRepository = taskProjectLinkRepository;
+        this.taskReminderRepository = taskReminderRepository;
+        this.pageWorkflowService = pageWorkflowService;
         this.activityService = activityService;
     }
 
@@ -132,6 +160,7 @@ public class TaskService {
         );
         task.setDueDate(request.dueDate());
         task.setAssignedUserIds(new ArrayList<>(normalizedAssignees));
+        task.setSyncLinkedPageStates(Boolean.TRUE.equals(request.syncLinkedPageStates()));
 
         Task saved = taskRepository.save(task);
 
@@ -158,6 +187,7 @@ public class TaskService {
         String oldDescription = task.getDescription();
         Task.TaskPriority oldPriority = task.getPriority();
         String oldDueDate = task.getDueDate() != null ? task.getDueDate().toString() : null;
+        boolean oldSyncLinkedPageStates = task.isSyncLinkedPageStates();
 
         if (request.title() != null) {
             String title = request.title().trim();
@@ -173,8 +203,17 @@ public class TaskService {
         if (request.dueDate() != null) {
             task.setDueDate(request.dueDate());
         }
+        if (request.syncLinkedPageStates() != null) {
+            task.setSyncLinkedPageStates(request.syncLinkedPageStates());
+        }
 
         Task saved = taskRepository.save(task);
+
+        if (oldSyncLinkedPageStates != saved.isSyncLinkedPageStates()) {
+            pageWorkflowService.recomputeForPageIds(taskPageLinkRepository.findByTaskId(taskId).stream()
+                    .map(link -> link.getPageId())
+                    .toList());
+        }
 
         // Log activities for changed fields
         if (request.title() != null && !oldTitle.equals(saved.getTitle())) {
@@ -218,6 +257,12 @@ public class TaskService {
 
         Task saved = taskRepository.save(task);
 
+        if (saved.isSyncLinkedPageStates()) {
+            pageWorkflowService.recomputeForPageIds(taskPageLinkRepository.findByTaskId(taskId).stream()
+                    .map(link -> link.getPageId())
+                    .toList());
+        }
+
         // Log activity
         activityService.logStatusChanged(taskId, userId, oldStatus, newStatus);
 
@@ -232,6 +277,28 @@ public class TaskService {
             for (String notifyUserId : notifyUsers) {
                 notificationService.createTaskCompletedNotification(notifyUserId, saved.getTitle(), saved.getId());
             }
+        }
+
+        return mapTask(saved, userId);
+    }
+
+    public TaskDto.Response updateTaskDueDate(String taskId, String userId, TaskDto.UpdateDueDateRequest request) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
+
+        LocalDateTime oldDueDate = task.getDueDate();
+        task.setDueDate(request.dueDate());
+        Task saved = taskRepository.save(task);
+
+        if (!Objects.equals(oldDueDate, saved.getDueDate())) {
+            activityService.logDueDateChanged(
+                    taskId,
+                    userId,
+                    oldDueDate != null ? oldDueDate.toString() : null,
+                    saved.getDueDate() != null ? saved.getDueDate().toString() : null
+            );
         }
 
         return mapTask(saved, userId);
@@ -293,7 +360,21 @@ public class TaskService {
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
+        List<String> linkedPageIds = task.isSyncLinkedPageStates()
+                ? taskPageLinkRepository.findByTaskId(taskId).stream().map(link -> link.getPageId()).toList()
+                : List.of();
+
+        subtaskRepository.deleteByTaskId(taskId);
+        taskReminderRepository.deleteByTaskId(taskId);
+        taskCommentRepository.deleteByTaskId(taskId);
+        taskActivityLogRepository.deleteByTaskId(taskId);
+        taskProjectLinkRepository.deleteByTaskId(taskId);
+        taskPageLinkRepository.deleteByTaskId(taskId);
         taskRepository.delete(task);
+        taskRepository.flush();
+        if (!linkedPageIds.isEmpty()) {
+            pageWorkflowService.recomputeForExistingPageIds(linkedPageIds);
+        }
     }
 
     private AbstractWorkspace requireWorkspaceAccess(String workspaceId, String userId) {
@@ -373,6 +454,7 @@ public class TaskService {
                 task.getCompletedAt(),
                 task.getCompletedByUserId(),
                 task.getWorkspaceId(),
+                task.isSyncLinkedPageStates(),
                 authorizationPolicyService.resolveTaskCapabilities(task, userId)
         );
     }

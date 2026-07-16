@@ -3,6 +3,7 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import type { PageData } from '@/stores/editor/types'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import UiColorTag from '@/components/ui/color-tag.vue'
+import type { PageWorkflowState } from '@/types/project-page'
 
 type VariantItem = { label: string, value: string }
 
@@ -61,6 +62,14 @@ const isPageLocked = computed(() => Boolean(actionLockReason.value || (props.pag
 const pageLockReason = computed(() => actionLockReason.value || props.page.lockedReason || 'Page is locked')
 
 const pageLabel = computed(() => props.page.label || props.page.id)
+const workflowStateBadge = computed(() => {
+  const state: PageWorkflowState = props.page.workflowState ?? 'OPEN'
+  return {
+    OPEN: { label: 'Open', icon: 'i-lucide-circle', color: 'neutral' as const },
+    IN_PROGRESS: { label: 'In progress', icon: 'i-lucide-loader-circle', color: 'info' as const },
+    DONE: { label: 'Done', icon: 'i-lucide-circle-check', color: 'success' as const }
+  }[state]
+})
 const openTasks = computed(() => props.openSubtaskCount ?? 0)
 const hasAnnotations = computed(() => (props.page.xmlFiles?.length ?? 0) > 0 || (props.page.xmlFileCount ?? 0) > 0)
 const hasUnsavedChanges = computed(() => editorStore.hasUnsavedChangesForPage(props.page.id))
@@ -340,6 +349,15 @@ async function handleCopyPageId() {
             <span class="inline-flex max-w-full truncate px-1.5 py-0.5 text-sm font-mono font-medium bg-neutral-900/90 text-neutral-300 rounded border border-neutral-700/50 backdrop-blur-sm">
               {{ pageLabel }}
             </span>
+            <UBadge
+              :icon="workflowStateBadge.icon"
+              :color="workflowStateBadge.color"
+              variant="subtle"
+              size="xs"
+              class="backdrop-blur-sm"
+            >
+              {{ workflowStateBadge.label }}
+            </UBadge>
             <UTooltip
               v-if="annotationModeBadge"
               :text="annotationModeBadge.tooltip"

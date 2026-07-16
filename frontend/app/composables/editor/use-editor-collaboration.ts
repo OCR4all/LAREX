@@ -1314,6 +1314,12 @@ export function useEditorCollaboration() {
     }
   }
 
+  const releaseCanvasLease = async (canvasId: string): Promise<void> => {
+    const roomKey = getRoomKeyForCanvas(canvasId)
+    if (!roomKey) return
+    await releaseLeaseForRoom(roomKey)
+  }
+
   const updatePresence = useThrottleFn((canvasId: string, presence: Partial<CollaborationPresence>) => {
     const roomKey = canvasRooms.value[canvasId]
     if (!roomKey) return
@@ -1520,6 +1526,7 @@ export function useEditorCollaboration() {
     ensureCanvasRoom,
     ensureRoom,
     leaveCanvasRoom,
+    releaseCanvasLease,
     attachCanvasSession,
     setCanvasSyncSuspended,
     updatePresence,

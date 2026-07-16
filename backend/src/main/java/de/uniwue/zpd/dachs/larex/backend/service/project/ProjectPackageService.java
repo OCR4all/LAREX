@@ -633,6 +633,7 @@ public class ProjectPackageService {
                     page.getUpdated(),
                     page.isLocked(),
                     page.getLockedReason(),
+                    page.getWorkflowState(),
                     page.getSortOrder()
             ));
 
@@ -924,6 +925,7 @@ public class ProjectPackageService {
             page.setTags(snapshot.tags() == null ? List.of() : new ArrayList<>(snapshot.tags()));
             page.setLocked(snapshot.locked());
             page.setLockedReason(snapshot.lockedReason());
+            page.setWorkflowState(snapshot.workflowState() == null ? Page.WorkflowState.OPEN : snapshot.workflowState());
             page.setSortOrder(snapshot.sortOrder() == null ? index * PageOrderService.SORT_ORDER_STEP : snapshot.sortOrder());
             page = pageRepository.save(page);
             pageBySourceId.put(snapshot.sourcePageId(), page);

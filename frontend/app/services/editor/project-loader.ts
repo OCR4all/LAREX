@@ -1,4 +1,5 @@
 import type { PageData, ImageVariant, XmlFile, ResolvedTag, PageIndexingStatus, TextConfidenceStats } from '@/stores/editor/types'
+import type { PageWorkflowState } from '@/types/project-page'
 
 export interface PageImageVariantPreviewResponse {
   id: string
@@ -15,6 +16,7 @@ export interface PageResponse {
   resolvedTags?: ResolvedTag[] | null
   locked?: boolean
   lockedReason?: string | null
+  workflowState?: PageWorkflowState
   imageCount?: number
   xmlFileCount?: number
   indexingStatus?: PageIndexingStatus
@@ -77,6 +79,7 @@ export function createSkeletonPageData(
     textConfidence: page.textConfidence ?? null,
     locked: page.locked ?? false,
     lockedReason: page.lockedReason ?? null,
+    workflowState: page.workflowState ?? 'OPEN',
     imageCount: page.imageCount ?? 0,
     xmlFileCount: page.xmlFileCount ?? 0,
     indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
@@ -88,7 +91,9 @@ export function createSkeletonPageData(
  * Load full data (images + XML metadata) for a single page.
  * Returns the enriched PageData with imageVariants and xmlFiles populated.
  */
-export async function loadSinglePageData(projectId: string, page: PageResponse): Promise<PageData> {
+export async function loadSinglePageData(projectId: string, page: PageResponse | PageData): Promise<PageData> {
+  const pageName = 'name' in page ? page.name : page.label
+
   try {
     const [images, xmlFiles] = await Promise.all([
       $fetch<ImageResponse[]>(`/api/projects/${projectId}/pages/${page.id}/images`),
@@ -124,7 +129,7 @@ export async function loadSinglePageData(projectId: string, page: PageResponse):
     return {
       id: page.id,
       projectId,
-      label: page.name,
+      label: pageName,
       thumbnail: thumbnailUrl,
       imageVariants,
       xmlFiles: mappedXmlFiles,
@@ -134,6 +139,7 @@ export async function loadSinglePageData(projectId: string, page: PageResponse):
       textConfidence: page.textConfidence ?? null,
       locked: page.locked ?? false,
       lockedReason: page.lockedReason ?? null,
+      workflowState: page.workflowState ?? 'OPEN',
       indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
       annotationContext: projectAnnotationContext(projectId, page.id)
     }
@@ -142,7 +148,7 @@ export async function loadSinglePageData(projectId: string, page: PageResponse):
     return {
       id: page.id,
       projectId,
-      label: page.name,
+      label: pageName,
       thumbnail: undefined,
       imageVariants: [],
       xmlFiles: [],
@@ -152,6 +158,7 @@ export async function loadSinglePageData(projectId: string, page: PageResponse):
       textConfidence: page.textConfidence ?? null,
       locked: page.locked ?? false,
       lockedReason: page.lockedReason ?? null,
+      workflowState: page.workflowState ?? 'OPEN',
       indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
       annotationContext: projectAnnotationContext(projectId, page.id)
     }

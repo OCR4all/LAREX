@@ -182,6 +182,7 @@ export interface Task {
   completedAt: string | null
   completedByUserId: string | null
   workspaceId: string
+  syncLinkedPageStates: boolean
   capabilities?: TaskCapabilities
 }
 

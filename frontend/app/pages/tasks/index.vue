@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
-import type { Task, TaskStatus, TaskPriority, WorkspaceMember } from '~/types/index'
+import type { Task, TaskStatus, TaskPriority, UserProfile, WorkspaceMember } from '~/types/index'
 import { DEFAULT_TASK_CAPABILITIES } from '@/types/capabilities'
 import { LazyUiDeleteSlideover, LazyTaskSlideoverEdit } from '#components'
 
@@ -8,6 +8,8 @@ const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
 const UCheckbox = resolveComponent('UCheckbox')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
+const UAvatar = resolveComponent('UAvatar')
+const UTooltip = resolveComponent('UTooltip')
 const TaskSubtaskProgress = resolveComponent('TaskSubtaskProgress')
 
 const route = useRoute()
@@ -26,18 +28,15 @@ const { user } = useUserSession()
 const currentUserId = computed(() => user.value?.id || '')
 
 type ViewMode = 'table' | 'kanban'
-const viewMode = ref<ViewMode>('table')
+const viewMode = useCookie<ViewMode>('larex-tasks-view-mode', {
+  default: () => 'table',
+  maxAge: 60 * 60 * 24 * 365,
+  sameSite: 'lax'
+})
 
-const STORAGE_KEY = 'larex-tasks-view-mode'
-onMounted(() => {
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === 'table' || stored === 'kanban') {
-    viewMode.value = stored
-  }
-})
-watch(viewMode, (mode) => {
-  localStorage.setItem(STORAGE_KEY, mode)
-})
+if (viewMode.value !== 'table' && viewMode.value !== 'kanban') {
+  viewMode.value = 'table'
+}
 
 const statusFilter = ref<TaskStatus | 'ALL'>('ALL')
 const assignedToMe = ref(true)
@@ -145,6 +144,11 @@ function getTaskCapabilities(task: Task) {
     ...DEFAULT_TASK_CAPABILITIES,
     ...(task.capabilities ?? {})
   }
+}
+
+function getAssigneeDisplayName(user: UserProfile) {
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ')
+  return fullName || user.username
 }
 
 const canBulkDeleteSelected = computed(() =>
@@ -443,8 +447,33 @@ const columns: TableColumn<Task>[] = [
     accessorKey: 'assignees',
     header: 'Assignees',
     cell: ({ row }) => {
-      const names = row.original.assignedUsers?.map(u => u.username).filter(Boolean) || []
-      return h('span', { class: 'text-sm text-muted' }, names.length ? names.join(', ') : '—')
+      const assignees = row.original.assignedUsers || []
+      if (assignees.length === 0) {
+        return h('span', { class: 'text-sm text-muted' }, '—')
+      }
+
+      const visibleAssignees = assignees.slice(0, 4)
+      const hiddenCount = Math.max(0, assignees.length - visibleAssignees.length)
+
+      return h('div', { class: 'flex items-center' }, [
+        ...visibleAssignees.map((user, index) => h(UTooltip, {
+          key: user.id,
+          text: getAssigneeDisplayName(user)
+        }, {
+          default: () => h(UAvatar, {
+            src: resolveManagedProfileAvatarSrc(user.avatar),
+            alt: getAssigneeDisplayName(user),
+            text: getAvatarInitials(user),
+            size: 'sm',
+            class: `${index > 0 ? '-ml-2' : ''} ring-2 ring-default`
+          })
+        })),
+        hiddenCount > 0
+          ? h('span', {
+              class: 'ml-2 inline-flex min-w-6 items-center justify-center rounded-full bg-elevated px-1.5 py-0.5 text-xs font-medium text-muted ring-1 ring-inset ring-default'
+            }, `+${hiddenCount}`)
+          : null
+      ])
     }
   },
   {
@@ -483,8 +512,8 @@ watch(() => route.query.taskId, (taskId) => {
 }, { immediate: true })
 
 const viewModeItems = [
-  { value: 'table', icon: 'i-lucide-table-2' },
-  { value: 'kanban', icon: 'i-lucide-kanban' }
+  { value: 'table', label: 'Table', icon: 'i-lucide-table-2' },
+  { value: 'kanban', label: 'Board', icon: 'i-lucide-kanban' }
 ]
 </script>
 
@@ -524,6 +553,7 @@ const viewModeItems = [
           <UCheckbox
             v-model="assignedToMe"
             label="Assigned to me"
+            class="ml-1"
           />
           <AppTableClearFiltersButton
             :active="activeTaskFilters.length > 0"
@@ -532,6 +562,11 @@ const viewModeItems = [
         </template>
         <template #right>
           <div class="flex items-center gap-2">
+            <AppTableColumnsDropdown
+              v-if="viewMode === 'table'"
+              table-id="tasks-index"
+              :columns="columns"
+            />
             <UTabs
               v-model="viewMode"
               data-tour="tasks-view-mode"
@@ -539,11 +574,6 @@ const viewModeItems = [
               color="primary"
               :content="false"
               :items="viewModeItems"
-            />
-            <AppTableColumnsDropdown
-              v-if="viewMode === 'table'"
-              table-id="tasks-index"
-              :columns="columns"
             />
           </div>
         </template>
@@ -558,7 +588,7 @@ const viewModeItems = [
         </div>
       </div>
 
-      <div v-else-if="tasksSafeCount === 0">
+      <div v-else-if="tasksSafeCount === 0 && viewMode === 'table'">
         <UEmpty
           v-if="activeTaskFilters.length > 0"
           variant="naked"
@@ -706,6 +736,7 @@ const viewModeItems = [
           :tasks="filteredTasks"
           @refresh="refreshCurrentTasksView"
           @task-click="handleTaskClick"
+          @task-delete="handleDeleteTask"
         />
       </div>
     </template>

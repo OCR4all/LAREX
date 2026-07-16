@@ -10,6 +10,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'refresh': []
   'task-click': [task: Task]
+  'task-delete': [task: Task]
 }>()
 
 const tasksRef = computed(() => props.tasks ?? [])
@@ -24,17 +25,17 @@ async function onTaskMoved(taskId: string, newStatus: TaskStatus) {
 </script>
 
 <template>
-  <div class="flex gap-4 h-full overflow-x-auto p-4">
+  <div class="flex h-full items-start gap-5 overflow-x-auto px-4 py-5 lg:px-6">
     <TaskBoardColumn
       v-for="column in columns"
       :id="column.id"
       :key="column.id"
       :title="column.title"
-      :color="column.color"
       :tasks="column.tasks"
       :is-updating="isUpdating"
       @task-moved="onTaskMoved"
       @task-click="emit('task-click', $event)"
+      @task-delete="emit('task-delete', $event)"
     />
   </div>
 </template>

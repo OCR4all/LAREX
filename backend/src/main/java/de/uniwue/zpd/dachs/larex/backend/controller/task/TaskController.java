@@ -86,6 +86,16 @@ public class TaskController {
         return ResponseEntity.ok(updated);
     }
 
+    @PutMapping("/tasks/{taskId}/due-date")
+    public ResponseEntity<TaskDto.Response> updateTaskDueDate(
+            @PathVariable String taskId,
+            @Valid @RequestBody TaskDto.UpdateDueDateRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId
+    ) {
+        TaskDto.Response updated = taskService.updateTaskDueDate(taskId, userId, request);
+        return ResponseEntity.ok(updated);
+    }
+
     @PutMapping("/tasks/{taskId}/assignees")
     public ResponseEntity<TaskDto.Response> updateAssignees(
             @PathVariable String taskId,

@@ -6,13 +6,14 @@ import type { Page, ProjectActionScope, ProjectData } from '@/types/project-page
 const AUTO_CREATED_DESCRIPTION = 'Auto-created from bulk upload'
 export const PROJECT_PAGES_TABLE_ID = 'project-pages-v2'
 export const PROJECT_PAGE_ORDER_COLUMN_ID = 'projectOrderPosition'
-export const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'annotationState', 'imageCount', 'updated']
+export const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'workflowState', 'annotationState', 'imageCount', 'updated']
 export const PROJECT_PAGE_HIDEABLE_COLUMN_IDS = [
   PROJECT_PAGE_ORDER_COLUMN_ID,
   'name',
   'description',
   'tags',
   'imageCount',
+  'workflowState',
   'annotationState',
   'mySubtasks',
   'updated'
@@ -60,6 +61,13 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     { value: 'has_xml', label: 'With Annotation' },
     { value: 'no_xml', label: 'Without Annotation' }
   ]
+  const workflowStateFilter = ref<'all' | Page['workflowState']>('all')
+  const workflowStateOptions = [
+    { value: 'all', label: 'All states' },
+    { value: 'OPEN', label: 'Open' },
+    { value: 'IN_PROGRESS', label: 'In progress' },
+    { value: 'DONE', label: 'Done' }
+  ]
 
   const activeProjectPageFilters = computed(() => {
     const filters: Array<{ key: string, label: string, clear: () => void }> = []
@@ -84,6 +92,13 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
         clear: () => { annotationStatusFilter.value = 'all' }
       })
     }
+    if (workflowStateFilter.value !== 'all') {
+      filters.push({
+        key: 'workflow-state',
+        label: `State: ${workflowStateOptions.find(option => option.value === workflowStateFilter.value)?.label}`,
+        clear: () => { workflowStateFilter.value = 'all' }
+      })
+    }
     return filters
   })
 
@@ -94,6 +109,9 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
         const hasAnnotation = page.xmlFileCount > 0
         return annotationStatusFilter.value === 'has_xml' ? hasAnnotation : !hasAnnotation
       })
+    }
+    if (workflowStateFilter.value !== 'all') {
+      result = result.filter(page => page.workflowState === workflowStateFilter.value)
     }
     return result
   })
@@ -136,7 +154,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     return filteredPages.value.slice(start, start + itemsPerPageRef.value)
   })
 
-  watch([globalFilter, columnFilters, annotationStatusFilter], () => {
+  watch([globalFilter, columnFilters, annotationStatusFilter, workflowStateFilter], () => {
     page.value = 1
   }, { deep: true })
 
@@ -161,6 +179,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     return globalFilter.value.trim().length > 0
       || (Array.isArray(tags) && tags.length > 0)
       || annotationStatusFilter.value !== 'all'
+      || workflowStateFilter.value !== 'all'
   })
   const canEditProjectPageOrder = computed(() =>
     options.canManageProjects.value && !options.project.value?.locked
@@ -345,6 +364,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
   function resetFilters() {
     resetAllFilters()
     annotationStatusFilter.value = 'all'
+    workflowStateFilter.value = 'all'
   }
 
   function getTagLabel(tagId: string, labels = currentTagLabels.value) {
@@ -378,6 +398,8 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     tagFilterOperator,
     annotationStatusFilter,
     annotationStatusOptions,
+    workflowStateFilter,
+    workflowStateOptions,
     activeProjectPageFilters,
     filteredPages,
     selectedPageIds,

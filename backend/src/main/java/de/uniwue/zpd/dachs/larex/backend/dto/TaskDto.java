@@ -26,6 +26,7 @@ public class TaskDto {
             LocalDateTime completedAt,
             String completedByUserId,
             String workspaceId,
+            boolean syncLinkedPageStates,
             AuthorizationCapabilitiesDto.TaskCapabilities capabilities
     ) {}
 
@@ -43,7 +44,9 @@ public class TaskDto {
             LocalDateTime dueDate,
 
             @Size(max = 50, message = "Cannot assign more than 50 users")
-            List<String> assignedUserIds
+            List<String> assignedUserIds,
+
+            Boolean syncLinkedPageStates
     ) {}
 
     public record UpdateRequest(
@@ -55,12 +58,18 @@ public class TaskDto {
 
             Task.TaskPriority priority,
 
-            LocalDateTime dueDate
+            LocalDateTime dueDate,
+
+            Boolean syncLinkedPageStates
     ) {}
 
     public record UpdateStatusRequest(
             @NotNull(message = "Status is required")
             Task.TaskStatus status
+    ) {}
+
+    public record UpdateDueDateRequest(
+            LocalDateTime dueDate
     ) {}
 
     public record UpdateAssigneesRequest(

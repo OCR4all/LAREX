@@ -73,6 +73,7 @@ export default defineNuxtConfig({
         '@codemirror/search',
         '@codemirror/state',
         '@codemirror/view',
+        '@internationalized/date',
         '@lezer/highlight',
         '@tanstack/vue-virtual',
         '@vueuse/integrations/useSortable',

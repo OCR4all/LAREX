@@ -729,10 +729,11 @@ public class DatasetService {
         }
 
         boolean canEdit = authorizationPolicyService.canAccessWorkspace(workspaceId, userId)
-                && !sourcePage.getProject().isLocked();
+                && !sourcePage.getProject().isLocked()
+                && !sourcePage.isEffectivelyLocked();
         String readOnlyReason = canEdit
                 ? null
-                : resolveReadOnlyReason(sourcePage.getProject().getLockedReason(), "Source project is locked");
+                : resolveReadOnlyReason(sourcePage.getEffectiveLockedReason(), "Source page is read-only");
 
         String annotationBasePath = "/api/projects/" + sourcePage.getProject().getId()
                 + "/pages/" + sourcePage.getId()

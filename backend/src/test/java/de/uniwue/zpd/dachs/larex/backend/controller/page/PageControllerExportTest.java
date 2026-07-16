@@ -64,6 +64,8 @@ class PageControllerExportTest {
     private PageOrderService pageOrderService;
     @Mock
     private PageTextConfidenceStatsService pageTextConfidenceStatsService;
+    @Mock
+    private de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService pageWorkflowService;
 
     @org.junit.jupiter.api.io.TempDir
     Path tempDir;
@@ -82,7 +84,8 @@ class PageControllerExportTest {
                 workspaceQuotaGuardService,
                 searchPreviewService,
                 pageOrderService,
-                pageTextConfidenceStatsService
+                pageTextConfidenceStatsService,
+                pageWorkflowService
         );
 
         byte[] body = "hello".getBytes();
@@ -119,7 +122,8 @@ class PageControllerExportTest {
                 workspaceQuotaGuardService,
                 searchPreviewService,
                 pageOrderService,
-                pageTextConfidenceStatsService
+                pageTextConfidenceStatsService,
+                pageWorkflowService
         );
         ReflectionTestUtils.setField(controller, "uploadDir", tempDir.toString());
 

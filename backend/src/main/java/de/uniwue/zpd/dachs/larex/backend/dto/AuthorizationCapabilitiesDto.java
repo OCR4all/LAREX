@@ -21,7 +21,8 @@ public class AuthorizationCapabilitiesDto {
             boolean canUpload,
             boolean canExportPackage,
             boolean canExecuteActions,
-            boolean canManageActions
+            boolean canManageActions,
+            boolean canChangePageState
     ) {}
 
     public record DatasetCapabilities(

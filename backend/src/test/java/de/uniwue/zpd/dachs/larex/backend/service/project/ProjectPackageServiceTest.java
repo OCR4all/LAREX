@@ -454,6 +454,7 @@ class ProjectPackageServiceTest {
                 LocalDateTime.now(),
                 false,
                 null,
+                de.uniwue.zpd.dachs.larex.backend.entity.Page.WorkflowState.OPEN,
                 sortOrder
         );
     }

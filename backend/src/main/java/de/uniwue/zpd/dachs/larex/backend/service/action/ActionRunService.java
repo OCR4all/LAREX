@@ -1402,7 +1402,7 @@ public class ActionRunService {
             throw new IllegalStateException(project.getLockedReason() == null ? "Project is locked" : project.getLockedReason());
         }
         for (Page page : pages) {
-            if (page.isLocked()) {
+            if (page.isEffectivelyLocked()) {
                 throw new IllegalStateException("Page is locked: " + page.getName());
             }
         }
@@ -1412,7 +1412,7 @@ public class ActionRunService {
         if (project.isLocked()) {
             return true;
         }
-        return pages.stream().anyMatch(Page::isLocked);
+        return pages.stream().anyMatch(Page::isEffectivelyLocked);
     }
 
     private List<Page> resolveRunPages(String projectId, List<String> requestedPageIds) {

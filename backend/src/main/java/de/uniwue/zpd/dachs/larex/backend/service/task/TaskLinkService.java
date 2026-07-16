@@ -11,6 +11,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskProjectLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,7 @@ public class TaskLinkService {
     private final WorkspaceAccessService workspaceAccessService;
     private final UserService userService;
     private final TaskActivityService activityService;
+    private final PageWorkflowService pageWorkflowService;
 
     public TaskLinkService(
             TaskProjectLinkRepository projectLinkRepository,
@@ -40,7 +42,8 @@ public class TaskLinkService {
             PageRepository pageRepository,
             WorkspaceAccessService workspaceAccessService,
             UserService userService,
-            TaskActivityService activityService
+            TaskActivityService activityService,
+            PageWorkflowService pageWorkflowService
     ) {
         this.projectLinkRepository = projectLinkRepository;
         this.pageLinkRepository = pageLinkRepository;
@@ -50,6 +53,7 @@ public class TaskLinkService {
         this.workspaceAccessService = workspaceAccessService;
         this.userService = userService;
         this.activityService = activityService;
+        this.pageWorkflowService = pageWorkflowService;
     }
 
     public TaskLinkDto.TaskLinksResponse getTaskLinks(String taskId, String userId) {
@@ -153,6 +157,9 @@ public class TaskLinkService {
 
         if (!savedLinks.isEmpty()) {
             activityService.logLinkAdded(taskId, userId, "pages", String.valueOf(savedLinks.size()));
+            if (task.isSyncLinkedPageStates()) {
+                pageWorkflowService.recomputeForPageIds(savedLinks.stream().map(TaskPageLink::getPageId).toList());
+            }
         }
 
         return mapPageLinks(savedLinks);
@@ -168,6 +175,10 @@ public class TaskLinkService {
                 .orElseThrow(() -> new ResourceNotFoundException("Link", taskId + "-" + pageId));
 
         pageLinkRepository.delete(link);
+        pageLinkRepository.flush();
+        if (task.isSyncLinkedPageStates()) {
+            pageWorkflowService.recomputeForPageIds(List.of(pageId));
+        }
         activityService.logLinkRemoved(taskId, userId, "page", pageId);
     }
 

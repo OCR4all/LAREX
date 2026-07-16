@@ -18,7 +18,8 @@ import {
   UButton,
   UDropdownMenu,
   UIcon,
-  UPopover
+  UPopover,
+  UProgress
 } from '#components'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse } from '@/types/codec'
 import { DEFAULT_PROJECT_CAPABILITIES } from '@/types/capabilities'
@@ -96,7 +97,7 @@ type ResolvedTag = {
 }
 
 const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
-const DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'pageCount', 'updated']
+const DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'pageCount', 'completionPercentage', 'updated']
 
 type ProjectListItem = {
   id: string
@@ -107,6 +108,8 @@ type ProjectListItem = {
   created: string
   updated: string
   pageCount: number
+  completedPageCount: number
+  completionPercentage: number
   isStarred: boolean
   storageUsedBytes: number
   storageUsedFormatted: string
@@ -123,6 +126,7 @@ type ProjectListItem = {
     canDeletePages: boolean
     canUpload: boolean
     canExportPackage: boolean
+    canChangePageState: boolean
   }
 }
 
@@ -416,6 +420,22 @@ const columns: TableColumn<ProjectListItem>[] = [
     cell: ({ row }) => h('div', { class: 'text-right font-medium' }, row.getValue('pageCount'))
   },
   {
+    accessorKey: 'completionPercentage',
+    header: createSortableHeader('Progress', 'completionPercentage', sort, UButton),
+    cell: ({ row }) => h('div', { class: 'min-w-32 space-y-1' }, [
+      h('div', { class: 'flex justify-between text-xs text-muted' }, [
+        h('span', `${row.original.completedPageCount}/${row.original.pageCount} done`),
+        h('span', `${row.original.completionPercentage}%`)
+      ]),
+      h(UProgress, {
+        modelValue: row.original.completionPercentage,
+        max: 100,
+        color: row.original.completionPercentage === 100 && row.original.pageCount > 0 ? 'success' : 'primary',
+        size: 'xs'
+      })
+    ])
+  },
+  {
     accessorKey: 'storageUsedBytes',
     header: createSortableHeader('Storage', 'storageUsedBytes', sort, UButton, { align: 'end' }),
     cell: ({ row }) => h('div', { class: 'text-right text-sm text-muted' }, row.original.storageUsedFormatted || '0 B')
@@ -563,10 +583,52 @@ async function handleDeleteSelectedProjects() {
   const confirmed = await instance.result
   if (!confirmed) return
 
+  const projectsBeforeDelete = [...(data.value ?? [])]
+  const projectIdsToDelete = new Set(ids)
+  const selectedIdsBeforeDelete = new Set(selectedProjectIds.value)
+  const progressToast = toast.add({
+    title: count === 1 ? 'Deleting Project' : 'Deleting Projects',
+    description: count === 1 ? projectsToDelete[0]?.name : `${count} projects`,
+    color: 'neutral',
+    icon: 'i-lucide-loader-circle',
+    ui: { icon: 'animate-spin' },
+    close: false,
+    progress: false,
+    duration: 0
+  })
+
+  data.value = projectsBeforeDelete.filter(project => !projectIdsToDelete.has(project.id))
+  clearSelection()
   deletingProjectIds.value = new Set([...deletingProjectIds.value, ...ids])
 
+  const restoreProjects = (projectIds: string[]) => {
+    const idsToRestore = new Set(projectIds)
+    const currentProjects = data.value ?? []
+    const currentProjectsById = new Map(currentProjects.map(project => [project.id, project]))
+    const originalProjectIds = new Set(projectsBeforeDelete.map(project => project.id))
+
+    data.value = [
+      ...projectsBeforeDelete
+        .filter(project => idsToRestore.has(project.id) || currentProjectsById.has(project.id))
+        .map(project => currentProjectsById.get(project.id) ?? project),
+      ...currentProjects.filter(project => !originalProjectIds.has(project.id))
+    ]
+
+    const nextSelected = new Set(selectedProjectIds.value)
+    projectIds.forEach((id) => {
+      if (selectedIdsBeforeDelete.has(id)) nextSelected.add(id)
+    })
+    selectedProjectIds.value = nextSelected
+  }
+
   try {
-    const response = await $fetch<{ successCount: number, failedCount: number }>(
+    const response = await $fetch<{
+      successCount: number
+      failedCount: number
+      deletedIds: string[]
+      failedIds: string[]
+      errors: string[]
+    }>(
       `/api/workspaces/${selectedWorkspace.value}/projects/bulk`,
       {
         method: 'DELETE',
@@ -583,6 +645,7 @@ async function handleDeleteSelectedProjects() {
     }
 
     if (response.failedCount > 0) {
+      restoreProjects(response.failedIds)
       toast.add({
         title: 'Some deletions failed',
         description: `${response.failedCount} project${response.failedCount === 1 ? '' : 's'} could not be deleted.`,
@@ -590,15 +653,16 @@ async function handleDeleteSelectedProjects() {
       })
     }
 
-    clearSelection()
-    await refreshNuxtData(projectsKey.value)
+    void refreshNuxtData(projectsKey.value)
   } catch (error: unknown) {
+    restoreProjects(ids)
     toast.add({
       title: 'Delete failed',
       description: extractApiErrorMessage(error, 'Failed to delete selected projects'),
       color: 'error'
     })
   } finally {
+    toast.remove(progressToast.id)
     const nextDeleting = new Set(deletingProjectIds.value)
     ids.forEach(id => nextDeleting.delete(id))
     deletingProjectIds.value = nextDeleting

@@ -94,6 +94,7 @@ export interface PageData {
   textConfidence?: TextConfidenceStats | null
   locked?: boolean
   lockedReason?: string | null
+  workflowState?: import('@/types/project-page').PageWorkflowState
   /** Available from page list API before enrichment */
   imageCount?: number
   /** Available from page list API before enrichment */

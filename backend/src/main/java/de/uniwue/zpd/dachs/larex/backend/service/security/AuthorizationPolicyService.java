@@ -170,6 +170,7 @@ public class AuthorizationPolicyService {
         boolean canExportPackage = canAccessWorkspace;
         boolean canExecuteActions = canAccessWorkspace && !project.isLocked();
         boolean canManageActions = canManageProjects;
+        boolean canChangePageState = canAccessWorkspace && !project.isLocked();
 
         return new AuthorizationCapabilitiesDto.ProjectCapabilities(
                 canEdit,
@@ -179,7 +180,8 @@ public class AuthorizationPolicyService {
                 canUpload,
                 canExportPackage,
                 canExecuteActions,
-                canManageActions
+                canManageActions,
+                canChangePageState
         );
     }
 

@@ -6,6 +6,7 @@
 
 import { normalizeLegacyLabelFilterValues } from '@/utils/editor/page-filter-tokens'
 import { extractApiErrorMessage } from '@/utils/api-error'
+import type { PageWorkflowState } from '@/types/project-page'
 
 export const PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS = [
   { label: 'Page', value: 'PAGE' },
@@ -35,7 +36,11 @@ export interface PageFilterState {
   hasComments: boolean
   /** Only show pages with open subtasks */
   onlyWithOpenSubtasks: boolean
+  /** Workflow states shown in the editor image list */
+  workflowStates: PageWorkflowState[]
 }
+
+type BackendPageFilterState = Omit<PageFilterState, 'workflowStates'>
 
 export interface PageFilterResult {
   /** Set of page IDs matching the filter */
@@ -64,12 +69,14 @@ const DEFAULT_FILTER_STATE: PageFilterState = {
   confidenceRange: [0, 1],
   confidenceElementTypes: [],
   hasComments: false,
-  onlyWithOpenSubtasks: false
+  onlyWithOpenSubtasks: false,
+  workflowStates: []
 }
 
 const VALID_CONFIDENCE_ELEMENT_TYPES = new Set<PageConfidenceElementType>(
   PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS.map(option => option.value)
 )
+const VALID_WORKFLOW_STATES = new Set<PageWorkflowState>(['OPEN', 'IN_PROGRESS', 'DONE'])
 
 const globalFilterState = ref<PageFilterState>({ ...DEFAULT_FILTER_STATE })
 const globalFilteredPageIdsArray = ref<string[]>([])
@@ -108,12 +115,20 @@ function normalizeConfidenceElementTypes(input: unknown): PageConfidenceElementT
   return [...new Set(result)]
 }
 
+function normalizeWorkflowStates(input: unknown): PageWorkflowState[] {
+  if (!Array.isArray(input)) return []
+
+  return [...new Set(input.filter((value): value is PageWorkflowState =>
+    typeof value === 'string' && VALID_WORKFLOW_STATES.has(value as PageWorkflowState)
+  ))]
+}
+
 export function isConfidenceFilterActive(state: Pick<PageFilterState, 'confidenceRange' | 'confidenceElementTypes'>): boolean {
   const [min, max] = state.confidenceRange
   return min > 0 || max < 1 || state.confidenceElementTypes.length > 0
 }
 
-export function buildPageFilterRequestBody(state: PageFilterState): Record<string, unknown> {
+export function buildPageFilterRequestBody(state: BackendPageFilterState): Record<string, unknown> {
   const confidenceActive = isConfidenceFilterActive(state)
 
   return {
@@ -179,7 +194,8 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
             confidenceRange: normalizeConfidenceRange(parsed.confidenceRange),
             confidenceElementTypes: normalizeConfidenceElementTypes(parsed.confidenceElementTypes),
             hasComments: parsed.hasComments === true,
-            onlyWithOpenSubtasks: parsed.onlyWithOpenSubtasks === true
+            onlyWithOpenSubtasks: parsed.onlyWithOpenSubtasks === true,
+            workflowStates: normalizeWorkflowStates(parsed.workflowStates)
           }
         } catch {
           globalFilterState.value = { ...DEFAULT_FILTER_STATE }
@@ -207,6 +223,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
       || isConfidenceFilterActive(globalFilterState.value)
       || globalFilterState.value.hasComments
       || globalFilterState.value.onlyWithOpenSubtasks
+      || globalFilterState.value.workflowStates.length > 0
     )
   })
 
@@ -273,6 +290,16 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
   const onlyWithOpenSubtasks = computed({
     get: () => globalFilterState.value.onlyWithOpenSubtasks,
     set: (value) => { globalFilterState.value = { ...globalFilterState.value, onlyWithOpenSubtasks: value } }
+  })
+
+  const workflowStates = computed({
+    get: () => globalFilterState.value.workflowStates,
+    set: (value: PageWorkflowState[]) => {
+      globalFilterState.value = {
+        ...globalFilterState.value,
+        workflowStates: normalizeWorkflowStates(value)
+      }
+    }
   })
 
   async function applyFilters(): Promise<PageFilterResult> {
@@ -346,6 +373,10 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
       confidenceRange: [...DEFAULT_FILTER_STATE.confidenceRange],
       confidenceElementTypes: []
     }
+  }
+
+  function clearWorkflowStateFilter() {
+    globalFilterState.value = { ...globalFilterState.value, workflowStates: [] }
   }
 
   async function fetchIndexStats(): Promise<IndexStats | null> {
@@ -516,6 +547,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
     confidenceElementTypes,
     hasComments,
     onlyWithOpenSubtasks,
+    workflowStates,
     hasBackendFilters,
 
     applyFilters,
@@ -524,6 +556,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
     clearTextContentFilter,
     clearTagFilter,
     clearConfidenceFilter,
+    clearWorkflowStateFilter,
     fetchIndexStats,
     fetchAvailableLabels,
     rebuildIndex,

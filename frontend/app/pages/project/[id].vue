@@ -32,7 +32,7 @@ import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse }
 import type { ApplySourcesResponse, NormalizePreview, NormalizeSourcesResponse, NormalizationProfile, NormalizationProjectScope, NormalizeTarget } from '@/types/normalization-profile'
 import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/types/validation-ruleset'
 import UiColorTag from '@/components/ui/color-tag.vue'
-import type { ConflictInfo, Page, PageIndexingStatus, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
+import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowState, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -154,6 +154,7 @@ const canExecuteProjectActions = computed(() => allow(projectCapabilities.value.
 const canShareProject = computed(() => allow(projectCapabilities.value.canShare))
 const canManageProjects = computed(() => allow(workspaceCapabilities.value.canManageProjects))
 const canDeleteProjectPages = computed(() => allow(projectCapabilities.value.canDeletePages))
+const canChangePageState = computed(() => allow(projectCapabilities.value.canChangePageState))
 
 const { data: pages, error: pagesError, pending: pagesPending, refresh: refreshPagesFetch } = await useFetch<Page[]>(() => `/api/projects/${projectId}/pages`, {
   key: projectPagesKey
@@ -168,6 +169,8 @@ const {
   tagFilterOperator,
   annotationStatusFilter,
   annotationStatusOptions,
+  workflowStateFilter,
+  workflowStateOptions,
   activeProjectPageFilters,
   filteredPages,
   selectedPageIds,
@@ -203,6 +206,56 @@ const {
   canDeletePages: canDeleteProjectPages,
   getErrorMessage
 })
+
+const workflowStateMeta: Record<PageWorkflowState, { label: string, color: 'neutral' | 'info' | 'success', icon: string }> = {
+  OPEN: { label: 'Open', color: 'neutral', icon: 'i-lucide-circle' },
+  IN_PROGRESS: { label: 'In progress', color: 'info', icon: 'i-lucide-loader-circle' },
+  DONE: { label: 'Done', color: 'success', icon: 'i-lucide-circle-check' }
+}
+
+function mergeUpdatedPages(updatedPages: Page[]) {
+  if (!pages.value) return
+  const updates = new Map(updatedPages.map(page => [page.id, page]))
+  pages.value = pages.value.map(page => updates.has(page.id) ? { ...page, ...updates.get(page.id)! } : page)
+}
+
+async function updatePageWorkflowState(page: Page, workflowState: PageWorkflowState) {
+  if (!canChangePageState.value || page.workflowState === workflowState) return
+  try {
+    const updated = await $fetch<Page>(`/api/projects/${projectId}/pages/${page.id}/workflow-state`, {
+      method: 'PUT',
+      body: { workflowState }
+    })
+    mergeUpdatedPages([updated])
+    await Promise.all([refreshProject(), refreshNuxtData(projectsListKey.value)])
+    toast.add({ title: `Page marked ${workflowStateMeta[workflowState].label}`, color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Failed to update page state',
+      description: getErrorMessage(error, 'Could not update the page workflow state.'),
+      color: 'error'
+    })
+  }
+}
+
+async function bulkUpdatePageWorkflowState(workflowState: PageWorkflowState) {
+  if (!canChangePageState.value || selectedPageIds.value.size === 0) return
+  try {
+    const updated = await $fetch<Page[]>(`/api/projects/${projectId}/pages/bulk/workflow-state`, {
+      method: 'PUT',
+      body: { pageIds: Array.from(selectedPageIds.value), workflowState }
+    })
+    mergeUpdatedPages(updated)
+    await Promise.all([refreshProject(), refreshNuxtData(projectsListKey.value)])
+    toast.add({ title: `${updated.length} page${updated.length === 1 ? '' : 's'} marked ${workflowStateMeta[workflowState].label}`, color: 'success' })
+  } catch (error) {
+    toast.add({
+      title: 'Failed to update selected pages',
+      description: getErrorMessage(error, 'Could not update the selected page states.'),
+      color: 'error'
+    })
+  }
+}
 
 const PAGE_INDEX_STATUS_POLL_MS = 3000
 
@@ -448,9 +501,12 @@ async function handleOpenInEditor() {
   try {
     isLoadingEditor.value = true
 
+    const latestPages = await $fetch<Page[]>(`/api/projects/${projectId}/pages`)
+    pages.value = latestPages
+
     const pagesToUse = selectedPageIds.value.size > 0
-      ? pages.value.filter(p => selectedPageIds.value.has(p.id))
-      : pages.value
+      ? latestPages.filter(p => selectedPageIds.value.has(p.id))
+      : latestPages
 
     const pageResponses: PageResponse[] = pagesToUse.map(page => ({
       id: page.id,
@@ -458,6 +514,9 @@ async function handleOpenInEditor() {
       thumbnailUrl: page.thumbnailUrl ?? undefined,
       tags: page.tags ?? [],
       resolvedTags: page.resolvedTags ?? null,
+      locked: page.locked,
+      lockedReason: page.lockedReason,
+      workflowState: page.workflowState,
       imageCount: page.imageCount,
       xmlFileCount: page.xmlFileCount,
       indexingStatus: page.indexingStatus,
@@ -1364,6 +1423,15 @@ async function openValidationRulesetModal(scope: ProjectActionScope = 'all') {
 }
 
 const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
+  const stateItems: DropdownMenuItem[] = [
+    { type: 'label', label: 'Set page state' },
+    ...(['OPEN', 'IN_PROGRESS', 'DONE'] as PageWorkflowState[]).map(workflowState => ({
+      label: workflowStateMeta[workflowState].label,
+      icon: workflowStateMeta[workflowState].icon,
+      disabled: !hasSelection.value || !canChangePageState.value,
+      onSelect: () => { void bulkUpdatePageWorkflowState(workflowState) }
+    }))
+  ]
   const exportItems: DropdownMenuItem[] = [
     {
       type: 'label',
@@ -1450,7 +1518,7 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  return [exportItems, toolkitItems]
+  return [stateItems, exportItems, toolkitItems]
 })
 
 function renderPageEditorIndicator(page: Page) {
@@ -1647,7 +1715,6 @@ const pageColumns = [
             })
           : null,
         h('p', { class: 'min-w-0 truncate font-medium' }, row.original.name),
-        renderPageTasksIndicator(row.original),
         renderPageEditorIndicator(row.original)
       ])
     }
@@ -1696,6 +1763,14 @@ const pageColumns = [
         ...visibleTags.map((tag, index) => renderTagBadge(tag, index)),
         h(UBadge, { color: 'primary', variant: 'subtle', size: 'sm' }, () => `+${hiddenTags.length}`)
       ])
+    }
+  },
+  {
+    accessorKey: 'workflowState',
+    header: 'State',
+    cell: ({ row }: { row: { original: Page } }) => {
+      const meta = workflowStateMeta[row.original.workflowState]
+      return h(UBadge, { color: meta.color, variant: 'subtle', size: 'sm', icon: meta.icon }, () => meta.label)
     }
   },
   {
@@ -1783,6 +1858,18 @@ function getPageRowItems(page: Page) {
     { label: 'Export', icon: 'i-lucide-file-output', disabled: page.xmlFileCount === 0, onSelect: () => exportPageOutput(page) },
     { label: 'Version History', icon: 'i-lucide-history', disabled: page.xmlFileCount === 0, onSelect: () => openVersionHistory(page) }
   ]
+
+  if (canChangePageState.value) {
+    items.push({ type: 'separator' })
+    for (const workflowState of ['OPEN', 'IN_PROGRESS', 'DONE'] as PageWorkflowState[]) {
+      items.push({
+        label: `Mark ${workflowStateMeta[workflowState].label}`,
+        icon: workflowStateMeta[workflowState].icon,
+        disabled: page.workflowState === workflowState || Boolean(project.value?.locked),
+        onSelect: () => { void updatePageWorkflowState(page, workflowState) }
+      })
+    }
+  }
 
   if (allow(projectCapabilities.value.canDeletePages)) {
     items.push({ type: 'separator' })
@@ -1940,6 +2027,22 @@ useHead({
 
         <template #right>
           <div class="flex items-center gap-2">
+            <UTooltip
+              v-if="project"
+              :text="`Project progress: ${project.completedPageCount}/${project.pageCount} done (${project.completionPercentage}%)`"
+            >
+              <div class="mr-1 flex min-w-28 items-center gap-2 text-xs text-muted">
+                <UProgress
+                  :model-value="project.completionPercentage"
+                  :color="project.completionPercentage === 100 && project.pageCount > 0 ? 'success' : 'primary'"
+                  size="xs"
+                  class="w-20"
+                  :aria-label="`Project progress: ${project.completionPercentage}%`"
+                />
+                <span class="whitespace-nowrap">{{ project.completedPageCount }}/{{ project.pageCount }}</span>
+              </div>
+            </UTooltip>
+
             <div v-if="project?.storageUsedFormatted" class="flex items-center gap-1 text-xs text-muted mr-2">
               <UIcon name="i-lucide-hard-drive" class="w-3 h-3" />
               <span>{{ project.storageUsedFormatted }}</span>
@@ -2074,6 +2177,16 @@ useHead({
           >
             <template #leading>
               <UIcon name="i-lucide-file-text" />
+            </template>
+          </USelectMenu>
+          <USelectMenu
+            v-model="workflowStateFilter"
+            :items="workflowStateOptions"
+            value-key="value"
+            class="w-40"
+          >
+            <template #leading>
+              <UIcon name="i-lucide-list-checks" />
             </template>
           </USelectMenu>
           <AppTableClearFiltersButton

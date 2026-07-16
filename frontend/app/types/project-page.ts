@@ -6,6 +6,8 @@ export type ProjectData = {
   created: string
   updated: string
   pageCount: number
+  completedPageCount: number
+  completionPercentage: number
   isStarred: boolean
   storageUsedBytes: number
   storageUsedFormatted: string
@@ -36,6 +38,7 @@ export type ProjectData = {
     canExportPackage: boolean
     canExecuteActions: boolean
     canManageActions: boolean
+    canChangePageState: boolean
   }
 }
 
@@ -64,6 +67,7 @@ export type ConflictInfo = {
 }
 
 export type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
+export type PageWorkflowState = 'OPEN' | 'IN_PROGRESS' | 'DONE'
 
 export type TextConfidenceStats = {
   min: number
@@ -83,6 +87,7 @@ export type Page = {
   updated: string
   xmlFileCount: number
   imageCount: number
+  workflowState: PageWorkflowState
   locked?: boolean
   lockedReason?: string | null
   thumbnailUrl?: string | null

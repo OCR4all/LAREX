@@ -25,15 +25,18 @@ public class BulkTaskService {
     private final TaskRepository taskRepository;
     private final WorkspaceAccessService workspaceAccessService;
     private final TaskActivityService activityService;
+    private final TaskStatusTransactionService taskStatusTransactionService;
 
     public BulkTaskService(
             TaskRepository taskRepository,
             WorkspaceAccessService workspaceAccessService,
-            TaskActivityService activityService
+            TaskActivityService activityService,
+            TaskStatusTransactionService taskStatusTransactionService
     ) {
         this.taskRepository = taskRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.activityService = activityService;
+        this.taskStatusTransactionService = taskStatusTransactionService;
     }
 
     public BulkTaskDto.BulkOperationResponse bulkUpdateStatus(
@@ -62,38 +65,14 @@ public class BulkTaskService {
             );
         }
 
-        Map<String, Task.TaskStatus> oldStatusByTaskId = new HashMap<>();
+        int successCount = 0;
         for (String taskId : targetTaskIds) {
-            oldStatusByTaskId.put(taskId, taskById.get(taskId).getStatus());
-        }
-
-        LocalDateTime completedAt = request.status() == Task.TaskStatus.COMPLETED ? LocalDateTime.now() : null;
-        String completedByUserId = request.status() == Task.TaskStatus.COMPLETED ? userId : null;
-
-        int successCount;
-        try {
-            successCount = taskRepository.bulkUpdateStatusInWorkspace(
-                    workspaceId,
-                    targetTaskIds,
-                    request.status(),
-                    completedAt,
-                    completedByUserId
-            );
-        } catch (Exception e) {
-            failedTaskIds.addAll(targetTaskIds);
-            errors.add("Error bulk updating task status: " + e.getMessage());
-            return new BulkTaskDto.BulkOperationResponse(
-                    0,
-                    failedTaskIds.size(),
-                    failedTaskIds,
-                    errors
-            );
-        }
-
-        for (String taskId : targetTaskIds) {
-            Task.TaskStatus oldStatus = oldStatusByTaskId.get(taskId);
-            if (oldStatus != null) {
-                activityService.logStatusChanged(taskId, userId, oldStatus, request.status());
+            try {
+                taskStatusTransactionService.updateStatus(taskId, userId, request.status());
+                successCount++;
+            } catch (RuntimeException e) {
+                failedTaskIds.add(taskId);
+                errors.add("Task " + taskId + ": " + (e.getMessage() == null ? "status update failed" : e.getMessage()));
             }
         }
 
@@ -286,13 +265,15 @@ public class BulkTaskService {
             );
         }
 
-        int successCount;
-        try {
-            successCount = taskRepository.deleteByWorkspaceIdAndIdIn(workspaceId, targetTaskIds);
-        } catch (Exception e) {
-            failedTaskIds.addAll(targetTaskIds);
-            errors.add("Error bulk deleting tasks: " + e.getMessage());
-            successCount = 0;
+        int successCount = 0;
+        for (String taskId : targetTaskIds) {
+            try {
+                taskStatusTransactionService.deleteTask(taskId, userId);
+                successCount++;
+            } catch (RuntimeException e) {
+                failedTaskIds.add(taskId);
+                errors.add("Task " + taskId + ": " + (e.getMessage() == null ? "delete failed" : e.getMessage()));
+            }
         }
 
         return new BulkTaskDto.BulkOperationResponse(

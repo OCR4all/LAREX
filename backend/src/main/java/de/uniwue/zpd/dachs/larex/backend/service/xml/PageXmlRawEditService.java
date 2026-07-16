@@ -161,7 +161,7 @@ public class PageXmlRawEditService {
         String workspaceId = pageXml.getPage().getProject().getLibrary().getWorkspaceId();
         boolean canEdit = authorizationPolicyService.canAccessWorkspace(workspaceId, userId)
                 && !pageXml.getPage().getProject().isLocked()
-                && !pageXml.getPage().isLocked();
+                && !pageXml.getPage().isEffectivelyLocked();
 
         if (!canEdit) {
             throw new AccessDeniedException("You do not have permission to edit this XML");

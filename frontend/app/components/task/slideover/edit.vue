@@ -34,7 +34,8 @@ const schema = z.object({
   description: z.string().optional(),
   status: z.enum(['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
-  dueDate: z.string().optional()
+  dueDate: z.string().optional(),
+  syncLinkedPageStates: z.boolean()
 })
 
 type Schema = z.output<typeof schema>
@@ -44,7 +45,8 @@ const state = reactive<Partial<Schema>>({
   description: '',
   status: 'OPEN',
   priority: 'MEDIUM',
-  dueDate: ''
+  dueDate: '',
+  syncLinkedPageStates: false
 })
 
 const assignedUserIds = ref<string[]>([])
@@ -125,6 +127,7 @@ function applyTaskToState(task: Task) {
   state.status = task.status
   state.priority = task.priority
   state.dueDate = task.dueDate ? task.dueDate.slice(0, 16) : ''
+  state.syncLinkedPageStates = task.syncLinkedPageStates ?? false
 
   assignedUserIds.value = [...(task.assignedUserIds || [])]
   assignedUsers.value = [...(task.assignedUsers || [])]
@@ -180,7 +183,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       description: event.data.description?.trim() || null,
       priority: event.data.priority as TaskPriority,
       dueDate,
-      assignedUserIds: props.isAdmin ? assignedUserIds.value : [props.currentUserId]
+      assignedUserIds: props.isAdmin ? assignedUserIds.value : [props.currentUserId],
+      syncLinkedPageStates: props.isAdmin ? event.data.syncLinkedPageStates : false
     }
 
     if (!taskLocal.value?.id) {
@@ -211,7 +215,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             title: payload.title,
             description: payload.description,
             priority: payload.priority,
-            dueDate: payload.dueDate
+            dueDate: payload.dueDate,
+            syncLinkedPageStates: payload.syncLinkedPageStates
           }
         })
       : taskLocal.value
@@ -323,6 +328,19 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
                 v-model="state.dueDate"
                 :disabled="isSubmitting || !canEditTaskDetails"
                 placeholder="Select due date"
+              />
+            </UFormField>
+
+            <UFormField
+              v-if="isAdmin"
+              label="Linked page states"
+              name="syncLinkedPageStates"
+              hint="Keep explicitly linked pages aligned with this task's status."
+            >
+              <USwitch
+                v-model="state.syncLinkedPageStates"
+                label="Synchronize page workflow states"
+                :disabled="isSubmitting"
               />
             </UFormField>
           </div>

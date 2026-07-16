@@ -15,12 +15,12 @@ const emit = defineEmits<{
     v-if="active"
     type="button"
     icon="i-lucide-x"
-    color="neutral"
-    variant="ghost"
+    color="primary"
+    variant="soft"
     size="sm"
     class="shrink-0"
     @click="emit('clear')"
   >
-    Clear Filters
+    Clear filters
   </UButton>
 </template>

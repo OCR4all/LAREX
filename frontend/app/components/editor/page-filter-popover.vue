@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { LabelDefinition } from '@/types/label-set'
 import { createCanonicalLabelFilterOptions } from '@/utils/editor/page-filter-tokens'
+import type { PageWorkflowState } from '@/types/project-page'
 
 const props = defineProps<{
   projectId: string
@@ -35,19 +36,25 @@ const {
   confidenceElementTypes,
   hasComments,
   onlyWithOpenSubtasks,
+  workflowStates,
   hasActiveFilters,
+  hasBackendFilters,
   isFiltering,
   filterError,
-  filteredCount,
+  filteredPageIds,
+  filtersApplied,
   clearFilters,
   clearLabelFilter,
   clearTextContentFilter,
   clearTagFilter,
   clearConfidenceFilter,
+  clearWorkflowStateFilter,
   applyFilters,
   fetchIndexStats,
   rebuildIndex
 } = usePageFilter(projectIdRef)
+
+const editorStore = useEditorStore()
 
 const localOpen = ref(false)
 const isOpen = computed({
@@ -89,6 +96,11 @@ const operatorOptions = [
   { label: 'Match all (AND)', value: 'and' as const },
   { label: 'Match any (OR)', value: 'or' as const }
 ]
+const workflowStateOptions: Array<{ label: string, value: PageWorkflowState, icon: string }> = [
+  { label: 'Open', value: 'OPEN', icon: 'i-lucide-circle' },
+  { label: 'In progress', value: 'IN_PROGRESS', icon: 'i-lucide-loader-circle' },
+  { label: 'Done', value: 'DONE', icon: 'i-lucide-circle-check' }
+]
 
 const localPageNameFilter = computed({
   get: () => props.pageNameFilter ?? '',
@@ -117,11 +129,38 @@ const activeFilterCount = computed(() => {
   if (confidenceFilterActive.value) count++
   if (hasComments.value) count++
   if (onlyWithOpenSubtasks.value) count++
+  if (workflowStates.value.length > 0) count++
   return count
 })
 
 const openSubtaskPageCount = computed(() => {
   return props.openSubtaskPageIds?.size ?? 0
+})
+
+const matchingPageCount = computed(() => {
+  let pages = editorStore.getProjectPages(props.projectId)
+
+  const nameQuery = localPageNameFilter.value.trim().toLowerCase()
+  if (nameQuery) {
+    pages = pages.filter(page => (page.label ?? '').toLowerCase().includes(nameQuery))
+  }
+
+  if (hasBackendFilters.value && filtersApplied.value) {
+    const matchingIds = filteredPageIds.value
+    pages = pages.filter(page => matchingIds.has(page.id))
+  }
+
+  if (workflowStates.value.length > 0) {
+    const selectedStates = new Set(workflowStates.value)
+    pages = pages.filter(page => selectedStates.has(page.workflowState ?? 'OPEN'))
+  }
+
+  if (onlyWithOpenSubtasks.value) {
+    const pageIds = props.openSubtaskPageIds ?? new Set<string>()
+    pages = pages.filter(page => pageIds.has(page.id))
+  }
+
+  return pages.length
 })
 
 async function handleApply() {
@@ -223,6 +262,33 @@ function handleClearAll() {
           icon="i-lucide-alert-circle"
           :description="filterError"
         />
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-medium text-muted">Page state</label>
+            <UButton
+              v-if="workflowStates.length > 0"
+              size="xs"
+              variant="link"
+              color="neutral"
+              class="h-auto p-0"
+              @click="clearWorkflowStateFilter"
+            >
+              Clear
+            </UButton>
+          </div>
+          <USelectMenu
+            v-model="workflowStates"
+            :items="workflowStateOptions"
+            multiple
+            placeholder="All page states"
+            size="sm"
+            class="w-full"
+            value-key="value"
+          />
+        </div>
+
+        <USeparator />
 
         <div data-tour="editor-page-filter-section-labels" class="space-y-2">
           <div class="flex items-center justify-between">
@@ -417,7 +483,7 @@ function handleClearAll() {
         <div class="space-y-2">
           <div v-if="hasActiveFilters" class="flex items-center justify-between text-sm">
             <span class="text-muted">Matching pages:</span>
-            <span class="font-medium">{{ filteredCount }}</span>
+            <span class="font-medium">{{ matchingPageCount }}</span>
           </div>
 
           <UButton
