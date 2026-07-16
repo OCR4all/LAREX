@@ -2,11 +2,13 @@
  * Builds the Keycloak auth URL with the current color mode preference.
  * Falls back to system preference when color mode is not explicitly set.
  */
-export function buildAuthUrl(): string {
+export function buildAuthUrl(redirectTo?: string): string {
   const baseUrl = '/auth/keycloak'
 
   if (import.meta.server) {
-    return baseUrl
+    return redirectTo
+      ? `${baseUrl}?redirectTo=${encodeURIComponent(redirectTo)}`
+      : baseUrl
   }
 
   let isDark: boolean
@@ -25,13 +27,20 @@ export function buildAuthUrl(): string {
     isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
   }
 
-  return `${baseUrl}?dark=${isDark}`
+  const params = new URLSearchParams({ dark: String(isDark) })
+
+  if (redirectTo) {
+    params.set('redirectTo', redirectTo)
+  }
+
+  return `${baseUrl}?${params.toString()}`
 }
 
 /**
  * Navigate to Keycloak auth with the resolved theme preference.
  */
-export function navigateToAuth(options?: { replace?: boolean, external?: boolean }) {
-  const url = buildAuthUrl()
-  return navigateTo(url, { external: true, ...options })
+export function navigateToAuth(options?: { redirectTo?: string, replace?: boolean, external?: boolean }) {
+  const { redirectTo, ...navigateOptions } = options ?? {}
+  const url = buildAuthUrl(redirectTo)
+  return navigateTo(url, { external: true, ...navigateOptions })
 }

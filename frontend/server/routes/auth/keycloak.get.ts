@@ -1,6 +1,6 @@
 import { buildSessionUser } from '#server/utils/session-profile'
 
-export default defineOAuthKeycloakEventHandler({
+const keycloakHandler = defineOAuthKeycloakEventHandler({
   async onSuccess(event, { user, tokens }) {
     const sessionUser = await buildSessionUser(event, user, tokens.access_token)
 
@@ -12,10 +12,21 @@ export default defineOAuthKeycloakEventHandler({
         accessTokenExpires: Date.now() + tokens.expires_in * 1000
       }
     })
-    return sendRedirect(event, '/')
+    return sendRedirect(event, consumeAuthRedirect(event))
   },
   onError(event, error) {
     console.error(error)
+    consumeAuthRedirect(event)
     return sendRedirect(event, '/')
   }
+})
+
+export default defineEventHandler(async (event) => {
+  const query = getQuery(event)
+
+  if (!query.code && !query.error) {
+    storeAuthRedirect(event, query.redirectTo)
+  }
+
+  return keycloakHandler(event)
 })

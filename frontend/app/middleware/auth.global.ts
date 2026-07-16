@@ -15,7 +15,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const { loggedIn } = useUserSession()
 
   if (!loggedIn.value && !isPublicRoute) {
-    return navigateToAuth({ replace: true })
+    return navigateToAuth({ redirectTo: to.fullPath, replace: true })
   }
 
   if (loggedIn.value && to.path.startsWith('/auth/keycloak')) {
