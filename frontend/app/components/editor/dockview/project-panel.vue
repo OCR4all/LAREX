@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { DockviewReadyEvent, DockviewTheme } from 'dockview-vue'
-import * as dockviewVuePkg from 'dockview-vue'
+import { DockviewVue, type DockviewReadyEvent, type DockviewTheme } from 'dockview-vue'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { getCanvasId, getPagePanelId, parsePagePanelId, parseProjectPanelId } from '@/stores/editor/editor.keys'
@@ -20,8 +19,6 @@ type DockviewPanelProps<TParams> = {
 }
 
 const props = defineProps<{ params: DockviewPanelProps<ProjectPanelParams> }>()
-const DockviewVue = (dockviewVuePkg as { DockviewVue?: unknown }).DockviewVue
-  ?? ((dockviewVuePkg as Record<string, unknown>)['default'] as { DockviewVue?: unknown } | undefined)?.DockviewVue
 
 const editorStore = useEditorStore()
 const sessionStore = useEditorSessionStore()

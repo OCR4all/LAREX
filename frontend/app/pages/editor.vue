@@ -13,8 +13,7 @@ import {
   LazyUiConfirmSlideover
 } from '#components'
 
-import type { DockviewReadyEvent, DockviewTheme } from 'dockview-vue'
-import * as dockviewVuePkg from 'dockview-vue'
+import { DockviewVue, type DockviewReadyEvent, type DockviewTheme } from 'dockview-vue'
 import type { DockviewPanelApi } from 'dockview-core'
 
 import type { DropdownMenuItem } from '@nuxt/ui'
@@ -70,9 +69,6 @@ import { resolveAdjacentPageId } from '@/utils/editor/page-navigation'
 import { convertPageDtoToPcGts, convertPcGtsToPageDto } from '@/services/editor/page-conversion.service'
 
 definePageMeta({ layout: 'editor' })
-
-const DockviewVue = (dockviewVuePkg as { DockviewVue?: unknown }).DockviewVue
-  ?? ((dockviewVuePkg as Record<string, unknown>)['default'] as { DockviewVue?: unknown } | undefined)?.DockviewVue
 
 const route = useRoute()
 const router = useRouter()

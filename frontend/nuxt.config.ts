@@ -45,6 +45,9 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    '/editor': {
+      ssr: false
+    },
     '/api/**': {
       cors: true
     }
