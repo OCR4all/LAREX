@@ -185,6 +185,14 @@ jobs:
       - name: Validate local dev compose
         run: docker compose -f compose.yaml config >/dev/null
 
+      - name: Validate local dev compose with official Actions
+        run: |
+          docker compose --env-file deployment/env/.env.actions.example \
+            -f compose.yaml \
+            -f compose.actions.yaml \
+            --profile actions \
+            config >/dev/null
+
       - name: Validate local production-like compose
         run: |
           docker compose --env-file deployment/env/.env.prod.local.example \
@@ -193,12 +201,36 @@ jobs:
             -f compose.prod.local.yaml \
             config >/dev/null
 
+      - name: Validate local production-like compose with official Actions
+        run: |
+          docker compose \
+            --env-file deployment/env/.env.prod.local.example \
+            --env-file deployment/env/.env.actions.example \
+            -f compose.prod.base.yaml \
+            -f compose.prod.auth.bundled-keycloak.yaml \
+            -f compose.prod.local.yaml \
+            -f compose.actions.yaml \
+            --profile actions \
+            config >/dev/null
+
       - name: Validate production compose with bundled Keycloak
         run: |
           docker compose --env-file deployment/env/.env.prod.example \
             -f compose.prod.base.yaml \
             -f compose.prod.auth.bundled-keycloak.yaml \
             -f compose.prod.publish.localhost.yaml \
+            config >/dev/null
+
+      - name: Validate production compose with official Actions
+        run: |
+          docker compose \
+            --env-file deployment/env/.env.prod.example \
+            --env-file deployment/env/.env.actions.example \
+            -f compose.prod.base.yaml \
+            -f compose.prod.auth.bundled-keycloak.yaml \
+            -f compose.prod.publish.localhost.yaml \
+            -f compose.actions.yaml \
+            --profile actions \
             config >/dev/null
 
       - name: Validate production compose with external Keycloak
@@ -220,7 +252,7 @@ jobs:
 
       - name: Check for removed deployment references
         run: |
-          if grep -R -n -E 'compose\.prod\.traefik\.yaml|compose\.prod\.external-keycloak\.yaml|\.env\.prod\.traefik\.example|\.env\.prod\.external-keycloak\.example|API_HOSTNAME|compose\.prod\.local\.nginx\.yaml|compose\.prod\.kraken\.yaml' README.md docs Taskfile.yml; then
+          if grep -R -n -E 'compose\.prod\.traefik\.yaml|compose\.prod\.external-keycloak\.yaml|\.env\.prod\.traefik\.example|\.env\.prod\.external-keycloak\.example|API_HOSTNAME|compose\.prod\.local\.nginx\.yaml|compose\.prod\.kraken\.yaml|compose\.kraken\.yaml|kraken-local-test\.sh' README.md docs Taskfile.yml; then
             echo "Found stale deployment references"
             exit 1
           fi

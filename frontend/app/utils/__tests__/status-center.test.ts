@@ -46,6 +46,7 @@ function createRun(overrides: Partial<TrackedActionRun> = {}): TrackedActionRun 
     projectLabel: 'Action Project',
     pageCount: 2,
     pageIds: ['page-1', 'page-2'],
+    completedPageIds: [],
     targetSelection: { type: 'PAGE', pages: [] },
     status: 'RUNNING',
     lockMode: 'PAGES',

@@ -8,8 +8,8 @@ spring:
     multipart:
       enabled: true
       location: ${larex.upload.temp-directory:${file.upload-dir}/temp}
-      max-file-size: 100MB
-      max-request-size: 500MB
+      max-file-size: ${LAREX_ACTION_RESULT_MAX_FILE_BYTES:104857600}
+      max-request-size: ${LAREX_ACTION_RESULT_MAX_TOTAL_BYTES:503316480}
   datasource:
     url: jdbc:postgresql://postgres:5432/${POSTGRES_DB:larex_backend}
     username: ${POSTGRES_USER}

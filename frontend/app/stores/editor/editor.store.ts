@@ -902,6 +902,13 @@ export const useEditorStore = defineStore('editor', () => {
    * Load a page into a canvas, including fetching annotations from the backend.
    * If the page hasn't been enriched yet (skeleton data only), enriches it first via API calls.
    */
+  async function refreshPageData(projectId: string, pageId: string): Promise<void> {
+    const page = documentStore.getPage(pageId, projectId)
+    if (!page) return
+    const enrichedData = await loadSinglePageData(projectId, page)
+    documentStore.enrichPage(pageId, { ...enrichedData, projectId, projectName: page.projectName }, projectId)
+  }
+
   async function loadPageIntoCanvas(canvasId: string, projectId: string, pageId: string, variantId?: string): Promise<string | null> {
     let page = documentStore.getPage(pageId, projectId)
     if (!page) {
@@ -1568,6 +1575,7 @@ export const useEditorStore = defineStore('editor', () => {
     setDocument,
     clearAllAnnotations,
     loadPage,
+    refreshPageData,
     loadPageIntoCanvas,
     switchImageVariant,
     switchImageVariantForCanvas,

@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -91,7 +92,11 @@ public class PublicActionMachineController {
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
             @RequestPart("manifest") ActionDto.ResultManifest manifest,
             @RequestParam MultiValueMap<String, MultipartFile> files) throws IOException {
-        return ResponseEntity.ok(actionRunService.receiveResults(runId, authorizationHeader, manifest, files));
+        try (MDC.MDCCloseable ignoredRun = MDC.putCloseable("actionRunId", runId);
+             MDC.MDCCloseable ignoredPage = MDC.putCloseable(
+                     "actionPageId", manifest.pageId() == null ? "" : manifest.pageId())) {
+            return ResponseEntity.ok(actionRunService.receiveResults(runId, authorizationHeader, manifest, files));
+        }
     }
 
     private MediaType resolveContentType(String mimeType) {

@@ -73,6 +73,11 @@ public class AsyncConfig {
         return taskExecutor("import", importProperties.getAsync(), "import-", 120, null);
     }
 
+    @Bean(name = "actionNotificationTaskExecutor")
+    public ThreadPoolTaskExecutor actionNotificationTaskExecutor() {
+        return taskExecutor("Action notification", asyncProperties.getDefault(), "action-notification-", 30, null);
+    }
+
     @Bean(name = "iiifPreviewTaskExecutor")
     public ThreadPoolTaskExecutor iiifPreviewTaskExecutor() {
         return taskExecutor("IIIF preview", iiifProperties.getPreviewAsync(), "iiif-preview-", 60, null);
@@ -97,6 +102,17 @@ public class AsyncConfig {
         scheduler.setPoolSize(quotaRefresh.getPoolSize());
         scheduler.setThreadNamePrefix("quota-refresh-");
         scheduler.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
+        scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+        scheduler.setWaitForTasksToCompleteOnShutdown(false);
+        scheduler.initialize();
+        return scheduler;
+    }
+
+    @Bean(name = "actionResultTaskScheduler")
+    public ThreadPoolTaskScheduler actionResultTaskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(1);
+        scheduler.setThreadNamePrefix("action-result-");
         scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
         scheduler.setWaitForTasksToCompleteOnShutdown(false);
         scheduler.initialize();

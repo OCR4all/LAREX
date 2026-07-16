@@ -11,6 +11,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Status;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunLogEvent;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunLogEventRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunPageResultRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
@@ -18,7 +19,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,6 +34,7 @@ public class ActionRunResponseMapper {
 
     private final ActionRunRepository runRepository;
     private final ActionRunLogEventRepository logEventRepository;
+    private final ActionRunPageResultRepository pageResultRepository;
     private final ProjectRepository projectRepository;
     private final WorkspaceAccessService workspaceAccessService;
     private final GlobalAdminService globalAdminService;
@@ -40,6 +44,7 @@ public class ActionRunResponseMapper {
 
     public ActionRunResponseMapper(ActionRunRepository runRepository,
                                    ActionRunLogEventRepository logEventRepository,
+                                   ActionRunPageResultRepository pageResultRepository,
                                    ProjectRepository projectRepository,
                                    WorkspaceAccessService workspaceAccessService,
                                    GlobalAdminService globalAdminService,
@@ -48,6 +53,7 @@ public class ActionRunResponseMapper {
                                    ObjectMapper objectMapper) {
         this.runRepository = runRepository;
         this.logEventRepository = logEventRepository;
+        this.pageResultRepository = pageResultRepository;
         this.projectRepository = projectRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.globalAdminService = globalAdminService;
@@ -70,6 +76,21 @@ public class ActionRunResponseMapper {
             String userId,
             Map<String, Integer> queuePositions
     ) {
+        Map<String, List<String>> completedPageIds = Map.of(
+                run.getId(), pageResultRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
+                        .map(result -> result.getPageId())
+                        .toList()
+        );
+        return toRunResponse(run, projectLabel, userId, queuePositions, completedPageIds);
+    }
+
+    public ActionDto.RunResponse toRunResponse(
+            ActionRun run,
+            String projectLabel,
+            String userId,
+            Map<String, Integer> queuePositions,
+            Map<String, List<String>> completedPageIdsByRunId
+    ) {
         ActionProcessorDefinition definition = run.getProcessorDefinition();
         List<String> pageIds = payloadService.readPageIds(run);
         return new ActionDto.RunResponse(
@@ -82,6 +103,7 @@ public class ActionRunResponseMapper {
                 projectLabel,
                 pageIds.size(),
                 pageIds,
+                completedPageIdsByRunId.getOrDefault(run.getId(), List.of()),
                 payloadService.readTargetSelection(run),
                 run.getStatus(),
                 run.getLockMode(),
@@ -98,13 +120,23 @@ public class ActionRunResponseMapper {
         );
     }
 
+    public Map<String, List<String>> completedPageIdsByRunId(List<ActionRun> runs) {
+        if (runs == null || runs.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, List<String>> result = new LinkedHashMap<>();
+        pageResultRepository.findByRunIdInOrderByCreatedAsc(runs.stream().map(ActionRun::getId).toList())
+                .forEach(pageResult -> result.computeIfAbsent(pageResult.getRun().getId(), ignored -> new ArrayList<>())
+                        .add(pageResult.getPageId()));
+        return result;
+    }
+
     public ActionDto.RunDetailResponse toRunDetailResponse(ActionRun run, String projectLabel, String userId) {
+        List<ActionDto.ActionRunLogEventResponse> logEvents = logEventResponses(run.getId());
         return new ActionDto.RunDetailResponse(
                 toRunResponse(run, projectLabel, userId),
-                run.getLogText(),
-                logEventRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
-                        .map(this::toLogEventResponse)
-                        .toList(),
+                combinedLogText(run, logEvents),
+                logEvents,
                 readResultSummary(run.getResultSummaryJson()),
                 durationSeconds(run)
         );
@@ -117,6 +149,7 @@ public class ActionRunResponseMapper {
     public ActionDto.AdminRunResponse toAdminRunResponse(ActionRun run, Map<String, Integer> queuePositions) {
         ActionProcessorDefinition definition = run.getProcessorDefinition();
         Project project = projectRepository.findById(run.getProjectId()).orElse(null);
+        List<ActionDto.ActionRunLogEventResponse> logEvents = logEventResponses(run.getId());
         return new ActionDto.AdminRunResponse(
                 run.getId(),
                 definition.getId(),
@@ -134,10 +167,8 @@ public class ActionRunResponseMapper {
                 run.getErrorMessage(),
                 globalAdminService.isGlobalAdmin(),
                 run.isCancelRequested(),
-                run.getLogText(),
-                logEventRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
-                        .map(this::toLogEventResponse)
-                        .toList(),
+                combinedLogText(run, logEvents),
+                logEvents,
                 readResultSummary(run.getResultSummaryJson()),
                 run.getLastHeartbeatAt(),
                 run.getCreated(),
@@ -157,11 +188,15 @@ public class ActionRunResponseMapper {
         }
 
         Map<String, Integer> positions = new HashMap<>();
-        for (String definitionId : definitionIds) {
-            List<ActionRun> queuedRuns = runRepository.findByProcessorDefinitionIdAndStatusOrderByCreatedAsc(definitionId, Status.QUEUED);
-            if (queuedRuns.isEmpty()) {
-                continue;
-            }
+        Map<String, List<ActionRun>> queuedRunsByDefinition = runRepository
+                .findByProcessorDefinitionIdInAndStatusOrderByCreatedAsc(definitionIds, Status.QUEUED)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        queuedRun -> queuedRun.getProcessorDefinition().getId(),
+                        LinkedHashMap::new,
+                        Collectors.toList()
+                ));
+        for (List<ActionRun> queuedRuns : queuedRunsByDefinition.values()) {
             String scope = concurrencyScope(queuedRuns.getFirst().getProcessorDefinition());
             Map<String, Integer> perScopeCounters = new HashMap<>();
             for (ActionRun queuedRun : queuedRuns) {
@@ -180,6 +215,22 @@ public class ActionRunResponseMapper {
                 event.getMessage(),
                 event.getCreated()
         );
+    }
+
+    private List<ActionDto.ActionRunLogEventResponse> logEventResponses(String runId) {
+        return logEventRepository.findByRunIdOrderByCreatedAsc(runId).stream()
+                .map(this::toLogEventResponse)
+                .toList();
+    }
+
+    private String combinedLogText(ActionRun run, List<ActionDto.ActionRunLogEventResponse> events) {
+        if (events.isEmpty()) {
+            return run.getLogText();
+        }
+        String combined = events.stream()
+                .map(ActionDto.ActionRunLogEventResponse::message)
+                .collect(Collectors.joining("\n"));
+        return combined.length() <= 20_000 ? combined : combined.substring(combined.length() - 20_000);
     }
 
     private Object readResultSummary(String json) {

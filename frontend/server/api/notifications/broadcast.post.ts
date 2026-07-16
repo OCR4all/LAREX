@@ -84,6 +84,10 @@ export default defineEventHandler(async (event) => {
   let body: {
     userId?: string
     notification?: Record<string, unknown>
+    event?: {
+      type?: string
+      payload?: Record<string, unknown>
+    }
     source?: string
   } | null
 
@@ -91,10 +95,31 @@ export default defineEventHandler(async (event) => {
     body = JSON.parse(rawBody) as {
       userId?: string
       notification?: Record<string, unknown>
+      event?: {
+        type?: string
+        payload?: Record<string, unknown>
+      }
       source?: string
     } | null
   } catch {
     throw createError({ statusCode: 400, statusMessage: 'Invalid notification bridge payload' })
+  }
+
+  const eventType = body?.event?.type
+  const eventPayload = body?.event?.payload
+  if (eventType === 'ACTION_RUN_UPDATED' || eventType === 'ACTION_PAGE_RESULT_IMPORTED') {
+    if (!eventPayload || typeof eventPayload !== 'object') {
+      throw createError({ statusCode: 400, statusMessage: 'Invalid action event bridge payload' })
+    }
+    const delivered = websocketUtils.broadcast({
+      type: eventType,
+      payload: eventPayload
+    })
+    return {
+      success: true,
+      delivered,
+      source: body?.source ?? null
+    }
   }
 
   if (!body?.userId || !body.notification || typeof body.notification !== 'object') {

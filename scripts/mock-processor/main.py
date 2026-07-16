@@ -27,10 +27,12 @@ async def process_run(ctx: ActionContext) -> None:
             await ctx.check_cancelled()
             await asyncio.sleep(HEARTBEAT_DELAY_SECONDS)
 
-        results = ctx.result_builder()
+        image_count = 0
+        xml_count = 0
         for page in action_input.pages:
             async with ctx.step(f"Copying {page.name}"):
                 await ctx.check_cancelled()
+                results = ctx.result_builder()
                 if page.images:
                     image = page.images[0]
                     image_bytes = await ctx.download_bytes(image)
@@ -41,6 +43,7 @@ async def process_run(ctx: ActionContext) -> None:
                         variant=OUTPUT_IMAGE_VARIANT,
                         mime_type=image.mime_type or "application/octet-stream",
                     )
+                    image_count += 1
 
                 if page.xml:
                     xml = page.xml[0]
@@ -50,15 +53,16 @@ async def process_run(ctx: ActionContext) -> None:
                         content=xml_bytes,
                         file_name=xml.file_name or f"{page.name}.xml",
                     )
+                    xml_count += 1
 
-        await ctx.complete(results, result_message(results))
+                await ctx.submit_page_results(page.id, results, f"Copied {page.name}")
+
+        await ctx.complete(message=result_message(image_count, xml_count))
     except ActionCancelled:
         raise
 
 
-def result_message(results) -> str:
-    image_count = sum(1 for file in results.files if file.type == "image")
-    xml_count = sum(1 for file in results.files if file.type == "xml")
+def result_message(image_count: int, xml_count: int) -> str:
     return f"Mock processor copied {image_count} image(s) and {xml_count} XML file(s)."
 
 

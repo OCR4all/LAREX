@@ -8,6 +8,8 @@ vars:
   DOCKER_REGISTRY: ghcr.io/ocr4all/larex
   COMPOSE_FILE: compose.yaml
   COMPOSE_DEV_DOCS_FILE: compose.dev.docs.yaml
+  COMPOSE_ACTIONS_FILE: compose.actions.yaml
+  ACTIONS_ENV_FILE: .env.actions
   COMPOSE_PROD_BASE_FILE: compose.prod.base.yaml
   COMPOSE_PROD_AUTH_BUNDLED_FILE: compose.prod.auth.bundled-keycloak.yaml
   COMPOSE_PROD_AUTH_EXTERNAL_FILE: compose.prod.auth.external-keycloak.yaml
@@ -16,6 +18,40 @@ vars:
   COMPOSE_PROD_LOCAL_DOCS_FILE: compose.prod.local.docs.yaml
   COMPOSE_PROD_DOCS_FILE: compose.prod.docs.yaml
   COMPOSE_PROD_NGINX_FILE: compose.prod.nginx.yaml
+  COMPOSE_DEV_CMD: docker compose -f {{.COMPOSE_FILE}}
+  COMPOSE_DEV_ACTIONS_CMD: >-
+    docker compose --env-file {{.ACTIONS_ENV_FILE}}
+    -f {{.COMPOSE_FILE}} -f {{.COMPOSE_ACTIONS_FILE}} --profile actions
+  COMPOSE_PROD_CMD: >-
+    docker compose --env-file .env.prod
+    -f {{.COMPOSE_PROD_BASE_FILE}}
+    -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}}
+    -f {{.COMPOSE_PROD_PUBLISH_FILE}}
+  COMPOSE_PROD_DOCS_CMD: '{{.COMPOSE_PROD_CMD}} -f {{.COMPOSE_PROD_DOCS_FILE}}'
+  COMPOSE_PROD_ACTIONS_CMD: >-
+    docker compose --env-file .env.prod --env-file {{.ACTIONS_ENV_FILE}}
+    -f {{.COMPOSE_PROD_BASE_FILE}}
+    -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}}
+    -f {{.COMPOSE_PROD_PUBLISH_FILE}}
+    -f {{.COMPOSE_ACTIONS_FILE}} --profile actions
+  COMPOSE_PROD_LOCAL_CMD: >-
+    docker compose --env-file .env.prod.local
+    -f {{.COMPOSE_PROD_BASE_FILE}}
+    -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}}
+    -f {{.COMPOSE_PROD_LOCAL_FILE}}
+  COMPOSE_PROD_LOCAL_DOCS_CMD: '{{.COMPOSE_PROD_LOCAL_CMD}} -f {{.COMPOSE_PROD_LOCAL_DOCS_FILE}}'
+  COMPOSE_PROD_LOCAL_ACTIONS_CMD: >-
+    docker compose --env-file .env.prod.local --env-file {{.ACTIONS_ENV_FILE}}
+    -f {{.COMPOSE_PROD_BASE_FILE}}
+    -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}}
+    -f {{.COMPOSE_PROD_LOCAL_FILE}}
+    -f {{.COMPOSE_ACTIONS_FILE}} --profile actions
+  COMPOSE_PROD_EXTERNAL_KEYCLOAK_CMD: >-
+    docker compose --env-file .env.prod
+    -f {{.COMPOSE_PROD_BASE_FILE}}
+    -f {{.COMPOSE_PROD_AUTH_EXTERNAL_FILE}}
+    -f {{.COMPOSE_PROD_PUBLISH_FILE}}
+  COMPOSE_PROD_NGINX_CMD: '{{.COMPOSE_PROD_CMD}} -f {{.COMPOSE_PROD_NGINX_FILE}}'
 
 includes:
   backend:
@@ -74,17 +110,44 @@ tasks:
   docker:up:
     desc: Start all services with Docker Compose
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} up -d
+      - '{{.COMPOSE_DEV_CMD}} up -d'
 
   docker:up:build:
     desc: Build and start all services with Docker Compose
     cmds:
-      - docker compose -f {{.COMPOSE_FILE}} up -d --build
+      - '{{.COMPOSE_DEV_CMD}} up -d --build'
 
   docker:up:docs:
     desc: Start local dev stack with self-hosted docs
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} -f {{.COMPOSE_DEV_DOCS_FILE}} up -d
+
+  docker:actions:init-env:
+    desc: Create .env.actions and seed official Action processor secrets
+    cmds:
+      - ./scripts/bootstrap-env-secrets.sh actions
+
+  docker:actions:up:
+    desc: Start local dev stack with all official Action processors
+    deps:
+      - docker:actions:init-env
+    cmds:
+      - '{{.COMPOSE_DEV_ACTIONS_CMD}} up -d --build'
+
+  docker:actions:down:
+    desc: Stop local dev stack with official Action processors
+    cmds:
+      - '{{.COMPOSE_DEV_ACTIONS_CMD}} down'
+
+  docker:actions:logs:
+    desc: Follow local dev and official Action processor logs
+    cmds:
+      - '{{.COMPOSE_DEV_ACTIONS_CMD}} logs -f'
+
+  docker:actions:ps:
+    desc: Show local dev and official Action processor status
+    cmds:
+      - '{{.COMPOSE_DEV_ACTIONS_CMD}} ps'
 
   docker:down:
     desc: Stop all services
@@ -137,8 +200,10 @@ tasks:
 
   docker:prod:up:
     desc: "Start opinionated production services (bundled Keycloak, external reverse proxy friendly)"
+    deps:
+      - docker:prod:init-env
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} up -d
+      - '{{.COMPOSE_PROD_CMD}} up -d --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
 
   docker:prod:init-env:
     desc: Create .env.prod from template and seed required secrets
@@ -147,33 +212,99 @@ tasks:
 
   docker:prod:up:docs:
     desc: Start opinionated production services with self-hosted docs
+    deps:
+      - docker:prod:init-env
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_DOCS_FILE}} up -d
+      - '{{.COMPOSE_PROD_DOCS_CMD}} up -d --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
+
+  docker:prod:actions:up:
+    desc: Start opinionated production with all official Action processors
+    deps:
+      - docker:prod:init-env
+      - docker:actions:init-env
+    cmds:
+      - '{{.COMPOSE_PROD_ACTIONS_CMD}} up -d --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
+
+  docker:prod:actions:down:
+    desc: Stop opinionated production with official Action processors
+    cmds:
+      - '{{.COMPOSE_PROD_ACTIONS_CMD}} down'
+
+  docker:prod:actions:logs:
+    desc: Follow opinionated production and official Action processor logs
+    cmds:
+      - '{{.COMPOSE_PROD_ACTIONS_CMD}} logs -f'
+
+  docker:prod:actions:ps:
+    desc: Show opinionated production and official Action processor status
+    cmds:
+      - '{{.COMPOSE_PROD_ACTIONS_CMD}} ps'
+
+  docker:prod:actions:pull:
+    desc: Pull pinned production and official Action processor images
+    deps:
+      - docker:prod:init-env
+      - docker:actions:init-env
+    cmds:
+      - '{{.COMPOSE_PROD_ACTIONS_CMD}} pull'
+
+  docker:prod:actions:upgrade:
+    desc: Pull and apply a production upgrade with official Action processors
+    cmds:
+      - task: docker:prod:actions:pull
+      - task: docker:prod:actions:up
+
+  docker:prod:config:
+    desc: Validate the opinionated production Compose model
+    deps:
+      - docker:prod:init-env
+    cmds:
+      - '{{.COMPOSE_PROD_CMD}} config --quiet'
+
+  docker:prod:ps:
+    desc: Show opinionated production service status
+    cmds:
+      - '{{.COMPOSE_PROD_CMD}} ps'
+
+  docker:prod:pull:
+    desc: Pull pinned opinionated production images
+    deps:
+      - docker:prod:init-env
+    cmds:
+      - '{{.COMPOSE_PROD_CMD}} pull'
+
+  docker:prod:upgrade:
+    desc: Pull and apply an opinionated production upgrade
+    cmds:
+      - task: docker:prod:pull
+      - task: docker:prod:up
 
   docker:prod:down:
     desc: Stop opinionated production services
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} down
+      - '{{.COMPOSE_PROD_CMD}} down'
 
   docker:prod:down:docs:
     desc: Stop opinionated production services with docs override
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_DOCS_FILE}} down
+      - '{{.COMPOSE_PROD_DOCS_CMD}} down'
 
   docker:prod:logs:
     desc: View logs for opinionated production services
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} logs -f
+      - '{{.COMPOSE_PROD_CMD}} logs -f'
 
   docker:prod:logs:docs:
     desc: View logs for opinionated production services with docs
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_DOCS_FILE}} logs -f docs
+      - '{{.COMPOSE_PROD_DOCS_CMD}} logs -f docs'
 
   docker:prod:local:up:
     desc: Start production-like local stack (Traefik + local hostnames + Mailpit)
+    deps:
+      - docker:prod:local:init-env
     cmds:
-      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} up -d
+      - '{{.COMPOSE_PROD_LOCAL_CMD}} up -d --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
 
   docker:prod:local:init-env:
     desc: Create .env.prod.local from template and seed required secrets
@@ -182,58 +313,94 @@ tasks:
 
   docker:prod:local:up:docs:
     desc: Start production-like local stack with self-hosted docs
+    deps:
+      - docker:prod:local:init-env
     cmds:
-      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} -f {{.COMPOSE_PROD_LOCAL_DOCS_FILE}} up -d
+      - '{{.COMPOSE_PROD_LOCAL_DOCS_CMD}} up -d --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
+
+  docker:prod:local:actions:up:
+    desc: Start local production-like stack with all official Action processors
+    deps:
+      - docker:prod:local:init-env
+      - docker:actions:init-env
+    cmds:
+      - '{{.COMPOSE_PROD_LOCAL_ACTIONS_CMD}} up -d --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
+
+  docker:prod:local:actions:down:
+    desc: Stop local production-like stack with official Action processors
+    cmds:
+      - '{{.COMPOSE_PROD_LOCAL_ACTIONS_CMD}} down'
+
+  docker:prod:local:actions:logs:
+    desc: Follow local production-like and official Action processor logs
+    cmds:
+      - '{{.COMPOSE_PROD_LOCAL_ACTIONS_CMD}} logs -f'
+
+  docker:prod:local:config:
+    desc: Validate the local production-like Compose model
+    deps:
+      - docker:prod:local:init-env
+    cmds:
+      - '{{.COMPOSE_PROD_LOCAL_CMD}} config --quiet'
+
+  docker:prod:local:ps:
+    desc: Show local production-like service status
+    cmds:
+      - '{{.COMPOSE_PROD_LOCAL_CMD}} ps'
 
   docker:prod:local:down:
     desc: Stop production-like local stack
     cmds:
-      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} down
+      - '{{.COMPOSE_PROD_LOCAL_CMD}} down'
 
   docker:prod:local:down:docs:
     desc: Stop production-like local stack with docs override
     cmds:
-      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} -f {{.COMPOSE_PROD_LOCAL_DOCS_FILE}} down
+      - '{{.COMPOSE_PROD_LOCAL_DOCS_CMD}} down'
 
   docker:prod:local:logs:
     desc: View logs for production-like local stack
     cmds:
-      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} logs -f
+      - '{{.COMPOSE_PROD_LOCAL_CMD}} logs -f'
 
   docker:prod:local:logs:docs:
     desc: View logs for production-like local stack with docs
     cmds:
-      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} -f {{.COMPOSE_PROD_LOCAL_DOCS_FILE}} logs -f docs
+      - '{{.COMPOSE_PROD_LOCAL_DOCS_CMD}} logs -f docs'
 
   docker:prod:external-keycloak:up:
     desc: Start opinionated production services with external Keycloak
+    deps:
+      - docker:prod:init-env
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_EXTERNAL_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} up -d
+      - '{{.COMPOSE_PROD_EXTERNAL_KEYCLOAK_CMD}} up -d --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
 
   docker:prod:external-keycloak:down:
     desc: Stop opinionated production services with external Keycloak
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_EXTERNAL_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} down
+      - '{{.COMPOSE_PROD_EXTERNAL_KEYCLOAK_CMD}} down'
 
   docker:prod:external-keycloak:logs:
     desc: View logs for the external Keycloak production variant
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_EXTERNAL_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} logs -f
+      - '{{.COMPOSE_PROD_EXTERNAL_KEYCLOAK_CMD}} logs -f'
 
   docker:prod:nginx:up:
     desc: Start opinionated production services with bundled Nginx
+    deps:
+      - docker:prod:init-env
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_NGINX_FILE}} up -d
+      - '{{.COMPOSE_PROD_NGINX_CMD}} up -d --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
 
   docker:prod:nginx:down:
     desc: Stop opinionated production services with bundled Nginx
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_NGINX_FILE}} down
+      - '{{.COMPOSE_PROD_NGINX_CMD}} down'
 
   docker:prod:nginx:logs:
     desc: View logs for the bundled Nginx production variant
     cmds:
-      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_NGINX_FILE}} logs -f
+      - '{{.COMPOSE_PROD_NGINX_CMD}} logs -f'
 
   # ============================================================================
   # Testing

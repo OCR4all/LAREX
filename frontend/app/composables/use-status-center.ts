@@ -3,18 +3,14 @@ import {
   shouldAutoOpenStatusPopover
 } from '@/utils/status-center'
 
-let actionPollTimer: ReturnType<typeof setInterval> | null = null
+let jobPollTimer: ReturnType<typeof setInterval> | null = null
 let pollSubscriberCount = 0
 
 function startPolling(
-  actionRunsStore: ReturnType<typeof useActionRunsStore>,
   iiifImportJobsStore: ReturnType<typeof useIiifImportJobsStore>
 ) {
-  if (!import.meta.client || actionPollTimer) return
-  actionPollTimer = setInterval(() => {
-    if (actionRunsStore.hasActiveRuns) {
-      void actionRunsStore.refreshActiveRuns()
-    }
+  if (!import.meta.client || jobPollTimer) return
+  jobPollTimer = setInterval(() => {
     if (iiifImportJobsStore.hasActiveJobs) {
       void iiifImportJobsStore.refreshActiveJobs()
     }
@@ -22,9 +18,9 @@ function startPolling(
 }
 
 function stopPolling() {
-  if (!actionPollTimer) return
-  clearInterval(actionPollTimer)
-  actionPollTimer = null
+  if (!jobPollTimer) return
+  clearInterval(jobPollTimer)
+  jobPollTimer = null
 }
 
 export function useStatusCenter() {
@@ -70,7 +66,7 @@ export function useStatusCenter() {
   onMounted(() => {
     pollSubscriberCount += 1
     if (pollSubscriberCount === 1) {
-      startPolling(actionRunsStore, iiifImportJobsStore)
+      startPolling(iiifImportJobsStore)
     }
     if (workspaceStore.selectedWorkspaceId) {
       void iiifImportJobsStore.refreshWorkspaceJobs(workspaceStore.selectedWorkspaceId)

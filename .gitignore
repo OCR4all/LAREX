@@ -40,3 +40,4 @@ coverage/
 .env.prod.local
 .env.prod.external-keycloak
 .env.prod.traefik
+.env.actions

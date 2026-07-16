@@ -5,6 +5,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.action.ActionRunService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -20,7 +21,8 @@ public class ActionAdminRunController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ActionDto.AdminRunResponse>> listRuns() {
-        return ResponseEntity.ok(actionRunService.listAllAdminRuns());
+    public ResponseEntity<List<ActionDto.AdminRunResponse>> listRuns(
+            @RequestParam(defaultValue = "200") int limit) {
+        return ResponseEntity.ok(actionRunService.listAllAdminRuns(limit));
     }
 }

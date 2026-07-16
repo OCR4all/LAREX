@@ -79,6 +79,7 @@ async function initializeApp() {
     failedStep = 'load notifications'
     const { initialize: initNotifications } = useNotifications()
     await initNotifications()
+    useActionRunsStore().initializeRealtime()
 
     isInitialized.value = true
     resolveIssue(issueId)

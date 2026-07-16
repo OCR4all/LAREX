@@ -23,7 +23,7 @@ Production supports two small overrides:
 - External Keycloak: replace `compose.prod.auth.bundled-keycloak.yaml` with `compose.prod.auth.external-keycloak.yaml`
 - Bundled Nginx: add `-f compose.prod.nginx.yaml`
 
-OCR and layout processors, including Kraken, run as separately deployed Action endpoints rather than bundled Compose services. See the [Actions overview](docs/content/6.actions/1.overview.md) and [processor examples](docs/content/6.actions/8.examples.md).
+Official OCR and layout processors remain isolated Action services, but can optionally be managed with LAREX through `compose.actions.yaml`. The fragment currently ships Kraken segmentation and is structured for additional official processors through Compose profiles. See [Official Action Services](docs/content/3.deployment/6.official-action-services.md).
 
 Docs self-hosting is also available as optional overrides:
 
@@ -52,6 +52,14 @@ Local dev routes through Traefik:
 - Mailpit: `http://mail.localhost`
 - Docs: `http://docs.localhost` (with `compose.dev.docs.yaml`)
 
+Add every official Action processor:
+
+```bash
+task docker:actions:up
+```
+
+This creates `.env.actions`, starts the `actions` Compose profile, and makes the development Kraken definition globally available. Use `--profile action-kraken` with direct Compose commands to start Kraken alone.
+
 ### Local production-like
 
 ```bash
@@ -60,7 +68,7 @@ docker compose --env-file .env.prod.local \
   -f compose.prod.base.yaml \
   -f compose.prod.auth.bundled-keycloak.yaml \
   -f compose.prod.local.yaml \
-  up -d
+  up -d --wait --wait-timeout 300
 
 # with self-hosted docs
 docker compose --env-file .env.prod.local \
@@ -68,7 +76,7 @@ docker compose --env-file .env.prod.local \
   -f compose.prod.auth.bundled-keycloak.yaml \
   -f compose.prod.local.yaml \
   -f compose.prod.local.docs.yaml \
-  up -d
+  up -d --wait --wait-timeout 300
 ```
 
 ### Opinionated production
@@ -79,7 +87,7 @@ docker compose --env-file .env.prod \
   -f compose.prod.base.yaml \
   -f compose.prod.auth.bundled-keycloak.yaml \
   -f compose.prod.publish.localhost.yaml \
-  up -d
+  up -d --wait --wait-timeout 300
 
 # with self-hosted docs
 docker compose --env-file .env.prod \
@@ -87,10 +95,18 @@ docker compose --env-file .env.prod \
   -f compose.prod.auth.bundled-keycloak.yaml \
   -f compose.prod.publish.localhost.yaml \
   -f compose.prod.docs.yaml \
-  up -d
+  up -d --wait --wait-timeout 300
 ```
 
 The production default binds frontend to `127.0.0.1:3000` and bundled Keycloak to `127.0.0.1:8090`. Put your own Nginx, Caddy, Apache, or similar reverse proxy in front.
+
+To include all official Action services in production:
+
+```bash
+task docker:prod:actions:up
+```
+
+Production does not silently create Action definitions. Register the shipped definition from `deployment/actions/kraken-segmentation.yaml` after the first deployment.
 
 ## Taskfile
 
@@ -100,7 +116,13 @@ Optional helper commands are available through [Task](https://taskfile.dev):
 task --list
 task docker:up
 task docker:up:docs
+task docker:actions:up
 task docker:prod:up
+task docker:prod:config
+task docker:prod:ps
+task docker:prod:upgrade
+task docker:prod:actions:up
+task docker:prod:actions:upgrade
 task docker:prod:up:docs
 task docker:prod:init-env
 task docker:prod:local:up

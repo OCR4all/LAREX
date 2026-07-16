@@ -93,15 +93,17 @@ public class ActionProjectController {
     public ResponseEntity<List<ActionDto.RunResponse>> listRuns(
             @PathVariable String workspaceId,
             @PathVariable String projectId,
+            @RequestParam(defaultValue = "200") int limit,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        return ResponseEntity.ok(actionRunService.listRuns(workspaceId, projectId, userId));
+        return ResponseEntity.ok(actionRunService.listRuns(workspaceId, projectId, userId, limit));
     }
 
     @GetMapping("/runs")
     public ResponseEntity<List<ActionDto.RunResponse>> listWorkspaceRuns(
             @PathVariable String workspaceId,
+            @RequestParam(defaultValue = "200") int limit,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        return ResponseEntity.ok(actionRunService.listWorkspaceRuns(workspaceId, userId));
+        return ResponseEntity.ok(actionRunService.listWorkspaceRuns(workspaceId, userId, limit));
     }
 
     @PostMapping("/runs/history/dismiss")

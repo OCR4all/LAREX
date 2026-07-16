@@ -69,7 +69,6 @@ const loadingRunDetailIds = ref<string[]>([])
 const runDetails = ref<Record<string, ActionRunDetail>>({})
 const runHistoryPage = ref(1)
 const runHistoryItemsPerPage = ref(5)
-let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const selectedPageIds = computed(() => props.pageIds ?? [])
 const targetType = computed<ActionTarget>(() => props.targetSelection?.type ?? 'PAGE')
@@ -220,9 +219,6 @@ const parameterEntries = computed(() => {
   }
 })
 
-const activeRuns = computed(() => runs.value.filter(run =>
-  ['QUEUED', 'PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(run.status)
-))
 const clearableHistoryRuns = computed(() => runs.value.filter(run => run.status === 'COMPLETED' || run.status === 'FAILED'))
 const paginatedRuns = computed(() => {
   const start = (runHistoryPage.value - 1) * runHistoryItemsPerPage.value
@@ -262,18 +258,17 @@ const canStart = computed(() =>
 
 onMounted(async () => {
   await Promise.all([loadProcessors(), loadRuns()])
-  pollTimer = setInterval(() => {
-    if (activeRuns.value.length > 0) {
-      void loadRuns()
-    }
-  }, 5000)
 })
 
-onBeforeUnmount(() => {
-  if (pollTimer) {
-    clearInterval(pollTimer)
+watch(() => actionRunsStore.runsArray, (trackedRuns) => {
+  const projectRuns = trackedRuns.filter(run => run.projectId === props.projectId)
+  if (projectRuns.length === 0 && runs.value.length > 0) return
+  runs.value = projectRuns
+  for (const run of projectRuns) {
+    const detail = runDetails.value[run.id]
+    if (detail) detail.run = run
   }
-})
+}, { deep: false })
 
 watch(selectedProcessorId, () => {
   resetParameters()

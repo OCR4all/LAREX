@@ -9,6 +9,7 @@ usage() {
 Usage:
   scripts/bootstrap-env-secrets.sh prod
   scripts/bootstrap-env-secrets.sh prod-local
+  scripts/bootstrap-env-secrets.sh actions
 
 Creates the corresponding top-level env file from the example template if needed and
 fills in secret values for keys that are missing or still using placeholder defaults.
@@ -16,6 +17,7 @@ fills in secret values for keys that are missing or still using placeholder defa
 Modes:
   prod        -> .env.prod from deployment/env/.env.prod.example
   prod-local  -> .env.prod.local from deployment/env/.env.prod.local.example
+  actions     -> .env.actions from deployment/env/.env.actions.example
 EOF
 }
 
@@ -33,6 +35,10 @@ case "$MODE" in
   prod-local)
     TEMPLATE="$ROOT_DIR/deployment/env/.env.prod.local.example"
     OUTPUT="$ROOT_DIR/.env.prod.local"
+    ;;
+  actions)
+    TEMPLATE="$ROOT_DIR/deployment/env/.env.actions.example"
+    OUTPUT="$ROOT_DIR/.env.actions"
     ;;
   *)
     usage
@@ -133,6 +139,14 @@ ensure_key() {
       ;;
   esac
 }
+
+if [[ "$MODE" == "actions" ]]; then
+  ensure_key "LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1" "$(random_secret)"
+  echo
+  echo "Seeded secrets in $OUTPUT"
+  echo "Review processor image, resource, and callback settings before deployment."
+  exit 0
+fi
 
 ensure_key "POSTGRES_PASSWORD" "$(random_password)"
 ensure_key "KEYCLOAK_POSTGRES_PASSWORD" "$(random_password)"

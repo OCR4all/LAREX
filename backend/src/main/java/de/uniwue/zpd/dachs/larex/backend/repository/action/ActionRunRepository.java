@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -31,7 +32,17 @@ public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
     List<ActionRun> findByWorkspaceIdAndProjectIdOrderByCreatedDesc(String workspaceId, String projectId);
 
     @EntityGraph(attributePaths = {"processorDefinition"})
+    List<ActionRun> findByWorkspaceIdAndProjectIdOrderByCreatedDesc(
+            String workspaceId,
+            String projectId,
+            Pageable pageable
+    );
+
+    @EntityGraph(attributePaths = {"processorDefinition"})
     List<ActionRun> findByWorkspaceIdOrderByCreatedDesc(String workspaceId);
+
+    @EntityGraph(attributePaths = {"processorDefinition"})
+    List<ActionRun> findByWorkspaceIdOrderByCreatedDesc(String workspaceId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"processorDefinition"})
     List<ActionRun> findByWorkspaceIdAndStatusIn(String workspaceId, Collection<Status> statuses);
@@ -42,7 +53,13 @@ public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
     List<ActionRun> findByProcessorDefinitionIdOrderByCreatedDesc(String processorDefinitionId);
 
     @EntityGraph(attributePaths = {"processorDefinition"})
+    List<ActionRun> findByProcessorDefinitionIdOrderByCreatedDesc(String processorDefinitionId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"processorDefinition"})
     List<ActionRun> findAllByOrderByCreatedDesc();
+
+    @EntityGraph(attributePaths = {"processorDefinition"})
+    List<ActionRun> findAllByOrderByCreatedDesc(Pageable pageable);
 
     List<ActionRun> findByStatusIn(Collection<Status> statuses);
 
@@ -51,6 +68,12 @@ public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
 
     @EntityGraph(attributePaths = {"processorDefinition"})
     List<ActionRun> findByProcessorDefinitionIdAndStatusOrderByCreatedAsc(String processorDefinitionId, Status status);
+
+    @EntityGraph(attributePaths = {"processorDefinition"})
+    List<ActionRun> findByProcessorDefinitionIdInAndStatusOrderByCreatedAsc(
+            Collection<String> processorDefinitionIds,
+            Status status
+    );
 
     @Query(value = "SELECT id FROM action_runs WHERE id = :runId AND status = 'QUEUED' FOR UPDATE SKIP LOCKED", nativeQuery = true)
     Optional<String> claimQueuedRunId(@Param("runId") String runId);

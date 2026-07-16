@@ -4,19 +4,26 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.config.ActionProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
+import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlTextDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunPageResult;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
+import de.uniwue.zpd.dachs.larex.backend.entity.Page;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunDismissalRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunLogEventRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunPageResultRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -42,16 +49,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.quality.Strictness;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.LinkedMultiValueMap;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
@@ -64,8 +77,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -97,6 +112,8 @@ class ActionRunServiceTest {
     @Mock
     private ActionRunLogEventRepository logEventRepository;
     @Mock
+    private ActionRunPageResultRepository pageResultRepository;
+    @Mock
     private ProjectRepository projectRepository;
     @Mock
     private PageRepository pageRepository;
@@ -114,6 +131,8 @@ class ActionRunServiceTest {
     private ActionEndpointAuthService endpointAuthService;
     @Mock
     private TaskExecutor importTaskExecutor;
+    @Mock
+    private TaskScheduler actionResultTaskScheduler;
     @Mock
     private HierarchicalFileStorageService fileStorageService;
     @Mock
@@ -145,6 +164,10 @@ class ActionRunServiceTest {
     @Mock
     private ActionAuditService actionAuditService;
     @Mock
+    private ActionRealtimePublisher realtimePublisher;
+    @Mock
+    private ActionMetrics actionMetrics;
+    @Mock
     private TransactionTemplate transactionTemplate;
 
     private ActionRunService service;
@@ -159,6 +182,7 @@ class ActionRunServiceTest {
         ActionRunResponseMapper responseMapper = new ActionRunResponseMapper(
                 runRepository,
                 logEventRepository,
+                pageResultRepository,
                 projectRepository,
                 workspaceAccessService,
                 globalAdminService,
@@ -174,6 +198,7 @@ class ActionRunServiceTest {
                 runRepository,
                 runDismissalRepository,
                 logEventRepository,
+                pageResultRepository,
                 projectRepository,
                 pageRepository,
                 pageImageRepository,
@@ -183,6 +208,7 @@ class ActionRunServiceTest {
                 definitionService,
                 endpointAuthService,
                 importTaskExecutor,
+                actionResultTaskScheduler,
                 fileStorageService,
                 thumbnailService,
                 workspaceQuotaGuardService,
@@ -202,12 +228,18 @@ class ActionRunServiceTest {
                 payloadService,
                 responseMapper,
                 resultPageMergeService,
+                realtimePublisher,
+                actionMetrics,
                 transactionTemplate
         );
         when(runDismissalRepository.findRunIdsByUserIdAndRunIds(anyString(), anyCollection())).thenReturn(Set.of());
         when(runRepository.findByStatusInAndLastHeartbeatAtBefore(anyCollection(), any())).thenReturn(List.of());
         when(runRepository.findByStatusInAndCompletedAtBefore(anyCollection(), any())).thenReturn(List.of());
         when(runRepository.findIdsByStatusOrderByCreatedAsc(ActionRun.Status.QUEUED)).thenReturn(List.of());
+        lenient().when(runRepository.findByProcessorDefinitionIdInAndStatusOrderByCreatedAsc(
+                anyCollection(), eq(ActionRun.Status.QUEUED))).thenReturn(List.of());
+        lenient().when(pageResultRepository.findByRunIdAndPageId(anyString(), anyString())).thenReturn(Optional.empty());
+        lenient().when(pageResultRepository.findByRunIdOrderByCreatedAsc(anyString())).thenReturn(List.of());
         lenient().when(pageOrderService.sortPages(anyCollection())).thenAnswer(invocation -> List.copyOf(invocation.getArgument(0)));
     }
 
@@ -337,10 +369,273 @@ class ActionRunServiceTest {
         assertThatThrownBy(() -> service.receiveResults(
                 run.getId(),
                 "Bearer " + RUN_SECRET,
-                new ActionDto.ResultManifest(1, "completed", "Done", List.of(), List.of()),
+                new ActionDto.ResultManifest(1, "completed", "Done", null, List.of(), List.of()),
                 new LinkedMultiValueMap<>()
         )).isInstanceOf(SecurityException.class)
                 .hasMessageContaining("cancelled");
+    }
+
+    @Test
+    void completedResultCallbackCanBeSafelyReplayedWithOriginalSecret() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-replay");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.COMPLETED, LockMode.PAGES,
+                List.of("page-1"));
+        run.setSecretExpiresAt(LocalDateTime.now().minusMinutes(1));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+
+        ActionDto.RunResponse response = service.receiveResults(
+                run.getId(),
+                "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", "Done", null, List.of(), List.of()),
+                new LinkedMultiValueMap<>()
+        );
+
+        assertThat(response.status()).isEqualTo(ActionRun.Status.COMPLETED);
+        verify(runRepository, never()).save(any(ActionRun.class));
+    }
+
+    @Test
+    void completedResultCallbackReplayStillRejectsWrongSecret() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-replay-secret");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.COMPLETED, LockMode.PAGES,
+                List.of("page-1"));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+
+        assertThatThrownBy(() -> service.receiveResults(
+                run.getId(),
+                "Bearer wrong-secret",
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(), List.of()),
+                new LinkedMultiValueMap<>()
+        )).isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid Action run secret");
+    }
+
+    @Test
+    void incrementalEmptyPageResultUnlocksImmediatelyAndIsIdempotent() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-incremental");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES,
+                List.of("page-1", "page-2"));
+        Page page = page("page-1", project, run);
+        List<ActionRunPageResult> importedPages = new ArrayList<>();
+
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.saveAndFlush(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pageRepository.findByIdAndProjectId(page.getId(), project.getId())).thenReturn(Optional.of(page));
+        when(pageResultRepository.findByRunIdAndPageId(run.getId(), page.getId())).thenAnswer(invocation ->
+                importedPages.stream().filter(result -> page.getId().equals(result.getPageId())).findFirst());
+        when(pageResultRepository.saveAndFlush(any(ActionRunPageResult.class))).thenAnswer(invocation -> {
+            ActionRunPageResult result = invocation.getArgument(0);
+            result.setCreated(LocalDateTime.now());
+            importedPages.add(result);
+            return result;
+        });
+        when(pageResultRepository.findByRunIdOrderByCreatedAsc(run.getId())).thenAnswer(invocation -> List.copyOf(importedPages));
+        when(pageResultRepository.countByRunId(run.getId())).thenAnswer(invocation -> (long) importedPages.size());
+        doAnswer(invocation -> {
+            ((Runnable) invocation.getArgument(0)).run();
+            return null;
+        }).when(importTaskExecutor).execute(any(Runnable.class));
+
+        ActionDto.ResultManifest manifest = new ActionDto.ResultManifest(
+                1, "running", "Page ready", page.getId(), List.of(), List.of());
+        ActionDto.RunResponse first = service.receiveResults(
+                run.getId(), "Bearer " + RUN_SECRET, manifest, new LinkedMultiValueMap<>());
+        ActionDto.RunResponse duplicate = service.receiveResults(
+                run.getId(), "Bearer " + RUN_SECRET, manifest, new LinkedMultiValueMap<>());
+
+        assertThat(first.status()).isEqualTo(ActionRun.Status.RUNNING);
+        assertThat(first.progressPercent()).isEqualTo(50);
+        assertThat(first.completedPageIds()).containsExactly(page.getId());
+        assertThat(page.isLocked()).isFalse();
+        assertThat(page.getLockedByActionRunId()).isNull();
+        assertThat(duplicate.completedPageIds()).containsExactly(page.getId());
+        verify(pageResultRepository, times(1)).saveAndFlush(any(ActionRunPageResult.class));
+        verify(pageRepository, times(1)).save(page);
+        verify(realtimePublisher).publishPageResult(eq(run), eq(page.getId()), anySet());
+    }
+
+    @Test
+    void incrementalFinalizationRequiresEveryPageAndReleasesProjectLock() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-project-incremental");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PROJECT,
+                List.of("page-1", "page-2"));
+        project.setLocked(true);
+        project.setLockedReason("LAREX Action running");
+        project.setLockedByActionRunId(run.getId());
+        project.setLockedAt(LocalDateTime.now());
+        List<ActionRunPageResult> importedPages = new ArrayList<>();
+
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.saveAndFlush(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
+        when(pageRepository.findByIdAndProjectId(anyString(), eq(project.getId()))).thenReturn(Optional.empty());
+        when(pageRepository.findAllByIdIn(anyCollection())).thenReturn(List.of());
+        when(pageResultRepository.existsByRunId(run.getId())).thenAnswer(invocation -> !importedPages.isEmpty());
+        when(pageResultRepository.findByRunIdAndPageId(eq(run.getId()), anyString())).thenAnswer(invocation -> {
+            String pageId = invocation.getArgument(1);
+            return importedPages.stream().filter(result -> pageId.equals(result.getPageId())).findFirst();
+        });
+        when(pageResultRepository.saveAndFlush(any(ActionRunPageResult.class))).thenAnswer(invocation -> {
+            ActionRunPageResult result = invocation.getArgument(0);
+            result.setCreated(LocalDateTime.now());
+            importedPages.add(result);
+            return result;
+        });
+        when(pageResultRepository.findByRunIdOrderByCreatedAsc(run.getId())).thenAnswer(invocation -> List.copyOf(importedPages));
+        when(pageResultRepository.countByRunId(run.getId())).thenAnswer(invocation -> (long) importedPages.size());
+
+        service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "running", null, "page-1", List.of(), List.of()),
+                new LinkedMultiValueMap<>());
+        assertThat(project.isLocked()).isTrue();
+
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(), List.of()),
+                new LinkedMultiValueMap<>()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("every page");
+
+        service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "running", null, "page-2", List.of(), List.of()),
+                new LinkedMultiValueMap<>());
+        ActionDto.RunResponse completed = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", "Done", null, List.of(), List.of()),
+                new LinkedMultiValueMap<>());
+
+        assertThat(completed.status()).isEqualTo(ActionRun.Status.COMPLETED);
+        assertThat(completed.progressPercent()).isEqualTo(100);
+        assertThat(project.isLocked()).isFalse();
+        assertThat(run.getSecretExpiresAt()).isBeforeOrEqualTo(LocalDateTime.now());
+    }
+
+    @Test
+    void incrementalPageImportsXmlAndImageIntoAggregateSummary() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-files");
+        definition.setOutputsXml(true);
+        definition.setOutputsImages(true);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        Page page = page("page-1", project, run);
+        List<ActionRunPageResult> importedPages = new ArrayList<>();
+
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.saveAndFlush(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pageRepository.findByIdAndProjectId(page.getId(), project.getId())).thenReturn(Optional.of(page));
+        when(pageXmlValidationService.validatePageXml(any(org.springframework.core.io.Resource.class))).thenReturn(
+                new PageXmlTextDto.XmlValidationResult(true, List.of(), "2019-07-15", "urn:page"));
+        when(pageXmlRepository.findByPage_Id(page.getId())).thenReturn(List.of());
+        when(pageXmlRepository.save(any(PageXml.class))).thenAnswer(invocation -> {
+            PageXml xml = invocation.getArgument(0);
+            xml.setId("xml-result");
+            return xml;
+        });
+        when(pageImageRepository.findByPageIdAndVariant(page.getId(), "processed")).thenReturn(List.of());
+        when(pageImageRepository.save(any(PageImage.class))).thenAnswer(invocation -> {
+            PageImage image = invocation.getArgument(0);
+            image.setId("image-result");
+            return image;
+        });
+        when(fileStorageService.storeMultipartFile(any(), eq(WORKSPACE_ID), eq(project.getId()), eq(StoredFileType.XML), eq(OWNER_ID)))
+                .thenReturn(new HierarchicalFileStorageService.StoredFileDescriptor(
+                        "stored-xml", "xml/page.xml", "page.xml", "application/xml", "xml", 8, "checksum", StoredFileType.XML));
+        when(fileStorageService.storeMultipartFile(any(), eq(WORKSPACE_ID), eq(project.getId()), eq(StoredFileType.IMG), eq(OWNER_ID)))
+                .thenReturn(new HierarchicalFileStorageService.StoredFileDescriptor(
+                        "stored-image", "img/page.png", "page.png", "image/png", "png", 32, "checksum", StoredFileType.IMG));
+        when(pageResultRepository.saveAndFlush(any(ActionRunPageResult.class))).thenAnswer(invocation -> {
+            ActionRunPageResult result = invocation.getArgument(0);
+            result.setCreated(LocalDateTime.now());
+            importedPages.add(result);
+            return result;
+        });
+        when(pageResultRepository.findByRunIdOrderByCreatedAsc(run.getId())).thenAnswer(invocation -> List.copyOf(importedPages));
+        when(pageResultRepository.countByRunId(run.getId())).thenAnswer(invocation -> (long) importedPages.size());
+
+        ByteArrayOutputStream pngBytes = new ByteArrayOutputStream();
+        ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), "png", pngBytes);
+        LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile> files = new LinkedMultiValueMap<>();
+        files.add("xml-result", new MockMultipartFile("xml-result", "page.xml", "application/xml", "<PcGts/>".getBytes(StandardCharsets.UTF_8)));
+        files.add("image-result", new MockMultipartFile("image-result", "page.png", "image/png", pngBytes.toByteArray()));
+        ActionDto.ResultManifest manifest = new ActionDto.ResultManifest(1, "running", null, page.getId(), List.of(
+                new ActionDto.ResultFile("xml-result", page.getId(), "xml", null, "page.xml"),
+                new ActionDto.ResultFile("image-result", page.getId(), "image", "processed", "page.png")
+        ), List.of());
+
+        ActionDto.RunResponse response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET, manifest, files);
+
+        assertThat(response.completedPageIds()).containsExactly(page.getId());
+        assertThat(run.getResultSummaryJson()).contains("xml-result", "image-result");
+        verify(pageXmlRepository).save(any(PageXml.class));
+        verify(pageImageRepository).save(any(PageImage.class));
+    }
+
+    @Test
+    void heartbeatProgressNeverMovesBackwards() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-progress");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        run.setProgressPercent(70);
+        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.HeartbeatRequest(25, null, null, null, "running", null));
+
+        assertThat(run.getProgressPercent()).isEqualTo(70);
+    }
+
+    @Test
+    void legacyEmptyBulkCompletionRemainsSupported() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-bulk");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.saveAndFlush(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pageRepository.findAllByIdIn(anyCollection())).thenReturn(List.of());
+
+        ActionDto.RunResponse response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", "Done", null, List.of(), List.of()),
+                new LinkedMultiValueMap<>());
+
+        assertThat(response.status()).isEqualTo(ActionRun.Status.COMPLETED);
+        assertThat(response.progressPercent()).isEqualTo(100);
+    }
+
+    @Test
+    void bulkFilesAreRejectedAfterIncrementalResults() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-mixed");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(pageResultRepository.existsByRunId(run.getId())).thenReturn(true);
+
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(
+                        new ActionDto.ResultFile("xml-result", "page-1", "xml", null, "page.xml")
+                ), List.of()), new LinkedMultiValueMap<>()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Bulk result files");
+    }
+
+    @Test
+    void undocumentedResultStatusIsRejected() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-status");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "success", null, null, List.of(), List.of()),
+                new LinkedMultiValueMap<>()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported Action result status");
     }
 
     @Test
@@ -372,9 +667,12 @@ class ActionRunServiceTest {
         ActionRun second = run(definition, projectTwo, OWNER_ID, ActionRun.Status.QUEUED, LockMode.PAGES, List.of("page-2"));
         ActionRun otherWorkspaceRun = run(definition, otherProject, OWNER_ID, ActionRun.Status.QUEUED, LockMode.PAGES, List.of("page-3"));
 
-        when(runRepository.findByWorkspaceIdOrderByCreatedDesc(WORKSPACE_ID)).thenReturn(List.of(second, first));
+        when(runRepository.findByWorkspaceIdOrderByCreatedDesc(
+                eq(WORKSPACE_ID), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(List.of(second, first));
         when(projectRepository.findByLibraryWorkspaceId(WORKSPACE_ID)).thenReturn(List.of(projectOne, projectTwo));
-        when(runRepository.findByProcessorDefinitionIdAndStatusOrderByCreatedAsc(definition.getId(), ActionRun.Status.QUEUED))
+        when(runRepository.findByProcessorDefinitionIdInAndStatusOrderByCreatedAsc(
+                anyCollection(), eq(ActionRun.Status.QUEUED)))
                 .thenReturn(List.of(first, second, otherWorkspaceRun));
         when(definitionService.readParsedDocument(definition)).thenReturn(parsedDefinition(definition.getProcessorKey(), "WORKSPACE"));
         when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, OWNER_ID)).thenReturn(true);
@@ -390,7 +688,8 @@ class ActionRunServiceTest {
                 .extracting(ActionDto.RunResponse::queuePosition)
                 .isEqualTo(2);
         verify(runRepository, times(1))
-                .findByProcessorDefinitionIdAndStatusOrderByCreatedAsc(definition.getId(), ActionRun.Status.QUEUED);
+                .findByProcessorDefinitionIdInAndStatusOrderByCreatedAsc(
+                        anyCollection(), eq(ActionRun.Status.QUEUED));
         verify(runRepository, never()).findByWorkspaceIdAndProjectIdOrderByCreatedDesc(anyString(), anyString());
     }
 
@@ -410,6 +709,16 @@ class ActionRunServiceTest {
         Project project = new Project(name, null, library);
         project.setId(projectId);
         return project;
+    }
+
+    private Page page(String pageId, Project project, ActionRun run) {
+        Page page = new Page(pageId, null, project);
+        page.setId(pageId);
+        page.setLocked(true);
+        page.setLockedReason("LAREX Action running");
+        page.setLockedByActionRunId(run.getId());
+        page.setLockedAt(LocalDateTime.now());
+        return page;
     }
 
     private ActionRun run(

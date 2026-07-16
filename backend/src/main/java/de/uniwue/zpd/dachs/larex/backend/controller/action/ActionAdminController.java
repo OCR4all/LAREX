@@ -119,8 +119,9 @@ public class ActionAdminController {
 
     @GetMapping("/{definitionId}/runs")
     public ResponseEntity<List<ActionDto.AdminRunResponse>> listRuns(
-            @PathVariable String definitionId) {
-        return ResponseEntity.ok(actionRunService.listAdminRuns(definitionId));
+            @PathVariable String definitionId,
+            @RequestParam(defaultValue = "200") int limit) {
+        return ResponseEntity.ok(actionRunService.listAdminRuns(definitionId, limit));
     }
 
     @GetMapping("/{definitionId}/runs/{runId}")

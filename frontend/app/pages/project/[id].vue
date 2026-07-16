@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ActionActiveIndicator,
   LazyActionSlideoverRun,
   LazyCodecSlideoverAction,
   LazyPageSlideoverEdit,
@@ -212,6 +213,18 @@ const workflowStateMeta: Record<PageWorkflowState, { label: string, color: 'neut
   IN_PROGRESS: { label: 'In progress', color: 'info', icon: 'i-lucide-loader-circle' },
   DONE: { label: 'Done', color: 'success', icon: 'i-lucide-circle-check' }
 }
+const pageWorkflowStates: PageWorkflowState[] = ['OPEN', 'IN_PROGRESS', 'DONE']
+const updatingPageWorkflowStateIds = ref<Set<string>>(new Set())
+
+function setPageWorkflowStateUpdating(pageId: string, updating: boolean) {
+  const next = new Set(updatingPageWorkflowStateIds.value)
+  if (updating) {
+    next.add(pageId)
+  } else {
+    next.delete(pageId)
+  }
+  updatingPageWorkflowStateIds.value = next
+}
 
 function mergeUpdatedPages(updatedPages: Page[]) {
   if (!pages.value) return
@@ -220,7 +233,14 @@ function mergeUpdatedPages(updatedPages: Page[]) {
 }
 
 async function updatePageWorkflowState(page: Page, workflowState: PageWorkflowState) {
-  if (!canChangePageState.value || page.workflowState === workflowState) return
+  if (
+    !canChangePageState.value
+    || project.value?.locked
+    || page.workflowState === workflowState
+    || updatingPageWorkflowStateIds.value.has(page.id)
+  ) return
+
+  setPageWorkflowStateUpdating(page.id, true)
   try {
     const updated = await $fetch<Page>(`/api/projects/${projectId}/pages/${page.id}/workflow-state`, {
       method: 'PUT',
@@ -228,14 +248,28 @@ async function updatePageWorkflowState(page: Page, workflowState: PageWorkflowSt
     })
     mergeUpdatedPages([updated])
     await Promise.all([refreshProject(), refreshNuxtData(projectsListKey.value)])
-    toast.add({ title: `Page marked ${workflowStateMeta[workflowState].label}`, color: 'success' })
+    toast.add({ title: `Page “${page.name}” marked ${workflowStateMeta[workflowState].label}`, color: 'success' })
   } catch (error) {
     toast.add({
       title: 'Failed to update page state',
       description: getErrorMessage(error, 'Could not update the page workflow state.'),
       color: 'error'
     })
+  } finally {
+    setPageWorkflowStateUpdating(page.id, false)
   }
+}
+
+function getPageWorkflowStateItems(page: Page): DropdownMenuItem[] {
+  const updating = updatingPageWorkflowStateIds.value.has(page.id)
+  return pageWorkflowStates.map(workflowState => ({
+    label: workflowStateMeta[workflowState].label,
+    icon: workflowStateMeta[workflowState].icon,
+    type: 'checkbox',
+    checked: page.workflowState === workflowState,
+    disabled: updating || page.workflowState === workflowState,
+    onSelect: () => { void updatePageWorkflowState(page, workflowState) }
+  }))
 }
 
 async function bulkUpdatePageWorkflowState(workflowState: PageWorkflowState) {
@@ -632,6 +666,19 @@ async function refreshProjectPagesData() {
   ])
 }
 
+async function refreshProjectPageData(pageId: string) {
+  try {
+    const updatedPage = await $fetch<Page>(`/api/projects/${projectId}/pages/${pageId}`)
+    mergeUpdatedPages([updatedPage])
+    await Promise.allSettled([
+      refreshProject(),
+      refreshProjectStatus()
+    ])
+  } catch (error) {
+    console.error(`Failed to refresh Action result page ${pageId}:`, error)
+  }
+}
+
 let lastHandledIiifTerminalSequence = 0
 watch(() => iiifImportJobsStore.terminalEvents.at(-1)?.sequence, () => {
   let event: IiifImportTerminalEvent | undefined
@@ -658,7 +705,8 @@ const { openActionRunSlideover } = useProjectActions({
   pagesSafe,
   actionRunSlideover,
   getScopedPageIds,
-  refreshProjectPagesData
+  refreshProjectPagesData,
+  refreshProjectPageData
 })
 
 async function openIiifImportSlideover() {
@@ -1425,7 +1473,7 @@ async function openValidationRulesetModal(scope: ProjectActionScope = 'all') {
 const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
   const stateItems: DropdownMenuItem[] = [
     { type: 'label', label: 'Set page state' },
-    ...(['OPEN', 'IN_PROGRESS', 'DONE'] as PageWorkflowState[]).map(workflowState => ({
+    ...pageWorkflowStates.map(workflowState => ({
       label: workflowStateMeta[workflowState].label,
       icon: workflowStateMeta[workflowState].icon,
       disabled: !hasSelection.value || !canChangePageState.value,
@@ -1714,6 +1762,9 @@ const pageColumns = [
               title: lockReason
             })
           : null,
+        actionRunsStore.isPageActionRunning(projectId, row.original.id)
+          ? h(ActionActiveIndicator, { label: 'LAREX Action running on this page' })
+          : null,
         h('p', { class: 'min-w-0 truncate font-medium' }, row.original.name),
         renderPageEditorIndicator(row.original)
       ])
@@ -1769,8 +1820,40 @@ const pageColumns = [
     accessorKey: 'workflowState',
     header: 'State',
     cell: ({ row }: { row: { original: Page } }) => {
-      const meta = workflowStateMeta[row.original.workflowState]
-      return h(UBadge, { color: meta.color, variant: 'subtle', size: 'sm', icon: meta.icon }, () => meta.label)
+      const page = row.original
+      const meta = workflowStateMeta[page.workflowState]
+      const updating = updatingPageWorkflowStateIds.value.has(page.id)
+
+      if (!canChangePageState.value || project.value?.locked) {
+        return h(UBadge, {
+          color: meta.color,
+          variant: 'subtle',
+          size: 'sm',
+          icon: meta.icon
+        }, () => meta.label)
+      }
+
+      return h(UDropdownMenu, {
+        content: { align: 'start' },
+        items: getPageWorkflowStateItems(page)
+      }, () => h('button', {
+        'type': 'button',
+        'disabled': updating,
+        'class': 'group rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait',
+        'aria-label': `Change page state. Current state: ${meta.label}`,
+        'title': 'Change page state',
+        'onClick': (event: MouseEvent) => event.stopPropagation()
+      }, [
+        h(UBadge, {
+          color: meta.color,
+          variant: 'subtle',
+          size: 'sm',
+          icon: updating ? 'i-lucide-loader-circle' : meta.icon,
+          trailingIcon: 'i-lucide-chevron-down',
+          class: 'cursor-pointer select-none transition-opacity group-hover:opacity-80',
+          ui: updating ? { leadingIcon: 'animate-spin' } : undefined
+        }, () => meta.label)
+      ]))
     }
   },
   {
@@ -1858,18 +1941,6 @@ function getPageRowItems(page: Page) {
     { label: 'Export', icon: 'i-lucide-file-output', disabled: page.xmlFileCount === 0, onSelect: () => exportPageOutput(page) },
     { label: 'Version History', icon: 'i-lucide-history', disabled: page.xmlFileCount === 0, onSelect: () => openVersionHistory(page) }
   ]
-
-  if (canChangePageState.value) {
-    items.push({ type: 'separator' })
-    for (const workflowState of ['OPEN', 'IN_PROGRESS', 'DONE'] as PageWorkflowState[]) {
-      items.push({
-        label: `Mark ${workflowStateMeta[workflowState].label}`,
-        icon: workflowStateMeta[workflowState].icon,
-        disabled: page.workflowState === workflowState || Boolean(project.value?.locked),
-        onSelect: () => { void updatePageWorkflowState(page, workflowState) }
-      })
-    }
-  }
 
   if (allow(projectCapabilities.value.canDeletePages)) {
     items.push({ type: 'separator' })

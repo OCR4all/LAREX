@@ -739,7 +739,7 @@ const actionProcessingTargets = computed<ActionProcessingRenderTarget | null>(()
 
   for (const run of actionRunsStore.runsArray) {
     if (run.projectId !== currentProjectId || !ACTION_ACTIVE_STATUSES.has(run.status)) continue
-    if (!run.pageIds.includes(currentPageId)) continue
+    if (!actionRunsStore.isActionRunPageActive(run.id, currentPageId)) continue
 
     const targetPage = run.targetSelection?.pages?.find(candidate => candidate.pageId === currentPageId)
     if (!run.targetSelection || run.targetSelection.type === 'PAGE' || !targetPage) {

@@ -20,6 +20,7 @@ public class ActionRunPayloadService {
 
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> OBJECT_MAP = new TypeReference<>() {};
+    private static final TypeReference<List<Map<String, Object>>> OBJECT_LIST = new TypeReference<>() {};
     private static final TypeReference<ActionDto.TargetSelection> TARGET_SELECTION = new TypeReference<>() {};
     private static final TypeReference<ActionDto.ImageVariantSelection> IMAGE_VARIANT_SELECTION = new TypeReference<>() {};
 
@@ -45,6 +46,17 @@ public class ActionRunPayloadService {
             return objectMapper.readValue(json, OBJECT_MAP);
         } catch (JacksonException e) {
             return Map.of();
+        }
+    }
+
+    public List<Map<String, Object>> readObjectList(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(json, OBJECT_LIST);
+        } catch (JacksonException e) {
+            return List.of();
         }
     }
 

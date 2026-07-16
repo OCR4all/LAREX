@@ -1,0 +1,79 @@
+x-action-processor-defaults: &action-processor-defaults
+  restart: unless-stopped
+  init: true
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  networks:
+    - backend
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  app:
+    networks:
+      - backend
+    environment:
+      LAREX_ACTIONS_PUBLIC_BASE_URL: ${LAREX_ACTIONS_PUBLIC_BASE_URL:-http://app:8080/api/v1}
+      LAREX_ACTIONS_ENDPOINT_ALLOWED_ORIGINS: ${LAREX_ACTIONS_ENDPOINT_ALLOWED_ORIGINS:-http://action-kraken-segmentation:9000,http://mock-action-processor:9000}
+      LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:?Run scripts/bootstrap-env-secrets.sh actions first}
+      LAREX_DEV_KRAKEN_ACTION_ENABLED: ${LAREX_DEV_KRAKEN_ACTION_ENABLED:-true}
+      LAREX_DEV_KRAKEN_ACTION_ENDPOINT_URL: http://action-kraken-segmentation:9000/dispatch
+      LAREX_DEV_KRAKEN_ACTION_HEALTH_URL: http://action-kraken-segmentation:9000/health
+
+  action-kraken-segmentation:
+    <<: *action-processor-defaults
+    profiles:
+      - actions
+      - action-kraken
+    image: ${LAREX_ACTION_KRAKEN_IMAGE:-ghcr.io/ocr4all/larex-action-kraken:${LAREX_ACTION_KRAKEN_IMAGE_TAG:-0.2.0}}
+    environment:
+      LAREX_DISPATCH_HMAC_SECRET: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:?Run scripts/bootstrap-env-secrets.sh actions first}
+      LAREX_PROCESSOR_ID: kraken-segmentation
+      LAREX_ALLOWED_CALLBACK_ORIGINS: ${LAREX_ACTIONS_CALLBACK_ALLOWED_ORIGINS:-http://app:8080}
+      KRAKEN_DEVICE: ${KRAKEN_DEVICE:-cpu}
+      KRAKEN_PRECISION: ${KRAKEN_PRECISION:-32-true}
+      KRAKEN_TEXT_DIRECTION: ${KRAKEN_TEXT_DIRECTION:-horizontal-lr}
+      KRAKEN_SEGMENTATION_MODEL: ${KRAKEN_SEGMENTATION_MODEL:-}
+      KRAKEN_MAX_PROCESS_SECONDS: ${KRAKEN_MAX_PROCESS_SECONDS:-900}
+      KRAKEN_MAX_CONCURRENT_RUNS: ${KRAKEN_MAX_CONCURRENT_RUNS:-1}
+      HOME: /var/lib/larex-action
+      XDG_CACHE_HOME: /var/lib/larex-action/cache
+      XDG_DATA_HOME: /var/lib/larex-action/data
+    expose:
+      - "9000"
+    tmpfs:
+      - /tmp:size=${LAREX_ACTION_KRAKEN_TMPFS_SIZE:-4g},mode=1777
+    volumes:
+      - action_kraken_state:/var/lib/larex-action
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:9000/health', timeout=5)
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: ${LAREX_ACTION_KRAKEN_CPU_LIMIT:-4}
+          memory: ${LAREX_ACTION_KRAKEN_MEMORY_LIMIT:-8G}
+    labels:
+      org.ocr4all.larex.action-processor: "true"
+      org.ocr4all.larex.action-processor.id: kraken-segmentation
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  action_kraken_state:

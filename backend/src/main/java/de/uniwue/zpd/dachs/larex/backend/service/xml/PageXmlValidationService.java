@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlTextDto;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
 import org.xml.sax.ErrorHandler;
@@ -19,7 +20,7 @@ import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -58,9 +59,18 @@ public class PageXmlValidationService {
 
     public PageXmlTextDto.XmlValidationResult validatePageXml(String xmlText) {
         String normalizedXml = xmlText == null ? "" : xmlText;
-        Detection detection = detect(normalizedXml);
+        return validatePageXml(new ByteArrayResource(normalizedXml.getBytes(StandardCharsets.UTF_8)));
+    }
 
-        List<PageXmlTextDto.XmlValidationError> parseErrors = checkWellFormedXml(normalizedXml);
+    public PageXmlTextDto.XmlValidationResult validatePageXml(Resource xmlResource) {
+        Detection detection;
+        try {
+            detection = detect(readPrefix(xmlResource, 131_072));
+        } catch (IOException error) {
+            return invalid(List.of(error(1, 1, "XML_READ_ERROR", "Could not read PAGE XML")), null, null);
+        }
+
+        List<PageXmlTextDto.XmlValidationError> parseErrors = checkWellFormedXml(xmlResource);
         if (!parseErrors.isEmpty()) {
             return invalid(parseErrors, detection.pageVersion(), detection.namespace());
         }
@@ -85,7 +95,7 @@ public class PageXmlValidationService {
         }
 
         List<PageXmlTextDto.XmlValidationError> xsdErrors = validateAgainstSchema(
-                normalizedXml,
+                xmlResource,
                 detection.pageVersion()
         );
         if (!xsdErrors.isEmpty()) {
@@ -100,7 +110,7 @@ public class PageXmlValidationService {
         );
     }
 
-    private List<PageXmlTextDto.XmlValidationError> validateAgainstSchema(String xmlText, String version) {
+    private List<PageXmlTextDto.XmlValidationError> validateAgainstSchema(Resource xmlResource, String version) {
         Schema schema = loadSchema(version);
         if (schema == null) {
             return List.of(error(
@@ -115,8 +125,10 @@ public class PageXmlValidationService {
         try {
             Validator validator = schema.newValidator();
             validator.setErrorHandler(handler);
-            Source source = new StreamSource(new StringReader(xmlText));
-            validator.validate(source);
+            try (InputStream inputStream = xmlResource.getInputStream()) {
+                Source source = new StreamSource(inputStream);
+                validator.validate(source);
+            }
         } catch (Exception e) {
             if (handler.errors().isEmpty()) {
                 handler.addFallback(e.getMessage());
@@ -125,7 +137,7 @@ public class PageXmlValidationService {
         return handler.errors();
     }
 
-    private List<PageXmlTextDto.XmlValidationError> checkWellFormedXml(String xmlText) {
+    private List<PageXmlTextDto.XmlValidationError> checkWellFormedXml(Resource xmlResource) {
         CollectingErrorHandler handler = new CollectingErrorHandler("XML_PARSE_ERROR");
         try {
             SAXParserFactory factory = SAXParserFactory.newInstance();
@@ -137,8 +149,10 @@ public class PageXmlValidationService {
             safeSetFeature(factory, "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
 
             SAXParser parser = factory.newSAXParser();
-            parser.parse(new InputSource(new StringReader(xmlText)), new DefaultHandler() {
-            });
+            try (InputStream inputStream = xmlResource.getInputStream()) {
+                parser.parse(new InputSource(inputStream), new DefaultHandler() {
+                });
+            }
         } catch (SAXParseException e) {
             handler.error(e);
         } catch (Exception e) {
@@ -147,6 +161,12 @@ public class PageXmlValidationService {
             }
         }
         return handler.errors();
+    }
+
+    private String readPrefix(Resource resource, int maxBytes) throws IOException {
+        try (InputStream inputStream = resource.getInputStream()) {
+            return new String(inputStream.readNBytes(maxBytes), StandardCharsets.UTF_8);
+        }
     }
 
     private void safeSetFeature(SAXParserFactory factory, String feature, boolean value) {

@@ -147,6 +147,7 @@ public class ActionDto {
             String projectLabel,
             int pageCount,
             List<String> pageIds,
+            List<String> completedPageIds,
             TargetSelection targetSelection,
             Status status,
             LockMode lockMode,
@@ -294,7 +295,12 @@ public class ActionDto {
             List<MachinePageInput> pages,
             MachineTargetSelection targetSelection,
             ImageVariantSelection imageVariantSelection,
+            MachineCapabilities capabilities,
             boolean cancelRequested
+    ) {}
+
+    public record MachineCapabilities(
+            boolean incrementalPageResults
     ) {}
 
     public record HeartbeatRequest(
@@ -314,6 +320,7 @@ public class ActionDto {
             Integer protocolVersion,
             String status,
             String message,
+            String pageId,
             List<ResultFile> files,
             List<ResultPatch> patches
     ) {}

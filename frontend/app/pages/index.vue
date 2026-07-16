@@ -12,6 +12,7 @@ import {
   LazyProjectSlideoverEdit,
   LazyUiConfirmSlideover,
   LazyUiDeleteSlideover,
+  ActionActiveIndicator,
   NuxtLink,
   UAvatar,
   UBadge,
@@ -51,6 +52,13 @@ const { uploadFormDataWithProgress } = useTrackedUpload()
 const collaborationPageSummary = useCollaborationPageSummary()
 const editorStore = useEditorStore()
 const sessionStore = useEditorSessionStore()
+const actionRunsStore = useActionRunsStore()
+
+watch(selectedWorkspace, (workspaceId) => {
+  if (import.meta.client && workspaceId) {
+    void actionRunsStore.refreshWorkspaceRuns(workspaceId)
+  }
+}, { immediate: true })
 
 const projectSlideoverCreate = overlay.create(LazyLibrarySlideoverCreate)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
@@ -353,6 +361,9 @@ const columns: TableColumn<ProjectListItem>[] = [
     header: createSortableHeader('Name', 'name', sort, UButton),
     cell: ({ row }) => h('div', { class: 'flex min-w-0 items-center gap-2' }, [
       row.original.locked ? h('span', { class: 'text-warning', title: row.original.lockedReason || 'Locked' }, h(UIcon, { name: 'i-lucide-lock', class: 'w-4 h-4' })) : null,
+      actionRunsStore.isProjectActionRunning(row.original.id)
+        ? h(ActionActiveIndicator, { label: 'LAREX Action running on this project' })
+        : null,
       h(NuxtLink, { to: `/project/${row.original.id}`, class: 'min-w-0 truncate font-medium hover:underline text-primary' }, () => row.getValue('name')),
       renderProjectEditorsCell(row.original)
     ])
@@ -422,18 +433,47 @@ const columns: TableColumn<ProjectListItem>[] = [
   {
     accessorKey: 'completionPercentage',
     header: createSortableHeader('Progress', 'completionPercentage', sort, UButton),
-    cell: ({ row }) => h('div', { class: 'min-w-32 space-y-1' }, [
-      h('div', { class: 'flex justify-between text-xs text-muted' }, [
-        h('span', `${row.original.completedPageCount}/${row.original.pageCount} done`),
-        h('span', `${row.original.completionPercentage}%`)
-      ]),
-      h(UProgress, {
-        modelValue: row.original.completionPercentage,
-        max: 100,
-        color: row.original.completionPercentage === 100 && row.original.pageCount > 0 ? 'success' : 'primary',
-        size: 'xs'
+    cell: ({ row }) => {
+      const completed = row.original.completedPageCount
+      const total = row.original.pageCount
+      const remaining = Math.max(total - completed, 0)
+      const percentage = row.original.completionPercentage
+
+      return h(UPopover, {
+        mode: 'hover',
+        content: { side: 'top', align: 'center' }
+      }, {
+        default: () => h('div', {
+          class: 'w-40 cursor-help py-2 outline-none focus-visible:ring-2 focus-visible:ring-primary',
+          tabindex: 0
+        }, [
+          h(UProgress, {
+            'modelValue': percentage,
+            'max': 100,
+            'color': percentage === 100 && total > 0 ? 'success' : 'primary',
+            'size': 'sm',
+            'aria-label': `${completed} of ${total} pages done (${percentage}% complete)`
+          })
+        ]),
+        content: () => h('div', { class: 'w-56 space-y-2 p-3' }, [
+          h('p', { class: 'text-sm font-medium text-highlighted' }, 'Project progress'),
+          h('dl', { class: 'space-y-1.5 text-xs' }, [
+            h('div', { class: 'flex items-center justify-between gap-6' }, [
+              h('dt', { class: 'text-muted' }, 'Done'),
+              h('dd', { class: 'font-medium text-highlighted' }, `${completed} of ${total} pages`)
+            ]),
+            h('div', { class: 'flex items-center justify-between gap-6' }, [
+              h('dt', { class: 'text-muted' }, 'Remaining'),
+              h('dd', { class: 'font-medium text-highlighted' }, `${remaining} pages`)
+            ]),
+            h('div', { class: 'flex items-center justify-between gap-6' }, [
+              h('dt', { class: 'text-muted' }, 'Completion'),
+              h('dd', { class: 'font-medium text-highlighted' }, `${percentage}%`)
+            ])
+          ])
+        ])
       })
-    ])
+    }
   },
   {
     accessorKey: 'storageUsedBytes',

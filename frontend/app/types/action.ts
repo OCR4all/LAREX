@@ -126,6 +126,7 @@ export interface ActionRun {
   projectLabel: string
   pageCount: number
   pageIds: string[]
+  completedPageIds: string[]
   targetSelection: ActionTargetSelection
   status: ActionRunStatus
   lockMode: ActionLockMode

@@ -134,6 +134,9 @@ services:
       - ./backend/settings.gradle.kts:/app/settings.gradle.kts:ro,Z
       - gradle_cache:/home/gradle/.gradle
       - ./backend/uploads:/uploads:Z
+    networks:
+      - default
+      - backend
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.api.rule=Host(`api.localhost`)"
@@ -188,5 +191,7 @@ volumes:
   gradle_cache:
 
 networks:
+  backend:
+    driver: bridge
   socket-proxy:
     driver: bridge

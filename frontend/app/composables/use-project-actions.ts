@@ -27,6 +27,7 @@ type ProjectActionsOptions = {
   actionRunSlideover: unknown
   getScopedPageIds: (scope: ProjectActionScope) => string[]
   refreshProjectPagesData: () => Promise<void>
+  refreshProjectPageData: (pageId: string) => Promise<void>
 }
 
 export function useProjectActions(options: ProjectActionsOptions) {
@@ -59,11 +60,16 @@ export function useProjectActions(options: ProjectActionsOptions) {
     run.projectId === options.projectId && ['QUEUED', 'PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS'].includes(run.status)
   ).length)
 
-  watch(activeActionRunCount, (count, previousCount) => {
-    if (previousCount && count === 0) {
-      void options.refreshProjectPagesData()
+  let lastHandledPageResultSequence = 0
+  watch(() => actionRunsStore.pageResultEvents.at(-1)?.sequence, () => {
+    for (const event of actionRunsStore.pageResultEvents) {
+      if (event.sequence <= lastHandledPageResultSequence) continue
+      lastHandledPageResultSequence = event.sequence
+      if (event.projectId === options.projectId) {
+        void options.refreshProjectPageData(event.pageId)
+      }
     }
-  })
+  }, { immediate: true })
 
   return {
     activeActionRunCount,

@@ -16,8 +16,8 @@ spring:
     multipart:
       enabled: true
       location: ${larex.upload.temp-directory:${file.upload-dir}/temp}
-      max-file-size: 100MB
-      max-request-size: 500MB
+      max-file-size: ${LAREX_ACTION_RESULT_MAX_FILE_BYTES:104857600}
+      max-request-size: ${LAREX_ACTION_RESULT_MAX_TOTAL_BYTES:503316480}
   datasource:
     url: jdbc:postgresql://postgres:5432/larex_backend
     username: larex
@@ -196,6 +196,9 @@ larex:
     endpoint-allow-insecure-local: ${LAREX_ACTIONS_ENDPOINT_ALLOW_INSECURE_LOCAL:true}
     endpoint-secret-encryption-key: ${LAREX_ACTION_ENDPOINT_SECRET_ENCRYPTION_KEY:}
     endpoint-secrets: {}
+    results:
+      max-file-bytes: ${LAREX_ACTION_RESULT_MAX_FILE_BYTES:104857600}
+      max-total-bytes: ${LAREX_ACTION_RESULT_MAX_TOTAL_BYTES:503316480}
   error-log:
     retention-days: ${LAREX_ERROR_LOG_RETENTION_DAYS:30}
     stack-trace-max-length: ${LAREX_ERROR_LOG_STACK_TRACE_MAX_LENGTH:16000}

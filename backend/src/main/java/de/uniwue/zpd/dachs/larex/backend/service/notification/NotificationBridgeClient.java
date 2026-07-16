@@ -12,6 +12,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
@@ -25,11 +26,15 @@ public class NotificationBridgeClient {
 
     private final ObjectMapper objectMapper;
     private final NotificationBridgeProperties properties;
+    private final HttpClient httpClient;
 
     public NotificationBridgeClient(ObjectMapper objectMapper,
                                     NotificationBridgeProperties properties) {
         this.objectMapper = objectMapper;
         this.properties = properties;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(3))
+                .build();
     }
 
     public void pushNotification(Notification notification, String source) {
@@ -41,12 +46,26 @@ public class NotificationBridgeClient {
             return;
         }
 
+        pushPayload(new NotificationBridgePayload(notification.getUserId(), notification, source), source);
+    }
+
+    public void pushActionEvent(String type, Map<String, Object> eventPayload, String source) {
+        if (!properties.isEnabled()) {
+            return;
+        }
+        if (!properties.isConfigured()) {
+            logger.debug("Notification bridge disabled because URL or secret is missing");
+            return;
+        }
+        if (!"ACTION_RUN_UPDATED".equals(type) && !"ACTION_PAGE_RESULT_IMPORTED".equals(type)) {
+            throw new IllegalArgumentException("Unsupported Action realtime event type: " + type);
+        }
+        pushPayload(new ActionEventBridgePayload(new BridgeEvent(type, eventPayload), source), source);
+    }
+
+    private void pushPayload(Object bridgePayload, String source) {
         try {
-            String payload = objectMapper.writeValueAsString(new NotificationBridgePayload(
-                    notification.getUserId(),
-                    notification,
-                    source
-            ));
+            String payload = objectMapper.writeValueAsString(bridgePayload);
             String timestamp = Long.toString(Instant.now().toEpochMilli());
             String signature = signPayload(timestamp, payload);
 
@@ -59,7 +78,7 @@ public class NotificationBridgeClient {
                     .POST(HttpRequest.BodyPublishers.ofString(payload))
                     .build();
 
-            HttpResponse<Void> response = newHttpClient().send(request, HttpResponse.BodyHandlers.discarding());
+            HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
             if (response.statusCode() >= 400) {
                 logger.warn("Notification bridge rejected push from source {} with status {}", source, response.statusCode());
             }
@@ -73,12 +92,6 @@ public class NotificationBridgeClient {
             }
             logger.warn("Failed to push notification to Nuxt bridge from source {}", source, error);
         }
-    }
-
-    private HttpClient newHttpClient() {
-        return HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(3))
-                .build();
     }
 
     private String signPayload(String timestamp, String payload) {
@@ -104,5 +117,15 @@ public class NotificationBridgeClient {
             String userId,
             Notification notification,
             String source
+    ) {}
+
+    private record ActionEventBridgePayload(
+            BridgeEvent event,
+            String source
+    ) {}
+
+    private record BridgeEvent(
+            String type,
+            Map<String, Object> payload
     ) {}
 }

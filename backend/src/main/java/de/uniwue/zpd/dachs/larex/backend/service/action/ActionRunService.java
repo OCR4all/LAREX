@@ -13,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.Action
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunPageResult;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunDismissal;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunLogEvent;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Status;
@@ -28,6 +29,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefini
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunDismissalRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunLogEventRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunPageResultRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -52,7 +54,9 @@ import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,6 +79,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -88,6 +93,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 
@@ -97,6 +104,8 @@ public class ActionRunService {
 
     private static final Logger log = LoggerFactory.getLogger(ActionRunService.class);
     private static final int ACTION_PROTOCOL_VERSION = 1;
+    private static final int DEFAULT_RUN_HISTORY_LIMIT = 200;
+    private static final int MAX_RUN_HISTORY_LIMIT = 1000;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final Pattern ACTION_RUN_SECRET_PATTERN = Pattern.compile("lrx_act_[A-Za-z0-9_-]{20,}");
     private static final Pattern BEARER_TOKEN_PATTERN = Pattern.compile("(?i)\\bBearer\\s+[A-Za-z0-9._~+\\-/]+=*");
@@ -107,6 +116,7 @@ public class ActionRunService {
     private final ActionRunRepository runRepository;
     private final ActionRunDismissalRepository runDismissalRepository;
     private final ActionRunLogEventRepository logEventRepository;
+    private final ActionRunPageResultRepository pageResultRepository;
     private final ProjectRepository projectRepository;
     private final PageRepository pageRepository;
     private final PageImageRepository pageImageRepository;
@@ -116,6 +126,7 @@ public class ActionRunService {
     private final ActionDefinitionService definitionService;
     private final ActionEndpointAuthService endpointAuthService;
     private final TaskExecutor importTaskExecutor;
+    private final TaskScheduler actionResultTaskScheduler;
     private final HierarchicalFileStorageService fileStorageService;
     private final ThumbnailService thumbnailService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
@@ -135,8 +146,11 @@ public class ActionRunService {
     private final ActionRunPayloadService payloadService;
     private final ActionRunResponseMapper responseMapper;
     private final ActionResultPageMergeService resultPageMergeService;
+    private final ActionRealtimePublisher realtimePublisher;
+    private final ActionMetrics metrics;
     private final HttpClient httpClient;
     private final TransactionTemplate transactionTemplate;
+    private final Map<String, ScheduledFuture<?>> pendingLexiconRebuilds = new ConcurrentHashMap<>();
 
     public ActionRunService(ActionProcessorDefinitionRepository definitionRepository,
                             ActionProcessorAssignmentRepository assignmentRepository,
@@ -144,6 +158,7 @@ public class ActionRunService {
                             ActionRunRepository runRepository,
                             ActionRunDismissalRepository runDismissalRepository,
                             ActionRunLogEventRepository logEventRepository,
+                            ActionRunPageResultRepository pageResultRepository,
                             ProjectRepository projectRepository,
                             PageRepository pageRepository,
                             PageImageRepository pageImageRepository,
@@ -153,6 +168,7 @@ public class ActionRunService {
                             ActionDefinitionService definitionService,
                             ActionEndpointAuthService endpointAuthService,
                             @org.springframework.beans.factory.annotation.Qualifier("importTaskExecutor") TaskExecutor importTaskExecutor,
+                            @org.springframework.beans.factory.annotation.Qualifier("actionResultTaskScheduler") TaskScheduler actionResultTaskScheduler,
                             HierarchicalFileStorageService fileStorageService,
                             ThumbnailService thumbnailService,
                             WorkspaceQuotaGuardService workspaceQuotaGuardService,
@@ -172,6 +188,8 @@ public class ActionRunService {
                             ActionRunPayloadService payloadService,
                             ActionRunResponseMapper responseMapper,
                             ActionResultPageMergeService resultPageMergeService,
+                            ActionRealtimePublisher realtimePublisher,
+                            ActionMetrics metrics,
                             TransactionTemplate transactionTemplate) {
         this.definitionRepository = definitionRepository;
         this.assignmentRepository = assignmentRepository;
@@ -179,6 +197,7 @@ public class ActionRunService {
         this.runRepository = runRepository;
         this.runDismissalRepository = runDismissalRepository;
         this.logEventRepository = logEventRepository;
+        this.pageResultRepository = pageResultRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -188,6 +207,7 @@ public class ActionRunService {
         this.definitionService = definitionService;
         this.endpointAuthService = endpointAuthService;
         this.importTaskExecutor = importTaskExecutor;
+        this.actionResultTaskScheduler = actionResultTaskScheduler;
         this.fileStorageService = fileStorageService;
         this.thumbnailService = thumbnailService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
@@ -207,6 +227,8 @@ public class ActionRunService {
         this.payloadService = payloadService;
         this.responseMapper = responseMapper;
         this.resultPageMergeService = resultPageMergeService;
+        this.realtimePublisher = realtimePublisher;
+        this.metrics = metrics;
         this.transactionTemplate = transactionTemplate;
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
@@ -408,6 +430,7 @@ public class ActionRunService {
         }
         actionAuditService.record(auditAction, "SUCCESS", userId, definition.getId(), savedRun.getId(),
                 workspaceId, projectId, details);
+        publishActionRunUpdatedAfterCommit(savedRun);
         if (dispatchImmediately) {
             dispatchAfterCommit(savedRun.getId(), rawSecret, publicApiBaseUrl);
         } else {
@@ -418,31 +441,46 @@ public class ActionRunService {
 
     @Transactional(readOnly = true)
     public List<ActionDto.RunResponse> listRuns(String workspaceId, String projectId, String userId) {
+        return listRuns(workspaceId, projectId, userId, DEFAULT_RUN_HISTORY_LIMIT);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.RunResponse> listRuns(String workspaceId, String projectId, String userId, int limit) {
         Project project = requireProject(workspaceId, projectId);
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-        List<ActionRun> runs = runRepository.findByWorkspaceIdAndProjectIdOrderByCreatedDesc(workspaceId, projectId);
+        List<ActionRun> runs = runRepository.findByWorkspaceIdAndProjectIdOrderByCreatedDesc(
+                workspaceId, projectId, PageRequest.of(0, runHistoryLimit(limit)));
         Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
         Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
+        Map<String, List<String>> completedPageIds = responseMapper.completedPageIdsByRunId(runs);
         return runs.stream()
                 .filter(run -> !dismissedRunIds.contains(run.getId()))
-                .map(run -> responseMapper.toRunResponse(run, project.getName(), userId, queuePositions))
+                .map(run -> responseMapper.toRunResponse(run, project.getName(), userId, queuePositions, completedPageIds))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<ActionDto.RunResponse> listWorkspaceRuns(String workspaceId, String userId) {
+        return listWorkspaceRuns(workspaceId, userId, DEFAULT_RUN_HISTORY_LIMIT);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.RunResponse> listWorkspaceRuns(String workspaceId, String userId, int limit) {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-        List<ActionRun> runs = runRepository.findByWorkspaceIdOrderByCreatedDesc(workspaceId);
+        List<ActionRun> runs = runRepository.findByWorkspaceIdOrderByCreatedDesc(
+                workspaceId, PageRequest.of(0, runHistoryLimit(limit)));
         Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
         Map<String, String> projectLabels = projectLabelsById(workspaceId);
         Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
+        Map<String, List<String>> completedPageIds = responseMapper.completedPageIdsByRunId(runs);
         return runs.stream()
                 .filter(run -> !dismissedRunIds.contains(run.getId()))
                 .map(run -> responseMapper.toRunResponse(
                         run,
                         projectLabels.getOrDefault(run.getProjectId(), run.getProjectId()),
                         userId,
-                        queuePositions
+                        queuePositions,
+                        completedPageIds
                 ))
                 .toList();
     }
@@ -521,9 +559,15 @@ public class ActionRunService {
 
     @Transactional(readOnly = true)
     public List<ActionDto.AdminRunResponse> listAdminRuns(String definitionId) {
+        return listAdminRuns(definitionId, DEFAULT_RUN_HISTORY_LIMIT);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.AdminRunResponse> listAdminRuns(String definitionId, int limit) {
         requireGlobalAdmin();
         requireDefinition(definitionId);
-        List<ActionRun> runs = runRepository.findByProcessorDefinitionIdOrderByCreatedDesc(definitionId);
+        List<ActionRun> runs = runRepository.findByProcessorDefinitionIdOrderByCreatedDesc(
+                definitionId, PageRequest.of(0, runHistoryLimit(limit)));
         Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
         return runs.stream()
                 .map(run -> responseMapper.toAdminRunResponse(run, queuePositions))
@@ -532,8 +576,13 @@ public class ActionRunService {
 
     @Transactional(readOnly = true)
     public List<ActionDto.AdminRunResponse> listAllAdminRuns() {
+        return listAllAdminRuns(DEFAULT_RUN_HISTORY_LIMIT);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.AdminRunResponse> listAllAdminRuns(int limit) {
         requireGlobalAdmin();
-        List<ActionRun> runs = runRepository.findAllByOrderByCreatedDesc();
+        List<ActionRun> runs = runRepository.findAllByOrderByCreatedDesc(PageRequest.of(0, runHistoryLimit(limit)));
         Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
         return runs.stream()
                 .map(run -> responseMapper.toAdminRunResponse(run, queuePositions))
@@ -666,6 +715,7 @@ public class ActionRunService {
                 pages,
                 buildMachineTargetSelection(run, includedPageIds),
                 imageVariantSelection,
+                new ActionDto.MachineCapabilities(true),
                 run.isCancelRequested()
         );
     }
@@ -716,19 +766,26 @@ public class ActionRunService {
         }
         run.setLastHeartbeatAt(LocalDateTime.now());
         if (request.progressPercent() != null) {
-            run.setProgressPercent(Math.max(0, Math.min(100, request.progressPercent())));
+            run.setProgressPercent(Math.max(
+                    Math.min(run.getProgressPercent(), 99),
+                    Math.max(0, Math.min(99, request.progressPercent()))
+            ));
         }
         if (request.statusMessage() != null) {
             run.setStatusMessage(limit(redactProcessorSecrets(request.statusMessage()), 2000));
         }
         appendLog(run, request.logLevel(), request.log());
         if ("cancelled".equalsIgnoreCase(request.status())) {
-            run.setProgressPercent(Math.max(run.getProgressPercent(), request.progressPercent() == null ? run.getProgressPercent() : request.progressPercent()));
+            int cancelledProgress = request.progressPercent() == null
+                    ? run.getProgressPercent()
+                    : Math.max(0, Math.min(99, request.progressPercent()));
+            run.setProgressPercent(Math.max(Math.min(run.getProgressPercent(), 99), cancelledProgress));
             run.setStatusMessage(limit(redactProcessorSecrets(
                     request.statusMessage() == null || request.statusMessage().isBlank() ? "Cancelled" : request.statusMessage()
             ), 2000));
             finalizeCancelledRun(run, run.getStatusMessage());
             runRepository.save(run);
+            publishActionRunUpdatedAfterCommit(run);
             actionAuditService.record("ACTION_RUN_HEARTBEAT_CANCELLED", "SUCCESS", run.getCreatedByUserId(),
                     run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(), Map.of());
             dispatchQueuedRunsAfterCommit();
@@ -745,6 +802,7 @@ public class ActionRunService {
                     Map.of("error", limit(Objects.toString(redactProcessorSecrets(request.errorMessage()), ""), 1000)));
         }
         runRepository.save(run);
+        publishActionRunUpdatedAfterCommit(run);
         if (run.getStatus() == Status.FAILED || run.getStatus() == Status.CANCELLED) {
             dispatchQueuedRunsAfterCommit();
         }
@@ -756,8 +814,9 @@ public class ActionRunService {
                                                 String authorizationHeader,
                                                 ActionDto.ResultManifest manifest,
                                                 MultiValueMap<String, MultipartFile> files) throws IOException {
-        ActionRun run = authenticateRunForUpdate(runId, authorizationHeader);
+        ActionRun run = authenticateResultRunForUpdate(runId, authorizationHeader);
         if (run.getStatus() == Status.COMPLETED || run.getStatus() == Status.FAILED) {
+            metrics.recordTerminalResultReplay();
             return responseMapper.toRunResponse(run);
         }
         if (run.isCancelRequested() || run.getStatus() == Status.CANCELLED || run.getStatus() == Status.CANCEL_REQUESTED) {
@@ -768,12 +827,115 @@ public class ActionRunService {
         }
 
         List<String> pageIds = payloadService.readPageIds(run);
-        ActionProcessorDefinition definition = run.getProcessorDefinition();
+        Set<String> pageIdSet = new LinkedHashSet<>(pageIds);
         List<ActionDto.ResultFile> resultFiles = manifest.files() == null ? List.of() : manifest.files();
         List<ActionDto.ResultPatch> resultPatches = manifest.patches() == null ? List.of() : manifest.patches();
         if (!resultPatches.isEmpty()) {
             throw new IllegalArgumentException("Result patches are no longer supported; return PAGE XML as an XML result file");
         }
+        String resultStatus = manifest.status() == null || manifest.status().isBlank()
+                ? "completed"
+                : normalize(manifest.status());
+        if (!Set.of("running", "completed", "failed").contains(resultStatus)) {
+            throw new IllegalArgumentException("Unsupported Action result status: " + manifest.status());
+        }
+
+        if ("running".equals(resultStatus)) {
+            return receiveIncrementalPageResult(run, manifest, resultFiles, files, pageIdSet);
+        }
+
+        boolean hasIncrementalResults = pageResultRepository.existsByRunId(run.getId());
+        if (hasIncrementalResults) {
+            if (!resultFiles.isEmpty()) {
+                throw new IllegalStateException("Bulk result files cannot be uploaded after incremental page results");
+            }
+            validateResultManifest(resultFiles, files);
+            if ("failed".equals(resultStatus)) {
+                return finalizeResultRun(run, Status.FAILED, manifest.message(), 0);
+            }
+            long completedPages = pageResultRepository.countByRunId(run.getId());
+            if (completedPages != pageIds.size()) {
+                throw new IllegalStateException("Cannot complete incremental Action run before every page result was submitted");
+            }
+            return finalizeResultRun(run, Status.COMPLETED, manifest.message(), 0);
+        }
+
+        return receiveLegacyBulkResults(run, manifest, resultFiles, files, pageIdSet, resultStatus);
+    }
+
+    private ActionDto.RunResponse receiveIncrementalPageResult(ActionRun run,
+                                                               ActionDto.ResultManifest manifest,
+                                                               List<ActionDto.ResultFile> resultFiles,
+                                                               MultiValueMap<String, MultipartFile> files,
+                                                               Set<String> pageIds) throws IOException {
+        String pageId = manifest.pageId();
+        if (pageId == null || pageId.isBlank()) {
+            throw new IllegalArgumentException("Incremental page results require pageId");
+        }
+        if (!pageIds.contains(pageId)) {
+            throw new SecurityException("Result page is outside this run scope");
+        }
+        if (pageResultRepository.findByRunIdAndPageId(run.getId(), pageId).isPresent()) {
+            metrics.recordDuplicatePageSubmission();
+            return responseMapper.toRunResponse(run);
+        }
+        if (resultFiles.stream().anyMatch(file -> !pageId.equals(file.pageId()))) {
+            throw new IllegalArgumentException("Every incremental result file must match manifest pageId");
+        }
+
+        validateResultManifest(resultFiles, files);
+        run.setStatus(Status.IMPORTING_RESULTS);
+        run.setStatusMessage("Importing page result");
+        runRepository.saveAndFlush(run);
+        long reservedBytes = 0L;
+        long importStartedNanos = System.nanoTime();
+        try {
+            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
+                    run.getWorkspaceId(),
+                    resultUploadBytes(resultFiles, files),
+                    "larex-action-result"
+            );
+            ImportResult imported = importResultFiles(run, resultFiles, files, pageIds);
+            ActionRunPageResult pageResult = new ActionRunPageResult();
+            pageResult.setRun(run);
+            pageResult.setPageId(pageId);
+            pageResult.setResultSummaryJson(payloadService.writeJson(imported.stored()));
+            pageResultRepository.saveAndFlush(pageResult);
+
+            List<Map<String, Object>> aggregate = new ArrayList<>(payloadService.readObjectList(run.getResultSummaryJson()));
+            aggregate.addAll(imported.stored());
+            long completedPages = pageResultRepository.countByRunId(run.getId());
+            int pageProgress = Math.min(99, (int) Math.floor((completedPages * 100.0) / pageIds.size()));
+            run.setResultSummaryJson(payloadService.writeJson(aggregate));
+            run.setStatus(Status.RUNNING);
+            run.setStatusMessage(limit(redactProcessorSecrets(
+                    manifest.message() == null || manifest.message().isBlank()
+                            ? "Imported page " + completedPages + "/" + pageIds.size()
+                            : manifest.message()), 2000));
+            run.setProgressPercent(Math.max(Math.min(run.getProgressPercent(), 99), pageProgress));
+            releasePageLock(run, pageId);
+            ActionRun savedRun = runRepository.save(run);
+            schedulePageReindexAfterCommit(run.getProjectId(), imported.xmlPageIds());
+            actionAuditService.record("ACTION_RUN_PAGE_RESULT_IMPORTED", "SUCCESS",
+                    run.getCreatedByUserId(), run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
+                    Map.of("pageId", pageId, "resultCount", imported.stored().size()));
+            publishActionPageResultAfterCommit(savedRun, pageId, imported.resultTypes());
+            metrics.recordPageImport(importStartedNanos, resultFiles.size());
+            return responseMapper.toRunResponse(savedRun);
+        } catch (IOException | RuntimeException e) {
+            scheduleResultImportFailureAfterRollback(run.getId(), describeException(e));
+            throw e;
+        } finally {
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(run.getWorkspaceId(), reservedBytes);
+        }
+    }
+
+    private ActionDto.RunResponse receiveLegacyBulkResults(ActionRun run,
+                                                           ActionDto.ResultManifest manifest,
+                                                           List<ActionDto.ResultFile> resultFiles,
+                                                           MultiValueMap<String, MultipartFile> files,
+                                                           Set<String> pageIds,
+                                                           String resultStatus) throws IOException {
         validateResultManifest(resultFiles, files);
         run.setStatus(Status.IMPORTING_RESULTS);
         run.setStatusMessage("Importing results");
@@ -781,72 +943,81 @@ public class ActionRunService {
         long reservedBytes = 0L;
         try {
             reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
-                    run.getWorkspaceId(),
-                    resultUploadBytes(resultFiles, files),
-                    "larex-action-result"
-            );
-            List<Map<String, Object>> stored = new ArrayList<>();
-            Set<String> xmlResultPageIds = new LinkedHashSet<>();
-            for (ActionDto.ResultFile resultFile : resultFiles) {
-                if (resultFile.pageId() == null || !pageIds.contains(resultFile.pageId())) {
-                    throw new SecurityException("Result page is outside this run scope");
-                }
-                MultipartFile file = resolveMultipart(files, resultFile.fieldName());
-                String type = normalize(resultFile.type());
-                if ("xml".equals(type)) {
-                    if (!definition.isOutputsXml()) {
-                        throw new SecurityException("XML outputs are not declared for this processor");
-                    }
-                    stored.add(storeXmlResult(run, resultFile, file));
-                    xmlResultPageIds.add(resultFile.pageId());
-                } else if ("image".equals(type) || "images".equals(type)) {
-                    if (!definition.isOutputsImages()) {
-                        throw new SecurityException("Image outputs are not declared for this processor");
-                    }
-                    stored.add(storeImageResult(run, resultFile, file));
-                } else {
-                    throw new IllegalArgumentException("Unsupported result type: " + resultFile.type());
-                }
-            }
-            run.setResultSummaryJson(payloadService.writeJson(stored));
-            run.setStatus("failed".equalsIgnoreCase(manifest.status()) ? Status.FAILED : Status.COMPLETED);
-            run.setStatusMessage(limit(redactProcessorSecrets(manifest.message()), 2000));
-            run.setProgressPercent(run.getStatus() == Status.COMPLETED ? 100 : run.getProgressPercent());
-            run.setCompletedAt(LocalDateTime.now());
-            expireRunSecret(run);
-            releaseLocks(run);
-            ActionRun savedRun = runRepository.save(run);
-            schedulePageReindexAfterCommit(run.getProjectId(), xmlResultPageIds);
-            actionAuditService.record(run.getStatus() == Status.COMPLETED ? "ACTION_RUN_COMPLETE" : "ACTION_RUN_RESULT_FAILED",
-                    run.getStatus() == Status.COMPLETED ? "SUCCESS" : "FAILURE",
-                    run.getCreatedByUserId(), definition.getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
-                    Map.of("resultCount", stored.size()));
-            dispatchQueuedRunsAfterCommit();
-            return responseMapper.toRunResponse(savedRun);
+                    run.getWorkspaceId(), resultUploadBytes(resultFiles, files), "larex-action-result");
+            ImportResult imported = importResultFiles(run, resultFiles, files, pageIds);
+            run.setResultSummaryJson(payloadService.writeJson(imported.stored()));
+            schedulePageReindexAfterCommit(run.getProjectId(), imported.xmlPageIds());
+            return finalizeResultRun(run, "failed".equals(resultStatus) ? Status.FAILED : Status.COMPLETED,
+                    manifest.message(), imported.stored().size());
         } catch (IOException | RuntimeException e) {
-            String failureMessage = describeException(e);
-            run.setStatus(Status.FAILED);
-            run.setStatusMessage("Result import failed");
-            run.setErrorMessage(limit(failureMessage, 4000));
-            run.setCompletedAt(LocalDateTime.now());
-            expireRunSecret(run);
-            releaseLocks(run);
-            runRepository.save(run);
-            actionAuditService.record("ACTION_RUN_RESULT_IMPORT_FAILED", "FAILURE", run.getCreatedByUserId(),
-                    definition.getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
-                    Map.of("error", limit(failureMessage, 1000)));
-            scheduleResultImportFailureAfterRollback(run.getId(), failureMessage);
-            dispatchQueuedRunsAfterCommit();
+            scheduleResultImportFailureAfterRollback(run.getId(), describeException(e));
             throw e;
         } finally {
             workspaceQuotaGuardService.syncUsageAndReleaseReservation(run.getWorkspaceId(), reservedBytes);
         }
     }
 
+    private ImportResult importResultFiles(ActionRun run,
+                                           List<ActionDto.ResultFile> resultFiles,
+                                           MultiValueMap<String, MultipartFile> files,
+                                           Set<String> pageIds) throws IOException {
+        ActionProcessorDefinition definition = run.getProcessorDefinition();
+        List<Map<String, Object>> stored = new ArrayList<>();
+        Set<String> xmlPageIds = new LinkedHashSet<>();
+        Set<String> resultTypes = new LinkedHashSet<>();
+        for (ActionDto.ResultFile resultFile : resultFiles) {
+            if (resultFile.pageId() == null || !pageIds.contains(resultFile.pageId())) {
+                throw new SecurityException("Result page is outside this run scope");
+            }
+            MultipartFile file = resolveMultipart(files, resultFile.fieldName());
+            String type = normalize(resultFile.type());
+            if ("xml".equals(type)) {
+                if (!definition.isOutputsXml()) {
+                    throw new SecurityException("XML outputs are not declared for this processor");
+                }
+                stored.add(storeXmlResult(run, resultFile, file));
+                xmlPageIds.add(resultFile.pageId());
+                resultTypes.add("xml");
+            } else if ("image".equals(type) || "images".equals(type)) {
+                if (!definition.isOutputsImages()) {
+                    throw new SecurityException("Image outputs are not declared for this processor");
+                }
+                stored.add(storeImageResult(run, resultFile, file));
+                resultTypes.add("image");
+            } else {
+                throw new IllegalArgumentException("Unsupported result type: " + resultFile.type());
+            }
+        }
+        return new ImportResult(stored, xmlPageIds, resultTypes);
+    }
+
+    private ActionDto.RunResponse finalizeResultRun(ActionRun run, Status status, String message, int resultCount) {
+        run.setStatus(status);
+        String safeMessage = limit(redactProcessorSecrets(message), 2000);
+        run.setStatusMessage(safeMessage);
+        if (status == Status.FAILED) {
+            run.setErrorMessage(limit(
+                    safeMessage == null || safeMessage.isBlank() ? "Processor reported a failed result" : safeMessage,
+                    4000
+            ));
+        }
+        run.setProgressPercent(status == Status.COMPLETED ? 100 : run.getProgressPercent());
+        run.setCompletedAt(LocalDateTime.now());
+        expireRunSecret(run);
+        releaseLocks(run);
+        ActionRun savedRun = runRepository.save(run);
+        actionAuditService.record(status == Status.COMPLETED ? "ACTION_RUN_COMPLETE" : "ACTION_RUN_RESULT_FAILED",
+                status == Status.COMPLETED ? "SUCCESS" : "FAILURE",
+                run.getCreatedByUserId(), run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
+                Map.of("resultCount", resultCount));
+        publishActionRunUpdatedAfterCommit(savedRun);
+        dispatchQueuedRunsAfterCommit();
+        return responseMapper.toRunResponse(savedRun);
+    }
+
     private Map<String, Object> storeXmlResult(ActionRun run, ActionDto.ResultFile resultFile, MultipartFile file) throws IOException {
         validateResultFileSize(file);
-        String xmlText = new String(file.getBytes(), StandardCharsets.UTF_8);
-        var validation = pageXmlValidationService.validatePageXml(xmlText);
+        var validation = pageXmlValidationService.validatePageXml(file.getResource());
         if (!validation.valid()) {
             throw new IllegalArgumentException("Result XML is invalid");
         }
@@ -966,14 +1137,7 @@ public class ActionRunService {
                     }
                 }
             }
-            if (projectId != null && !projectId.isBlank()) {
-                try {
-                    searchLexiconService.rebuildProjectLexicon(projectId);
-                } catch (Exception e) {
-                    log.warn("Failed to rebuild search lexicon for project {} after LAREX Action result import: {}",
-                            projectId, e.getMessage(), e);
-                }
-            }
+            scheduleProjectLexiconRebuild(projectId);
         };
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -985,6 +1149,26 @@ public class ActionRunService {
         } else {
             importTaskExecutor.execute(task);
         }
+    }
+
+    private void scheduleProjectLexiconRebuild(String projectId) {
+        if (projectId == null || projectId.isBlank()) {
+            return;
+        }
+        pendingLexiconRebuilds.compute(projectId, (id, previous) -> {
+            if (previous != null) {
+                previous.cancel(false);
+            }
+            return actionResultTaskScheduler.schedule(() -> {
+                pendingLexiconRebuilds.remove(id);
+                try {
+                    searchLexiconService.rebuildProjectLexicon(id);
+                } catch (Exception e) {
+                    log.warn("Failed to rebuild search lexicon for project {} after LAREX Action result import: {}",
+                            id, e.getMessage(), e);
+                }
+            }, Instant.now().plusMillis(500));
+        });
     }
 
     private void deleteStoredFilesAfterCommit(Collection<String> storagePaths) {
@@ -1040,9 +1224,11 @@ public class ActionRunService {
             expireRunSecret(run);
             releaseLocks(run);
             runRepository.save(run);
+            publishActionRunUpdatedAfterCommit(run);
             actionAuditService.record("ACTION_RUN_RESULT_IMPORT_FAILED", "FAILURE", run.getCreatedByUserId(),
                     run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                     Map.of("error", limit(failureMessage, 1000)));
+            dispatchQueuedRunsAsync();
         } catch (Exception persistFailure) {
             log.warn("Failed to persist LAREX Action result import failure for run {}: {}",
                     runId, describeException(persistFailure), persistFailure);
@@ -1168,6 +1354,7 @@ public class ActionRunService {
                 run.setCompletedAt(LocalDateTime.now());
                 expireRunSecret(run);
                 runRepository.save(run);
+                publishActionRunUpdatedAfterCommit(run);
                 actionAuditService.record("ACTION_RUN_QUEUE_FAILED", "FAILURE", run.getCreatedByUserId(),
                         run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                         Map.of("error", "Queued Action run is missing its public API base URL"));
@@ -1179,6 +1366,7 @@ public class ActionRunService {
             run.setStatusMessage("Created");
             applyLocks(project, pages, run);
             ActionRun savedRun = runRepository.saveAndFlush(run);
+            publishActionRunUpdatedAfterCommit(savedRun);
             actionAuditService.record("ACTION_RUN_QUEUE_DEQUEUED", "SUCCESS", run.getCreatedByUserId(),
                     definition.getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                     Map.of("pageCount", pages.size()));
@@ -1187,22 +1375,26 @@ public class ActionRunService {
     }
 
     private void dispatchAsync(String runId, String rawSecret, String publicApiBaseUrl) {
+        dispatchAttemptAsync(runId, rawSecret, publicApiBaseUrl, 1,
+                Math.max(1, actionProperties.getDispatch().getMaxAttempts()));
+    }
+
+    private void dispatchAttemptAsync(String runId, String rawSecret, String publicApiBaseUrl, int attempt, int attempts) {
         importTaskExecutor.execute(() -> {
-            int attempts = Math.max(1, actionProperties.getDispatch().getMaxAttempts());
-            Exception lastFailure = null;
-            for (int attempt = 1; attempt <= attempts; attempt++) {
-                try {
-                    dispatch(runId, rawSecret, publicApiBaseUrl, attempt, attempts);
+            try {
+                dispatch(runId, rawSecret, publicApiBaseUrl, attempt, attempts);
+            } catch (Exception error) {
+                log.warn("Failed to dispatch LAREX Action run {} on attempt {}/{}: {}",
+                        runId, attempt, attempts, describeException(error), error);
+                if (attempt < attempts && !isRunCancelled(runId)) {
+                    actionResultTaskScheduler.schedule(
+                            () -> dispatchAttemptAsync(runId, rawSecret, publicApiBaseUrl, attempt + 1, attempts),
+                            java.time.Instant.now().plusMillis(Math.max(0, actionProperties.getDispatch().getRetryBackoffMs()))
+                    );
                     return;
-                } catch (Exception e) {
-                    lastFailure = e;
-                    log.warn("Failed to dispatch LAREX Action run {} on attempt {}/{}: {}", runId, attempt, attempts, describeException(e), e);
-                    if (attempt < attempts && !isRunCancelled(runId)) {
-                        sleepBeforeDispatchRetry();
-                    }
                 }
+                markDispatchFailed(runId, error);
             }
-            markDispatchFailed(runId, lastFailure == null ? new IllegalStateException("Dispatch failed") : lastFailure);
         });
     }
 
@@ -1229,6 +1421,7 @@ public class ActionRunService {
         if (run.isCancelRequested() || run.getStatus() == Status.CANCEL_REQUESTED) {
             finalizeCancelledRun(run, "Cancelled");
             runRepository.save(run);
+            publishActionRunUpdatedAfterCommit(run);
             dispatchQueuedRunsAsync();
             return;
         }
@@ -1240,6 +1433,7 @@ public class ActionRunService {
         run.setStatus(Status.DISPATCHING);
         run.setStatusMessage(attempts > 1 ? "Dispatching (attempt " + attempt + "/" + attempts + ")" : "Dispatching");
         runRepository.save(run);
+        publishActionRunUpdatedAfterCommit(run);
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("runId", run.getId());
@@ -1251,6 +1445,7 @@ public class ActionRunService {
         payload.put("targetSelection", buildMachineTargetSelection(run, processorPageIdSet));
         payload.put("parameters", payloadService.processorParameters(runParameters));
         payload.put("imageVariantSelection", imageVariantSelection);
+        payload.put("capabilities", Map.of("incrementalPageResults", true));
         payload.put("secret", rawSecret);
         payload.put("pullUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/input");
         payload.put("heartbeatUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/heartbeat");
@@ -1297,12 +1492,14 @@ public class ActionRunService {
             run.setStatus(Status.CANCEL_REQUESTED);
             run.setStatusMessage("Cancellation requested");
             runRepository.save(run);
+            publishActionRunUpdatedAfterCommit(run);
             return;
         }
         run.setStatus(Status.RUNNING);
         run.setStatusMessage("Dispatched");
         run.setLastHeartbeatAt(LocalDateTime.now());
         runRepository.save(run);
+        publishActionRunUpdatedAfterCommit(run);
         actionAuditService.record("ACTION_RUN_DISPATCH", "SUCCESS", run.getCreatedByUserId(), definition.getId(), run.getId(),
                 run.getWorkspaceId(), run.getProjectId(), Map.of("attempt", attempt));
     }
@@ -1319,6 +1516,7 @@ public class ActionRunService {
             run.setStatus(Status.CANCEL_REQUESTED);
             run.setStatusMessage("Cancellation requested");
             runRepository.save(run);
+            publishActionRunUpdatedAfterCommit(run);
             return;
         }
         run.setStatus(Status.FAILED);
@@ -1328,6 +1526,7 @@ public class ActionRunService {
         expireRunSecret(run);
         releaseLocks(run);
         runRepository.save(run);
+        publishActionRunUpdatedAfterCommit(run);
         actionAuditService.record("ACTION_RUN_DISPATCH_FAILED", "FAILURE", run.getCreatedByUserId(), run.getProcessorDefinition().getId(), run.getId(),
                 run.getWorkspaceId(), run.getProjectId(), Map.of("error", limit(describeException(e), 1000)));
         dispatchQueuedRunsAsync();
@@ -1337,14 +1536,6 @@ public class ActionRunService {
         return runRepository.findById(runId)
                 .map(run -> run.isCancelRequested() || run.getStatus() == Status.CANCELLED)
                 .orElse(true);
-    }
-
-    private void sleepBeforeDispatchRetry() {
-        try {
-            Thread.sleep(Math.max(0, actionProperties.getDispatch().getRetryBackoffMs()));
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     private String describeException(Exception e) {
@@ -1395,6 +1586,26 @@ public class ActionRunService {
             }
         }
         pageRepository.saveAll(pages);
+    }
+
+    private void releasePageLock(ActionRun run, String pageId) {
+        Page page = pageRepository.findByIdAndProjectId(pageId, run.getProjectId()).orElse(null);
+        if (page == null || !run.getId().equals(page.getLockedByActionRunId())) {
+            return;
+        }
+        page.setLocked(false);
+        page.setLockedReason(null);
+        page.setLockedByActionRunId(null);
+        page.setLockedAt(null);
+        pageRepository.save(page);
+    }
+
+    private void publishActionRunUpdatedAfterCommit(ActionRun run) {
+        realtimePublisher.publishRunUpdated(run);
+    }
+
+    private void publishActionPageResultAfterCommit(ActionRun run, String pageId, Set<String> resultTypes) {
+        realtimePublisher.publishPageResult(run, pageId, resultTypes);
     }
 
     private void validateLocks(Project project, List<Page> pages) {
@@ -1573,6 +1784,7 @@ public class ActionRunService {
         expireRunSecret(run);
         releaseLocks(run);
         runRepository.save(run);
+        publishActionRunUpdatedAfterCommit(run);
         appendLogEvent(run, "WARN", message);
         actionAuditService.record("ACTION_RUN_WATCHDOG_FAILED", "FAILURE", run.getCreatedByUserId(),
                 run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(), Map.of("message", message));
@@ -1585,6 +1797,7 @@ public class ActionRunService {
         }
         finalizeCancelledRun(run, "Cancelled");
         runRepository.save(run);
+        publishActionRunUpdatedAfterCommit(run);
         appendLogEvent(run, "WARN", message);
         actionAuditService.record("ACTION_RUN_WATCHDOG_CANCELLED", "SUCCESS", run.getCreatedByUserId(),
                 run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(), Map.of("message", message));
@@ -1658,6 +1871,23 @@ public class ActionRunService {
 
     private ActionRun authenticateRunForUpdate(String runId, String authorizationHeader) {
         return authenticateRun(runId, authorizationHeader, true);
+    }
+
+    private ActionRun authenticateResultRunForUpdate(String runId, String authorizationHeader) {
+        String rawToken = extractBearerToken(authorizationHeader);
+        if (rawToken == null) {
+            throw new SecurityException("Missing Action run secret");
+        }
+        ActionRun run = runRepository.findWithProcessorDefinitionByIdForUpdate(runId)
+                .orElseThrow(() -> new SecurityException("Invalid Action run secret"));
+        if (!Objects.equals(run.getSecretHash(), sha256(rawToken))) {
+            throw new SecurityException("Invalid Action run secret");
+        }
+        if (!terminalStatuses().contains(run.getStatus())
+                && (run.getSecretExpiresAt() == null || !run.getSecretExpiresAt().isAfter(LocalDateTime.now()))) {
+            throw new SecurityException("Action run secret has expired");
+        }
+        return run;
     }
 
     private ActionRun authenticateRun(String runId, String authorizationHeader, boolean forUpdate) {
@@ -1851,6 +2081,12 @@ public class ActionRunService {
         }
     }
 
+    private record ImportResult(
+            List<Map<String, Object>> stored,
+            Set<String> xmlPageIds,
+            Set<String> resultTypes
+    ) {}
+
     private Map<String, String> projectLabelsById(String workspaceId) {
         return projectRepository.findByLibraryWorkspaceId(workspaceId).stream()
                 .collect(Collectors.toMap(Project::getId, Project::getName, (left, ignored) -> left, LinkedHashMap::new));
@@ -1894,6 +2130,7 @@ public class ActionRunService {
             run.setStatusMessage("Cancellation requested");
         }
         ActionRun saved = runRepository.save(run);
+        publishActionRunUpdatedAfterCommit(saved);
         actionAuditService.record(auditAction, "SUCCESS", actorUserId, run.getProcessorDefinition().getId(), run.getId(),
                 run.getWorkspaceId(), run.getProjectId(), Map.of("status", saved.getStatus().name()));
         if (saved.getStatus() == Status.CANCELLED) {
@@ -2199,6 +2436,10 @@ public class ActionRunService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
+    private int runHistoryLimit(int requestedLimit) {
+        return Math.max(1, Math.min(MAX_RUN_HISTORY_LIMIT, requestedLimit));
+    }
+
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
@@ -2229,8 +2470,6 @@ public class ActionRunService {
             return;
         }
         String safeLogMessage = redactProcessorSecrets(logMessage).trim();
-        String existing = run.getLogText() == null ? "" : run.getLogText();
-        run.setLogText(limit(existing + (existing.isEmpty() ? "" : "\n") + safeLogMessage, 100_000));
         appendLogEvent(run, level, safeLogMessage);
     }
 

@@ -181,8 +181,8 @@ public class ActionProperties {
 
     public static class Results {
         private int maxFiles = 500;
-        private long maxFileBytes = 536_870_912;
-        private long maxTotalBytes = 2_147_483_648L;
+        private long maxFileBytes = 104_857_600;
+        private long maxTotalBytes = 503_316_480;
 
         public int getMaxFiles() {
             return maxFiles;
@@ -211,6 +211,7 @@ public class ActionProperties {
 
     public static class Dev {
         private DevProcessor mockProcessor = mockProcessorDefaults();
+        private DevProcessor krakenProcessor = krakenProcessorDefaults();
 
         public DevProcessor getMockProcessor() {
             return mockProcessor;
@@ -220,11 +221,27 @@ public class ActionProperties {
             this.mockProcessor = mockProcessor == null ? mockProcessorDefaults() : mockProcessor;
         }
 
+        public DevProcessor getKrakenProcessor() {
+            return krakenProcessor;
+        }
+
+        public void setKrakenProcessor(DevProcessor krakenProcessor) {
+            this.krakenProcessor = krakenProcessor == null ? krakenProcessorDefaults() : krakenProcessor;
+        }
+
         private static DevProcessor mockProcessorDefaults() {
             return new DevProcessor(
                     true,
                     "http://mock-action-processor:9000/dispatch",
                     "http://mock-action-processor:9000/health"
+            );
+        }
+
+        private static DevProcessor krakenProcessorDefaults() {
+            return new DevProcessor(
+                    false,
+                    "http://action-kraken-segmentation:9000/dispatch",
+                    "http://action-kraken-segmentation:9000/health"
             );
         }
     }
