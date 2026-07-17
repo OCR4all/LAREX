@@ -283,6 +283,8 @@ function closeCollapsedPopover() {
 function handleCollapsedPopoverOpenUpdate(slot: string, open: boolean) {
   if (open) {
     openCollapsedPopover(slot)
+  } else if (collapsedPopoverSlot.value === slot) {
+    closeCollapsedPopover()
   }
 }
 
