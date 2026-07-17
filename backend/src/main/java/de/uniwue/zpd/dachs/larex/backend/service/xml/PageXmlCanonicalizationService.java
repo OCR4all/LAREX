@@ -31,6 +31,13 @@ public class PageXmlCanonicalizationService {
     }
 
     public CanonicalizationOutcome canonicalizeAtIngest(PageXml pageXml, String userId, String sourceContext) throws IOException {
+        return canonicalizeAtIngest(pageXml, userId, sourceContext, true);
+    }
+
+    public CanonicalizationOutcome canonicalizeAtIngest(PageXml pageXml,
+                                                        String userId,
+                                                        String sourceContext,
+                                                        boolean createPreConversionSnapshot) throws IOException {
         if (pageXml == null || pageXml.getSchema() != XmlSchema.PAGE_XML) {
             return new CanonicalizationOutcome(null, null, false, false, List.of());
         }
@@ -47,8 +54,10 @@ public class PageXmlCanonicalizationService {
         List<String> messages = List.of();
 
         if (!targetVersion.equals(sourceVersion)) {
-            pageXmlVersionService.createVersion(pageXml.getId(), normalizeUserId(userId), snapshotComment(sourceVersion, sourceContext));
-            snapshotCreated = true;
+            if (createPreConversionSnapshot) {
+                pageXmlVersionService.createVersion(pageXml.getId(), normalizeUserId(userId), snapshotComment(sourceVersion, sourceContext));
+                snapshotCreated = true;
+            }
             PageXmlConversionService.ConversionOutcome conversionOutcome =
                     pageXmlConversionService.convertFileInPlace(xmlPath, targetVersion);
             converted = conversionOutcome.converted();

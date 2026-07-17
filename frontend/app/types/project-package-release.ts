@@ -28,6 +28,7 @@ export interface ProjectPackageCreateReleaseRequest {
   notes?: string | null
   targetPageXmlVersion?: string | null
   embeddedOutputs?: ProjectPackageEmbeddedOutputRequest[] | null
+  includeXmlHistory?: boolean | null
 }
 
 export interface ProjectPackageRelease {
@@ -38,6 +39,7 @@ export interface ProjectPackageRelease {
   status: ProjectPackageReleaseStatus
   pageCount: number
   targetPageXmlVersion?: string | null
+  includeXmlHistory: boolean
   embeddedOutputs: ProjectPackageEmbeddedOutputRequest[]
   failureReason?: string | null
   packageFileName?: string | null

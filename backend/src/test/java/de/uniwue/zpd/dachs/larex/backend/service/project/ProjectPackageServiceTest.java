@@ -1,7 +1,9 @@
 package de.uniwue.zpd.dachs.larex.backend.service.project;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
+import de.uniwue.zpd.dachs.larex.backend.config.ProjectPackageProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
@@ -15,6 +17,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
@@ -94,6 +97,8 @@ class ProjectPackageServiceTest {
     @Mock
     private ValidationRulesetRepository validationRulesetRepository;
     @Mock
+    private VirtualKeyboardRepository virtualKeyboardRepository;
+    @Mock
     private WorkspaceAccessService workspaceAccessService;
     @Mock
     private ToolkitPackageService toolkitPackageService;
@@ -120,6 +125,12 @@ class ProjectPackageServiceTest {
     void exportProjectPackage_embedsAuxiliaryOutputsUnderExportsDirectory() throws Exception {
         ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
         ArchiveIoService archiveIoService = new ArchiveIoService(objectMapper);
+        ProjectPackageArchiveService projectPackageArchiveService =
+                new ProjectPackageArchiveService(
+                        archiveIoService,
+                        objectMapper,
+                        new ProjectPackageProperties()
+                );
         ProjectPackageService service = new ProjectPackageService(
                 projectRepository,
                 projectPackageReleaseRepository,
@@ -133,8 +144,10 @@ class ProjectPackageServiceTest {
                 tagSetRepository,
                 normalizationProfileRepository,
                 validationRulesetRepository,
+                virtualKeyboardRepository,
                 workspaceAccessService,
                 archiveIoService,
+                projectPackageArchiveService,
                 toolkitPackageService,
                 hierarchicalFileStorageService,
                 pageOrderService,
@@ -144,7 +157,8 @@ class ProjectPackageServiceTest {
                 pageXmlConversionService,
                 pageXmlCanonicalizationService,
                 documentExportService,
-                objectMapper
+                objectMapper,
+                new ProjectPackageProperties()
         );
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
 
@@ -157,13 +171,16 @@ class ProjectPackageServiceTest {
         Project project = project();
         Page page = page(project);
         page.setSortOrder(2000);
-        project.setPages(new ArrayList<>(List.of(page)));
+        Page collidingPage = page(project);
+        collidingPage.setId("page-2");
+        collidingPage.setName("Page/");
+        collidingPage.setSortOrder(3000);
+        project.setPages(new ArrayList<>(List.of(page, collidingPage)));
 
         when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
-        when(pageRepository.findByProjectId("project-1")).thenReturn(List.of(page));
+        when(pageRepository.findByProjectId("project-1")).thenReturn(List.of(page, collidingPage));
         when(pageOrderService.projectOrderComparator())
                 .thenReturn(Comparator.comparing(Page::getName, String.CASE_INSENSITIVE_ORDER));
-        when(pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc("xml-1")).thenReturn(List.of());
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.png")).thenReturn(imagePath);
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.xml")).thenReturn(xmlPath);
         when(pageXmlConversionService.normalizeTargetVersion(PageXmlConversionService.PRIMARY_PAGE_VERSION))
@@ -174,14 +191,14 @@ class ProjectPackageServiceTest {
             invocation.<java.io.OutputStream>getArgument(2).write("<PcGts/>".getBytes());
             return null;
         }).when(pageXmlConversionService).writeFileToVersion(eq(xmlPath), eq(PageXmlConversionService.PRIMARY_PAGE_VERSION), any());
-        when(toolkitPackageService.buildProjectToolkitSnapshot("ws-1", null, null, null, null, null, null))
+        when(toolkitPackageService.buildProjectToolkitSnapshot("ws-1", null, null, null, null, null, null, null))
                 .thenReturn(new ToolkitPackageDto.ToolkitPackage(
                         new ToolkitPackageDto.PackageMeta("1.0", LocalDateTime.now(), "ws-1", "Workspace"),
                         List.of()
                 ));
         Path embeddedPath = tempDir.resolve("embedded-project.txt");
         Files.writeString(embeddedPath, "embedded");
-        when(documentExportService.exportEmbeddedProjectOutputs(eq(project), eq(List.of(page)), anyList()))
+        when(documentExportService.exportEmbeddedProjectOutputs(eq(project), eq(List.of(page, collidingPage)), anyList()))
                 .thenReturn(List.of(new DocumentExportService.EmbeddedProjectOutput("exports/project.txt", embeddedPath, Files.size(embeddedPath))));
 
         ByteArrayOutputStream zipOut = new ByteArrayOutputStream();
@@ -207,36 +224,62 @@ class ProjectPackageServiceTest {
         byte[] zipBytes = zipOut.toByteArray();
 
         boolean foundManifest = false;
-        boolean foundMets = false;
         boolean foundEmbedded = false;
-        Integer exportedSortOrder = null;
+        boolean foundPageDescriptor = false;
+        boolean foundReadableImage = false;
+        boolean foundReadableXml = false;
+        List<String> pageDescriptorPaths = List.of();
+        ProjectPackageDto.PageDescriptor exportedPage = null;
         try (ZipInputStream zipIn = new ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
             java.util.zip.ZipEntry entry;
             while ((entry = zipIn.getNextEntry()) != null) {
                 if ("manifest.json".equals(entry.getName())) {
                     foundManifest = true;
                     ProjectPackageDto.PackageManifest manifest = objectMapper.readValue(zipIn.readAllBytes(), ProjectPackageDto.PackageManifest.class);
-                    exportedSortOrder = manifest.pages().getFirst().sortOrder();
-                }
-                if ("mets.xml".equals(entry.getName())) {
-                    foundMets = true;
+                    assertEquals(ProjectPackageDto.DEFAULT_SCHEMA_VERSION, manifest.schemaVersion());
+                    assertFalse(manifest.includesXmlHistory());
+                    pageDescriptorPaths = manifest.pages();
                 }
                 if ("exports/project.txt".equals(entry.getName())) {
                     foundEmbedded = true;
+                }
+                if (entry.getName().endsWith("/page.json")) {
+                    foundPageDescriptor = true;
+                    exportedPage = objectMapper.readValue(zipIn.readAllBytes(), ProjectPackageDto.PageDescriptor.class);
+                }
+                if (entry.getName().endsWith("/images/page.png")) {
+                    foundReadableImage = true;
+                }
+                if (entry.getName().endsWith("/xml/page.xml")) {
+                    foundReadableXml = true;
                 }
             }
         }
 
         assertTrue(foundManifest);
-        assertTrue(foundMets);
+        assertEquals(
+                List.of("pages/Page/page.json", "pages/Page-2/page.json"),
+                pageDescriptorPaths
+        );
+        assertTrue(foundPageDescriptor);
+        assertTrue(foundReadableImage);
+        assertTrue(foundReadableXml);
         assertTrue(foundEmbedded);
-        assertEquals(2000, exportedSortOrder);
+        assertEquals("images/page.png", exportedPage.images().getFirst().path());
+        assertEquals("xml/page.xml", exportedPage.xml().getFirst().path());
+        assertTrue(exportedPage.xml().getFirst().history().isEmpty());
     }
 
     @Test
     void exportBasicProject_writesFlatArchiveWithOriginalFilenames() throws Exception {
         ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
         ArchiveIoService archiveIoService = new ArchiveIoService(objectMapper);
+        ProjectPackageArchiveService projectPackageArchiveService =
+                new ProjectPackageArchiveService(
+                        archiveIoService,
+                        objectMapper,
+                        new ProjectPackageProperties()
+                );
         ProjectPackageService service = new ProjectPackageService(
                 projectRepository,
                 projectPackageReleaseRepository,
@@ -250,8 +293,10 @@ class ProjectPackageServiceTest {
                 tagSetRepository,
                 normalizationProfileRepository,
                 validationRulesetRepository,
+                virtualKeyboardRepository,
                 workspaceAccessService,
                 archiveIoService,
+                projectPackageArchiveService,
                 toolkitPackageService,
                 hierarchicalFileStorageService,
                 pageOrderService,
@@ -261,7 +306,8 @@ class ProjectPackageServiceTest {
                 pageXmlConversionService,
                 pageXmlCanonicalizationService,
                 documentExportService,
-                objectMapper
+                objectMapper,
+                new ProjectPackageProperties()
         );
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
 
@@ -358,8 +404,14 @@ class ProjectPackageServiceTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void importPagesRestoresSortOrderWithIndexFallbackForLegacyPackages() {
+    void previewCacheUsesConfiguredByteAndSessionBudgets() {
+        ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+        ArchiveIoService archiveIoService = new ArchiveIoService(objectMapper);
+        ProjectPackageProperties properties = new ProjectPackageProperties();
+        properties.getPreview().setMaxCachedBytes(8 * 1024L);
+        properties.getPreview().setMaxSessions(2);
+        ProjectPackageArchiveService projectPackageArchiveService =
+                new ProjectPackageArchiveService(archiveIoService, objectMapper, properties);
         ProjectPackageService service = new ProjectPackageService(
                 projectRepository,
                 projectPackageReleaseRepository,
@@ -373,8 +425,10 @@ class ProjectPackageServiceTest {
                 tagSetRepository,
                 normalizationProfileRepository,
                 validationRulesetRepository,
+                virtualKeyboardRepository,
                 workspaceAccessService,
-                new ArchiveIoService(JsonMapper.builder().findAndAddModules().build()),
+                archiveIoService,
+                projectPackageArchiveService,
                 toolkitPackageService,
                 hierarchicalFileStorageService,
                 pageOrderService,
@@ -384,24 +438,18 @@ class ProjectPackageServiceTest {
                 pageXmlConversionService,
                 pageXmlCanonicalizationService,
                 documentExportService,
-                JsonMapper.builder().findAndAddModules().build()
-        );
-        when(pageRepository.save(any(Page.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        List<ProjectPackageDto.PageSnapshot> snapshots = List.of(
-                pageSnapshot("source-1", "Page 1", 5000),
-                pageSnapshot("source-2", "Page 2", null)
+                objectMapper,
+                properties
         );
 
-        Map<String, Page> imported = (Map<String, Page>) ReflectionTestUtils.invokeMethod(
-                service,
-                "importPages",
-                project(),
-                snapshots
-        );
+        assertEquals(8 * 1024L, ReflectionTestUtils.getField(service, "maxPreviewCacheBytes"));
+        assertEquals(8L, ReflectionTestUtils.getField(service, "maxPreviewCacheWeight"));
+        assertEquals(4, ReflectionTestUtils.getField(service, "minimumPreviewCacheWeight"));
+        assertEquals(4, (int) ReflectionTestUtils.invokeMethod(service, "previewCacheWeight", 1L));
+        assertEquals(5, (int) ReflectionTestUtils.invokeMethod(service, "previewCacheWeight", 5 * 1024L));
 
-        assertEquals(5000, imported.get("source-1").getSortOrder());
-        assertEquals(PageOrderService.SORT_ORDER_STEP, imported.get("source-2").getSortOrder());
+        Cache<?, ?> cache = (Cache<?, ?>) ReflectionTestUtils.getField(service, "importPreviewCache");
+        assertEquals(8L, cache.policy().eviction().orElseThrow().getMaximum());
     }
 
     private Project project() {
@@ -444,18 +492,4 @@ class ProjectPackageServiceTest {
         return page;
     }
 
-    private ProjectPackageDto.PageSnapshot pageSnapshot(String sourcePageId, String name, Integer sortOrder) {
-        return new ProjectPackageDto.PageSnapshot(
-                sourcePageId,
-                name,
-                "desc",
-                List.of(),
-                LocalDateTime.now(),
-                LocalDateTime.now(),
-                false,
-                null,
-                de.uniwue.zpd.dachs.larex.backend.entity.Page.WorkflowState.OPEN,
-                sortOrder
-        );
-    }
 }

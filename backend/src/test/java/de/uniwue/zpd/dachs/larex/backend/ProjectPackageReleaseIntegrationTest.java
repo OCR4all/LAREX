@@ -7,6 +7,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.ProjectPackageRelease;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
@@ -15,6 +16,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlVersionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectPackageReleaseRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
@@ -33,7 +35,9 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.mock.web.MockMultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -42,13 +46,20 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -79,6 +90,9 @@ class ProjectPackageReleaseIntegrationTest {
 
     @Autowired
     private PageImageRepository pageImageRepository;
+
+    @Autowired
+    private PageXmlVersionRepository pageXmlVersionRepository;
 
     @Autowired
     private ProjectPackageReleaseRepository projectPackageReleaseRepository;
@@ -138,6 +152,7 @@ class ProjectPackageReleaseIntegrationTest {
         assertEquals("v1", release.versionTag());
         assertEquals(2, release.pageCount());
         assertEquals(ProjectPackageDto.ProjectReleaseStatus.READY, release.status());
+        assertTrue(release.includeXmlHistory());
         assertNotNull(release.packageChecksumSha256());
 
         Files.writeString(source.firstXmlPath(), validPageXml("page-a-updated.png"), StandardCharsets.UTF_8);
@@ -151,8 +166,8 @@ class ProjectPackageReleaseIntegrationTest {
         );
         Path extracted = archiveIoService.extractZipToTempDir(Files.newInputStream(download.absolutePath()), "project-release-download");
 
-        assertTrue(Files.readString(findFileContaining(extracted, "files/xml", source.firstXml().getId())).contains("page-a-v1.png"));
-        assertTrue(Files.readString(findFileContaining(extracted, "files/xml", source.secondXml().getId())).contains("page-b-v1.png"));
+        assertTrue(Files.readString(findFileWithContent(extracted, "pages/", "page-a-v1.png")).contains("page-a-v1.png"));
+        assertTrue(Files.readString(findFileWithContent(extracted, "pages/", "page-b-v1.png")).contains("page-b-v1.png"));
 
         List<ProjectPackageDto.ReleaseSummaryResponse> listed = projectPackageService.listReleases(
                 source.workspaceId(),
@@ -161,6 +176,354 @@ class ProjectPackageReleaseIntegrationTest {
         );
         assertEquals(1, listed.size());
         assertEquals(release.id(), listed.getFirst().id());
+    }
+
+    @Test
+    void workingPackageRoundTripKeepsCurrentDataAndStartsWithEmptyXmlHistory() throws Exception {
+        TestProjectSource source = createProjectSource("ws-project-roundtrip");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        projectPackageService.writeProjectPackage(
+                source.workspaceId(),
+                source.project().getId(),
+                "user-1",
+                new ProjectPackageDto.ExportRequest(null, "2017-07-15", List.of(), false),
+                output
+        );
+
+        ProjectPackageDto.ImportResult imported = projectPackageService.importProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new MockMultipartFile(
+                        "file",
+                        "roundtrip.larex-project.zip",
+                        "application/zip",
+                        output.toByteArray()
+                )
+        );
+
+        assertEquals(2, imported.pageCount());
+        assertEquals(2, imported.imageCount());
+        assertEquals(2, imported.xmlCount());
+        assertEquals(0, imported.xmlVersionCount());
+        List<Page> importedPages = pageRepository.findByProjectId(imported.projectId()).stream()
+                .sorted(Comparator.comparing(Page::getSortOrder))
+                .toList();
+        assertEquals(List.of(source.firstXml().getPage().getName(), source.secondXml().getPage().getName()),
+                importedPages.stream().map(Page::getName).toList());
+        for (Page importedPage : importedPages) {
+            PageXml importedXml = pageXmlRepository.findByPage_Id(importedPage.getId()).getFirst();
+            assertEquals("2019-07-15", importedXml.getSchemaVersion());
+            assertTrue(pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc(importedXml.getId()).isEmpty());
+        }
+    }
+
+    @Test
+    void selectedPagePackageRoundTripKeepsOnlyTheRequestedPage() throws Exception {
+        TestProjectSource source = createProjectSource("ws-project-selected-roundtrip");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        projectPackageService.writeProjectPackage(
+                source.workspaceId(),
+                source.project().getId(),
+                "user-1",
+                new ProjectPackageDto.ExportRequest(
+                        List.of(source.firstXml().getPage().getId()),
+                        "2019-07-15",
+                        List.of(),
+                        false
+                ),
+                output
+        );
+
+        ProjectPackageDto.ImportResult imported = projectPackageService.importProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new MockMultipartFile("file", "selected.zip", "application/zip", output.toByteArray())
+        );
+
+        assertEquals(1, imported.pageCount());
+        assertEquals(1, imported.imageCount());
+        assertEquals(1, imported.xmlCount());
+        List<Page> importedPages = pageRepository.findByProjectId(imported.projectId());
+        assertEquals(1, importedPages.size());
+        assertEquals(source.firstXml().getPage().getName(), importedPages.getFirst().getName());
+    }
+
+    @Test
+    void previewedPackageCanReplaceAnExistingProjectAfterSuccessfulImport() throws Exception {
+        TestProjectSource source = createProjectSource("ws-project-preview-replace");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        projectPackageService.writeProjectPackage(
+                source.workspaceId(),
+                source.project().getId(),
+                "user-1",
+                new ProjectPackageDto.ExportRequest(null, "2019-07-15", List.of(), false),
+                output
+        );
+
+        ProjectPackageDto.ImportPreview preview = projectPackageService.previewProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new MockMultipartFile("file", "project.zip", "application/zip", output.toByteArray())
+        );
+        assertEquals(source.project().getId(), preview.existingProjectId());
+        assertEquals(2, preview.pageNames().size());
+        assertEquals(2, preview.imageCount());
+        assertEquals(2, preview.xmlCount());
+
+        ProjectPackageDto.ImportResult imported = projectPackageService.importPreviewedProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new ProjectPackageDto.ImportOptions(
+                        preview.previewToken(),
+                        ProjectPackageDto.ProjectImportAction.REPLACE,
+                        null,
+                        false,
+                        Map.of()
+                )
+        );
+
+        assertEquals(source.project().getName(), imported.projectName());
+        assertNotEquals(source.project().getId(), imported.projectId());
+        assertTrue(projectRepository.findById(source.project().getId()).isEmpty());
+        assertEquals(2, pageRepository.findByProjectId(imported.projectId()).size());
+    }
+
+    @Test
+    void previewedPackageCanUseACustomNameForARenamedCopy() throws Exception {
+        TestProjectSource source = createProjectSource("ws-project-preview-rename");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        projectPackageService.writeProjectPackage(
+                source.workspaceId(),
+                source.project().getId(),
+                "user-1",
+                new ProjectPackageDto.ExportRequest(null, "2019-07-15", List.of(), false),
+                output
+        );
+        ProjectPackageDto.ImportPreview preview = projectPackageService.previewProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new MockMultipartFile("file", "project.zip", "application/zip", output.toByteArray())
+        );
+        assertNotEquals(source.project().getName(), preview.suggestedProjectName());
+
+        ProjectPackageDto.ImportResult imported = projectPackageService.importPreviewedProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new ProjectPackageDto.ImportOptions(
+                        preview.previewToken(),
+                        ProjectPackageDto.ProjectImportAction.RENAME,
+                        "Custom imported project",
+                        false,
+                        Map.of()
+                )
+        );
+
+        assertEquals("Custom imported project", imported.projectName());
+        assertTrue(projectRepository.findById(source.project().getId()).isPresent());
+        assertEquals(2, pageRepository.findByProjectId(imported.projectId()).size());
+    }
+
+    @Test
+    void previewTokenCanOnlyBeClaimedByOneConcurrentImport() throws Exception {
+        TestProjectSource source = createProjectSource("ws-project-preview-atomic");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        projectPackageService.writeProjectPackage(
+                source.workspaceId(),
+                source.project().getId(),
+                "user-1",
+                new ProjectPackageDto.ExportRequest(null, "2019-07-15", List.of(), false),
+                output
+        );
+        ProjectPackageDto.ImportPreview preview = projectPackageService.previewProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new MockMultipartFile("file", "project.zip", "application/zip", output.toByteArray())
+        );
+        ProjectPackageDto.ImportOptions options = new ProjectPackageDto.ImportOptions(
+                preview.previewToken(),
+                ProjectPackageDto.ProjectImportAction.RENAME,
+                "Atomic imported project",
+                false,
+                Map.of()
+        );
+
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        List<Future<ProjectPackageDto.ImportResult>> futures;
+        try {
+            futures = List.of(
+                    executor.submit(() -> {
+                        start.await();
+                        return projectPackageService.importPreviewedProjectPackage(
+                                source.workspaceId(),
+                                "user-1",
+                                options
+                        );
+                    }),
+                    executor.submit(() -> {
+                        start.await();
+                        return projectPackageService.importPreviewedProjectPackage(
+                                source.workspaceId(),
+                                "user-1",
+                                options
+                        );
+                    })
+            );
+            start.countDown();
+
+            int successfulImports = 0;
+            int rejectedClaims = 0;
+            for (Future<ProjectPackageDto.ImportResult> future : futures) {
+                try {
+                    ProjectPackageDto.ImportResult result = future.get();
+                    assertEquals("Atomic imported project", result.projectName());
+                    successfulImports++;
+                } catch (ExecutionException exception) {
+                    Throwable cause = exception.getCause();
+                    assertTrue(cause instanceof IllegalArgumentException);
+                    assertTrue(cause.getMessage().contains("preview"));
+                    rejectedClaims++;
+                }
+            }
+            assertEquals(1, successfulImports);
+            assertEquals(1, rejectedClaims);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void previewedPackageCanBeSkippedWithoutChangingTheExistingProject() throws Exception {
+        TestProjectSource source = createProjectSource("ws-project-preview-skip");
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        projectPackageService.writeProjectPackage(
+                source.workspaceId(),
+                source.project().getId(),
+                "user-1",
+                new ProjectPackageDto.ExportRequest(null, "2019-07-15", List.of(), false),
+                output
+        );
+        ProjectPackageDto.ImportPreview preview = projectPackageService.previewProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new MockMultipartFile("file", "project.zip", "application/zip", output.toByteArray())
+        );
+
+        ProjectPackageDto.ImportResult skipped = projectPackageService.importPreviewedProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new ProjectPackageDto.ImportOptions(
+                        preview.previewToken(),
+                        ProjectPackageDto.ProjectImportAction.SKIP,
+                        null,
+                        false,
+                        Map.of()
+                )
+        );
+
+        assertNull(skipped.projectId());
+        assertTrue(projectRepository.findById(source.project().getId()).isPresent());
+        assertEquals(2, pageRepository.findByProjectId(source.project().getId()).size());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> projectPackageService.importPreviewedProjectPackage(
+                        source.workspaceId(),
+                        "user-1",
+                        new ProjectPackageDto.ImportOptions(
+                                preview.previewToken(),
+                                ProjectPackageDto.ProjectImportAction.SKIP,
+                                null,
+                                false,
+                                Map.of()
+                        )
+                )
+        );
+    }
+
+    @Test
+    void releaseCanExplicitlyOmitXmlHistory() throws Exception {
+        TestProjectSource source = createProjectSource("ws-project-release-working");
+        ProjectPackageDto.ReleaseSummaryResponse release = projectPackageService.createRelease(
+                source.workspaceId(),
+                source.project().getId(),
+                new ProjectPackageDto.CreateReleaseRequest(
+                        null,
+                        "Working release",
+                        "2019-07-15",
+                        List.of(),
+                        false
+                ),
+                "user-1"
+        );
+
+        assertFalse(release.includeXmlHistory());
+        ProjectPackageService.ReleaseFileDownload download = projectPackageService.downloadReleasePackage(
+                source.workspaceId(),
+                source.project().getId(),
+                release.id(),
+                "user-1"
+        );
+        Path extracted = archiveIoService.extractZipToTempDir(
+                Files.newInputStream(download.absolutePath()),
+                "project-release-no-history"
+        );
+        ProjectPackageDto.PackageManifest manifest = archiveIoService.readJson(
+                extracted.resolve("manifest.json"),
+                ProjectPackageDto.PackageManifest.class
+        );
+        assertFalse(manifest.includesXmlHistory());
+        try (Stream<Path> paths = Files.walk(extracted)) {
+            assertFalse(paths.anyMatch(path -> path.toString().replace('\\', '/').contains("/history/")));
+        }
+    }
+
+    @Test
+    void archivalPackageRestoresDeclaredXmlHistory() throws Exception {
+        TestProjectSource source = createProjectSource("ws-project-archive-roundtrip");
+        Path historyPath = writeUploadFile(
+                "project-source/history/page-a-1.xml",
+                validPageXml("page-a-history.png")
+        );
+        PageXmlVersion sourceVersion = new PageXmlVersion(
+                source.firstXml(),
+                1,
+                relativeToUploadRoot(historyPath),
+                Files.size(historyPath),
+                "history-user",
+                "Before correction"
+        );
+        sourceVersion = pageXmlVersionRepository.saveAndFlush(sourceVersion);
+        LocalDateTime created = sourceVersion.getCreated();
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        projectPackageService.writeProjectPackage(
+                source.workspaceId(),
+                source.project().getId(),
+                "user-1",
+                new ProjectPackageDto.ExportRequest(null, "2019-07-15", List.of(), true),
+                output
+        );
+        ProjectPackageDto.ImportResult imported = projectPackageService.importProjectPackage(
+                source.workspaceId(),
+                "user-1",
+                new MockMultipartFile("file", "archive.zip", "application/zip", output.toByteArray())
+        );
+
+        assertEquals(1, imported.xmlVersionCount());
+        Page importedPage = pageRepository.findByProjectId(imported.projectId()).stream()
+                .filter(page -> page.getName().equals(source.firstXml().getPage().getName()))
+                .findFirst()
+                .orElseThrow();
+        PageXml importedXml = pageXmlRepository.findByPage_Id(importedPage.getId()).getFirst();
+        List<PageXmlVersion> versions =
+                pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc(importedXml.getId());
+        assertEquals(1, versions.size());
+        assertEquals(1, versions.getFirst().getVersionNumber());
+        assertEquals("history-user", versions.getFirst().getUserId());
+        assertEquals("Before correction", versions.getFirst().getComment());
+        assertEquals(created, versions.getFirst().getCreated());
+        assertTrue(Files.readString(tempDir.resolve(versions.getFirst().getFilePath()))
+                .contains("page-a-history.png"));
     }
 
     @Test
@@ -221,7 +584,7 @@ class ProjectPackageReleaseIntegrationTest {
         assertEquals(200, getResponse.getStatusCode().value());
         assert getResponse.getBody() != null;
         Path extracted = archiveIoService.extractZipToTempDir(getResponse.getBody().getInputStream(), "project-public-share");
-        assertTrue(Files.readString(findFileContaining(extracted, "files/xml", source.firstXml().getId())).contains("page-a-v1.png"));
+        assertTrue(Files.readString(findFileWithContent(extracted, "pages/", "page-a-v1.png")).contains("page-a-v1.png"));
 
         ProjectPackageRelease stored = projectPackageReleaseRepository.findById(release.id()).orElseThrow();
         assertNotNull(stored.getShareLastUsedAt());
@@ -256,9 +619,9 @@ class ProjectPackageReleaseIntegrationTest {
         secondPage = pageRepository.save(secondPage);
 
         Path firstXmlPath = writeUploadFile("project-source/" + suffix + "/page-a.xml", validPageXml("page-a-v1.png"));
-        Path firstImagePath = writeUploadFile("project-source/" + suffix + "/page-a.png", "img-first-v1");
+        Path firstImagePath = writeUploadBytes("project-source/" + suffix + "/page-a.png", pngHeader());
         Path secondXmlPath = writeUploadFile("project-source/" + suffix + "/page-b.xml", validPageXml("page-b-v1.png"));
-        Path secondImagePath = writeUploadFile("project-source/" + suffix + "/page-b.png", "img-second-v1");
+        Path secondImagePath = writeUploadBytes("project-source/" + suffix + "/page-b.png", pngHeader());
 
         PageXml firstXml = pageXmlRepository.save(new PageXml(
                 "page-a.xml",
@@ -312,19 +675,37 @@ class ProjectPackageReleaseIntegrationTest {
         return filePath;
     }
 
+    private Path writeUploadBytes(String relativePath, byte[] content) throws IOException {
+        Path filePath = tempDir.resolve(relativePath);
+        Files.createDirectories(filePath.getParent());
+        Files.write(filePath, content);
+        return filePath;
+    }
+
+    private byte[] pngHeader() {
+        return new byte[] {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
+    }
+
     private String relativeToUploadRoot(Path path) {
         return tempDir.toAbsolutePath().normalize().relativize(path.toAbsolutePath().normalize()).toString().replace('\\', '/');
     }
 
-    private Path findFileContaining(Path root, String prefix, String idFragment) throws IOException {
+    private Path findFileWithContent(Path root, String prefix, String content) throws IOException {
         try (Stream<Path> stream = Files.walk(root)) {
             return stream
                     .filter(Files::isRegularFile)
                     .filter(path -> {
                         String relative = root.relativize(path).toString().replace('\\', '/');
-                        return relative.startsWith(prefix + "/") && relative.contains(idFragment);
+                        if (!relative.startsWith(prefix)) {
+                            return false;
+                        }
+                        try {
+                            return Files.readString(path).contains(content);
+                        } catch (IOException e) {
+                            return false;
+                        }
                     }).min(Comparator.comparing(Path::toString))
-                    .orElseThrow(() -> new IllegalStateException("No archive file found for " + prefix + " and " + idFragment));
+                    .orElseThrow(() -> new IllegalStateException("No archive file found for " + prefix + " and " + content));
         }
     }
 

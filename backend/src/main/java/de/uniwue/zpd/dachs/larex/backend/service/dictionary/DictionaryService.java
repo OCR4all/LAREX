@@ -372,6 +372,34 @@ public class DictionaryService {
         return dictionary.getId();
     }
 
+    public String replaceDictionaryFromPackage(String userId,
+                                               String workspaceId,
+                                               String dictionaryId,
+                                               DictionaryDto.PackagePayload payload) {
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
+        ControlledDictionary dictionary = dictionaryRepository.findByIdAndLibraryWorkspaceId(dictionaryId, workspaceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dictionary not found: " + dictionaryId));
+
+        dictionary.setDescription(trimToNull(payload.description()));
+        dictionary.setTags(normalizeTags(payload.tags()));
+        dictionary.setCaseSensitive(Boolean.TRUE.equals(payload.caseSensitive()));
+        dictionary.setUnicodeNormalization(resolveNormalization(payload.unicodeNormalization()));
+        dictionary.setLocked(Boolean.TRUE.equals(payload.locked()));
+
+        List<ImportedEntry> entries = (payload.entries() == null ? List.<DictionaryDto.PackageEntry>of() : payload.entries()).stream()
+                .map(entry -> new ImportedEntry(
+                        normalizeSurfaceForm(entry.form()),
+                        trimToNull(entry.sourceEntryKey()),
+                        entry.metadata()
+                ))
+                .filter(entry -> entry.form() != null)
+                .toList();
+        applyImportedEntries(dictionary, entries, true);
+        dictionaryRepository.save(dictionary);
+        invalidateDictionaryCache(dictionary.getId());
+        return dictionary.getId();
+    }
+
     @Transactional(readOnly = true)
     public DictionaryDto.PackagePayload buildPackagePayload(String userId, String workspaceId, String dictionaryId) {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);

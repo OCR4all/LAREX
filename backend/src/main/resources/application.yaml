@@ -156,6 +156,19 @@ larex:
       core-pool-size: ${LAREX_IMPORT_ASYNC_CORE_POOL:1}
       max-pool-size: ${LAREX_IMPORT_ASYNC_MAX_POOL:2}
       queue-capacity: ${LAREX_IMPORT_ASYNC_QUEUE:10}
+  project-packages:
+    archive:
+      # Extraction budgets protect package preview from oversized or highly compressed ZIPs.
+      max-archive-bytes: ${LAREX_PROJECT_PACKAGE_MAX_ARCHIVE_BYTES:134217728}
+      max-entries: ${LAREX_PROJECT_PACKAGE_MAX_ENTRIES:100000}
+      max-entry-bytes: ${LAREX_PROJECT_PACKAGE_MAX_ENTRY_BYTES:536870912}
+      max-total-bytes: ${LAREX_PROJECT_PACKAGE_MAX_TOTAL_BYTES:2147483648}
+      max-descriptor-bytes: ${LAREX_PROJECT_PACKAGE_MAX_DESCRIPTOR_BYTES:16777216}
+      max-compression-ratio: ${LAREX_PROJECT_PACKAGE_MAX_COMPRESSION_RATIO:200}
+    preview:
+      max-cached-bytes: ${LAREX_PROJECT_PACKAGE_PREVIEW_MAX_CACHED_BYTES:4294967296}
+      max-sessions: ${LAREX_PROJECT_PACKAGE_PREVIEW_MAX_SESSIONS:64}
+      expire-after-minutes: ${LAREX_PROJECT_PACKAGE_PREVIEW_EXPIRE_MINUTES:30}
   iiif:
     # Minimum delay between IIIF image download starts to the same host.
     # Set to 0 to rely only on adaptive Retry-After/backoff handling.

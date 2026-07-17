@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
+import de.uniwue.zpd.dachs.larex.backend.entity.VirtualKeyboard;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryEntryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
@@ -32,12 +33,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -195,5 +199,151 @@ class ToolkitPackageServiceTest {
         assertEquals("codec-existing", result.resources().getFirst().targetId());
         assertTrue(result.sourceToTargetIds().containsKey("codec-source"));
         verify(codecService, never()).createCodec(any(), any(), any());
+    }
+
+    @Test
+    void projectToolkitSnapshotIncludesSelectedVirtualKeyboard() {
+        VirtualKeyboard keyboard = new VirtualKeyboard();
+        keyboard.setId("keyboard-1");
+        keyboard.setWorkspaceId("ws-1");
+        keyboard.setName("Transcription");
+        keyboard.setDescription("Common glyphs");
+        keyboard.setCols(4);
+        keyboard.setRows(2);
+        keyboard.setTags(List.of("project"));
+        keyboard.setItems(List.of());
+        when(virtualKeyboardRepository.findByWorkspaceId("ws-1")).thenReturn(List.of(keyboard));
+
+        ToolkitPackageDto.ToolkitPackage snapshot = service.buildProjectToolkitSnapshot(
+                "ws-1",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "keyboard-1"
+        );
+
+        assertEquals(1, snapshot.resources().size());
+        ToolkitPackageDto.ToolkitResource resource = snapshot.resources().getFirst();
+        assertEquals(ToolkitPackageDto.ToolkitType.VIRTUAL_KEYBOARD, resource.type());
+        assertEquals("Transcription", resource.name());
+        assertEquals(4, resource.payload().path("cols").asInt());
+    }
+
+    @Test
+    void packageImportCanReplaceConflictingCodecInPlace() throws Exception {
+        Codec existing = new Codec();
+        existing.setId("codec-existing");
+        existing.setName("Shared Codec");
+        existing.setDescription("old");
+        existing.setTags(Set.of());
+        existing.setCharacters(Set.of("a"));
+        when(codecRepository.findByNameAndLibraryWorkspaceId("Shared Codec", "ws-1"))
+                .thenReturn(Optional.of(existing));
+        when(codecService.updateCodec(any(), any(), any(), any())).thenReturn(new CodecDto.Response(
+                "codec-existing",
+                "Shared Codec",
+                "new",
+                List.of(),
+                List.of("a", "b"),
+                2,
+                null,
+                null,
+                new AuthorizationCapabilitiesDto.ResourceCapabilities(true, true, true)
+        ));
+
+        ToolkitPackageDto.ToolkitResource resource = new ToolkitPackageDto.ToolkitResource(
+                ToolkitPackageDto.ToolkitType.CODEC,
+                "CODEC",
+                "Shared Codec",
+                null,
+                null,
+                objectMapper.readTree("""
+                        {
+                          "name": "Shared Codec",
+                          "description": "new",
+                          "tags": [],
+                          "codec": ["a", "b"]
+                        }
+                        """)
+        );
+        ToolkitPackageDto.ImportResult result = service.importToolkitPackage(
+                "ws-1",
+                "user-1",
+                new ToolkitPackageDto.ToolkitPackage(null, List.of(resource)),
+                Map.of(ToolkitPackageDto.ToolkitType.CODEC, ToolkitPackageDto.ImportAction.REPLACE)
+        );
+
+        assertEquals("REPLACED", result.resources().getFirst().action());
+        assertEquals("codec-existing", result.resources().getFirst().targetId());
+        verify(codecService).updateCodec(eq("user-1"), eq("ws-1"), eq("codec-existing"), any());
+    }
+
+    @Test
+    void packagePreviewRecognizesAnIdenticalCodecForReuse() throws Exception {
+        Codec existing = new Codec();
+        existing.setId("codec-existing");
+        existing.setName("Shared Codec");
+        existing.setDescription("same");
+        existing.setTags(Set.of("project"));
+        existing.setCharacters(Set.of("a", "b"));
+        when(codecRepository.findByNameAndLibraryWorkspaceId("Shared Codec", "ws-1"))
+                .thenReturn(Optional.of(existing));
+
+        ToolkitPackageDto.ResourcePreview preview = service.previewToolkitResource(
+                "ws-1",
+                new ToolkitPackageDto.ToolkitResource(
+                        ToolkitPackageDto.ToolkitType.CODEC,
+                        "CODEC",
+                        "Shared Codec",
+                        null,
+                        null,
+                        objectMapper.readTree("""
+                                {
+                                  "name": "Shared Codec",
+                                  "description": "same",
+                                  "tags": ["project"],
+                                  "codec": ["a", "b"]
+                                }
+                                """)
+                )
+        );
+
+        assertEquals("codec-existing", preview.existingId());
+        assertTrue(preview.identical());
+        assertTrue(preview.replaceAllowed());
+    }
+
+    @Test
+    void packageImportCanSkipAResourceWithoutCreatingIt() throws Exception {
+        ToolkitPackageDto.ToolkitResource resource = new ToolkitPackageDto.ToolkitResource(
+                ToolkitPackageDto.ToolkitType.CODEC,
+                "CODEC",
+                "Shared Codec",
+                null,
+                null,
+                objectMapper.readTree("""
+                        {
+                          "name": "Shared Codec",
+                          "description": "ignored",
+                          "tags": [],
+                          "codec": ["a"]
+                        }
+                        """)
+        );
+
+        ToolkitPackageDto.ImportResult result = service.importToolkitPackage(
+                "ws-1",
+                "user-1",
+                new ToolkitPackageDto.ToolkitPackage(null, List.of(resource)),
+                Map.of(ToolkitPackageDto.ToolkitType.CODEC, ToolkitPackageDto.ImportAction.SKIP)
+        );
+
+        assertEquals("SKIPPED", result.resources().getFirst().action());
+        assertNull(result.resources().getFirst().targetId());
+        verify(codecService, never()).createCodec(any(), any(), any());
+        verify(codecService, never()).updateCodec(any(), any(), any(), any());
     }
 }

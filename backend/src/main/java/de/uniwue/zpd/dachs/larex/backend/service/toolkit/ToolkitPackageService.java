@@ -241,7 +241,8 @@ public class ToolkitPackageService {
                                                                         String dictionaryId,
                                                                         String tagSetId,
                                                                         String normalizationProfileId,
-                                                                        String validationRulesetId) {
+                                                                        String validationRulesetId,
+                                                                        String virtualKeyboardId) {
         List<ToolkitPackageDto.ResourceSelector> selectors = new ArrayList<>();
         if (codecId != null && !codecId.isBlank()) {
             selectors.add(new ToolkitPackageDto.ResourceSelector(ToolkitPackageDto.ToolkitType.CODEC, List.of(codecId)));
@@ -261,7 +262,153 @@ public class ToolkitPackageService {
         if (validationRulesetId != null && !validationRulesetId.isBlank()) {
             selectors.add(new ToolkitPackageDto.ResourceSelector(ToolkitPackageDto.ToolkitType.VALIDATION_RULESET, List.of(validationRulesetId)));
         }
+        if (virtualKeyboardId != null && !virtualKeyboardId.isBlank()) {
+            selectors.add(new ToolkitPackageDto.ResourceSelector(ToolkitPackageDto.ToolkitType.VIRTUAL_KEYBOARD, List.of(virtualKeyboardId)));
+        }
         return buildToolkitPackage(workspaceId, new ToolkitPackageDto.ExportRequest(selectors, false));
+    }
+
+    @Transactional(readOnly = true)
+    public ToolkitPackageDto.ResourcePreview previewToolkitResource(
+            String workspaceId,
+            ToolkitPackageDto.ToolkitResource resource) {
+        if (resource == null || resource.type() == null || resource.payload() == null) {
+            throw new IllegalArgumentException("Toolkit resource type and payload are required");
+        }
+
+        return switch (resource.type()) {
+            case CODEC -> {
+                CodecDto.CreateOrUpdateRequest request =
+                        objectMapper.convertValue(resource.payload(), CodecDto.CreateOrUpdateRequest.class);
+                String name = normalizeName(request.name(), resource.name(), "Imported Codec");
+                Optional<Codec> existing = codecRepository.findByNameAndLibraryWorkspaceId(name, workspaceId);
+                yield preview(
+                        resource.type(),
+                        name,
+                        existing.map(Codec::getId).orElse(null),
+                        existing.map(Codec::getName).orElse(null),
+                        existing.filter(value -> payloadEquals(
+                                codecPayload(value),
+                                codecPayloadFromRequest(request, name)
+                        )).isPresent(),
+                        true
+                );
+            }
+            case DICTIONARY -> {
+                DictionaryDto.PackagePayload payload = objectMapper.convertValue(
+                        sanitizeDictionaryPayload(resource.payload()),
+                        DictionaryDto.PackagePayload.class
+                );
+                String name = normalizeName(payload.name(), resource.name(), "Imported Dictionary");
+                Optional<ControlledDictionary> existing =
+                        dictionaryRepository.findByNameAndLibraryWorkspaceId(name, workspaceId);
+                yield preview(
+                        resource.type(),
+                        name,
+                        existing.map(ControlledDictionary::getId).orElse(null),
+                        existing.map(ControlledDictionary::getName).orElse(null),
+                        existing.filter(value -> payloadEquals(
+                                dictionaryPayload(value),
+                                dictionaryPayloadFromPayload(payload, name)
+                        )).isPresent(),
+                        true
+                );
+            }
+            case LABEL_SET -> {
+                ObjectNode payload = sanitizeLabelPayload(resource.payload());
+                String name = normalizeName(
+                        ensureObject(payload, "meta").path("name").asText(null),
+                        resource.name(),
+                        "Imported Label Set"
+                );
+                Optional<LabelSet> existing = labelSetRepository.findByNameAndWorkspaceId(name, workspaceId);
+                yield preview(
+                        resource.type(),
+                        name,
+                        existing.map(LabelSet::getId).orElse(null),
+                        existing.map(LabelSet::getName).orElse(null),
+                        existing.filter(value -> payloadEquals(labelSetPayload(value), payload)).isPresent(),
+                        existing.map(value -> !value.isSystem()).orElse(true)
+                );
+            }
+            case TAG_SET -> {
+                ObjectNode payload = sanitizeTagPayload(resource.payload());
+                String name = normalizeName(
+                        ensureObject(payload, "meta").path("name").asText(null),
+                        resource.name(),
+                        "Imported Tag Set"
+                );
+                Optional<TagSet> existing = tagSetRepository.findByNameAndWorkspaceId(name, workspaceId);
+                yield preview(
+                        resource.type(),
+                        name,
+                        existing.map(TagSet::getId).orElse(null),
+                        existing.map(TagSet::getName).orElse(null),
+                        existing.filter(value -> payloadEquals(tagSetPayload(value), payload)).isPresent(),
+                        true
+                );
+            }
+            case NORMALIZATION_PROFILE -> {
+                NormalizationProfileDto.CreateOrUpdateRequest request = objectMapper.convertValue(
+                        sanitizeNormalizationProfilePayload(resource.payload()),
+                        NormalizationProfileDto.CreateOrUpdateRequest.class
+                );
+                String name = normalizeName(request.name(), resource.name(), "Imported Normalization Profile");
+                Optional<NormalizationProfile> existing =
+                        normalizationProfileRepository.findByNameAndWorkspaceId(name, workspaceId);
+                yield preview(
+                        resource.type(),
+                        name,
+                        existing.map(NormalizationProfile::getId).orElse(null),
+                        existing.map(NormalizationProfile::getName).orElse(null),
+                        existing.filter(value -> payloadEquals(
+                                normalizationProfilePayload(value),
+                                normalizationProfilePayloadFromRequest(request, name)
+                        )).isPresent(),
+                        true
+                );
+            }
+            case VALIDATION_RULESET -> {
+                ValidationRulesetDto.CreateOrUpdateRequest request = objectMapper.convertValue(
+                        sanitizeValidationRulesetPayload(resource.payload()),
+                        ValidationRulesetDto.CreateOrUpdateRequest.class
+                );
+                String name = normalizeName(request.name(), resource.name(), "Imported Validation Ruleset");
+                Optional<ValidationRuleset> existing =
+                        validationRulesetRepository.findByNameAndWorkspaceId(name, workspaceId);
+                yield preview(
+                        resource.type(),
+                        name,
+                        existing.map(ValidationRuleset::getId).orElse(null),
+                        existing.map(ValidationRuleset::getName).orElse(null),
+                        existing.filter(value -> payloadEquals(
+                                validationRulesetPayload(value),
+                                validationRulesetPayloadFromRequest(request, name)
+                        )).isPresent(),
+                        true
+                );
+            }
+            case VIRTUAL_KEYBOARD -> {
+                VirtualKeyboardDto dto = objectMapper.convertValue(
+                        sanitizeVirtualKeyboardPayload(resource.payload()),
+                        VirtualKeyboardDto.class
+                );
+                String name = normalizeName(dto.getName(), resource.name(), "Imported Keyboard");
+                Optional<VirtualKeyboard> existing =
+                        virtualKeyboardRepository.findByNameAndWorkspaceId(name, workspaceId);
+                yield preview(
+                        resource.type(),
+                        name,
+                        existing.map(VirtualKeyboard::getId).orElse(null),
+                        existing.map(VirtualKeyboard::getName).orElse(null),
+                        existing.filter(value -> payloadEquals(
+                                virtualKeyboardPayload(value),
+                                virtualKeyboardPayloadFromDto(dto, name)
+                        )).isPresent(),
+                        true
+                );
+            }
+        };
     }
 
     public ToolkitPackageDto.ImportResult importToolkitPackageFromContent(String workspaceId,
@@ -276,25 +423,35 @@ public class ToolkitPackageService {
                                                                                    String content) throws IOException {
         JsonNode root = objectMapper.readTree(content);
         ToolkitPackageDto.ToolkitPackage toolkitPackage = parsePackageOrLegacy(workspaceId, root);
-        return doImportToolkitPackage(workspaceId, userId, toolkitPackage);
+        return doImportToolkitPackage(workspaceId, userId, toolkitPackage, Map.of());
     }
 
     public ToolkitPackageDto.ImportResult importToolkitPackage(String workspaceId,
                                                                 String userId,
                                                                 ToolkitPackageDto.ToolkitPackage toolkitPackage) {
         workspaceAccessService.requireAdminAccess(workspaceId, userId);
-        return doImportToolkitPackage(workspaceId, userId, toolkitPackage);
+        return doImportToolkitPackage(workspaceId, userId, toolkitPackage, Map.of());
+    }
+
+    public ToolkitPackageDto.ImportResult importToolkitPackage(
+            String workspaceId,
+            String userId,
+            ToolkitPackageDto.ToolkitPackage toolkitPackage,
+            Map<ToolkitPackageDto.ToolkitType, ToolkitPackageDto.ImportAction> actions) {
+        workspaceAccessService.requireAdminAccess(workspaceId, userId);
+        return doImportToolkitPackage(workspaceId, userId, toolkitPackage, actions);
     }
 
     public ToolkitPackageDto.ImportResult importToolkitPackageInternal(String workspaceId,
                                                                        String userId,
                                                                        ToolkitPackageDto.ToolkitPackage toolkitPackage) {
-        return doImportToolkitPackage(workspaceId, userId, toolkitPackage);
+        return doImportToolkitPackage(workspaceId, userId, toolkitPackage, Map.of());
     }
 
     private ToolkitPackageDto.ImportResult doImportToolkitPackage(String workspaceId,
                                                                   String userId,
-                                                                  ToolkitPackageDto.ToolkitPackage toolkitPackage) {
+                                                                  ToolkitPackageDto.ToolkitPackage toolkitPackage,
+                                                                  Map<ToolkitPackageDto.ToolkitType, ToolkitPackageDto.ImportAction> actions) {
         List<ToolkitPackageDto.ImportedResource> resources = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
         Map<String, String> sourceToTarget = new LinkedHashMap<>();
@@ -309,15 +466,31 @@ public class ToolkitPackageService {
                 continue;
             }
 
-            ToolkitPackageDto.ImportedResource imported = switch (resource.type()) {
-                case CODEC -> importCodec(workspaceId, userId, resource);
-                case DICTIONARY -> importDictionary(workspaceId, userId, resource);
-                case LABEL_SET -> importLabelSet(workspaceId, userId, resource);
-                case TAG_SET -> importTagSet(workspaceId, userId, resource);
-                case NORMALIZATION_PROFILE -> importNormalizationProfile(workspaceId, userId, resource);
-                case VALIDATION_RULESET -> importValidationRuleset(workspaceId, userId, resource);
-                case VIRTUAL_KEYBOARD -> importVirtualKeyboard(workspaceId, userId, resource);
-            };
+            ToolkitPackageDto.ImportAction action = actions == null
+                    ? ToolkitPackageDto.ImportAction.AUTO
+                    : actions.getOrDefault(resource.type(), ToolkitPackageDto.ImportAction.AUTO);
+            ToolkitPackageDto.ImportedResource imported;
+            if (action == ToolkitPackageDto.ImportAction.SKIP) {
+                imported = new ToolkitPackageDto.ImportedResource(
+                        resource.type(),
+                        resource.sourceId(),
+                        null,
+                        resource.name(),
+                        null,
+                        "SKIPPED",
+                        "Skipped by import options"
+                );
+            } else {
+                imported = switch (resource.type()) {
+                    case CODEC -> importCodec(workspaceId, userId, resource, action);
+                    case DICTIONARY -> importDictionary(workspaceId, userId, resource, action);
+                    case LABEL_SET -> importLabelSet(workspaceId, userId, resource, action);
+                    case TAG_SET -> importTagSet(workspaceId, userId, resource, action);
+                    case NORMALIZATION_PROFILE -> importNormalizationProfile(workspaceId, userId, resource, action);
+                    case VALIDATION_RULESET -> importValidationRuleset(workspaceId, userId, resource, action);
+                    case VIRTUAL_KEYBOARD -> importVirtualKeyboard(workspaceId, userId, resource, action);
+                };
+            }
             resources.add(imported);
             if (resource.sourceId() != null && imported.targetId() != null) {
                 sourceToTarget.put(resource.sourceId(), imported.targetId());
@@ -325,7 +498,9 @@ public class ToolkitPackageService {
         }
 
         int reusedCount = (int) resources.stream().filter(r -> "REUSED".equals(r.action())).count();
-        int importedCount = resources.size() - reusedCount;
+        int importedCount = (int) resources.stream()
+                .filter(resource -> !"REUSED".equals(resource.action()) && !"SKIPPED".equals(resource.action()))
+                .count();
 
         return new ToolkitPackageDto.ImportResult(
                 workspaceId,
@@ -339,12 +514,16 @@ public class ToolkitPackageService {
 
     private ToolkitPackageDto.ImportedResource importCodec(String workspaceId,
                                                            String userId,
-                                                           ToolkitPackageDto.ToolkitResource resource) {
+                                                           ToolkitPackageDto.ToolkitResource resource,
+                                                           ToolkitPackageDto.ImportAction action) {
         CodecDto.CreateOrUpdateRequest request = objectMapper.convertValue(resource.payload(), CodecDto.CreateOrUpdateRequest.class);
         String sourceName = normalizeName(request.name(), resource.name(), "Imported Codec");
 
         Optional<Codec> existingOpt = codecRepository.findByNameAndLibraryWorkspaceId(sourceName, workspaceId);
-        if (existingOpt.isPresent() && payloadEquals(codecPayload(existingOpt.get()), codecPayloadFromRequest(request, sourceName))) {
+        boolean identical = existingOpt.isPresent()
+                && payloadEquals(codecPayload(existingOpt.get()), codecPayloadFromRequest(request, sourceName));
+        if (existingOpt.isPresent() && (action == ToolkitPackageDto.ImportAction.REUSE
+                || action == ToolkitPackageDto.ImportAction.AUTO && identical)) {
             Codec existing = existingOpt.get();
             return new ToolkitPackageDto.ImportedResource(
                     ToolkitPackageDto.ToolkitType.CODEC,
@@ -355,6 +534,21 @@ public class ToolkitPackageService {
                     "REUSED",
                     "Identical codec already exists"
             );
+        }
+        if (action == ToolkitPackageDto.ImportAction.REUSE) {
+            throw missingExistingResource(sourceName);
+        }
+
+        CodecDto.CreateOrUpdateRequest writeRequest = new CodecDto.CreateOrUpdateRequest(
+                sourceName,
+                request.description(),
+                request.tags(),
+                request.codec()
+        );
+        if (action == ToolkitPackageDto.ImportAction.REPLACE) {
+            Codec existing = existingOpt.orElseThrow(() -> missingExistingResource(sourceName));
+            CodecDto.Response replaced = codecService.updateCodec(userId, workspaceId, existing.getId(), writeRequest);
+            return replacedResource(resource, sourceName, replaced.id(), replaced.name());
         }
 
         String targetName = existingOpt.isPresent()
@@ -382,12 +576,16 @@ public class ToolkitPackageService {
 
     private ToolkitPackageDto.ImportedResource importDictionary(String workspaceId,
                                                                 String userId,
-                                                                ToolkitPackageDto.ToolkitResource resource) {
+                                                                ToolkitPackageDto.ToolkitResource resource,
+                                                                ToolkitPackageDto.ImportAction action) {
         DictionaryDto.PackagePayload payload = objectMapper.convertValue(sanitizeDictionaryPayload(resource.payload()), DictionaryDto.PackagePayload.class);
         String sourceName = normalizeName(payload.name(), resource.name(), "Imported Dictionary");
 
         Optional<ControlledDictionary> existingOpt = dictionaryRepository.findByNameAndLibraryWorkspaceId(sourceName, workspaceId);
-        if (existingOpt.isPresent() && payloadEquals(dictionaryPayload(existingOpt.get()), dictionaryPayloadFromPayload(payload, sourceName))) {
+        boolean identical = existingOpt.isPresent()
+                && payloadEquals(dictionaryPayload(existingOpt.get()), dictionaryPayloadFromPayload(payload, sourceName));
+        if (existingOpt.isPresent() && (action == ToolkitPackageDto.ImportAction.REUSE
+                || action == ToolkitPackageDto.ImportAction.AUTO && identical)) {
             ControlledDictionary existing = existingOpt.get();
             return new ToolkitPackageDto.ImportedResource(
                     ToolkitPackageDto.ToolkitType.DICTIONARY,
@@ -398,6 +596,19 @@ public class ToolkitPackageService {
                     "REUSED",
                     "Identical dictionary already exists"
             );
+        }
+        if (action == ToolkitPackageDto.ImportAction.REUSE) {
+            throw missingExistingResource(sourceName);
+        }
+        if (action == ToolkitPackageDto.ImportAction.REPLACE) {
+            ControlledDictionary existing = existingOpt.orElseThrow(() -> missingExistingResource(sourceName));
+            String targetId = dictionaryService.replaceDictionaryFromPackage(
+                    userId,
+                    workspaceId,
+                    existing.getId(),
+                    payload
+            );
+            return replacedResource(resource, sourceName, targetId, sourceName);
         }
 
         String targetName = existingOpt.isPresent()
@@ -418,13 +629,16 @@ public class ToolkitPackageService {
 
     private ToolkitPackageDto.ImportedResource importLabelSet(String workspaceId,
                                                               String userId,
-                                                              ToolkitPackageDto.ToolkitResource resource) {
+                                                              ToolkitPackageDto.ToolkitResource resource,
+                                                              ToolkitPackageDto.ImportAction action) {
         ObjectNode requestNode = sanitizeLabelPayload(resource.payload());
         ObjectNode meta = ensureObject(requestNode, "meta");
         String sourceName = normalizeName(meta.path("name").asText(null), resource.name(), "Imported Label Set");
 
         Optional<LabelSet> existingOpt = labelSetRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
-        if (existingOpt.isPresent() && payloadEquals(labelSetPayload(existingOpt.get()), requestNode)) {
+        boolean identical = existingOpt.isPresent() && payloadEquals(labelSetPayload(existingOpt.get()), requestNode);
+        if (existingOpt.isPresent() && (action == ToolkitPackageDto.ImportAction.REUSE
+                || action == ToolkitPackageDto.ImportAction.AUTO && identical)) {
             LabelSet existing = existingOpt.get();
             return new ToolkitPackageDto.ImportedResource(
                     ToolkitPackageDto.ToolkitType.LABEL_SET,
@@ -435,6 +649,17 @@ public class ToolkitPackageService {
                     "REUSED",
                     "Identical label set already exists"
             );
+        }
+        if (action == ToolkitPackageDto.ImportAction.REUSE) {
+            throw missingExistingResource(sourceName);
+        }
+        if (action == ToolkitPackageDto.ImportAction.REPLACE) {
+            LabelSet existing = existingOpt.orElseThrow(() -> missingExistingResource(sourceName));
+            if (existing.isSystem()) {
+                throw new IllegalArgumentException("System label set cannot be replaced: " + sourceName);
+            }
+            var replaced = labelSetService.updateLabelSet(userId, workspaceId, existing.getId(), requestNode);
+            return replacedResource(resource, sourceName, replaced.id(), replaced.meta().name());
         }
 
         String targetName = existingOpt.isPresent()
@@ -457,13 +682,16 @@ public class ToolkitPackageService {
 
     private ToolkitPackageDto.ImportedResource importTagSet(String workspaceId,
                                                             String userId,
-                                                            ToolkitPackageDto.ToolkitResource resource) {
+                                                            ToolkitPackageDto.ToolkitResource resource,
+                                                            ToolkitPackageDto.ImportAction action) {
         ObjectNode requestNode = sanitizeTagPayload(resource.payload());
         ObjectNode meta = ensureObject(requestNode, "meta");
         String sourceName = normalizeName(meta.path("name").asText(null), resource.name(), "Imported Tag Set");
 
         Optional<TagSet> existingOpt = tagSetRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
-        if (existingOpt.isPresent() && payloadEquals(tagSetPayload(existingOpt.get()), requestNode)) {
+        boolean identical = existingOpt.isPresent() && payloadEquals(tagSetPayload(existingOpt.get()), requestNode);
+        if (existingOpt.isPresent() && (action == ToolkitPackageDto.ImportAction.REUSE
+                || action == ToolkitPackageDto.ImportAction.AUTO && identical)) {
             TagSet existing = existingOpt.get();
             return new ToolkitPackageDto.ImportedResource(
                     ToolkitPackageDto.ToolkitType.TAG_SET,
@@ -474,6 +702,14 @@ public class ToolkitPackageService {
                     "REUSED",
                     "Identical tag set already exists"
             );
+        }
+        if (action == ToolkitPackageDto.ImportAction.REUSE) {
+            throw missingExistingResource(sourceName);
+        }
+        if (action == ToolkitPackageDto.ImportAction.REPLACE) {
+            TagSet existing = existingOpt.orElseThrow(() -> missingExistingResource(sourceName));
+            var replaced = tagSetService.updateTagSet(userId, workspaceId, existing.getId(), requestNode);
+            return replacedResource(resource, sourceName, replaced.id(), replaced.meta().name());
         }
 
         String targetName = existingOpt.isPresent()
@@ -496,7 +732,8 @@ public class ToolkitPackageService {
 
     private ToolkitPackageDto.ImportedResource importNormalizationProfile(String workspaceId,
                                                                           String userId,
-                                                                          ToolkitPackageDto.ToolkitResource resource) {
+                                                                          ToolkitPackageDto.ToolkitResource resource,
+                                                                          ToolkitPackageDto.ImportAction action) {
         NormalizationProfileDto.CreateOrUpdateRequest request = objectMapper.convertValue(
                 sanitizeNormalizationProfilePayload(resource.payload()),
                 NormalizationProfileDto.CreateOrUpdateRequest.class
@@ -504,7 +741,10 @@ public class ToolkitPackageService {
         String sourceName = normalizeName(request.name(), resource.name(), "Imported Normalization Profile");
 
         Optional<NormalizationProfile> existingOpt = normalizationProfileRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
-        if (existingOpt.isPresent() && payloadEquals(normalizationProfilePayload(existingOpt.get()), normalizationProfilePayloadFromRequest(request, sourceName))) {
+        boolean identical = existingOpt.isPresent()
+                && payloadEquals(normalizationProfilePayload(existingOpt.get()), normalizationProfilePayloadFromRequest(request, sourceName));
+        if (existingOpt.isPresent() && (action == ToolkitPackageDto.ImportAction.REUSE
+                || action == ToolkitPackageDto.ImportAction.AUTO && identical)) {
             NormalizationProfile existing = existingOpt.get();
             return new ToolkitPackageDto.ImportedResource(
                     ToolkitPackageDto.ToolkitType.NORMALIZATION_PROFILE,
@@ -515,6 +755,30 @@ public class ToolkitPackageService {
                     "REUSED",
                     "Identical normalization profile already exists"
             );
+        }
+        if (action == ToolkitPackageDto.ImportAction.REUSE) {
+            throw missingExistingResource(sourceName);
+        }
+
+        NormalizationProfileDto.CreateOrUpdateRequest writeRequest = new NormalizationProfileDto.CreateOrUpdateRequest(
+                sourceName,
+                request.description(),
+                request.tags(),
+                request.unicodeNormalization(),
+                request.collapseWhitespace(),
+                request.trimText(),
+                request.dehyphenateLineBreaks(),
+                request.mapLongSToS(),
+                request.expandCommonLigatures(),
+                request.normalizeQuotes(),
+                request.normalizeDashes(),
+                request.normalizeEllipsis(),
+                request.replacementRules()
+        );
+        if (action == ToolkitPackageDto.ImportAction.REPLACE) {
+            NormalizationProfile existing = existingOpt.orElseThrow(() -> missingExistingResource(sourceName));
+            var replaced = normalizationProfileService.updateProfile(userId, workspaceId, existing.getId(), writeRequest);
+            return replacedResource(resource, sourceName, replaced.id(), replaced.name());
         }
 
         String targetName = existingOpt.isPresent()
@@ -551,7 +815,8 @@ public class ToolkitPackageService {
 
     private ToolkitPackageDto.ImportedResource importValidationRuleset(String workspaceId,
                                                                        String userId,
-                                                                       ToolkitPackageDto.ToolkitResource resource) {
+                                                                       ToolkitPackageDto.ToolkitResource resource,
+                                                                       ToolkitPackageDto.ImportAction action) {
         ValidationRulesetDto.CreateOrUpdateRequest request = objectMapper.convertValue(
                 sanitizeValidationRulesetPayload(resource.payload()),
                 ValidationRulesetDto.CreateOrUpdateRequest.class
@@ -559,7 +824,10 @@ public class ToolkitPackageService {
         String sourceName = normalizeName(request.name(), resource.name(), "Imported Validation Ruleset");
 
         Optional<ValidationRuleset> existingOpt = validationRulesetRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
-        if (existingOpt.isPresent() && payloadEquals(validationRulesetPayload(existingOpt.get()), validationRulesetPayloadFromRequest(request, sourceName))) {
+        boolean identical = existingOpt.isPresent()
+                && payloadEquals(validationRulesetPayload(existingOpt.get()), validationRulesetPayloadFromRequest(request, sourceName));
+        if (existingOpt.isPresent() && (action == ToolkitPackageDto.ImportAction.REUSE
+                || action == ToolkitPackageDto.ImportAction.AUTO && identical)) {
             ValidationRuleset existing = existingOpt.get();
             return new ToolkitPackageDto.ImportedResource(
                     ToolkitPackageDto.ToolkitType.VALIDATION_RULESET,
@@ -570,6 +838,27 @@ public class ToolkitPackageService {
                     "REUSED",
                     "Identical validation ruleset already exists"
             );
+        }
+        if (action == ToolkitPackageDto.ImportAction.REUSE) {
+            throw missingExistingResource(sourceName);
+        }
+
+        ValidationRulesetDto.CreateOrUpdateRequest writeRequest =
+                new ValidationRulesetDto.CreateOrUpdateRequest(
+                        sourceName,
+                        request.description(),
+                        request.tags(),
+                        request.rules()
+                );
+        if (action == ToolkitPackageDto.ImportAction.REPLACE) {
+            ValidationRuleset existing = existingOpt.orElseThrow(() -> missingExistingResource(sourceName));
+            var replaced = validationRulesetService.updateRuleset(
+                    userId,
+                    workspaceId,
+                    existing.getId(),
+                    writeRequest
+            );
+            return replacedResource(resource, sourceName, replaced.id(), replaced.name());
         }
 
         String targetName = existingOpt.isPresent()
@@ -597,12 +886,16 @@ public class ToolkitPackageService {
 
     private ToolkitPackageDto.ImportedResource importVirtualKeyboard(String workspaceId,
                                                                      String userId,
-                                                                     ToolkitPackageDto.ToolkitResource resource) {
+                                                                     ToolkitPackageDto.ToolkitResource resource,
+                                                                     ToolkitPackageDto.ImportAction action) {
         VirtualKeyboardDto dto = objectMapper.convertValue(sanitizeVirtualKeyboardPayload(resource.payload()), VirtualKeyboardDto.class);
         String sourceName = normalizeName(dto.getName(), resource.name(), "Imported Keyboard");
 
         Optional<VirtualKeyboard> existingOpt = virtualKeyboardRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
-        if (existingOpt.isPresent() && payloadEquals(virtualKeyboardPayload(existingOpt.get()), virtualKeyboardPayloadFromDto(dto, sourceName))) {
+        boolean identical = existingOpt.isPresent()
+                && payloadEquals(virtualKeyboardPayload(existingOpt.get()), virtualKeyboardPayloadFromDto(dto, sourceName));
+        if (existingOpt.isPresent() && (action == ToolkitPackageDto.ImportAction.REUSE
+                || action == ToolkitPackageDto.ImportAction.AUTO && identical)) {
             VirtualKeyboard existing = existingOpt.get();
             return new ToolkitPackageDto.ImportedResource(
                     ToolkitPackageDto.ToolkitType.VIRTUAL_KEYBOARD,
@@ -613,6 +906,24 @@ public class ToolkitPackageService {
                     "REUSED",
                     "Identical virtual keyboard already exists"
             );
+        }
+        if (action == ToolkitPackageDto.ImportAction.REUSE) {
+            throw missingExistingResource(sourceName);
+        }
+        if (action == ToolkitPackageDto.ImportAction.REPLACE) {
+            VirtualKeyboard existing = existingOpt.orElseThrow(() -> missingExistingResource(sourceName));
+            dto.setId(existing.getId());
+            dto.setName(sourceName);
+            if (dto.getItems() != null) {
+                dto.getItems().forEach(item -> item.setId(null));
+            }
+            VirtualKeyboardDto replaced = virtualKeyboardService.updateKeyboard(
+                    userId,
+                    workspaceId,
+                    existing.getId(),
+                    dto
+            );
+            return replacedResource(resource, sourceName, replaced.getId(), replaced.getName());
         }
 
         String targetName = existingOpt.isPresent()
@@ -1256,6 +1567,45 @@ public class ToolkitPackageService {
         JsonNode leftSorted = sortNode(left);
         JsonNode rightSorted = sortNode(right);
         return leftSorted.equals(rightSorted);
+    }
+
+    private ToolkitPackageDto.ResourcePreview preview(
+            ToolkitPackageDto.ToolkitType type,
+            String name,
+            String existingId,
+            String existingName,
+            boolean identical,
+            boolean replaceAllowed) {
+        return new ToolkitPackageDto.ResourcePreview(
+                type,
+                name,
+                existingId,
+                existingName,
+                identical,
+                replaceAllowed
+        );
+    }
+
+    private IllegalArgumentException missingExistingResource(String name) {
+        return new IllegalArgumentException(
+                "The resource conflict changed after preview; no existing resource named '" + name + "' was found"
+        );
+    }
+
+    private ToolkitPackageDto.ImportedResource replacedResource(
+            ToolkitPackageDto.ToolkitResource source,
+            String sourceName,
+            String targetId,
+            String targetName) {
+        return new ToolkitPackageDto.ImportedResource(
+                source.type(),
+                source.sourceId(),
+                targetId,
+                sourceName,
+                targetName,
+                "REPLACED",
+                "Existing resource replaced by import choice"
+        );
     }
 
     private JsonNode sortNode(JsonNode node) {

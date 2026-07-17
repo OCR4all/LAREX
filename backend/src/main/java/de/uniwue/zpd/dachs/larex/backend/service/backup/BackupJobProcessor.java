@@ -125,7 +125,7 @@ public class BackupJobProcessor {
                             projectPackageService.writeProjectPackageInternal(
                                     workspaceId,
                                     project.getId(),
-                                    new ProjectPackageDto.ExportRequest(null),
+                                    new ProjectPackageDto.ExportRequest(null, null, null, true),
                                     entryOut
                             )
                     );

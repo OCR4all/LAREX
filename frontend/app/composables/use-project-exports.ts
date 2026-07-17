@@ -106,7 +106,8 @@ export function useProjectExports(options: ProjectExportsOptions) {
     const payload = {
       pageIds: getExportPageIds(scope),
       targetPageXmlVersion: exportOptions.targetPageXmlVersion,
-      embeddedOutputs: exportOptions.embeddedOutputs
+      embeddedOutputs: exportOptions.embeddedOutputs,
+      includeXmlHistory: exportOptions.includeXmlHistory
     }
     const fallbackName = `${options.project.value.name.replace(/\s+/g, '-').toLowerCase()}.larex-project.zip`
 

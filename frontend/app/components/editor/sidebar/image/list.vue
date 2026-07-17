@@ -4,6 +4,7 @@ import ImageItem from './item.vue'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { PageData } from '@/stores/editor/types'
+import { getVerticalVisibilityDirection } from '@/utils/editor/vertical-visibility'
 
 const IMAGE_CARD_ASPECT_RATIO = 4 / 3
 const emit = defineEmits<{
@@ -31,6 +32,7 @@ const editorStore = useEditorStore()
 const sessionStore = useEditorSessionStore()
 const ESTIMATED_ROW_HEIGHT = 400
 const BACK_TO_SELECTION_OVERLAY_TOP_OFFSET = 12
+const BACK_TO_SELECTION_VISIBILITY_PADDING = 8
 
 const currentPageId = computed(() => editorStore.currentPageId)
 const scrollMargin = ref(0)
@@ -187,18 +189,34 @@ const activePageBounds = computed(() => {
 })
 
 const backToSelectionDirection = computed<'up' | 'down' | null>(() => {
-  const activeBounds = activePageBounds.value
-  if (!activeBounds) return null
-
   const { top, height } = scrollViewport.value
   if (height <= 0) return null
 
   const viewportBottom = top + height
-  const visibilityPadding = 8
+  const activeIndex = activePageIndex.value
+  const scroller = scrollElement.value
+  const renderedActiveRow = activeIndex >= 0
+    ? listRootRef.value?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)
+    : null
 
-  if (activeBounds.start < top + visibilityPadding) return 'up'
-  if (activeBounds.end > viewportBottom - visibilityPadding) return 'down'
-  return null
+  if (scroller && renderedActiveRow) {
+    const scrollerRect = scroller.getBoundingClientRect()
+    const activeRowRect = renderedActiveRow.getBoundingClientRect()
+    return getVerticalVisibilityDirection(
+      { top: activeRowRect.top, bottom: activeRowRect.bottom },
+      { top: scrollerRect.top, bottom: scrollerRect.bottom },
+      BACK_TO_SELECTION_VISIBILITY_PADDING
+    )
+  }
+
+  const activeBounds = activePageBounds.value
+  if (!activeBounds) return null
+
+  return getVerticalVisibilityDirection(
+    { top: activeBounds.start, bottom: activeBounds.end },
+    { top, bottom: viewportBottom },
+    BACK_TO_SELECTION_VISIBILITY_PADDING
+  )
 })
 
 const showBackToSelection = computed(() => backToSelectionDirection.value !== null)

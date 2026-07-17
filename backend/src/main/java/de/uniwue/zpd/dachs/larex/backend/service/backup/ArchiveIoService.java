@@ -3,14 +3,18 @@ package de.uniwue.zpd.dachs.larex.backend.service.backup;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
+import java.io.FilterInputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -75,26 +79,148 @@ public class ArchiveIoService {
     }
 
     public Path extractZipToTempDir(InputStream inputStream, String prefix) throws IOException {
+        return extractZipToTempDir(inputStream, prefix, ExtractionLimits.unbounded());
+    }
+
+    public Path extractZipToTempDir(InputStream inputStream,
+                                    String prefix,
+                                    ExtractionLimits limits) throws IOException {
+        return extractZipToTempDirWithReport(inputStream, prefix, limits).directory();
+    }
+
+    public ExtractionResult extractZipToTempDirWithReport(InputStream inputStream,
+                                                          String prefix,
+                                                          ExtractionLimits limits) throws IOException {
+        Objects.requireNonNull(inputStream, "inputStream");
+        Objects.requireNonNull(limits, "limits");
+
         Path tempDir = Files.createTempDirectory(prefix);
-        try (ZipInputStream zipIn = new ZipInputStream(inputStream)) {
+        Set<String> extractedPaths = new HashSet<>();
+        long totalExtractedBytes = 0L;
+        int entryCount = 0;
+        try (LimitedCountingInputStream limitedInput =
+                     new LimitedCountingInputStream(inputStream, limits.maxArchiveBytes());
+             ZipInputStream zipIn = new ZipInputStream(limitedInput)) {
             ZipEntry entry;
             while ((entry = zipIn.getNextEntry()) != null) {
+                entryCount++;
+                if (entryCount > limits.maxEntries()) {
+                    throw archiveLimitExceeded(
+                            "Archive contains more than " + limits.maxEntries() + " entries"
+                    );
+                }
+
                 String entryName = normalizeArchivePath(entry.getName());
+                if (!extractedPaths.add(entryName)) {
+                    throw new IllegalArgumentException("Duplicate archive entry: " + entryName);
+                }
                 Path resolvedPath = tempDir.resolve(entryName).normalize();
                 if (!resolvedPath.startsWith(tempDir)) {
                     throw new IllegalArgumentException("Archive entry escapes destination directory: " + entry.getName());
                 }
 
+                validateDeclaredEntrySize(entry, entryName, totalExtractedBytes, limits);
                 if (entry.isDirectory()) {
                     Files.createDirectories(resolvedPath);
                 } else {
                     Files.createDirectories(resolvedPath.getParent());
-                    Files.copy(zipIn, resolvedPath, StandardCopyOption.REPLACE_EXISTING);
+                    long extractedBytes = copyZipEntry(
+                            zipIn,
+                            resolvedPath,
+                            entryName,
+                            totalExtractedBytes,
+                            limits
+                    );
+                    totalExtractedBytes += extractedBytes;
+                    validateCompressionRatio(entry, entryName, extractedBytes, limits);
                 }
                 zipIn.closeEntry();
             }
+        } catch (IOException | RuntimeException exception) {
+            deleteRecursively(tempDir);
+            throw exception;
         }
-        return tempDir;
+        return new ExtractionResult(tempDir, totalExtractedBytes, entryCount);
+    }
+
+    private void validateDeclaredEntrySize(ZipEntry entry,
+                                           String entryName,
+                                           long totalExtractedBytes,
+                                           ExtractionLimits limits) {
+        long declaredSize = entry.getSize();
+        if (declaredSize < 0) {
+            return;
+        }
+        if (declaredSize > limits.maxEntryBytes()) {
+            throw archiveLimitExceeded(
+                    "Archive entry exceeds the allowed size of " + limits.maxEntryBytes()
+                            + " bytes: " + entryName
+            );
+        }
+        if (declaredSize > limits.maxTotalBytes() - totalExtractedBytes) {
+            throw archiveLimitExceeded(
+                    "Archive exceeds the allowed extracted size of " + limits.maxTotalBytes() + " bytes"
+            );
+        }
+    }
+
+    private long copyZipEntry(ZipInputStream source,
+                              Path target,
+                              String entryName,
+                              long totalExtractedBytes,
+                              ExtractionLimits limits) throws IOException {
+        long entryBytes = 0L;
+        byte[] buffer = new byte[64 * 1024];
+        try (OutputStream output = Files.newOutputStream(target)) {
+            int read;
+            while ((read = source.read(buffer)) >= 0) {
+                if (read == 0) {
+                    continue;
+                }
+                if (read > limits.maxEntryBytes() - entryBytes) {
+                    throw archiveLimitExceeded(
+                            "Archive entry exceeds the allowed size of " + limits.maxEntryBytes()
+                                    + " bytes: " + entryName
+                    );
+                }
+                if (read > limits.maxTotalBytes() - totalExtractedBytes - entryBytes) {
+                    throw archiveLimitExceeded(
+                            "Archive exceeds the allowed extracted size of "
+                                    + limits.maxTotalBytes() + " bytes"
+                    );
+                }
+                output.write(buffer, 0, read);
+                entryBytes += read;
+            }
+        }
+        return entryBytes;
+    }
+
+    private void validateCompressionRatio(ZipEntry entry,
+                                          String entryName,
+                                          long extractedBytes,
+                                          ExtractionLimits limits) {
+        if (extractedBytes == 0) {
+            return;
+        }
+        long compressedBytes = entry.getCompressedSize();
+        if (compressedBytes == 0) {
+            throw archiveLimitExceeded("Archive entry has an invalid compression ratio: " + entryName);
+        }
+        if (compressedBytes < 0) {
+            return;
+        }
+        double ratio = (double) extractedBytes / compressedBytes;
+        if (ratio > limits.maxCompressionRatio()) {
+            throw archiveLimitExceeded(
+                    "Archive entry exceeds the allowed compression ratio of "
+                            + limits.maxCompressionRatio() + ": " + entryName
+            );
+        }
+    }
+
+    private IllegalArgumentException archiveLimitExceeded(String message) {
+        return new IllegalArgumentException(message);
     }
 
     public String normalizeArchivePath(String path) {
@@ -103,8 +229,8 @@ public class ArchiveIoService {
         }
 
         String normalized = path.replace('\\', '/').trim();
-        while (normalized.startsWith("/")) {
-            normalized = normalized.substring(1);
+        if (normalized.startsWith("/")) {
+            throw new IllegalArgumentException("Archive entry path is not safe: " + path);
         }
 
         if (normalized.contains("../") || normalized.equals("..") || normalized.startsWith("../")) {
@@ -119,6 +245,15 @@ public class ArchiveIoService {
         return cleaned;
     }
 
+    private void deleteRecursively(Path root) {
+        try (Stream<Path> paths = Files.walk(root)) {
+            for (Path path : paths.sorted((left, right) -> right.getNameCount() - left.getNameCount()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        } catch (IOException ignored) {
+        }
+    }
+
     @FunctionalInterface
     public interface ZipWriter {
         void write(ZipOutputStream zipOut) throws IOException;
@@ -127,6 +262,74 @@ public class ArchiveIoService {
     @FunctionalInterface
     public interface EntryWriter {
         void write(OutputStream outputStream) throws IOException;
+    }
+
+    public record ExtractionLimits(
+            long maxArchiveBytes,
+            int maxEntries,
+            long maxEntryBytes,
+            long maxTotalBytes,
+            double maxCompressionRatio
+    ) {
+        public ExtractionLimits {
+            if (maxArchiveBytes < 1
+                    || maxEntries < 1
+                    || maxEntryBytes < 1
+                    || maxTotalBytes < 1
+                    || maxCompressionRatio < 1.0) {
+                throw new IllegalArgumentException("Archive extraction limits must be positive");
+            }
+        }
+
+        public static ExtractionLimits unbounded() {
+            return new ExtractionLimits(
+                    Long.MAX_VALUE,
+                    Integer.MAX_VALUE,
+                    Long.MAX_VALUE,
+                    Long.MAX_VALUE,
+                    Double.MAX_VALUE
+            );
+        }
+    }
+
+    public record ExtractionResult(Path directory, long extractedBytes, int entryCount) {
+    }
+
+    private static final class LimitedCountingInputStream extends FilterInputStream {
+        private final long maxBytes;
+        private long bytesRead;
+
+        private LimitedCountingInputStream(InputStream inputStream, long maxBytes) {
+            super(inputStream);
+            this.maxBytes = maxBytes;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int value = super.read();
+            if (value >= 0) {
+                addBytes(1);
+            }
+            return value;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            int read = super.read(buffer, offset, length);
+            if (read > 0) {
+                addBytes(read);
+            }
+            return read;
+        }
+
+        private void addBytes(int count) {
+            if (count > maxBytes - bytesRead) {
+                throw new IllegalArgumentException(
+                        "Archive exceeds the allowed compressed size of " + maxBytes + " bytes"
+                );
+            }
+            bytesRead += count;
+        }
     }
 
     private static class NonClosingOutputStream extends FilterOutputStream {

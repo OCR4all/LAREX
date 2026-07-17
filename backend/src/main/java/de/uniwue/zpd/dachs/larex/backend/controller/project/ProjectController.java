@@ -456,6 +456,28 @@ public class ProjectController {
         return ResponseEntity.ok(result);
     }
 
+    @PostMapping(value = "/import-package/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ProjectPackageDto.ImportPreview> previewProjectPackage(
+            @PathVariable String workspaceId,
+            @RequestParam("file") MultipartFile packageFile,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+
+        return ResponseEntity.ok(
+                projectPackageService.previewProjectPackage(workspaceId, userId, packageFile)
+        );
+    }
+
+    @PostMapping(value = "/import-package/confirm", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ProjectPackageDto.ImportResult> importPreviewedProjectPackage(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody ProjectPackageDto.ImportOptions options,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+
+        return ResponseEntity.ok(
+                projectPackageService.importPreviewedProjectPackage(workspaceId, userId, options)
+        );
+    }
+
     @PostMapping(value = "/import-legacy-ocr4all", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProjectPackageDto.ImportResult> importLegacyOcr4allProject(
             @PathVariable String workspaceId,

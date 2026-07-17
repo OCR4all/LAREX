@@ -8,6 +8,7 @@ import {
   LazyProjectSlideoverBatchNormalization,
   LazyProjectSlideoverBatchRuleset,
   LazyProjectSlideoverExportTarget,
+  LazyProjectSlideoverPackageImport,
   LazyShareSlideover,
   LazyProjectSlideoverEdit,
   LazyUiConfirmSlideover,
@@ -23,6 +24,11 @@ import {
   UProgress
 } from '#components'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse } from '@/types/codec'
+import type {
+  ProjectPackageImportOptions,
+  ProjectPackageImportPreview,
+  ProjectPackageImportResult
+} from '@/types/project-package-import'
 import { DEFAULT_PROJECT_CAPABILITIES } from '@/types/capabilities'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
@@ -48,7 +54,7 @@ const projectsKey = computed(() => {
 
 const overlay = useOverlay()
 const toast = useToast()
-const { uploadFormDataWithProgress } = useTrackedUpload()
+const { uploadFormDataWithProgress, runTrackedProcessing } = useTrackedUpload()
 const collaborationPageSummary = useCollaborationPageSummary()
 const editorStore = useEditorStore()
 const sessionStore = useEditorSessionStore()
@@ -92,6 +98,7 @@ const batchDictionarySlideover = overlay.create(LazyProjectSlideoverBatchDiction
 const batchNormalizationSlideover = overlay.create(LazyProjectSlideoverBatchNormalization)
 const batchRulesetSlideover = overlay.create(LazyProjectSlideoverBatchRuleset)
 const exportTargetSlideover = overlay.create(LazyProjectSlideoverExportTarget)
+const packageImportSlideover = overlay.create(LazyProjectSlideoverPackageImport)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 const { requestExportOptions } = useProjectExportDialog(exportTargetSlideover, confirmSlideover)
 const backgroundDownloads = useBackgroundDownloads()
@@ -869,7 +876,8 @@ async function exportSelectedProjects(mode: BatchExportMode) {
             pdfProfile: exportOptions.pdfProfile,
             teiProfile: exportOptions.teiProfile,
             spreadsheetProfiles: exportOptions.spreadsheetProfiles,
-            docxOptions: exportOptions.docxOptions
+            docxOptions: exportOptions.docxOptions,
+            includeXmlHistory: exportOptions.includeXmlHistory
           })
         })
         if (!response.ok) throw new Error(`Batch export failed (${response.status})`)
@@ -1098,7 +1106,8 @@ const projectsActionItems = computed<DropdownMenuItem[][]>(() => [[
 async function handleProjectPackageImport(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
-  if (!file || !selectedWorkspace.value) {
+  const workspaceId = selectedWorkspace.value
+  if (!file || !workspaceId) {
     input.value = ''
     return
   }
@@ -1107,12 +1116,57 @@ async function handleProjectPackageImport(event: Event) {
     const formData = new FormData()
     formData.append('file', file)
 
-    const result = await uploadFormDataWithProgress<{ projectName?: string }>({
-      title: 'Importing project package',
-      workspaceId: selectedWorkspace.value,
+    const preview = await uploadFormDataWithProgress<ProjectPackageImportPreview>({
+      title: 'Inspecting project package',
+      workspaceId,
       files: [{ file }],
-      url: `/api/upload-proxy/workspaces/${selectedWorkspace.value}/projects/import-package`,
+      url: `/api/upload-proxy/workspaces/${workspaceId}/projects/import-package/preview`,
       formData
+    })
+
+    const review = packageImportSlideover.open({
+      fileName: file.name,
+      preview
+    })
+    const options = await review.result as ProjectPackageImportOptions | null
+    if (!options) {
+      await $fetch(`/api/workspaces/${workspaceId}/projects/import-package/confirm`, {
+        method: 'POST',
+        body: {
+          previewToken: preview.previewToken,
+          projectAction: 'SKIP',
+          renamedProjectName: null,
+          importResources: false,
+          resourceActions: {}
+        }
+      }).catch(() => undefined)
+      return
+    }
+    if (options.projectAction === 'SKIP') {
+      await $fetch(`/api/workspaces/${workspaceId}/projects/import-package/confirm`, {
+        method: 'POST',
+        body: options
+      })
+      toast.add({
+        title: 'Project package skipped',
+        description: `No changes were made for "${preview.projectName}".`,
+        color: 'neutral',
+        icon: 'i-lucide-ban'
+      })
+      return
+    }
+
+    const result = await runTrackedProcessing<ProjectPackageImportResult>({
+      title: 'Importing project package',
+      workspaceId,
+      files: [{ file }],
+      task: async () => await $fetch<ProjectPackageImportResult>(
+        `/api/workspaces/${workspaceId}/projects/import-package/confirm`,
+        {
+          method: 'POST',
+          body: options
+        }
+      )
     })
     toast.add({
       title: 'Project package imported',

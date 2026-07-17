@@ -1,7 +1,11 @@
 package de.uniwue.zpd.dachs.larex.backend.service.project;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.config.ProjectPackageProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
@@ -18,12 +22,14 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.ProjectPackageRelease;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.ValidationRuleset;
+import de.uniwue.zpd.dachs.larex.backend.entity.VirtualKeyboard;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
@@ -52,6 +58,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -66,9 +73,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import jakarta.annotation.PreDestroy;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -78,6 +87,8 @@ import javax.xml.transform.stream.StreamResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -87,6 +98,7 @@ import org.w3c.dom.Element;
 public class ProjectPackageService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final long PREVIEW_CACHE_WEIGHT_UNIT_BYTES = 1024L;
 
     private final ProjectRepository projectRepository;
     private final ProjectPackageReleaseRepository projectPackageReleaseRepository;
@@ -100,8 +112,10 @@ public class ProjectPackageService {
     private final TagSetRepository tagSetRepository;
     private final NormalizationProfileRepository normalizationProfileRepository;
     private final ValidationRulesetRepository validationRulesetRepository;
+    private final VirtualKeyboardRepository virtualKeyboardRepository;
     private final WorkspaceAccessService workspaceAccessService;
     private final ArchiveIoService archiveIoService;
+    private final ProjectPackageArchiveService projectPackageArchiveService;
     private final ToolkitPackageService toolkitPackageService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageOrderService pageOrderService;
@@ -112,6 +126,10 @@ public class ProjectPackageService {
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final DocumentExportService documentExportService;
     private final ObjectMapper objectMapper;
+    private final Cache<String, PackagePreviewSession> importPreviewCache;
+    private final long maxPreviewCacheBytes;
+    private final long maxPreviewCacheWeight;
+    private final int minimumPreviewCacheWeight;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -131,8 +149,10 @@ public class ProjectPackageService {
                                  TagSetRepository tagSetRepository,
                                  NormalizationProfileRepository normalizationProfileRepository,
                                  ValidationRulesetRepository validationRulesetRepository,
+                                 VirtualKeyboardRepository virtualKeyboardRepository,
                                  WorkspaceAccessService workspaceAccessService,
                                  ArchiveIoService archiveIoService,
+                                 ProjectPackageArchiveService projectPackageArchiveService,
                                  ToolkitPackageService toolkitPackageService,
                                  HierarchicalFileStorageService hierarchicalFileStorageService,
                                  PageOrderService pageOrderService,
@@ -142,7 +162,8 @@ public class ProjectPackageService {
                                  PageXmlConversionService pageXmlConversionService,
                                  PageXmlCanonicalizationService pageXmlCanonicalizationService,
                                  DocumentExportService documentExportService,
-                                 ObjectMapper objectMapper) {
+                                 ObjectMapper objectMapper,
+                                 ProjectPackageProperties projectPackageProperties) {
         this.projectRepository = projectRepository;
         this.projectPackageReleaseRepository = projectPackageReleaseRepository;
         this.libraryRepository = libraryRepository;
@@ -155,8 +176,10 @@ public class ProjectPackageService {
         this.tagSetRepository = tagSetRepository;
         this.normalizationProfileRepository = normalizationProfileRepository;
         this.validationRulesetRepository = validationRulesetRepository;
+        this.virtualKeyboardRepository = virtualKeyboardRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.archiveIoService = archiveIoService;
+        this.projectPackageArchiveService = projectPackageArchiveService;
         this.toolkitPackageService = toolkitPackageService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageOrderService = pageOrderService;
@@ -167,6 +190,33 @@ public class ProjectPackageService {
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
         this.documentExportService = documentExportService;
         this.objectMapper = objectMapper;
+        ProjectPackageProperties.Preview previewProperties = projectPackageProperties.getPreview();
+        this.maxPreviewCacheBytes = previewProperties.getMaxCachedBytes();
+        long maxCacheWeight = Math.max(
+                1L,
+                maxPreviewCacheBytes / PREVIEW_CACHE_WEIGHT_UNIT_BYTES
+        );
+        this.maxPreviewCacheWeight = maxCacheWeight;
+        this.minimumPreviewCacheWeight = clampCacheWeight(
+                divideRoundingUp(maxCacheWeight, previewProperties.getMaxSessions())
+        );
+        this.importPreviewCache = Caffeine.newBuilder()
+                .expireAfterWrite(Duration.ofMinutes(previewProperties.getExpireAfterMinutes()))
+                .weigher((String token, PackagePreviewSession session) -> session.cacheWeight())
+                .maximumWeight(maxCacheWeight)
+                .executor(Runnable::run)
+                .removalListener((String token, PackagePreviewSession session, RemovalCause cause) -> {
+                    if (session != null) {
+                        session.onRemoval();
+                    }
+                })
+                .build();
+    }
+
+    @PreDestroy
+    void closePendingImportPreviews() {
+        importPreviewCache.invalidateAll();
+        importPreviewCache.cleanUp();
     }
 
     @Transactional(readOnly = true)
@@ -190,7 +240,8 @@ public class ProjectPackageService {
                 project,
                 pages,
                 request == null ? null : request.targetPageXmlVersion(),
-                request == null ? null : request.embeddedOutputs()
+                request == null ? null : request.embeddedOutputs(),
+                request != null && request.includeXmlHistoryResolved()
         );
         try {
             writePackageZip(outputStream, packageSnapshot);
@@ -213,7 +264,8 @@ public class ProjectPackageService {
                 project,
                 pages,
                 request == null ? null : request.targetPageXmlVersion(),
-                request == null ? null : request.embeddedOutputs()
+                request == null ? null : request.embeddedOutputs(),
+                request != null && request.includeXmlHistoryResolved()
         );
         try {
             writePackageEntries(zipOut, packageSnapshot, entryPrefix);
@@ -313,6 +365,7 @@ public class ProjectPackageService {
         List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs = copyEmbeddedOutputs(
                 request == null ? null : request.embeddedOutputs()
         );
+        boolean includeXmlHistory = request == null || request.includeXmlHistoryResolved();
         List<Page> pages = resolvePagesForExport(projectId, null);
 
         ProjectPackageRelease release = new ProjectPackageRelease();
@@ -324,6 +377,7 @@ public class ProjectPackageService {
         release.setStatus(ProjectPackageRelease.Status.CREATING);
         release.setPageCount((long) pages.size());
         release.setTargetPageXmlVersion(targetPageXmlVersion);
+        release.setIncludeXmlHistory(includeXmlHistory);
         release.setEmbeddedOutputsJson(writeEmbeddedOutputsJson(embeddedOutputs));
         release.setSourceProjectUpdatedAt(project.getUpdated());
         release = projectPackageReleaseRepository.save(release);
@@ -333,7 +387,7 @@ public class ProjectPackageService {
 
         PackageSnapshot packageSnapshot = null;
         try {
-            packageSnapshot = buildPackageSnapshot(project, pages, targetPageXmlVersion, embeddedOutputs);
+            packageSnapshot = buildPackageSnapshot(project, pages, targetPageXmlVersion, embeddedOutputs, includeXmlHistory);
             String fileName = sanitizeSegment(project.getName()) + "-" + sanitizeSegment(versionTag) + ".larex-project.zip";
             Path packagePath = releaseRoot.resolve(fileName);
             reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
@@ -348,9 +402,11 @@ public class ProjectPackageService {
             release.setFailureReason(null);
             release.setPackageFileName(fileName);
             release.setPackageFilePath(relativeToUploadRoot(packagePath));
-            release.setPackageFileSize(Files.size(packagePath));
-            release.setPackageChecksumSha256(computeSha256(packagePath));
-            release.setManifestChecksumSha256(computeSha256(objectMapper.writeValueAsBytes(packageSnapshot.manifest())));
+                release.setPackageFileSize(Files.size(packagePath));
+                release.setPackageChecksumSha256(computeSha256(packagePath));
+                release.setManifestChecksumSha256(computeSha256(objectMapper.writeValueAsBytes(
+                        packageSnapshot.exportPackage().manifest()
+                )));
             projectPackageReleaseRepository.save(release);
             workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
             return toReleaseSummaryResponse(release);
@@ -461,6 +517,7 @@ public class ProjectPackageService {
         );
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public ProjectPackageDto.ImportResult importProjectPackage(String workspaceId,
                                                                String userId,
                                                                MultipartFile packageFile) throws IOException {
@@ -475,6 +532,130 @@ public class ProjectPackageService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public ProjectPackageDto.ImportPreview previewProjectPackage(String workspaceId,
+                                                                 String userId,
+                                                                 MultipartFile packageFile) throws IOException {
+        workspaceAccessService.requireAdminAccess(workspaceId, userId);
+        if (packageFile == null || packageFile.isEmpty()) {
+            throw new IllegalArgumentException("Project package file is required");
+        }
+
+        ProjectPackageArchiveService.ImportedPackage importedPackage;
+        try (InputStream inputStream = packageFile.getInputStream()) {
+            importedPackage = projectPackageArchiveService.extractAndValidate(inputStream);
+        }
+
+        try {
+            if (importedPackage.extractedBytes() > maxPreviewCacheBytes) {
+                throw new IllegalArgumentException(
+                        "Project package exceeds the pending preview storage limit of "
+                                + maxPreviewCacheBytes + " bytes"
+                );
+            }
+            ProjectPackageDto.PackageManifest manifest = importedPackage.manifest();
+            Library library = libraryRepository.findByWorkspaceId(workspaceId)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Projects not found for workspace: " + workspaceId
+                    ));
+            String projectName = normalizedProjectName(manifest.project().name());
+            String existingProjectId = projectRepository.findByNameAndLibraryId(projectName, library.getId())
+                    .map(Project::getId)
+                    .orElse(null);
+            List<ToolkitPackageDto.ResourcePreview> resourcePreviews =
+                    sourceToolkitResources(importedPackage).stream()
+                            .map(resource -> toolkitPackageService.previewToolkitResource(workspaceId, resource))
+                            .toList();
+            int imageCount = importedPackage.pages().stream()
+                    .mapToInt(page -> safeList(page.descriptor().images()).size())
+                    .sum();
+            int xmlCount = importedPackage.pages().stream()
+                    .mapToInt(page -> safeList(page.descriptor().xml()).size())
+                    .sum();
+            int xmlVersionCount = importedPackage.pages().stream()
+                    .flatMap(page -> safeList(page.descriptor().xml()).stream())
+                    .mapToInt(xml -> safeList(xml.history()).size())
+                    .sum();
+
+            String previewToken = UUID.randomUUID().toString();
+            int cacheWeight = previewCacheWeight(importedPackage.extractedBytes());
+            if (cacheWeight > maxPreviewCacheWeight) {
+                throw new IllegalArgumentException(
+                        "Project package exceeds the pending preview cache capacity"
+                );
+            }
+            PackagePreviewSession previewSession = new PackagePreviewSession(
+                    workspaceId,
+                    userId,
+                    importedPackage,
+                    cacheWeight
+            );
+            importPreviewCache.put(
+                    previewToken,
+                    previewSession
+            );
+            if (importPreviewCache.getIfPresent(previewToken) != previewSession) {
+                throw new IllegalArgumentException(
+                        "Pending project package preview capacity is currently exhausted"
+                );
+            }
+            return new ProjectPackageDto.ImportPreview(
+                    previewToken,
+                    projectName,
+                    manifest.project().description(),
+                    existingProjectId,
+                    existingProjectId == null
+                            ? projectName
+                            : suggestedRenamedProjectName(projectName, library.getId()),
+                    importedPackage.pages().stream()
+                            .map(page -> page.descriptor().name())
+                            .toList(),
+                    imageCount,
+                    xmlCount,
+                    xmlVersionCount,
+                    manifest.includesXmlHistory(),
+                    resourcePreviews,
+                    List.copyOf(safeList(manifest.warnings()))
+            );
+        } catch (RuntimeException exception) {
+            importedPackage.close();
+            throw exception;
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ProjectPackageDto.ImportResult importPreviewedProjectPackage(
+            String workspaceId,
+            String userId,
+            ProjectPackageDto.ImportOptions options) throws IOException {
+        workspaceAccessService.requireAdminAccess(workspaceId, userId);
+        if (options == null || options.previewToken() == null || options.previewToken().isBlank()) {
+            throw new IllegalArgumentException("Project package preview token is required");
+        }
+
+        PackagePreviewSession session = Optional.ofNullable(
+                importPreviewCache.getIfPresent(options.previewToken())
+        ).orElseThrow(() -> new IllegalArgumentException(
+                "Project package preview has expired. Select the package again."
+        ));
+        if (!workspaceId.equals(session.workspaceId()) || !userId.equals(session.userId())) {
+            throw new IllegalArgumentException("Project package preview does not match this workspace or user");
+        }
+        if (!session.claim()) {
+            throw new IllegalArgumentException(
+                    "Project package preview has expired or is already being imported"
+            );
+        }
+
+        try {
+            return importValidatedProjectPackage(workspaceId, userId, session.importedPackage(), options);
+        } finally {
+            importPreviewCache.invalidate(options.previewToken());
+            session.finish();
+        }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public ProjectPackageDto.ImportResult importProjectPackageFromPathInternal(String workspaceId,
                                                                                String userId,
                                                                                Path packagePath) throws IOException {
@@ -486,229 +667,354 @@ public class ProjectPackageService {
     private ProjectPackageDto.ImportResult importProjectPackageArchive(String workspaceId,
                                                                        String userId,
                                                                        InputStream packageStream) throws IOException {
-        Path tempDir = archiveIoService.extractZipToTempDir(packageStream, "larex-project-import-");
-        try {
-            Path manifestPath = tempDir.resolve("manifest.json");
-            if (!Files.exists(manifestPath)) {
-                throw new IllegalArgumentException("manifest.json missing in project package");
-            }
-
-            ProjectPackageDto.PackageManifest manifest = archiveIoService.readJson(
-                    manifestPath,
-                    ProjectPackageDto.PackageManifest.class
-            );
-
-            long reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
-                    workspaceId,
-                    estimatePersistentImportBytes(tempDir, manifest),
-                    "project-package-import"
-            );
-
-            try {
-                ToolkitPackageDto.ImportResult toolkitImportResult = importToolkitReferencesFromPackage(
-                        workspaceId,
-                        userId,
-                        tempDir,
-                        manifest.toolkitReferences(),
-                        manifest.sourceWorkspaceName()
-                );
-
-                Library library = libraryRepository.findByWorkspaceId(workspaceId)
-                        .orElseThrow(() -> new IllegalArgumentException("Projects not found for workspace: " + workspaceId));
-
-                String projectName = uniqueProjectName(
-                        manifest.project().name(),
-                        library.getId()
-                );
-
-                Project project = new Project();
-                project.setLibrary(library);
-                project.setName(projectName);
-                project.setDescription(manifest.project().description());
-                project.setTags(new ArrayList<>(manifest.project().tags() == null ? List.of() : manifest.project().tags()));
-                project.setLocked(manifest.project().locked());
-                project.setLockedReason(manifest.project().lockedReason());
-                applyToolkitReferences(project, toolkitImportResult.sourceToTargetIds(), manifest.toolkitReferences());
-                project = projectRepository.save(project);
-
-                Map<String, Page> pageBySourceId = importPages(project, manifest.pages());
-                Map<String, PageXml> xmlBySourceId = importProjectFiles(tempDir, project, manifest.files(), pageBySourceId, userId);
-                int xmlVersionCount = importXmlVersions(tempDir, manifest.xmlVersions(), xmlBySourceId);
-
-                pageFilterIndexService.rebuildProjectIndex(project.getId());
-
-                int imageCount = (int) manifest.files().stream().filter(f -> f.kind() == ProjectPackageDto.FileKind.IMAGE).count();
-                int xmlCount = (int) manifest.files().stream().filter(f -> f.kind() == ProjectPackageDto.FileKind.XML).count();
-
-                List<String> warnings = new ArrayList<>();
-                if (manifest.warnings() != null) {
-                    warnings.addAll(manifest.warnings());
-                }
-                warnings.addAll(toolkitImportResult.warnings());
-
-                return new ProjectPackageDto.ImportResult(
-                        workspaceId,
-                        project.getId(),
-                        project.getName(),
-                        pageBySourceId.size(),
-                        imageCount,
-                        xmlCount,
-                        xmlVersionCount,
-                        warnings,
-                        toolkitImportResult.sourceToTargetIds()
-                );
-            } finally {
-                workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
-            }
-        } finally {
-            deleteDirectoryQuietly(tempDir);
+        try (ProjectPackageArchiveService.ImportedPackage importedPackage =
+                     projectPackageArchiveService.extractAndValidate(packageStream)) {
+            return importValidatedProjectPackage(workspaceId, userId, importedPackage, null);
         }
     }
 
-    private long estimatePersistentImportBytes(Path tempDir, ProjectPackageDto.PackageManifest manifest) throws IOException {
-        long totalBytes = 0L;
+    private ProjectPackageDto.ImportResult importValidatedProjectPackage(
+            String workspaceId,
+            String userId,
+            ProjectPackageArchiveService.ImportedPackage importedPackage,
+            ProjectPackageDto.ImportOptions requestedOptions) throws IOException {
+        ProjectPackageDto.ImportOptions options = requestedOptions == null
+                ? new ProjectPackageDto.ImportOptions(
+                        null,
+                        ProjectPackageDto.ProjectImportAction.AUTO,
+                        null,
+                        true,
+                        Map.of()
+                )
+                : requestedOptions;
+        ProjectPackageDto.PackageManifest manifest = importedPackage.manifest();
+        String sourceProjectName = normalizedProjectName(manifest.project().name());
+        Library library = libraryRepository.findByWorkspaceId(workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Projects not found for workspace: " + workspaceId
+                ));
+        Optional<Project> existingProject =
+                projectRepository.findByNameAndLibraryId(sourceProjectName, library.getId());
+        if (options.projectActionResolved() == ProjectPackageDto.ProjectImportAction.SKIP) {
+            return new ProjectPackageDto.ImportResult(
+                    workspaceId,
+                    null,
+                    sourceProjectName,
+                    0,
+                    0,
+                    0,
+                    0,
+                    List.of("Project import skipped by user"),
+                    Map.of()
+            );
+        }
 
-        if (manifest.files() != null) {
-            for (ProjectPackageDto.FileEntry entry : manifest.files()) {
-                totalBytes += resolveExistingImportFileSize(tempDir, entry.archivePath());
-                if (entry.thumbnailArchivePath() != null && !entry.thumbnailArchivePath().isBlank()) {
-                    totalBytes += resolveExistingImportFileSize(tempDir, entry.thumbnailArchivePath());
+        boolean replaceExisting = options.projectActionResolved() == ProjectPackageDto.ProjectImportAction.REPLACE
+                && existingProject.isPresent();
+        String projectName;
+        if (replaceExisting) {
+            projectName = uniqueProjectName(sourceProjectName + " replacement", library.getId());
+        } else if (options.projectActionResolved() == ProjectPackageDto.ProjectImportAction.RENAME) {
+            projectName = validateRenamedProjectName(options.renamedProjectName(), library.getId());
+        } else {
+            projectName = uniqueProjectName(sourceProjectName, library.getId());
+        }
+        long reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
+                workspaceId,
+                estimatePersistentImportBytes(importedPackage),
+                "project-package-import"
+        );
+        List<String> createdStoragePaths = new ArrayList<>();
+
+        try {
+            ToolkitImport toolkitImport =
+                    importToolkitResources(workspaceId, userId, importedPackage, options);
+
+            Project project = new Project();
+            project.setLibrary(library);
+            project.setName(projectName);
+            project.setDescription(manifest.project().description());
+            project.setTags(new ArrayList<>(manifest.project().tags() == null ? List.of() : manifest.project().tags()));
+            project.setLocked(manifest.project().locked());
+            project.setLockedReason(manifest.project().lockedReason());
+            applyProjectSettings(project, manifest.project());
+            applyToolkitReferences(project, toolkitImport.targetIds());
+            project = projectRepository.save(project);
+
+            ImportCounts counts = importPagesAndFiles(
+                    importedPackage,
+                    project,
+                    userId,
+                    createdStoragePaths
+            );
+            if (replaceExisting) {
+                replaceExistingProject(
+                        workspaceId,
+                        existingProject.orElseThrow(),
+                        project,
+                        sourceProjectName
+                );
+            }
+
+            pageFilterIndexService.rebuildProjectIndex(project.getId());
+
+            List<String> warnings = new ArrayList<>(safeList(manifest.warnings()));
+            warnings.addAll(toolkitImport.warnings());
+            return new ProjectPackageDto.ImportResult(
+                    workspaceId,
+                    project.getId(),
+                    project.getName(),
+                    counts.pages(),
+                    counts.images(),
+                    counts.xml(),
+                    counts.xmlVersions(),
+                    List.copyOf(warnings),
+                    toolkitImport.targetIds()
+            );
+        } catch (IOException | RuntimeException exception) {
+            hierarchicalFileStorageService.deleteStoredFiles(createdStoragePaths);
+            throw exception;
+        } finally {
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
+        }
+    }
+
+    private long estimatePersistentImportBytes(ProjectPackageArchiveService.ImportedPackage importedPackage) throws IOException {
+        long totalBytes = 0L;
+        for (ProjectPackageArchiveService.ImportedPage page : importedPackage.pages()) {
+            for (ProjectPackageDto.FileDescriptor image : safeList(page.descriptor().images())) {
+                totalBytes += Files.size(page.resolve(importedPackage.root(), image.path()));
+            }
+            for (ProjectPackageDto.XmlFileDescriptor xml : safeList(page.descriptor().xml())) {
+                totalBytes += Files.size(page.resolve(importedPackage.root(), xml.path()));
+                for (ProjectPackageDto.XmlVersionDescriptor version : safeList(xml.history())) {
+                    totalBytes += Files.size(page.resolve(importedPackage.root(), version.path()));
                 }
             }
         }
-
-        if (manifest.xmlVersions() != null) {
-            for (ProjectPackageDto.XmlVersionEntry versionEntry : manifest.xmlVersions()) {
-                totalBytes += resolveExistingImportFileSize(tempDir, versionEntry.archivePath());
-            }
-        }
-
         return totalBytes;
     }
 
-    private long resolveExistingImportFileSize(Path tempDir, String relativePath) throws IOException {
-        if (relativePath == null || relativePath.isBlank()) {
-            return 0L;
+    private ToolkitImport importToolkitResources(
+            String workspaceId,
+            String userId,
+            ProjectPackageArchiveService.ImportedPackage importedPackage,
+            ProjectPackageDto.ImportOptions options) {
+        if (importedPackage.resources().isEmpty()) {
+            return new ToolkitImport(Map.of(), List.of());
         }
 
-        Path sourcePath = tempDir.resolve(archiveIoService.normalizeArchivePath(relativePath));
-        return Files.exists(sourcePath) ? Files.size(sourcePath) : 0L;
+        List<ToolkitPackageDto.ToolkitResource> resources = sourceToolkitResources(importedPackage);
+        Map<ToolkitPackageDto.ToolkitType, ToolkitPackageDto.ImportAction> actions = new LinkedHashMap<>();
+        for (ToolkitPackageDto.ToolkitResource resource : resources) {
+            actions.put(resource.type(), options.resourceAction(resource.type()));
+        }
+        ToolkitPackageDto.ImportResult result = toolkitPackageService.importToolkitPackage(
+                workspaceId,
+                userId,
+                new ToolkitPackageDto.ToolkitPackage(
+                        new ToolkitPackageDto.PackageMeta("1.0", LocalDateTime.now(), workspaceId, null),
+                        resources
+                ),
+                actions
+        );
+
+        Map<ToolkitPackageDto.ToolkitType, String> targetIds = new LinkedHashMap<>();
+        for (ToolkitPackageDto.ToolkitType type : importedPackage.resources().keySet()) {
+            String targetId = result.sourceToTargetIds().get(type.name());
+            if (targetId != null) {
+                targetIds.put(type, targetId);
+            }
+        }
+        List<String> warnings = new ArrayList<>(safeList(result.warnings()));
+        result.resources().stream()
+                .filter(resource -> "RENAMED_IMPORTED".equals(resource.action())
+                        || "REPLACED".equals(resource.action())
+                        || "SKIPPED".equals(resource.action()))
+                .map(resource -> resource.type().name().replace('_', ' ') + " \""
+                        + resource.sourceName() + "\": " + resource.reason())
+                .forEach(warnings::add);
+        return new ToolkitImport(Map.copyOf(targetIds), List.copyOf(warnings));
+    }
+
+    private List<ToolkitPackageDto.ToolkitResource> sourceToolkitResources(
+            ProjectPackageArchiveService.ImportedPackage importedPackage) {
+        return importedPackage.resources().entrySet().stream()
+                .map(entry -> new ToolkitPackageDto.ToolkitResource(
+                        entry.getKey(),
+                        entry.getKey().name(),
+                        entry.getValue().descriptor().name(),
+                        null,
+                        null,
+                        entry.getValue().descriptor().payload()
+                ))
+                .toList();
     }
 
     private PackageSnapshot buildPackageSnapshot(Project project,
                                                  List<Page> pages,
                                                  String requestedTargetPageXmlVersion,
-                                                 List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputRequests) throws IOException {
+                                                 List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputRequests,
+                                                 boolean includeXmlHistory) throws IOException {
         String targetPageXmlVersion = pageXmlConversionService.normalizeTargetVersion(requestedTargetPageXmlVersion);
         boolean legacyTarget = pageXmlConversionService.isLegacyTargetVersion(targetPageXmlVersion);
-        ExportBundle exportBundle = buildExportBundle(project, pages, targetPageXmlVersion, legacyTarget);
+        ProjectPackageArchiveService.ExportPackage exportPackage =
+                buildExportPackage(project, pages, targetPageXmlVersion, legacyTarget, includeXmlHistory);
         List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs = documentExportService.exportEmbeddedProjectOutputs(
                 project,
                 pages,
                 embeddedOutputRequests
         );
-        byte[] metsBytes = buildMetsXml(project, pages, exportBundle.manifest(), embeddedOutputs);
-        return new PackageSnapshot(exportBundle, embeddedOutputs, metsBytes, targetPageXmlVersion);
+        List<ProjectPackageArchiveService.BinaryEntry> entries = new ArrayList<>(exportPackage.binaryEntries());
+        for (DocumentExportService.EmbeddedProjectOutput output : embeddedOutputs) {
+            entries.add(new ProjectPackageArchiveService.BinaryEntry(
+                    output.archivePath(),
+                    output.contentLength(),
+                    stream -> Files.copy(output.absolutePath(), stream)
+            ));
+        }
+        ProjectPackageArchiveService.ExportPackage withOutputs = new ProjectPackageArchiveService.ExportPackage(
+                exportPackage.manifest(),
+                exportPackage.pages(),
+                exportPackage.resources(),
+                List.copyOf(entries)
+        );
+        return new PackageSnapshot(withOutputs, embeddedOutputs);
     }
 
-    private ExportBundle buildExportBundle(Project project,
-                                           List<Page> pages,
-                                           String targetPageXmlVersion,
-                                           boolean legacyTarget) throws IOException {
-        List<ProjectPackageDto.PageSnapshot> pageSnapshots = new ArrayList<>();
-        List<ProjectPackageDto.FileEntry> fileEntries = new ArrayList<>();
-        List<ProjectPackageDto.XmlVersionEntry> versionEntries = new ArrayList<>();
-        Map<String, Path> versionPathByArchivePath = new LinkedHashMap<>();
-
-        Map<String, PageImage> imageBySourceId = new HashMap<>();
-        Map<String, Path> fileSourcePathByArchivePath = new HashMap<>();
+    private ProjectPackageArchiveService.ExportPackage buildExportPackage(
+            Project project,
+            List<Page> pages,
+            String targetPageXmlVersion,
+            boolean legacyTarget,
+            boolean includeXmlHistory) throws IOException {
+        Map<String, ProjectPackageDto.PageDescriptor> pageDescriptors = new LinkedHashMap<>();
+        List<String> pagePaths = new ArrayList<>();
+        List<ProjectPackageArchiveService.BinaryEntry> binaryEntries = new ArrayList<>();
+        Set<String> usedPageDirectories = new HashSet<>();
 
         for (Page page : pages) {
-            pageSnapshots.add(new ProjectPackageDto.PageSnapshot(
-                    page.getId(),
+            String directoryName = uniqueDirectoryName(
+                    sanitizeSegment(page.getName()),
+                    usedPageDirectories
+            );
+            String pageDirectory = "pages/" + directoryName;
+            String descriptorPath = pageDirectory + "/page.json";
+            pagePaths.add(descriptorPath);
+
+            List<ProjectPackageDto.FileDescriptor> images = new ArrayList<>();
+            List<ProjectPackageDto.XmlFileDescriptor> xmlDescriptors = new ArrayList<>();
+            Map<String, Integer> usedImageNames = new HashMap<>();
+            Map<String, Integer> usedXmlNames = new HashMap<>();
+            Map<String, Integer> usedHistoryDirectories = new HashMap<>();
+
+            List<PageImage> pageImages = new ArrayList<>(page.getImages() == null ? Set.of() : page.getImages());
+            pageImages.sort(Comparator.comparing(PageImage::getVariant).thenComparing(PageImage::getFileName));
+            for (PageImage image : pageImages) {
+                String archiveName = uniqueArchivePath(
+                        sanitizeArchiveName(image.getFileName(), image.getVariant() + fileExtension(image.getFileName())),
+                        usedImageNames
+                );
+                String relativePath = "images/" + archiveName;
+                String archivePath = pageDirectory + "/" + relativePath;
+                images.add(new ProjectPackageDto.FileDescriptor(
+                        relativePath,
+                        image.getFileName(),
+                        image.getVariant(),
+                        image.getBaseName()
+                ));
+                Path source = hierarchicalFileStorageService.resolveUploadPath(image.getFilePath());
+                binaryEntries.add(new ProjectPackageArchiveService.BinaryEntry(
+                        archivePath,
+                        Files.size(source),
+                        out -> Files.copy(source, out)
+                ));
+            }
+
+            List<PageXml> pageXmlFiles = new ArrayList<>(page.getXmlFiles() == null ? Set.of() : page.getXmlFiles());
+            pageXmlFiles.sort(Comparator.comparing(PageXml::getVariant).thenComparing(PageXml::getFileName));
+            for (PageXml xml : pageXmlFiles) {
+                String archiveName = uniqueArchivePath(
+                        sanitizeArchiveName(xml.getFileName(), xml.getVariant() + fileExtension(xml.getFileName())),
+                        usedXmlNames
+                );
+                String relativePath = "xml/" + archiveName;
+                String archivePath = pageDirectory + "/" + relativePath;
+                Path source = hierarchicalFileStorageService.resolveUploadPath(xml.getFilePath());
+                if (xml.getSchema() == XmlSchema.PAGE_XML) {
+                    binaryEntries.add(new ProjectPackageArchiveService.BinaryEntry(
+                            archivePath,
+                            Files.size(source),
+                            out -> pageXmlConversionService.writeFileToVersion(source, targetPageXmlVersion, out)
+                    ));
+                } else {
+                    binaryEntries.add(new ProjectPackageArchiveService.BinaryEntry(
+                            archivePath,
+                            Files.size(source),
+                            out -> Files.copy(source, out)
+                    ));
+                }
+
+                List<ProjectPackageDto.XmlVersionDescriptor> history = new ArrayList<>();
+                if (includeXmlHistory) {
+                    String historyDirectory = uniqueArchivePath(
+                            sanitizeSegment(stripExtension(archiveName)),
+                            usedHistoryDirectories
+                    );
+                    List<PageXmlVersion> versions =
+                            pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc(xml.getId()).stream()
+                                    .sorted(Comparator.comparing(PageXmlVersion::getVersionNumber))
+                                    .toList();
+                    for (PageXmlVersion version : versions) {
+                        String historyRelativePath = "history/" + historyDirectory + "/"
+                                + String.format(Locale.ROOT, "%06d.xml", version.getVersionNumber());
+                        String historyArchivePath = pageDirectory + "/" + historyRelativePath;
+                        Path historySource = hierarchicalFileStorageService.resolveUploadPath(version.getFilePath());
+                        history.add(new ProjectPackageDto.XmlVersionDescriptor(
+                                version.getVersionNumber(),
+                                historyRelativePath,
+                                version.getUserId(),
+                                version.getComment(),
+                                version.getCreated()
+                        ));
+                        binaryEntries.add(new ProjectPackageArchiveService.BinaryEntry(
+                                historyArchivePath,
+                                Files.size(historySource),
+                                out -> Files.copy(historySource, out)
+                        ));
+                    }
+                }
+                xmlDescriptors.add(new ProjectPackageDto.XmlFileDescriptor(
+                        relativePath,
+                        xml.getFileName(),
+                        xml.getVariant(),
+                        xml.getBaseName(),
+                        List.copyOf(history)
+                ));
+            }
+
+            ProjectPackageDto.ExternalSource externalSource = page.getExternalSourceType() == null
+                    && page.getExternalSourceId() == null
+                    && page.getExternalSourceUrl() == null
+                    && page.getExternalSourceMetadataJson() == null
+                    ? null
+                    : new ProjectPackageDto.ExternalSource(
+                            page.getExternalSourceType(),
+                            page.getExternalSourceId(),
+                            page.getExternalSourceUrl(),
+                            readJsonNode(page.getExternalSourceMetadataJson())
+                    );
+            pageDescriptors.put(descriptorPath, new ProjectPackageDto.PageDescriptor(
                     page.getName(),
                     page.getDescription(),
-                    page.getTags() == null ? List.of() : new ArrayList<>(page.getTags()),
-                    page.getCreated(),
-                    page.getUpdated(),
+                    page.getTags() == null ? List.of() : List.copyOf(page.getTags()),
                     page.isLocked(),
                     page.getLockedReason(),
                     page.getWorkflowState(),
-                    page.getSortOrder()
+                    externalSource,
+                    List.copyOf(images),
+                    List.copyOf(xmlDescriptors)
             ));
-
-            List<PageImage> images = new ArrayList<>(page.getImages() == null ? Set.<PageImage>of() : page.getImages());
-            images.sort(Comparator.comparing(PageImage::getId));
-            for (PageImage image : images) {
-                String archivePath = "files/images/" + image.getId() + fileExtension(image.getFileName());
-                String thumbnailArchivePath = image.getThumbnailPath() == null
-                        ? null
-                        : "files/thumbnails/" + image.getId() + fileExtension(image.getThumbnailPath());
-
-                fileEntries.add(new ProjectPackageDto.FileEntry(
-                        image.getId(),
-                        page.getId(),
-                        ProjectPackageDto.FileKind.IMAGE,
-                        image.getFileName(),
-                        image.getMimeType(),
-                        image.getFileSize(),
-                        image.getVariant(),
-                        image.getBaseName(),
-                        archivePath,
-                        null,
-                        null,
-                        thumbnailArchivePath,
-                        image.getCreated(),
-                        image.getUpdated()
-                ));
-                fileSourcePathByArchivePath.put(archivePath, hierarchicalFileStorageService.resolveUploadPath(image.getFilePath()));
-                imageBySourceId.put(image.getId(), image);
-            }
-
-            List<PageXml> xmlFiles = new ArrayList<>(page.getXmlFiles() == null ? Set.<PageXml>of() : page.getXmlFiles());
-            xmlFiles.sort(Comparator.comparing(PageXml::getId));
-            for (PageXml xml : xmlFiles) {
-                String archivePath = "files/xml/" + xml.getId() + fileExtension(xml.getFileName());
-                String exportSchemaVersion = xml.getSchema() == XmlSchema.PAGE_XML
-                        ? targetPageXmlVersion
-                        : xml.getSchemaVersion();
-                fileEntries.add(new ProjectPackageDto.FileEntry(
-                        xml.getId(),
-                        page.getId(),
-                        ProjectPackageDto.FileKind.XML,
-                        xml.getFileName(),
-                        xml.getMimeType(),
-                        xml.getFileSize(),
-                        xml.getVariant(),
-                        xml.getBaseName(),
-                        archivePath,
-                        xml.getSchema(),
-                        exportSchemaVersion,
-                        null,
-                        xml.getCreated(),
-                        xml.getUpdated()
-                ));
-                fileSourcePathByArchivePath.put(archivePath, hierarchicalFileStorageService.resolveUploadPath(xml.getFilePath()));
-
-                List<PageXmlVersion> versions = pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc(xml.getId())
-                        .stream()
-                        .sorted(Comparator.comparing(PageXmlVersion::getVersionNumber))
-                        .toList();
-                for (PageXmlVersion version : versions) {
-                    String versionArchivePath = "files/xml-versions/" + xml.getId() + "/" + version.getVersionNumber() + ".xml";
-                    versionEntries.add(new ProjectPackageDto.XmlVersionEntry(
-                            version.getId(),
-                            xml.getId(),
-                            version.getVersionNumber(),
-                            versionArchivePath,
-                            version.getFileSize(),
-                            version.getUserId(),
-                            version.getComment(),
-                            version.getCreated()
-                    ));
-                    versionPathByArchivePath.put(versionArchivePath, hierarchicalFileStorageService.resolveUploadPath(version.getFilePath()));
-                }
-            }
         }
 
         ToolkitPackageDto.ToolkitPackage toolkitSnapshot = toolkitPackageService.buildProjectToolkitSnapshot(
@@ -718,56 +1024,52 @@ public class ProjectPackageService {
                 project.getDictionary() == null ? null : project.getDictionary().getId(),
                 project.getTagSet() == null ? null : project.getTagSet().getId(),
                 project.getNormalizationProfile() == null ? null : project.getNormalizationProfile().getId(),
-                project.getValidationRuleset() == null ? null : project.getValidationRuleset().getId()
+                project.getValidationRuleset() == null ? null : project.getValidationRuleset().getId(),
+                project.getVirtualKeyboard() == null ? null : project.getVirtualKeyboard().getId()
         );
-
-        Map<String, ToolkitPackageDto.ToolkitResource> toolkitResourcesByPath = new LinkedHashMap<>();
-        Map<ToolkitPackageDto.ToolkitType, ProjectPackageDto.ToolkitReference> toolkitRefByType = new LinkedHashMap<>();
-
+        Map<String, ProjectPackageDto.ResourceDescriptor> resources = new LinkedHashMap<>();
+        Map<ToolkitPackageDto.ToolkitType, String> resourcePaths = new LinkedHashMap<>();
         for (ToolkitPackageDto.ToolkitResource resource : toolkitSnapshot.resources()) {
-            String snapshotPath = "toolkit/" + resource.type().name().toLowerCase() + "-" + resource.sourceId() + ".json";
-            toolkitResourcesByPath.put(snapshotPath, resource);
-            toolkitRefByType.put(resource.type(), new ProjectPackageDto.ToolkitReference(
-                    resource.sourceId(),
+            String path = "resources/" + resource.type().name().toLowerCase(Locale.ROOT).replace('_', '-') + ".json";
+            resourcePaths.put(resource.type(), path);
+            resources.put(path, new ProjectPackageDto.ResourceDescriptor(
+                    resource.type(),
                     resource.name(),
-                    resource.sourceCreated(),
-                    resource.sourceUpdated(),
-                    snapshotPath
+                    resource.payload()
             ));
         }
-
-        ProjectPackageDto.ToolkitReferences toolkitReferences = new ProjectPackageDto.ToolkitReferences(
-                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.CODEC),
-                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.LABEL_SET),
-                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.DICTIONARY),
-                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.TAG_SET),
-                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.NORMALIZATION_PROFILE),
-                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.VALIDATION_RULESET)
-        );
 
         ProjectPackageDto.PackageManifest manifest = new ProjectPackageDto.PackageManifest(
                 ProjectPackageDto.DEFAULT_SCHEMA_VERSION,
                 LocalDateTime.now(),
-                project.getLibrary().getWorkspaceId(),
-                toolkitSnapshot.meta() == null ? project.getLibrary().getWorkspaceId() : toolkitSnapshot.meta().workspaceName(),
+                targetPageXmlVersion,
+                includeXmlHistory,
                 new ProjectPackageDto.ProjectSnapshot(
-                        project.getId(),
                         project.getName(),
                         project.getDescription(),
                         project.getTags() == null ? List.of() : new ArrayList<>(project.getTags()),
-                        project.getCreated(),
-                        project.getUpdated(),
                         project.isLocked(),
-                        project.getLockedReason()
+                        project.getLockedReason(),
+                        project.isAllowCodecOverride(),
+                        project.isAllowDictionaryOverride(),
+                        project.isAllowVirtualKeyboardOverride(),
+                        project.isAllowLabelSetOverride(),
+                        project.isAllowTagSetOverride(),
+                        project.isAllowNormalizationProfileOverride(),
+                        project.isAllowValidationRulesetOverride(),
+                        project.getDefaultGtIndex(),
+                        project.getDefaultRecognitionIndicesList()
                 ),
-                pageSnapshots,
-                toolkitReferences,
-                fileEntries,
-                versionEntries,
+                List.copyOf(pagePaths),
+                Map.copyOf(resourcePaths),
                 buildManifestWarnings(legacyTarget, targetPageXmlVersion)
         );
-
-        return new ExportBundle(manifest, fileSourcePathByArchivePath, versionPathByArchivePath, toolkitResourcesByPath, imageBySourceId);
+        return new ProjectPackageArchiveService.ExportPackage(
+                manifest,
+                Map.copyOf(pageDescriptors),
+                Map.copyOf(resources),
+                List.copyOf(binaryEntries)
+        );
     }
 
     private List<String> buildManifestWarnings(boolean legacyTarget,
@@ -776,7 +1078,7 @@ public class ProjectPackageService {
         if (legacyTarget) {
             warnings.add("Export target PAGE XML " + targetPageXmlVersion
                     + " may lose data because older PAGE schemas do not support all PAGE 2019 features.");
-            warnings.add("Version history snapshots in files/xml-versions are preserved as-is and are not downconverted; "
+            warnings.add("Version history snapshots in page history directories are preserved as-is and are not downconverted; "
                     + "snapshot versions may differ from the selected export target.");
         }
         return warnings;
@@ -796,287 +1098,290 @@ public class ProjectPackageService {
                 .toList();
     }
 
-    private Path resolveUploadPath(String archivePath,
-                                   ProjectPackageDto.FileKind kind,
-                                   String sourceId,
-                                   ExportBundle exportBundle) {
-        Path path = exportBundle.filePathByArchivePath().get(archivePath);
-        if (path == null) {
-            throw new IllegalArgumentException("Missing source file for " + kind + " " + sourceId);
-        }
-        return path;
-    }
-
-    private Path resolveThumbnailUploadPath(String imageSourceId, ExportBundle exportBundle) {
-        PageImage image = exportBundle.imageBySourceId().get(imageSourceId);
-        if (image == null || image.getThumbnailPath() == null) {
-            return null;
-        }
-        return hierarchicalFileStorageService.resolveUploadPath(image.getThumbnailPath());
-    }
-
-    private ToolkitPackageDto.ImportResult importToolkitReferencesFromPackage(String workspaceId,
-                                                                              String userId,
-                                                                              Path tempDir,
-                                                                              ProjectPackageDto.ToolkitReferences toolkitReferences,
-                                                                              String sourceWorkspaceName) throws IOException {
-        if (toolkitReferences == null) {
-            return new ToolkitPackageDto.ImportResult(workspaceId, 0, 0, List.of(), List.of(), Map.of());
-        }
-
-        List<ToolkitPackageDto.ToolkitResource> resources = new ArrayList<>();
-        loadToolkitResource(tempDir, toolkitReferences.codec(), resources);
-        loadToolkitResource(tempDir, toolkitReferences.labelSet(), resources);
-        loadToolkitResource(tempDir, toolkitReferences.dictionary(), resources);
-        loadToolkitResource(tempDir, toolkitReferences.tagSet(), resources);
-        loadToolkitResource(tempDir, toolkitReferences.normalizationProfile(), resources);
-        loadToolkitResource(tempDir, toolkitReferences.validationRuleset(), resources);
-
-        if (resources.isEmpty()) {
-            return new ToolkitPackageDto.ImportResult(workspaceId, 0, 0, List.of(), List.of(), Map.of());
-        }
-
-        ToolkitPackageDto.ToolkitPackage toolkitPackage = new ToolkitPackageDto.ToolkitPackage(
-                new ToolkitPackageDto.PackageMeta("1.0", LocalDateTime.now(), workspaceId, sourceWorkspaceName),
-                resources
-        );
-
-        return toolkitPackageService.importToolkitPackage(workspaceId, userId, toolkitPackage);
-    }
-
-    private void loadToolkitResource(Path tempDir,
-                                     ProjectPackageDto.ToolkitReference toolkitReference,
-                                     List<ToolkitPackageDto.ToolkitResource> target) throws IOException {
-        if (toolkitReference == null || toolkitReference.snapshotPath() == null) {
-            return;
-        }
-
-        Path resourcePath = tempDir.resolve(archiveIoService.normalizeArchivePath(toolkitReference.snapshotPath()));
-        if (!Files.exists(resourcePath)) {
-            return;
-        }
-
-        ToolkitPackageDto.ToolkitResource resource = objectMapper.readValue(resourcePath.toFile(), ToolkitPackageDto.ToolkitResource.class);
-        target.add(resource);
-    }
-
     private void applyToolkitReferences(Project project,
-                                        Map<String, String> sourceToTarget,
-                                        ProjectPackageDto.ToolkitReferences toolkitReferences) {
-        if (toolkitReferences == null) {
-            return;
-        }
-
-        String codecId = mapSourceToolkitId(toolkitReferences.codec(), sourceToTarget);
+                                        Map<ToolkitPackageDto.ToolkitType, String> targetIds) {
+        String codecId = targetIds.get(ToolkitPackageDto.ToolkitType.CODEC);
         if (codecId != null) {
             codecRepository.findById(codecId).ifPresent(project::setCodec);
         }
 
-        String labelSetId = mapSourceToolkitId(toolkitReferences.labelSet(), sourceToTarget);
+        String labelSetId = targetIds.get(ToolkitPackageDto.ToolkitType.LABEL_SET);
         if (labelSetId != null) {
             labelSetRepository.findById(labelSetId).ifPresent(project::setLabelSet);
         }
 
-        String dictionaryId = mapSourceToolkitId(toolkitReferences.dictionary(), sourceToTarget);
+        String dictionaryId = targetIds.get(ToolkitPackageDto.ToolkitType.DICTIONARY);
         if (dictionaryId != null) {
             dictionaryRepository.findById(dictionaryId).ifPresent(project::setDictionary);
         }
 
-        String tagSetId = mapSourceToolkitId(toolkitReferences.tagSet(), sourceToTarget);
+        String tagSetId = targetIds.get(ToolkitPackageDto.ToolkitType.TAG_SET);
         if (tagSetId != null) {
             tagSetRepository.findById(tagSetId).ifPresent(project::setTagSet);
         }
 
-        String normalizationProfileId = mapSourceToolkitId(toolkitReferences.normalizationProfile(), sourceToTarget);
+        String normalizationProfileId = targetIds.get(ToolkitPackageDto.ToolkitType.NORMALIZATION_PROFILE);
         if (normalizationProfileId != null) {
             normalizationProfileRepository.findById(normalizationProfileId).ifPresent(project::setNormalizationProfile);
         }
 
-        String validationRulesetId = mapSourceToolkitId(toolkitReferences.validationRuleset(), sourceToTarget);
+        String validationRulesetId = targetIds.get(ToolkitPackageDto.ToolkitType.VALIDATION_RULESET);
         if (validationRulesetId != null) {
             validationRulesetRepository.findById(validationRulesetId).ifPresent(project::setValidationRuleset);
         }
+        String virtualKeyboardId = targetIds.get(ToolkitPackageDto.ToolkitType.VIRTUAL_KEYBOARD);
+        if (virtualKeyboardId != null) {
+            virtualKeyboardRepository.findById(virtualKeyboardId).ifPresent(project::setVirtualKeyboard);
+        }
     }
 
-    private String mapSourceToolkitId(ProjectPackageDto.ToolkitReference reference,
-                                      Map<String, String> sourceToTarget) {
-        if (reference == null || reference.sourceId() == null) {
-            return null;
-        }
-        return sourceToTarget.get(reference.sourceId());
+    private void applyProjectSettings(Project project, ProjectPackageDto.ProjectSnapshot snapshot) {
+        project.setAllowCodecOverride(snapshot.allowCodecOverride());
+        project.setAllowDictionaryOverride(snapshot.allowDictionaryOverride());
+        project.setAllowVirtualKeyboardOverride(snapshot.allowVirtualKeyboardOverride());
+        project.setAllowLabelSetOverride(snapshot.allowLabelSetOverride());
+        project.setAllowTagSetOverride(snapshot.allowTagSetOverride());
+        project.setAllowNormalizationProfileOverride(snapshot.allowNormalizationProfileOverride());
+        project.setAllowValidationRulesetOverride(snapshot.allowValidationRulesetOverride());
+        project.setDefaultGtIndex(snapshot.defaultGtIndex());
+        project.setDefaultRecognitionIndicesList(snapshot.defaultRecognitionIndices());
     }
 
-    private Map<String, Page> importPages(Project project, List<ProjectPackageDto.PageSnapshot> pageSnapshots) {
-        Map<String, Page> pageBySourceId = new LinkedHashMap<>();
-        if (pageSnapshots == null) {
-            return pageBySourceId;
-        }
-
-        Set<String> usedNames = new HashSet<>();
-        for (int index = 0; index < pageSnapshots.size(); index++) {
-            ProjectPackageDto.PageSnapshot snapshot = pageSnapshots.get(index);
-            String pageName = uniquePageName(snapshot.name(), usedNames);
-            usedNames.add(pageName.toLowerCase());
-
+    private ImportCounts importPagesAndFiles(ProjectPackageArchiveService.ImportedPackage importedPackage,
+                                             Project project,
+                                             String userId,
+                                             List<String> createdStoragePaths) throws IOException {
+        int imageCount = 0;
+        int xmlCount = 0;
+        int versionCount = 0;
+        int index = 0;
+        for (ProjectPackageArchiveService.ImportedPage importedPage : importedPackage.pages()) {
+            ProjectPackageDto.PageDescriptor descriptor = importedPage.descriptor();
             Page page = new Page();
             page.setProject(project);
-            page.setName(pageName);
-            page.setDescription(snapshot.description());
-            page.setTags(snapshot.tags() == null ? List.of() : new ArrayList<>(snapshot.tags()));
-            page.setLocked(snapshot.locked());
-            page.setLockedReason(snapshot.lockedReason());
-            page.setWorkflowState(snapshot.workflowState() == null ? Page.WorkflowState.OPEN : snapshot.workflowState());
-            page.setSortOrder(snapshot.sortOrder() == null ? index * PageOrderService.SORT_ORDER_STEP : snapshot.sortOrder());
+            page.setName(descriptor.name().trim());
+            page.setDescription(descriptor.description());
+            page.setTags(descriptor.tags() == null ? List.of() : new ArrayList<>(descriptor.tags()));
+            page.setLocked(descriptor.locked());
+            page.setLockedReason(descriptor.lockedReason());
+            page.setWorkflowState(descriptor.workflowState() == null ? Page.WorkflowState.OPEN : descriptor.workflowState());
+            page.setSortOrder(index * PageOrderService.SORT_ORDER_STEP);
+            if (descriptor.externalSource() != null) {
+                page.setExternalSourceType(descriptor.externalSource().type());
+                page.setExternalSourceId(descriptor.externalSource().id());
+                page.setExternalSourceUrl(descriptor.externalSource().url());
+                page.setExternalSourceMetadataJson(descriptor.externalSource().metadata() == null
+                        ? null
+                        : objectMapper.writeValueAsString(descriptor.externalSource().metadata()));
+            }
             page = pageRepository.save(page);
-            pageBySourceId.put(snapshot.sourcePageId(), page);
-        }
-        return pageBySourceId;
-    }
 
-    private Map<String, PageXml> importProjectFiles(Path tempDir,
-                                                    Project project,
-                                                    List<ProjectPackageDto.FileEntry> fileEntries,
-                                                    Map<String, Page> pageBySourceId,
-                                                    String userId) throws IOException {
-        Map<String, PageXml> xmlBySourceId = new LinkedHashMap<>();
-
-        if (fileEntries == null) {
-            return xmlBySourceId;
-        }
-
-        List<ProjectPackageDto.FileEntry> sortedEntries = fileEntries.stream()
-                .sorted(Comparator.comparing(ProjectPackageDto.FileEntry::archivePath))
-                .toList();
-
-        for (ProjectPackageDto.FileEntry entry : sortedEntries) {
-            Page page = pageBySourceId.get(entry.sourcePageId());
-            if (page == null) {
-                continue;
-            }
-
-            Path sourcePath = tempDir.resolve(archiveIoService.normalizeArchivePath(entry.archivePath()));
-            if (!Files.exists(sourcePath)) {
-                continue;
-            }
-
-            if (entry.kind() == ProjectPackageDto.FileKind.IMAGE) {
+            for (ProjectPackageDto.FileDescriptor imageDescriptor : safeList(descriptor.images())) {
+                Path source = importedPage.resolve(importedPackage.root(), imageDescriptor.path());
                 var stored = hierarchicalFileStorageService.storeFromPath(
-                        sourcePath,
-                        entry.fileName(),
-                        entry.mimeType(),
+                        source,
+                        imageDescriptor.fileName(),
+                        detectMimeType(imageDescriptor.fileName(), "application/octet-stream"),
                         project.getLibrary().getWorkspaceId(),
                         project.getId(),
                         de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType.IMG,
                         userId,
                         false
                 );
-
-                PageImage image = new PageImage(
-                        entry.fileName(),
+                createdStoragePaths.add(stored.storagePath());
+                page.getImages().add(new PageImage(
+                        imageDescriptor.fileName(),
                         stored.storagePath(),
                         stored.mimeType(),
                         stored.sizeBytes(),
-                        entry.variant(),
-                        entry.baseName(),
+                        imageDescriptor.variant(),
+                        imageDescriptor.baseName(),
                         page
-                );
+                ));
+                imageCount++;
+            }
 
-                if (entry.thumbnailArchivePath() != null) {
-                    Path thumbnailSource = tempDir.resolve(archiveIoService.normalizeArchivePath(entry.thumbnailArchivePath()));
-                    if (Files.exists(thumbnailSource)) {
-                        var storedThumb = hierarchicalFileStorageService.storeFromPath(
-                                thumbnailSource,
-                                "thumb-" + entry.fileName(),
-                                entry.mimeType(),
-                                project.getLibrary().getWorkspaceId(),
-                                project.getId(),
-                                de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType.THUMB,
-                                userId,
-                                false
-                        );
-                        image.setThumbnailPath(storedThumb.storagePath());
-                    }
-                }
-
-                page.getImages().add(image);
-            } else if (entry.kind() == ProjectPackageDto.FileKind.XML) {
+            for (ProjectPackageDto.XmlFileDescriptor xmlDescriptor : safeList(descriptor.xml())) {
+                Path source = importedPage.resolve(importedPackage.root(), xmlDescriptor.path());
+                XmlSchema schema = detectXmlSchema(source);
                 var stored = hierarchicalFileStorageService.storeFromPath(
-                        sourcePath,
-                        entry.fileName(),
-                        entry.mimeType(),
+                        source,
+                        xmlDescriptor.fileName(),
+                        detectMimeType(xmlDescriptor.fileName(), "application/xml"),
                         project.getLibrary().getWorkspaceId(),
                         project.getId(),
                         de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType.XML,
                         userId,
                         false
                 );
-
-                PageXml xml = new PageXml(
-                        entry.fileName(),
+                createdStoragePaths.add(stored.storagePath());
+                PageXml xml = pageXmlRepository.save(new PageXml(
+                        xmlDescriptor.fileName(),
                         stored.storagePath(),
                         stored.mimeType(),
                         stored.sizeBytes(),
-                        entry.variant() == null ? "original" : entry.variant(),
-                        entry.baseName() == null ? entry.fileName() : entry.baseName(),
-                        entry.xmlSchema() == null ? XmlSchema.PAGE_XML : entry.xmlSchema(),
-                        entry.xmlSchemaVersion(),
+                        xmlDescriptor.variant(),
+                        xmlDescriptor.baseName(),
+                        schema,
+                        schema == XmlSchema.PAGE_XML ? pageXmlConversionService.detectPageVersion(source) : null,
                         page
-                );
-                xml = pageXmlRepository.save(xml);
-                if (xml.getSchema() == XmlSchema.PAGE_XML) {
-                    pageXmlCanonicalizationService.canonicalizeAtIngest(xml, userId, "project package import");
+                ));
+                if (schema == XmlSchema.PAGE_XML) {
+                    pageXmlCanonicalizationService.canonicalizeAtIngest(
+                            xml,
+                            userId,
+                            "project package import",
+                            false
+                    );
                 }
-                xmlBySourceId.put(entry.sourceId(), xml);
+                versionCount += importXmlHistory(
+                        importedPackage,
+                        importedPage,
+                        xml,
+                        xmlDescriptor,
+                        createdStoragePaths
+                );
+                xmlCount++;
             }
+            index++;
         }
-
-        return xmlBySourceId;
+        return new ImportCounts(index, imageCount, xmlCount, versionCount);
     }
 
-    private int importXmlVersions(Path tempDir,
-                                  List<ProjectPackageDto.XmlVersionEntry> versionEntries,
-                                  Map<String, PageXml> xmlBySourceId) throws IOException {
-        if (versionEntries == null || versionEntries.isEmpty()) {
-            return 0;
-        }
-
-        int importedCount = 0;
-        for (ProjectPackageDto.XmlVersionEntry versionEntry : versionEntries.stream()
-                .sorted(Comparator.comparing(ProjectPackageDto.XmlVersionEntry::sourceXmlId)
-                        .thenComparing(ProjectPackageDto.XmlVersionEntry::versionNumber))
+    private int importXmlHistory(ProjectPackageArchiveService.ImportedPackage importedPackage,
+                                 ProjectPackageArchiveService.ImportedPage importedPage,
+                                 PageXml targetXml,
+                                 ProjectPackageDto.XmlFileDescriptor descriptor,
+                                 List<String> createdStoragePaths) throws IOException {
+        int imported = 0;
+        for (ProjectPackageDto.XmlVersionDescriptor versionDescriptor : safeList(descriptor.history()).stream()
+                .sorted(Comparator.comparing(ProjectPackageDto.XmlVersionDescriptor::versionNumber))
                 .toList()) {
-
-            PageXml targetXml = xmlBySourceId.get(versionEntry.sourceXmlId());
-            if (targetXml == null) {
-                continue;
-            }
-
-            Path sourcePath = tempDir.resolve(archiveIoService.normalizeArchivePath(versionEntry.archivePath()));
-            if (!Files.exists(sourcePath)) {
-                continue;
-            }
-
-            String targetRelative = "xml/versions/" + targetXml.getId() + "/" + versionEntry.versionNumber() + ".xml";
+            Path source = importedPage.resolve(importedPackage.root(), versionDescriptor.path());
+            String targetRelative = "xml/versions/" + targetXml.getId() + "/"
+                    + versionDescriptor.versionNumber() + ".xml";
             Path targetAbsolute = Paths.get(uploadDir, targetRelative).normalize();
             Files.createDirectories(targetAbsolute.getParent());
-            Files.copy(sourcePath, targetAbsolute, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(source, targetAbsolute, StandardCopyOption.REPLACE_EXISTING);
+            createdStoragePaths.add(targetRelative);
 
             PageXmlVersion version = new PageXmlVersion();
             version.setPageXml(targetXml);
-            version.setVersionNumber(versionEntry.versionNumber());
+            version.setVersionNumber(versionDescriptor.versionNumber());
             version.setFilePath(targetRelative);
             version.setFileSize(Files.size(targetAbsolute));
-            version.setUserId(versionEntry.userId() == null || versionEntry.userId().isBlank() ? "import" : versionEntry.userId());
-            version.setComment(versionEntry.comment());
-            pageXmlVersionRepository.save(version);
-            importedCount++;
+            version.setUserId(versionDescriptor.userId() == null || versionDescriptor.userId().isBlank()
+                    ? "import"
+                    : versionDescriptor.userId());
+            version.setComment(versionDescriptor.comment());
+            version = pageXmlVersionRepository.saveAndFlush(version);
+            if (versionDescriptor.created() != null) {
+                pageXmlVersionRepository.updateCreatedTimestamp(version.getId(), versionDescriptor.created());
+                version.setCreated(versionDescriptor.created());
+            }
+            imported++;
+        }
+        return imported;
+    }
+
+    private void replaceExistingProject(String workspaceId,
+                                        Project existingProject,
+                                        Project importedProject,
+                                        String targetName) {
+        String existingProjectId = existingProject.getId();
+        List<String> oldStoragePaths = new ArrayList<>();
+        for (Page page : pageRepository.findByProjectId(existingProjectId)) {
+            for (PageImage image : safeList(
+                    page.getImages() == null ? null : new ArrayList<>(page.getImages())
+            )) {
+                oldStoragePaths.add(image.getFilePath());
+                oldStoragePaths.add(image.getThumbnailPath());
+            }
+            for (PageXml xml : safeList(
+                    page.getXmlFiles() == null ? null : new ArrayList<>(page.getXmlFiles())
+            )) {
+                oldStoragePaths.add(xml.getFilePath());
+                pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc(xml.getId()).stream()
+                        .map(PageXmlVersion::getFilePath)
+                        .forEach(oldStoragePaths::add);
+            }
         }
 
-        return importedCount;
+        projectRepository.delete(existingProject);
+        projectRepository.flush();
+        importedProject.setName(targetName);
+        projectRepository.saveAndFlush(importedProject);
+
+        Runnable cleanup = () -> {
+            hierarchicalFileStorageService.deleteReplacedProjectFiles(
+                    workspaceId,
+                    existingProjectId,
+                    oldStoragePaths
+            );
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    cleanup.run();
+                }
+            });
+        } else {
+            cleanup.run();
+        }
+    }
+
+    private String normalizedProjectName(String value) {
+        return value == null || value.isBlank() ? "Imported Project" : value.trim();
+    }
+
+    private int previewCacheWeight(long extractedBytes) {
+        long extractedWeight = divideRoundingUp(
+                Math.max(1L, extractedBytes),
+                PREVIEW_CACHE_WEIGHT_UNIT_BYTES
+        );
+        return Math.max(minimumPreviewCacheWeight, clampCacheWeight(extractedWeight));
+    }
+
+    private static long divideRoundingUp(long value, long divisor) {
+        return value / divisor + (value % divisor == 0 ? 0 : 1);
+    }
+
+    private static int clampCacheWeight(long weight) {
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(1L, weight));
+    }
+
+    private String validateRenamedProjectName(String value, String libraryId) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("A custom project name is required when importing a renamed copy");
+        }
+        String normalized = value.trim();
+        if (normalized.length() > 100) {
+            throw new IllegalArgumentException("The custom project name must not exceed 100 characters");
+        }
+        if (projectRepository.existsByNameAndLibraryId(normalized, libraryId)) {
+            throw new IllegalArgumentException(
+                    "Project name '" + normalized + "' already exists in this workspace"
+            );
+        }
+        return normalized;
+    }
+
+    private String suggestedRenamedProjectName(String sourceName, String libraryId) {
+        String normalized = normalizedProjectName(sourceName);
+        for (int index = 1; index < 10_000; index++) {
+            String suffix = index == 1 ? " (imported)" : " (imported " + index + ")";
+            int baseLength = Math.min(normalized.length(), 100 - suffix.length());
+            String candidate = normalized.substring(0, baseLength).trim() + suffix;
+            if (!projectRepository.existsByNameAndLibraryId(candidate, libraryId)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Unable to generate a unique project import name");
     }
 
     private String uniqueProjectName(String baseName, String libraryId) {
-        String normalizedBase = (baseName == null || baseName.isBlank()) ? "Imported Project" : baseName.trim();
+        String normalizedBase = normalizedProjectName(baseName);
         if (!projectRepository.existsByNameAndLibraryId(normalizedBase, libraryId)) {
             return normalizedBase;
         }
@@ -1170,6 +1475,7 @@ public class ProjectPackageService {
                 ProjectPackageDto.ProjectReleaseStatus.valueOf(release.getStatus().name()),
                 release.getPageCount() == null ? 0L : release.getPageCount(),
                 release.getTargetPageXmlVersion(),
+                release.isIncludeXmlHistory(),
                 readEmbeddedOutputs(release.getEmbeddedOutputsJson()),
                 release.getFailureReason(),
                 release.getPackageFileName(),
@@ -1274,258 +1580,70 @@ public class ProjectPackageService {
         return name.substring(dot);
     }
 
-    private byte[] buildMetsXml(Project project,
-                                List<Page> pages,
-                                ProjectPackageDto.PackageManifest manifest,
-                                List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs) throws IOException {
+    private String stripExtension(String fileName) {
+        String extension = fileExtension(fileName);
+        return extension.isEmpty() ? fileName : fileName.substring(0, fileName.length() - extension.length());
+    }
+
+    private tools.jackson.databind.JsonNode readJsonNode(String json) throws IOException {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        return objectMapper.readTree(json);
+    }
+
+    private XmlSchema detectXmlSchema(Path xmlPath) {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             factory.setNamespaceAware(true);
-            Document document = factory.newDocumentBuilder().newDocument();
-
-            String metsNs = "http://www.loc.gov/METS/";
-            String xlinkNs = "http://www.w3.org/1999/xlink";
-            Element mets = document.createElementNS(metsNs, "mets:mets");
-            mets.setAttribute("OBJID", project.getId());
-            mets.setAttribute("TYPE", "LAREX_PROJECT_PACKAGE");
-            mets.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:mets", metsNs);
-            mets.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:xlink", xlinkNs);
-            document.appendChild(mets);
-
-            Element metsHdr = document.createElementNS(metsNs, "mets:metsHdr");
-            metsHdr.setAttribute("CREATEDATE", LocalDateTime.now().toString());
-            mets.appendChild(metsHdr);
-
-            Element fileSec = document.createElementNS(metsNs, "mets:fileSec");
-            mets.appendChild(fileSec);
-
-            Element imageGroup = document.createElementNS(metsNs, "mets:fileGrp");
-            imageGroup.setAttribute("USE", "ORIGINAL_IMAGES");
-            fileSec.appendChild(imageGroup);
-
-            Element pageXmlGroup = document.createElementNS(metsNs, "mets:fileGrp");
-            pageXmlGroup.setAttribute("USE", "PAGE_XML");
-            fileSec.appendChild(pageXmlGroup);
-
-            Element derivativeGroup = document.createElementNS(metsNs, "mets:fileGrp");
-            derivativeGroup.setAttribute("USE", "DERIVATIVES");
-            fileSec.appendChild(derivativeGroup);
-
-            Map<String, String> imageFileIdByPageId = new HashMap<>();
-            Map<String, String> xmlFileIdByPageId = new HashMap<>();
-
-            for (ProjectPackageDto.FileEntry file : manifest.files()) {
-                if (file.kind() == ProjectPackageDto.FileKind.IMAGE) {
-                    String fileId = "IMG_" + sanitizeMetsId(file.sourceId());
-                    imageFileIdByPageId.put(file.sourcePageId(), fileId);
-                    imageGroup.appendChild(createMetsFile(document, metsNs, xlinkNs, fileId, file.mimeType(), file.archivePath()));
-                } else if (file.kind() == ProjectPackageDto.FileKind.XML) {
-                    String fileId = "XML_" + sanitizeMetsId(file.sourceId());
-                    xmlFileIdByPageId.put(file.sourcePageId(), fileId);
-                    pageXmlGroup.appendChild(createMetsFile(document, metsNs, xlinkNs, fileId, file.mimeType(), file.archivePath()));
-                }
-            }
-
-            List<String> derivativeFileIds = new ArrayList<>();
-            for (DocumentExportService.EmbeddedProjectOutput output : embeddedOutputs) {
-                String fileId = "DERIV_" + sanitizeMetsId(output.archivePath());
-                derivativeFileIds.add(fileId);
-                String mimeType = guessDerivativeMimeType(output.archivePath());
-                derivativeGroup.appendChild(createMetsFile(document, metsNs, xlinkNs, fileId, mimeType, output.archivePath()));
-            }
-
-            Element structMap = document.createElementNS(metsNs, "mets:structMap");
-            structMap.setAttribute("TYPE", "physical");
-            mets.appendChild(structMap);
-
-            Element rootDiv = document.createElementNS(metsNs, "mets:div");
-            rootDiv.setAttribute("TYPE", "project");
-            rootDiv.setAttribute("LABEL", project.getName());
-            structMap.appendChild(rootDiv);
-
-            for (Page page : pages) {
-                Element pageDiv = document.createElementNS(metsNs, "mets:div");
-                pageDiv.setAttribute("TYPE", "page");
-                pageDiv.setAttribute("DMDID", sanitizeMetsId(page.getId()));
-                pageDiv.setAttribute("LABEL", page.getName());
-                rootDiv.appendChild(pageDiv);
-
-                String imageFileId = imageFileIdByPageId.get(page.getId());
-                if (imageFileId != null) {
-                    pageDiv.appendChild(createFptr(document, metsNs, imageFileId));
-                }
-                String xmlFileId = xmlFileIdByPageId.get(page.getId());
-                if (xmlFileId != null) {
-                    pageDiv.appendChild(createFptr(document, metsNs, xmlFileId));
-                }
-            }
-
-            if (!derivativeFileIds.isEmpty()) {
-                Element derivativesDiv = document.createElementNS(metsNs, "mets:div");
-                derivativesDiv.setAttribute("TYPE", "derivatives");
-                derivativesDiv.setAttribute("LABEL", "Embedded exports");
-                rootDiv.appendChild(derivativesDiv);
-                for (String derivativeFileId : derivativeFileIds) {
-                    derivativesDiv.appendChild(createFptr(document, metsNs, derivativeFileId));
-                }
-            }
-
-            TransformerFactory transformerFactory = TransformerFactory.newInstance();
-            transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            var transformer = transformerFactory.newTransformer();
-            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-            transformer.setOutputProperty(OutputKeys.ENCODING, StandardCharsets.UTF_8.name());
-            transformer.transform(new DOMSource(document), new StreamResult(outputStream));
-            return outputStream.toByteArray();
+            Document document = factory.newDocumentBuilder().parse(xmlPath.toFile());
+            Element root = document.getDocumentElement();
+            XmlSchema fromNamespace = XmlSchema.detectFromNamespace(root.getNamespaceURI());
+            return fromNamespace == XmlSchema.UNKNOWN
+                    ? XmlSchema.detectFromRootElement(root.getLocalName() == null ? root.getNodeName() : root.getLocalName())
+                    : fromNamespace;
         } catch (Exception e) {
-            throw new IOException("Failed to generate mets.xml", e);
+            throw new IllegalArgumentException("Could not detect XML schema for " + xmlPath.getFileName(), e);
         }
     }
 
-    private Element createMetsFile(Document document,
-                                   String metsNs,
-                                   String xlinkNs,
-                                   String id,
-                                   String mimeType,
-                                   String href) {
-        Element file = document.createElementNS(metsNs, "mets:file");
-        file.setAttribute("ID", id);
-        if (mimeType != null && !mimeType.isBlank()) {
-            file.setAttribute("MIMETYPE", mimeType);
-        }
-
-        Element flocat = document.createElementNS(metsNs, "mets:FLocat");
-        flocat.setAttribute("LOCTYPE", "URL");
-        flocat.setAttributeNS(xlinkNs, "xlink:href", href);
-        file.appendChild(flocat);
-        return file;
+    private String detectMimeType(String fileName, String fallback) {
+        String lower = fileName == null ? "" : fileName.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".gif")) return "image/gif";
+        if (lower.endsWith(".bmp")) return "image/bmp";
+        if (lower.endsWith(".tif") || lower.endsWith(".tiff")) return "image/tiff";
+        if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".xml")) return "application/xml";
+        return fallback;
     }
 
-    private Element createFptr(Document document, String metsNs, String fileId) {
-        Element fptr = document.createElementNS(metsNs, "mets:fptr");
-        fptr.setAttribute("FILEID", fileId);
-        return fptr;
-    }
-
-    private String sanitizeMetsId(String value) {
-        if (value == null || value.isBlank()) {
-            return "ID";
-        }
-        return value.replaceAll("[^A-Za-z0-9_.-]+", "_");
-    }
-
-    private String guessDerivativeMimeType(String archivePath) {
-        String normalized = archivePath == null ? "" : archivePath.toLowerCase();
-        if (normalized.endsWith(".zip")) {
-            return "application/zip";
-        }
-        if (normalized.endsWith(".pdf")) {
-            return "application/pdf";
-        }
-        if (normalized.endsWith(".docx")) {
-            return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        }
-        if (normalized.endsWith(".tei.xml")) {
-            return "application/tei+xml";
-        }
-        if (normalized.endsWith(".alto.xml") || normalized.endsWith(".xml")) {
-            return "application/xml";
-        }
-        if (normalized.endsWith(".csv")) {
-            return "text/csv";
-        }
-        if (normalized.endsWith(".xlsx")) {
-            return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        }
-        if (normalized.endsWith(".txt")) {
-            return "text/plain";
-        }
-        return "application/octet-stream";
+    private <T> List<T> safeList(List<T> values) {
+        return values == null ? List.of() : values;
     }
 
     private long estimatePackageBytes(PackageSnapshot packageSnapshot) {
-        long sourceBytes = packageSnapshot.exportBundle().manifest().files().stream().mapToLong(file -> {
-            try {
-                Path sourcePath = resolveUploadPath(file.archivePath(), file.kind(), file.sourceId(), packageSnapshot.exportBundle());
-                return Files.size(sourcePath);
-            } catch (IOException e) {
-                throw new IllegalStateException("Failed to estimate package file size", e);
-            }
-        }).sum();
-
-        long versionBytes = packageSnapshot.exportBundle().manifest().xmlVersions().stream().mapToLong(entry -> {
-            Path sourcePath = packageSnapshot.exportBundle().versionPathByArchivePath().get(entry.archivePath());
-            if (sourcePath == null) {
-                return 0L;
-            }
-            try {
-                return Files.exists(sourcePath) ? Files.size(sourcePath) : 0L;
-            } catch (IOException e) {
-                throw new IllegalStateException("Failed to estimate package version size", e);
-            }
-        }).sum();
-
-        long embeddedBytes = packageSnapshot.embeddedOutputs().stream()
-                .mapToLong(DocumentExportService.EmbeddedProjectOutput::contentLength)
+        long binaryBytes = packageSnapshot.exportPackage().binaryEntries().stream()
+                .mapToLong(ProjectPackageArchiveService.BinaryEntry::contentLength)
                 .sum();
-
-        return sourceBytes + versionBytes + embeddedBytes + packageSnapshot.metsBytes().length + 1_048_576L;
+        return binaryBytes + 1_048_576L;
     }
 
     private void writePackageZip(Path outputPath, PackageSnapshot packageSnapshot) throws IOException {
-        archiveIoService.writeZip(outputPath, zipOut -> writePackageEntries(zipOut, packageSnapshot, ""));
+        projectPackageArchiveService.writeZip(outputPath, packageSnapshot.exportPackage());
     }
 
     private void writePackageZip(OutputStream outputStream, PackageSnapshot packageSnapshot) throws IOException {
-        archiveIoService.writeZip(outputStream, zipOut -> writePackageEntries(zipOut, packageSnapshot, ""));
+        projectPackageArchiveService.writeZip(outputStream, packageSnapshot.exportPackage());
     }
 
     private void writePackageEntries(java.util.zip.ZipOutputStream zipOut,
                                      PackageSnapshot packageSnapshot,
                                      String entryPrefix) throws IOException {
-        archiveIoService.writeJsonEntry(zipOut, prefixedArchivePath(entryPrefix, "manifest.json"), packageSnapshot.manifest());
-        archiveIoService.writeBytesEntry(zipOut, prefixedArchivePath(entryPrefix, "mets.xml"), packageSnapshot.metsBytes());
-
-        for (ProjectPackageDto.FileEntry fileEntry : packageSnapshot.manifest().files()) {
-            Path source = resolveUploadPath(fileEntry.archivePath(), fileEntry.kind(), fileEntry.sourceId(), packageSnapshot.exportBundle());
-            if (fileEntry.kind() == ProjectPackageDto.FileKind.XML && fileEntry.xmlSchema() == XmlSchema.PAGE_XML) {
-                archiveIoService.writeStreamEntry(
-                        zipOut,
-                        prefixedArchivePath(entryPrefix, fileEntry.archivePath()),
-                        entryOut -> pageXmlConversionService.writeFileToVersion(source, packageSnapshot.targetPageXmlVersion(), entryOut)
-                );
-            } else {
-                archiveIoService.writeFileEntry(zipOut, prefixedArchivePath(entryPrefix, fileEntry.archivePath()), source);
-            }
-
-            if (fileEntry.thumbnailArchivePath() != null) {
-                Path thumbnailPath = resolveThumbnailUploadPath(fileEntry.sourceId(), packageSnapshot.exportBundle());
-                if (thumbnailPath != null && Files.exists(thumbnailPath)) {
-                    archiveIoService.writeFileEntry(
-                            zipOut,
-                            prefixedArchivePath(entryPrefix, fileEntry.thumbnailArchivePath()),
-                            thumbnailPath
-                    );
-                }
-            }
-        }
-
-        for (ProjectPackageDto.XmlVersionEntry versionEntry : packageSnapshot.manifest().xmlVersions()) {
-            Path sourcePath = packageSnapshot.exportBundle().versionPathByArchivePath().get(versionEntry.archivePath());
-            if (sourcePath != null && Files.exists(sourcePath)) {
-                archiveIoService.writeFileEntry(zipOut, prefixedArchivePath(entryPrefix, versionEntry.archivePath()), sourcePath);
-            }
-        }
-
-        for (Map.Entry<String, ToolkitPackageDto.ToolkitResource> entry : packageSnapshot.exportBundle().toolkitResourceByPath().entrySet()) {
-            archiveIoService.writeJsonEntry(zipOut, prefixedArchivePath(entryPrefix, entry.getKey()), entry.getValue());
-        }
-
-        for (DocumentExportService.EmbeddedProjectOutput output : packageSnapshot.embeddedOutputs()) {
-            archiveIoService.writeFileEntry(zipOut, prefixedArchivePath(entryPrefix, output.archivePath()), output.absolutePath());
-        }
+        projectPackageArchiveService.writeEntries(zipOut, packageSnapshot.exportPackage(), entryPrefix);
     }
 
     private void writeBasicProjectExportEntries(java.util.zip.ZipOutputStream zipOut,
@@ -1643,7 +1761,7 @@ public class ProjectPackageService {
             return "release";
         }
         String sanitized = normalized
-                .replaceAll("[^A-Za-z0-9._-]+", "-")
+                .replaceAll("[^\\p{L}\\p{N}._-]+", "-")
                 .replaceAll("-{2,}", "-")
                 .replaceAll("(^[-.]+|[-.]+$)", "");
         return sanitized.isBlank() ? "release" : sanitized;
@@ -1702,6 +1820,17 @@ public class ProjectPackageService {
 
         usedPaths.put(lowerCasePath, duplicateIndex);
         usedPaths.put(candidateKey, 1);
+        return candidate;
+    }
+
+    private String uniqueDirectoryName(String requestedName, Set<String> usedNames) {
+        String normalized = archiveIoService.normalizeArchivePath(requestedName);
+        String candidate = normalized;
+        int suffix = 2;
+        while (!usedNames.add(candidate.toLowerCase(Locale.ROOT))) {
+            candidate = normalized + "-" + suffix;
+            suffix++;
+        }
         return candidate;
     }
 
@@ -1831,41 +1960,77 @@ public class ProjectPackageService {
         }
     }
 
-    private void deleteDirectoryQuietly(Path directory) {
-        if (directory == null || !Files.exists(directory)) {
-            return;
-        }
-
-        try (var paths = Files.walk(directory)) {
-            paths.sorted(Comparator.reverseOrder())
-                    .forEach(path -> {
-                        try {
-                            Files.deleteIfExists(path);
-                        } catch (IOException ignored) {
-                        }
-                    });
-        } catch (IOException ignored) {
-        }
-    }
-
-    private record ExportBundle(
-            ProjectPackageDto.PackageManifest manifest,
-            Map<String, Path> filePathByArchivePath,
-            Map<String, Path> versionPathByArchivePath,
-            Map<String, ToolkitPackageDto.ToolkitResource> toolkitResourceByPath,
-            Map<String, PageImage> imageBySourceId
-    ) {
-    }
-
     private record PackageSnapshot(
-            ExportBundle exportBundle,
-            List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs,
-            byte[] metsBytes,
-            String targetPageXmlVersion
+            ProjectPackageArchiveService.ExportPackage exportPackage,
+            List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs
     ) {
-        private ProjectPackageDto.PackageManifest manifest() {
-            return exportBundle.manifest();
+    }
+
+    private record ImportCounts(int pages, int images, int xml, int xmlVersions) {
+    }
+
+    private record ToolkitImport(
+            Map<ToolkitPackageDto.ToolkitType, String> targetIds,
+            List<String> warnings
+    ) {
+    }
+
+    private static final class PackagePreviewSession {
+        private final String workspaceId;
+        private final String userId;
+        private final ProjectPackageArchiveService.ImportedPackage importedPackage;
+        private final int cacheWeight;
+        private final AtomicReference<PreviewSessionState> state =
+                new AtomicReference<>(PreviewSessionState.AVAILABLE);
+
+        private PackagePreviewSession(String workspaceId,
+                                      String userId,
+                                      ProjectPackageArchiveService.ImportedPackage importedPackage,
+                                      int cacheWeight) {
+            this.workspaceId = workspaceId;
+            this.userId = userId;
+            this.importedPackage = importedPackage;
+            this.cacheWeight = cacheWeight;
         }
+
+        private String workspaceId() {
+            return workspaceId;
+        }
+
+        private String userId() {
+            return userId;
+        }
+
+        private ProjectPackageArchiveService.ImportedPackage importedPackage() {
+            return importedPackage;
+        }
+
+        private int cacheWeight() {
+            return cacheWeight;
+        }
+
+        private boolean claim() {
+            return state.compareAndSet(PreviewSessionState.AVAILABLE, PreviewSessionState.CLAIMED);
+        }
+
+        private void onRemoval() {
+            if (state.compareAndSet(PreviewSessionState.AVAILABLE, PreviewSessionState.CLOSED)) {
+                importedPackage.close();
+            }
+        }
+
+        private void finish() {
+            PreviewSessionState previous = state.getAndSet(PreviewSessionState.CLOSED);
+            if (previous != PreviewSessionState.CLOSED) {
+                importedPackage.close();
+            }
+        }
+    }
+
+    private enum PreviewSessionState {
+        AVAILABLE,
+        CLAIMED,
+        CLOSED
     }
 
     public record ReleaseFileDownload(String fileName, Path absolutePath, long contentLength, String checksumSha256) {

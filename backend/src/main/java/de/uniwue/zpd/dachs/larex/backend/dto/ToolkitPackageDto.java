@@ -20,6 +20,14 @@ public class ToolkitPackageDto {
         VIRTUAL_KEYBOARD
     }
 
+    public enum ImportAction {
+        AUTO,
+        REUSE,
+        REPLACE,
+        RENAME,
+        SKIP
+    }
+
     public record ResourceSelector(
             ToolkitType type,
             List<String> ids
@@ -73,6 +81,16 @@ public class ToolkitPackageDto {
             String targetName,
             String action,
             String reason
+    ) {
+    }
+
+    public record ResourcePreview(
+            ToolkitType type,
+            String name,
+            String existingId,
+            String existingName,
+            boolean identical,
+            boolean replaceAllowed
     ) {
     }
 

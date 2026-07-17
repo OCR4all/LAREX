@@ -30,10 +30,32 @@ public class ProjectBatchExportDto {
             DocumentExportDto.PdfProfile pdfProfile,
             DocumentExportDto.TeiProfile teiProfile,
             List<DocumentExportDto.SpreadsheetProfile> spreadsheetProfiles,
-            DocumentExportDto.DocxOptions docxOptions
+            DocumentExportDto.DocxOptions docxOptions,
+            Boolean includeXmlHistory
     ) {
+        public ExportRequest(List<String> projectIds,
+                             ExportMode mode,
+                             String targetPageXmlVersion,
+                             List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs,
+                             DocumentExportDto.ExportFormat format,
+                             Boolean includePageDelimiters,
+                             DocumentExportDto.TextLevel textLevel,
+                             Integer textVariantIndex,
+                             DocumentExportDto.PdfProfile pdfProfile,
+                             DocumentExportDto.TeiProfile teiProfile,
+                             List<DocumentExportDto.SpreadsheetProfile> spreadsheetProfiles,
+                             DocumentExportDto.DocxOptions docxOptions) {
+            this(projectIds, mode, targetPageXmlVersion, embeddedOutputs, format, includePageDelimiters,
+                    textLevel, textVariantIndex, pdfProfile, teiProfile, spreadsheetProfiles, docxOptions, false);
+        }
+
         public ProjectPackageDto.ExportRequest toPackageExportRequest() {
-            return new ProjectPackageDto.ExportRequest(null, targetPageXmlVersion, embeddedOutputs);
+            return new ProjectPackageDto.ExportRequest(
+                    null,
+                    targetPageXmlVersion,
+                    embeddedOutputs,
+                    Boolean.TRUE.equals(includeXmlHistory)
+            );
         }
 
         public DocumentExportDto.ProjectExportRequest toDocumentExportRequest() {

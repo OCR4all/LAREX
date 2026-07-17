@@ -26,7 +26,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -135,7 +137,7 @@ class ProjectBatchExportServiceTest {
             java.util.zip.ZipOutputStream zip = invocation.getArgument(4);
             String entryPrefix = invocation.getArgument(5);
             archiveIoService.writeBytesEntry(zip, entryPrefix + "/manifest.json", "{}".getBytes(StandardCharsets.UTF_8));
-            archiveIoService.writeBytesEntry(zip, entryPrefix + "/mets.xml", "<mets/>".getBytes(StandardCharsets.UTF_8));
+            archiveIoService.writeBytesEntry(zip, entryPrefix + "/pages/page/page.json", "{}".getBytes(StandardCharsets.UTF_8));
             return null;
         }).when(projectPackageService).writeProjectPackageEntries(
                 eq("workspace-1"), eq("project-1"), eq("user-1"), any(), any(), any());
@@ -150,9 +152,36 @@ class ProjectBatchExportServiceTest {
         service.writeBatchExport(prepared, output);
 
         Map<String, String> entries = unzipTextEntries(output.toByteArray());
-        assertEquals(List.of("Project/", "Project/manifest.json", "Project/mets.xml"), entries.keySet().stream().toList());
+        assertEquals(
+                List.of("Project/", "Project/manifest.json", "Project/pages/page/page.json"),
+                entries.keySet().stream().toList()
+        );
         assertEquals("{}", entries.get("Project/manifest.json"));
-        assertEquals("<mets/>", entries.get("Project/mets.xml"));
+        assertEquals("{}", entries.get("Project/pages/page/page.json"));
+    }
+
+    @Test
+    void packageHistoryDefaultsOffAndCanBeEnabled() {
+        ProjectBatchExportDto.ExportRequest workingRequest =
+                request(List.of("project-1"), ProjectBatchExportDto.ExportMode.PACKAGE, null);
+        assertFalse(workingRequest.toPackageExportRequest().includeXmlHistoryResolved());
+
+        ProjectBatchExportDto.ExportRequest archivalRequest = new ProjectBatchExportDto.ExportRequest(
+                workingRequest.projectIds(),
+                workingRequest.mode(),
+                workingRequest.targetPageXmlVersion(),
+                workingRequest.embeddedOutputs(),
+                workingRequest.format(),
+                workingRequest.includePageDelimiters(),
+                workingRequest.textLevel(),
+                workingRequest.textVariantIndex(),
+                workingRequest.pdfProfile(),
+                workingRequest.teiProfile(),
+                workingRequest.spreadsheetProfiles(),
+                workingRequest.docxOptions(),
+                true
+        );
+        assertTrue(archivalRequest.toPackageExportRequest().includeXmlHistoryResolved());
     }
 
     @Test

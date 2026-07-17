@@ -34,6 +34,7 @@ type ExportDialogResult = {
   teiProfile: TeiProfile
   spreadsheetProfiles: SpreadsheetProfile[]
   docxOptions: DocxOptions
+  includeXmlHistory: boolean
   embeddedOutputs: EmbeddedOutputRequest[]
 }
 
@@ -108,6 +109,7 @@ const props = withDefaults(defineProps<{
   initialEmbeddedTxtPageDelimiters?: boolean
   initialEmbeddedTxtTextLevel?: TextLevel
   initialEmbeddedTxtTextVariantIndex?: number
+  initialIncludeXmlHistory?: boolean
   confirmLabel?: string
 }>(), {
   title: 'Export',
@@ -131,6 +133,7 @@ const props = withDefaults(defineProps<{
   initialEmbeddedTxtPageDelimiters: false,
   initialEmbeddedTxtTextLevel: 'PAGE',
   initialEmbeddedTxtTextVariantIndex: 0,
+  initialIncludeXmlHistory: false,
   confirmLabel: 'Continue'
 })
 
@@ -147,6 +150,7 @@ const selectedFormat = ref<ExportFormat | undefined>(
     : (props.initialFormat ?? formatOptions.value[0]?.value)
 )
 const targetVersion = ref(props.initialTargetVersion)
+const includeXmlHistory = ref(Boolean(props.initialIncludeXmlHistory))
 const includePageDelimiters = ref(Boolean(props.initialIncludePageDelimiters))
 const textLevel = ref<TextLevel>(props.initialTextLevel)
 const textVariantIndex = ref<number>(props.initialTextVariantIndex)
@@ -269,6 +273,7 @@ function closeWithResult() {
     teiProfile: teiProfile.value,
     spreadsheetProfiles,
     docxOptions: { ...docxOptions },
+    includeXmlHistory: props.mode === 'package' && includeXmlHistory.value,
     embeddedOutputs
   })
 }
@@ -325,6 +330,14 @@ function closeWithResult() {
           icon="i-lucide-triangle-alert"
           title="Legacy export can lose data"
           description="Older PAGE XML schemas do not support all 2019 features."
+        />
+
+        <UCheckbox
+          v-if="props.mode === 'package'"
+          :model-value="includeXmlHistory"
+          label="Include PAGE XML version history (archival)"
+          description="Turn this off for a smaller working package. Re-upload then starts with an empty version history."
+          @update:model-value="includeXmlHistory = ($event === true)"
         />
 
         <div
@@ -454,7 +467,7 @@ function closeWithResult() {
             </p>
             <p class="text-xs text-muted mt-1">
               {{ props.mode === 'package'
-                ? 'METS and the structured import manifest are included automatically. Optional outputs are added to the package.'
+                ? 'Readable page folders and strict JSON descriptors are included automatically. Optional outputs are added to exports/.'
                 : 'Images and XML files are included automatically. Optional outputs are added to the same flat zip.' }}
             </p>
           </div>

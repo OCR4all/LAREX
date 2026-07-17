@@ -13,6 +13,7 @@ import type {
 
 type ExportDialogResult = {
   targetPageXmlVersion: string
+  includeXmlHistory: boolean
   embeddedOutputs: ProjectPackageEmbeddedOutputRequest[]
 }
 
@@ -48,6 +49,7 @@ const formId = useId()
 const creating = ref(false)
 const options = ref<ExportDialogResult>({
   targetPageXmlVersion: PAGE_XML_PRIMARY_VERSION,
+  includeXmlHistory: true,
   embeddedOutputs: []
 })
 
@@ -62,6 +64,7 @@ async function openPackageOptions() {
     title: 'Release Package Options',
     description: 'Releases always freeze the full project. Choose the PAGE XML target and optional embedded outputs.',
     initialTargetVersion: options.value.targetPageXmlVersion,
+    initialIncludeXmlHistory: options.value.includeXmlHistory,
     initialEmbeddedFormats: options.value.embeddedOutputs.map(output => output.format),
     initialEmbeddedTxtPageDelimiters: textOutput()?.includePageDelimiters ?? false,
     initialEmbeddedTxtTextLevel: textOutput()?.textLevel ?? 'PAGE',
@@ -80,12 +83,14 @@ async function openPackageOptions() {
 
   const result = await selector.result as {
     targetPageXmlVersion: string
+    includeXmlHistory: boolean
     embeddedOutputs: ProjectPackageEmbeddedOutputRequest[]
   } | null
 
   if (!result) return
   options.value = {
     targetPageXmlVersion: result.targetPageXmlVersion || PAGE_XML_PRIMARY_VERSION,
+    includeXmlHistory: result.includeXmlHistory,
     embeddedOutputs: normalizeEmbeddedOutputs(result.embeddedOutputs)
   }
 }
@@ -167,6 +172,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     versionTag: event.data.versionTag?.trim() || null,
     notes: event.data.notes?.trim() || null,
     targetPageXmlVersion: options.value.targetPageXmlVersion,
+    includeXmlHistory: options.value.includeXmlHistory,
     embeddedOutputs: options.value.embeddedOutputs
   }
 
@@ -269,13 +275,21 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             </UButton>
           </div>
 
-          <div class="grid gap-3 sm:grid-cols-2">
+          <div class="grid gap-3 sm:grid-cols-3">
             <div class="rounded-lg border border-default p-3">
               <div class="text-xs uppercase tracking-wide text-muted">
                 Target PAGE XML
               </div>
               <div class="mt-1 text-sm text-highlighted">
                 {{ options.targetPageXmlVersion }}
+              </div>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <div class="text-xs uppercase tracking-wide text-muted">
+                XML history
+              </div>
+              <div class="mt-1 text-sm text-highlighted">
+                {{ options.includeXmlHistory ? 'Included' : 'Not included' }}
               </div>
             </div>
             <div class="rounded-lg border border-default p-3">

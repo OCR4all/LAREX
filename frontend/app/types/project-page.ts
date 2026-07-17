@@ -127,6 +127,7 @@ export type ExportDialogResult = {
   teiProfile: TeiProfile
   spreadsheetProfiles: SpreadsheetProfile[]
   docxOptions: DocxOptions
+  includeXmlHistory: boolean
   embeddedOutputs: Array<{
     format: Exclude<ExportFormat, 'PAGE_XML'>
     includePageDelimiters?: boolean

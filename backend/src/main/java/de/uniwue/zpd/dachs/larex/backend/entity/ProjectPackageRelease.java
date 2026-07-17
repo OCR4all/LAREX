@@ -68,6 +68,9 @@ public class ProjectPackageRelease {
     @Column(name = "target_page_xml_version", length = 32)
     private String targetPageXmlVersion;
 
+    @Column(nullable = false, name = "include_xml_history")
+    private boolean includeXmlHistory = true;
+
     @Column(name = "embedded_outputs_json", columnDefinition = "TEXT")
     private String embeddedOutputsJson;
 
@@ -202,6 +205,14 @@ public class ProjectPackageRelease {
 
     public void setTargetPageXmlVersion(String targetPageXmlVersion) {
         this.targetPageXmlVersion = targetPageXmlVersion;
+    }
+
+    public boolean isIncludeXmlHistory() {
+        return includeXmlHistory;
+    }
+
+    public void setIncludeXmlHistory(boolean includeXmlHistory) {
+        this.includeXmlHistory = includeXmlHistory;
     }
 
     public String getEmbeddedOutputsJson() {

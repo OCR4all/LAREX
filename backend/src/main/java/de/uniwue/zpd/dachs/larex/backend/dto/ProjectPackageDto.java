@@ -1,28 +1,40 @@
 package de.uniwue.zpd.dachs.larex.backend.dto;
 
-import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
+import tools.jackson.databind.JsonNode;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
 public class ProjectPackageDto {
 
-    public static final String DEFAULT_SCHEMA_VERSION = "1.1";
+    public static final String DEFAULT_SCHEMA_VERSION = "1.0";
 
     public record ExportRequest(
             List<String> pageIds,
             String targetPageXmlVersion,
-            List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs
+            List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs,
+            Boolean includeXmlHistory
     ) {
         public ExportRequest(List<String> pageIds) {
-            this(pageIds, null, null);
+            this(pageIds, null, null, false);
         }
 
         public ExportRequest(List<String> pageIds, String targetPageXmlVersion) {
-            this(pageIds, targetPageXmlVersion, null);
+            this(pageIds, targetPageXmlVersion, null, false);
+        }
+
+        public ExportRequest(List<String> pageIds,
+                             String targetPageXmlVersion,
+                             List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs) {
+            this(pageIds, targetPageXmlVersion, embeddedOutputs, false);
+        }
+
+        public boolean includeXmlHistoryResolved() {
+            return Boolean.TRUE.equals(includeXmlHistory);
         }
     }
 
@@ -30,8 +42,19 @@ public class ProjectPackageDto {
             String versionTag,
             String notes,
             String targetPageXmlVersion,
-            List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs
+            List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs,
+            Boolean includeXmlHistory
     ) {
+        public CreateReleaseRequest(String versionTag,
+                                    String notes,
+                                    String targetPageXmlVersion,
+                                    List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs) {
+            this(versionTag, notes, targetPageXmlVersion, embeddedOutputs, true);
+        }
+
+        public boolean includeXmlHistoryResolved() {
+            return includeXmlHistory == null || includeXmlHistory;
+        }
     }
 
     public record UpsertReleaseShareRequest(
@@ -52,97 +75,136 @@ public class ProjectPackageDto {
     ) {
     }
 
+    public enum ProjectImportAction {
+        AUTO,
+        REPLACE,
+        RENAME,
+        SKIP
+    }
+
+    public record ImportOptions(
+            String previewToken,
+            ProjectImportAction projectAction,
+            String renamedProjectName,
+            Boolean importResources,
+            Map<ToolkitPackageDto.ToolkitType, ToolkitPackageDto.ImportAction> resourceActions
+    ) {
+        public ProjectImportAction projectActionResolved() {
+            return projectAction == null ? ProjectImportAction.AUTO : projectAction;
+        }
+
+        public boolean importResourcesResolved() {
+            return importResources == null || importResources;
+        }
+
+        public ToolkitPackageDto.ImportAction resourceAction(ToolkitPackageDto.ToolkitType type) {
+            if (!importResourcesResolved()) {
+                return ToolkitPackageDto.ImportAction.SKIP;
+            }
+            if (resourceActions == null) {
+                return ToolkitPackageDto.ImportAction.AUTO;
+            }
+            return resourceActions.getOrDefault(type, ToolkitPackageDto.ImportAction.AUTO);
+        }
+    }
+
+    public record ImportPreview(
+            String previewToken,
+            String projectName,
+            String projectDescription,
+            String existingProjectId,
+            String suggestedProjectName,
+            List<String> pageNames,
+            int imageCount,
+            int xmlCount,
+            int xmlVersionCount,
+            boolean includesXmlHistory,
+            List<ToolkitPackageDto.ResourcePreview> resources,
+            List<String> warnings
+    ) {
+    }
+
     public record PackageManifest(
             String schemaVersion,
             LocalDateTime exportedAt,
-            String sourceWorkspaceId,
-            String sourceWorkspaceName,
+            String targetPageXmlVersion,
+            boolean includesXmlHistory,
             ProjectSnapshot project,
-            List<PageSnapshot> pages,
-            ToolkitReferences toolkitReferences,
-            List<FileEntry> files,
-            List<XmlVersionEntry> xmlVersions,
+            List<String> pages,
+            Map<ToolkitPackageDto.ToolkitType, String> resources,
             List<String> warnings
     ) {
     }
 
     public record ProjectSnapshot(
-            String sourceProjectId,
             String name,
             String description,
             List<String> tags,
-            LocalDateTime sourceCreated,
-            LocalDateTime sourceUpdated,
             boolean locked,
-            String lockedReason
+            String lockedReason,
+            boolean allowCodecOverride,
+            boolean allowDictionaryOverride,
+            boolean allowVirtualKeyboardOverride,
+            boolean allowLabelSetOverride,
+            boolean allowTagSetOverride,
+            boolean allowNormalizationProfileOverride,
+            boolean allowValidationRulesetOverride,
+            Integer defaultGtIndex,
+            List<Integer> defaultRecognitionIndices
     ) {
     }
 
-    public record PageSnapshot(
-            String sourcePageId,
+    public record PageDescriptor(
             String name,
             String description,
             List<String> tags,
-            LocalDateTime sourceCreated,
-            LocalDateTime sourceUpdated,
             boolean locked,
             String lockedReason,
             Page.WorkflowState workflowState,
-            Integer sortOrder
+            ExternalSource externalSource,
+            List<FileDescriptor> images,
+            List<XmlFileDescriptor> xml
     ) {
     }
 
-    public enum FileKind {
-        IMAGE,
-        XML
+    public record ExternalSource(
+            String type,
+            String id,
+            String url,
+            JsonNode metadata
+    ) {
     }
 
-    public record FileEntry(
-            String sourceId,
-            String sourcePageId,
-            FileKind kind,
+    public record FileDescriptor(
+            String path,
             String fileName,
-            String mimeType,
-            Long fileSize,
+            String variant,
+            String baseName
+    ) {
+    }
+
+    public record XmlFileDescriptor(
+            String path,
+            String fileName,
             String variant,
             String baseName,
-            String archivePath,
-            XmlSchema xmlSchema,
-            String xmlSchemaVersion,
-            String thumbnailArchivePath,
-            LocalDateTime sourceCreated,
-            LocalDateTime sourceUpdated
+            List<XmlVersionDescriptor> history
     ) {
     }
 
-    public record XmlVersionEntry(
-            String sourceVersionId,
-            String sourceXmlId,
+    public record XmlVersionDescriptor(
             Integer versionNumber,
-            String archivePath,
-            Long fileSize,
+            String path,
             String userId,
             String comment,
-            LocalDateTime sourceCreated
+            LocalDateTime created
     ) {
     }
 
-    public record ToolkitReference(
-            String sourceId,
+    public record ResourceDescriptor(
+            ToolkitPackageDto.ToolkitType type,
             String name,
-            LocalDateTime sourceCreated,
-            LocalDateTime sourceUpdated,
-            String snapshotPath
-    ) {
-    }
-
-    public record ToolkitReferences(
-            ToolkitReference codec,
-            ToolkitReference labelSet,
-            ToolkitReference dictionary,
-            ToolkitReference tagSet,
-            ToolkitReference normalizationProfile,
-            ToolkitReference validationRuleset
+            JsonNode payload
     ) {
     }
 
@@ -155,7 +217,7 @@ public class ProjectPackageDto {
             int xmlCount,
             int xmlVersionCount,
             List<String> warnings,
-            Map<String, String> toolkitSourceToTargetIds
+            Map<ToolkitPackageDto.ToolkitType, String> toolkitTargetIds
     ) {
     }
 
@@ -167,6 +229,7 @@ public class ProjectPackageDto {
             ProjectReleaseStatus status,
             long pageCount,
             String targetPageXmlVersion,
+            boolean includeXmlHistory,
             List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs,
             String failureReason,
             String packageFileName,

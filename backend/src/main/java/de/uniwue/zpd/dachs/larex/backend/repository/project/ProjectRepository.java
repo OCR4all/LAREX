@@ -37,6 +37,8 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
 
     Optional<Project> findByIdAndLibraryWorkspaceId(String projectId, String workspaceId);
 
+    Optional<Project> findByNameAndLibraryId(String name, String libraryId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Project p WHERE p.id = :projectId AND p.library.workspaceId = :workspaceId")
     Optional<Project> findByIdAndLibraryWorkspaceIdForUpdate(@Param("projectId") String projectId,

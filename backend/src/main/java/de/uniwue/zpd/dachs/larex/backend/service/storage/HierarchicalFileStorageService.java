@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -313,6 +314,19 @@ public class HierarchicalFileStorageService {
 
         cleanupEmptyAncestorDirectories(projectRoot.getParent());
         return deletedAnything;
+    }
+
+    /**
+     * Run replacement cleanup in its own transaction. Project package replacement invokes this
+     * after the importing transaction has committed, while Spring is still completing the original
+     * transaction synchronization.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void deleteReplacedProjectFiles(String workspaceId,
+                                           String projectId,
+                                           Collection<String> storagePaths) {
+        deleteProjectTree(workspaceId, projectId);
+        deleteStoredFiles(storagePaths);
     }
 
     @Transactional

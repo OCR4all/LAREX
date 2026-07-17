@@ -141,6 +141,10 @@ function getReleaseCardItems(release: ProjectPackageRelease): DropdownMenuItem[]
             <UIcon name="i-lucide-file-text" class="size-3.5" />
             {{ release.pageCount }} pages
           </span>
+          <span class="inline-flex items-center gap-1">
+            <UIcon name="i-lucide-history" class="size-3.5" />
+            {{ release.includeXmlHistory ? 'XML history included' : 'Current XML only' }}
+          </span>
         </div>
       </div>
     </div>
