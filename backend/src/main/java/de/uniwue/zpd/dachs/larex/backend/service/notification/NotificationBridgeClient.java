@@ -33,6 +33,7 @@ public class NotificationBridgeClient {
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofSeconds(3))
                 .build();
     }
