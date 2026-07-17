@@ -300,11 +300,11 @@ tasks:
       - '{{.COMPOSE_PROD_DOCS_CMD}} logs -f docs'
 
   docker:prod:local:up:
-    desc: Start production-like local stack (Traefik + local hostnames + Mailpit)
+    desc: Start production-like local stack (Nginx + local hostnames + Mailpit)
     deps:
       - docker:prod:local:init-env
     cmds:
-      - '{{.COMPOSE_PROD_LOCAL_CMD}} up -d --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
+      - '{{.COMPOSE_PROD_LOCAL_CMD}} up -d --remove-orphans --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
 
   docker:prod:local:init-env:
     desc: Create .env.prod.local from template and seed required secrets
@@ -316,7 +316,7 @@ tasks:
     deps:
       - docker:prod:local:init-env
     cmds:
-      - '{{.COMPOSE_PROD_LOCAL_DOCS_CMD}} up -d --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
+      - '{{.COMPOSE_PROD_LOCAL_DOCS_CMD}} up -d --remove-orphans --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
 
   docker:prod:local:actions:up:
     desc: Start local production-like stack with all official Action processors
@@ -324,12 +324,12 @@ tasks:
       - docker:prod:local:init-env
       - docker:actions:init-env
     cmds:
-      - '{{.COMPOSE_PROD_LOCAL_ACTIONS_CMD}} up -d --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
+      - '{{.COMPOSE_PROD_LOCAL_ACTIONS_CMD}} up -d --remove-orphans --wait --wait-timeout "${LAREX_COMPOSE_WAIT_TIMEOUT:-300}"'
 
   docker:prod:local:actions:down:
     desc: Stop local production-like stack with official Action processors
     cmds:
-      - '{{.COMPOSE_PROD_LOCAL_ACTIONS_CMD}} down'
+      - '{{.COMPOSE_PROD_LOCAL_ACTIONS_CMD}} down --remove-orphans'
 
   docker:prod:local:actions:logs:
     desc: Follow local production-like and official Action processor logs
@@ -351,12 +351,12 @@ tasks:
   docker:prod:local:down:
     desc: Stop production-like local stack
     cmds:
-      - '{{.COMPOSE_PROD_LOCAL_CMD}} down'
+      - '{{.COMPOSE_PROD_LOCAL_CMD}} down --remove-orphans'
 
   docker:prod:local:down:docs:
     desc: Stop production-like local stack with docs override
     cmds:
-      - '{{.COMPOSE_PROD_LOCAL_DOCS_CMD}} down'
+      - '{{.COMPOSE_PROD_LOCAL_DOCS_CMD}} down --remove-orphans'
 
   docker:prod:local:logs:
     desc: View logs for production-like local stack

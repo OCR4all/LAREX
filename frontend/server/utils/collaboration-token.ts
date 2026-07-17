@@ -1,5 +1,18 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
+export type CollaborationAnnotationRoute
+  = | {
+    scope: 'PROJECT'
+    projectId: string
+    pageId: string
+  }
+  | {
+    scope: 'DATASET'
+    workspaceId: string
+    datasetId: string
+    itemId: string
+  }
+
 export interface CollaborationRoomTokenPayload {
   sub: string
   username: string
@@ -13,6 +26,7 @@ export interface CollaborationRoomTokenPayload {
   canEdit: boolean
   canForceTakeover: boolean
   persistedRevision: string
+  annotationRoute: CollaborationAnnotationRoute
   exp: number
 }
 
@@ -61,7 +75,14 @@ export function verifyCollaborationRoomToken(
 
   try {
     const payload = JSON.parse(decodeBase64Url(encodedPayload)) as CollaborationRoomTokenPayload
-    if (!payload?.roomKey || !payload?.sub || !payload?.pageId || !payload?.projectId || !payload?.xmlId) {
+    if (
+      !payload?.roomKey
+      || !payload?.sub
+      || !payload?.pageId
+      || !payload?.projectId
+      || !payload?.xmlId
+      || !isValidAnnotationRoute(payload.annotationRoute)
+    ) {
       return null
     }
     if (typeof payload.exp !== 'number' || payload.exp <= Date.now()) {
@@ -71,4 +92,20 @@ export function verifyCollaborationRoomToken(
   } catch {
     return null
   }
+}
+
+function isValidAnnotationRoute(value: unknown): value is CollaborationAnnotationRoute {
+  if (!value || typeof value !== 'object') return false
+
+  const route = value as Partial<CollaborationAnnotationRoute>
+  if (route.scope === 'PROJECT') {
+    return typeof route.projectId === 'string' && Boolean(route.projectId)
+      && typeof route.pageId === 'string' && Boolean(route.pageId)
+  }
+  if (route.scope === 'DATASET') {
+    return typeof route.workspaceId === 'string' && Boolean(route.workspaceId)
+      && typeof route.datasetId === 'string' && Boolean(route.datasetId)
+      && typeof route.itemId === 'string' && Boolean(route.itemId)
+  }
+  return false
 }

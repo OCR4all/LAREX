@@ -1,8 +1,25 @@
+let healthCheckInterval: ReturnType<typeof setInterval> | null = null
+let healthRealtimeUnsubscribe: (() => void) | null = null
+let healthConnectionStop: (() => void) | null = null
+
 export const useBackendHealth = () => {
   const isHealthy = useState<boolean>('backend.health.isHealthy', () => false)
   const isChecking = useState<boolean>('backend.health.isChecking', () => false)
   const lastCheckTime = useState<Date | null>('backend.health.lastCheckTime', () => null)
   const consecutiveFailures = useState<number>('backend.health.consecutiveFailures', () => 0)
+  const realtime = useRealtimeSocket()
+
+  const applyHealthStatus = (status: string) => {
+    lastCheckTime.value = new Date()
+    if (status === 'UP') {
+      isHealthy.value = true
+      consecutiveFailures.value = 0
+      return
+    }
+
+    isHealthy.value = false
+    consecutiveFailures.value++
+  }
 
   const checkHealth = async (silent = false): Promise<boolean> => {
     if (import.meta.server) return false
@@ -40,16 +57,42 @@ export const useBackendHealth = () => {
     return false
   }
 
-  let healthCheckInterval: NodeJS.Timeout | null = null
-
   const startMonitoring = (intervalMs = 30000) => {
     if (import.meta.server) return
 
-    if (healthCheckInterval) return
+    if (!healthRealtimeUnsubscribe) {
+      healthRealtimeUnsubscribe = realtime.subscribe((message) => {
+        if (message.type !== 'BACKEND_STATUS') return
+        const status = (message.payload as { status?: unknown } | null)?.status
+        if (typeof status === 'string') {
+          applyHealthStatus(status)
+        }
+      })
+    }
 
-    healthCheckInterval = setInterval(() => {
-      checkHealth(true)
-    }, intervalMs)
+    if (!healthConnectionStop) {
+      healthConnectionStop = watch([
+        () => realtime.connectionStatus.value,
+        () => realtime.isPageVisible.value
+      ], ([status, pageVisible]) => {
+        if (status === 'connected' || !pageVisible) {
+          if (healthCheckInterval) {
+            clearInterval(healthCheckInterval)
+            healthCheckInterval = null
+          }
+          return
+        }
+
+        if (!healthCheckInterval) {
+          healthCheckInterval = setInterval(() => {
+            void checkHealth(true)
+          }, intervalMs)
+        }
+        if (status === 'disconnected' || status === 'error') {
+          void checkHealth(true)
+        }
+      }, { immediate: true })
+    }
   }
 
   const stopMonitoring = () => {
@@ -57,6 +100,10 @@ export const useBackendHealth = () => {
       clearInterval(healthCheckInterval)
       healthCheckInterval = null
     }
+    healthRealtimeUnsubscribe?.()
+    healthRealtimeUnsubscribe = null
+    healthConnectionStop?.()
+    healthConnectionStop = null
   }
 
   const retryConnection = async () => {
@@ -64,15 +111,6 @@ export const useBackendHealth = () => {
 
     isChecking.value = true
     return await checkHealth()
-  }
-
-  if (!import.meta.server) {
-    const instance = getCurrentInstance()
-    if (instance) {
-      onBeforeUnmount(() => {
-        stopMonitoring()
-      })
-    }
   }
 
   return {

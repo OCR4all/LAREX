@@ -82,6 +82,11 @@ export default defineEventHandler(async (event) => {
     canEdit: bootstrap.canEdit,
     canForceTakeover: bootstrap.canForceTakeover,
     persistedRevision: bootstrap.persistedRevision,
+    annotationRoute: {
+      scope: 'PROJECT',
+      projectId,
+      pageId
+    },
     exp: Date.now() + (60 * 60 * 1000)
   }
 

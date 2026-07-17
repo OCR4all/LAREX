@@ -2,6 +2,7 @@
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const toast = useToast()
+const realtime = useRealtimeSocket()
 
 const jobType = ref<'DUMP' | 'RESEED'>('DUMP')
 const sourcePath = ref('')
@@ -55,19 +56,53 @@ watch(selectedJobId, async (id) => {
 })
 
 let pollHandle: NodeJS.Timeout | null = null
+let realtimeUnsubscribe: (() => void) | null = null
+let realtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let lastRealtimeAuditAt = Date.now()
+
+async function refreshBackupData() {
+  await refreshJobs()
+  if (selectedJobId.value) {
+    await refreshSelectedJob()
+  }
+}
+
 onMounted(() => {
+  realtimeUnsubscribe = realtime.subscribe((message) => {
+    if (message.type !== 'JOB_UPDATED') return
+    const payload = message.payload as { kind?: unknown } | null
+    if (payload?.kind !== 'BACKUP' || realtimeRefreshTimer) return
+    realtimeRefreshTimer = setTimeout(() => {
+      realtimeRefreshTimer = null
+      void refreshBackupData()
+    }, 50)
+  })
   pollHandle = setInterval(() => {
-    refreshJobs()
-    if (selectedJobId.value) {
-      refreshSelectedJob()
-    }
+    if (!realtime.isPageVisible.value) return
+    const realtimeConnected = realtime.connectionStatus.value === 'connected'
+    if (realtimeConnected && Date.now() - lastRealtimeAuditAt < 60_000) return
+    if (realtimeConnected) lastRealtimeAuditAt = Date.now()
+    void refreshBackupData()
   }, 3000)
+})
+
+watch([
+  () => realtime.connectionStatus.value,
+  () => realtime.isPageVisible.value
+], ([status, pageVisible], previous) => {
+  const [previousStatus, previouslyVisible] = previous ?? []
+  if (!pageVisible) return
+  if (previouslyVisible === false || (status !== 'connected' && previousStatus === 'connected')) {
+    void refreshBackupData()
+  }
 })
 
 onUnmounted(() => {
   if (pollHandle) {
     clearInterval(pollHandle)
   }
+  if (realtimeRefreshTimer) clearTimeout(realtimeRefreshTimer)
+  realtimeUnsubscribe?.()
 })
 
 async function validatePath(role: 'SOURCE' | 'OUTPUT') {

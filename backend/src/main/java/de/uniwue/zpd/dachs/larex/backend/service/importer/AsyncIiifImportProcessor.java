@@ -16,6 +16,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +53,7 @@ public class AsyncIiifImportProcessor {
     private final IiifProperties properties;
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
+    private final JobRealtimePublisher jobRealtimePublisher;
 
     @Autowired
     public AsyncIiifImportProcessor(IiifImportJobRepository iiifImportJobRepository,
@@ -65,6 +67,7 @@ public class AsyncIiifImportProcessor {
                                     ObjectMapper objectMapper,
                                     IiifImageDownloader imageDownloader,
                                     IiifProperties properties,
+                                    JobRealtimePublisher jobRealtimePublisher,
                                     PlatformTransactionManager transactionManager) {
         this(
                 iiifImportJobRepository,
@@ -78,6 +81,7 @@ public class AsyncIiifImportProcessor {
                 objectMapper,
                 imageDownloader,
                 properties,
+                jobRealtimePublisher,
                 transactionManager,
                 Clock.systemDefaultZone()
         );
@@ -94,6 +98,7 @@ public class AsyncIiifImportProcessor {
                              ObjectMapper objectMapper,
                              IiifImageDownloader imageDownloader,
                              IiifProperties properties,
+                             JobRealtimePublisher jobRealtimePublisher,
                              PlatformTransactionManager transactionManager,
                              Clock clock) {
         this.iiifImportJobRepository = iiifImportJobRepository;
@@ -107,6 +112,7 @@ public class AsyncIiifImportProcessor {
         this.objectMapper = objectMapper;
         this.imageDownloader = imageDownloader;
         this.properties = properties;
+        this.jobRealtimePublisher = jobRealtimePublisher;
         this.clock = clock;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
@@ -144,6 +150,7 @@ public class AsyncIiifImportProcessor {
         if (job == null) {
             throw new IllegalStateException("IIIF import job not found: " + jobId);
         }
+        publishUpdate(job);
 
         for (IiifJobCanvasPayload payload : readPayloads(job.getCanvasPayloadJson())) {
             IiifImportJob currentJob = refreshJob(jobId);
@@ -164,6 +171,7 @@ public class AsyncIiifImportProcessor {
         });
         if (completedJob != null) {
             releaseReservationIfNeeded(completedJob, true);
+            publishUpdate(completedJob);
         }
     }
 
@@ -290,12 +298,17 @@ public class AsyncIiifImportProcessor {
             IiifImportDto.ItemResult result,
             Long actualBytes
     ) {
-        transactionTemplate.executeWithoutResult(status -> {
+        IiifImportJob updatedJob = transactionTemplate.execute(status -> {
             IiifImportJob job = requireOwnedJob(jobId, workerId);
+            int previousProgress = job.getProgressPercent();
             if (!hasResult(jobId, result.index())) {
                 persistResult(job, result, actualBytes);
             }
+            return job.getProgressPercent() != previousProgress ? job : null;
         });
+        if (updatedJob != null) {
+            publishUpdate(updatedJob);
+        }
     }
 
     private void persistResult(IiifImportJob job, IiifImportDto.ItemResult result, Long actualBytes) {
@@ -492,6 +505,7 @@ public class AsyncIiifImportProcessor {
         });
         if (job != null) {
             releaseReservationIfNeeded(job, true);
+            publishUpdate(job);
         }
     }
 
@@ -511,6 +525,7 @@ public class AsyncIiifImportProcessor {
         });
         if (job != null) {
             releaseReservationIfNeeded(job, true);
+            publishUpdate(job);
         }
     }
 
@@ -534,6 +549,17 @@ public class AsyncIiifImportProcessor {
         return throwable.getMessage() == null || throwable.getMessage().isBlank()
                 ? throwable.getClass().getSimpleName()
                 : throwable.getMessage();
+    }
+
+    private void publishUpdate(IiifImportJob job) {
+        jobRealtimePublisher.publish(
+                "IIIF_IMPORT",
+                job.getId(),
+                job.getWorkspaceId(),
+                job.getProjectId(),
+                job.getStatus().name(),
+                job.getCreatedByUserId()
+        );
     }
 
     private static final class LeaseLostException extends RuntimeException {}

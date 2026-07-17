@@ -80,6 +80,7 @@ async function initializeApp() {
     const { initialize: initNotifications } = useNotifications()
     await initNotifications()
     useActionRunsStore().initializeRealtime()
+    useIiifImportJobsStore().initializeRealtime()
 
     isInitialized.value = true
     resolveIssue(issueId)

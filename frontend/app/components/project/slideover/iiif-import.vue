@@ -77,6 +77,7 @@ const formId = useId()
 const { uploadFormDataWithProgress } = useTrackedUpload()
 const toast = useToast()
 const iiifImportJobsStore = useIiifImportJobsStore()
+const realtime = useRealtimeSocket()
 
 const sourceMode = ref<'url' | 'file'>('url')
 const sourceTabs = [
@@ -119,9 +120,12 @@ const isRefreshingProjectData = ref(false)
 const pollTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const previewPollTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const hasReportedJobFinished = ref(false)
+let realtimeUnsubscribe: (() => void) | null = null
+let realtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
 const previewScrollerRef = ref<HTMLElement | null>(null)
 
 const TERMINAL_JOB_STATUSES = ['COMPLETED', 'FAILED', 'CANCELLED'] as const
+const IMPORT_AUDIT_POLL_MS = 60_000
 
 const currentStep = computed<'source' | 'preview' | 'running' | 'done'>(() => {
   if (job.value && isTerminalJobStatus(job.value.status)) return 'done'
@@ -383,17 +387,18 @@ async function retryFailedImport() {
 
 function schedulePoll() {
   stopPolling()
-  if (!job.value || isTerminalJobStatus(job.value.status)) {
+  if (!job.value || isTerminalJobStatus(job.value.status) || !realtime.isPageVisible.value) {
     return
   }
+  const delay = realtime.connectionStatus.value === 'connected' ? IMPORT_AUDIT_POLL_MS : 750
   pollTimer.value = setTimeout(() => {
     void refreshJob()
-  }, 750)
+  }, delay)
 }
 
 function schedulePreviewPoll() {
   stopPreviewPolling()
-  if (!preview.value || isPreviewReady.value || preview.value.status === 'FAILED') {
+  if (!preview.value || isPreviewReady.value || preview.value.status === 'FAILED' || !realtime.isPageVisible.value) {
     return
   }
   previewPollTimer.value = setTimeout(() => {
@@ -508,6 +513,42 @@ async function close(imported: boolean) {
   stopPreviewPolling()
   emit('close', imported)
 }
+
+onMounted(() => {
+  realtimeUnsubscribe = realtime.subscribe((message) => {
+    if (message.type !== 'JOB_UPDATED') return
+    const payload = message.payload as { kind?: unknown, jobId?: unknown } | null
+    if (payload?.kind !== 'IIIF_IMPORT' || payload.jobId !== job.value?.id || realtimeRefreshTimer) return
+    realtimeRefreshTimer = setTimeout(() => {
+      realtimeRefreshTimer = null
+      void refreshJob()
+    }, 50)
+  })
+})
+
+watch([
+  () => realtime.connectionStatus.value,
+  () => realtime.isPageVisible.value
+], ([, pageVisible], previous) => {
+  const [, previouslyVisible] = previous ?? []
+  if (!pageVisible) {
+    stopPreviewPolling()
+  } else if (previouslyVisible === false && isPreviewRunning.value) {
+    void refreshPreviewJob()
+  }
+  if (pageVisible && previouslyVisible === false && job.value && !isTerminalJobStatus(job.value.status)) {
+    void refreshJob()
+    return
+  }
+  schedulePoll()
+})
+
+onBeforeUnmount(() => {
+  stopPolling()
+  stopPreviewPolling()
+  if (realtimeRefreshTimer) clearTimeout(realtimeRefreshTimer)
+  realtimeUnsubscribe?.()
+})
 
 function shouldRefreshProjectPages(): boolean {
   if (!job.value) return false

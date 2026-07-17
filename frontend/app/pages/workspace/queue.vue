@@ -7,6 +7,7 @@ await useWorkspaceBootstrap()
 const toast = useToast()
 const workspaceStore = useWorkspaceStore()
 const actionRunsStore = useActionRunsStore()
+const realtime = useRealtimeSocket()
 const UButtonComponent = resolveComponent('UButton')
 const UBadgeComponent = resolveComponent('UBadge')
 
@@ -23,6 +24,9 @@ const page = ref(1)
 const itemsPerPage = ref(25)
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, computed(() => filteredRuns.value.length))
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let realtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
+let realtimeUnsubscribe: (() => void) | null = null
+let lastRealtimeAuditAt = Date.now()
 
 const workspaceRunsKey = computed(() => globalKey('workspace', 'action-runs', selectedWorkspace.value || 'none'))
 
@@ -178,11 +182,33 @@ watch(workspaceRunsData, (value) => {
 }, { immediate: true })
 
 onMounted(() => {
+  realtimeUnsubscribe = realtime.subscribe((message) => {
+    if (message.type !== 'ACTION_RUN_UPDATED' && message.type !== 'ACTION_PAGE_RESULT_IMPORTED') return
+    const workspaceId = (message.payload as { workspaceId?: unknown } | null)?.workspaceId
+    if (workspaceId !== selectedWorkspace.value || realtimeRefreshTimer) return
+    realtimeRefreshTimer = setTimeout(() => {
+      realtimeRefreshTimer = null
+      void loadRuns()
+    }, 50)
+  })
+
   pollTimer = setInterval(() => {
-    if (runs.value.some(run => isActiveRun(run.status))) {
+    if (!realtime.isPageVisible.value) return
+    const realtimeConnected = realtime.connectionStatus.value === 'connected'
+    const auditDue = !realtimeConnected || Date.now() - lastRealtimeAuditAt >= 60_000
+    if (runs.value.some(run => isActiveRun(run.status)) && auditDue) {
+      if (realtimeConnected) {
+        lastRealtimeAuditAt = Date.now()
+      }
       void loadRuns()
     }
   }, 5000)
+})
+
+watch(() => realtime.isPageVisible.value, (pageVisible) => {
+  if (pageVisible && realtime.connectionStatus.value !== 'connected' && runs.value.some(run => isActiveRun(run.status))) {
+    void loadRuns()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -190,6 +216,12 @@ onBeforeUnmount(() => {
     clearInterval(pollTimer)
     pollTimer = null
   }
+  if (realtimeRefreshTimer) {
+    clearTimeout(realtimeRefreshTimer)
+    realtimeRefreshTimer = null
+  }
+  realtimeUnsubscribe?.()
+  realtimeUnsubscribe = null
 })
 
 watch(selectedWorkspace, () => {

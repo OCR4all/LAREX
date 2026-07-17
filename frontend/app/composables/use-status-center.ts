@@ -3,24 +3,39 @@ import {
   shouldAutoOpenStatusPopover
 } from '@/utils/status-center'
 
-let jobPollTimer: ReturnType<typeof setInterval> | null = null
+const IIIF_FALLBACK_POLL_MS = 2500
+const IIIF_AUDIT_POLL_MS = 5 * 60 * 1000
+let jobPollTimer: ReturnType<typeof setTimeout> | null = null
+let jobPollingWatchStop: (() => void) | null = null
 let pollSubscriberCount = 0
 
 function startPolling(
-  iiifImportJobsStore: ReturnType<typeof useIiifImportJobsStore>
+  iiifImportJobsStore: ReturnType<typeof useIiifImportJobsStore>,
+  realtime: ReturnType<typeof useRealtimeSocket>
 ) {
-  if (!import.meta.client || jobPollTimer) return
-  jobPollTimer = setInterval(() => {
+  if (!import.meta.client) return
+  if (jobPollTimer) clearTimeout(jobPollTimer)
+  jobPollTimer = null
+  if (!realtime.isPageVisible.value) return
+  const delay = realtime.connectionStatus.value === 'connected'
+    ? IIIF_AUDIT_POLL_MS
+    : IIIF_FALLBACK_POLL_MS
+  jobPollTimer = setTimeout(async () => {
+    jobPollTimer = null
     if (iiifImportJobsStore.hasActiveJobs) {
-      void iiifImportJobsStore.refreshActiveJobs()
+      await iiifImportJobsStore.refreshActiveJobs()
     }
-  }, 2500)
+    startPolling(iiifImportJobsStore, realtime)
+  }, delay)
 }
 
 function stopPolling() {
-  if (!jobPollTimer) return
-  clearInterval(jobPollTimer)
-  jobPollTimer = null
+  if (jobPollTimer) {
+    clearTimeout(jobPollTimer)
+    jobPollTimer = null
+  }
+  jobPollingWatchStop?.()
+  jobPollingWatchStop = null
 }
 
 export function useStatusCenter() {
@@ -28,6 +43,7 @@ export function useStatusCenter() {
   const actionRunsStore = useActionRunsStore()
   const backgroundJobsStore = useBackgroundJobsStore()
   const iiifImportJobsStore = useIiifImportJobsStore()
+  const realtime = useRealtimeSocket()
   const workspaceStore = useWorkspaceStore()
   const { issues, hasIssues } = useStatusIssues()
   const isOverlayOpen = useState('app.statusCenter.overlayOpen', () => false)
@@ -66,7 +82,17 @@ export function useStatusCenter() {
   onMounted(() => {
     pollSubscriberCount += 1
     if (pollSubscriberCount === 1) {
-      startPolling(iiifImportJobsStore)
+      startPolling(iiifImportJobsStore, realtime)
+      jobPollingWatchStop = watch([
+        () => realtime.connectionStatus.value,
+        () => realtime.isPageVisible.value
+      ], ([status, pageVisible], previous) => {
+        const [, previouslyVisible] = previous ?? []
+        startPolling(iiifImportJobsStore, realtime)
+        if (pageVisible && previouslyVisible === false && status !== 'connected' && iiifImportJobsStore.hasActiveJobs) {
+          void iiifImportJobsStore.refreshActiveJobs()
+        }
+      })
     }
     if (workspaceStore.selectedWorkspaceId) {
       void iiifImportJobsStore.refreshWorkspaceJobs(workspaceStore.selectedWorkspaceId)

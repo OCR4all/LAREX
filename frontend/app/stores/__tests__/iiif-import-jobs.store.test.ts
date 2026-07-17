@@ -122,4 +122,27 @@ describe('iiif-import-jobs.store', () => {
       { method: 'POST' }
     )
   })
+
+  it('refreshes the affected workspace after a realtime job update', async () => {
+    vi.useFakeTimers()
+    let listener: ((message: { type?: string, payload?: unknown }) => void) | undefined
+    ;(globalThis as any).useRealtimeSocket = () => ({
+      subscribe: (next: typeof listener) => {
+        listener = next
+        return vi.fn()
+      }
+    })
+    const fetchMock = vi.fn().mockResolvedValue([createJob({ status: 'IMPORTING' })])
+    const store = await createStore(fetchMock)
+    store.initializeRealtime()
+
+    listener?.({
+      type: 'JOB_UPDATED',
+      payload: { kind: 'IIIF_IMPORT', workspaceId: 'workspace-1', jobId: 'iiif-1' }
+    })
+    await vi.advanceTimersByTimeAsync(50)
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/workspaces/workspace-1/iiif-import/jobs')
+    vi.useRealTimers()
+  })
 })

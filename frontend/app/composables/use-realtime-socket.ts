@@ -13,6 +13,7 @@ export const useRealtimeSocket = () => {
   const shouldReconnect = useState<boolean>('realtime.shouldReconnect', () => true)
   const lifecycleBound = useState<boolean>('realtime.lifecycleBound', () => false)
   const connectionStatus = useState<RealtimeConnectionStatus>('realtime.connectionStatus', () => 'idle')
+  const isPageVisible = useState<boolean>('realtime.isPageVisible', () => true)
 
   const clearReconnectTimeout = () => {
     if (reconnectTimeout.value) {
@@ -39,14 +40,21 @@ export const useRealtimeSocket = () => {
 
   const bindLifecycleHandlers = () => {
     if (import.meta.server || lifecycleBound.value) return
+    isPageVisible.value = document.visibilityState === 'visible'
+
+    const handleVisibilityChange = () => {
+      isPageVisible.value = document.visibilityState === 'visible'
+    }
 
     const handlePageHide = () => {
+      isPageVisible.value = false
       shouldReconnect.value = false
       clearReconnectTimeout()
       closeActiveConnection(1001, 'page unload')
     }
 
     const handlePageShow = () => {
+      isPageVisible.value = document.visibilityState === 'visible'
       shouldReconnect.value = true
       const { loggedIn } = useUserSession()
       if (loggedIn.value) {
@@ -56,6 +64,7 @@ export const useRealtimeSocket = () => {
 
     window.addEventListener('pagehide', handlePageHide)
     window.addEventListener('pageshow', handlePageShow)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     lifecycleBound.value = true
   }
 
@@ -88,21 +97,12 @@ export const useRealtimeSocket = () => {
 
       const ws = new WebSocket(wsUrl)
 
-      ws.onopen = () => {
-        connectionStatus.value = 'connected'
-
-        const { user } = useUserSession()
-        if (user.value?.id) {
-          ws.send(JSON.stringify({
-            type: 'AUTH',
-            payload: { userId: user.value.id }
-          }))
-        }
-      }
-
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data) as RealtimeMessage
+          if (message.type === 'CONNECTED') {
+            connectionStatus.value = 'connected'
+          }
           dispatch(message)
         } catch (error) {
           console.error('[realtime-socket] Failed to parse message:', error)
@@ -165,6 +165,7 @@ export const useRealtimeSocket = () => {
 
   return {
     connectionStatus: readonly(connectionStatus),
+    isPageVisible: readonly(isPageVisible),
     connect,
     disconnect,
     send,

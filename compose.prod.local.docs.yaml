@@ -6,8 +6,3 @@ services:
     restart: unless-stopped
     networks:
       - default
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.docs.rule=Host(`docs.localhost`)"
-      - "traefik.http.routers.docs.entrypoints=web"
-      - "traefik.http.services.docs.loadbalancer.server.port=3000"

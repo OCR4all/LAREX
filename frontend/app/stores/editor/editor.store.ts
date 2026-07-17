@@ -1357,6 +1357,7 @@ export const useEditorStore = defineStore('editor', () => {
     try {
       const pageDto = convertPcGtsToPageDto(pcGts)
       let xmlFileId = canvas.xmlFileId
+      let persistedRevision: string | undefined
 
       if (!xmlFileId) {
         if (!context.createAllowed) {
@@ -1394,10 +1395,11 @@ export const useEditorStore = defineStore('editor', () => {
         }
       } else {
         log.info(`Saving annotations for page ${pageId} to XML file ${xmlFileId}`)
-        await $fetch(annotationResourcePath(context, xmlFileId), {
+        const revision = await $fetch<{ persistedRevision?: string } | null>(annotationResourcePath(context, xmlFileId), {
           method: 'PUT',
           body: pageDto
         })
+        persistedRevision = revision?.persistedRevision
       }
 
       log.info(`Successfully saved annotations for page ${pageId}`)
@@ -1410,7 +1412,7 @@ export const useEditorStore = defineStore('editor', () => {
 
       if (import.meta.client) {
         const collaboration = useEditorCollaboration()
-        await collaboration.acceptCurrentRevisionForCanvas(targetCanvasId)
+        await collaboration.acceptCurrentRevisionForCanvas(targetCanvasId, persistedRevision)
       }
 
       return true

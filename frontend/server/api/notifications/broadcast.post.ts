@@ -122,6 +122,24 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  if (eventType === 'JOB_UPDATED') {
+    if (!eventPayload || typeof eventPayload !== 'object') {
+      throw createError({ statusCode: 400, statusMessage: 'Invalid job event bridge payload' })
+    }
+    const message = {
+      type: eventType,
+      payload: eventPayload
+    }
+    const delivered = body?.userId
+      ? websocketUtils.sendToUser(body.userId, { ...message, userId: body.userId })
+      : websocketUtils.broadcast(message)
+    return {
+      success: true,
+      delivered,
+      source: body?.source ?? null
+    }
+  }
+
   if (!body?.userId || !body.notification || typeof body.notification !== 'object') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid notification bridge payload' })
   }

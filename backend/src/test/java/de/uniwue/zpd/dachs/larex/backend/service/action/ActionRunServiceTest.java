@@ -35,6 +35,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToA
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
@@ -166,6 +167,8 @@ class ActionRunServiceTest {
     @Mock
     private ActionRealtimePublisher realtimePublisher;
     @Mock
+    private JobRealtimePublisher jobRealtimePublisher;
+    @Mock
     private ActionMetrics actionMetrics;
     @Mock
     private TransactionTemplate transactionTemplate;
@@ -229,6 +232,7 @@ class ActionRunServiceTest {
                 responseMapper,
                 resultPageMergeService,
                 realtimePublisher,
+                jobRealtimePublisher,
                 actionMetrics,
                 transactionTemplate
         );

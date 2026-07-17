@@ -4,7 +4,11 @@ import { getNotificationLink } from '~/utils/notifications'
 import { extractApiErrorMessage } from '@/utils/api-error'
 
 const GROUPING_WINDOW_MS = 2 * 60 * 1000 // 2 minutes
+const NOTIFICATION_FALLBACK_POLL_MS = 30 * 1000
+const NOTIFICATION_AUDIT_POLL_MS = 5 * 60 * 1000
 let notificationRealtimeUnsubscribe: (() => void) | null = null
+let notificationConnectionStop: (() => void) | null = null
+let notificationPollTimer: ReturnType<typeof setTimeout> | null = null
 
 interface TransferRequest {
   id: string
@@ -386,15 +390,26 @@ export const useNotifications = () => {
     const loaded = await ensureInitialData()
     connectWebSocket()
 
+    if (!notificationConnectionStop) {
+      notificationConnectionStop = watch([
+        () => realtime.connectionStatus.value,
+        () => realtime.isPageVisible.value
+      ], ([status, pageVisible], previous) => {
+        const [previousStatus, previouslyVisible] = previous ?? []
+        state.value.isConnected = status === 'connected'
+        startPolling()
+        if (!pageVisible) return
+        if (previouslyVisible === false || (status === 'connected' && (previousStatus === 'disconnected' || previousStatus === 'error'))) {
+          void refresh()
+        }
+      }, { immediate: true })
+    }
+
     startPolling()
     if (loaded) {
       resolveIssue(notificationIssueId)
     }
   }
-
-  watch(() => realtime.connectionStatus.value, (status) => {
-    state.value.isConnected = status === 'connected'
-  }, { immediate: true })
 
   if (import.meta.client && !notificationRealtimeUnsubscribe) {
     notificationRealtimeUnsubscribe = realtime.subscribe((message) => {
@@ -403,30 +418,37 @@ export const useNotifications = () => {
     })
   }
 
-  let pollingInterval: ReturnType<typeof setInterval> | null = null
-
   /**
    * Start polling for notifications (fallback for WebSocket)
    */
-  const startPolling = (intervalMs = 30000) => {
+  function startPolling() {
     if (import.meta.server) return
-    if (pollingInterval) return
+    if (notificationPollTimer) {
+      clearTimeout(notificationPollTimer)
+    }
+    notificationPollTimer = null
+    if (!realtime.isPageVisible.value) return
 
-    pollingInterval = setInterval(() => {
+    const delay = realtime.connectionStatus.value === 'connected'
+      ? NOTIFICATION_AUDIT_POLL_MS
+      : NOTIFICATION_FALLBACK_POLL_MS
+    notificationPollTimer = setTimeout(async () => {
+      notificationPollTimer = null
       const { loggedIn } = useUserSession()
       if (loggedIn.value) {
-        refresh()
+        await refresh()
       }
-    }, intervalMs)
+      startPolling()
+    }, delay)
   }
 
   /**
    * Stop polling
    */
   const stopPolling = () => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval)
-      pollingInterval = null
+    if (notificationPollTimer) {
+      clearTimeout(notificationPollTimer)
+      notificationPollTimer = null
     }
   }
 

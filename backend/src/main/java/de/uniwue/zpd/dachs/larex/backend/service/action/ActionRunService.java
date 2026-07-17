@@ -41,6 +41,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToA
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
@@ -147,6 +148,7 @@ public class ActionRunService {
     private final ActionRunResponseMapper responseMapper;
     private final ActionResultPageMergeService resultPageMergeService;
     private final ActionRealtimePublisher realtimePublisher;
+    private final JobRealtimePublisher jobRealtimePublisher;
     private final ActionMetrics metrics;
     private final HttpClient httpClient;
     private final TransactionTemplate transactionTemplate;
@@ -189,6 +191,7 @@ public class ActionRunService {
                             ActionRunResponseMapper responseMapper,
                             ActionResultPageMergeService resultPageMergeService,
                             ActionRealtimePublisher realtimePublisher,
+                            JobRealtimePublisher jobRealtimePublisher,
                             ActionMetrics metrics,
                             TransactionTemplate transactionTemplate) {
         this.definitionRepository = definitionRepository;
@@ -228,6 +231,7 @@ public class ActionRunService {
         this.responseMapper = responseMapper;
         this.resultPageMergeService = resultPageMergeService;
         this.realtimePublisher = realtimePublisher;
+        this.jobRealtimePublisher = jobRealtimePublisher;
         this.metrics = metrics;
         this.transactionTemplate = transactionTemplate;
         this.httpClient = HttpClient.newBuilder()
@@ -1125,15 +1129,22 @@ public class ActionRunService {
         Runnable task = () -> {
             for (String pageId : ids) {
                 boolean acquiredIndexingSlot = pageIndexStatusTracker.markIndexingIfAbsent(pageId);
+                String finalStatus = "UNINDEXED";
                 try {
-                    pageRepository.findById(pageId).ifPresent(page -> {
+                    if (acquiredIndexingSlot) {
+                        publishIndexUpdate(projectId, pageId, "INDEXING");
+                    }
+                    Page page = pageRepository.findById(pageId).orElse(null);
+                    if (page != null) {
                         pageFilterIndexService.indexPageFromXml(page);
-                    });
+                        finalStatus = "INDEXED";
+                    }
                 } catch (Exception e) {
                     log.warn("Failed to index page {} after LAREX Action result import: {}", pageId, e.getMessage(), e);
                 } finally {
                     if (acquiredIndexingSlot) {
                         pageIndexStatusTracker.clearIndexing(pageId);
+                        publishIndexUpdate(projectId, pageId, finalStatus);
                     }
                 }
             }
@@ -1149,6 +1160,10 @@ public class ActionRunService {
         } else {
             importTaskExecutor.execute(task);
         }
+    }
+
+    private void publishIndexUpdate(String projectId, String pageId, String status) {
+        jobRealtimePublisher.publish("PAGE_INDEX", pageId, null, projectId, status, null);
     }
 
     private void scheduleProjectLexiconRebuild(String projectId) {

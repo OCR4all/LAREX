@@ -1,4 +1,9 @@
 import { backendFetch } from '#server/utils/backendFetch'
+import { collaborationState } from '#server/utils/collaboration-state'
+
+type RevisionResponse = {
+  persistedRevision: string
+}
 
 export default defineEventHandler(async (event) => {
   const projectId = getRouterParam(event, 'projectId')
@@ -32,5 +37,26 @@ export default defineEventHandler(async (event) => {
       statusMessage: errorBody?.message || response.statusText
     })
   }
-  return null
+
+  const revisionResponse = await backendFetch(
+    event,
+    `/projects/${projectId}/pages/${pageId}/annotations/${xmlId}/collaboration/revision`
+  ).catch(() => null)
+  if (!revisionResponse) {
+    console.warn(`[annotation-save] Saved ${xmlId}, but the persisted revision lookup failed`)
+    return null
+  }
+  const revision = await revisionResponse.json().catch(() => null) as RevisionResponse | null
+  if (!revisionResponse.ok || !revision?.persistedRevision) {
+    console.warn(`[annotation-save] Saved ${xmlId}, but failed to resolve its persisted revision`)
+    return null
+  }
+
+  const session = await getUserSession(event)
+  const sourceUserId = session.user?.id ?? null
+  collaborationState.markPersistedRevision(`${projectId}:${pageId}:${xmlId}`, revision.persistedRevision, {
+    reason: 'annotation-saved',
+    sourceUserId
+  })
+  return revision
 })

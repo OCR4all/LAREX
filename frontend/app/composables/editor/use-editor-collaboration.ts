@@ -26,7 +26,7 @@ import type {
 
 type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
 
-const revisionPollers = new Map<string, ReturnType<typeof setInterval>>()
+const revisionAuditTimers = new Map<string, ReturnType<typeof setInterval>>()
 const roomSnapshots = new Map<string, CollaborationPageSnapshot>()
 const roomSnapshotVersions = new Map<string, number>()
 const roomCanvasIds = new Map<string, Set<string>>()
@@ -38,7 +38,7 @@ const canvasSnapshotVersions = new Map<string, number>()
 const canvasSyncSuspended = new Set<string>()
 const canvasPendingSync = new Set<string>()
 const lastPresencePayloads = new Map<string, string>()
-const roomHeartbeatTimers = new Map<string, ReturnType<typeof setInterval>>()
+let leaseHeartbeatTimer: ReturnType<typeof setInterval> | null = null
 const roomBroadcastChannels = new Map<string, BroadcastChannel>()
 const roomBroadcastIntervals = new Map<string, ReturnType<typeof setInterval>>()
 const roomKnownInstances = new Map<string, Map<string, number>>()
@@ -50,6 +50,7 @@ const pendingInitialXmlCreations = new Map<string, Promise<string | null>>()
 const INSTANCE_ALIVE_INTERVAL_MS = 5000
 const INSTANCE_STALE_AFTER_MS = 15000
 const LEASE_HEARTBEAT_INTERVAL_MS = 10000
+const REVISION_AUDIT_INTERVAL_MS = 5 * 60 * 1000
 const LEASE_EXPIRY_WARNING_MS = 15000
 
 function getBrowserInstanceId(): string {
@@ -203,6 +204,7 @@ export function useEditorCollaboration() {
   const messageHandlerRegistered = useState<boolean>('editor-collaboration.message-handler-registered', () => false)
   const statusWatcherRegistered = useState<boolean>('editor-collaboration.status-watcher-registered', () => false)
   const leaseTickerRegistered = useState<boolean>('editor-collaboration.lease-ticker-registered', () => false)
+  const realtimeConnectedOnce = useState<boolean>('editor-collaboration.realtime-connected-once', () => false)
 
   const ensureInstanceId = (): string => {
     if (currentInstanceId.value) {
@@ -393,14 +395,6 @@ export function useEditorCollaboration() {
     return Array.from(known.keys()).sort()[0] ?? ensureInstanceId()
   }
 
-  const stopLeaseHeartbeat = (roomKey: string) => {
-    const timer = roomHeartbeatTimers.get(roomKey)
-    if (timer) {
-      clearInterval(timer)
-      roomHeartbeatTimers.delete(roomKey)
-    }
-  }
-
   const setLeaseExpiringSoon = (roomKey: string, expiringSoon: boolean) => {
     if (roomLeaseWarnings.value[roomKey] === expiringSoon) {
       return
@@ -503,35 +497,43 @@ export function useEditorCollaboration() {
     syncLeaseExpiryWarning(roomKey)
   }
 
-  const heartbeatLease = async (roomKey: string) => {
-    const room = rooms.value[roomKey]
-    if (!room || !room.identity.canEdit || !isLocalRoomLeader(roomKey)) {
-      stopLeaseHeartbeat(roomKey)
+  const renewableRoomKeys = (): string[] => {
+    return Object.values(rooms.value)
+      .filter(room => room.identity.canEdit && isLocalRoomLeader(room.identity.roomKey))
+      .map(room => room.identity.roomKey)
+  }
+
+  const renewLeases = () => {
+    const roomKeys = renewableRoomKeys()
+    if (roomKeys.length === 0 || realtime.connectionStatus.value !== 'connected') return
+
+    realtime.send({
+      type: 'LEASE_RENEW',
+      payload: {
+        roomKeys,
+        instanceId: ensureInstanceId()
+      }
+    })
+  }
+
+  const stopLeaseHeartbeatTimer = () => {
+    if (!leaseHeartbeatTimer) return
+    clearInterval(leaseHeartbeatTimer)
+    leaseHeartbeatTimer = null
+  }
+
+  const reconcileLeaseHeartbeatTimer = (renewImmediately = false) => {
+    if (renewableRoomKeys().length === 0) {
+      stopLeaseHeartbeatTimer()
       return
     }
 
-    try {
-      const lease = await $fetch<CollaborationLeaseResponse>(
-        collaborationPathForRoom(room, 'lease/heartbeat'),
-        {
-          method: 'POST',
-          body: { instanceId: ensureInstanceId() }
-        }
-      )
-      applyLeaseState(roomKey, lease.lease)
-    } catch (error) {
-      console.warn('[editor-collaboration] Lease heartbeat failed:', error)
+    if (!leaseHeartbeatTimer) {
+      leaseHeartbeatTimer = setInterval(renewLeases, LEASE_HEARTBEAT_INTERVAL_MS)
     }
-  }
-
-  const startLeaseHeartbeat = (roomKey: string) => {
-    if (roomHeartbeatTimers.has(roomKey)) return
-
-    roomHeartbeatTimers.set(roomKey, setInterval(() => {
-      void heartbeatLease(roomKey)
-    }, LEASE_HEARTBEAT_INTERVAL_MS))
-
-    void heartbeatLease(roomKey)
+    if (renewImmediately) {
+      renewLeases()
+    }
   }
 
   const setupRoomBroadcastChannel = (roomKey: string) => {
@@ -595,7 +597,8 @@ export function useEditorCollaboration() {
     const room = rooms.value[roomKey]
     if (!room || !room.identity.canEdit) return
 
-    stopLeaseHeartbeat(roomKey)
+    roomLeaderInstances.delete(roomKey)
+    reconcileLeaseHeartbeatTimer()
     clearLeaseWarningTimer(roomKey)
     setLeaseExpiringSoon(roomKey, false)
     teardownRoomBroadcastChannel(roomKey, true)
@@ -622,7 +625,8 @@ export function useEditorCollaboration() {
   const reconcileRoomHeartbeat = (roomKey: string) => {
     const room = rooms.value[roomKey]
     if (!room?.identity.canEdit) {
-      stopLeaseHeartbeat(roomKey)
+      roomLeaderInstances.delete(roomKey)
+      reconcileLeaseHeartbeatTimer()
       syncLeaseExpiryWarning(roomKey)
       return
     }
@@ -637,13 +641,7 @@ export function useEditorCollaboration() {
 
     roomLeaderInstances.set(roomKey, leaderInstance)
 
-    if (leaderInstance === ensureInstanceId()) {
-      startLeaseHeartbeat(roomKey)
-      syncLeaseExpiryWarning(roomKey)
-      return
-    }
-
-    stopLeaseHeartbeat(roomKey)
+    reconcileLeaseHeartbeatTimer()
     syncLeaseExpiryWarning(roomKey)
   }
 
@@ -665,7 +663,13 @@ export function useEditorCollaboration() {
         ? 'idle'
         : status
       if (status === 'connected') {
+        const isReconnect = realtimeConnectedOnce.value
         rejoinOpenRooms()
+        reconcileLeaseHeartbeatTimer(true)
+        if (isReconnect) {
+          void auditOpenRoomRevisions()
+        }
+        realtimeConnectedOnce.value = true
       }
     }, { immediate: true })
     statusWatcherRegistered.value = true
@@ -699,46 +703,46 @@ export function useEditorCollaboration() {
   }
 
   const stopRevisionPolling = (roomKey: string) => {
-    const timer = revisionPollers.get(roomKey)
+    const timer = revisionAuditTimers.get(roomKey)
     if (timer) {
       clearInterval(timer)
-      revisionPollers.delete(roomKey)
+      revisionAuditTimers.delete(roomKey)
     }
   }
 
-  const startRevisionPolling = (room: CollaborationRoomSession) => {
-    if (import.meta.server || revisionPollers.has(room.identity.roomKey)) return
-
-    const poll = async () => {
-      const currentRoom = rooms.value[room.identity.roomKey]
-      if (!currentRoom) {
-        stopRevisionPolling(room.identity.roomKey)
-        return
-      }
-
-      try {
-        const revision = await $fetch<CollaborationRevisionResponse>(
-          revisionPathForRoom(currentRoom)
-        )
-
-        const nextRooms = cloneRooms(rooms.value)
-        const targetRoom = nextRooms[room.identity.roomKey]
-        if (!targetRoom) return
-
-        if (revision.persistedRevision !== targetRoom.viewerSync.persistedRevision) {
-          targetRoom.viewerSync.latestPersistedRevision = revision.persistedRevision
-          targetRoom.viewerSync.resyncRequired = true
-        }
-
-        rooms.value = nextRooms
-      } catch (error) {
-        console.warn('[editor-collaboration] Revision poll failed:', error)
-      }
+  async function auditRoomRevision(roomKey: string) {
+    const currentRoom = rooms.value[roomKey]
+    if (!currentRoom) {
+      stopRevisionPolling(roomKey)
+      return
     }
 
-    revisionPollers.set(room.identity.roomKey, setInterval(() => {
-      void poll()
-    }, 15000))
+    try {
+      const revision = await $fetch<CollaborationRevisionResponse>(revisionPathForRoom(currentRoom))
+      const nextRooms = cloneRooms(rooms.value)
+      const targetRoom = nextRooms[roomKey]
+      if (!targetRoom) return
+
+      if (revision.persistedRevision !== targetRoom.viewerSync.persistedRevision) {
+        targetRoom.viewerSync.latestPersistedRevision = revision.persistedRevision
+        targetRoom.viewerSync.resyncRequired = true
+      }
+      rooms.value = nextRooms
+    } catch (error) {
+      console.warn('[editor-collaboration] Revision audit failed:', error)
+    }
+  }
+
+  async function auditOpenRoomRevisions() {
+    await Promise.all(Object.keys(rooms.value).map(roomKey => auditRoomRevision(roomKey)))
+  }
+
+  const startRevisionPolling = (room: CollaborationRoomSession) => {
+    if (import.meta.server || revisionAuditTimers.has(room.identity.roomKey)) return
+
+    revisionAuditTimers.set(room.identity.roomKey, setInterval(() => {
+      void auditRoomRevision(room.identity.roomKey)
+    }, REVISION_AUDIT_INTERVAL_MS))
   }
 
   const applyRoomSnapshotToBoundCanvases = (roomKey: string) => {
@@ -1001,24 +1005,55 @@ export function useEditorCollaboration() {
     storeRoomSnapshot(roomKey, snapshot)
   }
 
-  const handleReloadRequired = async (roomKey: string) => {
+  const acceptPersistedRevisionForRoom = (roomKey: string, persistedRevision: string) => {
+    const nextRooms = cloneRooms(rooms.value)
+    const targetRoom = nextRooms[roomKey]
+    if (!targetRoom) return
+
+    targetRoom.viewerSync.persistedRevision = persistedRevision
+    targetRoom.viewerSync.latestPersistedRevision = persistedRevision
+    targetRoom.viewerSync.resyncRequired = false
+    rooms.value = nextRooms
+  }
+
+  const handleRevisionChanged = (payload: {
+    roomKey: string
+    persistedRevision: string
+    sourceUserId?: string | null
+    reloadRequired?: boolean
+  }) => {
+    const room = rooms.value[payload.roomKey]
+    if (!room || !payload.persistedRevision) return
+
+    if (payload.reloadRequired) {
+      void handleReloadRequired(payload.roomKey, payload.persistedRevision)
+      return
+    }
+
+    const nextRooms = cloneRooms(rooms.value)
+    const targetRoom = nextRooms[payload.roomKey]
+    if (!targetRoom) return
+
+    targetRoom.viewerSync.latestPersistedRevision = payload.persistedRevision
+    if (payload.sourceUserId === currentUserId.value) {
+      targetRoom.viewerSync.persistedRevision = payload.persistedRevision
+      targetRoom.viewerSync.resyncRequired = false
+    } else if (payload.persistedRevision !== targetRoom.viewerSync.persistedRevision) {
+      targetRoom.viewerSync.resyncRequired = true
+    }
+    rooms.value = nextRooms
+  }
+
+  const handleReloadRequired = async (roomKey: string, pushedRevision?: string) => {
     const room = rooms.value[roomKey]
     if (!room) return
 
     await reloadBoundCanvasesForRoom(roomKey)
 
-    const revision = await $fetch<CollaborationRevisionResponse>(
+    const persistedRevision = pushedRevision ?? (await $fetch<CollaborationRevisionResponse>(
       revisionPathForRoom(room)
-    )
-
-    const nextRooms = cloneRooms(rooms.value)
-    const targetRoom = nextRooms[roomKey]
-    if (!targetRoom) return
-
-    targetRoom.viewerSync.persistedRevision = revision.persistedRevision
-    targetRoom.viewerSync.latestPersistedRevision = revision.persistedRevision
-    targetRoom.viewerSync.resyncRequired = false
-    rooms.value = nextRooms
+    )).persistedRevision
+    acceptPersistedRevisionForRoom(roomKey, persistedRevision)
   }
 
   function rejoinOpenRooms() {
@@ -1057,11 +1092,29 @@ export function useEditorCollaboration() {
               }
               break
             }
+            case 'COLLAB_REVISION_CHANGED': {
+              const payload = message.payload as Record<string, unknown> | undefined
+              const roomKey = typeof payload?.roomKey === 'string' ? payload.roomKey : null
+              const persistedRevision = typeof payload?.persistedRevision === 'string' ? payload.persistedRevision : null
+              if (roomKey && persistedRevision) {
+                handleRevisionChanged({
+                  roomKey,
+                  persistedRevision,
+                  sourceUserId: typeof payload?.sourceUserId === 'string' ? payload.sourceUserId : null,
+                  reloadRequired: payload?.reloadRequired === true
+                })
+              }
+              break
+            }
             case 'COLLAB_CONNECTED':
             case 'COLLAB_JOINED':
             case 'CONNECTED':
             case 'AUTH_ACK':
             case 'PONG':
+            case 'COLLAB_LEASE_RENEWED':
+              break
+            case 'COLLAB_LEASE_RENEWAL_FAILED':
+              console.warn('[editor-collaboration] WebSocket lease renewal failed')
               break
             case 'COLLAB_ERROR': {
               const payload = message.payload as Record<string, unknown> | undefined
@@ -1085,8 +1138,8 @@ export function useEditorCollaboration() {
   }
 
   const disconnect = () => {
-    for (const roomKey of roomHeartbeatTimers.keys()) {
-      stopLeaseHeartbeat(roomKey)
+    stopLeaseHeartbeatTimer()
+    for (const roomKey of Object.keys(rooms.value)) {
       clearLeaseWarningTimer(roomKey)
       setLeaseExpiringSoon(roomKey, false)
     }
@@ -1298,7 +1351,6 @@ export function useEditorCollaboration() {
       const { [roomKey]: _removedRoom, ...nextRooms } = cloneRooms(rooms.value)
       rooms.value = nextRooms
       stopRevisionPolling(roomKey)
-      stopLeaseHeartbeat(roomKey)
       clearLeaseWarningTimer(roomKey)
       setLeaseExpiringSoon(roomKey, false)
       teardownRoomBroadcastChannel(roomKey, false)
@@ -1307,6 +1359,7 @@ export function useEditorCollaboration() {
       roomSnapshotVersions.delete(roomKey)
       roomCanvasIds.delete(roomKey)
       setLocallyExpired(roomKey, false)
+      reconcileLeaseHeartbeatTimer()
     }
 
     if (Object.keys(nextCanvasRooms).length === 0) {
@@ -1338,24 +1391,16 @@ export function useEditorCollaboration() {
     }
   }, 200, true, true)
 
-  const acceptCurrentRevisionForCanvas = async (canvasId: string) => {
+  const acceptCurrentRevisionForCanvas = async (canvasId: string, pushedRevision?: string) => {
     const roomKey = canvasRooms.value[canvasId]
     if (!roomKey) return
     const room = roomKey ? rooms.value[roomKey] : null
     if (!room) return
 
-    const revision = await $fetch<CollaborationRevisionResponse>(
+    const persistedRevision = pushedRevision ?? (await $fetch<CollaborationRevisionResponse>(
       revisionPathForRoom(room)
-    )
-
-    const nextRooms = cloneRooms(rooms.value)
-    const targetRoom = nextRooms[roomKey]
-    if (!targetRoom) return
-
-    targetRoom.viewerSync.persistedRevision = revision.persistedRevision
-    targetRoom.viewerSync.latestPersistedRevision = revision.persistedRevision
-    targetRoom.viewerSync.resyncRequired = false
-    rooms.value = nextRooms
+    )).persistedRevision
+    acceptPersistedRevisionForRoom(roomKey, persistedRevision)
   }
 
   const reloadRoomForCanvas = async (canvasId: string) => {

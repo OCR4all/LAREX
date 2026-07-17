@@ -83,6 +83,12 @@ export default defineEventHandler(async (event) => {
     canEdit: bootstrap.canEdit,
     canForceTakeover: bootstrap.canForceTakeover,
     persistedRevision: bootstrap.persistedRevision,
+    annotationRoute: {
+      scope: 'DATASET',
+      workspaceId,
+      datasetId,
+      itemId
+    },
     exp: Date.now() + (60 * 60 * 1000)
   }
 

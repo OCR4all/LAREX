@@ -63,6 +63,17 @@ public class NotificationBridgeClient {
         pushPayload(new ActionEventBridgePayload(new BridgeEvent(type, eventPayload), source), source);
     }
 
+    public void pushJobEvent(String userId, Map<String, Object> eventPayload, String source) {
+        if (!properties.isEnabled()) {
+            return;
+        }
+        if (!properties.isConfigured()) {
+            logger.debug("Notification bridge disabled because URL or secret is missing");
+            return;
+        }
+        pushPayload(new RealtimeEventBridgePayload(userId, new BridgeEvent("JOB_UPDATED", eventPayload), source), source);
+    }
+
     private void pushPayload(Object bridgePayload, String source) {
         try {
             String payload = objectMapper.writeValueAsString(bridgePayload);
@@ -120,6 +131,12 @@ public class NotificationBridgeClient {
     ) {}
 
     private record ActionEventBridgePayload(
+            BridgeEvent event,
+            String source
+    ) {}
+
+    private record RealtimeEventBridgePayload(
+            String userId,
             BridgeEvent event,
             String source
     ) {}

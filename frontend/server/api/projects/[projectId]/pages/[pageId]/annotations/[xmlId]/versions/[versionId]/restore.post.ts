@@ -28,7 +28,25 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const roomKey = `${projectId}:${pageId}:${xmlId}`
-  collaborationState.markPersistedReloadRequired(roomKey, 'restore')
-  return null
+  const revisionResponse = await backendFetch(
+    event,
+    `/projects/${projectId}/pages/${pageId}/annotations/${xmlId}/collaboration/revision`
+  ).catch(() => null)
+  if (!revisionResponse) {
+    collaborationState.markPersistedReloadRequired(`${projectId}:${pageId}:${xmlId}`, 'restore')
+    return null
+  }
+  const revision = await revisionResponse.json().catch(() => null) as { persistedRevision?: string } | null
+  if (!revisionResponse.ok || !revision?.persistedRevision) {
+    collaborationState.markPersistedReloadRequired(`${projectId}:${pageId}:${xmlId}`, 'restore')
+    return null
+  }
+
+  const session = await getUserSession(event)
+  collaborationState.markPersistedRevision(`${projectId}:${pageId}:${xmlId}`, revision.persistedRevision, {
+    reason: 'restore',
+    sourceUserId: session.user?.id ?? null,
+    reloadRequired: true
+  })
+  return revision
 })

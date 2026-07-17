@@ -11,6 +11,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -75,6 +76,7 @@ class AsyncIiifImportProcessorTest {
                 objectMapper,
                 imageDownloader,
                 new IiifProperties(),
+                mock(JobRealtimePublisher.class),
                 transactionManager,
                 Clock.fixed(Instant.parse("2026-07-09T10:00:00Z"), ZoneOffset.UTC)
         );
@@ -136,6 +138,7 @@ class AsyncIiifImportProcessorTest {
                 objectMapper,
                 imageDownloader,
                 new IiifProperties(),
+                mock(JobRealtimePublisher.class),
                 transactionManager,
                 Clock.fixed(Instant.parse("2026-07-09T10:00:00Z"), ZoneOffset.UTC)
         );
@@ -206,6 +209,7 @@ class AsyncIiifImportProcessorTest {
                 objectMapper,
                 imageDownloader,
                 properties,
+                mock(JobRealtimePublisher.class),
                 transactionManager,
                 Clock.fixed(Instant.parse("2026-07-09T10:00:00Z"), ZoneOffset.UTC)
         );

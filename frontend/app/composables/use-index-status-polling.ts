@@ -14,15 +14,18 @@ type IndexStatusPollingOptions = {
 
 export function useIndexStatusPolling(options: IndexStatusPollingOptions) {
   const intervalMs = options.intervalMs ?? 3000
+  const realtimeAuditMs = 60_000
   const timeouts = new Map<string, ReturnType<typeof setTimeout>>()
   const inFlight = new Set<string>()
   const canPoll = ref(false)
+  const realtime = useRealtimeSocket()
+  let realtimeUnsubscribe: (() => void) | null = null
 
   const idsSignature = computed(() => toValue(options.ids).join('|'))
   const stateSignature = computed(() => toValue(options.signature) ?? '')
   const isEnabled = computed(() => {
     const externalEnabled = options.enabled === undefined ? true : toValue(options.enabled)
-    return import.meta.client && canPoll.value && externalEnabled
+    return import.meta.client && canPoll.value && realtime.isPageVisible.value && externalEnabled
   })
 
   function clear(id?: string) {
@@ -41,21 +44,22 @@ export function useIndexStatusPolling(options: IndexStatusPollingOptions) {
     timeouts.clear()
   }
 
-  function schedule(id: string, delayMs = intervalMs) {
+  function schedule(id: string, delayMs?: number) {
     if (!isEnabled.value) return
     if (!id || timeouts.has(id) || inFlight.has(id) || !options.hasPending(id)) {
       return
     }
 
+    const delay = delayMs ?? (realtime.connectionStatus.value === 'connected' ? realtimeAuditMs : intervalMs)
     timeouts.set(id, setTimeout(() => {
       timeouts.delete(id)
       void pollId(id)
-    }, delayMs))
+    }, delay))
   }
 
-  async function pollId(id: string) {
+  async function pollId(id: string, force = false) {
     if (!isEnabled.value || !id || inFlight.has(id)) return
-    if (!options.hasPending(id)) {
+    if (!force && !options.hasPending(id)) {
       clear(id)
       return
     }
@@ -100,14 +104,29 @@ export function useIndexStatusPolling(options: IndexStatusPollingOptions) {
     reconcile()
   }, { immediate: options.immediate ?? true })
 
+  watch(() => realtime.connectionStatus.value, () => {
+    clear()
+    reconcile()
+  })
+
   onMounted(() => {
     canPoll.value = true
+    realtimeUnsubscribe = realtime.subscribe((message) => {
+      if (message.type !== 'JOB_UPDATED') return
+      const payload = message.payload as { kind?: unknown, projectId?: unknown } | null
+      if (payload?.kind !== 'PAGE_INDEX' || typeof payload.projectId !== 'string') return
+      if (toValue(options.ids).includes(payload.projectId)) {
+        void pollId(payload.projectId, true)
+      }
+    })
     reconcile()
   })
 
   onBeforeUnmount(() => {
     canPoll.value = false
     clear()
+    realtimeUnsubscribe?.()
+    realtimeUnsubscribe = null
   })
 
   return {

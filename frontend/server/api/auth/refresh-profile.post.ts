@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     const config = useRuntimeConfig(event)
     const keycloakConfig = config.oauth.keycloak
 
-    const userInfoUrl = `${keycloakConfig.serverUrl}/realms/${keycloakConfig.realm}/protocol/openid-connect/userinfo`
+    const userInfoUrl = `${keycloakConfig.serverUrlInternal || keycloakConfig.serverUrl}/realms/${keycloakConfig.realm}/protocol/openid-connect/userinfo`
 
     const response = await $fetch(userInfoUrl, {
       headers: {

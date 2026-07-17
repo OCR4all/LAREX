@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.backup;
 
 import de.uniwue.zpd.dachs.larex.backend.config.BackupProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.BackupJobDto;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,6 +16,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 class BackupJobServiceTest {
@@ -31,7 +33,7 @@ class BackupJobServiceTest {
     @BeforeEach
     void setUp() {
         properties = new BackupProperties();
-        service = new BackupJobService(backupJobProcessor, taskExecutor, properties);
+        service = new BackupJobService(backupJobProcessor, taskExecutor, properties, mock(JobRealtimePublisher.class));
     }
 
     @Test

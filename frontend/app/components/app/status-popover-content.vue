@@ -30,6 +30,7 @@ const actionRunsStore = useActionRunsStore()
 const backgroundJobsStore = useBackgroundJobsStore()
 const iiifImportJobsStore = useIiifImportJobsStore()
 const toast = useToast()
+const realtime = useRealtimeSocket()
 const UChatShimmer = resolveComponent('UChatShimmer')
 const {
   issues,
@@ -52,6 +53,16 @@ const {
 const collapsedJobKeys = ref<Set<string>>(new Set())
 const dismissingJobKeys = ref<Set<string>>(new Set())
 const clearingCompletedJobs = ref(false)
+
+const realtimeStatus = computed(() => {
+  if (realtime.connectionStatus.value === 'connected') {
+    return { label: 'Realtime connected', icon: 'i-lucide-wifi', color: 'text-success' }
+  }
+  if (realtime.connectionStatus.value === 'connecting') {
+    return { label: 'Reconnecting…', icon: 'i-lucide-loader-circle', color: 'text-warning' }
+  }
+  return { label: 'Using HTTP fallback', icon: 'i-lucide-wifi-off', color: 'text-warning' }
+})
 
 const fileStatusIcons: Record<string, string> = {
   pending: 'i-lucide-clock',
@@ -330,6 +341,10 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
     </div>
 
     <div v-else :class="[compact ? 'max-h-[min(60vh,24rem)]' : 'max-h-110', 'overflow-y-auto']">
+      <div class="flex items-center gap-2 border-b border-default px-4 py-2 text-xs text-muted">
+        <UIcon :name="realtimeStatus.icon" :class="realtimeStatus.color" class="size-3.5" />
+        <span>{{ realtimeStatus.label }}</span>
+      </div>
       <div v-if="issues.length === 0 && jobs.length === 0" class="px-4 py-6 text-center text-sm text-muted">
         All clear
       </div>

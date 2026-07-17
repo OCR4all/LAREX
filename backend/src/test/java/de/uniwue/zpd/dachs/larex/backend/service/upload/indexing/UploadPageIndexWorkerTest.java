@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadSessionEventBroadcaster;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,8 @@ class UploadPageIndexWorkerTest {
                 pageRepository,
                 pageFilterIndexService,
                 pageIndexStatusTracker,
-                uploadSessionEventBroadcaster
+                uploadSessionEventBroadcaster,
+                mock(JobRealtimePublisher.class)
         );
     }
 

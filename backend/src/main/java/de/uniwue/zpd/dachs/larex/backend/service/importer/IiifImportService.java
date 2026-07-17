@@ -19,6 +19,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -93,6 +94,7 @@ public class IiifImportService {
     private final IiifRemoteRequestThrottler iiifRemoteRequestThrottler;
     private final ObjectMapper objectMapper;
     private final TaskExecutor previewTaskExecutor;
+    private final JobRealtimePublisher jobRealtimePublisher;
     private final HttpClient httpClient;
     private final Cache<String, IiifPreviewSession> previewCache;
     private final Cache<String, IiifPreviewJobState> previewJobCache;
@@ -108,7 +110,8 @@ public class IiifImportService {
                              IiifImportQueueService iiifImportQueueService,
                              IiifRemoteRequestThrottler iiifRemoteRequestThrottler,
                              ObjectMapper objectMapper,
-                             @Qualifier("iiifPreviewTaskExecutor") TaskExecutor previewTaskExecutor) {
+                             @Qualifier("iiifPreviewTaskExecutor") TaskExecutor previewTaskExecutor,
+                             JobRealtimePublisher jobRealtimePublisher) {
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -121,6 +124,7 @@ public class IiifImportService {
         this.iiifRemoteRequestThrottler = iiifRemoteRequestThrottler;
         this.objectMapper = objectMapper;
         this.previewTaskExecutor = previewTaskExecutor;
+        this.jobRealtimePublisher = jobRealtimePublisher;
         this.httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(HTTP_TIMEOUT)
@@ -442,6 +446,7 @@ public class IiifImportService {
             job.setQuotaReservationReleased(true);
             job = iiifImportJobRepository.save(job);
         }
+        publishUpdate(job);
         return toJobResponse(job);
     }
 
@@ -515,6 +520,7 @@ public class IiifImportService {
             job.appendToLog(logMessage);
             job = iiifImportJobRepository.save(job);
 
+            publishUpdate(job);
             triggerImportAfterCommit(job.getId());
             return toJobResponse(job);
         } catch (RuntimeException e) {
@@ -1642,6 +1648,17 @@ public class IiifImportService {
                 .map(Project::getName)
                 .orElse(job.getProjectId());
         return toJobResponse(job, projectName);
+    }
+
+    private void publishUpdate(IiifImportJob job) {
+        jobRealtimePublisher.publish(
+                "IIIF_IMPORT",
+                job.getId(),
+                job.getWorkspaceId(),
+                job.getProjectId(),
+                job.getStatus().name(),
+                job.getCreatedByUserId()
+        );
     }
 
     private IiifImportDto.JobResponse toJobResponse(IiifImportJob job, String projectName) {

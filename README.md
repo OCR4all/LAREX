@@ -15,7 +15,7 @@ LAREX (Layout Analysis and Recognition) is a full-stack web application for anno
 | Setup | Purpose | Command |
 |-------|---------|---------|
 | Local dev | Source-mounted developer workflow with Traefik and `*.localhost` | `docker compose up -d` |
-| Local production-like | Production images/runtime with Traefik, `*.localhost`, and Mailpit | `docker compose --env-file .env.prod.local -f compose.prod.base.yaml -f compose.prod.auth.bundled-keycloak.yaml -f compose.prod.local.yaml up -d` |
+| Local production-like | Production images/runtime with Nginx, `*.localhost`, and Mailpit | `docker compose --env-file .env.prod.local -f compose.prod.base.yaml -f compose.prod.auth.bundled-keycloak.yaml -f compose.prod.local.yaml up -d` |
 | Opinionated production | Production images/runtime with loopback-bound ports for your own reverse proxy | `docker compose --env-file .env.prod -f compose.prod.base.yaml -f compose.prod.auth.bundled-keycloak.yaml -f compose.prod.publish.localhost.yaml up -d` |
 
 Production supports two small overrides:
@@ -68,7 +68,7 @@ docker compose --env-file .env.prod.local \
   -f compose.prod.base.yaml \
   -f compose.prod.auth.bundled-keycloak.yaml \
   -f compose.prod.local.yaml \
-  up -d --wait --wait-timeout 300
+  up -d --remove-orphans --wait --wait-timeout 300
 
 # with self-hosted docs
 docker compose --env-file .env.prod.local \
@@ -76,8 +76,15 @@ docker compose --env-file .env.prod.local \
   -f compose.prod.auth.bundled-keycloak.yaml \
   -f compose.prod.local.yaml \
   -f compose.prod.local.docs.yaml \
-  up -d --wait --wait-timeout 300
+  up -d --remove-orphans --wait --wait-timeout 300
 ```
+
+Local production-like routes through Nginx:
+
+- App: `http://larex.localhost`
+- Keycloak: `http://keycloak.localhost`
+- Mailpit: `http://mail.localhost`
+- Docs: `http://docs.localhost` (with `compose.prod.local.docs.yaml`)
 
 ### Opinionated production
 

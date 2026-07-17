@@ -30,13 +30,17 @@ function createRun(overrides: Partial<ActionRun> = {}): ActionRun {
   }
 }
 
-async function createStore(fetchMock: ReturnType<typeof vi.fn>, subscribe = vi.fn()) {
+async function createStore(
+  fetchMock: ReturnType<typeof vi.fn>,
+  subscribe = vi.fn(),
+  connectionStatus?: { value: string }
+) {
   const vue = await import('vue')
   const pinia = await import('pinia')
   ;(globalThis as any).ref = vue.ref
   ;(globalThis as any).computed = vue.computed
   ;(globalThis as any).$fetch = fetchMock
-  ;(globalThis as any).useRealtimeSocket = () => ({ subscribe })
+  ;(globalThis as any).useRealtimeSocket = () => ({ subscribe, connectionStatus })
   pinia.setActivePinia(pinia.createPinia())
   const { useActionRunsStore } = await import('../action-runs.store')
   return useActionRunsStore()
@@ -107,6 +111,20 @@ describe('action-runs.store', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/workspaces/workspace-1/actions/projects/project-1/runs'
     )
+  })
+
+  it('uses a slow audit while realtime is connected', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockResolvedValue([])
+    const store = await createStore(fetchMock, vi.fn(), { value: 'connected' })
+    store.upsertRun(createRun())
+    store.initializeRealtime()
+
+    await vi.advanceTimersByTimeAsync(59_999)
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('stops page processing immediately when the realtime result event arrives', async () => {

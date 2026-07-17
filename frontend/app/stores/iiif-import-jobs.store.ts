@@ -13,6 +13,10 @@ function isTerminalStatus(status: IiifImportJobStatus): boolean {
   return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
 }
 
+let realtimeInitialized = false
+let realtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
+const pendingRealtimeWorkspaceIds = new Set<string>()
+
 export interface IiifImportTerminalEvent {
   sequence: number
   job: IiifImportJob
@@ -80,6 +84,24 @@ export const useIiifImportJobsStore = defineStore('iiif-import-jobs', () => {
       jobsArray.value.filter(job => isActiveStatus(job.status)).map(job => job.workspaceId)
     )
     await Promise.allSettled(Array.from(workspaceIds).map(refreshWorkspaceJobs))
+  }
+
+  function initializeRealtime() {
+    if (import.meta.server || realtimeInitialized) return
+    realtimeInitialized = true
+    useRealtimeSocket().subscribe((message) => {
+      if (message.type !== 'JOB_UPDATED') return
+      const payload = message.payload as { kind?: unknown, workspaceId?: unknown } | null
+      if (payload?.kind !== 'IIIF_IMPORT' || typeof payload.workspaceId !== 'string') return
+      pendingRealtimeWorkspaceIds.add(payload.workspaceId)
+      if (realtimeRefreshTimer) return
+      realtimeRefreshTimer = setTimeout(() => {
+        realtimeRefreshTimer = null
+        const workspaceIds = Array.from(pendingRealtimeWorkspaceIds)
+        pendingRealtimeWorkspaceIds.clear()
+        void Promise.allSettled(workspaceIds.map(refreshWorkspaceJobs))
+      }, 50)
+    })
   }
 
   async function cancelJob(job: IiifImportJob) {
@@ -187,6 +209,7 @@ export const useIiifImportJobsStore = defineStore('iiif-import-jobs', () => {
     upsertJobs,
     refreshWorkspaceJobs,
     refreshActiveJobs,
+    initializeRealtime,
     cancelJob,
     dismissJob,
     dismissCompletedJobs,

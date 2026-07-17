@@ -14,6 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,6 +77,8 @@ class IiifImportServiceTest {
     private IiifRemoteRequestThrottler iiifRemoteRequestThrottler;
     @Mock
     private TaskExecutor previewTaskExecutor;
+    @Mock
+    private JobRealtimePublisher jobRealtimePublisher;
 
     private IiifImportService service;
     private Project project;
@@ -94,7 +97,8 @@ class IiifImportServiceTest {
                 iiifImportQueueService,
                 iiifRemoteRequestThrottler,
                 new ObjectMapper(),
-                previewTaskExecutor
+                previewTaskExecutor,
+                jobRealtimePublisher
         );
         lenient().when(pageOrderService.reserveAppendSortOrders(any(), anyInt())).thenAnswer(invocation -> {
             int count = invocation.getArgument(1);

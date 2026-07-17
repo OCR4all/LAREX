@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.backup;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.BackupJobDto;
 import de.uniwue.zpd.dachs.larex.backend.config.BackupProperties;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,7 @@ public class BackupJobService {
     private final BackupJobProcessor backupJobProcessor;
     private final AsyncTaskExecutor taskExecutor;
     private final BackupProperties properties;
+    private final JobRealtimePublisher jobRealtimePublisher;
 
     private final Map<String, BackupJobState> jobs = new ConcurrentHashMap<>();
     private final Map<String, Future<?>> futures = new ConcurrentHashMap<>();
@@ -37,10 +39,12 @@ public class BackupJobService {
 
     public BackupJobService(@Lazy BackupJobProcessor backupJobProcessor,
                             @Qualifier("importTaskExecutor") AsyncTaskExecutor taskExecutor,
-                            BackupProperties properties) {
+                            BackupProperties properties,
+                            JobRealtimePublisher jobRealtimePublisher) {
         this.backupJobProcessor = backupJobProcessor;
         this.taskExecutor = taskExecutor;
         this.properties = properties;
+        this.jobRealtimePublisher = jobRealtimePublisher;
     }
 
     @PostConstruct
@@ -162,6 +166,7 @@ public class BackupJobService {
         final String sourcePathFinal = normalizedSource;
         Future<?> future = taskExecutor.submit(() -> backupJobProcessor.processJob(id, userId, request, sourcePathFinal));
         futures.put(id, future);
+        publishUpdate(state);
 
         return toJobResponse(state);
     }
@@ -201,6 +206,7 @@ public class BackupJobService {
         if (future != null) {
             future.cancel(true);
         }
+        publishUpdate(state);
     }
 
     public boolean isCancelled(String jobId) {
@@ -214,15 +220,20 @@ public class BackupJobService {
         state.setTotalItems(totalItems);
         state.setCurrentStep(step);
         state.setUpdated(LocalDateTime.now());
+        publishUpdate(state);
     }
 
     public void updateProgress(String jobId, long processedItems, long totalItems, String step) {
         BackupJobState state = requiredState(jobId);
+        int previousPercent = state.progressPercent();
         state.setProcessedItems(processedItems);
         state.setTotalItems(totalItems);
         state.setProgressPercent(computeProgressPercent(processedItems, totalItems));
         state.setCurrentStep(step);
         state.setUpdated(LocalDateTime.now());
+        if (state.progressPercent() != previousPercent) {
+            publishUpdate(state);
+        }
     }
 
     public void addWarning(String jobId, String warning) {
@@ -232,6 +243,7 @@ public class BackupJobService {
         BackupJobState state = requiredState(jobId);
         state.warnings().add(warning);
         state.setUpdated(LocalDateTime.now());
+        publishUpdate(state);
     }
 
     public void markCompleted(String jobId, String resultPath) {
@@ -242,6 +254,7 @@ public class BackupJobService {
         state.setCompletedAt(LocalDateTime.now());
         state.setUpdated(LocalDateTime.now());
         futures.remove(jobId);
+        publishUpdate(state);
     }
 
     public void markFailed(String jobId, String errorMessage) {
@@ -256,6 +269,7 @@ public class BackupJobService {
         state.setCompletedAt(LocalDateTime.now());
         state.setUpdated(LocalDateTime.now());
         futures.remove(jobId);
+        publishUpdate(state);
     }
 
     public int getMaxFilesPerJob() {
@@ -272,6 +286,17 @@ public class BackupJobService {
             throw new IllegalArgumentException("Backup job not found: " + jobId);
         }
         return state;
+    }
+
+    private void publishUpdate(BackupJobState state) {
+        jobRealtimePublisher.publish(
+                "BACKUP",
+                state.id(),
+                null,
+                null,
+                state.status().name(),
+                null
+        );
     }
 
     private int computeProgressPercent(long processedItems, long totalItems) {
