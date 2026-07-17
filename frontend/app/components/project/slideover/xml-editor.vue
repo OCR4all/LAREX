@@ -56,6 +56,7 @@ const colorMode = useColorMode()
 
 const loading = ref(true)
 const saving = ref(false)
+const formatting = ref(false)
 const validating = ref(false)
 const validation = ref<XmlValidationResult | null>(null)
 const initialXml = ref('')
@@ -75,7 +76,7 @@ const xmlSearchKeymap = keymap.of([
 const isDirty = computed(() => currentXml.value !== initialXml.value)
 const isReadOnly = computed(() => Boolean(props.readOnly))
 const title = computed(() => isReadOnly.value ? 'View PAGE XML' : 'View/Edit PAGE XML')
-const canSave = computed(() => !isReadOnly.value && isDirty.value && validation.value?.valid === true && !saving.value)
+const canSave = computed(() => !isReadOnly.value && isDirty.value && validation.value?.valid === true && !saving.value && !formatting.value)
 const errorCount = computed(() => validation.value?.errors?.length ?? 0)
 const resolvedXmlBasePath = computed(() => {
   if (props.xmlBasePath?.trim()) return props.xmlBasePath
@@ -166,6 +167,46 @@ function createEditor(content: string) {
 
 function getEditorXml() {
   return editorView?.state.doc.toString() ?? currentXml.value
+}
+
+async function prettyPrintEditorXml() {
+  if (!editorView || isReadOnly.value || formatting.value) return
+
+  const view = editorView
+  const sourceDocument = view.state.doc
+  const sourceXml = sourceDocument.toString()
+  const cursorOffset = view.state.selection.main.head
+  formatting.value = true
+
+  try {
+    const result = await prettyPrintXml(sourceXml, cursorOffset)
+    if (editorView !== view || view.state.doc !== sourceDocument) return
+    if (result.formatted === sourceXml) return
+
+    view.dispatch({
+      changes: {
+        from: 0,
+        to: sourceDocument.length,
+        insert: result.formatted
+      },
+      selection: {
+        anchor: result.cursorOffset
+      },
+      scrollIntoView: true
+    })
+    view.focus()
+  } catch (error: unknown) {
+    const description = error instanceof Error && error.message
+      ? `Prettier could not format this document: ${error.message}`
+      : 'Prettier could not format this document.'
+    toast.add({
+      title: 'Could not format XML',
+      description,
+      color: 'warning'
+    })
+  } finally {
+    formatting.value = false
+  }
 }
 
 function buildThemeExtension() {
@@ -355,13 +396,25 @@ async function closeWithGuard() {
           <div class="flex items-center justify-between gap-2 rounded-sm border border-default p-2">
             <div class="flex items-center gap-2">
               <UButton
-                color="neutral"
+                color="primary"
                 variant="subtle"
                 icon="i-lucide-search"
                 size="sm"
                 @click="toggleFindReplacePanel"
               >
-                Find / Replace
+                Find and Replace
+              </UButton>
+              <UButton
+                v-if="!isReadOnly"
+                color="primary"
+                variant="subtle"
+                icon="i-lucide-align-left"
+                size="sm"
+                :loading="formatting"
+                :disabled="formatting"
+                @click="prettyPrintEditorXml"
+              >
+                Pretty Print
               </UButton>
             </div>
             <p class="text-xs text-muted">
