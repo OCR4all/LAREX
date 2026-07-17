@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
-import type { DropdownMenuItem } from '@nuxt/ui'
+import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import type { NormalizationProfile, NormalizationProfileCreateOrUpdateRequest, NormalizationReplacementRule } from '@/types/normalization-profile'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 
@@ -106,7 +106,7 @@ const presetRuleOptions: Array<{ key: Exclude<NormalizationPresetRuleKey, 'unico
   { key: 'normalizeEllipsis', label: 'Normalize ellipsis', model: normalizeEllipsis }
 ]
 
-const breadcrumbItems = computed(() => [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
   { label: 'Home', icon: 'i-lucide-home', to: '/' },
   { label: 'Normalization Profiles', icon: 'i-lucide-wand-sparkles', to: '/normalization-profiles' },
   { label: isNew ? 'New Profile' : (name.value || 'Edit Profile') }

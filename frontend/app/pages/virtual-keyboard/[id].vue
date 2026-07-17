@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { KeyboardLayout } from '@/types/virtual-keyboard'
-import type { DropdownMenuItem } from '@nuxt/ui'
+import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import { LazyUiDeleteSlideover, LazyShareSlideover } from '#components'
 
@@ -23,7 +23,7 @@ const keyboardsKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards'
 const keyboardKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards', id))
 const loadedCapabilities = ref<ResourceCapabilities | null>(null)
 
-const breadcrumbItems = computed(() => [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
   {
     label: 'Home',
     icon: 'i-lucide-home',

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from '@nuxt/ui'
+import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import type { LabelMapping, LabelScope, LabelSet, LabelSetCreateOrUpdateRequest } from '@/types/label-set'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import { LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
@@ -26,7 +26,7 @@ const labelSetsKey = computed(() => wsKey(workspaceId.value, 'label-sets', 'list
 const labelSetKey = computed(() => wsKey(workspaceId.value, 'label-sets', id))
 const loadedCapabilities = ref<ResourceCapabilities | null>(null)
 
-const breadcrumbItems = computed(() => [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
   { label: 'Home', icon: 'i-lucide-home', to: '/' },
   { label: 'Label Sets', icon: 'i-lucide-tags', to: '/labels' },
   { label: isNew ? 'New Label Set' : (meta.name || id) }

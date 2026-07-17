@@ -343,7 +343,7 @@ const { data: openSubtasksByPage } = await useFetch<Record<string, Subtask[]>>(
   }
 )
 
-const items = computed<BreadcrumbItem[]>(() => [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
   {
     label: 'Projects',
     to: '/'
@@ -2089,11 +2089,7 @@ useHead({
     <template #header>
       <UDashboardNavbar>
         <template #title>
-          <UBreadcrumb :items="items">
-            <template #separator>
-              <span class="mx-2 text-muted">/</span>
-            </template>
-          </UBreadcrumb>
+          <UBreadcrumb :items="breadcrumbItems" />
         </template>
 
         <template #right>

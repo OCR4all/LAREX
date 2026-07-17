@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
-import type { DropdownMenuItem } from '@nuxt/ui'
+import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import type { ValidationRule, ValidationRuleset, ValidationRulesetCreateOrUpdateRequest, ValidationSeverity } from '@/types/validation-ruleset'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 
@@ -105,7 +105,7 @@ const tabs = [
   { label: 'Preview', icon: 'i-lucide-scan-eye', value: 'preview' }
 ]
 
-const breadcrumbItems = computed(() => [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
   { label: 'Home', icon: 'i-lucide-home', to: '/' },
   { label: 'Validation Rulesets', icon: 'i-lucide-shield-alert', to: '/validation-rulesets' },
   { label: isNew ? 'New Ruleset' : (name.value || 'Edit Ruleset') }

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from '@nuxt/ui'
+import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 
 const props = defineProps<{
   isNew: boolean
   isSystem?: boolean
   canShare?: boolean
-  breadcrumbItems: { label: string, icon?: string, to?: string }[]
+  breadcrumbItems: BreadcrumbItem[]
   helpTitle?: string
   helpDescription?: string
   helpItems?: string[]

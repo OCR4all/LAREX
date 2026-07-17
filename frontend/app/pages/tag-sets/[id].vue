@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { BreadcrumbItem } from '@nuxt/ui'
 import type { TagSet, TagSetCreateOrUpdateRequest } from '@/types/tag-set'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import {
@@ -30,7 +31,7 @@ const tagSetsKey = computed(() => wsKey(workspaceId.value, 'tag-sets', 'list'))
 const tagSetKey = computed(() => wsKey(workspaceId.value, 'tag-sets', id))
 const loadedCapabilities = ref<ResourceCapabilities | null>(null)
 
-const breadcrumbItems = computed(() => [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
   { label: 'Home', icon: 'i-lucide-home', to: '/' },
   { label: 'Tags', icon: 'i-lucide-network', to: '/tag-sets' },
   { label: isNew ? 'New Tag Set' : (meta.name || id) }

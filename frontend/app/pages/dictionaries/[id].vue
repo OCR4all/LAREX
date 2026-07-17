@@ -2,7 +2,7 @@
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { Dictionary, DictionaryCreateOrUpdateRequest } from '@/types/dictionary'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
-import type { DropdownMenuItem } from '@nuxt/ui'
+import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 
 const route = useRoute()
 const router = useRouter()
@@ -92,7 +92,7 @@ if (!isNew) {
   applyDictionaryState(initial)
 }
 
-const breadcrumbItems = computed(() => [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
   {
     label: 'Home',
     icon: 'i-lucide-home',

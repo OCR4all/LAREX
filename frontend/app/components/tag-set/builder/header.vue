@@ -1,9 +1,5 @@
 <script setup lang="ts">
-interface BreadcrumbItem {
-  label: string
-  icon?: string
-  to?: string
-}
+import type { BreadcrumbItem } from '@nuxt/ui'
 
 const props = defineProps<{
   isNew: boolean

@@ -2,7 +2,7 @@
 import { LazyCodecSlideoverAction, LazyVirtualKeyboardSlideoverGlyphPicker, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
 import type { Codec, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
-import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import type { BreadcrumbItem, DropdownMenuItem, TableColumn } from '@nuxt/ui'
 
 const route = useRoute()
 const router = useRouter()
@@ -59,7 +59,7 @@ const description = ref(initial.description ?? '')
 const tags = ref<string[]>([...(initial.tags ?? [])])
 const codec = ref<string[]>([...(initial.codec ?? [])])
 
-const breadcrumbItems = computed(() => [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
   {
     label: 'Home',
     icon: 'i-lucide-home',

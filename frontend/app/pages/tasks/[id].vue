@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Task, TaskStatus, TaskComment, TaskActivityLog, TaskLinks, Subtask, SubtaskProgress, TaskReminder, UserProfile, WorkspaceMember } from '~/types/index'
 import { formatDistanceToNow, isPast, parseISO, format, addHours, addDays, set } from 'date-fns'
-import type { DropdownMenuItem } from '@nuxt/ui'
+import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import { LazyTaskSlideoverEdit, LazyUiDeleteSlideover, LazyTaskSlideoverLinkItems, LazyTaskModalConvertToSubtasks } from '#components'
 
 const route = useRoute()
@@ -377,7 +377,7 @@ function goBack() {
   navigateTo('/tasks')
 }
 
-const breadcrumbItems = computed(() => [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
   {
     label: 'Home',
     icon: 'i-lucide-home',
