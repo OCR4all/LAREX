@@ -493,7 +493,9 @@ class ProjectPackageReleaseIntegrationTest {
                 "Before correction"
         );
         sourceVersion = pageXmlVersionRepository.saveAndFlush(sourceVersion);
-        LocalDateTime created = sourceVersion.getCreated();
+        LocalDateTime created = pageXmlVersionRepository.findById(sourceVersion.getId())
+                .orElseThrow()
+                .getCreated();
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         projectPackageService.writeProjectPackage(
