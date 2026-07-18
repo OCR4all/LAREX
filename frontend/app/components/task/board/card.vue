@@ -146,7 +146,9 @@ const additionalCount = computed(() => {
             :key="user.id"
             :text="user.username"
           >
-            <UAvatar
+            <AppAvatar
+              :seed="user.id"
+              :src="user.avatar"
               :alt="user.username"
               size="sm"
               class="ring-2 ring-default"

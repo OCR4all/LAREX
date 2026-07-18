@@ -4,6 +4,7 @@ export * from './editor/rendering'
 export * from './capabilities'
 export * from './action'
 export * from './dataset'
+export * from './avatar'
 
 export type WorkspaceMemberRole = 'CURATOR' | 'EDITOR' | 'ADMINISTRATOR' | 'MEMBER'
 
@@ -61,7 +62,6 @@ export interface UserProfile {
 export interface UpdateUserProfileRequest {
   firstName?: string
   lastName?: string
-  avatar?: string
 }
 
 export interface RecentProject {

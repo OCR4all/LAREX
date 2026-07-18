@@ -71,14 +71,6 @@ const displayName = computed(() => {
   }
 })
 
-const avatarFallback = computed(() => {
-  return getAvatarInitials({
-    firstName: profile.value?.firstName,
-    lastName: profile.value?.lastName,
-    username: profile.value?.username
-  })
-})
-
 const avatarSrc = computed(() => {
   return resolveManagedProfileAvatarSrc(form.avatar || profile.value?.avatar)
 })
@@ -103,8 +95,7 @@ const saveProfile = async () => {
   try {
     const updateRequest: UpdateUserProfileRequest = {
       firstName: form.firstName.trim() || undefined,
-      lastName: form.lastName.trim() || undefined,
-      avatar: resolveManagedProfileAvatarSrc(form.avatar) || undefined
+      lastName: form.lastName.trim() || undefined
     }
 
     await $fetch('/api/profile', {
@@ -308,11 +299,11 @@ const removeImage = async () => {
 
       <div v-else-if="profile" class="space-y-6">
         <div class="flex items-center gap-4">
-          <UAvatar
+          <AppAvatar
+            :seed="profile.id"
             :src="avatarSrc"
             :alt="displayName"
             size="xl"
-            :fallback="avatarFallback"
           />
           <div v-if="!isEditing">
             <h3 class="text-lg font-semibold">

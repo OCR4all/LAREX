@@ -6,17 +6,26 @@ import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * REST controller for user profile management
- */
 @RestController
 @RequestMapping("/profile")
 public class UserProfileController {
@@ -31,108 +40,61 @@ public class UserProfileController {
         this.profileImageService = profileImageService;
     }
 
-    /**
-     * Get current user's profile
-     */
     @GetMapping
     public ResponseEntity<UserProfileDto> getCurrentUserProfile(
             @AuthenticationPrincipal(expression = "subject") String userId) {
-
         Optional<UserProfileDto> profile = userService.getUserProfile(userId);
-
         return profile.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /**
-     * Update current user's profile (non-security fields only)
-     */
     @PutMapping
     public ResponseEntity<UserProfileDto> updateCurrentUserProfile(
             @Valid @RequestBody UserProfileDto.UpdateRequest updateRequest,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-
-        boolean updated = userService.updateUserProfile(userId, updateRequest);
-
-        if (updated) {
-            Optional<UserProfileDto> updatedProfile = userService.getUserProfile(userId);
-            return updatedProfile.map(ResponseEntity::ok)
-                    .orElse(ResponseEntity.ok().build());
-        } else {
+        if (!userService.updateUserProfile(userId, updateRequest)) {
             return ResponseEntity.badRequest().build();
         }
+        return userService.getUserProfile(userId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.ok().build());
     }
 
-    /**
-     * Upload profile image
-     */
     @PostMapping("/image")
     public ResponseEntity<Map<String, String>> uploadProfileImage(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-
         try {
-            // Get current profile to potentially delete old image
-            Optional<UserProfileDto> currentProfile = userService.getUserProfile(userId);
-            String oldAvatarUrl = currentProfile.map(UserProfileDto::avatar).orElse(null);
-
-            // Upload new image
             String imageUrl = profileImageService.uploadProfileImage(userId, file);
-
-            // Update user profile with new avatar URL
-            UserProfileDto.UpdateRequest updateRequest = new UserProfileDto.UpdateRequest(null, null, imageUrl);
-            boolean updated = userService.updateUserProfile(userId, updateRequest);
-
-            if (updated) {
-                // Delete old image if it was managed by us
-                if (oldAvatarUrl != null) {
-                    profileImageService.deleteProfileImage(oldAvatarUrl);
-                }
-
-                return ResponseEntity.ok(Map.of("avatarUrl", imageUrl));
-            } else {
-                // If profile update failed, clean up uploaded file
-                profileImageService.deleteProfileImage(imageUrl);
-                return ResponseEntity.badRequest().body(Map.of("error", "Failed to update profile"));
-            }
-
-        } catch (IllegalArgumentException e) {
-            logger.warn("Validation error during image upload for user {}: {}", userId, e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            logger.error("Unexpected error during image upload for user {}: {}", userId, e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to upload image: " + e.getMessage()));
+            return ResponseEntity.ok(Map.of("avatarUrl", imageUrl));
+        } catch (IllegalArgumentException exception) {
+            logger.warn("Validation error during image upload for user {}: {}", userId, exception.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", exception.getMessage()));
+        } catch (Exception exception) {
+            logger.error("Unexpected error during image upload for user {}", userId, exception);
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to upload image"));
         }
     }
 
-    /**
-     * Delete profile image
-     */
     @DeleteMapping("/image")
     public ResponseEntity<Void> deleteProfileImage(
             @AuthenticationPrincipal(expression = "subject") String userId) {
-
         try {
-            // Get current profile
-            Optional<UserProfileDto> currentProfile = userService.getUserProfile(userId);
-            if (currentProfile.isPresent() && currentProfile.get().avatar() != null) {
-                String avatarUrl = currentProfile.get().avatar();
-
-                // Remove avatar from profile
-                UserProfileDto.UpdateRequest updateRequest = new UserProfileDto.UpdateRequest(null, null, "");
-                boolean updated = userService.updateUserProfile(userId, updateRequest);
-
-                if (updated) {
-                    // Delete the file
-                    profileImageService.deleteProfileImage(avatarUrl);
-                    return ResponseEntity.ok().build();
-                }
-            }
-
-            return ResponseEntity.badRequest().build();
-
-        } catch (Exception e) {
+            profileImageService.deleteProfileImageForUser(userId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception exception) {
+            logger.error("Failed to delete profile image for user {}", userId, exception);
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    @GetMapping("/images/{storageKey}")
+    public ResponseEntity<Resource> getProfileImage(@PathVariable String storageKey) {
+        return profileImageService.loadProfileImage(storageKey)
+                .map(resource -> ResponseEntity.ok()
+                        .contentType(MediaType.IMAGE_JPEG)
+                        .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePrivate().immutable())
+                        .body(resource))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

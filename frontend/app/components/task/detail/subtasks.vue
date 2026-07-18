@@ -620,8 +620,10 @@ async function onDragEnd() {
               variant="ghost"
               class="gap-1"
             >
-              <UAvatar
+              <AppAvatar
                 v-if="subtask.assignedTo"
+                :seed="subtask.assignedTo.id"
+                :src="subtask.assignedTo.avatar"
                 :alt="getAssigneeName(subtask)"
                 size="2xs"
               />

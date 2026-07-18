@@ -1,6 +1,12 @@
 <script setup lang="ts">
 const colorMode = useColorMode()
 const { instanceName } = useInstance()
+const { loggedIn } = useUserSession()
+const { initialize: initializeAvatarSettings } = useAvatarSettings()
+
+if (loggedIn.value) {
+  await initializeAvatarSettings()
+}
 
 const color = computed(() => colorMode.value === 'dark' ? '#1b1718' : 'white')
 

@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
 import type { CollaborationPresence, CollaborationRoomMember, CollaborationUserIdentity } from '@/types/collaboration'
 import { getCollaborationColor } from '@/types/collaboration'
-import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
+import { resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 
 export interface CollaborationDisplayParticipant {
@@ -70,13 +70,6 @@ export function useEditorCanvasCollaborationDisplay(options: EditorCanvasCollabo
     return resolveManagedProfileAvatarSrc(user.avatar)
   }
 
-  function avatarFallback(user: CollaborationUserIdentity): string {
-    return getAvatarInitials({
-      name: user.displayName,
-      username: user.username
-    })
-  }
-
   function collaborationAvatarStyle(userId: string): Record<string, string> {
     const color = getCollaborationColor(userId)
     return {
@@ -112,7 +105,6 @@ export function useEditorCanvasCollaborationDisplay(options: EditorCanvasCollabo
     collaborationSummaryLabel,
     showCollaboratorsPopover,
     avatarSrc,
-    avatarFallback,
     collaborationAvatarStyle,
     collaboratorActivityLabel,
     collaboratorStatus

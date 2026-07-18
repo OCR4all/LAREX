@@ -375,7 +375,12 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
                     class="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-elevated/50"
                     @click="addAssignee(user)"
                   >
-                    <UAvatar :alt="user.username" size="sm" />
+                    <AppAvatar
+                      :seed="user.id"
+                      :src="user.avatar"
+                      :alt="getDisplayName(user)"
+                      size="sm"
+                    />
                     <div class="min-w-0 flex-1">
                       <p class="truncate text-sm font-medium">
                         {{ getDisplayName(user) }}
@@ -396,7 +401,12 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
                     :key="user.id"
                     class="inline-flex items-center gap-2 rounded-sm border border-default bg-elevated/50 px-2 py-1"
                   >
-                    <UAvatar :alt="user.username" size="xs" />
+                    <AppAvatar
+                      :seed="user.id"
+                      :src="user.avatar"
+                      :alt="getDisplayName(user)"
+                      size="xs"
+                    />
                     <span class="text-xs">{{ user.username }}</span>
                     <UButton
                       v-if="isAdmin"

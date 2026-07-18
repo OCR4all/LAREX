@@ -14,8 +14,8 @@ import {
   LazyUiConfirmSlideover,
   LazyUiDeleteSlideover,
   ActionActiveIndicator,
+  AppAvatar,
   NuxtLink,
-  UAvatar,
   UBadge,
   UButton,
   UDropdownMenu,
@@ -303,14 +303,11 @@ function renderProjectEditorsCell(project: ProjectListItem) {
     content: { side: 'top' }
   }, {
     default: () => h('div', { class: 'flex items-center' }, [
-      ...visibleEditors.map((entry, index) => h(UAvatar, {
+      ...visibleEditors.map((entry, index) => h(AppAvatar, {
         key: entry.editor.user.id,
+        seed: entry.editor.user.id,
         src: resolveManagedProfileAvatarSrc(entry.editor.user.avatar),
         alt: entry.editor.user.displayName,
-        text: getAvatarInitials({
-          name: entry.editor.user.displayName,
-          username: entry.editor.user.username
-        }),
         size: 'sm',
         class: `${index > 0 ? '-ml-2' : ''} ring-2 ${entry.isLive ? 'ring-emerald-400/90' : 'ring-neutral-400/90'}`
       })),
@@ -326,13 +323,10 @@ function renderProjectEditorsCell(project: ProjectListItem) {
         key: entry.editor.user.id,
         class: 'flex items-start gap-2'
       }, [
-        h(UAvatar, {
+        h(AppAvatar, {
+          seed: entry.editor.user.id,
           src: resolveManagedProfileAvatarSrc(entry.editor.user.avatar),
           alt: entry.editor.user.displayName,
-          text: getAvatarInitials({
-            name: entry.editor.user.displayName,
-            username: entry.editor.user.username
-          }),
           size: 'xs',
           class: `mt-0.5 ring-2 ${entry.isLive ? 'ring-emerald-400/90' : 'ring-neutral-400/90'}`
         }),

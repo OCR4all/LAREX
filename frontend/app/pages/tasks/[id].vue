@@ -831,10 +831,10 @@ const tabItems = [
                         class="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors hover:bg-default"
                         @click="toggleAssigneeDraft(member.id)"
                       >
-                        <UAvatar
+                        <AppAvatar
+                          :seed="member.id"
                           :src="resolveManagedProfileAvatarSrc(member.avatar)"
                           :alt="getUserDisplayName(member)"
-                          :text="getAvatarInitials(member)"
                           size="sm"
                         />
                         <span class="min-w-0 flex-1">
@@ -901,10 +901,10 @@ const tabItems = [
                 :key="assignee.id"
                 class="flex items-center gap-2"
               >
-                <UAvatar
+                <AppAvatar
+                  :seed="assignee.id"
                   :src="resolveManagedProfileAvatarSrc(assignee.avatar)"
                   :alt="getUserDisplayName(assignee)"
-                  :text="getAvatarInitials(assignee)"
                   size="sm"
                 />
                 <div class="flex-1 min-w-0">
@@ -1074,7 +1074,12 @@ const tabItems = [
               Created by
             </h3>
             <div v-if="task.createdBy" class="flex items-center gap-2">
-              <UAvatar :alt="task.createdBy.username" size="sm" />
+              <AppAvatar
+                :seed="task.createdBy.id"
+                :src="task.createdBy.avatar"
+                :alt="task.createdBy.firstName && task.createdBy.lastName ? `${task.createdBy.firstName} ${task.createdBy.lastName}` : task.createdBy.username"
+                size="sm"
+              />
               <div class="flex-1 min-w-0">
                 <p class="text-sm truncate">
                   {{ task.createdBy.firstName && task.createdBy.lastName ? `${task.createdBy.firstName} ${task.createdBy.lastName}` : task.createdBy.username }}

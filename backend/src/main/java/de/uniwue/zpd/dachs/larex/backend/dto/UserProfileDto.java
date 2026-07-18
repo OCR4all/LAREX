@@ -22,8 +22,6 @@ public record UserProfileDto(
             @Size(max = 50, message = "First name must not exceed 50 characters")
             String firstName,
             @Size(max = 50, message = "Last name must not exceed 50 characters")
-            String lastName,
-            @Size(max = 500, message = "Avatar URL must not exceed 500 characters")
-            String avatar
+            String lastName
     ) {}
 }

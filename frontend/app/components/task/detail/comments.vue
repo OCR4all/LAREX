@@ -121,7 +121,13 @@ function getDisplayName(comment: TaskComment) {
         :key="comment.id"
         class="flex gap-3"
       >
-        <UAvatar :alt="comment.user?.username" size="sm" class="shrink-0" />
+        <AppAvatar
+          :seed="comment.user?.id || comment.userId"
+          :src="comment.user?.avatar"
+          :alt="getDisplayName(comment)"
+          size="sm"
+          class="shrink-0"
+        />
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
             <span class="text-sm font-medium">{{ getDisplayName(comment) }}</span>

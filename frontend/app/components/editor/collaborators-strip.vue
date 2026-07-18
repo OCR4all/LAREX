@@ -19,13 +19,6 @@ function avatarSrc(collaborator: CollaborationRoomMember): string | undefined {
   return resolveManagedProfileAvatarSrc(collaborator.user.avatar)
 }
 
-function avatarFallback(collaborator: CollaborationRoomMember): string {
-  return getAvatarInitials({
-    name: collaborator.user.displayName,
-    username: collaborator.user.username
-  })
-}
-
 function tooltipText(collaborator: CollaborationRoomMember): string {
   const selectionId = collaborator.presence?.selectionId
   if (selectionId) {
@@ -38,12 +31,12 @@ function tooltipText(collaborator: CollaborationRoomMember): string {
 <template>
   <div v-if="collaborators.length > 0" class="flex items-center gap-1.5">
     <div class="flex items-center -space-x-1.5">
-      <UAvatar
+      <AppAvatar
         v-for="collaborator in visibleCollaborators"
         :key="collaborator.user.id"
+        :seed="collaborator.user.id"
         :src="avatarSrc(collaborator)"
         :alt="collaborator.user.displayName"
-        :text="avatarFallback(collaborator)"
         :size="size"
         :title="tooltipText(collaborator)"
         class="ring-1 ring-white/20 dark:ring-neutral-950/80"

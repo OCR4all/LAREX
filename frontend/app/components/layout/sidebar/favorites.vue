@@ -91,8 +91,9 @@ function navigateToProject(projectId: string) {
                 class="flex items-center gap-3 px-2 py-2 rounded-sm text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors w-full text-left"
                 @click="navigateToProject(project.projectId)"
               >
-                <UAvatar
-                  :text="project.projectName.substring(0, 2).toUpperCase()"
+                <AppAvatar
+                  :seed="project.projectId"
+                  :alt="project.projectName"
                   size="xs"
                   class="ring-1 ring-neutral-200 dark:ring-neutral-700 flex-shrink-0"
                 />
@@ -130,8 +131,9 @@ function navigateToProject(projectId: string) {
           active-class="bg-neutral-100 dark:bg-neutral-800 text-primary-900 dark:text-primary-100"
         >
           <div class="shrink-0">
-            <UAvatar
-              :text="project.projectName.substring(0, 2).toUpperCase()"
+            <AppAvatar
+              :seed="project.projectId"
+              :alt="project.projectName"
               size="xs"
               class="ring-1 ring-neutral-200 dark:ring-neutral-700"
             />

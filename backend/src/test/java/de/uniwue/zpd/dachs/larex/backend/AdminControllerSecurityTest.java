@@ -7,10 +7,13 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifSettingsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AvatarSettingsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AvatarStyle;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserManagementException;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminService;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.IiifSettingsService;
+import de.uniwue.zpd.dachs.larex.backend.service.admin.AvatarSettingsService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +56,85 @@ class AdminControllerSecurityTest {
 
     @MockitoBean
     private IiifSettingsService iiifSettingsService;
+
+    @MockitoBean
+    private AvatarSettingsService avatarSettingsService;
+
+    @Test
+    void avatarSettings_requiresAuthentication() throws Exception {
+        mockMvc.perform(get("/avatar-settings"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void avatarSettings_areReadableByAuthenticatedUsers() throws Exception {
+        when(avatarSettingsService.getPublicSettings())
+                .thenReturn(new AvatarSettingsDto.PublicResponse(AvatarStyle.GRADIENT));
+
+        mockMvc.perform(get("/avatar-settings"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.defaultStyle").value("GRADIENT"));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void avatarSettings_forbiddenForNonAdmin() throws Exception {
+        mockMvc.perform(get("/admin/settings/avatar"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(put("/admin/settings/avatar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "defaultStyle": "IDENTICON"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "admin-1", roles = "GLOBAL_ADMIN")
+    void avatarSettings_canBeReadAndUpdatedByAdmin() throws Exception {
+        AvatarSettingsDto.AdminResponse response = new AvatarSettingsDto.AdminResponse(
+                AvatarStyle.IDENTICON,
+                LocalDateTime.of(2026, 7, 18, 12, 0),
+                "admin-1"
+        );
+        when(avatarSettingsService.getAdminSettings()).thenReturn(response);
+        when(avatarSettingsService.updateSettings(AvatarStyle.IDENTICON, "admin-1")).thenReturn(response);
+
+        mockMvc.perform(get("/admin/settings/avatar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.defaultStyle").value("IDENTICON"));
+
+        mockMvc.perform(put("/admin/settings/avatar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "defaultStyle": "IDENTICON"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.updatedByUserId").value("admin-1"));
+
+        verify(avatarSettingsService).updateSettings(AvatarStyle.IDENTICON, "admin-1");
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void avatarSettings_rejectsUnknownStyle() throws Exception {
+        mockMvc.perform(put("/admin/settings/avatar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "defaultStyle": "UNKNOWN"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verify(avatarSettingsService, never()).updateSettings(any(), any());
+    }
 
     @Test
     @WithMockUser(roles = "USER")

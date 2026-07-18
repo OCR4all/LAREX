@@ -125,16 +125,6 @@ function formatAuditDetails(details?: string | null): Array<{ label: string, val
   }
 }
 
-function avatarFallback(user: AdminUser): string {
-  const source = displayName(user).trim() || user.username
-  return source
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part.charAt(0).toUpperCase())
-    .join('')
-}
-
 async function copyUserId(userId: string) {
   await copyTextToClipboard(userId, {
     successTitle: 'User ID copied',
@@ -187,10 +177,10 @@ function handleGlobalCuratorUpdate(enabled: boolean) {
         <template v-else-if="user">
           <UCard variant="subtle">
             <div class="flex items-start gap-4">
-              <UAvatar
+              <AppAvatar
+                :seed="user.id"
                 :src="user.avatar || undefined"
                 :alt="user.username"
-                :fallback="avatarFallback(user)"
                 size="xl"
                 class="shrink-0"
               />

@@ -1,4 +1,6 @@
 minimumReleaseAge: 14400
+minimumReleaseAgeExclude:
+  - '@maxnth/gestalt'
 
 allowBuilds:
   '@parcel/watcher': true

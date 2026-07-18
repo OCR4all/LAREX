@@ -8,7 +8,7 @@ const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
 const UCheckbox = resolveComponent('UCheckbox')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
-const UAvatar = resolveComponent('UAvatar')
+const AppAvatar = resolveComponent('AppAvatar')
 const UTooltip = resolveComponent('UTooltip')
 const TaskSubtaskProgress = resolveComponent('TaskSubtaskProgress')
 
@@ -460,10 +460,10 @@ const columns: TableColumn<Task>[] = [
           key: user.id,
           text: getAssigneeDisplayName(user)
         }, {
-          default: () => h(UAvatar, {
+          default: () => h(AppAvatar, {
+            seed: user.id,
             src: resolveManagedProfileAvatarSrc(user.avatar),
             alt: getAssigneeDisplayName(user),
-            text: getAvatarInitials(user),
             size: 'sm',
             class: `${index > 0 ? '-ml-2' : ''} ring-2 ring-default`
           })

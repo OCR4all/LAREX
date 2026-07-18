@@ -185,16 +185,6 @@ const annotationModeBadge = computed<{
   return null
 })
 
-function collaborationAvatarText() {
-  const editor = collaborationEditor.value?.user
-  if (!editor) return 'U'
-
-  return getAvatarInitials({
-    name: editor.displayName,
-    username: editor.username
-  })
-}
-
 watch(() => props.page.projectId, (value) => {
   if (value) {
     void pageSummaries.ensureProjectSummary(value)
@@ -396,10 +386,10 @@ async function handleCopyPageId() {
               :content="{ side: 'right' }"
               :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
             >
-              <UAvatar
+              <AppAvatar
+                :seed="collaborationEditor.user.id"
                 :src="resolveManagedProfileAvatarSrc(collaborationEditor.user.avatar)"
                 :alt="collaborationEditor.user.displayName"
-                :text="collaborationAvatarText()"
                 size="xs"
                 :class="['ring-2', collaborationAvatarRingClass]"
               />

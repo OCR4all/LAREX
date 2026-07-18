@@ -41,6 +41,9 @@ importers:
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3
+      '@maxnth/gestalt':
+        specifier: ^0.1.0
+        version: 0.1.0(vue@3.5.39(typescript@6.0.3))
       '@nuxt/a11y':
         specifier: 1.0.0-alpha.1
         version: 1.0.0-alpha.1(magicast@0.5.3)(vite@7.3.6(@types/node@26.1.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(yaml@2.9.0))
@@ -1316,6 +1319,12 @@ packages:
 
   '@marijn/find-cluster-break@1.0.3':
     resolution: {integrity: sha512-FY+MKLBoTsLNJF/eLWaOsXGdz6uh3Iu1axjPf6TUq92IYumcTcXWHoS747JARLkcdlJ/Waiaxc5wQfFO8jC6NA==}
+
+  '@maxnth/gestalt@0.1.0':
+    resolution: {integrity: sha512-EbTC+Ylmc9M107ICA1tbestf06I/aK/ZuzxehVxReUc5KAPqJg3fz+upGKF6fjy513cZWPswEXgUPq+muVkAVw==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      vue: ^3.5.0
 
   '@napi-rs/wasm-runtime@1.1.6':
     resolution: {integrity: sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==}
@@ -7847,6 +7856,10 @@ snapshots:
   '@mapbox/whoots-js@3.1.0': {}
 
   '@marijn/find-cluster-break@1.0.3': {}
+
+  '@maxnth/gestalt@0.1.0(vue@3.5.39(typescript@6.0.3))':
+    dependencies:
+      vue: 3.5.39(typescript@6.0.3)
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
     dependencies:

@@ -20,7 +20,7 @@ const overlay = useOverlay()
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 const { user: sessionUser } = useUserSession()
 
-const UAvatar = resolveComponent('UAvatar')
+const AppAvatar = resolveComponent('AppAvatar')
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
@@ -257,7 +257,8 @@ const columns = computed<TableColumn<AdminUser>[]>(() => [
     accessorKey: 'user',
     header: 'User',
     cell: ({ row }) => h('div', { class: 'flex items-center gap-3 min-w-0' }, [
-      h(UAvatar, {
+      h(AppAvatar, {
+        seed: row.original.id,
         src: row.original.avatar || undefined,
         alt: row.original.username,
         size: 'sm'

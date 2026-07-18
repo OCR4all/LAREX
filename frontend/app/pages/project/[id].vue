@@ -39,7 +39,7 @@ const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
 const UPopover = resolveComponent('UPopover')
-const UAvatar = resolveComponent('UAvatar')
+const AppAvatar = resolveComponent('AppAvatar')
 const UIcon = resolveComponent('UIcon')
 
 const route = useRoute()
@@ -1589,13 +1589,10 @@ function renderPageEditorIndicator(page: Page) {
     content: { side: 'top' }
   }, {
     default: () => h('div', { class: 'flex items-center justify-center' }, [
-      h(UAvatar, {
+      h(AppAvatar, {
+        seed: editor.user.id,
         src: resolveManagedProfileAvatarSrc(editor.user.avatar),
         alt: editor.user.displayName,
-        text: getAvatarInitials({
-          name: editor.user.displayName,
-          username: editor.user.username
-        }),
         size: 'sm',
         class: `ring-2 ${avatarRingClass}`
       })

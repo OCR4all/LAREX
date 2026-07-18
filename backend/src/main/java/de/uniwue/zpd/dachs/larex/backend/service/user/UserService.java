@@ -23,8 +23,6 @@ import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminUserAuditService;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -60,13 +58,15 @@ public class UserService {
     private final AdminUserAuditService adminUserAuditService;
     private final AuthProvisioningProperties authProvisioningProperties;
     private final ObjectMapper objectMapper;
+    private final ProfileImageService profileImageService;
 
     public UserService(
             Keycloak keycloakAdmin,
             KeycloakAdminProperties keycloakAdminProperties,
             AdminUserAuditService adminUserAuditService,
             AuthProvisioningProperties authProvisioningProperties,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            ProfileImageService profileImageService) {
         KeycloakAdminProperties.ActionEmail actionEmail = keycloakAdminProperties.actionEmail();
 
         this.keycloakAdmin = keycloakAdmin;
@@ -77,6 +77,7 @@ public class UserService {
         this.adminUserAuditService = adminUserAuditService;
         this.authProvisioningProperties = authProvisioningProperties;
         this.objectMapper = objectMapper;
+        this.profileImageService = profileImageService;
     }
 
     private enum AdminMutationAction {
@@ -88,20 +89,22 @@ public class UserService {
     public List<UserDto> getAllUsers() {
         RealmResource realmResource = keycloakAdmin.realm(realm);
         List<UserRepresentation> users = realmResource.users().list();
+        Map<String, String> avatars = getAvatarUrls(users);
 
         return users.stream()
-                .map(this::mapToUserDto)
+                .map(user -> mapToUserDto(user, avatars.get(user.getId())))
                 .toList();
     }
 
     public AdminUserPageDto getUserPageForAdmin(int page, int size, String search, boolean includeServiceAccounts, AdminUserStatusFilter status) {
         List<UserRepresentation> users = keycloakAdmin.realm(realm).users().list();
         String normalizedSearch = normalizeOptional(search);
+        Map<String, String> avatars = getAvatarUrls(users);
 
         List<AdminUserDto> filteredUsers = users.stream()
                 .filter(user -> includeServiceAccounts || !isServiceAccount(user))
                 .sorted(this::compareByCreatedTimestampDesc)
-                .map(this::mapToAdminUserDto)
+                .map(user -> mapToAdminUserDto(user, avatars.get(user.getId())))
                 .filter(user -> matchesSearch(user, normalizedSearch))
                 .filter(user -> matchesStatus(user, status))
                 .toList();
@@ -390,11 +393,12 @@ public class UserService {
         }
 
         RealmResource realmResource = keycloakAdmin.realm(realm);
+        Map<String, String> avatars = profileImageService.getAvatarUrls(userIds);
         return userIds.stream()
                 .map(userId -> {
                     try {
                         UserRepresentation user = realmResource.users().get(userId).toRepresentation();
-                        return mapToUserDto(user);
+                        return mapToUserDto(user, avatars.get(user.getId()));
                     } catch (Exception e) {
                         return null;
                     }
@@ -436,20 +440,6 @@ public class UserService {
             }
             if (updateRequest.lastName() != null) {
                 user.setLastName(updateRequest.lastName().trim());
-            }
-
-            if (updateRequest.avatar() != null) {
-                Map<String, List<String>> attributes = user.getAttributes();
-                if (attributes == null) {
-                    attributes = new HashMap<>();
-                }
-
-                if (updateRequest.avatar().trim().isEmpty()) {
-                    attributes.remove("picture");
-                } else {
-                    attributes.put("picture", Arrays.asList(updateRequest.avatar().trim()));
-                }
-                user.setAttributes(attributes);
             }
 
             userResource.update(user);
@@ -495,10 +485,13 @@ public class UserService {
 
         if (searchTerm.isEmpty()) {
             int candidateLimit = Math.min(cappedLimit * 2, 50);
-            return realmResource.users().list(0, candidateLimit).stream()
+            List<UserRepresentation> candidates = realmResource.users().list(0, candidateLimit).stream()
                     .filter(this::isInvitableUser)
-                    .map(this::mapToUserDto)
                     .limit(cappedLimit)
+                    .toList();
+            Map<String, String> avatars = getAvatarUrls(candidates);
+            return candidates.stream()
+                    .map(user -> mapToUserDto(user, avatars.get(user.getId())))
                     .toList();
         }
 
@@ -510,26 +503,30 @@ public class UserService {
         List<UserRepresentation> emailResults = realmResource.users().searchByEmail(searchTerm, true);
         List<UserRepresentation> broadResults = realmResource.users().search(searchTerm, 0, cappedLimit);
 
-        Map<String, UserDto> uniqueUsers = new LinkedHashMap<>();
+        Map<String, UserRepresentation> uniqueUsers = new LinkedHashMap<>();
 
         for (UserRepresentation user : usernameResults) {
             if (isInvitableUser(user)) {
-                uniqueUsers.putIfAbsent(user.getId(), mapToUserDto(user));
+                uniqueUsers.putIfAbsent(user.getId(), user);
             }
         }
         for (UserRepresentation user : emailResults) {
             if (isInvitableUser(user)) {
-                uniqueUsers.putIfAbsent(user.getId(), mapToUserDto(user));
+                uniqueUsers.putIfAbsent(user.getId(), user);
             }
         }
         for (UserRepresentation user : broadResults) {
             if (isInvitableUser(user)) {
-                uniqueUsers.putIfAbsent(user.getId(), mapToUserDto(user));
+                uniqueUsers.putIfAbsent(user.getId(), user);
             }
         }
 
-        return uniqueUsers.values().stream()
+        List<UserRepresentation> users = uniqueUsers.values().stream()
                 .limit(cappedLimit)
+                .toList();
+        Map<String, String> avatars = getAvatarUrls(users);
+        return users.stream()
+                .map(user -> mapToUserDto(user, avatars.get(user.getId())))
                 .toList();
     }
 
@@ -855,7 +852,10 @@ public class UserService {
     }
 
     private AdminUserDto mapToAdminUserDto(UserRepresentation user) {
-        String avatar = extractAvatarUrl(user);
+        return mapToAdminUserDto(user, profileImageService.getAvatarUrl(user.getId()).orElse(null));
+    }
+
+    private AdminUserDto mapToAdminUserDto(UserRepresentation user, String avatar) {
         boolean serviceAccount = isServiceAccount(user);
         AdminUserIdentitySource identitySource = deriveIdentitySource(user);
         boolean externallyManaged = identitySource != AdminUserIdentitySource.LOCAL;
@@ -881,8 +881,10 @@ public class UserService {
     }
 
     private UserDto mapToUserDto(UserRepresentation user) {
-        String avatar = extractAvatarUrl(user);
+        return mapToUserDto(user, profileImageService.getAvatarUrl(user.getId()).orElse(null));
+    }
 
+    private UserDto mapToUserDto(UserRepresentation user, String avatar) {
         return new UserDto(
                 user.getId(),
                 user.getUsername(),
@@ -1205,19 +1207,11 @@ public class UserService {
         return collapsed.isEmpty() ? null : collapsed;
     }
 
-    private String extractAvatarUrl(UserRepresentation user) {
-        if (user.getAttributes() != null) {
-            String[] avatarAttributes = {"avatar", "picture", "profile_picture", "photo"};
-
-            for (String attr : avatarAttributes) {
-                List<String> values = user.getAttributes().get(attr);
-                if (values != null && !values.isEmpty() && values.get(0) != null && !values.get(0).trim().isEmpty()) {
-                    return values.get(0).trim();
-                }
-            }
-        }
-
-        return null;
+    private Map<String, String> getAvatarUrls(List<UserRepresentation> users) {
+        return profileImageService.getAvatarUrls(users.stream()
+                .map(UserRepresentation::getId)
+                .filter(id -> id != null && !id.isBlank())
+                .toList());
     }
 
     private String normalizeOptional(String value) {

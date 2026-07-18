@@ -147,7 +147,12 @@ function handleClose() {
                     class="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-elevated/50"
                     @click="selectUser(user)"
                   >
-                    <UAvatar :alt="user.username" size="sm" />
+                    <AppAvatar
+                      :seed="user.id"
+                      :src="user.avatar"
+                      :alt="user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username"
+                      size="sm"
+                    />
                     <div class="min-w-0 flex-1">
                       <p class="truncate text-sm font-medium">
                         {{ user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username }}
@@ -160,7 +165,12 @@ function handleClose() {
                 </div>
 
                 <div v-if="selectedUser" class="mt-2 flex items-center gap-2 rounded-sm bg-elevated/50 p-2">
-                  <UAvatar :alt="selectedUser.username" size="sm" />
+                  <AppAvatar
+                    :seed="selectedUser.id"
+                    :src="selectedUser.avatar"
+                    :alt="selectedUser.firstName && selectedUser.lastName ? `${selectedUser.firstName} ${selectedUser.lastName}` : selectedUser.username"
+                    size="sm"
+                  />
                   <div class="min-w-0 flex-1">
                     <p class="text-sm font-medium">
                       {{ selectedUser.username }}

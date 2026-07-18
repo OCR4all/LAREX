@@ -177,7 +177,8 @@ function getStatusBadge(status: string) {
       class="flex items-center justify-between gap-3 py-3 px-4 sm:px-6"
     >
       <div class="flex items-center gap-3 min-w-0">
-        <UAvatar
+        <AppAvatar
+          :seed="member.userId"
           :alt="member.displayName || member.username || 'User'"
           :src="member.avatar"
           size="md"

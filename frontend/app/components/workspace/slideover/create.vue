@@ -8,6 +8,7 @@ interface UserProfile {
   email?: string
   firstName?: string
   lastName?: string
+  avatar?: string
 }
 
 interface InvitedUser {
@@ -260,7 +261,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                   class="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-elevated/50"
                   @click="selectUser(user)"
                 >
-                  <UAvatar :alt="user.username" size="sm" />
+                  <AppAvatar
+                    :seed="user.id"
+                    :src="user.avatar"
+                    :alt="user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username"
+                    size="sm"
+                  />
                   <div class="min-w-0 flex-1">
                     <p class="truncate text-sm font-medium">
                       {{ user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.username }}
@@ -279,7 +285,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 :key="user.userId"
                 class="flex items-center gap-2 rounded-sm bg-elevated border border-neutral-300 dark:border-neutral-700 p-2"
               >
-                <UAvatar :alt="user.username" size="sm" />
+                <AppAvatar
+                  :seed="user.userId"
+                  :alt="user.username"
+                  size="sm"
+                />
                 <div class="min-w-0 flex-1">
                   <p class="truncate text-sm font-medium">
                     {{ user.username }}

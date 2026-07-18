@@ -14,6 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserManagementException;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminUserAuditService;
+import de.uniwue.zpd.dachs.larex.backend.service.user.ProfileImageService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -37,6 +38,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -84,6 +86,9 @@ class UserServiceTest {
 
     @Mock
     private AdminUserAuditService adminUserAuditService;
+
+    @Mock
+    private ProfileImageService profileImageService;
 
     private UserService userService;
 
@@ -167,6 +172,21 @@ class UserServiceTest {
         verify(usersResource).list(0, 4);
         verify(usersResource, never()).searchByUsername(anyString(), eq(true));
         verify(usersResource, never()).searchByEmail(anyString(), eq(true));
+    }
+
+    @Test
+    void getUserById_usesOnlyTheBackendOwnedAvatar() {
+        UserRepresentation alice = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
+        alice.singleAttribute("picture", "https://keycloak.example/legacy-avatar.jpg");
+        when(usersResource.get("user-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(alice);
+        when(profileImageService.getAvatarUrl("user-1"))
+                .thenReturn(Optional.of("/api/profile/images/local-avatar.jpg"));
+
+        var user = userService.getUserById("user-1").orElseThrow();
+
+        assertEquals("/api/profile/images/local-avatar.jpg", user.avatar());
+        verify(profileImageService).getAvatarUrl("user-1");
     }
 
     @Test
@@ -796,7 +816,8 @@ class UserServiceTest {
                 keycloakAdminProperties,
                 adminUserAuditService,
                 properties,
-                JsonMapper.builder().findAndAddModules().build()
+                JsonMapper.builder().findAndAddModules().build(),
+                profileImageService
         );
     }
 

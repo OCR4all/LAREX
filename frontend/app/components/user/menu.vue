@@ -17,14 +17,6 @@ const avatarSrc = computed(() => {
   return resolveManagedProfileAvatarSrc(user.value?.avatar)
 })
 
-const avatarFallback = computed(() => {
-  return getAvatarInitials({
-    name: user.value?.name,
-    login: user.value?.login,
-    email: user.value?.email
-  })
-})
-
 const hasAdminRole = computed(() => {
   return user.value?.roles?.includes('GLOBAL_ADMIN') || false
 })
@@ -39,11 +31,6 @@ const items = computed<DropdownMenuItem[][]>(() => {
   const menuItems: DropdownMenuItem[][] = [[{
     type: 'label',
     label: displayName.value,
-    avatar: {
-      src: avatarSrc.value,
-      alt: displayName.value,
-      text: avatarFallback.value
-    },
     slot: 'user-label'
   }], settingsItems]
 
@@ -110,11 +97,6 @@ const items = computed<DropdownMenuItem[][]>(() => {
   >
     <UButton
       v-bind="{
-        avatar: {
-          src: avatarSrc,
-          alt: displayName,
-          text: avatarFallback
-        },
         label: collapsed ? undefined : displayName,
         trailingIcon: collapsed ? undefined : 'i-lucide-chevrons-up-down'
       }"
@@ -126,7 +108,27 @@ const items = computed<DropdownMenuItem[][]>(() => {
       :ui="{
         trailingIcon: 'text-dimmed'
       }"
-    />
+    >
+      <template #leading>
+        <AppAvatar
+          :seed="user?.id || user?.login || 'user'"
+          :src="avatarSrc"
+          :alt="displayName"
+          size="sm"
+        />
+      </template>
+    </UButton>
+    <template #user-label>
+      <div class="flex min-w-0 items-center gap-2">
+        <AppAvatar
+          :seed="user?.id || user?.login || 'user'"
+          :src="avatarSrc"
+          :alt="displayName"
+          size="sm"
+        />
+        <span class="truncate">{{ displayName }}</span>
+      </div>
+    </template>
     <template #chip-leading="{ item }">
       <span
         :style="{

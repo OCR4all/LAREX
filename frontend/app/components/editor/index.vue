@@ -174,7 +174,6 @@ const {
   collaborationSummaryLabel,
   showCollaboratorsPopover,
   avatarSrc,
-  avatarFallback,
   collaborationAvatarStyle,
   collaboratorActivityLabel,
   collaboratorStatus
@@ -3259,10 +3258,10 @@ watch(() => props.src, (newSrc) => {
                 :key="participant.key"
                 class="relative"
               >
-                <UAvatar
+                <AppAvatar
+                  :seed="participant.user.id"
                   :src="avatarSrc(participant.user)"
                   :alt="participant.user.displayName"
-                  :text="avatarFallback(participant.user)"
                   size="xs"
                   class="h-5 w-5 border text-[9px] font-medium"
                   :style="collaborationAvatarStyle(participant.user.id)"
@@ -3307,10 +3306,10 @@ watch(() => props.src, (newSrc) => {
                 >
                   <div class="flex items-center gap-2 min-w-0">
                     <div class="relative">
-                      <UAvatar
+                      <AppAvatar
+                        :seed="participant.user.id"
                         :src="avatarSrc(participant.user)"
                         :alt="participant.user.displayName"
-                        :text="avatarFallback(participant.user)"
                         size="xs"
                         class="h-6 w-6 border text-[9px] font-medium"
                         :style="collaborationAvatarStyle(participant.user.id)"
@@ -3351,10 +3350,10 @@ watch(() => props.src, (newSrc) => {
                   class="flex items-center gap-2"
                 >
                   <div class="relative">
-                    <UAvatar
+                    <AppAvatar
+                      :seed="participant.user.id"
                       :src="avatarSrc(participant.user)"
                       :alt="participant.user.displayName"
-                      :text="avatarFallback(participant.user)"
                       size="xs"
                       class="h-6 w-6 border text-[9px] font-medium"
                       :style="collaborationAvatarStyle(participant.user.id)"
