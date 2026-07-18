@@ -1,4 +1,5 @@
 import type { SpatialIndexService } from '@/services/editor/spatial-index-service'
+import { reactive, ref, watch } from 'vue'
 
 export interface EditorPolygon {
   id: string
@@ -58,6 +59,40 @@ export interface EditorStateActions {
   resetAll: () => void
 }
 
+interface SpatialShapeSnapshot {
+  index: number
+  coordinates: number[]
+}
+
+function snapshotCoordinates(points: Array<{ x: number, y: number }>): number[] {
+  const coordinates = new Array<number>(points.length * 2)
+  for (let index = 0; index < points.length; index++) {
+    const point = points[index]
+    if (!point) continue
+    coordinates[index * 2] = point.x
+    coordinates[index * 2 + 1] = point.y
+  }
+  return coordinates
+}
+
+function coordinatesChanged(
+  snapshot: SpatialShapeSnapshot,
+  points: Array<{ x: number, y: number }>
+): boolean {
+  if (snapshot.coordinates.length !== points.length * 2) return true
+  for (let index = 0; index < points.length; index++) {
+    const point = points[index]
+    if (!point) return true
+    if (
+      snapshot.coordinates[index * 2] !== point.x
+      || snapshot.coordinates[index * 2 + 1] !== point.y
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
 /**
  * Composable for managing all editor state including shapes, selections, and spatial indexing.
  * This centralizes state management and provides a clean API for state updates.
@@ -76,15 +111,78 @@ export function useEditorState(spatialIndex: SpatialIndexService) {
 
   const canvasDimensions = ref({ width: 0, height: 0 })
 
+  let polygonIndexSnapshots = new Map<string, SpatialShapeSnapshot>()
+  let polylineIndexSnapshots = new Map<string, SpatialShapeSnapshot>()
+
   watch(polygons, () => {
-    spatialIndex.rebuildPolygonIndex(polygons)
+    const nextSnapshots = new Map<string, SpatialShapeSnapshot>()
+
+    for (let index = 0; index < polygons.length; index++) {
+      const polygon = polygons[index]
+      if (!polygon) continue
+      const previous = polygonIndexSnapshots.get(polygon.id)
+      const changed = !previous || previous.index !== index || coordinatesChanged(previous, polygon.points)
+
+      if (!previous) {
+        if (spatialIndex.hasPolygon(polygon.id)) {
+          spatialIndex.updatePolygon(polygon, index)
+        } else {
+          spatialIndex.insertPolygon(polygon, index)
+        }
+      } else if (changed) {
+        spatialIndex.updatePolygon(polygon, index)
+      }
+
+      nextSnapshots.set(
+        polygon.id,
+        changed ? { index, coordinates: snapshotCoordinates(polygon.points) } : previous
+      )
+    }
+
+    for (const polygonId of polygonIndexSnapshots.keys()) {
+      if (!nextSnapshots.has(polygonId)) {
+        spatialIndex.removePolygon(polygonId)
+      }
+    }
+
+    polygonIndexSnapshots = nextSnapshots
   }, { deep: true })
 
   watch(polylines, () => {
-    spatialIndex.rebuildPolylineIndex(polylines)
+    const nextSnapshots = new Map<string, SpatialShapeSnapshot>()
+
+    for (let index = 0; index < polylines.length; index++) {
+      const polyline = polylines[index]
+      if (!polyline) continue
+      const previous = polylineIndexSnapshots.get(polyline.id)
+      const changed = !previous || previous.index !== index || coordinatesChanged(previous, polyline.points)
+
+      if (!previous) {
+        if (spatialIndex.hasPolyline(polyline.id)) {
+          spatialIndex.updatePolyline(polyline, index)
+        } else {
+          spatialIndex.insertPolyline(polyline, index)
+        }
+      } else if (changed) {
+        spatialIndex.updatePolyline(polyline, index)
+      }
+
+      nextSnapshots.set(
+        polyline.id,
+        changed ? { index, coordinates: snapshotCoordinates(polyline.points) } : previous
+      )
+    }
+
+    for (const polylineId of polylineIndexSnapshots.keys()) {
+      if (!nextSnapshots.has(polylineId)) {
+        spatialIndex.removePolyline(polylineId)
+      }
+    }
+
+    polylineIndexSnapshots = nextSnapshots
   }, { deep: true })
 
-  watch(polygons, () => {
+  watch(() => polygons.map(polygon => polygon.id), () => {
     if (selectedPolygonIndex.value >= 0 && !polygons[selectedPolygonIndex.value]) {
       selectedPolygonIndex.value = -1
     }
@@ -97,9 +195,9 @@ export function useEditorState(spatialIndex: SpatialIndexService) {
       const existing = new Set(polygons.map(p => p.id))
       selectedPolygonIds.value = selectedPolygonIds.value.filter(id => existing.has(id))
     }
-  }, { deep: true })
+  })
 
-  watch(polylines, () => {
+  watch(() => polylines.map(polyline => polyline.id), () => {
     if (selectedPolylineIndex.value >= 0 && !polylines[selectedPolylineIndex.value]) {
       selectedPolylineIndex.value = -1
     }
@@ -112,7 +210,7 @@ export function useEditorState(spatialIndex: SpatialIndexService) {
       const existing = new Set(polylines.map(p => p.id))
       selectedPolylineIds.value = selectedPolylineIds.value.filter(id => existing.has(id))
     }
-  }, { deep: true })
+  })
 
   function setSelectedPolygonIndex(index: number): void {
     selectedPolygonIndex.value = index
@@ -250,6 +348,8 @@ export function useEditorState(spatialIndex: SpatialIndexService) {
   function resetAll(): void {
     polygons.length = 0
     polylines.length = 0
+    polygonIndexSnapshots = new Map()
+    polylineIndexSnapshots = new Map()
     selectedPolygonIndex.value = -1
     selectedPolylineIndex.value = -1
     selectedPolygonIds.value = []

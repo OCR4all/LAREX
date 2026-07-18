@@ -1,5 +1,4 @@
 import { createProgram } from './core'
-import { setTransformUniforms, setColorUniform } from '@/utils/editor/webgl-utils'
 import type { Scale } from '@/utils/editor/webgl-utils'
 import { normalize } from '@/utils/editor/geometry-utils'
 import type { Point, View } from '@/models/editor'
@@ -18,6 +17,25 @@ interface ThickLineVertices {
   normals: number[]
 }
 
+interface CachedLineGeometry {
+  cacheKey: string
+  vao: WebGLVertexArrayObject
+  positionBuffer: WebGLBuffer
+  normalBuffer: WebGLBuffer
+  vertexCount: number
+}
+
+interface ThickLineUniforms {
+  scale: WebGLUniformLocation | null
+  offset: WebGLUniformLocation | null
+  zoom: WebGLUniformLocation | null
+  rotation: WebGLUniformLocation | null
+  canvasAspect: WebGLUniformLocation | null
+  color: WebGLUniformLocation | null
+  thickness: WebGLUniformLocation | null
+  resolution: WebGLUniformLocation | null
+}
+
 /**
  * Thick line renderer for WebGL - renders lines with configurable thickness
  */
@@ -27,6 +45,10 @@ export class ThickLineRenderer {
   private vao: WebGLVertexArrayObject | null = null
   private positionBuffer: WebGLBuffer | null = null
   private normalBuffer: WebGLBuffer | null = null
+  private positionAttribute = -1
+  private normalAttribute = -1
+  private uniforms: ThickLineUniforms | null = null
+  private geometryCache = new Map<string, CachedLineGeometry>()
   private initialized = false
 
   constructor(gl: WebGL2RenderingContext) {
@@ -79,7 +101,22 @@ export class ThickLineRenderer {
 
     this.program = createProgram(this.gl, vsSource, fsSource)
     this.setupBuffers()
+    this.cacheUniformLocations()
     this.initialized = true
+  }
+
+  private cacheUniformLocations(): void {
+    if (!this.program) return
+    this.uniforms = {
+      scale: this.gl.getUniformLocation(this.program, 'u_scale'),
+      offset: this.gl.getUniformLocation(this.program, 'u_offset'),
+      zoom: this.gl.getUniformLocation(this.program, 'u_zoom'),
+      rotation: this.gl.getUniformLocation(this.program, 'u_rotation'),
+      canvasAspect: this.gl.getUniformLocation(this.program, 'u_canvasAspect'),
+      color: this.gl.getUniformLocation(this.program, 'u_color'),
+      thickness: this.gl.getUniformLocation(this.program, 'u_thickness'),
+      resolution: this.gl.getUniformLocation(this.program, 'u_resolution')
+    }
   }
 
   /**
@@ -93,10 +130,10 @@ export class ThickLineRenderer {
 
     this.positionBuffer = this.gl.createBuffer()
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer)
-    const aPosLine = this.gl.getAttribLocation(this.program, 'a_position')
-    this.gl.enableVertexAttribArray(aPosLine)
+    this.positionAttribute = this.gl.getAttribLocation(this.program, 'a_position')
+    this.gl.enableVertexAttribArray(this.positionAttribute)
     this.gl.vertexAttribPointer(
-      aPosLine,
+      this.positionAttribute,
       WEBGL_BUFFER_LAYOUT.VEC2_COMPONENTS,
       this.gl.FLOAT,
       false,
@@ -106,10 +143,10 @@ export class ThickLineRenderer {
 
     this.normalBuffer = this.gl.createBuffer()
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.normalBuffer)
-    const aNormLine = this.gl.getAttribLocation(this.program, 'a_normal')
-    this.gl.enableVertexAttribArray(aNormLine)
+    this.normalAttribute = this.gl.getAttribLocation(this.program, 'a_normal')
+    this.gl.enableVertexAttribArray(this.normalAttribute)
     this.gl.vertexAttribPointer(
-      aNormLine,
+      this.normalAttribute,
       WEBGL_BUFFER_LAYOUT.VEC2_COMPONENTS,
       this.gl.FLOAT,
       false,
@@ -118,6 +155,109 @@ export class ThickLineRenderer {
     )
 
     this.gl.bindVertexArray(null)
+  }
+
+  private setUniforms(
+    color: readonly number[],
+    thickness: number,
+    aspectRatioScale: Scale,
+    view: View
+  ): void {
+    const uniforms = this.uniforms
+    if (!uniforms) return
+
+    if (uniforms.scale) this.gl.uniform2f(uniforms.scale, aspectRatioScale.scaleX, aspectRatioScale.scaleY)
+    if (uniforms.offset) this.gl.uniform2f(uniforms.offset, view.offsetX, view.offsetY)
+    if (uniforms.zoom) this.gl.uniform1f(uniforms.zoom, view.zoom)
+
+    if (uniforms.rotation) {
+      const rotationCos = Number.isFinite(aspectRatioScale.rotationCos) ? aspectRatioScale.rotationCos! : 1
+      const rotationSin = Number.isFinite(aspectRatioScale.rotationSin) ? aspectRatioScale.rotationSin! : 0
+      this.gl.uniform2f(uniforms.rotation, rotationCos, rotationSin)
+    }
+
+    if (uniforms.canvasAspect) {
+      const fallbackAspect = this.gl.canvas.width > 0 && this.gl.canvas.height > 0
+        ? this.gl.canvas.width / this.gl.canvas.height
+        : 1
+      const rotationAspect = Number.isFinite(aspectRatioScale.rotationAspect) && aspectRatioScale.rotationAspect! > 0
+        ? aspectRatioScale.rotationAspect!
+        : fallbackAspect
+      this.gl.uniform1f(uniforms.canvasAspect, rotationAspect)
+    }
+
+    if (uniforms.color) {
+      this.gl.uniform4f(
+        uniforms.color,
+        color[0] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+        color[1] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+        color[2] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+        color[3] ?? WEBGL_DEFAULTS.ALPHA_CHANNEL
+      )
+    }
+    if (uniforms.thickness) this.gl.uniform1f(uniforms.thickness, thickness)
+    if (uniforms.resolution) this.gl.uniform2f(uniforms.resolution, this.gl.canvas.width, this.gl.canvas.height)
+  }
+
+  private deleteCachedGeometry(entry: CachedLineGeometry): void {
+    this.gl.deleteVertexArray(entry.vao)
+    this.gl.deleteBuffer(entry.positionBuffer)
+    this.gl.deleteBuffer(entry.normalBuffer)
+  }
+
+  private getCachedGeometry(cacheKey: string, points: Point[], isClosed: boolean): CachedLineGeometry | null {
+    const key = `${cacheKey}:${isClosed ? 'closed' : 'open'}`
+    const cached = this.geometryCache.get(key)
+    if (cached) return cached
+
+    const { positions, normals } = this.generateThickLineVertices(points, isClosed)
+    if (positions.length === 0) return null
+
+    const vao = this.gl.createVertexArray()
+    const positionBuffer = this.gl.createBuffer()
+    const normalBuffer = this.gl.createBuffer()
+    if (!vao || !positionBuffer || !normalBuffer) {
+      if (vao) this.gl.deleteVertexArray(vao)
+      if (positionBuffer) this.gl.deleteBuffer(positionBuffer)
+      if (normalBuffer) this.gl.deleteBuffer(normalBuffer)
+      return null
+    }
+
+    this.gl.bindVertexArray(vao)
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, positionBuffer)
+    this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.STATIC_DRAW)
+    this.gl.enableVertexAttribArray(this.positionAttribute)
+    this.gl.vertexAttribPointer(
+      this.positionAttribute,
+      WEBGL_BUFFER_LAYOUT.VEC2_COMPONENTS,
+      this.gl.FLOAT,
+      false,
+      WEBGL_BUFFER_LAYOUT.NO_STRIDE_BYTES,
+      WEBGL_BUFFER_LAYOUT.NO_OFFSET_BYTES
+    )
+
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normalBuffer)
+    this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(normals), this.gl.STATIC_DRAW)
+    this.gl.enableVertexAttribArray(this.normalAttribute)
+    this.gl.vertexAttribPointer(
+      this.normalAttribute,
+      WEBGL_BUFFER_LAYOUT.VEC2_COMPONENTS,
+      this.gl.FLOAT,
+      false,
+      WEBGL_BUFFER_LAYOUT.NO_STRIDE_BYTES,
+      WEBGL_BUFFER_LAYOUT.NO_OFFSET_BYTES
+    )
+    this.gl.bindVertexArray(null)
+
+    const entry = {
+      cacheKey,
+      vao,
+      positionBuffer,
+      normalBuffer,
+      vertexCount: positions.length / WEBGL_LINE_GEOMETRY.POSITION_COMPONENTS
+    }
+    this.geometryCache.set(key, entry)
+    return entry
   }
 
   /**
@@ -200,9 +340,20 @@ export class ThickLineRenderer {
     thickness: number,
     isClosed: boolean,
     aspectRatioScale: Scale,
-    view: View
+    view: View,
+    cacheKey?: string
   ): void {
     if (!this.initialized || points.length < 2 || !this.program) return
+
+    const cachedGeometry = cacheKey ? this.getCachedGeometry(cacheKey, points, isClosed) : null
+    if (cachedGeometry) {
+      this.gl.useProgram(this.program)
+      this.gl.bindVertexArray(cachedGeometry.vao)
+      this.setUniforms(color, thickness, aspectRatioScale, view)
+      this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, cachedGeometry.vertexCount)
+      this.gl.bindVertexArray(null)
+      return
+    }
 
     const { positions, normals } = this.generateThickLineVertices(points, isClosed)
 
@@ -217,23 +368,7 @@ export class ThickLineRenderer {
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.normalBuffer)
     this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(normals), this.gl.DYNAMIC_DRAW)
 
-    setTransformUniforms(this.gl, this.program, aspectRatioScale, view, view.zoom)
-    const rgba: [number, number, number, number] = [
-      color[0] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-      color[1] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-      color[2] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-      color[3] ?? WEBGL_DEFAULTS.ALPHA_CHANNEL
-    ]
-    setColorUniform(this.gl, this.program, rgba)
-
-    const thicknessLocation = this.gl.getUniformLocation(this.program, 'u_thickness')
-    if (thicknessLocation) this.gl.uniform1f(thicknessLocation, thickness)
-
-    const resolutionLocation = this.gl.getUniformLocation(this.program, 'u_resolution')
-    if (resolutionLocation) {
-      const canvas = this.gl.canvas as HTMLCanvasElement
-      this.gl.uniform2f(resolutionLocation, canvas.width, canvas.height)
-    }
+    this.setUniforms(color, thickness, aspectRatioScale, view)
 
     this.gl.drawArrays(
       this.gl.TRIANGLE_STRIP,
@@ -256,12 +391,6 @@ export class ThickLineRenderer {
     this.gl.useProgram(this.program)
     this.gl.bindVertexArray(this.vao)
 
-    setTransformUniforms(this.gl, this.program, aspectRatioScale, view, view.zoom)
-
-    const thicknessLocation = this.gl.getUniformLocation(this.program, 'u_thickness')
-    const resolutionLocation = this.gl.getUniformLocation(this.program, 'u_resolution')
-    this.gl.uniform2f(resolutionLocation, this.gl.canvas.width, this.gl.canvas.height)
-
     for (const line of lineData) {
       const { positions, normals } = this.generateThickLineVertices(line.points, line.isClosed)
 
@@ -273,14 +402,7 @@ export class ThickLineRenderer {
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.normalBuffer)
       this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(normals), this.gl.DYNAMIC_DRAW)
 
-      this.gl.uniform1f(thicknessLocation, line.thickness)
-      const lineRgba: [number, number, number, number] = [
-        line.color[0] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-        line.color[1] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-        line.color[2] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-        line.color[3] ?? WEBGL_DEFAULTS.ALPHA_CHANNEL
-      ]
-      setColorUniform(this.gl, this.program, lineRgba)
+      this.setUniforms(line.color, line.thickness, aspectRatioScale, view)
 
       this.gl.drawArrays(
         this.gl.TRIANGLE_STRIP,
@@ -292,10 +414,36 @@ export class ThickLineRenderer {
     this.gl.bindVertexArray(null)
   }
 
+  invalidateGeometry(cacheKey: string): void {
+    for (const [key, entry] of this.geometryCache) {
+      if (entry.cacheKey === cacheKey) {
+        this.deleteCachedGeometry(entry)
+        this.geometryCache.delete(key)
+      }
+    }
+  }
+
+  pruneGeometryCache(activeKeys: Set<string>): void {
+    for (const [key, entry] of this.geometryCache) {
+      if (!activeKeys.has(entry.cacheKey)) {
+        this.deleteCachedGeometry(entry)
+        this.geometryCache.delete(key)
+      }
+    }
+  }
+
+  clearGeometryCache(): void {
+    for (const entry of this.geometryCache.values()) {
+      this.deleteCachedGeometry(entry)
+    }
+    this.geometryCache.clear()
+  }
+
   /**
    * Cleanup function to release resources
    */
   cleanup(): void {
+    this.clearGeometryCache()
     if (this.positionBuffer) {
       this.gl.deleteBuffer(this.positionBuffer)
       this.positionBuffer = null
@@ -317,5 +465,6 @@ export class ThickLineRenderer {
     }
 
     this.initialized = false
+    this.uniforms = null
   }
 }

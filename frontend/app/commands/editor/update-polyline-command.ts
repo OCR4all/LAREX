@@ -3,6 +3,7 @@ import { PcGts } from '@/models/editor'
 import type { Point } from '@/models/editor'
 import { toPlainPoints } from './utils'
 import { visibilityService } from '@/services/editor/visibility-service'
+import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import {
   findTextLineRecursive,
   rebuildSpatialIndexFromPcGts,
@@ -42,6 +43,9 @@ export class UpdatePolylineCommand implements Command {
     hit.textLine.baseline.points.points = this.newPoints.map(p => [p.x, p.y])
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
+    if (ctx?.canvasId) {
+      invalidatePolygonGeometry(ctx.canvasId, this.polylineId)
+    }
     visibilityService.clearCache()
   }
 
@@ -59,6 +63,9 @@ export class UpdatePolylineCommand implements Command {
     hit.textLine.baseline.points.points = [...this.oldPoints]
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
+    if (ctx?.canvasId) {
+      invalidatePolygonGeometry(ctx.canvasId, this.polylineId)
+    }
     visibilityService.clearCache()
   }
 

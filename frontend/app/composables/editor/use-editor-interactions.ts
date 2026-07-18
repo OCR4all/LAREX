@@ -446,6 +446,46 @@ export function useEditorInteractions(
   }
 
   function onMouseMove(e: MouseEvent): void {
+    const canvasElement = canvas.value
+    if (canvasElement) {
+      const rect = canvasElement.getBoundingClientRect()
+      const isOutsideCanvas = e.clientX < rect.left
+        || e.clientX > rect.right
+        || e.clientY < rect.top
+        || e.clientY > rect.bottom
+      const hasActivePointerOperation = e.buttons !== 0
+        || mouseInteraction.isPanning()
+        || polylineEditing.isDragging()
+        || polygonEditing.isDragging()
+        || (moveInteraction?.isMoving() ?? false)
+        || isMarqueeSelecting.value
+        || isPolygonMode.value
+        || isRectangleMode.value
+        || isPolylineMode.value
+        || (canvasControls.isCutMode?.value ?? false)
+
+      if (isOutsideCanvas && !hasActivePointerOperation) {
+        polygonEditing.hoveredPolygonIndex.value = -1
+        polygonEditing.hoveredNodeIndex.value = -1
+        polygonEditing.hoveredEdgeInfo.polygonIndex = -1
+        polygonEditing.hoveredEdgeInfo.edgeStartIndex = -1
+        polygonEditing.hoveredEdgeInfo.t = 0
+        polygonEditing.previewNodePosition.x = null
+        polygonEditing.previewNodePosition.y = null
+        polylineEditing.hoveredPolylineIndex.value = -1
+        polylineEditing.hoveredNodeIndex.value = -1
+        polylineEditing.hoveredSegmentInfo.polylineIndex = -1
+        polylineEditing.hoveredSegmentInfo.segmentIndex = -1
+        polylineEditing.hoveredSegmentInfo.distance = Infinity
+        polylineEditing.hoveredSegmentInfo.closestPoint = null
+        polylineEditing.previewNodePosition.x = null
+        polylineEditing.previewNodePosition.y = null
+        stateActions?.setHoveredPolygonId(null)
+        stateActions?.setHoveredPolylineId(null)
+        return
+      }
+    }
+
     mouseInteraction.handleMouseMove(e)
 
     if (!canMutateCanvas()) {

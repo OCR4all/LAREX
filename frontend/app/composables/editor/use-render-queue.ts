@@ -1,4 +1,5 @@
 import { createScopedLogger } from '@/services/editor/logger-service'
+import { onBeforeUnmount, ref } from 'vue'
 
 const log = createScopedLogger('RenderQueue')
 
@@ -30,8 +31,6 @@ export interface RenderQueueConfig {
   debounceDelay?: number
   /** Enable performance monitoring (default: false) */
   enableMonitoring?: boolean
-  /** Maximum number of consecutive renders before forcing a break (default: 3) */
-  maxConsecutiveRenders?: number
 }
 
 /**
@@ -50,6 +49,8 @@ export interface RenderStats {
   skippedFrames: number
   /** Number of batched renders */
   batchedRenders: number
+  /** Most recent reason supplied by the render caller */
+  lastRenderReason: string | null
 }
 
 /**
@@ -96,8 +97,7 @@ export function useRenderQueue(
   const {
     maxFrameTime = 16,
     debounceDelay = 32,
-    enableMonitoring = false,
-    maxConsecutiveRenders = 3
+    enableMonitoring = false
   } = config
 
   const rafId = ref<number | null>(null)
@@ -113,7 +113,8 @@ export function useRenderQueue(
     averageFrameTime: 0,
     maxFrameTime: 0,
     skippedFrames: 0,
-    batchedRenders: 0
+    batchedRenders: 0,
+    lastRenderReason: null
   })
 
   const frameTimes: number[] = []
@@ -123,10 +124,11 @@ export function useRenderQueue(
   /**
    * Update performance statistics
    */
-  function updateStats(frameTime: number): void {
+  function updateStats(frameTime: number, reason?: string): void {
     if (!enableMonitoring) return
 
     stats.value.totalRenders++
+    stats.value.lastRenderReason = reason ?? null
 
     frameTimes.push(frameTime)
     if (frameTimes.length > maxFrameHistory) {
@@ -167,7 +169,7 @@ export function useRenderQueue(
 
       const frameTime = performance.now() - startTime
       lastFrameTime.value = frameTime
-      updateStats(frameTime)
+      updateStats(frameTime, reason)
 
       if (enableMonitoring && reason) {
         if (frameTime > maxFrameTime) {
@@ -194,15 +196,6 @@ export function useRenderQueue(
 
     const request = pendingRequest.value
     pendingRequest.value = null
-
-    if (consecutiveRenders.value >= maxConsecutiveRenders) {
-      consecutiveRenders.value = 0
-      rafId.value = requestAnimationFrame(() => {
-        executeRender(request.reason)
-        consecutiveRenders.value = 1
-      })
-      return
-    }
 
     executeRender(request.reason)
     consecutiveRenders.value++
@@ -252,12 +245,14 @@ export function useRenderQueue(
 
     const existingRequest = pendingRequest.value
 
+    if (existingRequest && enableMonitoring) {
+      stats.value.batchedRenders++
+    }
+
     if (!existingRequest || priority < existingRequest.priority) {
       pendingRequest.value = { priority, timestamp: now, reason }
-
-      if (enableMonitoring && existingRequest) {
-        stats.value.batchedRenders++
-      }
+    } else if (reason && !existingRequest.reason) {
+      existingRequest.reason = reason
     }
 
     if (rafId.value === null) {
@@ -299,7 +294,8 @@ export function useRenderQueue(
       averageFrameTime: 0,
       maxFrameTime: 0,
       skippedFrames: 0,
-      batchedRenders: 0
+      batchedRenders: 0,
+      lastRenderReason: null
     }
     frameTimes.length = 0
     renderTimestamps.length = 0

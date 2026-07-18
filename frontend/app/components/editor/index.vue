@@ -785,6 +785,7 @@ const editorRenderer = useEditorRenderer(
   regionLabelConflictIds
 )
 const renderStats = computed(() => editorRenderer.renderStats.value)
+const exposeRenderDiagnostics = import.meta.env.DEV
 let actionProcessingAnimationFrame: number | null = null
 
 function stopActionProcessingAnimation() {
@@ -2911,6 +2912,11 @@ watch(() => props.src, (newSrc) => {
         <template #default>
           <canvas
             ref="canvas"
+            :data-render-average-ms="exposeRenderDiagnostics && renderStats ? renderStats.averageFrameTime.toFixed(3) : undefined"
+            :data-render-max-ms="exposeRenderDiagnostics && renderStats ? renderStats.maxFrameTime.toFixed(3) : undefined"
+            :data-render-total="exposeRenderDiagnostics && renderStats ? renderStats.totalRenders : undefined"
+            :data-render-batched="exposeRenderDiagnostics && renderStats ? renderStats.batchedRenders : undefined"
+            :data-render-reason="exposeRenderDiagnostics && renderStats ? renderStats.lastRenderReason ?? undefined : undefined"
             class="block w-full h-full bg-transparent relative z-10"
             :class="[
               canReceiveCanvasInput && canShowCanvasContent ? (isCanvasWritable || isComparisonCanvas ? 'cursor-grab' : 'cursor-default') : 'cursor-default pointer-events-none',
@@ -3584,6 +3590,10 @@ watch(() => props.src, (newSrc) => {
         <div class="flex justify-between mb-1">
           <span class="text-neutral-400">Batched:</span>
           <span class="font-bold">{{ renderStats.batchedRenders }}</span>
+        </div>
+        <div class="flex justify-between gap-3">
+          <span class="text-neutral-400">Reason:</span>
+          <span class="font-bold truncate">{{ renderStats.lastRenderReason ?? '—' }}</span>
         </div>
       </div>
 

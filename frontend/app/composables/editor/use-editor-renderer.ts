@@ -12,7 +12,7 @@ import type {
 } from './editor-interactions/types'
 import type { ActionProcessingRenderTarget, WebGLRenderState, ViewMode, RelationRenderData } from '@/types/editor/rendering'
 import type { ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
-import type { RenderStats } from './use-render-queue'
+import { RenderPriority, useRenderQueue, type RenderStats } from './use-render-queue'
 import { useEditorCustomCursor } from './use-editor-custom-cursor'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 
@@ -96,8 +96,6 @@ export function useEditorRenderer(
   const { activeCursor: activeCustomCursor } = useEditorCustomCursor(computed(() => ({
     actionWandActive: editorUiStore.actionWandActive
   })))
-  const renderStats = ref<RenderStats | null>(null)
-
   const isInvalidPosition = computed(() => (
     polygonEditing.isInvalidPosition.value
     || polylineEditing.isInvalidPosition.value
@@ -121,7 +119,7 @@ export function useEditorRenderer(
   /**
    * Render the current editor state to WebGL
    */
-  function render(): void {
+  function renderNow(): void {
     if (enabled && !enabled.value) return
 
     const autoParentPreview = computeAutoParentPreview(
@@ -193,6 +191,27 @@ export function useEditorRenderer(
     webglRenderer.renderFrame(renderState, aspectRatioScale, view, triangulatePolygon)
   }
 
+  const {
+    scheduleRender,
+    forceRender,
+    stats: renderQueueStats
+  } = useRenderQueue(renderNow, {
+    enableMonitoring: true,
+    // Keep diagnostics active without logging expected long frames while the
+    // renderer is under load. The overlay still exposes the actual timings.
+    maxFrameTime: Number.POSITIVE_INFINITY
+  })
+  const renderStats = computed<RenderStats | null>(() => renderQueueStats.value)
+
+  /**
+   * Request a render for the next animation frame. All callers in the same
+   * browser frame are collapsed into a single WebGL render.
+   */
+  function render(): void {
+    if (enabled && !enabled.value) return
+    scheduleRender(RenderPriority.NORMAL, 'manual')
+  }
+
   /**
    * Setup all watches for automatic re-rendering
    */
@@ -249,7 +268,7 @@ export function useEditorRenderer(
     ],
     () => {
       if (enabled && !enabled.value) return
-      nextTick(() => render())
+      nextTick(() => scheduleRender(RenderPriority.NORMAL, 'reactive-state'))
     },
     { deep: true })
 
@@ -263,7 +282,7 @@ export function useEditorRenderer(
 
     watch(() => webglRenderer.imageSize, () => {
       if (enabled && !enabled.value) return
-      nextTick(() => render())
+      nextTick(() => scheduleRender(RenderPriority.NORMAL, 'image-size'))
     }, { deep: true })
   }
 
@@ -354,7 +373,7 @@ export function useEditorRenderer(
         stopReadingOrderAnimation()
         return
       }
-      render()
+      forceRender('animated-overlay')
       animationFrameId = requestAnimationFrame(animate)
     }
 

@@ -10,7 +10,8 @@ export interface PolygonOutlineRenderers {
       thickness: number,
       isClosed: boolean,
       aspectRatioScale: AspectRatioScale,
-      view: View
+      view: View,
+      cacheKey?: string
     ) => void
   } | null
   dashedLineRenderer?: {
@@ -22,7 +23,8 @@ export interface PolygonOutlineRenderers {
       dashLength: number,
       gapLength: number,
       aspectRatioScale: AspectRatioScale,
-      view: View
+      view: View,
+      cacheKey?: string
     ) => void
   } | null
 }
@@ -36,6 +38,7 @@ export interface DrawPolygonOutlineOptions extends PolygonOutlineRenderers {
   view: View
   dashLength?: number
   gapLength?: number
+  cacheKey?: string
 }
 
 export function getOutlineRendererKind(style: Pick<ResolvedPolygonRenderStyle, 'strokePattern'>): PolygonStrokePattern {
@@ -55,7 +58,8 @@ export function drawPolygonOutlineWithStyle(options: DrawPolygonOutlineOptions):
       options.dashLength ?? BACKGROUND_ELEMENT.DASH_LENGTH,
       options.gapLength ?? BACKGROUND_ELEMENT.GAP_LENGTH,
       options.aspectRatioScale,
-      options.view
+      options.view,
+      options.cacheKey
     )
     return
   }
@@ -66,6 +70,7 @@ export function drawPolygonOutlineWithStyle(options: DrawPolygonOutlineOptions):
     thickness,
     options.isClosed,
     options.aspectRatioScale,
-    options.view
+    options.view,
+    options.cacheKey
   )
 }

@@ -83,6 +83,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   let dashedLineRenderer: DashedLineRenderer | null = null
   let selectionOverlayRenderer: SelectionOverlayRenderer | null = null
   let readingOrderRenderer: ReadingOrderRenderer | null = null
+  let framesUntilLineCachePrune = 120
 
   let animationFrameId: number | null = null
 
@@ -499,13 +500,14 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     thickness: number,
     isClosed: boolean,
     aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
-    view: View
+    view: View,
+    cacheKey?: string
   ): void {
     if (!thickLineRenderer || points.length < 2) return
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
 
-    thickLineRenderer.drawThickLine(points, color, thickness, isClosed, scale, view)
+    thickLineRenderer.drawThickLine(points, color, thickness, isClosed, scale, view, cacheKey)
   }
 
   function getResolvedPolygonStyle(
@@ -528,7 +530,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     style: ResolvedPolygonRenderStyle,
     baseLineWidth: number,
     aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
-    view: View
+    view: View,
+    cacheKey?: string
   ): void {
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
 
@@ -539,6 +542,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       isClosed: polygon.type !== PolygonType.BASELINE,
       aspectRatioScale: scale,
       view,
+      cacheKey,
       thickLineRenderer,
       dashedLineRenderer
     })
@@ -825,7 +829,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       }
 
       const polygonStyle = getResolvedPolygonStyle(polygon, { renderPhase: 'background' }, document)
-      drawPolygonOutline(polygon, polygonStyle, getLineWidth(), aspectRatioScale, view)
+      drawPolygonOutline(polygon, polygonStyle, getLineWidth(), aspectRatioScale, view, polygon.id)
     })
   }
 
@@ -1097,7 +1101,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         polygonStyle.nodeColor = diffColor
         polygonStyle.strokeWidthMultiplier = Math.max(polygonStyle.strokeWidthMultiplier, 1.9)
       }
-      drawPolygonOutline(polygon, polygonStyle, getLineWidth(), aspectRatioScale, view)
+      drawPolygonOutline(polygon, polygonStyle, getLineWidth(), aspectRatioScale, view, polygon.id)
     })
   }
 
@@ -1186,6 +1190,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       }
 
       const polygonStyle = getResolvedPolygonStyle(polygon, {}, document)
+      // Multi-selected shapes can be moved together, so keep this path dynamic.
       drawPolygonOutline(polygon, polygonStyle, getLineWidth() * 1.4, aspectRatioScale, view)
     })
   }
@@ -1429,7 +1434,18 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         color = diffColor
       }
 
-      drawThickLine(polyline.points, color, getLineWidth() * (diffColor ? 2.1 : 1), false, aspectRatioScale, view)
+      const cacheKey = index === renderState.selectedPolylineIndex.value || isMovingInvalid
+        ? undefined
+        : polyline.id
+      drawThickLine(
+        polyline.points,
+        color,
+        getLineWidth() * (diffColor ? 2.1 : 1),
+        false,
+        aspectRatioScale,
+        view,
+        cacheKey
+      )
 
       if (index === renderState.selectedPolylineIndex.value && gl && polygonProgram && polygonVao && polygonBuffer) {
         gl.useProgram(polygonProgram)
@@ -1972,6 +1988,16 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   ): void {
     if (!gl) return
 
+    framesUntilLineCachePrune--
+    if (framesUntilLineCachePrune <= 0) {
+      const activeGeometryIds = new Set<string>()
+      for (const polygon of renderState.polygons) activeGeometryIds.add(polygon.id)
+      for (const polyline of renderState.polylines) activeGeometryIds.add(polyline.id)
+      thickLineRenderer?.pruneGeometryCache(activeGeometryIds)
+      dashedLineRenderer?.pruneGeometryCache(activeGeometryIds)
+      framesUntilLineCachePrune = 120
+    }
+
     const dpr = window.devicePixelRatio || WEBGL_CORE.DEFAULT_DEVICE_PIXEL_RATIO
     const canvas = getGlCanvasElement()
     if (!canvas) return
@@ -2100,16 +2126,24 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       if (geometryCache) {
         geometryCache.invalidate(polygonId)
       }
+      thickLineRenderer?.invalidateGeometry(polygonId)
+      dashedLineRenderer?.invalidateGeometry(polygonId)
     },
     invalidateMultipleGeometry: (polygonIds: string[]) => {
       if (geometryCache) {
         geometryCache.invalidateMultiple(polygonIds)
+      }
+      for (const polygonId of polygonIds) {
+        thickLineRenderer?.invalidateGeometry(polygonId)
+        dashedLineRenderer?.invalidateGeometry(polygonId)
       }
     },
     clearGeometryCache: () => {
       if (geometryCache) {
         geometryCache.clear()
       }
+      thickLineRenderer?.clearGeometryCache()
+      dashedLineRenderer?.clearGeometryCache()
     },
     pruneGeometryCache: (activePolygonIds: Set<string>) => {
       if (geometryCache) {
