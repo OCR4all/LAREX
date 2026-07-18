@@ -202,8 +202,12 @@ public class AnnotationLeaseService {
     }
 
     public AnnotationCollaborationDto.LeaseState requestTakeover(RoomAccessContext context, boolean force) {
+        return requestTakeoverAction(context, force).lease();
+    }
+
+    public AnnotationCollaborationDto.LeaseActionResult requestTakeoverAction(RoomAccessContext context, boolean force) {
         List<NotificationIntent> notifications = new ArrayList<>();
-        AnnotationCollaborationDto.LeaseState leaseState;
+        AnnotationCollaborationDto.LeaseActionResult result;
         synchronized (leases) {
             LeaseRecord record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
@@ -212,15 +216,35 @@ public class AnnotationLeaseService {
             refreshRecordMetadata(record, context);
 
             if (!context.canEdit()) {
-                leaseState = toLeaseState(record, context.user().id());
+                result = actionResult(
+                        record,
+                        context.user().id(),
+                        AnnotationCollaborationDto.LeaseActionOutcome.FORBIDDEN,
+                        "You do not have permission to edit this page."
+                );
             } else if (record.owner == null) {
                 assignOwner(record, context.user(), null);
-                leaseState = toLeaseState(record, context.user().id());
+                result = actionResult(
+                        record,
+                        context.user().id(),
+                        AnnotationCollaborationDto.LeaseActionOutcome.GRANTED,
+                        "The edit lock was granted."
+                );
             } else if (isOwner(record, context.user().id())) {
-                leaseState = toLeaseState(record, context.user().id());
+                result = actionResult(
+                        record,
+                        context.user().id(),
+                        AnnotationCollaborationDto.LeaseActionOutcome.GRANTED,
+                        "You already hold the edit lock."
+                );
             } else if (force) {
                 if (!context.canForceTakeover()) {
-                    leaseState = toLeaseState(record, context.user().id());
+                    result = actionResult(
+                            record,
+                            context.user().id(),
+                            AnnotationCollaborationDto.LeaseActionOutcome.FORBIDDEN,
+                            "You do not have permission to force an edit takeover."
+                    );
                 } else {
                     AnnotationCollaborationDto.UserSummary previousEditor = record.owner == null ? null : record.owner.user;
                     assignOwner(record, context.user(), null);
@@ -234,8 +258,29 @@ public class AnnotationLeaseService {
                                 displayName(context.user())
                         ));
                     }
-                    leaseState = toLeaseState(record, context.user().id());
+                    result = actionResult(
+                            record,
+                            context.user().id(),
+                            AnnotationCollaborationDto.LeaseActionOutcome.GRANTED,
+                            "The edit lock was transferred."
+                    );
                 }
+            } else if (record.pendingTakeover != null
+                    && record.pendingTakeover.requester != null
+                    && context.user().id().equals(record.pendingTakeover.requester.id())) {
+                result = actionResult(
+                        record,
+                        context.user().id(),
+                        AnnotationCollaborationDto.LeaseActionOutcome.PENDING,
+                        "Your edit request is already pending."
+                );
+            } else if (record.pendingTakeover != null) {
+                result = actionResult(
+                        record,
+                        context.user().id(),
+                        AnnotationCollaborationDto.LeaseActionOutcome.CONFLICT,
+                        "Another edit request is already pending."
+                );
             } else {
                 record.pendingTakeover = new PendingTakeoverRecord(context.user(), Instant.now().toString(), false);
                 record.epoch++;
@@ -252,18 +297,30 @@ public class AnnotationLeaseService {
                             displayName(context.user())
                     ));
                 }
-                leaseState = toLeaseState(record, context.user().id());
+                result = actionResult(
+                        record,
+                        context.user().id(),
+                        AnnotationCollaborationDto.LeaseActionOutcome.PENDING,
+                        "The edit request was sent."
+                );
             }
         }
         dispatchNotifications(notifications);
-        return leaseState;
+        return result;
     }
 
     public AnnotationCollaborationDto.LeaseState respondToTakeover(RoomAccessContext context,
                                                                    String decision,
                                                                    String handoffMode) {
+        return respondToTakeoverAction(context, decision, handoffMode).lease();
+    }
+
+    public AnnotationCollaborationDto.LeaseActionResult respondToTakeoverAction(RoomAccessContext context,
+                                                                                 String decision,
+                                                                                 String handoffMode) {
+        validateTakeoverResponse(decision, handoffMode);
         List<NotificationIntent> notifications = new ArrayList<>();
-        AnnotationCollaborationDto.LeaseState leaseState;
+        AnnotationCollaborationDto.LeaseActionResult result;
         synchronized (leases) {
             LeaseRecord record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
@@ -271,8 +328,20 @@ public class AnnotationLeaseService {
             record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
 
-            if (!isOwner(record, context.user().id()) || record.pendingTakeover == null) {
-                leaseState = toLeaseState(record, context.user().id());
+            if (!isOwner(record, context.user().id())) {
+                result = actionResult(
+                        record,
+                        context.user().id(),
+                        AnnotationCollaborationDto.LeaseActionOutcome.FORBIDDEN,
+                        "Only the current editor can respond to edit requests."
+                );
+            } else if (record.pendingTakeover == null) {
+                result = actionResult(
+                        record,
+                        context.user().id(),
+                        AnnotationCollaborationDto.LeaseActionOutcome.CONFLICT,
+                        "There is no pending edit request."
+                );
             } else {
                 PendingTakeoverRecord pending = record.pendingTakeover;
                 AnnotationCollaborationDto.UserSummary previousEditor = record.owner == null ? null : record.owner.user;
@@ -292,9 +361,19 @@ public class AnnotationLeaseService {
                                 displayName(context.user())
                         ));
                     }
-                    leaseState = toLeaseState(record, context.user().id());
+                    result = actionResult(
+                            record,
+                            context.user().id(),
+                            AnnotationCollaborationDto.LeaseActionOutcome.DECLINED,
+                            "The edit request was declined."
+                    );
                 } else if (pending.requester == null) {
-                    leaseState = toLeaseState(record, context.user().id());
+                    result = actionResult(
+                            record,
+                            context.user().id(),
+                            AnnotationCollaborationDto.LeaseActionOutcome.CONFLICT,
+                            "The pending edit request is no longer valid."
+                    );
                 } else {
                     assignOwner(record, pending.requester, null);
                     if (!pending.requester.id().equals(context.user().id())) {
@@ -319,12 +398,17 @@ public class AnnotationLeaseService {
                                 displayName(pending.requester)
                         ));
                     }
-                    leaseState = toLeaseState(record, context.user().id());
+                    result = actionResult(
+                            record,
+                            context.user().id(),
+                            AnnotationCollaborationDto.LeaseActionOutcome.GRANTED,
+                            "The edit lock was transferred."
+                    );
                 }
             }
         }
         dispatchNotifications(notifications);
-        return leaseState;
+        return result;
     }
 
     public AnnotationCollaborationDto.LeaseState releaseLease(RoomAccessContext context, String instanceId) {
@@ -339,12 +423,19 @@ public class AnnotationLeaseService {
                 if (instanceId != null && !instanceId.isBlank()) {
                     record.participantInstances.remove(instanceId);
                 }
+                clearOrphanedPendingTakeover(record);
                 if (isOwner(record, context.user().id())) {
                     if (instanceId != null && !instanceId.isBlank()) {
                         record.activeInstances.remove(instanceId);
                     }
                     if (record.activeInstances.isEmpty()) {
-                        transferOwnershipAfterOwnerDeparture(record, context.user().id());
+                        ParticipantInstanceRecord sameUserSuccessor =
+                                findPreferredParticipantForUser(record, context.user().id());
+                        if (sameUserSuccessor != null) {
+                            assignOwner(record, sameUserSuccessor.user, sameUserSuccessor.instanceId);
+                        } else {
+                            transferOwnershipAfterOwnerDeparture(record, context.user().id());
+                        }
                     } else {
                         updateExpiry(record);
                     }
@@ -440,6 +531,7 @@ public class AnnotationLeaseService {
         }
         pruneExpiredInstances(record);
         pruneExpiredParticipants(record);
+        clearOrphanedPendingTakeover(record);
         if (!record.activeInstances.isEmpty()) {
             updateExpiry(record);
             return;
@@ -591,6 +683,17 @@ public class AnnotationLeaseService {
         }
     }
 
+    private void clearOrphanedPendingTakeover(LeaseRecord record) {
+        if (record.pendingTakeover == null || record.pendingTakeover.requester == null) {
+            return;
+        }
+        if (findPreferredParticipantForUser(record, record.pendingTakeover.requester.id()) != null) {
+            return;
+        }
+        record.pendingTakeover = null;
+        record.epoch++;
+    }
+
     private ParticipantInstanceRecord findPreferredParticipant(LeaseRecord record, String excludedUserId) {
         ParticipantInstanceRecord preferred = null;
         for (ParticipantInstanceRecord participant : record.participantInstances.values()) {
@@ -670,6 +773,27 @@ public class AnnotationLeaseService {
 
     private AnnotationCollaborationDto.LeaseState emptyLeaseState(String currentUserId) {
         return new AnnotationCollaborationDto.LeaseState(null, null, false, 0, null);
+    }
+
+    private AnnotationCollaborationDto.LeaseActionResult actionResult(
+            LeaseRecord record,
+            String currentUserId,
+            AnnotationCollaborationDto.LeaseActionOutcome outcome,
+            String message) {
+        return new AnnotationCollaborationDto.LeaseActionResult(
+                toLeaseState(record, currentUserId),
+                outcome,
+                message
+        );
+    }
+
+    private void validateTakeoverResponse(String decision, String handoffMode) {
+        if (!"accept".equals(decision) && !"decline".equals(decision)) {
+            throw new IllegalArgumentException("decision must be accept or decline");
+        }
+        if (!"save".equals(handoffMode) && !"discard".equals(handoffMode)) {
+            throw new IllegalArgumentException("handoffMode must be save or discard");
+        }
     }
 
     private AnnotationCollaborationDto.LeaseState toLeaseState(LeaseRecord record, String currentUserId) {

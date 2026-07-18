@@ -15,6 +15,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(MockitoExtension.class)
@@ -106,6 +107,115 @@ class AnnotationLeaseServiceTransferTest {
                 service.heartbeat(previousEditor, "previous-instance");
         assertEditor(afterPreviousHeartbeat, "manager");
         assertFalse(afterPreviousHeartbeat.leaseOwner());
+    }
+
+    @Test
+    void repeatedAndCompetingTakeoverRequestsHaveExplicitOutcomes() {
+        AnnotationLeaseService.RoomAccessContext owner = context("owner", false);
+        AnnotationLeaseService.RoomAccessContext requester = context("requester", false);
+        AnnotationLeaseService.RoomAccessContext competingRequester = context("competing-requester", false);
+
+        service.joinLease(owner, "owner-instance");
+        service.joinLease(requester, "requester-instance");
+        service.joinLease(competingRequester, "competing-instance");
+
+        AnnotationCollaborationDto.LeaseActionResult first =
+                service.requestTakeoverAction(requester, false);
+        AnnotationCollaborationDto.LeaseActionResult repeated =
+                service.requestTakeoverAction(requester, false);
+        AnnotationCollaborationDto.LeaseActionResult competing =
+                service.requestTakeoverAction(competingRequester, false);
+
+        assertEquals(AnnotationCollaborationDto.LeaseActionOutcome.PENDING, first.outcome());
+        assertEquals(AnnotationCollaborationDto.LeaseActionOutcome.PENDING, repeated.outcome());
+        assertEquals(first.lease().leaseEpoch(), repeated.lease().leaseEpoch());
+        assertEquals(AnnotationCollaborationDto.LeaseActionOutcome.CONFLICT, competing.outcome());
+        assertEquals("requester", competing.lease().pendingTakeover().requester().id());
+    }
+
+    @Test
+    void unauthorizedActionsHaveExplicitForbiddenOutcome() {
+        AnnotationLeaseService.RoomAccessContext owner = context("owner", false);
+        AnnotationLeaseService.RoomAccessContext requester = context("requester", false);
+
+        service.joinLease(owner, "owner-instance");
+        service.joinLease(requester, "requester-instance");
+
+        AnnotationCollaborationDto.LeaseActionResult force =
+                service.requestTakeoverAction(requester, true);
+        AnnotationCollaborationDto.LeaseActionResult response =
+                service.respondToTakeoverAction(requester, "decline", "save");
+
+        assertEquals(AnnotationCollaborationDto.LeaseActionOutcome.FORBIDDEN, force.outcome());
+        assertEquals(AnnotationCollaborationDto.LeaseActionOutcome.FORBIDDEN, response.outcome());
+        assertEditor(response.lease(), "owner");
+    }
+
+    @Test
+    void invalidTakeoverResponsesAreRejectedWithoutMutatingPendingRequest() {
+        AnnotationLeaseService.RoomAccessContext owner = context("owner", false);
+        AnnotationLeaseService.RoomAccessContext requester = context("requester", false);
+
+        service.joinLease(owner, "owner-instance");
+        service.joinLease(requester, "requester-instance");
+        AnnotationCollaborationDto.LeaseActionResult pending =
+                service.requestTakeoverAction(requester, false);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.respondToTakeoverAction(owner, "approve", "save")
+        );
+        assertEquals(
+                pending.lease().leaseEpoch(),
+                service.getLeaseState(owner).leaseEpoch()
+        );
+        assertEquals(
+                "requester",
+                service.getLeaseState(owner).pendingTakeover().requester().id()
+        );
+    }
+
+    @Test
+    void closingOneOwnerTabKeepsLeaseWithAnotherLiveTabOfSameUser() {
+        AnnotationLeaseService.RoomAccessContext owner = context("owner", false);
+        AnnotationLeaseService.RoomAccessContext viewer = context("viewer", false);
+
+        service.joinLease(owner, "owner-tab-a");
+        service.joinLease(owner, "owner-tab-b");
+        service.joinLease(viewer, "viewer-instance");
+
+        AnnotationCollaborationDto.LeaseState afterFirstTabCloses =
+                service.releaseLease(owner, "owner-tab-a");
+
+        assertEditor(afterFirstTabCloses, "owner");
+        assertTrue(afterFirstTabCloses.leaseOwner());
+
+        AnnotationCollaborationDto.LeaseState afterSecondTabHeartbeat =
+                service.heartbeat(owner, "owner-tab-b");
+        assertEditor(afterSecondTabHeartbeat, "owner");
+        assertTrue(afterSecondTabHeartbeat.leaseOwner());
+    }
+
+    @Test
+    void requesterDepartureClearsPendingRequestForAnotherCollaborator() {
+        AnnotationLeaseService.RoomAccessContext owner = context("owner", false);
+        AnnotationLeaseService.RoomAccessContext firstRequester = context("first-requester", false);
+        AnnotationLeaseService.RoomAccessContext secondRequester = context("second-requester", false);
+
+        service.joinLease(owner, "owner-instance");
+        service.joinLease(firstRequester, "first-instance");
+        service.joinLease(secondRequester, "second-instance");
+        service.requestTakeoverAction(firstRequester, false);
+
+        service.releaseLease(firstRequester, "first-instance");
+        AnnotationCollaborationDto.LeaseActionResult secondRequest =
+                service.requestTakeoverAction(secondRequester, false);
+
+        assertEquals(AnnotationCollaborationDto.LeaseActionOutcome.PENDING, secondRequest.outcome());
+        assertEquals(
+                "second-requester",
+                secondRequest.lease().pendingTakeover().requester().id()
+        );
     }
 
     private AnnotationLeaseService.RoomAccessContext context(String userId, boolean canForceTakeover) {

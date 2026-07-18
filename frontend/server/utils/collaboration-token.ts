@@ -94,6 +94,13 @@ export function verifyCollaborationRoomToken(
   }
 }
 
+export function collaborationTokenBelongsToUser(
+  payload: CollaborationRoomTokenPayload,
+  authenticatedUserId: string | null | undefined
+): boolean {
+  return Boolean(authenticatedUserId) && payload.sub === authenticatedUserId
+}
+
 function isValidAnnotationRoute(value: unknown): value is CollaborationAnnotationRoute {
   if (!value || typeof value !== 'object') return false
 

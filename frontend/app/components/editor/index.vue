@@ -164,8 +164,10 @@ const canvasLeaseSecondsUntilExpiry = computed(() => collaboration.getCanvasSeco
 const hasCanvasLeaseExpiredLocally = computed(() => collaboration.hasCanvasLeaseExpiredLocally(props.canvasId))
 const canReclaimCanvasEdit = computed(() => collaboration.canReclaimCanvasEdit(props.canvasId))
 const pendingTakeover = computed(() => collaboration.getCanvasPendingTakeover(props.canvasId))
+const canRequestTakeover = computed(() => collaboration.canRequestTakeoverCanvas(props.canvasId))
 const canForceTakeover = computed(() => !isCanvasEditable.value && collaboration.canForceTakeoverCanvas(props.canvasId))
 const collaborationSyncSuspended = ref(false)
+const isTakeoverActionPending = ref(false)
 const collaboratorsPopoverOpen = ref(false)
 const {
   collaborationVisibleParticipants,
@@ -2450,8 +2452,15 @@ const remoteCursorOverlays = computed(() => {
 })
 
 async function handleRequestTakeover(force = false) {
-  const sent = await collaboration.requestTakeover(props.canvasId, force)
-  if (!sent) {
+  if (isTakeoverActionPending.value) return
+  isTakeoverActionPending.value = true
+
+  const outcome = await collaboration.requestTakeover(props.canvasId, force)
+    .finally(() => {
+      isTakeoverActionPending.value = false
+    })
+
+  if (!outcome) {
     toast.add({
       title: 'Request failed',
       description: 'Could not send the edit transfer request.',
@@ -2460,33 +2469,84 @@ async function handleRequestTakeover(force = false) {
     return
   }
 
+  if (outcome === 'FORBIDDEN' || outcome === 'CONFLICT') {
+    toast.add({
+      title: outcome === 'FORBIDDEN' ? 'Request not permitted' : 'Request already pending',
+      description: outcome === 'FORBIDDEN'
+        ? 'You do not have permission to take over editing this page.'
+        : 'Another collaborator already has a pending edit request.',
+      color: outcome === 'FORBIDDEN' ? 'error' : 'warning'
+    })
+    return
+  }
+
   toast.add({
-    title: force ? 'Force takeover requested' : 'Edit request sent',
-    description: force
-      ? 'The edit lock will transfer as soon as the current lease updates.'
+    title: outcome === 'GRANTED' ? 'Edit lock acquired' : 'Edit request sent',
+    description: outcome === 'GRANTED'
+      ? 'You can now edit this page.'
       : 'The current editor has been notified.',
-    color: force ? 'warning' : 'info'
+    color: outcome === 'GRANTED' ? 'success' : (force ? 'warning' : 'info')
   })
 }
 
 async function handleRespondToTakeover(decision: 'accept' | 'decline', handoffMode: 'save' | 'discard' = 'save') {
+  if (isTakeoverActionPending.value) return
   const canvas = canvasState.value
   if (!canvas) return
 
-  if (decision === 'accept') {
-    if (handoffMode === 'save') {
-      await editorStore.saveAnnotations(props.canvasId)
-    } else if (canvas.projectId && canvas.pageId) {
-      await editorStore.loadPageIntoCanvas(
-        props.canvasId,
-        canvas.projectId,
-        canvas.pageId,
-        canvas.imageVariantId ?? undefined
-      )
+  isTakeoverActionPending.value = true
+  try {
+    if (decision === 'accept') {
+      if (handoffMode === 'save') {
+        const saved = await editorStore.saveAnnotations(props.canvasId)
+        if (!saved) {
+          toast.add({
+            title: 'Transfer cancelled',
+            description: 'The annotations could not be saved, so the edit lock was not transferred.',
+            color: 'error'
+          })
+          return
+        }
+      } else if (canvas.projectId && canvas.pageId) {
+        const reloaded = await editorStore.loadPageIntoCanvas(
+          props.canvasId,
+          canvas.projectId,
+          canvas.pageId,
+          canvas.imageVariantId ?? undefined
+        )
+        if (!reloaded) {
+          toast.add({
+            title: 'Transfer cancelled',
+            description: 'The persisted page could not be restored before transferring the edit lock.',
+            color: 'error'
+          })
+          return
+        }
+      } else {
+        toast.add({
+          title: 'Transfer cancelled',
+          description: 'The persisted page could not be identified before transferring the edit lock.',
+          color: 'error'
+        })
+        return
+      }
     }
-  }
 
-  await collaboration.respondToTakeover(props.canvasId, decision, handoffMode)
+    const outcome = await collaboration.respondToTakeover(props.canvasId, decision, handoffMode)
+    if (!outcome || outcome === 'FORBIDDEN' || outcome === 'CONFLICT') {
+      toast.add({
+        title: 'Response failed',
+        description: outcome === 'FORBIDDEN'
+          ? 'Only the current editor can respond to this request.'
+          : outcome === 'CONFLICT'
+            ? 'The edit request is no longer pending.'
+            : 'Could not respond to the edit request.',
+        color: 'error'
+      })
+    }
+  } finally {
+    isTakeoverActionPending.value = false
+  }
 }
 
 async function handleResyncRoom() {
@@ -2706,11 +2766,14 @@ watch(() => props.src, (newSrc) => {
 
       <div class="flex shrink-0 items-center gap-2">
         <UButton
+          v-if="canRequestTakeover"
           size="xs"
           color="neutral"
           variant="soft"
           class="h-7 px-2.5 text-[11px]"
           label="Request Edit"
+          :loading="isTakeoverActionPending"
+          :disabled="isTakeoverActionPending"
           @click="handleRequestTakeover(false)"
         />
         <UButton
@@ -2721,6 +2784,8 @@ watch(() => props.src, (newSrc) => {
           variant="soft"
           class="h-7 px-2.5 text-[11px]"
           label="Force Takeover"
+          :loading="isTakeoverActionPending"
+          :disabled="isTakeoverActionPending"
           @click="handleRequestTakeover(true)"
         />
       </div>
@@ -2760,6 +2825,7 @@ watch(() => props.src, (newSrc) => {
           variant="soft"
           class="h-7 px-2.5 text-[11px]"
           label="Decline"
+          :disabled="isTakeoverActionPending"
           @click="handleRespondToTakeover('decline')"
         />
         <UButton
@@ -2768,6 +2834,7 @@ watch(() => props.src, (newSrc) => {
           variant="soft"
           class="h-7 px-2.5 text-[11px]"
           label="Discard + Transfer"
+          :disabled="isTakeoverActionPending"
           @click="handleRespondToTakeover('accept', 'discard')"
         />
         <UButton
@@ -2776,6 +2843,8 @@ watch(() => props.src, (newSrc) => {
           variant="soft"
           class="h-7 px-2.5 text-[11px]"
           label="Save + Transfer"
+          :loading="isTakeoverActionPending"
+          :disabled="isTakeoverActionPending"
           @click="handleRespondToTakeover('accept', 'save')"
         />
       </div>

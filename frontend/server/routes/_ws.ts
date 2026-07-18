@@ -1,6 +1,9 @@
 import { websocketUtils, startHealthBroadcast } from '#server/utils/websocket'
 import { collaborationState } from '#server/utils/collaboration-state'
-import { verifyCollaborationRoomToken } from '#server/utils/collaboration-token'
+import {
+  collaborationTokenBelongsToUser,
+  verifyCollaborationRoomToken
+} from '#server/utils/collaboration-token'
 import { isExpectedDisconnectError } from '#server/utils/disconnect-error'
 import type { Peer } from 'crossws'
 
@@ -171,6 +174,13 @@ export default defineWebSocketHandler({
             sendJson(peer, {
               type: 'COLLAB_ERROR',
               payload: { message: 'Invalid or expired collaboration room token' }
+            })
+            return
+          }
+          if (!collaborationTokenBelongsToUser(payload, websocketUtils.getPeerUserId(peer.id))) {
+            sendJson(peer, {
+              type: 'COLLAB_ERROR',
+              payload: { message: 'Collaboration room token does not belong to this session' }
             })
             return
           }

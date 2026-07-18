@@ -124,6 +124,18 @@ export interface CollaborationLeaseResponse {
   lease: CollaborationLeaseState
 }
 
+export type CollaborationLeaseActionOutcome
+  = | 'GRANTED'
+    | 'PENDING'
+    | 'DECLINED'
+    | 'CONFLICT'
+    | 'FORBIDDEN'
+
+export interface CollaborationLeaseActionResponse extends CollaborationLeaseResponse {
+  outcome: CollaborationLeaseActionOutcome
+  message: string
+}
+
 export interface CollaborationRevisionResponse {
   workspaceId: string
   projectId: string

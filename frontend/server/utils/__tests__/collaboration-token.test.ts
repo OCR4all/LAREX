@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  collaborationTokenBelongsToUser,
   signCollaborationRoomToken,
   verifyCollaborationRoomToken,
   type CollaborationRoomTokenPayload
@@ -60,5 +61,13 @@ describe('collaboration room tokens', () => {
 
     const token = signCollaborationRoomToken(tokenPayload, SECRET)
     expect(verifyCollaborationRoomToken(token, SECRET)?.annotationRoute).toEqual(tokenPayload.annotationRoute)
+  })
+
+  it('binds a room token to the authenticated WebSocket user', () => {
+    const tokenPayload = payload({ sub: 'user-1' })
+
+    expect(collaborationTokenBelongsToUser(tokenPayload, 'user-1')).toBe(true)
+    expect(collaborationTokenBelongsToUser(tokenPayload, 'user-2')).toBe(false)
+    expect(collaborationTokenBelongsToUser(tokenPayload, null)).toBe(false)
   })
 })

@@ -11,6 +11,8 @@ import {
   type CollaborationPageSnapshot
 } from '@/utils/editor/collaboration-page-doc'
 import type {
+  CollaborationLeaseActionOutcome,
+  CollaborationLeaseActionResponse,
   CollaborationLeaseState,
   CollaborationLeaseResponse,
   CollaborationLeaseOwner,
@@ -499,7 +501,10 @@ export function useEditorCollaboration() {
 
   const renewableRoomKeys = (): string[] => {
     return Object.values(rooms.value)
-      .filter(room => room.identity.canEdit && isLocalRoomLeader(room.identity.roomKey))
+      .filter(room => room.identity.canEdit && (
+        room.lease.editor?.user.id === currentUserId.value
+        || isLocalRoomLeader(room.identity.roomKey)
+      ))
       .map(room => room.identity.roomKey)
   }
 
@@ -1466,6 +1471,15 @@ export function useEditorCollaboration() {
     return getRoomForCanvas(canvasId)?.identity.canForceTakeover === true
   }
 
+  const canRequestTakeoverCanvas = (canvasId: string): boolean => {
+    const room = getRoomForCanvas(canvasId)
+    return Boolean(
+      room?.identity.canEdit
+      && room.lease.editor
+      && room.lease.editor.user.id !== currentUserId.value
+    )
+  }
+
   const isCanvasLeaseExpiringSoon = (canvasId: string): boolean => {
     const roomKey = getRoomKeyForCanvas(canvasId)
     return roomKey ? roomLeaseWarnings.value[roomKey] === true : false
@@ -1505,23 +1519,26 @@ export function useEditorCollaboration() {
   }
 
   const reclaimCanvasEdit = async (canvasId: string): Promise<boolean> => {
-    const reclaimed = await requestTakeover(canvasId, false)
-    if (reclaimed) {
+    const outcome = await requestTakeover(canvasId, false)
+    if (outcome === 'GRANTED') {
       const roomKey = getRoomKeyForCanvas(canvasId)
       if (roomKey) {
         setLocallyExpired(roomKey, false)
       }
     }
-    return reclaimed
+    return outcome === 'GRANTED'
   }
 
-  const requestTakeover = async (canvasId: string, force = false): Promise<boolean> => {
+  const requestTakeover = async (
+    canvasId: string,
+    force = false
+  ): Promise<CollaborationLeaseActionOutcome | null> => {
     const roomKey = getRoomKeyForCanvas(canvasId)
     const room = roomKey ? rooms.value[roomKey] : null
-    if (!roomKey || !room) return false
+    if (!roomKey || !room) return null
 
     try {
-      const response = await $fetch<CollaborationLeaseResponse>(
+      const response = await $fetch<CollaborationLeaseActionResponse>(
         collaborationPathForRoom(room, 'lease/request'),
         {
           method: 'POST',
@@ -1530,10 +1547,10 @@ export function useEditorCollaboration() {
       )
 
       applyLeaseState(roomKey, response.lease)
-      return true
+      return response.outcome
     } catch (error) {
       console.error('[editor-collaboration] Failed to request takeover:', error)
-      return false
+      return null
     }
   }
 
@@ -1541,13 +1558,13 @@ export function useEditorCollaboration() {
     canvasId: string,
     decision: 'accept' | 'decline',
     handoffMode: 'save' | 'discard' = 'save'
-  ): Promise<boolean> => {
+  ): Promise<CollaborationLeaseActionOutcome | null> => {
     const roomKey = getRoomKeyForCanvas(canvasId)
     const room = roomKey ? rooms.value[roomKey] : null
-    if (!roomKey || !room) return false
+    if (!roomKey || !room) return null
 
     try {
-      const response = await $fetch<CollaborationLeaseResponse>(
+      const response = await $fetch<CollaborationLeaseActionResponse>(
         collaborationPathForRoom(room, 'lease/respond'),
         {
           method: 'POST',
@@ -1556,10 +1573,10 @@ export function useEditorCollaboration() {
       )
 
       applyLeaseState(roomKey, response.lease)
-      return true
+      return response.outcome
     } catch (error) {
       console.error('[editor-collaboration] Failed to respond to takeover:', error)
-      return false
+      return null
     }
   }
 
@@ -1590,6 +1607,7 @@ export function useEditorCollaboration() {
     hasCanvasLeaseExpiredLocally,
     canReclaimCanvasEdit,
     canEditCanvas,
+    canRequestTakeoverCanvas,
     canForceTakeoverCanvas,
     getCanvasEditor,
     getCanvasPendingTakeover,

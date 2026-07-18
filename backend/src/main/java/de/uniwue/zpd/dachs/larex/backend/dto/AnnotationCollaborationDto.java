@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
@@ -55,6 +56,27 @@ public class AnnotationCollaborationDto {
             LeaseState lease
     ) {}
 
+    public enum LeaseActionOutcome {
+        GRANTED,
+        PENDING,
+        DECLINED,
+        CONFLICT,
+        FORBIDDEN
+    }
+
+    public record LeaseActionResult(
+            LeaseState lease,
+            LeaseActionOutcome outcome,
+            String message
+    ) {}
+
+    public record LeaseActionResponse(
+            String roomKey,
+            LeaseState lease,
+            LeaseActionOutcome outcome,
+            String message
+    ) {}
+
     public record LeaseInstancePayload(
             String instanceId
     ) {}
@@ -88,7 +110,11 @@ public class AnnotationCollaborationDto {
     ) {}
 
     public record TakeoverResponsePayload(
+            @NotBlank
+            @Pattern(regexp = "accept|decline", message = "decision must be accept or decline")
             String decision,
+            @NotBlank
+            @Pattern(regexp = "save|discard", message = "handoffMode must be save or discard")
             String handoffMode
     ) {}
 

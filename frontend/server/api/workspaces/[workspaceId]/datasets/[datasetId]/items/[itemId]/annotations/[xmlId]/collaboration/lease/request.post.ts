@@ -1,33 +1,6 @@
 import { backendFetch } from '#server/utils/backendFetch'
 import { collaborationState } from '#server/utils/collaboration-state'
-
-type CollaborationLeaseResponse = {
-  roomKey: string
-  lease: {
-    editor: {
-      user: {
-        id: string
-        username: string
-        displayName: string
-        avatar?: string | null
-      }
-      acquiredAt: string
-    } | null
-    pendingTakeover: {
-      requester: {
-        id: string
-        username: string
-        displayName: string
-        avatar?: string | null
-      }
-      requestedAt: string
-      force: boolean
-    } | null
-    leaseOwner: boolean
-    leaseEpoch: number
-    expiresAt?: string | null
-  }
-}
+import type { CollaborationLeaseActionResponse } from '~/types/collaboration'
 
 export default defineEventHandler(async (event) => {
   const workspaceId = getRouterParam(event, 'workspaceId')
@@ -50,7 +23,7 @@ export default defineEventHandler(async (event) => {
     }
   )
 
-  const data = await response.json().catch(() => null) as CollaborationLeaseResponse | null
+  const data = await response.json().catch(() => null) as CollaborationLeaseActionResponse | null
   if (!response.ok || !data) {
     throw createError({ statusCode: response.status, statusMessage: response.statusText })
   }

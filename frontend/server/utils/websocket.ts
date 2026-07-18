@@ -82,6 +82,10 @@ export const websocketUtils = {
     return sentCount
   },
 
+  getPeerUserId(peerId: string): string | null {
+    return peerToUser.get(peerId) ?? null
+  },
+
   broadcast(message: Partial<WebSocketMessage>) {
     const fullMessage: WebSocketMessage = {
       type: message.type || 'BROADCAST',

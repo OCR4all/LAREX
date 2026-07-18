@@ -1,33 +1,7 @@
 import { backendFetch } from '#server/utils/backendFetch'
 import { collaborationState } from '#server/utils/collaboration-state'
-
-type CollaborationLeaseResponse = {
-  roomKey: string
-  lease: {
-    editor: {
-      user: {
-        id: string
-        username: string
-        displayName: string
-        avatar?: string | null
-      }
-      acquiredAt: string
-    } | null
-    pendingTakeover: {
-      requester: {
-        id: string
-        username: string
-        displayName: string
-        avatar?: string | null
-      }
-      requestedAt: string
-      force: boolean
-    } | null
-    leaseOwner: boolean
-    leaseEpoch: number
-    expiresAt?: string | null
-  }
-}
+import { parseTakeoverResponseBody } from '#server/utils/collaboration-lease-action'
+import type { CollaborationLeaseActionResponse } from '~/types/collaboration'
 
 export default defineEventHandler(async (event) => {
   const workspaceId = getRouterParam(event, 'workspaceId')
@@ -39,10 +13,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing collaboration route parameters' })
   }
 
-  const body = await readBody(event).catch(() => null) as {
-    decision?: 'accept' | 'decline'
-    handoffMode?: 'save' | 'discard'
-  } | null
+  const { decision, handoffMode } = parseTakeoverResponseBody(
+    await readBody(event).catch(() => null)
+  )
 
   const response = await backendFetch(
     event,
@@ -50,14 +23,14 @@ export default defineEventHandler(async (event) => {
     {
       method: 'POST',
       body: JSON.stringify({
-        decision: body?.decision || 'decline',
-        handoffMode: body?.handoffMode || 'save'
+        decision,
+        handoffMode
       }),
       headers: { 'Content-Type': 'application/json' }
     }
   )
 
-  const data = await response.json().catch(() => null) as CollaborationLeaseResponse | null
+  const data = await response.json().catch(() => null) as CollaborationLeaseActionResponse | null
   if (!response.ok || !data) {
     throw createError({ statusCode: response.status, statusMessage: response.statusText })
   }

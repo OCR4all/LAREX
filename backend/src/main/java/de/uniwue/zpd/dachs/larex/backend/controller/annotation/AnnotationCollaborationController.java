@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.controller.annotation;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.AnnotationCollaborationDto;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -95,7 +96,7 @@ public class AnnotationCollaborationController {
     }
 
     @PostMapping("/lease/request")
-    public ResponseEntity<AnnotationCollaborationDto.LeaseResponse> requestTakeover(
+    public ResponseEntity<AnnotationCollaborationDto.LeaseActionResponse> requestTakeover(
             @PathVariable String projectId,
             @PathVariable String pageId,
             @PathVariable String xmlId,
@@ -103,24 +104,32 @@ public class AnnotationCollaborationController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         AnnotationLeaseService.RoomAccessContext context = annotationLeaseService.resolveRoomAccess(projectId, pageId, xmlId, userId);
-        return ResponseEntity.ok(new AnnotationCollaborationDto.LeaseResponse(
+        AnnotationCollaborationDto.LeaseActionResult result =
+                annotationLeaseService.requestTakeoverAction(context, payload != null && payload.force());
+        return ResponseEntity.ok(new AnnotationCollaborationDto.LeaseActionResponse(
                 context.roomKey(),
-                annotationLeaseService.requestTakeover(context, payload != null && payload.force())
+                result.lease(),
+                result.outcome(),
+                result.message()
         ));
     }
 
     @PostMapping("/lease/respond")
-    public ResponseEntity<AnnotationCollaborationDto.LeaseResponse> respondToTakeover(
+    public ResponseEntity<AnnotationCollaborationDto.LeaseActionResponse> respondToTakeover(
             @PathVariable String projectId,
             @PathVariable String pageId,
             @PathVariable String xmlId,
-            @RequestBody AnnotationCollaborationDto.TakeoverResponsePayload payload,
+            @Valid @RequestBody AnnotationCollaborationDto.TakeoverResponsePayload payload,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         AnnotationLeaseService.RoomAccessContext context = annotationLeaseService.resolveRoomAccess(projectId, pageId, xmlId, userId);
-        return ResponseEntity.ok(new AnnotationCollaborationDto.LeaseResponse(
+        AnnotationCollaborationDto.LeaseActionResult result =
+                annotationLeaseService.respondToTakeoverAction(context, payload.decision(), payload.handoffMode());
+        return ResponseEntity.ok(new AnnotationCollaborationDto.LeaseActionResponse(
                 context.roomKey(),
-                annotationLeaseService.respondToTakeover(context, payload.decision(), payload.handoffMode())
+                result.lease(),
+                result.outcome(),
+                result.message()
         ));
     }
 
