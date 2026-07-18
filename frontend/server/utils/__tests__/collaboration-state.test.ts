@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { collaborationState } from '../collaboration-state'
 import type { CollaborationRoomTokenPayload } from '../collaboration-token'
 import type { CollaborationLeaseState } from '../../../app/types/collaboration'
+import { websocketUtils } from '../websocket'
 
 const peerIds: string[] = []
 
@@ -44,7 +45,6 @@ function lease(editorId: string, leaseEpoch: number, expiresAt = '2099-01-01T00:
       acquiredAt: '2026-01-01T00:00:00Z'
     },
     pendingTakeover: null,
-    leaseOwner: false,
     leaseEpoch,
     expiresAt
   }
@@ -54,6 +54,7 @@ afterEach(() => {
   for (const peerId of peerIds.splice(0)) {
     collaborationState.unregisterPeer(peerId)
   }
+  vi.restoreAllMocks()
 })
 
 describe('collaboration state renewal protocol', () => {
@@ -111,12 +112,14 @@ describe('collaboration state renewal protocol', () => {
   })
 
   it('still broadcasts heartbeat updates from the current ownership epoch', () => {
+    const globalBroadcast = vi.spyOn(websocketUtils, 'broadcast')
     const { peer, send } = createPeer('peer-current-lease')
     const roomKey = 'project-4:page-4:xml-4'
     collaborationState.joinRoom(peer, token(roomKey))
 
     collaborationState.syncLeaseState(roomKey, lease('editor', 5), 'lease-claimed')
     send.mockClear()
+    globalBroadcast.mockClear()
 
     collaborationState.syncLeaseState(
       roomKey,
@@ -125,6 +128,7 @@ describe('collaboration state renewal protocol', () => {
     )
 
     expect(send).toHaveBeenCalledOnce()
+    expect(globalBroadcast).not.toHaveBeenCalled()
     expect(JSON.parse(send.mock.calls[0]![0] as string)).toMatchObject({
       type: 'COLLAB_ROOM_STATE',
       payload: {
@@ -139,5 +143,80 @@ describe('collaboration state renewal protocol', () => {
         }
       }
     })
+  })
+
+  it('broadcasts lease state once per material change and ignores identical updates', () => {
+    const globalBroadcast = vi.spyOn(websocketUtils, 'broadcast')
+    const { peer, send } = createPeer('peer-material-lease')
+    const roomKey = 'project-5:page-5:xml-5'
+    collaborationState.joinRoom(peer, token(roomKey))
+
+    collaborationState.syncLeaseState(roomKey, lease('editor', 5), 'lease-claimed')
+    send.mockClear()
+    globalBroadcast.mockClear()
+
+    collaborationState.syncLeaseState(roomKey, lease('editor', 5), 'lease-heartbeat')
+
+    expect(send).not.toHaveBeenCalled()
+    expect(globalBroadcast).not.toHaveBeenCalled()
+
+    collaborationState.syncLeaseState(
+      roomKey,
+      lease('editor', 5, '2099-01-01T00:00:10Z'),
+      'lease-heartbeat'
+    )
+
+    expect(send).toHaveBeenCalledOnce()
+    expect(globalBroadcast).not.toHaveBeenCalled()
+    send.mockClear()
+
+    collaborationState.syncLeaseState(
+      roomKey,
+      lease('editor', 6, '2099-01-01T00:00:10Z'),
+      'lease-heartbeat'
+    )
+
+    expect(send).toHaveBeenCalledOnce()
+    expect(globalBroadcast).not.toHaveBeenCalled()
+    send.mockClear()
+
+    collaborationState.syncLeaseState(roomKey, {
+      ...lease('editor', 6, '2099-01-01T00:00:10Z'),
+      pendingTakeover: {
+        requester: {
+          id: 'requester',
+          username: 'requester',
+          displayName: 'Requester'
+        },
+        requestedAt: '2026-01-01T00:00:10Z',
+        force: false
+      }
+    }, 'takeover-requested')
+
+    expect(send).toHaveBeenCalledOnce()
+    expect(JSON.parse(send.mock.calls[0]![0] as string)).toMatchObject({
+      type: 'COLLAB_ROOM_STATE'
+    })
+    expect(globalBroadcast).toHaveBeenCalledOnce()
+  })
+
+  it('does not globally rebroadcast page summaries for routine presence heartbeats', () => {
+    const globalBroadcast = vi.spyOn(websocketUtils, 'broadcast')
+    const { peer } = createPeer('peer-presence-heartbeat')
+    const roomKey = 'project-6:page-6:xml-6'
+    collaborationState.joinRoom(peer, token(roomKey))
+    collaborationState.syncLeaseState(roomKey, lease('user-1', 1), 'lease-claimed')
+    globalBroadcast.mockClear()
+
+    collaborationState.updatePresence(peer.id, roomKey, {
+      active: true,
+      cursor: { x: 12, y: 24 }
+    })
+
+    expect(globalBroadcast).not.toHaveBeenCalled()
+
+    collaborationState.updatePresence(peer.id, roomKey, { active: false })
+
+    expect(globalBroadcast).toHaveBeenCalledOnce()
   })
 })

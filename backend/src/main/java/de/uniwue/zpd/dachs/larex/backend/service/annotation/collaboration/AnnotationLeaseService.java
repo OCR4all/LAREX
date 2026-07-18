@@ -149,7 +149,7 @@ public class AnnotationLeaseService {
         synchronized (leases) {
             LeaseRecord record = getActiveRecord(context.roomKey(), notifications);
             refreshRecordMetadata(record, context);
-            leaseState = toLeaseState(record, context.user().id());
+            leaseState = toLeaseState(record);
         }
         dispatchNotifications(notifications);
         return leaseState;
@@ -172,7 +172,7 @@ public class AnnotationLeaseService {
                 assignOwner(record, context.user(), instanceId);
             }
 
-            leaseState = toLeaseState(record, context.user().id());
+            leaseState = toLeaseState(record);
         }
         dispatchNotifications(notifications);
         return leaseState;
@@ -195,7 +195,7 @@ public class AnnotationLeaseService {
                 assignOwner(record, context.user(), instanceId);
             }
 
-            leaseState = toLeaseState(record, context.user().id());
+            leaseState = toLeaseState(record);
         }
         dispatchNotifications(notifications);
         return leaseState;
@@ -218,7 +218,6 @@ public class AnnotationLeaseService {
             if (!context.canEdit()) {
                 result = actionResult(
                         record,
-                        context.user().id(),
                         AnnotationCollaborationDto.LeaseActionOutcome.FORBIDDEN,
                         "You do not have permission to edit this page."
                 );
@@ -226,14 +225,12 @@ public class AnnotationLeaseService {
                 assignOwner(record, context.user(), null);
                 result = actionResult(
                         record,
-                        context.user().id(),
                         AnnotationCollaborationDto.LeaseActionOutcome.GRANTED,
                         "The edit lock was granted."
                 );
             } else if (isOwner(record, context.user().id())) {
                 result = actionResult(
                         record,
-                        context.user().id(),
                         AnnotationCollaborationDto.LeaseActionOutcome.GRANTED,
                         "You already hold the edit lock."
                 );
@@ -241,7 +238,6 @@ public class AnnotationLeaseService {
                 if (!context.canForceTakeover()) {
                     result = actionResult(
                             record,
-                            context.user().id(),
                             AnnotationCollaborationDto.LeaseActionOutcome.FORBIDDEN,
                             "You do not have permission to force an edit takeover."
                     );
@@ -260,7 +256,6 @@ public class AnnotationLeaseService {
                     }
                     result = actionResult(
                             record,
-                            context.user().id(),
                             AnnotationCollaborationDto.LeaseActionOutcome.GRANTED,
                             "The edit lock was transferred."
                     );
@@ -270,14 +265,12 @@ public class AnnotationLeaseService {
                     && context.user().id().equals(record.pendingTakeover.requester.id())) {
                 result = actionResult(
                         record,
-                        context.user().id(),
                         AnnotationCollaborationDto.LeaseActionOutcome.PENDING,
                         "Your edit request is already pending."
                 );
             } else if (record.pendingTakeover != null) {
                 result = actionResult(
                         record,
-                        context.user().id(),
                         AnnotationCollaborationDto.LeaseActionOutcome.CONFLICT,
                         "Another edit request is already pending."
                 );
@@ -299,7 +292,6 @@ public class AnnotationLeaseService {
                 }
                 result = actionResult(
                         record,
-                        context.user().id(),
                         AnnotationCollaborationDto.LeaseActionOutcome.PENDING,
                         "The edit request was sent."
                 );
@@ -331,14 +323,12 @@ public class AnnotationLeaseService {
             if (!isOwner(record, context.user().id())) {
                 result = actionResult(
                         record,
-                        context.user().id(),
                         AnnotationCollaborationDto.LeaseActionOutcome.FORBIDDEN,
                         "Only the current editor can respond to edit requests."
                 );
             } else if (record.pendingTakeover == null) {
                 result = actionResult(
                         record,
-                        context.user().id(),
                         AnnotationCollaborationDto.LeaseActionOutcome.CONFLICT,
                         "There is no pending edit request."
                 );
@@ -363,14 +353,12 @@ public class AnnotationLeaseService {
                     }
                     result = actionResult(
                             record,
-                            context.user().id(),
                             AnnotationCollaborationDto.LeaseActionOutcome.DECLINED,
                             "The edit request was declined."
                     );
                 } else if (pending.requester == null) {
                     result = actionResult(
                             record,
-                            context.user().id(),
                             AnnotationCollaborationDto.LeaseActionOutcome.CONFLICT,
                             "The pending edit request is no longer valid."
                     );
@@ -400,7 +388,6 @@ public class AnnotationLeaseService {
                     }
                     result = actionResult(
                             record,
-                            context.user().id(),
                             AnnotationCollaborationDto.LeaseActionOutcome.GRANTED,
                             "The edit lock was transferred."
                     );
@@ -418,7 +405,7 @@ public class AnnotationLeaseService {
             LeaseRecord record = getActiveRecord(context.roomKey(), notifications);
             refreshRecordMetadata(record, context);
             if (record == null) {
-                leaseState = emptyLeaseState(context.user().id());
+                leaseState = emptyLeaseState();
             } else {
                 if (instanceId != null && !instanceId.isBlank()) {
                     record.participantInstances.remove(instanceId);
@@ -440,7 +427,7 @@ public class AnnotationLeaseService {
                         updateExpiry(record);
                     }
                 }
-                leaseState = toLeaseState(record, context.user().id());
+                leaseState = toLeaseState(record);
             }
         }
         dispatchNotifications(notifications);
@@ -771,17 +758,16 @@ public class AnnotationLeaseService {
         }
     }
 
-    private AnnotationCollaborationDto.LeaseState emptyLeaseState(String currentUserId) {
-        return new AnnotationCollaborationDto.LeaseState(null, null, false, 0, null);
+    private AnnotationCollaborationDto.LeaseState emptyLeaseState() {
+        return new AnnotationCollaborationDto.LeaseState(null, null, 0, null);
     }
 
     private AnnotationCollaborationDto.LeaseActionResult actionResult(
             LeaseRecord record,
-            String currentUserId,
             AnnotationCollaborationDto.LeaseActionOutcome outcome,
             String message) {
         return new AnnotationCollaborationDto.LeaseActionResult(
-                toLeaseState(record, currentUserId),
+                toLeaseState(record),
                 outcome,
                 message
         );
@@ -796,9 +782,9 @@ public class AnnotationLeaseService {
         }
     }
 
-    private AnnotationCollaborationDto.LeaseState toLeaseState(LeaseRecord record, String currentUserId) {
+    private AnnotationCollaborationDto.LeaseState toLeaseState(LeaseRecord record) {
         if (record == null) {
-            return emptyLeaseState(currentUserId);
+            return emptyLeaseState();
         }
 
         AnnotationCollaborationDto.LeaseOwner owner = record.owner == null
@@ -816,7 +802,6 @@ public class AnnotationLeaseService {
         return new AnnotationCollaborationDto.LeaseState(
                 owner,
                 pendingTakeover,
-                owner != null && owner.user() != null && owner.user().id().equals(currentUserId),
                 record.epoch,
                 record.expiresAt == null ? null : record.expiresAt.toString()
         );

@@ -472,6 +472,9 @@ export function useEditorCollaboration() {
     const previousRoom = rooms.value[roomKey] ?? null
     const previousEditor = previousRoom?.lease.editor ?? null
     const previousTakeover = previousRoom?.lease.pendingTakeover ?? null
+    if (previousRoom && lease.leaseEpoch < previousRoom.lease.leaseEpoch) {
+      return
+    }
 
     rooms.value = updateRoomState(rooms.value, roomKey, room => ({
       ...room,
@@ -480,7 +483,6 @@ export function useEditorCollaboration() {
         editor: lease.editor,
         pendingTakeover: lease.pendingTakeover,
         leaseEpoch: lease.leaseEpoch,
-        leaseOwner: lease.leaseOwner,
         expiresAt: lease.expiresAt ?? null
       }
     }))
@@ -902,6 +904,8 @@ export function useEditorCollaboration() {
     const previousRoom = rooms.value[payload.roomKey] ?? null
     const previousEditor = previousRoom?.lease.editor ?? null
     const previousTakeover = previousRoom?.lease.pendingTakeover ?? null
+    const leaseIsCurrent = !previousRoom
+      || payload.lease.leaseEpoch >= previousRoom.lease.leaseEpoch
 
     rooms.value = updateRoomState(rooms.value, payload.roomKey, room => ({
       ...room,
@@ -909,18 +913,19 @@ export function useEditorCollaboration() {
         ...room.presence,
         members: payload.members
       },
-      lease: {
-        ...room.lease,
-        editor: payload.lease.editor,
-        pendingTakeover: payload.lease.pendingTakeover,
-        leaseOwner: payload.lease.leaseOwner,
-        leaseEpoch: payload.lease.leaseEpoch,
-        expiresAt: payload.lease.expiresAt ?? null
-      }
+      lease: leaseIsCurrent
+        ? {
+            ...room.lease,
+            editor: payload.lease.editor,
+            pendingTakeover: payload.lease.pendingTakeover,
+            leaseEpoch: payload.lease.leaseEpoch,
+            expiresAt: payload.lease.expiresAt ?? null
+          }
+        : room.lease
     }))
 
     const nextRoom = rooms.value[payload.roomKey] ?? null
-    if (previousRoom && nextRoom) {
+    if (leaseIsCurrent && previousRoom && nextRoom) {
       notifyLeaseTransition(
         nextRoom,
         previousEditor,

@@ -68,7 +68,6 @@ class AnnotationCollaborationLeaseBatchControllerTest {
         AnnotationCollaborationDto.LeaseState lease = new AnnotationCollaborationDto.LeaseState(
                 null,
                 null,
-                true,
                 1,
                 "2099-01-01T00:00:00Z"
         );
@@ -144,7 +143,7 @@ class AnnotationCollaborationLeaseBatchControllerTest {
         AnnotationCollaborationDto.UserSummary user =
                 new AnnotationCollaborationDto.UserSummary("user-1", "user", "User", null);
         AnnotationCollaborationDto.LeaseState lease =
-                new AnnotationCollaborationDto.LeaseState(null, null, true, 1, "2099-01-01T00:00:00Z");
+                new AnnotationCollaborationDto.LeaseState(null, null, 1, "2099-01-01T00:00:00Z");
 
         when(datasetCopyAnnotationService.resolveAccessContext(
                 "workspace-1", "dataset-1", "item-1", "copy-xml-1", "user-1"

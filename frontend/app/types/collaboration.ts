@@ -69,7 +69,6 @@ export interface CollaborationRoomIdentity {
 export interface CollaborationLeaseState {
   editor: CollaborationLeaseOwner | null
   pendingTakeover: CollaborationTakeoverRequest | null
-  leaseOwner: boolean
   leaseEpoch: number
   expiresAt?: string | null
 }

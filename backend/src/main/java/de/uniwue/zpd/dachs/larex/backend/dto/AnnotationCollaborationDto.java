@@ -46,7 +46,6 @@ public class AnnotationCollaborationDto {
     public record LeaseState(
             LeaseOwner editor,
             TakeoverRequest pendingTakeover,
-            boolean leaseOwner,
             long leaseEpoch,
             String expiresAt
     ) {}

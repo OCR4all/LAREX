@@ -83,10 +83,34 @@ function emptyLeaseState(): CollaborationLeaseState {
   return {
     editor: null,
     pendingTakeover: null,
-    leaseOwner: false,
     leaseEpoch: 0,
     expiresAt: null
   }
+}
+
+function sameLeaseOwner(
+  left: CollaborationLeaseState['editor'],
+  right: CollaborationLeaseState['editor']
+): boolean {
+  if (!left || !right) return left === right
+  return left.acquiredAt === right.acquiredAt
+    && left.user.id === right.user.id
+    && left.user.username === right.user.username
+    && left.user.displayName === right.user.displayName
+    && (left.user.avatar ?? null) === (right.user.avatar ?? null)
+}
+
+function samePendingTakeover(
+  left: CollaborationLeaseState['pendingTakeover'],
+  right: CollaborationLeaseState['pendingTakeover']
+): boolean {
+  if (!left || !right) return left === right
+  return left.requestedAt === right.requestedAt
+    && left.force === right.force
+    && left.requester.id === right.requester.id
+    && left.requester.username === right.requester.username
+    && left.requester.displayName === right.requester.displayName
+    && (left.requester.avatar ?? null) === (right.requester.avatar ?? null)
 }
 
 function parseRoomKey(roomKey: string): { projectId: string, pageId: string, xmlId: string } | null {
@@ -315,6 +339,7 @@ export const collaborationState = {
     const member = room?.members.get(peerId)
     if (!room || !member) return
 
+    const wasActive = member.presence?.active === true
     const timestamp = new Date().toISOString()
     member.presence = {
       ...(member.presence ?? {}),
@@ -327,7 +352,10 @@ export const collaborationState = {
     member.lastSeenAt = timestamp
 
     broadcastPresence(roomKey, peerId, member)
-    broadcastPageSummary(member.token.projectId, member.token.pageId)
+    const isActive = member.presence.active === true
+    if (room.lease.editor?.user.id === member.token.sub && wasActive !== isActive) {
+      broadcastPageSummary(member.token.projectId, member.token.pageId)
+    }
   },
 
   leaveRoom(peerId: string, roomKey: string) {
@@ -408,24 +436,36 @@ export const collaborationState = {
   },
 
   syncLeaseState(roomKey: string, lease: CollaborationLeaseState, reason = 'lease-updated') {
-    const room = getOrCreateRoom(roomKey)
+    const existingRoom = rooms.get(roomKey)
+    const room = existingRoom ?? getOrCreateRoom(roomKey)
     const currentEpoch = room.lease.leaseEpoch ?? 0
     const incomingEpoch = lease.leaseEpoch ?? 0
     if (incomingEpoch < currentEpoch) {
       return
     }
 
-    const previousEditorId = room.lease.editor?.user.id ?? null
-    const nextEditorId = lease.editor?.user.id ?? null
-    const parsedRoom = parseRoomKey(roomKey)
-
-    room.lease = {
+    const nextLease: CollaborationLeaseState = {
       editor: lease.editor ?? null,
       pendingTakeover: lease.pendingTakeover ?? null,
-      leaseOwner: lease.leaseOwner ?? false,
-      leaseEpoch: lease.leaseEpoch ?? 0,
+      leaseEpoch: incomingEpoch,
       expiresAt: lease.expiresAt ?? null
     }
+    const editorChanged = !sameLeaseOwner(room.lease.editor, nextLease.editor)
+    const pendingChanged = !samePendingTakeover(room.lease.pendingTakeover, nextLease.pendingTakeover)
+    const epochChanged = currentEpoch !== incomingEpoch
+    const expiryChanged = (room.lease.expiresAt ?? null) !== nextLease.expiresAt
+    if (!editorChanged && !pendingChanged && !epochChanged && !expiryChanged) {
+      if (!existingRoom && !nextLease.editor && !nextLease.pendingTakeover) {
+        rooms.delete(roomKey)
+      }
+      return
+    }
+
+    const previousEditorId = room.lease.editor?.user.id ?? null
+    const nextEditorId = nextLease.editor?.user.id ?? null
+    const parsedRoom = parseRoomKey(roomKey)
+
+    room.lease = nextLease
 
     if (
       room.members.size === 0
@@ -440,17 +480,17 @@ export const collaborationState = {
       return
     }
 
-    if (previousEditorId !== nextEditorId) {
+    if (editorChanged) {
       roomSnapshots.delete(roomKey)
     }
 
     if (room.members.size > 0) {
       broadcastRoom(roomKey)
-      if (previousEditorId !== nextEditorId) {
+      if (editorChanged) {
         broadcastReload(roomKey, reason, previousEditorId, nextEditorId)
       }
     }
-    if (parsedRoom) {
+    if (parsedRoom && (editorChanged || pendingChanged)) {
       broadcastPageSummary(parsedRoom.projectId, parsedRoom.pageId)
     }
   },

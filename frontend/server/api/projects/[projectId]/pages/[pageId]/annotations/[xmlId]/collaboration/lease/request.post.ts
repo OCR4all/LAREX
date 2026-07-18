@@ -1,33 +1,17 @@
-import { backendFetch } from '#server/utils/backendFetch'
-import { collaborationState } from '#server/utils/collaboration-state'
+import {
+  projectCollaborationTarget,
+  proxyCollaborationLease
+} from '#server/utils/collaboration-proxy'
 import type { CollaborationLeaseActionResponse } from '~/types/collaboration'
 
 export default defineEventHandler(async (event) => {
-  const projectId = getRouterParam(event, 'projectId')
-  const pageId = getRouterParam(event, 'pageId')
-  const xmlId = getRouterParam(event, 'xmlId')
-
-  if (!projectId || !pageId || !xmlId) {
-    throw createError({ statusCode: 400, statusMessage: 'Missing collaboration route parameters' })
-  }
-
-  const body = await readBody(event)
+  const body = await readBody(event).catch(() => null) as { force?: boolean } | null
   const force = body?.force === true
-  const response = await backendFetch(
+  return proxyCollaborationLease<CollaborationLeaseActionResponse>(
     event,
-    `/projects/${projectId}/pages/${pageId}/annotations/${xmlId}/collaboration/lease/request`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ force }),
-      headers: { 'Content-Type': 'application/json' }
-    }
+    projectCollaborationTarget(event),
+    'request',
+    { force },
+    force ? 'force-takeover' : 'takeover-requested'
   )
-
-  const data = await response.json().catch(() => null) as CollaborationLeaseActionResponse | null
-  if (!response.ok || !data) {
-    throw createError({ statusCode: response.status, statusMessage: response.statusText })
-  }
-
-  collaborationState.syncLeaseState(data.roomKey, data.lease, force ? 'force-takeover' : 'takeover-requested')
-  return data
 })

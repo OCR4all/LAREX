@@ -56,17 +56,14 @@ class AnnotationLeaseServiceTransferTest {
                 service.respondToTakeover(previousEditor, "accept", "save");
 
         assertEditor(accepted, "requester");
-        assertFalse(accepted.leaseOwner());
 
         AnnotationCollaborationDto.LeaseState afterPreviousHeartbeat =
                 service.heartbeat(previousEditor, "previous-instance");
         assertEditor(afterPreviousHeartbeat, "requester");
-        assertFalse(afterPreviousHeartbeat.leaseOwner());
 
         AnnotationCollaborationDto.LeaseState afterRequesterHeartbeat =
                 service.heartbeat(requester, "requester-instance");
         assertEditor(afterRequesterHeartbeat, "requester");
-        assertTrue(afterRequesterHeartbeat.leaseOwner());
     }
 
     @Test
@@ -79,17 +76,14 @@ class AnnotationLeaseServiceTransferTest {
 
         AnnotationCollaborationDto.LeaseState forced = service.requestTakeover(manager, true);
         assertEditor(forced, "manager");
-        assertTrue(forced.leaseOwner());
 
         AnnotationCollaborationDto.LeaseState afterPreviousHeartbeat =
                 service.heartbeat(previousEditor, "previous-instance");
         assertEditor(afterPreviousHeartbeat, "manager");
-        assertFalse(afterPreviousHeartbeat.leaseOwner());
 
         AnnotationCollaborationDto.LeaseState afterManagerHeartbeat =
                 service.heartbeat(manager, "manager-instance");
         assertEditor(afterManagerHeartbeat, "manager");
-        assertTrue(afterManagerHeartbeat.leaseOwner());
     }
 
     @Test
@@ -101,12 +95,10 @@ class AnnotationLeaseServiceTransferTest {
 
         AnnotationCollaborationDto.LeaseState forced = service.requestTakeover(manager, true);
         assertEditor(forced, "manager");
-        assertTrue(forced.leaseOwner());
 
         AnnotationCollaborationDto.LeaseState afterPreviousHeartbeat =
                 service.heartbeat(previousEditor, "previous-instance");
         assertEditor(afterPreviousHeartbeat, "manager");
-        assertFalse(afterPreviousHeartbeat.leaseOwner());
     }
 
     @Test
@@ -188,12 +180,10 @@ class AnnotationLeaseServiceTransferTest {
                 service.releaseLease(owner, "owner-tab-a");
 
         assertEditor(afterFirstTabCloses, "owner");
-        assertTrue(afterFirstTabCloses.leaseOwner());
 
         AnnotationCollaborationDto.LeaseState afterSecondTabHeartbeat =
                 service.heartbeat(owner, "owner-tab-b");
         assertEditor(afterSecondTabHeartbeat, "owner");
-        assertTrue(afterSecondTabHeartbeat.leaseOwner());
     }
 
     @Test
