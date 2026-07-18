@@ -444,6 +444,9 @@ public class AnnotationLeaseService {
             updateExpiry(record);
             return;
         }
+        if (record.expiresAt != null && record.expiresAt.isAfter(Instant.now())) {
+            return;
+        }
 
         PendingTakeoverRecord pending = record.pendingTakeover;
         AnnotationCollaborationDto.UserSummary expiredEditor = record.owner.user;
@@ -503,7 +506,18 @@ public class AnnotationLeaseService {
         record.owner = new LeaseOwnerRecord(user, Instant.now().toString());
         record.pendingTakeover = null;
         record.activeInstances.clear();
-        touchInstance(record, instanceId);
+        String ownerInstanceId = instanceId;
+        if (ownerInstanceId == null || ownerInstanceId.isBlank()) {
+            ParticipantInstanceRecord participant = findPreferredParticipantForUser(
+                    record,
+                    user == null ? null : user.id()
+            );
+            ownerInstanceId = participant == null ? null : participant.instanceId;
+        }
+        touchInstance(record, ownerInstanceId);
+        if (record.expiresAt == null) {
+            record.expiresAt = Instant.now().plus(Duration.ofMillis(leaseTtlMs));
+        }
         record.epoch++;
     }
 
@@ -589,6 +603,28 @@ public class AnnotationLeaseService {
             if (preferred == null
                     || participant.joinedAt.compareTo(preferred.joinedAt) < 0
                     || (participant.joinedAt.equals(preferred.joinedAt) && participant.instanceId.compareTo(preferred.instanceId) < 0)) {
+                preferred = participant;
+            }
+        }
+        return preferred;
+    }
+
+    private ParticipantInstanceRecord findPreferredParticipantForUser(LeaseRecord record, String userId) {
+        if (userId == null) {
+            return null;
+        }
+
+        ParticipantInstanceRecord preferred = null;
+        for (ParticipantInstanceRecord participant : record.participantInstances.values()) {
+            if (participant == null
+                    || participant.user == null
+                    || !userId.equals(participant.user.id())) {
+                continue;
+            }
+            if (preferred == null
+                    || participant.joinedAt.compareTo(preferred.joinedAt) < 0
+                    || (participant.joinedAt.equals(preferred.joinedAt)
+                    && participant.instanceId.compareTo(preferred.instanceId) < 0)) {
                 preferred = participant;
             }
         }

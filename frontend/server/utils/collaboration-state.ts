@@ -409,6 +409,12 @@ export const collaborationState = {
 
   syncLeaseState(roomKey: string, lease: CollaborationLeaseState, reason = 'lease-updated') {
     const room = getOrCreateRoom(roomKey)
+    const currentEpoch = room.lease.leaseEpoch ?? 0
+    const incomingEpoch = lease.leaseEpoch ?? 0
+    if (incomingEpoch < currentEpoch) {
+      return
+    }
+
     const previousEditorId = room.lease.editor?.user.id ?? null
     const nextEditorId = lease.editor?.user.id ?? null
     const parsedRoom = parseRoomKey(roomKey)
