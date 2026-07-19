@@ -23,6 +23,8 @@ function emitPresence() {
     canvasId,
     variantId: canvas.imageVariantId ?? null,
     uiMode: 'text',
+    cursor: null,
+    click: null,
     active: editorStore.activeCanvasId === canvasId
   })
 }

@@ -299,6 +299,7 @@ async function createHarness(
     canvasControls,
     polygonEditing,
     polylineEditing,
+    editorCommands,
     stateActions,
     selectedPolygonIndex,
     selectedPolylineIndex,
@@ -442,6 +443,53 @@ describe('useEditorInteractions shift-pan routing', () => {
     )
   })
 
+  it('shows polygon hover feedback on read-only canvases without invoking edit hover handlers', async () => {
+    const harness = await createHarness('select', {
+      readOnly: true,
+      polygons: [
+        {
+          id: 'region-a',
+          type: 'region',
+          points: [
+            { x: -0.5, y: -0.5 },
+            { x: 0.5, y: -0.5 },
+            { x: 0.5, y: 0.5 },
+            { x: -0.5, y: 0.5 }
+          ]
+        }
+      ]
+    })
+
+    harness.interactions.onMouseMove(eventStub({ clientX: 100, clientY: 100 }))
+
+    expect(harness.stateActions.setHoveredPolygonId).toHaveBeenLastCalledWith('region-a')
+    expect(harness.stateActions.setHoveredPolylineId).toHaveBeenLastCalledWith(null)
+    expect(harness.polygonEditing.updateHoverStates).not.toHaveBeenCalled()
+    expect(harness.polylineEditing.updateHoverStates).not.toHaveBeenCalled()
+  })
+
+  it('shows baseline hover feedback on read-only canvases', async () => {
+    const harness = await createHarness('select', {
+      readOnly: true,
+      polylines: [
+        {
+          id: 'baseline:line-a',
+          type: 'baseline',
+          points: [
+            { x: -0.5, y: 0 },
+            { x: 0.5, y: 0 }
+          ]
+        }
+      ]
+    })
+    harness.canvasControls.viewMode.value = 'baseline'
+
+    harness.interactions.onMouseMove(eventStub({ clientX: 100, clientY: 100 }))
+
+    expect(harness.stateActions.setHoveredPolylineId).toHaveBeenLastCalledWith('baseline:line-a')
+    expect(harness.stateActions.setHoveredPolygonId).toHaveBeenLastCalledWith(null)
+  })
+
   it('allows read-only canvases to select and drill down through existing polygons', async () => {
     const harness = await createHarness('select', {
       readOnly: true,
@@ -468,6 +516,36 @@ describe('useEditorInteractions shift-pan routing', () => {
 
     expect(harness.polygonEditing.handleSelection).toHaveBeenCalledOnce()
     expect(harness.stateActions.replacePolygonSelection).toHaveBeenLastCalledWith(['region-a'])
+  })
+
+  it('allows read-only canvases to select existing baselines without exposing edit menus', async () => {
+    const harness = await createHarness('select', {
+      readOnly: true,
+      polylines: [
+        {
+          id: 'baseline:line-a',
+          type: 'baseline',
+          points: [
+            { x: -0.5, y: 0 },
+            { x: 0.5, y: 0 }
+          ]
+        }
+      ]
+    })
+    harness.canvasControls.viewMode.value = 'baseline'
+    harness.polylineEditing.handleSelection.mockImplementation(() => {
+      harness.selectedPolylineIndex.value = 0
+      return true
+    })
+
+    harness.interactions.onMouseDown(eventStub({ clientX: 100, clientY: 100 }))
+    harness.interactions.onMouseUp(eventStub({ clientX: 100, clientY: 100 }))
+    harness.interactions.handleCanvasContextMenu(eventStub({ clientX: 100, clientY: 100 }))
+
+    expect(harness.polylineEditing.handleSelection).toHaveBeenCalledOnce()
+    expect(harness.stateActions.replacePolylineSelection).toHaveBeenLastCalledWith(['baseline:line-a'])
+    expect(harness.editorCommands.showContextMenuForPolyline).not.toHaveBeenCalled()
+    expect(harness.editorCommands.showContextMenuForCanvas).not.toHaveBeenCalled()
   })
 
   it('moves one polygon level up on a normal Escape press', async () => {

@@ -103,4 +103,62 @@ describe('useEditorState spatial index synchronization', () => {
 
     expect(spatialIndex.queryPolygonsAtPoint({ x: 0.5, y: 0.5 })).toEqual([0])
   })
+
+  it('keeps polygon selection attached to its stable ID across reordering and clears it on deletion', async () => {
+    const spatialIndex = createSpatialIndex()
+    const { actions, polygons, selectedPolygonIndex, selectedPolygonIds } = useEditorState(spatialIndex)
+    polygons.push(
+      {
+        id: 'first',
+        points: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }]
+      },
+      {
+        id: 'selected',
+        points: [{ x: 10, y: 10 }, { x: 11, y: 10 }, { x: 11, y: 11 }]
+      }
+    )
+    await nextTick()
+    actions.selectPolygonById('selected')
+
+    polygons.reverse()
+    await nextTick()
+
+    expect(selectedPolygonIndex.value).toBe(0)
+    expect(selectedPolygonIds.value).toEqual(['selected'])
+
+    polygons.splice(0, 1)
+    await nextTick()
+
+    expect(selectedPolygonIndex.value).toBe(-1)
+    expect(selectedPolygonIds.value).toEqual([])
+  })
+
+  it('keeps baseline selection attached to its stable ID across reordering and clears it on deletion', async () => {
+    const spatialIndex = createSpatialIndex()
+    const { actions, polylines, selectedPolylineIndex, selectedPolylineIds } = useEditorState(spatialIndex)
+    polylines.push(
+      {
+        id: 'baseline:first',
+        points: [{ x: 0, y: 0 }, { x: 1, y: 0 }]
+      },
+      {
+        id: 'baseline:selected',
+        points: [{ x: 10, y: 10 }, { x: 11, y: 10 }]
+      }
+    )
+    await nextTick()
+    actions.selectPolylineById('baseline:selected')
+
+    polylines.reverse()
+    await nextTick()
+
+    expect(selectedPolylineIndex.value).toBe(0)
+    expect(selectedPolylineIds.value).toEqual(['baseline:selected'])
+
+    polylines.splice(0, 1)
+    await nextTick()
+
+    expect(selectedPolylineIndex.value).toBe(-1)
+    expect(selectedPolylineIds.value).toEqual([])
+  })
 })

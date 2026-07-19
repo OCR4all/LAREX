@@ -1,6 +1,7 @@
 import type { View, AspectRatioScale, Point, GetWorldCoordsFunction } from '@/models/editor'
 
 import type { RenderablePolygon, RenderablePolyline, ViewMode } from '@/types/editor/rendering'
+import type { SpatialIndexService } from '@/services/editor/spatial-index-service'
 
 import type {
   HoveredEdgeInfo as PolygonHoveredEdgeInfo,
@@ -151,6 +152,7 @@ export interface PolylineEditing {
 export interface CanvasControls {
   isCanvasEditable?: { readonly value: boolean }
   viewMode?: Ref<string>
+  spatialIndex?: SpatialIndexService
   handleUndo: () => void
   handleRedo: () => void
   toggleSelectMode?: () => void

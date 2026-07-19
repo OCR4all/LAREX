@@ -11,7 +11,15 @@ export interface CollaborationViewport {
   offsetY: number
 }
 
+export type CollaborationCanvasViewMode = 'default' | 'textline' | 'baseline'
+
 export interface CollaborationCursor {
+  x: number
+  y: number
+}
+
+export interface CollaborationClick {
+  id: string
   x: number
   y: number
 }
@@ -24,10 +32,12 @@ export interface CollaborationPresence {
   canvasId?: string | null
   variantId?: string | null
   uiMode?: string | null
+  viewMode?: CollaborationCanvasViewMode | null
   selectionId?: string | null
   selectionKind?: 'region' | 'baseline' | null
   viewport?: CollaborationViewport | null
   cursor?: CollaborationCursor | null
+  click?: CollaborationClick | null
   active?: boolean
   updatedAt: string
 }

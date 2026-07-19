@@ -182,8 +182,13 @@ export function useEditorState(spatialIndex: SpatialIndexService) {
     polylineIndexSnapshots = nextSnapshots
   }, { deep: true })
 
-  watch(() => polygons.map(polygon => polygon.id), () => {
-    if (selectedPolygonIndex.value >= 0 && !polygons[selectedPolygonIndex.value]) {
+  watch(() => polygons.map(polygon => polygon.id), (ids, previousIds) => {
+    const selectedId = selectedPolygonIds.value.length === 1
+      ? selectedPolygonIds.value[0]
+      : previousIds[selectedPolygonIndex.value]
+    if (selectedId) {
+      selectedPolygonIndex.value = ids.indexOf(selectedId)
+    } else if (selectedPolygonIndex.value >= ids.length) {
       selectedPolygonIndex.value = -1
     }
 
@@ -192,13 +197,18 @@ export function useEditorState(spatialIndex: SpatialIndexService) {
     }
 
     if (selectedPolygonIds.value.length > 0) {
-      const existing = new Set(polygons.map(p => p.id))
+      const existing = new Set(ids)
       selectedPolygonIds.value = selectedPolygonIds.value.filter(id => existing.has(id))
     }
   })
 
-  watch(() => polylines.map(polyline => polyline.id), () => {
-    if (selectedPolylineIndex.value >= 0 && !polylines[selectedPolylineIndex.value]) {
+  watch(() => polylines.map(polyline => polyline.id), (ids, previousIds) => {
+    const selectedId = selectedPolylineIds.value.length === 1
+      ? selectedPolylineIds.value[0]
+      : previousIds[selectedPolylineIndex.value]
+    if (selectedId) {
+      selectedPolylineIndex.value = ids.indexOf(selectedId)
+    } else if (selectedPolylineIndex.value >= ids.length) {
       selectedPolylineIndex.value = -1
     }
 
@@ -207,7 +217,7 @@ export function useEditorState(spatialIndex: SpatialIndexService) {
     }
 
     if (selectedPolylineIds.value.length > 0) {
-      const existing = new Set(polylines.map(p => p.id))
+      const existing = new Set(ids)
       selectedPolylineIds.value = selectedPolylineIds.value.filter(id => existing.has(id))
     }
   })

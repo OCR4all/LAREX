@@ -1,5 +1,10 @@
 import { getWorldCoordsFromEvent, imageToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
-import { getVisiblePolygonAtPoint, getHoverablePolylineAtPoint, isPointInPolygon } from '@/utils/editor/hit-detection'
+import {
+  getHoverablePolygonAtPoint,
+  getHoverablePolylineAtPoint,
+  getVisiblePolygonAtPoint,
+  isPointInPolygon
+} from '@/utils/editor/hit-detection'
 import { visibilityService } from '@/services/editor/visibility-service'
 import { PolygonType, type View, type AspectRatioScale, type Point } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline, ViewMode } from '@/types/editor/rendering'
@@ -497,9 +502,51 @@ export function useEditorInteractions(
       }
       if (mouseInteraction.isPanning()) {
         mouseInteraction.updatePanning(e, canvas.value, aspectRatioScale.value)
+        stateActions?.setHoveredPolygonId(null)
+        stateActions?.setHoveredPolylineId(null)
+        return
       }
-      stateActions?.setHoveredPolygonId(null)
-      stateActions?.setHoveredPolylineId(null)
+
+      if (!canvas.value) return
+      const point = getWorldCoordsFromEvent(e, canvas.value, view, aspectRatioScale.value)
+      const normalizedViewMode = normalizeViewMode(canvasControls.viewMode?.value)
+      const hoveredPolylineIndex = getHoverablePolylineAtPoint(
+        polylines,
+        polygons,
+        point,
+        selectedPolygonIndex.value,
+        selectedPolylineIndex.value,
+        0.02,
+        canvasControls.spatialIndex,
+        normalizedViewMode,
+        hiddenPolygonIdSet.value,
+        hiddenPolylineIdSet.value
+      )
+
+      if (hoveredPolylineIndex >= 0 && polylines[hoveredPolylineIndex]) {
+        stateActions?.setHoveredPolylineId(polylines[hoveredPolylineIndex].id)
+        stateActions?.setHoveredPolygonId(null)
+        return
+      }
+
+      const hoveredPolygonIndex = getHoverablePolygonAtPoint(
+        polygons,
+        point,
+        selectedPolygonIndex.value,
+        selectedPolylineIndex.value,
+        polylines,
+        canvasControls.spatialIndex,
+        normalizedViewMode,
+        hiddenPolygonIdSet.value,
+        hiddenPolylineIdSet.value
+      )
+      if (hoveredPolygonIndex >= 0 && polygons[hoveredPolygonIndex]) {
+        stateActions?.setHoveredPolygonId(polygons[hoveredPolygonIndex].id)
+        stateActions?.setHoveredPolylineId(null)
+      } else {
+        stateActions?.setHoveredPolygonId(null)
+        stateActions?.setHoveredPolylineId(null)
+      }
       return
     }
 

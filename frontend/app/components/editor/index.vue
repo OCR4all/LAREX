@@ -8,6 +8,7 @@ import { clipToWorldCoords, getWorldCoordsFromEvent, imageToWorld, pixelsToWorld
 import { getPagePanelId, parseCanvasId } from '@/stores/editor/editor.keys'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { useEditorCanvasCollaborationDisplay } from '@/composables/editor/use-editor-canvas-collaboration-display'
+import { useEditorFollowMode } from '@/composables/editor/use-editor-follow-mode'
 import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorDocumentStore } from '@/stores/editor/editor.document.store'
@@ -27,6 +28,12 @@ import type { ActionTargetSelection } from '@/types/action'
 import type { SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import { visibilityService } from '@/services/editor/visibility-service'
 import { getCollaborationColor } from '@/types/collaboration'
+import {
+  isCollaborationCanvasViewMode,
+  normalizeCollaborationViewport,
+  resolveCollaborationSelection,
+  sameCollaborationViewport
+} from '@/utils/editor/collaboration-view-sync'
 import {
   collectTextlineIdsInPageOrder,
   getAdjacentTextlineId
@@ -157,6 +164,23 @@ const selectedBaselineId = computed(() => canvasState.value?.selectedBaselineId 
 const canvasIdRef = computed(() => props.canvasId)
 const remoteCollaborators = computed(() => collaboration.getCanvasCollaborators(props.canvasId))
 const canvasEditor = computed(() => collaboration.getCanvasEditor(props.canvasId))
+const canvasEditorPresence = computed(() => {
+  const editorId = canvasEditor.value?.user.id
+  if (!editorId) return null
+
+  const editorMembers = (collaboration.getRoomForCanvas(props.canvasId)?.presence.members ?? [])
+    .filter(member => member.user.id === editorId && member.presence)
+    .sort((left, right) => {
+      const activeDifference = Number(right.presence?.active === true) - Number(left.presence?.active === true)
+      if (activeDifference !== 0) return activeDifference
+
+      const leftUpdatedAt = left.presence?.updatedAt ?? left.lastSeenAt
+      const rightUpdatedAt = right.presence?.updatedAt ?? right.lastSeenAt
+      return rightUpdatedAt.localeCompare(leftUpdatedAt)
+    })
+
+  return editorMembers[0]?.presence ?? null
+})
 const isCanvasEditable = computed(() => collaboration.canEditCanvas(props.canvasId))
 const isCollaborationResyncRequired = computed(() => collaboration.isCanvasResyncRequired(props.canvasId))
 const isCanvasLeaseExpiringSoon = computed(() => collaboration.isCanvasLeaseExpiringSoon(props.canvasId))
@@ -167,6 +191,9 @@ const pendingTakeover = computed(() => collaboration.getCanvasPendingTakeover(pr
 const canRequestTakeover = computed(() => collaboration.canRequestTakeoverCanvas(props.canvasId))
 const canForceTakeover = computed(() => !isCanvasEditable.value && collaboration.canForceTakeoverCanvas(props.canvasId))
 const collaborationSyncSuspended = ref(false)
+const collaborationClick = ref<{ id: string, x: number, y: number } | null>(null)
+let collaborationClickSequence = 0
+let collaborationClickClearTimer: ReturnType<typeof setTimeout> | null = null
 const isTakeoverActionPending = ref(false)
 const collaboratorsPopoverOpen = ref(false)
 const {
@@ -221,7 +248,7 @@ const regionLabelConflictGroups = computed(() => regionLabelConflictSummary.valu
 const regionLabelConflictIds = computed(() => regionLabelConflictSummary.value.regionIds)
 const regionLabelConflictCount = computed(() => regionLabelConflictSummary.value.totalRegions)
 const isCanvasWritable = computed(() => canvasControls.isCanvasEditable.value)
-const canReceiveCanvasInput = computed(() => isCanvasEditable.value || isComparisonCanvas.value)
+const canReceiveCanvasInput = computed(() => Boolean(canvasState.value))
 const pageLockReason = computed(() => canvasControls.pageLockReason.value)
 const pageLockActionName = computed(() => {
   const reason = pageLockReason.value
@@ -379,6 +406,7 @@ const emitPresence = useThrottleFn(() => {
     canvasId: props.canvasId,
     variantId: canvasState.value?.imageVariantId ?? null,
     uiMode: editorStore.effectiveUiMode(props.canvasId),
+    viewMode: canvasControls.viewMode.value,
     selectionId: selectedRegionId.value ?? selectedBaselineId.value,
     selectionKind: selectedRegionId.value ? 'region' : (selectedBaselineId.value ? 'baseline' : null),
     viewport: {
@@ -387,6 +415,7 @@ const emitPresence = useThrottleFn(() => {
       offsetY: view.offsetY
     },
     cursor,
+    click: collaborationClick.value,
     active: editorStore.activeCanvasId === props.canvasId
   })
 }, 200, true, true)
@@ -1051,6 +1080,144 @@ canvasControls.unhoverPolygon = handleUnhoverPolygon
 canvasControls.hoverPolylineById = handleHoverPolyline
 canvasControls.unhoverPolyline = handleUnhoverPolyline
 
+const regionIds = computed(() => polygons.map(polygon => polygon.id))
+const baselineIds = computed(() => polylines.map(polyline => polyline.id))
+const regionIdSet = computed(() => new Set(regionIds.value))
+const baselineIdSet = computed(() => new Set(baselineIds.value))
+const regionIdSignature = computed(() => regionIds.value.join('\u0000'))
+const baselineIdSignature = computed(() => baselineIds.value.join('\u0000'))
+const suppressViewerNavigationExit = ref(false)
+let viewerStateUpdateGeneration = 0
+
+function runSynchronizedViewerUpdate(update: () => void) {
+  const generation = ++viewerStateUpdateGeneration
+  suppressViewerNavigationExit.value = true
+  try {
+    update()
+  } finally {
+    void nextTick(() => {
+      if (generation === viewerStateUpdateGeneration) {
+        suppressViewerNavigationExit.value = false
+      }
+    })
+  }
+}
+
+function clearSelectionAndResetToRoot() {
+  stateActions.clearSelection()
+  syncCanvasSelection(null, null)
+  mouseInteraction.resetView()
+}
+
+function applyEditorCanvasState() {
+  const presence = canvasEditorPresence.value
+  if (!presence || !canShowCanvasContent.value || isCanvasEditable.value) return
+
+  runSynchronizedViewerUpdate(() => {
+    if (
+      isCollaborationCanvasViewMode(presence.viewMode)
+      && canvasControls.viewMode.value !== presence.viewMode
+    ) {
+      canvasControls.setViewMode(presence.viewMode, { persistAsLayoutPreference: false })
+    }
+
+    const selection = resolveCollaborationSelection(
+      presence,
+      regionIdSet.value,
+      baselineIdSet.value
+    )
+    if (selection.status === 'missing') {
+      clearSelectionAndResetToRoot()
+      return
+    }
+
+    if (selection.status === 'root') {
+      if (selectedRegionId.value || selectedBaselineId.value) {
+        handleSelectPolygon(null, { focusMode: 'none' })
+      }
+    } else if (selection.kind === 'region') {
+      if (selectedRegionId.value !== selection.id || selectedBaselineId.value) {
+        handleSelectPolygon(selection.id, { focusMode: 'none' })
+      }
+    } else if (selectedBaselineId.value !== selection.id || selectedRegionId.value) {
+      handleSelectPolyline(selection.id, { focusMode: 'none' })
+    }
+
+    const nextViewport = normalizeCollaborationViewport(presence.viewport)
+    if (nextViewport && !sameCollaborationViewport(view, nextViewport)) {
+      mouseInteraction.setView(nextViewport)
+    }
+  })
+}
+
+const canFollowEditor = computed(() =>
+  !isCanvasEditable.value
+  && Boolean(canvasEditor.value)
+  && Boolean(canvasEditorPresence.value)
+)
+const editorFollowSyncKey = computed(() => [
+  canvasEditor.value?.user.id ?? '',
+  canvasEditorPresence.value?.updatedAt ?? '',
+  canShowCanvasContent.value ? 'ready' : 'loading',
+  regionIdSignature.value,
+  baselineIdSignature.value
+].join('\u0001'))
+const editorFollow = useEditorFollowMode({
+  canFollow: canFollowEditor,
+  syncKey: editorFollowSyncKey,
+  applyEditorState: applyEditorCanvasState
+})
+const viewerNavigationMode = editorFollow.mode
+
+function leaveFollowForLocalStateChange() {
+  if (suppressViewerNavigationExit.value) return
+  editorFollow.handleLocalInteraction()
+}
+
+watch(
+  () => [
+    canShowCanvasContent.value,
+    pageId.value,
+    selectedRegionId.value,
+    selectedBaselineId.value,
+    regionIdSignature.value,
+    baselineIdSignature.value
+  ] as const,
+  ([ready, _pageId, regionId, baselineId]) => {
+    if (!ready) return
+
+    if (regionId) {
+      if (!regionIdSet.value.has(regionId)) {
+        runSynchronizedViewerUpdate(clearSelectionAndResetToRoot)
+        return
+      }
+      if (
+        polygons[selectedPolygonIndex.value]?.id !== regionId
+        || selectedPolygonIds.value.length !== 1
+        || selectedPolygonIds.value[0] !== regionId
+      ) {
+        runSynchronizedViewerUpdate(() => handleSelectPolygon(regionId, { focusMode: 'none' }))
+      }
+      return
+    }
+
+    if (baselineId) {
+      if (!baselineIdSet.value.has(baselineId)) {
+        runSynchronizedViewerUpdate(clearSelectionAndResetToRoot)
+        return
+      }
+      if (
+        polylines[selectedPolylineIndex.value]?.id !== baselineId
+        || selectedPolylineIds.value.length !== 1
+        || selectedPolylineIds.value[0] !== baselineId
+      ) {
+        runSynchronizedViewerUpdate(() => handleSelectPolyline(baselineId, { focusMode: 'none' }))
+      }
+    }
+  },
+  { flush: 'sync' }
+)
+
 watch(
   () => [getLocalSingleSelectedPolygonId(), getLocalSingleSelectedPolylineId()] as const,
   ([polygonId, polylineId]) => {
@@ -1065,6 +1232,21 @@ watch(
     syncCanvasSelection(null, null)
   },
   { immediate: true }
+)
+
+watch(
+  () => [view.zoom, view.offsetX, view.offsetY] as const,
+  leaveFollowForLocalStateChange
+)
+
+watch(
+  () => canvasControls.viewMode.value,
+  leaveFollowForLocalStateChange
+)
+
+watch(
+  () => [selectedRegionId.value, selectedBaselineId.value] as const,
+  leaveFollowForLocalStateChange
 )
 
 // Publish controls only after all runtime fields are attached.
@@ -1190,11 +1372,15 @@ function handleBlockedCanvasPointerEvent(event: Event) {
 
 function handleEditorWheel(event: WheelEvent) {
   if (handleBlockedCanvasPointerEvent(event)) return
+  editorFollow.handleLocalInteraction()
   editorInteractions.onWheel(event)
 }
 
 function handleEditorMouseDown(event: MouseEvent) {
   if (handleBlockedCanvasPointerEvent(event)) return
+  if (event.button === 0) {
+    editorFollow.handleLocalInteraction()
+  }
   editorInteractions.onMouseDown(event)
 }
 
@@ -1210,7 +1396,13 @@ function handleEditorMouseMove(event: MouseEvent) {
 
 function handleEditorMouseUp(event: MouseEvent) {
   if (isCanvasInteractionBlocked.value) return
+  const publishClick = event.button === 0
+    && isCanvasEditable.value
+    && !mouseInteraction.hasMoved()
   editorInteractions.onMouseUp(event)
+  if (publishClick) {
+    publishEditorClick(event)
+  }
 }
 
 function handleEditorMouseLeave() {
@@ -1220,7 +1412,35 @@ function handleEditorMouseLeave() {
 
 function handleEditorKeyDown(event: KeyboardEvent) {
   if (isCanvasInteractionBlocked.value) return
+  if (event.key === 'Escape' && editorStore.activeCanvasId === props.canvasId) {
+    editorFollow.handleLocalInteraction()
+  }
   editorInteractions.onKeyDown(event)
+}
+
+function publishEditorClick(event: MouseEvent) {
+  if (!canvas.value) return
+
+  const point = getWorldCoordsFromEvent(event, canvas.value, view, aspectRatioScale.value)
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return
+
+  const clickId = `${Date.now()}:${++collaborationClickSequence}`
+  collaborationClick.value = {
+    id: clickId,
+    x: point.x,
+    y: point.y
+  }
+  emitPresence()
+
+  if (collaborationClickClearTimer) {
+    clearTimeout(collaborationClickClearTimer)
+  }
+  collaborationClickClearTimer = setTimeout(() => {
+    if (collaborationClick.value?.id !== clickId) return
+    collaborationClick.value = null
+    emitPresence()
+    collaborationClickClearTimer = null
+  }, 900)
 }
 
 function attachInteractions() {
@@ -2416,40 +2636,82 @@ const remoteSelectionOverlays = computed(() => {
   })
 })
 
+function collaborationPointToScreen(point: unknown): { x: number, y: number } | null {
+  if (!point || typeof point !== 'object') return null
+  const candidate = point as { x?: unknown, y?: unknown }
+  if (
+    typeof candidate.x !== 'number'
+    || typeof candidate.y !== 'number'
+    || !Number.isFinite(candidate.x)
+    || !Number.isFinite(candidate.y)
+  ) {
+    return null
+  }
+
+  const clipPoint = worldToClipCoords(
+    { x: candidate.x, y: candidate.y },
+    view,
+    aspectRatioScale.value
+  )
+  const screenPoint = {
+    x: ((clipPoint.x + 1) / 2) * canvasDimensions.value.width,
+    y: ((1 - clipPoint.y) / 2) * canvasDimensions.value.height
+  }
+  if (
+    !Number.isFinite(screenPoint.x)
+    || !Number.isFinite(screenPoint.y)
+    || screenPoint.x < 0
+    || screenPoint.y < 0
+    || screenPoint.x > canvasDimensions.value.width
+    || screenPoint.y > canvasDimensions.value.height
+  ) {
+    return null
+  }
+
+  return screenPoint
+}
+
 const remoteCursorOverlays = computed(() => {
-  if (!isCanvasEditable.value) return []
+  const editor = canvasEditor.value
+  const presence = canvasEditorPresence.value
+  if (isCanvasEditable.value || !editor || !presence || presence.active !== true) return []
 
-  return remoteCollaborators.value.flatMap((member) => {
-    if (canvasEditor.value?.user.id !== member.user.id) return []
+  const screenPoint = collaborationPointToScreen(presence.cursor)
+  if (!screenPoint) return []
 
-    const cursor = member.presence?.cursor
-    if (!cursor || typeof cursor.x !== 'number' || typeof cursor.y !== 'number') return []
+  return [{
+    key: `${editor.user.id}:cursor`,
+    color: getCollaborationColor(editor.user.id),
+    label: editor.user.displayName,
+    x: screenPoint.x,
+    y: screenPoint.y
+  }]
+})
 
-    const clipPoint = worldToClipCoords(cursor, view, aspectRatioScale.value)
-    const screenPoint = {
-      x: ((clipPoint.x + 1) / 2) * canvasDimensions.value.width,
-      y: ((1 - clipPoint.y) / 2) * canvasDimensions.value.height
-    }
+const remoteClickOverlays = computed(() => {
+  const editor = canvasEditor.value
+  const presence = canvasEditorPresence.value
+  const click = presence?.click
+  if (
+    isCanvasEditable.value
+    || !editor
+    || !presence
+    || presence.active !== true
+    || !click
+    || typeof click.id !== 'string'
+  ) {
+    return []
+  }
 
-    if (
-      !Number.isFinite(screenPoint.x)
-      || !Number.isFinite(screenPoint.y)
-      || screenPoint.x < 0
-      || screenPoint.y < 0
-      || screenPoint.x > canvasDimensions.value.width
-      || screenPoint.y > canvasDimensions.value.height
-    ) {
-      return []
-    }
+  const screenPoint = collaborationPointToScreen(click)
+  if (!screenPoint) return []
 
-    return [{
-      key: `${member.user.id}:cursor`,
-      color: getCollaborationColor(member.user.id),
-      label: member.user.displayName,
-      x: screenPoint.x,
-      y: screenPoint.y
-    }]
-  })
+  return [{
+    key: `${editor.user.id}:click:${click.id}`,
+    color: getCollaborationColor(editor.user.id),
+    x: screenPoint.x,
+    y: screenPoint.y
+  }]
 })
 
 async function handleRequestTakeover(force = false) {
@@ -2607,6 +2869,8 @@ watch(
         mouseInteraction.actionState.action,
         selectedRegionId.value,
         selectedBaselineId.value,
+        canvasControls.viewMode.value,
+        collaborationClick.value?.id ?? null,
         canvasState.value?.imageVariantId ?? null,
         editorStore.activeCanvasId === props.canvasId,
         effectiveUiMode.value
@@ -2673,6 +2937,10 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   imageLoadRequestId.value += 1
+  if (collaborationClickClearTimer) {
+    clearTimeout(collaborationClickClearTimer)
+    collaborationClickClearTimer = null
+  }
 
   if (stopUiModeWatch) stopUiModeWatch()
 
@@ -2766,6 +3034,27 @@ watch(() => props.src, (newSrc) => {
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
+        <div class="flex items-center rounded-md border border-amber-400/20 bg-black/10 p-0.5">
+          <UButton
+            size="xs"
+            color="neutral"
+            :variant="viewerNavigationMode === 'explore' ? 'soft' : 'ghost'"
+            class="h-6 px-2 text-[11px]"
+            icon="i-lucide-mouse-pointer-2"
+            label="Explore"
+            @click="editorFollow.explore"
+          />
+          <UButton
+            size="xs"
+            color="neutral"
+            :variant="viewerNavigationMode === 'follow' ? 'soft' : 'ghost'"
+            class="h-6 px-2 text-[11px]"
+            icon="i-lucide-navigation"
+            label="Follow editor"
+            :disabled="!canFollowEditor"
+            @click="editorFollow.follow"
+          />
+        </div>
         <UButton
           v-if="canRequestTakeover"
           size="xs"
@@ -2919,7 +3208,7 @@ watch(() => props.src, (newSrc) => {
             :data-render-reason="exposeRenderDiagnostics && renderStats ? renderStats.lastRenderReason ?? undefined : undefined"
             class="block w-full h-full bg-transparent relative z-10"
             :class="[
-              canReceiveCanvasInput && canShowCanvasContent ? (isCanvasWritable || isComparisonCanvas ? 'cursor-grab' : 'cursor-default') : 'cursor-default pointer-events-none',
+              canReceiveCanvasInput && canShowCanvasContent ? 'cursor-grab' : 'cursor-default pointer-events-none',
               canShowCanvasContent ? 'opacity-100' : 'opacity-0'
             ]"
             @contextmenu="(event: MouseEvent) => { if (canShowCanvasContent && isCanvasWritable && !isCanvasInteractionBlocked) editorInteractions.handleCanvasContextMenu(event) }"
@@ -3494,7 +3783,11 @@ watch(() => props.src, (newSrc) => {
       />
 
       <svg
-        v-if="(remoteSelectionOverlays?.length ?? 0) > 0 || (remoteCursorOverlays?.length ?? 0) > 0"
+        v-if="
+          (remoteSelectionOverlays?.length ?? 0) > 0
+            || (remoteCursorOverlays?.length ?? 0) > 0
+            || (remoteClickOverlays?.length ?? 0) > 0
+        "
         class="absolute inset-0 z-[940] pointer-events-none"
         :width="canvasDimensions.width"
         :height="canvasDimensions.height"
@@ -3529,17 +3822,22 @@ watch(() => props.src, (newSrc) => {
           </text>
         </g>
 
-        <g v-for="cursor in remoteCursorOverlays ?? []" :key="cursor.key">
+        <g
+          v-for="cursor in remoteCursorOverlays ?? []"
+          :key="cursor.key"
+          class="remote-cursor-overlay"
+          :style="{ transform: `translate(${cursor.x}px, ${cursor.y}px)` }"
+        >
           <circle
-            :cx="cursor.x"
-            :cy="cursor.y"
+            cx="0"
+            cy="0"
             r="5"
             :fill="cursor.color"
             fill-opacity="0.95"
           />
           <circle
-            :cx="cursor.x"
-            :cy="cursor.y"
+            cx="0"
+            cy="0"
             r="11"
             :stroke="cursor.color"
             stroke-width="1.5"
@@ -3547,8 +3845,8 @@ watch(() => props.src, (newSrc) => {
             fill="none"
           />
           <rect
-            :x="cursor.x + 10"
-            :y="cursor.y - 18"
+            x="10"
+            y="-18"
             width="88"
             height="18"
             rx="4"
@@ -3556,8 +3854,8 @@ watch(() => props.src, (newSrc) => {
             fill-opacity="0.9"
           />
           <text
-            :x="cursor.x + 16"
-            :y="cursor.y - 5"
+            x="16"
+            y="-5"
             fill="#ffffff"
             font-size="11"
             font-weight="600"
@@ -3565,6 +3863,18 @@ watch(() => props.src, (newSrc) => {
             {{ cursor.label }}
           </text>
         </g>
+
+        <circle
+          v-for="click in remoteClickOverlays ?? []"
+          :key="click.key"
+          class="remote-click-pulse"
+          :cx="click.x"
+          :cy="click.y"
+          r="10"
+          :stroke="click.color"
+          stroke-width="3"
+          fill="none"
+        />
       </svg>
 
       <div v-if="showRenderStats && renderStats" class="absolute top-2.5 right-2.5 bg-black/80 text-green-500 p-3 rounded-sm font-mono text-xs leading-relaxed min-w-[200px] pointer-events-none z-[1000]">
@@ -3640,5 +3950,34 @@ watch(() => props.src, (newSrc) => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.remote-cursor-overlay {
+  transition: transform 180ms linear;
+  will-change: transform;
+}
+
+.remote-click-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: remote-click-pulse 0.8s ease-out forwards;
+}
+
+@keyframes remote-click-pulse {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.45);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .remote-cursor-overlay {
+    transition: none;
+  }
 }
 </style>
