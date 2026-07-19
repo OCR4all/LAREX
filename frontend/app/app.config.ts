@@ -26,6 +26,11 @@ export default defineAppConfig({
         modal: 'z-[80]'
       }
     },
+    dropdownMenu: {
+      slots: {
+        content: 'z-[90]'
+      }
+    },
     table: {
       slots: {
         td: 'text-default [&_.text-dimmed]:text-default [&_.text-muted]:text-default [&_.text-toned]:text-default',
