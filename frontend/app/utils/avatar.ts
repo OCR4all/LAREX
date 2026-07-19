@@ -31,6 +31,14 @@ export function resolveManagedProfileAvatarSrc(avatar?: string | null): string |
   }
 }
 
+export function resolveAvailableManagedProfileAvatarSrc(
+  avatar: string | null | undefined,
+  invalidSources: readonly string[]
+): string | undefined {
+  const managedSrc = resolveManagedProfileAvatarSrc(avatar)
+  return managedSrc && !invalidSources.includes(managedSrc) ? managedSrc : undefined
+}
+
 export function getAvatarInitials(identity: AvatarIdentity, fallback = 'U'): string {
   const firstNameInitial = getInitial(identity.firstName)
   const lastNameInitial = getInitial(identity.lastName)

@@ -4,6 +4,8 @@ import type { UserProfile, UpdateUserProfileRequest } from '~/types'
 const toast = useToast()
 const { resetTours } = useOnboarding()
 const { uploadFormDataWithProgress } = useTrackedUpload()
+const { fetch: refreshUserSession } = useUserSession()
+const { invalidate: invalidateAvatarSource } = useManagedAvatarSources()
 const isResettingTour = ref(false)
 
 const handleResetTours = async () => {
@@ -49,6 +51,13 @@ const extractErrorMessage = (error: unknown, fallback: string) => {
     return candidate.data?.message || candidate.data?.error || candidate.message || fallback
   }
   return fallback
+}
+
+const refreshSessionProfile = async () => {
+  await $fetch('/api/auth/refresh-profile', {
+    method: 'POST'
+  })
+  await refreshUserSession()
 }
 
 watchEffect(() => {
@@ -106,9 +115,7 @@ const saveProfile = async () => {
     await refresh()
 
     try {
-      await $fetch('/api/auth/refresh-profile', {
-        method: 'POST'
-      })
+      await refreshSessionProfile()
     } catch (error) {
       console.warn('Failed to refresh session data:', error)
     }
@@ -163,6 +170,7 @@ const handleImageUpload = async (event: Event) => {
   isUploadingImage.value = true
 
   try {
+    const previousAvatarSrc = avatarSrc.value
     const formData = new FormData()
     formData.append('file', file)
 
@@ -174,13 +182,12 @@ const handleImageUpload = async (event: Event) => {
       formData
     })
 
+    invalidateAvatarSource(previousAvatarSrc)
     form.avatar = resolveManagedProfileAvatarSrc(response.avatarUrl) || ''
     await refresh()
 
     try {
-      await $fetch('/api/auth/refresh-profile', {
-        method: 'POST'
-      })
+      await refreshSessionProfile()
     } catch (error) {
       console.warn('Failed to refresh session data:', error)
     }
@@ -209,17 +216,17 @@ const removeImage = async () => {
   isUploadingImage.value = true
 
   try {
+    const removedAvatarSrc = avatarSrc.value
     await $fetch('/api/upload-proxy/profile/image', {
       method: 'DELETE'
     })
 
+    invalidateAvatarSource(removedAvatarSrc)
     form.avatar = ''
     await refresh()
 
     try {
-      await $fetch('/api/auth/refresh-profile', {
-        method: 'POST'
-      })
+      await refreshSessionProfile()
     } catch (error) {
       console.warn('Failed to refresh session data:', error)
     }

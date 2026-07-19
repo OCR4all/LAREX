@@ -28,15 +28,20 @@ const avatarComponents = {
 } satisfies Record<AvatarStyle, unknown>
 
 const { defaultStyle } = useAvatarSettings()
+const { resolve: resolveAvatarSource, invalidate: invalidateAvatarSource } = useManagedAvatarSources()
 const effectiveStyle = computed(() => props.avatarStyle || defaultStyle.value)
 const pixels = computed(() => AVATAR_SIZE_PIXELS[props.size])
-const managedSrc = computed(() => resolveManagedProfileAvatarSrc(props.src))
+const managedSrc = computed(() => resolveAvatarSource(props.src))
 const generatedComponent = computed(() => avatarComponents[effectiveStyle.value])
 const generatedSeed = computed(() => getGeneratedAvatarSeed(effectiveStyle.value, props.seed, props.alt))
 const rootStyle = computed(() => ({
   width: `${pixels.value}px`,
   height: `${pixels.value}px`
 }))
+
+const handleImageError = () => {
+  invalidateAvatarSource(managedSrc.value)
+}
 </script>
 
 <template>
@@ -51,6 +56,7 @@ const rootStyle = computed(() => ({
       :src="managedSrc"
       :alt="alt"
       class="size-full rounded-[inherit] object-cover"
+      @error="handleImageError"
     >
     <component
       :is="generatedComponent"
