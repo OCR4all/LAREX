@@ -4,15 +4,16 @@ import { SelectionOverlayRenderer } from '@/webgl/editor/selection-overlay'
 import { ResourcePool } from '@/webgl/editor/resource-pool'
 import { PolygonRenderer } from '@/webgl/editor/polygon-renderer'
 import { FillRenderer } from '@/webgl/editor/fill-renderer'
-import { BatchedLineRenderer } from '@/webgl/editor/batched-line-renderer'
 import { TextureManager } from '@/webgl/editor/texture-manager'
 import { ShaderProgramManager } from '@/webgl/editor/shader-program-manager'
 import { GeometryCache } from '@/webgl/editor/geometry-cache'
 import { ReadingOrderRenderer } from '@/webgl/editor/reading-order-renderer'
+import { UniformStateCache } from '@/webgl/editor/uniform-state-cache'
 import { drawPolygonOutlineWithStyle } from '@/webgl/editor/polygon-outline-dispatch'
 import { resolvePolygonRenderStyle, withAlpha, type PolygonRenderPhase, type ResolvedPolygonRenderStyle } from '@/webgl/editor/polygon-style-resolver'
 import { PolygonType } from '@/models/editor'
 import { visibilityService } from '@/services/editor/visibility-service'
+import type { VisibilityContext } from '@/services/editor/visibility-service'
 import { computeElementConfidence, confidenceToHeatRgba, scaleConfidenceForHeatmap } from '@/utils/editor/confidence-heatmap'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
@@ -30,6 +31,16 @@ type RenderState = WebGLRenderState
 function normalizeViewMode(raw: string | undefined): ViewMode | undefined {
   if (raw === 'default' || raw === 'textline' || raw === 'baseline') return raw
   return undefined
+}
+
+interface RenderFrameContext {
+  renderState: RenderState
+  visibility: VisibilityContext
+  hiddenPolygonIds: Set<string>
+  hiddenPolylineIds: Set<string>
+  selectedPolygonIds: Set<string>
+  selectedPolylineIds: Set<string>
+  labelConflictIds: Set<string>
 }
 
 interface GeometryCacheStats {
@@ -75,15 +86,16 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   let shaderManager: ShaderProgramManager | null = null
   let textureManager: TextureManager | null = null
   let geometryCache: GeometryCache | null = null
+  let uniformState: UniformStateCache | null = null
 
   let polygonRenderer: PolygonRenderer | null = null
   let fillRenderer: FillRenderer | null = null
-  let batchedLineRenderer: BatchedLineRenderer | null = null
   let thickLineRenderer: ThickLineRenderer | null = null
   let dashedLineRenderer: DashedLineRenderer | null = null
   let selectionOverlayRenderer: SelectionOverlayRenderer | null = null
   let readingOrderRenderer: ReadingOrderRenderer | null = null
   let framesUntilLineCachePrune = 120
+  let renderFrameContext: RenderFrameContext | null = null
 
   let animationFrameId: number | null = null
 
@@ -112,28 +124,68 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     return LINE_WIDTH_PRESETS[preset] ?? LINE_WIDTH_PRESETS.normal
   }
 
+  function createRenderFrameContext(renderState: RenderState): RenderFrameContext {
+    const hiddenPolygonIds = new Set(renderState.hiddenPolygonIds.value)
+    const hiddenPolylineIds = new Set(renderState.hiddenPolylineIds.value)
+
+    return {
+      renderState,
+      hiddenPolygonIds,
+      hiddenPolylineIds,
+      selectedPolygonIds: new Set(renderState.selectedPolygonIds.value),
+      selectedPolylineIds: new Set(renderState.selectedPolylineIds.value),
+      labelConflictIds: new Set(renderState.labelConflictIds ?? []),
+      visibility: {
+        selectedPolygonIndex: renderState.selectedPolygonIndex.value,
+        selectedPolylineIndex: renderState.selectedPolylineIndex.value,
+        allPolygons: renderState.polygons,
+        allPolylines: renderState.polylines,
+        viewMode: normalizeViewMode(renderState.viewMode),
+        hiddenPolygonIds,
+        hiddenPolylineIds,
+        temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId,
+        temporaryHoverPolylineId: editorUiStore.temporaryHoverPolylineId
+      }
+    }
+  }
+
+  function getRenderFrameContext(renderState: RenderState): RenderFrameContext {
+    if (renderFrameContext?.renderState === renderState) return renderFrameContext
+    renderFrameContext = createRenderFrameContext(renderState)
+    return renderFrameContext
+  }
+
   function getRotationForScale(scale: AspectRatioScale): { rotationCos: number, rotationSin: number } {
     const rotationCos = (typeof scale.rotationCos === 'number' && isFinite(scale.rotationCos)) ? scale.rotationCos : 1
     const rotationSin = (typeof scale.rotationSin === 'number' && isFinite(scale.rotationSin)) ? scale.rotationSin : 0
     return { rotationCos, rotationSin }
   }
 
+  function setUniform1f(program: WebGLProgram, name: string, value: number): void {
+    if (!uniformState) return
+    uniformState.uniform1f(uniformState.getLocation(program, name), value)
+  }
+
+  function setUniform2f(program: WebGLProgram, name: string, x: number, y: number): void {
+    if (!uniformState) return
+    uniformState.uniform2f(uniformState.getLocation(program, name), x, y)
+  }
+
+  function setUniform4f(program: WebGLProgram, name: string, x: number, y: number, z: number, w: number): void {
+    if (!uniformState) return
+    uniformState.uniform4f(uniformState.getLocation(program, name), x, y, z, w)
+  }
+
   function setProgramRotation(program: WebGLProgram, scale: AspectRatioScale): void {
     if (!gl) return
-    const rotationLocation = gl.getUniformLocation(program, 'u_rotation')
-    if (rotationLocation) {
-      const { rotationCos, rotationSin } = getRotationForScale(scale)
-      gl.uniform2f(rotationLocation, rotationCos, rotationSin)
-    }
+    const { rotationCos, rotationSin } = getRotationForScale(scale)
+    setUniform2f(program, 'u_rotation', rotationCos, rotationSin)
 
-    const canvasAspectLocation = gl.getUniformLocation(program, 'u_canvasAspect')
-    if (canvasAspectLocation) {
-      const fallbackAspect = (gl.canvas.width > 0 && gl.canvas.height > 0) ? (gl.canvas.width / gl.canvas.height) : 1
-      const rotationAspect = (typeof scale.rotationAspect === 'number' && isFinite(scale.rotationAspect) && scale.rotationAspect > 0)
-        ? scale.rotationAspect
-        : fallbackAspect
-      gl.uniform1f(canvasAspectLocation, rotationAspect)
-    }
+    const fallbackAspect = (gl.canvas.width > 0 && gl.canvas.height > 0) ? (gl.canvas.width / gl.canvas.height) : 1
+    const rotationAspect = (typeof scale.rotationAspect === 'number' && isFinite(scale.rotationAspect) && scale.rotationAspect > 0)
+      ? scale.rotationAspect
+      : fallbackAspect
+    setUniform1f(program, 'u_canvasAspect', rotationAspect)
   }
 
   let polygonProgram: WebGLProgram | null = null
@@ -158,6 +210,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       resourcePool = new ResourcePool(gl)
       shaderManager = new ShaderProgramManager(gl)
       textureManager = new TextureManager(gl)
+      uniformState = new UniformStateCache(gl)
 
       if (triangulatePolygon) {
         geometryCache = new GeometryCache(triangulatePolygon)
@@ -165,29 +218,25 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
       initShaderPrograms()
 
-      const lineProgram = shaderManager.getProgram('line')
-      if (!lineProgram) throw new Error('Failed to get line program')
-
       if (!fillProgram || !resourcePool) {
         throw new Error('Required resources not initialized')
       }
 
-      fillRenderer = new FillRenderer(gl, fillProgram, resourcePool, actionProcessingProgram, labelConflictProgram)
-      batchedLineRenderer = new BatchedLineRenderer(gl, lineProgram, resourcePool)
+      fillRenderer = new FillRenderer(gl, fillProgram, resourcePool, actionProcessingProgram, labelConflictProgram, uniformState)
 
       if (!polygonProgram) throw new Error('Polygon program not initialized')
-      polygonRenderer = new PolygonRenderer(gl, polygonProgram, resourcePool)
+      polygonRenderer = new PolygonRenderer(gl, polygonProgram, resourcePool, uniformState)
 
-      thickLineRenderer = new ThickLineRenderer(gl)
+      thickLineRenderer = new ThickLineRenderer(gl, uniformState)
       thickLineRenderer.init()
 
-      dashedLineRenderer = new DashedLineRenderer(gl)
+      dashedLineRenderer = new DashedLineRenderer(gl, uniformState)
       dashedLineRenderer.init()
 
-      selectionOverlayRenderer = new SelectionOverlayRenderer(gl)
+      selectionOverlayRenderer = new SelectionOverlayRenderer(gl, uniformState)
       selectionOverlayRenderer.init()
 
-      readingOrderRenderer = new ReadingOrderRenderer(gl)
+      readingOrderRenderer = new ReadingOrderRenderer(gl, uniformState)
       readingOrderRenderer.init()
 
       readingOrderRenderer.setAnimationCallback(() => {
@@ -301,48 +350,6 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     polygonProgram = shaderManager.registerProgram('polygon', polygonVsSource, polygonFsSource)
 
-    const lineVsSource = `#version 300 es
-      in vec2 a_position;
-      in vec2 a_normal;
-      in vec4 a_color;
-      uniform vec2 u_scale;
-      uniform vec2 u_offset;
-      uniform float u_zoom;
-      uniform vec2 u_rotation;
-      uniform float u_canvasAspect;
-      uniform float u_thickness;
-      uniform vec2 u_resolution;
-      out vec4 v_color;
-
-      void main() {
-        vec2 pos = (a_position * u_zoom) + u_offset;
-        vec2 scaled = pos * u_scale;
-        vec2 clip = vec2(
-          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
-          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
-        );
-        
-        vec2 pixelSize = 2.0 / u_resolution;
-        vec2 offset = a_normal * u_thickness * pixelSize * 0.5;
-        vec2 clipOffset = vec2(
-          offset.x * u_rotation.x - (offset.y * u_rotation.y) / u_canvasAspect,
-          offset.x * u_rotation.y * u_canvasAspect + offset.y * u_rotation.x
-        );
-        
-        gl_Position = vec4(clip + clipOffset, 0.0, 1.0);
-        v_color = a_color;
-      }`
-    const lineFsSource = `#version 300 es
-      precision mediump float;
-      in vec4 v_color;
-      uniform vec4 u_color;
-      out vec4 outColor;
-      void main() { 
-        outColor = v_color.a > 0.0 ? v_color : u_color;
-      }`
-
-    shaderManager.registerProgram('line', lineVsSource, lineFsSource)
-
     const fillVsSource = `#version 300 es
       in vec2 a_position;
       uniform vec2 u_scale; uniform vec2 u_offset; uniform float u_zoom; uniform vec2 u_rotation; uniform float u_canvasAspect;
@@ -446,10 +453,10 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_scale'), scale.scaleX, scale.scaleY)
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_offset'), view.offsetX, view.offsetY)
-    gl.uniform1f(gl.getUniformLocation(imageProgram, 'u_zoom'), view.zoom)
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_resolution'), gl.canvas.width, gl.canvas.height)
+    setUniform2f(imageProgram, 'u_scale', scale.scaleX, scale.scaleY)
+    setUniform2f(imageProgram, 'u_offset', view.offsetX, view.offsetY)
+    setUniform1f(imageProgram, 'u_zoom', view.zoom)
+    setUniform2f(imageProgram, 'u_resolution', gl.canvas.width, gl.canvas.height)
     setProgramRotation(imageProgram, scale)
 
     const displayZoom = Math.abs(view.zoom) || 1
@@ -468,22 +475,22 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     const shadowInsetX = shadowExpandX / shadowQuadWidth
     const shadowInsetY = shadowExpandY / shadowQuadHeight
 
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_pixelOffset'), effectiveOffsetX, effectiveOffsetY)
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowExpand'), shadowExpandX, shadowExpandY)
-    gl.uniform1f(gl.getUniformLocation(imageProgram, 'u_renderShadow'), 1.0)
-    gl.uniform4f(gl.getUniformLocation(imageProgram, 'u_shadowColor'), 0.0, 0.0, 0.0, RASTER_IMAGE_SHADOW.ALPHA)
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowBlur'), effectiveBlurX, effectiveBlurY)
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowInset'), shadowInsetX, shadowInsetY)
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowQuadSize'), shadowQuadWidth, shadowQuadHeight)
+    setUniform2f(imageProgram, 'u_pixelOffset', effectiveOffsetX, effectiveOffsetY)
+    setUniform2f(imageProgram, 'u_shadowExpand', shadowExpandX, shadowExpandY)
+    setUniform1f(imageProgram, 'u_renderShadow', 1.0)
+    setUniform4f(imageProgram, 'u_shadowColor', 0.0, 0.0, 0.0, RASTER_IMAGE_SHADOW.ALPHA)
+    setUniform2f(imageProgram, 'u_shadowBlur', effectiveBlurX, effectiveBlurY)
+    setUniform2f(imageProgram, 'u_shadowInset', shadowInsetX, shadowInsetY)
+    setUniform2f(imageProgram, 'u_shadowQuadSize', shadowQuadWidth, shadowQuadHeight)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_pixelOffset'), 0.0, 0.0)
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowExpand'), 0.0, 0.0)
-    gl.uniform1f(gl.getUniformLocation(imageProgram, 'u_renderShadow'), 0.0)
-    gl.uniform4f(gl.getUniformLocation(imageProgram, 'u_shadowColor'), 0.0, 0.0, 0.0, 0.0)
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowBlur'), 0.0, 0.0)
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowInset'), 0.0, 0.0)
-    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowQuadSize'), 1.0, 1.0)
+    setUniform2f(imageProgram, 'u_pixelOffset', 0.0, 0.0)
+    setUniform2f(imageProgram, 'u_shadowExpand', 0.0, 0.0)
+    setUniform1f(imageProgram, 'u_renderShadow', 0.0)
+    setUniform4f(imageProgram, 'u_shadowColor', 0.0, 0.0, 0.0, 0.0)
+    setUniform2f(imageProgram, 'u_shadowBlur', 0.0, 0.0)
+    setUniform2f(imageProgram, 'u_shadowInset', 0.0, 0.0)
+    setUniform2f(imageProgram, 'u_shadowQuadSize', 1.0, 1.0)
 
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
@@ -567,8 +574,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     if (!fillRenderer || !renderState.diffHighlights) return
     const localFillRenderer = fillRenderer
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
-    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
-    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+    const { visibility } = getRenderFrameContext(renderState)
 
     renderState.polygons.forEach((polygon) => {
       const highlight = renderState.diffHighlights?.[polygon.id]
@@ -577,16 +583,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       if (polygon.type !== PolygonType.REGION && polygon.type !== PolygonType.TEXTLINE) return
 
       if (
-        !visibilityService.shouldShowPolygon(polygon, {
-          selectedPolygonIndex: renderState.selectedPolygonIndex.value,
-          selectedPolylineIndex: renderState.selectedPolylineIndex.value,
-          allPolygons: renderState.polygons,
-          allPolylines: renderState.polylines,
-          viewMode: normalizeViewMode(renderState.viewMode),
-          hiddenPolygonIds: hiddenPolygonIdSet,
-          hiddenPolylineIds: hiddenPolylineIdSet,
-          temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId
-        })
+        !visibilityService.shouldShowPolygon(polygon, visibility)
       ) {
         return
       }
@@ -690,8 +687,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
     const document = getActiveDocument()
-    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
-    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+    const frameContext = getRenderFrameContext(renderState)
     const selectedPolygon = renderState.selectedPolygonIndex.value >= 0
       ? renderState.polygons[renderState.selectedPolygonIndex.value] ?? null
       : null
@@ -716,7 +712,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       if (polygonIndex === renderState.selectedPolygonIndex.value) {
         return
       }
-      if (renderState.selectedPolygonIds.value.includes(polygon.id)) {
+      if (frameContext.selectedPolygonIds.has(polygon.id)) {
         return
       }
       if (polygon.type !== PolygonType.REGION && polygon.type !== PolygonType.TEXTLINE) {
@@ -727,16 +723,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       }
 
       if (
-        !visibilityService.shouldShowPolygon(polygon, {
-          selectedPolygonIndex: renderState.selectedPolygonIndex.value,
-          selectedPolylineIndex: renderState.selectedPolylineIndex.value,
-          allPolygons: renderState.polygons,
-          allPolylines: renderState.polylines,
-          viewMode: normalizeViewMode(renderState.viewMode),
-          hiddenPolygonIds: hiddenPolygonIdSet,
-          hiddenPolylineIds: hiddenPolylineIdSet,
-          temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId
-        })
+        !visibilityService.shouldShowPolygon(polygon, frameContext.visibility)
       ) {
         return
       }
@@ -763,21 +750,11 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     if (!fillRenderer || activeLabelConflictIds.size === 0) return
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
-    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
-    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+    const { visibility } = getRenderFrameContext(renderState)
 
     for (const polygon of renderState.polygons) {
       if (polygon.type !== PolygonType.REGION || !activeLabelConflictIds.has(polygon.id)) continue
-      if (!visibilityService.shouldShowPolygon(polygon, {
-        selectedPolygonIndex: renderState.selectedPolygonIndex.value,
-        selectedPolylineIndex: renderState.selectedPolylineIndex.value,
-        allPolygons: renderState.polygons,
-        allPolylines: renderState.polylines,
-        viewMode: normalizeViewMode(renderState.viewMode),
-        hiddenPolygonIds: hiddenPolygonIdSet,
-        hiddenPolylineIds: hiddenPolylineIdSet,
-        temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId
-      })) continue
+      if (!visibilityService.shouldShowPolygon(polygon, visibility)) continue
 
       const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
       fillRenderer.drawLabelConflictFill(
@@ -810,20 +787,11 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     if (hasSelection) return
 
     const document = getActiveDocument()
-    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
-    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+    const { visibility } = getRenderFrameContext(renderState)
 
     renderState.polygons.forEach((polygon) => {
       if (
-        !visibilityService.shouldRenderAsBackground(polygon, {
-          selectedPolygonIndex: renderState.selectedPolygonIndex.value,
-          selectedPolylineIndex: renderState.selectedPolylineIndex.value,
-          allPolygons: renderState.polygons,
-          allPolylines: renderState.polylines,
-          viewMode: viewMode,
-          hiddenPolygonIds: hiddenPolygonIdSet,
-          hiddenPolylineIds: hiddenPolylineIdSet
-        })
+        !visibilityService.shouldRenderAsBackground(polygon, visibility)
       ) {
         return
       }
@@ -1004,11 +972,10 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     if (!viewMode || viewMode === 'baseline') return
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
-    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
-    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+    const frameContext = getRenderFrameContext(renderState)
 
     for (const polygon of renderState.polygons) {
-      if (hiddenPolygonIdSet.has(polygon.id)) continue
+      if (frameContext.hiddenPolygonIds.has(polygon.id)) continue
 
       const isMovingInvalid = renderState.moveState?.isMoving
         && renderState.moveState.isInvalid
@@ -1017,16 +984,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
       const shouldRender = viewMode === 'textline'
         ? polygon.type === PolygonType.TEXTLINE
-        : visibilityService.shouldShowPolygon(polygon, {
-            selectedPolygonIndex: renderState.selectedPolygonIndex.value,
-            selectedPolylineIndex: renderState.selectedPolylineIndex.value,
-            allPolygons: renderState.polygons,
-            allPolylines: renderState.polylines,
-            viewMode,
-            hiddenPolygonIds: hiddenPolygonIdSet,
-            hiddenPolylineIds: hiddenPolylineIdSet,
-            temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId
-          })
+        : visibilityService.shouldShowPolygon(polygon, frameContext.visibility)
 
       if (!shouldRender) continue
 
@@ -1068,28 +1026,19 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     view: View
   ): void {
     const document = getActiveDocument()
-
-    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
-    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+    const frameContext = getRenderFrameContext(renderState)
 
     renderState.polygons.forEach((polygon, index) => {
       if (index === renderState.selectedPolygonIndex.value) {
         return
       }
 
-      if (renderState.selectedPolygonIds.value.includes(polygon.id)) {
+      if (frameContext.selectedPolygonIds.has(polygon.id)) {
         return
       }
 
       if (
-        !visibilityService.shouldShowNonSelectedPolygon(polygon, {
-          selectedPolygonIndex: renderState.selectedPolygonIndex.value,
-          allPolygons: renderState.polygons,
-          viewMode: normalizeViewMode(renderState.viewMode),
-          hiddenPolygonIds: hiddenPolygonIdSet,
-          hiddenPolylineIds: hiddenPolylineIdSet,
-          temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId
-        })
+        !visibilityService.shouldShowNonSelectedPolygon(polygon, frameContext.visibility)
       ) {
         return
       }
@@ -1119,29 +1068,18 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
     const document = getActiveDocument()
-    const selectedIds = new Set(renderState.selectedPolygonIds.value)
-    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
-    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+    const frameContext = getRenderFrameContext(renderState)
 
     const focusedPolygon = renderState.selectedPolygonIndex.value >= 0
       ? renderState.polygons[renderState.selectedPolygonIndex.value]
       : null
 
     renderState.polygons.forEach((polygon) => {
-      if (!selectedIds.has(polygon.id)) return
+      if (!frameContext.selectedPolygonIds.has(polygon.id)) return
       if (focusedPolygon && polygon.id === focusedPolygon.id) return
 
       if (
-        !visibilityService.shouldShowPolygon(polygon, {
-          selectedPolygonIndex: renderState.selectedPolygonIndex.value,
-          selectedPolylineIndex: renderState.selectedPolylineIndex.value,
-          allPolygons: renderState.polygons,
-          allPolylines: renderState.polylines,
-          viewMode: normalizeViewMode(renderState.viewMode),
-          hiddenPolygonIds: hiddenPolygonIdSet,
-          hiddenPolylineIds: hiddenPolylineIdSet,
-          temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId
-        })
+        !visibilityService.shouldShowPolygon(polygon, frameContext.visibility)
       ) {
         return
       }
@@ -1166,25 +1104,13 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   ): void {
     if (!renderState.selectedPolygonIds.value.length) return
     const document = getActiveDocument()
-    const selectedIds = new Set(renderState.selectedPolygonIds.value)
-
-    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
-    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+    const frameContext = getRenderFrameContext(renderState)
 
     renderState.polygons.forEach((polygon) => {
-      if (!selectedIds.has(polygon.id)) return
+      if (!frameContext.selectedPolygonIds.has(polygon.id)) return
 
       if (
-        !visibilityService.shouldShowPolygon(polygon, {
-          selectedPolygonIndex: renderState.selectedPolygonIndex.value,
-          selectedPolylineIndex: renderState.selectedPolylineIndex.value,
-          allPolygons: renderState.polygons,
-          allPolylines: renderState.polylines,
-          viewMode: normalizeViewMode(renderState.viewMode),
-          hiddenPolygonIds: hiddenPolygonIdSet,
-          hiddenPolylineIds: hiddenPolylineIdSet,
-          temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId
-        })
+        !visibilityService.shouldShowPolygon(polygon, frameContext.visibility)
       ) {
         return
       }
@@ -1217,20 +1143,10 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       const selectedPolygon = renderState.polygons[polygonIndexToDraw]
       if (!selectedPolygon) return
 
-      const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
-      const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+      const { visibility } = getRenderFrameContext(renderState)
 
       if (
-        visibilityService.shouldShowPolygon(selectedPolygon, {
-          selectedPolygonIndex: renderState.selectedPolygonIndex.value,
-          selectedPolylineIndex: renderState.selectedPolylineIndex.value,
-          allPolygons: renderState.polygons,
-          allPolylines: renderState.polylines,
-          viewMode: normalizeViewMode(renderState.viewMode),
-          hiddenPolygonIds: hiddenPolygonIdSet,
-          hiddenPolylineIds: hiddenPolylineIdSet,
-          temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId
-        })
+        visibilityService.shouldShowPolygon(selectedPolygon, visibility)
       ) {
         const isMovingInvalid = renderState.moveState?.isMoving
           && renderState.moveState.isInvalid
@@ -1312,12 +1228,12 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     gl.useProgram(polygonProgram)
     gl.bindVertexArray(polygonVao)
-    gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
-    gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
-    gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+    setUniform2f(polygonProgram, 'u_scale', scale.scaleX, scale.scaleY)
+    setUniform2f(polygonProgram, 'u_offset', view.offsetX, view.offsetY)
+    setUniform1f(polygonProgram, 'u_zoom', view.zoom)
     setProgramRotation(polygonProgram, scale)
-    gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.POLYGON_POINT_SIZE)
-    gl.uniform4f(gl.getUniformLocation(polygonProgram, 'u_color'), color[0], color[1], color[2], color[3])
+    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.POLYGON_POINT_SIZE)
+    setUniform4f(polygonProgram, 'u_color', color[0], color[1], color[2], color[3])
 
     gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, nodeData.subarray(0, pointCount * 2), gl.DYNAMIC_DRAW)
@@ -1360,12 +1276,12 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
       gl.useProgram(polygonProgram)
       gl.bindVertexArray(polygonVao)
-      gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
-      gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
-      gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+      setUniform2f(polygonProgram, 'u_scale', scale.scaleX, scale.scaleY)
+      setUniform2f(polygonProgram, 'u_offset', view.offsetX, view.offsetY)
+      setUniform1f(polygonProgram, 'u_zoom', view.zoom)
       setProgramRotation(polygonProgram, scale)
-      gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.POLYGON_POINT_SIZE)
-      gl.uniform4f(gl.getUniformLocation(polygonProgram, 'u_color'), color[0], color[1], color[2], color[3])
+      setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.POLYGON_POINT_SIZE)
+      setUniform4f(polygonProgram, 'u_color', color[0], color[1], color[2], color[3])
 
       const currentPolylineData = new Float32Array(renderState.currentPolylinePoints.flatMap(p => [p.x, p.y]))
       gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
@@ -1373,34 +1289,21 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       gl.drawArrays(gl.POINTS, 0, renderState.currentPolylinePoints.length)
     }
 
-    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
-    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+    const frameContext = getRenderFrameContext(renderState)
     const normalizedViewMode = normalizeViewMode(renderState.viewMode)
     const shouldHeatmapBaselines = renderState.confidenceHeatmap?.enabled && normalizedViewMode === 'baseline'
 
     renderState.polylines.forEach((polyline, index) => {
       const shouldShowPolyline = shouldHeatmapBaselines
-        ? !hiddenPolylineIdSet.has(polyline.id)
-        : visibilityService.shouldShowPolyline(
-            polyline,
-            {
-              selectedPolygonIndex: renderState.selectedPolygonIndex.value,
-              selectedPolylineIndex: renderState.selectedPolylineIndex.value,
-              allPolygons: renderState.polygons,
-              allPolylines: renderState.polylines,
-              viewMode: renderState.viewMode,
-              hiddenPolygonIds: hiddenPolygonIdSet,
-              hiddenPolylineIds: hiddenPolylineIdSet,
-              temporaryHoverPolylineId: editorUiStore.temporaryHoverPolylineId
-            }
-          )
+        ? !frameContext.hiddenPolylineIds.has(polyline.id)
+        : visibilityService.shouldShowPolyline(polyline, frameContext.visibility)
 
       if (!shouldShowPolyline) {
         return
       }
 
       let color: RGBA
-      const isMultiSelected = renderState.selectedPolylineIds.value.includes(polyline.id)
+      const isMultiSelected = frameContext.selectedPolylineIds.has(polyline.id)
       const isMovingInvalid = renderState.moveState?.isMoving
         && renderState.moveState.isInvalid
         && renderState.moveState.elementId === polyline.id
@@ -1450,11 +1353,11 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       if (index === renderState.selectedPolylineIndex.value && gl && polygonProgram && polygonVao && polygonBuffer) {
         gl.useProgram(polygonProgram)
         gl.bindVertexArray(polygonVao)
-        gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
-        gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
-        gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+        setUniform2f(polygonProgram, 'u_scale', scale.scaleX, scale.scaleY)
+        setUniform2f(polygonProgram, 'u_offset', view.offsetX, view.offsetY)
+        setUniform1f(polygonProgram, 'u_zoom', view.zoom)
         setProgramRotation(polygonProgram, scale)
-        gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.POLYGON_POINT_SIZE)
+        setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.POLYGON_POINT_SIZE)
 
         const polylineData = new Float32Array(polyline.points.flatMap((p: Point) => [p.x, p.y]))
         gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
@@ -1466,16 +1369,18 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
           && renderState.polylineDraggedNodeInfo.polylineIndex === index
           && renderState.isInvalidPosition.value
         ) {
-          gl.uniform4f(
-            gl.getUniformLocation(polygonProgram, 'u_color'),
+          setUniform4f(
+            polygonProgram,
+            'u_color',
             RENDER_COLORS.INVALID_RED[0],
             RENDER_COLORS.INVALID_RED[1],
             RENDER_COLORS.INVALID_RED[2],
             RENDER_COLORS.INVALID_RED[3]
           )
         } else {
-          gl.uniform4f(
-            gl.getUniformLocation(polygonProgram, 'u_color'),
+          setUniform4f(
+            polygonProgram,
+            'u_color',
             RENDER_COLORS.SELECTED_BLUE[0],
             RENDER_COLORS.SELECTED_BLUE[1],
             RENDER_COLORS.SELECTED_BLUE[2],
@@ -1489,7 +1394,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
           && renderState.hoveredNodeIndex.value >= 0
           && renderState.hoveredNodeIndex.value < polyline.points.length
         ) {
-          gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.DRAGGED_POINT_SIZE)
+          setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.DRAGGED_POINT_SIZE)
 
           if (
             renderState.polylineDraggedNodeInfo
@@ -1498,16 +1403,18 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
             && renderState.polylineDraggedNodeInfo.nodeIndex === renderState.hoveredNodeIndex.value
             && renderState.isInvalidPosition.value
           ) {
-            gl.uniform4f(
-              gl.getUniformLocation(polygonProgram, 'u_color'),
+            setUniform4f(
+              polygonProgram,
+              'u_color',
               RENDER_COLORS.INVALID_RED[0],
               RENDER_COLORS.INVALID_RED[1],
               RENDER_COLORS.INVALID_RED[2],
               RENDER_COLORS.INVALID_RED[3]
             )
           } else {
-            gl.uniform4f(
-              gl.getUniformLocation(polygonProgram, 'u_color'),
+            setUniform4f(
+              polygonProgram,
+              'u_color',
               RENDER_COLORS.PREVIEW_PINK[0],
               RENDER_COLORS.PREVIEW_PINK[1],
               RENDER_COLORS.PREVIEW_PINK[2],
@@ -1597,25 +1504,26 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     gl.useProgram(polygonProgram)
     gl.bindVertexArray(polygonVao)
-    gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
-    gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
-    gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+    setUniform2f(polygonProgram, 'u_scale', scale.scaleX, scale.scaleY)
+    setUniform2f(polygonProgram, 'u_offset', view.offsetX, view.offsetY)
+    setUniform1f(polygonProgram, 'u_zoom', view.zoom)
     setProgramRotation(polygonProgram, scale)
-    gl.uniform4f(
-      gl.getUniformLocation(polygonProgram, 'u_color'),
+    setUniform4f(
+      polygonProgram,
+      'u_color',
       RENDER_COLORS.PREVIEW_PINK[0],
       RENDER_COLORS.PREVIEW_PINK[1],
       RENDER_COLORS.PREVIEW_PINK[2],
       RENDER_COLORS.PREVIEW_PINK[3]
     )
-    gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.SELECTED_POINT_SIZE)
+    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.SELECTED_POINT_SIZE)
 
     const previewData = new Float32Array([previewNodePosition.x, previewNodePosition.y])
     gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, previewData, gl.DYNAMIC_DRAW)
     gl.drawArrays(gl.POINTS, 0, 1)
 
-    gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.PREVIEW_POINT_SIZE)
+    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.PREVIEW_POINT_SIZE)
   }
 
   /**
@@ -1632,25 +1540,26 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     gl.useProgram(polygonProgram)
     gl.bindVertexArray(polygonVao)
-    gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
-    gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
-    gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+    setUniform2f(polygonProgram, 'u_scale', scale.scaleX, scale.scaleY)
+    setUniform2f(polygonProgram, 'u_offset', view.offsetX, view.offsetY)
+    setUniform1f(polygonProgram, 'u_zoom', view.zoom)
     setProgramRotation(polygonProgram, scale)
-    gl.uniform4f(
-      gl.getUniformLocation(polygonProgram, 'u_color'),
+    setUniform4f(
+      polygonProgram,
+      'u_color',
       RENDER_COLORS.ACTIVE_YELLOW_POLYLINE[0],
       RENDER_COLORS.ACTIVE_YELLOW_POLYLINE[1],
       RENDER_COLORS.ACTIVE_YELLOW_POLYLINE[2],
       RENDER_COLORS.ACTIVE_YELLOW_POLYLINE[3]
     )
-    gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.SELECTED_POINT_SIZE)
+    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.SELECTED_POINT_SIZE)
 
     const previewData = new Float32Array([polylinePreviewNodePosition.x, polylinePreviewNodePosition.y])
     gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, previewData, gl.DYNAMIC_DRAW)
     gl.drawArrays(gl.POINTS, 0, 1)
 
-    gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.PREVIEW_POINT_SIZE)
+    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.PREVIEW_POINT_SIZE)
   }
 
   /**
@@ -1806,12 +1715,12 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     if (cutMode !== 'rectangle' && gl && polygonProgram && polygonVao && polygonBuffer) {
       gl.useProgram(polygonProgram)
       gl.bindVertexArray(polygonVao)
-      gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
-      gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
-      gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+      setUniform2f(polygonProgram, 'u_scale', scale.scaleX, scale.scaleY)
+      setUniform2f(polygonProgram, 'u_offset', view.offsetX, view.offsetY)
+      setUniform1f(polygonProgram, 'u_zoom', view.zoom)
       setProgramRotation(polygonProgram, scale)
-      gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.POLYGON_POINT_SIZE)
-      gl.uniform4f(gl.getUniformLocation(polygonProgram, 'u_color'), outlineColor[0], outlineColor[1], outlineColor[2], outlineColor[3])
+      setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.POLYGON_POINT_SIZE)
+      setUniform4f(polygonProgram, 'u_color', outlineColor[0], outlineColor[1], outlineColor[2], outlineColor[3])
 
       const pointsData = new Float32Array(points.flatMap(p => [p.x, p.y]))
       gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
@@ -1831,7 +1740,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   ): void {
     if (!gl) return
 
-    activeLabelConflictIds = new Set(renderState.labelConflictIds ?? [])
+    renderFrameContext = createRenderFrameContext(renderState)
+    activeLabelConflictIds = renderFrameContext.labelConflictIds
 
     const dpr = window.devicePixelRatio || WEBGL_CORE.DEFAULT_DEVICE_PIXEL_RATIO
     const canvas = getGlCanvasElement()
@@ -1860,7 +1770,6 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     drawBufferPreview(renderState, aspectRatioScale, view, triangulatePolygon)
 
     if (renderState.polylines) {
-      const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
       drawPolylines(renderState, aspectRatioScale, view)
       drawHoverPolylines(
         renderState.polylines,
@@ -1868,11 +1777,10 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         renderState.selectedPolylineIndex,
         aspectRatioScale,
         view,
-        hiddenPolylineIdSet
+        renderFrameContext.hiddenPolylineIds
       )
     }
 
-    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
     drawHoverPolygons(
       renderState.polygons,
       renderState.hoveredPolygonIndex,
@@ -1881,7 +1789,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       view,
       triangulatePolygon,
       renderState.viewMode,
-      hiddenPolygonIdSet
+      renderFrameContext.hiddenPolygonIds
     )
 
     if (renderState.showReadingOrderOverlay && renderState.readingOrderData && readingOrderRenderer) {
@@ -2045,7 +1953,6 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     stopRenderLoop()
 
     fillRenderer?.cleanup()
-    batchedLineRenderer?.cleanup()
     polygonRenderer?.cleanup()
     thickLineRenderer?.cleanup()
     dashedLineRenderer?.cleanup()
@@ -2055,6 +1962,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     shaderManager?.cleanup()
     textureManager?.cleanup()
     resourcePool?.cleanup()
+    uniformState?.clear()
+    renderFrameContext = null
 
     if (geometryCache) {
       geometryCache.clear()
@@ -2087,7 +1996,6 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     }
 
     fillRenderer = null
-    batchedLineRenderer = null
     polygonRenderer = null
     thickLineRenderer = null
     dashedLineRenderer = null
@@ -2096,6 +2004,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     shaderManager = null
     textureManager = null
     resourcePool = null
+    uniformState = null
     imageProgram = null
     polygonProgram = null
     fillProgram = null

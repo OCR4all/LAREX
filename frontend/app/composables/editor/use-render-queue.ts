@@ -100,12 +100,13 @@ export function useRenderQueue(
     enableMonitoring = false
   } = config
 
-  const rafId = ref<number | null>(null)
-  const pendingRequest = ref<RenderRequest | null>(null)
-  const debounceTimeout = ref<number | null>(null)
+  let rafId: number | null = null
+  let pendingRequest: RenderRequest | null = null
+  let debounceTimeout: number | null = null
   const isRendering = ref(false)
-  const consecutiveRenders = ref(0)
-  const lastFrameTime = ref(0)
+  let consecutiveRenders = 0
+  let lastRenderTimestamp = 0
+  let lastFrameTime = 0
 
   const stats = ref<RenderStats>({
     totalRenders: 0,
@@ -120,6 +121,7 @@ export function useRenderQueue(
   const frameTimes: number[] = []
   const renderTimestamps: number[] = []
   const maxFrameHistory = 60
+  let frameTimeTotal = 0
 
   /**
    * Update performance statistics
@@ -127,30 +129,28 @@ export function useRenderQueue(
   function updateStats(frameTime: number, reason?: string): void {
     if (!enableMonitoring) return
 
-    stats.value.totalRenders++
-    stats.value.lastRenderReason = reason ?? null
-
     frameTimes.push(frameTime)
+    frameTimeTotal += frameTime
     if (frameTimes.length > maxFrameHistory) {
-      frameTimes.shift()
+      frameTimeTotal -= frameTimes.shift() ?? 0
     }
 
     const now = performance.now()
     renderTimestamps.push(now)
-    if (renderTimestamps.length > maxFrameHistory) {
+    const oneSecondAgo = now - 1000
+    while (renderTimestamps[0] !== undefined && renderTimestamps[0] < oneSecondAgo) {
       renderTimestamps.shift()
     }
 
-    const sum = frameTimes.reduce((acc, val) => acc + val, 0)
-    stats.value.averageFrameTime = sum / frameTimes.length
-
-    if (frameTime > stats.value.maxFrameTime) {
-      stats.value.maxFrameTime = frameTime
+    const previousStats = stats.value
+    stats.value = {
+      ...previousStats,
+      totalRenders: previousStats.totalRenders + 1,
+      rendersPerSecond: renderTimestamps.length,
+      averageFrameTime: frameTimeTotal / frameTimes.length,
+      maxFrameTime: Math.max(previousStats.maxFrameTime, frameTime),
+      lastRenderReason: reason ?? null
     }
-
-    const oneSecondAgo = now - 1000
-    const recentRenders = renderTimestamps.filter(ts => ts >= oneSecondAgo)
-    stats.value.rendersPerSecond = recentRenders.length
   }
 
   /**
@@ -168,7 +168,7 @@ export function useRenderQueue(
       renderFn()
 
       const frameTime = performance.now() - startTime
-      lastFrameTime.value = frameTime
+      lastFrameTime = frameTime
       updateStats(frameTime, reason)
 
       if (enableMonitoring && reason) {
@@ -187,22 +187,20 @@ export function useRenderQueue(
    * Process pending render request in RAF callback
    */
   function processRenderQueue(): void {
-    rafId.value = null
+    rafId = null
 
-    if (!pendingRequest.value) {
-      consecutiveRenders.value = 0
+    if (!pendingRequest) {
+      consecutiveRenders = 0
       return
     }
 
-    const request = pendingRequest.value
-    pendingRequest.value = null
+    const request = pendingRequest
+    pendingRequest = null
 
     executeRender(request.reason)
-    consecutiveRenders.value++
-
-    setTimeout(() => {
-      consecutiveRenders.value = 0
-    }, 100)
+    const now = performance.now()
+    consecutiveRenders = now - lastRenderTimestamp > 100 ? 1 : consecutiveRenders + 1
+    lastRenderTimestamp = now
   }
 
   /**
@@ -216,47 +214,50 @@ export function useRenderQueue(
     const now = performance.now()
 
     if (priority === RenderPriority.IMMEDIATE) {
-      if (rafId.value !== null) {
-        cancelAnimationFrame(rafId.value)
-        rafId.value = null
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+        rafId = null
       }
 
-      if (debounceTimeout.value !== null) {
-        clearTimeout(debounceTimeout.value)
-        debounceTimeout.value = null
+      if (debounceTimeout !== null) {
+        clearTimeout(debounceTimeout)
+        debounceTimeout = null
       }
 
-      pendingRequest.value = null
+      pendingRequest = null
       executeRender(reason)
       return
     }
 
     if (priority >= RenderPriority.LOW) {
-      if (debounceTimeout.value !== null) {
-        clearTimeout(debounceTimeout.value)
+      if (debounceTimeout !== null) {
+        clearTimeout(debounceTimeout)
       }
 
-      debounceTimeout.value = window.setTimeout(() => {
-        debounceTimeout.value = null
+      debounceTimeout = window.setTimeout(() => {
+        debounceTimeout = null
         scheduleRender(RenderPriority.NORMAL, reason)
       }, debounceDelay)
       return
     }
 
-    const existingRequest = pendingRequest.value
+    const existingRequest = pendingRequest
 
     if (existingRequest && enableMonitoring) {
-      stats.value.batchedRenders++
+      stats.value = {
+        ...stats.value,
+        batchedRenders: stats.value.batchedRenders + 1
+      }
     }
 
     if (!existingRequest || priority < existingRequest.priority) {
-      pendingRequest.value = { priority, timestamp: now, reason }
+      pendingRequest = { priority, timestamp: now, reason }
     } else if (reason && !existingRequest.reason) {
       existingRequest.reason = reason
     }
 
-    if (rafId.value === null) {
-      rafId.value = requestAnimationFrame(processRenderQueue)
+    if (rafId === null) {
+      rafId = requestAnimationFrame(processRenderQueue)
     }
   }
 
@@ -271,17 +272,17 @@ export function useRenderQueue(
    * Cancel all pending renders
    */
   function cancelPending(): void {
-    if (rafId.value !== null) {
-      cancelAnimationFrame(rafId.value)
-      rafId.value = null
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+      rafId = null
     }
 
-    if (debounceTimeout.value !== null) {
-      clearTimeout(debounceTimeout.value)
-      debounceTimeout.value = null
+    if (debounceTimeout !== null) {
+      clearTimeout(debounceTimeout)
+      debounceTimeout = null
     }
 
-    pendingRequest.value = null
+    pendingRequest = null
   }
 
   /**
@@ -299,18 +300,22 @@ export function useRenderQueue(
     }
     frameTimes.length = 0
     renderTimestamps.length = 0
+    frameTimeTotal = 0
   }
 
   /**
    * Get current queue status for debugging
    */
   function getQueueStatus() {
+    const recentConsecutiveRenders = performance.now() - lastRenderTimestamp > 100
+      ? 0
+      : consecutiveRenders
     return {
-      hasPending: pendingRequest.value !== null || rafId.value !== null,
+      hasPending: pendingRequest !== null || rafId !== null,
       isRendering: isRendering.value,
-      pendingPriority: pendingRequest.value?.priority,
-      consecutiveRenders: consecutiveRenders.value,
-      lastFrameTime: lastFrameTime.value
+      pendingPriority: pendingRequest?.priority,
+      consecutiveRenders: recentConsecutiveRenders,
+      lastFrameTime
     }
   }
 

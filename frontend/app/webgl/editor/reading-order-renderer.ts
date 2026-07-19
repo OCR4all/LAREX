@@ -10,6 +10,7 @@
  */
 
 import { createProgram } from './core'
+import { UniformStateCache } from './uniform-state-cache'
 import { normalize } from '@/utils/editor/geometry-utils'
 import type { Point, View, AspectRatioScale } from '@/models/editor'
 import { WEBGL_BUFFER_LAYOUT, WEBGL_EPSILON, WEBGL_GLSL } from '@/webgl/editor/webgl-constants'
@@ -56,6 +57,7 @@ const GROUP_BOUNDS_GAP_LENGTH = 6
 
 export class ReadingOrderRenderer {
   private gl: WebGL2RenderingContext
+  private uniformState: UniformStateCache
 
   private arrowShaftProgram: WebGLProgram | null = null
   private arrowShaftVao: WebGLVertexArrayObject | null = null
@@ -81,8 +83,9 @@ export class ReadingOrderRenderer {
 
   private initialized = false
 
-  constructor(gl: WebGL2RenderingContext) {
+  constructor(gl: WebGL2RenderingContext, uniformState = new UniformStateCache(gl)) {
     this.gl = gl
+    this.uniformState = uniformState
   }
 
   init(): void {
@@ -409,27 +412,33 @@ export class ReadingOrderRenderer {
     this.gl.useProgram(this.arrowShaftProgram)
     this.gl.bindVertexArray(this.arrowShaftVao)
 
-    const scaleLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_scale')
-    const offsetLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_offset')
-    const zoomLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_zoom')
-    const rotationLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_rotation')
-    const canvasAspectLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_canvasAspect')
-    const thicknessLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_thickness')
-    const resolutionLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_resolution')
-    const dashLengthLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_dashLength')
-    const gapLengthLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_gapLength')
-    const timeOffsetLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_timeOffset')
-
-    this.gl.uniform2f(scaleLocation, scale.scaleX, scale.scaleY)
-    this.gl.uniform2f(offsetLocation, view.offsetX, view.offsetY)
-    this.gl.uniform1f(zoomLocation, view.zoom)
-    this.gl.uniform2f(rotationLocation, scale.rotationCos ?? 1, scale.rotationSin ?? 0)
-    this.gl.uniform1f(canvasAspectLocation, scale.rotationAspect ?? (canvasWidth / canvasHeight))
-    this.gl.uniform1f(thicknessLocation, ARROW_SHAFT_THICKNESS)
-    this.gl.uniform2f(resolutionLocation, canvasWidth, canvasHeight)
-    this.gl.uniform1f(dashLengthLocation, DASH_LENGTH)
-    this.gl.uniform1f(gapLengthLocation, GAP_LENGTH)
-    this.gl.uniform1f(timeOffsetLocation, this.getTimeOffset())
+    this.uniformState.uniform2f(this.uniformState.getLocation(this.arrowShaftProgram, 'u_scale'), scale.scaleX, scale.scaleY)
+    this.uniformState.uniform2f(this.uniformState.getLocation(this.arrowShaftProgram, 'u_offset'), view.offsetX, view.offsetY)
+    this.uniformState.uniform1f(this.uniformState.getLocation(this.arrowShaftProgram, 'u_zoom'), view.zoom)
+    this.uniformState.uniform2f(
+      this.uniformState.getLocation(this.arrowShaftProgram, 'u_rotation'),
+      scale.rotationCos ?? 1,
+      scale.rotationSin ?? 0
+    )
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(this.arrowShaftProgram, 'u_canvasAspect'),
+      scale.rotationAspect ?? (canvasWidth / canvasHeight)
+    )
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(this.arrowShaftProgram, 'u_thickness'),
+      ARROW_SHAFT_THICKNESS
+    )
+    this.uniformState.uniform2f(
+      this.uniformState.getLocation(this.arrowShaftProgram, 'u_resolution'),
+      canvasWidth,
+      canvasHeight
+    )
+    this.uniformState.uniform1f(this.uniformState.getLocation(this.arrowShaftProgram, 'u_dashLength'), DASH_LENGTH)
+    this.uniformState.uniform1f(this.uniformState.getLocation(this.arrowShaftProgram, 'u_gapLength'), GAP_LENGTH)
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(this.arrowShaftProgram, 'u_timeOffset'),
+      this.getTimeOffset()
+    )
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.arrowShaftPositionBuffer!)
     this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.DYNAMIC_DRAW)
@@ -475,17 +484,18 @@ export class ReadingOrderRenderer {
     this.gl.useProgram(this.arrowHeadProgram)
     this.gl.bindVertexArray(this.arrowHeadVao)
 
-    const scaleLocation = this.gl.getUniformLocation(this.arrowHeadProgram, 'u_scale')
-    const offsetLocation = this.gl.getUniformLocation(this.arrowHeadProgram, 'u_offset')
-    const zoomLocation = this.gl.getUniformLocation(this.arrowHeadProgram, 'u_zoom')
-    const rotationLocation = this.gl.getUniformLocation(this.arrowHeadProgram, 'u_rotation')
-    const canvasAspectLocation = this.gl.getUniformLocation(this.arrowHeadProgram, 'u_canvasAspect')
-
-    this.gl.uniform2f(scaleLocation, scale.scaleX, scale.scaleY)
-    this.gl.uniform2f(offsetLocation, view.offsetX, view.offsetY)
-    this.gl.uniform1f(zoomLocation, view.zoom)
-    this.gl.uniform2f(rotationLocation, scale.rotationCos ?? 1, scale.rotationSin ?? 0)
-    this.gl.uniform1f(canvasAspectLocation, scale.rotationAspect ?? (canvasWidth / canvasHeight))
+    this.uniformState.uniform2f(this.uniformState.getLocation(this.arrowHeadProgram, 'u_scale'), scale.scaleX, scale.scaleY)
+    this.uniformState.uniform2f(this.uniformState.getLocation(this.arrowHeadProgram, 'u_offset'), view.offsetX, view.offsetY)
+    this.uniformState.uniform1f(this.uniformState.getLocation(this.arrowHeadProgram, 'u_zoom'), view.zoom)
+    this.uniformState.uniform2f(
+      this.uniformState.getLocation(this.arrowHeadProgram, 'u_rotation'),
+      scale.rotationCos ?? 1,
+      scale.rotationSin ?? 0
+    )
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(this.arrowHeadProgram, 'u_canvasAspect'),
+      scale.rotationAspect ?? (canvasWidth / canvasHeight)
+    )
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.arrowHeadPositionBuffer!)
     this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.DYNAMIC_DRAW)
@@ -702,27 +712,42 @@ export class ReadingOrderRenderer {
     this.gl.useProgram(dashedProgram)
     this.gl.bindVertexArray(this.dashedVao)
 
-    const scaleLocation = this.gl.getUniformLocation(dashedProgram, 'u_scale')
-    const offsetLocation = this.gl.getUniformLocation(dashedProgram, 'u_offset')
-    const zoomLocation = this.gl.getUniformLocation(dashedProgram, 'u_zoom')
-    const rotationLocation = this.gl.getUniformLocation(dashedProgram, 'u_rotation')
-    const canvasAspectLocation = this.gl.getUniformLocation(dashedProgram, 'u_canvasAspect')
-    const thicknessLocation = this.gl.getUniformLocation(dashedProgram, 'u_thickness')
-    const resolutionLocation = this.gl.getUniformLocation(dashedProgram, 'u_resolution')
-    const colorLocation = this.gl.getUniformLocation(dashedProgram, 'u_color')
-    const dashLengthLocation = this.gl.getUniformLocation(dashedProgram, 'u_dashLength')
-    const gapLengthLocation = this.gl.getUniformLocation(dashedProgram, 'u_gapLength')
-
-    this.gl.uniform2f(scaleLocation, scale.scaleX, scale.scaleY)
-    this.gl.uniform2f(offsetLocation, view.offsetX, view.offsetY)
-    this.gl.uniform1f(zoomLocation, view.zoom)
-    this.gl.uniform2f(rotationLocation, scale.rotationCos ?? 1, scale.rotationSin ?? 0)
-    this.gl.uniform1f(canvasAspectLocation, scale.rotationAspect ?? (canvasWidth / canvasHeight))
-    this.gl.uniform1f(thicknessLocation, GROUP_BOUNDS_THICKNESS)
-    this.gl.uniform2f(resolutionLocation, canvasWidth, canvasHeight)
-    this.gl.uniform4f(colorLocation, bound.color[0], bound.color[1], bound.color[2], bound.color[3])
-    this.gl.uniform1f(dashLengthLocation, GROUP_BOUNDS_DASH_LENGTH)
-    this.gl.uniform1f(gapLengthLocation, GROUP_BOUNDS_GAP_LENGTH)
+    this.uniformState.uniform2f(this.uniformState.getLocation(dashedProgram, 'u_scale'), scale.scaleX, scale.scaleY)
+    this.uniformState.uniform2f(this.uniformState.getLocation(dashedProgram, 'u_offset'), view.offsetX, view.offsetY)
+    this.uniformState.uniform1f(this.uniformState.getLocation(dashedProgram, 'u_zoom'), view.zoom)
+    this.uniformState.uniform2f(
+      this.uniformState.getLocation(dashedProgram, 'u_rotation'),
+      scale.rotationCos ?? 1,
+      scale.rotationSin ?? 0
+    )
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(dashedProgram, 'u_canvasAspect'),
+      scale.rotationAspect ?? (canvasWidth / canvasHeight)
+    )
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(dashedProgram, 'u_thickness'),
+      GROUP_BOUNDS_THICKNESS
+    )
+    this.uniformState.uniform2f(
+      this.uniformState.getLocation(dashedProgram, 'u_resolution'),
+      canvasWidth,
+      canvasHeight
+    )
+    this.uniformState.uniform4f(
+      this.uniformState.getLocation(dashedProgram, 'u_color'),
+      bound.color[0],
+      bound.color[1],
+      bound.color[2],
+      bound.color[3]
+    )
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(dashedProgram, 'u_dashLength'),
+      GROUP_BOUNDS_DASH_LENGTH
+    )
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(dashedProgram, 'u_gapLength'),
+      GROUP_BOUNDS_GAP_LENGTH
+    )
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.dashedPositionBuffer!)
     this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.DYNAMIC_DRAW)

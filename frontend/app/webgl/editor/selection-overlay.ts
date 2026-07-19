@@ -1,7 +1,6 @@
 import { createProgram } from './core'
+import { UniformStateCache } from './uniform-state-cache'
 import {
-  setTransformUniforms,
-  setColorUniform,
   enableBlending,
   disableBlending,
   setupStencilBuffer,
@@ -32,13 +31,15 @@ export interface SelectedPolygonIndex {
  */
 export class SelectionOverlayRenderer {
   private gl: WebGL2RenderingContext
+  private uniformState: UniformStateCache
   private program: WebGLProgram | null = null
   private vao: WebGLVertexArrayObject | null = null
   private buffer: WebGLBuffer | null = null
   private initialized = false
 
-  constructor(gl: WebGL2RenderingContext) {
+  constructor(gl: WebGL2RenderingContext, uniformState = new UniformStateCache(gl)) {
     this.gl = gl
+    this.uniformState = uniformState
   }
 
   /**
@@ -142,9 +143,8 @@ export class SelectionOverlayRenderer {
     this.gl.bindVertexArray(this.vao)
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
-    setTransformUniforms(this.gl, this.program, scale, view, view.zoom)
-
-    this.gl.uniform1i(this.gl.getUniformLocation(this.program, 'u_skipTransform'), 0)
+    this.setTransformUniforms(scale, view)
+    this.uniformState.uniform1i(this.uniformState.getLocation(this.program, 'u_skipTransform'), 0)
 
     const fullscreenRect = createFullscreenRect()
     const fullscreenVertices = new Float32Array(fullscreenRect.flatMap(p => [p.x, p.y]))
@@ -214,15 +214,15 @@ export class SelectionOverlayRenderer {
 
     const rootOpacity = calculateOpacityForLevel(level, maxDepth, RENDER_ALPHA.SELECTION_OVERLAY_MAX, RENDER_ALPHA.SELECTION_OVERLAY_MIN)
     const overlayBlack = RENDER_COLORS.OVERLAY_BLACK
-    setColorUniform(this.gl, this.program, [overlayBlack[0], overlayBlack[1], overlayBlack[2], rootOpacity])
+    this.setColorUniform([overlayBlack[0], overlayBlack[1], overlayBlack[2], rootOpacity])
 
-    this.gl.uniform1i(this.gl.getUniformLocation(this.program, 'u_skipTransform'), 1)
+    this.uniformState.uniform1i(this.uniformState.getLocation(this.program, 'u_skipTransform'), 1)
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer)
     this.gl.bufferData(this.gl.ARRAY_BUFFER, fullscreenVertices, this.gl.DYNAMIC_DRAW)
     this.gl.drawArrays(this.gl.TRIANGLE_FAN, 0, WEBGL_DRAW_COUNTS.FULLSCREEN_TRIANGLE_FAN_VERTICES)
 
-    this.gl.uniform1i(this.gl.getUniformLocation(this.program, 'u_skipTransform'), 0)
+    this.uniformState.uniform1i(this.uniformState.getLocation(this.program, 'u_skipTransform'), 0)
   }
 
   /**
@@ -275,15 +275,15 @@ export class SelectionOverlayRenderer {
 
     const ringOpacity = calculateOpacityForLevel(levelIndex, maxDepth, RENDER_ALPHA.SELECTION_OVERLAY_MAX, RENDER_ALPHA.SELECTION_OVERLAY_MIN)
     const overlayBlack = RENDER_COLORS.OVERLAY_BLACK
-    setColorUniform(this.gl, this.program, [overlayBlack[0], overlayBlack[1], overlayBlack[2], ringOpacity])
+    this.setColorUniform([overlayBlack[0], overlayBlack[1], overlayBlack[2], ringOpacity])
 
-    this.gl.uniform1i(this.gl.getUniformLocation(this.program, 'u_skipTransform'), 1)
+    this.uniformState.uniform1i(this.uniformState.getLocation(this.program, 'u_skipTransform'), 1)
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer)
     this.gl.bufferData(this.gl.ARRAY_BUFFER, fullscreenVertices, this.gl.DYNAMIC_DRAW)
     this.gl.drawArrays(this.gl.TRIANGLE_FAN, 0, WEBGL_DRAW_COUNTS.FULLSCREEN_TRIANGLE_FAN_VERTICES)
 
-    this.gl.uniform1i(this.gl.getUniformLocation(this.program, 'u_skipTransform'), 0)
+    this.uniformState.uniform1i(this.uniformState.getLocation(this.program, 'u_skipTransform'), 0)
   }
 
   /**
@@ -308,16 +308,16 @@ export class SelectionOverlayRenderer {
     this.gl.useProgram(this.program)
     this.gl.bindVertexArray(this.vao)
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
-    setTransformUniforms(this.gl, this.program, scale, view, view.zoom)
+    this.setTransformUniforms(scale, view)
 
-    this.gl.uniform1i(this.gl.getUniformLocation(this.program, 'u_skipTransform'), 0)
+    this.uniformState.uniform1i(this.uniformState.getLocation(this.program, 'u_skipTransform'), 0)
     const rgba: [number, number, number, number] = [
       color[0] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
       color[1] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
       color[2] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
       color[3] ?? WEBGL_DEFAULTS.ALPHA_CHANNEL
     ]
-    setColorUniform(this.gl, this.program, rgba)
+    this.setColorUniform(rgba)
 
     const triangleIndices = triangulatePolygon(polygon.points)
     if (triangleIndices.length >= WEBGL_GEOMETRY.MIN_TRIANGLE_INDEX_COUNT) {
@@ -329,6 +329,46 @@ export class SelectionOverlayRenderer {
 
     this.gl.bindVertexArray(null)
     disableBlending(this.gl)
+  }
+
+  private setTransformUniforms(scale: Scale, view: View): void {
+    if (!this.program) return
+
+    this.uniformState.uniform2f(
+      this.uniformState.getLocation(this.program, 'u_scale'),
+      scale.scaleX,
+      scale.scaleY
+    )
+    this.uniformState.uniform2f(
+      this.uniformState.getLocation(this.program, 'u_offset'),
+      view.offsetX,
+      view.offsetY
+    )
+    this.uniformState.uniform1f(this.uniformState.getLocation(this.program, 'u_zoom'), view.zoom)
+    this.uniformState.uniform2f(
+      this.uniformState.getLocation(this.program, 'u_rotation'),
+      scale.rotationCos ?? 1,
+      scale.rotationSin ?? 0
+    )
+
+    const fallbackAspect = this.gl.canvas.width > 0 && this.gl.canvas.height > 0
+      ? this.gl.canvas.width / this.gl.canvas.height
+      : 1
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(this.program, 'u_canvasAspect'),
+      scale.rotationAspect ?? fallbackAspect
+    )
+  }
+
+  private setColorUniform(color: readonly [number, number, number, number]): void {
+    if (!this.program) return
+    this.uniformState.uniform4f(
+      this.uniformState.getLocation(this.program, 'u_color'),
+      color[0],
+      color[1],
+      color[2],
+      color[3]
+    )
   }
 
   /**

@@ -1,17 +1,25 @@
 import type { ResourcePool } from './resource-pool'
+import { UniformStateCache } from './uniform-state-cache'
 import { RENDER_COLORS, RENDER_COLOR_TUNING, RENDER_SIZES } from '@/utils/editor/editor-constants'
 
 export class PolygonRenderer {
   private gl: WebGL2RenderingContext
   private pool: ResourcePool
   private program: WebGLProgram
+  private uniformState: UniformStateCache
   private vao: WebGLVertexArrayObject
   private positionBuffer: WebGLBuffer
 
-  constructor(gl: WebGL2RenderingContext, program: WebGLProgram, pool: ResourcePool) {
+  constructor(
+    gl: WebGL2RenderingContext,
+    program: WebGLProgram,
+    pool: ResourcePool,
+    uniformState = new UniformStateCache(gl)
+  ) {
     this.gl = gl
     this.program = program
     this.pool = pool
+    this.uniformState = uniformState
 
     this.vao = gl.createVertexArray()!
     this.positionBuffer = gl.createBuffer()!
@@ -65,21 +73,27 @@ export class PolygonRenderer {
 
     this.gl.useProgram(this.program)
     this.setTransformUniforms(scale, view)
-    this.gl.uniform1f(this.gl.getUniformLocation(this.program, 'u_pointSize'), RENDER_SIZES.POLYGON_POINT_SIZE)
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(this.program, 'u_pointSize'),
+      RENDER_SIZES.POLYGON_POINT_SIZE
+    )
 
     const color: [number, number, number, number] = (draggedNodeInfo.isDragging && isInvalidPosition)
       ? (RENDER_COLORS.INVALID_RED as [number, number, number, number])
       : (nodeColor as [number, number, number, number] || (RENDER_COLORS.SELECTED_BLUE as [number, number, number, number]))
 
-    this.gl.uniform4f(
-      this.gl.getUniformLocation(this.program, 'u_color'),
+    this.uniformState.uniform4f(
+      this.uniformState.getLocation(this.program, 'u_color'),
       color[0], color[1], color[2], color[3]
     )
 
     this.gl.drawArrays(this.gl.POINTS, 0, pointCount)
 
     if (hoveredNodeIndex >= 0 && hoveredNodeIndex < pointCount) {
-      this.gl.uniform1f(this.gl.getUniformLocation(this.program, 'u_pointSize'), RENDER_SIZES.DRAGGED_POINT_SIZE)
+      this.uniformState.uniform1f(
+        this.uniformState.getLocation(this.program, 'u_pointSize'),
+        RENDER_SIZES.DRAGGED_POINT_SIZE
+      )
 
       let hoverColor: [number, number, number, number]
       if (draggedNodeInfo.isDragging && draggedNodeInfo.nodeIndex === hoveredNodeIndex && isInvalidPosition) {
@@ -95,8 +109,8 @@ export class PolygonRenderer {
         hoverColor = RENDER_COLORS.PREVIEW_PINK as [number, number, number, number]
       }
 
-      this.gl.uniform4f(
-        this.gl.getUniformLocation(this.program, 'u_color'),
+      this.uniformState.uniform4f(
+        this.uniformState.getLocation(this.program, 'u_color'),
         hoverColor[0], hoverColor[1], hoverColor[2], hoverColor[3]
       )
 
@@ -149,14 +163,17 @@ export class PolygonRenderer {
       this.setTransformUniforms(scale, view)
     }
 
-    this.gl.uniform1f(this.gl.getUniformLocation(this.program, 'u_pointSize'), RENDER_SIZES.POLYGON_POINT_SIZE)
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(this.program, 'u_pointSize'),
+      RENDER_SIZES.POLYGON_POINT_SIZE
+    )
 
     const color: [number, number, number, number] = isInvalidPosition
       ? (RENDER_COLORS.INVALID_RED as [number, number, number, number])
       : (RENDER_COLORS.ACTIVE_YELLOW_POLYGON as [number, number, number, number])
 
-    this.gl.uniform4f(
-      this.gl.getUniformLocation(this.program, 'u_color'),
+    this.uniformState.uniform4f(
+      this.uniformState.getLocation(this.program, 'u_color'),
       color[0], color[1], color[2], color[3]
     )
 
@@ -165,29 +182,30 @@ export class PolygonRenderer {
   }
 
   private setTransformUniforms(scale: any, view: any): void {
-    this.gl.uniform2f(
-      this.gl.getUniformLocation(this.program, 'u_scale'),
+    this.uniformState.uniform2f(
+      this.uniformState.getLocation(this.program, 'u_scale'),
       scale.scaleX, scale.scaleY
     )
-    this.gl.uniform2f(
-      this.gl.getUniformLocation(this.program, 'u_offset'),
+    this.uniformState.uniform2f(
+      this.uniformState.getLocation(this.program, 'u_offset'),
       view.offsetX, view.offsetY
     )
-    this.gl.uniform1f(
-      this.gl.getUniformLocation(this.program, 'u_zoom'),
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(this.program, 'u_zoom'),
       view.zoom
     )
-    const rotationLocation = this.gl.getUniformLocation(this.program, 'u_rotation')
-    const canvasAspectLocation = this.gl.getUniformLocation(this.program, 'u_canvasAspect')
-    if (rotationLocation) {
-      this.gl.uniform2f(rotationLocation, scale.rotationCos ?? 1, scale.rotationSin ?? 0)
-    }
-    if (canvasAspectLocation) {
-      const fallbackAspect = (this.gl.canvas.width > 0 && this.gl.canvas.height > 0)
-        ? (this.gl.canvas.width / this.gl.canvas.height)
-        : 1
-      this.gl.uniform1f(canvasAspectLocation, scale.rotationAspect ?? fallbackAspect)
-    }
+    this.uniformState.uniform2f(
+      this.uniformState.getLocation(this.program, 'u_rotation'),
+      scale.rotationCos ?? 1,
+      scale.rotationSin ?? 0
+    )
+    const fallbackAspect = (this.gl.canvas.width > 0 && this.gl.canvas.height > 0)
+      ? (this.gl.canvas.width / this.gl.canvas.height)
+      : 1
+    this.uniformState.uniform1f(
+      this.uniformState.getLocation(this.program, 'u_canvasAspect'),
+      scale.rotationAspect ?? fallbackAspect
+    )
   }
 
   cleanup(): void {

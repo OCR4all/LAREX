@@ -196,7 +196,7 @@ export function useEditorRenderer(
     forceRender,
     stats: renderQueueStats
   } = useRenderQueue(renderNow, {
-    enableMonitoring: true,
+    enableMonitoring: import.meta.env.DEV,
     // Keep diagnostics active without logging expected long frames while the
     // renderer is under load. The overlay still exposes the actual timings.
     maxFrameTime: Number.POSITIVE_INFINITY

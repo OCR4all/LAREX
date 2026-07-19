@@ -1,4 +1,5 @@
 import { createProgram } from './core'
+import { UniformStateCache } from './uniform-state-cache'
 import type { Scale } from '@/utils/editor/webgl-utils'
 import { normalize } from '@/utils/editor/geometry-utils'
 import type { Point, View } from '@/models/editor'
@@ -47,6 +48,7 @@ interface DashedLineUniforms {
  */
 export class DashedLineRenderer {
   private gl: WebGL2RenderingContext
+  private uniformState: UniformStateCache
   private program: WebGLProgram | null = null
   private vao: WebGLVertexArrayObject | null = null
   private positionBuffer: WebGLBuffer | null = null
@@ -59,8 +61,9 @@ export class DashedLineRenderer {
   private geometryCache = new Map<string, CachedDashedGeometry>()
   private initialized = false
 
-  constructor(gl: WebGL2RenderingContext) {
+  constructor(gl: WebGL2RenderingContext, uniformState = new UniformStateCache(gl)) {
     this.gl = gl
+    this.uniformState = uniformState
   }
 
   /**
@@ -133,16 +136,16 @@ export class DashedLineRenderer {
   private cacheUniformLocations(): void {
     if (!this.program) return
     this.uniforms = {
-      scale: this.gl.getUniformLocation(this.program, 'u_scale'),
-      offset: this.gl.getUniformLocation(this.program, 'u_offset'),
-      zoom: this.gl.getUniformLocation(this.program, 'u_zoom'),
-      rotation: this.gl.getUniformLocation(this.program, 'u_rotation'),
-      canvasAspect: this.gl.getUniformLocation(this.program, 'u_canvasAspect'),
-      color: this.gl.getUniformLocation(this.program, 'u_color'),
-      thickness: this.gl.getUniformLocation(this.program, 'u_thickness'),
-      resolution: this.gl.getUniformLocation(this.program, 'u_resolution'),
-      dashLength: this.gl.getUniformLocation(this.program, 'u_dashLength'),
-      gapLength: this.gl.getUniformLocation(this.program, 'u_gapLength')
+      scale: this.uniformState.getLocation(this.program, 'u_scale'),
+      offset: this.uniformState.getLocation(this.program, 'u_offset'),
+      zoom: this.uniformState.getLocation(this.program, 'u_zoom'),
+      rotation: this.uniformState.getLocation(this.program, 'u_rotation'),
+      canvasAspect: this.uniformState.getLocation(this.program, 'u_canvasAspect'),
+      color: this.uniformState.getLocation(this.program, 'u_color'),
+      thickness: this.uniformState.getLocation(this.program, 'u_thickness'),
+      resolution: this.uniformState.getLocation(this.program, 'u_resolution'),
+      dashLength: this.uniformState.getLocation(this.program, 'u_dashLength'),
+      gapLength: this.uniformState.getLocation(this.program, 'u_gapLength')
     }
   }
 
@@ -208,39 +211,33 @@ export class DashedLineRenderer {
     const uniforms = this.uniforms
     if (!uniforms) return
 
-    if (uniforms.scale) this.gl.uniform2f(uniforms.scale, aspectRatioScale.scaleX, aspectRatioScale.scaleY)
-    if (uniforms.offset) this.gl.uniform2f(uniforms.offset, view.offsetX, view.offsetY)
-    if (uniforms.zoom) this.gl.uniform1f(uniforms.zoom, view.zoom)
+    this.uniformState.uniform2f(uniforms.scale, aspectRatioScale.scaleX, aspectRatioScale.scaleY)
+    this.uniformState.uniform2f(uniforms.offset, view.offsetX, view.offsetY)
+    this.uniformState.uniform1f(uniforms.zoom, view.zoom)
 
-    if (uniforms.rotation) {
-      const rotationCos = Number.isFinite(aspectRatioScale.rotationCos) ? aspectRatioScale.rotationCos! : 1
-      const rotationSin = Number.isFinite(aspectRatioScale.rotationSin) ? aspectRatioScale.rotationSin! : 0
-      this.gl.uniform2f(uniforms.rotation, rotationCos, rotationSin)
-    }
+    const rotationCos = Number.isFinite(aspectRatioScale.rotationCos) ? aspectRatioScale.rotationCos! : 1
+    const rotationSin = Number.isFinite(aspectRatioScale.rotationSin) ? aspectRatioScale.rotationSin! : 0
+    this.uniformState.uniform2f(uniforms.rotation, rotationCos, rotationSin)
 
-    if (uniforms.canvasAspect) {
-      const fallbackAspect = this.gl.canvas.width > 0 && this.gl.canvas.height > 0
-        ? this.gl.canvas.width / this.gl.canvas.height
-        : 1
-      const rotationAspect = Number.isFinite(aspectRatioScale.rotationAspect) && aspectRatioScale.rotationAspect! > 0
-        ? aspectRatioScale.rotationAspect!
-        : fallbackAspect
-      this.gl.uniform1f(uniforms.canvasAspect, rotationAspect)
-    }
+    const fallbackAspect = this.gl.canvas.width > 0 && this.gl.canvas.height > 0
+      ? this.gl.canvas.width / this.gl.canvas.height
+      : 1
+    const rotationAspect = Number.isFinite(aspectRatioScale.rotationAspect) && aspectRatioScale.rotationAspect! > 0
+      ? aspectRatioScale.rotationAspect!
+      : fallbackAspect
+    this.uniformState.uniform1f(uniforms.canvasAspect, rotationAspect)
 
-    if (uniforms.color) {
-      this.gl.uniform4f(
-        uniforms.color,
-        color[0] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-        color[1] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-        color[2] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-        color[3] ?? WEBGL_DEFAULTS.ALPHA_CHANNEL
-      )
-    }
-    if (uniforms.thickness) this.gl.uniform1f(uniforms.thickness, thickness)
-    if (uniforms.resolution) this.gl.uniform2f(uniforms.resolution, this.gl.canvas.width, this.gl.canvas.height)
-    if (uniforms.dashLength) this.gl.uniform1f(uniforms.dashLength, dashLength)
-    if (uniforms.gapLength) this.gl.uniform1f(uniforms.gapLength, gapLength)
+    this.uniformState.uniform4f(
+      uniforms.color,
+      color[0] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+      color[1] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+      color[2] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+      color[3] ?? WEBGL_DEFAULTS.ALPHA_CHANNEL
+    )
+    this.uniformState.uniform1f(uniforms.thickness, thickness)
+    this.uniformState.uniform2f(uniforms.resolution, this.gl.canvas.width, this.gl.canvas.height)
+    this.uniformState.uniform1f(uniforms.dashLength, dashLength)
+    this.uniformState.uniform1f(uniforms.gapLength, gapLength)
   }
 
   private deleteCachedGeometry(entry: CachedDashedGeometry): void {

@@ -46,17 +46,6 @@ export const WEBGL_STENCIL = {
   REF_CLEAR: 0
 } as const
 
-export const WEBGL_BATCH = {
-  /** Max number of line segments to buffer before a batch flush */
-  LINE_MAX_SEGMENTS: 5000,
-
-  /** Auto-flush threshold (number of lines queued) */
-  LINE_AUTO_FLUSH_LINES: 100,
-
-  /** Max number of fill vertices to buffer before a batch flush */
-  FILL_MAX_VERTICES: 10000
-} as const
-
 export const WEBGL_LINE_GEOMETRY = {
   /** Thick-line quad vertices per line segment */
   VERTICES_PER_SEGMENT: 4,
@@ -123,13 +112,4 @@ export const WEBGL_GEOMETRY = {
 
   /** Two-triangle indices for a rectangle with 4 points */
   RECTANGLE_TRIANGLE_INDICES: [0, 1, 3, 1, 2, 3] as const
-} as const
-
-export const WEBGL_FILL_GEOMETRY = {
-  /** XY components per vertex in fill buffers */
-  POSITION_COMPONENTS: 2,
-  /** RGBA components per vertex in fill buffers */
-  COLOR_COMPONENTS: 4,
-  /** Conservative multiplier for index buffer preallocation */
-  INDICES_MULTIPLIER: 3
 } as const
