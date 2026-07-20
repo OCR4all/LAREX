@@ -5,7 +5,7 @@ import { getTooltipProps } from '@/composables/editor/use-keyboard-shortcuts'
 import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboards'
 import { PolygonType } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
-import type { DropdownMenuItem, TabsItem } from '@nuxt/ui'
+import type { DropdownMenuItem, SelectMenuItem } from '@nuxt/ui'
 import { useFloatingAnchorPosition } from '@/composables/editor/use-floating-anchor-position'
 import { EDITOR_WORKSPACE_FLOATING_ANCHOR_ID, ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
 import {
@@ -16,7 +16,7 @@ import {
 } from '@/session/editor/canvas-commander'
 import type { Commander } from '@/commands/editor/commander'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
-import type { LayoutViewMode, VirtualKeyboardMode } from '@/stores/editor/types'
+import type { LayoutViewMode, TextModeSubmode, VirtualKeyboardMode } from '@/stores/editor/types'
 import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
 
 const editorStore = useEditorStore()
@@ -27,94 +27,29 @@ const emit = defineEmits<{
 }>()
 
 type HistoryItem = ReturnType<Commander['getDetailedHistory']>[number]
-type ToolbarTabItem = TabsItem & {
-  icon?: string
-  label?: string
-  tooltip?: {
-    text?: string
-    kbds?: string[]
-  }
+type ModeViewValue = `layout:${LayoutViewMode}` | `text:${TextModeSubmode}`
+type ModeViewOptionBase = {
+  value: ModeViewValue
+  modeLabel: 'Layout' | 'Text'
+  label: string
+  description: string
+  icon: string
+  kbds?: string[]
 }
-
-function isToolbarTabItem(item: unknown): item is ToolbarTabItem {
-  return typeof item === 'object' && item !== null
+type LayoutModeViewOption = ModeViewOptionBase & {
+  mode: 'layout'
+  view: LayoutViewMode
 }
-
-function getTabTooltipText(item: unknown): string | undefined {
-  return isToolbarTabItem(item) ? item.tooltip?.text : undefined
+type TextModeViewOption = ModeViewOptionBase & {
+  mode: 'text'
+  view: TextModeSubmode
 }
-
-function getTabTooltipKbds(item: unknown): string[] | undefined {
-  return isToolbarTabItem(item) ? item.tooltip?.kbds : undefined
+type ModeViewOption = LayoutModeViewOption | TextModeViewOption
+type ModeViewGroupLabel = SelectMenuItem & {
+  type: 'label'
+  label: string
+  value: ModeViewValue
 }
-
-function getTabIcon(item: unknown): string | undefined {
-  return isToolbarTabItem(item) ? item.icon : undefined
-}
-
-function getTabLabel(item: unknown): string | undefined {
-  return isToolbarTabItem(item) ? item.label : undefined
-}
-
-const editorModeItems = computed<TabsItem[]>(() =>
-  [
-    {
-      label: 'Layout',
-      value: 'layout',
-      icon: 'i-lucide-layout-dashboard',
-      tooltip: getTooltipProps('layoutMode')
-    },
-    {
-      label: 'Text',
-      value: 'text',
-      icon: 'i-lucide-text-initial',
-      tooltip: getTooltipProps('textMode')
-    }
-  ].map(({ label, tooltip, ...rest }) => ({
-    ...rest,
-    tooltip,
-    ...(!isVertical.value && { label })
-  }))
-)
-
-const viewModeItems = computed<TabsItem[]>(() => [
-  {
-    value: VIEW_MODES.DEFAULT,
-    icon: 'i-lucide-layers',
-    tooltip: getTooltipProps('defaultView')
-  },
-  {
-    value: VIEW_MODES.TEXTLINE,
-    icon: 'i-lucide-type',
-    tooltip: getTooltipProps('textlineView')
-  },
-  {
-    value: VIEW_MODES.BASELINE,
-    icon: 'i-lucide-baseline',
-    tooltip: getTooltipProps('baselineView')
-  }
-])
-
-const textModeSubmodeItems = computed<TabsItem[]>(() =>
-  [
-    {
-      label: 'Visual',
-      value: 'visual',
-      icon: 'i-lucide-notebook-pen',
-      tooltip: { text: 'Canvas GT correction on textlines' }
-    },
-    {
-      label: 'Expert',
-      value: 'expert',
-      icon: 'i-lucide-list-filter',
-      tooltip: { text: 'Textline list with sort and filters' }
-    }
-  ].map(({ label, tooltip, ...rest }) => ({
-    ...rest,
-    tooltip,
-    ...(!isVertical.value && !isCompact.value && { label })
-  }))
-)
 
 const toolbarLayoutItems = computed<DropdownMenuItem[][]>(() => [
   [
@@ -188,15 +123,11 @@ const props = defineProps({
   }
 })
 
-const toolbarActiveToolClass = 'bg-navy-600 text-white hover:bg-navy-700 active:bg-navy-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-600 dark:bg-navy-600 dark:text-white dark:hover:bg-navy-700 dark:active:bg-navy-700'
-const toolbarActiveDropdownItemClass = 'text-white before:bg-navy-600 data-highlighted:text-white data-highlighted:before:bg-navy-700 data-[state=open]:text-white data-[state=open]:before:bg-navy-700'
+const toolbarActiveToolClass = 'bg-primary text-inverted hover:bg-primary/75 active:bg-primary/75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+const toolbarActiveDropdownItemClass = 'text-inverted before:bg-primary data-highlighted:text-inverted data-highlighted:before:bg-primary/75 data-[state=open]:text-inverted data-[state=open]:before:bg-primary/75'
 const toolbarActiveDropdownItemUi = {
-  itemLeadingIcon: 'text-white group-data-highlighted:text-white group-data-[state=open]:text-white',
-  itemTrailingIcon: 'text-white group-data-highlighted:text-white group-data-[state=open]:text-white'
-} as const
-const toolbarTabsUi = {
-  indicator: 'bg-navy-600',
-  trigger: 'data-[state=active]:text-white focus-visible:outline-navy-600'
+  itemLeadingIcon: 'text-inverted group-data-highlighted:text-inverted group-data-[state=open]:text-inverted',
+  itemTrailingIcon: 'text-inverted group-data-highlighted:text-inverted group-data-[state=open]:text-inverted'
 } as const
 
 function activeToolClass(active: boolean): string | undefined {
@@ -220,6 +151,13 @@ const isFloating = computed(() => {
 
 const isVertical = computed(() => {
   return ['docked-left', 'docked-right'].includes(editorStore.toolbarLayout)
+})
+
+const modeViewMenuSide = computed<'top' | 'bottom' | 'left' | 'right'>(() => {
+  if (editorStore.toolbarLayout === 'docked-left') return 'right'
+  if (editorStore.toolbarLayout === 'docked-right') return 'left'
+  if (editorStore.toolbarLayout === 'docked-top') return 'bottom'
+  return 'top'
 })
 
 const toolbarStyle = computed(() => {
@@ -427,10 +365,104 @@ const editorModeModel = computed({
 
 const textModeSubmodeModel = computed({
   get: () => uiStore.textModeSubmode,
-  set: (next: 'visual' | 'expert') => {
+  set: (next: TextModeSubmode) => {
     uiStore.setTextModeSubmode(next)
   }
 })
+
+const modeViewOptions = computed<ModeViewOption[]>(() => [
+  {
+    value: `layout:${VIEW_MODES.DEFAULT}`,
+    mode: 'layout',
+    modeLabel: 'Layout',
+    view: VIEW_MODES.DEFAULT,
+    label: 'Hierarchy',
+    description: 'Browse and edit the region hierarchy.',
+    icon: 'i-lucide-layers',
+    kbds: getTooltipProps('defaultView').kbds
+  },
+  {
+    value: `layout:${VIEW_MODES.TEXTLINE}`,
+    mode: 'layout',
+    modeLabel: 'Layout',
+    view: VIEW_MODES.TEXTLINE,
+    label: 'Text lines',
+    description: 'Focus selection and editing on text-line geometry.',
+    icon: 'i-lucide-type',
+    kbds: getTooltipProps('textlineView').kbds
+  },
+  {
+    value: `layout:${VIEW_MODES.BASELINE}`,
+    mode: 'layout',
+    modeLabel: 'Layout',
+    view: VIEW_MODES.BASELINE,
+    label: 'Baselines',
+    description: 'Focus selection and editing on baselines.',
+    icon: 'i-lucide-baseline',
+    kbds: getTooltipProps('baselineView').kbds
+  },
+  {
+    value: 'text:visual',
+    mode: 'text',
+    modeLabel: 'Text',
+    view: 'visual',
+    label: 'Canvas',
+    description: 'Correct ground truth directly on the page canvas.',
+    icon: 'i-lucide-notebook-pen',
+    kbds: getTooltipProps('textCanvasView').kbds
+  },
+  {
+    value: 'text:expert',
+    mode: 'text',
+    modeLabel: 'Text',
+    view: 'expert',
+    label: 'List',
+    description: 'Review text lines with search, sorting, and filters.',
+    icon: 'i-lucide-list-filter',
+    kbds: getTooltipProps('textListView').kbds
+  }
+])
+
+const modeViewMenuItems = computed<Array<Array<ModeViewGroupLabel | ModeViewOption>>>(() => [
+  [
+    {
+      type: 'label',
+      label: 'Layout',
+      value: `layout:${VIEW_MODES.DEFAULT}`
+    },
+    ...modeViewOptions.value.filter(option => option.mode === 'layout')
+  ],
+  [
+    {
+      type: 'label',
+      label: 'Text',
+      value: 'text:visual'
+    },
+    ...modeViewOptions.value.filter(option => option.mode === 'text')
+  ]
+])
+
+const modeViewModel = computed<ModeViewValue>({
+  get: (): ModeViewValue => {
+    if (isTextUiMode.value) return `text:${textModeSubmodeModel.value}`
+    return `layout:${selectedViewMode.value}`
+  },
+  set: (value: ModeViewValue) => {
+    const option = modeViewOptions.value.find(item => item.value === value)
+    if (option) selectModeView(option)
+  }
+})
+
+const activeModeViewOption = computed<ModeViewOption>(() =>
+  modeViewOptions.value.find(option => option.value === modeViewModel.value)
+  ?? modeViewOptions.value[0]!
+)
+const modeViewLabel = computed(() =>
+  `${activeModeViewOption.value.modeLabel} · ${activeModeViewOption.value.label}`
+)
+const modeViewAriaLabel = computed(() =>
+  `Editor mode and view: ${activeModeViewOption.value.modeLabel}, ${activeModeViewOption.value.label}`
+)
 
 const selectedPolygon = computed<RenderablePolygon | undefined>(() => {
   const list = currentCanvasState.value?.polygons as RenderablePolygon[] | undefined
@@ -534,6 +566,12 @@ function getIconForShape(option: ShapeOption): string {
   return 'i-lucide-pen-tool'
 }
 
+function getEntryToolLabel(entry: 'region' | 'textline'): string {
+  const element = entry === 'region' ? 'Region' : 'Text line'
+  const shape = getPrimaryShapeForEntry(entry)
+  return `${element} ${shape}`
+}
+
 const handleToggleSelectMode = () => {
   cancelActionWand()
   if (currentCanvasState.value?.toggleSelectMode) {
@@ -628,6 +666,23 @@ const isTextVisualMode = computed(() =>
 )
 const forcedLayoutViewModeByCanvasId = ref<Record<string, LayoutViewMode>>({})
 
+function selectModeView(option: ModeViewOption): void {
+  if (option.mode === 'text') {
+    textModeSubmodeModel.value = option.view
+    editorModeModel.value = 'text'
+    return
+  }
+
+  const canvasId = currentCanvasId.value
+  if (canvasId && forcedLayoutViewModeByCanvasId.value[canvasId]) {
+    const { [canvasId]: _discardedRestoreMode, ...nextMap } = forcedLayoutViewModeByCanvasId.value
+    forcedLayoutViewModeByCanvasId.value = nextMap
+  }
+
+  editorModeModel.value = 'layout'
+  selectedViewMode.value = option.view
+}
+
 watch(
   () => [currentCanvasId.value, isTextVisualMode.value, effectiveUiMode.value, selectedViewMode.value] as const,
   ([canvasId, visualTextMode, uiMode, currentView]) => {
@@ -655,8 +710,13 @@ watch(
     const { [canvasId]: _restoredMode, ...nextMap } = forcedLayoutViewModeByCanvasId.value
     forcedLayoutViewModeByCanvasId.value = nextMap
 
-    if (restoreMode !== currentView) {
-      controls.setViewMode?.(restoreMode, { persistAsLayoutPreference: true })
+    const explicitlySelectedMode = uiStore.lastLayoutViewMode
+    const targetMode = explicitlySelectedMode === currentView
+      ? explicitlySelectedMode
+      : restoreMode
+
+    if (targetMode !== currentView) {
+      controls.setViewMode?.(targetMode, { persistAsLayoutPreference: true })
     }
   },
   { immediate: true }
@@ -940,6 +1000,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                     size="sm"
                     :icon="vkModeIcon"
                     :active="virtualKeyboardMode !== 'off'"
+                    :aria-pressed="virtualKeyboardMode !== 'off'"
+                    :aria-label="getTooltipProps('toggleVirtualKeyboard').text"
                     color="neutral"
                     :class="activeToolClass(virtualKeyboardMode !== 'off')"
                     :disabled="!hasKeyboards"
@@ -967,31 +1029,6 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             />
           </template>
 
-          <UTabs
-            v-model="textModeSubmodeModel"
-            data-tour="text-view-mode-tabs"
-            :orientation="isVertical ? 'vertical' : 'horizontal'"
-            size="sm"
-            color="neutral"
-            :ui="toolbarTabsUi"
-            :content="false"
-            :items="textModeSubmodeItems"
-          >
-            <template #item="{ item }">
-              <UTooltip :delay-duration="0" :text="getTabTooltipText(item)">
-                <div class="flex items-center gap-1.5">
-                  <Icon v-if="getTabIcon(item)" :name="getTabIcon(item) ?? ''" class="size-4 shrink-0" />
-                  <span v-if="getTabLabel(item)">{{ getTabLabel(item) }}</span>
-                </div>
-              </UTooltip>
-            </template>
-          </UTabs>
-
-          <USeparator
-            :orientation="isVertical ? 'horizontal' : 'vertical'"
-            class="h-6 mx-1"
-          />
-
           <div
             v-if="showUndoTool || showRedoTool || showHistoryTool"
             data-tour="undo-redo"
@@ -1004,6 +1041,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-undo"
                 color="neutral"
                 size="sm"
+                :aria-label="getTooltipProps('undo').text"
                 :disabled="!canUndo"
                 @click="handleUndo"
               />
@@ -1014,6 +1052,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-redo"
                 color="neutral"
                 size="sm"
+                :aria-label="getTooltipProps('redo').text"
                 :disabled="!canRedo"
                 @click="handleRedo"
               />
@@ -1026,6 +1065,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   icon="i-lucide-history"
                   color="neutral"
                   size="sm"
+                  :aria-label="getTooltipProps('history').text"
                   :disabled="!hasUndoRedoRuntime"
                   @click="updateHistoryItems"
                 />
@@ -1068,6 +1108,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-mouse-pointer-2"
                 color="neutral"
                 :active="isSelectMode && !uiStore.actionWandActive"
+                :aria-pressed="isSelectMode && !uiStore.actionWandActive"
+                :aria-label="getTooltipProps('selectMode').text"
                 :class="activeToolClass(isSelectMode && !uiStore.actionWandActive)"
                 :disabled="!currentCanvasState"
                 @click="handleToggleSelectMode"
@@ -1081,6 +1123,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-move"
                 color="neutral"
                 :active="isMoveMode"
+                :aria-pressed="isMoveMode"
+                :aria-label="getTooltipProps('moveMode').text"
                 :class="activeToolClass(isMoveMode)"
                 :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleMoveMode"
@@ -1103,6 +1147,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   icon="i-lucide-square"
                   color="neutral"
                   :active="isRegionTypeRegion && isRectangleMode"
+                  :aria-pressed="isRegionTypeRegion && isRectangleMode"
+                  :aria-label="getTooltipProps('regionRectangle').text"
                   :class="activeToolClass(isRegionTypeRegion && isRectangleMode)"
                   :disabled="!currentCanvasState || !canCreateRegion"
                   @click="setEntryAndMode('region', 'rectangle')"
@@ -1116,6 +1162,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   icon="i-lucide-pen-tool"
                   color="neutral"
                   :active="isRegionTypeRegion && isPolygonMode"
+                  :aria-pressed="isRegionTypeRegion && isPolygonMode"
+                  :aria-label="getTooltipProps('regionPolygon').text"
                   :class="activeToolClass(isRegionTypeRegion && isPolygonMode)"
                   :disabled="!currentCanvasState || !canCreateRegion"
                   @click="setEntryAndMode('region', 'polygon')"
@@ -1137,6 +1185,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   icon="i-lucide-square"
                   color="neutral"
                   :active="isRegionTypeTextline && isRectangleMode"
+                  :aria-pressed="isRegionTypeTextline && isRectangleMode"
+                  :aria-label="getTooltipProps('textlineRectangle').text"
                   :class="activeToolClass(isRegionTypeTextline && isRectangleMode)"
                   :disabled="!currentCanvasState || !canCreateTextline"
                   @click="setEntryAndMode('textline', 'rectangle')"
@@ -1150,6 +1200,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   icon="i-lucide-pen-tool"
                   color="neutral"
                   :active="isRegionTypeTextline && isPolygonMode"
+                  :aria-pressed="isRegionTypeTextline && isPolygonMode"
+                  :aria-label="getTooltipProps('textlinePolygon').text"
                   :class="activeToolClass(isRegionTypeTextline && isPolygonMode)"
                   :disabled="!currentCanvasState || !canCreateTextline"
                   @click="setEntryAndMode('textline', 'polygon')"
@@ -1167,6 +1219,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                     size="md"
                     color="neutral"
                     :active="isRegionTypeRegion && (isPolygonMode || isRectangleMode)"
+                    :aria-pressed="isRegionTypeRegion && (isPolygonMode || isRectangleMode)"
+                    :aria-label="getEntryToolLabel('region')"
                     :class="activeToolClass(isRegionTypeRegion && (isPolygonMode || isRectangleMode))"
                     :disabled="!currentCanvasState || !canCreateRegion"
                     @click="setEntryAndMode('region', getPrimaryShapeForEntry('region'))"
@@ -1204,6 +1258,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                     size="md"
                     color="neutral"
                     :active="isRegionTypeTextline && (isPolygonMode || isRectangleMode)"
+                    :aria-pressed="isRegionTypeTextline && (isPolygonMode || isRectangleMode)"
+                    :aria-label="getEntryToolLabel('textline')"
                     :class="activeToolClass(isRegionTypeTextline && (isPolygonMode || isRectangleMode))"
                     :disabled="!currentCanvasState || !canCreateTextline"
                     @click="setEntryAndMode('textline', getPrimaryShapeForEntry('textline'))"
@@ -1244,6 +1300,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
               icon="i-lucide-activity"
               color="neutral"
               :active="isRegionTypeBaseline && isPolylineMode"
+              :aria-pressed="isRegionTypeBaseline && isPolylineMode"
+              :aria-label="getTooltipProps('baseline').text"
               :class="activeToolClass(isRegionTypeBaseline && isPolylineMode)"
               :disabled="!currentCanvasState || !canCreateBaseline"
               @click="setEntryAndMode('baseline', 'polyline')"
@@ -1264,6 +1322,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-scissors"
                 color="neutral"
                 :active="isCutLineMode"
+                :aria-pressed="isCutLineMode"
+                :aria-label="getTooltipProps('cutLine').text"
                 :class="activeToolClass(isCutLineMode)"
                 :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleCutMode('line')"
@@ -1277,6 +1337,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-square-minus"
                 color="neutral"
                 :active="isCutRectangleMode"
+                :aria-pressed="isCutRectangleMode"
+                :aria-label="getTooltipProps('cutRectangle').text"
                 :class="activeToolClass(isCutRectangleMode)"
                 :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleCutMode('rectangle')"
@@ -1290,6 +1352,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-pen-tool"
                 color="neutral"
                 :active="isCutPolygonMode"
+                :aria-pressed="isCutPolygonMode"
+                :aria-label="getTooltipProps('cutPolygon').text"
                 :class="activeToolClass(isCutPolygonMode)"
                 :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleCutMode('polygon')"
@@ -1305,6 +1369,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   size="md"
                   color="neutral"
                   :active="isCutMode"
+                  :aria-pressed="isCutMode"
+                  :aria-label="primaryCutTooltip.text"
                   :class="activeToolClass(isCutMode)"
                   :disabled="!currentCanvasState || !canEditCurrentCanvas"
                   @click="handleToggleCutMode(preferredCutMode)"
@@ -1334,6 +1400,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
               size="sm"
               icon="i-lucide-merge"
               color="neutral"
+              :aria-label="canMerge ? getTooltipProps('merge').text : 'Merge selected elements'"
               :disabled="!currentCanvasState || !canMerge"
               @click="handleMerge"
             />
@@ -1350,6 +1417,8 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
               icon="i-lucide-wand-sparkles"
               color="neutral"
               :active="uiStore.actionWandActive"
+              :aria-pressed="uiStore.actionWandActive"
+              :aria-label="uiStore.actionWandActive ? 'Cancel Action target picker' : 'Pick an Action target'"
               :class="activeToolClass(uiStore.actionWandActive)"
               :disabled="!currentCanvasState || !canEditCurrentCanvas"
               @click="handleToggleActionWand"
@@ -1358,32 +1427,6 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
 
           <USeparator
             v-if="showSelectAndMove || showRegionTools || showTextlineTools || showBaselineTool || showCutTools || showMergeTool || showActionTool"
-            :orientation="isVertical ? 'horizontal' : 'vertical'"
-            class="h-6 mx-1"
-          />
-
-          <UTabs
-            v-model="selectedViewMode"
-            data-tour="view-mode-tabs"
-            :orientation="isVertical ? 'vertical' : 'horizontal'"
-            size="sm"
-            color="neutral"
-            :ui="toolbarTabsUi"
-            :content="false"
-            :items="viewModeItems"
-          >
-            <template #item="{ item }">
-              <UTooltip :delay-duration="0" :text="getTabTooltipText(item)" :kbds="getTabTooltipKbds(item)">
-                <div class="flex items-center gap-1.5">
-                  <Icon v-if="getTabIcon(item)" :name="getTabIcon(item) ?? ''" class="size-4 shrink-0" />
-                  <span v-if="getTabLabel(item)">{{ getTabLabel(item) }}</span>
-                </div>
-              </UTooltip>
-            </template>
-          </UTabs>
-
-          <USeparator
-            v-if="showUndoTool || showRedoTool || showHistoryTool"
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
           />
@@ -1400,6 +1443,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-undo"
                 color="neutral"
                 size="sm"
+                :aria-label="getTooltipProps('undo').text"
                 :disabled="!canUndo || !currentCanvasState"
                 @click="handleUndo"
               />
@@ -1410,6 +1454,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 icon="i-lucide-redo"
                 color="neutral"
                 size="sm"
+                :aria-label="getTooltipProps('redo').text"
                 :disabled="!canRedo || !currentCanvasState"
                 @click="handleRedo"
               />
@@ -1422,6 +1467,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   icon="i-lucide-history"
                   color="neutral"
                   size="sm"
+                  :aria-label="getTooltipProps('history').text"
                   :disabled="!currentCanvasState"
                   @click="updateHistoryItems"
                 />
@@ -1437,6 +1483,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
               color="neutral"
               size="sm"
               variant="ghost"
+              aria-label="Toolbar layout"
             />
           </UDropdownMenu>
 
@@ -1446,29 +1493,57 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
               icon="i-lucide-more-vertical"
               color="neutral"
               size="xs"
+              aria-label="Toolbar settings"
             />
           </UDropdownMenu>
         </template>
       </div>
-      <div data-tour="editor-mode-tabs" class="flex gap-x-1 items-center" :class="isVertical ? 'flex-col gap-y-1' : 'flex-row'">
-        <UTabs
-          v-model="editorModeModel"
-          :orientation="isVertical ? 'vertical' : 'horizontal'"
+      <div
+        data-tour="editor-mode-tabs"
+        class="flex items-center"
+      >
+        <USelectMenu
+          v-model="modeViewModel"
+          data-tour="context-view-selector"
+          :items="modeViewMenuItems"
+          value-key="value"
+          label-key="label"
+          :search-input="false"
           size="sm"
-          color="neutral"
-          :ui="toolbarTabsUi"
-          :content="false"
-          :items="editorModeItems"
+          color="primary"
+          variant="soft"
+          :aria-label="modeViewAriaLabel"
+          :title="(isCompact || isVertical) ? modeViewAriaLabel : undefined"
+          :content="{ side: modeViewMenuSide, align: 'end' }"
+          :class="(isCompact || isVertical) ? 'w-12' : 'min-w-44'"
+          :ui="{
+            base: 'justify-between',
+            content: 'w-88 max-w-[calc(100vw-1rem)] max-h-[min(26rem,var(--reka-combobox-content-available-height,26rem))]',
+            itemDescription: 'whitespace-normal',
+            itemTrailingIcon: 'text-primary'
+          }"
         >
-          <template #item="{ item }">
-            <UTooltip :delay-duration="0" :text="getTabTooltipText(item)" :kbds="getTabTooltipKbds(item)">
-              <div class="flex items-center gap-1.5">
-                <Icon v-if="getTabIcon(item)" :name="getTabIcon(item) ?? ''" class="size-4 shrink-0" />
-                <span v-if="getTabLabel(item) && !isCompact">{{ getTabLabel(item) }}</span>
-              </div>
-            </UTooltip>
+          <template #default>
+            <span class="flex min-w-0 flex-1 items-center gap-1.5">
+              <Icon :name="activeModeViewOption.icon" class="size-4 shrink-0" />
+              <span v-if="!isCompact && !isVertical" class="truncate">
+                <span class="font-medium">{{ activeModeViewOption.modeLabel }}</span>
+                <span class="px-1 text-muted" aria-hidden="true">·</span>
+                <span>{{ activeModeViewOption.label }}</span>
+              </span>
+              <span v-else class="sr-only">{{ modeViewLabel }}</span>
+              <Icon name="i-lucide-chevron-down" class="ms-auto size-3 shrink-0 text-muted" />
+            </span>
           </template>
-        </UTabs>
+
+          <template #item-trailing="{ item }">
+            <div v-if="'kbds' in item && item.kbds?.length" class="flex items-center gap-1">
+              <UKbd v-for="kbd in item.kbds" :key="kbd" size="sm">
+                {{ kbd }}
+              </UKbd>
+            </div>
+          </template>
+        </USelectMenu>
       </div>
     </div>
   </div>

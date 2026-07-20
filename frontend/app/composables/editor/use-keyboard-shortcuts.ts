@@ -14,6 +14,7 @@ import {
 import { getTooltipProps } from '@/composables/editor/use-shortcut-bindings'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
+import type { TextModeSubmode } from '@/stores/editor/types'
 
 export { SHORTCUT_DEFINITIONS, SHORTCUT_HELP_GROUPS, getTooltipProps }
 export type {
@@ -65,6 +66,8 @@ export interface KeyboardShortcutsOptions {
     setRegionType?: (type: 'region' | 'textline' | 'baseline') => void
     setCutMode?: (mode: 'line' | 'polygon' | 'rectangle') => void
     setUiMode?: (mode: 'layout' | 'text') => void
+    setLayoutViewMode?: (mode: ViewMode) => void
+    setTextViewMode?: (mode: TextModeSubmode) => void
     toggleVirtualKeyboard?: () => void
     saveDocument?: () => void
     nextImage?: () => void
@@ -301,15 +304,26 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         return true
       case 'defaultView':
         if (isInputFocused()) return false
-        callbacks.setViewMode(VIEW_MODES.DEFAULT)
+        if (callbacks.setLayoutViewMode) callbacks.setLayoutViewMode(VIEW_MODES.DEFAULT)
+        else callbacks.setViewMode(VIEW_MODES.DEFAULT)
         return true
       case 'textlineView':
         if (isInputFocused()) return false
-        callbacks.setViewMode(VIEW_MODES.TEXTLINE)
+        if (callbacks.setLayoutViewMode) callbacks.setLayoutViewMode(VIEW_MODES.TEXTLINE)
+        else callbacks.setViewMode(VIEW_MODES.TEXTLINE)
         return true
       case 'baselineView':
         if (isInputFocused()) return false
-        callbacks.setViewMode(VIEW_MODES.BASELINE)
+        if (callbacks.setLayoutViewMode) callbacks.setLayoutViewMode(VIEW_MODES.BASELINE)
+        else callbacks.setViewMode(VIEW_MODES.BASELINE)
+        return true
+      case 'textCanvasView':
+        if (isInputFocused()) return false
+        callbacks.setTextViewMode?.('visual')
+        return true
+      case 'textListView':
+        if (isInputFocused()) return false
+        callbacks.setTextViewMode?.('expert')
         return true
       case 'clearSelection':
         if (isInputFocused()) return false

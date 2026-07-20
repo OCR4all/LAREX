@@ -88,4 +88,14 @@ describe('useCanvasControl', () => {
     expect(editorUiStoreMock.setLastLayoutViewMode).toHaveBeenCalledWith('textline')
     expect(controls.viewMode.value).toBe('textline')
   })
+
+  it('persists an explicitly selected layout view even when it is already rendered', async () => {
+    const useCanvasControl = await loadUseCanvasControl()
+    const controls = useCanvasControl('canvas-1')
+
+    controls.setViewMode('default')
+
+    expect(editorUiStoreMock.setLastLayoutViewMode).toHaveBeenCalledWith('default')
+    expect(editorStoreMock.clearCanvasSelection).not.toHaveBeenCalled()
+  })
 })

@@ -142,22 +142,34 @@ export const SHORTCUT_DEFINITIONS = {
   },
 
   defaultView: {
-    description: 'Default view',
+    description: 'Layout · Hierarchy',
     group: 'view',
     scope: 'global',
     defaultBindings: ['1']
   },
   textlineView: {
-    description: 'Textline view',
+    description: 'Layout · Text lines',
     group: 'view',
     scope: 'global',
     defaultBindings: ['2']
   },
   baselineView: {
-    description: 'Baseline view',
+    description: 'Layout · Baselines',
     group: 'view',
     scope: 'global',
     defaultBindings: ['3']
+  },
+  textCanvasView: {
+    description: 'Text · Canvas',
+    group: 'view',
+    scope: 'global',
+    defaultBindings: ['4']
+  },
+  textListView: {
+    description: 'Text · List',
+    group: 'view',
+    scope: 'global',
+    defaultBindings: ['5']
   },
 
   clearSelection: {

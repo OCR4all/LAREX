@@ -796,7 +796,7 @@ const tours: OnboardingTourDefinition[] = [
         element: '[data-tour="editor-toolbar"]',
         popover: {
           title: 'Toolbar',
-          description: 'Switch tools and modes, then control editing behavior from the toolbar.',
+          description: 'Choose the complete mode and view from one grouped selector, then use the editing tools alongside it.',
           side: 'bottom',
           align: 'center'
         }
@@ -867,7 +867,7 @@ const tours: OnboardingTourDefinition[] = [
         element: '[data-tour="editor-mode-tabs"]',
         popover: {
           title: 'Text Mode',
-          description: 'Click Next to ensure Text mode is active and open text-specific controls.',
+          description: 'The combined selector groups Canvas and List under Text. Click Next to enter Text mode.',
           side: 'top',
           align: 'end',
           onNextClick: withNextAction(async () => {
@@ -915,7 +915,7 @@ const tours: OnboardingTourDefinition[] = [
       {
         element: '[data-tour="editor-textline-list-toolbar"]',
         popover: {
-          title: 'Text View',
+          title: 'List View',
           description: 'Search, sort, filter, reorder where allowed, and edit text variants.',
           side: 'top',
           align: 'start'

@@ -235,7 +235,12 @@ export function useCanvasControl(canvasId: string): EditorCanvasControls {
   }
 
   const setViewMode = (value: ViewMode, options?: SetViewModeOptions): void => {
-    if (viewMode.value === value) return
+    if (viewMode.value === value) {
+      if (options?.persistAsLayoutPreference !== false) {
+        editorUiStore.setLastLayoutViewMode(value)
+      }
+      return
+    }
 
     clearSelectionForViewModeChange()
     viewMode.value = value

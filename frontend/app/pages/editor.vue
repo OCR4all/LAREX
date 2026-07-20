@@ -1850,6 +1850,20 @@ if (import.meta.client) {
       setUiMode: (mode: 'layout' | 'text') => {
         editorStore.setUiMode(mode)
       },
+      setLayoutViewMode: (mode: ViewMode) => {
+        editorStore.setUiMode('layout')
+        const controls = activeControls.value
+        if (controls?.setViewMode) {
+          controls.setViewMode(mode)
+        } else if (controls?.viewMode) {
+          controls.viewMode.value = mode
+          editorUiStore.setLastLayoutViewMode(mode)
+        }
+      },
+      setTextViewMode: (mode) => {
+        editorUiStore.setTextModeSubmode(mode)
+        editorStore.setUiMode('text')
+      },
       toggleVirtualKeyboard: () => {
         const current = editorUiStore.virtualKeyboardMode
         editorUiStore.setVirtualKeyboardMode(current === 'off' ? 'floating' : 'off')

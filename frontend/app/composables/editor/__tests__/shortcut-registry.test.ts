@@ -179,4 +179,20 @@ describe('shortcut-registry', () => {
     expect(bindings.closeActiveTabAndNextPage).toEqual(['meta_ctrl_arrowdown'])
     expect(bindings.closeActiveTabAndPrevPage).toEqual(['meta_ctrl_arrowup'])
   })
+
+  it('maps the five editor mode and view choices to number keys without conflicts', () => {
+    const bindings = getEffectiveShortcutBindings(null)
+    const conflictMap = getShortcutConflictMap(bindings)
+
+    expect(bindings.defaultView).toEqual(['1'])
+    expect(bindings.textlineView).toEqual(['2'])
+    expect(bindings.baselineView).toEqual(['3'])
+    expect(bindings.textCanvasView).toEqual(['4'])
+    expect(bindings.textListView).toEqual(['5'])
+    expect(conflictMap.defaultView).toBeUndefined()
+    expect(conflictMap.textlineView).toBeUndefined()
+    expect(conflictMap.baselineView).toBeUndefined()
+    expect(conflictMap.textCanvasView).toBeUndefined()
+    expect(conflictMap.textListView).toBeUndefined()
+  })
 })
