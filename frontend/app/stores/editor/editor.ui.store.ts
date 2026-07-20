@@ -27,7 +27,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const uiModeByCanvasId = ref<Record<string, UiMode>>({})
 
   const toolbarLayout = ref<ToolbarLayout>('floating')
-  const toolbarCompact = ref(false)
+  const toolbarCompact = ref(true)
   const pageFocusMode = ref(true)
   const toolbarFloatingOffset = ref<{ dx: number, dy: number } | null>(null)
 

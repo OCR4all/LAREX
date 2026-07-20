@@ -993,7 +993,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
         isDraggingToolbar ? 'cursor-grabbing select-none' : ''
       ]"
     >
-      <div class="flex items-center" :class="[(isVertical ? 'flex-col' : 'flex-row'), (isCompact ? 'gap-0' : 'gap-1')]">
+      <div class="flex items-center gap-1" :class="isVertical ? 'flex-col' : 'flex-row'">
         <template v-if="isFloating">
           <UTooltip :delay-duration="0" text="Drag toolbar">
             <UButton
@@ -1130,26 +1130,6 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             class="h-6 mx-1"
             :ui="toolbarSeparatorUi"
           />
-
-          <UDropdownMenu :items="toolbarLayoutItems">
-            <UButton
-              :icon="toolbarLayoutIcon"
-              color="neutral"
-              size="sm"
-              variant="ghost"
-              aria-label="Toolbar layout"
-            />
-          </UDropdownMenu>
-
-          <UDropdownMenu v-if="showMoreMenu" :items="moreOptionsDropdownItems">
-            <UButton
-              variant="ghost"
-              icon="i-lucide-more-vertical"
-              color="neutral"
-              size="xs"
-              aria-label="Toolbar settings"
-            />
-          </UDropdownMenu>
         </template>
         <template v-else>
           <template v-if="showSelectAndMove">
@@ -1538,74 +1518,79 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             class="h-6 mx-1"
             :ui="toolbarSeparatorUi"
           />
-
-          <UDropdownMenu :items="toolbarLayoutItems">
-            <UButton
-              :icon="toolbarLayoutIcon"
-              color="neutral"
-              size="sm"
-              variant="ghost"
-              aria-label="Toolbar layout"
-            />
-          </UDropdownMenu>
-
-          <UDropdownMenu v-if="showMoreMenu" :items="moreOptionsDropdownItems">
-            <UButton
-              variant="ghost"
-              icon="i-lucide-more-vertical"
-              color="neutral"
-              size="xs"
-              aria-label="Toolbar settings"
-            />
-          </UDropdownMenu>
         </template>
-      </div>
-      <div
-        data-tour="editor-mode-tabs"
-        class="flex items-center"
-      >
-        <USelectMenu
-          v-model="modeViewModel"
-          data-tour="context-view-selector"
-          :items="modeViewMenuItems"
-          value-key="value"
-          label-key="label"
-          :search-input="false"
-          size="sm"
-          color="primary"
-          variant="soft"
-          :aria-label="modeViewAriaLabel"
-          :title="(isCompact || isVertical) ? modeViewAriaLabel : undefined"
-          :content="{ side: modeViewMenuSide, align: 'end' }"
-          :class="(isCompact || isVertical) ? 'w-12' : 'min-w-44'"
-          :ui="{
-            base: 'justify-between',
-            content: 'w-88 max-w-[calc(100vw-1rem)] max-h-[min(26rem,var(--reka-combobox-content-available-height,26rem))]',
-            itemDescription: 'whitespace-normal',
-            itemTrailingIcon: 'text-primary'
-          }"
+        <div
+          data-tour="editor-mode-tabs"
+          class="flex items-center"
         >
-          <template #default>
-            <span class="flex min-w-0 flex-1 items-center gap-1.5">
-              <Icon :name="activeModeViewOption.icon" class="size-4 shrink-0" />
-              <span v-if="!isCompact && !isVertical" class="truncate">
-                <span class="font-medium">{{ activeModeViewOption.modeLabel }}</span>
-                <span class="px-1 text-muted" aria-hidden="true">·</span>
-                <span>{{ activeModeViewOption.label }}</span>
+          <USelectMenu
+            v-model="modeViewModel"
+            data-tour="context-view-selector"
+            :items="modeViewMenuItems"
+            value-key="value"
+            label-key="label"
+            :search-input="false"
+            size="sm"
+            color="primary"
+            variant="soft"
+            :aria-label="modeViewAriaLabel"
+            :title="isVertical ? modeViewAriaLabel : undefined"
+            :content="{ side: modeViewMenuSide, align: 'end' }"
+            :class="isVertical ? 'w-12' : 'min-w-44'"
+            :ui="{
+              base: 'justify-between',
+              content: 'w-88 max-w-[calc(100vw-1rem)] max-h-[min(26rem,var(--reka-combobox-content-available-height,26rem))]',
+              itemDescription: 'whitespace-normal',
+              itemTrailingIcon: 'text-primary'
+            }"
+          >
+            <template #default>
+              <span class="flex min-w-0 flex-1 items-center gap-1.5">
+                <Icon :name="activeModeViewOption.icon" class="size-4 shrink-0" />
+                <span v-if="!isVertical" class="truncate">
+                  <span class="font-medium">{{ activeModeViewOption.modeLabel }}</span>
+                  <span class="px-1 text-muted" aria-hidden="true">·</span>
+                  <span>{{ activeModeViewOption.label }}</span>
+                </span>
+                <span v-else class="sr-only">{{ modeViewLabel }}</span>
               </span>
-              <span v-else class="sr-only">{{ modeViewLabel }}</span>
-              <Icon name="i-lucide-chevron-down" class="ms-auto size-3 shrink-0 text-muted" />
-            </span>
-          </template>
+            </template>
 
-          <template #item-trailing="{ item }">
-            <div v-if="'kbds' in item && item.kbds?.length" class="flex items-center gap-1">
-              <UKbd v-for="kbd in item.kbds" :key="kbd" size="sm">
-                {{ kbd }}
-              </UKbd>
-            </div>
-          </template>
-        </USelectMenu>
+            <template #item-trailing="{ item }">
+              <div v-if="'kbds' in item && item.kbds?.length" class="flex items-center gap-1">
+                <UKbd v-for="kbd in item.kbds" :key="kbd" size="sm">
+                  {{ kbd }}
+                </UKbd>
+              </div>
+            </template>
+          </USelectMenu>
+        </div>
+
+        <USeparator
+          :orientation="isVertical ? 'horizontal' : 'vertical'"
+          class="h-6 mx-1"
+          :ui="toolbarSeparatorUi"
+        />
+
+        <UDropdownMenu :items="toolbarLayoutItems">
+          <UButton
+            :icon="toolbarLayoutIcon"
+            color="neutral"
+            size="sm"
+            variant="ghost"
+            aria-label="Toolbar layout"
+          />
+        </UDropdownMenu>
+
+        <UDropdownMenu v-if="showMoreMenu" :items="moreOptionsDropdownItems">
+          <UButton
+            variant="ghost"
+            icon="i-lucide-more-vertical"
+            color="neutral"
+            size="xs"
+            aria-label="Toolbar settings"
+          />
+        </UDropdownMenu>
       </div>
     </div>
   </div>

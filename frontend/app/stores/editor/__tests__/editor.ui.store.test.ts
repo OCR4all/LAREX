@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   updatePreference: vi.fn(),
+  fetchedToolbarCompact: null as boolean | null,
   fetchedPageFocusMode: null as boolean | null,
   fetchedTextModeSubmode: null as 'visual' | 'expert' | 'full' | null
 }))
@@ -9,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/composables/use-editor-preferences', () => ({
   useEditorPreferences: () => ({
     fetchPreferences: vi.fn(async () => ({
+      toolbarCompact: mocks.fetchedToolbarCompact,
       pageFocusMode: mocks.fetchedPageFocusMode,
       textModeSubmode: mocks.fetchedTextModeSubmode
     })),
@@ -30,11 +32,29 @@ async function createStore() {
   return useEditorUiStore()
 }
 
-describe('editor.ui.store page Focus mode', () => {
+describe('editor.ui.store preferences', () => {
   beforeEach(() => {
+    mocks.fetchedToolbarCompact = null
     mocks.fetchedPageFocusMode = null
     mocks.fetchedTextModeSubmode = null
     mocks.updatePreference.mockReset()
+  })
+
+  it('defaults to a compact toolbar when the saved preference is missing', async () => {
+    const store = await createStore()
+
+    await store.loadPreferences()
+
+    expect(store.toolbarCompact).toBe(true)
+  })
+
+  it('loads an explicit non-compact toolbar preference', async () => {
+    mocks.fetchedToolbarCompact = false
+    const store = await createStore()
+
+    await store.loadPreferences()
+
+    expect(store.toolbarCompact).toBe(false)
   })
 
   it('defaults to enabled when the saved preference is missing', async () => {
