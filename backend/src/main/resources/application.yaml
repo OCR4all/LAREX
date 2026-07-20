@@ -190,12 +190,18 @@ larex:
   backup:
     # Enable admin dump/reseed feature (default: true)
     enabled: ${LAREX_BACKUP_ENABLED:true}
-    # Allowed source/output paths for backup jobs (comma-separated)
+    # Allowed source paths for verify/reseed jobs (comma-separated)
     allowed-paths: ${LAREX_BACKUP_ALLOWED_PATHS:/uploads,/mnt/data,/mnt/data/backups}
-    # Default output directory for dump files and reseed markers
-    output-dir: ${LAREX_BACKUP_OUTPUT_DIR:/uploads/backups}
+    # Operator-configured output directory for dump files and reseed markers
+    output-dir: ${LAREX_BACKUP_OUTPUT_DIR:/mnt/data/backups}
     # Maximum number of files allowed per backup/reseed job
-    max-files-per-job: ${LAREX_BACKUP_MAX_FILES:500000}
+    max-files-per-job: ${LAREX_BACKUP_MAX_FILES_PER_JOB:500000}
+    # Extraction budgets protect verify/reseed jobs from oversized or highly compressed archives.
+    max-archive-bytes: ${LAREX_BACKUP_MAX_ARCHIVE_BYTES:21474836480}
+    max-archive-entries: ${LAREX_BACKUP_MAX_ARCHIVE_ENTRIES:500000}
+    max-archive-entry-bytes: ${LAREX_BACKUP_MAX_ARCHIVE_ENTRY_BYTES:5368709120}
+    max-archive-total-bytes: ${LAREX_BACKUP_MAX_ARCHIVE_TOTAL_BYTES:107374182400}
+    max-archive-compression-ratio: ${LAREX_BACKUP_MAX_ARCHIVE_COMPRESSION_RATIO:200}
   dataset-releases:
     share-public-base-url: ${LAREX_DATASET_RELEASE_SHARE_PUBLIC_BASE_URL:${cors.allowed-origin}/api/public/dataset-releases}
   project-releases:

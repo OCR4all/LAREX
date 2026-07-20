@@ -261,6 +261,26 @@ tasks:
     cmds:
       - '{{.COMPOSE_PROD_CMD}} config --quiet'
 
+  docker:prod:backup:
+    desc: Create and verify a consistent full-instance snapshot
+    cmds:
+      - './scripts/larex-instance-backup.sh create --profile prod {{.CLI_ARGS}}'
+
+  docker:prod:backup:verify:
+    desc: Verify a full-instance snapshot without restoring it
+    cmds:
+      - './scripts/larex-instance-backup.sh verify {{.CLI_ARGS}}'
+
+  docker:prod:restore:preflight:
+    desc: Verify snapshot compatibility with the production stack
+    cmds:
+      - './scripts/larex-instance-backup.sh preflight --profile prod {{.CLI_ARGS}}'
+
+  docker:prod:restore:
+    desc: Restore a full-instance snapshot (requires ARCHIVE and --yes in CLI args)
+    cmds:
+      - './scripts/larex-instance-backup.sh restore --profile prod {{.CLI_ARGS}}'
+
   docker:prod:ps:
     desc: Show opinionated production service status
     cmds:
@@ -342,6 +362,11 @@ tasks:
       - docker:prod:local:init-env
     cmds:
       - '{{.COMPOSE_PROD_LOCAL_CMD}} config --quiet'
+
+  docker:prod:local:backup:
+    desc: Create and verify a local production-like full-instance snapshot
+    cmds:
+      - './scripts/larex-instance-backup.sh create --profile prod-local {{.CLI_ARGS}}'
 
   docker:prod:local:ps:
     desc: Show local production-like service status
@@ -514,12 +539,12 @@ tasks:
   data:dump:
     desc: Create a full file-based data dump via admin backup API
     cmds:
-      - ./scripts/larex-backup.sh dump --output "${LAREX_BACKUP_OUTPUT_PATH:-/mnt/data/backups}"
+      - ./scripts/larex-backup.sh dump
 
   data:reseed:
     desc: Reseed file-based data from a dump archive via admin backup API
     cmds:
-      - ./scripts/larex-backup.sh reseed --source "${LAREX_RESEED_SOURCE_PATH:?set LAREX_RESEED_SOURCE_PATH}" --output "${LAREX_RESEED_OUTPUT_PATH:-/mnt/data/backups}"
+      - ./scripts/larex-backup.sh reseed --source "${LAREX_RESEED_SOURCE_PATH:?set LAREX_RESEED_SOURCE_PATH}"
 
   clean:
     desc: Clean all build artifacts

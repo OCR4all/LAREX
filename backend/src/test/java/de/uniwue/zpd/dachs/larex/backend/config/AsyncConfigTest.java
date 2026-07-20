@@ -15,14 +15,16 @@ class AsyncConfigTest {
                 new ImportProperties(),
                 new IiifProperties(),
                 new AnnotationProperties(),
-                new StorageProperties()
+                new StorageProperties(),
+                new BackupProperties()
         );
 
         ThreadPoolTaskExecutor preview = config.iiifPreviewTaskExecutor();
         ThreadPoolTaskExecutor download = config.iiifDownloadTaskExecutor();
         ThreadPoolTaskExecutor generalImport = config.importTaskExecutor();
+        ThreadPoolTaskExecutor backup = config.backupTaskExecutor();
         try {
-            assertThat(preview).isNotSameAs(download).isNotSameAs(generalImport);
+            assertThat(preview).isNotSameAs(download).isNotSameAs(generalImport).isNotSameAs(backup);
             assertThat(preview.getThreadNamePrefix()).isEqualTo("iiif-preview-");
             assertThat(preview.getCorePoolSize()).isEqualTo(2);
             assertThat(preview.getMaxPoolSize()).isEqualTo(4);
@@ -30,10 +32,14 @@ class AsyncConfigTest {
             assertThat(download.getCorePoolSize()).isEqualTo(1);
             assertThat(download.getMaxPoolSize()).isEqualTo(2);
             assertThat(generalImport.getThreadNamePrefix()).isEqualTo("import-");
+            assertThat(backup.getThreadNamePrefix()).isEqualTo("backup-");
+            assertThat(backup.getCorePoolSize()).isEqualTo(1);
+            assertThat(backup.getMaxPoolSize()).isEqualTo(1);
         } finally {
             preview.shutdown();
             download.shutdown();
             generalImport.shutdown();
+            backup.shutdown();
         }
     }
 }

@@ -13,9 +13,14 @@ import org.springframework.core.task.AsyncTaskExecutor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.Future;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,6 +31,9 @@ class BackupJobServiceTest {
 
     @Mock
     private AsyncTaskExecutor taskExecutor;
+
+    @Mock
+    private Future<?> future;
 
     private BackupJobService service;
     private BackupProperties properties;
@@ -67,6 +75,83 @@ class BackupJobServiceTest {
         } finally {
             Files.deleteIfExists(outside);
             Files.deleteIfExists(allowed);
+        }
+    }
+
+    @Test
+    void createVerifyJob_requiresSourceButNotOutput() throws Exception {
+        Path allowed = Files.createTempDirectory("backup-allowed-");
+        try {
+            configureBackupPaths(allowed);
+
+            IllegalArgumentException error = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> service.createJob(
+                            "admin",
+                            new BackupJobDto.CreateJobRequest(
+                                    BackupJobDto.JobType.VERIFY,
+                                    null,
+                                    null,
+                                    null
+                            )
+                    )
+            );
+
+            assertTrue(error.getMessage().contains("sourcePath is required"));
+        } finally {
+            Files.deleteIfExists(allowed);
+        }
+    }
+
+    @Test
+    void createDumpJob_usesConfiguredOutputDirectory() throws Exception {
+        Path allowed = Files.createTempDirectory("backup-allowed-");
+        try {
+            configureBackupPaths(allowed);
+            doReturn(future).when(taskExecutor).submit(any(Runnable.class));
+
+            BackupJobDto.JobResponse response = service.createJob(
+                    "admin",
+                    new BackupJobDto.CreateJobRequest(
+                            BackupJobDto.JobType.DUMP,
+                            null,
+                            null,
+                            null
+                    )
+            );
+
+            assertEquals(allowed.resolve("out").toString(), response.outputPath());
+        } finally {
+            Files.deleteIfExists(allowed);
+        }
+    }
+
+    @Test
+    void createDumpJob_acceptsConfiguredOutputOutsideSourceAllowList() throws Exception {
+        Path allowedSource = Files.createTempDirectory("backup-source-");
+        Path outputParent = Files.createTempDirectory("backup-output-");
+        try {
+            Path configuredOutput = outputParent.resolve("portable");
+            properties.setEnabled(true);
+            properties.setAllowedPaths(List.of(allowedSource.toString()));
+            properties.setOutputDir(configuredOutput.toString());
+            service.initAllowedPaths();
+            doReturn(future).when(taskExecutor).submit(any(Runnable.class));
+
+            BackupJobDto.JobResponse response = service.createJob(
+                    "admin",
+                    new BackupJobDto.CreateJobRequest(
+                            BackupJobDto.JobType.DUMP,
+                            null,
+                            null,
+                            null
+                    )
+            );
+
+            assertEquals(configuredOutput.toString(), response.outputPath());
+        } finally {
+            Files.deleteIfExists(outputParent);
+            Files.deleteIfExists(allowedSource);
         }
     }
 

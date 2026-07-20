@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.backup;
 
 import tools.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.config.BackupProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.BackupJobDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
@@ -22,6 +23,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.Deflater;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,7 @@ public class BackupJobProcessor {
     private final ProjectPackageService projectPackageService;
     private final ToolkitPackageService toolkitPackageService;
     private final ObjectMapper objectMapper;
+    private final BackupProperties backupProperties;
 
     public BackupJobProcessor(BackupJobService backupJobService,
                               ProjectRepository projectRepository,
@@ -47,7 +50,8 @@ public class BackupJobProcessor {
                               ArchiveIoService archiveIoService,
                               ProjectPackageService projectPackageService,
                               ToolkitPackageService toolkitPackageService,
-                              ObjectMapper objectMapper) {
+                              ObjectMapper objectMapper,
+                              BackupProperties backupProperties) {
         this.backupJobService = backupJobService;
         this.projectRepository = projectRepository;
         this.personalWorkspaceRepository = personalWorkspaceRepository;
@@ -56,17 +60,25 @@ public class BackupJobProcessor {
         this.projectPackageService = projectPackageService;
         this.toolkitPackageService = toolkitPackageService;
         this.objectMapper = objectMapper;
+        this.backupProperties = backupProperties;
     }
 
     public void processJob(String jobId,
                            String userId,
                            BackupJobDto.CreateJobRequest request,
-                           String normalizedSourcePath) {
+                           String normalizedSourcePath,
+                           String normalizedOutputPath) {
         try {
-            if (request.type() == BackupJobDto.JobType.DUMP) {
-                processDump(jobId, userId, request);
-            } else {
-                processReseed(jobId, userId, request, normalizedSourcePath);
+            switch (request.type()) {
+                case DUMP -> processDump(jobId, request, normalizedOutputPath);
+                case VERIFY -> processVerify(jobId, normalizedSourcePath);
+                case RESEED -> processReseed(
+                        jobId,
+                        userId,
+                        request,
+                        normalizedSourcePath,
+                        normalizedOutputPath
+                );
             }
         } catch (Exception e) {
             log.error("Backup job {} failed: {}", jobId, e.getMessage(), e);
@@ -75,9 +87,9 @@ public class BackupJobProcessor {
     }
 
     private void processDump(String jobId,
-                             String userId,
-                             BackupJobDto.CreateJobRequest request) throws IOException {
-        List<AbstractWorkspace> workspaces = loadAllWorkspaces();
+                             BackupJobDto.CreateJobRequest request,
+                             String normalizedOutputPath) throws IOException {
+        List<AbstractWorkspace> workspaces = loadWorkspaces(request.workspaceId());
 
         long totalProjects = workspaces.stream()
                 .mapToLong(ws -> projectRepository.findByLibraryWorkspaceId(ws.getId()).size())
@@ -89,7 +101,7 @@ public class BackupJobProcessor {
             return;
         }
 
-        Path outputPath = resolveDumpOutputPath(request.outputPath());
+        Path outputPath = resolveDumpOutputPath(normalizedOutputPath);
         List<DumpWorkspaceEntry> workspaceEntries = new ArrayList<>();
         final long[] processed = {0};
 
@@ -105,7 +117,11 @@ public class BackupJobProcessor {
                         workspaceId,
                         new ToolkitPackageDto.ExportRequest(null, true)
                 );
-                archiveIoService.writeJsonEntry(zipOut, toolkitEntry, toolkitPackage);
+                String toolkitSha256 = archiveIoService.writeJsonEntryWithSha256(
+                        zipOut,
+                        toolkitEntry,
+                        toolkitPackage
+                );
 
                 processed[0]++;
                 backupJobService.updateProgress(jobId, processed[0], totalItems, "Exported toolkit resources for " + workspaceId);
@@ -121,15 +137,29 @@ public class BackupJobProcessor {
                     }
 
                     String projectEntryPath = "dump/projects/" + workspaceId + "/" + project.getId() + ".larex-project.zip";
-                    archiveIoService.writeStreamEntry(zipOut, projectEntryPath, entryOut ->
-                            projectPackageService.writeProjectPackageInternal(
+                    backupJobService.updateProgress(
+                            jobId,
+                            processed[0],
+                            totalItems,
+                            "Exporting project " + project.getName()
+                    );
+                    String projectSha256 = archiveIoService.writeStreamEntryWithSha256(
+                            zipOut,
+                            projectEntryPath,
+                            Deflater.NO_COMPRESSION,
+                            entryOutput -> projectPackageService.writeProjectPackageInternalUncompressed(
                                     workspaceId,
                                     project.getId(),
                                     new ProjectPackageDto.ExportRequest(null, null, null, true),
-                                    entryOut
+                                    entryOutput
                             )
                     );
-                    projectEntries.add(new DumpProjectEntry(project.getId(), project.getName(), projectEntryPath));
+                    projectEntries.add(new DumpProjectEntry(
+                            project.getId(),
+                            project.getName(),
+                            projectEntryPath,
+                            projectSha256
+                    ));
 
                     processed[0]++;
                     backupJobService.updateProgress(jobId, processed[0], totalItems, "Exported project " + project.getName());
@@ -139,6 +169,7 @@ public class BackupJobProcessor {
                         workspaceId,
                         workspace.getName(),
                         toolkitEntry,
+                        toolkitSha256,
                         projectEntries
                 ));
             }
@@ -158,29 +189,49 @@ public class BackupJobProcessor {
         backupJobService.markCompleted(jobId, outputPath.toString());
     }
 
+    private void processVerify(String jobId, String normalizedSourcePath) throws IOException {
+        Path source = requireSourcePath(normalizedSourcePath, "verify");
+        backupJobService.markRunning(jobId, 1, "Verifying dump archive");
+        if (backupJobService.isCancelled(jobId)) {
+            return;
+        }
+
+        VerifiedDump verifiedDump = verifyDumpArchive(jobId, source);
+        try {
+            if (backupJobService.isCancelled(jobId)) {
+                return;
+            }
+            backupJobService.updateProgress(
+                    jobId,
+                    verifiedDump.report().entryCount(),
+                    verifiedDump.report().entryCount(),
+                    "Verified dump archive"
+            );
+            backupJobService.markCompleted(jobId, source.toString());
+        } finally {
+            deleteDirectoryQuietly(verifiedDump.directory());
+        }
+    }
+
     private void processReseed(String jobId,
                                String userId,
                                BackupJobDto.CreateJobRequest request,
-                               String normalizedSourcePath) throws IOException {
-        if (normalizedSourcePath == null || normalizedSourcePath.isBlank()) {
-            throw new IllegalArgumentException("sourcePath is required for reseed jobs");
-        }
-
-        Path source = Paths.get(normalizedSourcePath).toAbsolutePath().normalize();
-        backupJobService.markRunning(jobId, 1, "Extracting dump archive");
+                               String normalizedSourcePath,
+                               String normalizedOutputPath) throws IOException {
+        Path source = requireSourcePath(normalizedSourcePath, "reseed");
+        backupJobService.markRunning(jobId, 1, "Verifying dump archive");
 
         if (backupJobService.isCancelled(jobId)) {
             return;
         }
 
-        Path tempDir = archiveIoService.extractZipToTempDir(Files.newInputStream(source), "larex-reseed-");
+        VerifiedDump verifiedDump = verifyDumpArchive(jobId, source);
+        Path tempDir = verifiedDump.directory();
         try {
-            Path manifestPath = tempDir.resolve("dump/manifest.json");
-            if (!Files.exists(manifestPath)) {
-                throw new IllegalArgumentException("Dump manifest missing: dump/manifest.json");
+            if (backupJobService.isCancelled(jobId)) {
+                return;
             }
-
-            DumpManifest manifest = objectMapper.readValue(manifestPath.toFile(), DumpManifest.class);
+            DumpManifest manifest = verifiedDump.manifest();
             long totalItems = manifest.workspaces().stream()
                     .mapToLong(ws -> 1L + (ws.projects() == null ? 0 : ws.projects().size()))
                     .sum();
@@ -246,7 +297,7 @@ public class BackupJobProcessor {
                 return;
             }
 
-            Path resultPath = resolveReseedMarkerPath(request.outputPath());
+            Path resultPath = resolveReseedMarkerPath(normalizedOutputPath);
             Files.createDirectories(resultPath.getParent());
             Files.writeString(resultPath,
                     "Reseed completed at " + LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME));
@@ -256,7 +307,107 @@ public class BackupJobProcessor {
         }
     }
 
-    private List<AbstractWorkspace> loadAllWorkspaces() {
+    private VerifiedDump verifyDumpArchive(String jobId, Path source) throws IOException {
+        ArchiveIoService.ExtractionResult report = archiveIoService.extractZipToTempDirWithReport(
+                Files.newInputStream(source),
+                "larex-dump-verify-",
+                extractionLimits()
+        );
+        Path tempDir = report.directory();
+        try {
+            Path manifestPath = tempDir.resolve("dump/manifest.json");
+            if (!Files.isRegularFile(manifestPath)) {
+                throw new IllegalArgumentException("Dump manifest missing: dump/manifest.json");
+            }
+
+            DumpManifest manifest = objectMapper.readValue(manifestPath.toFile(), DumpManifest.class);
+            if (!"1.0".equals(manifest.schemaVersion())) {
+                throw new IllegalArgumentException("Unsupported dump schema version: " + manifest.schemaVersion());
+            }
+            if (manifest.workspaces() == null) {
+                throw new IllegalArgumentException("Dump manifest has no workspaces");
+            }
+
+            long referencedEntries = 1;
+            for (DumpWorkspaceEntry workspace : manifest.workspaces()) {
+                if (workspace.toolkitPath() != null) {
+                    verifyManifestEntry(
+                            tempDir,
+                            workspace.toolkitPath(),
+                            workspace.toolkitSha256()
+                    );
+                    referencedEntries++;
+                }
+                if (workspace.projects() == null) {
+                    continue;
+                }
+                for (DumpProjectEntry project : workspace.projects()) {
+                    verifyManifestEntry(
+                            tempDir,
+                            project.packagePath(),
+                            project.sha256()
+                    );
+                    referencedEntries++;
+                }
+            }
+            if (referencedEntries > backupJobService.getMaxFilesPerJob()) {
+                throw new IllegalArgumentException(
+                        "Dump references more than " + backupJobService.getMaxFilesPerJob() + " files"
+                );
+            }
+            return new VerifiedDump(tempDir, manifest, report);
+        } catch (IOException | RuntimeException exception) {
+            deleteDirectoryQuietly(tempDir);
+            throw exception;
+        }
+    }
+
+    private void verifyManifestEntry(Path tempDir,
+                                     String archivePath,
+                                     String expectedSha256) throws IOException {
+        Path entryPath = tempDir.resolve(archiveIoService.normalizeArchivePath(archivePath)).normalize();
+        if (!entryPath.startsWith(tempDir) || !Files.isRegularFile(entryPath)) {
+            throw new IllegalArgumentException("Dump entry missing: " + archivePath);
+        }
+        if (expectedSha256 == null || !expectedSha256.matches("[0-9a-fA-F]{64}")) {
+            throw new IllegalArgumentException("Dump entry has no valid SHA-256 checksum: " + archivePath);
+        }
+        String actualSha256 = archiveIoService.sha256(entryPath);
+        if (!actualSha256.equalsIgnoreCase(expectedSha256)) {
+            throw new IllegalArgumentException("Dump entry checksum mismatch: " + archivePath);
+        }
+    }
+
+    private ArchiveIoService.ExtractionLimits extractionLimits() {
+        return new ArchiveIoService.ExtractionLimits(
+                backupProperties.getMaxArchiveBytes(),
+                backupProperties.getMaxArchiveEntries(),
+                backupProperties.getMaxArchiveEntryBytes(),
+                backupProperties.getMaxArchiveTotalBytes(),
+                backupProperties.getMaxArchiveCompressionRatio()
+        );
+    }
+
+    private Path requireSourcePath(String normalizedSourcePath, String jobType) {
+        if (normalizedSourcePath == null || normalizedSourcePath.isBlank()) {
+            throw new IllegalArgumentException("sourcePath is required for " + jobType + " jobs");
+        }
+        return Paths.get(normalizedSourcePath).toAbsolutePath().normalize();
+    }
+
+    List<AbstractWorkspace> loadWorkspaces(String workspaceId) {
+        if (workspaceId != null && !workspaceId.isBlank()) {
+            var personalWorkspace = personalWorkspaceRepository.findById(workspaceId);
+            if (personalWorkspace.isPresent()) {
+                return List.of(personalWorkspace.get());
+            }
+            return teamWorkspaceRepository.findById(workspaceId)
+                    .<List<AbstractWorkspace>>map(List::of)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Workspace not found: " + workspaceId
+                    ));
+        }
+
         List<AbstractWorkspace> workspaces = new ArrayList<>();
         workspaces.addAll(personalWorkspaceRepository.findAll());
         workspaces.addAll(teamWorkspaceRepository.findAll());
@@ -264,28 +415,25 @@ public class BackupJobProcessor {
         return workspaces;
     }
 
-    private Path resolveDumpOutputPath(String outputPathRaw) {
-        Path outputPath = Paths.get(outputPathRaw).toAbsolutePath().normalize();
-        if (Files.exists(outputPath) && Files.isDirectory(outputPath)) {
-            return outputPath.resolve(defaultDumpFileName());
-        }
-        if (!Files.exists(outputPath) && !outputPath.toString().endsWith(".zip")) {
-            return outputPath.resolve(defaultDumpFileName());
-        }
-        return outputPath;
+    private Path resolveDumpOutputPath(String outputDirectoryRaw) throws IOException {
+        Path outputDirectory = requireOutputDirectory(outputDirectoryRaw);
+        return outputDirectory.resolve(defaultDumpFileName());
     }
 
-    private Path resolveReseedMarkerPath(String outputPathRaw) {
-        Path outputPath = Paths.get(outputPathRaw).toAbsolutePath().normalize();
-        if (Files.exists(outputPath) && Files.isDirectory(outputPath)) {
-            return outputPath.resolve("reseed-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".txt");
+    private Path resolveReseedMarkerPath(String outputDirectoryRaw) throws IOException {
+        Path outputDirectory = requireOutputDirectory(outputDirectoryRaw);
+        return outputDirectory.resolve(
+                "reseed-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".txt"
+        );
+    }
+
+    private Path requireOutputDirectory(String outputDirectoryRaw) throws IOException {
+        if (outputDirectoryRaw == null || outputDirectoryRaw.isBlank()) {
+            throw new IllegalArgumentException("Backup output directory is not configured");
         }
-        if (!outputPath.toString().endsWith(".txt")) {
-            if (outputPath.getParent() != null) {
-                return outputPath.resolve("reseed-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".txt");
-            }
-        }
-        return outputPath;
+        Path outputDirectory = Paths.get(outputDirectoryRaw).toAbsolutePath().normalize();
+        Files.createDirectories(outputDirectory);
+        return outputDirectory;
     }
 
     private String defaultDumpFileName() {
@@ -332,6 +480,7 @@ public class BackupJobProcessor {
             String workspaceId,
             String workspaceName,
             String toolkitPath,
+            String toolkitSha256,
             List<DumpProjectEntry> projects
     ) {
     }
@@ -339,7 +488,16 @@ public class BackupJobProcessor {
     private record DumpProjectEntry(
             String projectId,
             String projectName,
-            String packagePath
+            String packagePath,
+            String sha256
     ) {
     }
+
+    private record VerifiedDump(
+            Path directory,
+            DumpManifest manifest,
+            ArchiveIoService.ExtractionResult report
+    ) {
+    }
+
 }

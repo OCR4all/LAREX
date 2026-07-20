@@ -58,6 +58,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -74,9 +77,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import jakarta.annotation.PreDestroy;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -245,6 +245,27 @@ public class ProjectPackageService {
         );
         try {
             writePackageZip(outputStream, packageSnapshot);
+        } finally {
+            cleanupEmbeddedOutputs(packageSnapshot);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void writeProjectPackageInternalUncompressed(String workspaceId,
+                                                        String projectId,
+                                                        ProjectPackageDto.ExportRequest request,
+                                                        OutputStream outputStream) throws IOException {
+        Project project = requireProject(workspaceId, projectId);
+        List<Page> pages = resolvePagesForExport(projectId, request == null ? null : request.pageIds());
+        PackageSnapshot packageSnapshot = buildPackageSnapshot(
+                project,
+                pages,
+                request == null ? null : request.targetPageXmlVersion(),
+                request == null ? null : request.embeddedOutputs(),
+                request != null && request.includeXmlHistoryResolved()
+        );
+        try {
+            projectPackageArchiveService.writeUncompressedZip(outputStream, packageSnapshot.exportPackage());
         } finally {
             cleanupEmbeddedOutputs(packageSnapshot);
         }

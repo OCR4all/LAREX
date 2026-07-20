@@ -83,7 +83,7 @@ larex:
     enabled: ${LAREX_BACKUP_ENABLED:true}
     allowed-paths: ${LAREX_BACKUP_ALLOWED_PATHS:/mnt/data,/mnt/data/backups}
     output-dir: ${LAREX_BACKUP_OUTPUT_DIR:/mnt/data/backups}
-    max-files-per-job: ${LAREX_BACKUP_MAX_FILES:500000}
+    max-files-per-job: ${LAREX_BACKUP_MAX_FILES_PER_JOB:500000}
   error-log:
     retention-days: ${LAREX_ERROR_LOG_RETENTION_DAYS:30}
     stack-trace-max-length: ${LAREX_ERROR_LOG_STACK_TRACE_MAX_LENGTH:16000}

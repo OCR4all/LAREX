@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
@@ -38,7 +39,7 @@ public class BackupJobService {
     private final List<Path> allowedPaths = new ArrayList<>();
 
     public BackupJobService(@Lazy BackupJobProcessor backupJobProcessor,
-                            @Qualifier("importTaskExecutor") AsyncTaskExecutor taskExecutor,
+                            @Qualifier("backupTaskExecutor") AsyncTaskExecutor taskExecutor,
                             BackupProperties properties,
                             JobRealtimePublisher jobRealtimePublisher) {
         this.backupJobProcessor = backupJobProcessor;
@@ -96,7 +97,7 @@ public class BackupJobService {
                 return new BackupJobDto.ValidatePathResponse(false, null, "Invalid path");
             }
 
-            if (!isPathAllowed(checkPath)) {
+            if (!isPathAllowed(path) && !isPathAllowed(checkPath)) {
                 return new BackupJobDto.ValidatePathResponse(
                         false,
                         path.toString(),
@@ -112,6 +113,9 @@ public class BackupJobService {
                     return new BackupJobDto.ValidatePathResponse(false, path.toString(), "Source path is not readable");
                 }
             } else {
+                if (Files.exists(path) && !Files.isDirectory(path)) {
+                    return new BackupJobDto.ValidatePathResponse(false, path.toString(), "Output path is not a directory");
+                }
                 if (Files.exists(path) && Files.isDirectory(path) && !Files.isWritable(path)) {
                     return new BackupJobDto.ValidatePathResponse(false, path.toString(), "Output directory is not writable");
                 }
@@ -135,15 +139,26 @@ public class BackupJobService {
             throw new IllegalArgumentException("Job type is required");
         }
 
-        BackupJobDto.ValidatePathResponse outputValidation = validatePath(
-                new BackupJobDto.ValidatePathRequest(request.outputPath(), BackupJobDto.PathRole.OUTPUT)
-        );
-        if (!outputValidation.valid()) {
-            throw new IllegalArgumentException(outputValidation.errorMessage());
+        String normalizedOutput = null;
+        if (request.type() != BackupJobDto.JobType.VERIFY) {
+            if (properties.getOutputDir() == null || properties.getOutputDir().isBlank()) {
+                throw new IllegalArgumentException("Backup output directory is not configured");
+            }
+            BackupJobDto.ValidatePathResponse outputValidation = validatePath(
+                    new BackupJobDto.ValidatePathRequest(properties.getOutputDir(), BackupJobDto.PathRole.OUTPUT)
+            );
+            if (!outputValidation.valid()) {
+                throw new IllegalArgumentException(outputValidation.errorMessage());
+            }
+            normalizedOutput = outputValidation.normalizedPath();
         }
 
         String normalizedSource = null;
-        if (request.type() == BackupJobDto.JobType.RESEED) {
+        if (request.type() == BackupJobDto.JobType.RESEED
+                || request.type() == BackupJobDto.JobType.VERIFY) {
+            if (request.sourcePath() == null || request.sourcePath().isBlank()) {
+                throw new IllegalArgumentException("sourcePath is required");
+            }
             BackupJobDto.ValidatePathResponse sourceValidation = validatePath(
                     new BackupJobDto.ValidatePathRequest(request.sourcePath(), BackupJobDto.PathRole.SOURCE)
             );
@@ -158,14 +173,18 @@ public class BackupJobService {
                 id,
                 request.type(),
                 normalizedSource,
-                outputValidation.normalizedPath(),
+                normalizedOutput,
                 userId
         );
         jobs.put(id, state);
 
         final String sourcePathFinal = normalizedSource;
-        Future<?> future = taskExecutor.submit(() -> backupJobProcessor.processJob(id, userId, request, sourcePathFinal));
+        final String outputPathFinal = normalizedOutput;
+        Future<?> future = taskExecutor.submit(() ->
+                backupJobProcessor.processJob(id, userId, request, sourcePathFinal, outputPathFinal)
+        );
         futures.put(id, future);
+        log.info("Submitted backup job {} ({})", id, request.type());
         publishUpdate(state);
 
         return toJobResponse(state);
@@ -226,12 +245,13 @@ public class BackupJobService {
     public void updateProgress(String jobId, long processedItems, long totalItems, String step) {
         BackupJobState state = requiredState(jobId);
         int previousPercent = state.progressPercent();
+        String previousStep = state.currentStep();
         state.setProcessedItems(processedItems);
         state.setTotalItems(totalItems);
         state.setProgressPercent(computeProgressPercent(processedItems, totalItems));
         state.setCurrentStep(step);
         state.setUpdated(LocalDateTime.now());
-        if (state.progressPercent() != previousPercent) {
+        if (state.progressPercent() != previousPercent || !Objects.equals(previousStep, step)) {
             publishUpdate(state);
         }
     }
@@ -274,10 +294,6 @@ public class BackupJobService {
 
     public int getMaxFilesPerJob() {
         return properties.getMaxFilesPerJob();
-    }
-
-    public String getOutputDir() {
-        return properties.getOutputDir();
     }
 
     private BackupJobState requiredState(String jobId) {

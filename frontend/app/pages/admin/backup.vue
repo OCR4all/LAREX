@@ -1,23 +1,25 @@
 <script setup lang="ts">
+import { getWorkspaceDisplayName, getWorkspaceSecondaryLabel } from '@/utils/workspace-display'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const toast = useToast()
 const realtime = useRealtimeSocket()
 
-const jobType = ref<'DUMP' | 'RESEED'>('DUMP')
+const jobType = ref<'DUMP' | 'VERIFY' | 'RESEED'>('DUMP')
 const sourcePath = ref('')
-const outputPath = ref('/mnt/data/backups')
 const workspaceMappingRaw = ref('')
+const dumpWorkspaceId = ref('all')
 
 const sourceValidation = ref<{ valid: boolean, normalizedPath?: string | null, errorMessage?: string | null } | null>(null)
-const outputValidation = ref<{ valid: boolean, normalizedPath?: string | null, errorMessage?: string | null } | null>(null)
 
 const isStarting = ref(false)
 const selectedJobId = ref<string | null>(null)
+const requiresSource = computed(() => jobType.value !== 'DUMP')
 
 interface BackupJobSummary {
   id: string
-  type: 'DUMP' | 'RESEED'
+  type: 'DUMP' | 'VERIFY' | 'RESEED'
   status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
   progressPercent: number
   currentStep?: string
@@ -27,13 +29,39 @@ interface BackupJobSummary {
 
 interface BackupJobDetail extends BackupJobSummary {
   sourcePath?: string | null
-  outputPath: string
+  outputPath?: string | null
   processedItems: number
   totalItems: number
   errorMessage?: string | null
   resultPath?: string | null
   warnings: string[]
 }
+
+interface AdminWorkspace {
+  id: string
+  name: string
+  isPersonal: boolean
+  ownerUserId: string
+  ownerUsername?: string
+}
+
+const { data: workspaces } = await useFetch<AdminWorkspace[]>('/api/admin/workspaces', {
+  key: globalKey('admin', 'workspaces', 'all'),
+  default: () => []
+})
+
+const dumpScopeItems = computed(() => [
+  { label: 'All workspaces', value: 'all' },
+  ...workspaces.value
+    .map(workspace => ({
+      label: [
+        getWorkspaceDisplayName(workspace),
+        getWorkspaceSecondaryLabel(workspace)
+      ].filter(Boolean).join(' · '),
+      value: workspace.id
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+])
 
 const { data: jobs, refresh: refreshJobs, pending: jobsPending } = await useFetch<BackupJobSummary[]>('/api/admin/backup/jobs', {
   key: 'admin-backup-jobs',
@@ -48,6 +76,12 @@ const { data: selectedJobDetail, refresh: refreshSelectedJob } = await useFetch<
     watch: [selectedJobId]
   }
 )
+const hasActiveJobs = computed(() => {
+  const selectedStatus = selectedJobDetail.value?.status
+  return selectedStatus === 'PENDING'
+    || selectedStatus === 'RUNNING'
+    || jobs.value.some(job => job.status === 'PENDING' || job.status === 'RUNNING')
+})
 
 watch(selectedJobId, async (id) => {
   if (id) {
@@ -80,7 +114,7 @@ onMounted(() => {
   pollHandle = setInterval(() => {
     if (!realtime.isPageVisible.value) return
     const realtimeConnected = realtime.connectionStatus.value === 'connected'
-    if (realtimeConnected && Date.now() - lastRealtimeAuditAt < 60_000) return
+    if (realtimeConnected && !hasActiveJobs.value && Date.now() - lastRealtimeAuditAt < 60_000) return
     if (realtimeConnected) lastRealtimeAuditAt = Date.now()
     void refreshBackupData()
   }, 3000)
@@ -105,11 +139,10 @@ onUnmounted(() => {
   realtimeUnsubscribe?.()
 })
 
-async function validatePath(role: 'SOURCE' | 'OUTPUT') {
-  const path = role === 'SOURCE' ? sourcePath.value : outputPath.value
+async function validateSourcePath() {
+  const path = sourcePath.value
   if (!path?.trim()) {
-    if (role === 'SOURCE') sourceValidation.value = null
-    if (role === 'OUTPUT') outputValidation.value = null
+    sourceValidation.value = null
     return
   }
 
@@ -118,23 +151,15 @@ async function validatePath(role: 'SOURCE' | 'OUTPUT') {
       method: 'POST',
       body: {
         path: path.trim(),
-        role
+        role: 'SOURCE'
       }
     })
 
-    if (role === 'SOURCE') {
-      sourceValidation.value = result
-    } else {
-      outputValidation.value = result
-    }
+    sourceValidation.value = result
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Path validation failed'
     const failed = { valid: false, errorMessage: message, normalizedPath: null }
-    if (role === 'SOURCE') {
-      sourceValidation.value = failed
-    } else {
-      outputValidation.value = failed
-    }
+    sourceValidation.value = failed
   }
 }
 
@@ -154,37 +179,33 @@ function parseWorkspaceMapping(raw: string): Record<string, string> {
 }
 
 async function startJob() {
-  if (jobType.value === 'RESEED' && !sourcePath.value.trim()) {
+  if (requiresSource.value && !sourcePath.value.trim()) {
     toast.add({ title: 'Source path required', color: 'warning' })
-    return
-  }
-  if (!outputPath.value.trim()) {
-    toast.add({ title: 'Output path required', color: 'warning' })
     return
   }
 
   isStarting.value = true
   try {
-    await validatePath('OUTPUT')
-    if (jobType.value === 'RESEED') {
-      await validatePath('SOURCE')
+    if (requiresSource.value) {
+      await validateSourcePath()
     }
 
-    if (outputValidation.value && !outputValidation.value.valid) {
-      throw new Error(outputValidation.value.errorMessage || 'Invalid output path')
-    }
-    if (jobType.value === 'RESEED' && sourceValidation.value && !sourceValidation.value.valid) {
+    if (requiresSource.value && sourceValidation.value && !sourceValidation.value.valid) {
       throw new Error(sourceValidation.value.errorMessage || 'Invalid source path')
     }
 
     const payload: Record<string, unknown> = {
-      type: jobType.value,
-      outputPath: outputValidation.value?.normalizedPath || outputPath.value.trim()
+      type: jobType.value
     }
 
-    if (jobType.value === 'RESEED') {
+    if (requiresSource.value) {
       payload.sourcePath = sourceValidation.value?.normalizedPath || sourcePath.value.trim()
+    }
+    if (jobType.value === 'RESEED') {
       payload.workspaceMapping = parseWorkspaceMapping(workspaceMappingRaw.value)
+    }
+    if (jobType.value === 'DUMP' && dumpWorkspaceId.value !== 'all') {
+      payload.workspaceId = dumpWorkspaceId.value
     }
 
     const created = await $fetch<BackupJobDetail>('/api/admin/backup/jobs', {
@@ -197,7 +218,7 @@ async function startJob() {
     await refreshSelectedJob()
 
     toast.add({
-      title: `${jobType.value === 'DUMP' ? 'Dump' : 'Reseed'} job started`,
+      title: `${jobType.value === 'DUMP' ? 'Dump' : jobType.value === 'VERIFY' ? 'Verification' : 'Reseed'} job started`,
       description: `Job ${created.id} is running in the background.`,
       color: 'success'
     })
@@ -255,33 +276,38 @@ function statusColor(status: BackupJobSummary['status']) {
               <USelectMenu
                 v-model="jobType"
                 :items="[
-                  { label: 'Dump file-based data', value: 'DUMP' },
+                  { label: 'Create portable dump', value: 'DUMP' },
+                  { label: 'Verify portable dump', value: 'VERIFY' },
                   { label: 'Reseed from dump archive', value: 'RESEED' }
                 ]"
                 value-key="value"
               />
             </UFormField>
 
-            <UFormField label="Output Path" :error="outputValidation?.valid === false ? outputValidation.errorMessage || undefined : undefined">
-              <UInput
-                v-model="outputPath"
-                placeholder="/mnt/data/backups"
-                :color="outputValidation?.valid === false ? 'error' : outputValidation?.valid ? 'success' : 'neutral'"
-                @blur="validatePath('OUTPUT')"
+            <UFormField
+              v-if="jobType === 'DUMP'"
+              label="Dump Scope"
+              hint="Export every workspace or only the selected workspace"
+            >
+              <USelectMenu
+                v-model="dumpWorkspaceId"
+                :items="dumpScopeItems"
+                value-key="value"
+                :search-input="{ placeholder: 'Search workspaces...' }"
               />
             </UFormField>
 
             <UFormField
-              v-if="jobType === 'RESEED'"
+              v-if="requiresSource"
               label="Source Dump Path"
               :error="sourceValidation?.valid === false ? sourceValidation.errorMessage || undefined : undefined"
               class="md:col-span-2"
             >
               <UInput
                 v-model="sourcePath"
-                placeholder="/mnt/data/backups/larex-dump-20260221-120000.larex-dump.zip"
+                placeholder="/mnt/data/backups/larex-dump-20260719-120000.larex-dump.zip"
                 :color="sourceValidation?.valid === false ? 'error' : sourceValidation?.valid ? 'success' : 'neutral'"
-                @blur="validatePath('SOURCE')"
+                @blur="validateSourcePath"
               />
             </UFormField>
 
@@ -296,6 +322,13 @@ function statusColor(status: BackupJobSummary['status']) {
                 placeholder="old-workspace-id=new-workspace-id,old2=new2"
               />
             </UFormField>
+
+            <p
+              v-if="jobType !== 'VERIFY'"
+              class="text-xs text-muted md:col-span-2"
+            >
+              Output is written to the backup directory configured by the deployment operator.
+            </p>
           </div>
 
           <div class="mt-4">
@@ -304,7 +337,7 @@ function statusColor(status: BackupJobSummary['status']) {
               icon="i-lucide-play"
               @click="startJob"
             >
-              Start {{ jobType === 'DUMP' ? 'Dump' : 'Reseed' }} Job
+              Start {{ jobType === 'DUMP' ? 'Dump' : jobType === 'VERIFY' ? 'Verification' : 'Reseed' }} Job
             </UButton>
           </div>
         </UCard>
@@ -385,7 +418,7 @@ function statusColor(status: BackupJobSummary['status']) {
             <p><strong>ID:</strong> <code>{{ selectedJobDetail.id }}</code></p>
             <p><strong>Status:</strong> {{ selectedJobDetail.status }}</p>
             <p><strong>Source:</strong> {{ selectedJobDetail.sourcePath || '—' }}</p>
-            <p><strong>Output:</strong> {{ selectedJobDetail.outputPath }}</p>
+            <p><strong>Output:</strong> {{ selectedJobDetail.outputPath || '—' }}</p>
             <p><strong>Progress:</strong> {{ selectedJobDetail.processedItems }} / {{ selectedJobDetail.totalItems }}</p>
             <p v-if="selectedJobDetail.resultPath">
               <strong>Result path:</strong>

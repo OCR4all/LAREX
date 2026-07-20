@@ -5,15 +5,19 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -112,6 +116,82 @@ class ArchiveIoServiceTest {
         }
     }
 
+    @Test
+    void writesAndReturnsTheEntrySha256() throws Exception {
+        ByteArrayOutputStream archive = new ByteArrayOutputStream();
+        String[] checksum = new String[1];
+
+        service.writeZip(archive, zipOut ->
+                checksum[0] = service.writeStreamEntryWithSha256(
+                        zipOut,
+                        "payload.txt",
+                        output -> output.write(bytes("hello"))
+                )
+        );
+
+        assertEquals(
+                "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+                checksum[0]
+        );
+        ArchiveIoService.ExtractionResult extracted = service.extractZipToTempDirWithReport(
+                new ByteArrayInputStream(archive.toByteArray()),
+                "archive-checksum-test-",
+                limits(archive.size() + 1L, 10, 100, 100, 100)
+        );
+        try {
+            assertEquals("hello", Files.readString(extracted.directory().resolve("payload.txt")));
+        } finally {
+            try (var paths = Files.walk(extracted.directory())) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(path);
+                }
+            }
+        }
+    }
+
+    @Test
+    void canWriteAnEntryWithoutRecompressingItsPayload() throws Exception {
+        byte[] payload = new byte[64 * 1024];
+        ByteArrayOutputStream archive = new ByteArrayOutputStream();
+
+        service.writeZip(archive, zipOut ->
+                service.writeStreamEntryWithSha256(
+                        zipOut,
+                        "nested-archive.zip",
+                        Deflater.NO_COMPRESSION,
+                        output -> output.write(payload)
+                )
+        );
+
+        assertTrue(archive.size() > payload.length);
+        ArchiveIoService.ExtractionResult extracted = service.extractZipToTempDirWithReport(
+                new ByteArrayInputStream(archive.toByteArray()),
+                "archive-no-compression-test-",
+                limits(archive.size() + 1L, 10, payload.length + 1L, payload.length + 1L, 100)
+        );
+        try {
+            assertArrayEquals(payload, Files.readAllBytes(extracted.directory().resolve("nested-archive.zip")));
+        } finally {
+            try (var paths = Files.walk(extracted.directory())) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(path);
+                }
+            }
+        }
+    }
+
+    @Test
+    void writesArchiveBuffersToTheTargetInBulk() throws Exception {
+        CountingOutputStream target = new CountingOutputStream();
+
+        service.writeZip(target, zipOut ->
+                service.writeBytesEntry(zipOut, "payload.bin", new byte[256 * 1024])
+        );
+
+        assertTrue(target.bulkWriteCount > 0);
+        assertEquals(0, target.singleByteWriteCount);
+    }
+
     private void extract(byte[] archive, ArchiveIoService.ExtractionLimits limits) throws Exception {
         service.extractZipToTempDir(
                 new ByteArrayInputStream(archive),
@@ -148,5 +228,20 @@ class ArchiveIoServiceTest {
 
     private byte[] bytes(String value) {
         return value.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static final class CountingOutputStream extends OutputStream {
+        private int bulkWriteCount;
+        private int singleByteWriteCount;
+
+        @Override
+        public void write(int value) {
+            singleByteWriteCount++;
+        }
+
+        @Override
+        public void write(byte[] bytes, int offset, int length) throws IOException {
+            bulkWriteCount++;
+        }
     }
 }

@@ -10,8 +10,8 @@ POLL_SECONDS="${LAREX_BACKUP_POLL_SECONDS:-2}"
 usage() {
   cat <<USAGE
 Usage:
-  $(basename "$0") dump --output <path> [--api <url>] [--token <bearer-token>]
-  $(basename "$0") reseed --source <dump.zip> --output <path> [--map <src=target,src2=target2>] [--api <url>] [--token <bearer-token>]
+  $(basename "$0") dump [--api <url>] [--token <bearer-token>]
+  $(basename "$0") reseed --source <dump.zip> [--map <src=target,src2=target2>] [--api <url>] [--token <bearer-token>]
 
 Environment:
   LAREX_API_BASE           Backend base URL (default: http://localhost:8080/api/v1)
@@ -25,10 +25,6 @@ require_cmd() {
     echo "Missing required command: $1" >&2
     exit 1
   fi
-}
-
-json_escape() {
-  printf '%s' "$1" | jq -Rr @json
 }
 
 api_call() {
@@ -138,17 +134,12 @@ main() {
   shift
 
   local source_path=""
-  local output_path=""
   local mapping=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --source)
         source_path="$2"
-        shift 2
-        ;;
-      --output)
-        output_path="$2"
         shift 2
         ;;
       --map)
@@ -175,20 +166,9 @@ main() {
     esac
   done
 
-  if [[ -z "$output_path" ]]; then
-    echo "--output is required" >&2
-    exit 1
-  fi
-
-  local normalized_output
-  normalized_output=$(validate_path OUTPUT "$output_path")
-
   local payload
   if [[ "$mode" == "dump" ]]; then
-    payload=$(jq -cn \
-      --arg type "DUMP" \
-      --arg output "$normalized_output" \
-      '{type:$type, outputPath:$output}')
+    payload=$(jq -cn --arg type "DUMP" '{type:$type}')
   elif [[ "$mode" == "reseed" ]]; then
     if [[ -z "$source_path" ]]; then
       echo "--source is required for reseed" >&2
@@ -214,9 +194,8 @@ main() {
     payload=$(jq -cn \
       --arg type "RESEED" \
       --arg source "$normalized_source" \
-      --arg output "$normalized_output" \
       --argjson mapping "$mapping_json" \
-      '{type:$type, sourcePath:$source, outputPath:$output, workspaceMapping:$mapping}')
+      '{type:$type, sourcePath:$source, workspaceMapping:$mapping}')
   else
     echo "Unknown mode: $mode" >&2
     usage

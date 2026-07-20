@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+import java.util.zip.Deflater;
 import java.util.zip.ZipOutputStream;
 
 @Component
@@ -41,6 +42,15 @@ public class ProjectPackageArchiveService {
 
     public void writeZip(OutputStream outputStream, ExportPackage exportPackage) throws IOException {
         archiveIoService.writeZip(outputStream, zipOut -> writeEntries(zipOut, exportPackage, ""));
+    }
+
+    public void writeUncompressedZip(OutputStream outputStream,
+                                     ExportPackage exportPackage) throws IOException {
+        archiveIoService.writeZip(
+                outputStream,
+                Deflater.NO_COMPRESSION,
+                zipOut -> writeEntries(zipOut, exportPackage, "")
+        );
     }
 
     public void writeZip(Path outputPath, ExportPackage exportPackage) throws IOException {

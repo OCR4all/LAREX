@@ -32,19 +32,22 @@ public class AsyncConfig {
     private final IiifProperties iiifProperties;
     private final AnnotationProperties annotationProperties;
     private final StorageProperties storageProperties;
+    private final BackupProperties backupProperties;
 
     public AsyncConfig(AsyncExecutorProperties asyncProperties,
                        UploadProperties uploadProperties,
                        ImportProperties importProperties,
                        IiifProperties iiifProperties,
                        AnnotationProperties annotationProperties,
-                       StorageProperties storageProperties) {
+                       StorageProperties storageProperties,
+                       BackupProperties backupProperties) {
         this.asyncProperties = asyncProperties;
         this.uploadProperties = uploadProperties;
         this.importProperties = importProperties;
         this.iiifProperties = iiifProperties;
         this.annotationProperties = annotationProperties;
         this.storageProperties = storageProperties;
+        this.backupProperties = backupProperties;
     }
 
     @Bean(name = "taskExecutor")
@@ -71,6 +74,11 @@ public class AsyncConfig {
     @Bean(name = "importTaskExecutor")
     public ThreadPoolTaskExecutor importTaskExecutor() {
         return taskExecutor("import", importProperties.getAsync(), "import-", 120, null);
+    }
+
+    @Bean(name = "backupTaskExecutor")
+    public ThreadPoolTaskExecutor backupTaskExecutor() {
+        return taskExecutor("backup", backupProperties.getAsync(), "backup-", 120, null);
     }
 
     @Bean(name = "actionNotificationTaskExecutor")

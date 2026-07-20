@@ -61,3 +61,8 @@ tasks.withType<Test> {
 	maxHeapSize = "2g"
 	systemProperty("spring.config.additional-location", "optional:classpath:/application-test-overrides.yaml")
 }
+
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+	// Backups and imports are throughput-heavy; C1-only optimized launch makes them pathologically slow in dev.
+	optimizedLaunch.set(false)
+}

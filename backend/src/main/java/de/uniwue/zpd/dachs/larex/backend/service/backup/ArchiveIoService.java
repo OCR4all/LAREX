@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.backup;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedOutputStream;
 import java.io.FilterInputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
@@ -11,16 +12,23 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
+import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 @Service
 public class ArchiveIoService {
+
+    private static final int ZIP_OUTPUT_BUFFER_BYTES = 256 * 1024;
+    private static final int ZIP_ENTRY_BUFFER_BYTES = 64 * 1024;
 
     private final ObjectMapper objectMapper;
 
@@ -39,7 +47,19 @@ public class ArchiveIoService {
     }
 
     public void writeZip(OutputStream outputStream, ZipWriter writer) throws IOException {
-        try (ZipOutputStream zipOut = new ZipOutputStream(new NonClosingOutputStream(outputStream))) {
+        writeZip(outputStream, Deflater.DEFAULT_COMPRESSION, writer);
+    }
+
+    public void writeZip(OutputStream outputStream,
+                         int compressionLevel,
+                         ZipWriter writer) throws IOException {
+        try (ZipOutputStream zipOut = new ZipOutputStream(
+                new BufferedOutputStream(
+                        new NonClosingOutputStream(outputStream),
+                        ZIP_OUTPUT_BUFFER_BYTES
+                )
+        )) {
+            zipOut.setLevel(compressionLevel);
             writer.write(zipOut);
         }
     }
@@ -47,6 +67,13 @@ public class ArchiveIoService {
     public void writeJsonEntry(ZipOutputStream zipOut, String entryName, Object payload) throws IOException {
         byte[] bytes = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(payload);
         writeBytesEntry(zipOut, entryName, bytes);
+    }
+
+    public String writeJsonEntryWithSha256(ZipOutputStream zipOut,
+                                           String entryName,
+                                           Object payload) throws IOException {
+        byte[] bytes = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(payload);
+        return writeStreamEntryWithSha256(zipOut, entryName, output -> output.write(bytes));
     }
 
     public <T> T readJson(Path jsonPath, Class<T> targetClass) throws IOException {
@@ -72,9 +99,71 @@ public class ArchiveIoService {
         ZipEntry entry = new ZipEntry(normalizedName);
         zipOut.putNextEntry(entry);
         try {
-            writer.write(zipOut);
+            OutputStream bufferedEntryOutput = new BufferedOutputStream(
+                    new NonClosingOutputStream(zipOut),
+                    ZIP_ENTRY_BUFFER_BYTES
+            );
+            writer.write(bufferedEntryOutput);
+            bufferedEntryOutput.flush();
         } finally {
             zipOut.closeEntry();
+        }
+    }
+
+    public String writeStreamEntryWithSha256(ZipOutputStream zipOut,
+                                             String entryName,
+                                             EntryWriter writer) throws IOException {
+        return writeStreamEntryWithSha256(zipOut, entryName, Deflater.DEFAULT_COMPRESSION, writer);
+    }
+
+    public String writeStreamEntryWithSha256(ZipOutputStream zipOut,
+                                             String entryName,
+                                             int compressionLevel,
+                                             EntryWriter writer) throws IOException {
+        MessageDigest digest = sha256Digest();
+        String normalizedName = normalizeArchivePath(entryName);
+        zipOut.setLevel(compressionLevel);
+        try {
+            zipOut.putNextEntry(new ZipEntry(normalizedName));
+            try {
+                OutputStream digestingOutput = new java.security.DigestOutputStream(
+                        new NonClosingOutputStream(zipOut),
+                        digest
+                );
+                OutputStream bufferedEntryOutput = new BufferedOutputStream(
+                        digestingOutput,
+                        ZIP_ENTRY_BUFFER_BYTES
+                );
+                writer.write(bufferedEntryOutput);
+                bufferedEntryOutput.flush();
+            } finally {
+                zipOut.closeEntry();
+            }
+        } finally {
+            zipOut.setLevel(Deflater.DEFAULT_COMPRESSION);
+        }
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    public String sha256(Path path) throws IOException {
+        MessageDigest digest = sha256Digest();
+        try (InputStream input = Files.newInputStream(path)) {
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = input.read(buffer)) >= 0) {
+                if (read > 0) {
+                    digest.update(buffer, 0, read);
+                }
+            }
+        }
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private MessageDigest sha256Digest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
         }
     }
 
@@ -335,6 +424,11 @@ public class ArchiveIoService {
     private static class NonClosingOutputStream extends FilterOutputStream {
         private NonClosingOutputStream(OutputStream out) {
             super(out);
+        }
+
+        @Override
+        public void write(byte[] bytes, int offset, int length) throws IOException {
+            out.write(bytes, offset, length);
         }
 
         @Override

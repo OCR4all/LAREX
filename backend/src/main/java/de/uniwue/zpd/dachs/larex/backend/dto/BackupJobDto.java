@@ -10,6 +10,7 @@ public class BackupJobDto {
 
     public enum JobType {
         DUMP,
+        VERIFY,
         RESEED
     }
 
@@ -43,9 +44,8 @@ public class BackupJobDto {
     public record CreateJobRequest(
             JobType type,
             String sourcePath,
-            @NotBlank(message = "outputPath is required")
-            String outputPath,
-            Map<String, String> workspaceMapping
+            Map<String, String> workspaceMapping,
+            String workspaceId
     ) {
     }
 
