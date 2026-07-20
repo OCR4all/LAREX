@@ -7,10 +7,12 @@ const props = withDefaults(defineProps<{
   canEditDefaults?: boolean
   isSavingDefaults?: boolean
   saveError?: string | null
+  showDiffToggle?: boolean
 }>(), {
   canEditDefaults: false,
   isSavingDefaults: false,
-  saveError: null
+  saveError: null,
+  showDiffToggle: true
 })
 
 const emit = defineEmits<{
@@ -103,7 +105,11 @@ function handleSave() {
       {{ props.saveError }}
     </p>
 
-    <div class="flex items-center justify-between cursor-pointer" @click="showDiff = !showDiff">
+    <div
+      v-if="props.showDiffToggle"
+      class="flex items-center justify-between cursor-pointer"
+      @click="showDiff = !showDiff"
+    >
       <span class="text-sm font-medium">Show Diff</span>
       <UCheckbox :model-value="showDiff" @click.stop @update:model-value="showDiff = ($event === true)" />
     </div>

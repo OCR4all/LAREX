@@ -255,7 +255,7 @@ watch(() => props.imagePopoverDismissKey, () => {
             </div>
 
             <div class="min-h-0 flex-1 overflow-auto editor-sidebar-image-scroll p-2">
-              <slot name="image-popover" />
+              <slot name="image-popover" :visible="floatingImagePopoverOpen" />
             </div>
           </div>
         </template>
@@ -418,7 +418,7 @@ watch(() => props.imagePopoverDismissKey, () => {
                 </div>
 
                 <div class="min-h-0 flex-1 overflow-auto editor-sidebar-image-scroll p-2">
-                  <slot name="image-popover" />
+                  <slot name="image-popover" :visible="collapsedRailImagePopoverOpen" />
                 </div>
               </div>
             </template>

@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { Region } from '@/models/editor/region'
 import { Polygon } from '@/models/editor/geometry'
 import { TextLine } from '@/models/editor/text'
-import { collectRegionIdsInReadingOrder, collectTextlineIdsInPageOrder, getAdjacentTextlineId } from '../textline-navigation'
+import {
+  collectRegionIdsInReadingOrder,
+  collectTextlineIdsInPageOrder,
+  collectTextlineIdsInReadingOrder,
+  getAdjacentTextlineId
+} from '../textline-navigation'
 
 function makePolygon() {
   return new Polygon([[0, 0], [1, 0], [1, 1], [0, 1]])
@@ -95,5 +100,72 @@ describe('textline-navigation', () => {
         ]
       }
     })).toEqual(['region-3', 'region-1', 'region-2'])
+  })
+
+  it('collects textlines by reading order and appends unreferenced regions in PAGE order', () => {
+    const nestedRegion: Region = {
+      id: 'region-nested',
+      kind: 'TextRegion',
+      coords: makePolygon(),
+      textLines: [makeTextLine('line-nested')]
+    }
+    const regions: Region[] = [
+      {
+        id: 'region-1',
+        kind: 'TextRegion',
+        coords: makePolygon(),
+        textLines: [makeTextLine('line-1a'), makeTextLine('line-1b')],
+        regions: [nestedRegion]
+      },
+      {
+        id: 'region-2',
+        kind: 'TextRegion',
+        coords: makePolygon(),
+        textLines: [makeTextLine('line-2')]
+      },
+      {
+        id: 'region-3',
+        kind: 'TextRegion',
+        coords: makePolygon(),
+        textLines: [makeTextLine('line-3')]
+      }
+    ]
+
+    expect(collectTextlineIdsInReadingOrder(regions, {
+      root: {
+        kind: 'OrderedGroup',
+        id: 'root',
+        elements: [
+          { kind: 'RegionRef', id: 'ro-3', regionRef: 'region-3' },
+          { kind: 'RegionRef', id: 'ro-1', regionRef: 'region-1' },
+          { kind: 'RegionRef', id: 'ro-1-duplicate', regionRef: 'region-1' }
+        ]
+      }
+    })).toEqual([
+      'line-3',
+      'line-1a',
+      'line-1b',
+      'line-nested',
+      'line-2'
+    ])
+  })
+
+  it('falls back to recursive PAGE order when reading order is absent', () => {
+    const regions: Region[] = [
+      {
+        id: 'region-1',
+        kind: 'TextRegion',
+        coords: makePolygon(),
+        textLines: [makeTextLine('line-1')],
+        regions: [{
+          id: 'region-1a',
+          kind: 'TextRegion',
+          coords: makePolygon(),
+          textLines: [makeTextLine('line-2')]
+        }]
+      }
+    ]
+
+    expect(collectTextlineIdsInReadingOrder(regions, undefined)).toEqual(['line-1', 'line-2'])
   })
 })

@@ -2614,13 +2614,14 @@ const {
           :only-with-open-subtasks="onlyWithOpenSubtasks"
           :has-backend-filters="hasBackendFilters"
           :backend-filtered-page-ids-by-project-id="backendFilteredPageIdsByProjectId"
+          :visible="true"
           :get-project-context-menu-items="getProjectContextMenuItems"
           @select-page="handleSelectPage"
           @unload-page="handleUnloadPage"
         />
       </template>
 
-      <template #image-popover>
+      <template #image-popover="{ visible }">
         <EditorProjectListShell
           v-model:project-accordion-panels="projectAccordionPanels"
           :projects="openedProjectsForSidebar"
@@ -2629,6 +2630,7 @@ const {
           :only-with-open-subtasks="onlyWithOpenSubtasks"
           :has-backend-filters="hasBackendFilters"
           :backend-filtered-page-ids-by-project-id="backendFilteredPageIdsByProjectId"
+          :visible="visible"
           :get-project-context-menu-items="getProjectContextMenuItems"
           @select-page="handleSelectPage"
           @unload-page="handleUnloadPage"

@@ -173,7 +173,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.textViewAutoSelectFirstLine !== null) {
       textViewAutoSelectFirstLine.value = Boolean(prefs.textViewAutoSelectFirstLine)
     }
-    if (prefs.textModeSubmode === 'expert' || prefs.textModeSubmode === 'visual') {
+    if (prefs.textModeSubmode === 'expert' || prefs.textModeSubmode === 'visual' || prefs.textModeSubmode === 'full') {
       textModeSubmode.value = prefs.textModeSubmode
     }
     if (prefs.canvasTextCorrectionOverlaySnapToLine !== null) {

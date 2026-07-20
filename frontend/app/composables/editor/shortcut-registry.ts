@@ -171,6 +171,12 @@ export const SHORTCUT_DEFINITIONS = {
     scope: 'global',
     defaultBindings: ['5']
   },
+  textFullView: {
+    description: 'Text · Full text',
+    group: 'view',
+    scope: 'global',
+    defaultBindings: ['6']
+  },
 
   clearSelection: {
     description: 'Clear selection',

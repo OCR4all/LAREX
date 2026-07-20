@@ -37,7 +37,7 @@ export interface EditorPreferences {
   canvasTextCorrectionOverlayXRatio: number | null
   canvasTextCorrectionOverlayYRatio: number | null
   canvasTextCorrectionZoom: number | null
-  textModeSubmode: 'visual' | 'expert' | null
+  textModeSubmode: 'visual' | 'expert' | 'full' | null
   highlightUnknownCodecChars: boolean | null
   shortcutBindings: ShortcutPreferences | null
   onboardingDashboardTourVersion: number | null

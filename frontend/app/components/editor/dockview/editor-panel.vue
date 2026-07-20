@@ -22,6 +22,8 @@ const canvasId = computed(() => props.params.params?.canvasId || props.params.ap
 
 const uiMode = computed(() => editorStore.effectiveUiMode(canvasId.value))
 const isTextVisualMode = computed(() => uiMode.value === 'text' && uiStore.textModeSubmode === 'visual')
+const isTextFullMode = computed(() => uiMode.value === 'text' && uiStore.textModeSubmode === 'full')
+const isTextCanvasMode = computed(() => isTextVisualMode.value || isTextFullMode.value)
 
 const requestedPageId = computed(() => props.params.params?.pageId)
 const requestedProjectId = computed(() => props.params.params?.projectId)
@@ -49,15 +51,22 @@ onMounted(async () => {
   <div v-if="canvasId" class="h-full w-full">
     <EditorCollaborationHost :canvas-id="canvasId" />
 
+    <EditorTextFullView
+      v-if="isTextFullMode && !!src"
+      class="h-full w-full"
+      :src="src"
+      :canvas-id="canvasId"
+    />
+
     <Editor
-      v-if="(uiMode === 'layout' || isTextVisualMode) && !!src"
+      v-else-if="(uiMode === 'layout' || isTextVisualMode) && !!src"
       class="h-full w-full"
       :src="src"
       :canvas-id="canvasId"
     />
 
     <div
-      v-else-if="uiMode === 'layout' || isTextVisualMode"
+      v-else-if="uiMode === 'layout' || isTextCanvasMode"
       class="flex h-full w-full items-center justify-center bg-default"
     >
       <div class="relative h-full w-full overflow-hidden">

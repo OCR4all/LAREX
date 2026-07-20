@@ -19,13 +19,15 @@ const props = withDefaults(defineProps<{
   onlyWithOpenSubtasks?: boolean
   openSubtaskCountByPage?: Record<string, number>
   filteredPageIds?: string[] | null
+  visible?: boolean
 }>(), {
   pages: () => [],
   projectId: null,
   filter: '',
   onlyWithOpenSubtasks: false,
   openSubtaskCountByPage: () => ({}),
-  filteredPageIds: null
+  filteredPageIds: null,
+  visible: true
 })
 
 const editorStore = useEditorStore()
@@ -33,6 +35,7 @@ const sessionStore = useEditorSessionStore()
 const ESTIMATED_ROW_HEIGHT = 400
 const BACK_TO_SELECTION_OVERLAY_TOP_OFFSET = 12
 const BACK_TO_SELECTION_VISIBILITY_PADDING = 8
+const ACTIVE_PAGE_CENTER_MAX_RETRIES = 30
 
 const currentPageId = computed(() => editorStore.currentPageId)
 const scrollMargin = ref(0)
@@ -60,11 +63,15 @@ const filteredPages = computed<PageData[]>(() => {
 
   return result
 })
+const filteredPageIdsSignature = computed(() => filteredPages.value.map(page => page.id).join('|'))
 
 const listRootRef = ref<HTMLElement | null>(null)
 const scrollElement = ref<HTMLElement | null>(null)
 let resizeObserver: ResizeObserver | null = null
 let syncLayoutFrameId: number | null = null
+let shouldCenterActivePageAfterLayout = false
+let activePageCenterBehavior: 'auto' | 'smooth' = 'auto'
+let activePageCenterRetryCount = 0
 
 function updateScrollViewport() {
   const scroller = scrollElement.value
@@ -138,9 +145,6 @@ function attachScrollElement(nextScrollElement: HTMLElement | null) {
 function resolveScrollElement(): HTMLElement | null {
   const nearest = listRootRef.value?.closest('.editor-sidebar-image-scroll')
   if (nearest instanceof HTMLElement) return nearest
-  if (import.meta.client) {
-    return document.querySelector<HTMLElement>('.editor-sidebar-image-scroll')
-  }
   return null
 }
 
@@ -243,14 +247,23 @@ const backToSelectionOverlayStyle = computed(() => {
   }
 })
 
-function scrollToActivePage() {
+function scrollToActivePage(behavior: 'auto' | 'smooth' = 'smooth') {
   const index = activePageIndex.value
   if (index < 0) return
 
   rowVirtualizer.value.scrollToIndex(index, {
     align: 'center',
-    behavior: 'smooth'
+    behavior
   })
+}
+
+function scheduleActivePageCenter(behavior: 'auto' | 'smooth') {
+  if (!props.visible || activePageIndex.value < 0) return
+
+  shouldCenterActivePageAfterLayout = true
+  activePageCenterBehavior = behavior
+  activePageCenterRetryCount = 0
+  syncVirtualizerLayout(true)
 }
 
 function calculateEstimatedRowHeight(): number {
@@ -302,6 +315,24 @@ function syncVirtualizerLayout(forceMeasure: boolean = false) {
     if (forceMeasure || didScrollMarginChange || didEstimatedHeightChange) {
       rowVirtualizer.value.measure()
     }
+
+    if (shouldCenterActivePageAfterLayout) {
+      const scroller = scrollElement.value
+      if (!scroller || scroller.clientHeight <= 0) {
+        if (activePageCenterRetryCount < ACTIVE_PAGE_CENTER_MAX_RETRIES) {
+          activePageCenterRetryCount++
+          syncVirtualizerLayout(true)
+        } else {
+          shouldCenterActivePageAfterLayout = false
+          activePageCenterRetryCount = 0
+        }
+        return
+      }
+
+      shouldCenterActivePageAfterLayout = false
+      activePageCenterRetryCount = 0
+      scrollToActivePage(activePageCenterBehavior)
+    }
   })
 }
 
@@ -309,9 +340,14 @@ onMounted(() => {
   canRenderBackToSelectionOverlay.value = true
   if (import.meta.client && typeof ResizeObserver !== 'undefined' && listRootRef.value) {
     resizeObserver = new ResizeObserver(() => {
+      const wasHidden = scrollViewport.value.height <= 0
       updateScrollViewport()
       updateBackToSelectionOverlayAnchor()
-      syncVirtualizerLayout()
+      if (props.visible && wasHidden && scrollViewport.value.height > 0) {
+        scheduleActivePageCenter('auto')
+      } else {
+        syncVirtualizerLayout()
+      }
     })
     resizeObserver.observe(listRootRef.value)
   }
@@ -339,15 +375,34 @@ watch(() => props.projectId, () => {
   syncVirtualizerLayout(true)
 })
 
-watch(() => filteredPages.value.length, () => {
+watch(filteredPageIdsSignature, () => {
   nextTick(() => {
-    syncVirtualizerLayout(true)
     updateScrollViewport()
+    if (activePageIndex.value >= 0) {
+      scheduleActivePageCenter('auto')
+    } else {
+      syncVirtualizerLayout(true)
+    }
   })
 })
 
+watch(() => props.visible, (visible) => {
+  if (!visible) {
+    shouldCenterActivePageAfterLayout = false
+    activePageCenterRetryCount = 0
+    return
+  }
+
+  nextTick(() => {
+    scheduleActivePageCenter('auto')
+  })
+}, { immediate: true, flush: 'post' })
+
 watch(currentPageId, () => {
-  nextTick(updateScrollViewport)
+  nextTick(() => {
+    updateScrollViewport()
+    scheduleActivePageCenter('smooth')
+  })
 })
 
 function getDisplayedVariant(page: PageData) {
@@ -408,7 +463,7 @@ function handlePageUnload(page: PageData) {
               showBackToSelection ? 'pointer-events-auto' : 'pointer-events-none'
             ]"
             :aria-label="backToSelectionTooltip"
-            @click.stop="scrollToActivePage"
+            @click.stop="scrollToActivePage()"
           />
         </UTooltip>
       </div>

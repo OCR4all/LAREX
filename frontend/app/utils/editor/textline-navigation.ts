@@ -30,6 +30,15 @@ export function collectTextlineIdsInPageOrder(regions: Region[] | undefined): st
   return orderedIds
 }
 
+function collectRegionsRecursive(regions: Region[], out: Region[]): void {
+  for (const region of regions) {
+    out.push(region)
+    if (Array.isArray(region.regions) && region.regions.length > 0) {
+      collectRegionsRecursive(region.regions, out)
+    }
+  }
+}
+
 function isReadingOrderGroup(node: ReadingOrderNode): node is Extract<ReadingOrderNode, { elements: ReadingOrderNode[] }> {
   return 'elements' in node && Array.isArray(node.elements)
 }
@@ -66,6 +75,52 @@ export function collectRegionIdsInReadingOrder(readingOrder: ReadingOrder | unde
   }
 
   return orderedIds
+}
+
+/**
+ * Collect every textline in effective PAGE reading order.
+ *
+ * Reading-order references determine the order of referenced text regions.
+ * Textlines retain their array order within each region. Text regions omitted
+ * from reading order are appended in recursive PAGE traversal order so the
+ * caller never silently loses transcription content.
+ */
+export function collectTextlineIdsInReadingOrder(
+  regions: Region[] | undefined,
+  readingOrder: ReadingOrder | undefined
+): string[] {
+  if (!Array.isArray(regions) || regions.length === 0) return []
+
+  const pageRegions: Region[] = []
+  collectRegionsRecursive(regions, pageRegions)
+
+  const regionById = new Map(pageRegions.map(region => [region.id, region]))
+  const orderedTextlineIds: string[] = []
+  const seenTextlineIds = new Set<string>()
+  const visitedRegionIds = new Set<string>()
+
+  function appendTextRegion(region: Region | undefined): void {
+    if (!region || visitedRegionIds.has(region.id)) return
+    visitedRegionIds.add(region.id)
+    if (!isTextRegion(region) || !Array.isArray(region.textLines)) return
+
+    for (const textLine of region.textLines) {
+      const id = textLine?.id
+      if (typeof id !== 'string' || id.length === 0 || seenTextlineIds.has(id)) continue
+      seenTextlineIds.add(id)
+      orderedTextlineIds.push(id)
+    }
+  }
+
+  for (const regionId of collectRegionIdsInReadingOrder(readingOrder)) {
+    appendTextRegion(regionById.get(regionId))
+  }
+
+  for (const region of pageRegions) {
+    appendTextRegion(region)
+  }
+
+  return orderedTextlineIds
 }
 
 /**

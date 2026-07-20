@@ -180,7 +180,7 @@ describe('shortcut-registry', () => {
     expect(bindings.closeActiveTabAndPrevPage).toEqual(['meta_ctrl_arrowup'])
   })
 
-  it('maps the five editor mode and view choices to number keys without conflicts', () => {
+  it('maps the six editor mode and view choices to number keys without conflicts', () => {
     const bindings = getEffectiveShortcutBindings(null)
     const conflictMap = getShortcutConflictMap(bindings)
 
@@ -189,10 +189,12 @@ describe('shortcut-registry', () => {
     expect(bindings.baselineView).toEqual(['3'])
     expect(bindings.textCanvasView).toEqual(['4'])
     expect(bindings.textListView).toEqual(['5'])
+    expect(bindings.textFullView).toEqual(['6'])
     expect(conflictMap.defaultView).toBeUndefined()
     expect(conflictMap.textlineView).toBeUndefined()
     expect(conflictMap.baselineView).toBeUndefined()
     expect(conflictMap.textCanvasView).toBeUndefined()
     expect(conflictMap.textListView).toBeUndefined()
+    expect(conflictMap.textFullView).toBeUndefined()
   })
 })

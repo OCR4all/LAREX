@@ -8,7 +8,7 @@ import { worldToImage } from '@/utils/editor/coordinates'
 import { getRegionColor } from '@/utils/editor/region-colors'
 import { findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
 import type { RegionKind } from '@/models/editor/region'
-import { CompoundCommand, DeletePolygonCommand, ReorderTextLinesCommand, UpdateTextContentVariantsCommand } from '@/commands'
+import { DeletePolygonCommand, ReorderTextLinesCommand } from '@/commands'
 import { useTextViewShortcutScope } from '@/composables/editor/use-keyboard-shortcuts'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { createScopedLogger } from '@/services/editor/logger-service'
@@ -27,10 +27,7 @@ import {
   filterTextContentVariants,
   getMinVariantConfidence
 } from './variant-filtering'
-import {
-  buildRegionGtSyncedVariants,
-  composeRegionGtFromTextLines
-} from '../shared/region-gt-sync'
+import { createTextlineVariantsUpdateCommand } from '../shared/textline-variant-update'
 import {
   getVisibleTextContentVariantTextareas,
   focusNextSameIndex,
@@ -550,66 +547,19 @@ function commitTextContentVariants(textlineId: string, nextTextContentVariants: 
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   if (!runtime?.commander) return
 
-  const textlineCommand = new UpdateTextContentVariantsCommand({
-    elementId: textlineId,
-    nextTextContentVariants
-  })
-  const regionSyncCommand = buildParentRegionSyncCommand(textlineId, nextTextContentVariants)
-
-  if (regionSyncCommand) {
-    runtime.commander.execute(
-      new CompoundCommand(
-        [textlineCommand, regionSyncCommand],
-        'Update textline GT and sync parent region GT'
-      ),
-      createTextViewCommandContext(effectiveCanvasId.value)
-    )
-    return
-  }
-
-  runtime.commander.execute(textlineCommand, createTextViewCommandContext(effectiveCanvasId.value))
-}
-
-function buildParentRegionSyncCommand(
-  textlineId: string,
-  nextTextlineVariants: TextContentVariantData[] | undefined
-): UpdateTextContentVariantsCommand | null {
   const canvasId = effectiveCanvasId.value
-  if (!canvasId) return null
-
-  const session = getEditorSession(canvasId)
-  const pageRegions = session?.document.value?.page?.regions
-  if (!pageRegions) return null
-
-  const textlineHit = findTextLineRecursive(pageRegions, textlineId)
-  if (!textlineHit) return null
-
-  const parentTextRegion = textlineHit.parentTextRegion
-  const parentRegionId = parentTextRegion.id
-  if (!parentRegionId) return null
-
-  const syncedTextLines = (parentTextRegion.textLines ?? []).map((textline) => {
-    if (textline.id !== textlineId) return textline
-    return {
-      ...textline,
-      textContentVariants: nextTextlineVariants
-    }
-  })
-
-  const nextGtText = composeRegionGtFromTextLines(syncedTextLines, gtIndexModel.value)
-  const nextRegionVariants = buildRegionGtSyncedVariants(
-    parentTextRegion.textContentVariants as TextContentVariantData[] | undefined,
-    nextGtText,
-    gtIndexModel.value
+  const pageRegions = canvasId
+    ? getEditorSession(canvasId)?.document.value?.page?.regions
+    : undefined
+  runtime.commander.execute(
+    createTextlineVariantsUpdateCommand({
+      pageRegions,
+      textlineId,
+      nextTextContentVariants,
+      gtIndex: gtIndexModel.value
+    }),
+    createTextViewCommandContext(canvasId)
   )
-  const currentNormalized = normalizeTextContentVariants(parentTextRegion.textContentVariants as TextContentVariantData[] | undefined)
-  const nextNormalized = normalizeTextContentVariants(nextRegionVariants)
-  if (JSON.stringify(currentNormalized) === JSON.stringify(nextNormalized)) return null
-
-  return new UpdateTextContentVariantsCommand({
-    elementId: parentRegionId,
-    nextTextContentVariants: nextRegionVariants
-  })
 }
 
 function handleAddTextContentVariant(textlineId: string): void {

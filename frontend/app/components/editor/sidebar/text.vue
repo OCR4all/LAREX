@@ -12,6 +12,7 @@ import { PolygonType } from '@/models/editor'
 import type { ProjectData } from '@/types/project-page'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { MetadataApplyPayload } from '@/types/editor/metadata'
+import { getTextSidebarItems, type TextSidebarSlot } from './text-sidebar-items'
 
 const props = defineProps<{
   collapsed?: boolean
@@ -38,6 +39,7 @@ const workspaceStore = useWorkspaceStore()
 const effectiveCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
 const textViewSettings = computed(() => sessionStore.textViewSettings)
 const textElementType = computed(() => PolygonType.TEXTLINE)
+const isFullTextMode = computed(() => uiStore.textModeSubmode === 'full')
 
 const paddingModel = computed({
   get: () => uiStore.textViewPadding,
@@ -253,26 +255,16 @@ const hasUnindexed = computed(() => {
 
 const openTaskCount = computed(() => props.openTasks?.length ?? 0)
 
-const accordionItems = [
-  { label: 'Metadata', icon: 'i-lucide-badge-info', slot: 'metadata' },
-  { label: 'Tasks', icon: 'i-lucide-check-square', slot: 'tasks' },
-  { label: 'Settings', icon: 'i-lucide-settings', slot: 'settings' },
-  { label: 'Virtual Keyboard', icon: 'i-lucide-keyboard', slot: 'virtualKeyboard' },
-  { label: 'Codec', icon: 'i-lucide-badge-check', slot: 'codec' },
-  { label: 'Dictionary', icon: 'i-lucide-book-copy', slot: 'dictionary' },
-  { label: 'Diff', icon: 'i-lucide-git-compare', slot: 'diff' },
-  { label: 'Filter', icon: 'i-lucide-filter', slot: 'filter' }
-]
+const accordionItems = computed(() => getTextSidebarItems(uiStore.textModeSubmode))
 
-const accordionModel = ref<string[]>(['metadata'])
-const allPanels = accordionItems.map(item => item.slot)
-const collapsedPopoverSlot = ref<string | null>(null)
+const accordionModel = ref<TextSidebarSlot[]>(['metadata'])
+const collapsedPopoverSlot = ref<TextSidebarSlot | null>(null)
 
 function expandAllPanelsForOnboarding() {
-  accordionModel.value = [...allPanels]
+  accordionModel.value = accordionItems.value.map(item => item.slot)
 }
 
-function openCollapsedPopover(slot: string) {
+function openCollapsedPopover(slot: TextSidebarSlot) {
   collapsedPopoverSlot.value = slot
 }
 
@@ -280,7 +272,7 @@ function closeCollapsedPopover() {
   collapsedPopoverSlot.value = null
 }
 
-function handleCollapsedPopoverOpenUpdate(slot: string, open: boolean) {
+function handleCollapsedPopoverOpenUpdate(slot: TextSidebarSlot, open: boolean) {
   if (open) {
     openCollapsedPopover(slot)
   } else if (collapsedPopoverSlot.value === slot) {
@@ -295,6 +287,14 @@ function handleMetadataApply(payload: MetadataApplyPayload) {
 
 watch(() => props.collapsed, (collapsed) => {
   if (!collapsed) closeCollapsedPopover()
+})
+
+watch(accordionItems, (items) => {
+  const visibleSlots = new Set(items.map(item => item.slot))
+  accordionModel.value = accordionModel.value.filter(slot => visibleSlots.has(slot))
+  if (collapsedPopoverSlot.value && !visibleSlots.has(collapsedPopoverSlot.value)) {
+    closeCollapsedPopover()
+  }
 })
 
 onMounted(() => {
@@ -377,6 +377,7 @@ onBeforeUnmount(() => {
                 v-model:auto-select-first-line="autoSelectFirstLineModel"
                 v-model:focus-mode="focusModeModel"
                 v-model:show-comments="showCommentsModel"
+                :full-text-mode="isFullTextMode"
               />
             </template>
             <template v-else-if="item.slot === 'virtualKeyboard'">
@@ -403,6 +404,7 @@ onBeforeUnmount(() => {
                 :can-edit-defaults="canEditProjectTextIndexDefaults"
                 :is-saving-defaults="isSavingTextIndexDefaults"
                 :save-error="textIndexDefaultsSaveError"
+                :show-diff-toggle="!isFullTextMode"
                 @save-defaults="saveProjectTextIndexDefaults"
               />
             </template>
@@ -470,6 +472,7 @@ onBeforeUnmount(() => {
             v-model:auto-select-first-line="autoSelectFirstLineModel"
             v-model:focus-mode="focusModeModel"
             v-model:show-comments="showCommentsModel"
+            :full-text-mode="isFullTextMode"
           />
         </div>
       </template>
@@ -501,6 +504,7 @@ onBeforeUnmount(() => {
           :can-edit-defaults="canEditProjectTextIndexDefaults"
           :is-saving-defaults="isSavingTextIndexDefaults"
           :save-error="textIndexDefaultsSaveError"
+          :show-diff-toggle="!isFullTextMode"
           @save-defaults="saveProjectTextIndexDefaults"
         />
       </template>

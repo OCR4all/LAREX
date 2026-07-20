@@ -15,6 +15,10 @@ import { getTooltipProps } from '@/composables/editor/use-shortcut-bindings'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 import type { TextModeSubmode } from '@/stores/editor/types'
+import {
+  isTypingTarget,
+  shouldIgnoreGlobalShortcutForTypingTarget
+} from '@/utils/editor/keyboard-shortcut-target'
 
 export { SHORTCUT_DEFINITIONS, SHORTCUT_HELP_GROUPS, getTooltipProps }
 export type {
@@ -107,17 +111,6 @@ export function useTextViewShortcutScope(options: {
     const canvasId = previousCanvasId.value
     if (canvasId) textViewScopeRegistry.delete(canvasId)
   })
-}
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  const tagName = target.tagName.toLowerCase()
-  return (
-    tagName === 'input'
-    || tagName === 'textarea'
-    || tagName === 'select'
-    || target.isContentEditable
-  )
 }
 
 function resolveActiveScope(
@@ -325,6 +318,10 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         if (isInputFocused()) return false
         callbacks.setTextViewMode?.('expert')
         return true
+      case 'textFullView':
+        if (isInputFocused()) return false
+        callbacks.setTextViewMode?.('full')
+        return true
       case 'clearSelection':
         if (isInputFocused()) return false
         callbacks.clearSelection()
@@ -476,6 +473,12 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         if (definition.scope !== scope) continue
         if (!(resolvedBindings.value[commandId] ?? []).includes(binding)) continue
         if (commandId === 'clearSelection' && binding === 'escape') continue
+        if (
+          scope === 'global'
+          && shouldIgnoreGlobalShortcutForTypingTarget(commandId, isTextViewContext, event)
+        ) {
+          continue
+        }
 
         const handled = runCommand(commandId, scopeState.registration, { isTextViewContext })
         if (!handled) continue

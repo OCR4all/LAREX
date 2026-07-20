@@ -20,7 +20,7 @@ import { getEditorSession, useEditorSession, usePageVisibilityState } from '@/se
 import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
 import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import { useEditorCanvasInteractionBlocker } from '@/composables/editor/use-canvas-interaction-blocker'
-import { CompoundCommand, CreateRelationCommand, UpdateRelationCommand, UpdateTextContentVariantsCommand } from '@/commands'
+import { CreateRelationCommand, UpdateRelationCommand } from '@/commands'
 import { PolygonType, type RegionKind, type Relation, type TextContentVariantData } from '@/models/editor'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import type { ActionProcessingRenderTarget, CommentOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
@@ -38,12 +38,11 @@ import {
   collectTextlineIdsInPageOrder,
   getAdjacentTextlineId
 } from '@/utils/editor/textline-navigation'
-import { findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { findRegionLabelConflicts } from '@/utils/editor/region-label-conflicts'
 import { ensureGtVariantAtIndex, normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
 import { computeCanvasTextCorrectionPlacement } from '@/utils/editor/canvas-text-correction-placement'
 import { ZOOM } from '@/utils/editor/editor-constants'
-import { buildRegionGtSyncedVariants, composeRegionGtFromTextLines } from '@/components/editor/text/shared/region-gt-sync'
+import { createTextlineVariantsUpdateCommand } from '@/components/editor/text/shared/textline-variant-update'
 import {
   handleSingleLineTextareaBeforeInput,
   handleSingleLineTextareaDrop,
@@ -220,7 +219,11 @@ const effectiveUiMode = computed(() => editorStore.effectiveUiMode(props.canvasI
 const isTextVisualMode = computed(() =>
   effectiveUiMode.value === 'text' && editorUiStore.textModeSubmode === 'visual'
 )
-const renderEnabled = computed(() => effectiveUiMode.value !== 'text' || isTextVisualMode.value)
+const isTextFullMode = computed(() =>
+  effectiveUiMode.value === 'text' && editorUiStore.textModeSubmode === 'full'
+)
+const isTextCanvasMode = computed(() => isTextVisualMode.value || isTextFullMode.value)
+const renderEnabled = computed(() => effectiveUiMode.value !== 'text' || isTextCanvasMode.value)
 const canvasTextCorrectionSnapToLine = computed({
   get: () => editorUiStore.canvasTextCorrectionOverlaySnapToLine,
   set: (next: boolean) => editorUiStore.setCanvasTextCorrectionOverlaySnapToLine(Boolean(next))
@@ -1013,13 +1016,13 @@ function handleSelectPolygon(polygonId: string | null, options?: SelectionFocusO
     const polygon = polygons[index]
     syncCanvasSelection(polygon?.id ?? null, null)
     const defaultFocusMode = resolveSelectionFocusMode(options)
-    const focusMode = (
-      !hasExplicitSelectionFocusMode(options)
-      && isTextVisualMode.value
+    const isImplicitTextlineFocus = !hasExplicitSelectionFocusMode(options)
       && isTextlinePolygonType(polygon?.type)
-    )
+    const focusMode = isImplicitTextlineFocus && isTextVisualMode.value
       ? 'none'
-      : defaultFocusMode
+      : isImplicitTextlineFocus && isTextFullMode.value
+        ? 'fit-width'
+        : defaultFocusMode
     if (polygon && focusMode === 'context') {
       editorInteractions.centerViewOnPolygon(polygon)
     } else if (polygon && focusMode === 'fit-width') {
@@ -2333,62 +2336,15 @@ function commitTextlineVariants(textlineId: string, variants: Array<{
 }>): void {
   if (!isCanvasWritable.value) return
 
-  const textlineCommand = new UpdateTextContentVariantsCommand({
-    elementId: textlineId,
-    nextTextContentVariants: variants
-  })
-  const parentRegionSyncCommand = buildParentRegionSyncCommandForTextline(textlineId, variants)
-
-  if (parentRegionSyncCommand) {
-    canvasControls.commander.execute(
-      new CompoundCommand(
-        [textlineCommand, parentRegionSyncCommand],
-        'Update textline GT and sync parent region GT'
-      ),
-      getCommandContext()
-    )
-    return
-  }
-
-  canvasControls.commander.execute(textlineCommand, getCommandContext())
-}
-
-function buildParentRegionSyncCommandForTextline(
-  textlineId: string,
-  nextTextlineVariants: TextContentVariantData[] | undefined
-): UpdateTextContentVariantsCommand | null {
-  const pageRegions = session.document.value?.page?.regions
-  if (!pageRegions) return null
-
-  const textlineHit = findTextLineRecursive(pageRegions, textlineId)
-  if (!textlineHit) return null
-
-  const parentTextRegion = textlineHit.parentTextRegion
-  const parentRegionId = parentTextRegion.id
-  if (!parentRegionId) return null
-
-  const syncedTextLines = (parentTextRegion.textLines ?? []).map((textline) => {
-    if (textline.id !== textlineId) return textline
-    return {
-      ...textline,
-      textContentVariants: nextTextlineVariants
-    }
-  })
-
-  const nextGtText = composeRegionGtFromTextLines(syncedTextLines, activeGtIndex.value)
-  const nextRegionVariants = buildRegionGtSyncedVariants(
-    parentTextRegion.textContentVariants as TextContentVariantData[] | undefined,
-    nextGtText,
-    activeGtIndex.value
+  canvasControls.commander.execute(
+    createTextlineVariantsUpdateCommand({
+      pageRegions: session.document.value?.page?.regions,
+      textlineId,
+      nextTextContentVariants: variants,
+      gtIndex: activeGtIndex.value
+    }),
+    getCommandContext()
   )
-  const currentNormalized = normalizeEditableTextVariants(parentTextRegion.textContentVariants)
-  const nextNormalized = normalizeEditableTextVariants(nextRegionVariants)
-  if (JSON.stringify(currentNormalized) === JSON.stringify(nextNormalized)) return null
-
-  return new UpdateTextContentVariantsCommand({
-    elementId: parentRegionId,
-    nextTextContentVariants: nextRegionVariants
-  })
 }
 
 function ensureSelectedTextlineGtVariant(): boolean {
@@ -2913,9 +2869,9 @@ onMounted(() => {
   editorRenderer.setupReadingOrderAnimationWatch()
 
   stopUiModeWatch = watch(
-    () => [effectiveUiMode.value, isTextVisualMode.value, canReceiveCanvasInput.value] as const,
-    ([mode, visualTextMode, canReceiveInput]) => {
-      if ((mode === 'text' && !visualTextMode) || !canReceiveInput) {
+    () => [effectiveUiMode.value, isTextCanvasMode.value, canReceiveCanvasInput.value] as const,
+    ([mode, textCanvasMode, canReceiveInput]) => {
+      if ((mode === 'text' && !textCanvasMode) || !canReceiveInput) {
         detachInteractions()
         webglRenderer.stopRenderLoop()
         stateActions.setHoveredPolygonId(null)

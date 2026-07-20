@@ -14,7 +14,7 @@ function insertSanitizedTextAtSelection(target: HTMLTextAreaElement, text: strin
 }
 
 export function handleSingleLineTextareaKeydownEnter(event: KeyboardEvent, editable: boolean) {
-  if (!editable) return
+  if (!editable || event.key !== 'Enter') return
   if (event.altKey || event.ctrlKey || event.metaKey) return
   event.preventDefault()
 }

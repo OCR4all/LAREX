@@ -50,7 +50,11 @@ export function useEditorActiveCanvasStatus(options: EditorActiveCanvasStatusOpt
     return editorStore.canvases[id]?.isSavingAnnotations === true
   })
   const activeUiMode = computed(() => editorStore.effectiveUiMode(activeCanvasId.value))
-  const useFloatingCollapsedSidebars = computed(() => activeUiMode.value !== 'text' || editorUiStore.textModeSubmode === 'visual')
+  const useFloatingCollapsedSidebars = computed(() =>
+    activeUiMode.value !== 'text'
+    || editorUiStore.textModeSubmode === 'visual'
+    || editorUiStore.textModeSubmode === 'full'
+  )
   const activeControls = computed<EditorCanvasControls | null>(() => {
     const id = activeCanvasId.value
     if (!id) return null

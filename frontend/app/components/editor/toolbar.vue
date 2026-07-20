@@ -433,6 +433,16 @@ const modeViewOptions = computed<ModeViewOption[]>(() => [
     description: 'Review text lines with search, sorting, and filters.',
     icon: 'i-lucide-list-filter',
     kbds: getTooltipProps('textListView').kbds
+  },
+  {
+    value: 'text:full',
+    mode: 'text',
+    modeLabel: 'Text',
+    view: 'full',
+    label: 'Full text',
+    description: 'Edit the full transcription beside the page canvas.',
+    icon: 'i-lucide-columns-2',
+    kbds: getTooltipProps('textFullView').kbds
   }
 ])
 
@@ -678,8 +688,8 @@ const pageFocusModeLabel = computed(() => uiStore.pageFocusMode
   ? 'Disable Focus mode (one page per project)'
   : 'Enable Focus mode (one page per project)'
 )
-const isTextVisualMode = computed(() =>
-  isTextUiMode.value && uiStore.textModeSubmode === 'visual'
+const isTextCanvasMode = computed(() =>
+  isTextUiMode.value && (uiStore.textModeSubmode === 'visual' || uiStore.textModeSubmode === 'full')
 )
 const forcedLayoutViewModeByCanvasId = ref<Record<string, LayoutViewMode>>({})
 
@@ -701,13 +711,13 @@ function selectModeView(option: ModeViewOption): void {
 }
 
 watch(
-  () => [currentCanvasId.value, isTextVisualMode.value, effectiveUiMode.value, selectedViewMode.value] as const,
-  ([canvasId, visualTextMode, uiMode, currentView]) => {
+  () => [currentCanvasId.value, isTextCanvasMode.value, effectiveUiMode.value, selectedViewMode.value] as const,
+  ([canvasId, textCanvasMode, uiMode, currentView]) => {
     if (!canvasId) return
     const controls = currentCanvasState.value
     if (!controls) return
 
-    if (visualTextMode) {
+    if (textCanvasMode) {
       if (!forcedLayoutViewModeByCanvasId.value[canvasId]) {
         forcedLayoutViewModeByCanvasId.value = {
           ...forcedLayoutViewModeByCanvasId.value,

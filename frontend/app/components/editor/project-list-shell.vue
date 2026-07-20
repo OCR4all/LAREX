@@ -17,6 +17,7 @@ const props = defineProps<{
   onlyWithOpenSubtasks: boolean
   hasBackendFilters: boolean
   backendFilteredPageIdsByProjectId: Record<string, string[]>
+  visible: boolean
   getProjectContextMenuItems: (projectId: string) => DropdownMenuItem[][]
 }>()
 
@@ -57,6 +58,7 @@ const projectAccordionPanelsModel = computed({
         :only-with-open-subtasks="onlyWithOpenSubtasks"
         :open-subtask-count-by-page="project.openSubtaskCountByPage"
         :filtered-page-ids="hasBackendFilters ? (backendFilteredPageIdsByProjectId[project.id] ?? null) : null"
+        :visible="visible"
         @select-page="(pageId, variantId, projectId) => emit('select-page', pageId, variantId, projectId)"
         @unload-page="(pageId, projectId) => emit('unload-page', pageId, projectId)"
       />

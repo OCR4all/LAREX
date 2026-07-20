@@ -9,6 +9,12 @@ const autoSelectFirstLine = defineModel<boolean>('autoSelectFirstLine', { defaul
 const showComments = defineModel<boolean>('showComments', { default: false })
 const focusMode = defineModel<boolean>('focusMode', { default: false })
 
+const props = withDefaults(defineProps<{
+  fullTextMode?: boolean
+}>(), {
+  fullTextMode: false
+})
+
 const layoutTabItems = [
   { label: 'Side by side', value: 'side-by-side' as const, icon: 'i-lucide-columns-2' },
   { label: 'Vertical', value: 'vertical' as const, icon: 'i-lucide-rows-2' }
@@ -17,7 +23,7 @@ const layoutTabItems = [
 
 <template>
   <div class="p-4 flex flex-col gap-4">
-    <div>
+    <div v-if="!props.fullTextMode">
       <div class="flex justify-between items-center mb-2">
         <span class="text-sm font-medium">Cutout Padding</span>
         <span class="text-sm font-semibold text-primary">{{ padding }}px</span>
@@ -43,7 +49,7 @@ const layoutTabItems = [
       />
     </div>
 
-    <div>
+    <div v-if="!props.fullTextMode">
       <div class="flex justify-between items-center mb-2">
         <span class="text-sm font-medium">Cutout Height</span>
         <span class="text-sm font-semibold text-primary">{{ cutoutHeight }}px</span>
@@ -56,12 +62,12 @@ const layoutTabItems = [
       />
     </div>
 
-    <div>
+    <div v-if="!props.fullTextMode">
       <span class="text-sm font-medium mb-2 block">Item Layout</span>
       <UTabs v-model="textItemLayout" :items="layoutTabItems" />
     </div>
 
-    <div class="flex items-center justify-between gap-3">
+    <div v-if="!props.fullTextMode" class="flex items-center justify-between gap-3">
       <div class="min-w-0">
         <span class="text-sm font-medium block">Focus Mode</span>
         <span class="text-xs text-muted">
@@ -71,7 +77,7 @@ const layoutTabItems = [
       <USwitch v-model="focusMode" />
     </div>
 
-    <div class="flex items-center justify-between gap-3">
+    <div v-if="!props.fullTextMode" class="flex items-center justify-between gap-3">
       <div class="min-w-0">
         <span class="text-sm font-medium block">Auto-select First Line</span>
         <span class="text-xs text-muted">
@@ -81,7 +87,7 @@ const layoutTabItems = [
       <USwitch v-model="autoSelectFirstLine" />
     </div>
 
-    <div class="flex items-center justify-between gap-3">
+    <div v-if="!props.fullTextMode" class="flex items-center justify-between gap-3">
       <div class="min-w-0">
         <span class="text-sm font-medium block">Show Comments</span>
         <span class="text-xs text-muted">
