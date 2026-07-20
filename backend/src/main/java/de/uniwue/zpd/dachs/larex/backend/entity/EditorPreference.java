@@ -36,6 +36,9 @@ public class EditorPreference {
     @Column(name = "toolbar_compact")
     private Boolean toolbarCompact;
 
+    @Column(name = "page_focus_mode")
+    private Boolean pageFocusMode;
+
     // Sidebar states
     @Column(name = "left_collapsed")
     private Boolean leftCollapsed;
@@ -164,6 +167,9 @@ public class EditorPreference {
 
     public Boolean getToolbarCompact() { return toolbarCompact; }
     public void setToolbarCompact(Boolean toolbarCompact) { this.toolbarCompact = toolbarCompact; }
+
+    public Boolean getPageFocusMode() { return pageFocusMode; }
+    public void setPageFocusMode(Boolean pageFocusMode) { this.pageFocusMode = pageFocusMode; }
 
     public Boolean getLeftCollapsed() { return leftCollapsed; }
     public void setLeftCollapsed(Boolean leftCollapsed) { this.leftCollapsed = leftCollapsed; }

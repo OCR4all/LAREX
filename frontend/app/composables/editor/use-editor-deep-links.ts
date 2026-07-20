@@ -9,7 +9,11 @@ type EditorDeepLinksOptions = {
   router: Router
   isApplyingPageDeepLink?: Ref<boolean>
   ensureFullProjectPagesLoaded: (projectId: string) => Promise<boolean>
-  openEditorForPage: (projectId: string, pageId: string, variantId?: string) => Promise<void>
+  openEditorForPage: (
+    projectId: string,
+    pageId: string,
+    variantId?: string
+  ) => Promise<'opened' | 'cancelled' | 'unavailable'>
   getErrorMessage: (error: unknown, fallback: string) => string
 }
 
@@ -44,7 +48,8 @@ export function useEditorDeepLinks(options: EditorDeepLinksOptions) {
 
     isApplyingPageDeepLink.value = true
     try {
-      await options.openEditorForPage(projectId, pageId, variantId)
+      const openResult = await options.openEditorForPage(projectId, pageId, variantId)
+      if (openResult === 'cancelled') return
 
       const wasOpened = sessionStore.getOpenedPageIds(projectId).includes(pageId)
       if (!wasOpened) {

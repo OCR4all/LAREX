@@ -14,6 +14,8 @@ type EditorSessionRestoreOptions = {
   resetEditorState: () => void
   shouldRestorePersistedSession: () => boolean
   loadPersistedSession: () => boolean
+  isPageFocusModeEnabled: () => boolean
+  normalizeSessionForPageFocusMode: () => void
   hasSession: () => boolean
   workspaceId: ComputedRef<string | null | undefined>
   initWorkspaceSession: (workspaceId: string | null) => void
@@ -21,7 +23,7 @@ type EditorSessionRestoreOptions = {
   getOpenedPageIds: (projectId: string) => string[]
   getSelectedVariantIdByPageId: (projectId: string) => Record<string, string | null | undefined>
   ensureProjectPanelExists: (api: DockviewApi, projectId: string) => void
-  openEditorForPage: (projectId: string, pageId: string, variantId?: string) => Promise<void>
+  openEditorForPage: (projectId: string, pageId: string, variantId?: string) => Promise<unknown>
   restorePersistedProject: (projectId: string) => Promise<void>
   loadProjectMetadata: (projectId: string) => Promise<void>
   applyEditorDeepLink: () => Promise<void>
@@ -88,6 +90,9 @@ export function useEditorSessionRestore(options: EditorSessionRestoreOptions) {
     }
 
     const hasPersistedSession = options.loadPersistedSession()
+    if (hasPersistedSession && options.isPageFocusModeEnabled()) {
+      options.normalizeSessionForPageFocusMode()
+    }
 
     if (options.workspaceId.value && options.workspaceId.value !== options.selectedWorkspace.value) {
       options.initWorkspaceSession(options.selectedWorkspace.value ?? null)

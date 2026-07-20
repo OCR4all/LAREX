@@ -36,7 +36,7 @@ class EditorPreferenceServiceTest {
                 .put("version", 1)
                 .set("bindings", objectMapper.createObjectNode().putArray("redo").add("meta_y"));
 
-        EditorPreference updated = service.update("user-1", preferenceDto(null, null, shortcutBindings, null, null, null));
+        EditorPreference updated = service.update("user-1", preferenceDto(null, null, shortcutBindings, null, null, null, null));
 
         assertEquals(shortcutBindings, updated.getShortcutBindings());
         verify(repository).save(existing);
@@ -50,9 +50,26 @@ class EditorPreferenceServiceTest {
 
         EditorPreferenceService service = new EditorPreferenceService(repository);
 
-        EditorPreference updated = service.update("user-1", preferenceDto(null, true, null, null, null, null));
+        EditorPreference updated = service.update("user-1", preferenceDto(null, true, null, null, null, null, null));
 
         assertEquals(Boolean.TRUE, updated.getShowPolygonLabelFill());
+        verify(repository).save(existing);
+    }
+
+    @Test
+    void updatePersistsPageFocusModeWhenProvided() {
+        EditorPreference existing = new EditorPreference("user-1");
+        when(repository.findByUserId("user-1")).thenReturn(Optional.of(existing));
+        when(repository.save(any(EditorPreference.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EditorPreferenceService service = new EditorPreferenceService(repository);
+
+        EditorPreference updated = service.update(
+                "user-1",
+                preferenceDto(null, null, null, null, null, null, false)
+        );
+
+        assertEquals(Boolean.FALSE, updated.getPageFocusMode());
         verify(repository).save(existing);
     }
 
@@ -68,7 +85,7 @@ class EditorPreferenceServiceTest {
 
         EditorPreferenceService service = new EditorPreferenceService(repository);
 
-        EditorPreference updated = service.update("user-1", preferenceDto("#fff", null, null, null, null, null));
+        EditorPreference updated = service.update("user-1", preferenceDto("#fff", null, null, null, null, null, null));
 
         assertEquals("#fff", updated.getBackgroundColor());
         assertEquals(existing.getShortcutBindings(), updated.getShortcutBindings());
@@ -83,7 +100,7 @@ class EditorPreferenceServiceTest {
         EditorPreferenceService service = new EditorPreferenceService(repository);
         var completion = objectMapper.createObjectNode().put("tasks-index", true).put("editor-layout", true);
 
-        EditorPreference updated = service.update("user-1", preferenceDto(null, null, null, null, completion, true));
+        EditorPreference updated = service.update("user-1", preferenceDto(null, null, null, null, completion, true, null));
 
         assertEquals(completion, updated.getOnboardingTourCompletion());
         assertEquals(Boolean.TRUE, updated.getOnboardingToursOptedOut());
@@ -104,7 +121,7 @@ class EditorPreferenceServiceTest {
 
         EditorPreference updated = service.update(
                 "user-1",
-                preferenceDto(null, null, null, tableSorting, null, null)
+                preferenceDto(null, null, null, tableSorting, null, null, null)
         );
 
         assertEquals(tableSorting, updated.getTableSorting());
@@ -133,13 +150,15 @@ class EditorPreferenceServiceTest {
             tools.jackson.databind.JsonNode shortcutBindings,
             tools.jackson.databind.JsonNode tableSorting,
             tools.jackson.databind.JsonNode onboardingTourCompletion,
-            Boolean onboardingToursOptedOut
+            Boolean onboardingToursOptedOut,
+            Boolean pageFocusMode
     ) {
         return new EditorPreferenceDto(
                 backgroundColor,
                 null,
                 null,
                 null,
+                pageFocusMode,
                 null,
                 null,
                 null,

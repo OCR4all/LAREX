@@ -351,6 +351,28 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
     return true
   }
 
+  function retainSingleOpenedPagePerProject() {
+    const nextProjectsById = { ...projectsById.value }
+
+    for (const projectId of openedProjectIds.value) {
+      const state = nextProjectsById[projectId]
+      if (!state || state.openedPageIds.length <= 1) continue
+
+      const retainedPageId = state.activePageId && state.openedPageIds.includes(state.activePageId)
+        ? state.activePageId
+        : state.openedPageIds[0] ?? null
+
+      nextProjectsById[projectId] = {
+        ...state,
+        openedPageIds: retainedPageId ? [retainedPageId] : [],
+        activePageId: retainedPageId
+      }
+    }
+
+    projectsById.value = nextProjectsById
+    persistState()
+  }
+
   function getProjectState(projectId: string): ProjectSessionState {
     return projectsById.value[projectId] ?? createEmptyProjectState()
   }
@@ -473,6 +495,7 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
     initSession,
     clearSession,
     loadPersistedSession,
+    retainSingleOpenedPagePerProject,
     hasSession
   }
 })

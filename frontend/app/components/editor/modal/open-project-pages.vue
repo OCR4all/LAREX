@@ -20,6 +20,7 @@ export type OpenProjectPagesSelection = Array<{
 
 const props = defineProps<{
   workspaceId: string
+  singlePagePerProject?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -102,6 +103,30 @@ async function setPageSelected(project: WorkspaceProject, pageId: string, select
   const allPageIds = pages.map(p => p.id)
   const existing = selectionByProjectId.value[project.id]
 
+  if (props.singlePagePerProject) {
+    if (selected) {
+      selectionByProjectId.value = {
+        ...selectionByProjectId.value,
+        [project.id]: {
+          projectName: project.name,
+          pageIds: [pageId]
+        }
+      }
+      return
+    }
+
+    if (existing?.pageIds?.includes(pageId)) {
+      selectionByProjectId.value = {
+        ...selectionByProjectId.value,
+        [project.id]: {
+          projectName: project.name,
+          pageIds: null
+        }
+      }
+    }
+    return
+  }
+
   if (!existing && selected) {
     selectionByProjectId.value = {
       ...selectionByProjectId.value,
@@ -156,7 +181,7 @@ async function setPageSelected(project: WorkspaceProject, pageId: string, select
 function isPageSelected(projectId: string, pageId: string): boolean {
   const selected = selectionByProjectId.value[projectId]
   if (!selected) return false
-  if (selected.pageIds === null) return true
+  if (selected.pageIds === null) return !props.singlePagePerProject
   return selected.pageIds.includes(pageId)
 }
 
@@ -177,7 +202,7 @@ async function submit() {
     if (state.pageIds !== null) {
       await ensurePagesLoaded(projectId)
       const allPageIds = (pagesByProjectId.value[projectId] ?? []).map(p => p.id)
-      if (state.pageIds.length === allPageIds.length) {
+      if (!props.singlePagePerProject && state.pageIds.length === allPageIds.length) {
         result.push({
           projectId,
           projectName: state.projectName,
@@ -214,7 +239,12 @@ function close() {
     <template #body>
       <div class="space-y-3 max-h-[70vh] overflow-auto">
         <div class="text-xs text-muted">
-          Select one or more projects. Projects default to all pages, and you can narrow to specific pages.
+          <template v-if="singlePagePerProject">
+            Select one or more projects and optionally choose one initial page per project.
+          </template>
+          <template v-else>
+            Select one or more projects. Projects default to all pages, and you can narrow to specific pages.
+          </template>
         </div>
 
         <div v-if="isProjectsLoading" class="text-sm text-muted py-4">

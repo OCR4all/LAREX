@@ -28,6 +28,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   const toolbarLayout = ref<ToolbarLayout>('floating')
   const toolbarCompact = ref(false)
+  const pageFocusMode = ref(true)
   const toolbarFloatingOffset = ref<{ dx: number, dy: number } | null>(null)
 
   const globalSettings = ref<GlobalSettings>({
@@ -135,6 +136,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
     if (prefs.toolbarLayout) toolbarLayout.value = prefs.toolbarLayout
     if (prefs.toolbarCompact !== null) toolbarCompact.value = prefs.toolbarCompact
+    pageFocusMode.value = prefs.pageFocusMode ?? true
     toolbarFloatingOffset.value = null
     if (prefs.leftCollapsed !== null) leftCollapsed.value = prefs.leftCollapsed
     if (prefs.rightCollapsed !== null) rightCollapsed.value = prefs.rightCollapsed
@@ -270,6 +272,11 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   function toggleToolbarCompact() {
     setToolbarCompact(!toolbarCompact.value)
+  }
+
+  function setPageFocusMode(enabled: boolean) {
+    pageFocusMode.value = enabled
+    editorPreferences.updatePreference('pageFocusMode', enabled, { immediate: true })
   }
 
   function updateGlobalSettings(settings: Partial<GlobalSettings>) {
@@ -649,6 +656,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     uiModeByCanvasId,
     toolbarLayout,
     toolbarCompact,
+    pageFocusMode,
     toolbarFloatingOffset,
     globalSettings,
     leftCollapsed,
@@ -698,6 +706,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     setToolbarFloatingOffset,
     setToolbarCompact,
     toggleToolbarCompact,
+    setPageFocusMode,
     updateGlobalSettings,
     toggleConstrainToImage,
     toggleConstrainToParent,

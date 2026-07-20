@@ -149,6 +149,7 @@ const onReady = (event: DockviewReadyEvent) => {
       if (
         sessionStore.getOpenedPageIds(parsed.projectId).length === 0
         && !projectTabCloseState.isExplicitClose(parsed.projectId)
+        && !projectTabCloseState.isPageReplacementActive(parsed.projectId)
       ) {
         projectTabCloseState.markAutoClosed(parsed.projectId)
         props.params.api.close?.()

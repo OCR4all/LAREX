@@ -137,6 +137,32 @@ describe('editor.session.store', () => {
     })
   })
 
+  it('retains only the active page for each project in page Focus mode', async () => {
+    const store = await createStore()
+
+    store.initWorkspaceSession('workspace-1')
+    store.addOpenedPage('project-a', 'page-a1')
+    store.addOpenedPage('project-a', 'page-a2')
+    store.setActivePage('project-a', 'page-a2')
+    store.addOpenedPage('project-b', 'page-b1')
+    store.addOpenedPage('project-b', 'page-b2')
+    store.setActivePage('project-b', 'page-b1')
+
+    store.retainSingleOpenedPagePerProject()
+
+    expect(store.getOpenedPageIds('project-a')).toEqual(['page-a2'])
+    expect(store.getActivePageId('project-a')).toBe('page-a2')
+    expect(store.getOpenedPageIds('project-b')).toEqual(['page-b1'])
+    expect(store.getActivePageId('project-b')).toBe('page-b1')
+
+    const pinia = await getPiniaModule()
+    pinia.setActivePinia(pinia.createPinia())
+    const reloadedStore = await createStore()
+    expect(reloadedStore.loadPersistedSession()).toBe(true)
+    expect(reloadedStore.getOpenedPageIds('project-a')).toEqual(['page-a2'])
+    expect(reloadedStore.getOpenedPageIds('project-b')).toEqual(['page-b1'])
+  })
+
   it('persists and restores global text view settings across store instances', async () => {
     const store = await createStore()
 

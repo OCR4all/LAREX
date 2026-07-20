@@ -274,6 +274,7 @@ const pageOrderSlideover = overlay.create(LazyEditorSlideoverPageOrder)
 const openProjectPagesModal = overlay.create(LazyEditorModalOpenProjectPages)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 const handledActionPageResultEvents = ref<Set<number>>(new Set())
+const pageFocusModeBusy = ref(false)
 let editorActionIndexStatusTimers: Array<ReturnType<typeof setTimeout>> = []
 
 type SelectionOpenSource = 'modal' | 'project-search' | 'page-search'
@@ -321,7 +322,13 @@ async function openSelectionsInEditor(
         pageIdsToOpen.add(pageId)
       }
     }
-    if (source === 'project-search' && selection.pageIds === null) {
+    if (
+      selection.pageIds === null
+      && (
+        source === 'project-search'
+        || (source === 'modal' && editorUiStore.pageFocusMode)
+      )
+    ) {
       const firstPageId = selectedPages[0]?.id
       if (firstPageId) {
         pageIdsToOpen.add(firstPageId)
@@ -358,7 +365,8 @@ async function handleOpenProjectsModal() {
   }
 
   const instance = openProjectPagesModal.open({
-    workspaceId: selectedWorkspace.value
+    workspaceId: selectedWorkspace.value,
+    singlePagePerProject: editorUiStore.pageFocusMode
   })
 
   const result = await instance.result as OpenProjectPagesSelection | null
@@ -2063,55 +2071,161 @@ async function restorePersistedProject(projectId: string) {
   }
 }
 
-async function openEditorForPage(projectId: string, pageId: string, variantId?: string) {
+type PageOpenResult = 'opened' | 'cancelled' | 'unavailable'
+
+const pageOpenQueuesByProjectId = new Map<string, Promise<PageOpenResult>>()
+let pageFocusModeTransitionPromise: Promise<void> | null = null
+let completePageFocusModeTransition: (() => void) | null = null
+
+function beginPageFocusModeTransition() {
+  pageFocusModeTransitionPromise = new Promise<void>((resolve) => {
+    completePageFocusModeTransition = resolve
+  })
+}
+
+function endPageFocusModeTransition() {
+  completePageFocusModeTransition?.()
+  completePageFocusModeTransition = null
+  pageFocusModeTransitionPromise = null
+}
+
+function getOpenPageIdsForProject(projectId: string): string[] {
+  const pageIds = new Set(sessionStore.getOpenedPageIds(projectId))
+  for (const canvas of Object.values(editorStore.canvases)) {
+    if (canvas.projectId === projectId && canvas.pageId && !canvas.comparison) {
+      pageIds.add(canvas.pageId)
+    }
+  }
+  return [...pageIds]
+}
+
+async function closePageForFocusReplacement(projectId: string, pageId: string): Promise<boolean> {
+  const canvasId = getCanvasId(projectId, pageId)
+  const panelId = getPagePanelId(projectId, pageId)
+  const panel = projectDockviewRegistry.get(projectId)?.getPanel(panelId)
+
+  if (panel) {
+    await handleCloseRequest({ panelApi: panel.api, projectId, pageId })
+    return waitForCondition(() =>
+      !projectDockviewRegistry.get(projectId)?.getPanel(panelId)
+      && !editorStore.canvases[canvasId]
+      && !sessionStore.getOpenedPageIds(projectId).includes(pageId)
+    )
+  }
+
+  if (editorStore.canvases[canvasId]?.hasUnsavedChanges) {
+    return false
+  }
+
+  editorStore.unregisterCanvas(canvasId)
+  sessionStore.removeOpenedPage(projectId, pageId)
+  return true
+}
+
+async function performOpenEditorForPage(
+  projectId: string,
+  pageId: string,
+  variantId?: string
+): Promise<PageOpenResult> {
   let page = editorStore.getPage(pageId, projectId)
   if (!page) {
     const loaded = await ensureProjectPagesLoaded(projectId, pageId)
-    if (!loaded) return
+    if (!loaded) return 'unavailable'
     page = editorStore.getPage(pageId, projectId)
   }
-  if (!page) return
+  if (!page) return 'unavailable'
 
-  const canvasId = getCanvasId(projectId, pageId)
-  const existingCanvas = editorStore.canvases[canvasId]
-  const isAlreadyLoaded = existingCanvas?.pageId === pageId && existingCanvas?.projectId === projectId
-  const requestedVariant = variantId
-    ? page.imageVariants.find(variant => variant.id === variantId) ?? null
-    : editorStore.getDisplayedVariantForPage(page)
-  const previewSrc = editorStore.getPreviewUrlForPage(page)
+  const pageIdsToReplace = editorUiStore.pageFocusMode
+    ? getOpenPageIdsForProject(projectId).filter(openPageId => openPageId !== pageId)
+    : []
 
-  if (!existingCanvas) {
-    editorStore.registerCanvas(canvasId, {
-      projectId,
-      pageId,
-      imageVariantId: requestedVariant?.id ?? variantId ?? null,
-      imageSrc: previewSrc,
-      isLoadingAnnotations: true
-    })
-  } else if (variantId && existingCanvas?.imageVariantId !== variantId) {
-    editorStore.switchImageVariantForCanvas(canvasId, variantId)
+  if (pageIdsToReplace.length > 0) {
+    projectTabCloseState.beginPageReplacement(projectId)
   }
 
-  editorStore.setActiveCanvas(canvasId)
-  sessionStore.addOpenedProject(projectId)
-  sessionStore.addOpenedPage(projectId, pageId)
-  sessionStore.setActiveProject(projectId)
-  sessionStore.setActivePage(projectId, pageId)
+  try {
+    for (const openPageId of pageIdsToReplace) {
+      const closed = await closePageForFocusReplacement(projectId, openPageId)
+      if (!closed) return 'cancelled'
+    }
 
-  const api = dockviewApi.value
-  if (!api) return
+    const canvasId = getCanvasId(projectId, pageId)
+    const existingCanvas = editorStore.canvases[canvasId]
+    const isAlreadyLoaded = existingCanvas?.pageId === pageId && existingCanvas?.projectId === projectId
+    const requestedVariant = variantId
+      ? page.imageVariants.find(variant => variant.id === variantId) ?? null
+      : editorStore.getDisplayedVariantForPage(page)
+    const previewSrc = editorStore.getPreviewUrlForPage(page)
 
-  ensureProjectPanelExists(api, projectId)
-  api.getPanel(getProjectPanelId(projectId))?.api.setActive()
-  await projectDockviewRegistry.waitFor(projectId)
-  await nextTick()
-  projectDockviewRegistry.get(projectId)?.getPanel(getPagePanelId(projectId, pageId))?.api.setActive()
+    if (!existingCanvas) {
+      editorStore.registerCanvas(canvasId, {
+        projectId,
+        pageId,
+        imageVariantId: requestedVariant?.id ?? variantId ?? null,
+        imageSrc: previewSrc,
+        isLoadingAnnotations: true
+      })
+    } else if (variantId && existingCanvas.imageVariantId !== variantId) {
+      editorStore.switchImageVariantForCanvas(canvasId, variantId)
+    }
 
-  void loadProjectLabelSet(projectId)
+    editorStore.setActiveCanvas(canvasId)
+    sessionStore.addOpenedProject(projectId)
+    sessionStore.addOpenedPage(projectId, pageId)
+    sessionStore.setActiveProject(projectId)
+    sessionStore.setActivePage(projectId, pageId)
 
-  if (!isAlreadyLoaded) {
-    void editorStore.loadPageIntoCanvas(canvasId, projectId, pageId, variantId)
+    const api = dockviewApi.value
+    if (api) {
+      ensureProjectPanelExists(api, projectId)
+      api.getPanel(getProjectPanelId(projectId))?.api.setActive()
+      await projectDockviewRegistry.waitFor(projectId)
+      await nextTick()
+      projectDockviewRegistry.get(projectId)?.getPanel(getPagePanelId(projectId, pageId))?.api.setActive()
+    }
+
+    void loadProjectLabelSet(projectId)
+
+    if (!isAlreadyLoaded) {
+      void editorStore.loadPageIntoCanvas(canvasId, projectId, pageId, variantId)
+    }
+
+    return 'opened'
+  } finally {
+    if (pageIdsToReplace.length > 0) {
+      projectTabCloseState.endPageReplacement(projectId)
+    }
   }
+}
+
+function openEditorForPage(projectId: string, pageId: string, variantId?: string): Promise<PageOpenResult> {
+  const previous = pageOpenQueuesByProjectId.get(projectId)
+  const focusModeTransition = pageFocusModeTransitionPromise
+  const queued = (async () => {
+    if (previous) {
+      await previous.catch(() => 'unavailable' as const)
+    }
+    if (focusModeTransition) {
+      await focusModeTransition
+    }
+    return performOpenEditorForPage(projectId, pageId, variantId)
+  })()
+
+  pageOpenQueuesByProjectId.set(projectId, queued)
+  void queued.then(
+    () => {
+      if (pageOpenQueuesByProjectId.get(projectId) === queued) {
+        pageOpenQueuesByProjectId.delete(projectId)
+      }
+    },
+    () => {
+      if (pageOpenQueuesByProjectId.get(projectId) === queued) {
+        pageOpenQueuesByProjectId.delete(projectId)
+      }
+    }
+  )
+
+  return queued
 }
 
 const { applyEditorDeepLinkFromQuery } = useEditorDeepLinks({
@@ -2183,6 +2297,140 @@ async function waitForCondition(condition: () => boolean, timeoutMs = 900, inter
     await new Promise(resolve => setTimeout(resolve, intervalMs))
   }
   return condition()
+}
+
+type PageFocusClosureTarget = {
+  projectId: string
+  pageId: string
+  canvasId: string
+}
+
+function collectPageFocusClosureTargets(): PageFocusClosureTarget[] {
+  const targets: PageFocusClosureTarget[] = []
+
+  for (const projectId of sessionStore.openedProjectIds) {
+    const openPageIds = getOpenPageIdsForProject(projectId)
+    const activePageId = sessionStore.getActivePageId(projectId)
+    const retainedPageId = activePageId && openPageIds.includes(activePageId)
+      ? activePageId
+      : openPageIds[0] ?? null
+
+    for (const pageId of openPageIds) {
+      if (pageId === retainedPageId) continue
+      targets.push({
+        projectId,
+        pageId,
+        canvasId: getCanvasId(projectId, pageId)
+      })
+    }
+  }
+
+  return targets
+}
+
+async function confirmPageFocusClosures(targets: PageFocusClosureTarget[]): Promise<boolean> {
+  const dirtyTargets = targets.filter(target =>
+    editorStore.canvases[target.canvasId]?.hasUnsavedChanges === true
+  )
+  if (dirtyTargets.length === 0) return true
+
+  const pages = dirtyTargets.map(({ projectId, pageId }) => {
+    const projectLabel = getProjectTitle(projectId)
+    const pageLabel = editorStore.getPage(pageId, projectId)?.label ?? pageId
+    return `${projectLabel} / ${pageLabel}`
+  })
+
+  const instance = unsavedProgressSlideover.open({
+    title: 'Unsaved changes',
+    message: 'Focus mode keeps one page open per project. What would you like to do with the other open pages?',
+    confirmLabel: 'Save all and enable',
+    discardLabel: 'Close anyway',
+    cancelLabel: 'Cancel',
+    confirmColor: 'primary',
+    discardColor: 'warning',
+    pages
+  })
+  const action = await instance.result
+
+  if (action === 'save') {
+    const results = await Promise.all(
+      dirtyTargets.map(target => editorStore.saveAnnotations(target.canvasId))
+    )
+    if (!results.every(Boolean)) {
+      toast.add({
+        title: 'Save failed',
+        description: 'Some pages could not be saved. Focus mode was not enabled.',
+        color: 'error',
+        icon: 'i-lucide-alert-circle'
+      })
+      return false
+    }
+    return true
+  }
+
+  return action === 'discard'
+}
+
+async function closePageFocusTarget(target: PageFocusClosureTarget): Promise<boolean> {
+  const panelId = getPagePanelId(target.projectId, target.pageId)
+  const panel = projectDockviewRegistry.get(target.projectId)?.getPanel(panelId)
+
+  if (!panel) {
+    editorStore.unregisterCanvas(target.canvasId)
+    sessionStore.removeOpenedPage(target.projectId, target.pageId)
+    return true
+  }
+
+  panel.api.close()
+  return waitForCondition(() =>
+    !projectDockviewRegistry.get(target.projectId)?.getPanel(panelId)
+    && !editorStore.canvases[target.canvasId]
+    && !sessionStore.getOpenedPageIds(target.projectId).includes(target.pageId)
+  )
+}
+
+async function handlePageFocusModeRequest(enabled: boolean) {
+  if (pageFocusModeBusy.value || editorUiStore.pageFocusMode === enabled) return
+
+  if (!enabled) {
+    editorUiStore.setPageFocusMode(false)
+    return
+  }
+
+  pageFocusModeBusy.value = true
+  beginPageFocusModeTransition()
+  try {
+    const pendingPageOpens = [...pageOpenQueuesByProjectId.values()]
+    await Promise.allSettled(pendingPageOpens)
+
+    const targets = collectPageFocusClosureTargets()
+    const confirmed = await confirmPageFocusClosures(targets)
+    if (!confirmed) return
+
+    const closeResults = await Promise.all(targets.map(closePageFocusTarget))
+    if (!closeResults.every(Boolean)) {
+      toast.add({
+        title: 'Could not enable Focus mode',
+        description: 'Some page tabs could not be closed. Please try again.',
+        color: 'error',
+        icon: 'i-lucide-alert-circle'
+      })
+      return
+    }
+
+    editorUiStore.setPageFocusMode(true)
+  } catch (error) {
+    console.error('Failed to enable page Focus mode:', error)
+    toast.add({
+      title: 'Could not enable Focus mode',
+      description: 'An unexpected error occurred while closing page tabs.',
+      color: 'error',
+      icon: 'i-lucide-alert-circle'
+    })
+  } finally {
+    endPageFocusModeTransition()
+    pageFocusModeBusy.value = false
+  }
 }
 
 async function confirmAndUnloadProject(projectId: string) {
@@ -2307,6 +2555,8 @@ const {
   resetEditorState: () => editorStore.resetEditorState(),
   shouldRestorePersistedSession: () => editorStore.allPages.length === 0,
   loadPersistedSession: () => sessionStore.loadPersistedSession(),
+  isPageFocusModeEnabled: () => editorUiStore.pageFocusMode,
+  normalizeSessionForPageFocusMode: () => sessionStore.retainSingleOpenedPagePerProject(),
   hasSession: () => sessionStore.hasSession(),
   workspaceId: computed(() => sessionStore.workspaceId),
   initWorkspaceSession: workspaceId => sessionStore.initWorkspaceSession(workspaceId),
@@ -2408,7 +2658,9 @@ const {
       <EditorToolbar
         v-if="activeCanvasId && !activeCanvasIsComparison"
         :class="toolbarClass"
+        :page-focus-mode-busy="pageFocusModeBusy"
         @merge="handleMergeSelected"
+        @request-page-focus-mode="handlePageFocusModeRequest"
       />
       <DockviewVue
         :class="['min-h-0 min-w-0 h-full w-full', contentClass]"

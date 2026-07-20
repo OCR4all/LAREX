@@ -24,6 +24,7 @@ const uiStore = useEditorUiStore()
 
 const emit = defineEmits<{
   merge: []
+  requestPageFocusMode: [enabled: boolean]
 }>()
 
 type HistoryItem = ReturnType<Commander['getDetailedHistory']>[number]
@@ -120,18 +121,30 @@ const props = defineProps({
   canvasId: {
     type: String,
     default: null
+  },
+  pageFocusModeBusy: {
+    type: Boolean,
+    default: false
   }
 })
 
-const toolbarActiveToolClass = 'bg-primary text-inverted hover:bg-primary/75 active:bg-primary/75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-const toolbarActiveDropdownItemClass = 'text-inverted before:bg-primary data-highlighted:text-inverted data-highlighted:before:bg-primary/75 data-[state=open]:text-inverted data-[state=open]:before:bg-primary/75'
+const toolbarActiveModeClass = 'bg-inverted/20 text-highlighted hover:bg-inverted/25 active:bg-inverted/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-inverted/25'
+const toolbarActiveToolClass = 'bg-primary-600 text-white hover:bg-primary-500 active:bg-primary-700 dark:bg-primary-500 dark:text-white dark:hover:bg-primary-400 dark:active:bg-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500'
+const toolbarActiveDropdownItemClass = 'text-white before:bg-primary-600 data-highlighted:text-white data-highlighted:before:bg-primary-500 data-[state=open]:text-white data-[state=open]:before:bg-primary-500 dark:text-white dark:before:bg-primary-500 dark:data-highlighted:text-white dark:data-highlighted:before:bg-primary-400 dark:data-[state=open]:text-white dark:data-[state=open]:before:bg-primary-400'
 const toolbarActiveDropdownItemUi = {
-  itemLeadingIcon: 'text-inverted group-data-highlighted:text-inverted group-data-[state=open]:text-inverted',
-  itemTrailingIcon: 'text-inverted group-data-highlighted:text-inverted group-data-[state=open]:text-inverted'
+  itemLeadingIcon: 'text-white group-data-highlighted:text-white group-data-[state=open]:text-white dark:text-white dark:group-data-highlighted:text-white dark:group-data-[state=open]:text-white',
+  itemTrailingIcon: 'text-white group-data-highlighted:text-white group-data-[state=open]:text-white dark:text-white dark:group-data-highlighted:text-white dark:group-data-[state=open]:text-white'
+} as const
+const toolbarSeparatorUi = {
+  border: 'dark:border-accented'
 } as const
 
 function activeToolClass(active: boolean): string | undefined {
   return active ? toolbarActiveToolClass : undefined
+}
+
+function activeModeClass(active: boolean): string | undefined {
+  return active ? toolbarActiveModeClass : undefined
 }
 
 function activeDropdownItemClass(active: boolean): string {
@@ -661,6 +674,10 @@ watchEffect(() => {
 const virtualKeyboardMode = computed(() => uiStore.virtualKeyboardMode)
 const { hasKeyboards } = useVirtualKeyboardAvailability()
 const isCompact = computed(() => uiStore.toolbarCompact)
+const pageFocusModeLabel = computed(() => uiStore.pageFocusMode
+  ? 'Disable Focus mode (one page per project)'
+  : 'Enable Focus mode (one page per project)'
+)
 const isTextVisualMode = computed(() =>
   isTextUiMode.value && uiStore.textModeSubmode === 'visual'
 )
@@ -987,8 +1004,31 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
           <USeparator
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
+            :ui="toolbarSeparatorUi"
           />
         </template>
+
+        <UTooltip :delay-duration="0" :text="pageFocusModeLabel">
+          <UButton
+            variant="ghost"
+            size="sm"
+            icon="i-lucide-focus"
+            color="neutral"
+            :active="uiStore.pageFocusMode"
+            :aria-pressed="uiStore.pageFocusMode"
+            :aria-label="pageFocusModeLabel"
+            :class="activeModeClass(uiStore.pageFocusMode)"
+            :loading="pageFocusModeBusy"
+            :disabled="pageFocusModeBusy"
+            @click="emit('requestPageFocusMode', !uiStore.pageFocusMode)"
+          />
+        </UTooltip>
+
+        <USeparator
+          :orientation="isVertical ? 'horizontal' : 'vertical'"
+          class="h-6 mx-1"
+          :ui="toolbarSeparatorUi"
+        />
 
         <template v-if="isTextUiMode">
           <template v-if="showVirtualKeyboardControls">
@@ -1026,6 +1066,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             <USeparator
               :orientation="isVertical ? 'horizontal' : 'vertical'"
               class="h-6 mx-1"
+              :ui="toolbarSeparatorUi"
             />
           </template>
 
@@ -1077,6 +1118,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             v-if="showUndoTool || showRedoTool || showHistoryTool"
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
+            :ui="toolbarSeparatorUi"
           />
 
           <UDropdownMenu :items="toolbarLayoutItems">
@@ -1136,6 +1178,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             v-if="showSelectAndMove && (showRegionTools || showTextlineTools || showBaselineTool || showCutTools || showMergeTool)"
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
+            :ui="toolbarSeparatorUi"
           />
 
           <template v-if="!isFloating">
@@ -1175,6 +1218,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
               v-if="showRegionTools && showTextlineTools"
               :orientation="isVertical ? 'horizontal' : 'vertical'"
               class="h-6 mx-1"
+              :ui="toolbarSeparatorUi"
             />
 
             <div v-if="showTextlineTools" data-tour="textline-tools" class="contents">
@@ -1248,6 +1292,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
               v-if="showRegionTools && showTextlineTools"
               :orientation="isVertical ? 'horizontal' : 'vertical'"
               class="h-6 mx-1"
+              :ui="toolbarSeparatorUi"
             />
 
             <div v-if="showTextlineTools" data-tour="textline-tools" class="flex items-center">
@@ -1291,6 +1336,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             v-if="showBaselineTool && (showRegionTools || showTextlineTools)"
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
+            :ui="toolbarSeparatorUi"
           />
 
           <UTooltip v-if="showBaselineTool" :delay-duration="0" v-bind="canCreateBaseline ? getTooltipProps('baseline') : { text: 'Select a TextLine or switch to Baseline view' }">
@@ -1312,6 +1358,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             v-if="(showRegionTools || showTextlineTools || showBaselineTool) && (showCutTools || showMergeTool)"
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
+            :ui="toolbarSeparatorUi"
           />
 
           <div v-if="showCutTools && !isFloating" data-tour="cut-tools" class="contents">
@@ -1429,6 +1476,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             v-if="showSelectAndMove || showRegionTools || showTextlineTools || showBaselineTool || showCutTools || showMergeTool || showActionTool"
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
+            :ui="toolbarSeparatorUi"
           />
 
           <div
@@ -1475,7 +1523,11 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             </UDropdownMenu>
           </div>
 
-          <USeparator :orientation="isVertical ? 'horizontal' : 'vertical'" class="h-6 mx-1" />
+          <USeparator
+            :orientation="isVertical ? 'horizontal' : 'vertical'"
+            class="h-6 mx-1"
+            :ui="toolbarSeparatorUi"
+          />
 
           <UDropdownMenu :items="toolbarLayoutItems">
             <UButton

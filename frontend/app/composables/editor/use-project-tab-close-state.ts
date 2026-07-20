@@ -1,5 +1,6 @@
 const autoClosedProjectIds = shallowRef<Set<string>>(new Set())
 const explicitClosedProjectIds = shallowRef<Set<string>>(new Set())
+const pageReplacementProjectIds = shallowRef<Set<string>>(new Set())
 
 export function useProjectTabCloseState() {
   function markAutoClosed(projectId: string) {
@@ -26,11 +27,26 @@ export function useProjectTabCloseState() {
     return explicitClosedProjectIds.value.has(projectId)
   }
 
+  function beginPageReplacement(projectId: string) {
+    pageReplacementProjectIds.value.add(projectId)
+  }
+
+  function endPageReplacement(projectId: string) {
+    pageReplacementProjectIds.value.delete(projectId)
+  }
+
+  function isPageReplacementActive(projectId: string): boolean {
+    return pageReplacementProjectIds.value.has(projectId)
+  }
+
   return {
     markAutoClosed,
     consumeAutoClosed,
     markExplicitClose,
     consumeExplicitClose,
-    isExplicitClose
+    isExplicitClose,
+    beginPageReplacement,
+    endPageReplacement,
+    isPageReplacementActive
   }
 }

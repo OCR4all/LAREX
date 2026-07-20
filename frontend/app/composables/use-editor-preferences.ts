@@ -13,6 +13,7 @@ export interface EditorPreferences {
   backgroundOpacity: number | null
   toolbarLayout: ToolbarLayout | null
   toolbarCompact: boolean | null
+  pageFocusMode: boolean | null
   leftCollapsed: boolean | null
   rightCollapsed: boolean | null
   leftWidthPx: number | null
@@ -58,6 +59,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   backgroundOpacity: null,
   toolbarLayout: null,
   toolbarCompact: null,
+  pageFocusMode: null,
   leftCollapsed: null,
   rightCollapsed: null,
   leftWidthPx: null,
