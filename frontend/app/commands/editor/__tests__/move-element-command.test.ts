@@ -3,6 +3,7 @@ import { Commander } from '../commander'
 import { MoveElementCommand } from '../move-element-command'
 import { Polygon, Polyline, TextLine, isTextRegion } from '@/models/editor'
 import { baselineIdForTextLineId } from '@/utils/editor/pcgts-editor-primitives'
+import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import {
   createMockSession,
   createTestContext,
@@ -63,9 +64,11 @@ describe('MoveElementCommand', () => {
 
     expect(commander.getDetailedHistory()).toHaveLength(1)
     expect(getDocument()?.page.regions[0]?.coords.points[0]).toEqual([110, 120])
+    expect(invalidateMultiplePolygonGeometry).toHaveBeenLastCalledWith('test-canvas', ['r1'])
 
     commander.undo(ctx)
     expect(getDocument()?.page.regions[0]?.coords.points[0]).toEqual([100, 100])
+    expect(invalidateMultiplePolygonGeometry).toHaveBeenLastCalledWith('test-canvas', ['r1'])
 
     commander.redo(ctx)
     expect(getDocument()?.page.regions[0]?.coords.points[0]).toEqual([110, 120])
@@ -93,6 +96,10 @@ describe('MoveElementCommand', () => {
       [120, 150],
       [200, 150]
     ])
+    expect(invalidateMultiplePolygonGeometry).toHaveBeenLastCalledWith(
+      'test-canvas',
+      [baselineIdForTextLineId('tl-1')]
+    )
 
     commander.undo(ctx)
     expect(movedTextLine?.baseline?.points.points).toEqual([
@@ -105,6 +112,10 @@ describe('MoveElementCommand', () => {
       [120, 150],
       [200, 150]
     ])
+    expect(invalidateMultiplePolygonGeometry).toHaveBeenLastCalledWith(
+      'test-canvas',
+      [baselineIdForTextLineId('tl-1')]
+    )
   })
 
   it('restores child baselines when undoing a move-with-children command', () => {
@@ -131,6 +142,10 @@ describe('MoveElementCommand', () => {
       [120, 150],
       [200, 150]
     ])
+    expect(invalidateMultiplePolygonGeometry).toHaveBeenLastCalledWith(
+      'test-canvas',
+      ['r1', 'tl-1', baselineIdForTextLineId('tl-1')]
+    )
 
     commander.undo(ctx)
 

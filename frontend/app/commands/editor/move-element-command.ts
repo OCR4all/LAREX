@@ -1,6 +1,7 @@
 import type { Command, CommandContext } from './types'
 import { PcGts, isTextRegion } from '@/models/editor'
 import type { Point, Region } from '@/models/editor'
+import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
   findRegionRecursive,
@@ -53,6 +54,7 @@ export class MoveElementCommand implements Command {
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
+    this.invalidateMovedGeometry(ctx)
     visibilityService.clearCache()
   }
 
@@ -175,6 +177,7 @@ export class MoveElementCommand implements Command {
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
+    this.invalidateMovedGeometry(ctx)
     visibilityService.clearCache()
   }
 
@@ -184,5 +187,10 @@ export class MoveElementCommand implements Command {
 
   private applyDelta(points: [number, number][]): [number, number][] {
     return points.map(([x, y]) => [x + this.delta.x, y + this.delta.y])
+  }
+
+  private invalidateMovedGeometry(ctx?: CommandContext): void {
+    if (!ctx?.canvasId || this.savedPoints.length === 0) return
+    invalidateMultiplePolygonGeometry(ctx.canvasId, this.savedPoints.map(saved => saved.id))
   }
 }
