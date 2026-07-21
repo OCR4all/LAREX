@@ -60,6 +60,7 @@ export function useEditorDockviewTabs(options: EditorDockviewTabsOptions) {
       component: 'EditorDockviewDefaultPanel',
       tabComponent: 'EditorDockviewTab',
       title: getPageTitle(projectId, pageId),
+      inactive: options.projectTabCloseState.isPageReplacementActive(projectId),
       params: {
         projectId,
         pageId,

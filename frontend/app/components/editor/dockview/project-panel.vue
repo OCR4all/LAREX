@@ -68,6 +68,7 @@ function ensurePagePanelExists(api: ProjectDockviewApi, pageId: string) {
     component: 'EditorDockviewDefaultPanel',
     tabComponent: 'EditorDockviewTab',
     title: getTitleForPage(pageId),
+    inactive: projectTabCloseState.isPageReplacementActive(id),
     params: {
       projectId: id,
       pageId,

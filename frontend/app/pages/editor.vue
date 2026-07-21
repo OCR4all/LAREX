@@ -168,6 +168,7 @@ const projectTabCloseState = useProjectTabCloseState()
 const {
   getProjectTitle,
   ensureProjectPanelExists,
+  ensurePagePanelExists,
   onReady
 } = useEditorDockviewTabs({
   getDockviewApi: () => dockviewApi.value,
@@ -467,6 +468,16 @@ async function handleCloseRequest(params: { panelApi: DockviewPanelApi, projectI
     return
   }
 
+  if (await confirmPageCanClose(projectId, pageId)) {
+    params.panelApi.close()
+  }
+}
+
+async function confirmPageCanClose(projectId: string, pageId: string): Promise<boolean> {
+  const canvasId = getCanvasId(projectId, pageId)
+  const canvas = editorStore.canvases[canvasId]
+  if (canvas?.hasUnsavedChanges !== true) return true
+
   const pageLabel = editorStore.getPage(pageId, projectId)?.label ?? pageId
   const instance = unsavedProgressSlideover.open({
     title: 'Unsaved changes',
@@ -487,14 +498,11 @@ async function handleCloseRequest(params: { panelApi: DockviewPanelApi, projectI
         color: 'error',
         icon: 'i-lucide-alert-circle'
       })
-      return
+      return false
     }
-    params.panelApi.close()
-    return
+    return true
   }
-  if (action === 'discard') {
-    params.panelApi.close()
-  }
+  return action === 'discard'
 }
 
 closeRequests.on((params) => {
@@ -2105,16 +2113,12 @@ async function closePageForFocusReplacement(projectId: string, pageId: string): 
   const panel = projectDockviewRegistry.get(projectId)?.getPanel(panelId)
 
   if (panel) {
-    await handleCloseRequest({ panelApi: panel.api, projectId, pageId })
+    panel.api.close()
     return waitForCondition(() =>
       !projectDockviewRegistry.get(projectId)?.getPanel(panelId)
       && !editorStore.canvases[canvasId]
       && !sessionStore.getOpenedPageIds(projectId).includes(pageId)
     )
-  }
-
-  if (editorStore.canvases[canvasId]?.hasUnsavedChanges) {
-    return false
   }
 
   editorStore.unregisterCanvas(canvasId)
@@ -2145,8 +2149,8 @@ async function performOpenEditorForPage(
 
   try {
     for (const openPageId of pageIdsToReplace) {
-      const closed = await closePageForFocusReplacement(projectId, openPageId)
-      if (!closed) return 'cancelled'
+      const confirmed = await confirmPageCanClose(projectId, openPageId)
+      if (!confirmed) return 'cancelled'
     }
 
     const canvasId = getCanvasId(projectId, pageId)
@@ -2169,25 +2173,72 @@ async function performOpenEditorForPage(
       editorStore.switchImageVariantForCanvas(canvasId, variantId)
     }
 
-    editorStore.setActiveCanvas(canvasId)
     sessionStore.addOpenedProject(projectId)
     sessionStore.addOpenedPage(projectId, pageId)
-    sessionStore.setActiveProject(projectId)
-    sessionStore.setActivePage(projectId, pageId)
 
     const api = dockviewApi.value
     if (api) {
       ensureProjectPanelExists(api, projectId)
-      api.getPanel(getProjectPanelId(projectId))?.api.setActive()
       await projectDockviewRegistry.waitFor(projectId)
       await nextTick()
-      projectDockviewRegistry.get(projectId)?.getPanel(getPagePanelId(projectId, pageId))?.api.setActive()
+      ensurePagePanelExists(projectId, pageId)
     }
 
     void loadProjectLabelSet(projectId)
 
+    let loadedImageSrc: string | null = existingCanvas?.imageSrc ?? null
     if (!isAlreadyLoaded) {
-      void editorStore.loadPageIntoCanvas(canvasId, projectId, pageId, variantId)
+      const pageLoadPromise = editorStore.loadPageIntoCanvas(
+        canvasId,
+        projectId,
+        pageId,
+        variantId,
+        { awaitAnnotations: pageIdsToReplace.length > 0 }
+      )
+
+      if (pageIdsToReplace.length > 0) {
+        const imagePrefetchPromise = requestedVariant
+          ? imageLoader.prefetchImage(requestedVariant.id, requestedVariant.url)
+          : Promise.resolve()
+        const [resolvedImageSrc] = await Promise.all([pageLoadPromise, imagePrefetchPromise])
+        loadedImageSrc = resolvedImageSrc
+      } else {
+        void pageLoadPromise
+      }
+    }
+
+    const stagedPanel = projectDockviewRegistry.get(projectId)?.getPanel(getPagePanelId(projectId, pageId))
+    const targetCanvasIsStaged = editorStore.canvases[canvasId]?.pageId === pageId
+      && (!api || !!stagedPanel)
+
+    if (pageIdsToReplace.length > 0 && (!loadedImageSrc || !targetCanvasIsStaged)) {
+      if (stagedPanel) {
+        stagedPanel.api.close()
+        await waitForCondition(() =>
+          !projectDockviewRegistry.get(projectId)?.getPanel(getPagePanelId(projectId, pageId))
+          && !editorStore.canvases[canvasId]
+          && !sessionStore.getOpenedPageIds(projectId).includes(pageId)
+        )
+      } else {
+        editorStore.unregisterCanvas(canvasId)
+        sessionStore.removeOpenedPage(projectId, pageId)
+      }
+      return loadedImageSrc ? 'cancelled' : 'unavailable'
+    }
+
+    editorStore.setActiveCanvas(canvasId)
+    sessionStore.setActiveProject(projectId)
+    sessionStore.setActivePage(projectId, pageId)
+
+    if (api) {
+      api.getPanel(getProjectPanelId(projectId))?.api.setActive()
+      await nextTick()
+      projectDockviewRegistry.get(projectId)?.getPanel(getPagePanelId(projectId, pageId))?.api.setActive()
+    }
+
+    for (const openPageId of pageIdsToReplace) {
+      const closed = await closePageForFocusReplacement(projectId, openPageId)
+      if (!closed) return 'cancelled'
     }
 
     return 'opened'

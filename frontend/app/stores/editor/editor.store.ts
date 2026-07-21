@@ -909,7 +909,13 @@ export const useEditorStore = defineStore('editor', () => {
     documentStore.enrichPage(pageId, { ...enrichedData, projectId, projectName: page.projectName }, projectId)
   }
 
-  async function loadPageIntoCanvas(canvasId: string, projectId: string, pageId: string, variantId?: string): Promise<string | null> {
+  async function loadPageIntoCanvas(
+    canvasId: string,
+    projectId: string,
+    pageId: string,
+    variantId?: string,
+    options?: { awaitAnnotations?: boolean }
+  ): Promise<string | null> {
     let page = documentStore.getPage(pageId, projectId)
     if (!page) {
       log.error(`Page ${pageId} not found in project ${projectId}`)
@@ -975,7 +981,17 @@ export const useEditorStore = defineStore('editor', () => {
     canvas.selectedBaselineId = null
 
     if (page.xmlFiles && page.xmlFiles.length > 0) {
-      loadAnnotationsForCanvas(canvasId, projectId, pageId, page.xmlFiles, metadataImageFilename, canvas.annotationContext ?? undefined)
+      const annotationsPromise = loadAnnotationsForCanvas(
+        canvasId,
+        projectId,
+        pageId,
+        page.xmlFiles,
+        metadataImageFilename,
+        canvas.annotationContext ?? undefined
+      )
+      if (options?.awaitAnnotations) {
+        await annotationsPromise
+      }
     } else {
       log.info(`No XML files available for page ${pageId}, using empty document`)
     }

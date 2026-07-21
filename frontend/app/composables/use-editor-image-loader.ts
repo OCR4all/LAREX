@@ -63,6 +63,21 @@ function ensureImagePrefetch(variantId: string, url: string): Promise<void> {
   return request
 }
 
+async function prefetchImage(variantId: string, url: string): Promise<void> {
+  if (loadedImages.value.has(variantId)) {
+    trackImageAccess(variantId)
+    return
+  }
+
+  try {
+    await ensureImagePrefetch(variantId, url)
+    loadedImages.value.add(variantId)
+    trackImageAccess(variantId)
+  } catch (error) {
+    console.warn(`Failed to prefetch ${variantId}:`, error)
+  }
+}
+
 async function loadThumbnails(pages: PageData[]) {
   isLoading.value = true
 
@@ -194,6 +209,7 @@ export function useEditorImageLoader() {
     loadedImages: readonly(loadedImages),
     pendingImageIds: readonly(pendingImageIds),
     loadThumbnails,
+    prefetchImage,
     prefetchImages,
     prefetchImagesBidirectional,
     isThumbnailLoaded,
