@@ -57,6 +57,13 @@ export interface CommentOverlayLabel {
   text: string
 }
 
+export interface ElementOverlayLabel {
+  id: string
+  position: Point
+  label: string
+  elementType?: string
+}
+
 export interface RelationOverlayLabel {
   id: string
   relationId?: string

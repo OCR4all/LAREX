@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  SHORTCUT_HOLD_GESTURES,
   SHORTCUT_HELP_GROUPS,
   getShortcutKbds,
   type ShortcutCommandId,
@@ -33,7 +34,7 @@ type ShortcutCombo = {
 }
 
 type ShortcutHelpItem = {
-  id: ShortcutCommandId
+  id: string
   description: string
   group: ShortcutHelpGroupId
   combos: ShortcutCombo[]
@@ -41,7 +42,7 @@ type ShortcutHelpItem = {
 }
 
 const allShortcutItems = computed<ShortcutHelpItem[]>(() => {
-  return (Object.entries(resolvedShortcutDefinitions.value) as Array<[ShortcutCommandId, ResolvedShortcutDefinition]>)
+  const commandItems = (Object.entries(resolvedShortcutDefinitions.value) as Array<[ShortcutCommandId, ResolvedShortcutDefinition]>)
     .filter(([, definition]) => definition.showInHelp !== false)
     .map(([id, definition]) => {
       const combos: ShortcutCombo[] = definition.bindings.map(binding => ({
@@ -60,6 +61,16 @@ const allShortcutItems = computed<ShortcutHelpItem[]>(() => {
         ].join(' ').toLocaleLowerCase()
       }
     })
+
+  const holdItems: ShortcutHelpItem[] = SHORTCUT_HOLD_GESTURES.map(gesture => ({
+    id: gesture.id,
+    description: gesture.description,
+    group: gesture.group,
+    combos: [{ kbds: gesture.kbds }],
+    searchText: [gesture.description, gesture.group, ...gesture.kbds].join(' ').toLocaleLowerCase()
+  }))
+
+  return [...commandItems, ...holdItems]
 })
 
 const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLocaleLowerCase())

@@ -62,6 +62,21 @@ export const SHORTCUT_HELP_GROUPS: Array<{
   }
 ]
 
+/** Hold gestures are documented here because modifier-only bindings are not configurable commands. */
+export const SHORTCUT_HOLD_GESTURES: Array<{
+  id: string
+  description: string
+  group: ShortcutHelpGroupId
+  kbds: string[]
+}> = [
+  {
+    id: 'showElementLabels',
+    description: 'Show visible element labels (hold)',
+    group: 'view',
+    kbds: ['Alt / Option']
+  }
+]
+
 export const SHORTCUT_DEFINITIONS = {
   undo: {
     description: 'Undo',

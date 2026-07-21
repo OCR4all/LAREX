@@ -2,7 +2,7 @@
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import { triggerRef, type WatchStopHandle } from 'vue'
-import { LazyEditorCommentsLabelsOverlay, LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay, LazyEditorSlideoverLabelConflicts, LazyEditorSlideoverMergeSettings } from '#components'
+import { LazyEditorCommentsLabelsOverlay, LazyEditorElementLabelsOverlay, LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay, LazyEditorSlideoverLabelConflicts, LazyEditorSlideoverMergeSettings } from '#components'
 import { getVisiblePolygonAtPoint, triangulatePolygon } from '@/utils/editor/hit-detection'
 import { clipToWorldCoords, getWorldCoordsFromEvent, imageToWorld, pixelsToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
 import { getPagePanelId, parseCanvasId } from '@/stores/editor/editor.keys'
@@ -23,7 +23,7 @@ import { useEditorCanvasInteractionBlocker } from '@/composables/editor/use-canv
 import { CreateRelationCommand, UpdateRelationCommand } from '@/commands'
 import { PolygonType, type RegionKind, type Relation, type TextContentVariantData } from '@/models/editor'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
-import type { ActionProcessingRenderTarget, CommentOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
+import type { ActionProcessingRenderTarget, CommentOverlayLabel, ElementOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
 import type { ActionTargetSelection } from '@/types/action'
 import type { SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import { visibilityService } from '@/services/editor/visibility-service'
@@ -49,8 +49,11 @@ import {
   handleSingleLineTextareaPaste
 } from '@/components/editor/text/shared/text-input-guards'
 import { tokenizeForDictionary } from '@/components/editor/text/shared/text-highlighting'
+import { createPolygonElementLabel, createPolylineElementLabel } from '@/utils/editor/element-labels'
+import { isTypingTarget } from '@/utils/editor/keyboard-shortcut-target'
 
 const CommentsLabelsOverlay = LazyEditorCommentsLabelsOverlay
+const ElementLabelsOverlay = LazyEditorElementLabelsOverlay
 const ReadingOrderNumbersOverlay = LazyEditorReadingOrderNumbersOverlay
 const RelationsLabelsOverlay = LazyEditorRelationsLabelsOverlay
 
@@ -685,6 +688,13 @@ const showRelationsOverlay = computed(() =>
   relationsOverlaySettings.value.visible || editorUiStore.relationsEditor.pickerMode !== 'idle'
 )
 const showCommentsOverlay = computed(() => commentsOverlaySettings.value.visible)
+const elementLabelsHeld = ref(false)
+const showElementLabelsOverlay = computed(() =>
+  elementLabelsHeld.value
+  && editorStore.activeCanvasId === props.canvasId
+  && renderEnabled.value
+  && canShowCanvasContent.value
+)
 
 function normalizeCommentText(value: string | undefined): string | null {
   if (!value) return null
@@ -732,6 +742,54 @@ const commentOverlayLabels = computed<CommentOverlayLabel[]>(() => {
       position,
       text
     })
+  }
+
+  return labels
+})
+
+const elementOverlayLabels = computed<ElementOverlayLabel[]>(() => {
+  if (!showElementLabelsOverlay.value) return []
+
+  const labels: ElementOverlayLabel[] = []
+  const hiddenPolygonSet = new Set(hiddenPolygonIds.value)
+  const hiddenPolylineSet = new Set(hiddenPolylineIds.value)
+  const viewMode = canvasControls.viewMode?.value
+  const visibilityContext = {
+    selectedPolygonIndex: selectedPolygonIndex.value,
+    selectedPolylineIndex: selectedPolylineIndex.value,
+    allPolygons: polygons,
+    allPolylines: polylines,
+    viewMode,
+    hiddenPolygonIds: hiddenPolygonSet,
+    hiddenPolylineIds: hiddenPolylineSet,
+    temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId,
+    temporaryHoverPolylineId: editorUiStore.temporaryHoverPolylineId
+  }
+  const heatmapEnabled = editorUiStore.confidenceHeatmap.enabled
+
+  for (const polygon of polygons) {
+    const visibleInHeatmap = heatmapEnabled
+      && viewMode === 'textline'
+      && polygon.type === PolygonType.TEXTLINE
+      && !hiddenPolygonSet.has(polygon.id)
+    const visibleNormally = visibilityService.shouldShowPolygon(polygon, visibilityContext)
+      || visibilityService.shouldRenderAsBackground(polygon, visibilityContext)
+    if (!visibleInHeatmap && !visibleNormally) continue
+
+    const label = createPolygonElementLabel(polygon, canvasLabelSet.value)
+    if (label) labels.push(label)
+  }
+
+  const polygonById = new Map(polygons.map(polygon => [polygon.id, polygon]))
+  for (const polyline of polylines) {
+    const visibleInHeatmap = heatmapEnabled
+      && viewMode === 'baseline'
+      && !hiddenPolylineSet.has(polyline.id)
+    if (!visibleInHeatmap && !visibilityService.shouldShowPolyline(polyline, visibilityContext)) continue
+
+    const parent = polyline.parentId ? polygonById.get(polyline.parentId) : undefined
+    const label = createPolylineElementLabel(polyline, parent)
+    if (label) labels.push(label)
   }
 
   return labels
@@ -1416,6 +1474,14 @@ function handleEditorMouseLeave() {
 function handleEditorKeyDown(event: KeyboardEvent) {
   if (isCanvasInteractionBlocked.value) return
 
+  if (
+    event.key === 'Alt'
+    && editorStore.activeCanvasId === props.canvasId
+    && !isTypingTarget(event.target)
+  ) {
+    elementLabelsHeld.value = true
+  }
+
   // The mode menu restores focus to its trigger after selecting Canvas.
   // Treat the first Tab there as correction navigation instead of toolbar traversal.
   const modeSelectorHasFocus = event.target instanceof Element
@@ -1439,6 +1505,16 @@ function handleEditorKeyDown(event: KeyboardEvent) {
     editorFollow.handleLocalInteraction()
   }
   editorInteractions.onKeyDown(event)
+}
+
+function handleEditorKeyUp(event: KeyboardEvent) {
+  if (event.key === 'Alt') {
+    elementLabelsHeld.value = false
+  }
+}
+
+function handleEditorWindowBlur() {
+  elementLabelsHeld.value = false
 }
 
 function publishEditorClick(event: MouseEvent) {
@@ -1481,6 +1557,8 @@ function attachInteractions() {
   window.addEventListener('mouseleave', handleEditorMouseLeave)
   window.addEventListener('keydown', handleActionWandKeyDown, true)
   window.addEventListener('keydown', handleEditorKeyDown, true)
+  window.addEventListener('keyup', handleEditorKeyUp, true)
+  window.addEventListener('blur', handleEditorWindowBlur)
 
   interactionsAttached = true
 }
@@ -1501,6 +1579,10 @@ function detachInteractions() {
   window.removeEventListener('mouseleave', handleEditorMouseLeave)
   window.removeEventListener('keydown', handleActionWandKeyDown, true)
   window.removeEventListener('keydown', handleEditorKeyDown, true)
+  window.removeEventListener('keyup', handleEditorKeyUp, true)
+  window.removeEventListener('blur', handleEditorWindowBlur)
+
+  elementLabelsHeld.value = false
 
   interactionsAttached = false
 }
@@ -3691,6 +3773,15 @@ watch(() => props.src, (newSrc) => {
         :canvas-dimensions="canvasDimensions"
         :visible="true"
         :show-labels="readingOrderOverlaySettings.showLabels"
+      />
+
+      <ElementLabelsOverlay
+        v-if="showElementLabelsOverlay"
+        :labels="elementOverlayLabels"
+        :view="view"
+        :aspect-ratio-scale="aspectRatioScale"
+        :canvas-dimensions="canvasDimensions"
+        :visible="true"
       />
 
       <RelationsLabelsOverlay
