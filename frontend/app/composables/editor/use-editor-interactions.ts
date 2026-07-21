@@ -378,6 +378,13 @@ export function useEditorInteractions(
     return canvasControls.isCanvasEditable?.value !== false
   }
 
+  function clearElementHover(): void {
+    polygonEditing.hoveredPolygonIndex.value = -1
+    polylineEditing.hoveredPolylineIndex.value = -1
+    stateActions?.setHoveredPolygonId(null)
+    stateActions?.setHoveredPolylineId(null)
+  }
+
   function onMouseDown(e: MouseEvent): void {
     if (e.button !== 0) return // Only main left-click
 
@@ -502,8 +509,7 @@ export function useEditorInteractions(
       }
       if (mouseInteraction.isPanning()) {
         mouseInteraction.updatePanning(e, canvas.value, aspectRatioScale.value)
-        stateActions?.setHoveredPolygonId(null)
-        stateActions?.setHoveredPolylineId(null)
+        clearElementHover()
         return
       }
 
@@ -524,6 +530,8 @@ export function useEditorInteractions(
       )
 
       if (hoveredPolylineIndex >= 0 && polylines[hoveredPolylineIndex]) {
+        polylineEditing.hoveredPolylineIndex.value = hoveredPolylineIndex
+        polygonEditing.hoveredPolygonIndex.value = -1
         stateActions?.setHoveredPolylineId(polylines[hoveredPolylineIndex].id)
         stateActions?.setHoveredPolygonId(null)
         return
@@ -541,11 +549,12 @@ export function useEditorInteractions(
         hiddenPolylineIdSet.value
       )
       if (hoveredPolygonIndex >= 0 && polygons[hoveredPolygonIndex]) {
+        polygonEditing.hoveredPolygonIndex.value = hoveredPolygonIndex
+        polylineEditing.hoveredPolylineIndex.value = -1
         stateActions?.setHoveredPolygonId(polygons[hoveredPolygonIndex].id)
         stateActions?.setHoveredPolylineId(null)
       } else {
-        stateActions?.setHoveredPolygonId(null)
-        stateActions?.setHoveredPolylineId(null)
+        clearElementHover()
       }
       return
     }
@@ -858,8 +867,7 @@ export function useEditorInteractions(
 
   function onMouseLeave(): void {
     mouseInteraction.handleMouseLeave()
-    stateActions?.setHoveredPolygonId(null)
-    stateActions?.setHoveredPolylineId(null)
+    clearElementHover()
     onMouseUp(new MouseEvent('mouseup'))
   }
 

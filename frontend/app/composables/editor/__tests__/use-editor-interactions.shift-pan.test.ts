@@ -464,6 +464,8 @@ describe('useEditorInteractions shift-pan routing', () => {
 
     expect(harness.stateActions.setHoveredPolygonId).toHaveBeenLastCalledWith('region-a')
     expect(harness.stateActions.setHoveredPolylineId).toHaveBeenLastCalledWith(null)
+    expect(harness.polygonEditing.hoveredPolygonIndex.value).toBe(0)
+    expect(harness.polylineEditing.hoveredPolylineIndex.value).toBe(-1)
     expect(harness.polygonEditing.updateHoverStates).not.toHaveBeenCalled()
     expect(harness.polylineEditing.updateHoverStates).not.toHaveBeenCalled()
   })
@@ -488,6 +490,34 @@ describe('useEditorInteractions shift-pan routing', () => {
 
     expect(harness.stateActions.setHoveredPolylineId).toHaveBeenLastCalledWith('baseline:line-a')
     expect(harness.stateActions.setHoveredPolygonId).toHaveBeenLastCalledWith(null)
+    expect(harness.polylineEditing.hoveredPolylineIndex.value).toBe(0)
+    expect(harness.polygonEditing.hoveredPolygonIndex.value).toBe(-1)
+  })
+
+  it('clears read-only hover feedback when the pointer leaves the canvas', async () => {
+    const harness = await createHarness('select', {
+      readOnly: true,
+      polygons: [
+        {
+          id: 'region-a',
+          type: 'region',
+          points: [
+            { x: -0.5, y: -0.5 },
+            { x: 0.5, y: -0.5 },
+            { x: 0.5, y: 0.5 },
+            { x: -0.5, y: 0.5 }
+          ]
+        }
+      ]
+    })
+
+    harness.interactions.onMouseMove(eventStub({ clientX: 100, clientY: 100 }))
+    harness.interactions.onMouseLeave()
+
+    expect(harness.polygonEditing.hoveredPolygonIndex.value).toBe(-1)
+    expect(harness.polylineEditing.hoveredPolylineIndex.value).toBe(-1)
+    expect(harness.stateActions.setHoveredPolygonId).toHaveBeenLastCalledWith(null)
+    expect(harness.stateActions.setHoveredPolylineId).toHaveBeenLastCalledWith(null)
   })
 
   it('allows read-only canvases to select and drill down through existing polygons', async () => {
