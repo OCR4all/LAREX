@@ -2,10 +2,29 @@ import { describe, expect, it } from 'vitest'
 import {
   buildChildrenByParentId,
   flattenStructureRows,
+  getTreeItemDisplayLabel,
+  getTreeItemDisplayType,
   type TreeItemData
 } from '@/components/editor/sidebar/structure-tree'
 
 describe('structure-tree', () => {
+  it('formats labels and exact element types for display', () => {
+    const paragraph: TreeItemData = {
+      id: 'region-1',
+      type: 'region',
+      label: 'paragraph',
+      regionKind: 'TextRegion',
+      regionSubtype: 'paragraph'
+    }
+
+    expect(getTreeItemDisplayLabel(paragraph)).toBe('paragraph')
+    expect(getTreeItemDisplayLabel(paragraph, 'Body text')).toBe('Body text')
+    expect(getTreeItemDisplayType(paragraph)).toBe('TextRegion')
+    expect(getTreeItemDisplayType({ id: 'line-1', type: 'textline' })).toBe('TextLine')
+    expect(getTreeItemDisplayType({ id: 'baseline-1', type: 'BASELINE' })).toBe('Baseline')
+    expect(getTreeItemDisplayLabel({ id: 'unlabeled', label: '  ' })).toBe('unlabeled')
+  })
+
   it('builds and sorts children by parent ID', () => {
     const polygons: TreeItemData[] = [
       { id: 'region-root', type: 'REGION' },

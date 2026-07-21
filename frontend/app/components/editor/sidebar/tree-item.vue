@@ -2,7 +2,8 @@
 import type { LabelDefinition } from '@/models/editor/labels'
 import type { RegionKind } from '@/models/editor/region'
 import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
-import { getRegionColor, getRegionKindIcon } from '@/utils/editor/region-colors'
+import { getTreeItemDisplayLabel, getTreeItemDisplayType } from '@/components/editor/sidebar/structure-tree'
+import { getRegionColor } from '@/utils/editor/region-colors'
 import { findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
 
 interface TreeItemProps {
@@ -94,18 +95,12 @@ function findLabelDefinitionForItem(item: TreeItemData): LabelDefinition | null 
   }) ?? null
 }
 
-function getItemIconName(item: TreeItemData): string {
-  const normalizedType = item.type?.toUpperCase()
-  if (normalizedType === 'REGION') {
-    const { kind } = resolveRegionForItem(item)
-    if (kind) return getRegionKindIcon(kind as RegionKind)
-  }
-  const icons: Record<string, string> = {
-    REGION: 'i-lucide-folder',
-    TEXTLINE: 'i-lucide-type',
-    BASELINE: 'i-lucide-ruler'
-  }
-  return icons[normalizedType ?? ''] || 'i-lucide-file-text'
+function getItemLabel(item: TreeItemData): string {
+  return getTreeItemDisplayLabel(item, findLabelDefinitionForItem(item)?.name)
+}
+
+function getItemType(item: TreeItemData): string {
+  return getTreeItemDisplayType(item)
 }
 
 function getItemVisibilityIconName(item: TreeItemData): string {
@@ -127,16 +122,18 @@ function getVisibilityTitle(item: TreeItemData): string {
 function getLabelColor(item: TreeItemData): string {
   const labelDef = findLabelDefinitionForItem(item)
   if (labelDef?.color) return labelDef.color
+
+  const normalizedType = item.type?.toUpperCase?.() ?? ''
+  if (normalizedType === 'TEXTLINE') {
+    const lineLabel = editorStore.labelSet?.labels.find(label => label.scope === 'line')
+    if (lineLabel?.color) return lineLabel.color
+  }
+
   const { kind, subtype } = resolveRegionForItem(item)
   if (kind) {
     return getRegionColor(kind as RegionKind, subtype ?? undefined)
   }
   return '#666'
-}
-
-function shouldShowLabelIndicator(item: TreeItemData): boolean {
-  const { kind } = resolveRegionForItem(item)
-  return !!kind
 }
 
 function selectItem(item: TreeItemData): void {
@@ -243,16 +240,23 @@ function handleKeyDown(event: KeyboardEvent): void {
       </button>
       <span v-else class="w-5 mr-1" />
 
-      <Icon :name="getItemIconName(item)" class="h-3.5 w-3.5 mr-2 text-muted" />
-
       <span
-        v-if="shouldShowLabelIndicator(item)"
-        class="w-2.5 h-2.5 rounded-sm mr-2 border border-white/20 shadow-sm"
+        class="w-3 h-3 shrink-0 rounded-full mr-2 border border-white/20 shadow-sm"
         :style="{ backgroundColor: getLabelColor(item) }"
-        :title="item.label"
+        :title="getItemLabel(item)"
       />
 
-      <span class="flex-1 truncate text-xs font-medium">{{ item.id }}</span>
+      <div class="flex min-w-0 flex-1 items-baseline gap-2">
+        <span class="min-w-0 flex-1 truncate text-xs font-mono" :title="item.id">
+          {{ item.id }}
+        </span>
+        <span class="min-w-0 shrink truncate text-xs font-medium" :title="getItemLabel(item)">
+          {{ getItemLabel(item) }}
+        </span>
+        <span class="shrink-0 text-xs text-muted" :title="getItemType(item)">
+          {{ getItemType(item) }}
+        </span>
+      </div>
 
       <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <button

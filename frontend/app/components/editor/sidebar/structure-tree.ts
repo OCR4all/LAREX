@@ -27,6 +27,24 @@ function normalizeType(type?: string): string {
   return (type ?? '').toUpperCase()
 }
 
+export function getTreeItemDisplayLabel(item: TreeItemData, mappedLabel?: string | null): string {
+  return mappedLabel?.trim() || item.label?.trim() || item.id
+}
+
+export function getTreeItemDisplayType(item: TreeItemData): string {
+  const regionKind = item.regionKind?.trim()
+  if (regionKind) return regionKind
+
+  const displayTypes: Record<string, string> = {
+    REGION: 'Region',
+    TEXTLINE: 'TextLine',
+    BASELINE: 'Baseline'
+  }
+
+  const type = item.type?.trim()
+  return displayTypes[normalizeType(type)] ?? (type || 'Item')
+}
+
 function typeOrderWeight(item: TreeItemData): number {
   return TYPE_ORDER[normalizeType(item.type)] ?? 999
 }
