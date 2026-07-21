@@ -35,7 +35,6 @@ export interface ComputeFloatingDefaultPositionInput {
   controlSize: FloatingControlSize
   viewport: FloatingViewportSize
   gap: number
-  sidebarTop: number
 }
 
 export interface ClampFloatingPositionInput {
@@ -108,7 +107,7 @@ export function computeFloatingDefaultPosition(
   const controlWidth = normalizeDimension(input.controlSize.width)
   const controlHeight = normalizeDimension(input.controlSize.height)
   const gap = Number.isFinite(input.gap) ? Math.max(0, Number(input.gap)) : 0
-  const sidebarTop = Number.isFinite(input.sidebarTop) ? Math.max(0, Number(input.sidebarTop)) : 0
+  const centeredSidebarY = (viewportHeight - controlHeight) / 2
   const anchorRect = input.anchorRect ?? null
 
   if (anchorRect) {
@@ -116,12 +115,12 @@ export function computeFloatingDefaultPosition(
       case 'left-sidebar':
         return {
           x: anchorRect.left - controlWidth - gap,
-          y: sidebarTop
+          y: centeredSidebarY
         }
       case 'right-sidebar':
         return {
           x: anchorRect.right + gap,
-          y: sidebarTop
+          y: centeredSidebarY
         }
       case 'toolbar':
         return {
@@ -135,12 +134,12 @@ export function computeFloatingDefaultPosition(
     case 'left-sidebar':
       return {
         x: gap,
-        y: sidebarTop
+        y: centeredSidebarY
       }
     case 'right-sidebar':
       return {
         x: viewportWidth - controlWidth - gap,
-        y: sidebarTop
+        y: centeredSidebarY
       }
     case 'toolbar':
       return {

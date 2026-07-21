@@ -7,7 +7,7 @@ import {
 } from '../floating-anchor-position'
 
 describe('floating-anchor-position', () => {
-  it('anchors left and right sidebars to the active canvas bounds', () => {
+  it('anchors sidebars beside the active canvas and centers them vertically', () => {
     const anchorRect = {
       left: 420,
       top: 80,
@@ -22,18 +22,16 @@ describe('floating-anchor-position', () => {
       anchorRect,
       controlSize: { width: 48, height: 240 },
       viewport: { width: 1600, height: 1200 },
-      gap: 16,
-      sidebarTop: 120
-    })).toEqual({ x: 356, y: 120 })
+      gap: 16
+    })).toEqual({ x: 356, y: 480 })
 
     expect(computeFloatingDefaultPosition({
       placement: 'right-sidebar',
       anchorRect,
       controlSize: { width: 48, height: 320 },
       viewport: { width: 1600, height: 1200 },
-      gap: 16,
-      sidebarTop: 120
-    })).toEqual({ x: 796, y: 120 })
+      gap: 16
+    })).toEqual({ x: 796, y: 440 })
   })
 
   it('anchors the toolbar below the active canvas bounds', () => {
@@ -51,8 +49,7 @@ describe('floating-anchor-position', () => {
       anchorRect,
       controlSize: { width: 360, height: 48 },
       viewport: { width: 1600, height: 1200 },
-      gap: 40,
-      sidebarTop: 120
+      gap: 40
     })).toEqual({ x: 520, y: 900 })
   })
 
@@ -69,8 +66,7 @@ describe('floating-anchor-position', () => {
       },
       controlSize: { width: 48, height: 320 },
       viewport: { width: 1600, height: 1200 },
-      gap: 16,
-      sidebarTop: 120
+      gap: 16
     })
 
     const draggedPosition = { x: initialDefault.x + 42, y: initialDefault.y + 96 }
@@ -88,8 +84,7 @@ describe('floating-anchor-position', () => {
       },
       controlSize: { width: 48, height: 320 },
       viewport: { width: 1800, height: 1400 },
-      gap: 16,
-      sidebarTop: 120
+      gap: 16
     })
 
     expect(resolveFloatingControlPosition({
@@ -130,12 +125,27 @@ describe('floating-anchor-position', () => {
 
   it('falls back to viewport defaults without an anchor', () => {
     expect(computeFloatingDefaultPosition({
+      placement: 'left-sidebar',
+      anchorRect: null,
+      controlSize: { width: 48, height: 240 },
+      viewport: { width: 1440, height: 900 },
+      gap: 24
+    })).toEqual({ x: 24, y: 330 })
+
+    expect(computeFloatingDefaultPosition({
+      placement: 'right-sidebar',
+      anchorRect: null,
+      controlSize: { width: 48, height: 320 },
+      viewport: { width: 1440, height: 900 },
+      gap: 24
+    })).toEqual({ x: 1368, y: 290 })
+
+    expect(computeFloatingDefaultPosition({
       placement: 'toolbar',
       anchorRect: null,
       controlSize: { width: 360, height: 48 },
       viewport: { width: 1440, height: 900 },
-      gap: 40,
-      sidebarTop: 120
+      gap: 40
     })).toEqual({ x: 540, y: 812 })
   })
 })

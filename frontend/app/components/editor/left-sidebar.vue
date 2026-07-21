@@ -44,7 +44,6 @@ const isFloatingCollapsed = computed(() => editorUiStore.leftCollapsed && props.
 const floatingImagePopoverOpen = ref(false)
 const collapsedRailImagePopoverOpen = ref(false)
 
-const DEFAULT_FLOATING_SIDEBAR_TOP = 120
 const DEFAULT_FLOATING_LEFT_SIDEBAR_GAP = 24
 const DEFAULT_FLOATING_LEFT_SIDEBAR_LEFT = 24
 const utilityButtonClass = 'size-7 justify-center p-0'
@@ -104,7 +103,6 @@ const {
   placement: 'left-sidebar',
   fallbackSize: { width: 48, height: 240 },
   gap: DEFAULT_FLOATING_LEFT_SIDEBAR_GAP,
-  sidebarTop: DEFAULT_FLOATING_SIDEBAR_TOP,
   viewportMargin: { left: DEFAULT_FLOATING_LEFT_SIDEBAR_LEFT },
   getOffset: () => floatingOffset.value,
   setOffset: (offset: FloatingControlOffset | null) => {

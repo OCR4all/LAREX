@@ -22,7 +22,6 @@ type UseFloatingAnchorPositionOptions = {
   placement: FloatingControlPlacement
   fallbackSize: FloatingControlSize
   gap: number
-  sidebarTop?: number
   includeFixedPosition?: boolean
   viewportMargin?: number | Partial<Record<'top' | 'right' | 'bottom' | 'left', number>>
   getOffset: () => FloatingControlOffset | null
@@ -68,8 +67,7 @@ export function useFloatingAnchorPosition(options: UseFloatingAnchorPositionOpti
       anchorRect: getEditorFloatingAnchorRect(options.anchorId.value),
       controlSize: getControlSize(),
       viewport: getViewportSize(),
-      gap: options.gap,
-      sidebarTop: options.sidebarTop ?? 0
+      gap: options.gap
     })
   }
 

@@ -30,7 +30,6 @@ const floatingOffset = ref<{ dx: number, dy: number } | null>(null)
 const floatingAnchorId = computed(() => EDITOR_WORKSPACE_FLOATING_ANCHOR_ID)
 const isFloatingCollapsed = computed(() => editorUiStore.rightCollapsed && props.useFloatingCollapsed)
 
-const DEFAULT_FLOATING_SIDEBAR_TOP = 120
 const DEFAULT_FLOATING_RIGHT_SIDEBAR_GAP = 24
 const DEFAULT_FLOATING_RIGHT_SIDEBAR_RIGHT = 24
 const {
@@ -44,7 +43,6 @@ const {
   placement: 'right-sidebar',
   fallbackSize: { width: 48, height: 320 },
   gap: DEFAULT_FLOATING_RIGHT_SIDEBAR_GAP,
-  sidebarTop: DEFAULT_FLOATING_SIDEBAR_TOP,
   viewportMargin: { right: DEFAULT_FLOATING_RIGHT_SIDEBAR_RIGHT },
   getOffset: () => floatingOffset.value,
   setOffset: (offset: FloatingControlOffset | null) => {
