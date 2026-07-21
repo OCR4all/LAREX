@@ -28,6 +28,15 @@
       "defaultAction": false,
       "priority": 20,
       "config": {}
+    },
+    {
+      "alias": "delete_account",
+      "name": "Delete Account",
+      "providerId": "delete_account",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 60,
+      "config": {}
     }
   ],
   "smtpServer": {
@@ -401,6 +410,18 @@
       {
         "name": "GLOBAL_CURATOR",
         "description": "Global curator role with permission to create and operate team workspaces without global admin access"
+      },
+      {
+        "name": "LAREX_DELETE_ACCOUNT",
+        "description": "Allows LAREX users to delete their own Keycloak account",
+        "composite": true,
+        "composites": {
+          "client": {
+            "account": [
+              "delete-account"
+            ]
+          }
+        }
       }
     ],
     "client": {
@@ -413,7 +434,7 @@
     }
   },
   "defaultRoles": [
-    "delete-account"
+    "LAREX_DELETE_ACCOUNT"
   ],
   "scopeMappings": [
     {

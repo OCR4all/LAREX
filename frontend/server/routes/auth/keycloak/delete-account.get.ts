@@ -1,10 +1,10 @@
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
-  const code = query.code as string
 
-  if (code) {
+  if (query.kc_action_status === 'success') {
     await clearUserSession(event)
+    return sendRedirect(event, '/')
   }
 
-  return sendRedirect(event, '/auth/keycloak')
+  return sendRedirect(event, '/settings/security')
 })

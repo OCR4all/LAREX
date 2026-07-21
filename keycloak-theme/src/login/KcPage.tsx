@@ -13,6 +13,7 @@ const Info = lazy(() => import("./pages/Info"));
 const LoginUpdatePassword = lazy(() => import("./pages/LoginUpdatePassword"));
 const LoginUpdateProfile = lazy(() => import("./pages/LoginUpdateProfile"));
 const LoginResetPassword = lazy(() => import("./pages/LoginResetPassword"));
+const DeleteAccountConfirm = lazy(() => import("./pages/DeleteAccountConfirm"));
 
 import "./main.css";
 
@@ -70,6 +71,14 @@ export default function KcPage(props: { kcContext: KcContext }) {
           case "login-reset-password.ftl":
             return (
               <LoginResetPassword
+                {...{ kcContext, i18n, classes }}
+                Template={Template}
+                doUseDefaultCss={false}
+              />
+            );
+          case "delete-account-confirm.ftl":
+            return (
+              <DeleteAccountConfirm
                 {...{ kcContext, i18n, classes }}
                 Template={Template}
                 doUseDefaultCss={false}

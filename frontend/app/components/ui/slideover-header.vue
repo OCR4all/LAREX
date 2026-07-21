@@ -11,10 +11,10 @@ const resolvedDescription = computed(() => props.description || 'Review details 
 
 <template>
   <div class="flex min-w-0 items-start gap-3 pr-8">
-    <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
+    <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-navy-600">
       <UIcon
         :name="icon"
-        :class="['size-4 text-muted', iconClass]"
+        :class="['size-4 text-white', iconClass]"
       />
     </div>
     <div class="min-w-0">
