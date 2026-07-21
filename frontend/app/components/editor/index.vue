@@ -3015,7 +3015,11 @@ watch(() => props.src, (newSrc) => {
             size="xs"
             color="neutral"
             :variant="viewerNavigationMode === 'explore' ? 'soft' : 'ghost'"
-            class="h-6 px-2 text-[11px]"
+            :class="[
+              'h-6 px-2 text-[11px]',
+              viewerNavigationMode !== 'explore'
+                && 'text-amber-50/80 hover:bg-amber-50/10 active:bg-amber-50/15'
+            ]"
             icon="i-lucide-mouse-pointer-2"
             label="Explore"
             @click="editorFollow.explore"
@@ -3024,7 +3028,11 @@ watch(() => props.src, (newSrc) => {
             size="xs"
             color="neutral"
             :variant="viewerNavigationMode === 'follow' ? 'soft' : 'ghost'"
-            class="h-6 px-2 text-[11px]"
+            :class="[
+              'h-6 px-2 text-[11px]',
+              viewerNavigationMode !== 'follow'
+                && 'text-amber-50/80 hover:bg-amber-50/10 active:bg-amber-50/15'
+            ]"
             icon="i-lucide-navigation"
             label="Follow editor"
             :disabled="!canFollowEditor"
@@ -3034,9 +3042,10 @@ watch(() => props.src, (newSrc) => {
         <UButton
           v-if="canRequestTakeover"
           size="xs"
-          color="neutral"
-          variant="soft"
+          color="info"
+          variant="solid"
           class="h-7 px-2.5 text-[11px]"
+          icon="i-lucide-pencil-line"
           label="Request Edit"
           :loading="isTakeoverActionPending"
           :disabled="isTakeoverActionPending"
@@ -3544,7 +3553,7 @@ watch(() => props.src, (newSrc) => {
         <UButton
           color="neutral"
           variant="outline"
-          class="absolute top-2.5 left-2.5 z-[950] h-7 rounded border-neutral-700/50 bg-neutral-900/90 px-2 text-neutral-200 shadow-sm backdrop-blur-sm hover:bg-neutral-900"
+          class="absolute top-2.5 left-2.5 z-[950] h-auto rounded border-neutral-700/50 bg-neutral-900/90 px-2.5 py-1.5 text-neutral-200 shadow-sm backdrop-blur-sm hover:bg-neutral-900 active:bg-neutral-900"
         >
           <div class="flex items-center gap-2 min-w-0">
             <div class="flex items-center -space-x-1">
@@ -3558,11 +3567,12 @@ watch(() => props.src, (newSrc) => {
                   :src="avatarSrc(participant.user)"
                   :alt="participant.user.displayName"
                   size="xs"
-                  class="h-5 w-5 border text-[9px] font-medium"
+                  ring="0 0 0 2px var(--color-neutral-300)"
+                  class="h-5 w-5 text-[9px] font-medium"
                   :style="collaborationAvatarStyle(participant.user.id)"
                 />
                 <span
-                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-950"
+                  class="absolute -bottom-0.5 -left-0.5 h-2 w-2 rounded-full border border-neutral-950"
                   :class="participant.role === 'editing' ? 'bg-primary-500' : 'bg-emerald-500'"
                 />
               </div>

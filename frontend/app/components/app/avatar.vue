@@ -5,6 +5,7 @@ import {
   IdenticonAvatar,
   InitialsAvatar
 } from '@maxnth/gestalt'
+import type { AvatarBaseProps } from '@maxnth/gestalt'
 import type { AvatarSize, AvatarStyle } from '~/types/avatar'
 import { AVATAR_SIZE_PIXELS, getGeneratedAvatarSeed } from '~/utils/avatar-rendering'
 
@@ -14,10 +15,12 @@ const props = withDefaults(defineProps<{
   src?: string | null
   size?: AvatarSize
   avatarStyle?: AvatarStyle
+  ring?: AvatarBaseProps['ring']
 }>(), {
   src: undefined,
   size: 'md',
-  avatarStyle: undefined
+  avatarStyle: undefined,
+  ring: undefined
 })
 
 const avatarComponents = {
@@ -34,10 +37,22 @@ const pixels = computed(() => AVATAR_SIZE_PIXELS[props.size])
 const managedSrc = computed(() => resolveAvatarSource(props.src))
 const generatedComponent = computed(() => avatarComponents[effectiveStyle.value])
 const generatedSeed = computed(() => getGeneratedAvatarSeed(effectiveStyle.value, props.seed, props.alt))
-const rootStyle = computed(() => ({
-  width: `${pixels.value}px`,
-  height: `${pixels.value}px`
-}))
+const rootStyle = computed(() => {
+  let boxShadow: string | undefined
+  if (managedSrc.value && props.ring) {
+    boxShadow = props.ring === true
+      ? '0 0 0 2px rgb(255,255,255)'
+      : typeof props.ring === 'number'
+        ? `0 0 0 ${Number.isFinite(props.ring) && props.ring > 0 ? props.ring : 2}px rgb(255,255,255)`
+        : props.ring
+  }
+
+  return {
+    width: `${pixels.value}px`,
+    height: `${pixels.value}px`,
+    boxShadow
+  }
+})
 
 const handleImageError = () => {
   invalidateAvatarSource(managedSrc.value)
@@ -46,7 +61,7 @@ const handleImageError = () => {
 
 <template>
   <span
-    class="inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full align-middle"
+    class="inline-flex shrink-0 select-none items-center justify-center rounded-full align-middle"
     :style="rootStyle"
     :role="managedSrc ? undefined : 'img'"
     :aria-label="managedSrc ? undefined : alt"
@@ -64,6 +79,7 @@ const handleImageError = () => {
       :seed="generatedSeed"
       :size="pixels"
       radius="9999px"
+      :ring="ring"
       aria-hidden="true"
     />
   </span>
