@@ -43,7 +43,8 @@ describe('element label helpers', () => {
       id: 'region-1',
       position: { x: 2, y: 1 },
       label: 'Paragraph',
-      elementType: 'TextRegion'
+      elementType: 'TextRegion',
+      backgroundColor: '#000000'
     })
   })
 
@@ -60,7 +61,8 @@ describe('element label helpers', () => {
       id: 'graphic-1',
       position: { x: 2, y: 1 },
       label: 'GraphicRegion',
-      elementType: undefined
+      elementType: undefined,
+      backgroundColor: '#673AB7'
     })
   })
 
@@ -91,13 +93,15 @@ describe('element label helpers', () => {
 
     expect(createPolygonElementLabel(textline)).toMatchObject({
       label: 'line-1',
-      elementType: 'TextLine'
+      elementType: 'TextLine',
+      backgroundColor: '#3B82F6'
     })
     expect(createPolylineElementLabel(baseline, textline)).toEqual({
       id: 'baseline:line-1',
       position: { x: 4, y: 1 },
       label: 'line-1',
-      elementType: 'Baseline'
+      elementType: 'Baseline',
+      backgroundColor: '#3B82F6'
     })
   })
 })

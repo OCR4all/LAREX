@@ -788,7 +788,7 @@ const elementOverlayLabels = computed<ElementOverlayLabel[]>(() => {
     if (!visibleInHeatmap && !visibilityService.shouldShowPolyline(polyline, visibilityContext)) continue
 
     const parent = polyline.parentId ? polygonById.get(polyline.parentId) : undefined
-    const label = createPolylineElementLabel(polyline, parent)
+    const label = createPolylineElementLabel(polyline, parent, canvasLabelSet.value)
     if (label) labels.push(label)
   }
 

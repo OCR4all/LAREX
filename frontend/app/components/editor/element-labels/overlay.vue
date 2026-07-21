@@ -44,23 +44,29 @@ const visibleLabels = computed(() => {
     <div
       v-for="item in visibleLabels"
       :key="item.id"
-      class="absolute flex -translate-x-1/2 -translate-y-1/2 items-stretch whitespace-nowrap text-[10px] leading-4 shadow-md"
+      class="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-stretch overflow-hidden rounded-sm whitespace-nowrap text-[10px] leading-4 shadow-md"
       :style="{
         left: `${item.screenPosition.x}px`,
         top: `${item.screenPosition.y}px`
       }"
     >
       <span
-        class="max-w-40 truncate bg-black/75 px-1.5 font-semibold text-white"
-        :class="item.elementType ? 'rounded-l-sm' : 'rounded-sm'"
+        v-if="item.elementType"
+        class="max-w-40 truncate bg-black px-1.5 font-medium text-white"
+      >
+        {{ item.elementType }}
+      </span>
+      <span
+        class="max-w-40 truncate px-1.5 font-semibold text-white"
+        :class="item.elementType && 'border-t border-white/20'"
+        :style="{ backgroundColor: item.backgroundColor }"
       >
         {{ item.label }}
       </span>
       <span
-        v-if="item.elementType"
-        class="rounded-r-sm border-l border-white/20 bg-blue-600/90 px-1.5 font-medium text-white"
+        class="max-w-40 truncate border-t border-white/20 bg-black px-1.5 font-mono text-white"
       >
-        {{ item.elementType }}
+        {{ item.id }}
       </span>
     </div>
   </div>

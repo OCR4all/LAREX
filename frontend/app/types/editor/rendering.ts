@@ -62,6 +62,7 @@ export interface ElementOverlayLabel {
   position: Point
   label: string
   elementType?: string
+  backgroundColor: string
 }
 
 export interface RelationOverlayLabel {

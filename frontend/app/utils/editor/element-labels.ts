@@ -3,6 +3,14 @@ import { PolygonType } from '@/models/editor'
 import type { Point } from '@/models/editor'
 import type { ElementOverlayLabel, RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import { findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
+import { getRegionColor } from '@/utils/editor/region-colors'
+
+const DEFAULT_ELEMENT_LABEL_COLOR = '#475569'
+const DEFAULT_LINE_LABEL_COLOR = '#3B82F6'
+
+function getLineLabelColor(labelSet?: LabelSet | null): string {
+  return labelSet?.labels.find(label => label.scope === 'line')?.color || DEFAULT_LINE_LABEL_COLOR
+}
 
 function averagePoint(points: Point[]): Point | null {
   if (points.length === 0) return null
@@ -75,7 +83,8 @@ export function createPolygonElementLabel(
       id: polygon.id,
       position,
       label: polygon.label || polygon.id,
-      elementType: 'TextLine'
+      elementType: 'TextLine',
+      backgroundColor: getLineLabelColor(labelSet)
     }
   }
 
@@ -89,13 +98,16 @@ export function createPolygonElementLabel(
     id: polygon.id,
     position,
     label,
-    elementType: exactTypes.join(' · ') || undefined
+    elementType: exactTypes.join(' · ') || undefined,
+    backgroundColor: mappedLabel?.color
+      || (polygon.regionKind ? getRegionColor(polygon.regionKind, polygon.regionSubtype) : DEFAULT_ELEMENT_LABEL_COLOR)
   }
 }
 
 export function createPolylineElementLabel(
   polyline: RenderablePolyline,
-  parentPolygon?: RenderablePolygon
+  parentPolygon?: RenderablePolygon,
+  labelSet?: LabelSet | null
 ): ElementOverlayLabel | null {
   const position = polylineMidpoint(polyline.points)
   if (!position) return null
@@ -107,6 +119,7 @@ export function createPolylineElementLabel(
     id: polyline.id,
     position,
     label: fallbackLabel || polyline.label || polyline.id,
-    elementType: isBaseline ? 'Baseline' : 'Polyline'
+    elementType: isBaseline ? 'Baseline' : 'Polyline',
+    backgroundColor: getLineLabelColor(labelSet)
   }
 }
