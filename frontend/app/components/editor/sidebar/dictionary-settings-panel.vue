@@ -5,14 +5,6 @@ import { toProjectToolkitSettings, useProjectToolkitPresets } from '@/composable
 import { LazyEditorModalToolkitResourceEdit, LazyUiConfirmSlideover } from '#components'
 import type { DropdownMenuItem } from '@nuxt/ui'
 
-const highlightUnknownDictionaryTokens = defineModel<boolean>('highlightUnknownDictionaryTokens', { default: false })
-
-const props = withDefaults(defineProps<{
-  hasProjectDictionary?: boolean
-}>(), {
-  hasProjectDictionary: true
-})
-
 const toast = useToast()
 const overlay = useOverlay()
 const workspace = useWorkspaceStore()
@@ -210,19 +202,5 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
         This project uses a fixed dictionary.
       </p>
     </UFormField>
-
-    <div class="flex items-center justify-between gap-3">
-      <div class="min-w-0">
-        <span class="text-sm font-medium block">Highlight Unknown Dictionary Tokens</span>
-        <span class="text-xs text-muted">
-          {{
-            props.hasProjectDictionary
-              ? 'Flags GT tokens that are not present in the project dictionary.'
-              : 'Assign a dictionary to this project to enable token validation.'
-          }}
-        </span>
-      </div>
-      <USwitch v-model="highlightUnknownDictionaryTokens" :disabled="!props.hasProjectDictionary" />
-    </div>
   </div>
 </template>

@@ -23,6 +23,8 @@ describe('getTextSidebarItems', () => {
       'tasks',
       'settings',
       'virtualKeyboard',
+      'codec',
+      'dictionary',
       'diff'
     ])
     expect(items.find(item => item.slot === 'diff')).toMatchObject({

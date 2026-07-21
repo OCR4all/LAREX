@@ -1,18 +1,15 @@
 <script setup lang="ts">
 const defaultGtIndex = defineModel<number>('defaultGtIndex', { default: 0 })
 const defaultRecognitionIndices = defineModel<number[]>('defaultRecognitionIndices', { default: () => [1] })
-const showDiff = defineModel<boolean>('showDiff', { default: false })
 
 const props = withDefaults(defineProps<{
   canEditDefaults?: boolean
   isSavingDefaults?: boolean
   saveError?: string | null
-  showDiffToggle?: boolean
 }>(), {
   canEditDefaults: false,
   isSavingDefaults: false,
-  saveError: null,
-  showDiffToggle: true
+  saveError: null
 })
 
 const emit = defineEmits<{
@@ -104,15 +101,6 @@ function handleSave() {
     <p v-else-if="props.saveError" class="text-xs text-error">
       {{ props.saveError }}
     </p>
-
-    <div
-      v-if="props.showDiffToggle"
-      class="flex items-center justify-between cursor-pointer"
-      @click="showDiff = !showDiff"
-    >
-      <span class="text-sm font-medium">Show Diff</span>
-      <UCheckbox :model-value="showDiff" @click.stop @update:model-value="showDiff = ($event === true)" />
-    </div>
 
     <div class="flex justify-end">
       <UButton

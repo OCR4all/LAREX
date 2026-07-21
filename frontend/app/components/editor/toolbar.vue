@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useEditorStore } from '@/stores/editor/editor.store'
+import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { DRAWING_MODES, VIEW_MODES } from '@/composables/editor/use-canvas-control'
 import { getTooltipProps } from '@/composables/editor/use-keyboard-shortcuts'
 import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboards'
@@ -21,6 +22,7 @@ import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-posit
 
 const editorStore = useEditorStore()
 const uiStore = useEditorUiStore()
+const sessionStore = useEditorSessionStore()
 
 const emit = defineEmits<{
   merge: []
@@ -368,6 +370,52 @@ const isRegionTypeTextline = computed(() => selectedRegionType.value === Polygon
 const isRegionTypeBaseline = computed(() => selectedRegionType.value === PolygonType.BASELINE)
 
 const isTextUiMode = computed(() => effectiveUiMode.value === 'text')
+const isTextVisualMode = computed(() => isTextUiMode.value && uiStore.textModeSubmode === 'visual')
+const supportsTextDiff = computed(() =>
+  isTextUiMode.value && (uiStore.textModeSubmode === 'visual' || uiStore.textModeSubmode === 'expert')
+)
+const showCommentsModel = computed({
+  get: () => sessionStore.textViewSettings.showComments,
+  set: (next: boolean) => {
+    sessionStore.updateTextViewSettings(current => ({ ...current, showComments: Boolean(next) }))
+  }
+})
+const showDiffModel = computed({
+  get: () => sessionStore.textViewSettings.showDiff,
+  set: (next: boolean) => {
+    sessionStore.updateTextViewSettings(current => ({ ...current, showDiff: Boolean(next) }))
+  }
+})
+const showRecognitionModel = computed({
+  get: () => sessionStore.textViewSettings.showRecognition ?? true,
+  set: (next: boolean) => {
+    sessionStore.updateTextViewSettings(current => ({ ...current, showRecognition: Boolean(next) }))
+  }
+})
+const textFontSizeModel = computed({
+  get: () => uiStore.textViewFontSize,
+  set: (next: number) => {
+    const parsed = Number(next)
+    uiStore.setTextViewFontSize(Number.isFinite(parsed) ? Math.max(8, Math.min(32, parsed)) : 30)
+  }
+})
+const commentsLabel = computed(() => showCommentsModel.value ? 'Hide comments' : 'Show comments')
+const diffLabel = computed(() => showDiffModel.value ? 'Hide text differences' : 'Show text differences')
+const recognitionLabel = computed(() => showRecognitionModel.value ? 'Hide recognition text' : 'Show recognition text')
+const hasProjectCodec = computed(() =>
+  Boolean(editorStore.projectCodecId) || (editorStore.projectCodecCharacters?.length ?? 0) > 0
+)
+const hasProjectDictionary = computed(() => Boolean(editorStore.projectDictionaryId))
+const codecCheckActive = computed(() => hasProjectCodec.value && uiStore.highlightUnknownCodecChars)
+const dictionaryCheckActive = computed(() => hasProjectDictionary.value && uiStore.highlightUnknownDictionaryTokens)
+const codecCheckLabel = computed(() => {
+  if (!hasProjectCodec.value) return 'Assign a project codec to enable codec checks'
+  return codecCheckActive.value ? 'Disable codec check' : 'Enable codec check'
+})
+const dictionaryCheckLabel = computed(() => {
+  if (!hasProjectDictionary.value) return 'Assign a project dictionary to enable dictionary checks'
+  return dictionaryCheckActive.value ? 'Disable dictionary check' : 'Enable dictionary check'
+})
 
 const editorModeModel = computed({
   get: () => effectiveUiMode.value,
@@ -780,6 +828,28 @@ const cycleVirtualKeyboardMode = () => {
   uiStore.setVirtualKeyboardMode(nextMode)
 }
 
+function toggleCodecCheck(): void {
+  if (!hasProjectCodec.value) return
+  uiStore.setHighlightUnknownCodecChars(!uiStore.highlightUnknownCodecChars)
+}
+
+function toggleDictionaryCheck(): void {
+  if (!hasProjectDictionary.value) return
+  uiStore.setHighlightUnknownDictionaryTokens(!uiStore.highlightUnknownDictionaryTokens)
+}
+
+function toggleComments(): void {
+  showCommentsModel.value = !showCommentsModel.value
+}
+
+function toggleDiff(): void {
+  showDiffModel.value = !showDiffModel.value
+}
+
+function toggleRecognition(): void {
+  showRecognitionModel.value = !showRecognitionModel.value
+}
+
 const vkDropdownItems = computed(() => [
   [
     {
@@ -1079,6 +1149,130 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
               :ui="toolbarSeparatorUi"
             />
           </template>
+
+          <div
+            class="flex items-center gap-1"
+            :class="isVertical ? 'flex-col' : 'flex-row'"
+            data-tour="text-view-options"
+          >
+            <UTooltip :delay-duration="0" :text="commentsLabel">
+              <UButton
+                variant="ghost"
+                size="sm"
+                icon="i-lucide-message-square"
+                color="neutral"
+                :active="showCommentsModel"
+                :aria-pressed="showCommentsModel"
+                :aria-label="commentsLabel"
+                :class="activeToolClass(showCommentsModel)"
+                @click="toggleComments"
+              />
+            </UTooltip>
+
+            <UTooltip v-if="supportsTextDiff" :delay-duration="0" :text="diffLabel">
+              <UButton
+                variant="ghost"
+                size="sm"
+                icon="i-lucide-file-diff"
+                color="neutral"
+                :active="showDiffModel"
+                :aria-pressed="showDiffModel"
+                :aria-label="diffLabel"
+                :class="activeToolClass(showDiffModel)"
+                @click="toggleDiff"
+              />
+            </UTooltip>
+
+            <UTooltip v-if="isTextVisualMode" :delay-duration="0" :text="recognitionLabel">
+              <UButton
+                variant="ghost"
+                size="sm"
+                icon="i-lucide-scan-text"
+                color="neutral"
+                :active="showRecognitionModel"
+                :aria-pressed="showRecognitionModel"
+                :aria-label="recognitionLabel"
+                :class="activeToolClass(showRecognitionModel)"
+                @click="toggleRecognition"
+              />
+            </UTooltip>
+
+            <UPopover :content="{ side: modeViewMenuSide, align: 'center', sideOffset: 8 }">
+              <UTooltip :delay-duration="0" text="Text size">
+                <UButton
+                  variant="ghost"
+                  size="sm"
+                  icon="i-lucide-type"
+                  color="neutral"
+                  aria-label="Text size"
+                />
+              </UTooltip>
+
+              <template #content>
+                <div class="w-64 p-3">
+                  <div class="mb-3 flex items-center justify-between gap-3">
+                    <span class="text-sm font-medium">Text size</span>
+                    <span class="text-sm font-semibold text-primary">{{ textFontSizeModel }}px</span>
+                  </div>
+                  <USlider
+                    v-model="textFontSizeModel"
+                    :min="8"
+                    :max="32"
+                    :step="1"
+                    aria-label="Text size"
+                  />
+                </div>
+              </template>
+            </UPopover>
+          </div>
+
+          <USeparator
+            :orientation="isVertical ? 'horizontal' : 'vertical'"
+            class="h-6 mx-1"
+            :ui="toolbarSeparatorUi"
+          />
+
+          <div
+            class="flex items-center gap-1"
+            :class="isVertical ? 'flex-col' : 'flex-row'"
+            data-tour="text-checks"
+          >
+            <UTooltip :delay-duration="0" :text="codecCheckLabel">
+              <UButton
+                variant="ghost"
+                size="sm"
+                icon="i-lucide-badge-check"
+                color="neutral"
+                :active="codecCheckActive"
+                :aria-pressed="codecCheckActive"
+                :aria-label="codecCheckLabel"
+                :class="activeToolClass(codecCheckActive)"
+                :disabled="!hasProjectCodec"
+                @click="toggleCodecCheck"
+              />
+            </UTooltip>
+
+            <UTooltip :delay-duration="0" :text="dictionaryCheckLabel">
+              <UButton
+                variant="ghost"
+                size="sm"
+                icon="i-lucide-spell-check-2"
+                color="neutral"
+                :active="dictionaryCheckActive"
+                :aria-pressed="dictionaryCheckActive"
+                :aria-label="dictionaryCheckLabel"
+                :class="activeToolClass(dictionaryCheckActive)"
+                :disabled="!hasProjectDictionary"
+                @click="toggleDictionaryCheck"
+              />
+            </UTooltip>
+          </div>
+
+          <USeparator
+            :orientation="isVertical ? 'horizontal' : 'vertical'"
+            class="h-6 mx-1"
+            :ui="toolbarSeparatorUi"
+          />
 
           <div
             v-if="showUndoTool || showRedoTool || showHistoryTool"

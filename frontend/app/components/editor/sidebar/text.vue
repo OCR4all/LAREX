@@ -75,17 +75,6 @@ const focusModeModel = computed({
   }
 })
 
-const showCommentsModel = computed({
-  get: () => textViewSettings.value?.showComments ?? false,
-  set: (next: boolean) => {
-    sessionStore.updateTextViewSettings(current => ({ ...current, showComments: Boolean(next) }))
-  }
-})
-
-const highlightUnknownCodecCharsModel = computed({
-  get: () => uiStore.highlightUnknownCodecChars,
-  set: next => uiStore.setHighlightUnknownCodecChars(Boolean(next))
-})
 const includeWhitespaceInCodecHighlightModel = computed({
   get: () => uiStore.includeWhitespaceInCodecHighlight,
   set: next => uiStore.setIncludeWhitespaceInCodecHighlight(Boolean(next))
@@ -93,14 +82,6 @@ const includeWhitespaceInCodecHighlightModel = computed({
 const hasProjectCodec = computed(() => {
   return Boolean(editorStore.projectCodecId) || (editorStore.projectCodecCharacters?.length ?? 0) > 0
 })
-const highlightUnknownDictionaryTokensModel = computed({
-  get: () => uiStore.highlightUnknownDictionaryTokens,
-  set: next => uiStore.setHighlightUnknownDictionaryTokens(Boolean(next))
-})
-const hasProjectDictionary = computed(() => {
-  return Boolean(editorStore.projectDictionaryId)
-})
-
 const defaultGtIndexModel = computed({
   get: () => editorStore.projectTextDefaultGtIndex ?? 0,
   set: (next: number) => {
@@ -119,13 +100,6 @@ const defaultRecognitionIndicesModel = computed({
       gtIndex: editorStore.projectTextDefaultGtIndex ?? 0,
       recognitionIndices: next
     })
-  }
-})
-
-const showDiffModel = computed({
-  get: () => textViewSettings.value?.showDiff ?? false,
-  set: (next) => {
-    sessionStore.updateTextViewSettings(current => ({ ...current, showDiff: Boolean(next) }))
   }
 })
 
@@ -376,7 +350,6 @@ onBeforeUnmount(() => {
                 v-model:text-item-layout="textItemLayoutModel"
                 v-model:auto-select-first-line="autoSelectFirstLineModel"
                 v-model:focus-mode="focusModeModel"
-                v-model:show-comments="showCommentsModel"
                 :full-text-mode="isFullTextMode"
               />
             </template>
@@ -385,26 +358,20 @@ onBeforeUnmount(() => {
             </template>
             <template v-else-if="item.slot === 'codec'">
               <EditorSidebarCodecSettingsPanel
-                v-model:highlight-unknown-codec-chars="highlightUnknownCodecCharsModel"
                 v-model:include-whitespace-in-codec-highlight="includeWhitespaceInCodecHighlightModel"
                 :has-project-codec="hasProjectCodec"
               />
             </template>
             <template v-else-if="item.slot === 'dictionary'">
-              <EditorSidebarDictionarySettingsPanel
-                v-model:highlight-unknown-dictionary-tokens="highlightUnknownDictionaryTokensModel"
-                :has-project-dictionary="hasProjectDictionary"
-              />
+              <EditorSidebarDictionarySettingsPanel />
             </template>
             <template v-else-if="item.slot === 'diff'">
               <EditorSidebarTextDiffPanel
                 v-model:default-gt-index="defaultGtIndexModel"
                 v-model:default-recognition-indices="defaultRecognitionIndicesModel"
-                v-model:show-diff="showDiffModel"
                 :can-edit-defaults="canEditProjectTextIndexDefaults"
                 :is-saving-defaults="isSavingTextIndexDefaults"
                 :save-error="textIndexDefaultsSaveError"
-                :show-diff-toggle="!isFullTextMode"
                 @save-defaults="saveProjectTextIndexDefaults"
               />
             </template>
@@ -471,7 +438,6 @@ onBeforeUnmount(() => {
             v-model:text-item-layout="textItemLayoutModel"
             v-model:auto-select-first-line="autoSelectFirstLineModel"
             v-model:focus-mode="focusModeModel"
-            v-model:show-comments="showCommentsModel"
             :full-text-mode="isFullTextMode"
           />
         </div>
@@ -483,28 +449,22 @@ onBeforeUnmount(() => {
 
       <template #codec>
         <EditorSidebarCodecSettingsPanel
-          v-model:highlight-unknown-codec-chars="highlightUnknownCodecCharsModel"
           v-model:include-whitespace-in-codec-highlight="includeWhitespaceInCodecHighlightModel"
           :has-project-codec="hasProjectCodec"
         />
       </template>
 
       <template #dictionary>
-        <EditorSidebarDictionarySettingsPanel
-          v-model:highlight-unknown-dictionary-tokens="highlightUnknownDictionaryTokensModel"
-          :has-project-dictionary="hasProjectDictionary"
-        />
+        <EditorSidebarDictionarySettingsPanel />
       </template>
 
       <template #diff>
         <EditorSidebarTextDiffPanel
           v-model:default-gt-index="defaultGtIndexModel"
           v-model:default-recognition-indices="defaultRecognitionIndicesModel"
-          v-model:show-diff="showDiffModel"
           :can-edit-defaults="canEditProjectTextIndexDefaults"
           :is-saving-defaults="isSavingTextIndexDefaults"
           :save-error="textIndexDefaultsSaveError"
-          :show-diff-toggle="!isFullTextMode"
           @save-defaults="saveProjectTextIndexDefaults"
         />
       </template>

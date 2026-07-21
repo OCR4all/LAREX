@@ -1415,6 +1415,26 @@ function handleEditorMouseLeave() {
 
 function handleEditorKeyDown(event: KeyboardEvent) {
   if (isCanvasInteractionBlocked.value) return
+
+  // The mode menu restores focus to its trigger after selecting Canvas.
+  // Treat the first Tab there as correction navigation instead of toolbar traversal.
+  const modeSelectorHasFocus = event.target instanceof Element
+    && event.target.closest('[data-tour="context-view-selector"]') !== null
+  if (
+    event.key === 'Tab'
+    && isTextVisualMode.value
+    && editorStore.activeCanvasId === props.canvasId
+    && selectedTextlinePolygon.value
+    && modeSelectorHasFocus
+  ) {
+    event.preventDefault()
+    event.stopPropagation()
+    if (!navigateCanvasCorrectionTextline(event.shiftKey ? -1 : 1)) {
+      queueCorrectionInputFocus()
+    }
+    return
+  }
+
   if (event.key === 'Escape' && editorStore.activeCanvasId === props.canvasId) {
     editorFollow.handleLocalInteraction()
   }
@@ -1609,7 +1629,7 @@ const showCommentsModel = computed({
     }))
   }
 })
-const showRecognitionInCorrectionOverlay = ref(true)
+const showRecognitionInCorrectionOverlay = computed(() => textViewSettings.value.showRecognition ?? true)
 const highlightUnknownCodecCharsModel = computed({
   get: () => editorUiStore.highlightUnknownCodecChars,
   set: (next: boolean) => editorUiStore.setHighlightUnknownCodecChars(Boolean(next))
@@ -3277,52 +3297,6 @@ watch(() => props.src, (newSrc) => {
             <span class="truncate text-muted max-w-56">{{ selectedTextlinePolygon?.id }}</span>
           </div>
         </div>
-        <div class="mb-2 flex flex-wrap items-center gap-1.5">
-          <UButton
-            size="xs"
-            color="neutral"
-            :variant="showDiffModel ? 'soft' : 'ghost'"
-            @click="() => { showDiffModel = !showDiffModel }"
-          >
-            Diff
-          </UButton>
-          <UButton
-            size="xs"
-            color="neutral"
-            :variant="showCommentsModel ? 'soft' : 'ghost'"
-            @click="() => { showCommentsModel = !showCommentsModel }"
-          >
-            Comments
-          </UButton>
-          <UButton
-            size="xs"
-            color="neutral"
-            :variant="showRecognitionInCorrectionOverlay ? 'soft' : 'ghost'"
-            @click="() => { showRecognitionInCorrectionOverlay = !showRecognitionInCorrectionOverlay }"
-          >
-            Recognition
-          </UButton>
-          <UButton
-            size="xs"
-            color="neutral"
-            :variant="highlightUnknownCodecCharsModel ? 'soft' : 'ghost'"
-            :disabled="!hasProjectCodec"
-            :title="hasProjectCodec ? 'Toggle codec checks' : 'No project codec configured'"
-            @click="() => { highlightUnknownCodecCharsModel = !highlightUnknownCodecCharsModel }"
-          >
-            Codec
-          </UButton>
-          <UButton
-            size="xs"
-            color="neutral"
-            :variant="highlightUnknownDictionaryTokensModel ? 'soft' : 'ghost'"
-            :disabled="!hasProjectDictionary"
-            :title="hasProjectDictionary ? 'Toggle dictionary checks' : 'No project dictionary configured'"
-            @click="() => { highlightUnknownDictionaryTokensModel = !highlightUnknownDictionaryTokensModel }"
-          >
-            Dictionary
-          </UButton>
-        </div>
         <textarea
           ref="correctionTextareaRef"
           :value="correctionInputValue"
@@ -3477,7 +3451,8 @@ watch(() => props.src, (newSrc) => {
 
             <div
               v-if="showDiffModel && recognition.diff.length > 0"
-              class="mt-1 rounded-sm border border-default bg-muted/30 p-1.5 font-mono text-xs"
+              class="mt-1 rounded-sm border border-default bg-muted/30 p-1.5 font-mono"
+              :style="{ fontSize: `${recognitionTextareaFontSizePx}px`, lineHeight: `${recognitionTextareaLineHeightPx}px` }"
             >
               <template v-for="(segment, segmentIndex) in recognition.diff" :key="`${recognition.key}_${segment.type}_${segmentIndex}`">
                 <span v-if="segment.type === 'equal'" class="text-default">{{ segment.text }}</span>

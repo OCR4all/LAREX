@@ -6,7 +6,6 @@ const fontSize = defineModel<number>('fontSize', { default: 18 })
 const cutoutHeight = defineModel<number>('cutoutHeight', { default: 72 })
 const textItemLayout = defineModel<TextItemLayout>('textItemLayout', { default: 'side-by-side' })
 const autoSelectFirstLine = defineModel<boolean>('autoSelectFirstLine', { default: true })
-const showComments = defineModel<boolean>('showComments', { default: false })
 const focusMode = defineModel<boolean>('focusMode', { default: false })
 
 const props = withDefaults(defineProps<{
@@ -85,16 +84,6 @@ const layoutTabItems = [
         </span>
       </div>
       <USwitch v-model="autoSelectFirstLine" />
-    </div>
-
-    <div v-if="!props.fullTextMode" class="flex items-center justify-between gap-3">
-      <div class="min-w-0">
-        <span class="text-sm font-medium block">Show Comments</span>
-        <span class="text-xs text-muted">
-          Show element comments above the transcription when metadata comments are available.
-        </span>
-      </div>
-      <USwitch v-model="showComments" />
     </div>
   </div>
 </template>

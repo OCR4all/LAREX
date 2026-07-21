@@ -32,6 +32,8 @@ const FULL_TEXT_SIDEBAR_SLOTS = new Set<TextSidebarSlot>([
   'tasks',
   'settings',
   'virtualKeyboard',
+  'codec',
+  'dictionary',
   'diff'
 ])
 

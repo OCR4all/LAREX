@@ -1803,7 +1803,7 @@ onBeforeUnmount(() => {
 
                   <div
                     v-if="showDiff && textEquiv.diffs"
-                    class="textline-ui-sm font-mono bg-muted/25 rounded-sm"
+                    class="textline-ui-base font-mono bg-muted/25 rounded-sm"
                     :class="props.focusMode ? 'p-1' : 'p-2'"
                     :dir="textDirectionDir"
                     :style="textDirectionStyle"
@@ -1829,6 +1829,11 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.textline-ui-base {
+  font-size: var(--text-font-size, 18px);
+  line-height: 1.25;
+}
+
 .textline-ui-sm {
   font-size: var(--text-font-size-sm);
   line-height: 1.35;

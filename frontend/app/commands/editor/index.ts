@@ -13,6 +13,7 @@ export { DeletePolylineCommand, type DeletePolylineCommandData } from './delete-
 export { UpdatePolylineCommand, type UpdatePolylineCommandData } from './update-polyline-command'
 
 export { UpdateTextContentVariantsCommand, type UpdateTextContentVariantsCommandData } from './update-text-content-variants-command'
+export { UpdateTextlineCommentCommand, type UpdateTextlineCommentCommandData } from './update-textline-comment-command'
 
 export { ChangeRegionLabelCommand, type ChangeRegionLabelCommandParams } from './change-region-label-command'
 

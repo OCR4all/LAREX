@@ -5,7 +5,6 @@ import { toProjectToolkitSettings, useProjectToolkitPresets } from '@/composable
 import { LazyEditorModalToolkitResourceEdit, LazyUiConfirmSlideover } from '#components'
 import type { DropdownMenuItem } from '@nuxt/ui'
 
-const highlightUnknownCodecChars = defineModel<boolean>('highlightUnknownCodecChars', { default: false })
 const includeWhitespaceInCodecHighlight = defineModel<boolean>('includeWhitespaceInCodecHighlight', { default: false })
 
 const props = withDefaults(defineProps<{
@@ -208,20 +207,6 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
 
     <div class="flex items-center justify-between gap-3">
       <div class="min-w-0">
-        <span class="text-sm font-medium block">Highlight Unknown Codec Characters</span>
-        <span class="text-xs text-muted">
-          {{
-            props.hasProjectCodec
-              ? 'Highlights characters not present in the project codec.'
-              : 'Assign a codec to this project to enable unknown-character highlighting.'
-          }}
-        </span>
-      </div>
-      <USwitch v-model="highlightUnknownCodecChars" :disabled="!props.hasProjectCodec" />
-    </div>
-
-    <div class="flex items-center justify-between gap-3">
-      <div class="min-w-0">
         <span class="text-sm font-medium block">Treat Whitespace As Codec Characters</span>
         <span class="text-xs text-muted">
           When disabled, spaces/tabs/newlines are ignored in editor codec highlighting.
@@ -229,7 +214,7 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
       </div>
       <USwitch
         v-model="includeWhitespaceInCodecHighlight"
-        :disabled="!props.hasProjectCodec || !highlightUnknownCodecChars"
+        :disabled="!props.hasProjectCodec"
       />
     </div>
   </div>
