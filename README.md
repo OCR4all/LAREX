@@ -2,6 +2,14 @@
 
 LAREX (Layout Analysis and Recognition) is a full-stack web application for annotating facsimiles of early printed books, correcting OCR output, and creating ground-truth data for research and machine learning workflows.
 
+> [!WARNING]
+> **Pre-1.0 database compatibility:** Before the 1.0 release, the current Flyway
+> migrations will be consolidated into a new initial schema. Databases created by
+> pre-1.0 builds will not have a supported in-place upgrade path to 1.0 and must be
+> recreated. Treat current development instances as disposable and do not keep
+> important data only in them. Starting with 1.0, released migrations will remain
+> immutable and upgrades will use normal forward migrations.
+
 ## Stack
 
 - Frontend: Nuxt 4
