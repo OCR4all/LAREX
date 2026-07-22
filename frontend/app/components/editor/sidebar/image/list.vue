@@ -4,7 +4,7 @@ import ImageItem from './item.vue'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { PageData } from '@/stores/editor/types'
-import { getVerticalVisibilityDirection } from '@/utils/editor/vertical-visibility'
+import { getVerticalScrollDirection, getVerticalVisibilityDirection } from '@/utils/editor/vertical-visibility'
 
 const IMAGE_CARD_ASPECT_RATIO = 4 / 3
 const emit = defineEmits<{
@@ -203,24 +203,33 @@ const backToSelectionDirection = computed<'up' | 'down' | null>(() => {
     ? listRootRef.value?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)
     : null
 
+  let visibilityDirection: 'up' | 'down' | null
+
   if (scroller && renderedActiveRow) {
     const scrollerRect = scroller.getBoundingClientRect()
     const activeRowRect = renderedActiveRow.getBoundingClientRect()
-    return getVerticalVisibilityDirection(
+    visibilityDirection = getVerticalVisibilityDirection(
       { top: activeRowRect.top, bottom: activeRowRect.bottom },
       { top: scrollerRect.top, bottom: scrollerRect.bottom },
       BACK_TO_SELECTION_VISIBILITY_PADDING
     )
+  } else {
+    const activeBounds = activePageBounds.value
+    if (!activeBounds) return null
+
+    visibilityDirection = getVerticalVisibilityDirection(
+      { top: activeBounds.start, bottom: activeBounds.end },
+      { top, bottom: viewportBottom },
+      BACK_TO_SELECTION_VISIBILITY_PADDING
+    )
   }
 
-  const activeBounds = activePageBounds.value
-  if (!activeBounds) return null
+  if (visibilityDirection === null || activeIndex < 0) return null
 
-  return getVerticalVisibilityDirection(
-    { top: activeBounds.start, bottom: activeBounds.end },
-    { top, bottom: viewportBottom },
-    BACK_TO_SELECTION_VISIBILITY_PADDING
-  )
+  const centerScrollPosition = rowVirtualizer.value.getOffsetForIndex(activeIndex, 'center')?.[0]
+  if (centerScrollPosition === undefined) return visibilityDirection
+
+  return getVerticalScrollDirection(top, centerScrollPosition)
 })
 
 const showBackToSelection = computed(() => backToSelectionDirection.value !== null)
