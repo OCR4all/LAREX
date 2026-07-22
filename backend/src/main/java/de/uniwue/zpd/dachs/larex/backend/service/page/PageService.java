@@ -17,6 +17,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
@@ -63,6 +64,7 @@ public class PageService {
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     private final PageOrderService pageOrderService;
+    private final AnnotationReadCache annotationReadCache;
 
     public PageService(
             PageRepository pageRepository,
@@ -81,7 +83,8 @@ public class PageService {
             HierarchicalFileStorageService hierarchicalFileStorageService,
             PageXmlCanonicalizationService pageXmlCanonicalizationService,
             WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
-            PageOrderService pageOrderService) {
+            PageOrderService pageOrderService,
+            AnnotationReadCache annotationReadCache) {
 
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -100,6 +103,7 @@ public class PageService {
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
         this.pageOrderService = pageOrderService;
+        this.annotationReadCache = annotationReadCache;
     }
 
     public List<Page> getProjectPages(String projectId, String userId) {
@@ -480,6 +484,118 @@ public class PageService {
         }
         return List.of();
     }
+
+    public AnnotationDeleteResult deleteAnnotations(String projectId, List<String> pageIds, String userId) {
+        List<String> normalizedIds = normalizeIds(pageIds);
+        if (normalizedIds.isEmpty()) {
+            return new AnnotationDeleteResult(0, 0, 0);
+        }
+
+        List<Page> pages = pageRepository.findAllByIdIn(normalizedIds).stream()
+                .filter(page -> isPageAssetDeletable(page, projectId, userId))
+                .toList();
+        if (pages.isEmpty()) {
+            return new AnnotationDeleteResult(0, 0, normalizedIds.size());
+        }
+
+        List<String> deletablePageIds = pages.stream().map(Page::getId).toList();
+        List<PageXml> xmlFiles = pageXmlRepository.findByPage_IdIn(deletablePageIds);
+        if (xmlFiles.isEmpty()) {
+            return new AnnotationDeleteResult(0, 0, normalizedIds.size());
+        }
+
+        List<String> affectedPageIds = xmlFiles.stream()
+                .map(PageXml::getPage)
+                .filter(Objects::nonNull)
+                .map(Page::getId)
+                .distinct()
+                .toList();
+        List<String> xmlIds = xmlFiles.stream()
+                .map(PageXml::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        List<String> storagePaths = xmlFiles.stream()
+                .map(PageXml::getFilePath)
+                .filter(Objects::nonNull)
+                .toList();
+
+        xmlIds.forEach(annotationReadCache::evict);
+        pageXmlVersionService.deleteVersionDirectories(xmlIds);
+        hierarchicalFileStorageService.deleteStoredFiles(storagePaths);
+        pageTextContentRepository.deleteByPageIdIn(affectedPageIds);
+        pageLabelIndexRepository.deleteByPageIdIn(affectedPageIds);
+        pageConfidenceIndexRepository.deleteByPageIdIn(affectedPageIds);
+        pageXmlRepository.deleteAllInBatch(xmlFiles);
+
+        pages.stream()
+                .map(page -> page.getProject().getLibrary().getWorkspaceId())
+                .filter(Objects::nonNull)
+                .distinct()
+                .forEach(workspaceQuotaRefreshService::scheduleUsageRefresh);
+
+        log.info("Deleted {} annotation file(s) from {} page(s) in project {}",
+                xmlFiles.size(), affectedPageIds.size(), projectId);
+        return new AnnotationDeleteResult(affectedPageIds.size(), xmlFiles.size(), normalizedIds.size());
+    }
+
+    public ImageDeleteResult deleteImages(String projectId, String pageId, List<String> imageIds, String userId) {
+        List<String> normalizedIds = normalizeIds(imageIds);
+        if (normalizedIds.isEmpty()) {
+            return new ImageDeleteResult(0, 0);
+        }
+
+        Optional<Page> pageOpt = pageRepository.findById(pageId);
+        if (pageOpt.isEmpty() || !isPageAssetDeletable(pageOpt.get(), projectId, userId)) {
+            return new ImageDeleteResult(0, normalizedIds.size());
+        }
+
+        List<PageImage> images = pageImageRepository.findAllById(normalizedIds).stream()
+                .filter(image -> image.getPage() != null && pageId.equals(image.getPage().getId()))
+                .toList();
+        if (images.isEmpty()) {
+            return new ImageDeleteResult(0, normalizedIds.size());
+        }
+
+        List<String> storagePaths = images.stream()
+                .flatMap(image -> java.util.stream.Stream.of(image.getFilePath(), image.getThumbnailPath()))
+                .filter(Objects::nonNull)
+                .toList();
+        hierarchicalFileStorageService.deleteStoredFiles(storagePaths);
+        pageImageRepository.deleteAllInBatch(images);
+
+        String workspaceId = pageOpt.get().getProject().getLibrary().getWorkspaceId();
+        workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
+        log.info("Deleted {} image(s) from page {} in project {}", images.size(), pageId, projectId);
+        return new ImageDeleteResult(images.size(), normalizedIds.size());
+    }
+
+    private List<String> normalizeIds(List<String> ids) {
+        if (ids == null) {
+            return List.of();
+        }
+        return ids.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .toList();
+    }
+
+    private boolean isPageAssetDeletable(Page page, String projectId, String userId) {
+        if (page == null || page.getProject() == null || !projectId.equals(page.getProject().getId())) {
+            return false;
+        }
+        String workspaceId = page.getProject().getLibrary().getWorkspaceId();
+        return workspaceAccessService.canManageProjects(workspaceId, userId)
+                && !page.getProject().isLocked()
+                && !page.isEffectivelyLocked();
+    }
+
+    public record AnnotationDeleteResult(
+            int deletedPageCount,
+            int deletedAnnotationCount,
+            int requestedPageCount
+    ) {}
+
+    public record ImageDeleteResult(int deletedCount, int requestedCount) {}
 
     public Map<String, List<PageImage>> getPageImagesGroupedByBaseName(String pageId, String userId) {
         List<PageImage> images = getPageImages(pageId, userId);

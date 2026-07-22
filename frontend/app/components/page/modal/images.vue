@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { LazyUiDeleteSlideover } from '#components'
+
 defineOptions({
   inheritAttrs: false
 })
@@ -6,12 +8,16 @@ defineOptions({
 interface PageBasic {
   id: string
   name: string
+  locked?: boolean
+  lockedReason?: string | null
 }
 
 interface Props {
   projectId: string
   pages: PageBasic[]
   initialPageIndex: number
+  canDelete?: boolean
+  onChanged?: () => void | Promise<void>
 }
 
 type PageImage = {
@@ -30,10 +36,16 @@ const emit = defineEmits<{ close: [boolean] }>()
 const attrs = useAttrs()
 
 const toast = useToast()
+const overlay = useOverlay()
+const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const backgroundDownloads = useBackgroundDownloads()
 const isLoading = ref(true)
+const isDeleting = ref(false)
+const hasChanges = ref(false)
 const pageImages = ref<PageImage[]>([])
 const imageStates = ref<Record<string, 'loading' | 'loaded' | 'error'>>({})
+const isSelectionMode = ref(false)
+const selectedImageIds = ref<Set<string>>(new Set())
 
 type TabValue = 'overview' | 'compare'
 const activeTab = ref<TabValue>('overview')
@@ -65,6 +77,8 @@ const currentPage = computed(() =>
   sortedPages.value.find(p => p.id === currentPageId.value)
 )
 const hasMultiplePages = computed(() => sortedPages.value.length > 1)
+const canDeleteCurrentPageImages = computed(() => Boolean(props.canDelete && !currentPage.value?.locked))
+const selectedImages = computed(() => pageImages.value.filter(image => selectedImageIds.value.has(image.id)))
 
 const pageOptions = computed(() =>
   sortedPages.value.map(p => ({
@@ -92,6 +106,32 @@ function goToPage(pageId: string) {
     currentPageId.value = pageId
     fetchPageImages()
   }
+}
+
+function closeSlideover() {
+  if (!lightboxOpen.value) emit('close', hasChanges.value)
+}
+
+function toggleImageSelection(imageId: string) {
+  const next = new Set(selectedImageIds.value)
+  if (next.has(imageId)) next.delete(imageId)
+  else next.add(imageId)
+  selectedImageIds.value = next
+}
+
+function selectAllImages() {
+  selectedImageIds.value = selectedImageIds.value.size === pageImages.value.length
+    ? new Set()
+    : new Set(pageImages.value.map(image => image.id))
+}
+
+function exitSelectionMode() {
+  isSelectionMode.value = false
+  selectedImageIds.value = new Set()
+}
+
+function enterSelectionMode() {
+  isSelectionMode.value = true
 }
 
 const lightboxOpen = ref(false)
@@ -218,11 +258,61 @@ async function downloadImage(image: PageImage) {
   }
 }
 
+async function deleteImages(images: PageImage[]) {
+  const page = currentPage.value
+  if (!page || !canDeleteCurrentPageImages.value || images.length === 0 || isDeleting.value) return
+
+  const count = images.length
+  const instance = deleteSlideover.open({
+    name: `${count} image${count === 1 ? '' : 's'} from “${page.name}”`,
+    entityType: 'Image',
+    title: count === 1 ? 'Delete Image' : 'Delete Images',
+    warningMessage: `Delete ${count === 1 ? 'this image' : `these ${count} images`} from “${page.name}”?`,
+    warningDetails: ['Original files and generated thumbnails will be permanently removed.'],
+    items: images.map(image => ({ id: image.id, label: image.fileName })),
+    confirmButtonLabel: `Delete ${count} Image${count === 1 ? '' : 's'}`
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  isDeleting.value = true
+  try {
+    const response = await $fetch<{ deletedCount: number, requestedCount: number }>(
+      `/api/projects/${props.projectId}/pages/${page.id}/images/batch`,
+      { method: 'DELETE', body: images.map(image => image.id) }
+    )
+
+    if (response.deletedCount === 0) {
+      throw new Error('No images could be deleted. The page may be locked or no longer available.')
+    }
+
+    if (lightboxImage.value && images.some(image => image.id === lightboxImage.value?.id)) {
+      closeLightbox()
+    }
+    hasChanges.value = true
+    exitSelectionMode()
+    await fetchPageImages()
+    await props.onChanged?.()
+    toast.add({
+      title: `${response.deletedCount} image${response.deletedCount === 1 ? '' : 's'} deleted`,
+      description: `Removed from “${page.name}”.`,
+      color: 'success',
+      icon: 'i-lucide-trash-2'
+    })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to delete images'
+    toast.add({ title: 'Delete failed', description: message, color: 'error', icon: 'i-lucide-alert-circle' })
+  } finally {
+    isDeleting.value = false
+  }
+}
+
 async function fetchPageImages() {
   const page = currentPage.value
   if (!page) return
 
   isLoading.value = true
+  exitSelectionMode()
 
   try {
     const response = await $fetch<PageImage[]>(
@@ -309,7 +399,7 @@ onUnmounted(() => {
     v-bind="attrs"
     side="right"
     :dismissible="!lightboxOpen"
-    :close="{ onClick: () => { if (!lightboxOpen) emit('close', false) } }"
+    :close="{ onClick: closeSlideover }"
     :ui="{ content: 'w-full max-w-[96vw] sm:max-w-[92vw] flex flex-col' }"
   >
     <template #header>
@@ -356,19 +446,63 @@ onUnmounted(() => {
     <template #body>
       <div class="flex flex-col h-[calc(100vh-130px)] overflow-hidden">
         <div class="shrink-0 px-4 pt-1">
-          <UTabs
-            v-model="activeTab"
-            :items="tabItems"
-            :content="false"
-            variant="link"
-            color="neutral"
-            size="sm"
-            :ui="{
-              list: 'gap-1 p-0',
-              trigger: 'flex-none px-3 py-2.5',
-              trailingBadge: 'min-w-5 justify-center tabular-nums'
-            }"
-          />
+          <div class="flex items-center justify-between gap-3">
+            <UTabs
+              v-model="activeTab"
+              :items="tabItems"
+              :content="false"
+              variant="link"
+              color="neutral"
+              size="sm"
+              :ui="{
+                list: 'gap-1 p-0',
+                trigger: 'flex-none px-3 py-2.5',
+                trailingBadge: 'min-w-5 justify-center tabular-nums'
+              }"
+            />
+            <div v-if="activeTab === 'overview' && canDeleteCurrentPageImages && pageImages.length" class="flex items-center gap-2">
+              <template v-if="isSelectionMode">
+                <span class="text-xs text-muted">{{ selectedImageIds.size }} selected</span>
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  @click="selectAllImages"
+                >
+                  {{ selectedImageIds.size === pageImages.length ? 'Clear all' : 'Select all' }}
+                </UButton>
+                <UButton
+                  icon="i-lucide-trash-2"
+                  color="error"
+                  variant="soft"
+                  size="sm"
+                  :disabled="selectedImageIds.size === 0"
+                  :loading="isDeleting"
+                  @click="deleteImages(selectedImages)"
+                >
+                  Delete
+                </UButton>
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  @click="exitSelectionMode"
+                >
+                  Cancel
+                </UButton>
+              </template>
+              <UButton
+                v-else
+                icon="i-lucide-list-checks"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                @click="enterSelectionMode"
+              >
+                Select images
+              </UButton>
+            </div>
+          </div>
         </div>
 
         <div v-if="isLoading" class="flex-1 overflow-auto p-4">
@@ -394,10 +528,22 @@ onUnmounted(() => {
               class="group relative min-w-0 cursor-pointer rounded-2xl bg-elevated p-2.5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
             >
               <button
+                v-if="isSelectionMode"
                 type="button"
-                :aria-label="`Open ${image.variant || 'Original'} image`"
+                class="absolute left-4 top-4 z-30 flex size-7 items-center justify-center rounded-full border bg-default shadow-sm"
+                :class="selectedImageIds.has(image.id) ? 'border-primary text-primary' : 'border-default text-muted'"
+                :aria-label="selectedImageIds.has(image.id) ? `Deselect ${image.fileName}` : `Select ${image.fileName}`"
+                @click.stop="toggleImageSelection(image.id)"
+              >
+                <UIcon :name="selectedImageIds.has(image.id) ? 'i-lucide-circle-check' : 'i-lucide-circle'" class="size-4" />
+              </button>
+              <button
+                type="button"
+                :aria-label="isSelectionMode
+                  ? (selectedImageIds.has(image.id) ? `Deselect ${image.fileName}` : `Select ${image.fileName}`)
+                  : `Open ${image.variant || 'Original'} image`"
                 class="absolute inset-0 z-10 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                @click="openLightbox(image)"
+                @click="isSelectionMode ? toggleImageSelection(image.id) : openLightbox(image)"
               />
               <div class="relative aspect-[4/5] overflow-hidden rounded-xl bg-default">
                 <div
@@ -431,6 +577,17 @@ onUnmounted(() => {
                   class="absolute top-2.5 right-2.5 z-20 rounded-full shadow-md"
                   :ui="{ base: 'size-8 justify-center p-0' }"
                   @click.stop="downloadImage(image)"
+                />
+                <UButton
+                  v-if="canDeleteCurrentPageImages && !isSelectionMode"
+                  icon="i-lucide-trash-2"
+                  size="sm"
+                  color="error"
+                  variant="solid"
+                  title="Delete image"
+                  class="absolute top-2.5 left-2.5 z-20 rounded-full shadow-md"
+                  :ui="{ base: 'size-8 justify-center p-0' }"
+                  @click.stop="deleteImages([image])"
                 />
               </div>
 
@@ -513,6 +670,15 @@ onUnmounted(() => {
                 </UBadge>
               </div>
               <div class="flex items-center gap-1 pointer-events-auto">
+                <button
+                  v-if="canDeleteCurrentPageImages"
+                  type="button"
+                  class="p-2 rounded-sm text-error hover:bg-white/20 transition-colors"
+                  title="Delete image"
+                  @click.stop="deleteImages([lightboxImage])"
+                >
+                  <UIcon name="i-lucide-trash-2" class="w-5 h-5" />
+                </button>
                 <button
                   type="button"
                   class="p-2 rounded-sm text-white hover:bg-white/20 transition-colors"
@@ -612,7 +778,7 @@ onUnmounted(() => {
       <div class="flex justify-end">
         <UButton
           color="neutral"
-          @click="emit('close', false)"
+          @click="closeSlideover"
         >
           Close
         </UButton>

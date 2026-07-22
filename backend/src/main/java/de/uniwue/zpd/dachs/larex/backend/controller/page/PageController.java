@@ -464,6 +464,14 @@ public class PageController {
         return ResponseEntity.ok(response);
     }
 
+    @DeleteMapping("/annotations/batch")
+    public ResponseEntity<PageService.AnnotationDeleteResult> deleteAnnotations(
+            @PathVariable String projectId,
+            @RequestBody List<String> pageIds,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(pageService.deleteAnnotations(projectId, pageIds, userId));
+    }
+
     @PostMapping("/{pageId}/export")
     public ResponseEntity<?> exportPage(
             @PathVariable String projectId,
@@ -637,6 +645,15 @@ public class PageController {
                 .toList();
 
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{pageId}/images/batch")
+    public ResponseEntity<PageService.ImageDeleteResult> deleteImages(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @RequestBody List<String> imageIds,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(pageService.deleteImages(projectId, pageId, imageIds, userId));
     }
 
     @GetMapping("/{pageId}/thumbnails")

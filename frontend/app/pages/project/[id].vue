@@ -601,6 +601,7 @@ const overlay = useOverlay()
 
 const pageEditSlideover = overlay.create(LazyPageSlideoverEdit)
 const pageDeleteSlideover = overlay.create(LazyUiDeleteSlideover)
+const annotationDeleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const pageImagesModal = overlay.create(LazyPageModalImages)
 const conflictResolutionModal = overlay.create(LazyProjectModalConflictResolution)
 const pdfPrefixSlideover = overlay.create(LazyProjectSlideoverPdfPrefix)
@@ -1048,6 +1049,75 @@ async function openBulkDeleteSlideover() {
     refreshPagesData(),
     refreshProject()
   ])
+}
+
+const selectedAnnotationPages = computed(() =>
+  (pages.value ?? []).filter(page =>
+    selectedPageIds.value.has(page.id) && page.xmlFileCount > 0 && !page.locked
+  )
+)
+
+async function deleteAnnotations(targetPages: Page[]) {
+  if (!allow(projectCapabilities.value.canDeletePages) || project.value?.locked) return
+
+  const annotationPages = targetPages.filter(page => page.xmlFileCount > 0 && !page.locked)
+  if (annotationPages.length === 0) {
+    toast.add({
+      title: 'No deletable annotations',
+      description: 'The selected pages have no annotations or are locked.',
+      color: 'warning',
+      icon: 'i-lucide-triangle-alert'
+    })
+    return
+  }
+
+  const pageCount = annotationPages.length
+  const annotationCount = annotationPages.reduce((sum, page) => sum + page.xmlFileCount, 0)
+  const instance = annotationDeleteSlideover.open({
+    name: `${pageCount} page${pageCount === 1 ? '' : 's'}`,
+    entityType: 'Annotation',
+    title: pageCount === 1 ? 'Delete Annotation' : 'Delete Annotations',
+    warningMessage: `Delete all annotations from ${pageCount === 1 ? `“${annotationPages[0]!.name}”` : `${pageCount} pages`}?`,
+    warningDetails: [
+      `${annotationCount} PAGE XML file${annotationCount === 1 ? '' : 's'} and all version history will be removed.`,
+      'The pages and their images will be kept.'
+    ],
+    items: annotationPages.map(page => ({ id: page.id, label: page.name })),
+    confirmButtonLabel: `Delete ${pageCount === 1 ? 'Annotation' : 'Annotations'}`
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  try {
+    const response = await $fetch<{
+      deletedPageCount: number
+      deletedAnnotationCount: number
+      requestedPageCount: number
+    }>(`/api/projects/${projectId}/pages/annotations/batch`, {
+      method: 'DELETE',
+      body: annotationPages.map(page => page.id)
+    })
+
+    if (response.deletedAnnotationCount === 0) {
+      throw new Error('No annotations could be deleted. The pages may be locked or no longer available.')
+    }
+
+    annotationPages.forEach(page => editorStore.invalidateAnnotationCache(page.id, projectId))
+    toast.add({
+      title: `${response.deletedAnnotationCount} annotation${response.deletedAnnotationCount === 1 ? '' : 's'} deleted`,
+      description: `Removed from ${response.deletedPageCount} page${response.deletedPageCount === 1 ? '' : 's'}.`,
+      color: 'success',
+      icon: 'i-lucide-file-x-2'
+    })
+    await refreshProjectPagesData()
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Failed to delete annotations',
+      description: getErrorMessage(error, 'An error occurred while deleting annotations.'),
+      color: 'error',
+      icon: 'i-lucide-alert-circle'
+    })
+  }
 }
 
 function getCodecSources(scope: ProjectActionScope): CodecProjectScope[] {
@@ -1968,6 +2038,13 @@ function getPageRowItems(page: Page) {
 
   if (allow(projectCapabilities.value.canDeletePages)) {
     items.push({ type: 'separator' })
+    items.push({
+      label: 'Delete annotation',
+      icon: 'i-lucide-file-x-2',
+      color: 'error',
+      disabled: project.value?.locked || page.locked || page.xmlFileCount === 0,
+      onSelect: () => { void deleteAnnotations([page]) }
+    })
     items.push({ label: 'Delete', icon: 'i-lucide-trash', color: 'error', disabled: project.value?.locked, onSelect: () => openDeleteModal(page) })
   }
 
@@ -2026,12 +2103,19 @@ async function openDeleteModal(page: Page) {
 
 function openImageModal(page: Page) {
   const pageIndex = pages.value?.findIndex(p => p.id === page.id) ?? 0
-  const pagesBasic = (pages.value ?? []).map(p => ({ id: p.id, name: p.name }))
+  const pagesBasic = (pages.value ?? []).map(p => ({
+    id: p.id,
+    name: p.name,
+    locked: p.locked,
+    lockedReason: p.lockedReason
+  }))
 
   pageImagesModal.open({
     projectId,
     pages: pagesBasic,
-    initialPageIndex: pageIndex
+    initialPageIndex: pageIndex,
+    canDelete: canDeleteProjectPages.value,
+    onChanged: refreshProjectPagesData
   })
 }
 
@@ -2530,6 +2614,18 @@ useHead({
                   <span class="hidden sm:inline">More</span>
                 </UButton>
               </UDropdownMenu>
+              <UButton
+                v-if="canDeleteProjectPages && selectedAnnotationPages.length > 0"
+                icon="i-lucide-file-x-2"
+                color="error"
+                variant="ghost"
+                size="sm"
+                class="hover:bg-white/10"
+                :aria-label="selectedAnnotationPages.length === 1 ? 'Delete annotation from selected page' : 'Delete annotations from selected pages'"
+                @click="deleteAnnotations(selectedAnnotationPages)"
+              >
+                <span class="hidden sm:inline">Delete Annotations</span>
+              </UButton>
               <UButton
                 v-if="canBulkDeletePages"
                 icon="i-lucide-trash-2"
