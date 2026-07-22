@@ -77,6 +77,7 @@ export default defineNuxtConfig({
         '@codemirror/search',
         '@codemirror/state',
         '@codemirror/view',
+        '@maxnth/gestalt',
         '@internationalized/date',
         '@lezer/highlight',
         '@tanstack/vue-virtual',
