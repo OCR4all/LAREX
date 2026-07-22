@@ -189,6 +189,7 @@ const selectedTextlineId = computed(() => {
 const drafts = ref<Record<string, string>>({})
 const pendingCommit = ref<{ textlineId: string, text: string } | null>(null)
 const editingTextlineId = ref<string | null>(null)
+const hoveredTextlineId = ref<string | null>(null)
 const commentEditorTextlineId = ref<string | null>(null)
 const commentDraft = ref('')
 const dictionaryWordPopover = ref<{
@@ -835,6 +836,19 @@ function handleRowClick(textlineId: string): void {
   focusTextline(textlineId)
 }
 
+function handleRowMouseEnter(textlineId: string): void {
+  hoveredTextlineId.value = textlineId
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
+  runtime?.hoverPolygonById?.(textlineId)
+}
+
+function handleRowMouseLeave(textlineId: string): void {
+  if (hoveredTextlineId.value !== textlineId) return
+  hoveredTextlineId.value = null
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
+  runtime?.unhoverPolygon?.()
+}
+
 function handleTextareaFocus(textlineId: string): void {
   editingTextlineId.value = textlineId
   selectTextline(textlineId)
@@ -917,6 +931,10 @@ onBeforeUnmount(() => {
   dictionaryLoadGeneration += 1
   removeDictionaryLoadingToast()
   flushPendingCommit()
+  if (hoveredTextlineId.value) {
+    getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)?.unhoverPolygon?.()
+    hoveredTextlineId.value = null
+  }
   textareaById.clear()
 })
 </script>
@@ -957,6 +975,8 @@ onBeforeUnmount(() => {
             ? 'bg-primary/10 ring-1 ring-inset ring-primary/20'
             : 'hover:bg-muted/45'"
           @click="handleRowClick(line.id)"
+          @mouseenter="handleRowMouseEnter(line.id)"
+          @mouseleave="handleRowMouseLeave(line.id)"
         >
           <div class="flex w-5 shrink-0 self-stretch items-center justify-center">
             <UPopover

@@ -17,6 +17,8 @@ export type TextRuntimeControls = {
   selectedPolygonId?: ComputedRef<string | null>
   selectPolygonById?: (id: string | null, options?: SelectionFocusOptions) => void
   selectPolylineById?: (id: string | null, options?: SelectionFocusOptions) => void
+  hoverPolygonById?: (id: string | null) => void
+  unhoverPolygon?: () => void
 }
 
 export function getTextViewRuntimeControls(
