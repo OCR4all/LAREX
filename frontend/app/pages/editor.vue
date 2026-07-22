@@ -287,6 +287,8 @@ async function openSelectionsInEditor(
   if (!selectedWorkspace.value || selections.length === 0) return
 
   sessionStore.initWorkspaceSession(selectedWorkspace.value)
+  let selectedPageCount = 0
+  let openablePageCount = 0
 
   for (const selection of selections) {
     const projectId = selection.projectId
@@ -309,11 +311,13 @@ async function openSelectionsInEditor(
     const selectedPages = selection.pageIds
       ? allPages.filter(page => selection.pageIds?.includes(page.id))
       : allPages
+    selectedPageCount += selectedPages.length
 
     const skeletonPages = createSkeletonPageData(selectedPages, {
       projectId,
       projectName
     })
+    openablePageCount += skeletonPages.length
     editorStore.appendProjectPages(projectId, skeletonPages)
     await loadProjectLabelSet(projectId)
 
@@ -330,7 +334,7 @@ async function openSelectionsInEditor(
         || (source === 'modal' && editorUiStore.pageFocusMode)
       )
     ) {
-      const firstPageId = selectedPages[0]?.id
+      const firstPageId = skeletonPages[0]?.id
       if (firstPageId) {
         pageIdsToOpen.add(firstPageId)
       }
@@ -342,6 +346,16 @@ async function openSelectionsInEditor(
       const variant = editorStore.getDisplayedVariantForPage(page)
       await openEditorForPage(projectId, pageId, variant?.id ?? undefined)
     }
+  }
+
+  if (selectedPageCount > 0 && openablePageCount === 0) {
+    toast.add({
+      title: 'No pages with images',
+      description: 'None of the selected pages contains an image.',
+      color: 'warning',
+      icon: 'i-lucide-triangle-alert'
+    })
+    return
   }
 
   if (source === 'modal' && !editorStore.activeCanvasId) {

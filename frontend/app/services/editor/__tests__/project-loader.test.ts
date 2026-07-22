@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PageData } from '../../../stores/editor/types'
-import { createSkeletonPageData, loadSinglePageData } from '../project-loader'
+import { canOpenPageInEditor, createSkeletonPageData, loadProjectPages, loadSinglePageData } from '../project-loader'
 
 describe('project-loader skeleton variants', () => {
   it('maps page-list image variants into sidebar-ready image variants', () => {
@@ -45,6 +45,31 @@ describe('project-loader skeleton variants', () => {
     expect(pages[0]?.workflowState).toBe('OPEN')
     expect(pages[1]?.workflowState).toBe('DONE')
     expect(pages[1]?.locked).toBe(true)
+  })
+
+  it('omits pages explicitly known to have no images', () => {
+    const pages = createSkeletonPageData([
+      { id: 'empty', name: 'Empty page', imageCount: 0, imageVariants: [] },
+      { id: 'with-count', name: 'Page with image', imageCount: 1 },
+      { id: 'with-variant', name: 'Page with variant', imageCount: 0, imageVariants: [{ id: 'image-1', fileName: 'page.jpg' }] },
+      { id: 'legacy', name: 'Legacy response' }
+    ], { projectId: 'proj-1' })
+
+    expect(pages.map(page => page.id)).toEqual(['with-count', 'with-variant', 'legacy'])
+    expect(canOpenPageInEditor({ imageCount: 0 })).toBe(false)
+  })
+
+  it('does not load image-less pages through the eager loader', async () => {
+    const fetchMock = vi.fn().mockResolvedValue([])
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const pages = await loadProjectPages('proj-1', [
+      { id: 'empty', name: 'Empty page', imageCount: 0 },
+      { id: 'with-image', name: 'Page with image', imageCount: 1 }
+    ])
+
+    expect(pages.map(page => page.id)).toEqual(['with-image'])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('preserves workflow state when enriching an editor page', async () => {

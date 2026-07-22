@@ -25,6 +25,15 @@ export interface PageResponse {
   textConfidence?: TextConfidenceStats | null
 }
 
+/**
+ * Pages explicitly known to have no images cannot be opened in the editor.
+ * Keep partial/legacy responses whose image count is unknown so callers can
+ * still enrich them from the page endpoints.
+ */
+export function canOpenPageInEditor(page: { imageCount?: number, imageVariants?: readonly unknown[] }): boolean {
+  return (page.imageVariants?.length ?? 0) > 0 || page.imageCount !== 0
+}
+
 function projectAnnotationContext(projectId: string, pageId: string) {
   return {
     mode: 'PROJECT' as const,
@@ -53,12 +62,13 @@ interface XmlResponse {
 /**
  * Create skeleton PageData[] from PageResponse[] with no extra API calls.
  * Skeleton pages include preview-ready imageVariants (from page list response) and empty xmlFiles.
+ * Pages explicitly reported as image-less are omitted because the editor cannot open them.
  */
 export function createSkeletonPageData(
   pages: PageResponse[],
   options?: { projectId?: string, projectName?: string }
 ): PageData[] {
-  return pages.map(page => ({
+  return pages.filter(canOpenPageInEditor).map(page => ({
     imageVariants: (page.imageVariants ?? []).map(img => ({
       id: img.id,
       // Use thumbnail URLs for sidebar previews; full blob URLs are loaded when the page is opened.
@@ -174,7 +184,9 @@ export async function loadProjectPages(
     ? pages.filter(p => selectedPageIds.includes(p.id))
     : pages
 
-  const pageDataPromises = pagesToLoad.map(page => loadSinglePageData(projectId, page))
+  const pageDataPromises = pagesToLoad
+    .filter(canOpenPageInEditor)
+    .map(page => loadSinglePageData(projectId, page))
 
   return await Promise.all(pageDataPromises)
 }

@@ -736,7 +736,7 @@ async function handleOpenSelectedProjectsInEditor() {
     if (openableProjects.length === 0) {
       toast.add({
         title: 'No projects opened',
-        description: 'No selected project pages could be loaded.',
+        description: 'No selected project contains a page with an image that can be opened.',
         color: 'warning'
       })
       return

@@ -632,6 +632,15 @@ async function openMissingPagesInEditor(projectId: string, pageIds: string[]) {
     }
 
     const skeletonPages = createSkeletonPageData(selected, { projectId })
+    if (skeletonPages.length === 0) {
+      toast.add({
+        title: 'No pages with images',
+        description: 'None of the selected pages contains an image.',
+        color: 'warning'
+      })
+      return
+    }
+
     editorStore.setPagesWithSession(skeletonPages, projectId, props.workspaceId)
     await navigateTo('/editor')
   } catch (error: unknown) {

@@ -23,7 +23,7 @@ import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import type { DropdownMenuItem, BreadcrumbItem } from '@nuxt/ui'
 import type { Subtask } from '~/types/index'
-import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
+import { canOpenPageInEditor, createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
 import { createPageXmlLabelSet } from '@/models/editor'
 import type { LabelSet as ApiLabelSet } from '@/types/label-set'
 import { useEditorStore } from '@/stores/editor/editor.store'
@@ -515,9 +515,12 @@ function handleEditorButtonHover() {
   prefetchTimeout = setTimeout(() => {
     if (!pages.value || pages.value.length === 0) return
 
+    const openablePages = pages.value.filter(canOpenPageInEditor)
     const pageIdsToLoad = selectedPageIds.value.size > 0
-      ? Array.from(selectedPageIds.value)
-      : pages.value.slice(0, 5).map(p => p.id) // First 5 pages if none selected
+      ? openablePages.filter(page => selectedPageIds.value.has(page.id)).map(page => page.id)
+      : openablePages.slice(0, 5).map(page => page.id) // First 5 image-backed pages if none selected
+
+    if (pageIdsToLoad.length === 0) return
 
     pagePrefetch.prefetchForEditor(projectId, pageIdsToLoad)
   }, 200) // 200ms debounce
@@ -564,6 +567,18 @@ async function handleOpenInEditor() {
       projectId,
       projectName: project.value?.name
     })
+
+    if (skeletonPages.length === 0) {
+      toast.add({
+        title: 'No pages with images',
+        description: selectedPageIds.value.size > 0
+          ? 'None of the selected pages contains an image.'
+          : 'This project has no pages with images to open.',
+        color: 'warning',
+        icon: 'i-lucide-triangle-alert'
+      })
+      return
+    }
 
     editorStore.setPagesWithSession(skeletonPages, projectId, selectedWorkspace.value ?? null)
     await loadProjectLabelSet()
