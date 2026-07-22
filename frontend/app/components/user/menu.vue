@@ -89,7 +89,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
   }, {
     label: 'GitHub repository',
     icon: 'i-simple-icons-github',
-    to: 'https://github.com/maxnth',
+    to: 'https://github.com/OCR4all/larex',
     target: '_blank'
   }, {
     label: 'Log out',
