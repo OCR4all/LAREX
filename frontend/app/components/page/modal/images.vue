@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DropdownMenuItem } from '@nuxt/ui'
 import { LazyUiDeleteSlideover } from '#components'
 
 defineOptions({
@@ -234,6 +235,27 @@ function formatFileSize(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
+}
+
+function getImageCardItems(image: PageImage): DropdownMenuItem[] {
+  const items: DropdownMenuItem[] = [
+    {
+      label: 'Download',
+      icon: 'i-lucide-download',
+      onSelect: () => downloadImage(image)
+    }
+  ]
+
+  if (canDeleteCurrentPageImages.value && !isSelectionMode.value) {
+    items.push({
+      label: 'Delete',
+      icon: 'i-lucide-trash-2',
+      color: 'error',
+      onSelect: () => deleteImages([image])
+    })
+  }
+
+  return items
 }
 
 async function downloadImage(image: PageImage) {
@@ -568,27 +590,6 @@ onUnmounted(() => {
                   @load="imageStates[image.id] = 'loaded'"
                   @error="imageStates[image.id] = 'error'"
                 >
-                <UButton
-                  icon="i-lucide-download"
-                  size="sm"
-                  color="neutral"
-                  variant="solid"
-                  title="Export image variant"
-                  class="absolute top-2.5 right-2.5 z-20 rounded-full shadow-md"
-                  :ui="{ base: 'size-8 justify-center p-0' }"
-                  @click.stop="downloadImage(image)"
-                />
-                <UButton
-                  v-if="canDeleteCurrentPageImages && !isSelectionMode"
-                  icon="i-lucide-trash-2"
-                  size="sm"
-                  color="error"
-                  variant="solid"
-                  title="Delete image"
-                  class="absolute top-2.5 left-2.5 z-20 rounded-full shadow-md"
-                  :ui="{ base: 'size-8 justify-center p-0' }"
-                  @click.stop="deleteImages([image])"
-                />
               </div>
 
               <div class="min-w-0 px-1.5 pt-3 pb-1.5">
@@ -605,9 +606,25 @@ onUnmounted(() => {
                     {{ formatFileSize(image.fileSize) }}
                   </UBadge>
                 </div>
-                <p class="mt-1.5 truncate text-xs text-muted">
-                  {{ image.fileName }}
-                </p>
+                <div class="mt-1.5 flex items-center justify-between gap-3">
+                  <p class="min-w-0 truncate text-xs text-muted">
+                    {{ image.fileName }}
+                  </p>
+                  <div class="relative z-20 shrink-0">
+                    <UDropdownMenu
+                      :items="getImageCardItems(image)"
+                      :content="{ align: 'end' }"
+                    >
+                      <UButton
+                        icon="i-lucide-ellipsis-vertical"
+                        size="sm"
+                        color="neutral"
+                        variant="ghost"
+                        aria-label="Open image actions"
+                      />
+                    </UDropdownMenu>
+                  </div>
+                </div>
               </div>
             </article>
           </div>
