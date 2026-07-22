@@ -1859,19 +1859,24 @@ const pageColumns = [
     header: 'Annotation',
     cell: ({ row }: { row: { original: Page } }) => {
       const hasAnnotation = row.original.xmlFileCount > 0
-      const label = hasAnnotation ? 'Annotation available' : 'No annotation available'
+      const label = hasAnnotation
+        ? `Open annotation for ${row.original.name}`
+        : `No annotation available for ${row.original.name}`
 
-      return h(UBadge, {
-        'aria-label': label,
-        'title': label,
-        'color': hasAnnotation ? 'success' : 'error',
+      return h(UButton, {
+        'icon': 'i-lucide-file-code-2',
+        'color': hasAnnotation ? 'success' : 'neutral',
         'variant': 'soft',
         'size': 'sm',
-        'class': 'px-1.5'
-      }, () => h(UIcon, {
-        name: hasAnnotation ? 'i-lucide-check' : 'i-lucide-x',
-        class: 'size-3.5'
-      }))
+        'square': true,
+        'disabled': !hasAnnotation,
+        'aria-label': label,
+        'title': label,
+        'onClick': (event: MouseEvent) => {
+          event.stopPropagation()
+          void openXmlEditor(row.original)
+        }
+      })
     }
   },
   {

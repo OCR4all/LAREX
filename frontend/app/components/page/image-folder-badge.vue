@@ -69,7 +69,7 @@ function openImages() {
       @pointerenter="revealPreviews"
     >
       <span
-        class="image-folder relative block h-6 w-8 shrink-0 [perspective:100px]"
+        class="image-folder relative block h-6 w-8 shrink-0 perspective-dramatic"
         :class="{ 'image-folder--empty': !hasImages }"
         aria-hidden="true"
       >
