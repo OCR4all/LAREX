@@ -33,6 +33,7 @@ node_modules/
 .npm/
 .nyc_output/
 coverage/
+/docs/public/installer-assets/
 
 # Environment files (real config only)
 .env

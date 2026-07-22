@@ -1,15 +1,15 @@
 # Docs Development Dockerfile
 FROM node:22-alpine
 
-WORKDIR /app
+WORKDIR /workspace/docs
 
 RUN corepack enable && corepack prepare pnpm@11.6.0 --activate
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY docs/package.json docs/pnpm-lock.yaml docs/pnpm-workspace.yaml docs/.npmrc ./
 
 RUN pnpm install --frozen-lockfile
 
-COPY . .
+COPY . /workspace
 
 EXPOSE 3000
 

@@ -17,6 +17,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME_BACKEND: ocr4all/larex/backend
   IMAGE_NAME_FRONTEND: ocr4all/larex/frontend
+  IMAGE_NAME_DOCS: ocr4all/larex/docs
   NODE_MAX_OLD_SPACE_SIZE: 6144
 
 jobs:
@@ -87,6 +88,17 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
 
+      - name: Extract metadata for docs
+        id: meta-docs
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_DOCS }}
+          tags: |
+            type=raw,value=${{ needs.version.outputs.version }}
+            type=raw,value=${{ needs.version.outputs.version }},suffix=-{{sha}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+
       - name: Build and push backend image
         uses: docker/build-push-action@v7
         with:
@@ -114,6 +126,17 @@ jobs:
             VERSION=${{ needs.version.outputs.version }}
             NODE_MAX_OLD_SPACE_SIZE=${{ env.NODE_MAX_OLD_SPACE_SIZE }}
 
+      - name: Build and push docs image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./docs/Dockerfile.prod
+          push: true
+          tags: ${{ steps.meta-docs.outputs.tags }}
+          labels: ${{ steps.meta-docs.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   create-release:
     name: Create GitHub Release
     needs: [version, build-and-push]
@@ -125,6 +148,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Build administrator deployment bundle
+        run: bash ./scripts/build-deployment-package.sh "${{ needs.version.outputs.version }}" dist
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -133,6 +159,7 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+          files: dist/larex-deployment-${{ needs.version.outputs.version }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

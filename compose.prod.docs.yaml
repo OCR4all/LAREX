@@ -1,8 +1,6 @@
 services:
   docs:
-    build:
-      context: docs
-      dockerfile: Dockerfile.prod
+    image: ${LAREX_DOCS_IMAGE:-ghcr.io/ocr4all/larex/docs:${LAREX_IMAGE_TAG:-latest}}
     restart: unless-stopped
     ports:
       - "${LAREX_BIND_IP:-127.0.0.1}:${LAREX_DOCS_PORT:-3001}:3000"

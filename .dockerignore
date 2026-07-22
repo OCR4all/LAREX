@@ -1,0 +1,17 @@
+.git
+.github
+.idea
+.vscode
+**/.DS_Store
+**/node_modules
+**/.nuxt
+**/.output
+**/coverage
+**/dist
+docs/public/installer-assets
+test_data
+page4j
+*.log
+.env
+.env.*
+!.env.*.example

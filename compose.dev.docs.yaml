@@ -1,11 +1,11 @@
 services:
   docs:
     build:
-      context: docs
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docs/Dockerfile
     volumes:
-      - ./docs:/app:Z
-      - /app/node_modules
+      - ./:/workspace:Z
+      - /workspace/docs/node_modules
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.docs.rule=Host(`docs.localhost`)"

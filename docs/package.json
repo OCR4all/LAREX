@@ -2,7 +2,10 @@
   "name": "docs",
   "packageManager": "pnpm@11.6.0",
   "scripts": {
+    "prepare:installer-assets": "node ../scripts/stage-docs-installer-assets.mjs",
+    "predev": "pnpm prepare:installer-assets",
     "dev": "nuxt dev",
+    "prebuild": "pnpm prepare:installer-assets",
     "build": "nuxt build",
     "start": "node .output/server/index.mjs",
     "preview": "pnpm run build && pnpm run start"
@@ -15,6 +18,7 @@
     "@nuxt/image": "2.0.0",
     "@nuxt/ui": "4.8.2",
     "better-sqlite3": "^12.10.0",
+    "fflate": "^0.8.3",
     "nuxt": "^4.4.8",
     "tailwindcss": "^4.3.1"
   }

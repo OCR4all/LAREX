@@ -13,6 +13,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME_BACKEND: ocr4all/larex/backend
   IMAGE_NAME_FRONTEND: ocr4all/larex/frontend
+  IMAGE_NAME_DOCS: ocr4all/larex/docs
   NODE_MAX_OLD_SPACE_SIZE: 6144
 
 jobs:
@@ -44,6 +45,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Read snapshot version
+        id: version
+        run: echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+
       - name: Extract metadata for backend
         id: meta-backend
         uses: docker/metadata-action@v6
@@ -54,6 +59,7 @@ jobs:
           tags: |
             type=raw,value={{branch}}
             type=raw,value={{branch}}-{{sha}}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref_name == 'next' }}
             type=sha,prefix=sha-
 
       - name: Extract metadata for frontend
@@ -66,6 +72,20 @@ jobs:
           tags: |
             type=raw,value={{branch}}
             type=raw,value={{branch}}-{{sha}}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref_name == 'next' }}
+            type=sha,prefix=sha-
+
+      - name: Extract metadata for docs
+        id: meta-docs
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_DOCS }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value={{branch}}
+            type=raw,value={{branch}}-{{sha}}
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref_name == 'next' }}
             type=sha,prefix=sha-
 
       - name: Build and push backend image
@@ -78,6 +98,8 @@ jobs:
           labels: ${{ steps.meta-backend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v7
@@ -88,6 +110,18 @@ jobs:
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
           build-args: |
+            VERSION=${{ steps.version.outputs.version }}
             NODE_MAX_OLD_SPACE_SIZE=${{ env.NODE_MAX_OLD_SPACE_SIZE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push docs image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./docs/Dockerfile.prod
+          push: true
+          tags: ${{ steps.meta-docs.outputs.tags }}
+          labels: ${{ steps.meta-docs.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -1,0 +1,22 @@
+# Files shipped in the supported administrator deployment bundle.
+# Keep paths relative to the repository root. Blank lines and comments are ignored.
+VERSION
+LICENSE
+deployment/INSTALL.md
+compose.prod.base.yaml
+compose.prod.auth.bundled-keycloak.yaml
+compose.prod.auth.external-keycloak.yaml
+compose.prod.publish.localhost.yaml
+compose.prod.nginx.yaml
+compose.prod.docs.yaml
+compose.actions.yaml
+deployment/env/.env.prod.example
+deployment/env/.env.actions.example
+deployment/actions/kraken-segmentation.yaml
+deployment/nginx/templates/larex-proxy.conf.template
+deployment/nginx/templates/larex-proxy.external-keycloak.conf.template
+config/keycloak/larex.bootstrap.realm.json
+config/keycloak/theme.jar
+scripts/bootstrap-env-secrets.sh
+scripts/larex-backup.sh
+scripts/larex-instance-backup.sh
