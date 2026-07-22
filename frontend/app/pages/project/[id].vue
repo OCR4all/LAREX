@@ -32,6 +32,7 @@ import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodec
 import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse } from '@/types/dictionary'
 import type { ApplySourcesResponse, NormalizePreview, NormalizeSourcesResponse, NormalizationProfile, NormalizationProjectScope, NormalizeTarget } from '@/types/normalization-profile'
 import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/types/validation-ruleset'
+import PageImageFolderBadge from '@/components/page/image-folder-badge.vue'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowState, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
 
@@ -1893,7 +1894,13 @@ const pageColumns = [
         }
       })
     ]),
-    cell: ({ row }: { row: { original: Page } }) => h('div', { class: 'text-right font-medium' }, row.original.imageCount)
+    cell: ({ row }: { row: { original: Page } }) => h(PageImageFolderBadge, {
+      projectId,
+      pageName: row.original.name,
+      imageCount: row.original.imageCount,
+      images: row.original.imageVariants ?? [],
+      onOpen: () => openImageModal(row.original)
+    })
   },
   {
     id: 'mySubtasks',

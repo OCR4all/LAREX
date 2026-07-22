@@ -37,10 +37,19 @@ const imageStates = ref<Record<string, 'loading' | 'loaded' | 'error'>>({})
 
 type TabValue = 'overview' | 'compare'
 const activeTab = ref<TabValue>('overview')
-const tabItems = [
-  { label: 'Overview', value: 'overview' as const },
-  { label: 'Compare', value: 'compare' as const }
-]
+const tabItems = computed(() => [
+  {
+    label: 'Overview',
+    icon: 'i-lucide-layout-grid',
+    value: 'overview' as const,
+    badge: pageImages.value.length
+  },
+  {
+    label: 'Compare',
+    icon: 'i-lucide-columns-2',
+    value: 'compare' as const
+  }
+])
 
 const sortedPages = computed(() =>
   [...props.pages].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
@@ -163,14 +172,6 @@ const rightImageId = ref<string | undefined>(undefined)
 
 const getImageSrc = (imageId: string) =>
   `/api/media/images/${imageId}?projectId=${props.projectId}`
-
-const groupedImages = computed(() =>
-  pageImages.value.reduce((groups, image) => {
-    const baseName = image.baseName || 'Unknown'
-    ;(groups[baseName] ??= []).push(image)
-    return groups
-  }, {} as Record<string, PageImage[]>)
-)
 
 const flatImageList = computed(() =>
   pageImages.value.map(img => ({
@@ -354,90 +355,105 @@ onUnmounted(() => {
 
     <template #body>
       <div class="flex flex-col h-[calc(100vh-130px)] overflow-hidden">
-        <UTabs v-model="activeTab" :items="tabItems" class="shrink-0" />
+        <div class="shrink-0 px-4 pt-1">
+          <UTabs
+            v-model="activeTab"
+            :items="tabItems"
+            :content="false"
+            variant="link"
+            color="neutral"
+            size="sm"
+            :ui="{
+              list: 'gap-1 p-0',
+              trigger: 'flex-none px-3 py-2.5',
+              trailingBadge: 'min-w-5 justify-center tabular-nums'
+            }"
+          />
+        </div>
 
         <div v-if="isLoading" class="flex-1 overflow-auto p-4">
-          <div class="border border-neutral-200 dark:border-neutral-700 rounded-sm p-4">
-            <USkeleton class="h-6 w-32 mb-3" />
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <div v-for="i in 6" :key="i" class="border border-neutral-200 dark:border-neutral-700 rounded-sm overflow-hidden">
-                <USkeleton class="aspect-square w-full" />
-                <div class="p-3 space-y-2">
-                  <div class="flex items-center justify-between">
-                    <USkeleton class="h-4 w-20" />
-                    <USkeleton class="h-4 w-12" />
-                  </div>
-                  <USkeleton class="h-3 w-full" />
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
+            <div v-for="i in 5" :key="i" class="rounded-2xl bg-elevated p-2.5 shadow-sm">
+              <USkeleton class="aspect-[4/5] w-full rounded-xl" />
+              <div class="px-1.5 pt-3 pb-1.5 space-y-2">
+                <div class="flex items-center justify-between gap-3">
+                  <USkeleton class="h-4 w-20" />
+                  <USkeleton class="h-5 w-12 rounded-full" />
                 </div>
+                <USkeleton class="h-3 w-3/4" />
               </div>
             </div>
           </div>
         </div>
 
-        <div v-else-if="activeTab === 'overview' && pageImages.length > 0" class="flex-1 overflow-auto p-4 space-y-6">
-          <template v-for="(images, baseName) in groupedImages" :key="baseName">
-            <div class="border border-neutral-200 dark:border-neutral-700 rounded-sm p-4">
-              <h4 class="font-medium text-lg mb-3">
-                {{ baseName }}
-              </h4>
-              <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div v-else-if="activeTab === 'overview' && pageImages.length > 0" class="flex-1 overflow-auto p-4 sm:p-5">
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
+            <article
+              v-for="image in pageImages"
+              :key="image.id"
+              class="group relative min-w-0 cursor-pointer rounded-2xl bg-elevated p-2.5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <button
+                type="button"
+                :aria-label="`Open ${image.variant || 'Original'} image`"
+                class="absolute inset-0 z-10 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                @click="openLightbox(image)"
+              />
+              <div class="relative aspect-[4/5] overflow-hidden rounded-xl bg-default">
                 <div
-                  v-for="image in images"
-                  :key="image.id"
-                  class="border border-neutral-200 dark:border-neutral-700 rounded-sm overflow-hidden cursor-pointer hover:border-primary transition-colors"
-                  @click="openLightbox(image)"
+                  v-if="imageStates[image.id] === 'loading'"
+                  class="absolute inset-0 flex items-center justify-center text-muted"
                 >
-                  <div class="aspect-square bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center relative">
-                    <div
-                      v-if="imageStates[image.id] === 'loading'"
-                      class="absolute flex items-center justify-center text-neutral-400"
-                    >
-                      <UIcon name="i-lucide-loader" class="animate-spin" />
-                    </div>
-                    <div
-                      v-if="imageStates[image.id] === 'error'"
-                      class="flex flex-col items-center justify-center text-neutral-400"
-                    >
-                      <UIcon name="i-lucide-image-off" class="text-2xl mb-1" />
-                      <span class="text-xs">Failed to load</span>
-                    </div>
-                    <img
-                      v-show="imageStates[image.id] !== 'error'"
-                      :src="getImageSrc(image.id)"
-                      :alt="image.fileName"
-                      class="max-w-full max-h-full object-contain"
-                      loading="lazy"
-                      @load="imageStates[image.id] = 'loaded'"
-                      @error="imageStates[image.id] = 'error'"
-                    >
-                  </div>
-                  <div class="p-3 space-y-2">
-                    <div class="flex items-center justify-between">
-                      <h5 class="font-medium text-sm truncate">
-                        {{ image.variant || 'Original' }}
-                      </h5>
-                      <UBadge size="xs" variant="solid">
-                        {{ formatFileSize(image.fileSize) }}
-                      </UBadge>
-                    </div>
-                    <p class="text-xs text-neutral-600 dark:text-neutral-400 truncate">
-                      {{ image.fileName }}
-                    </p>
-                    <div class="flex justify-end">
-                      <UButton
-                        icon="i-lucide-download"
-                        size="xs"
-                        color="neutral"
-                        variant="ghost"
-                        title="Export image variant"
-                        @click.stop="downloadImage(image)"
-                      />
-                    </div>
-                  </div>
+                  <UIcon name="i-lucide-loader" class="size-5 animate-spin" />
                 </div>
+                <div
+                  v-if="imageStates[image.id] === 'error'"
+                  class="absolute inset-0 flex flex-col items-center justify-center text-muted"
+                >
+                  <UIcon name="i-lucide-image-off" class="size-7 mb-2" />
+                  <span class="text-xs">Failed to load</span>
+                </div>
+                <img
+                  v-show="imageStates[image.id] !== 'error'"
+                  :src="getImageSrc(image.id)"
+                  :alt="image.fileName"
+                  class="size-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.02]"
+                  loading="lazy"
+                  @load="imageStates[image.id] = 'loaded'"
+                  @error="imageStates[image.id] = 'error'"
+                >
+                <UButton
+                  icon="i-lucide-download"
+                  size="sm"
+                  color="neutral"
+                  variant="solid"
+                  title="Export image variant"
+                  class="absolute top-2.5 right-2.5 z-20 rounded-full shadow-md"
+                  :ui="{ base: 'size-8 justify-center p-0' }"
+                  @click.stop="downloadImage(image)"
+                />
               </div>
-            </div>
-          </template>
+
+              <div class="min-w-0 px-1.5 pt-3 pb-1.5">
+                <div class="flex items-center justify-between gap-3">
+                  <h5 class="truncate text-sm font-semibold text-highlighted">
+                    {{ image.variant || 'Original' }}
+                  </h5>
+                  <UBadge
+                    size="xs"
+                    color="neutral"
+                    variant="soft"
+                    class="shrink-0 rounded-full tabular-nums"
+                  >
+                    {{ formatFileSize(image.fileSize) }}
+                  </UBadge>
+                </div>
+                <p class="mt-1.5 truncate text-xs text-muted">
+                  {{ image.fileName }}
+                </p>
+              </div>
+            </article>
+          </div>
         </div>
 
         <div v-else-if="activeTab === 'compare' && pageImages.length >= 2" class="flex-1 flex flex-col min-h-0 p-4 gap-4">
