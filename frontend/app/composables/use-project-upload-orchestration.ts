@@ -76,7 +76,6 @@ type UploadSessionRuntime = {
 
 type RefreshPagesOptions = {
   manual?: boolean
-  invalidateCache?: boolean
 }
 
 export interface UseProjectUploadOrchestrationOptions<TPage extends ProjectPageLike = ProjectPageLike> {
@@ -337,27 +336,14 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     }
   }
 
-  async function invalidateProjectPagesCache() {
-    try {
-      await $fetch(`/api/projects/${options.projectId}/pages/invalidate-cache`, { method: 'POST' })
-    } catch {
-      // Best effort.
-    }
-  }
-
   async function refreshPagesData(refreshOptions: RefreshPagesOptions = {}) {
     const manual = refreshOptions.manual === true
-    const invalidateCache = refreshOptions.invalidateCache === true
 
     if (manual) {
       isManualPagesRefresh.value = true
     }
 
     try {
-      if (invalidateCache) {
-        await invalidateProjectPagesCache()
-      }
-
       await options.refreshPagesFetch()
     } finally {
       if (manual) {
@@ -369,7 +355,7 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
   async function syncProjectDataAfterUploadTerminal() {
     const workspaceId = options.workspaceId.value
     await Promise.allSettled([
-      refreshPagesData({ invalidateCache: true }),
+      refreshPagesData(),
       options.refreshProject(),
       options.refreshProjectStatus(),
       workspaceId ? refreshNuxtData(wsKey(workspaceId, 'storage', 'quota')) : Promise.resolve()
@@ -385,7 +371,7 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     pageRefreshDebounceTimer = setTimeout(() => {
       pageRefreshDebounceTimer = null
       void Promise.allSettled([
-        refreshPagesData({ invalidateCache: true }),
+        refreshPagesData(),
         options.refreshProject(),
         options.refreshProjectStatus()
       ])
@@ -611,7 +597,7 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
 
       runtime.pollCount += 1
       if (runtime.pollCount % 5 === 0) {
-        await refreshPagesData({ invalidateCache: true })
+        await refreshPagesData()
       }
 
       if (runtime.pollCount >= UPLOAD_PROCESSING_MAX_POLLS) {

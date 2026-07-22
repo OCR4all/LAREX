@@ -666,12 +666,6 @@ async function goToProjects() {
 }
 
 async function refreshProjectPagesData() {
-  try {
-    await $fetch(`/api/projects/${projectId}/pages/invalidate-cache`, { method: 'POST' })
-  } catch {
-    // Best effort. The follow-up refresh still fetches current data when cache invalidation is unavailable.
-  }
-
   const workspaceId = selectedWorkspace.value
   await Promise.allSettled([
     refreshPagesFetch(),

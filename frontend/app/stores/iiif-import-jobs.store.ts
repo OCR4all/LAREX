@@ -28,7 +28,7 @@ export const useIiifImportJobsStore = defineStore('iiif-import-jobs', () => {
   const dismissedJobIds = ref<Set<string>>(new Set())
   const terminalEvents = ref<IiifImportTerminalEvent[]>([])
   const refreshRequests = new Map<string, Promise<IiifImportJob[]>>()
-  const latestInvalidatedCompletionByProject = new Map<string, number>()
+  const latestTerminalCompletionByProject = new Map<string, number>()
   let terminalEventSequence = 0
 
   const jobsArray = computed(() => Array.from(jobsById.value.values())
@@ -181,10 +181,10 @@ export const useIiifImportJobsStore = defineStore('iiif-import-jobs', () => {
   function recordPageChangingTerminalJob(job: IiifImportJob) {
     if (job.processedCanvases <= 0) return
     const completedAt = Date.parse(job.completedAt || job.updated)
-    const previousCompletion = latestInvalidatedCompletionByProject.get(job.projectId) ?? 0
+    const previousCompletion = latestTerminalCompletionByProject.get(job.projectId) ?? 0
     if (!Number.isFinite(completedAt) || completedAt <= previousCompletion) return
 
-    latestInvalidatedCompletionByProject.set(job.projectId, completedAt)
+    latestTerminalCompletionByProject.set(job.projectId, completedAt)
     terminalEvents.value = [
       ...terminalEvents.value.slice(-49),
       {
@@ -192,11 +192,6 @@ export const useIiifImportJobsStore = defineStore('iiif-import-jobs', () => {
         job
       }
     ]
-    void $fetch(`/api/projects/${job.projectId}/pages/invalidate-cache`, {
-      method: 'POST'
-    }).catch(() => {
-      // The project view also performs best-effort invalidation before refreshing.
-    })
   }
 
   return {

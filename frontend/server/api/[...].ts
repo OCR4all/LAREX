@@ -1,7 +1,7 @@
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
 
-  const path = event.node.req.url?.replace('/api/', '') || ''
+  const path = getRequestURL(event).pathname.replace(/^\/api\/?/, '')
   const method = toHttpMethod(event.node.req.method)
 
   if (path.startsWith('auth/')) {
@@ -56,6 +56,10 @@ export default defineEventHandler(async (event) => {
 
   const backendUrl = `${config.apiBaseInternal}/${path}`
 
+  if (method === 'GET' && /^projects\/[^/]+\/pages(?:\/[^/]+)?$/.test(path)) {
+    setHeader(event, 'Cache-Control', 'no-store')
+  }
+
   try {
     const isBlobRequest = path.includes('/blob') || path.includes('/export') || path.includes('/download')
     const acceptHeader = event.node.req.headers.accept || ''
@@ -79,14 +83,17 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      const contentType = response.headers.get('content-type') || 'application/octet-stream'
-      const cacheControl = response.headers.get('cache-control') || 'public, max-age=3600'
+      const contentType = response.headers.get('content-type')
+        || (path.startsWith('xml/') && path.includes('/blob') ? 'application/xml' : 'application/octet-stream')
+      const cacheControl = response.headers.get('cache-control')
       const contentLength = response.headers.get('content-length')
       const contentDisposition = response.headers.get('content-disposition')
       const connection = response.headers.get('connection')
 
       setHeader(event, 'Content-Type', contentType)
-      setHeader(event, 'Cache-Control', cacheControl)
+      if (cacheControl) {
+        setHeader(event, 'Cache-Control', cacheControl)
+      }
       if (isSseRequest) {
         setHeader(event, 'X-Accel-Buffering', 'no')
       }

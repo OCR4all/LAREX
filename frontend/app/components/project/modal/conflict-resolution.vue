@@ -126,8 +126,6 @@ async function resolveConflicts() {
 
     emit('close', true)
 
-    await $fetch(`/api/projects/${props.projectId}/pages/invalidate-cache`, { method: 'POST' })
-
     await Promise.all([
       refreshNuxtData(projectKey.value),
       refreshNuxtData(projectPagesKey.value),

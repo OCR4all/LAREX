@@ -101,7 +101,7 @@ describe('iiif-import-jobs.store', () => {
     expect(store.jobsArray).toHaveLength(0)
   })
 
-  it('invalidates the page cache and emits a terminal event when an import creates pages', async () => {
+  it('emits a terminal event when an import creates pages', async () => {
     const fetchMock = vi.fn().mockResolvedValue(undefined)
     const store = await createStore(fetchMock)
     store.upsertJob(createJob())
@@ -117,10 +117,7 @@ describe('iiif-import-jobs.store', () => {
 
     expect(store.terminalEvents).toHaveLength(1)
     expect(store.terminalEvents[0]?.job.projectId).toBe('project-1')
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/projects/project-1/pages/invalidate-cache',
-      { method: 'POST' }
-    )
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('refreshes the affected workspace after a realtime job update', async () => {
