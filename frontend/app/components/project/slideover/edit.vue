@@ -33,6 +33,7 @@ interface Project {
   allowValidationRulesetOverride?: boolean
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
+  outputRetentionDays?: number | null
 }
 type WorkspaceDefaults = {
   defaultGtIndex?: number | null
@@ -66,7 +67,9 @@ const schema = z.object({
   defaultGtIndexInput: z.union([z.string(), z.number()]).optional(),
   defaultGtIndexUndefined: z.boolean().optional(),
   defaultRecognitionIndicesInput: z.array(z.union([z.string(), z.number()])).optional(),
-  defaultRecognitionIndicesUndefined: z.boolean().optional()
+  defaultRecognitionIndicesUndefined: z.boolean().optional(),
+  outputRetentionDaysInput: z.union([z.string(), z.number()]).optional(),
+  retainOutputsForever: z.boolean().optional()
 })
 
 type Schema = z.output<typeof schema>
@@ -96,7 +99,9 @@ const state = ref<Schema>({
     : ['1'],
   defaultRecognitionIndicesUndefined: Array.isArray(props.project.defaultRecognitionIndices)
     ? props.project.defaultRecognitionIndices.includes(UNDEFINED_RECOGNITION_SENTINEL)
-    : false
+    : false,
+  outputRetentionDaysInput: String(props.project.outputRetentionDays ?? 30),
+  retainOutputsForever: props.project.outputRetentionDays == null
 })
 
 const { data: codecs, error: codecsError } = await useFetch<CodecSummary[]>(
@@ -238,6 +243,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       effectiveGtIndexForValidation,
       event.data.defaultRecognitionIndicesUndefined === true
     )
+    const outputRetentionDays = event.data.retainOutputsForever === true
+      ? null
+      : Number.parseInt(String(event.data.outputRetentionDaysInput ?? '').trim(), 10)
+    if (outputRetentionDays !== null && (!Number.isInteger(outputRetentionDays) || outputRetentionDays <= 0)) {
+      throw new Error('Output retention must be a positive number of days or Never.')
+    }
     const response = await $fetch<Project>(`/api/workspaces/${workspace.selectedWorkspaceId}/projects/${props.project.id}`, {
       method: 'PUT',
       body: {
@@ -258,6 +269,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         allowTagSetOverride: event.data.allowTagSetOverride !== false,
         allowNormalizationProfileOverride: event.data.allowNormalizationProfileOverride !== false,
         allowValidationRulesetOverride: event.data.allowValidationRulesetOverride !== false,
+        outputRetentionDays,
         ...(defaultGtIndex !== undefined ? { defaultGtIndex } : {}),
         ...(defaultRecognitionIndices.length > 0 ? { defaultRecognitionIndices } : {})
       }
@@ -334,6 +346,42 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               />
             </UFormField>
           </div>
+        </UCard>
+
+        <UCard variant="subtle">
+          <template #header>
+            <div class="flex items-start gap-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
+                <UIcon name="i-lucide-archive-restore" class="size-4 text-muted" />
+              </div>
+              <div class="min-w-0">
+                <h3 class="text-sm font-semibold text-highlighted">
+                  Action Outputs
+                </h3>
+                <p class="mt-1 text-sm text-muted">
+                  Set how long newly started Action outputs are retained.
+                </p>
+              </div>
+            </div>
+          </template>
+
+          <UFormField label="Automatic deletion" name="outputRetentionDaysInput" help="The value is snapshotted when an Action run starts; existing outputs are unchanged.">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <UInput
+                v-model="state.outputRetentionDaysInput"
+                type="number"
+                min="1"
+                step="1"
+                class="w-40"
+                :disabled="isSubmitting || state.retainOutputsForever === true"
+              >
+                <template #trailing>
+                  <span class="text-xs text-muted">days</span>
+                </template>
+              </UInput>
+              <UCheckbox v-model="state.retainOutputsForever" label="Never delete automatically" :disabled="isSubmitting" />
+            </div>
+          </UFormField>
         </UCard>
 
         <UCard

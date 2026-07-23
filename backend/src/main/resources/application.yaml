@@ -206,6 +206,8 @@ larex:
     share-public-base-url: ${LAREX_DATASET_RELEASE_SHARE_PUBLIC_BASE_URL:${cors.allowed-origin}/api/public/dataset-releases}
   project-releases:
     share-public-base-url: ${LAREX_PROJECT_RELEASE_SHARE_PUBLIC_BASE_URL:${cors.allowed-origin}/api/public/project-releases}
+  action-outputs:
+    share-public-base-url: ${LAREX_ACTION_OUTPUT_SHARE_PUBLIC_BASE_URL:${cors.allowed-origin}/api/public/action-outputs}
   actions:
     public-base-url: ${LAREX_ACTIONS_PUBLIC_BASE_URL:}
     public-base-url-allowed-origins: ${LAREX_ACTIONS_PUBLIC_BASE_URL_ALLOWED_ORIGINS:${cors.allowed-origin}}

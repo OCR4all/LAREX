@@ -136,7 +136,8 @@ const categoryItems = computed(() => [
   { label: 'All', value: 'ALL' },
   { label: 'Workflow', value: 'WORKFLOW' },
   { label: 'OCR/HTR', value: 'OCR_HTR' },
-  { label: 'Layout', value: 'LAYOUT' }
+  { label: 'Layout', value: 'LAYOUT' },
+  { label: 'Postprocessing', value: 'POSTPROCESSING' }
 ])
 const processorOptions = computed(() => executableProcessors.value.map(item => ({
   label: item.processor.name,

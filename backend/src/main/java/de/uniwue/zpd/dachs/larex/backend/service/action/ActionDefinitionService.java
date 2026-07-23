@@ -23,6 +23,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorksp
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunDismissalRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunLogEventRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,11 +37,13 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import tools.jackson.core.type.TypeReference;
 
 @Service
@@ -48,9 +51,12 @@ import tools.jackson.core.type.TypeReference;
 public class ActionDefinitionService {
 
     private static final int SUPPORTED_VERSION = 1;
+    private static final int ACTION_PROTOCOL_VERSION = 1;
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
     private static final int DEFAULT_TOKEN_TTL_MINUTES = 1440;
+    private static final int ENDPOINT_RESPONSE_DETAIL_LIMIT = 1000;
     private static final TypeReference<List<ActionTarget>> ACTION_TARGET_LIST = new TypeReference<>() {};
+    private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {};
 
     private final ActionProcessorDefinitionRepository definitionRepository;
     private final ActionProcessorWorkspaceAvailabilityRepository availabilityRepository;
@@ -66,6 +72,7 @@ public class ActionDefinitionService {
     private final HttpClient httpClient;
     private final ActionProperties actionProperties;
 
+    @Autowired
     public ActionDefinitionService(ActionProcessorDefinitionRepository definitionRepository,
                                    ActionProcessorWorkspaceAvailabilityRepository availabilityRepository,
                                    ActionProcessorAssignmentRepository assignmentRepository,
@@ -77,6 +84,34 @@ public class ActionDefinitionService {
                                    ActionAuditService actionAuditService,
                                    ObjectMapper objectMapper,
                                    ActionProperties actionProperties) {
+        this(
+                definitionRepository,
+                availabilityRepository,
+                assignmentRepository,
+                runRepository,
+                runDismissalRepository,
+                logEventRepository,
+                globalAdminService,
+                endpointAuthService,
+                actionAuditService,
+                objectMapper,
+                actionProperties,
+                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()
+        );
+    }
+
+    ActionDefinitionService(ActionProcessorDefinitionRepository definitionRepository,
+                            ActionProcessorWorkspaceAvailabilityRepository availabilityRepository,
+                            ActionProcessorAssignmentRepository assignmentRepository,
+                            ActionRunRepository runRepository,
+                            ActionRunDismissalRepository runDismissalRepository,
+                            ActionRunLogEventRepository logEventRepository,
+                            GlobalAdminService globalAdminService,
+                            ActionEndpointAuthService endpointAuthService,
+                            ActionAuditService actionAuditService,
+                            ObjectMapper objectMapper,
+                            ActionProperties actionProperties,
+                            HttpClient httpClient) {
         this.definitionRepository = definitionRepository;
         this.availabilityRepository = availabilityRepository;
         this.assignmentRepository = assignmentRepository;
@@ -88,7 +123,7 @@ public class ActionDefinitionService {
         this.actionAuditService = actionAuditService;
         this.yamlMapper = new ObjectMapper(new YAMLFactory());
         this.jsonMapper = objectMapper;
-        this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+        this.httpClient = httpClient;
         this.actionProperties = actionProperties;
     }
 
@@ -322,6 +357,7 @@ public class ActionDefinitionService {
             endpointUrl = requireText(document.endpoint().url(), "endpoint.url", diagnostics);
             validateEndpointUrl(endpointUrl, diagnostics);
             validateEndpointUrl(document.endpoint().healthUrl(), "endpoint.healthUrl", diagnostics);
+            validateEndpointUrl(document.endpoint().preflightUrl(), "endpoint.preflightUrl", diagnostics);
             validateEndpointAuth(document.endpoint(), endpointUrl, diagnostics);
             if (document.endpoint().timeoutSeconds() != null) {
                 timeoutSeconds = document.endpoint().timeoutSeconds();
@@ -360,9 +396,12 @@ public class ActionDefinitionService {
         boolean outputsImages = document.outputs() != null
                 && document.outputs().images() != null
                 && Boolean.TRUE.equals(document.outputs().images().enabled());
+        boolean outputsFiles = document.outputs() != null
+                && document.outputs().files() != null
+                && Boolean.TRUE.equals(document.outputs().files().enabled());
         validateOutput(document.outputs() == null ? null : document.outputs().xml(), "outputs.xml", outputsXml, diagnostics);
         validateImageOutput(document.outputs() == null ? null : document.outputs().images(), "outputs.images", outputsImages, diagnostics);
-        if (!outputsXml && !outputsImages) {
+        if (!outputsXml && !outputsImages && !outputsFiles) {
             diagnostics.add(error("outputs", "At least one output type must be enabled"));
         }
         validateConcurrency(document.concurrency(), diagnostics);
@@ -395,6 +434,7 @@ public class ActionDefinitionService {
                     acceptsXml,
                     outputsImages,
                     outputsXml,
+                    outputsFiles,
                     document.parameters() == null ? Map.of() : document.parameters()
             );
             return new ParsedDefinition(document, parsedJson, preview);
@@ -437,6 +477,7 @@ public class ActionDefinitionService {
                 definition.isAcceptsXml(),
                 definition.isOutputsImages(),
                 definition.isOutputsXml(),
+                definition.isOutputsFiles(),
                 definition.isEnabled(),
                 definition.isGlobalAvailable(),
                 definition.getCreated(),
@@ -459,6 +500,86 @@ public class ActionDefinitionService {
         requireGlobalAdmin();
         ActionProcessorDefinition definition = requireDefinition(definitionId);
         ActionDefinitionDocument document = readParsedDocument(definition);
+        if (document.endpoint() != null
+                && document.endpoint().preflightUrl() != null
+                && !document.endpoint().preflightUrl().isBlank()) {
+            return testAuthenticatedPreflight(definition, document);
+        }
+        return testReachability(definition, document);
+    }
+
+    private ActionDto.HealthCheckResponse testAuthenticatedPreflight(ActionProcessorDefinition definition,
+                                                                     ActionDefinitionDocument document) {
+        String url = document.endpoint().preflightUrl();
+        long start = System.nanoTime();
+        try {
+            requireEndpointUrlAllowed(url);
+            URI endpointUri = URI.create(url);
+            String requestId = "preflight-" + UUID.randomUUID();
+            String nonce = UUID.randomUUID().toString();
+            Map<String, Object> requestPayload = new LinkedHashMap<>();
+            requestPayload.put("protocolVersion", ACTION_PROTOCOL_VERSION);
+            requestPayload.put("requestId", requestId);
+            requestPayload.put("processorId", definition.getProcessorKey());
+            requestPayload.put("capabilities", Map.of(
+                    "incrementalPageResults", true,
+                    "customFileResults", true
+            ));
+            String body = jsonMapper.writeValueAsString(requestPayload);
+            Map<String, String> authHeaders = endpointAuthService.buildDispatchHeaders(
+                    document.endpoint().auth(),
+                    definition.getProcessorKey(),
+                    requestId,
+                    endpointUri,
+                    nonce,
+                    body
+            );
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(endpointUri)
+                    .timeout(endpointTestTimeout(definition))
+                    .header("Content-Type", "application/json")
+                    .header("Accept", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body));
+            authHeaders.forEach(requestBuilder::header);
+
+            HttpResponse<String> response = httpClient.send(
+                    requestBuilder.build(),
+                    HttpResponse.BodyHandlers.ofString()
+            );
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                String detail = responseDetail(response.body());
+                String message = "Authenticated preflight returned HTTP " + response.statusCode();
+                if (detail != null) {
+                    message += ": " + detail;
+                }
+                return endpointTestResponse(false, response.statusCode(), url, message, start);
+            }
+
+            ProcessorPreflightResponse preflight;
+            try {
+                preflight = jsonMapper.readValue(response.body(), ProcessorPreflightResponse.class);
+            } catch (JacksonException e) {
+                return endpointTestResponse(false, response.statusCode(), url,
+                        "Authenticated preflight returned an invalid JSON response", start);
+            }
+            String mismatch = validatePreflightResponse(definition, requestId, preflight);
+            if (mismatch != null) {
+                return endpointTestResponse(false, response.statusCode(), url, mismatch, start);
+            }
+            return endpointTestResponse(true, response.statusCode(), url,
+                    "Authenticated preflight succeeded (protocol v" + ACTION_PROTOCOL_VERSION
+                            + "; processor identity and capabilities verified)", start);
+        } catch (IOException e) {
+            return endpointTestResponse(false, 0, url, "Could not connect: " + e.getMessage(), start);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return endpointTestResponse(false, 0, url, "Authenticated preflight interrupted", start);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return endpointTestResponse(false, 0, url, e.getMessage(), start);
+        }
+    }
+
+    private ActionDto.HealthCheckResponse testReachability(ActionProcessorDefinition definition,
+                                                           ActionDefinitionDocument document) {
         String url = document.endpoint() != null && document.endpoint().healthUrl() != null && !document.endpoint().healthUrl().isBlank()
                 ? document.endpoint().healthUrl()
                 : definition.getEndpointUrl();
@@ -466,7 +587,7 @@ public class ActionDefinitionService {
         try {
             requireEndpointUrlAllowed(url);
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                    .timeout(Duration.ofSeconds(Math.min(10, Math.max(1, definition.getEndpointTimeoutSeconds()))))
+                    .timeout(endpointTestTimeout(definition))
                     .method(document.endpoint() != null && document.endpoint().healthUrl() != null && !document.endpoint().healthUrl().isBlank() ? "GET" : "HEAD",
                             HttpRequest.BodyPublishers.noBody())
                     .build();
@@ -486,11 +607,91 @@ public class ActionDefinitionService {
             Thread.currentThread().interrupt();
             return new ActionDto.HealthCheckResponse(false, 0, url, "Health check interrupted",
                     Duration.ofNanos(System.nanoTime() - start).toMillis());
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             return new ActionDto.HealthCheckResponse(false, 0, url, e.getMessage(),
                     Duration.ofNanos(System.nanoTime() - start).toMillis());
         }
     }
+
+    private Duration endpointTestTimeout(ActionProcessorDefinition definition) {
+        return Duration.ofSeconds(Math.min(10, Math.max(1, definition.getEndpointTimeoutSeconds())));
+    }
+
+    private ActionDto.HealthCheckResponse endpointTestResponse(boolean ok,
+                                                               int statusCode,
+                                                               String url,
+                                                               String message,
+                                                               long startNanos) {
+        return new ActionDto.HealthCheckResponse(
+                ok,
+                statusCode,
+                url,
+                message,
+                Duration.ofNanos(System.nanoTime() - startNanos).toMillis()
+        );
+    }
+
+    private String validatePreflightResponse(ActionProcessorDefinition definition,
+                                             String requestId,
+                                             ProcessorPreflightResponse response) {
+        if (response == null) {
+            return "Authenticated preflight returned an empty response";
+        }
+        if (!"ok".equals(response.status())) {
+            return "Authenticated preflight returned unexpected status: " + response.status();
+        }
+        if (!requestId.equals(response.requestId())) {
+            return "Authenticated preflight request id mismatch";
+        }
+        if (!definition.getProcessorKey().equals(response.processorId())) {
+            return "Processor id mismatch: expected " + definition.getProcessorKey()
+                    + " but received " + response.processorId();
+        }
+        if (response.protocolVersion() == null || response.protocolVersion() != ACTION_PROTOCOL_VERSION) {
+            return "Action protocol mismatch: expected v" + ACTION_PROTOCOL_VERSION
+                    + " but received v" + response.protocolVersion();
+        }
+        if (response.capabilities() == null) {
+            return "Authenticated preflight response is missing processor capabilities";
+        }
+        if (definition.isOutputsFiles()
+                && !Boolean.TRUE.equals(response.capabilities().get("customFileResults"))) {
+            return "Processor does not advertise required capability customFileResults";
+        }
+        return null;
+    }
+
+    private String responseDetail(String body) {
+        if (body == null || body.isBlank()) {
+            return null;
+        }
+        String detail = null;
+        try {
+            Map<String, Object> response = jsonMapper.readValue(body, JSON_OBJECT);
+            for (String field : List.of("detail", "message", "error")) {
+                Object value = response.get(field);
+                if (value != null && !value.toString().isBlank()) {
+                    detail = value.toString();
+                    break;
+                }
+            }
+        } catch (JacksonException ignored) {
+            // Fall back to a bounded, single-line rendering below.
+        }
+        String normalized = (detail == null ? body : detail).replaceAll("\\s+", " ").trim();
+        if (normalized.length() > ENDPOINT_RESPONSE_DETAIL_LIMIT) {
+            return normalized.substring(0, ENDPOINT_RESPONSE_DETAIL_LIMIT) + "…";
+        }
+        return normalized;
+    }
+
+    private record ProcessorPreflightResponse(
+            String status,
+            Integer protocolVersion,
+            String requestId,
+            String processorId,
+            Map<String, Boolean> capabilities
+    ) {}
 
     private ActionProcessorDefinition requireDefinition(String definitionId) {
         return definitionRepository.findById(definitionId)
@@ -532,6 +733,7 @@ public class ActionDefinitionService {
         definition.setAcceptsXml(preview.acceptsXml());
         definition.setOutputsImages(preview.outputsImages());
         definition.setOutputsXml(preview.outputsXml());
+        definition.setOutputsFiles(preview.outputsFiles());
         definition.setUpdatedByUserId(userId);
     }
 

@@ -152,6 +152,7 @@ class ProjectCrudServiceTest {
                 null,
                 null,
                 null,
+                null,
                 USER_ID
         );
 
@@ -176,6 +177,7 @@ class ProjectCrudServiceTest {
                 WORKSPACE_ID,
                 PROJECT_NAME,
                 "desc",
+                null,
                 null,
                 null,
                 null,
@@ -225,6 +227,7 @@ class ProjectCrudServiceTest {
                 null,
                 null,
                 "labelset-explicit",
+                null,
                 null,
                 null,
                 null,

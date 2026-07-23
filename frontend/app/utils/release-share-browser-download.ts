@@ -1,4 +1,4 @@
-const RELEASE_DOWNLOAD_PATH_PATTERN = /(?:^|\/)(?:api\/)?public\/(?:dataset-releases|project-releases)\/([^/]+)\/download\/?$/i
+const RELEASE_DOWNLOAD_PATH_PATTERN = /(?:^|\/)(?:api\/)?public\/(?:dataset-releases|project-releases|action-outputs)\/([^/]+)\/download\/?$/i
 
 function stripQueryAndHash(value: string): string {
   const [withoutHash = ''] = value.split('#', 1)

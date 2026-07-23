@@ -118,6 +118,7 @@ public class ProjectCrudService {
                                            Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
                                            Boolean allowValidationRulesetOverride,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                                           Integer outputRetentionDays,
                                            String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
 
@@ -231,6 +232,7 @@ public class ProjectCrudService {
         }
         project.setDefaultGtIndex(resolvedTextIndexDefaults.gtIndex());
         project.setDefaultRecognitionIndicesList(resolvedTextIndexDefaults.recognitionIndices());
+        project.setOutputRetentionDays(outputRetentionDays);
 
         project = projectRepository.save(project);
         notifyWorkspaceMembers(workspaceId, userId, "New project created: " + name, project.getId());
@@ -247,6 +249,7 @@ public class ProjectCrudService {
                                            Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
                                            Boolean allowValidationRulesetOverride,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                                           Integer outputRetentionDays,
                                            String userId) {
         Optional<Project> projectOpt = getProjectById(projectId, userId);
 
@@ -296,6 +299,8 @@ public class ProjectCrudService {
                 project.setDefaultGtIndex(resolvedTextIndexDefaults.gtIndex());
                 project.setDefaultRecognitionIndicesList(resolvedTextIndexDefaults.recognitionIndices());
             }
+
+            project.setOutputRetentionDays(outputRetentionDays);
 
             return Optional.of(projectRepository.save(project));
         }

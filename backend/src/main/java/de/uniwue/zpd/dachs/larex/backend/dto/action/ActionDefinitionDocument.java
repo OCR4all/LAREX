@@ -24,7 +24,11 @@ public record ActionDefinitionDocument(
         Map<String, Parameter> parameters
 ) {
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record Endpoint(String url, Integer timeoutSeconds, String healthUrl, EndpointAuth auth) {}
+    public record Endpoint(String url,
+                           Integer timeoutSeconds,
+                           String healthUrl,
+                           String preflightUrl,
+                           EndpointAuth auth) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record EndpointAuth(String type, String secretRef) {}
@@ -39,13 +43,16 @@ public record ActionDefinitionDocument(
     public record Inputs(Boolean images, Boolean xml) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record Outputs(OutputTarget xml, ImageOutputTarget images) {}
+    public record Outputs(OutputTarget xml, ImageOutputTarget images, FileOutputTarget files) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record OutputTarget(Boolean enabled, String mode) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record ImageOutputTarget(Boolean enabled, String variant, String mode) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = false)
+    public record FileOutputTarget(Boolean enabled) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record Concurrency(Integer maxActiveRuns, String scope) {}

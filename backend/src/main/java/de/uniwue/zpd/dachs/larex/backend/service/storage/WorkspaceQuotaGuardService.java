@@ -50,6 +50,13 @@ public class WorkspaceQuotaGuardService {
         quotaService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
     }
 
+    public void syncUsage(String workspaceId) {
+        if (!storageProperties.isQuotaEnforcementEnabled()) {
+            return;
+        }
+        quotaService.recalculateUsage(workspaceId);
+    }
+
     public boolean isQuotaEnforcementEnabled() {
         return storageProperties.isQuotaEnforcementEnabled();
     }

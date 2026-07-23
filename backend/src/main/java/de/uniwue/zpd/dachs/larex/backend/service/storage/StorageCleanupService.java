@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlVersionRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionOutputFileRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +40,7 @@ public class StorageCleanupService {
     private final PageRepository pageRepository;
     private final PageXmlRepository pageXmlRepository;
     private final PageXmlVersionRepository pageXmlVersionRepository;
+    private final ActionOutputFileRepository actionOutputFileRepository;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final UploadProperties uploadProperties;
 
@@ -49,12 +51,14 @@ public class StorageCleanupService {
                                  PageRepository pageRepository,
                                  PageXmlRepository pageXmlRepository,
                                  PageXmlVersionRepository pageXmlVersionRepository,
+                                 ActionOutputFileRepository actionOutputFileRepository,
                                  HierarchicalFileStorageService hierarchicalFileStorageService,
                                  UploadProperties uploadProperties) {
         this.pageImageRepository = pageImageRepository;
         this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlVersionRepository = pageXmlVersionRepository;
+        this.actionOutputFileRepository = actionOutputFileRepository;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.uploadProperties = uploadProperties;
     }
@@ -72,6 +76,7 @@ public class StorageCleanupService {
         Set<String> referencedThumbnailPaths = new HashSet<>(pageImageRepository.findAllThumbnailPaths());
         Set<String> referencedXmlPaths = new HashSet<>(pageXmlRepository.findAllFilePaths());
         Set<String> referencedXmlVersionPaths = new HashSet<>(pageXmlVersionRepository.findAllFilePaths());
+        Set<String> referencedOutputPaths = new HashSet<>(actionOutputFileRepository.findAllReadyStoragePaths());
 
         // Scan directories and find orphans
         List<StorageCleanupDto.OrphanedFile> orphanedImages = new ArrayList<>();
@@ -85,7 +90,8 @@ public class StorageCleanupService {
         List<StorageCleanupDto.OrphanedFile> orphanedThumbnails = new ArrayList<>();
         orphanedThumbnails.addAll(scanForOrphanedFiles("thumbnails", referencedThumbnailPaths, "thumbnail"));
         orphanedThumbnails.addAll(scanForWorkspaceTypeOrphanedFiles("thumb", referencedThumbnailPaths, "thumbnail"));
-        List<StorageCleanupDto.OrphanedFile> orphanedTemp = scanTempDirectory();
+        List<StorageCleanupDto.OrphanedFile> orphanedTemp = new ArrayList<>(scanTempDirectory());
+        orphanedTemp.addAll(scanForWorkspaceTypeOrphanedFiles("out", referencedOutputPaths, "output"));
 
         // Count thumbnails on disk
         int totalThumbnails = countFilesInDirectory("thumbnails") + countFilesInWorkspaceType("thumb");
@@ -134,6 +140,7 @@ public class StorageCleanupService {
         Set<String> referencedThumbnailPaths = new HashSet<>(pageImageRepository.findAllThumbnailPaths());
         Set<String> referencedXmlPaths = new HashSet<>(pageXmlRepository.findAllFilePaths());
         Set<String> referencedXmlVersionPaths = new HashSet<>(pageXmlVersionRepository.findAllFilePaths());
+        Set<String> referencedOutputPaths = new HashSet<>(actionOutputFileRepository.findAllReadyStoragePaths());
 
         // Scan directories
         List<StorageCleanupDto.OrphanedFile> allOrphaned = new ArrayList<>();
@@ -143,6 +150,7 @@ public class StorageCleanupService {
         allOrphaned.addAll(scanForWorkspaceTypeOrphanedFiles("xml", union(referencedXmlPaths, referencedXmlVersionPaths), "xml"));
         allOrphaned.addAll(scanForOrphanedFiles("thumbnails", referencedThumbnailPaths, "thumbnail"));
         allOrphaned.addAll(scanForWorkspaceTypeOrphanedFiles("thumb", referencedThumbnailPaths, "thumbnail"));
+        allOrphaned.addAll(scanForWorkspaceTypeOrphanedFiles("out", referencedOutputPaths, "output"));
         allOrphaned.addAll(scanTempDirectory());
 
         String normalizedType = type != null ? type.trim().toLowerCase(Locale.ROOT) : null;
@@ -193,6 +201,7 @@ public class StorageCleanupService {
         referencedPaths.addAll(pageImageRepository.findAllThumbnailPaths());
         referencedPaths.addAll(pageXmlRepository.findAllFilePaths());
         referencedPaths.addAll(pageXmlVersionRepository.findAllFilePaths());
+        referencedPaths.addAll(actionOutputFileRepository.findAllReadyStoragePaths());
 
         int deletedCount = 0;
         int failedCount = 0;

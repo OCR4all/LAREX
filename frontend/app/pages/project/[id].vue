@@ -11,6 +11,7 @@ import {
   LazyProjectSlideoverEdit,
   LazyProjectSlideoverRelease,
   LazyProjectSlideoverReleaseShare,
+  LazyProjectSlideoverOutputShare,
   LazyProjectSlideoverExportTarget,
   LazyProjectSlideoverIiifImport,
   LazyProjectSlideoverBulkDeletePages,
@@ -607,6 +608,7 @@ const conflictResolutionModal = overlay.create(LazyProjectModalConflictResolutio
 const pdfPrefixSlideover = overlay.create(LazyProjectSlideoverPdfPrefix)
 const createReleaseSlideover = overlay.create(LazyProjectSlideoverRelease)
 const releaseShareSlideover = overlay.create(LazyProjectSlideoverReleaseShare)
+const outputShareSlideover = overlay.create(LazyProjectSlideoverOutputShare)
 const exportTargetSlideover = overlay.create(LazyProjectSlideoverExportTarget)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 
@@ -657,6 +659,41 @@ const {
   releaseShareSlideover,
   downloadBlobResponse
 })
+const {
+  outputsError,
+  outputsPending,
+  refreshOutputs,
+  outputsForPanel,
+  outputSummary,
+  isOutputSidebarVisible,
+  isOutputSlideoverOpen,
+  isOutputPanelVisible,
+  toggleOutputPanel,
+  downloadOutput,
+  downloadOutputFile,
+  openOutputShare,
+  deleteOutput
+} = await useProjectOutputs({
+  projectId,
+  selectedWorkspace,
+  project,
+  canManageOutputs: canShareProject,
+  outputShareSlideover,
+  deleteSlideover: projectDeleteSlideover,
+  downloadBlobResponse
+})
+
+function toggleReleasePanelExclusive() {
+  isOutputSidebarVisible.value = false
+  isOutputSlideoverOpen.value = false
+  toggleReleasePanel()
+}
+
+function toggleOutputPanelExclusive() {
+  isReleaseSidebarVisible.value = false
+  isReleaseSlideoverOpen.value = false
+  toggleOutputPanel()
+}
 
 const router = useRouter()
 const isDeletingProject = ref(false)
@@ -706,6 +743,17 @@ watch(() => iiifImportJobsStore.terminalEvents.at(-1)?.sequence, () => {
   if (event) {
     lastHandledIiifTerminalSequence = event.sequence
     void refreshProjectPagesData()
+  }
+}, { immediate: true })
+
+let lastHandledActionOutputSequence = 0
+watch(() => actionRunsStore.terminalEvents.at(-1)?.sequence, () => {
+  for (let index = actionRunsStore.terminalEvents.length - 1; index >= 0; index--) {
+    const event = actionRunsStore.terminalEvents[index]
+    if (!event || event.sequence <= lastHandledActionOutputSequence || event.run.projectId !== projectId) continue
+    lastHandledActionOutputSequence = event.sequence
+    if (event.run.status === 'COMPLETED') void refreshOutputs()
+    break
   }
 }, { immediate: true })
 
@@ -2406,9 +2454,19 @@ useHead({
             size="sm"
             icon="i-lucide-box"
             :aria-label="isReleasePanelVisible ? 'Hide releases' : 'Show releases'"
-            @click="toggleReleasePanel"
+            @click="toggleReleasePanelExclusive"
           >
             Releases
+          </UButton>
+          <UButton
+            color="neutral"
+            :variant="isOutputPanelVisible ? 'soft' : 'ghost'"
+            size="sm"
+            icon="i-lucide-package-open"
+            :aria-label="isOutputPanelVisible ? 'Hide outputs' : 'Show outputs'"
+            @click="toggleOutputPanelExclusive"
+          >
+            Outputs
           </UButton>
         </template>
       </UDashboardToolbar>
@@ -2653,6 +2711,24 @@ useHead({
               />
             </aside>
           </Transition>
+          <Transition name="release-sidebar">
+            <aside
+              v-if="isOutputSidebarVisible"
+              class="hidden w-[380px] shrink-0 self-stretch border-l border-default bg-muted/40 xl:block"
+            >
+              <ProjectOutputPanel
+                :outputs="outputsForPanel"
+                :pending="outputsPending"
+                :error="outputsError"
+                :summary="outputSummary"
+                :can-manage="canShareProject"
+                @download="downloadOutput"
+                @download-file="downloadOutputFile"
+                @share="openOutputShare"
+                @delete="deleteOutput"
+              />
+            </aside>
+          </Transition>
         </div>
       </div>
     </template>
@@ -2681,6 +2757,29 @@ useHead({
         @create="openCreateRelease"
         @share="openReleaseShare"
         @download="downloadProjectRelease"
+      />
+    </template>
+  </UiResponsiveSlideover>
+
+  <UiResponsiveSlideover
+    v-model:open="isOutputSlideoverOpen"
+    side="bottom"
+    :ui="{ content: 'max-h-[85svh]', body: 'p-0 sm:p-0' }"
+  >
+    <template #header>
+      <UiSlideoverHeader title="Outputs" icon="i-lucide-package-open" />
+    </template>
+    <template #body>
+      <ProjectOutputPanel
+        :outputs="outputsForPanel"
+        :pending="outputsPending"
+        :error="outputsError"
+        :summary="outputSummary"
+        :can-manage="canShareProject"
+        @download="downloadOutput"
+        @download-file="downloadOutputFile"
+        @share="openOutputShare"
+        @delete="deleteOutput"
       />
     </template>
   </UiResponsiveSlideover>

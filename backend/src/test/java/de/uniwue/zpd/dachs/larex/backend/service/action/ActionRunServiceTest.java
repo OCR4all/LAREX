@@ -167,6 +167,8 @@ class ActionRunServiceTest {
     @Mock
     private ActionRealtimePublisher realtimePublisher;
     @Mock
+    private ActionOutputService actionOutputService;
+    @Mock
     private JobRealtimePublisher jobRealtimePublisher;
     @Mock
     private ActionMetrics actionMetrics;
@@ -232,6 +234,7 @@ class ActionRunServiceTest {
                 responseMapper,
                 resultPageMergeService,
                 realtimePublisher,
+                actionOutputService,
                 jobRealtimePublisher,
                 actionMetrics,
                 transactionTemplate
@@ -613,6 +616,101 @@ class ActionRunServiceTest {
     }
 
     @Test
+    void bulkCustomFileAllowsProjectLevelResultAndPublishesOutput() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-custom-output");
+        definition.setOutputsFiles(true);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.saveAndFlush(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pageRepository.findAllByIdIn(anyCollection())).thenReturn(List.of());
+        when(actionOutputService.storeResultFile(eq(run), any(ActionDto.ResultFile.class), any()))
+                .thenReturn(Map.of("type", "file", "fileName", "entities.jsonl"));
+
+        LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile> files = new LinkedMultiValueMap<>();
+        files.add("custom-result", new MockMultipartFile(
+                "custom-result", "entities.jsonl", "application/x-ndjson", "{}\n".getBytes(StandardCharsets.UTF_8)));
+        ActionDto.ResultManifest manifest = new ActionDto.ResultManifest(1, "completed", "Done", null, List.of(
+                new ActionDto.ResultFile("custom-result", null, "file", null, "entities.jsonl")
+        ), List.of());
+
+        ActionDto.RunResponse response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET, manifest, files);
+
+        assertThat(response.status()).isEqualTo(ActionRun.Status.COMPLETED);
+        verify(actionOutputService).storeResultFile(eq(run), any(ActionDto.ResultFile.class), any());
+        verify(actionOutputService).finalizeDraft(eq(run.getId()), any(LocalDateTime.class));
+    }
+
+    @Test
+    void bulkCustomFileAllowsEmptyResultAndPublishesOutput() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-empty-custom-output");
+        definition.setOutputsFiles(true);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.saveAndFlush(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pageRepository.findAllByIdIn(anyCollection())).thenReturn(List.of());
+        when(actionOutputService.storeResultFile(eq(run), any(ActionDto.ResultFile.class), any()))
+                .thenReturn(Map.of("type", "file", "fileName", "empty.txt"));
+
+        LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile> files = new LinkedMultiValueMap<>();
+        files.add("custom-result", new MockMultipartFile(
+                "custom-result", "empty.txt", "text/plain", new byte[0]));
+        ActionDto.ResultManifest manifest = new ActionDto.ResultManifest(1, "completed", "Done", null, List.of(
+                new ActionDto.ResultFile("custom-result", null, "file", null, "empty.txt")
+        ), List.of());
+
+        ActionDto.RunResponse response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET, manifest, files);
+
+        assertThat(response.status()).isEqualTo(ActionRun.Status.COMPLETED);
+        verify(actionOutputService).storeResultFile(eq(run), any(ActionDto.ResultFile.class), any());
+        verify(actionOutputService).finalizeDraft(eq(run.getId()), any(LocalDateTime.class));
+    }
+
+    @Test
+    void emptyXmlResultRemainsRejected() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-empty-xml-output");
+        definition.setOutputsXml(true);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+
+        LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile> files = new LinkedMultiValueMap<>();
+        files.add("xml-result", new MockMultipartFile(
+                "xml-result", "page.xml", "application/xml", new byte[0]));
+
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(
+                        new ActionDto.ResultFile("xml-result", "page-1", "xml", null, "page.xml")
+                ), List.of()), files))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Missing result file part: xml-result");
+    }
+
+    @Test
+    void undeclaredCustomFileResultIsRejected() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-no-custom-output");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.saveAndFlush(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile> files = new LinkedMultiValueMap<>();
+        files.add("custom-result", new MockMultipartFile(
+                "custom-result", "result.bin", "application/octet-stream", new byte[]{1, 2, 3}));
+
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(
+                        new ActionDto.ResultFile("custom-result", null, "file", null, "result.bin")
+                ), List.of()), files))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("not declared");
+        verify(actionOutputService, never()).storeResultFile(any(), any(), any());
+    }
+
+    @Test
     void bulkFilesAreRejectedAfterIncrementalResults() {
         Project project = project("project-1", WORKSPACE_ID, "Project A");
         ActionProcessorDefinition definition = definition("processor-mixed");
@@ -760,12 +858,13 @@ class ActionRunServiceTest {
                 "test",
                 "WORKFLOW",
                 List.of("PAGE"),
-                new ActionDefinitionDocument.Endpoint("https://processor.example/dispatch", 30, null, null),
+                new ActionDefinitionDocument.Endpoint("https://processor.example/dispatch", 30, null, null, null),
                 new ActionDefinitionDocument.Access("CURATOR"),
                 new ActionDefinitionDocument.Locking("PAGES"),
                 new ActionDefinitionDocument.Inputs(false, true),
                 new ActionDefinitionDocument.Outputs(
                         new ActionDefinitionDocument.OutputTarget(true, "REPLACE_PAGE"),
+                        null,
                         null
                 ),
                 new ActionDefinitionDocument.Concurrency(1, scope),

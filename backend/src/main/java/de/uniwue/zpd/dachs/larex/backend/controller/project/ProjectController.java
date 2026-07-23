@@ -133,6 +133,7 @@ public class ProjectController {
                 request.allowValidationRulesetOverride(),
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
+                request.outputRetentionDays(),
                 userId
         );
 
@@ -169,6 +170,7 @@ public class ProjectController {
                 request.allowValidationRulesetOverride(),
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
+                request.outputRetentionDays(),
                 userId
         );
 

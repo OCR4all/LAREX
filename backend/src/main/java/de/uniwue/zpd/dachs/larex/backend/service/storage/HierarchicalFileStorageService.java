@@ -31,6 +31,7 @@ import javax.imageio.ImageIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -104,7 +105,9 @@ public class HierarchicalFileStorageService {
     ) throws IOException {
         String sanitizedOriginalName = sanitizeOriginalFilename(file.getOriginalFilename());
         String mimeType = resolveMimeType(fileType, file.getContentType(), sanitizedOriginalName, null);
-        String extension = resolveExtension(fileType, mimeType);
+        String extension = fileType == StoredFileType.OUTPUT
+                ? resolveOutputExtension(sanitizedOriginalName)
+                : resolveExtension(fileType, mimeType);
 
         String storageUuid = generateStorageUuid();
         String storagePath = buildStoragePath(workspaceId, projectId, fileType, storageUuid, extension);
@@ -145,7 +148,9 @@ public class HierarchicalFileStorageService {
 
         String sanitizedOriginalName = sanitizeOriginalFilename(originalFilename);
         String mimeType = resolveMimeType(fileType, declaredMimeType, sanitizedOriginalName, normalizedSource);
-        String extension = resolveExtension(fileType, mimeType);
+        String extension = fileType == StoredFileType.OUTPUT
+                ? resolveOutputExtension(sanitizedOriginalName)
+                : resolveExtension(fileType, mimeType);
 
         String storageUuid = generateStorageUuid();
         String storagePath = buildStoragePath(workspaceId, projectId, fileType, storageUuid, extension);
@@ -467,6 +472,30 @@ public class HierarchicalFileStorageService {
     ) {
         String normalizedMime = normalizeMimeType(declaredMimeType);
 
+        if (fileType == StoredFileType.OUTPUT) {
+            if (normalizedMime != null && normalizedMime.length() <= 128) {
+                try {
+                    MediaType parsed = MediaType.parseMediaType(normalizedMime);
+                    if (!parsed.isWildcardType() && !parsed.isWildcardSubtype()) {
+                        return parsed.toString();
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    // Probe the source or use the safe binary fallback below.
+                }
+            }
+            if (sourcePath != null) {
+                try {
+                    String probed = normalizeMimeType(Files.probeContentType(sourcePath));
+                    if (probed != null && probed.length() <= 128) {
+                        return probed;
+                    }
+                } catch (IOException ignored) {
+                    // Use the safe binary fallback below.
+                }
+            }
+            return "application/octet-stream";
+        }
+
         if (fileType == StoredFileType.XML) {
             if (normalizedMime != null && XML_MIMES.contains(normalizedMime)) {
                 return "application/xml";
@@ -517,12 +546,23 @@ public class HierarchicalFileStorageService {
         if (fileType == StoredFileType.XML) {
             return "xml";
         }
+        if (fileType == StoredFileType.OUTPUT) {
+            return "bin";
+        }
 
         String ext = IMAGE_MIME_TO_EXT.get(mimeType);
         if (ext == null) {
             throw new IllegalArgumentException("Unsupported MIME type: " + mimeType);
         }
         return ext;
+    }
+
+    private String resolveOutputExtension(String originalFilename) {
+        String extension = fileExtension(originalFilename);
+        if (extension == null || extension.length() > 16 || !extension.matches("[a-zA-Z0-9]+")) {
+            return "bin";
+        }
+        return extension.toLowerCase(Locale.ROOT);
     }
 
     private String normalizeMimeType(String mimeType) {

@@ -300,6 +300,7 @@ function createNewDefinition() {
     acceptsXml: true,
     outputsImages: false,
     outputsXml: true,
+    outputsFiles: false,
     enabled: true,
     global: false,
     created: new Date().toISOString(),
@@ -351,6 +352,8 @@ outputs:
     enabled: false
     variant: ${processorKey}
     mode: upsert
+  files:
+    enabled: false
 
 concurrency:
   maxActiveRuns: 1

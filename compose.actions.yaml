@@ -31,7 +31,7 @@ services:
     profiles:
       - actions
       - action-kraken
-    image: ${LAREX_ACTION_KRAKEN_IMAGE:-ghcr.io/ocr4all/larex-action-kraken:${LAREX_ACTION_KRAKEN_IMAGE_TAG:-0.2.0}}
+    image: ${LAREX_ACTION_KRAKEN_IMAGE:-ghcr.io/ocr4all/larex-action-kraken:${LAREX_ACTION_KRAKEN_IMAGE_TAG:-0.3.0}}
     environment:
       LAREX_DISPATCH_HMAC_SECRET: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:?Run scripts/bootstrap-env-secrets.sh actions first}
       LAREX_PROCESSOR_ID: kraken-segmentation

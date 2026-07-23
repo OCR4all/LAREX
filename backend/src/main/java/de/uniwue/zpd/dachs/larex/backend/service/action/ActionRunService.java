@@ -148,6 +148,7 @@ public class ActionRunService {
     private final ActionRunResponseMapper responseMapper;
     private final ActionResultPageMergeService resultPageMergeService;
     private final ActionRealtimePublisher realtimePublisher;
+    private final ActionOutputService actionOutputService;
     private final JobRealtimePublisher jobRealtimePublisher;
     private final ActionMetrics metrics;
     private final HttpClient httpClient;
@@ -191,6 +192,7 @@ public class ActionRunService {
                             ActionRunResponseMapper responseMapper,
                             ActionResultPageMergeService resultPageMergeService,
                             ActionRealtimePublisher realtimePublisher,
+                            ActionOutputService actionOutputService,
                             JobRealtimePublisher jobRealtimePublisher,
                             ActionMetrics metrics,
                             TransactionTemplate transactionTemplate) {
@@ -231,6 +233,7 @@ public class ActionRunService {
         this.responseMapper = responseMapper;
         this.resultPageMergeService = resultPageMergeService;
         this.realtimePublisher = realtimePublisher;
+        this.actionOutputService = actionOutputService;
         this.jobRealtimePublisher = jobRealtimePublisher;
         this.metrics = metrics;
         this.transactionTemplate = transactionTemplate;
@@ -421,6 +424,7 @@ public class ActionRunService {
         String rawSecret = issueRunSecret(run);
         run.setStatusMessage(initialStatusMessage);
         run = runRepository.save(run);
+        actionOutputService.createDraft(run, project);
 
         if (dispatchImmediately) {
             applyLocks(project, pages, run);
@@ -719,7 +723,7 @@ public class ActionRunService {
                 pages,
                 buildMachineTargetSelection(run, includedPageIds),
                 imageVariantSelection,
-                new ActionDto.MachineCapabilities(true),
+                new ActionDto.MachineCapabilities(true, true),
                 run.isCancelRequested()
         );
     }
@@ -801,6 +805,7 @@ public class ActionRunService {
             run.setCompletedAt(LocalDateTime.now());
             expireRunSecret(run);
             releaseLocks(run);
+            actionOutputService.discardDraft(run.getId());
             actionAuditService.record("ACTION_RUN_HEARTBEAT_FAILED", "FAILURE", run.getCreatedByUserId(),
                     run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                     Map.of("error", limit(Objects.toString(redactProcessorSecrets(request.errorMessage()), ""), 1000)));
@@ -970,12 +975,10 @@ public class ActionRunService {
         Set<String> xmlPageIds = new LinkedHashSet<>();
         Set<String> resultTypes = new LinkedHashSet<>();
         for (ActionDto.ResultFile resultFile : resultFiles) {
-            if (resultFile.pageId() == null || !pageIds.contains(resultFile.pageId())) {
-                throw new SecurityException("Result page is outside this run scope");
-            }
             MultipartFile file = resolveMultipart(files, resultFile.fieldName());
             String type = normalize(resultFile.type());
             if ("xml".equals(type)) {
+                requireResultPageInScope(resultFile.pageId(), pageIds);
                 if (!definition.isOutputsXml()) {
                     throw new SecurityException("XML outputs are not declared for this processor");
                 }
@@ -983,16 +986,32 @@ public class ActionRunService {
                 xmlPageIds.add(resultFile.pageId());
                 resultTypes.add("xml");
             } else if ("image".equals(type) || "images".equals(type)) {
+                requireResultPageInScope(resultFile.pageId(), pageIds);
                 if (!definition.isOutputsImages()) {
                     throw new SecurityException("Image outputs are not declared for this processor");
                 }
                 stored.add(storeImageResult(run, resultFile, file));
                 resultTypes.add("image");
+            } else if ("file".equals(type) || "files".equals(type)) {
+                if (!definition.isOutputsFiles()) {
+                    throw new SecurityException("File outputs are not declared for this processor");
+                }
+                if (resultFile.pageId() != null && !pageIds.contains(resultFile.pageId())) {
+                    throw new SecurityException("Result page is outside this run scope");
+                }
+                stored.add(actionOutputService.storeResultFile(run, resultFile, file));
+                resultTypes.add("file");
             } else {
                 throw new IllegalArgumentException("Unsupported result type: " + resultFile.type());
             }
         }
         return new ImportResult(stored, xmlPageIds, resultTypes);
+    }
+
+    private void requireResultPageInScope(String pageId, Set<String> pageIds) {
+        if (pageId == null || !pageIds.contains(pageId)) {
+            throw new SecurityException("Result page is outside this run scope");
+        }
     }
 
     private ActionDto.RunResponse finalizeResultRun(ActionRun run, Status status, String message, int resultCount) {
@@ -1007,6 +1026,11 @@ public class ActionRunService {
         }
         run.setProgressPercent(status == Status.COMPLETED ? 100 : run.getProgressPercent());
         run.setCompletedAt(LocalDateTime.now());
+        if (status == Status.COMPLETED) {
+            actionOutputService.finalizeDraft(run.getId(), run.getCompletedAt());
+        } else {
+            actionOutputService.discardDraft(run.getId());
+        }
         expireRunSecret(run);
         releaseLocks(run);
         ActionRun savedRun = runRepository.save(run);
@@ -1238,6 +1262,7 @@ public class ActionRunService {
             run.setCompletedAt(LocalDateTime.now());
             expireRunSecret(run);
             releaseLocks(run);
+            actionOutputService.discardDraft(run.getId());
             runRepository.save(run);
             publishActionRunUpdatedAfterCommit(run);
             actionAuditService.record("ACTION_RUN_RESULT_IMPORT_FAILED", "FAILURE", run.getCreatedByUserId(),
@@ -1368,6 +1393,7 @@ public class ActionRunService {
                 run.setErrorMessage("Queued Action run is missing its public API base URL");
                 run.setCompletedAt(LocalDateTime.now());
                 expireRunSecret(run);
+                actionOutputService.discardDraft(run.getId());
                 runRepository.save(run);
                 publishActionRunUpdatedAfterCommit(run);
                 actionAuditService.record("ACTION_RUN_QUEUE_FAILED", "FAILURE", run.getCreatedByUserId(),
@@ -1460,7 +1486,7 @@ public class ActionRunService {
         payload.put("targetSelection", buildMachineTargetSelection(run, processorPageIdSet));
         payload.put("parameters", payloadService.processorParameters(runParameters));
         payload.put("imageVariantSelection", imageVariantSelection);
-        payload.put("capabilities", Map.of("incrementalPageResults", true));
+        payload.put("capabilities", Map.of("incrementalPageResults", true, "customFileResults", true));
         payload.put("secret", rawSecret);
         payload.put("pullUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/input");
         payload.put("heartbeatUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/heartbeat");
@@ -1540,6 +1566,7 @@ public class ActionRunService {
         run.setCompletedAt(LocalDateTime.now());
         expireRunSecret(run);
         releaseLocks(run);
+        actionOutputService.discardDraft(run.getId());
         runRepository.save(run);
         publishActionRunUpdatedAfterCommit(run);
         actionAuditService.record("ACTION_RUN_DISPATCH_FAILED", "FAILURE", run.getCreatedByUserId(), run.getProcessorDefinition().getId(), run.getId(),
@@ -1798,6 +1825,7 @@ public class ActionRunService {
         run.setCompletedAt(LocalDateTime.now());
         expireRunSecret(run);
         releaseLocks(run);
+        actionOutputService.discardDraft(run.getId());
         runRepository.save(run);
         publishActionRunUpdatedAfterCommit(run);
         appendLogEvent(run, "WARN", message);
@@ -2159,6 +2187,7 @@ public class ActionRunService {
         run.setStatus(Status.CANCELLED);
         run.setStatusMessage(statusMessage == null || statusMessage.isBlank() ? "Cancelled" : statusMessage);
         run.setCompletedAt(LocalDateTime.now());
+        actionOutputService.discardDraft(run.getId());
         expireRunSecret(run);
         releaseLocks(run);
     }
@@ -2374,7 +2403,7 @@ public class ActionRunService {
             throw new IllegalArgumentException("Result file fieldName is required");
         }
         MultipartFile file = files == null ? null : files.getFirst(fieldName);
-        if (file == null || file.isEmpty()) {
+        if (file == null) {
             throw new IllegalArgumentException("Missing result file part: " + fieldName);
         }
         return file;
@@ -2396,6 +2425,11 @@ public class ActionRunService {
                 throw new IllegalArgumentException("Duplicate result file fieldName: " + resultFile.fieldName());
             }
             MultipartFile file = resolveMultipart(files, resultFile.fieldName());
+            String resultType = normalize(resultFile.type());
+            boolean genericFile = "file".equals(resultType) || "files".equals(resultType);
+            if (file.isEmpty() && !genericFile) {
+                throw new IllegalArgumentException("Missing result file part: " + resultFile.fieldName());
+            }
             validateResultFileSize(file);
             totalBytes += file.getSize();
             if (totalBytes > actionProperties.getResults().getMaxTotalBytes()) {

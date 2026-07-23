@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 
 from larex_actions import ActionCancelled, ActionContext
@@ -29,6 +30,7 @@ async def process_run(ctx: ActionContext) -> None:
 
         image_count = 0
         xml_count = 0
+        file_count = 0
         for page in action_input.pages:
             async with ctx.step(f"Copying {page.name}"):
                 await ctx.check_cancelled()
@@ -55,15 +57,30 @@ async def process_run(ctx: ActionContext) -> None:
                     )
                     xml_count += 1
 
+                if ctx.capabilities.custom_file_results:
+                    results.add_file_bytes(
+                        content=json.dumps(
+                            {"pageId": page.id, "pageName": page.name},
+                            separators=(",", ":"),
+                        ).encode("utf-8"),
+                        file_name=f"{page.name}-metadata.json",
+                        mime_type="application/json",
+                        page_id=page.id,
+                    )
+                    file_count += 1
+
                 await ctx.submit_page_results(page.id, results, f"Copied {page.name}")
 
-        await ctx.complete(message=result_message(image_count, xml_count))
+        await ctx.complete(message=result_message(image_count, xml_count, file_count))
     except ActionCancelled:
         raise
 
 
-def result_message(image_count: int, xml_count: int) -> str:
-    return f"Mock processor copied {image_count} image(s) and {xml_count} XML file(s)."
+def result_message(image_count: int, xml_count: int, file_count: int) -> str:
+    return (
+        f"Mock processor copied {image_count} image(s), {xml_count} XML file(s), "
+        f"and created {file_count} custom file(s)."
+    )
 
 
 app = create_larex_action_app(

@@ -109,6 +109,7 @@ public class ProjectReadService {
                     project.isAllowValidationRulesetOverride(),
                     project.getEffectiveDefaultGtIndex(),
                     project.getDefaultRecognitionIndicesList(),
+                    project.getOutputRetentionDays(),
                     authorizationPolicyService.resolveProjectCapabilities(project, userId)
             ));
         }

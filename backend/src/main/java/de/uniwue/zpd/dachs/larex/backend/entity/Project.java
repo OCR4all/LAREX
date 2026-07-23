@@ -114,6 +114,9 @@ public class Project {
     @Column(name = "default_recognition_indices", columnDefinition = "TEXT")
     private String defaultRecognitionIndices;
 
+    @Column(name = "output_retention_days")
+    private Integer outputRetentionDays;
+
     public Project() {}
 
     public Project(String name, String description, Library library) {
@@ -356,5 +359,16 @@ public class Project {
 
     public void setDefaultRecognitionIndicesList(List<Integer> indices) {
         this.defaultRecognitionIndices = TextIndexDefaultsUtil.toCsv(indices);
+    }
+
+    public Integer getOutputRetentionDays() {
+        return outputRetentionDays;
+    }
+
+    public void setOutputRetentionDays(Integer outputRetentionDays) {
+        if (outputRetentionDays != null && outputRetentionDays <= 0) {
+            throw new IllegalArgumentException("Output retention days must be positive");
+        }
+        this.outputRetentionDays = outputRetentionDays;
     }
 }

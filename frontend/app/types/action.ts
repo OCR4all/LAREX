@@ -1,6 +1,6 @@
 export type ActionExecuteRole = 'EDITOR' | 'CURATOR'
 export type ActionLockMode = 'PAGES' | 'PROJECT'
-export type ActionCategory = 'WORKFLOW' | 'OCR_HTR' | 'LAYOUT'
+export type ActionCategory = 'WORKFLOW' | 'OCR_HTR' | 'LAYOUT' | 'POSTPROCESSING'
 export type ActionTarget = 'PAGE' | 'REGION' | 'TEXT_LINE'
 export type ActionRunStatus = 'QUEUED' | 'PENDING' | 'DISPATCHING' | 'RUNNING' | 'IMPORTING_RESULTS' | 'COMPLETED' | 'FAILED' | 'CANCEL_REQUESTED' | 'CANCELLED'
 
@@ -47,6 +47,7 @@ export interface ActionDefinitionPreview {
   acceptsXml: boolean
   outputsImages: boolean
   outputsXml: boolean
+  outputsFiles: boolean
   parameters: Record<string, ActionParameterDefinition>
 }
 
@@ -82,6 +83,7 @@ export interface ActionDefinition {
   acceptsXml: boolean
   outputsImages: boolean
   outputsXml: boolean
+  outputsFiles: boolean
   enabled: boolean
   global: boolean
   created: string

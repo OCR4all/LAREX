@@ -118,6 +118,8 @@ public class DevActionBootstrap implements ApplicationRunner {
                     enabled: true
                     variant: action-copy
                     mode: upsert
+                  files:
+                    enabled: true
 
                 concurrency:
                   maxActiveRuns: 2

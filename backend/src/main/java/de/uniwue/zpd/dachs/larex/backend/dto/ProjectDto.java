@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
@@ -33,7 +34,9 @@ public class ProjectDto {
             Boolean allowNormalizationProfileOverride,
             Boolean allowValidationRulesetOverride,
             Integer defaultGtIndex,
-            List<Integer> defaultRecognitionIndices
+            List<Integer> defaultRecognitionIndices,
+            @Positive(message = "Output retention days must be positive")
+            Integer outputRetentionDays
     ) {}
 
     public record ToolkitPresetsRequest(
@@ -85,6 +88,7 @@ public class ProjectDto {
             boolean allowValidationRulesetOverride,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices,
+            Integer outputRetentionDays,
             AuthorizationCapabilitiesDto.ProjectCapabilities capabilities
     ) {
         private static String formatBytes(Long bytes) {
@@ -112,6 +116,7 @@ public class ProjectDto {
                                   boolean allowTagSetOverride, boolean allowNormalizationProfileOverride,
                                   boolean allowValidationRulesetOverride,
                                   Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                                  Integer outputRetentionDays,
                                   AuthorizationCapabilitiesDto.ProjectCapabilities capabilities) {
             return new Response(id, name, description, tags, resolvedTags, created, updated, pageCount,
                     completedPageCount, completionPercentage, isStarred,
@@ -119,7 +124,7 @@ public class ProjectDto {
                     normalizationProfileId, validationRulesetId, virtualKeyboardId,
                     allowCodecOverride, allowDictionaryOverride, allowVirtualKeyboardOverride, allowLabelSetOverride,
                     allowTagSetOverride, allowNormalizationProfileOverride, allowValidationRulesetOverride,
-                    defaultGtIndex, defaultRecognitionIndices, capabilities);
+                    defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, capabilities);
         }
     }
 }

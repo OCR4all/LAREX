@@ -29,6 +29,7 @@ export type ProjectData = {
   allowValidationRulesetOverride?: boolean
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
+  outputRetentionDays?: number | null
   capabilities?: {
     canEdit: boolean
     canShare: boolean

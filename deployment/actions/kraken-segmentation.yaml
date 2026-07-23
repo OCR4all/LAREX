@@ -10,6 +10,7 @@ targets:
 endpoint:
   url: http://action-kraken-segmentation:9000/dispatch
   healthUrl: http://action-kraken-segmentation:9000/health
+  preflightUrl: http://action-kraken-segmentation:9000/preflight
   timeoutSeconds: 30
   auth:
     type: hmac

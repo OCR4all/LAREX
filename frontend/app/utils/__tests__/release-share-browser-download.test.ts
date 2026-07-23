@@ -12,6 +12,11 @@ describe('release share browser download URLs', () => {
       .toBe('/share/share-abc')
   })
 
+  it('converts Action output share URL to browser URL', () => {
+    expect(buildReleaseShareBrowserDownloadUrl('https://example.test/api/public/action-outputs/output-share/download'))
+      .toBe('https://example.test/share/output-share')
+  })
+
   it('returns null for unsupported URLs', () => {
     expect(buildReleaseShareBrowserDownloadUrl('https://example.test/not-a-share-url'))
       .toBeNull()

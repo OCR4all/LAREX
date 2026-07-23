@@ -26,7 +26,8 @@ public class StoredFile {
     public enum StoredFileType {
         IMG("img"),
         XML("xml"),
-        THUMB("thumb");
+        THUMB("thumb"),
+        OUTPUT("out");
 
         private final String folderName;
 

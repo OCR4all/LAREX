@@ -5,6 +5,7 @@ describe('public release download utils', () => {
   it('parses supported release kinds', () => {
     expect(parsePublicReleaseKind('dataset-releases')).toBe('dataset-releases')
     expect(parsePublicReleaseKind('project-releases')).toBe('project-releases')
+    expect(parsePublicReleaseKind('action-outputs')).toBe('action-outputs')
     expect(parsePublicReleaseKind('other')).toBeNull()
   })
 
@@ -31,5 +32,17 @@ describe('public release download utils', () => {
 
     expect(request.url).toBe('http://backend.internal/api/v1/public/project-releases/share-456/download')
     expect(request.init.method).toBe('GET')
+  })
+
+  it('builds Action output proxy request', () => {
+    const request = buildPublicReleaseProxyRequest(
+      'http://backend.internal/api/v1/',
+      'action-outputs',
+      'output-share',
+      'Bearer output-secret'
+    )
+
+    expect(request.url).toBe('http://backend.internal/api/v1/public/action-outputs/output-share/download')
+    expect(new Headers(request.init.headers).get('Authorization')).toBe('Bearer output-secret')
   })
 })

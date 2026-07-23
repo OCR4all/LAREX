@@ -41,6 +41,7 @@ public class ActionDto {
             boolean acceptsXml,
             boolean outputsImages,
             boolean outputsXml,
+            boolean outputsFiles,
             Map<String, ActionDefinitionDocument.Parameter> parameters
     ) {}
 
@@ -65,6 +66,7 @@ public class ActionDto {
             boolean acceptsXml,
             boolean outputsImages,
             boolean outputsXml,
+            boolean outputsFiles,
             boolean enabled,
             boolean global,
             LocalDateTime created,
@@ -300,7 +302,8 @@ public class ActionDto {
     ) {}
 
     public record MachineCapabilities(
-            boolean incrementalPageResults
+            boolean incrementalPageResults,
+            boolean customFileResults
     ) {}
 
     public record HeartbeatRequest(

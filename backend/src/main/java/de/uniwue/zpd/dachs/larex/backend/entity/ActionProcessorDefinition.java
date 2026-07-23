@@ -36,7 +36,8 @@ public class ActionProcessorDefinition {
     public enum ActionCategory {
         WORKFLOW,
         OCR_HTR,
-        LAYOUT
+        LAYOUT,
+        POSTPROCESSING
     }
 
     public enum ActionTarget {
@@ -96,6 +97,9 @@ public class ActionProcessorDefinition {
 
     @Column(nullable = false, name = "outputs_xml")
     private boolean outputsXml = false;
+
+    @Column(nullable = false, name = "outputs_files")
+    private boolean outputsFiles = false;
 
     @Column(nullable = false)
     private boolean enabled = true;
@@ -243,6 +247,14 @@ public class ActionProcessorDefinition {
 
     public void setOutputsXml(boolean outputsXml) {
         this.outputsXml = outputsXml;
+    }
+
+    public boolean isOutputsFiles() {
+        return outputsFiles;
+    }
+
+    public void setOutputsFiles(boolean outputsFiles) {
+        this.outputsFiles = outputsFiles;
     }
 
     public boolean isEnabled() {
