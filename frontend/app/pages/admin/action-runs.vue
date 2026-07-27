@@ -18,6 +18,7 @@ const route = useRoute()
 const toast = useToast()
 const UBadgeComponent = resolveComponent('UBadge')
 const UButtonComponent = resolveComponent('UButton')
+const UDropdownMenuComponent = resolveComponent('UDropdownMenu')
 
 const searchInput = ref('')
 const debouncedSearch = ref('')
@@ -213,29 +214,30 @@ const columns = computed<TableColumn<AdminActionRun>[]>(() => [
             }
           })
         : null,
-      h(UButtonComponent, {
-        label: 'Logs',
-        icon: 'i-lucide-scroll-text',
-        color: 'neutral',
-        variant: 'ghost',
-        size: 'xs',
-        type: 'button',
-        onClick: (event: MouseEvent) => {
-          event.stopPropagation()
-          openRunLogs(row.original)
-        }
-      }),
-      h(UButtonComponent, {
-        label: 'Action',
-        color: 'neutral',
-        variant: 'ghost',
-        size: 'xs',
-        type: 'button',
-        onClick: (event: MouseEvent) => {
-          event.stopPropagation()
-          void navigateTo(`/admin/actions?definitionId=${row.original.processorDefinitionId}`)
-        }
-      })
+      h(UDropdownMenuComponent, {
+        items: [
+          {
+            label: 'Logs',
+            icon: 'i-lucide-scroll-text',
+            onSelect: () => openRunLogs(row.original)
+          },
+          {
+            label: 'View Action',
+            icon: 'i-lucide-external-link',
+            onSelect: () => navigateTo(`/admin/actions?definitionId=${row.original.processorDefinitionId}`)
+          }
+        ],
+        content: { align: 'end' }
+      }, () => h(UButtonComponent, {
+        'icon': 'i-lucide-ellipsis-vertical',
+        'color': 'neutral',
+        'variant': 'ghost',
+        'size': 'xs',
+        'square': true,
+        'type': 'button',
+        'aria-label': `Actions for ${row.original.processorName}`,
+        'onClick': (event: MouseEvent) => event.stopPropagation()
+      }))
     ].filter(Boolean))
   }
 ])
