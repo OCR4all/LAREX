@@ -530,7 +530,7 @@ onUnmounted(() => {
         <div v-if="isLoading" class="flex-1 overflow-auto p-4">
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
             <div v-for="i in 5" :key="i" class="rounded-2xl bg-elevated p-2.5 shadow-sm">
-              <USkeleton class="aspect-[4/5] w-full rounded-xl" />
+              <USkeleton class="aspect-4/5 w-full rounded-xl" />
               <div class="px-1.5 pt-3 pb-1.5 space-y-2">
                 <div class="flex items-center justify-between gap-3">
                   <USkeleton class="h-4 w-20" />

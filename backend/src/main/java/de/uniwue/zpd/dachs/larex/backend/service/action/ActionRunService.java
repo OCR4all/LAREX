@@ -55,11 +55,13 @@ import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -153,6 +155,7 @@ public class ActionRunService {
     private final ActionMetrics metrics;
     private final HttpClient httpClient;
     private final TransactionTemplate transactionTemplate;
+    private final TransactionTemplate resultImportTransactionTemplate;
     private final Map<String, ScheduledFuture<?>> pendingLexiconRebuilds = new ConcurrentHashMap<>();
 
     public ActionRunService(ActionProcessorDefinitionRepository definitionRepository,
@@ -237,6 +240,9 @@ public class ActionRunService {
         this.jobRealtimePublisher = jobRealtimePublisher;
         this.metrics = metrics;
         this.transactionTemplate = transactionTemplate;
+        this.resultImportTransactionTemplate = new TransactionTemplate(Objects.requireNonNull(
+                transactionTemplate.getTransactionManager(), "Transaction manager is required"));
+        this.resultImportTransactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .followRedirects(HttpClient.Redirect.NORMAL)
@@ -367,6 +373,9 @@ public class ActionRunService {
         List<Page> pages = resolveRunPagesForUpdate(projectId, targetSelection.pages().stream()
                 .map(ActionDto.TargetSelectionPage::pageId)
                 .toList());
+        Map<String, Object> parameters = resolveRunParameters(definition, request.imageVariantSelection());
+        pages = processorPages(pages, definition, parameters);
+        targetSelection = restrictTargetSelection(targetSelection, pages);
         ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, projectId);
         boolean dispatchImmediately = concurrency.available();
         if (!dispatchImmediately && !Boolean.TRUE.equals(request.enqueueIfBusy())) {
@@ -384,7 +393,7 @@ public class ActionRunService {
                 targetSelection,
                 userId,
                 publicApiBaseUrl,
-                resolveRunParameters(definition, request.imageVariantSelection()),
+                parameters,
                 dispatchImmediately ? Status.PENDING : Status.QUEUED,
                 dispatchImmediately ? "Created" : "Queued; waiting for an available slot",
                 "ACTION_RUN_START",
@@ -536,6 +545,9 @@ public class ActionRunService {
         ActionDto.TargetSelection targetSelection = payloadService.readTargetSelection(sourceRun);
         requireTargetSupported(definition, targetSelection.type());
         List<Page> pages = resolveRunPagesForUpdate(projectId, payloadService.readPageIds(sourceRun));
+        Map<String, Object> parameters = payloadService.readObjectMap(sourceRun.getParametersJson());
+        pages = processorPages(pages, definition, parameters);
+        targetSelection = restrictTargetSelection(targetSelection, pages);
         ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, projectId);
         boolean dispatchImmediately = concurrency.available();
         if (!dispatchImmediately && !enqueueIfBusy) {
@@ -553,7 +565,7 @@ public class ActionRunService {
                 targetSelection,
                 userId,
                 publicApiBaseUrl,
-                payloadService.readObjectMap(sourceRun.getParametersJson()),
+                parameters,
                 dispatchImmediately ? Status.PENDING : Status.QUEUED,
                 dispatchImmediately ? "Created" : "Queued; waiting for an available slot",
                 "ACTION_RUN_RETRY",
@@ -1178,11 +1190,11 @@ public class ActionRunService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    importTaskExecutor.execute(task);
+                    executeResultImportTaskWithBackpressure(task, "page reindex", true);
                 }
             });
         } else {
-            importTaskExecutor.execute(task);
+            executeResultImportTaskWithBackpressure(task, "page reindex", true);
         }
     }
 
@@ -1226,7 +1238,7 @@ public class ActionRunService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    importTaskExecutor.execute(task);
+                    executeResultImportTaskWithBackpressure(task, "replaced file cleanup", false);
                 }
             });
         } else {
@@ -1241,12 +1253,33 @@ public class ActionRunService {
                 @Override
                 public void afterCompletion(int status) {
                     if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
-                        importTaskExecutor.execute(task);
+                        executeResultImportTaskWithBackpressure(task, "result import failure persistence", true);
                     }
                 }
             });
         } else {
             task.run();
+        }
+    }
+
+    private void executeResultImportTaskWithBackpressure(Runnable task,
+                                                         String taskDescription,
+                                                         boolean requiresNewTransaction) {
+        try {
+            importTaskExecutor.execute(task);
+        } catch (TaskRejectedException rejected) {
+            log.warn("Import task executor saturated while scheduling LAREX Action {}; running on the caller thread",
+                    taskDescription);
+            try {
+                if (requiresNewTransaction) {
+                    resultImportTransactionTemplate.executeWithoutResult(status -> task.run());
+                } else {
+                    task.run();
+                }
+            } catch (RuntimeException taskFailure) {
+                log.error("LAREX Action {} failed while running on the caller thread: {}",
+                        taskDescription, describeException(taskFailure), taskFailure);
+            }
         }
     }
 
@@ -2340,6 +2373,43 @@ public class ActionRunService {
                         imageVariantSelection
                 ).isEmpty())
                 .toList();
+    }
+
+    private List<Page> processorPages(List<Page> pages,
+                                      ActionProcessorDefinition definition,
+                                      Map<String, Object> parameters) {
+        ActionDto.ImageVariantSelection imageVariantSelection = payloadService.readImageVariantSelection(parameters);
+        if (!definition.isAcceptsImages() || imageVariantSelection == null) {
+            return pages;
+        }
+        List<String> pageIds = pages.stream().map(Page::getId).toList();
+        Map<String, List<PageImage>> imagesByPage = pageImageRepository.findByPageIdIn(pageIds).stream()
+                .collect(Collectors.groupingBy(image -> image.getPage().getId()));
+        List<Page> includedPages = pages.stream()
+                .filter(page -> !selectImagesForPage(
+                        page.getId(),
+                        imagesByPage.getOrDefault(page.getId(), List.of()),
+                        imageVariantSelection
+                ).isEmpty())
+                .toList();
+        if (includedPages.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "No pages have the selected image variant; choose another variant or enable fallback");
+        }
+        return includedPages;
+    }
+
+    private ActionDto.TargetSelection restrictTargetSelection(ActionDto.TargetSelection targetSelection,
+                                                              List<Page> pages) {
+        Set<String> includedPageIds = pages.stream()
+                .map(Page::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return new ActionDto.TargetSelection(
+                targetSelection.type(),
+                targetSelection.pages().stream()
+                        .filter(page -> includedPageIds.contains(page.pageId()))
+                        .toList()
+        );
     }
 
     private List<PageImage> selectImagesForPage(String pageId,

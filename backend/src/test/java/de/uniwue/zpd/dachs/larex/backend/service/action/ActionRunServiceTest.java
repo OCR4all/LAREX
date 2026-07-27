@@ -8,6 +8,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlTextDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
@@ -53,8 +54,11 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.quality.Strictness;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.scheduling.TaskScheduler;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.LinkedMultiValueMap;
 
@@ -82,6 +86,7 @@ import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -174,6 +179,10 @@ class ActionRunServiceTest {
     private ActionMetrics actionMetrics;
     @Mock
     private TransactionTemplate transactionTemplate;
+    @Mock
+    private PlatformTransactionManager transactionManager;
+    @Mock
+    private TransactionStatus transactionStatus;
 
     private ActionRunService service;
     private ObjectMapper objectMapper;
@@ -183,6 +192,8 @@ class ActionRunServiceTest {
     void setUp() {
         objectMapper = new ObjectMapper();
         actionProperties = new ActionProperties();
+        when(transactionTemplate.getTransactionManager()).thenReturn(transactionManager);
+        when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
         ActionRunPayloadService payloadService = new ActionRunPayloadService(objectMapper);
         ActionRunResponseMapper responseMapper = new ActionRunResponseMapper(
                 runRepository,
@@ -248,6 +259,66 @@ class ActionRunServiceTest {
         lenient().when(pageResultRepository.findByRunIdAndPageId(anyString(), anyString())).thenReturn(Optional.empty());
         lenient().when(pageResultRepository.findByRunIdOrderByCreatedAsc(anyString())).thenReturn(List.of());
         lenient().when(pageOrderService.sortPages(anyCollection())).thenAnswer(invocation -> List.copyOf(invocation.getArgument(0)));
+    }
+
+    @Test
+    void startRunRestrictsScopeToPagesWithSelectedImageVariant() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        Page includedPage = new Page("0015", null, project);
+        includedPage.setId("page-1");
+        Page skippedPage = new Page("0016", null, project);
+        skippedPage.setId("page-2");
+        PageImage selectedImage = new PageImage(
+                "0015.png", "images/0015.png", "image/png", 10L, "action-copy", "0015", includedPage);
+        selectedImage.setId("image-1");
+        ActionProcessorDefinition definition = definition("processor-image-scope");
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        definition.setAcceptsImages(true);
+
+        when(definitionRepository.findByIdForUpdate(definition.getId())).thenReturn(Optional.of(definition));
+        when(definitionRepository.findById(definition.getId())).thenReturn(Optional.of(definition));
+        when(projectRepository.findByIdAndLibraryWorkspaceIdForUpdate(project.getId(), WORKSPACE_ID))
+                .thenReturn(Optional.of(project));
+        when(pageRepository.findByIdInAndProjectId(anyList(), eq(project.getId())))
+                .thenReturn(List.of(includedPage, skippedPage));
+        when(pageRepository.findByIdInAndProjectIdForUpdate(anyList(), eq(project.getId())))
+                .thenReturn(List.of(includedPage, skippedPage));
+        when(pageImageRepository.findByPageIdIn(anyList())).thenReturn(List.of(selectedImage));
+        when(definitionService.readTargetTypes(definition)).thenReturn(List.of(ActionTarget.PAGE));
+        when(definitionService.readParsedDocument(definition))
+                .thenReturn(parsedDefinition(definition.getProcessorKey(), "PROJECT", true));
+        when(definitionService.defaultTokenTtlMinutes()).thenReturn(30);
+        when(workspaceAccessService.canManageProjects(WORKSPACE_ID, OWNER_ID)).thenReturn(true);
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> {
+            ActionRun saved = invocation.getArgument(0);
+            if (saved.getId() == null) {
+                saved.setId("run-1");
+            }
+            return saved;
+        });
+
+        ActionDto.StartRunResponse response = service.startRun(
+                WORKSPACE_ID,
+                project.getId(),
+                new ActionDto.StartRunRequest(
+                        definition.getId(),
+                        List.of(includedPage.getId(), skippedPage.getId()),
+                        Map.of(),
+                        null,
+                        new ActionDto.ImageVariantSelection("GLOBAL", "action-copy", Map.of(), false),
+                        false
+                ),
+                OWNER_ID,
+                "http://app:8080/api/v1"
+        );
+
+        assertThat(response.run().pageIds()).containsExactly(includedPage.getId());
+        assertThat(response.run().targetSelection().pages())
+                .extracting(ActionDto.TargetSelectionPage::pageId)
+                .containsExactly(includedPage.getId());
+        assertThat(includedPage.isLocked()).isTrue();
+        assertThat(skippedPage.isLocked()).isFalse();
     }
 
     @Test
@@ -522,7 +593,7 @@ class ActionRunServiceTest {
     }
 
     @Test
-    void incrementalPageImportsXmlAndImageIntoAggregateSummary() throws Exception {
+    void incrementalPageImportsXmlAndImageWhenPostCommitExecutorIsSaturated() throws Exception {
         Project project = project("project-1", WORKSPACE_ID, "Project A");
         ActionProcessorDefinition definition = definition("processor-files");
         definition.setOutputsXml(true);
@@ -535,6 +606,7 @@ class ActionRunServiceTest {
         when(runRepository.saveAndFlush(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(pageRepository.findByIdAndProjectId(page.getId(), project.getId())).thenReturn(Optional.of(page));
+        when(pageRepository.findById(page.getId())).thenReturn(Optional.of(page));
         when(pageXmlValidationService.validatePageXml(any(org.springframework.core.io.Resource.class))).thenReturn(
                 new PageXmlTextDto.XmlValidationResult(true, List.of(), "2019-07-15", "urn:page"));
         when(pageXmlRepository.findByPage_Id(page.getId())).thenReturn(List.of());
@@ -563,6 +635,8 @@ class ActionRunServiceTest {
         });
         when(pageResultRepository.findByRunIdOrderByCreatedAsc(run.getId())).thenAnswer(invocation -> List.copyOf(importedPages));
         when(pageResultRepository.countByRunId(run.getId())).thenAnswer(invocation -> (long) importedPages.size());
+        doThrow(new TaskRejectedException("queue full"))
+                .when(importTaskExecutor).execute(any(Runnable.class));
 
         ByteArrayOutputStream pngBytes = new ByteArrayOutputStream();
         ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), "png", pngBytes);
@@ -580,6 +654,8 @@ class ActionRunServiceTest {
         assertThat(run.getResultSummaryJson()).contains("xml-result", "image-result");
         verify(pageXmlRepository).save(any(PageXml.class));
         verify(pageImageRepository).save(any(PageImage.class));
+        verify(pageFilterIndexService).indexPageFromXml(page);
+        verify(transactionManager).commit(transactionStatus);
     }
 
     @Test
@@ -851,6 +927,10 @@ class ActionRunServiceTest {
     }
 
     private ActionDefinitionDocument parsedDefinition(String processorKey, String scope) {
+        return parsedDefinition(processorKey, scope, false);
+    }
+
+    private ActionDefinitionDocument parsedDefinition(String processorKey, String scope, boolean acceptsImages) {
         return new ActionDefinitionDocument(
                 1,
                 processorKey,
@@ -861,7 +941,7 @@ class ActionRunServiceTest {
                 new ActionDefinitionDocument.Endpoint("https://processor.example/dispatch", 30, null, null, null),
                 new ActionDefinitionDocument.Access("CURATOR"),
                 new ActionDefinitionDocument.Locking("PAGES"),
-                new ActionDefinitionDocument.Inputs(false, true),
+                new ActionDefinitionDocument.Inputs(acceptsImages, true),
                 new ActionDefinitionDocument.Outputs(
                         new ActionDefinitionDocument.OutputTarget(true, "REPLACE_PAGE"),
                         null,

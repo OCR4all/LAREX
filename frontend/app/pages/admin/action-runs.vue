@@ -2,8 +2,17 @@
 import type { TableColumn } from '@nuxt/ui'
 import type { AdminActionRun, ActionRunStatus } from '@/types/action'
 import { extractApiErrorMessage } from '@/utils/api-error'
+import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
+
+type AdminWorkspace = {
+  id: string
+  name: string
+  isPersonal: boolean
+  ownerUserId: string
+  ownerUsername?: string | null
+}
 
 const route = useRoute()
 const toast = useToast()
@@ -19,7 +28,18 @@ const page = ref(1)
 const itemsPerPage = ref(25)
 const cancellingRunIds = ref<Set<string>>(new Set())
 const runs = ref<AdminActionRun[]>([])
+const selectedRun = ref<AdminActionRun | null>(null)
+const isLogsModalOpen = ref(false)
 const adminRunsKey = globalKey('admin', 'action-runs', 'all')
+
+const { data: workspaces } = await useFetch<AdminWorkspace[]>('/api/admin/workspaces', {
+  key: globalKey('admin', 'action-runs', 'workspaces'),
+  default: () => []
+})
+
+const workspaceLabelById = computed(() => new Map(
+  workspaces.value.map(workspace => [workspace.id, getWorkspaceDisplayName(workspace)])
+))
 
 const statusOptions = [
   { label: 'All statuses', value: 'ALL' as const },
@@ -58,7 +78,7 @@ const processorOptions = computed(() => [
 const workspaceOptions = computed(() => [
   { label: 'All workspaces', value: 'all' },
   ...Array.from(new Map(runs.value.map(run => [run.workspaceId, {
-    label: `${run.workspaceLabel} · ${run.workspaceId}`,
+    label: workspaceLabel(run),
     value: run.workspaceId
   }])).values())
 ])
@@ -112,7 +132,7 @@ const filteredRuns = computed(() => runs.value
     return [
       run.processorName,
       run.processorKey,
-      run.workspaceLabel,
+      workspaceLabel(run),
       run.projectLabel,
       run.status,
       run.statusMessage,
@@ -150,8 +170,7 @@ const columns = computed<TableColumn<AdminActionRun>[]>(() => [
     id: 'target',
     header: 'Workspace / Project',
     cell: ({ row }) => h('div', { class: 'min-w-0' }, [
-      h('div', { class: 'truncate font-medium' }, row.original.workspaceLabel),
-      h('div', { class: 'truncate text-xs text-muted' }, row.original.workspaceId),
+      h('div', { class: 'truncate font-medium' }, workspaceLabel(row.original)),
       h('div', { class: 'truncate text-xs text-muted' }, row.original.projectLabel)
     ])
   },
@@ -194,6 +213,18 @@ const columns = computed<TableColumn<AdminActionRun>[]>(() => [
             }
           })
         : null,
+      h(UButtonComponent, {
+        label: 'Logs',
+        icon: 'i-lucide-scroll-text',
+        color: 'neutral',
+        variant: 'ghost',
+        size: 'xs',
+        type: 'button',
+        onClick: (event: MouseEvent) => {
+          event.stopPropagation()
+          openRunLogs(row.original)
+        }
+      }),
       h(UButtonComponent, {
         label: 'Action',
         color: 'neutral',
@@ -266,6 +297,31 @@ function clearFilters() {
   statusFilter.value = 'ALL'
   processorFilter.value = typeof route.query.definitionId === 'string' ? route.query.definitionId : 'all'
   workspaceFilter.value = 'all'
+}
+
+function workspaceLabel(run: AdminActionRun) {
+  return workspaceLabelById.value.get(run.workspaceId) || run.workspaceLabel || run.workspaceId
+}
+
+function openRunLogs(run: AdminActionRun) {
+  selectedRun.value = run
+  isLogsModalOpen.value = true
+}
+
+function formatRunLogs(run: AdminActionRun) {
+  if (run.logEvents?.length) {
+    return run.logEvents
+      .map(event => `[${formatLogTimestamp(event.created)}] ${event.level}: ${event.message}`)
+      .join('\n')
+  }
+  return run.logText || 'No logs recorded.'
+}
+
+function formatLogTimestamp(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'medium'
+  }).format(new Date(value))
 }
 
 function compareRuns(left: AdminActionRun, right: AdminActionRun) {
@@ -440,4 +496,18 @@ function setCancellingRun(runId: string, value: boolean) {
       </div>
     </template>
   </UDashboardPanel>
+
+  <UModal
+    v-model:open="isLogsModalOpen"
+    :title="selectedRun ? `${selectedRun.processorName} logs` : 'Action run logs'"
+    :description="selectedRun ? `${workspaceLabel(selectedRun)} / ${selectedRun.projectLabel}` : undefined"
+    :ui="{ content: 'sm:max-w-4xl' }"
+  >
+    <template #body>
+      <pre
+        v-if="selectedRun"
+        class="max-h-[70vh] overflow-auto whitespace-pre-wrap break-words rounded-sm bg-elevated p-4 text-xs"
+      >{{ formatRunLogs(selectedRun) }}</pre>
+    </template>
+  </UModal>
 </template>
