@@ -3264,6 +3264,7 @@ watch(() => props.src, (newSrc) => {
       <UContextMenu
         v-model:open="contextMenuOpen"
         :items="contextMenuItems"
+        :ui="{ content: 'min-w-48' }"
       >
         <template #default>
           <canvas

@@ -625,7 +625,7 @@ export function useEditorCommand(
         submenu: [
           { id: 'simplify-selection', label: 'Simplify Selection', icon: 'i-lucide-minimize-2' },
           { id: 'convex-hull-selection', label: 'Convex Hull Selection', icon: 'i-lucide-octagon' },
-          { id: 'fit-selection-to-bbox', label: 'Fit Selection to Bounding Boxes', icon: 'i-lucide-square' }
+          { id: 'fit-selection-to-bbox', label: 'Bounding Box', icon: 'i-lucide-square' }
         ]
       })
     }
@@ -728,7 +728,7 @@ export function useEditorCommand(
         submenu: [
           { id: 'simplify-polygon', label: 'Simplify', icon: 'i-lucide-minimize-2' },
           { id: 'convex-hull', label: 'Convex Hull', icon: 'i-lucide-octagon' },
-          { id: 'fit-to-bbox', label: 'Fit to Bounding Box', icon: 'i-lucide-square' },
+          { id: 'fit-to-bbox', label: 'Bounding Box', icon: 'i-lucide-square' },
           { id: 'buffer-polygon', label: 'Expand / Shrink...', icon: 'i-lucide-move-diagonal' }
         ]
       },
