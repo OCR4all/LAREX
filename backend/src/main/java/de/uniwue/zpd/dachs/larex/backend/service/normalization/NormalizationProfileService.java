@@ -546,9 +546,8 @@ public class NormalizationProfileService {
     }
 
     private PageXml resolveEditablePageXml(String pageId) {
-        return pageXmlRepository.findByPage_Id(pageId).stream()
+        return pageXmlRepository.findByPage_Id(pageId)
                 .filter(pageXml -> pageXml.getSchema() == XmlSchema.PAGE_XML)
-                .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("No PAGE XML file found for page '" + pageId + "'"));
     }
 

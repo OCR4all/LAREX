@@ -95,7 +95,7 @@ public class SearchPreviewService {
                 return null;
             }
 
-            PageDto pageDto = annotationProcessingService.parseMultipleXmlToAnnotation(pageId);
+            PageDto pageDto = annotationProcessingService.parseHeadXmlToAnnotation(pageId);
             PolygonDto polygon = textLineId != null && !textLineId.isBlank()
                     ? findTextLinePolygon(pageDto.regions(), textLineId)
                     : findRegionPolygon(pageDto.regions(), regionId);

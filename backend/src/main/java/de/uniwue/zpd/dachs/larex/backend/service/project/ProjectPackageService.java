@@ -568,6 +568,7 @@ public class ProjectPackageService {
         }
 
         try {
+            validateSingleXmlHeadPerPage(importedPackage);
             if (importedPackage.extractedBytes() > maxPreviewCacheBytes) {
                 throw new IllegalArgumentException(
                         "Project package exceeds the pending preview storage limit of "
@@ -699,6 +700,7 @@ public class ProjectPackageService {
             String userId,
             ProjectPackageArchiveService.ImportedPackage importedPackage,
             ProjectPackageDto.ImportOptions requestedOptions) throws IOException {
+        validateSingleXmlHeadPerPage(importedPackage);
         ProjectPackageDto.ImportOptions options = requestedOptions == null
                 ? new ProjectPackageDto.ImportOptions(
                         null,
@@ -913,6 +915,7 @@ public class ProjectPackageService {
         List<String> pagePaths = new ArrayList<>();
         List<ProjectPackageArchiveService.BinaryEntry> binaryEntries = new ArrayList<>();
         Set<String> usedPageDirectories = new HashSet<>();
+        Map<String, PageXml> xmlHeadsByPageId = pageXmlHeadsByPageId(pages);
 
         for (Page page : pages) {
             String directoryName = uniqueDirectoryName(
@@ -952,8 +955,7 @@ public class ProjectPackageService {
                 ));
             }
 
-            List<PageXml> pageXmlFiles = new ArrayList<>(page.getXmlFiles() == null ? Set.of() : page.getXmlFiles());
-            pageXmlFiles.sort(Comparator.comparing(PageXml::getVariant).thenComparing(PageXml::getFileName));
+            List<PageXml> pageXmlFiles = Optional.ofNullable(xmlHeadsByPageId.get(page.getId())).stream().toList();
             for (PageXml xml : pageXmlFiles) {
                 String archiveName = uniqueArchivePath(
                         sanitizeArchiveName(xml.getFileName(), xml.getVariant() + fileExtension(xml.getFileName())),
@@ -1178,6 +1180,11 @@ public class ProjectPackageService {
         int index = 0;
         for (ProjectPackageArchiveService.ImportedPage importedPage : importedPackage.pages()) {
             ProjectPackageDto.PageDescriptor descriptor = importedPage.descriptor();
+            if (safeList(descriptor.xml()).size() > 1) {
+                throw new IllegalArgumentException(
+                        "Page '" + descriptor.name() + "' declares more than one head XML file"
+                );
+            }
             Page page = new Page();
             page.setProject(project);
             page.setName(descriptor.name().trim());
@@ -1311,16 +1318,16 @@ public class ProjectPackageService {
                                         String targetName) {
         String existingProjectId = existingProject.getId();
         List<String> oldStoragePaths = new ArrayList<>();
-        for (Page page : pageRepository.findByProjectId(existingProjectId)) {
+        List<Page> existingPages = pageRepository.findByProjectId(existingProjectId);
+        Map<String, PageXml> xmlHeadsByPageId = pageXmlHeadsByPageId(existingPages);
+        for (Page page : existingPages) {
             for (PageImage image : safeList(
                     page.getImages() == null ? null : new ArrayList<>(page.getImages())
             )) {
                 oldStoragePaths.add(image.getFilePath());
                 oldStoragePaths.add(image.getThumbnailPath());
             }
-            for (PageXml xml : safeList(
-                    page.getXmlFiles() == null ? null : new ArrayList<>(page.getXmlFiles())
-            )) {
+            for (PageXml xml : Optional.ofNullable(xmlHeadsByPageId.get(page.getId())).stream().toList()) {
                 oldStoragePaths.add(xml.getFilePath());
                 pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc(xml.getId()).stream()
                         .map(PageXmlVersion::getFilePath)
@@ -1646,6 +1653,28 @@ public class ProjectPackageService {
         return values == null ? List.of() : values;
     }
 
+    private Map<String, PageXml> pageXmlHeadsByPageId(List<Page> pages) {
+        if (pages.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, PageXml> headsByPageId = new HashMap<>();
+        for (PageXml pageXml : pageXmlRepository.findByPage_IdIn(pages.stream().map(Page::getId).toList())) {
+            headsByPageId.put(pageXml.getPage().getId(), pageXml);
+        }
+        return headsByPageId;
+    }
+
+    private void validateSingleXmlHeadPerPage(ProjectPackageArchiveService.ImportedPackage importedPackage) {
+        for (ProjectPackageArchiveService.ImportedPage importedPage : importedPackage.pages()) {
+            ProjectPackageDto.PageDescriptor descriptor = importedPage.descriptor();
+            if (safeList(descriptor.xml()).size() > 1) {
+                throw new IllegalArgumentException(
+                        "Page '" + descriptor.name() + "' declares more than one head XML file"
+                );
+            }
+        }
+    }
+
     private long estimatePackageBytes(PackageSnapshot packageSnapshot) {
         long binaryBytes = packageSnapshot.exportPackage().binaryEntries().stream()
                 .mapToLong(ProjectPackageArchiveService.BinaryEntry::contentLength)
@@ -1680,6 +1709,7 @@ public class ProjectPackageService {
                                                 List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs,
                                                 String entryPrefix) throws IOException {
         Map<String, Integer> usedEntryPaths = new HashMap<>();
+        Map<String, PageXml> xmlHeadsByPageId = pageXmlHeadsByPageId(pages);
 
         for (Page page : pages) {
             List<PageImage> images = new ArrayList<>(page.getImages() == null ? Set.<PageImage>of() : page.getImages());
@@ -1697,9 +1727,7 @@ public class ProjectPackageService {
                 );
             }
 
-            List<PageXml> xmlFiles = new ArrayList<>(page.getXmlFiles() == null ? Set.<PageXml>of() : page.getXmlFiles());
-            xmlFiles.sort(Comparator.comparing((PageXml xml) -> xml.getVariant() == null ? "" : xml.getVariant(), String.CASE_INSENSITIVE_ORDER)
-                    .thenComparing(PageXml::getId));
+            List<PageXml> xmlFiles = Optional.ofNullable(xmlHeadsByPageId.get(page.getId())).stream().toList();
             for (PageXml xml : xmlFiles) {
                 String entryPath = uniqueArchivePath(
                         sanitizeArchiveName(xml.getFileName(), xml.getVariant() + fileExtension(xml.getFileName())),

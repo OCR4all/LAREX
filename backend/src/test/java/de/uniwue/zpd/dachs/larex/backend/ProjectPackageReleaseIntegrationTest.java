@@ -211,7 +211,7 @@ class ProjectPackageReleaseIntegrationTest {
         assertEquals(List.of(source.firstXml().getPage().getName(), source.secondXml().getPage().getName()),
                 importedPages.stream().map(Page::getName).toList());
         for (Page importedPage : importedPages) {
-            PageXml importedXml = pageXmlRepository.findByPage_Id(importedPage.getId()).getFirst();
+            PageXml importedXml = pageXmlRepository.findByPage_Id(importedPage.getId()).orElseThrow();
             assertEquals("2019-07-15", importedXml.getSchemaVersion());
             assertTrue(pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc(importedXml.getId()).isEmpty());
         }
@@ -516,7 +516,7 @@ class ProjectPackageReleaseIntegrationTest {
                 .filter(page -> page.getName().equals(source.firstXml().getPage().getName()))
                 .findFirst()
                 .orElseThrow();
-        PageXml importedXml = pageXmlRepository.findByPage_Id(importedPage.getId()).getFirst();
+        PageXml importedXml = pageXmlRepository.findByPage_Id(importedPage.getId()).orElseThrow();
         List<PageXmlVersion> versions =
                 pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc(importedXml.getId());
         assertEquals(1, versions.size());

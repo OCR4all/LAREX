@@ -717,7 +717,7 @@ public class PageController {
                 page.getUpdated(),
                 page.getSortOrder(),
                 textConfidenceStats,
-                page.getXmlFiles() != null ? page.getXmlFiles().size() : 0,
+                indexingStatus == null || indexingStatus == PageDto.PageIndexingStatus.NOT_APPLICABLE ? 0 : 1,
                 images.size(),
                 page.getWorkflowState(),
                 page.isEffectivelyLocked(),

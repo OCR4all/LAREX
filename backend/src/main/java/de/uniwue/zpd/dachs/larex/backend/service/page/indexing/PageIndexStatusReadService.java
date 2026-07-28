@@ -5,6 +5,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
@@ -20,15 +21,18 @@ public class PageIndexStatusReadService {
     private final PageConfidenceIndexRepository pageConfidenceIndexRepository;
     private final PageTextContentRepository pageTextContentRepository;
     private final PageLabelIndexRepository pageLabelIndexRepository;
+    private final PageXmlRepository pageXmlRepository;
     private final PageIndexStatusTracker pageIndexStatusTracker;
 
     public PageIndexStatusReadService(PageConfidenceIndexRepository pageConfidenceIndexRepository,
                                       PageTextContentRepository pageTextContentRepository,
                                       PageLabelIndexRepository pageLabelIndexRepository,
+                                      PageXmlRepository pageXmlRepository,
                                       PageIndexStatusTracker pageIndexStatusTracker) {
         this.pageConfidenceIndexRepository = pageConfidenceIndexRepository;
         this.pageTextContentRepository = pageTextContentRepository;
         this.pageLabelIndexRepository = pageLabelIndexRepository;
+        this.pageXmlRepository = pageXmlRepository;
         this.pageIndexStatusTracker = pageIndexStatusTracker;
     }
 
@@ -44,13 +48,16 @@ public class PageIndexStatusReadService {
 
         Set<String> indexedPageIds = indexedPageIds(projectId, pageIds);
         Set<String> indexingPageIds = pageIndexStatusTracker.filterIndexing(pageIds);
+        Set<String> pageIdsWithXml = pageXmlRepository.findByPage_IdIn(pageIds).stream()
+                .map(pageXml -> pageXml.getPage().getId())
+                .collect(Collectors.toSet());
 
         Map<String, PageDto.PageIndexingStatus> statuses = new LinkedHashMap<>();
         for (Page page : pages) {
             if (page == null || page.getId() == null) {
                 continue;
             }
-            statuses.put(page.getId(), resolveStatus(page, indexedPageIds, indexingPageIds));
+            statuses.put(page.getId(), resolveStatus(page, pageIdsWithXml, indexedPageIds, indexingPageIds));
         }
         return statuses;
     }
@@ -60,7 +67,7 @@ public class PageIndexStatusReadService {
             return PageDto.PageIndexingStatus.NOT_APPLICABLE;
         }
 
-        if (page.getXmlFiles() == null || page.getXmlFiles().isEmpty()) {
+        if (!pageXmlRepository.existsByPage_Id(page.getId())) {
             return PageDto.PageIndexingStatus.NOT_APPLICABLE;
         }
 
@@ -90,9 +97,10 @@ public class PageIndexStatusReadService {
     }
 
     private PageDto.PageIndexingStatus resolveStatus(Page page,
+                                                     Set<String> pageIdsWithXml,
                                                      Set<String> indexedPageIds,
                                                      Set<String> indexingPageIds) {
-        if (page.getXmlFiles() == null || page.getXmlFiles().isEmpty()) {
+        if (!pageIdsWithXml.contains(page.getId())) {
             return PageDto.PageIndexingStatus.NOT_APPLICABLE;
         }
         if (indexingPageIds.contains(page.getId())) {

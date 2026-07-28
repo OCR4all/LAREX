@@ -714,8 +714,9 @@ public class ActionRunService {
         Map<String, List<PageImage>> imagesByPage = definition.isAcceptsImages()
                 ? pageImageRepository.findByPageIdIn(pageIds).stream().collect(Collectors.groupingBy(image -> image.getPage().getId()))
                 : Map.of();
-        Map<String, List<PageXml>> xmlByPage = definition.isAcceptsXml()
-                ? pageXmlRepository.findByPage_IdIn(pageIds).stream().collect(Collectors.groupingBy(xml -> xml.getPage().getId()))
+        Map<String, PageXml> xmlByPage = definition.isAcceptsXml()
+                ? pageXmlRepository.findByPage_IdIn(pageIds).stream()
+                        .collect(Collectors.toMap(xml -> xml.getPage().getId(), xml -> xml))
                 : Map.of();
 
         List<ActionDto.MachinePageInput> pages = pageOrderService.sortPages(pageRepository.findByIdInAndProjectId(pageIds, run.getProjectId())).stream()
@@ -1068,10 +1069,7 @@ public class ActionRunService {
         Page page = pageRepository.findByIdAndProjectId(resultFile.pageId(), run.getProjectId())
                 .orElseThrow(() -> new IllegalArgumentException("Page not found"));
         String originalName = chooseFileName(resultFile.fileName(), file.getOriginalFilename(), page.getName() + ".xml");
-        List<PageXml> existing = pageXmlRepository.findByPage_Id(page.getId()).stream()
-                .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML)
-                .sorted(Comparator.comparing(xml -> !"original".equalsIgnoreCase(xml.getVariant())))
-                .toList();
+        Optional<PageXml> existing = pageXmlRepository.findByPage_Id(page.getId());
         var storedFile = fileStorageService.storeMultipartFile(new RenamedMultipartFile(file, originalName, "application/xml"),
                 run.getWorkspaceId(), run.getProjectId(), StoredFileType.XML, run.getCreatedByUserId());
         String baseName = baseName(storedFile.originalFilename());
@@ -1090,28 +1088,20 @@ public class ActionRunService {
                     page
             );
         } else {
-            pageXml = existing.get(0);
+            pageXml = existing.orElseThrow();
             String previousPath = pageXml.getFilePath();
-            List<String> replacedXmlStoragePaths = new ArrayList<>();
             pageXmlVersionService.createVersion(pageXml.getId(), run.getCreatedByUserId(), "Before LAREX Action " + run.getId());
             pageXml.setFileName(storedFile.originalFilename());
             pageXml.setFilePath(storedFile.storagePath());
             pageXml.setMimeType(storedFile.mimeType());
             pageXml.setFileSize(storedFile.sizeBytes());
+            pageXml.setVariant("original");
             pageXml.setBaseName(baseName);
             pageXml.setSchema(XmlSchema.PAGE_XML);
             pageXml.setSchemaVersion(validation.pageVersion());
             pageXml.setPage(page);
             annotationReadCache.evict(pageXml.getId());
-            replacedXmlStoragePaths.add(previousPath);
-
-            for (int index = 1; index < existing.size(); index++) {
-                PageXml duplicate = existing.get(index);
-                replacedXmlStoragePaths.add(duplicate.getFilePath());
-                pageXmlRepository.delete(duplicate);
-                annotationReadCache.evict(duplicate.getId());
-            }
-            deleteStoredFilesAfterCommit(replacedXmlStoragePaths);
+            deleteStoredFilesAfterCommit(List.of(previousPath));
         }
 
         pageXml = pageXmlRepository.save(pageXml);
@@ -1364,10 +1354,8 @@ public class ActionRunService {
     }
 
     private PageXml primaryPageXml(String pageId) {
-        return pageXmlRepository.findByPage_Id(pageId).stream()
+        return pageXmlRepository.findByPage_Id(pageId)
                 .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML)
-                .sorted(Comparator.comparing(xml -> !"original".equalsIgnoreCase(xml.getVariant())))
-                .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("No PAGE XML found for page " + pageId));
     }
 
@@ -2333,7 +2321,7 @@ public class ActionRunService {
 
     private Optional<ActionDto.MachinePageInput> toMachinePageInput(Page page,
                                                                    Map<String, List<PageImage>> imagesByPage,
-                                                                   Map<String, List<PageXml>> xmlByPage,
+                                                                   Map<String, PageXml> xmlByPage,
                                                                    ActionDto.ImageVariantSelection imageVariantSelection,
                                                                    ActionProcessorDefinition definition,
                                                                    String publicApiBaseUrl,
@@ -2351,7 +2339,7 @@ public class ActionRunService {
                 selectedImages.stream()
                         .map(image -> toMachineImageFile(publicApiBaseUrl, runId, image))
                         .toList(),
-                xmlByPage.getOrDefault(page.getId(), List.of()).stream()
+                Optional.ofNullable(xmlByPage.get(page.getId())).stream()
                         .map(xml -> toMachineXmlFile(publicApiBaseUrl, runId, xml))
                         .toList()
         ));

@@ -158,21 +158,10 @@ public class AnnotationProcessingService {
         return pageXmlParser.parse(versionPath, xml);
     }
 
-    /**
-     * Parse multiple XML files and merge them into a single PageDto.
-     * This is useful when a page has multiple XML variants (e.g., PAGE + ALTO).
-     */
-    public PageDto parseMultipleXmlToAnnotation(String pageId) throws IOException {
-        List<PageXml> xmlFiles = pageXmlRepository.findByPage_Id(pageId);
-
-        if (xmlFiles.isEmpty()) {
-            throw new IllegalArgumentException("No XML files found for page: " + pageId);
-        }
-
-        // For now, just use the first XML file
-        // In the future, we could implement merging logic
-        PageXml primaryXml = xmlFiles.get(0);
-        return parseXmlToAnnotation(primaryXml.getId());
+    public PageDto parseHeadXmlToAnnotation(String pageId) throws IOException {
+        PageXml headXml = pageXmlRepository.findByPage_Id(pageId)
+                .orElseThrow(() -> new IllegalArgumentException("No XML file found for page: " + pageId));
+        return parseXmlToAnnotation(headXml.getId());
     }
 
     /**
@@ -284,9 +273,7 @@ public class AnnotationProcessingService {
         Page page = pageRepository.findByIdAndProjectId(pageId, projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        Optional<PageXml> existingPageXml = pageXmlRepository.findByPage_Id(pageId).stream()
-                .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML)
-                .findFirst();
+        Optional<PageXml> existingPageXml = pageXmlRepository.findByPage_Id(pageId);
         if (existingPageXml.isPresent()) {
             throw new AnnotationAlreadyExistsException(existingPageXml.get().getId());
         }

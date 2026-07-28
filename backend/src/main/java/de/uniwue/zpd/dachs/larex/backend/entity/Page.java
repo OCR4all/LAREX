@@ -75,9 +75,6 @@ public class Page {
     @OneToMany(mappedBy = "page", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<PageImage> images = new HashSet<>();
 
-    @OneToMany(mappedBy = "page", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Set<PageXml> xmlFiles = new HashSet<>();
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
@@ -244,14 +241,6 @@ public class Page {
 
     public void setImages(Set<PageImage> images) {
         this.images = images;
-    }
-
-    public Set<PageXml> getXmlFiles() {
-        return xmlFiles;
-    }
-
-    public void setXmlFiles(Set<PageXml> xmlFiles) {
-        this.xmlFiles = xmlFiles;
     }
 
     public Project getProject() {

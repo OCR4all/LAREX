@@ -8,6 +8,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
@@ -26,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,14 +37,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class DocumentExportService {
 
-    private static final Comparator<PageXml> PAGE_XML_COMPARATOR =
-            Comparator.comparing((PageXml xml) -> xml.getVariant() == null ? "" : xml.getVariant(), String.CASE_INSENSITIVE_ORDER)
-                    .thenComparing(PageXml::getId);
     private static final Comparator<PageImage> PAGE_IMAGE_COMPARATOR =
             Comparator.comparing((PageImage image) -> image.getVariant() == null ? "" : image.getVariant(), String.CASE_INSENSITIVE_ORDER)
                     .thenComparing(PageImage::getId);
 
     private final ProjectRepository projectRepository;
+    private final PageXmlRepository pageXmlRepository;
     private final WorkspaceAccessService workspaceAccessService;
     private final AnnotationProcessingService annotationProcessingService;
     private final PageXmlConversionService pageXmlConversionService;
@@ -54,6 +55,7 @@ public class DocumentExportService {
     private String uploadDir;
 
     public DocumentExportService(ProjectRepository projectRepository,
+                                 PageXmlRepository pageXmlRepository,
                                  WorkspaceAccessService workspaceAccessService,
                                  AnnotationProcessingService annotationProcessingService,
                                  PageXmlConversionService pageXmlConversionService,
@@ -62,6 +64,7 @@ public class DocumentExportService {
                                  AltoExportWriter altoExportWriter,
                                  SpreadsheetExportWriter spreadsheetExportWriter) {
         this.projectRepository = projectRepository;
+        this.pageXmlRepository = pageXmlRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.annotationProcessingService = annotationProcessingService;
         this.pageXmlConversionService = pageXmlConversionService;
@@ -120,7 +123,9 @@ public class DocumentExportService {
     }
 
     private StreamingDocumentExportResult exportPageXmlStream(Page page, String targetPageXmlVersion) throws IOException {
-        PageXml pageXml = resolvePrimaryPageXml(page);
+        PageXml pageXml = pageXmlRepository.findByPage_Id(page.getId())
+                .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML)
+                .orElse(null);
         if (pageXml == null) {
             throw new IllegalArgumentException("No PAGE XML file found for page: " + page.getId());
         }
@@ -246,9 +251,13 @@ public class DocumentExportService {
     private List<ExportPage> preparePages(Project project, List<Page> pages) throws IOException {
         int gtIndex = project.getEffectiveDefaultGtIndex();
         List<ExportPage> exportPages = new ArrayList<>();
+        Map<String, PageXml> headsByPageId = pageXmlRepository.findByPage_IdIn(
+                        pages.stream().map(Page::getId).toList()
+                ).stream()
+                .collect(Collectors.toMap(xml -> xml.getPage().getId(), Function.identity()));
 
         for (Page page : pages) {
-            PageXml primaryXml = resolvePrimaryXml(page);
+            PageXml primaryXml = headsByPageId.get(page.getId());
             if (primaryXml == null) {
                 throw new IllegalArgumentException("No PAGE XML file found for page: " + page.getId());
             }
@@ -299,22 +308,6 @@ public class DocumentExportService {
             case PAGE_XML -> throw new IllegalArgumentException("PAGE XML export is only supported on the legacy page endpoint");
             case CSV, XLSX -> throw new IllegalStateException("Spreadsheet formats handled above");
         };
-    }
-
-    private PageXml resolvePrimaryXml(Page page) {
-        PageXml pageXml = resolvePrimaryPageXml(page);
-        if (pageXml != null) {
-            return pageXml;
-        }
-
-        return page.getXmlFiles().stream().min(PAGE_XML_COMPARATOR)
-                .orElse(null);
-    }
-
-    private PageXml resolvePrimaryPageXml(Page page) {
-        return page.getXmlFiles().stream()
-                .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML).min(PAGE_XML_COMPARATOR)
-                .orElse(null);
     }
 
     private PageImage resolvePrimaryImage(Page page) {

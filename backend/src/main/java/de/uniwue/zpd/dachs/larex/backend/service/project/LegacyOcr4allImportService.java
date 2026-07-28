@@ -96,6 +96,7 @@ public class LegacyOcr4allImportService {
         if (pageBaseNames.isEmpty()) {
             throw new IllegalArgumentException("No pages could be derived from legacy OCR4all files");
         }
+        validateSingleXmlHeadPerPage(scan.importFiles());
 
         long reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
                 workspaceId,
@@ -318,6 +319,23 @@ public class LegacyOcr4allImportService {
         );
         pageXml = pageXmlRepository.save(pageXml);
         pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, userId, "legacy OCR4all import");
+    }
+
+    private void validateSingleXmlHeadPerPage(List<LegacyOcr4allImportFile> importFiles) {
+        Map<String, Long> xmlCountsByPage = importFiles.stream()
+                .filter(importFile -> importFile.kind() == LegacyOcr4allFileKind.XML)
+                .collect(java.util.stream.Collectors.groupingBy(
+                        LegacyOcr4allImportFile::pageBaseName,
+                        java.util.stream.Collectors.counting()
+                ));
+        xmlCountsByPage.entrySet().stream()
+                .filter(entry -> entry.getValue() > 1)
+                .findFirst()
+                .ifPresent(entry -> {
+                    throw new IllegalArgumentException(
+                            "Legacy OCR4all page '" + entry.getKey() + "' contains more than one head XML file"
+                    );
+                });
     }
 
     private String normalizeClientRelativePath(String value) {

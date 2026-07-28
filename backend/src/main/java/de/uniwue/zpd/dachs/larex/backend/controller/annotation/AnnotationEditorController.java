@@ -103,26 +103,6 @@ public class AnnotationEditorController {
     }
 
     /**
-     * Load merged annotation document from all XML files for a page.
-     */
-    @GetMapping("/merged")
-    public ResponseEntity<PageDto> loadMergedAnnotations(
-            @PathVariable String projectId,
-            @PathVariable String pageId,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
-
-        try {
-            annotationLeaseService.resolvePageAccess(projectId, pageId, userId);
-            PageDto pageDto = annotationProcessingService.parseMultipleXmlToAnnotation(pageId);
-            return ResponseEntity.ok(pageDto);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    /**
      * Save annotation document back to original XML file.
      */
     @PutMapping("/{xmlId}")

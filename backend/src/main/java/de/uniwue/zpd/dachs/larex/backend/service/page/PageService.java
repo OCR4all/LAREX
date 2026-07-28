@@ -375,6 +375,9 @@ public class PageService {
             if (!isValidXmlFile(xmlFile)) {
                 return false;
             }
+            if (pageXmlRepository.existsByPage_Id(pageId)) {
+                return false;
+            }
 
             String projectId = page.getProject().getId();
             var storedFile = hierarchicalFileStorageService.storeMultipartFile(
@@ -480,7 +483,7 @@ public class PageService {
     public List<PageXml> getPageXmlFiles(String pageId, String userId) {
         Optional<Page> pageOpt = getPageById(pageId, userId);
         if (pageOpt.isPresent()) {
-            return pageXmlRepository.findByPage_Id(pageId);
+            return pageXmlRepository.findByPage_Id(pageId).stream().toList();
         }
         return List.of();
     }
@@ -689,7 +692,7 @@ public class PageService {
 
     private void deletePageFiles(Page page) {
         // Delete XML files (PageXml entities) and their version directories
-        List<PageXml> xmlFiles = pageXmlRepository.findByPage_Id(page.getId());
+        List<PageXml> xmlFiles = pageXmlRepository.findByPage_Id(page.getId()).stream().toList();
         List<PageImage> images = pageImageRepository.findByPageId(page.getId());
         deletePageFiles(List.of(page.getId()), xmlFiles, images);
     }

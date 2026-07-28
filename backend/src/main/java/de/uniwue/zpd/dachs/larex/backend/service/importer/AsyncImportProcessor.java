@@ -293,17 +293,16 @@ public class AsyncImportProcessor {
                 processed++;
 
             } else if (isXmlFile(filePath)) {
-                List<PageXml> existingXmlFiles = pageXmlRepository.findByPage_Id(page.getId());
-                if (!existingXmlFiles.isEmpty()) {
+                Optional<PageXml> existingXml = pageXmlRepository.findByPage_Id(page.getId());
+                if (existingXml.isPresent()) {
                     if (!overwriteExisting) {
                         skipped++;
                         continue;
                     }
-                    // Delete existing XML files
-                    for (PageXml existingXml : existingXmlFiles) {
-                        hierarchicalFileStorageService.deleteStoredFile(existingXml.getFilePath());
-                        pageXmlRepository.delete(existingXml);
-                    }
+                    PageXml headXml = existingXml.get();
+                    hierarchicalFileStorageService.deleteStoredFile(headXml.getFilePath());
+                    pageXmlRepository.delete(headXml);
+                    pageXmlRepository.flush();
                 }
 
                 var storedXml = hierarchicalFileStorageService.storeFromPath(

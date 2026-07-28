@@ -149,7 +149,7 @@ public class SpreadsheetExportWriter {
                     page.page().getWorkflowState().name(),
                     Boolean.toString(page.page().isEffectivelyLocked()),
                     Integer.toString(page.page().getImages() == null ? 0 : page.page().getImages().size()),
-                    Integer.toString(page.page().getXmlFiles() == null ? 0 : page.page().getXmlFiles().size()),
+                    page.pageXml() == null ? "0" : "1",
                     page.image() == null ? "" : nullToEmpty(page.image().getFileName()),
                     page.pageXml() == null ? "" : nullToEmpty(page.pageXml().getFileName()),
                     Integer.toString(project.getEffectiveDefaultGtIndex())

@@ -197,7 +197,7 @@ class AnnotationProcessingServiceTest {
         ImageIO.write(new BufferedImage(1200, 1800, BufferedImage.TYPE_BYTE_GRAY), "png", imagePath.toFile());
 
         when(pageRepository.findByIdAndProjectId("page-1", "project-1")).thenReturn(Optional.of(page));
-        when(pageXmlRepository.findByPage_Id("page-1")).thenReturn(List.of());
+        when(pageXmlRepository.findByPage_Id("page-1")).thenReturn(Optional.empty());
         when(userService.getUserById("user-1"))
                 .thenReturn(Optional.of(new UserDto("user-1", "tester", null, null, null, null)));
         when(pageXmlExporter.writeValidated(any(PageDto.class), isNull(), any(Path.class)))
@@ -248,7 +248,7 @@ class AnnotationProcessingServiceTest {
 
         when(pageRepository.findByIdAndProjectId("page-1", "project-1"))
                 .thenReturn(Optional.of(existing.getPage()));
-        when(pageXmlRepository.findByPage_Id("page-1")).thenReturn(List.of(existing));
+        when(pageXmlRepository.findByPage_Id("page-1")).thenReturn(Optional.of(existing));
 
         AnnotationAlreadyExistsException error = assertThrows(
                 AnnotationAlreadyExistsException.class,

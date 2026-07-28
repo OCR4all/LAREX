@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,10 +16,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
@@ -35,6 +34,9 @@ class PageIndexStatusReadServiceTest {
     @Mock
     private PageLabelIndexRepository pageLabelIndexRepository;
 
+    @Mock
+    private PageXmlRepository pageXmlRepository;
+
     private PageIndexStatusTracker tracker;
     private PageIndexStatusReadService service;
 
@@ -45,16 +47,17 @@ class PageIndexStatusReadServiceTest {
                 pageConfidenceIndexRepository,
                 pageTextContentRepository,
                 pageLabelIndexRepository,
+                pageXmlRepository,
                 tracker
         );
     }
 
     @Test
     void resolveStatusesForProjectPages_appliesPriorityRules() {
-        Page noXml = page("p1", false);
-        Page unindexed = page("p2", true);
-        Page indexing = page("p3", true);
-        Page indexed = page("p4", true);
+        Page noXml = page("p1");
+        Page unindexed = page("p2");
+        Page indexing = page("p3");
+        Page indexed = page("p4");
 
         tracker.markIndexingIfAbsent(indexing.getId());
         when(pageConfidenceIndexRepository.findIndexedPageIdsByProjectIdAndPageIds("project-1", List.of("p1", "p2", "p3", "p4")))
@@ -63,6 +66,8 @@ class PageIndexStatusReadServiceTest {
                 .thenReturn(List.of());
         when(pageLabelIndexRepository.findIndexedPageIdsByProjectIdAndPageIds("project-1", List.of("p1", "p2", "p3", "p4")))
                 .thenReturn(List.of());
+        when(pageXmlRepository.findByPage_IdIn(List.of("p1", "p2", "p3", "p4")))
+                .thenReturn(List.of(head(unindexed), head(indexing), head(indexed)));
 
         Map<String, PageDto.PageIndexingStatus> result = service.resolveStatusesForProjectPages(
                 "project-1",
@@ -77,18 +82,24 @@ class PageIndexStatusReadServiceTest {
 
     @Test
     void resolveStatusForPage_usesTrackerBeforeIndexedRows() {
-        Page page = page("p-indexing", true);
+        Page page = page("p-indexing");
         tracker.markIndexingIfAbsent(page.getId());
+        when(pageXmlRepository.existsByPage_Id(page.getId())).thenReturn(true);
 
         PageDto.PageIndexingStatus status = service.resolveStatusForPage(page);
 
         assertEquals(PageDto.PageIndexingStatus.INDEXING, status);
     }
 
-    private Page page(String id, boolean hasXml) {
+    private Page page(String id) {
         Page page = new Page();
         page.setId(id);
-        page.setXmlFiles(hasXml ? new HashSet<>(Set.of(new PageXml())) : new HashSet<>());
         return page;
+    }
+
+    private PageXml head(Page page) {
+        PageXml pageXml = new PageXml();
+        pageXml.setPage(page);
+        return pageXml;
     }
 }

@@ -66,18 +66,6 @@ class AnnotationEditorControllerTest {
     }
 
     @Test
-    void loadMergedAnnotations_doesNotReadPageWhenAccessIsRejected() throws Exception {
-        when(annotationLeaseService.resolvePageAccess("project-1", "page-other", "user-1"))
-                .thenThrow(new IllegalArgumentException("Annotation page not found"));
-
-        ResponseEntity<PageDto> response = controller.loadMergedAnnotations(
-                "project-1", "page-other", "user-1");
-
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        verify(annotationProcessingService, never()).parseMultipleXmlToAnnotation("page-other");
-    }
-
-    @Test
     void createAnnotation_doesNotCreateWhenPageWriteAccessIsRejected() throws Exception {
         doThrow(new IllegalArgumentException("Annotation project mismatch"))
                 .when(annotationLeaseService)

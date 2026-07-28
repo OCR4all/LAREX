@@ -412,20 +412,19 @@ public class AsyncUploadProcessor {
             throw new IOException("Temp file not found: " + tempFilePath);
         }
 
-        List<PageXml> existingXmlFiles = pageXmlRepository.findByPage_Id(page.getId());
+        Optional<PageXml> existingXml = pageXmlRepository.findByPage_Id(page.getId());
         String conflictResolution = sessionFile.getConflictResolution();
-        if (!existingXmlFiles.isEmpty()) {
+        if (existingXml.isPresent()) {
             if ("skip".equals(conflictResolution) || "keep_existing".equals(conflictResolution)) {
                 sessionFile.setStatus(UploadFileStatus.SKIPPED);
                 sessionFile.setConflictType("XML_FILE_EXISTS");
                 Files.deleteIfExists(tempFilePath);
                 return false;
             } else if ("replace".equals(conflictResolution) || "replace_with_new".equals(conflictResolution)) {
-                // Delete existing XML files
-                for (PageXml existingXml : existingXmlFiles) {
-                    hierarchicalFileStorageService.deleteStoredFile(existingXml.getFilePath());
-                    pageXmlRepository.delete(existingXml);
-                }
+                PageXml headXml = existingXml.get();
+                hierarchicalFileStorageService.deleteStoredFile(headXml.getFilePath());
+                pageXmlRepository.delete(headXml);
+                pageXmlRepository.flush();
             } else {
                 // Default: create conflict status
                 sessionFile.setStatus(UploadFileStatus.CONFLICT);

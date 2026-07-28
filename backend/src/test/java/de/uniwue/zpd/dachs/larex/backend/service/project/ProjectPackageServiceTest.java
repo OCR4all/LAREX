@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.zip.ZipInputStream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -64,6 +65,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -116,6 +118,17 @@ class ProjectPackageServiceTest {
     private DocumentExportService documentExportService;
     @Mock
     private PageXmlVersionService pageXmlVersionService;
+
+    private final Map<String, PageXml> xmlHeadsByPageId = new java.util.LinkedHashMap<>();
+
+    @BeforeEach
+    void setUpXmlHeadQueries() {
+        lenient().when(pageXmlRepository.findByPage_IdIn(anyList()))
+                .thenAnswer(invocation -> invocation.<List<String>>getArgument(0).stream()
+                        .map(xmlHeadsByPageId::get)
+                        .filter(java.util.Objects::nonNull)
+                        .toList());
+    }
     @Mock
     private PageXmlConversionService pageXmlConversionService;
     @Mock
@@ -314,12 +327,10 @@ class ProjectPackageServiceTest {
         Path imagePath = tempDir.resolve("uploads/page.png");
         Path secondImagePath = tempDir.resolve("uploads/page-copy.png");
         Path xmlPath = tempDir.resolve("uploads/page.xml");
-        Path secondXmlPath = tempDir.resolve("uploads/page-copy.xml");
         Files.createDirectories(imagePath.getParent());
         Files.writeString(imagePath, "img");
         Files.writeString(secondImagePath, "img2");
         Files.writeString(xmlPath, "<PcGts/>");
-        Files.writeString(secondXmlPath, "<PcGts/>");
 
         Project project = project();
         Page page = page(project);
@@ -332,17 +343,6 @@ class ProjectPackageServiceTest {
         secondImage.setBaseName("page");
         secondImage.setPage(page);
         page.getImages().add(secondImage);
-        PageXml secondXml = new PageXml();
-        secondXml.setId("xml-2");
-        secondXml.setFileName("page.xml");
-        secondXml.setFilePath("uploads/page-copy.xml");
-        secondXml.setMimeType("application/xml");
-        secondXml.setVariant("secondary");
-        secondXml.setBaseName("page");
-        secondXml.setSchema(XmlSchema.PAGE_XML);
-        secondXml.setSchemaVersion(PageXmlConversionService.PRIMARY_PAGE_VERSION);
-        secondXml.setPage(page);
-        page.getXmlFiles().add(secondXml);
         project.setPages(new ArrayList<>(List.of(page)));
 
         when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
@@ -352,7 +352,6 @@ class ProjectPackageServiceTest {
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.png")).thenReturn(imagePath);
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page-copy.png")).thenReturn(secondImagePath);
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.xml")).thenReturn(xmlPath);
-        when(hierarchicalFileStorageService.resolveUploadPath("uploads/page-copy.xml")).thenReturn(secondXmlPath);
         when(pageXmlConversionService.normalizeTargetVersion(PageXmlConversionService.PRIMARY_PAGE_VERSION))
                 .thenReturn(PageXmlConversionService.PRIMARY_PAGE_VERSION);
         doAnswer(invocation -> {
@@ -396,7 +395,6 @@ class ProjectPackageServiceTest {
         assertTrue(entries.contains("page.png"));
         assertTrue(entries.contains("page (1).png"));
         assertTrue(entries.contains("page.xml"));
-        assertTrue(entries.contains("page (1).xml"));
         assertTrue(entries.contains("project.txt"));
         assertFalse(entries.contains("manifest.json"));
         assertFalse(entries.contains("mets.xml"));
@@ -488,7 +486,7 @@ class ProjectPackageServiceTest {
         xml.setPage(page);
 
         page.setImages(new HashSet<>(Set.of(image)));
-        page.setXmlFiles(new HashSet<>(Set.of(xml)));
+        xmlHeadsByPageId.put(page.getId(), xml);
         return page;
     }
 

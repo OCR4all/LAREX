@@ -177,12 +177,11 @@ public class UploadConflictService {
                     pageImageRepository.save(newImage);
 
                 } else if ("XML_FILE_EXISTS".equals(file.getConflictType())) {
-                    // Delete existing XML files
-                    List<PageXml> existingXmlFiles = pageXmlRepository.findByPage_Id(page.getId());
-                    for (PageXml existingXml : existingXmlFiles) {
+                    pageXmlRepository.findByPage_Id(page.getId()).ifPresent(existingXml -> {
                         hierarchicalFileStorageService.deleteStoredFile(existingXml.getFilePath());
                         pageXmlRepository.delete(existingXml);
-                    }
+                        pageXmlRepository.flush();
+                    });
 
                     String createdBy = file.getSession() != null ? file.getSession().getUserId() : "system";
                     var storedXml = hierarchicalFileStorageService.storeFromPath(

@@ -18,10 +18,10 @@ import java.util.Optional;
 @Repository
 public interface PageRepository extends JpaRepository<Page, String> {
 
-    @EntityGraph(attributePaths = {"images", "xmlFiles", "project"})
+    @EntityGraph(attributePaths = {"images", "project"})
     List<Page> findByProjectId(String projectId);
 
-    @EntityGraph(attributePaths = {"images", "xmlFiles", "project"})
+    @EntityGraph(attributePaths = {"images", "project"})
     @Query("SELECT p FROM Page p WHERE p.project.id = :projectId")
     org.springframework.data.domain.Page<Page> findByProjectId(@Param("projectId") String projectId, Pageable pageable);
 
@@ -35,15 +35,15 @@ public interface PageRepository extends JpaRepository<Page, String> {
     Optional<Page> findByIdAndProjectIdForUpdate(@Param("pageId") String pageId,
                                                  @Param("projectId") String projectId);
 
-    @EntityGraph(attributePaths = {"images", "xmlFiles", "project"})
+    @EntityGraph(attributePaths = {"images", "project"})
     @Query("SELECT DISTINCT p FROM Page p JOIN p.tags t WHERE p.project.id = :projectId AND t IN :tags")
     List<Page> findByProjectIdAndTagsIn(@Param("projectId") String projectId, @Param("tags") List<String> tags);
 
-    @EntityGraph(attributePaths = {"images", "xmlFiles", "project"})
+    @EntityGraph(attributePaths = {"images", "project"})
     @Query("SELECT DISTINCT p FROM Page p JOIN p.tags t WHERE p.project.id = :projectId AND t IN :tags")
     org.springframework.data.domain.Page<Page> findByProjectIdAndTagsIn(@Param("projectId") String projectId, @Param("tags") List<String> tags, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"images", "xmlFiles", "project"})
+    @EntityGraph(attributePaths = {"images", "project"})
     @Query("SELECT DISTINCT p FROM Page p LEFT JOIN p.tags t WHERE " +
            "p.project.id = :projectId AND (" +
            "LOWER(p.name) LIKE %:query% OR " +
@@ -52,7 +52,7 @@ public interface PageRepository extends JpaRepository<Page, String> {
     List<Page> findPagesInProjectBySearch(@Param("projectId") String projectId,
                                           @Param("query") String query);
 
-    @EntityGraph(attributePaths = {"images", "xmlFiles", "project"})
+    @EntityGraph(attributePaths = {"images", "project"})
     @Query("SELECT DISTINCT p FROM Page p LEFT JOIN p.tags t WHERE " +
            "p.project.id = :projectId AND (" +
            "LOWER(p.name) LIKE %:query% OR " +

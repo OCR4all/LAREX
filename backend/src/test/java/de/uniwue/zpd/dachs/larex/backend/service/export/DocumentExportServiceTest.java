@@ -15,6 +15,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
@@ -52,6 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -68,6 +70,8 @@ class DocumentExportServiceTest {
     @Mock
     private ProjectRepository projectRepository;
     @Mock
+    private PageXmlRepository pageXmlRepository;
+    @Mock
     private WorkspaceAccessService workspaceAccessService;
     @Mock
     private AnnotationProcessingService annotationProcessingService;
@@ -77,11 +81,20 @@ class DocumentExportServiceTest {
     private PageOrderService pageOrderService;
 
     private DocumentExportService service;
+    private final Map<String, PageXml> xmlHeadsByPageId = new LinkedHashMap<>();
 
     @BeforeEach
     void setUp() {
+        lenient().when(pageXmlRepository.findByPage_Id(anyString()))
+                .thenAnswer(invocation -> Optional.ofNullable(xmlHeadsByPageId.get(invocation.getArgument(0))));
+        lenient().when(pageXmlRepository.findByPage_IdIn(anyList()))
+                .thenAnswer(invocation -> invocation.<List<String>>getArgument(0).stream()
+                        .map(xmlHeadsByPageId::get)
+                        .filter(java.util.Objects::nonNull)
+                        .toList());
         service = new DocumentExportService(
                 projectRepository,
+                pageXmlRepository,
                 workspaceAccessService,
                 annotationProcessingService,
                 pageXmlConversionService,
@@ -619,7 +632,7 @@ class DocumentExportServiceTest {
         xml.setVariant("main");
         xml.setBaseName(name.toLowerCase());
         xml.setPage(page);
-        page.setXmlFiles(new HashSet<>(List.of(xml)));
+        xmlHeadsByPageId.put(id, xml);
 
         if (imageRelativePath != null) {
             PageImage image = new PageImage();

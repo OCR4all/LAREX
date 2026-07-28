@@ -609,7 +609,7 @@ class ActionRunServiceTest {
         when(pageRepository.findById(page.getId())).thenReturn(Optional.of(page));
         when(pageXmlValidationService.validatePageXml(any(org.springframework.core.io.Resource.class))).thenReturn(
                 new PageXmlTextDto.XmlValidationResult(true, List.of(), "2019-07-15", "urn:page"));
-        when(pageXmlRepository.findByPage_Id(page.getId())).thenReturn(List.of());
+        when(pageXmlRepository.findByPage_Id(page.getId())).thenReturn(Optional.empty());
         when(pageXmlRepository.save(any(PageXml.class))).thenAnswer(invocation -> {
             PageXml xml = invocation.getArgument(0);
             xml.setId("xml-result");

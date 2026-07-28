@@ -783,21 +783,9 @@ public class DatasetService {
             return selectedXml;
         }
 
-        List<PageXml> pageXmlCandidates = pageXmlRepository.findByPage_Id(sourcePage.getId()).stream()
+        return pageXmlRepository.findByPage_Id(sourcePage.getId())
                 .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML)
-                .toList();
-        if (pageXmlCandidates.isEmpty()) {
-            return null;
-        }
-
-        if (selectedXml != null) {
-            return pageXmlCandidates.stream()
-                    .filter(candidate -> Objects.equals(candidate.getVariant(), selectedXml.getVariant()))
-                    .findFirst()
-                    .orElse(pageXmlCandidates.get(0));
-        }
-
-        return pageXmlCandidates.get(0);
+                .orElse(null);
     }
 
     private OpenableEditorPage resolveCopyEditorPage(String workspaceId,

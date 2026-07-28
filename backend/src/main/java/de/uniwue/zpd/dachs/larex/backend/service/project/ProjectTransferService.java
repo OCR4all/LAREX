@@ -332,8 +332,8 @@ public class ProjectTransferService {
         List<String> sourcePageIds = sourcePages.stream().map(Page::getId).toList();
         Map<String, List<PageImage>> imagesByPageId = pageImageRepository.findByPageIdIn(sourcePageIds).stream()
                 .collect(java.util.stream.Collectors.groupingBy(image -> image.getPage().getId()));
-        Map<String, List<PageXml>> xmlByPageId = pageXmlRepository.findByPage_IdIn(sourcePageIds).stream()
-                .collect(java.util.stream.Collectors.groupingBy(xml -> xml.getPage().getId()));
+        Map<String, PageXml> xmlByPageId = pageXmlRepository.findByPage_IdIn(sourcePageIds).stream()
+                .collect(java.util.stream.Collectors.toMap(xml -> xml.getPage().getId(), xml -> xml));
 
         for (Page sourcePage : sourcePages) {
             Page newPage = new Page(sourcePage.getName(), sourcePage.getDescription(), newProject);
@@ -352,7 +352,7 @@ public class ProjectTransferService {
             }
 
             // Copy XMLs
-            for (PageXml sourceXml : xmlByPageId.getOrDefault(sourcePage.getId(), List.of())) {
+            for (PageXml sourceXml : Optional.ofNullable(xmlByPageId.get(sourcePage.getId())).stream().toList()) {
                 String newFilePath = copyFile(sourceXml.getFilePath(), newProject.getId(), newPage.getId());
                 PageXml newXml = new PageXml(
                         sourceXml.getFileName(), newFilePath, sourceXml.getMimeType(),

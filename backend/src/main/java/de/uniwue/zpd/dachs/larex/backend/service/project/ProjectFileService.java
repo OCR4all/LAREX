@@ -47,7 +47,7 @@ public class ProjectFileService {
     }
 
     public void deletePageFiles(Page page) {
-        List<PageXml> xmlFiles = pageXmlRepository.findByPage_Id(page.getId());
+        List<PageXml> xmlFiles = pageXmlRepository.findByPage_Id(page.getId()).stream().toList();
         List<String> storagePaths = new ArrayList<>(xmlFiles.size() * 3);
         List<String> xmlIds = xmlFiles.stream()
                 .map(PageXml::getId)

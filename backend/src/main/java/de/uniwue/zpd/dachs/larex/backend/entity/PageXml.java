@@ -10,7 +10,10 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "page_xmls")
+@Table(
+        name = "page_xmls",
+        uniqueConstraints = @UniqueConstraint(name = "uk_page_xmls_page_id", columnNames = "page_id")
+)
 @EntityListeners(AuditingEntityListener.class)
 public class PageXml {
 
@@ -50,8 +53,8 @@ public class PageXml {
     @Column(nullable = false)
     private LocalDateTime updated;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "page_id", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "page_id", nullable = false, unique = true)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Page page;
 

@@ -9,15 +9,14 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PageXmlRepository extends JpaRepository<PageXml, String> {
 
-    List<PageXml> findByPage_Id(String pageId);
+    Optional<PageXml> findByPage_Id(String pageId);
 
-    List<PageXml> findByPage_IdAndVariant(String pageId, String variant);
-
-    List<PageXml> findByPage_IdAndBaseName(String pageId, String baseName);
+    boolean existsByPage_Id(String pageId);
 
     List<PageXml> findByBaseName(String baseName);
 

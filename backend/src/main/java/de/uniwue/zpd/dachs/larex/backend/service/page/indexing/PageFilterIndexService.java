@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -201,24 +202,23 @@ public class PageFilterIndexService {
 
         log.debug("Starting indexPageFromXml for page: {} (id: {})", page.getName(), page.getId());
 
-        List<PageXml> xmlFiles = pageXmlRepository.findByPage_Id(page.getId());
-        log.debug("Found {} PageXml entities for page {}", xmlFiles.size(), page.getId());
-
-        for (PageXml xml : xmlFiles) {
-            try {
-                log.debug("Attempting to parse PageXml {} (schema: {})", xml.getId(), xml.getSchema());
-                PageDto pageDto = annotationProcessingService.parseXmlToAnnotation(xml.getId());
-                indexPage(page, pageDto);
-                log.info("Successfully indexed page {} from PageXml {}", page.getId(), xml.getId());
-                return;
-            } catch (IOException e) {
-                log.warn("Failed to parse XML {} for page {}: {}", xml.getId(), page.getId(), e.getMessage());
-            } catch (UnsupportedOperationException e) {
-                log.debug("Skipping unsupported XML schema {} for page {}", xml.getSchema(), page.getId());
-            }
+        Optional<PageXml> headXml = pageXmlRepository.findByPage_Id(page.getId());
+        if (headXml.isEmpty()) {
+            log.warn("No XML found for page {} - page not indexed", page.getId());
+            return;
         }
 
-        log.warn("No valid XML found for page {} - page not indexed", page.getId());
+        PageXml xml = headXml.get();
+        try {
+            log.debug("Attempting to parse PageXml {} (schema: {})", xml.getId(), xml.getSchema());
+            PageDto pageDto = annotationProcessingService.parseXmlToAnnotation(xml.getId());
+            indexPage(page, pageDto);
+            log.info("Successfully indexed page {} from PageXml {}", page.getId(), xml.getId());
+        } catch (IOException e) {
+            log.warn("Failed to parse XML {} for page {}: {}", xml.getId(), page.getId(), e.getMessage());
+        } catch (UnsupportedOperationException e) {
+            log.debug("Skipping unsupported XML schema {} for page {}", xml.getSchema(), page.getId());
+        }
     }
 
     @Async
