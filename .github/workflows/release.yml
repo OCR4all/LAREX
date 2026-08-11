@@ -28,12 +28,20 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Read VERSION file
         id: version
         run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Releases must be created from the main branch: $GITHUB_REF" >&2
+            exit 1
+          fi
           VERSION=$(cat VERSION | tr -d '[:space:]')
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release VERSION must be a stable semantic version (for example 1.2.3): $VERSION" >&2
+            exit 1
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
@@ -50,17 +58,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
       packages: write
+    outputs:
+      backend_digest: ${{ steps.build-backend.outputs.digest }}
+      frontend_digest: ${{ steps.build-frontend.outputs.digest }}
+      docs_digest: ${{ steps.build-docs.outputs.digest }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Log in to Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@371161bbe7024a29a25c5e19bfcbc0804fe9ad2c # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -68,7 +81,7 @@ jobs:
 
       - name: Extract metadata for backend
         id: meta-backend
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}
           tags: |
@@ -79,7 +92,7 @@ jobs:
 
       - name: Extract metadata for frontend
         id: meta-frontend
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
           tags: |
@@ -90,7 +103,7 @@ jobs:
 
       - name: Extract metadata for docs
         id: meta-docs
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_DOCS }}
           tags: |
@@ -100,66 +113,177 @@ jobs:
             type=sha,prefix=sha-
 
       - name: Build and push backend image
-        uses: docker/build-push-action@v7
+        id: build-backend
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: ./backend
           file: ./backend/Dockerfile.prod
           push: true
-          tags: ${{ steps.meta-backend.outputs.tags }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:release-candidate-${{ github.run_id }}-${{ github.run_attempt }}
           labels: ${{ steps.meta-backend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
           build-args: |
             VERSION=${{ needs.version.outputs.version }}
 
       - name: Build and push frontend image
-        uses: docker/build-push-action@v7
+        id: build-frontend
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: ./frontend
           file: ./frontend/Dockerfile.prod
           push: true
-          tags: ${{ steps.meta-frontend.outputs.tags }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:release-candidate-${{ github.run_id }}-${{ github.run_attempt }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
           build-args: |
             VERSION=${{ needs.version.outputs.version }}
             NODE_MAX_OLD_SPACE_SIZE=${{ env.NODE_MAX_OLD_SPACE_SIZE }}
 
       - name: Build and push docs image
-        uses: docker/build-push-action@v7
+        id: build-docs
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: ./docs/Dockerfile.prod
           push: true
-          tags: ${{ steps.meta-docs.outputs.tags }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_DOCS }}:release-candidate-${{ github.run_id }}-${{ github.run_attempt }}
           labels: ${{ steps.meta-docs.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Scan backend image for fixable high-severity vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}@${{ steps.build-backend.outputs.digest }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
+      - name: Scan frontend image for fixable high-severity vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}@${{ steps.build-frontend.outputs.digest }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          skip-setup-trivy: true
+
+      - name: Scan docs image for fixable high-severity vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_DOCS }}@${{ steps.build-docs.outputs.digest }}
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          skip-setup-trivy: true
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign release images with GitHub OIDC
+        env:
+          BACKEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}
+          BACKEND_DIGEST: ${{ steps.build-backend.outputs.digest }}
+          FRONTEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
+          FRONTEND_DIGEST: ${{ steps.build-frontend.outputs.digest }}
+          DOCS_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_DOCS }}
+          DOCS_DIGEST: ${{ steps.build-docs.outputs.digest }}
+        run: |
+          cosign sign --yes "$BACKEND_IMAGE@$BACKEND_DIGEST"
+          cosign sign --yes "$FRONTEND_IMAGE@$FRONTEND_DIGEST"
+          cosign sign --yes "$DOCS_IMAGE@$DOCS_DIGEST"
+
+      - name: Promote approved digests to release tags
+        env:
+          BACKEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}
+          BACKEND_DIGEST: ${{ steps.build-backend.outputs.digest }}
+          BACKEND_TAGS: ${{ steps.meta-backend.outputs.tags }}
+          FRONTEND_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
+          FRONTEND_DIGEST: ${{ steps.build-frontend.outputs.digest }}
+          FRONTEND_TAGS: ${{ steps.meta-frontend.outputs.tags }}
+          DOCS_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_DOCS }}
+          DOCS_DIGEST: ${{ steps.build-docs.outputs.digest }}
+          DOCS_TAGS: ${{ steps.meta-docs.outputs.tags }}
+        run: |
+          promote_digest() {
+            local image="$1"
+            local digest="$2"
+            local tags="$3"
+            while IFS= read -r tag; do
+              [[ -n "$tag" ]] || continue
+              docker buildx imagetools create --tag "$tag" "$image@$digest"
+            done <<< "$tags"
+          }
+
+          promote_digest "$BACKEND_IMAGE" "$BACKEND_DIGEST" "$BACKEND_TAGS"
+          promote_digest "$FRONTEND_IMAGE" "$FRONTEND_DIGEST" "$FRONTEND_TAGS"
+          promote_digest "$DOCS_IMAGE" "$DOCS_DIGEST" "$DOCS_TAGS"
 
   create-release:
     name: Create GitHub Release
     needs: [version, build-and-push]
     runs-on: ubuntu-latest
     permissions:
+      attestations: write
       contents: write
+      id-token: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Build administrator deployment bundle
         run: bash ./scripts/build-deployment-package.sh "${{ needs.version.outputs.version }}" dist
 
+      - name: Create immutable release manifest
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          BACKEND_DIGEST: ${{ needs.build-and-push.outputs.backend_digest }}
+          FRONTEND_DIGEST: ${{ needs.build-and-push.outputs.frontend_digest }}
+          DOCS_DIGEST: ${{ needs.build-and-push.outputs.docs_digest }}
+        run: |
+          bash ./scripts/build-release-manifest.sh \
+            "$RELEASE_VERSION" \
+            dist \
+            "$GITHUB_REPOSITORY" \
+            "$GITHUB_SHA" \
+            "$BACKEND_DIGEST" \
+            "$FRONTEND_DIGEST" \
+            "$DOCS_DIGEST"
+
+      - name: Attest release files
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4
+        with:
+          subject-path: |
+            dist/larex-deployment-${{ needs.version.outputs.version }}.zip
+            dist/larex-release-${{ needs.version.outputs.version }}.json
+
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ needs.version.outputs.version }}
           name: Release v${{ needs.version.outputs.version }}
           generate_release_notes: true
           draft: false
           prerelease: false
-          files: dist/larex-deployment-${{ needs.version.outputs.version }}.zip
+          files: |
+            dist/larex-deployment-${{ needs.version.outputs.version }}.zip
+            dist/larex-deployment-${{ needs.version.outputs.version }}.zip.sha256
+            dist/larex-release-${{ needs.version.outputs.version }}.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -172,7 +296,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 

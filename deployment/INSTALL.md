@@ -9,6 +9,32 @@ processor.
 For a bundle containing only the selected files and a preconfigured environment
 template, use the deployment wizard in the LAREX documentation.
 
+## Verify the release artifacts
+
+GitHub releases publish this ZIP together with a `.zip.sha256` checksum and an
+immutable `larex-release-<version>.json` manifest. Verify the downloaded archive
+before extracting it:
+
+```bash
+sha256sum --check larex-deployment-<version>.zip.sha256
+# macOS:
+shasum -a 256 --check larex-deployment-<version>.zip.sha256
+```
+
+After extraction, verify every file shipped inside the bundle:
+
+```bash
+cd larex-deployment-<version>
+sha256sum --check SHA256SUMS
+# macOS:
+shasum -a 256 --check SHA256SUMS
+```
+
+The release manifest records the source commit and immutable backend, frontend,
+and documentation image digests. Release images include SPDX SBOM and maximum-mode
+provenance attestations and are signed keylessly with Sigstore by the release
+workflow.
+
 ## Start the recommended deployment
 
 Review `deployment/env/.env.prod.example`, then generate local secrets:
@@ -35,6 +61,16 @@ combinations and operational procedures.
 
 Replace `up ...` in the selected command with `config --quiet`. Pin
 `LAREX_IMAGE_TAG` to a released version for production.
+
+## Runtime containment
+
+The shipped production definitions run the backend, frontend, and documentation
+containers with read-only root filesystems and `no-new-privileges`. Frontend and
+documentation containers drop every Linux capability. The backend keeps only the
+small startup capability set required to prepare its persistent data directories
+and then runs the Java process as its unprivileged application user. Writable
+temporary space is provided through size-limited `/tmp` tmpfs mounts; the optional
+documentation service rebuilds its Nuxt Content database there on startup.
 
 ## Secrets
 

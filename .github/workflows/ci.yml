@@ -16,6 +16,24 @@ env:
   NODE_VERSION: 22
 
 jobs:
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4.8.2
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime
+          retry-on-snapshot-warnings: true
+
   backend:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -270,8 +288,37 @@ jobs:
             -f compose.prod.docs.yaml \
             config >/dev/null
 
+      - name: Verify core production service hardening
+        run: |
+          docker compose --env-file deployment/env/.env.prod.example \
+            -f compose.prod.base.yaml \
+            -f compose.prod.auth.bundled-keycloak.yaml \
+            -f compose.prod.publish.localhost.yaml \
+            config --format json \
+            | jq -e '
+                .services.app.read_only == true
+                and (.services.app.cap_drop | index("ALL"))
+                and (.services.app.security_opt | index("no-new-privileges:true"))
+                and .services.frontend.read_only == true
+                and (.services.frontend.cap_drop | index("ALL"))
+                and (.services.frontend.security_opt | index("no-new-privileges:true"))
+              ' >/dev/null
+
+          docker compose --env-file deployment/env/.env.prod.example \
+            -f compose.prod.base.yaml \
+            -f compose.prod.auth.bundled-keycloak.yaml \
+            -f compose.prod.publish.localhost.yaml \
+            -f compose.prod.docs.yaml \
+            config --format json \
+            | jq -e '
+                .services.docs.read_only == true
+                and (.services.docs.cap_drop | index("ALL"))
+                and (.services.docs.security_opt | index("no-new-privileges:true"))
+                and .services.docs.environment.NITRO_CONTENT_DATABASE_FILENAME == "/tmp/contents.sqlite"
+              ' >/dev/null
+
       - name: Build supported deployment package
-        run: bash ./scripts/build-deployment-package.sh 1.0.0-test "$RUNNER_TEMP"
+        run: bash ./scripts/test-release-artifacts.sh "$RUNNER_TEMP"
 
       - name: Check for removed deployment references
         run: |

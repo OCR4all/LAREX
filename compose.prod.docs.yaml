@@ -2,6 +2,15 @@ services:
   docs:
     image: ${LAREX_DOCS_IMAGE:-ghcr.io/ocr4all/larex/docs:${LAREX_IMAGE_TAG:-latest}}
     restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    environment:
+      NITRO_CONTENT_DATABASE_FILENAME: /tmp/contents.sqlite
     ports:
       - "${LAREX_BIND_IP:-127.0.0.1}:${LAREX_DOCS_PORT:-3001}:3000"
     networks:

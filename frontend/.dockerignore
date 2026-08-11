@@ -9,3 +9,6 @@ dist
 .git
 .idea
 .DS_Store
+.env
+.env.*
+!.env.example

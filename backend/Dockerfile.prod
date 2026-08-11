@@ -1,20 +1,16 @@
-FROM gradle:jdk25-corretto AS builder
+FROM gradle:9.1.0-jdk25-corretto@sha256:40d479e02db08b4a53542b3da8d3cf95464c834058899d3863db2ecae4a86cfa AS builder
 LABEL maintainer="maximilian.noeth@uni-wuerzburg.de"
 LABEL description="Build stage for the LAREX backend"
 
-COPY --chown=gradle:gradle . /app
-
 WORKDIR /app
 
-COPY build.gradle.kts ./
-COPY settings.gradle.kts ./
-
-COPY src ./src
+COPY --chown=gradle:gradle build.gradle.kts settings.gradle.kts ./
+COPY --chown=gradle:gradle src ./src
 
 RUN gradle build --no-daemon -x test
 
 
-FROM eclipse-temurin:25-jre-jammy
+FROM eclipse-temurin:25-jre-jammy@sha256:b8ba5fca9d88b6ecc3a46c8e75b744f84aca9a9d08587901b5ab480baf641ab5
 LABEL description="Production image for the LAREX backend"
 
 WORKDIR /app

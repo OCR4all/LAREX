@@ -8,10 +8,15 @@
 **/.output
 **/coverage
 **/dist
+backend
+frontend
 docs/public/installer-assets
 test_data
 page4j
 *.log
 .env
 .env.*
+**/.env
+**/.env.*
 !.env.*.example
+!**/.env.*.example

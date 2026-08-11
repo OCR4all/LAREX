@@ -35,8 +35,10 @@ The wizard supports:
 - pinned release or snapshot image tags
 
 Every GitHub release also contains a complete, uncustomized
-`larex-deployment-<version>.zip` artifact. The wizard is preferred because it removes
-unused files and generates topology-specific instructions.
+`larex-deployment-<version>.zip` artifact, its SHA-256 checksum, and a manifest
+binding the archive to the source commit and signed container-image digests. The
+wizard is preferred because it removes unused files and generates topology-specific
+instructions.
 
 ## Developer Quick Start
 

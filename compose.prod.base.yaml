@@ -30,6 +30,19 @@ services:
   app:
     image: ${LAREX_BACKEND_IMAGE:-ghcr.io/ocr4all/larex/backend:${LAREX_IMAGE_TAG:-latest}}
     restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
     environment:
       LAREX_INSTANCE_NAME: ${LAREX_INSTANCE_NAME:-LAREX}
       SPRING_PROFILES_ACTIVE: prod
@@ -126,6 +139,13 @@ services:
   frontend:
     image: ${LAREX_FRONTEND_IMAGE:-ghcr.io/ocr4all/larex/frontend:${LAREX_IMAGE_TAG:-latest}}
     restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
     environment:
       NUXT_SESSION_PASSWORD: ${NUXT_SESSION_PASSWORD:-replace-with-random-32-plus-character-secret}
       NUXT_API_BASE_INTERNAL: ${NUXT_API_BASE_INTERNAL:-http://app:8080/api/v1}
