@@ -1249,6 +1249,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
 
     if (renderState.currentPolylinePoints && renderState.currentPolylinePoints.length > 0) {
+      const lineWidth = getLineWidth()
       let color: RGBA
       if (renderState.isInvalidPosition.value) {
         color = RENDER_COLORS.INVALID_RED
@@ -1256,7 +1257,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         color = RENDER_COLORS.ACTIVE_YELLOW_POLYLINE
       }
 
-      drawThickLine(renderState.currentPolylinePoints, color, getLineWidth(), false, aspectRatioScale, view)
+      drawThickLine(renderState.currentPolylinePoints, color, lineWidth, false, aspectRatioScale, view)
 
       if (
         renderState.polylinePreviewPoint
@@ -1270,7 +1271,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
           const previewColor = renderState.isInvalidPosition.value
             ? RENDER_COLORS.POLYLINE_PREVIEW_INVALID_RED
             : RENDER_COLORS.POLYLINE_PREVIEW_YELLOW
-          drawThickLine(previewLine, previewColor, RENDER_THICKNESS.POLYLINE_PREVIEW, false, aspectRatioScale, view)
+          drawThickLine(previewLine, previewColor, lineWidth, false, aspectRatioScale, view)
         }
       }
 
@@ -1616,6 +1617,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
     view: View
   ): void {
+    const lineWidth = getLineWidth()
+
     if (renderState.currentPolygonPoints.length > 0) {
       let color: RGBA
       if (renderState.isInvalidPosition.value) {
@@ -1624,7 +1627,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         color = RENDER_COLORS.ACTIVE_YELLOW_POLYGON
       }
 
-      drawThickLine(renderState.currentPolygonPoints, color, RENDER_THICKNESS.PREVIEW_OUTLINE, false, aspectRatioScale, view)
+      drawThickLine(renderState.currentPolygonPoints, color, lineWidth, false, aspectRatioScale, view)
 
       if (renderState.previewPoint.x !== null && renderState.previewPoint.y !== null) {
         const lastPoint = renderState.currentPolygonPoints[renderState.currentPolygonPoints.length - 1]
@@ -1635,7 +1638,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
           drawThickLine(
             [lastPoint, { x: renderState.previewPoint.x, y: renderState.previewPoint.y }],
             previewColor,
-            RENDER_THICKNESS.PREVIEW_OUTLINE,
+            lineWidth,
             false,
             aspectRatioScale,
             view
@@ -1651,7 +1654,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       } else {
         color = RENDER_COLORS.RECTANGLE_PREVIEW_YELLOW
       }
-      drawThickLine(renderState.rectanglePreviewPoints, color, RENDER_THICKNESS.PREVIEW_OUTLINE, true, aspectRatioScale, view)
+      drawThickLine(renderState.rectanglePreviewPoints, color, lineWidth, true, aspectRatioScale, view)
     }
   }
 

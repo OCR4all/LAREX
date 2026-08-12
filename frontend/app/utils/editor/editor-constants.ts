@@ -68,9 +68,6 @@ export const RENDER_THICKNESS = {
   /** Standard polyline thickness */
   POLYLINE: 5.2,
 
-  /** Thickness for polyline preview segment */
-  POLYLINE_PREVIEW: 3.9,
-
   /** Thickness for hovered polyline highlight */
   POLYLINE_HOVER: 7.8,
 
