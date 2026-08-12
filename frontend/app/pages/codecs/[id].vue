@@ -3,6 +3,7 @@ import { LazyCodecSlideoverAction, LazyVirtualKeyboardSlideoverGlyphPicker, Lazy
 import type { Codec, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import type { BreadcrumbItem, DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 
 const route = useRoute()
 const router = useRouter()
@@ -340,8 +341,12 @@ const handleCodecImport = async (event: Event) => {
   }
 }
 
-const handleCodecExport = () => {
+const handleCodecExport = async () => {
   if (isNew) {
+    const fileName = `${name.value || 'codec'}.json`
+    const target = await backgroundDownloads.prepareDownload(fileName)
+    if (!target) return
+
     void backgroundDownloads.runBackgroundJob({
       title: 'Downloading codec',
       subtitle: name.value || 'Codec',
@@ -356,7 +361,7 @@ const handleCodecExport = () => {
           codec: codec.value
         }
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-        await backgroundDownloads.downloadBlob(blob, `${name.value.replace(/\\s+/g, '-').toLowerCase() || 'codec'}-${Date.now()}.json`, job)
+        await backgroundDownloads.downloadBlob(blob, fileName, job, target)
       }
     }).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : 'Failed to export codec'
@@ -367,6 +372,10 @@ const handleCodecExport = () => {
 
   void (async () => {
     try {
+      const fallbackName = buildToolkitPackageFileName(name.value, 'codec')
+      const target = await backgroundDownloads.prepareDownload(fallbackName)
+      if (!target) return
+
       await backgroundDownloads.runBackgroundJob({
         title: 'Exporting codec',
         subtitle: name.value || 'Codec',
@@ -387,7 +396,7 @@ const handleCodecExport = () => {
             throw new Error(`Export failed (${response.status})`)
           }
 
-          await backgroundDownloads.downloadBlobResponse(response, `${name.value.replace(/\\s+/g, '-').toLowerCase() || 'codec'}.larex-toolkit.json`, job)
+          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, target)
         }
       })
 

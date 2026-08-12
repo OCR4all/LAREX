@@ -36,6 +36,7 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { naturalSortBy } from '@/utils/natural-sort'
 import { getResponseFileName, isCompleteZipBlob, readResponseBlob } from '@/composables/use-background-downloads'
+import { buildBatchProjectExportFileName } from '@/utils/download-file-names'
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
@@ -836,7 +837,10 @@ type BatchExportMode = 'basic' | 'project' | 'package'
 async function exportSelectedProjects(mode: BatchExportMode) {
   if (!selectedWorkspace.value || !canExportSelectedProjects.value) return
 
-  const exportOptions = await requestExportOptions(mode)
+  const exportOptions = await requestExportOptions(mode, {
+    suggestedFileName: buildBatchProjectExportFileName(),
+    prepareDownload: backgroundDownloads.prepareDownload
+  })
   if (!exportOptions || (mode === 'project' && !exportOptions.format)) return
 
   const projectCount = selectedProjects.value.length
@@ -875,12 +879,12 @@ async function exportSelectedProjects(mode: BatchExportMode) {
           })
         })
         if (!response.ok) throw new Error(`Batch export failed (${response.status})`)
-        const fileName = getResponseFileName(response, 'larex-projects-export.zip')
+        const fileName = getResponseFileName(response, buildBatchProjectExportFileName())
         const archive = await readResponseBlob(response, job)
         if (!await isCompleteZipBlob(archive)) {
           throw new Error('The batch export stream ended before the ZIP archive was finalized. Please retry the export.')
         }
-        await backgroundDownloads.downloadBlob(archive, fileName, job)
+        await backgroundDownloads.downloadBlob(archive, fileName, job, exportOptions.downloadTarget)
       }
     })
 

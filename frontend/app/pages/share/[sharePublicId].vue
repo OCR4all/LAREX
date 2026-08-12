@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { buildSharedReleaseFileName } from '@/utils/download-file-names'
+
 definePageMeta({
   layout: false
 })
@@ -29,6 +31,9 @@ async function startDownload() {
 
   isSubmitting.value = true
   try {
+    const target = await backgroundDownloads.prepareDownload(buildSharedReleaseFileName(sharePublicId.value))
+    if (!target) return
+
     const result = await $fetch<{ downloadUrl: string }>(sessionEndpoint.value, {
       method: 'POST',
       body: {
@@ -47,7 +52,7 @@ async function startDownload() {
         if (!response.ok) {
           throw new Error(`Download failed (${response.status})`)
         }
-        await backgroundDownloads.downloadBlobResponse(response, 'release.zip', job)
+        await backgroundDownloads.downloadBlobResponse(response, buildSharedReleaseFileName(sharePublicId.value), job, target)
       }
     })
   } catch (error: unknown) {

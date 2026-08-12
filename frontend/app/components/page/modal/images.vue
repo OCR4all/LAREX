@@ -259,6 +259,9 @@ function getImageCardItems(image: PageImage): DropdownMenuItem[] {
 }
 
 async function downloadImage(image: PageImage) {
+  const target = await backgroundDownloads.prepareDownload(image.fileName)
+  if (!target) return
+
   try {
     await backgroundDownloads.runBackgroundJob({
       title: 'Downloading page image',
@@ -271,7 +274,7 @@ async function downloadImage(image: PageImage) {
         if (!response.ok) {
           throw new Error(`Download failed (${response.status})`)
         }
-        await backgroundDownloads.downloadBlobResponse(response, image.fileName, job)
+        await backgroundDownloads.downloadBlobResponse(response, image.fileName, job, target)
       }
     })
   } catch (error: unknown) {

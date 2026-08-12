@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
+
 type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
 type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
 type SpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS'
@@ -36,6 +38,7 @@ type ExportDialogResult = {
   docxOptions: DocxOptions
   includeXmlHistory: boolean
   embeddedOutputs: EmbeddedOutputRequest[]
+  downloadTarget?: PreparedDownloadTarget
 }
 
 const PAGE_XML_PRIMARY_VERSION = '2019-07-15'
@@ -110,6 +113,9 @@ const props = withDefaults(defineProps<{
   initialEmbeddedTxtTextLevel?: TextLevel
   initialEmbeddedTxtTextVariantIndex?: number
   initialIncludeXmlHistory?: boolean
+  suggestedBaseName?: string
+  suggestedFileName?: string
+  prepareDownload?: (suggestedName: string) => Promise<PreparedDownloadTarget | null>
   confirmLabel?: string
 }>(), {
   title: 'Export',
@@ -134,6 +140,8 @@ const props = withDefaults(defineProps<{
   initialEmbeddedTxtTextLevel: 'PAGE',
   initialEmbeddedTxtTextVariantIndex: 0,
   initialIncludeXmlHistory: false,
+  suggestedBaseName: 'export',
+  suggestedFileName: undefined,
   confirmLabel: 'Continue'
 })
 
@@ -237,7 +245,32 @@ function selectedSpreadsheetProfiles(): SpreadsheetProfile[] {
     .filter(value => spreadsheetSelection[value])
 }
 
-function closeWithResult() {
+function suggestedDownloadFileName(): string {
+  if (props.suggestedFileName) return props.suggestedFileName
+
+  const baseName = props.suggestedBaseName || 'export'
+
+  if (props.mode === 'basic') return `${baseName} - flat export.zip`
+  if (props.mode === 'package') return `${baseName} - LAREX package.larex-project.zip`
+
+  const format = selectedFormat.value
+  if (!format) return `${baseName} - export.zip`
+  if (format === 'PAGE_XML') return `${baseName}.xml`
+
+  const extension = format === 'ALTO_XML'
+    ? (props.mode === 'project' ? 'alto.zip' : 'alto.xml')
+    : format === 'TEI'
+      ? 'tei.xml'
+      : format === 'CSV'
+        ? (selectedSpreadsheetProfiles().length > 1 ? 'csv.zip' : 'csv')
+        : format === 'XLSX'
+          ? (selectedSpreadsheetProfiles().length > 1 ? 'xlsx.zip' : 'xlsx')
+          : format.toLowerCase()
+
+  return `${baseName}.${extension}`
+}
+
+async function closeWithResult() {
   const spreadsheetProfiles = selectedSpreadsheetProfiles()
   const embeddedOutputs: ExportDialogResult['embeddedOutputs'] = []
 
@@ -263,6 +296,15 @@ function closeWithResult() {
     if (embeddedSelection.XLSX) embeddedOutputs.push({ format: 'XLSX', spreadsheetProfiles })
   }
 
+  const downloadTarget = props.prepareDownload
+    ? await props.prepareDownload(suggestedDownloadFileName())
+    : undefined
+  if (props.prepareDownload && !downloadTarget) {
+    emit('close', null)
+    return
+  }
+  const resolvedDownloadTarget = downloadTarget ?? undefined
+
   emit('close', {
     format: isArchiveMode.value ? null : (selectedFormat.value ?? null),
     targetPageXmlVersion: targetVersion.value,
@@ -274,7 +316,8 @@ function closeWithResult() {
     spreadsheetProfiles,
     docxOptions: { ...docxOptions },
     includeXmlHistory: props.mode === 'package' && includeXmlHistory.value,
-    embeddedOutputs
+    embeddedOutputs,
+    downloadTarget: resolvedDownloadTarget
   })
 }
 </script>

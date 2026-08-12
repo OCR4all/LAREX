@@ -4,6 +4,7 @@ import type { LabelMapping, LabelScope, LabelSet, LabelSetCreateOrUpdateRequest 
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import { LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
 import { isEditableLabelDefinition, isGroupMeta, type BuilderEntry } from '@/composables/use-label-builder'
+import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 
 const route = useRoute()
 const router = useRouter()
@@ -310,6 +311,11 @@ const exportSet = async () => {
   }
 
   try {
+    const labelSetName = getString(asRecord(meta).name, 'label-set')
+    const fallbackName = buildToolkitPackageFileName(labelSetName, 'label-set')
+    const target = await backgroundDownloads.prepareDownload(fallbackName)
+    if (!target) return
+
     await backgroundDownloads.runBackgroundJob({
       title: 'Exporting label set',
       subtitle: getString(asRecord(meta).name, 'Label set'),
@@ -330,7 +336,7 @@ const exportSet = async () => {
           throw new Error(`Export failed (${response.status})`)
         }
 
-        await backgroundDownloads.downloadBlobResponse(response, `${getString(asRecord(meta).name, 'label-set').replace(/\\s+/g, '-').toLowerCase()}.larex-toolkit.json`, job)
+        await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, target)
       }
     })
 
@@ -342,8 +348,13 @@ const exportSet = async () => {
 }
 
 const exportSetLocal = async () => {
-  const doExport = () => {
-    void backgroundDownloads.runBackgroundJob({
+  const doExport = async () => {
+    const labelSetName = getString(asRecord(meta).name, 'label-set')
+    const fileName = `${labelSetName}-labelset.json`
+    const target = await backgroundDownloads.prepareDownload(fileName)
+    if (!target) return
+
+    await backgroundDownloads.runBackgroundJob({
       title: 'Downloading label set',
       subtitle: getString(asRecord(meta).name, 'Label set'),
       statusLabel: 'Preparing',
@@ -352,7 +363,7 @@ const exportSetLocal = async () => {
       task: async (job) => {
         const data = { meta, labels: labels.value, exportedAt: new Date().toISOString() }
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-        await backgroundDownloads.downloadBlob(blob, `${getString(asRecord(meta).name, 'label-set').replace(/\s+/g, '-').toLowerCase()}-labelset.json`, job)
+        await backgroundDownloads.downloadBlob(blob, fileName, job, target)
       }
     }).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : 'Failed to export label set'
@@ -368,9 +379,9 @@ const exportSetLocal = async () => {
       confirmColor: 'warning'
     })
     const confirmed = await instance.result
-    if (confirmed) doExport()
+    if (confirmed) await doExport()
   } else {
-    doExport()
+    await doExport()
   }
 }
 

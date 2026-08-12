@@ -16,6 +16,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorage
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
+import de.uniwue.zpd.dachs.larex.backend.util.DownloadFileNames;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -366,7 +367,7 @@ public class ActionOutputService {
 
     private String bundleFileName(ActionOutput output) {
         LocalDateTime timestamp = output.getCompletedAt() == null ? LocalDateTime.now() : output.getCompletedAt();
-        return safeName(output.getProcessorKey()) + "-" + BUNDLE_TIMESTAMP.format(timestamp) + ".zip";
+        return DownloadFileNames.actionOutputBundle(output.getProcessorName(), BUNDLE_TIMESTAMP.format(timestamp));
     }
 
     private String uniqueZipName(String rawName, Map<String, Integer> names) {

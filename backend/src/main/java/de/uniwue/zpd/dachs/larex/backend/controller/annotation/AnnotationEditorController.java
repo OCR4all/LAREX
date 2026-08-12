@@ -7,6 +7,7 @@ import de.uniwue.zpd.dachs.larex.backend.exception.AnnotationAlreadyExistsExcept
 import de.uniwue.zpd.dachs.larex.backend.exception.AnnotationLeaseLockedException;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
+import de.uniwue.zpd.dachs.larex.backend.util.DownloadFileNames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -156,7 +157,10 @@ public class AnnotationEditorController {
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_XML)
                     .header("Content-Disposition",
-                           "attachment; filename=\"exported." + targetSchema.name().toLowerCase() + ".xml\"")
+                           "attachment; filename=\"" + DownloadFileNames.annotationExport(
+                                   pageDto == null ? pageId : pageDto.imageFilename(),
+                                   targetSchema.name()
+                           ) + "\"")
                     .body(xmlContent);
 
         } catch (IllegalArgumentException e) {

@@ -2,6 +2,8 @@ import { useMediaQuery } from '@vueuse/core'
 import type { Ref } from 'vue'
 import type { ActionOutput, ActionOutputFile } from '@/types/action-output'
 import type { ProjectData } from '@/types/project-page'
+import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
+import { buildActionOutputFileName } from '@/utils/download-file-names'
 
 type OutputShareSlideover = {
   open: (props: { projectId: string, output: ActionOutput }) => { result: Promise<unknown> }
@@ -18,7 +20,7 @@ type Options = {
   canManageOutputs: Ref<boolean>
   outputShareSlideover: unknown
   deleteSlideover: unknown
-  downloadBlobResponse: (response: Response, fallbackName: string, controls?: { update: (updates: { subtitle?: string, statusLabel?: string, progressPercent?: number | null, icon?: string }) => void }) => Promise<void>
+  downloadBlobResponse: (response: Response, fallbackName: string, controls?: { update: (updates: { subtitle?: string, statusLabel?: string, progressPercent?: number | null, icon?: string }) => void }, target?: PreparedDownloadTarget) => Promise<void>
 }
 
 export async function useProjectOutputs(options: Options) {
@@ -58,13 +60,16 @@ export async function useProjectOutputs(options: Options) {
   })
 
   async function download(url: string, fallbackName: string, subtitle: string) {
+    const target = await backgroundDownloads.prepareDownload(fallbackName)
+    if (!target) return
+
     try {
       await backgroundDownloads.runBackgroundJob({
         title: 'Downloading Action output', subtitle, statusLabel: 'Preparing', completedLabel: 'Downloaded', icon: 'i-lucide-download',
         task: async (job) => {
           const response = await fetch(url)
           if (!response.ok) throw new Error(await response.text() || `Download failed (${response.status})`)
-          await options.downloadBlobResponse(response, fallbackName, job)
+          await options.downloadBlobResponse(response, fallbackName, job, target)
         }
       })
     } catch (error: unknown) {
@@ -76,7 +81,7 @@ export async function useProjectOutputs(options: Options) {
     if (!options.selectedWorkspace.value) return
     await download(
       `/api/workspaces/${options.selectedWorkspace.value}/projects/${options.projectId}/outputs/${output.id}/download`,
-      `${output.processorKey}-${output.id}.zip`, output.processorName
+      buildActionOutputFileName(output.processorName, output.completedAt), output.processorName
     )
   }
 

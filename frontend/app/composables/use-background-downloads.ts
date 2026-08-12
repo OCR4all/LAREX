@@ -1,4 +1,5 @@
 import type { BackgroundJob } from '@/stores/background-jobs.store'
+import { sanitizeDownloadFileName } from '@/utils/download-file-names'
 
 type BackgroundJobUpdate = Partial<Pick<BackgroundJob, 'subtitle' | 'statusLabel' | 'progressPercent' | 'icon' | 'detail'>>
 
@@ -16,8 +17,29 @@ type RunBackgroundJobOptions<T> = {
   task: (controls: BackgroundJobControls) => Promise<T>
 }
 
+type SaveFilePicker = (options?: { suggestedName?: string }) => Promise<SaveFileHandleLike>
+
+type SaveFileHandleLike = {
+  createWritable: () => Promise<WritableFileLike>
+}
+
+type WritableFileLike = {
+  write: (data: Blob | ArrayBuffer | Uint8Array) => Promise<void>
+  close: () => Promise<void>
+  abort?: (reason?: unknown) => Promise<void>
+}
+
+export type PreparedDownloadTarget = {
+  saveBlob: (blob: Blob, fileName: string, controls?: BackgroundJobControls) => Promise<void>
+  saveResponse: (response: Response, fallbackName: string, controls?: BackgroundJobControls) => Promise<void>
+}
+
 export function useBackgroundDownloads() {
   const backgroundJobsStore = useBackgroundJobsStore()
+
+  async function prepareDownload(suggestedName: string): Promise<PreparedDownloadTarget | null> {
+    return prepareDownloadTarget(suggestedName)
+  }
 
   async function runBackgroundJob<T>(options: RunBackgroundJobOptions<T>): Promise<T> {
     const jobId = backgroundJobsStore.startJob({
@@ -51,22 +73,36 @@ export function useBackgroundDownloads() {
     }
   }
 
-  async function downloadBlobResponse(response: Response, fallbackName: string, controls?: BackgroundJobControls) {
+  async function downloadBlobResponse(
+    response: Response,
+    fallbackName: string,
+    controls?: BackgroundJobControls,
+    target?: PreparedDownloadTarget
+  ) {
+    if (target) {
+      await target.saveResponse(response, fallbackName, controls)
+      return
+    }
+
     const fileName = getResponseFileName(response, fallbackName)
-    controls?.update({
-      subtitle: fileName,
-      statusLabel: 'Downloading',
-      progressPercent: 0,
-      detail: 'Starting download'
-    })
+    updateDownloadStart(controls, fileName)
     const blob = await readResponseBlob(response, controls)
     triggerBlobDownload(blob, fileName)
   }
 
-  async function downloadBlob(blob: Blob, fileName: string, controls?: BackgroundJobControls) {
+  async function downloadBlob(
+    blob: Blob,
+    fileName: string,
+    controls?: BackgroundJobControls,
+    target?: PreparedDownloadTarget
+  ) {
+    if (target) {
+      await target.saveBlob(blob, fileName, controls)
+      return
+    }
+
+    updateDownloadStart(controls, fileName)
     controls?.update({
-      subtitle: fileName,
-      statusLabel: 'Downloading',
       progressPercent: 100,
       detail: formatBytes(blob.size)
     })
@@ -76,7 +112,25 @@ export function useBackgroundDownloads() {
   return {
     downloadBlob,
     downloadBlobResponse,
+    prepareDownload,
     runBackgroundJob
+  }
+}
+
+export async function prepareDownloadTarget(suggestedName: string): Promise<PreparedDownloadTarget | null> {
+  const fileName = sanitizeDownloadFileName(suggestedName, 'download')
+  const showSaveFilePicker = getSaveFilePicker()
+
+  if (!showSaveFilePicker) {
+    return createBrowserDownloadTarget()
+  }
+
+  try {
+    const handle = await showSaveFilePicker({ suggestedName: fileName })
+    return createFileSystemDownloadTarget(handle)
+  } catch (error: unknown) {
+    if (isDownloadPickerCancellation(error)) return null
+    return createBrowserDownloadTarget()
   }
 }
 
@@ -151,8 +205,17 @@ function formatBytes(bytes: number): string {
 
 export function getResponseFileName(response: Response, fallbackName: string): string {
   const contentDisposition = response.headers.get('content-disposition')
-  const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
-  return match ? decodeURIComponent(match[1]!) : fallbackName
+  if (!contentDisposition) return sanitizeDownloadFileName(fallbackName, 'download')
+
+  const encodedMatch = contentDisposition.match(/filename\*\s*=\s*(?:UTF-8''|"?)([^";]+)/i)
+  if (encodedMatch?.[1]) {
+    const decoded = decodeFileName(encodedMatch[1])
+    if (decoded) return sanitizeDownloadFileName(decoded, fallbackName)
+  }
+
+  const plainMatch = contentDisposition.match(/filename\s*=\s*(?:"([^"]+)"|([^;]+))/i)
+  const plainName = plainMatch?.[1] || plainMatch?.[2]
+  return sanitizeDownloadFileName(plainName?.trim() || fallbackName, fallbackName)
 }
 
 export function triggerBlobDownload(blob: Blob, fileName: string) {
@@ -164,4 +227,146 @@ export function triggerBlobDownload(blob: Blob, fileName: string) {
   anchor.click()
   document.body.removeChild(anchor)
   URL.revokeObjectURL(url)
+}
+
+function getSaveFilePicker(): SaveFilePicker | null {
+  if (typeof window === 'undefined' || window.isSecureContext === false) return null
+
+  const candidate = (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker
+  return typeof candidate === 'function' ? candidate.bind(window) as SaveFilePicker : null
+}
+
+function isDownloadPickerCancellation(error: unknown): boolean {
+  return typeof error === 'object'
+    && error !== null
+    && 'name' in error
+    && (error as { name?: unknown }).name === 'AbortError'
+}
+
+function createBrowserDownloadTarget(): PreparedDownloadTarget {
+  return {
+    async saveBlob(blob, fileName, controls) {
+      const normalizedFileName = sanitizeDownloadFileName(fileName, 'download')
+      updateDownloadStart(controls, normalizedFileName)
+      controls?.update({
+        progressPercent: 100,
+        detail: formatBytes(blob.size)
+      })
+      triggerBlobDownload(blob, normalizedFileName)
+    },
+    async saveResponse(response, fallbackName, controls) {
+      const fileName = getResponseFileName(response, fallbackName)
+      updateDownloadStart(controls, fileName)
+      const blob = await readResponseBlob(response, controls)
+      triggerBlobDownload(blob, fileName)
+    }
+  }
+}
+
+function createFileSystemDownloadTarget(handle: SaveFileHandleLike): PreparedDownloadTarget {
+  return {
+    async saveBlob(blob, fileName, controls) {
+      const normalizedFileName = sanitizeDownloadFileName(fileName, 'download')
+      updateDownloadStart(controls, normalizedFileName)
+      await writeBlobToFile(handle, blob, controls)
+    },
+    async saveResponse(response, fallbackName, controls) {
+      const fileName = getResponseFileName(response, fallbackName)
+      updateDownloadStart(controls, fileName)
+      await writeResponseToFile(handle, response, controls)
+    }
+  }
+}
+
+async function writeBlobToFile(handle: SaveFileHandleLike, blob: Blob, controls?: BackgroundJobControls): Promise<void> {
+  await withWritableFile(handle, async (writable) => {
+    await writable.write(blob)
+    controls?.update({
+      progressPercent: 100,
+      detail: formatBytes(blob.size)
+    })
+  })
+}
+
+async function writeResponseToFile(
+  handle: SaveFileHandleLike,
+  response: Response,
+  controls?: BackgroundJobControls
+): Promise<void> {
+  await withWritableFile(handle, async (writable) => {
+    const contentLength = Number(response.headers.get('content-length'))
+    const totalBytes = Number.isFinite(contentLength) && contentLength > 0 ? contentLength : null
+
+    if (!response.body) {
+      const blob = await response.blob()
+      await writable.write(blob)
+      controls?.update({
+        progressPercent: 100,
+        detail: formatBytes(blob.size)
+      })
+      return
+    }
+
+    const reader = response.body.getReader()
+    let receivedBytes = 0
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (!value) continue
+
+      const chunk = new Uint8Array(value.byteLength)
+      chunk.set(value)
+      await writable.write(chunk)
+      receivedBytes += value.byteLength
+      controls?.update({
+        progressPercent: totalBytes === null
+          ? null
+          : Math.min(99, Math.round((receivedBytes / totalBytes) * 100)),
+        detail: totalBytes === null
+          ? formatBytes(receivedBytes)
+          : `${formatBytes(receivedBytes)} / ${formatBytes(totalBytes)}`
+      })
+    }
+
+    controls?.update({
+      progressPercent: 100,
+      detail: totalBytes === null
+        ? formatBytes(receivedBytes)
+        : `${formatBytes(receivedBytes)} / ${formatBytes(totalBytes)}`
+    })
+  })
+}
+
+async function withWritableFile(
+  handle: SaveFileHandleLike,
+  write: (writable: WritableFileLike) => Promise<void>
+): Promise<void> {
+  const writable = await handle.createWritable()
+  try {
+    await write(writable)
+    await writable.close()
+  } catch (error: unknown) {
+    if (writable.abort) {
+      await writable.abort(error).catch(() => undefined)
+    }
+    throw error
+  }
+}
+
+function updateDownloadStart(controls: BackgroundJobControls | undefined, fileName: string): void {
+  controls?.update({
+    subtitle: fileName,
+    statusLabel: 'Downloading',
+    progressPercent: 0,
+    detail: 'Starting download'
+  })
+}
+
+function decodeFileName(value: string): string | null {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return null
+  }
 }

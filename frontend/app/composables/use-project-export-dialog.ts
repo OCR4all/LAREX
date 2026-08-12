@@ -1,4 +1,5 @@
 import type { ExportDialogMode, ExportDialogResult } from '@/types/project-page'
+import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
 import {
   normalizeDocxOptions,
   normalizeExportFormat,
@@ -11,13 +12,24 @@ import {
 } from '@/utils/project-export'
 
 type SlideoverInstance<T> = { result: Promise<T> }
-type ExportTargetSlideover = { open: (props: Record<string, unknown>) => SlideoverInstance<ExportDialogResult | null> }
+type ExportDialogResultWithDownload = ExportDialogResult & { downloadTarget?: PreparedDownloadTarget }
+type ExportTargetSlideover = { open: (props: Record<string, unknown>) => SlideoverInstance<ExportDialogResultWithDownload | null> }
 type ConfirmSlideover = { open: (props: Record<string, unknown>) => SlideoverInstance<boolean> }
 
 export function useProjectExportDialog(exportTargetSlideover: ExportTargetSlideover, confirmSlideover: ConfirmSlideover) {
-  async function requestExportOptions(mode: ExportDialogMode): Promise<ExportDialogResult | null> {
+  async function requestExportOptions(
+    mode: ExportDialogMode,
+    options: {
+      suggestedBaseName?: string
+      suggestedFileName?: string
+      prepareDownload?: (suggestedName: string) => Promise<PreparedDownloadTarget | null>
+    } = {}
+  ): Promise<ExportDialogResultWithDownload | null> {
     const selector = exportTargetSlideover.open({
       mode,
+      suggestedBaseName: options.suggestedBaseName,
+      suggestedFileName: options.suggestedFileName,
+      prepareDownload: options.prepareDownload,
       title: mode === 'page'
         ? 'Export Page'
         : mode === 'project'

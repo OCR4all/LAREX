@@ -2,6 +2,7 @@ import { useMediaQuery } from '@vueuse/core'
 import type { Ref } from 'vue'
 import type { ProjectPackageRelease } from '@/types/project-package-release'
 import type { ProjectData } from '@/types/project-page'
+import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
 import { extractApiErrorMessage } from '@/utils/api-error'
 
 type CreateReleaseSlideover = {
@@ -19,7 +20,7 @@ type ProjectReleasesOptions = {
   canShareProject: Ref<boolean>
   createReleaseSlideover: unknown
   releaseShareSlideover: unknown
-  downloadBlobResponse: (response: Response, fallbackName: string, controls?: { update: (updates: { subtitle?: string, statusLabel?: string, progressPercent?: number | null, icon?: string }) => void }) => Promise<void>
+  downloadBlobResponse: (response: Response, fallbackName: string, controls?: { update: (updates: { subtitle?: string, statusLabel?: string, progressPercent?: number | null, icon?: string }) => void }, target?: PreparedDownloadTarget) => Promise<void>
 }
 
 export async function useProjectReleases(options: ProjectReleasesOptions) {
@@ -120,6 +121,10 @@ export async function useProjectReleases(options: ProjectReleasesOptions) {
 
     const workspaceId = options.selectedWorkspace.value
     const projectName = options.project.value.name
+    const fallbackName = release.packageFileName || `${projectName}-${release.versionTag}.larex-project.zip`
+    const target = await backgroundDownloads.prepareDownload(fallbackName)
+    if (!target) return
+
     try {
       await backgroundDownloads.runBackgroundJob({
         title: 'Downloading project release',
@@ -133,7 +138,7 @@ export async function useProjectReleases(options: ProjectReleasesOptions) {
             const message = await response.text()
             throw new Error(message || `Download failed (${response.status})`)
           }
-          await options.downloadBlobResponse(response, release.packageFileName || `${projectName}-${release.versionTag}.larex-project.zip`, job)
+          await options.downloadBlobResponse(response, fallbackName, job, target)
         }
       })
     } catch (error: unknown) {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import type { NormalizationProfile, NormalizationProfileCreateOrUpdateRequest, NormalizationReplacementRule } from '@/types/normalization-profile'
@@ -346,6 +347,10 @@ async function exportProfile() {
   if (isExporting.value || isNew) return
   try {
     isExporting.value = true
+    const fallbackName = buildToolkitPackageFileName(name.value, 'normalization-profile')
+    const target = await backgroundDownloads.prepareDownload(fallbackName)
+    if (!target) return
+
     await backgroundDownloads.runBackgroundJob({
       title: 'Exporting normalization profile',
       subtitle: name.value || 'Normalization profile',
@@ -359,7 +364,7 @@ async function exportProfile() {
           body: JSON.stringify({ selectors: [{ type: 'NORMALIZATION_PROFILE', ids: [id] }] })
         })
         if (!response.ok) throw new Error(`Export failed (${response.status})`)
-        await backgroundDownloads.downloadBlobResponse(response, `${name.value || 'normalization-profile'}.larex-toolkit.json`, job)
+        await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, target)
       }
     })
     toast.add({ title: 'Normalization profile exported', color: 'success' })

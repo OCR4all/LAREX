@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
 import type {
   ExportDialogResult,
   Page,
@@ -16,13 +17,18 @@ import {
   normalizeTextLevel,
   PAGE_XML_PRIMARY_VERSION
 } from '@/utils/project-export'
+import {
+  buildDownloadFileName,
+  buildProjectBasicExportFileName,
+  buildProjectPackageFileName
+} from '@/utils/download-file-names'
 
 type SlideoverInstance<T> = {
   result: Promise<T>
 }
 
 type ExportTargetSlideover = {
-  open: (props: Record<string, unknown>) => SlideoverInstance<ExportDialogResult | null>
+  open: (props: Record<string, unknown>) => SlideoverInstance<(ExportDialogResult & { downloadTarget?: PreparedDownloadTarget }) | null>
 }
 
 type ConfirmSlideover = {
@@ -50,7 +56,10 @@ export function useProjectExports(options: ProjectExportsOptions) {
   async function exportBasicProject(scope: ProjectActionScope = 'all') {
     if (!options.selectedWorkspace.value || !options.project.value) return
 
-    const exportOptions = await requestExportOptions('basic')
+    const exportOptions = await requestExportOptions('basic', {
+      suggestedBaseName: options.project.value.name,
+      prepareDownload: backgroundDownloads.prepareDownload
+    })
     if (!exportOptions) return
 
     const payload = {
@@ -58,7 +67,7 @@ export function useProjectExports(options: ProjectExportsOptions) {
       targetPageXmlVersion: exportOptions.targetPageXmlVersion,
       embeddedOutputs: exportOptions.embeddedOutputs
     }
-    const fallbackName = `${options.project.value.name.replace(/\s+/g, '-').toLowerCase()}.zip`
+    const fallbackName = buildProjectBasicExportFileName(options.project.value.name)
 
     try {
       await backgroundDownloads.runBackgroundJob({
@@ -78,7 +87,7 @@ export function useProjectExports(options: ProjectExportsOptions) {
             throw new Error(`Export failed (${response.status})`)
           }
 
-          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job)
+          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, exportOptions.downloadTarget)
         }
       })
 
@@ -100,7 +109,10 @@ export function useProjectExports(options: ProjectExportsOptions) {
   async function exportProjectPackage(scope: ProjectActionScope = 'all') {
     if (!options.selectedWorkspace.value || !options.project.value) return
 
-    const exportOptions = await requestExportOptions('package')
+    const exportOptions = await requestExportOptions('package', {
+      suggestedBaseName: options.project.value.name,
+      prepareDownload: backgroundDownloads.prepareDownload
+    })
     if (!exportOptions) return
 
     const payload = {
@@ -109,7 +121,7 @@ export function useProjectExports(options: ProjectExportsOptions) {
       embeddedOutputs: exportOptions.embeddedOutputs,
       includeXmlHistory: exportOptions.includeXmlHistory
     }
-    const fallbackName = `${options.project.value.name.replace(/\s+/g, '-').toLowerCase()}.larex-project.zip`
+    const fallbackName = buildProjectPackageFileName(options.project.value.name)
 
     try {
       await backgroundDownloads.runBackgroundJob({
@@ -129,7 +141,7 @@ export function useProjectExports(options: ProjectExportsOptions) {
             throw new Error(`Export failed (${response.status})`)
           }
 
-          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job)
+          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, exportOptions.downloadTarget)
         }
       })
 
@@ -151,13 +163,16 @@ export function useProjectExports(options: ProjectExportsOptions) {
   async function exportProjectOutput(scope: ProjectActionScope = 'all') {
     if (!options.selectedWorkspace.value || !options.project.value) return
 
-    const exportOptions = await requestExportOptions('project')
+    const exportOptions = await requestExportOptions('project', {
+      suggestedBaseName: options.project.value.name,
+      prepareDownload: backgroundDownloads.prepareDownload
+    })
     if (!exportOptions) return
 
     const format = normalizeExportFormat(exportOptions.format)
     if (!format) return
 
-    const fallbackName = `${options.project.value.name.replace(/\s+/g, '-').toLowerCase()}.${formatExtension(format)}`
+    const fallbackName = buildDownloadFileName(options.project.value.name, `.${formatExtension(format)}`, 'project')
     const payload = {
       format,
       pageIds: getExportPageIds(scope),
@@ -188,7 +203,7 @@ export function useProjectExports(options: ProjectExportsOptions) {
             throw new Error(`Export failed (${response.status})`)
           }
 
-          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job)
+          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, exportOptions.downloadTarget)
         }
       })
 
@@ -208,18 +223,21 @@ export function useProjectExports(options: ProjectExportsOptions) {
   }
 
   async function exportPageOutput(page: Page) {
-    const exportOptions = await requestExportOptions('page')
+    const exportOptions = await requestExportOptions('page', {
+      suggestedBaseName: page.name,
+      prepareDownload: backgroundDownloads.prepareDownload
+    })
     if (!exportOptions) return
 
     const format = normalizeExportFormat(exportOptions.format)
     if (!format) return
 
     if (format === 'PAGE_XML') {
-      await exportPageXml(page, exportOptions.targetPageXmlVersion)
+      await exportPageXml(page, exportOptions.targetPageXmlVersion, exportOptions.downloadTarget)
       return
     }
 
-    const fallbackName = `${page.name}.${formatExtension(format)}`
+    const fallbackName = buildDownloadFileName(page.name, `.${formatExtension(format)}`, 'page')
 
     try {
       await backgroundDownloads.runBackgroundJob({
@@ -248,7 +266,7 @@ export function useProjectExports(options: ProjectExportsOptions) {
             throw new Error(`Export failed (${response.status})`)
           }
 
-          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job)
+          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, exportOptions.downloadTarget)
         }
       })
 
@@ -267,7 +285,7 @@ export function useProjectExports(options: ProjectExportsOptions) {
     }
   }
 
-  async function exportPageXml(page: Page, targetPageXmlVersion?: string) {
+  async function exportPageXml(page: Page, targetPageXmlVersion?: string, downloadTarget?: PreparedDownloadTarget) {
     try {
       const xmlFiles = await $fetch<{ id: string }[]>(`/api/projects/${options.projectId}/pages/${page.id}/xml`)
       if (!xmlFiles?.length) {
@@ -294,7 +312,7 @@ export function useProjectExports(options: ProjectExportsOptions) {
             throw new Error(`Export failed (${response.status})`)
           }
 
-          await backgroundDownloads.downloadBlobResponse(response, `${page.name}.xml`, job)
+          await backgroundDownloads.downloadBlobResponse(response, `${page.name}.xml`, job, downloadTarget)
         }
       })
 

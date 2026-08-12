@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import type { ValidationRule, ValidationRuleset, ValidationRulesetCreateOrUpdateRequest, ValidationSeverity } from '@/types/validation-ruleset'
@@ -324,6 +325,10 @@ async function exportRuleset() {
   if (isExporting.value || isNew) return
   try {
     isExporting.value = true
+    const fallbackName = buildToolkitPackageFileName(name.value, 'validation-ruleset')
+    const target = await backgroundDownloads.prepareDownload(fallbackName)
+    if (!target) return
+
     await backgroundDownloads.runBackgroundJob({
       title: 'Exporting validation ruleset',
       subtitle: name.value || 'Validation ruleset',
@@ -337,7 +342,7 @@ async function exportRuleset() {
           body: JSON.stringify({ selectors: [{ type: 'VALIDATION_RULESET', ids: [id] }] })
         })
         if (!response.ok) throw new Error(`Export failed (${response.status})`)
-        await backgroundDownloads.downloadBlobResponse(response, `${name.value || 'validation-ruleset'}.larex-toolkit.json`, job)
+        await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, target)
       }
     })
     toast.add({ title: 'Validation ruleset exported', color: 'success' })

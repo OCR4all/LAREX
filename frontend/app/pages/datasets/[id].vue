@@ -16,6 +16,7 @@ import type {
 } from '@/types/dataset'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
+import { buildDatasetPackageFileName } from '@/utils/download-file-names'
 
 const route = useRoute()
 const toast = useToast()
@@ -853,6 +854,9 @@ async function exportDatasetPackage() {
   const workspaceId = selectedWorkspace.value
   const datasetId = dataset.value.id
   const datasetName = dataset.value.name
+  const fallbackName = buildDatasetPackageFileName(datasetName)
+  const target = await backgroundDownloads.prepareDownload(fallbackName)
+  if (!target) return
   exporting.value = true
   try {
     await backgroundDownloads.runBackgroundJob({
@@ -870,7 +874,7 @@ async function exportDatasetPackage() {
           throw new Error(message || `Export failed (${response.status})`)
         }
 
-        await backgroundDownloads.downloadBlobResponse(response, `${datasetName.replace(/\s+/g, '-').toLowerCase()}.larex-dataset.zip`, job)
+        await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, target)
       }
     })
     toast.add({ title: 'Dataset package exported', color: 'success' })
@@ -913,6 +917,9 @@ async function downloadReleasePackage(release: DatasetRelease) {
   const workspaceId = selectedWorkspace.value
   const datasetId = dataset.value.id
   const datasetName = dataset.value.name
+  const fallbackName = release.packageFileName || `${datasetName}-${release.versionTag}.larex-dataset.zip`
+  const target = await backgroundDownloads.prepareDownload(fallbackName)
+  if (!target) return
   try {
     await backgroundDownloads.runBackgroundJob({
       title: 'Downloading dataset release',
@@ -926,7 +933,7 @@ async function downloadReleasePackage(release: DatasetRelease) {
           const message = await response.text()
           throw new Error(message || `Download failed (${response.status})`)
         }
-        await backgroundDownloads.downloadBlobResponse(response, release.packageFileName || `${datasetName}-${release.versionTag}.zip`, job)
+        await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, target)
       }
     })
   } catch (cause: unknown) {

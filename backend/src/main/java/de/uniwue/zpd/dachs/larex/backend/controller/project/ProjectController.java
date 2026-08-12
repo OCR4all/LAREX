@@ -20,6 +20,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectBatchExportServi
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.importer.IiifImportService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadConflictService;
+import de.uniwue.zpd.dachs.larex.backend.util.DownloadFileNames;
 import jakarta.validation.Valid;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -286,7 +287,7 @@ public class ProjectController {
         String projectName = projectService.getProjectById(projectId, userId)
                 .map(Project::getName)
                 .orElse(projectId);
-        String filename = sanitizeFileName(projectName, "project") + ".larex-project.zip";
+        String filename = DownloadFileNames.projectPackage(projectName);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
@@ -312,7 +313,7 @@ public class ProjectController {
         String projectName = projectService.getProjectById(projectId, userId)
                 .map(Project::getName)
                 .orElse(projectId);
-        String filename = sanitizeFileName(projectName, "project") + ".zip";
+        String filename = DownloadFileNames.projectBasicExport(projectName);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
@@ -340,7 +341,7 @@ public class ProjectController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
         headers.setContentDisposition(ContentDisposition.attachment()
-                .filename("larex-projects-export.zip")
+                .filename(DownloadFileNames.batchProjectExport())
                 .build());
 
         StreamingResponseBody body = outputStream ->
@@ -434,18 +435,6 @@ public class ProjectController {
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(body);
-    }
-
-    private String sanitizeFileName(String value, String fallback) {
-        if (value == null) {
-            return fallback;
-        }
-
-        String sanitized = value.trim()
-                .replaceAll("[\\\\/:*?\"<>|]+", " ")
-                .replaceAll("\\s+", " ")
-                .trim();
-        return sanitized.isBlank() ? fallback : sanitized;
     }
 
     @PostMapping(value = "/import-package", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -3,6 +3,7 @@ import type { KeyboardLayout } from '@/types/virtual-keyboard'
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import { LazyUiDeleteSlideover, LazyShareSlideover } from '#components'
+import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 
 const route = useRoute()
 const router = useRouter()
@@ -131,8 +132,12 @@ const handleSave = async () => {
   }
 }
 
-const handleExportLayout = () => {
+const handleExportLayout = async () => {
   if (isNew) {
+    const fileName = `${builderState.currentLayout.value.name || 'keyboard'}.json`
+    const target = await backgroundDownloads.prepareDownload(fileName)
+    if (!target) return
+
     void backgroundDownloads.runBackgroundJob({
       title: 'Downloading keyboard',
       subtitle: builderState.currentLayout.value.name,
@@ -142,7 +147,7 @@ const handleExportLayout = () => {
       task: async (job) => {
         const data = builderState.currentLayout.value
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-        await backgroundDownloads.downloadBlob(blob, `${builderState.currentLayout.value.name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.json`, job)
+        await backgroundDownloads.downloadBlob(blob, fileName, job, target)
       }
     }).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : 'Failed to export keyboard'
@@ -153,6 +158,10 @@ const handleExportLayout = () => {
 
   void (async () => {
     try {
+      const fallbackName = buildToolkitPackageFileName(builderState.layoutName.value, 'keyboard')
+      const target = await backgroundDownloads.prepareDownload(fallbackName)
+      if (!target) return
+
       await backgroundDownloads.runBackgroundJob({
         title: 'Exporting keyboard',
         subtitle: builderState.layoutName.value,
@@ -173,7 +182,7 @@ const handleExportLayout = () => {
             throw new Error(`Export failed (${response.status})`)
           }
 
-          await backgroundDownloads.downloadBlobResponse(response, `${builderState.layoutName.value.replace(/\s+/g, '-').toLowerCase()}.larex-toolkit.json`, job)
+          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, target)
         }
       })
 

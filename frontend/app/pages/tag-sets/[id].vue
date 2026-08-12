@@ -8,6 +8,7 @@ import {
   LazyUiDeleteSlideover,
   LazyUiConfirmSlideover
 } from '#components'
+import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 
 const route = useRoute()
 const router = useRouter()
@@ -225,6 +226,10 @@ const exportTagSet = async () => {
   }
 
   try {
+    const fallbackName = buildToolkitPackageFileName(meta.name, 'tag-set')
+    const target = await backgroundDownloads.prepareDownload(fallbackName)
+    if (!target) return
+
     await backgroundDownloads.runBackgroundJob({
       title: 'Exporting tag set',
       subtitle: meta.name || 'Tag set',
@@ -245,7 +250,7 @@ const exportTagSet = async () => {
           throw new Error(`Export failed (${response.status})`)
         }
 
-        await backgroundDownloads.downloadBlobResponse(response, `${(meta.name || 'tag-set').replace(/\\s+/g, '-').toLowerCase()}.larex-toolkit.json`, job)
+        await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, target)
       }
     })
 
@@ -257,8 +262,12 @@ const exportTagSet = async () => {
 }
 
 const exportTagSetLocal = async () => {
-  const doExport = () => {
-    void backgroundDownloads.runBackgroundJob({
+  const doExport = async () => {
+    const fileName = `${meta.name || 'tag-set'}.json`
+    const target = await backgroundDownloads.prepareDownload(fileName)
+    if (!target) return
+
+    await backgroundDownloads.runBackgroundJob({
       title: 'Downloading tag set',
       subtitle: meta.name || 'Tag set',
       statusLabel: 'Preparing',
@@ -267,7 +276,7 @@ const exportTagSetLocal = async () => {
       task: async (job) => {
         const data = { meta, tags: tags.value, exportedAt: new Date().toISOString() }
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-        await backgroundDownloads.downloadBlob(blob, `${(meta.name || 'tag-set').replace(/\s+/g, '-').toLowerCase()}.json`, job)
+        await backgroundDownloads.downloadBlob(blob, fileName, job, target)
       }
     }).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : 'Failed to export tag set'
@@ -283,9 +292,9 @@ const exportTagSetLocal = async () => {
       confirmColor: 'warning'
     })
     const confirmed = await instance.result
-    if (confirmed) doExport()
+    if (confirmed) await doExport()
   } else {
-    doExport()
+    await doExport()
   }
 }
 

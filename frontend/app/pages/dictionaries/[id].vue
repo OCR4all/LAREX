@@ -3,6 +3,7 @@ import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { Dictionary, DictionaryCreateOrUpdateRequest } from '@/types/dictionary'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
+import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 
 const route = useRoute()
 const router = useRouter()
@@ -226,6 +227,10 @@ async function exportDictionary() {
 
   try {
     isExporting.value = true
+    const fallbackName = buildToolkitPackageFileName(name.value, 'dictionary')
+    const target = await backgroundDownloads.prepareDownload(fallbackName)
+    if (!target) return
+
     await backgroundDownloads.runBackgroundJob({
       title: 'Exporting dictionary',
       subtitle: name.value || 'Dictionary',
@@ -241,7 +246,7 @@ async function exportDictionary() {
         if (!response.ok) {
           throw new Error(`Export failed (${response.status})`)
         }
-        await backgroundDownloads.downloadBlobResponse(response, `${name.value || 'dictionary'}.larex-toolkit.json`, job)
+        await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, target)
       }
     })
     toast.add({ title: 'Dictionary exported', color: 'success' })

@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.controller.dataset;
 import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DatasetDto;
 import de.uniwue.zpd.dachs.larex.backend.service.dataset.DatasetService;
+import de.uniwue.zpd.dachs.larex.backend.util.DownloadFileNames;
 import jakarta.validation.Valid;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -153,10 +154,11 @@ public class DatasetController {
             @PathVariable String workspaceId,
             @PathVariable String datasetId,
             @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+        DatasetDto.DetailResponse dataset = datasetService.getDataset(workspaceId, datasetId, userId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
         headers.setContentDisposition(ContentDisposition.attachment()
-                .filename("dataset-" + datasetId + ".zip")
+                .filename(DownloadFileNames.datasetPackage(dataset.name()))
                 .build());
         StreamingResponseBody body = outputStream ->
                 datasetService.writeDatasetPackage(workspaceId, datasetId, userId, outputStream);
