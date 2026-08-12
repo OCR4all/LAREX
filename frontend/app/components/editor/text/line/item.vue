@@ -24,6 +24,7 @@ import {
   type ReadingDirection
 } from './reading-direction'
 import { getTextContentVariantRenderKey } from './variant-render-key'
+import { fitCutoutDimensions } from './cutout-sizing'
 
 interface TextContentVariantData {
   pos: number
@@ -83,7 +84,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   fontSize: 18,
   cutoutHeight: 72,
-  layout: 'side-by-side',
+  layout: 'vertical',
   focusMode: false,
   codecCharacters: () => [],
   highlightUnknownCodecChars: false,
@@ -171,15 +172,6 @@ const textViewFontVars = computed(() => ({
   '--text-font-size-2xs': `${scaleText(0.58, 9)}px`,
   '--text-font-size-char': `${scaleText(0.9, 13)}px`
 }))
-// Keep cutout start aligned with the transcription textarea start rail in vertical/isolated layout.
-// 5.5rem = index button (1.25rem) + two gaps (0.375rem each) + confidence column (3.5rem).
-const cutoutStartOffsetRem = 5.5
-const cutoutWrapperStyle = computed(() => {
-  if (!isVertical.value || props.focusMode) return undefined
-  return {
-    paddingInlineStart: `${cutoutStartOffsetRem}rem`
-  }
-})
 const effectiveCutoutMaxHeightClass = computed(() => {
   if (props.cutoutMaxHeightClass) return props.cutoutMaxHeightClass
   return isVertical.value ? 'max-h-56' : 'max-h-40'
@@ -544,6 +536,17 @@ const cutoutFrameStyle = computed(() => {
   }
 })
 
+function getCutoutAvailableWidth(): number | null {
+  const container = cutoutContainerRef.value
+  if (!container || typeof window === 'undefined') return null
+
+  const styles = window.getComputedStyle(container)
+  const paddingLeft = Number.parseFloat(styles.paddingLeft) || 0
+  const paddingRight = Number.parseFloat(styles.paddingRight) || 0
+  const availableWidth = container.clientWidth - paddingLeft - paddingRight
+  return availableWidth > 0 ? availableWidth : null
+}
+
 const drawCutout = () => {
   if (!isVisible.value) return
 
@@ -555,14 +558,14 @@ const drawCutout = () => {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  const maxHeightPx = cutoutMaxHeightPx.value
-  const targetHeight = configuredCutoutHeightPx.value
-  let scale = Math.max(0.1, targetHeight / box.height)
-  if (!props.focusMode && typeof maxHeightPx === 'number' && Number.isFinite(maxHeightPx) && maxHeightPx > 0) {
-    scale = Math.min(scale, Math.max(0.1, maxHeightPx / box.height))
-  }
-  const displayWidth = Math.max(1, Math.round(box.width * scale))
-  const displayHeight = Math.max(1, Math.round(box.height * scale))
+  const dimensions = fitCutoutDimensions({
+    sourceWidth: box.width,
+    sourceHeight: box.height,
+    targetHeight: configuredCutoutHeightPx.value,
+    maxHeight: props.focusMode ? null : cutoutMaxHeightPx.value,
+    availableWidth: getCutoutAvailableWidth()
+  })
+  const { width: displayWidth, height: displayHeight, scale } = dimensions
   cutoutRenderWidth.value = displayWidth
   cutoutRenderHeight.value = displayHeight
 
@@ -1109,21 +1112,21 @@ onBeforeUnmount(() => {
       <template v-else>
         <div
           class="flex min-w-0"
-          :class="isVertical ? 'flex-col' : '@max-sm:flex-col'"
+          :class="isVertical ? 'flex-col' : '@max-4xl:flex-col'"
         >
           <div
             class="min-w-0 flex flex-col"
             :class="[
               props.focusMode ? 'p-1 gap-1' : 'p-3 pb-2 gap-2',
-              isVertical ? 'w-full' : '@max-sm:w-full flex-1'
+              isVertical ? 'w-full' : '@max-4xl:w-full flex-1'
             ]"
           >
-            <div v-if="!props.focusMode" class="flex items-center justify-between gap-2">
+            <div v-if="!props.focusMode" class="flex flex-wrap items-center justify-between gap-2">
               <UBadge variant="subtle" color="neutral" class="font-mono">
                 <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
                 {{ props.textline.label ?? props.textline.id }}
               </UBadge>
-              <div v-if="isVertical" class="flex items-center gap-1">
+              <div v-if="isVertical" class="ml-auto flex flex-wrap items-center justify-end gap-1">
                 <template v-if="props.showReorderButtons">
                   <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                     <UButton
@@ -1231,9 +1234,11 @@ onBeforeUnmount(() => {
             <div class="min-w-0" :class="isVerticalFocusMode ? 'flex items-start justify-between gap-2' : ''">
               <div
                 ref="cutoutContainerRef"
-                class="rounded-md overflow-x-auto overflow-y-hidden bg-linear-to-b from-muted/30 to-muted/10 flex items-center justify-start relative"
-                :class="isVerticalFocusMode ? 'min-w-0 flex-1' : ''"
-                :style="cutoutWrapperStyle"
+                class="textline-cutout-container rounded-md overflow-hidden bg-linear-to-b from-muted/30 to-muted/10 flex items-center justify-start relative"
+                :class="[
+                  isVerticalFocusMode ? 'min-w-0 flex-1' : '',
+                  isVertical && !props.focusMode ? 'textline-cutout-container--aligned' : ''
+                ]"
               >
                 <div
                   class="relative shrink-0"
@@ -1319,10 +1324,10 @@ onBeforeUnmount(() => {
             class="min-w-0 flex flex-col"
             :class="[
               props.focusMode ? 'p-1 gap-1' : 'p-3 pt-2 gap-2',
-              isVertical ? 'w-full' : '@max-sm:w-full flex-1'
+              isVertical ? 'w-full' : '@max-4xl:w-full flex-1'
             ]"
           >
-            <div v-if="!isVerticalFocusMode" class="flex items-center gap-1 justify-end w-full">
+            <div v-if="!isVerticalFocusMode" class="flex flex-wrap items-center gap-1 justify-end w-full">
               <template v-if="props.showReorderButtons && !props.focusMode && (!isVertical || props.focusMode)">
                 <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                   <UButton
@@ -1542,6 +1547,7 @@ onBeforeUnmount(() => {
                         :id="`textequiv_${props.textline.id}_${String(textEquiv.index ?? textEquiv.pos)}`"
                         :model-value="textEquiv.text"
                         :rows="props.allowMultiline ? 3 : 1"
+                        :wrap="props.allowMultiline ? 'soft' : 'off'"
                         autoresize
                         placeholder="Enter transcription..."
                         :dir="textDirectionDir"
@@ -1556,6 +1562,7 @@ onBeforeUnmount(() => {
                         class="textline-textarea w-full min-w-0 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
                         :class="[
                           props.focusMode ? 'min-h-7' : 'min-h-9',
+                          !props.allowMultiline && 'textline-textarea--single-line',
                           variantRole(textEquiv.index) === 'gt' && 'textline-textarea--gt border-emerald-200',
                           variantRole(textEquiv.index) === 'recognition' && 'textline-textarea--recognition',
                           variantRole(textEquiv.index) === 'nonAssigned' && 'textline-textarea--non-assigned border-rose-200/70 text-muted',
@@ -1857,6 +1864,12 @@ onBeforeUnmount(() => {
   font-size: var(--text-font-size, 18px);
 }
 
+.textline-textarea.textline-textarea--single-line :deep(textarea) {
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: pre;
+}
+
 .textline-textarea.textline-textarea--has-highlight :deep(textarea) {
   background-color: transparent;
 }
@@ -1908,5 +1921,17 @@ onBeforeUnmount(() => {
   box-shadow:
     inset 0 0 0 1px rgb(15 23 42 / 0.08),
     0 2px 8px rgb(2 6 23 / 0.06);
+}
+
+/* Align vertical cutouts with the text rail while space permits. On genuinely
+   small cards, reclaim that space so the full line receives the available width. */
+.textline-cutout-container--aligned {
+  padding-inline-start: 5.5rem;
+}
+
+@container (max-width: 28rem) {
+  .textline-cutout-container--aligned {
+    padding-inline-start: 0;
+  }
 }
 </style>

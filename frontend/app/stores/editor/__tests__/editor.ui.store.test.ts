@@ -4,7 +4,8 @@ const mocks = vi.hoisted(() => ({
   updatePreference: vi.fn(),
   fetchedToolbarCompact: null as boolean | null,
   fetchedPageFocusMode: null as boolean | null,
-  fetchedTextModeSubmode: null as 'visual' | 'expert' | 'full' | null
+  fetchedTextModeSubmode: null as 'visual' | 'expert' | 'full' | null,
+  fetchedTextItemLayout: null as 'side-by-side' | 'vertical' | null
 }))
 
 vi.mock('@/composables/use-editor-preferences', () => ({
@@ -12,7 +13,8 @@ vi.mock('@/composables/use-editor-preferences', () => ({
     fetchPreferences: vi.fn(async () => ({
       toolbarCompact: mocks.fetchedToolbarCompact,
       pageFocusMode: mocks.fetchedPageFocusMode,
-      textModeSubmode: mocks.fetchedTextModeSubmode
+      textModeSubmode: mocks.fetchedTextModeSubmode,
+      textItemLayout: mocks.fetchedTextItemLayout
     })),
     updatePreference: mocks.updatePreference,
     updatePreferences: vi.fn()
@@ -37,6 +39,7 @@ describe('editor.ui.store preferences', () => {
     mocks.fetchedToolbarCompact = null
     mocks.fetchedPageFocusMode = null
     mocks.fetchedTextModeSubmode = null
+    mocks.fetchedTextItemLayout = null
     mocks.updatePreference.mockReset()
   })
 
@@ -89,5 +92,22 @@ describe('editor.ui.store preferences', () => {
 
     expect(store.textModeSubmode).toBe('visual')
     expect(mocks.updatePreference).toHaveBeenCalledWith('textModeSubmode', 'visual')
+  })
+
+  it('defaults text items to the vertical layout when the saved preference is missing', async () => {
+    const store = await createStore()
+
+    await store.loadPreferences()
+
+    expect(store.textItemLayout).toBe('vertical')
+  })
+
+  it('keeps an explicit side-by-side text item preference', async () => {
+    mocks.fetchedTextItemLayout = 'side-by-side'
+    const store = await createStore()
+
+    await store.loadPreferences()
+
+    expect(store.textItemLayout).toBe('side-by-side')
   })
 })

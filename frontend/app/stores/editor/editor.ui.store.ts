@@ -84,7 +84,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const textViewFontSize = ref<number>(30)
   const textViewPadding = ref<number>(10)
   const textViewCutoutHeight = ref<number>(72)
-  const textItemLayout = ref<TextItemLayout>('side-by-side')
+  const textItemLayout = ref<TextItemLayout>('vertical')
   const textViewAutoSelectFirstLine = ref<boolean>(true)
   const textModeSubmode = ref<TextModeSubmode>('visual')
   const canvasTextCorrectionOverlaySnapToLine = ref<boolean>(true)

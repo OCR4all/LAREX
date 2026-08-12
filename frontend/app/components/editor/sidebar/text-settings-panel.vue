@@ -4,7 +4,7 @@ import type { TextItemLayout } from '@/stores/editor/types'
 const padding = defineModel<number>('padding', { default: 10 })
 const fontSize = defineModel<number>('fontSize', { default: 18 })
 const cutoutHeight = defineModel<number>('cutoutHeight', { default: 72 })
-const textItemLayout = defineModel<TextItemLayout>('textItemLayout', { default: 'side-by-side' })
+const textItemLayout = defineModel<TextItemLayout>('textItemLayout', { default: 'vertical' })
 const autoSelectFirstLine = defineModel<boolean>('autoSelectFirstLine', { default: true })
 const focusMode = defineModel<boolean>('focusMode', { default: false })
 
