@@ -31,6 +31,10 @@ export interface UploadSession {
   totalBytes: number
   processedBytes: number
   progressPercent: number
+  processingCompletedItems: number
+  processingTotalItems: number
+  processingProgressPercent: number
+  processingCurrentFileName?: string
   files: UploadFile[]
   errorMessage?: string
   created: string
@@ -52,6 +56,7 @@ export interface UseChunkedUploadOptions {
   onProgress?: (session: UploadSession) => void
   onFileComplete?: (file: UploadFile) => void
   onSessionComplete?: (session: UploadSession) => void
+  onBeforeFinalize?: (session: UploadSession, files: UploadFile[]) => Promise<boolean>
   onError?: (error: Error, file?: UploadFile) => void
 }
 
@@ -69,6 +74,7 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
     onProgress,
     onFileComplete,
     onSessionComplete,
+    onBeforeFinalize,
     onError
   } = options
 
@@ -346,8 +352,11 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
       })
 
       if (allUploaded && !isPaused.value) {
-        await finalizeSession()
-        onSessionComplete?.(session.value!)
+        const shouldFinalize = await (onBeforeFinalize?.(session.value!, files.value) ?? true)
+        if (shouldFinalize && !isPaused.value) {
+          await finalizeSession()
+          onSessionComplete?.(session.value!)
+        }
       }
     } catch (err) {
       const message = extractApiErrorMessage(err, 'Upload failed')

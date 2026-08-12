@@ -19,7 +19,10 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardServ
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.slf4j.Logger;
@@ -116,7 +119,10 @@ public class AsyncUploadProcessor {
             return;
         }
 
-        if (session.getStatus() != UploadSessionStatus.UPLOADING && session.getStatus() != UploadSessionStatus.PROCESSING) {
+        // Uploading only stores and reassembles temporary files. Conversion is
+        // deliberately gated by finalizeSession(), which is called only after
+        // PDF preflight and the user's confirmation.
+        if (session.getStatus() != UploadSessionStatus.PROCESSING) {
             log.debug("Session {} is not in upload-processing state, current state: {}", sessionId, session.getStatus());
             if (session.getStatus() == UploadSessionStatus.CANCELLED || session.getStatus() == UploadSessionStatus.FAILED) {
                 releaseSessionReservationIfNeeded(session, true);
@@ -145,6 +151,19 @@ public class AsyncUploadProcessor {
                 .collect(java.util.stream.Collectors.toMap(Page::getName, page -> page));
         Set<String> existingPageNames = new HashSet<>(pageRepository.findPageNamesByProjectId(project.getId()));
 
+        if (session.getProcessingTotalItems() == 0) {
+            int processingTotalItems = filesByBaseName.size();
+            for (UploadSessionFile pdfFile : pdfFiles) {
+                processingTotalItems = safeAddProcessingItems(
+                        processingTotalItems,
+                        getPdfPageCount(pdfFile)
+                );
+            }
+            session.setProcessingTotalItems(processingTotalItems);
+            sessionRepository.save(session);
+            emitSessionState(sessionId, "processing-started");
+        }
+
         int processedCount = 0;
         int failedCount = 0;
         Set<String> pagesNeedingIndex = new LinkedHashSet<>();
@@ -157,8 +176,22 @@ public class AsyncUploadProcessor {
                 pdfFile.setStatus(UploadFileStatus.PROCESSING);
                 fileRepository.save(pdfFile);
                 emitFileState(sessionId, pdfFile);
+                session.setProcessingCurrentFileName(pdfFile.getOriginalFileName());
+                if (!persistSessionProgressIfNotCancelled(sessionId, session)) {
+                    return;
+                }
+                emitSessionState(sessionId, "processing-file");
 
-                boolean processed = processPdfFile(sessionId, project, session.getWorkspaceId(), session.getUserId(), pdfFile, existingPageNames);
+                boolean processed = processPdfFile(
+                        sessionId,
+                        session,
+                        project,
+                        session.getWorkspaceId(),
+                        session.getUserId(),
+                        pdfFile,
+                        existingPageNames,
+                        session.getPdfRenderDpi()
+                );
                 if (!processed || stopProcessingIfCancelled(sessionId, session)) {
                     return;
                 }
@@ -211,6 +244,11 @@ public class AsyncUploadProcessor {
                 if (stopProcessingIfCancelled(sessionId, session)) {
                     return;
                 }
+                session.setProcessingCurrentFileName(groupFiles.get(0).getOriginalFileName());
+                if (!persistSessionProgressIfNotCancelled(sessionId, session)) {
+                    return;
+                }
+                emitSessionState(sessionId, "processing-file");
                 boolean processed = processFileGroup(sessionId, project, session.getWorkspaceId(), baseName, groupFiles, session.getUserId(), pagesByName, existingPageNames, pagesNeedingIndex);
                 if (!processed || stopProcessingIfCancelled(sessionId, session)) {
                     return;
@@ -231,6 +269,7 @@ public class AsyncUploadProcessor {
                 if (stopProcessingIfCancelled(sessionId, session)) {
                     return;
                 }
+                session.addProcessingCompletedItems(1);
                 if (!persistSessionProgressIfNotCancelled(sessionId, session)) {
                     return;
                 }
@@ -249,6 +288,7 @@ public class AsyncUploadProcessor {
                     failedCount++;
                     session.incrementFailedFiles();
                 }
+                session.addProcessingCompletedItems(1);
                 if (stopProcessingIfCancelled(sessionId, session)) {
                     return;
                 }
@@ -471,11 +511,13 @@ public class AsyncUploadProcessor {
     }
 
     private boolean processPdfFile(String sessionId,
+                                   UploadSession session,
                                    Project project,
                                    String workspaceId,
                                    String createdByUserId,
                                    UploadSessionFile sessionFile,
-                                   Set<String> existingPageNames) throws IOException {
+                                   Set<String> existingPageNames,
+                                   Integer sessionRenderDpi) throws IOException {
         if (isSessionCancelled(sessionId)) {
             return false;
         }
@@ -493,10 +535,11 @@ public class AsyncUploadProcessor {
         }
         prefix = prefix.trim();
 
-        try (PDDocument document = Loader.loadPDF(tempFilePath.toFile())) {
+        MemoryUsageSetting pdfMemoryUsage = MemoryUsageSetting.setupTempFileOnly()
+                .setTempDir(tempFilePath.toAbsolutePath().getParent().toFile());
+        try (PDDocument document = Loader.loadPDF(tempFilePath.toFile(), pdfMemoryUsage.streamCache)) {
             int pageCount = document.getNumberOfPages();
             int padWidth = Math.max(3, String.valueOf(pageCount).length());
-            PDFRenderer renderer = new PDFRenderer(document);
 
             String firstCreatedPageId = null;
             for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
@@ -509,41 +552,137 @@ public class AsyncUploadProcessor {
                 Page page = createPage(project, pageName);
                 existingPageNames.add(pageName);
 
-                BufferedImage image = renderer.renderImageWithDPI(pageIndex, 250, ImageType.RGB);
-                String pageImageFileName = pageName + ".png";
-                var storedImage = hierarchicalFileStorageService.storeBufferedImage(
-                        image,
-                        "png",
-                        pageImageFileName,
-                        workspaceId,
-                        project.getId(),
-                        createdByUserId
-                );
+                BufferedImage image = renderPdfPage(document, pageIndex, sessionRenderDpi);
+                try {
+                    String pageImageFileName = pageName + ".png";
+                    var storedImage = hierarchicalFileStorageService.storeBufferedImage(
+                            image,
+                            "png",
+                            pageImageFileName,
+                            workspaceId,
+                            project.getId(),
+                            createdByUserId
+                    );
 
-                PageImage pageImage = new PageImage(
-                        storedImage.originalFilename(),
-                        storedImage.storagePath(),
-                        storedImage.mimeType(),
-                        storedImage.sizeBytes(),
-                        "png",
-                        pageName,
-                        page
-                );
+                    PageImage pageImage = new PageImage(
+                            storedImage.originalFilename(),
+                            storedImage.storagePath(),
+                            storedImage.mimeType(),
+                            storedImage.sizeBytes(),
+                            "png",
+                            pageName,
+                            page
+                    );
 
-                pageImage = pageImageRepository.save(pageImage);
-                uploadSessionEventBroadcaster.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "pdf");
+                    pageImage = pageImageRepository.save(pageImage);
+                    uploadSessionEventBroadcaster.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "pdf");
 
-                if (firstCreatedPageId == null) {
-                    firstCreatedPageId = page.getId();
-                    sessionFile.setCreatedPageId(firstCreatedPageId);
-                    sessionFile.setCreatedPageImageId(pageImage.getId());
+                    if (firstCreatedPageId == null) {
+                        firstCreatedPageId = page.getId();
+                        sessionFile.setCreatedPageId(firstCreatedPageId);
+                        sessionFile.setCreatedPageImageId(pageImage.getId());
+                    }
+                } finally {
+                    image.flush();
                 }
+
+                session.addProcessingCompletedItems(1);
+                if (!persistSessionProgressIfNotCancelled(sessionId, session)) {
+                    return false;
+                }
+                emitSessionState(sessionId, "pdf-page-processed");
             }
 
             sessionFile.setStatus(UploadFileStatus.COMPLETED);
             Files.deleteIfExists(tempFilePath);
             return true;
         }
+    }
+
+    private int getPdfPageCount(UploadSessionFile sessionFile) {
+        if (sessionFile.getTempFilePath() == null || sessionFile.getTempFilePath().isBlank()) {
+            throw new IllegalStateException("PDF temp file is missing: " + sessionFile.getOriginalFileName());
+        }
+        Path tempFilePath = Paths.get(sessionFile.getTempFilePath());
+        if (!Files.exists(tempFilePath)) {
+            throw new IllegalStateException("PDF temp file not found: " + tempFilePath);
+        }
+
+        MemoryUsageSetting pdfMemoryUsage = MemoryUsageSetting.setupTempFileOnly()
+                .setTempDir(tempFilePath.toAbsolutePath().getParent().toFile());
+        try (PDDocument document = Loader.loadPDF(tempFilePath.toFile(), pdfMemoryUsage.streamCache)) {
+            return document.getNumberOfPages();
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to inspect PDF page count: " + sessionFile.getOriginalFileName(), e);
+        }
+    }
+
+    private int safeAddProcessingItems(int current, int additional) {
+        if (additional > 0 && current > Integer.MAX_VALUE - additional) {
+            return Integer.MAX_VALUE;
+        }
+        return current + Math.max(0, additional);
+    }
+
+    private BufferedImage renderPdfPage(PDDocument document, int pageIndex, Integer sessionRenderDpi) throws IOException {
+        PDPage page = document.getPage(pageIndex);
+        float scale = resolvePdfRenderScale(
+                page,
+                sessionRenderDpi != null ? sessionRenderDpi : uploadProperties.getPdf().getRenderDpi(),
+                uploadProperties.getPdf().getMaxRenderedPixels()
+        );
+        // Validate the final dimensions as well as the pixel budget before PDFBox allocates the raster.
+        resolvePdfImageDimensions(page, scale);
+
+        try {
+            // Use a renderer per page so PDFRenderer's internal pageImage reference
+            // cannot retain the previous page while the next raster is allocated.
+            PDFRenderer renderer = new PDFRenderer(document);
+            renderer.setSubsamplingAllowed(true);
+            return renderer.renderImage(pageIndex, scale, ImageType.RGB);
+        } catch (OutOfMemoryError e) {
+            throw new IOException("PDF page " + (pageIndex + 1) + " could not be rendered within the available memory", e);
+        }
+    }
+
+    static float resolvePdfRenderScale(PDPage page, int renderDpi, long maxRenderedPixels) {
+        PDRectangle cropBox = page.getCropBox();
+        double pageWidth = cropBox.getWidth();
+        double pageHeight = cropBox.getHeight();
+        if (!Double.isFinite(pageWidth) || !Double.isFinite(pageHeight)
+                || pageWidth <= 0 || pageHeight <= 0) {
+            throw new IllegalArgumentException("PDF page has an invalid crop box");
+        }
+        if (renderDpi <= 0 || maxRenderedPixels <= 0) {
+            throw new IllegalArgumentException("PDF render settings must be positive");
+        }
+
+        float requestedScale = renderDpi / 72.0f;
+        double requestedPixels = pageWidth * pageHeight * requestedScale * requestedScale;
+
+        if (Double.isFinite(requestedPixels) && requestedPixels <= maxRenderedPixels) {
+            return requestedScale;
+        }
+
+        return (float) Math.sqrt(maxRenderedPixels / (pageWidth * pageHeight));
+    }
+
+    static int[] resolvePdfImageDimensions(PDPage page, float scale) {
+        PDRectangle cropBox = page.getCropBox();
+        int width = renderedDimension(cropBox.getWidth(), scale);
+        int height = renderedDimension(cropBox.getHeight(), scale);
+        int rotation = Math.floorMod(page.getRotation(), 360);
+        return rotation == 90 || rotation == 270
+                ? new int[]{height, width}
+                : new int[]{width, height};
+    }
+
+    private static int renderedDimension(float points, float scale) {
+        double pixels = Math.floor(points * scale);
+        if (!Double.isFinite(pixels) || pixels > Integer.MAX_VALUE - 1) {
+            throw new IllegalArgumentException("PDF page dimensions are too large to render");
+        }
+        return Math.max(1, (int) pixels);
     }
 
     private void finalizeSessionIfReady(String sessionId) {
@@ -595,6 +734,9 @@ public class AsyncUploadProcessor {
         }
         session.setStatus(UploadSessionStatus.COMPLETED);
         session.setCompletedAt(completedAt);
+        session.setProcessingCompletedItems(session.getProcessingTotalItems());
+        session.setProcessingCurrentFileName(null);
+        sessionRepository.save(session);
         emitSessionState(sessionId, "completed");
 
         cleanupTempFilesExceptConflicts(sessionId, conflictFiles);
@@ -760,10 +902,13 @@ public class AsyncUploadProcessor {
     private boolean persistSessionProgressIfNotCancelled(String sessionId, UploadSession session) {
         int updatedRows = sessionRepository.updateProgressIfStatusNot(
                 sessionId,
-                session.getProcessedFiles(),
-                session.getFailedFiles(),
-                session.getProcessedBytes(),
-                LocalDateTime.now(),
+            session.getProcessedFiles(),
+            session.getFailedFiles(),
+            session.getProcessedBytes(),
+            session.getProcessingCompletedItems(),
+            session.getProcessingTotalItems(),
+            session.getProcessingCurrentFileName(),
+            LocalDateTime.now(),
                 UploadSessionStatus.CANCELLED
         );
         if (updatedRows > 0) {

@@ -153,7 +153,7 @@ export function getIiifImportStatusColor(status: IiifImportJob['status']): JobSt
 }
 
 export function getUploadStatusLabel(upload: ActiveUpload): string {
-  if (upload.status === 'PROCESSING') return 'Finalizing'
+  if (upload.status === 'PROCESSING') return 'Converting'
   return uploadStatusLabels[upload.status] || upload.status
 }
 
@@ -185,6 +185,16 @@ export function getUploadProgressSummary(upload: ActiveUpload): string {
   if (upload.status === 'PENDING' || upload.status === 'UPLOADING') {
     return `${getUploadedFileCount(upload)} / ${upload.totalFiles} files uploaded`
   }
+  if (upload.status === 'PROCESSING') {
+    const completed = upload.processingCompletedItems
+    const total = upload.processingTotalItems
+    const workSummary = total > 0
+      ? `${completed} / ${total} conversion steps processed`
+      : `${getSettledFileCount(upload)} / ${upload.totalFiles} files processed`
+    return upload.processingCurrentFileName
+      ? `${workSummary} · ${upload.processingCurrentFileName}`
+      : workSummary
+  }
   return `${getSettledFileCount(upload)} / ${upload.totalFiles} files processed`
 }
 
@@ -212,8 +222,8 @@ export function buildStatusJobs(
     subtitle: getUploadProgressSummary(upload),
     status: upload.status,
     statusLabel: getUploadStatusLabel(upload),
-    progress: upload.status === 'PROCESSING' ? null : upload.progressPercent,
-    progressLabel: upload.status === 'PROCESSING' ? 'Finalizing' : `${upload.progressPercent}%`,
+    progress: upload.status === 'PROCESSING' ? upload.processingProgressPercent : upload.progressPercent,
+    progressLabel: `${upload.status === 'PROCESSING' ? upload.processingProgressPercent : upload.progressPercent}%`,
     color: getUploadStatusColor(upload.status),
     icon: upload.status === 'PROCESSING' ? 'i-lucide-loader' : 'i-lucide-upload-cloud',
     active: isActiveUpload(upload.status),

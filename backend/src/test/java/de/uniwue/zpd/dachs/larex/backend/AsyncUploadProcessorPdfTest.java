@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.UploadSession;
 import de.uniwue.zpd.dachs.larex.backend.entity.UploadSessionFile;
+import de.uniwue.zpd.dachs.larex.backend.dto.UploadSessionDto;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -143,6 +144,9 @@ class AsyncUploadProcessorPdfTest {
 
     UploadSession updatedSession = uploadSessionRepository.findById(session.getId()).orElseThrow();
     assertThat(updatedSession.getStatus()).isEqualTo(UploadSession.UploadSessionStatus.COMPLETED);
+    assertThat(updatedSession.getProcessingCompletedItems()).isEqualTo(2);
+    assertThat(updatedSession.getProcessingTotalItems()).isEqualTo(2);
+    assertThat(updatedSession.getProcessingProgressPercent()).isEqualTo(100);
   }
 
   @Test
@@ -203,5 +207,62 @@ class AsyncUploadProcessorPdfTest {
     List<de.uniwue.zpd.dachs.larex.backend.entity.Page> pages = pageRepository.findByProjectId(project.getId());
     assertThat(pages.size()).isGreaterThan(0);
     assertThat(pages.size()).isLessThan(totalPages);
+  }
+
+  @Test
+  void preflightsUploadedPdfBeforeConversion() throws Exception {
+    Library library = libraryRepository.save(new Library("ws-preflight", "Preflight Library"));
+    Project project = projectRepository.save(new Project("Preflight Project", "desc", library));
+
+    UploadSession session = new UploadSession(project.getId(), library.getWorkspaceId(), "user-preflight", 1, 1);
+    session.setStatus(UploadSession.UploadSessionStatus.UPLOADING);
+    session = uploadSessionRepository.save(session);
+
+    Path sessionDir = tempDir.resolve(session.getId());
+    Files.createDirectories(sessionDir);
+    Path pdfPath = sessionDir.resolve("preflight.pdf");
+    try (PDDocument doc = new PDDocument()) {
+      doc.addPage(new PDPage());
+      doc.addPage(new PDPage());
+      doc.save(pdfPath.toFile());
+    }
+
+    UploadSessionFile file = new UploadSessionFile(
+      "preflight.pdf",
+      Files.size(pdfPath),
+      "application/pdf",
+      "preflight",
+      "pdf",
+      1
+    );
+    file.setSession(session);
+    file.setTempFilePath(pdfPath.toString());
+    file.setStatus(UploadSessionFile.UploadFileStatus.UPLOADED);
+    uploadSessionFileRepository.save(file);
+
+    UploadSessionDto.PdfPreflightResponse response = chunkedUploadService.preflightPdfSession(
+      "user-preflight",
+      library.getWorkspaceId(),
+      project.getId(),
+      session.getId(),
+      new UploadSessionDto.PdfPreflightRequest(150)
+    );
+
+    assertThat(response.ready()).isTrue();
+    assertThat(response.withinQuota()).isTrue();
+    assertThat(response.renderDpi()).isEqualTo(150);
+    assertThat(response.pdfFileCount()).isEqualTo(1);
+    assertThat(response.pdfPageCount()).isEqualTo(2);
+    assertThat(response.estimatedPdfBytes()).isPositive();
+
+    // A completed chunk upload must remain inert until the user confirms the
+    // preflight result and finalizeSession changes the session to PROCESSING.
+    asyncUploadProcessor.doProcessUploadSession(session.getId());
+    assertThat(pageRepository.findByProjectId(project.getId())).isEmpty();
+
+    UploadSession updated = uploadSessionRepository.findById(session.getId()).orElseThrow();
+    assertThat(updated.getPdfRenderDpi()).isEqualTo(150);
+    assertThat(updated.getPreflightEstimatedBytes()).isEqualTo(response.estimatedStorageBytes());
+    assertThat(updated.getProcessingTotalItems()).isEqualTo(2);
   }
 }

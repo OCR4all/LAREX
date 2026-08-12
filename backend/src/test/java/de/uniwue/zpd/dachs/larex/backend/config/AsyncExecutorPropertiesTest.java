@@ -31,6 +31,10 @@ class AsyncExecutorPropertiesTest {
                         "larex.upload.index-async.max-pool-size=5",
                         "larex.upload.index-async.queue-capacity=500",
                         "larex.upload.indexing.stale-threshold-ms=30000",
+                        "larex.upload.pdf.render-dpi=180",
+                        "larex.upload.pdf.max-rendered-pixels=4000000",
+                        "larex.upload.pdf.preflight-sample-pages=5",
+                        "larex.upload.pdf.preflight-safety-factor=1.5",
                         "larex.import.enabled=false",
                         "larex.import.allowed-paths=/tmp/import-a,/tmp/import-b",
                         "larex.import.max-scan-depth=12",
@@ -66,6 +70,10 @@ class AsyncExecutorPropertiesTest {
                     assertThat(uploadProperties.getBatchSize()).isEqualTo(20);
                     assertThat(uploadProperties.getMaxConcurrentSessions()).isEqualTo(30);
                     assertThat(uploadProperties.getIndexing().getStaleThresholdMs()).isEqualTo(30000);
+                    assertThat(uploadProperties.getPdf().getRenderDpi()).isEqualTo(180);
+                    assertThat(uploadProperties.getPdf().getMaxRenderedPixels()).isEqualTo(4000000L);
+                    assertThat(uploadProperties.getPdf().getPreflightSamplePages()).isEqualTo(5);
+                    assertThat(uploadProperties.getPdf().getPreflightSafetyFactor()).isEqualTo(1.5);
                     assertExecutorPool(uploadProperties.getAsync(), 4, 8, 400);
                     assertExecutorPool(uploadProperties.getIndexAsync(), 2, 5, 500);
                     ImportProperties importProperties = context.getBean(ImportProperties.class);

@@ -64,6 +64,24 @@ public class UploadController {
         return ResponseEntity.ok(session);
     }
 
+    @PostMapping("/{sessionId}/preflight")
+    public ResponseEntity<UploadSessionDto.PdfPreflightResponse> preflightPdfSession(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String sessionId,
+            @Valid @RequestBody(required = false) UploadSessionDto.PdfPreflightRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+
+        UploadSessionDto.PdfPreflightResponse response = chunkedUploadService.preflightPdfSession(
+                userId,
+                workspaceId,
+                projectId,
+                sessionId,
+                request
+        );
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping(path = "/{sessionId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamSessionEvents(
             @PathVariable String workspaceId,

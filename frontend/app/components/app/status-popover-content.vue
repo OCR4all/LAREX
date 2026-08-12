@@ -451,7 +451,7 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
             <div v-if="!isJobCollapsed(job)" class="overflow-hidden pl-9">
               <div class="mb-2 mt-2">
                 <div class="mb-1 flex items-center justify-between gap-2 text-xs text-muted">
-                  <span class="truncate">
+                  <span v-if="job.kind !== 'upload'" class="truncate">
                     <template v-if="job.kind === 'action'">
                       {{ actionStatusDetail(job) }}
                     </template>
@@ -460,9 +460,6 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
                     </template>
                     <template v-else-if="job.kind === 'iiif'">
                       {{ iiifJobDetail(job) }}
-                    </template>
-                    <template v-else>
-                      {{ job.progressLabel }}
                     </template>
                   </span>
                   <span class="shrink-0">{{ job.progressLabel }}</span>

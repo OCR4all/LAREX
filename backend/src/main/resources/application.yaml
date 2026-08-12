@@ -142,6 +142,13 @@ larex:
       queue-capacity: ${LAREX_UPLOAD_INDEX_ASYNC_QUEUE:200}
     indexing:
       stale-threshold-ms: ${LAREX_UPLOAD_INDEXING_STALE_THRESHOLD_MS:60000}
+    # PDF rendering configuration. Oversized pages are rendered at a lower DPI
+    # so that a single PDF page cannot allocate an unbounded raster in the heap.
+    pdf:
+      render-dpi: ${LAREX_UPLOAD_PDF_RENDER_DPI:250}
+      max-rendered-pixels: ${LAREX_UPLOAD_PDF_MAX_RENDERED_PIXELS:16000000}
+      preflight-sample-pages: ${LAREX_UPLOAD_PDF_PREFLIGHT_SAMPLE_PAGES:3}
+      preflight-safety-factor: ${LAREX_UPLOAD_PDF_PREFLIGHT_SAFETY_FACTOR:1.25}
   # Server-side import configuration
   import:
     # Enable server-side import feature (default: true)

@@ -68,6 +68,24 @@ public class WorkspaceQuotaGuardService {
         return quotaService.getOrCreateQuota(workspaceId).getAvailableBytes();
     }
 
+    /**
+     * Changes an existing reservation to the requested target size. Increasing the
+     * reservation is atomic and fails if the workspace no longer has enough space.
+     */
+    public long adjustReservationOrThrow(String workspaceId,
+                                         long currentReservedBytes,
+                                         long targetReservedBytes,
+                                         String blockedOperation) {
+        long current = Math.max(0L, currentReservedBytes);
+        long target = Math.max(0L, targetReservedBytes);
+        if (target > current) {
+            reserveBytesOrThrow(workspaceId, target - current, blockedOperation);
+        } else if (current > target) {
+            releaseReservation(workspaceId, current - target);
+        }
+        return target;
+    }
+
     public long totalMultipartBytes(List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {
             return 0L;

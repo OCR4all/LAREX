@@ -46,11 +46,29 @@ public class UploadSession {
     @Column(nullable = false, name = "processed_bytes")
     private long processedBytes = 0;
 
+    @Column(nullable = false, name = "processing_completed_items")
+    private int processingCompletedItems = 0;
+
+    @Column(nullable = false, name = "processing_total_items")
+    private int processingTotalItems = 0;
+
+    @Column(name = "processing_current_file_name")
+    private String processingCurrentFileName;
+
     @Column(nullable = false, name = "reserved_bytes")
     private long reservedBytes = 0;
 
     @Column(nullable = false, name = "quota_reservation_released")
     private boolean quotaReservationReleased = false;
+
+    @Column(name = "pdf_render_dpi")
+    private Integer pdfRenderDpi;
+
+    @Column(name = "preflight_estimated_bytes")
+    private Long preflightEstimatedBytes;
+
+    @Column(name = "preflight_completed_at")
+    private LocalDateTime preflightCompletedAt;
 
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<UploadSessionFile> files = new ArrayList<>();
@@ -168,6 +186,41 @@ public class UploadSession {
         this.processedBytes = processedBytes;
     }
 
+    public int getProcessingCompletedItems() {
+        return processingCompletedItems;
+    }
+
+    public void setProcessingCompletedItems(int processingCompletedItems) {
+        this.processingCompletedItems = Math.max(0, processingCompletedItems);
+    }
+
+    public void addProcessingCompletedItems(int items) {
+        this.processingCompletedItems = Math.max(0, this.processingCompletedItems + items);
+    }
+
+    public int getProcessingTotalItems() {
+        return processingTotalItems;
+    }
+
+    public void setProcessingTotalItems(int processingTotalItems) {
+        this.processingTotalItems = Math.max(0, processingTotalItems);
+    }
+
+    public String getProcessingCurrentFileName() {
+        return processingCurrentFileName;
+    }
+
+    public void setProcessingCurrentFileName(String processingCurrentFileName) {
+        this.processingCurrentFileName = processingCurrentFileName;
+    }
+
+    public int getProcessingProgressPercent() {
+        if (processingTotalItems <= 0) {
+            return status == UploadSessionStatus.COMPLETED ? 100 : 0;
+        }
+        return Math.min(100, (int) ((processingCompletedItems * 100L) / processingTotalItems));
+    }
+
     public long getReservedBytes() {
         return reservedBytes;
     }
@@ -182,6 +235,30 @@ public class UploadSession {
 
     public void setQuotaReservationReleased(boolean quotaReservationReleased) {
         this.quotaReservationReleased = quotaReservationReleased;
+    }
+
+    public Integer getPdfRenderDpi() {
+        return pdfRenderDpi;
+    }
+
+    public void setPdfRenderDpi(Integer pdfRenderDpi) {
+        this.pdfRenderDpi = pdfRenderDpi;
+    }
+
+    public Long getPreflightEstimatedBytes() {
+        return preflightEstimatedBytes;
+    }
+
+    public void setPreflightEstimatedBytes(Long preflightEstimatedBytes) {
+        this.preflightEstimatedBytes = preflightEstimatedBytes;
+    }
+
+    public LocalDateTime getPreflightCompletedAt() {
+        return preflightCompletedAt;
+    }
+
+    public void setPreflightCompletedAt(LocalDateTime preflightCompletedAt) {
+        this.preflightCompletedAt = preflightCompletedAt;
     }
 
     public List<UploadSessionFile> getFiles() {

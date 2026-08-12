@@ -11,7 +11,6 @@ import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionRepository;
-import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadFileReassembledEvent;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadSessionFinalizedEvent;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
@@ -51,6 +50,7 @@ public class ChunkedUploadService {
     private final UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final UploadProperties uploadProperties;
+    private final PdfPreflightService pdfPreflightService;
     private String tempDirectory;
 
     @PostConstruct
@@ -74,7 +74,8 @@ public class ChunkedUploadService {
                                 ApplicationEventPublisher applicationEventPublisher,
                                 UploadSessionEventBroadcaster uploadSessionEventBroadcaster,
                                 WorkspaceQuotaGuardService workspaceQuotaGuardService,
-                                UploadProperties uploadProperties) {
+                                UploadProperties uploadProperties,
+                                PdfPreflightService pdfPreflightService) {
         this.sessionRepository = sessionRepository;
         this.fileRepository = fileRepository;
         this.projectRepository = projectRepository;
@@ -84,6 +85,7 @@ public class ChunkedUploadService {
         this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.uploadProperties = uploadProperties;
+        this.pdfPreflightService = pdfPreflightService;
         this.tempDirectory = uploadProperties.getTempDirectory().toString();
     }
 
@@ -213,7 +215,6 @@ public class ChunkedUploadService {
         if (fileComplete) {
             uploadSessionEventBroadcaster.broadcastFileState(sessionId, sessionFile);
             uploadSessionEventBroadcaster.broadcastSessionState(sessionId, "file-uploaded");
-            applicationEventPublisher.publishEvent(new UploadFileReassembledEvent(sessionId, fileId));
         }
 
         log.debug("Received chunk {}/{} for file {} in session {}",
@@ -232,6 +233,118 @@ public class ChunkedUploadService {
                 .orElseThrow(() -> new ResourceNotFoundException("Upload session not found: " + sessionId));
 
         return convertToSessionResponse(session);
+    }
+
+    public UploadSessionDto.PdfPreflightResponse preflightPdfSession(
+            String userId,
+            String workspaceId,
+            String projectId,
+            String sessionId,
+            UploadSessionDto.PdfPreflightRequest request
+    ) throws IOException {
+        UploadSession session = sessionRepository.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Upload session not found: " + sessionId));
+
+        if (!workspaceId.equals(session.getWorkspaceId()) || !projectId.equals(session.getProjectId())) {
+            throw new IllegalArgumentException("Upload session does not belong to the requested project/workspace");
+        }
+        if (session.getStatus() != UploadSessionStatus.UPLOADING) {
+            throw new IllegalArgumentException("PDF preflight is only available while the session is uploading");
+        }
+
+        List<UploadSessionFile> pendingFiles = fileRepository.findBySessionIdAndStatusIn(
+                sessionId,
+                List.of(UploadFileStatus.PENDING, UploadFileStatus.UPLOADING)
+        );
+        if (!pendingFiles.isEmpty()) {
+            throw new IllegalArgumentException("Not all files have been uploaded");
+        }
+
+        int renderDpi = request != null && request.renderDpi() != null
+                ? request.renderDpi()
+                : uploadProperties.getPdf().getRenderDpi();
+        List<UploadSessionFile> sessionFiles = fileRepository.findBySessionId(sessionId);
+        List<UploadSessionFile> pdfFiles = sessionFiles.stream()
+                .filter(pdfPreflightService::isPdf)
+                .toList();
+
+        long estimatedPdfBytes = 0L;
+        long pdfPageCount = 0L;
+        long renderedPixels = 0L;
+        for (UploadSessionFile pdfFile : pdfFiles) {
+            if (pdfFile.getTempFilePath() == null || pdfFile.getTempFilePath().isBlank()) {
+                throw new IOException("Uploaded PDF temp file is missing: " + pdfFile.getOriginalFileName());
+            }
+            PdfPreflightService.PdfAnalysis analysis = pdfPreflightService.analyze(
+                    Paths.get(pdfFile.getTempFilePath()),
+                    renderDpi
+            );
+            estimatedPdfBytes = saturatedAdd(estimatedPdfBytes, analysis.estimatedBytes());
+            pdfPageCount = saturatedAdd(pdfPageCount, analysis.pageCount());
+            renderedPixels = saturatedAdd(renderedPixels, analysis.renderedPixels());
+        }
+
+        long nonPdfBytes = sessionFiles.stream()
+                .filter(file -> !pdfPreflightService.isPdf(file))
+                .mapToLong(UploadSessionFile::getFileSize)
+                .reduce(0L, this::saturatedAdd);
+        long estimatedStorageBytes = saturatedAdd(nonPdfBytes, estimatedPdfBytes);
+        long nonPdfWorkItems = sessionFiles.stream()
+                .filter(file -> !pdfPreflightService.isPdf(file))
+                .map(file -> file.getBaseName() != null ? file.getBaseName() : file.getOriginalFileName())
+                .distinct()
+                .count();
+        session.setProcessingCompletedItems(0);
+        session.setProcessingTotalItems(toProcessingItemCount(pdfPageCount, nonPdfWorkItems));
+        session.setProcessingCurrentFileName(null);
+        long availableBeforeReservation = workspaceQuotaGuardService.getAvailableBytes(workspaceId);
+        long currentReservedBytes = session.getReservedBytes();
+
+        try {
+            long adjustedReservation = workspaceQuotaGuardService.adjustReservationOrThrow(
+                    workspaceId,
+                    currentReservedBytes,
+                    estimatedStorageBytes,
+                    "pdf-upload-preflight"
+            );
+            session.setReservedBytes(adjustedReservation);
+            session.setPdfRenderDpi(renderDpi);
+            session.setPreflightEstimatedBytes(estimatedStorageBytes);
+            session.setPreflightCompletedAt(LocalDateTime.now());
+            sessionRepository.save(session);
+
+            return new UploadSessionDto.PdfPreflightResponse(
+                    true,
+                    true,
+                    workspaceQuotaGuardService.isQuotaEnforcementEnabled(),
+                    renderDpi,
+                    pdfFiles.size(),
+                    pdfPageCount,
+                    renderedPixels,
+                    estimatedPdfBytes,
+                    estimatedStorageBytes,
+                    adjustedReservation,
+                    availableBeforeReservation,
+                    workspaceQuotaGuardService.getAvailableBytes(workspaceId),
+                    "The PDF conversion estimate fits in the available workspace storage."
+            );
+        } catch (de.uniwue.zpd.dachs.larex.backend.exception.StorageQuotaExceededException e) {
+            return new UploadSessionDto.PdfPreflightResponse(
+                    false,
+                    false,
+                    workspaceQuotaGuardService.isQuotaEnforcementEnabled(),
+                    renderDpi,
+                    pdfFiles.size(),
+                    pdfPageCount,
+                    renderedPixels,
+                    estimatedPdfBytes,
+                    estimatedStorageBytes,
+                    currentReservedBytes,
+                    e.getAvailableBytes(),
+                    e.getAvailableBytes(),
+                    "The PDF conversion estimate exceeds the available workspace storage."
+            );
+        }
     }
 
     public List<UploadSessionDto.SessionSummaryResponse> getUserSessions(String userId) {
@@ -266,6 +379,10 @@ public class ChunkedUploadService {
         }
 
         List<UploadSessionFile> uploadedFiles = fileRepository.findBySessionIdAndStatus(sessionId, UploadFileStatus.UPLOADED);
+        boolean containsPdf = uploadedFiles.stream().anyMatch(pdfPreflightService::isPdf);
+        if (containsPdf && (session.getPdfRenderDpi() == null || session.getPreflightCompletedAt() == null)) {
+            throw new IllegalArgumentException("PDF upload requires a successful preflight before conversion");
+        }
         for (UploadSessionFile uploadedFile : uploadedFiles) {
             if (uploadedFile.getTempFilePath() == null || uploadedFile.getTempFilePath().isBlank()) {
                 continue;
@@ -448,6 +565,18 @@ public class ChunkedUploadService {
         session.setReservedBytes(0L);
     }
 
+    private long saturatedAdd(long left, long right) {
+        if (right > 0 && left > Long.MAX_VALUE - right) {
+            return Long.MAX_VALUE;
+        }
+        return left + right;
+    }
+
+    private int toProcessingItemCount(long pdfPageCount, long nonPdfWorkItems) {
+        long total = saturatedAdd(pdfPageCount, nonPdfWorkItems);
+        return total >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
+    }
+
     private UploadSessionDto.SessionResponse convertToSessionResponse(UploadSession session) {
         List<UploadSessionDto.FileResponse> fileResponses = session.getFiles().stream()
                 .map(this::convertToFileResponse)
@@ -464,6 +593,10 @@ public class ChunkedUploadService {
                 session.getTotalBytes(),
                 session.getProcessedBytes(),
                 session.getProgressPercent(),
+                session.getProcessingCompletedItems(),
+                session.getProcessingTotalItems(),
+                session.getProcessingProgressPercent(),
+                session.getProcessingCurrentFileName(),
                 fileResponses,
                 session.getErrorMessage(),
                 session.getCreated(),

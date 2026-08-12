@@ -36,6 +36,28 @@ import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/t
 import PageImageFolderBadge from '@/components/page/image-folder-badge.vue'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowState, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
+import type { UploadFile, UploadSession } from '@/composables/use-chunked-upload'
+
+type PdfPreflightResponse = {
+  ready: boolean
+  withinQuota: boolean
+  quotaEnforced: boolean
+  renderDpi: number
+  pdfFileCount: number
+  pdfPageCount: number
+  renderedPixels: number
+  estimatedPdfBytes: number
+  estimatedStorageBytes: number
+  reservedBytes: number
+  availableBytes: number
+  availableBytesAfterReservation: number
+  message: string
+}
+
+type PdfUploadSettings = {
+  prefixes: Record<string, string>
+  renderDpi: number
+}
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -51,6 +73,7 @@ const actionRunsStore = useActionRunsStore()
 const iiifImportJobsStore = useIiifImportJobsStore()
 const collaborationPageSummary = useCollaborationPageSummary()
 const pagePrefetch = usePagePrefetch()
+const uploadSessionActions = useUploadSessionActions()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const { allow } = useActionVisibility()
@@ -360,6 +383,58 @@ const { data: projectStatus, refresh: refreshProjectStatus } = await useFetch<{ 
   watch: [selectedWorkspace]
 })
 
+const selectedPdfRenderDpi = ref(250)
+const selectedPdfPrefixes = ref<Record<string, string>>({})
+
+function isPdfUploadFile(file: UploadFile): boolean {
+  return file.mimeType.toLowerCase() === 'application/pdf' || file.fileName.toLowerCase().endsWith('.pdf')
+}
+
+function defaultPdfPrefix(fileName: string): string {
+  const dotIndex = fileName.indexOf('.')
+  return dotIndex >= 0 ? fileName.substring(0, dotIndex) : fileName
+}
+
+async function preflightBeforeFinalize(session: UploadSession, uploadFiles: UploadFile[]): Promise<boolean> {
+  const pdfFiles = uploadFiles.filter(isPdfUploadFile)
+  if (pdfFiles.length === 0 || !selectedWorkspace.value) {
+    return true
+  }
+
+  const infos = pdfFiles.map(file => ({
+    fileName: file.fileName,
+    defaultPrefix: defaultPdfPrefix(file.fileName)
+  }))
+
+  const runPreflight = (renderDpi: number) => $fetch<PdfPreflightResponse>(
+    `/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/upload-sessions/${session.id}/preflight`,
+    {
+      method: 'POST',
+      body: { renderDpi }
+    }
+  )
+
+  const preflight = await runPreflight(selectedPdfRenderDpi.value)
+  const review = pdfPrefixSlideover.open({
+    files: infos,
+    mode: 'review',
+    initialRenderDpi: selectedPdfRenderDpi.value,
+    initialPrefixes: selectedPdfPrefixes.value,
+    preflight,
+    recalculate: runPreflight
+  })
+  const settings = await review.result as PdfUploadSettings | null
+
+  if (!settings) {
+    await uploadSessionActions.cancelUploadBySessionId(session.id)
+    return false
+  }
+
+  selectedPdfRenderDpi.value = settings.renderDpi
+  selectedPdfPrefixes.value = settings.prefixes
+  return true
+}
+
 const {
   isUploading,
   isManualPagesRefresh,
@@ -376,6 +451,7 @@ const {
   refreshPagesFetch,
   refreshProject,
   refreshProjectStatus,
+  onBeforeFinalize: preflightBeforeFinalize,
   onIndexingPagesDetected: () => pageIndexStatusPolling.schedule(projectId, 0)
 })
 
@@ -437,12 +513,16 @@ async function handleFileUpload(files: FileList | null) {
     })
 
     const instance = pdfPrefixSlideover.open({ files: infos })
-    pdfPrefixesByFileName = await instance.result
+    const settings = await instance.result as PdfUploadSettings | null
 
-    if (!pdfPrefixesByFileName) {
+    if (!settings) {
       if (fileInput.value) fileInput.value.value = ''
       return
     }
+
+    pdfPrefixesByFileName = settings.prefixes
+    selectedPdfRenderDpi.value = settings.renderDpi
+    selectedPdfPrefixes.value = settings.prefixes
   }
 
   await startProjectUpload(fileArray, pdfPrefixesByFileName || undefined)

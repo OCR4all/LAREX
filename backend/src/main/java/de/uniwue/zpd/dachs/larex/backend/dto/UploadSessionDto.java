@@ -44,6 +44,10 @@ public class UploadSessionDto {
             long totalBytes,
             long processedBytes,
             int progressPercent,
+            int processingCompletedItems,
+            int processingTotalItems,
+            int processingProgressPercent,
+            String processingCurrentFileName,
             List<FileResponse> files,
             String errorMessage,
             LocalDateTime created,
@@ -98,6 +102,27 @@ public class UploadSessionDto {
 
     public record FinalizeSessionRequest(
             List<ConflictResolution> conflictResolutions
+    ) {}
+
+    public record PdfPreflightRequest(
+            @Positive(message = "PDF render DPI must be positive")
+            Integer renderDpi
+    ) {}
+
+    public record PdfPreflightResponse(
+            boolean ready,
+            boolean withinQuota,
+            boolean quotaEnforced,
+            int renderDpi,
+            int pdfFileCount,
+            long pdfPageCount,
+            long renderedPixels,
+            long estimatedPdfBytes,
+            long estimatedStorageBytes,
+            long reservedBytes,
+            long availableBytes,
+            long availableBytesAfterReservation,
+            String message
     ) {}
 
     public record ConflictResolution(

@@ -50,6 +50,9 @@ public interface UploadSessionRepository extends JpaRepository<UploadSession, St
             SET s.processedFiles = :processedFiles,
                 s.failedFiles = :failedFiles,
                 s.processedBytes = :processedBytes,
+                s.processingCompletedItems = :processingCompletedItems,
+                s.processingTotalItems = :processingTotalItems,
+                s.processingCurrentFileName = :processingCurrentFileName,
                 s.updated = :updatedAt
             WHERE s.id = :sessionId
               AND s.status <> :blockedStatus
@@ -59,6 +62,9 @@ public interface UploadSessionRepository extends JpaRepository<UploadSession, St
             @Param("processedFiles") int processedFiles,
             @Param("failedFiles") int failedFiles,
             @Param("processedBytes") long processedBytes,
+            @Param("processingCompletedItems") int processingCompletedItems,
+            @Param("processingTotalItems") int processingTotalItems,
+            @Param("processingCurrentFileName") String processingCurrentFileName,
             @Param("updatedAt") LocalDateTime updatedAt,
             @Param("blockedStatus") UploadSessionStatus blockedStatus);
 

@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 import { wsKey } from '@/utils/fetch-keys'
-import type { UploadFile } from '@/composables/use-chunked-upload'
+import type { UploadFile, UploadSession } from '@/composables/use-chunked-upload'
 import type { UploadSessionStatus, UploadUiFile, UploadUiFileStatus } from '@/stores/upload.store'
 import { showApiErrorToast } from '@/utils/error-toast'
 
@@ -15,6 +15,10 @@ type UploadSessionSseEvent = {
   processedFiles?: number
   failedFiles?: number
   totalFiles?: number
+  processingCompletedItems?: number
+  processingTotalItems?: number
+  processingProgressPercent?: number
+  processingCurrentFileName?: string | null
 }
 
 type UploadFileSseEvent = {
@@ -53,6 +57,10 @@ type UploadSessionDetailResponse = {
   processedFiles: number
   failedFiles: number
   progressPercent: number
+  processingCompletedItems: number
+  processingTotalItems: number
+  processingProgressPercent: number
+  processingCurrentFileName?: string | null
   files: UploadSessionFileResponse[]
 }
 
@@ -88,6 +96,7 @@ export interface UseProjectUploadOrchestrationOptions<TPage extends ProjectPageL
   refreshPagesFetch: () => Promise<unknown>
   refreshProject: () => Promise<unknown>
   refreshProjectStatus: () => Promise<unknown>
+  onBeforeFinalize?: (session: UploadSession, files: UploadFile[]) => Promise<boolean>
   onIndexingPagesDetected?: () => void
 }
 
@@ -107,10 +116,11 @@ function getSessionProgressPercent(
   processedFiles: number,
   failedFiles: number,
   totalFiles: number,
-  fallbackProgressPercent = 0
+  fallbackProgressPercent = 0,
+  processingProgressPercent = 0
 ): number {
   if (status === 'PROCESSING') {
-    return 100
+    return processingProgressPercent
   }
 
   if (totalFiles > 0) {
@@ -227,7 +237,11 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       if (session.status === 'PROCESSING') {
         uploadStore.updateUploadProgress(sessionId, {
           status: 'PROCESSING',
-          progressPercent: 100
+          progressPercent: session.processingProgressPercent,
+          processingCompletedItems: session.processingCompletedItems,
+          processingTotalItems: session.processingTotalItems,
+          processingProgressPercent: session.processingProgressPercent,
+          ...(session.processingCurrentFileName ? { processingCurrentFileName: session.processingCurrentFileName } : {})
         })
         return
       }
@@ -260,7 +274,11 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       if (existingUpload?.status !== 'FAILED' && existingUpload?.status !== 'CANCELLED') {
         uploadStore.updateUploadProgress(sessionId, {
           status: 'PROCESSING',
-          progressPercent: 100
+          progressPercent: 0,
+          processingCompletedItems: 0,
+          processingTotalItems: 0,
+          processingProgressPercent: 0,
+          processingCurrentFileName: undefined
         })
       }
 
@@ -268,6 +286,7 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       scheduleUploadSessionPoll(sessionId, UPLOAD_PROCESSING_POLL_MS)
       clearFiles()
     },
+    onBeforeFinalize: (session, files) => options.onBeforeFinalize?.(session, files) ?? Promise.resolve(true),
     onError: (error, file) => {
       const sessionId = currentUploadSessionId.value
       if (uploadSessionActions.shouldSuppressUploadError(sessionId, error)) {
@@ -401,8 +420,13 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
         detail.processedFiles,
         detail.failedFiles,
         detail.totalFiles,
-        detail.progressPercent
+        detail.progressPercent,
+        detail.processingProgressPercent
       ),
+      processingCompletedItems: detail.processingCompletedItems,
+      processingTotalItems: detail.processingTotalItems,
+      processingProgressPercent: detail.processingProgressPercent,
+      processingCurrentFileName: detail.processingCurrentFileName || undefined,
       files: mappedFiles
     })
   }
@@ -455,6 +479,14 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       ...(event.status ? { status: event.status } : {}),
       ...(typeof event.processedFiles === 'number' ? { processedFiles: event.processedFiles } : {}),
       ...(typeof event.failedFiles === 'number' ? { failedFiles: event.failedFiles } : {}),
+      ...(typeof event.processingCompletedItems === 'number' ? { processingCompletedItems: event.processingCompletedItems } : {}),
+      ...(typeof event.processingTotalItems === 'number' ? { processingTotalItems: event.processingTotalItems } : {}),
+      ...(typeof event.processingProgressPercent === 'number'
+        ? { processingProgressPercent: event.processingProgressPercent, progressPercent: event.processingProgressPercent }
+        : {}),
+      ...(event.processingCurrentFileName !== undefined
+        ? { processingCurrentFileName: event.processingCurrentFileName || undefined }
+        : {}),
       ...(shouldUpdateProgressFromServer
         && typeof event.totalFiles === 'number'
         && typeof event.processedFiles === 'number'
@@ -464,7 +496,9 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
               event.status,
               event.processedFiles,
               event.failedFiles,
-              event.totalFiles
+              event.totalFiles,
+              0,
+              event.processingProgressPercent
             )
           }
         : {})
@@ -570,6 +604,10 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
         processedFiles: number
         failedFiles: number
         totalFiles: number
+        processingCompletedItems: number
+        processingTotalItems: number
+        processingProgressPercent: number
+        processingCurrentFileName?: string | null
       }>(
         `/api/workspaces/${workspaceId}/projects/${options.projectId}/upload-sessions/${sessionId}`
       )
@@ -582,8 +620,14 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
           status.status,
           status.processedFiles,
           status.failedFiles,
-          status.totalFiles
-        )
+          status.totalFiles,
+          0,
+          status.processingProgressPercent
+        ),
+        processingCompletedItems: status.processingCompletedItems,
+        processingTotalItems: status.processingTotalItems,
+        processingProgressPercent: status.processingProgressPercent,
+        processingCurrentFileName: status.processingCurrentFileName || undefined
       })
 
       if (isTerminalUploadStatus(status.status)) {

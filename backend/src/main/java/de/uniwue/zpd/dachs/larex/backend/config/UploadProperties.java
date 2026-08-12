@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.config;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -33,6 +34,9 @@ public class UploadProperties {
 
     @Valid
     private IndexingProperties indexing = new IndexingProperties();
+
+    @Valid
+    private PdfProperties pdf = new PdfProperties();
 
     public long getChunkSizeBytes() {
         return chunkSizeBytes;
@@ -98,6 +102,14 @@ public class UploadProperties {
         this.indexing = indexing;
     }
 
+    public PdfProperties getPdf() {
+        return pdf;
+    }
+
+    public void setPdf(PdfProperties pdf) {
+        this.pdf = pdf;
+    }
+
     public static class IndexingProperties {
 
         @Min(1)
@@ -109,6 +121,53 @@ public class UploadProperties {
 
         public void setStaleThresholdMs(long staleThresholdMs) {
             this.staleThresholdMs = staleThresholdMs;
+        }
+    }
+
+    public static class PdfProperties {
+
+        @Min(1)
+        private int renderDpi = 250;
+
+        @Min(1)
+        private long maxRenderedPixels = 16_000_000L;
+
+        @Min(1)
+        private int preflightSamplePages = 3;
+
+        @DecimalMin("1.0")
+        private double preflightSafetyFactor = 1.25;
+
+        public int getRenderDpi() {
+            return renderDpi;
+        }
+
+        public void setRenderDpi(int renderDpi) {
+            this.renderDpi = renderDpi;
+        }
+
+        public long getMaxRenderedPixels() {
+            return maxRenderedPixels;
+        }
+
+        public void setMaxRenderedPixels(long maxRenderedPixels) {
+            this.maxRenderedPixels = maxRenderedPixels;
+        }
+
+        public int getPreflightSamplePages() {
+            return preflightSamplePages;
+        }
+
+        public void setPreflightSamplePages(int preflightSamplePages) {
+            this.preflightSamplePages = preflightSamplePages;
+        }
+
+        public double getPreflightSafetyFactor() {
+            return preflightSafetyFactor;
+        }
+
+        public void setPreflightSafetyFactor(double preflightSafetyFactor) {
+            this.preflightSafetyFactor = preflightSafetyFactor;
         }
     }
 }

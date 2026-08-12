@@ -4,12 +4,38 @@ type PdfFileInfo = {
   defaultPrefix: string
 }
 
+type PdfPreflightInfo = {
+  ready: boolean
+  withinQuota: boolean
+  quotaEnforced: boolean
+  renderDpi: number
+  pdfFileCount: number
+  pdfPageCount: number
+  renderedPixels: number
+  estimatedPdfBytes: number
+  estimatedStorageBytes: number
+  reservedBytes: number
+  availableBytes: number
+  availableBytesAfterReservation: number
+  message: string
+}
+
+type PdfUploadSettings = {
+  prefixes: Record<string, string>
+  renderDpi: number
+}
+
 const props = defineProps<{
   files: PdfFileInfo[]
+  mode?: 'configure' | 'review'
+  initialRenderDpi?: number
+  initialPrefixes?: Record<string, string>
+  preflight?: PdfPreflightInfo | null
+  recalculate?: (renderDpi: number) => Promise<PdfPreflightInfo>
 }>()
 
 const emit = defineEmits<{
-  close: [result: Record<string, string> | null]
+  close: [result: PdfUploadSettings | null]
 }>()
 
 const formId = useId()
@@ -22,10 +48,37 @@ const stateByFileName = ref<Record<string, PdfPrefixState>>(
   Object.fromEntries(
     props.files.map(f => [
       f.fileName,
-      { useFileName: true, customPrefix: f.defaultPrefix }
+      {
+        useFileName: !props.initialPrefixes?.[f.fileName] || props.initialPrefixes?.[f.fileName] === f.defaultPrefix,
+        customPrefix: props.initialPrefixes?.[f.fileName] ?? f.defaultPrefix
+      }
     ])
   )
 )
+
+const renderDpi = ref(props.preflight?.renderDpi ?? props.initialRenderDpi ?? 250)
+const isReview = computed(() => props.mode === 'review')
+const reviewPreflight = ref<PdfPreflightInfo | null>(props.preflight ?? null)
+const isRecalculating = ref(false)
+const preflightError = ref<string | null>(null)
+const isDpiChanged = computed(() => (
+  isReview.value
+  && reviewPreflight.value != null
+  && Number(renderDpi.value) !== reviewPreflight.value.renderDpi
+))
+const isQuotaCheckDisabled = computed(() => (
+  isReview.value
+  && reviewPreflight.value != null
+  && !reviewPreflight.value.withinQuota
+  && !isDpiChanged.value
+))
+const dpiOptions = [
+  { label: '72 DPI — smallest output', value: 72 },
+  { label: '150 DPI — balanced', value: 150 },
+  { label: '200 DPI — high quality', value: 200 },
+  { label: '250 DPI — current default', value: 250 },
+  { label: '300 DPI — largest output', value: 300 }
+]
 
 const resolvedPrefixes = computed<Record<string, string>>(() => {
   const out: Record<string, string> = {}
@@ -57,6 +110,43 @@ function ensureFileState(fileName: string): PdfPrefixState {
   stateByFileName.value[fileName] = nextState
   return nextState
 }
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes >= Number.MAX_SAFE_INTEGER) return 'unlimited'
+  if (bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit++
+  }
+  return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`
+}
+
+const submitLabel = computed(() => {
+  if (!isReview.value) return 'Continue'
+  if (isRecalculating.value) return 'Recalculating…'
+  if (isDpiChanged.value) return 'Recalculate estimate'
+  return reviewPreflight.value?.withinQuota ? 'Start conversion' : 'Select a different DPI'
+})
+
+async function submit() {
+  if (isDpiChanged.value && props.recalculate) {
+    isRecalculating.value = true
+    preflightError.value = null
+    try {
+      reviewPreflight.value = await props.recalculate(Number(renderDpi.value))
+    } catch (error) {
+      preflightError.value = error instanceof Error ? error.message : 'Could not recalculate the PDF estimate.'
+    } finally {
+      isRecalculating.value = false
+    }
+    return
+  }
+
+  emit('close', { prefixes: resolvedPrefixes.value, renderDpi: Number(renderDpi.value) })
+}
 </script>
 
 <template>
@@ -65,13 +155,58 @@ function ensureFileState(fileName: string): PdfPrefixState {
     :close="{ onClick: () => emit('close', null) }"
   >
     <template #header>
-      <UiSlideoverHeader title="PDF Page Prefix" icon="i-lucide-file-type" />
+      <UiSlideoverHeader
+        :title="isReview ? 'Review PDF conversion' : 'PDF conversion settings'"
+        icon="i-lucide-file-type"
+      />
     </template>
 
     <template #body>
-      <UForm :id="formId" class="space-y-4" @submit="emit('close', resolvedPrefixes)">
+      <UForm :id="formId" class="space-y-4" @submit="submit">
         <div class="text-sm text-muted">
-          Choose how pages created from the PDF should be named.
+          {{ isReview
+            ? 'The PDF has been uploaded and analyzed. Review the estimated conversion size before processing.'
+            : 'Choose how pages created from the PDF should be named and select the conversion resolution.' }}
+        </div>
+
+        <UAlert
+          v-if="isReview && reviewPreflight"
+          :color="reviewPreflight.withinQuota ? 'success' : 'warning'"
+          :icon="reviewPreflight.withinQuota ? 'i-lucide-circle-check' : 'i-lucide-hard-drive'"
+          :title="reviewPreflight.withinQuota ? 'Enough workspace storage is available' : 'Workspace storage is too small for this setting'"
+        >
+          <template #description>
+            <div class="space-y-1">
+              <div>{{ reviewPreflight.pdfPageCount }} PDF pages · estimated output {{ formatBytes(reviewPreflight.estimatedPdfBytes) }}</div>
+              <div>Estimated project storage after conversion: {{ formatBytes(reviewPreflight.estimatedStorageBytes) }}</div>
+              <div v-if="reviewPreflight.quotaEnforced">
+                Available before reservation: {{ formatBytes(reviewPreflight.availableBytes) }}
+              </div>
+              <div v-if="reviewPreflight.quotaEnforced && reviewPreflight.withinQuota">
+                Remaining after reservation: {{ formatBytes(reviewPreflight.availableBytesAfterReservation) }}
+              </div>
+              <div>{{ reviewPreflight.message }}</div>
+            </div>
+          </template>
+        </UAlert>
+
+        <UAlert
+          v-if="preflightError"
+          color="error"
+          icon="i-lucide-circle-alert"
+          title="Could not recalculate estimate"
+          :description="preflightError"
+        />
+
+        <div class="rounded-sm border border-default p-3 space-y-2">
+          <div class="text-sm font-medium">
+            PDF render resolution
+          </div>
+          <div class="text-sm text-muted">
+            Higher DPI improves detail but can make the generated page images much larger.
+            <span v-if="isReview">Changing DPI recalculates the estimate before you can start conversion.</span>
+          </div>
+          <USelect v-model="renderDpi" :items="dpiOptions" />
         </div>
 
         <div class="space-y-3">
@@ -84,21 +219,21 @@ function ensureFileState(fileName: string): PdfPrefixState {
               {{ f.fileName }}
             </div>
 
-            <div class="flex items-center justify-between gap-3">
+            <div v-if="!isReview" class="flex items-center justify-between gap-3">
               <div class="text-sm">
                 Use file name
               </div>
               <USwitch v-model="ensureFileState(f.fileName).useFileName" />
             </div>
 
-            <div v-if="!ensureFileState(f.fileName).useFileName" class="space-y-1">
+            <div v-if="!isReview && !ensureFileState(f.fileName).useFileName" class="space-y-1">
               <div class="text-sm text-muted">
                 Prefix
               </div>
               <UInput v-model="ensureFileState(f.fileName).customPrefix" placeholder="Enter prefix..." />
             </div>
 
-            <div class="text-xs text-muted">
+            <div v-if="!isReview" class="text-xs text-muted">
               Pages will be created as {{ resolvedPrefixes[f.fileName] || '…' }}_001, {{ resolvedPrefixes[f.fileName] || '…' }}_002, …
             </div>
           </div>
@@ -116,9 +251,10 @@ function ensureFileState(fileName: string): PdfPrefixState {
           :form="formId"
           color="primary"
           variant="solid"
-          :disabled="hasInvalidPrefix"
+          :loading="isRecalculating"
+          :disabled="hasInvalidPrefix || isQuotaCheckDisabled || isRecalculating"
         >
-          Continue
+          {{ submitLabel }}
         </UButton>
       </div>
     </template>

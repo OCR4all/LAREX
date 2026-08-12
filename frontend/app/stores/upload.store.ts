@@ -44,6 +44,10 @@ export interface ActiveUpload {
   processedFiles: number
   failedFiles: number
   progressPercent: number
+  processingCompletedItems: number
+  processingTotalItems: number
+  processingProgressPercent: number
+  processingCurrentFileName?: string
   files: UploadUiFile[]
   created: string
   error?: string
@@ -57,7 +61,7 @@ function isActiveStatus(status: ActiveUpload['status']): boolean {
   return status === 'PENDING' || status === 'UPLOADING' || status === 'PROCESSING'
 }
 
-type RegisterUploadOptions = Partial<Pick<ActiveUpload, 'status' | 'processedFiles' | 'failedFiles' | 'progressPercent' | 'created' | 'error' | 'cancelable'>>
+type RegisterUploadOptions = Partial<Pick<ActiveUpload, 'status' | 'processedFiles' | 'failedFiles' | 'progressPercent' | 'processingCompletedItems' | 'processingTotalItems' | 'processingProgressPercent' | 'processingCurrentFileName' | 'created' | 'error' | 'cancelable'>>
 
 export const useUploadStore = defineStore('upload', () => {
   const activeUploads = ref<Map<string, ActiveUpload>>(new Map())
@@ -117,6 +121,10 @@ export const useUploadStore = defineStore('upload', () => {
       processedFiles: options.processedFiles ?? 0,
       failedFiles: options.failedFiles ?? 0,
       progressPercent: options.progressPercent ?? 0,
+      processingCompletedItems: options.processingCompletedItems ?? 0,
+      processingTotalItems: options.processingTotalItems ?? 0,
+      processingProgressPercent: options.processingProgressPercent ?? 0,
+      ...(options.processingCurrentFileName ? { processingCurrentFileName: options.processingCurrentFileName } : {}),
       files: filesCopy,
       created: options.created ?? new Date().toISOString(),
       ...(options.error ? { error: options.error } : {})
@@ -201,7 +209,9 @@ export const useUploadStore = defineStore('upload', () => {
 
         const totalChunks = updatedFiles.reduce((sum, f) => sum + f.totalChunks, 0)
         const completedChunks = updatedFiles.reduce((sum, f) => sum + f.chunksReceived, 0)
-        const progressPercent = totalChunks > 0 ? Math.round((completedChunks / totalChunks) * 100) : 0
+        const progressPercent = upload.status === 'PROCESSING'
+          ? upload.progressPercent
+          : totalChunks > 0 ? Math.round((completedChunks / totalChunks) * 100) : 0
 
         const processedFiles = Math.max(
           upload.processedFiles,

@@ -16,6 +16,9 @@ function createUpload(overrides: Partial<ActiveUpload> = {}): ActiveUpload {
     processedFiles: 0,
     failedFiles: 0,
     progressPercent: 35,
+    processingCompletedItems: 0,
+    processingTotalItems: 0,
+    processingProgressPercent: 0,
     files: [
       {
         source: 'recovered',
@@ -137,6 +140,21 @@ describe('status-center utils', () => {
     expect(jobs[0]?.active).toBe(true)
     expect(jobs[0]?.statusLabel).toBe('Queued')
     expect(jobs[0]?.color).toBe('warning')
+  })
+
+  it('shows conversion work progress for processing uploads', () => {
+    const uploadJobs = buildStatusJobs([createUpload({
+      status: 'PROCESSING',
+      processingCompletedItems: 3,
+      processingTotalItems: 10,
+      processingProgressPercent: 30,
+      processingCurrentFileName: 'document.pdf'
+    })], [], [], [])
+
+    expect(uploadJobs[0]?.progress).toBe(30)
+    expect(uploadJobs[0]?.progressLabel).toBe('30%')
+    expect(uploadJobs[0]?.subtitle).toContain('3 / 10 conversion steps processed')
+    expect(uploadJobs[0]?.subtitle).toContain('document.pdf')
   })
 
   it('includes active background jobs in the same queue', () => {
