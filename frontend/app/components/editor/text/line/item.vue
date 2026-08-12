@@ -1417,13 +1417,12 @@ onBeforeUnmount(() => {
                   color="neutral"
                   variant="ghost"
                   size="xs"
-                  class="textline-ui-xs text-muted hover:text-default"
+                  icon="i-lucide-message-square"
                   :disabled="!canMutateAnnotation"
+                  :title="hasElementComment ? 'Edit Comment' : 'Add Comment'"
+                  :aria-label="hasElementComment ? 'Edit Comment' : 'Add Comment'"
                   @click.stop="openCommentEditor"
-                >
-                  <Icon name="i-lucide-message-square" class="h-3 w-3 mr-1" />
-                  {{ hasElementComment ? 'Edit Comment' : 'Add Comment' }}
-                </UButton>
+                />
                 <template #content>
                   <div class="w-80 p-3 flex flex-col gap-2" @click.stop>
                     <div class="textline-ui-xs font-medium text-muted">
