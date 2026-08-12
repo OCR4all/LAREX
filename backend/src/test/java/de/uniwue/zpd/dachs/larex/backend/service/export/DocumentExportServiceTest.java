@@ -180,6 +180,77 @@ class DocumentExportServiceTest {
     }
 
     @Test
+    void exportPageDocx_withoutPageXmlRendersEmptyPage() throws Exception {
+        Project project = project("project-1", "Demo Project");
+        Page page = new Page("Alpha", "desc", project);
+        page.setId("page-1");
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+
+        DocumentExportService.DocumentExportResult result = service.exportPage(
+                "project-1",
+                "page-1",
+                "user-1",
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.DOCX, null, null, null, null, null, null, null, null)
+        );
+
+        try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(result.bytes()))) {
+            String combinedText = document.getParagraphs().stream()
+                    .map(paragraph -> paragraph.getText())
+                    .reduce("", (left, right) -> left + "\n" + right);
+            assertEquals("Alpha.docx", result.fileName());
+            assertTrue(combinedText.contains("Alpha"));
+            verify(annotationProcessingService, org.mockito.Mockito.never()).parseXmlToAnnotation(anyString());
+        }
+    }
+
+    @Test
+    void exportProjectDocx_withoutPageXmlKeepsPageAsEmptyText() throws Exception {
+        Project project = project("project-1", "Demo Project");
+        Page annotatedPage = page(project, "page-1", "Alpha", "alpha.xml", null);
+        Page emptyPage = new Page("Beta", "desc", project);
+        emptyPage.setId("page-2");
+        project.setPages(new ArrayList<>(List.of(emptyPage, annotatedPage)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(pageDto(
+                "alpha.png",
+                List.of(textRegion("r1", List.of(textLine("l1", "annotated text", 0, simpleBaseline(10, 30, 160, 30))))),
+                null
+        ));
+
+        DocumentExportService.DocumentExportResult result = service.exportProject(
+                "ws-1",
+                "project-1",
+                "user-1",
+                new DocumentExportDto.ProjectExportRequest(
+                        DocumentExportDto.ExportFormat.DOCX,
+                        null,
+                        null,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )
+        );
+
+        try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(result.bytes()))) {
+            String combinedText = document.getParagraphs().stream()
+                    .map(paragraph -> paragraph.getText())
+                    .reduce("", (left, right) -> left + "\n" + right);
+            assertEquals("Demo Project.docx", result.fileName());
+            assertTrue(combinedText.contains("Alpha"));
+            assertTrue(combinedText.contains("annotated text"));
+            assertTrue(combinedText.contains("Beta"));
+            verify(annotationProcessingService).parseXmlToAnnotation("xml-page-1");
+        }
+    }
+
+    @Test
     void exportPageTei_containsTeiRootAndPageStructure() throws Exception {
         Project project = project("project-1", "Demo Project");
         Page page = page(project, "page-1", "Alpha", "alpha.xml", null);

@@ -116,6 +116,7 @@ export type DocxOptions = {
   forcePageBreaks: boolean
   includeImageNames: boolean
   markUnclearWords: boolean
+  unclearConfidenceThreshold: number
 }
 
 export type ExportDialogResult = {

@@ -246,7 +246,7 @@ class ProjectBatchExportServiceTest {
                 DocumentExportDto.PdfProfile.SEARCHABLE,
                 DocumentExportDto.TeiProfile.STANDARD,
                 List.of(DocumentExportDto.SpreadsheetProfile.PAGE_METADATA),
-                new DocumentExportDto.DocxOptions(true, true, false, false)
+                new DocumentExportDto.DocxOptions(true, true, false, false, 0.75d)
         );
     }
 

@@ -138,7 +138,11 @@ public class TeiExportWriter {
                 ExportPage page = pages.get(i);
                 String xmlFileName = String.format(Locale.ROOT, "page-%04d.xml", i + 1);
                 Path xmlPath = xmlDir.resolve(xmlFileName);
-                String pageXml = annotationProcessingService.exportAnnotationToXml(page.pageDto(), XmlSchema.PAGE_XML, page.pageXml().getId());
+                String pageXml = annotationProcessingService.exportAnnotationToXml(
+                        page.pageDto(),
+                        XmlSchema.PAGE_XML,
+                        page.pageXml() == null ? null : page.pageXml().getId()
+                );
                 Files.writeString(xmlPath, pageXml, StandardCharsets.UTF_8);
                 pageRefs.add(new Page2TeiPageRef(i + 1, xmlPath.toUri().toString()));
             }

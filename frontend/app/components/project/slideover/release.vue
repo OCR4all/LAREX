@@ -76,7 +76,8 @@ async function openPackageOptions() {
       preserveLineBreaks: true,
       forcePageBreaks: true,
       includeImageNames: false,
-      markUnclearWords: false
+      markUnclearWords: false,
+      unclearConfidenceThreshold: 0.75
     },
     confirmLabel: 'Use Options'
   })
@@ -138,11 +139,16 @@ function normalizeSpreadsheetProfiles(profiles?: ProjectReleaseSpreadsheetProfil
 
 function normalizeDocxOptions(options?: ProjectReleaseDocxOptions | null) {
   if (!options) return undefined
+  const unclearConfidenceThreshold = typeof options.unclearConfidenceThreshold === 'number'
+    && Number.isFinite(options.unclearConfidenceThreshold)
+    ? Math.min(1, Math.max(0, options.unclearConfidenceThreshold))
+    : 0.75
   return {
     preserveLineBreaks: options.preserveLineBreaks ?? true,
     forcePageBreaks: options.forcePageBreaks ?? true,
     includeImageNames: options.includeImageNames ?? false,
-    markUnclearWords: options.markUnclearWords ?? false
+    markUnclearWords: options.markUnclearWords ?? false,
+    unclearConfidenceThreshold
   }
 }
 

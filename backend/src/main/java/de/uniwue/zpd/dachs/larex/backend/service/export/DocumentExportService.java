@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.imageio.ImageIO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -258,13 +259,11 @@ public class DocumentExportService {
 
         for (Page page : pages) {
             PageXml primaryXml = headsByPageId.get(page.getId());
-            if (primaryXml == null) {
-                throw new IllegalArgumentException("No PAGE XML file found for page: " + page.getId());
-            }
-
-            PageDto pageDto = annotationProcessingService.parseXmlToAnnotation(primaryXml.getId());
             PageImage primaryImage = resolvePrimaryImage(page);
             Path imagePath = primaryImage == null ? null : resolveUploadPath(primaryImage.getFilePath());
+            PageDto pageDto = primaryXml == null
+                    ? emptyPageDto(primaryImage, imagePath)
+                    : annotationProcessingService.parseXmlToAnnotation(primaryXml.getId());
             exportPages.add(new ExportPage(
                     page,
                     primaryXml,
@@ -276,6 +275,48 @@ public class DocumentExportService {
         }
 
         return exportPages;
+    }
+
+    private PageDto emptyPageDto(PageImage image, Path imagePath) {
+        int imageWidth = 1;
+        int imageHeight = 1;
+        if (imagePath != null && Files.exists(imagePath)) {
+            try {
+                var bufferedImage = ImageIO.read(imagePath.toFile());
+                if (bufferedImage != null) {
+                    imageWidth = Math.max(1, bufferedImage.getWidth());
+                    imageHeight = Math.max(1, bufferedImage.getHeight());
+                }
+            } catch (IOException ignored) {
+                // The image writer will handle an unreadable image; text-based exports remain empty.
+            }
+        }
+
+        return new PageDto(
+                image == null ? null : image.getFileName(),
+                imageWidth,
+                imageHeight,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(),
+                null,
+                "2019-07-15"
+        );
     }
 
     private StreamingDocumentExportResult renderExportStream(Project project,

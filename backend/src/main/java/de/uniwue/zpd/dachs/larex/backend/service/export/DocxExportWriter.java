@@ -16,8 +16,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class DocxExportWriter {
 
-    private static final double UNCLEAR_CONFIDENCE_THRESHOLD = 0.75d;
-
     DocumentExportService.StreamingDocumentExportResult render(String baseName,
                                                                Project project,
                                                                List<ExportPage> pages,
@@ -87,7 +85,7 @@ public class DocxExportWriter {
             List<ExportTextLine> lines = region.lines().stream().filter(ExportTextLine::hasText).toList();
             if (!lines.isEmpty()) {
                 for (int i = 0; i < lines.size(); i++) {
-                    appendLine(paragraph, lines.get(i), options.markUnclearWords());
+                    appendLine(paragraph, lines.get(i), options);
                     if (i < lines.size() - 1) {
                         paragraph.createRun().addBreak();
                     }
@@ -105,7 +103,7 @@ public class DocxExportWriter {
                 if (!firstToken) {
                     paragraph.createRun().setText(" ");
                 }
-                appendLineInline(paragraph, line, options.markUnclearWords());
+                appendLineInline(paragraph, line, options);
                 firstToken = false;
             }
             return;
@@ -117,7 +115,7 @@ public class DocxExportWriter {
 
     private void appendLine(XWPFParagraph paragraph,
                             ExportTextLine line,
-                            boolean markUnclearWords) {
+                            ResolvedDocxOptions options) {
         if (!line.words().isEmpty()) {
             boolean first = true;
             for (ExportWord word : line.words()) {
@@ -128,7 +126,8 @@ public class DocxExportWriter {
                     paragraph.createRun().setText(" ");
                 }
                 XWPFRun run = paragraph.createRun();
-                styleRunForUnclear(run, markUnclearWords && isUnclear(word, line));
+                styleRunForUnclear(run, options.markUnclearWords()
+                        && isUnclear(word, line, options.unclearConfidenceThreshold()));
                 run.setText(word.text());
                 first = false;
             }
@@ -136,14 +135,15 @@ public class DocxExportWriter {
         }
 
         XWPFRun run = paragraph.createRun();
-        styleRunForUnclear(run, markUnclearWords && isUnclear(line));
+        styleRunForUnclear(run, options.markUnclearWords()
+                && isUnclear(line, options.unclearConfidenceThreshold()));
         run.setText(nullToEmpty(line.text()));
     }
 
     private void appendLineInline(XWPFParagraph paragraph,
                                   ExportTextLine line,
-                                  boolean markUnclearWords) {
-        appendLine(paragraph, line, markUnclearWords);
+                                  ResolvedDocxOptions options) {
+        appendLine(paragraph, line, options);
     }
 
     private void styleRunForUnclear(XWPFRun run, boolean unclear) {
@@ -154,14 +154,14 @@ public class DocxExportWriter {
         run.setTextHighlightColor("yellow");
     }
 
-    private boolean isUnclear(ExportWord word, ExportTextLine line) {
+    private boolean isUnclear(ExportWord word, ExportTextLine line, double confidenceThreshold) {
         Double confidence = firstNonNull(word.confidence(), word.variantConfidence(), line.variantConfidence(), line.confidence());
-        return confidence != null && confidence < UNCLEAR_CONFIDENCE_THRESHOLD;
+        return confidence != null && confidence < confidenceThreshold;
     }
 
-    private boolean isUnclear(ExportTextLine line) {
+    private boolean isUnclear(ExportTextLine line, double confidenceThreshold) {
         Double confidence = firstNonNull(line.variantConfidence(), line.confidence());
-        return confidence != null && confidence < UNCLEAR_CONFIDENCE_THRESHOLD;
+        return confidence != null && confidence < confidenceThreshold;
     }
 
     private String nullToEmpty(String value) {

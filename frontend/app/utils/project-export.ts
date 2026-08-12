@@ -64,11 +64,16 @@ export function normalizeSpreadsheetProfiles(value: unknown): SpreadsheetProfile
 
 export function normalizeDocxOptions(value: unknown): DocxOptions {
   const source = value && typeof value === 'object' ? value as Partial<DocxOptions> : {}
+  const unclearConfidenceThreshold = typeof source.unclearConfidenceThreshold === 'number'
+    && Number.isFinite(source.unclearConfidenceThreshold)
+    ? Math.min(1, Math.max(0, source.unclearConfidenceThreshold))
+    : 0.75
   return {
     preserveLineBreaks: source.preserveLineBreaks !== false,
     forcePageBreaks: source.forcePageBreaks !== false,
     includeImageNames: source.includeImageNames === true,
-    markUnclearWords: source.markUnclearWords === true
+    markUnclearWords: source.markUnclearWords === true,
+    unclearConfidenceThreshold
   }
 }
 

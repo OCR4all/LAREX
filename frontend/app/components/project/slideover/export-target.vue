@@ -13,6 +13,7 @@ type DocxOptions = {
   forcePageBreaks: boolean
   includeImageNames: boolean
   markUnclearWords: boolean
+  unclearConfidenceThreshold: number
 }
 
 type EmbeddedOutputRequest = {
@@ -133,7 +134,8 @@ const props = withDefaults(defineProps<{
     preserveLineBreaks: true,
     forcePageBreaks: true,
     includeImageNames: false,
-    markUnclearWords: false
+    markUnclearWords: false,
+    unclearConfidenceThreshold: 0.75
   }),
   initialEmbeddedFormats: () => [],
   initialEmbeddedTxtPageDelimiters: false,
@@ -173,7 +175,17 @@ const docxOptions = reactive<DocxOptions>({
   preserveLineBreaks: props.initialDocxOptions.preserveLineBreaks ?? true,
   forcePageBreaks: props.initialDocxOptions.forcePageBreaks ?? true,
   includeImageNames: props.initialDocxOptions.includeImageNames ?? false,
-  markUnclearWords: props.initialDocxOptions.markUnclearWords ?? false
+  markUnclearWords: props.initialDocxOptions.markUnclearWords ?? false,
+  unclearConfidenceThreshold: typeof props.initialDocxOptions.unclearConfidenceThreshold === 'number'
+    && Number.isFinite(props.initialDocxOptions.unclearConfidenceThreshold)
+    ? Math.min(1, Math.max(0, props.initialDocxOptions.unclearConfidenceThreshold))
+    : 0.75
+})
+const unclearConfidenceThresholdPercent = computed({
+  get: () => Math.round(docxOptions.unclearConfidenceThreshold * 100),
+  set: (value: number) => {
+    docxOptions.unclearConfidenceThreshold = Math.min(1, Math.max(0, value / 100))
+  }
 })
 
 const embeddedSelection = reactive<Record<Exclude<ExportFormat, 'PAGE_XML'>, boolean>>({
@@ -498,6 +510,25 @@ async function closeWithResult() {
             label="Mark unclear words"
             @update:model-value="docxOptions.markUnclearWords = ($event === true)"
           />
+          <div v-if="docxOptions.markUnclearWords" class="space-y-3 pl-6">
+            <p class="text-xs text-muted">
+              Highlights words in yellow italics when their OCR confidence is below the threshold. Line confidence is used when word confidence is unavailable; text without confidence is left unchanged.
+            </p>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-3 text-sm">
+                <span class="font-medium">Confidence threshold</span>
+                <span class="font-semibold text-primary">{{ unclearConfidenceThresholdPercent }}%</span>
+              </div>
+              <USlider
+                v-model="unclearConfidenceThresholdPercent"
+                :min="0"
+                :max="100"
+                :step="1"
+                tooltip
+                aria-label="Unclear word confidence threshold"
+              />
+            </div>
+          </div>
         </div>
 
         <div
@@ -666,6 +697,25 @@ async function closeWithResult() {
               label="Mark unclear words"
               @update:model-value="docxOptions.markUnclearWords = ($event === true)"
             />
+            <div v-if="docxOptions.markUnclearWords" class="space-y-3 pl-6">
+              <p class="text-xs text-muted">
+                Highlights words in yellow italics when their OCR confidence is below the threshold. Line confidence is used when word confidence is unavailable; text without confidence is left unchanged.
+              </p>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between gap-3 text-sm">
+                  <span class="font-medium">Confidence threshold</span>
+                  <span class="font-semibold text-primary">{{ unclearConfidenceThresholdPercent }}%</span>
+                </div>
+                <USlider
+                  v-model="unclearConfidenceThresholdPercent"
+                  :min="0"
+                  :max="100"
+                  :step="1"
+                  tooltip
+                  aria-label="Unclear word confidence threshold"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </UForm>

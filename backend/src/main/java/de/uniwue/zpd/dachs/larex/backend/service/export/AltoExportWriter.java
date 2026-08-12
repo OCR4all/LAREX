@@ -24,7 +24,7 @@ public class AltoExportWriter {
     DocumentExportService.StreamingDocumentExportResult render(Project project, List<ExportPage> pages) throws IOException {
         if (pages.size() == 1) {
             ExportPage page = pages.getFirst();
-            String xml = annotationProcessingService.exportAnnotationToXml(page.pageDto(), XmlSchema.ALTO_XML, page.pageXml().getId());
+            String xml = annotationProcessingService.exportAnnotationToXml(page.pageDto(), XmlSchema.ALTO_XML, sourceXmlId(page));
             String fileName = DocumentExportFileNames.sanitizeFileName(page.page().getName(), "page") + ".alto.xml";
             return new DocumentExportService.StreamingDocumentExportResult(
                     fileName,
@@ -47,12 +47,16 @@ public class AltoExportWriter {
             String fileName = DocumentExportFileNames.sanitizeFileName(page.page().getName(), "page") + ".alto.xml";
             zipOutputStream.putNextEntry(new ZipEntry(fileName));
             try {
-                String xml = annotationProcessingService.exportAnnotationToXml(page.pageDto(), XmlSchema.ALTO_XML, page.pageXml().getId());
+                String xml = annotationProcessingService.exportAnnotationToXml(page.pageDto(), XmlSchema.ALTO_XML, sourceXmlId(page));
                 zipOutputStream.write(xml.getBytes(StandardCharsets.UTF_8));
             } finally {
                 zipOutputStream.closeEntry();
             }
         }
         zipOutputStream.finish();
+    }
+
+    private String sourceXmlId(ExportPage page) {
+        return page.pageXml() == null ? null : page.pageXml().getId();
     }
 }

@@ -1542,7 +1542,8 @@ public class ProjectPackageService {
                                 output.docxOptions().preserveLineBreaks(),
                                 output.docxOptions().forcePageBreaks(),
                                 output.docxOptions().includeImageNames(),
-                                output.docxOptions().markUnclearWords()
+                                output.docxOptions().markUnclearWords(),
+                                output.docxOptions().unclearConfidenceThreshold()
                         )
                 ))
                 .toList();

@@ -75,7 +75,8 @@ public class DocumentExportDto {
             Boolean preserveLineBreaks,
             Boolean forcePageBreaks,
             Boolean includeImageNames,
-            Boolean markUnclearWords
+            Boolean markUnclearWords,
+            Double unclearConfidenceThreshold
     ) {
     }
 

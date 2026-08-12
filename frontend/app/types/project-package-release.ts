@@ -10,6 +10,7 @@ export interface ProjectReleaseDocxOptions {
   forcePageBreaks?: boolean | null
   includeImageNames?: boolean | null
   markUnclearWords?: boolean | null
+  unclearConfidenceThreshold?: number | null
 }
 
 export interface ProjectPackageEmbeddedOutputRequest {
