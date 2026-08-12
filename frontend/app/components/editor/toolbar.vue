@@ -621,8 +621,8 @@ function canActivateEntry(entry: 'region' | 'textline' | 'baseline') {
 type ShapeOption = 'polygon' | 'rectangle' | 'polyline'
 
 const preferredShapeByEntry = reactive<{ region: ShapeOption, textline: ShapeOption }>({
-  region: 'polygon',
-  textline: 'polygon'
+  region: 'rectangle',
+  textline: 'rectangle'
 })
 
 function getPrimaryShapeForEntry(entry: 'region' | 'textline' | 'baseline'): ShapeOption {
