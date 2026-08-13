@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { PageData } from '../../../stores/editor/types'
+import type { PageData } from '~/stores'
 import { canOpenPageInEditor, createSkeletonPageData, loadProjectPages, loadSinglePageData } from '../project-loader'
 
 describe('project-loader skeleton variants', () => {

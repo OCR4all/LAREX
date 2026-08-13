@@ -10,6 +10,7 @@ import { validatePolygonParent } from '@/utils/editor/hierarchy-validation'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
 import type { HierarchyItem } from '@/utils/editor/hierarchy-validation'
+import type { LabelDefinition } from '@/models/editor/labels'
 
 const log = createScopedLogger('RectangleDrawing')
 
@@ -38,7 +39,8 @@ export function useRectangleDrawing(
   canvasId: string,
   viewMode?: Ref<string>,
   preventOverlapOnCreate?: Ref<boolean>,
-  overlapMinAreaThreshold?: Ref<number>
+  overlapMinAreaThreshold?: Ref<number>,
+  defaultRegionLabel?: Ref<LabelDefinition | undefined>
 ) {
   const dialogs = useOverlayDialogs()
   const startPoint = reactive<RectanglePoint>({ x: null, y: null })
@@ -246,6 +248,7 @@ export function useRectangleDrawing(
       points: [...previewPoints], // Copy the points
       type: currentType,
       parentId: parentId,
+      labelDefinition: currentType === PolygonType.REGION ? defaultRegionLabel?.value : undefined,
       preventOverlapOnCreate: preventOverlapOnCreate?.value,
       overlapMinAreaThreshold: overlapMinAreaThreshold?.value
     })

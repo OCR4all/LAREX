@@ -6,7 +6,10 @@ import {
   clearLarexRegionLabelMetadata,
   createCanonicalRegionMappingSignatureFromLabel,
   findRegionLabelDefinitionForRegion,
-  parsePageCustomBlocks
+  parsePageCustomBlocks,
+  resolveRegionLabelDisplayName,
+  resolvePageXmlRegionLabel,
+  serializePageXmlRegionStartTag
 } from '../page-label-mapping'
 
 function createRegionLabel(overrides: Partial<LabelDefinition> = {}): LabelDefinition {
@@ -72,6 +75,80 @@ describe('page-label-mapping', () => {
 
     const merged = buildMergedCustomForAppliedRegionLabel('reading { dir:ltr; }', label)
     expect(merged).toBe('larex { labelAlias:Main Heading; labelId:label-42; } reading { dir:ltr; }')
+  })
+
+  it('uses the configured label name instead of the raw PAGE subtype for display', () => {
+    const label = createRegionLabel({
+      id: 'custom-c',
+      name: 'c'
+    })
+
+    expect(resolveRegionLabelDisplayName([label], {
+      kind: 'TextRegion',
+      type: 'paragraph',
+      custom: 'larex { labelId:custom-c; labelAlias:c; }'
+    }, 'paragraph')).toBe('c')
+
+    expect(resolveRegionLabelDisplayName([], {
+      kind: 'TextRegion',
+      type: 'paragraph'
+    }, 'paragraph')).toBe('paragraph')
+  })
+
+  it('resolves the same custom TextRegion attributes used by the editor and XML preview', () => {
+    const label = createRegionLabel({
+      mapping: {
+        pageXml: {
+          regionType: 'TextRegion',
+          textType: 'custom',
+          customSubType: 'article',
+          customKey: 'structure',
+          customData: 'subclass:lead'
+        }
+      }
+    })
+
+    expect(resolvePageXmlRegionLabel(label)).toEqual({
+      regionType: 'TextRegion',
+      type: 'other',
+      custom: 'larex { labelAlias:Label; labelId:l1; } structure { subclass:lead; type:article; }'
+    })
+    expect(serializePageXmlRegionStartTag(label.mapping.pageXml)).toBe(
+      '<TextRegion type="other" custom="structure { subclass:lead; type:article; }">'
+    )
+  })
+
+  it('ignores stale text types when serializing non-text regions', () => {
+    expect(serializePageXmlRegionStartTag({
+      regionType: 'ImageRegion',
+      textType: 'header',
+      customSubType: ''
+    })).toBe('<ImageRegion>')
+  })
+
+  it('serializes a regular TextRegion subtype', () => {
+    expect(serializePageXmlRegionStartTag({
+      regionType: 'TextRegion',
+      textType: 'heading'
+    })).toBe('<TextRegion type="heading">')
+  })
+
+  it('uses customSubType as PAGE type for non-text regions', () => {
+    expect(serializePageXmlRegionStartTag({
+      regionType: 'GraphicRegion',
+      textType: 'heading',
+      customSubType: 'logo'
+    })).toBe('<GraphicRegion type="logo">')
+  })
+
+  it('escapes generated PAGE XML attribute values', () => {
+    expect(serializePageXmlRegionStartTag({
+      regionType: 'TextRegion',
+      textType: 'custom',
+      customSubType: 'article & "feature"',
+      customKey: 'structure',
+      customData: ''
+    })).toBe('<TextRegion type="other" custom="structure { type:article &amp; &quot;feature&quot;; }">')
   })
 
   it('clears only larex label metadata on manual type changes', () => {

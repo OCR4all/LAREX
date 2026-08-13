@@ -1,11 +1,13 @@
 import type { Command, CommandContext } from './types'
 import { PcGts, PolygonType, TextLine } from '@/models/editor'
-import type { Point, PolygonType as PolygonTypeType, TextRegion } from '@/models/editor'
+import type { Point, PolygonType as PolygonTypeType, Region, RegionKind, TextRegion } from '@/models/editor'
+import type { LabelDefinition } from '@/models/editor/labels'
 import { Polygon } from '@/models/editor/geometry'
 import { toPlainPoints } from './utils'
 import { visibilityService } from '@/services/editor/visibility-service'
 import type { RenderablePolygon } from '@/types/editor/rendering'
 import { subtractPolygon } from '@/utils/editor/polygon-clipping'
+import { resolvePageXmlRegionLabel } from '@/utils/editor/page-label-mapping'
 import {
   findRegionRecursive,
   findTextLineRecursive,
@@ -19,6 +21,7 @@ export interface CreatePolygonCommandData {
   parentId?: string
   preventOverlapOnCreate?: boolean
   overlapMinAreaThreshold?: number
+  labelDefinition?: LabelDefinition
 }
 
 export class CreatePolygonCommand implements Command {
@@ -29,6 +32,7 @@ export class CreatePolygonCommand implements Command {
   private parentId?: string
   private preventOverlapOnCreate: boolean
   private overlapMinAreaThreshold: number
+  private labelDefinition?: LabelDefinition
 
   private createdKind: 'region' | 'textline' | null = null
   private resolvedPoints: Point[] | null | undefined = undefined
@@ -41,6 +45,7 @@ export class CreatePolygonCommand implements Command {
     this.parentId = data.parentId
     this.preventOverlapOnCreate = data.preventOverlapOnCreate ?? false
     this.overlapMinAreaThreshold = data.overlapMinAreaThreshold ?? 0.0001
+    this.labelDefinition = data.labelDefinition
   }
 
   execute(ctx?: CommandContext): { id: string, created: boolean } {
@@ -71,13 +76,26 @@ export class CreatePolygonCommand implements Command {
       )
       this.createdKind = 'textline'
     } else {
-      const region: TextRegion = {
+      const resolvedLabel = this.labelDefinition
+        ? resolvePageXmlRegionLabel(this.labelDefinition)
+        : null
+      const regionKind = (resolvedLabel?.regionType as RegionKind | undefined) ?? 'TextRegion'
+      const region = {
         id: this.regionId,
-        kind: 'TextRegion',
+        kind: regionKind,
         coords: new Polygon(pointsToCreate.map(p => [p.x, p.y])),
-        regions: [],
-        textLines: [],
-        textContentVariants: []
+        regions: []
+      } as Region
+      if (regionKind === 'TextRegion') {
+        const textRegion = region as TextRegion
+        textRegion.textLines = []
+        textRegion.textContentVariants = []
+      }
+      if (resolvedLabel?.type) {
+        (region as Region & { type?: string }).type = resolvedLabel.type
+      }
+      if (resolvedLabel?.custom) {
+        region.custom = resolvedLabel.custom
       }
 
       if (this.parentId) {

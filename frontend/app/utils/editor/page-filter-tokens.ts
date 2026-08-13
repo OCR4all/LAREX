@@ -40,78 +40,27 @@ export function createRegionSubtypeToken(regionKind: string, subtype: string): s
   return `region|kind=${encodeTokenPart(regionKind)}|subType=${encodeTokenPart(subtype)}`
 }
 
-export function createLineCustomPresenceToken(customKey: string): string {
-  return `line|customKey=${encodeTokenPart(customKey)}`
-}
-
-export function createLineCustomPairsToken(customKey: string, pairs: Record<string, string>): string {
-  const pairsToken = Object.entries(pairs)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${encodeTokenPart(key)}=${encodeTokenPart(value)}`)
-    .join(',')
-
-  return `line|customKey=${encodeTokenPart(customKey)}|pairs=${pairsToken}`
-}
-
-function parseKeyValuePairs(raw: string | null | undefined): Record<string, string> {
-  const source = normalizeString(raw)
-  if (!source) return {}
-
-  const result: Record<string, string> = {}
-  for (const segment of source.split(';')) {
-    const trimmed = segment.trim()
-    if (!trimmed) continue
-    const idx = trimmed.indexOf(':')
-    if (idx <= 0 || idx >= trimmed.length - 1) continue
-
-    const key = normalizeString(trimmed.slice(0, idx))
-    const value = normalizeString(trimmed.slice(idx + 1))
-    if (!key || !value) continue
-    result[key] = value
-  }
-
-  return result
-}
-
 export function createCanonicalTokenFromLabelDefinition(label: LabelDefinition): string | null {
-  const scope = normalizeString(label.scope)
   const mapping = label.mapping?.pageXml
 
-  if (!scope || !mapping) return null
+  if (!mapping) return null
+  const regionType = normalizeString(mapping.regionType)
+  if (!regionType) return null
 
-  if (scope === 'region') {
-    const regionType = normalizeString(mapping.regionType)
-    if (!regionType) return null
-
-    if (regionType === 'TextRegion') {
-      const textType = normalizeString(mapping.textType)
-      if (textType) {
-        return createRegionTextTypeToken(textType)
-      }
-      return createRegionBaseToken(regionType)
+  if (regionType === 'TextRegion') {
+    const textType = normalizeString(mapping.textType)
+    if (textType) {
+      return createRegionTextTypeToken(textType)
     }
-
-    const subType = normalizeString(mapping.customSubType)
-    if (subType) {
-      return createRegionSubtypeToken(regionType, subType)
-    }
-
     return createRegionBaseToken(regionType)
   }
 
-  if (scope === 'line') {
-    const customKey = normalizeString(mapping.customKey)
-    if (!customKey) return null
-
-    const pairs = parseKeyValuePairs(mapping.customData)
-    if (Object.keys(pairs).length > 0) {
-      return createLineCustomPairsToken(customKey, pairs)
-    }
-
-    return createLineCustomPresenceToken(customKey)
+  const subType = normalizeString(mapping.customSubType)
+  if (subType) {
+    return createRegionSubtypeToken(regionType, subType)
   }
 
-  return null
+  return createRegionBaseToken(regionType)
 }
 
 export function normalizeLegacyLabelFilterValues(input: unknown): string[] {

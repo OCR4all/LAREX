@@ -12,6 +12,7 @@ import type { MouseInteraction } from '@/composables/editor/editor-interactions/
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
 import type { HierarchyItem } from '@/utils/editor/hierarchy-validation'
+import type { LabelDefinition } from '@/models/editor/labels'
 
 const log = createScopedLogger('PolygonDraw')
 
@@ -35,7 +36,8 @@ export function usePolygonDraw(
   canvasId: string,
   viewMode?: Ref<string>,
   preventOverlapOnCreate?: Ref<boolean>,
-  overlapMinAreaThreshold?: Ref<number>
+  overlapMinAreaThreshold?: Ref<number>,
+  defaultRegionLabel?: Ref<LabelDefinition | undefined>
 ) {
   const dialogs = useOverlayDialogs()
   const currentPolygonPoints = reactive<Point[]>([])
@@ -234,6 +236,7 @@ export function usePolygonDraw(
       points: [...currentPolygonPoints],
       type: currentType,
       parentId: parentId,
+      labelDefinition: currentType === PolygonType.REGION ? defaultRegionLabel?.value : undefined,
       preventOverlapOnCreate: preventOverlapOnCreate?.value,
       overlapMinAreaThreshold: overlapMinAreaThreshold?.value
     })

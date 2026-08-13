@@ -4,17 +4,20 @@ export class LabelSet {
   name: string
   labels: LabelDefinition[]
   description?: string
+  defaultLabelId?: string | null
 
   constructor(
     id: string,
     name: string,
     labels: LabelDefinition[],
-    description?: string
+    description?: string,
+    defaultLabelId?: string | null
   ) {
     this.id = id
     this.name = name
     this.labels = labels
     this.description = description
+    this.defaultLabelId = defaultLabelId
   }
 
   getLabel(id: string): LabelDefinition | undefined {
@@ -25,17 +28,26 @@ export class LabelSet {
     return this.labels.filter(l => l.pageXmlRegionType === type)
   }
 
+  getDefaultLabel(): LabelDefinition | undefined {
+    if (this.defaultLabelId) {
+      const configured = this.getLabel(this.defaultLabelId)
+      if (configured) return configured
+    }
+    return this.labels[0]
+  }
+
   addLabel(label: LabelDefinition): LabelSet {
     return new LabelSet(
       this.id,
       this.name,
       [...this.labels, label],
-      this.description
+      this.description,
+      this.defaultLabelId
     )
   }
 }
 
-export type LabelScope = 'region' | 'line'
+export type LabelScope = 'region'
 
 export interface PageXmlMapping {
   regionType?: string | null

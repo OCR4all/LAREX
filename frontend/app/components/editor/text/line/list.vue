@@ -6,7 +6,10 @@ import type { TextContentVariantData } from '@/models/editor'
 import type { Point } from '@/models/editor/types'
 import { worldToImage } from '@/utils/editor/coordinates'
 import { getRegionColor } from '@/utils/editor/region-colors'
-import { findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
+import {
+  findRegionLabelDefinitionForRegion,
+  resolveRegionLabelDisplayName
+} from '@/utils/editor/page-label-mapping'
 import type { RegionKind } from '@/models/editor/region'
 import { DeletePolygonCommand, ReorderTextLinesCommand } from '@/commands'
 import { useTextViewShortcutScope } from '@/composables/editor/use-keyboard-shortcuts'
@@ -1027,7 +1030,9 @@ const regionMeta = computed(() => {
     const region = regionById.get(id)
     return {
       id,
-      label: region?.label ?? id,
+      label: region
+        ? resolveRegionLabelDisplayName(editorStore.labelSet?.labels, region, region.label ?? id) ?? id
+        : id,
       regionSubtype: region?.regionSubtype,
       regionKind: region?.regionKind,
       color: regionColor(region?.regionKind, region?.regionSubtype, region?.regionCustom)

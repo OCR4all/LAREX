@@ -57,7 +57,6 @@ export function createPageXmlLabelSet(): LabelSet {
   const addLabel = (
     id: string,
     name: string,
-    scope: 'region' | 'line',
     color: string,
     description: string,
     hasText: boolean,
@@ -65,53 +64,53 @@ export function createPageXmlLabelSet(): LabelSet {
     mapping: LabelMapping
   ) => {
     labels.push(new LabelDefinition(
-      id, name, scope, color, description, hasText, false, group, mapping
+      id, name, 'region', color, description, hasText, false, group, mapping
     ))
   }
 
-  addLabel('text-region', 'Text Region', 'region', '#4CAF50', 'Pure text content region', true, 'Text',
+  addLabel('text-region', 'Text Region', '#4CAF50', 'Pure text content region', true, 'Text',
     createMapping('TextRegion'))
 
-  addLabel('image-region', 'Image Region', 'region', '#FF5722', 'Photographic or pictorial image region', false, null,
+  addLabel('image-region', 'Image Region', '#FF5722', 'Photographic or pictorial image region', false, null,
     createMapping('ImageRegion'))
 
-  addLabel('line-drawing-region', 'Line Drawing Region', 'region', '#607D8B', 'Single color illustration without solid areas', false, null,
+  addLabel('line-drawing-region', 'Line Drawing Region', '#607D8B', 'Single color illustration without solid areas', false, null,
     createMapping('LineDrawingRegion'))
 
-  addLabel('graphic-region', 'Graphic Region', 'region', '#795548', 'Simple graphic such as a company logo', false, null,
+  addLabel('graphic-region', 'Graphic Region', '#795548', 'Simple graphic such as a company logo', false, null,
     createMapping('GraphicRegion'))
 
-  addLabel('table-region', 'Table Region', 'region', '#2196F3', 'Tabular data in any form', false, null,
+  addLabel('table-region', 'Table Region', '#2196F3', 'Tabular data in any form', false, null,
     createMapping('TableRegion'))
 
-  addLabel('chart-region', 'Chart Region', 'region', '#9C27B0', 'Chart or graph region', false, null,
+  addLabel('chart-region', 'Chart Region', '#9C27B0', 'Chart or graph region', false, null,
     createMapping('ChartRegion'))
 
-  addLabel('map-region', 'Map Region', 'region', '#8BC34A', 'Map or cartographic content', false, null,
+  addLabel('map-region', 'Map Region', '#8BC34A', 'Map or cartographic content', false, null,
     createMapping('MapRegion'))
 
-  addLabel('separator-region', 'Separator Region', 'region', '#9E9E9E', 'Line separating columns or paragraphs', false, null,
+  addLabel('separator-region', 'Separator Region', '#9E9E9E', 'Line separating columns or paragraphs', false, null,
     createMapping('SeparatorRegion'))
 
-  addLabel('maths-region', 'Maths Region', 'region', '#FF9800', 'Equations and mathematical symbols', false, null,
+  addLabel('maths-region', 'Maths Region', '#FF9800', 'Equations and mathematical symbols', false, null,
     createMapping('MathsRegion'))
 
-  addLabel('chem-region', 'Chemistry Region', 'region', '#00BCD4', 'Chemical formulas', false, null,
+  addLabel('chem-region', 'Chemistry Region', '#00BCD4', 'Chemical formulas', false, null,
     createMapping('ChemRegion'))
 
-  addLabel('music-region', 'Music Region', 'region', '#CDDC39', 'Musical notations', false, null,
+  addLabel('music-region', 'Music Region', '#CDDC39', 'Musical notations', false, null,
     createMapping('MusicRegion'))
 
-  addLabel('advert-region', 'Advertisement Region', 'region', '#E91E63', 'Advertisement content', false, null,
+  addLabel('advert-region', 'Advertisement Region', '#E91E63', 'Advertisement content', false, null,
     createMapping('AdvertRegion'))
 
-  addLabel('noise-region', 'Noise Region', 'region', '#F44336', 'Noise or artifact (scanner noise, etc.)', false, null,
+  addLabel('noise-region', 'Noise Region', '#F44336', 'Noise or artifact (scanner noise, etc.)', false, null,
     createMapping('NoiseRegion'))
 
-  addLabel('unknown-region', 'Unknown Region', 'region', '#757575', 'Region of unknown type', false, null,
+  addLabel('unknown-region', 'Unknown Region', '#757575', 'Region of unknown type', false, null,
     createMapping('UnknownRegion'))
 
-  addLabel('custom-region', 'Custom Region', 'region', '#00BFA5', 'Custom region type for content not covered by standard types', false, null,
+  addLabel('custom-region', 'Custom Region', '#00BFA5', 'Custom region type for content not covered by standard types', false, null,
     createMapping('UnknownRegion', null, 'custom'))
 
   const textSubtypes = [
@@ -139,7 +138,6 @@ export function createPageXmlLabelSet(): LabelSet {
     addLabel(
       `text-subtype-${subtype.id}`,
       subtype.name,
-      'region',
       getTextSubtypeColor(index),
       subtype.desc,
       true,
@@ -147,9 +145,6 @@ export function createPageXmlLabelSet(): LabelSet {
       createMapping('TextRegion', subtype.id)
     )
   }
-
-  addLabel('text-line', 'Text Line', 'line', '#3B82F6', 'A line of text within a text region', false, null,
-    createMapping(null))
 
   return new LabelSet(
     'page-xml',

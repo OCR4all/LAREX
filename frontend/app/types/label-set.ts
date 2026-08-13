@@ -1,6 +1,8 @@
 import type { ResourceCapabilities } from './capabilities'
 
-export type LabelScope = 'region' | 'line'
+export const CANONICAL_PAGE_CUSTOM_KEY = 'structure'
+
+export type LabelScope = 'region'
 
 export type PageRegionType
   = | 'TextRegion'
@@ -45,6 +47,7 @@ export interface LabelSetMeta {
   description?: string | null
   tags?: string[] | null
   isSystem?: boolean
+  defaultLabelId?: string | null
 }
 
 export interface PageXmlMapping {

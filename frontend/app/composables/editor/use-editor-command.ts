@@ -10,7 +10,7 @@ import { ALL_REGION_KINDS, ALL_TEXT_REGION_SUBTYPES, ALL_GRAPHIC_REGION_SUBTYPES
 import { useEditorStore } from '@/stores/editor/editor.store'
 import type { LabelDefinition } from '@/models/editor/labels'
 import { getRegionKindDisplayName, getRegionKindIcon } from '@/utils/editor/region-colors'
-import { buildMergedCustomForAppliedRegionLabel, clearLarexRegionLabelMetadata, findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
+import { clearLarexRegionLabelMetadata, findRegionLabelDefinitionForRegion, resolvePageXmlRegionLabel, resolvePageXmlRegionMapping, resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
@@ -182,7 +182,6 @@ function buildLabelSetSubmenu(labels: LabelDefinition[], currentKind?: RegionKin
   const grouped = new Map<string, ContextMenuItem[]>()
 
   for (const label of labels) {
-    if (label.scope !== 'region') continue
     const isCurrent = isLabelMatchCurrent(label, currentKind, currentSubtype, currentCustom)
     const item: ContextMenuItem = {
       id: `label-set-${label.id}`,
@@ -205,7 +204,7 @@ function buildLabelSetSubmenu(labels: LabelDefinition[], currentKind?: RegionKin
     submenu: items
   }))
 
-  return [...ungrouped, ...groupedItems]
+  return [...groupedItems, ...ungrouped]
 }
 
 /**
@@ -476,7 +475,7 @@ export function useEditorCommand(
         type: 'REGION',
         pages: [{ pageId, regionIds: [polygon.id], textLineIds: [] }]
       },
-      targetSummary: `${polygon.label || polygon.regionKind || 'Region'} ${polygon.id}`
+      targetSummary: `${resolveRegionLabelDisplayName(editorStore.labelSet?.labels, polygon, polygon.label || polygon.regionKind || 'Region') ?? 'Region'} ${polygon.id}`
     }
   }
 
@@ -830,24 +829,23 @@ export function useEditorCommand(
 
   async function applyLabelDefinitionToSelection(selection: ContextMenuSelection, labelDefinition: LabelDefinition): Promise<void> {
     const mapping = labelDefinition.mapping?.pageXml
-    const newKind = mapping?.regionType as RegionKind | undefined
-    if (!newKind) return
+    const baseMapping = resolvePageXmlRegionMapping(mapping)
+    if (!baseMapping) return
+    const newKind = baseMapping.regionType as RegionKind
 
     const selectedRegions = selection.polygons.filter(p => p.type === PolygonType.REGION)
     if (selectedRegions.length === 0) return
 
     const commands = selectedRegions.map((polygon) => {
-      const newSubtype = newKind === 'TextRegion'
-        ? (mapping?.textType === 'custom' ? 'other' : (mapping?.textType || undefined))
-        : (mapping?.customSubType || undefined)
-      const newCustom = buildMergedCustomForAppliedRegionLabel(polygon.regionCustom, labelDefinition)
+      const resolved = resolvePageXmlRegionLabel(labelDefinition, polygon.regionCustom)
+      if (!resolved) throw new Error(`Label "${labelDefinition.name}" has no valid PAGE XML mapping.`)
 
       return new ChangeRegionKindCommand({
         regionId: polygon.id,
         newKind,
-        newSubtype,
+        newSubtype: resolved.type,
         updateCustom: true,
-        newCustom
+        newCustom: resolved.custom
       })
     })
 
@@ -1063,20 +1061,16 @@ export function useEditorCommand(
 
     if (item.labelDefinition && target.type === 'polygon') {
       const polygon = target.element as RenderablePolygon
-      const mapping = item.labelDefinition.mapping?.pageXml
-      const newKind = mapping?.regionType as RegionKind | undefined
-      if (!newKind) return
-      const newSubtype = newKind === 'TextRegion'
-        ? (mapping?.textType === 'custom' ? 'other' : (mapping?.textType || undefined))
-        : (mapping?.customSubType || undefined)
-      const newCustom = buildMergedCustomForAppliedRegionLabel(polygon.regionCustom, item.labelDefinition)
+      const resolved = resolvePageXmlRegionLabel(item.labelDefinition, polygon.regionCustom)
+      if (!resolved) return
+      const newKind = resolved.regionType as RegionKind
 
       const changeKindCommand = new ChangeRegionKindCommand({
         regionId: polygon.id,
         newKind,
-        newSubtype,
+        newSubtype: resolved.type,
         updateCustom: true,
-        newCustom
+        newCustom: resolved.custom
       })
 
       const textLinesToRemove = changeKindCommand.wouldRemoveTextLines(commandCtx)
@@ -1282,12 +1276,15 @@ export function useEditorCommand(
     const hasPolygonChildren = polygons.some(p => p.parentId === polygonId)
     const hasPolylineChildren = polylines.some(p => p.parentId === polygonId)
     const hasChildren = hasPolygonChildren || hasPolylineChildren
+    const displayLabel = polygon.type === PolygonType.REGION
+      ? resolveRegionLabelDisplayName(editorStore.labelSet?.labels, polygon, polygon.label || polygon.id) ?? polygon.id
+      : polygon.label || polygon.id
 
     const confirmed = await dialogs.confirm({
       title: hasChildren ? 'Delete Region and Children?' : 'Delete Region?',
       message: hasChildren
-        ? `Are you sure you want to delete "${polygon.label}"? This will also delete all associated textlines and baselines.`
-        : `Are you sure you want to delete "${polygon.label}"?`,
+        ? `Are you sure you want to delete "${displayLabel}"? This will also delete all associated textlines and baselines.`
+        : `Are you sure you want to delete "${displayLabel}"?`,
       confirmLabel: 'Delete',
       cancelLabel: 'Cancel',
       confirmColor: 'error'

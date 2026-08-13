@@ -52,6 +52,40 @@ describe('editor.document.store', () => {
     setActivePinia(createPinia())
   })
 
+  it('preserves the configured default label when loading an API label set', async () => {
+    const { store } = await createStores()
+
+    store.setLabelSetFromApi({
+      id: 'labels',
+      meta: { name: 'Labels', defaultLabelId: 'image' },
+      labels: [
+        {
+          id: 'paragraph',
+          scope: 'region',
+          name: 'Paragraph',
+          color: '#123456',
+          hasText: true,
+          isContainer: false,
+          mapping: { pageXml: { regionType: 'TextRegion', textType: 'paragraph', customKey: 'structure' } }
+        },
+        {
+          id: 'image',
+          scope: 'region',
+          name: 'Image',
+          color: '#654321',
+          hasText: false,
+          isContainer: false,
+          mapping: { pageXml: { regionType: 'ImageRegion', customKey: 'structure' } }
+        }
+      ],
+      created: '',
+      updated: ''
+    })
+
+    expect(store.labelSet?.defaultLabelId).toBe('image')
+    expect(store.labelSet?.getDefaultLabel()?.id).toBe('image')
+  })
+
   it('keeps pages and metadata isolated per project and swaps active context', async () => {
     const { sessionStore, store } = await createStores()
 

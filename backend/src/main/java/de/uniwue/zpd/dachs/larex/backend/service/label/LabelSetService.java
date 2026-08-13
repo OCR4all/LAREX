@@ -105,7 +105,7 @@ public class LabelSetService {
 
         try {
             LabelSetDto.CreateOrUpdateRequest request = objectMapper.treeToValue(requestJson, LabelSetDto.CreateOrUpdateRequest.class);
-            LabelSetDto.CreateOrUpdateRequest normalizedRequest = normalizeRegionCustomSubTypes(request);
+            LabelSetDto.CreateOrUpdateRequest normalizedRequest = normalizeRegionMappings(request);
             labelSetDefinitionValidator.validate(normalizedRequest);
             return normalizedRequest;
         } catch (JacksonException e) {
@@ -113,7 +113,7 @@ public class LabelSetService {
         }
     }
 
-    private LabelSetDto.CreateOrUpdateRequest normalizeRegionCustomSubTypes(LabelSetDto.CreateOrUpdateRequest request) {
+    private LabelSetDto.CreateOrUpdateRequest normalizeRegionMappings(LabelSetDto.CreateOrUpdateRequest request) {
         if (request == null || request.labels() == null || request.labels().isEmpty()) {
             return request;
         }
@@ -122,7 +122,7 @@ public class LabelSetService {
         List<LabelSetDto.Label> normalizedLabels = new ArrayList<>(request.labels().size());
 
         for (LabelSetDto.Label label : request.labels()) {
-            if (label == null || label.scope() != LabelSetDto.LabelScope.REGION || label.mapping() == null || label.mapping().pageXml() == null) {
+            if (label == null || label.mapping() == null || label.mapping().pageXml() == null) {
                 normalizedLabels.add(label);
                 continue;
             }
@@ -136,8 +136,13 @@ public class LabelSetService {
             if (normalizedRegionType == null && "custom".equals(normalizedCustomSubType)) {
                 normalizedRegionType = LabelSetDto.PageRegionType.UnknownRegion;
             }
+            String normalizedCustomKey = "structure";
+            String normalizedCustomData = "";
 
-            if (normalizedCustomSubType.equals(pageXml.customSubType()) && normalizedRegionType == pageXml.regionType()) {
+            if (normalizedCustomSubType.equals(pageXml.customSubType())
+                    && normalizedRegionType == pageXml.regionType()
+                    && normalizedCustomKey.equals(pageXml.customKey())
+                    && normalizedCustomData.equals(pageXml.customData())) {
                 normalizedLabels.add(label);
                 continue;
             }
@@ -146,8 +151,8 @@ public class LabelSetService {
                     normalizedRegionType,
                     pageXml.textType(),
                     normalizedCustomSubType,
-                    pageXml.customKey(),
-                    pageXml.customData()
+                    normalizedCustomKey,
+                    normalizedCustomData
             );
             LabelSetDto.Mapping normalizedMapping = new LabelSetDto.Mapping(normalizedPageXml);
             LabelSetDto.Label normalizedLabel = new LabelSetDto.Label(
@@ -262,7 +267,8 @@ public class LabelSetService {
             definition.meta().name(),
             definition.meta().description(),
             tags,
-            labelSet.isSystem()
+            labelSet.isSystem(),
+            definition.meta().defaultLabelId()
         );
 
         AuthorizationCapabilitiesDto.ResourceCapabilities capabilities = authorizationPolicyService
@@ -289,7 +295,8 @@ public class LabelSetService {
             definition.meta().name(),
             definition.meta().description(),
             tags,
-            labelSet.isSystem()
+            labelSet.isSystem(),
+            definition.meta().defaultLabelId()
         );
 
         AuthorizationCapabilitiesDto.ResourceCapabilities capabilities = authorizationPolicyService

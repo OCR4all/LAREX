@@ -10,6 +10,8 @@ import type { ReadingOrder, ReadingOrderNode, ReadingOrderGroup, RegionRef, Poin
 import type { RenderablePolygon } from '@/types/editor/rendering'
 import type { ArrowSegment, GroupBounds, OrderNumber, ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import type { LabelSet } from '@/models/editor/labels'
+import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
 
 const ARROW_COLOR: [number, number, number, number] = [0.2, 0.6, 0.9, 0.85] // Blue
 const ORDERED_GROUP_COLOR: [number, number, number, number] = [0.0, 0.8, 0.4, 0.9] // Bright green
@@ -134,7 +136,8 @@ export function useReadingOrderVisualization(
   readingOrder: Ref<ReadingOrder | undefined>,
   polygons: Ref<RenderablePolygon[]>,
   options: Ref<ReadingOrderVisualizationOptions>,
-  hiddenPolygonIds?: Ref<string[]>
+  hiddenPolygonIds?: Ref<string[]>,
+  labelSet?: Ref<LabelSet | null | undefined>
 ): UseReadingOrderVisualizationReturn {
   const editorUiStore = useEditorUiStore()
 
@@ -387,7 +390,10 @@ export function useReadingOrderVisualization(
         const position = getRegionCentroid(ref.regionRef)
         if (position) {
           const depth = getPolygonDepth(ref.regionRef)
-          const labelText = polygon?.label ? `${ref.regionRef} (${polygon.label})` : ref.regionRef
+          const customLabel = polygon
+            ? resolveRegionLabelDisplayName(labelSet?.value?.labels, polygon, polygon.label)
+            : undefined
+          const labelText = customLabel ? `${ref.regionRef} (${customLabel})` : ref.regionRef
           numbers.push({
             position,
             number: orderIndex,

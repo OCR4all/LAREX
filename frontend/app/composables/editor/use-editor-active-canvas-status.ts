@@ -9,6 +9,8 @@ import { useEditorCollaboration } from '@/composables/editor/use-editor-collabor
 import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
+import type { LabelSet } from '@/models/editor/labels'
+import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
 
 type StatusEntityInfo = {
   regionType: RegionKind | 'TextLine' | 'Baseline' | 'Polyline'
@@ -96,12 +98,12 @@ export function useEditorActiveCanvasStatus(options: EditorActiveCanvasStatusOpt
 
     if (activeHoveredPolylineId.value) {
       const polyline = polylines.find(item => item.id === activeHoveredPolylineId.value)
-      return polyline ? buildEntityFromPolyline(polyline, polygons, polylines) : null
+      return polyline ? buildEntityFromPolyline(polyline, polygons, polylines, editorStore.labelSet) : null
     }
 
     if (activeHoveredPolygonId.value) {
       const polygon = polygons.find(item => item.id === activeHoveredPolygonId.value)
-      return polygon ? buildEntityFromPolygon(polygon, polygons, polylines) : null
+      return polygon ? buildEntityFromPolygon(polygon, polygons, polylines, editorStore.labelSet) : null
     }
 
     return null
@@ -113,12 +115,12 @@ export function useEditorActiveCanvasStatus(options: EditorActiveCanvasStatusOpt
 
     if (activeSelectedPolylineId.value) {
       const polyline = polylines.find(item => item.id === activeSelectedPolylineId.value)
-      return polyline ? buildEntityFromPolyline(polyline, polygons, polylines) : null
+      return polyline ? buildEntityFromPolyline(polyline, polygons, polylines, editorStore.labelSet) : null
     }
 
     if (activeSelectedPolygonId.value) {
       const polygon = polygons.find(item => item.id === activeSelectedPolygonId.value)
-      return polygon ? buildEntityFromPolygon(polygon, polygons, polylines) : null
+      return polygon ? buildEntityFromPolygon(polygon, polygons, polylines, editorStore.labelSet) : null
     }
 
     return null
@@ -301,13 +303,16 @@ function getChildCount(id: string, polygons: RenderablePolygon[], polylines: Ren
 function buildEntityFromPolygon(
   polygon: RenderablePolygon,
   polygons: RenderablePolygon[],
-  polylines: RenderablePolyline[]
+  polylines: RenderablePolyline[],
+  labelSet?: LabelSet | null
 ): StatusEntityInfo {
   const isTextLine = polygon.type === PolygonType.TEXTLINE || polygon.type === 'textline'
   const regionType = isTextLine ? 'TextLine' : (polygon.regionKind ?? 'CustomRegion')
   const subtype = !isTextLine ? polygon.regionSubtype : undefined
 
-  const label = polygon.regionSubtype || polygon.label
+  const label = isTextLine
+    ? polygon.label
+    : resolveRegionLabelDisplayName(labelSet?.labels, polygon, polygon.label || polygon.regionSubtype)
 
   const bounds = getBounds(polygon.points)
   const childCount = getChildCount(polygon.id, polygons, polylines)
@@ -326,7 +331,8 @@ function buildEntityFromPolygon(
 function buildEntityFromPolyline(
   polyline: RenderablePolyline,
   polygons: RenderablePolygon[],
-  polylines: RenderablePolyline[]
+  polylines: RenderablePolyline[],
+  labelSet?: LabelSet | null
 ): StatusEntityInfo {
   const regionType = polyline.type === PolygonType.BASELINE || polyline.type === 'baseline' ? 'Baseline' : 'Polyline'
   let label = polyline.label
@@ -334,7 +340,9 @@ function buildEntityFromPolyline(
   if (!label || label === 'baseline') {
     if (polyline.parentId) {
       const parentPolygon = polygons.find(polygon => polygon.id === polyline.parentId)
-      label = parentPolygon?.regionSubtype || parentPolygon?.label || parentPolygon?.id
+      label = parentPolygon
+        ? resolveRegionLabelDisplayName(labelSet?.labels, parentPolygon, parentPolygon.label || parentPolygon.regionSubtype || parentPolygon.id)
+        : undefined
     }
   }
 

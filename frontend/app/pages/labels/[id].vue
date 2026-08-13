@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
-import type { LabelMapping, LabelScope, LabelSet, LabelSetCreateOrUpdateRequest } from '@/types/label-set'
+import { CANONICAL_PAGE_CUSTOM_KEY, type LabelSet, type LabelSetCreateOrUpdateRequest, type LabelSetSummary } from '@/types/label-set'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
-import { LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
-import { isEditableLabelDefinition, isGroupMeta, type BuilderEntry } from '@/composables/use-label-builder'
+import { LazyEditorSlideoverUnsavedProgress, LazyLabelBuilderModalImportPreview, LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
+import { isEditableLabelDefinition, isGroupMeta, normalizeEditableLabel, type BuilderEntry } from '@/composables/use-label-builder'
 import { buildToolkitPackageFileName } from '@/utils/download-file-names'
+import { buildLabelSetImportPreview } from '@/utils/label-set-import-preview'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,6 +17,8 @@ const shareSlideover = overlay.create(LazyShareSlideover)
 const metadataSlideover = overlay.create(LazyLabelBuilderSlideoverMetadata)
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const confirmModal = overlay.create(LazyUiConfirmModal)
+const unsavedProgressSlideover = overlay.create(LazyEditorSlideoverUnsavedProgress)
+const importPreviewModal = overlay.create(LazyLabelBuilderModalImportPreview)
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const workspaceId = computed(() => selectedWorkspace.value ?? '')
@@ -41,20 +44,21 @@ const {
   createLabel,
   deleteLabel,
   deleteSelectedLabels,
-  duplicateLabel,
   selectLabel,
-  createMapping,
   optimizeColors,
   selectedLabelIds,
   selectedLabels,
   clearSelection,
   groupSelectedLabels,
-  moveSelectedToGroup
+  moveSelectedToGroup,
+  isDirty,
+  markSavedState
 } = useLabelBuilder()
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const groupNameInput = ref('')
 const showGroupDialog = ref(false)
+const isSaving = ref(false)
 
 const selectedLabelCount = computed(() => selectedLabelIds.value.size)
 const groupNames = computed(() => labels.value.filter(isGroupMeta).map(group => group.name))
@@ -77,16 +81,6 @@ const getString = (value: unknown, fallback = ''): string => {
   return String(value)
 }
 
-const toEditableMapping = (mapping: LabelMapping) => ({
-  pageXml: {
-    ...(mapping.pageXml.regionType ? { regionType: mapping.pageXml.regionType } : {}),
-    ...(mapping.pageXml.textType ? { textType: mapping.pageXml.textType } : {}),
-    customSubType: mapping.pageXml.customSubType ?? '',
-    customKey: mapping.pageXml.customKey,
-    customData: mapping.pageXml.customData ?? ''
-  }
-})
-
 const stripUiFields = (labelList: BuilderEntry[]): LabelSetCreateOrUpdateRequest['labels'] => {
   const groupNameById = new Map<string, string>()
   for (const label of labelList) {
@@ -101,7 +95,7 @@ const stripUiFields = (labelList: BuilderEntry[]): LabelSetCreateOrUpdateRequest
         ? groupNameById.get(label.group)
         : label.group
       const pageRegionType = label.mapping?.pageXml?.regionType
-      const normalizedHasText = label.scope === 'line' || pageRegionType === 'TextRegion'
+      const normalizedHasText = pageRegionType === 'TextRegion'
       return {
         id: label.id,
         scope: label.scope,
@@ -110,9 +104,15 @@ const stripUiFields = (labelList: BuilderEntry[]): LabelSetCreateOrUpdateRequest
         color: label.color,
         // TODO: Remove these persisted flags after PAGE-only label metadata is finalized.
         hasText: normalizedHasText,
-        isContainer: label.scope === 'region' && label.isContainer,
+        isContainer: label.isContainer,
         group: mappedGroup || null,
-        mapping: label.mapping
+        mapping: {
+          pageXml: {
+            ...label.mapping.pageXml,
+            customKey: CANONICAL_PAGE_CUSTOM_KEY,
+            customData: ''
+          }
+        }
       }
     })
 }
@@ -122,7 +122,8 @@ const toStrictPayload = (): LabelSetCreateOrUpdateRequest => {
     meta: {
       name: meta.name,
       description: meta.description || '',
-      tags: meta.tags || []
+      tags: meta.tags || [],
+      defaultLabelId: meta.defaultLabelId || null
     },
     labels: stripUiFields(labels.value)
   }
@@ -133,7 +134,8 @@ const resetToDefaults = () => {
     name: 'My Custom Label Set',
     description: 'Optimized for historical document layout analysis',
     tags: [],
-    isSystem: false
+    isSystem: false,
+    defaultLabelId: null
   })
   labels.value = []
   activeLabel.value = null
@@ -170,6 +172,7 @@ const loadLabelSet = async () => {
   if (isNew) {
     resetToDefaults()
     loadedCapabilities.value = null
+    markSavedState()
     return
   }
 
@@ -177,11 +180,14 @@ const loadLabelSet = async () => {
     key: labelSetKey
   })
   if (data.value) {
-    Object.assign(meta, data.value.meta)
-    labels.value = (data.value.labels ?? []) as unknown as typeof labels.value
+    Object.assign(meta, data.value.meta, {
+      defaultLabelId: data.value.meta.defaultLabelId ?? null
+    })
+    labels.value = (data.value.labels ?? []).map(normalizeEditableLabel)
     loadedCapabilities.value = data.value.capabilities ?? null
     activeLabel.value = null
     ensureGroupMetas()
+    markSavedState()
     return
   }
 
@@ -203,13 +209,15 @@ const canShareLabelSet = computed(() => !isNew && allow(labelSetCapabilities.val
 const canDeleteLabelSet = computed(() => !isNew && allow(labelSetCapabilities.value.canDelete))
 const isReadOnlyLabelSet = computed(() => isSystemLabelSet.value || !canEditLabelSet.value)
 
-const handleSave = async () => {
-  if (!canEditLabelSet.value) return
+const handleSave = async (navigateAfterCreate = true): Promise<boolean> => {
+  if (!canEditLabelSet.value || isSaving.value) return false
+  if (!isNew && !isDirty.value) return true
   if (totalErrors.value > 0) {
     toast.add({ title: 'Fix label configuration errors before saving', color: 'warning' })
-    return
+    return false
   }
 
+  isSaving.value = true
   try {
     const payload = toStrictPayload()
 
@@ -218,21 +226,29 @@ const handleSave = async () => {
         method: 'POST',
         body: payload
       })
+      markSavedState()
       toast.add({ title: 'Label set created', color: 'success' })
       await refreshNuxtData(labelSetsKey.value)
-      await router.push(`/labels/${saved.id}`)
+      if (navigateAfterCreate) {
+        await router.push(`/labels/${saved.id}`)
+      }
     } else {
       await $fetch<LabelSet>(`/api/workspaces/${selectedWorkspace.value}/label-sets/${id}`, {
         method: 'PUT',
         body: payload
       })
+      markSavedState()
       toast.add({ title: 'Label set updated', color: 'success' })
       await refreshNuxtData(labelSetKey.value)
       await refreshNuxtData(labelSetsKey.value)
     }
+    return true
   } catch (e: unknown) {
     const description = e instanceof Error ? e.message : undefined
     toast.add({ title: 'Error saving label set', description, color: 'error' })
+    return false
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -250,6 +266,7 @@ const handleDeleteSet = async () => {
 
   try {
     await $fetch(`/api/workspaces/${selectedWorkspace.value}/label-sets/${id}`, { method: 'DELETE' })
+    markSavedState()
     toast.add({ title: 'Label set deleted', color: 'success' })
     await refreshNuxtData(labelSetsKey.value)
     await router.push('/labels')
@@ -264,9 +281,21 @@ const triggerImport = () => {
 }
 
 const handleImportFile = async (e: Event) => {
-  const file = (e.target as HTMLInputElement).files?.[0]
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
   if (!file) return
   try {
+    const content = await file.text()
+    const existingLabelSets = await $fetch<LabelSetSummary[]>(`/api/workspaces/${selectedWorkspace.value}/label-sets`)
+    const preview = buildLabelSetImportPreview(content, {
+      fileName: file.name,
+      existingNames: existingLabelSets.map(labelSet => labelSet.meta.name),
+      current: toStrictPayload()
+    })
+    const previewInstance = importPreviewModal.open({ preview })
+    const confirmed = await previewInstance.result
+    if (!confirmed) return
+
     const { runTrackedProcessing } = useTrackedUpload()
     const result = await runTrackedProcessing<{
       resources?: Array<{ type: string, targetId: string, targetName: string }>
@@ -275,7 +304,6 @@ const handleImportFile = async (e: Event) => {
       workspaceId: selectedWorkspace.value || 'workspace',
       files: [{ file }],
       task: async () => {
-        const content = await file.text()
         return await $fetch<{
           resources?: Array<{ type: string, targetId: string, targetName: string }>
         }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
@@ -300,7 +328,7 @@ const handleImportFile = async (e: Event) => {
     const message = error instanceof Error ? error.message : 'Failed to import label set package'
     toast.add({ title: 'Import failed', description: message, color: 'error' })
   } finally {
-    ;(e.target as HTMLInputElement).value = ''
+    input.value = ''
   }
 }
 
@@ -482,30 +510,47 @@ const handleDeleteSelected = async () => {
   toast.add({ title: count === 1 ? 'Label deleted' : 'Labels deleted', description: `${count} label${count === 1 ? '' : 's'} removed.`, color: 'success' })
 }
 
-const handleScopeSwitch = async (targetScope: LabelScope) => {
-  if (isReadOnlyLabelSet.value) return
-  if (!activeLabel.value) return
-
-  const instance = confirmModal.open({
-    title: 'Change Scope?',
-    description: 'This will reset the label mapping configurations. Continue?',
-    confirmLabel: 'Change Scope',
-    confirmColor: 'warning'
-  })
-  const confirmed = await instance.result
-
-  if (confirmed) {
-    activeLabel.value.scope = targetScope
-    activeLabel.value.mapping = toEditableMapping(createMapping(activeLabel.value.name, targetScope))
-    activeLabel.value.hasText = true
-    activeLabel.value.isContainer = false
-  }
-}
-
 const openSettings = () => {
   if (isReadOnlyLabelSet.value) return
-  metadataSlideover.open({ onSave: handleSave })
+  metadataSlideover.open({ isNew, onSave: () => handleSave() })
 }
+
+const confirmNavigationAway = async (): Promise<boolean> => {
+  if (!isDirty.value) return true
+
+  const instance = unsavedProgressSlideover.open({
+    title: 'Unsaved label set changes',
+    message: 'This label set has changes that have not been saved. What would you like to do?',
+    confirmLabel: 'Save and leave',
+    discardLabel: 'Discard changes',
+    cancelLabel: 'Keep editing',
+    confirmColor: 'primary',
+    discardColor: 'warning'
+  })
+  const action = await instance.result
+
+  if (action === 'save') {
+    return await handleSave(false)
+  }
+  if (action === 'discard') {
+    return true
+  }
+  return false
+}
+
+if (import.meta.client) {
+  const onBeforeUnload = (event: BeforeUnloadEvent) => {
+    if (!isDirty.value) return
+    event.preventDefault()
+  }
+  onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+  onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload))
+}
+
+onBeforeRouteLeave(async () => {
+  if (await confirmNavigationAway()) return
+  return false
+})
 </script>
 
 <template>
@@ -514,12 +559,14 @@ const openSettings = () => {
       <LabelBuilderHeader
         :is-new="isNew"
         :is-system="isReadOnlyLabelSet"
+        :is-dirty="isDirty"
+        :is-saving="isSaving"
         :can-share="canShareLabelSet"
         :breadcrumb-items="breadcrumbItems"
         help-title="About Label Sets"
-        help-description="Label sets define structural annotation vocabularies and their export mappings for region and line annotation workflows."
+        help-description="Label sets define structural annotation vocabularies and their PAGE XML region mappings."
         :help-items="[
-          'Use scopes and mappings to align labels with your PAGE XML model.',
+          'Use mappings to align labels with your PAGE XML region model.',
           'Keep labels visually distinct so annotators can read segmentation state quickly.',
           'Import, export, and share label sets as reusable workspace toolkit resources.'
         ]"
@@ -538,35 +585,24 @@ const openSettings = () => {
           @create="createLabel"
           @select="selectLabel"
           @delete="handleDelete"
-          @duplicate="duplicateLabel"
         />
 
-        <section class="flex-1 bg-neutral-50/70 dark:bg-neutral-900 flex flex-col relative">
+        <section class="relative flex flex-1 flex-col bg-muted/10">
           <div v-if="activeLabel" class="flex-1 flex flex-col lg:flex-row h-full">
-            <LabelBuilderEditor :is-system="isReadOnlyLabelSet" @change-scope="handleScopeSwitch" />
+            <LabelBuilderEditor :is-system="isReadOnlyLabelSet" />
             <LabelBuilderPreview />
           </div>
 
-          <div v-else class="flex-1 flex flex-col items-center justify-center text-neutral-500">
-            <div class="w-20 h-20 bg-neutral-100/60 dark:bg-neutral-800 rounded-sm mb-4 flex items-center justify-center shadow-inner">
-              <UIcon name="i-lucide-tags" class="w-10 h-10 text-neutral-600" />
+          <div v-else class="flex flex-1 flex-col items-center justify-center px-6 text-muted">
+            <div class="mb-4 flex size-12 items-center justify-center rounded-lg border border-default bg-default">
+              <UIcon name="i-lucide-tags" class="size-5" />
             </div>
-            <h2 class="text-lg font-bold text-black dark:text-white mb-2">
-              No Label Selected
+            <h2 class="mb-1 text-base font-semibold text-highlighted">
+              Select a label
             </h2>
-            <p class="text-sm max-w-xs text-center">
-              Select a label from the sidebar or create a new one.
+            <p class="max-w-xs text-center text-sm">
+              Choose a label from the sidebar to edit its mapping and appearance.
             </p>
-            <UButton
-              v-if="!isReadOnlyLabelSet"
-              icon="i-mdi-tag-plus-outline"
-              variant="solid"
-              size="lg"
-              class="mt-4"
-              @click="createLabel"
-            >
-              Create Label
-            </UButton>
 
             <UPageCard
               v-if="isSystemLabelSet"

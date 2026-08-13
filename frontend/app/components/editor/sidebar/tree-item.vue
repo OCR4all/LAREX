@@ -124,10 +124,7 @@ function getLabelColor(item: TreeItemData): string {
   if (labelDef?.color) return labelDef.color
 
   const normalizedType = item.type?.toUpperCase?.() ?? ''
-  if (normalizedType === 'TEXTLINE') {
-    const lineLabel = editorStore.labelSet?.labels.find(label => label.scope === 'line')
-    if (lineLabel?.color) return lineLabel.color
-  }
+  if (normalizedType === 'TEXTLINE') return '#3B82F6'
 
   const { kind, subtype } = resolveRegionForItem(item)
   if (kind) {

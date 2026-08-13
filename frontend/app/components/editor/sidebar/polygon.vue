@@ -22,6 +22,7 @@ import EditorSidebarTasks from '@/components/editor/sidebar/tasks.vue'
 import type { LinkedTask, Subtask } from '~/types/index'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { getEditorSession } from '@/session/editor/editor-session'
+import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
 
 const overlay = useOverlay()
 const confirmModal = overlay.create(LazyUiConfirmModal)
@@ -280,7 +281,9 @@ const allRegionsForReadingOrder = computed<AvailableItem[]>(() => {
     .filter(polygon => polygon.type === PolygonType.REGION || polygon.type === PolygonType.TEXTLINE)
     .map(polygon => ({
       id: polygon.id,
-      label: polygon.label || polygon.id,
+      label: polygon.type === PolygonType.REGION
+        ? resolveRegionLabelDisplayName(editorStore.labelSet?.labels, polygon, polygon.label || polygon.id) ?? polygon.id
+        : polygon.label || polygon.id,
       regionRef: polygon.id,
       parentId: polygon.parentId
     }))
@@ -291,7 +294,7 @@ const allRegionsForRelations = computed(() => {
     .filter(polygon => polygon.type === PolygonType.REGION)
     .map(polygon => ({
       value: polygon.id,
-      label: polygon.label ? `${polygon.label} (${polygon.id})` : polygon.id
+      label: `${resolveRegionLabelDisplayName(editorStore.labelSet?.labels, polygon, polygon.label || polygon.id) ?? polygon.id} (${polygon.id})`
     }))
 })
 
@@ -406,13 +409,16 @@ async function deletePolygon(polygonId: string): Promise<void> {
   if (!polygon) return
 
   const parentId = polygon.parentId
+  const displayLabel = polygon.type === PolygonType.REGION
+    ? resolveRegionLabelDisplayName(editorStore.labelSet?.labels, polygon, polygon.label || polygon.id) ?? polygon.id
+    : polygon.label || polygon.id
 
   const hasChildren = props.polygons.some(p => p.parentId === polygonId)
   const instance = confirmModal.open({
     title: hasChildren ? 'Delete Region and Children?' : 'Delete Region?',
     description: hasChildren
-      ? `Are you sure you want to delete "${polygon.label}"? This will also delete all associated textlines and baselines.`
-      : `Are you sure you want to delete "${polygon.label}"?`,
+      ? `Are you sure you want to delete "${displayLabel}"? This will also delete all associated textlines and baselines.`
+      : `Are you sure you want to delete "${displayLabel}"?`,
     confirmLabel: 'Delete',
     confirmColor: 'error'
   })

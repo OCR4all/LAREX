@@ -16,6 +16,8 @@ import java.util.Set;
 @Component
 public class LabelSetDefinitionValidator {
 
+    private static final String CANONICAL_CUSTOM_KEY = "structure";
+
     private static final Set<String> ALLOWED_TEXT_TYPES = Set.of(
             "",
             "paragraph",
@@ -49,7 +51,7 @@ public class LabelSetDefinitionValidator {
         requireObject(root, "$", Set.of("meta", "labels"));
 
         JsonNode meta = root.get("meta");
-        requireObject(meta, "$.meta", Set.of("name", "description", "tags"));
+        requireObject(meta, "$.meta", Set.of("name", "description", "tags", "defaultLabelId"));
 
         JsonNode labels = root.get("labels");
         if (labels == null || !labels.isArray()) {
@@ -116,6 +118,16 @@ public class LabelSetDefinitionValidator {
         for (LabelSetDto.Label label : request.labels()) {
             validateLabel(label);
         }
+
+        String defaultLabelId = request.meta().defaultLabelId();
+        if (defaultLabelId != null) {
+            if (defaultLabelId.isBlank()) {
+                throw new IllegalArgumentException("Default label ID must be null or reference a label");
+            }
+            if (!ids.contains(defaultLabelId)) {
+                throw new IllegalArgumentException("Default label ID does not reference a label in this label set: " + defaultLabelId);
+            }
+        }
     }
 
     private void requireObject(JsonNode node, String path, Set<String> allowedFields) {
@@ -136,42 +148,25 @@ public class LabelSetDefinitionValidator {
         LabelSetDto.Mapping mapping = label.mapping();
         LabelSetDto.PageXml pageXml = mapping.pageXml();
 
-        // Validate scope-dependent shape
-        if (label.scope() == LabelSetDto.LabelScope.LINE) {
-            if (pageXml.regionType() != null) {
-                throw new IllegalArgumentException("Label '" + label.name() + "' (line) must not specify pageXml.regionType");
-            }
-            if (pageXml.textType() != null) {
-                throw new IllegalArgumentException("Label '" + label.name() + "' (line) must not specify pageXml.textType");
-            }
-            if (pageXml.customSubType() != null) {
-                throw new IllegalArgumentException("Label '" + label.name() + "' (line) must not specify pageXml.customSubType");
-            }
-        } else if (label.scope() == LabelSetDto.LabelScope.REGION) {
-            if (pageXml.regionType() == null) {
-                throw new IllegalArgumentException("Label '" + label.name() + "' (region) must specify pageXml.regionType");
-            }
-            if (pageXml.customSubType() == null) {
-                throw new IllegalArgumentException("Label '" + label.name() + "' (region) must specify pageXml.customSubType (can be empty string)");
-            }
+        if (pageXml.regionType() == null) {
+            throw new IllegalArgumentException("Label '" + label.name() + "' (region) must specify pageXml.regionType");
+        }
+        if (pageXml.customSubType() == null) {
+            throw new IllegalArgumentException("Label '" + label.name() + "' (region) must specify pageXml.customSubType (can be empty string)");
+        }
 
-            // PAGE textType rules
-            if (pageXml.regionType() == LabelSetDto.PageRegionType.TextRegion) {
-                // TextRegion subtype is optional: null/blank means plain <TextRegion> without @type.
-                if ("custom".equals(pageXml.textType()) && (pageXml.customSubType() == null || pageXml.customSubType().isBlank())) {
-                    throw new IllegalArgumentException("Label '" + label.name() + "' with pageXml.textType=custom must specify pageXml.customSubType");
-                }
-            } else {
-                if (pageXml.textType() != null && !pageXml.textType().isBlank()) {
-                    throw new IllegalArgumentException("Label '" + label.name() + "' (region) must not specify pageXml.textType for non-TextRegion");
-                }
+        // PAGE textType rules
+        if (pageXml.regionType() == LabelSetDto.PageRegionType.TextRegion) {
+            // TextRegion subtype is optional: null/blank means plain <TextRegion> without @type.
+            if ("custom".equals(pageXml.textType()) && pageXml.customSubType().isBlank()) {
+                throw new IllegalArgumentException("Label '" + label.name() + "' with pageXml.textType=custom must specify pageXml.customSubType");
             }
+        } else if (pageXml.textType() != null && !pageXml.textType().isBlank()) {
+            throw new IllegalArgumentException("Label '" + label.name() + "' (region) must not specify pageXml.textType for non-TextRegion");
+        }
 
-            if (label.hasText()) {
-                if (pageXml.regionType() != LabelSetDto.PageRegionType.TextRegion) {
-                    throw new IllegalArgumentException("Label '" + label.name() + "' hasText=true requires pageXml.regionType=TextRegion");
-                }
-            }
+        if (label.hasText() && pageXml.regionType() != LabelSetDto.PageRegionType.TextRegion) {
+            throw new IllegalArgumentException("Label '" + label.name() + "' hasText=true requires pageXml.regionType=TextRegion");
         }
 
         // Always validate that textType (if present) is within allowed values.
@@ -179,14 +174,16 @@ public class LabelSetDefinitionValidator {
             throw new IllegalArgumentException("Label '" + label.name() + "' has invalid pageXml.textType: " + pageXml.textType());
         }
 
-        // Ensure customKey is always meaningful
-        if (pageXml.customKey() == null || pageXml.customKey().isBlank()) {
-            throw new IllegalArgumentException("Label '" + label.name() + "' must specify pageXml.customKey");
+        if (!CANONICAL_CUSTOM_KEY.equals(pageXml.customKey())) {
+            throw new IllegalArgumentException("Label '" + label.name() + "' must use the canonical pageXml.customKey '" + CANONICAL_CUSTOM_KEY + "'");
+        }
+        if (pageXml.customData() != null && !pageXml.customData().isBlank()) {
+            throw new IllegalArgumentException("Label '" + label.name() + "' must not specify additional pageXml.customData properties");
         }
     }
 
     private String canonicalRegionMappingSignature(LabelSetDto.Label label) {
-        if (label == null || label.scope() != LabelSetDto.LabelScope.REGION || label.mapping() == null || label.mapping().pageXml() == null) {
+        if (label == null || label.mapping() == null || label.mapping().pageXml() == null) {
             return null;
         }
 

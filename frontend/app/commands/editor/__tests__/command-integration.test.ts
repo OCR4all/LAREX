@@ -12,6 +12,7 @@ import {
   findRegionById
 } from './test-utils'
 import { computed, ref } from 'vue'
+import { LabelDefinition } from '@/models/editor/labels'
 
 vi.mock('@/services/visibility-service', () => ({
   visibilityService: {
@@ -224,6 +225,46 @@ describe('Create Polygon Command Integration', () => {
 
     const region = getDocument()?.page.regions[0]
     expect(region?.kind).toBe('TextRegion')
+  })
+
+  it('creates a region using the supplied label mapping', () => {
+    const { session, getDocument } = createMockSession()
+    const ctx = createTestContext(session)
+    const imageLabel = new LabelDefinition(
+      'image-label',
+      'Illustration',
+      'region',
+      '#123456',
+      '',
+      false,
+      false,
+      null,
+      {
+        pageXml: {
+          regionType: 'ImageRegion',
+          textType: null,
+          customSubType: 'photo',
+          customKey: 'structure',
+          customData: ''
+        }
+      }
+    )
+
+    commander.execute(new CreatePolygonCommand({
+      points: [
+        { x: 100, y: 100 },
+        { x: 500, y: 100 },
+        { x: 500, y: 300 },
+        { x: 100, y: 300 }
+      ],
+      type: PolygonType.REGION,
+      labelDefinition: imageLabel
+    }), ctx)
+
+    const region = getDocument()?.page.regions[0]
+    expect(region?.kind).toBe('ImageRegion')
+    expect((region as { type?: string })?.type).toBe('photo')
+    expect(region?.custom).toContain('labelId:image-label')
   })
 
   it('should create a nested region inside parent', () => {

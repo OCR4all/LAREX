@@ -1,9 +1,10 @@
-import type {
-  LabelDefinition,
-  LabelMapping,
-  LabelScope,
-  PageRegionType,
-  PageTextType
+import { computed, reactive, ref } from 'vue'
+import {
+  CANONICAL_PAGE_CUSTOM_KEY,
+  type LabelDefinition,
+  type LabelMapping,
+  type PageRegionType,
+  type PageTextType
 } from '~/types/label-set'
 import { createCanonicalRegionMappingSignatureFromLabel } from '@/utils/editor/page-label-mapping'
 
@@ -11,16 +12,22 @@ const PRESET_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#
 const PAGE_REGIONS = ['TextRegion', 'ImageRegion', 'LineDrawingRegion', 'GraphicRegion', 'TableRegion', 'ChartRegion', 'MapRegion', 'SeparatorRegion', 'MathsRegion', 'ChemRegion', 'MusicRegion', 'AdvertRegion', 'NoiseRegion', 'UnknownRegion']
 const PAGE_TEXT_TYPES = ['paragraph', 'heading', 'caption', 'header', 'footer', 'page-number', 'drop-capital', 'credit', 'floating', 'signature-mark', 'catch-word', 'marginalia', 'footnote', 'footnote-continued', 'endnote', 'TOC-entry', 'list-label', 'other', 'custom']
 
-const meta = reactive({ name: 'My Custom Label Set', description: 'Optimized for historical document layout analysis', tags: [] as string[], isSystem: false })
-const filters = reactive({ region: true, line: true })
+const meta = reactive({
+  name: 'My Custom Label Set',
+  description: 'Optimized for historical document layout analysis',
+  tags: [] as string[],
+  isSystem: false,
+  defaultLabelId: null as string | null
+})
+export type EditablePageXmlMapping = {
+  regionType?: PageRegionType
+  textType?: PageTextType
+  customSubType: string
+  customKey: string
+  customData: string
+}
 type EditableLabelMapping = {
-  pageXml: {
-    regionType?: PageRegionType
-    textType?: PageTextType
-    customSubType: string
-    customKey: string
-    customData: string
-  }
+  pageXml: EditablePageXmlMapping
 }
 
 export interface EditableLabelDefinition extends Omit<LabelDefinition, 'description' | 'group' | 'mapping'> {
@@ -50,8 +57,48 @@ const activeLabel = ref<EditableLabelDefinition | null>(null)
 const searchQuery = ref('')
 const selectedLabelIds = ref<Set<string>>(new Set())
 const lastSelectedLabelId = ref<string | null>(null)
+const savedStateSnapshot = ref<string | null>(null)
 
-function normalizeEditableLabel(label: LabelDefinition): EditableLabelDefinition {
+interface LabelBuilderMetaLike {
+  name: string
+  description?: string | null
+  tags?: string[] | null
+  defaultLabelId?: string | null
+}
+
+export function createLabelBuilderStateSnapshot(metaState: LabelBuilderMetaLike, entries: BuilderEntry[]): string {
+  return JSON.stringify({
+    meta: {
+      name: metaState.name,
+      description: metaState.description ?? '',
+      tags: [...(metaState.tags ?? [])],
+      defaultLabelId: metaState.defaultLabelId ?? null
+    },
+    labels: entries
+      .filter(isEditableLabelDefinition)
+      .map(label => ({
+        id: label.id,
+        scope: label.scope,
+        name: label.name,
+        description: label.description,
+        color: label.color,
+        hasText: label.hasText,
+        isContainer: label.isContainer,
+        group: label.group,
+        mapping: {
+          pageXml: {
+            regionType: label.mapping.pageXml.regionType ?? null,
+            textType: label.mapping.pageXml.textType ?? null,
+            customSubType: label.mapping.pageXml.customSubType,
+            customKey: label.mapping.pageXml.customKey,
+            customData: label.mapping.pageXml.customData
+          }
+        }
+      }))
+  })
+}
+
+export function normalizeEditableLabel(label: LabelDefinition): EditableLabelDefinition {
   return {
     ...label,
     description: label.description ?? '',
@@ -61,24 +108,17 @@ function normalizeEditableLabel(label: LabelDefinition): EditableLabelDefinition
         ...(label.mapping.pageXml.regionType ? { regionType: label.mapping.pageXml.regionType } : {}),
         ...(label.mapping.pageXml.textType ? { textType: label.mapping.pageXml.textType } : {}),
         customSubType: label.mapping.pageXml.customSubType ?? '',
-        customKey: label.mapping.pageXml.customKey,
-        customData: label.mapping.pageXml.customData ?? ''
+        customKey: CANONICAL_PAGE_CUSTOM_KEY,
+        customData: ''
       }
     }
   }
 }
 
-const createMapping = (name = '', scope: LabelScope = 'region'): LabelMapping => {
+const createMapping = (name = ''): LabelMapping => {
   const lowerName = name.toLowerCase()
-  const customKey = 'structure'
-  let customData = ''
-
-  if (scope === 'line') {
-    if (lowerName.includes('drop')) customData = 'type:drop-capital'
-    return {
-      pageXml: { customKey, customData }
-    }
-  }
+  const customKey = CANONICAL_PAGE_CUSTOM_KEY
+  const customData = ''
 
   let pageRegion: PageRegionType = 'TextRegion'
   let pageText: PageTextType = 'paragraph'
@@ -107,14 +147,183 @@ const createMapping = (name = '', scope: LabelScope = 'region'): LabelMapping =>
   }
 }
 
+export function createNextFreeLabelMapping(entries: BuilderEntry[], fallbackLabelName: string): LabelMapping {
+  const textTypes = PAGE_TEXT_TYPES as PageTextType[]
+  const usedTextTypes = new Set(entries
+    .filter(isEditableLabelDefinition)
+    .filter(label => label.mapping.pageXml.regionType === 'TextRegion')
+    .map(label => label.mapping.pageXml.textType)
+    .filter((textType): textType is PageTextType => Boolean(textType)))
+  const nextTextType = textTypes.find(textType => textType !== 'custom' && !usedTextTypes.has(textType))
+
+  return {
+    pageXml: {
+      regionType: 'TextRegion',
+      textType: nextTextType ?? 'custom',
+      customSubType: nextTextType ? '' : fallbackLabelName,
+      customKey: CANONICAL_PAGE_CUSTOM_KEY,
+      customData: ''
+    }
+  }
+}
+
 if (labels.value.length === 0) {
   labels.value = [
-    normalizeEditableLabel({ id: '1', scope: 'region', name: 'Paragraph', description: 'Body text', color: '#3b82f6', hasText: true, isContainer: false, group: null, mapping: createMapping('Paragraph') }),
-    normalizeEditableLabel({ id: '2', scope: 'line', name: 'Drop Cap Line', description: 'Line with drop capital', color: '#f43f5e', hasText: true, isContainer: false, group: null, mapping: createMapping('DropCapLine', 'line') })
+    normalizeEditableLabel({ id: '1', scope: 'region', name: 'Paragraph', description: 'Body text', color: '#3b82f6', hasText: true, isContainer: false, group: null, mapping: createMapping('Paragraph') })
   ]
 }
 
+export function moveBuilderLabel(
+  entries: BuilderEntry[],
+  labelId: string,
+  targetGroup: string | null,
+  targetIndex: number
+): BuilderEntry[] {
+  const next = [...entries]
+  const sourceIndex = next.findIndex(entry => !isGroupMeta(entry) && entry.id === labelId)
+  if (sourceIndex < 0) return entries
+
+  const [movedEntry] = next.splice(sourceIndex, 1)
+  if (!movedEntry || isGroupMeta(movedEntry)) return entries
+  movedEntry.group = targetGroup
+
+  const targetLabels = next.filter((entry): entry is EditableLabelDefinition =>
+    !isGroupMeta(entry) && (entry.group ?? null) === targetGroup
+  )
+  const insertionIndex = Math.max(0, Math.min(targetIndex, targetLabels.length))
+  const anchor = targetLabels[insertionIndex]
+
+  if (anchor) {
+    next.splice(next.indexOf(anchor), 0, movedEntry)
+    return next
+  }
+
+  const lastTarget = targetLabels.at(-1)
+  if (lastTarget) {
+    next.splice(next.indexOf(lastTarget) + 1, 0, movedEntry)
+    return next
+  }
+
+  const firstGroupMetaIndex = next.findIndex(isGroupMeta)
+  next.splice(firstGroupMetaIndex < 0 ? next.length : firstGroupMetaIndex, 0, movedEntry)
+  return next
+}
+
+export function moveBuilderLabelByOffset(
+  entries: BuilderEntry[],
+  labelId: string,
+  offset: -1 | 1
+): BuilderEntry[] {
+  const label = entries.find((entry): entry is EditableLabelDefinition =>
+    isEditableLabelDefinition(entry) && entry.id === labelId
+  )
+  if (!label) return entries
+
+  const group = label.group ?? null
+  const siblings = entries.filter((entry): entry is EditableLabelDefinition =>
+    isEditableLabelDefinition(entry) && (entry.group ?? null) === group
+  )
+  const currentIndex = siblings.findIndex(entry => entry.id === labelId)
+  const targetIndex = currentIndex + offset
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= siblings.length) return entries
+
+  return moveBuilderLabel(entries, labelId, group, targetIndex)
+}
+
+function getOrderedBuilderGroupIds(entries: BuilderEntry[]): string[] {
+  const ids: string[] = []
+  for (const entry of entries) {
+    const groupId = isGroupMeta(entry) ? entry.id : entry.group
+    if (groupId && !ids.includes(groupId)) ids.push(groupId)
+  }
+  return ids
+}
+
+export function moveBuilderGroup(
+  entries: BuilderEntry[],
+  groupId: string,
+  targetIndex: number
+): BuilderEntry[] {
+  const groupIds = getOrderedBuilderGroupIds(entries)
+  const sourceIndex = groupIds.indexOf(groupId)
+  if (sourceIndex < 0) return entries
+
+  const clampedTargetIndex = Math.max(0, Math.min(targetIndex, groupIds.length - 1))
+  if (sourceIndex === clampedTargetIndex) return entries
+
+  groupIds.splice(sourceIndex, 1)
+  groupIds.splice(clampedTargetIndex, 0, groupId)
+
+  const labelsByGroup = new Map<string, EditableLabelDefinition[]>()
+  const ungrouped: EditableLabelDefinition[] = []
+  const groupMetas = new Map<string, GroupMeta>()
+  for (const entry of entries) {
+    if (isGroupMeta(entry)) {
+      groupMetas.set(entry.id, entry)
+    } else if (entry.group) {
+      const groupLabels = labelsByGroup.get(entry.group) ?? []
+      groupLabels.push(entry)
+      labelsByGroup.set(entry.group, groupLabels)
+    } else {
+      ungrouped.push(entry)
+    }
+  }
+
+  const orderedLabels = groupIds.flatMap(id => labelsByGroup.get(id) ?? [])
+  const orderedMetas = groupIds.flatMap((id) => {
+    const metaEntry = groupMetas.get(id)
+    return metaEntry ? [metaEntry] : []
+  })
+  return [...orderedLabels, ...ungrouped, ...orderedMetas]
+}
+
+export function moveBuilderGroupByOffset(
+  entries: BuilderEntry[],
+  groupId: string,
+  offset: -1 | 1
+): BuilderEntry[] {
+  const groupIds = getOrderedBuilderGroupIds(entries)
+  const currentIndex = groupIds.indexOf(groupId)
+  const targetIndex = currentIndex + offset
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= groupIds.length) return entries
+  return moveBuilderGroup(entries, groupId, targetIndex)
+}
+
+export function applyPageRegionTypeChange(pageXml: EditablePageXmlMapping, regionType: PageRegionType): void {
+  const changed = pageXml.regionType !== regionType
+  pageXml.regionType = regionType
+  pageXml.customKey = CANONICAL_PAGE_CUSTOM_KEY
+  pageXml.customData = ''
+
+  if (!changed) {
+    if (regionType !== 'TextRegion') pageXml.textType = undefined
+    return
+  }
+
+  pageXml.textType = regionType === 'TextRegion' ? 'paragraph' : undefined
+  pageXml.customSubType = ''
+  pageXml.customData = ''
+}
+
+export function applyPageTextTypeChange(pageXml: EditablePageXmlMapping, textType: PageTextType | undefined): void {
+  const changed = pageXml.textType !== textType
+  pageXml.textType = textType
+  pageXml.customKey = CANONICAL_PAGE_CUSTOM_KEY
+  pageXml.customData = ''
+  if (!changed) return
+
+  pageXml.customSubType = ''
+  pageXml.customData = ''
+}
+
 export const useLabelBuilder = () => {
+  const currentStateSnapshot = computed(() => createLabelBuilderStateSnapshot(meta, labels.value))
+  const isDirty = computed(() => savedStateSnapshot.value !== null && savedStateSnapshot.value !== currentStateSnapshot.value)
+
+  const markSavedState = () => {
+    savedStateSnapshot.value = currentStateSnapshot.value
+  }
+
   const toggleSelection = (labelId: string) => {
     if (selectedLabelIds.value.has(labelId)) {
       selectedLabelIds.value.delete(labelId)
@@ -241,7 +450,7 @@ export const useLabelBuilder = () => {
       hasText: true,
       isContainer: false,
       group: null,
-      mapping: createMapping(labelName)
+      mapping: createNextFreeLabelMapping(labels.value, labelName)
     })
     labels.value.push(newLabel)
     activeLabel.value = newLabel
@@ -276,16 +485,9 @@ export const useLabelBuilder = () => {
     }
   }
 
-  const duplicateLabel = (label: EditableLabelDefinition) => {
-    const copy = normalizeEditableLabel(structuredClone(label))
-    copy.id = Date.now().toString()
-    copy.name = getUniqueLabelName(`${copy.name} (Copy)`)
-    labels.value.push(copy)
-    activeLabel.value = copy
-  }
-
   const deleteLabel = (id: string) => {
     labels.value = labels.value.filter(l => l.id !== id)
+    if (meta.defaultLabelId === id) meta.defaultLabelId = null
     if (activeLabel.value?.id === id) activeLabel.value = null
   }
 
@@ -293,15 +495,51 @@ export const useLabelBuilder = () => {
     if (selectedLabelIds.value.size === 0) return
     const ids = new Set(selectedLabelIds.value)
     labels.value = labels.value.filter(label => isGroupMeta(label) || !ids.has(label.id))
+    if (meta.defaultLabelId && ids.has(meta.defaultLabelId)) meta.defaultLabelId = null
     if (activeLabel.value && ids.has(activeLabel.value.id)) {
       activeLabel.value = null
     }
     clearSelection()
   }
 
+  const moveLabel = (labelId: string, targetGroup: string | null, targetIndex: number) => {
+    labels.value = moveBuilderLabel(labels.value, labelId, targetGroup, targetIndex)
+  }
+
+  const moveLabelByOffset = (labelId: string, offset: -1 | 1): boolean => {
+    const next = moveBuilderLabelByOffset(labels.value, labelId, offset)
+    if (next === labels.value) return false
+    labels.value = next
+    return true
+  }
+
+  const moveGroup = (groupId: string, targetIndex: number): boolean => {
+    const next = moveBuilderGroup(labels.value, groupId, targetIndex)
+    if (next === labels.value) return false
+    labels.value = next
+    return true
+  }
+
+  const moveGroupByOffset = (groupId: string, offset: -1 | 1): boolean => {
+    const next = moveBuilderGroupByOffset(labels.value, groupId, offset)
+    if (next === labels.value) return false
+    labels.value = next
+    return true
+  }
+
   const selectLabel = (l: BuilderEntry) => {
     if (isGroupMeta(l)) return
     activeLabel.value = l
+  }
+
+  const setDefaultLabel = (labelId: string | null) => {
+    if (labelId === null) {
+      meta.defaultLabelId = null
+      return
+    }
+    if (labels.value.some(entry => isEditableLabelDefinition(entry) && entry.id === labelId)) {
+      meta.defaultLabelId = labelId
+    }
   }
 
   const nameCounts = computed(() => {
@@ -319,7 +557,6 @@ export const useLabelBuilder = () => {
     const counts = new Map<string, number>()
     for (const entry of labels.value) {
       if (isGroupMeta(entry)) continue
-      if (entry.scope !== 'region') continue
       const signature = createCanonicalRegionMappingSignatureFromLabel(entry)
       if (!signature) continue
       counts.set(signature, (counts.get(signature) || 0) + 1)
@@ -331,32 +568,41 @@ export const useLabelBuilder = () => {
     const errors: { code: string, message: string }[] = []
     if (!label || isGroupMeta(label)) return errors
 
-    const normalized = label.name.trim().toLowerCase()
-    if (normalized && (nameCounts.value.get(normalized) || 0) > 1) {
+    const trimmedName = label.name.trim()
+    const normalized = trimmedName.toLowerCase()
+    if (!trimmedName) {
+      errors.push({ code: 'missingName', message: 'Label name is required.' })
+    } else if (label.name.length > 255) {
+      errors.push({ code: 'nameTooLong', message: 'Label name must not exceed 255 characters.' })
+    } else if ((nameCounts.value.get(normalized) || 0) > 1) {
       errors.push({ code: 'duplicateName', message: 'Label name must be unique within the label set.' })
     }
 
-    const customKey = label.mapping?.pageXml?.customKey?.trim?.() ?? ''
-    if (!customKey) {
-      errors.push({ code: 'missingCustomKey', message: 'PAGE XML custom attribute key is required.' })
+    if ((label.description?.length ?? 0) > 10_000) {
+      errors.push({ code: 'descriptionTooLong', message: 'Description must not exceed 10,000 characters.' })
     }
 
-    if (label.scope === 'region') {
-      const pageXml = label.mapping.pageXml
-      const signature = createCanonicalRegionMappingSignatureFromLabel(label)
-      if (signature && (regionMappingSignatureCounts.value.get(signature) || 0) > 1) {
-        errors.push({
-          code: 'duplicatePageMapping',
-          message: 'Another region label uses the same PAGE XML mapping. Region mappings must be unique.'
-        })
-      }
+    if (!/^#[\da-f]{6}$/i.test(label.color)) {
+      errors.push({ code: 'invalidColor', message: 'Color must be a six-digit hex value such as #3B82F6.' })
+    }
 
-      if (pageXml.regionType === 'TextRegion' && pageXml.textType === 'custom' && !(pageXml.customSubType || '').trim()) {
-        errors.push({
-          code: 'missingCustomSubType',
-          message: 'TextRegion with subtype "custom" requires a custom subtype value.'
-        })
-      }
+    const pageXml = label.mapping.pageXml
+    if (!pageXml.regionType) {
+      errors.push({ code: 'missingRegionType', message: 'PAGE XML region type is required.' })
+    }
+    const signature = createCanonicalRegionMappingSignatureFromLabel(label)
+    if (signature && (regionMappingSignatureCounts.value.get(signature) || 0) > 1) {
+      errors.push({
+        code: 'duplicatePageMapping',
+        message: 'Another region label uses the same PAGE XML mapping. Region mappings must be unique.'
+      })
+    }
+
+    if (pageXml.regionType === 'TextRegion' && pageXml.textType === 'custom' && !(pageXml.customSubType || '').trim()) {
+      errors.push({
+        code: 'missingCustomSubType',
+        message: 'TextRegion with subtype "custom" requires a custom subtype value.'
+      })
     }
 
     return errors
@@ -370,8 +616,6 @@ export const useLabelBuilder = () => {
   const filteredLabels = computed(() => {
     const groupMetas = labels.value.filter(isGroupMeta)
     let res = labels.value.filter((l): l is EditableLabelDefinition => isEditableLabelDefinition(l))
-    if (!filters.region) res = res.filter(l => l.scope !== 'region')
-    if (!filters.line) res = res.filter(l => l.scope !== 'line')
     if (searchQuery.value) {
       const lower = searchQuery.value.toLowerCase()
       res = res.filter(l => l.name.toLowerCase().includes(lower) || (l.description && l.description.toLowerCase().includes(lower)))
@@ -400,11 +644,13 @@ export const useLabelBuilder = () => {
   }
 
   return {
-    meta, labels, activeLabel, filters, searchQuery, filteredLabels,
+    meta, labels, activeLabel, searchQuery, filteredLabels,
     PRESET_COLORS, PAGE_REGIONS, PAGE_TEXT_TYPES,
-    createLabel, duplicateLabel, deleteLabel, deleteSelectedLabels, selectLabel, createMapping,
+    createLabel, deleteLabel, deleteSelectedLabels, selectLabel, setDefaultLabel, createMapping,
     getErrors, hasError, totalErrors, optimizeColors,
     selectedLabelIds, toggleSelection, selectLabelRange, clearSelection, selectedLabels, canGroup,
-    groupSelectedLabels, dissolveGroup, moveSelectedToGroup, mergeGroups
+    groupSelectedLabels, dissolveGroup, moveSelectedToGroup, mergeGroups,
+    moveLabel, moveLabelByOffset, moveGroup, moveGroupByOffset,
+    isDirty, markSavedState
   }
 }

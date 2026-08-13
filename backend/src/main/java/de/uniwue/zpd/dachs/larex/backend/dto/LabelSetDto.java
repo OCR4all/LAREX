@@ -26,16 +26,22 @@ public class LabelSetDto {
                         @Size(max = 100, message = "Cannot have more than 100 tags")
                         List<String> tags,
 
-                        Boolean isSystem
+                        Boolean isSystem,
+
+                        @Size(max = 255, message = "Default label ID must not exceed 255 characters")
+                        String defaultLabelId
         ) {
+                public Meta(String name, String description, List<String> tags, Boolean isSystem) {
+                        this(name, description, tags, isSystem, null);
+                }
+
                 public boolean getIsSystem() {
                         return isSystem != null && isSystem;
                 }
         }
 
         public enum LabelScope {
-                REGION("region"),
-                LINE("line");
+                REGION("region");
 
                 private final String value;
 

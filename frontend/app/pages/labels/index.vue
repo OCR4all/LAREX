@@ -229,7 +229,8 @@ const handleDuplicate = async (row: LabelSetRow) => {
       meta: {
         name,
         description: source.meta?.description ?? '',
-        tags: source.meta?.tags ?? []
+        tags: source.meta?.tags ?? [],
+        defaultLabelId: source.meta?.defaultLabelId ?? null
       },
       labels: source.labels ?? []
     }

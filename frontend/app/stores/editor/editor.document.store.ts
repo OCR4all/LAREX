@@ -192,7 +192,8 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
       apiLabelSet.id,
       apiLabelSet.meta?.name ?? apiLabelSet.id,
       labels,
-      apiLabelSet.meta?.description ?? undefined
+      apiLabelSet.meta?.description ?? undefined,
+      apiLabelSet.meta?.defaultLabelId ?? null
     )
   }
 

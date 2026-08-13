@@ -2,7 +2,7 @@ import { ChangeRegionKindCommand } from '@/commands/editor/change-region-kind-co
 import { CompoundCommand } from '@/commands/editor/compound-command'
 import { canContainTextLines, type Region, type RegionKind } from '@/models/editor'
 import type { LabelDefinition } from '@/models/editor/labels'
-import { buildMergedCustomForAppliedRegionLabel } from '@/utils/editor/page-label-mapping'
+import { resolvePageXmlRegionLabel } from '@/utils/editor/page-label-mapping'
 import { findRegionRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import type { RegionLabelConflictGroup } from '@/utils/editor/region-label-conflicts'
 
@@ -57,20 +57,18 @@ export function createRegionLabelConflictResolutionPlan(
       throw new Error(`No valid replacement is selected for "${group.displayName}".`)
     }
 
-    const newSubtype = newKind === 'TextRegion'
-      ? (mapping.textType === 'custom' ? 'other' : (mapping.textType || undefined))
-      : (mapping.customSubType || undefined)
-
     for (const regionId of group.regionIds) {
       const hit = findRegionRecursive(regions, regionId)
       if (!hit) throw new Error(`Region "${regionId}" is no longer available.`)
+      const resolved = resolvePageXmlRegionLabel(label, hit.region.custom)
+      if (!resolved) throw new Error(`Label "${label.name}" has no valid PAGE XML mapping.`)
 
       commands.push(new ChangeRegionKindCommand({
         regionId,
         newKind,
-        newSubtype,
+        newSubtype: resolved.type,
         updateCustom: true,
-        newCustom: buildMergedCustomForAppliedRegionLabel(hit.region.custom, label)
+        newCustom: resolved.custom
       }))
     }
   }

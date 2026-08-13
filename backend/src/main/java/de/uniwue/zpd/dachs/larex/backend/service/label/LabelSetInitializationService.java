@@ -108,8 +108,6 @@ public class LabelSetInitializationService {
             textIndex++;
         }
 
-        labels.add(createTextLineLabel(counter++));
-
         return labels;
     }
 
@@ -166,11 +164,10 @@ public class LabelSetInitializationService {
                 String desiredColor = label.color();
                 String desiredCustomSubType = pageXml.customSubType();
 
-                if (label.scope() == LabelSetDto.LabelScope.REGION && desiredCustomSubType == null) {
+                if (desiredCustomSubType == null) {
                     desiredCustomSubType = EMPTY_CUSTOM_SUBTYPE;
                 }
-                if (label.scope() == LabelSetDto.LabelScope.REGION
-                        && regionType == null
+                if (regionType == null
                         && "custom".equals(desiredCustomSubType)) {
                     desiredRegionType = LabelSetDto.PageRegionType.UnknownRegion;
                 }
@@ -290,30 +287,6 @@ public class LabelSetInitializationService {
                 true,
                 false,
                 group,
-                mapping
-        );
-    }
-
-    private LabelSetDto.Label createTextLineLabel(int id) {
-        LabelSetDto.PageXml pageXml = new LabelSetDto.PageXml(
-                null,
-                null,
-                null,
-                "structure",
-                ""
-        );
-
-        LabelSetDto.Mapping mapping = new LabelSetDto.Mapping(pageXml);
-
-        return new LabelSetDto.Label(
-                "page-line-" + id,
-                LabelSetDto.LabelScope.LINE,
-                "Text Line",
-                "A line of text within a text region",
-                "#3B82F6",
-                false,
-                false,
-                null,
                 mapping
         );
     }

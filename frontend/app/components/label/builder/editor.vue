@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import type { PageRegionType, PageTextType } from '@/types/label-set'
+import { applyPageRegionTypeChange, applyPageTextTypeChange } from '@/composables/use-label-builder'
+
 const props = defineProps<{
   isSystem?: boolean
 }>()
-defineEmits(['changeScope'])
 const {
   activeLabel, PRESET_COLORS, PAGE_REGIONS, PAGE_TEXT_TYPES,
   getErrors
@@ -10,171 +12,177 @@ const {
 const currentLabel = computed(() => activeLabel.value)
 
 const errors = computed(() => getErrors(currentLabel.value))
-const conflicts = computed(() => {
-  if (!currentLabel.value) return []
-  return [] // Placeholder to keep SFC clean, logic in composable recommended
-})
+
+const fieldError = (...codes: string[]): string | undefined => {
+  return errors.value.find(error => codes.includes(error.code))?.message
+}
+
+function updateRegionType(regionType: string) {
+  if (!currentLabel.value || !PAGE_REGIONS.includes(regionType)) return
+
+  applyPageRegionTypeChange(currentLabel.value.mapping.pageXml, regionType as PageRegionType)
+}
+
+function updateTextType(textType: string | null) {
+  if (!currentLabel.value || (textType && !PAGE_TEXT_TYPES.includes(textType))) return
+  applyPageTextTypeChange(currentLabel.value.mapping.pageXml, (textType || undefined) as PageTextType | undefined)
+}
 </script>
 
 <template>
-  <div data-tour="label-builder-editor" class="flex-1 p-8 overflow-y-auto custom-scroll">
-    <div v-if="currentLabel" class="max-w-2xl mx-auto space-y-8">
-      <div v-if="errors.length > 0" class="bg-red-500/10 border border-red-500/50 rounded-sm p-4">
+  <div data-tour="label-builder-editor" class="custom-scroll flex-1 overflow-y-auto p-6 lg:p-8">
+    <div v-if="currentLabel" class="mx-auto max-w-xl space-y-6">
+      <div>
+        <h2 class="text-lg font-semibold text-highlighted">
+          Label settings
+        </h2>
+        <p class="mt-1 text-sm text-muted">
+          Configure how this label maps to a PAGE XML region.
+        </p>
+      </div>
+
+      <div v-if="errors.length > 0" class="rounded-lg border border-error/30 bg-error/10 p-4">
         <div class="flex items-start gap-3">
-          <Icon name="lucide-message-square-warning" size="32" class="text-red-400" />
+          <UIcon name="i-lucide-triangle-alert" class="size-5 shrink-0 text-error" />
           <div class="flex-1">
-            <h3 class="text-sm font-bold text-red-400 mb-1">
-              Conflicts Detected
+            <h3 class="text-sm font-semibold text-error">
+              {{ errors.length }} {{ errors.length === 1 ? 'field needs' : 'fields need' }} attention
             </h3>
-            <ul class="list-disc list-inside text-[11px] text-red-800/80 dark:text-red-200/80 space-y-1">
-              <li v-for="err in errors" :key="err.code">
-                {{ err.message }}
-              </li>
-            </ul>
+            <p class="mt-1 text-xs text-error">
+              Correct the highlighted fields below before saving.
+            </p>
           </div>
         </div>
       </div>
 
-      <div class="bg-neutral-300/50 dark:bg-neutral-800/50 p-1 rounded-sm border border-neutral-400/50 dark:border-neutral-700 inline-flex">
-        <button
-          class="px-4 py-1.5 text-xs font-bold rounded-sm transition-all flex items-center gap-2"
-          :class="currentLabel.scope === 'region' ? 'bg-primary-600 text-white shadow' : 'text-neutral-400 hover:text-white'"
-          :disabled="props.isSystem"
-          @click="currentLabel.scope !== 'region' && $emit('changeScope', 'region')"
-        >
-          Region (Block)
-        </button>
-        <button
-          class="px-4 py-1.5 text-xs font-bold rounded-sm transition-all flex items-center gap-2"
-          :class="currentLabel.scope === 'line' ? 'bg-emerald-600 text-white shadow' : 'text-neutral-400 hover:text-white'"
-          :disabled="props.isSystem"
-          @click="currentLabel.scope !== 'line' && $emit('changeScope', 'line')"
-        >
-          <span>≡</span> Text Line
-        </button>
-      </div>
-
-      <div class="space-y-4">
-        <UFormField label="Name">
+      <div class="space-y-4 rounded-lg border border-default bg-default p-5">
+        <UFormField label="Name" :error="fieldError('missingName', 'nameTooLong', 'duplicateName')">
           <UInput
             v-model="currentLabel.name"
-            variant="subtle"
+            size="lg"
+            maxlength="255"
             placeholder="Give the label a name"
             :disabled="props.isSystem"
           />
         </UFormField>
-        <UFormField label="Description">
+        <UFormField label="Description" :error="fieldError('descriptionTooLong')">
           <UTextarea
             v-model="currentLabel.description"
             placeholder="Short label description"
-            variant="subtle"
+            :rows="2"
             :disabled="props.isSystem"
           />
         </UFormField>
       </div>
 
-      <div class="bg-neutral-200/30 dark:bg-neutral-800 p-6 rounded-sm border border-neutral-300 dark:border-neutral-700 space-y-6">
-        <div class="space-y-4">
-          <div class="flex items-center gap-2 border-b border-neutral-700/50 pb-2">
-            <span class="text-xs font-bold text-white bg-neutral-700 px-1.5 py-0.5 rounded">PAGE XML</span>
+      <div class="space-y-5 rounded-lg border border-default bg-default p-5">
+        <div class="flex items-start gap-3">
+          <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <UIcon name="i-lucide-code-xml" class="size-4" />
           </div>
-          <div v-if="currentLabel.scope === 'region'" class="grid grid-cols-2 gap-4">
-            <UFormField label="Region Type">
+          <div>
+            <h3 class="text-sm font-semibold text-highlighted">
+              PAGE XML mapping
+            </h3>
+            <p class="mt-0.5 text-xs text-muted">
+              Choose the exported region type and optional subtype.
+            </p>
+          </div>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <UFormField
+            label="Region Type"
+            :error="fieldError('missingRegionType')"
+          >
+            <USelectMenu
+              :model-value="currentLabel.mapping.pageXml.regionType"
+              :items="PAGE_REGIONS"
+              variant="outline"
+              :disabled="props.isSystem"
+              @update:model-value="updateRegionType"
+            />
+          </UFormField>
+          <template v-if="currentLabel.mapping.pageXml.regionType === 'TextRegion'">
+            <UFormField label="Subtype" :error="fieldError('duplicatePageMapping')">
               <USelectMenu
-                v-model="currentLabel.mapping.pageXml.regionType"
-                :items="PAGE_REGIONS"
+                :model-value="currentLabel.mapping.pageXml.textType"
+                :items="PAGE_TEXT_TYPES"
                 variant="outline"
+                clear
                 :disabled="props.isSystem"
+                @update:model-value="updateTextType"
               />
             </UFormField>
-            <div v-if="currentLabel.mapping.pageXml.regionType === 'TextRegion'" class="space-y-2">
-              <UFormField label="Subtype">
-                <USelectMenu
-                  v-model="currentLabel.mapping.pageXml.textType"
-                  :items="PAGE_TEXT_TYPES"
-                  variant="outline"
-                  clear
-                  :disabled="props.isSystem"
-                />
-              </UFormField>
-              <UFormField v-if="currentLabel.mapping.pageXml.textType === 'custom'" label="Custom Subtype">
+            <div v-if="currentLabel.mapping.pageXml.textType === 'custom'" class="sm:col-span-2">
+              <UFormField label="Custom Subtype" :error="fieldError('missingCustomSubType')">
                 <UInput
                   v-model="currentLabel.mapping.pageXml.customSubType"
-                  placeholder="custom"
+                  placeholder="article"
                   color="primary"
                   variant="outline"
                   :disabled="props.isSystem"
                 />
               </UFormField>
             </div>
-          </div>
-
-          <div v-if="currentLabel.scope === 'line'">
-            <label class="label-title flex justify-between"><span>Custom Attributes</span><span class="text-neutral-600">key { value; }</span></label>
-            <div class="flex items-center bg-neutral-100 dark:bg-neutral-900 border border-neutral-400 dark:border-neutral-600 rounded-sm overflow-hidden">
-              <input
-                v-model="currentLabel.mapping.pageXml.customKey"
-                type="text"
-                placeholder="structure"
-                class="w-1/3 bg-transparent px-2 py-2 text-xs text-primary-600 dark:text-primary-400 font-mono text-right border-r border-neutral-700 focus:outline-none"
-                :disabled="props.isSystem"
-              >
-              <span class="pl-2 text-neutral-500 text-xs">{</span>
-              <input
-                v-model="currentLabel.mapping.pageXml.customData"
-                type="text"
-                placeholder="type:val"
-                class="w-full bg-transparent px-2 py-2 text-sm text-black dark:text-white focus:outline-none"
-                :disabled="props.isSystem"
-              >
-              <span class="pr-2 text-neutral-500 text-xs">; }</span>
-            </div>
-          </div>
+          </template>
+          <UFormField
+            v-else-if="currentLabel.mapping.pageXml.regionType"
+            label="Subtype"
+            description="Optional PAGE region type value."
+            :error="fieldError('duplicatePageMapping')"
+          >
+            <UInput
+              v-model="currentLabel.mapping.pageXml.customSubType"
+              placeholder="Optional"
+              variant="outline"
+              :disabled="props.isSystem"
+            />
+          </UFormField>
         </div>
       </div>
 
-      <div>
-        <label class="label-title mb-3">Color Code</label>
-        <div class="bg-neutral-200/30 dark:bg-neutral-800 p-4 rounded-sm border border-neutral-300 dark:border-neutral-700">
-          <div class="flex flex-wrap gap-3 mb-4">
-            <button
-              v-for="color in PRESET_COLORS"
-              :key="color"
-              class="w-8 h-8 rounded-sm shadow-sm"
-              :class="{ 'ring-2 ring-white ring-offset-2 ring-offset-neutral-800': currentLabel.color === color }"
-              :style="{ backgroundColor: color }"
-              :disabled="props.isSystem"
-              @click="currentLabel.color = color"
-            />
-          </div>
+      <div class="space-y-4 rounded-lg border border-default bg-default p-5">
+        <div>
+          <h3 class="text-sm font-semibold text-highlighted">
+            Label color
+          </h3>
+          <p class="mt-0.5 text-xs text-muted">
+            Used for regions, menus, and editor overlays.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2.5">
+          <button
+            v-for="color in PRESET_COLORS"
+            :key="color"
+            class="size-8 rounded-md border border-black/10 shadow-xs transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+            :class="{ 'ring-2 ring-primary ring-offset-2 ring-offset-default': currentLabel.color === color }"
+            :style="{ backgroundColor: color }"
+            :disabled="props.isSystem"
+            :aria-label="`Use color ${color}`"
+            @click="currentLabel.color = color"
+          />
+        </div>
+        <UFormField label="Custom color" :error="fieldError('invalidColor')" class="border-t border-default pt-4">
           <div class="flex items-center gap-3">
             <input
               v-model="currentLabel.color"
               type="color"
-              class="h-10 w-10 bg-transparent rounded-sm cursor-pointer border-0 p-0"
+              class="size-9 cursor-pointer rounded-md border-0 bg-transparent p-0"
               :disabled="props.isSystem"
             >
-            <input
+            <UInput
               v-model="currentLabel.color"
-              type="text"
-              class="bg-transparent text-sm font-mono text-black dark:text-white outline-none uppercase"
+              class="max-w-40 font-mono uppercase"
               :disabled="props.isSystem"
-            >
+            />
           </div>
-          <div v-if="conflicts.length > 0" class="mt-3 text-amber-500 text-[10px]">
-            Similar to: {{ conflicts.join(', ') }}
-          </div>
-        </div>
+        </UFormField>
       </div>
 
       <!-- TODO: Reintroduce PAGE-relevant semantic flags only if/when we support non-PAGE schemas again. -->
     </div>
-    <div v-else class="max-w-2xl mx-auto h-full flex items-center justify-center text-sm text-neutral-500">
+    <div v-else class="mx-auto flex h-full max-w-2xl items-center justify-center text-sm text-muted">
       Select a label to edit.
     </div>
   </div>
 </template>
-
-<style scoped>
-
-</style>

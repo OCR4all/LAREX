@@ -44,6 +44,34 @@ class LabelSetDefinitionValidatorTest {
     }
 
     @Test
+    void validate_allowsDefaultLabelReference() {
+        LabelSetDto.CreateOrUpdateRequest base = createRequest(
+                LabelSetDto.PageRegionType.TextRegion,
+                "paragraph"
+        );
+        LabelSetDto.CreateOrUpdateRequest request = new LabelSetDto.CreateOrUpdateRequest(
+                new LabelSetDto.Meta("Test Label Set", "", List.of(), false, "label-1"),
+                base.labels()
+        );
+
+        assertDoesNotThrow(() -> validator.validate(request));
+    }
+
+    @Test
+    void validate_rejectsMissingDefaultLabelReference() {
+        LabelSetDto.CreateOrUpdateRequest base = createRequest(
+                LabelSetDto.PageRegionType.TextRegion,
+                "paragraph"
+        );
+        LabelSetDto.CreateOrUpdateRequest request = new LabelSetDto.CreateOrUpdateRequest(
+                new LabelSetDto.Meta("Test Label Set", "", List.of(), false, "missing"),
+                base.labels()
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(request));
+    }
+
+    @Test
     void validate_rejectsTextSubtypeForNonTextRegion() {
         LabelSetDto.CreateOrUpdateRequest request = createRequest(
                 LabelSetDto.PageRegionType.ImageRegion,
@@ -83,7 +111,7 @@ class LabelSetDefinitionValidatorTest {
     }
 
     @Test
-    void validate_allowsDistinctCustomTextRegionMappings() {
+    void validate_allowsDistinctCustomTextRegionSubtypes() {
         LabelSetDto.Label first = createRegionLabel(
                 "label-1",
                 "Custom Type A",
@@ -91,16 +119,16 @@ class LabelSetDefinitionValidatorTest {
                 "custom",
                 "article",
                 "structure",
-                "subclass:lead"
+                ""
         );
         LabelSetDto.Label second = createRegionLabel(
                 "label-2",
                 "Custom Type B",
                 LabelSetDto.PageRegionType.TextRegion,
                 "custom",
-                "article",
+                "sidebar",
                 "structure",
-                "subclass:body"
+                ""
         );
 
         LabelSetDto.CreateOrUpdateRequest request = new LabelSetDto.CreateOrUpdateRequest(
@@ -109,6 +137,42 @@ class LabelSetDefinitionValidatorTest {
         );
 
         assertDoesNotThrow(() -> validator.validate(request));
+    }
+
+    @Test
+    void validate_rejectsNonCanonicalCustomBlock() {
+        LabelSetDto.CreateOrUpdateRequest request = new LabelSetDto.CreateOrUpdateRequest(
+                new LabelSetDto.Meta("Test Label Set", "", List.of(), false),
+                List.of(createRegionLabel(
+                        "label-1",
+                        "Custom Type",
+                        LabelSetDto.PageRegionType.TextRegion,
+                        "custom",
+                        "article",
+                        "layout",
+                        ""
+                ))
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(request));
+    }
+
+    @Test
+    void validate_rejectsAdditionalCustomProperties() {
+        LabelSetDto.CreateOrUpdateRequest request = new LabelSetDto.CreateOrUpdateRequest(
+                new LabelSetDto.Meta("Test Label Set", "", List.of(), false),
+                List.of(createRegionLabel(
+                        "label-1",
+                        "Custom Type",
+                        LabelSetDto.PageRegionType.TextRegion,
+                        "custom",
+                        "article",
+                        "structure",
+                        "subclass:lead"
+                ))
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(request));
     }
 
     @Test

@@ -96,11 +96,4 @@ describe('findRegionLabelConflicts', () => {
     expect(summary.totalRegions).toBe(2)
     expect(summary.groups).toHaveLength(2)
   })
-
-  it('ignores line-scoped labels when matching regions', () => {
-    const lineLabel = label({ scope: 'line' })
-    const labelSet = new LabelSet('set-1', 'Labels', [lineLabel])
-
-    expect(findRegionLabelConflicts([region()], labelSet).totalRegions).toBe(1)
-  })
 })

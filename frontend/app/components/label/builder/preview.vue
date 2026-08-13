@@ -1,61 +1,60 @@
 <script setup lang="ts">
-import { buildTextRegionCustomPreview } from '@/utils/editor/page-label-mapping'
+import { serializePageXmlRegionStartTag } from '@/utils/editor/page-label-mapping'
 
 const { activeLabel } = useLabelBuilder()
 const currentLabel = computed(() => activeLabel.value)
+const pageXmlPreview = computed(() => serializePageXmlRegionStartTag(currentLabel.value?.mapping.pageXml))
 </script>
 
 <template>
-  <div data-tour="label-builder-preview" class="w-full lg:w-96 bg-neutral-50 dark:bg-neutral-950 border-l border-neutral-200 dark:border-neutral-800 p-8 flex flex-col items-center justify-center relative">
-    <div class="absolute top-4 left-4 text-xs font-bold text-neutral-500 tracking-widest">
-      Live Preview
+  <div data-tour="label-builder-preview" class="flex w-full flex-col border-t border-default bg-muted/20 p-6 lg:w-96 lg:shrink-0 lg:border-l lg:border-t-0">
+    <div>
+      <h2 class="text-sm font-semibold text-highlighted">
+        Preview
+      </h2>
+      <p class="mt-1 text-xs text-muted">
+        Editor appearance and PAGE XML output.
+      </p>
     </div>
 
-    <div class="relative w-64 h-80 bg-neutral-200/20 dark:bg-neutral-800 rounded-sm shadow-2xl border border-neutral-300 dark:border-neutral-700 overflow-hidden flex items-center justify-center">
-      <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(#4b5563 1px, transparent 1px); background-size: 10px 10px;" />
+    <div class="flex flex-1 flex-col items-center justify-center py-6">
+      <div class="relative aspect-3/4 w-full overflow-hidden rounded-lg border border-default bg-default shadow-sm">
+        <div class="absolute inset-0 opacity-15" style="background-image: radial-gradient(#64748b 1px, transparent 1px); background-size: 12px 12px;" />
 
-      <template v-if="currentLabel">
-        <div v-if="currentLabel.scope === 'region'" class="absolute left-6 right-6 top-20 bottom-20 rounded-sm border-2 flex items-start justify-start" :style="{ backgroundColor: currentLabel.color + '33', borderColor: currentLabel.color }">
-          <div class="px-2 py-0.5 text-[10px] font-bold text-white shadow-sm flex items-center gap-1 absolute -top-3 left-2 rounded" :style="{ backgroundColor: currentLabel.color }">
-            {{ currentLabel.name || 'Untitled' }}
+        <template v-if="currentLabel">
+          <div class="absolute inset-x-6 bottom-16 top-16 rounded-md border-2" :style="{ backgroundColor: currentLabel.color + '20', borderColor: currentLabel.color }">
+            <div class="absolute -top-3 left-2 flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-white shadow-sm" :style="{ backgroundColor: currentLabel.color }">
+              {{ currentLabel.name || 'Untitled' }}
+            </div>
+            <div v-if="currentLabel.mapping.pageXml.regionType === 'TextRegion'" class="space-y-2 p-3 opacity-50">
+              <div class="h-1.5 w-3/4 rounded-full bg-current" :style="{ color: currentLabel.color }" />
+              <div class="h-1.5 w-full rounded-full bg-current" :style="{ color: currentLabel.color }" />
+              <div class="h-1.5 w-2/3 rounded-full bg-current" :style="{ color: currentLabel.color }" />
+            </div>
           </div>
-          <div v-if="currentLabel.scope === 'region' && currentLabel.mapping.pageXml.regionType === 'TextRegion'" class="w-full p-2 space-y-2 opacity-50">
-            <div class="h-2 bg-current rounded-sm w-3/4" :style="{ color: currentLabel.color }" />
-          </div>
-        </div>
-
-        <div v-else class="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-8 rounded-sm bg-blue-400/10 border-b-2 flex items-end pb-1 px-2" :style="{ borderColor: currentLabel.color }">
-          <div class="text-[10px] font-mono opacity-80" :style="{ color: currentLabel.color }">
-            Mock Text Line...
-          </div>
-          <div class="absolute -top-3 left-0 px-1.5 py-0.5 text-[8px] font-bold text-white rounded" :style="{ backgroundColor: currentLabel.color }">
-            {{ currentLabel.name }}
-          </div>
-        </div>
-      </template>
-      <div v-else class="text-xs text-neutral-500">
-        Select a label
-      </div>
-    </div>
-
-    <div class="mt-8 text-center space-y-2 w-full px-6">
-      <h4 class="text-black dark:text-white font-bold mb-1">
-        Visual Representation
-      </h4>
-
-      <div v-if="currentLabel" class="text-[10px] font-mono text-left bg-neutral-100 dark:bg-neutral-900 p-3 rounded-sm border border-neutral-700 text-neutral-400 overflow-x-auto">
-        <div v-if="currentLabel.scope === 'region'">
-          <span class="text-emerald-700 dark:text-emerald-400">&lt;{{ currentLabel.mapping.pageXml.regionType }}</span>
-          <span v-if="currentLabel.mapping.pageXml.textType && currentLabel.mapping.pageXml.textType !== 'custom'"> type="{{ currentLabel.mapping.pageXml.textType }}"</span>
-          <span v-if="currentLabel.mapping.pageXml.textType === 'custom'"> type="other" custom="{{ buildTextRegionCustomPreview(currentLabel.mapping.pageXml) || '' }}"</span>
-          &gt;
-        </div>
-        <div v-else>
-          <span class="text-emerald-700 dark:text-emerald-400">&lt;TextLine</span> custom="{{ currentLabel.mapping.pageXml.customKey }} { {{ currentLabel.mapping.pageXml.customData }}; }"&gt;
+        </template>
+        <div v-else class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted">
+          <UIcon name="i-lucide-mouse-pointer-2" class="size-5" />
+          <span class="text-xs">Select a label</span>
         </div>
       </div>
-      <div v-else class="text-[10px] text-neutral-500">
-        No label selected
+
+      <div class="mt-6 w-full">
+        <div class="mb-2 flex items-center gap-2">
+          <UIcon name="i-lucide-code-xml" class="size-4 text-muted" />
+          <h3 class="text-xs font-semibold text-highlighted">
+            PAGE XML
+          </h3>
+        </div>
+
+        <div v-if="currentLabel" class="min-w-0 rounded-md border border-default bg-default p-3 text-left font-mono text-xs leading-5 text-default">
+          <div class="whitespace-normal break-words [overflow-wrap:anywhere]">
+            {{ pageXmlPreview }}
+          </div>
+        </div>
+        <div v-else class="rounded-md border border-dashed border-default px-3 py-5 text-center text-xs text-muted">
+          No label selected
+        </div>
       </div>
     </div>
   </div>

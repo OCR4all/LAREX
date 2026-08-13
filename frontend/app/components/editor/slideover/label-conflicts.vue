@@ -38,7 +38,7 @@ const canApply = computed(() => session.value?.controls.value?.isCanvasEditable.
 const labelDefinitionsById = computed(() => {
   const definitions = new Map<string, LabelDefinition>()
   for (const label of labelSet.value?.labels ?? []) {
-    if (label.scope === 'region' && label.mapping?.pageXml?.regionType) {
+    if (label.mapping?.pageXml?.regionType) {
       definitions.set(label.id, label)
     }
   }

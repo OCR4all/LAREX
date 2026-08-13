@@ -2,7 +2,7 @@ import type { Peer } from 'crossws'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { collaborationState } from '../collaboration-state'
 import type { CollaborationRoomTokenPayload } from '../collaboration-token'
-import type { CollaborationLeaseState } from '../../../app/types/collaboration'
+import type { CollaborationLeaseState } from '~/types/collaboration'
 import { websocketUtils } from '../websocket'
 
 const peerIds: string[] = []

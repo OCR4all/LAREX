@@ -51,6 +51,7 @@ import {
 import { tokenizeForDictionary } from '@/components/editor/text/shared/text-highlighting'
 import { createPolygonElementLabel, createPolylineElementLabel } from '@/utils/editor/element-labels'
 import { isTypingTarget } from '@/utils/editor/keyboard-shortcut-target'
+import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
 
 const CommentsLabelsOverlay = LazyEditorCommentsLabelsOverlay
 const ElementLabelsOverlay = LazyEditorElementLabelsOverlay
@@ -78,6 +79,7 @@ const {
 } = useDictionaryTokenLookup()
 const toast = useToast()
 const editorOverlay = useOverlay()
+const defaultRegionLabel = computed(() => editorStore.labelSet?.getDefaultLabel())
 const mergeSettingsSlideover = editorOverlay.create(LazyEditorSlideoverMergeSettings)
 const labelConflictsSlideover = editorOverlay.create(LazyEditorSlideoverLabelConflicts)
 const { isCanvasInteractionBlocked: isCanvasInteractionGloballyBlocked } = useEditorCanvasInteractionBlocker()
@@ -478,13 +480,13 @@ const polygonDrawing = usePolygonDraw(
   polygons, view, pixelsToWorld, constrainToImage, webglRenderer.imageSize,
   canvasControls.regionType, mouseInteraction, selectedPolygonIndex, constrainToParent,
   polygons, autoSelect, canvasControls.commander, props.canvasId, canvasControls.viewMode,
-  preventOverlapOnCreate, overlapMinAreaThreshold
+  preventOverlapOnCreate, overlapMinAreaThreshold, defaultRegionLabel
 )
 
 const rectangleDrawing = useRectangleDrawing(
   polygons, constrainToImage, webglRenderer.imageSize, canvasControls.regionType,
   selectedPolygonIndex, constrainToParent, polygons, autoSelect, canvasControls.commander, props.canvasId, canvasControls.viewMode,
-  preventOverlapOnCreate, overlapMinAreaThreshold
+  preventOverlapOnCreate, overlapMinAreaThreshold, defaultRegionLabel
 )
 
 const polygonEditing = usePolygonEditing(
@@ -671,7 +673,8 @@ const { renderData: readingOrderRenderData } = useReadingOrderVisualization(
   readingOrder,
   polygonsRef,
   readingOrderOptions,
-  hiddenPolygonIds
+  hiddenPolygonIds,
+  canvasLabelSet
 )
 
 const showReadingOrderOverlay = computed(() => readingOrderOverlaySettings.value.visible)
@@ -788,7 +791,7 @@ const elementOverlayLabels = computed<ElementOverlayLabel[]>(() => {
     if (!visibleInHeatmap && !visibilityService.shouldShowPolyline(polyline, visibilityContext)) continue
 
     const parent = polyline.parentId ? polygonById.get(polyline.parentId) : undefined
-    const label = createPolylineElementLabel(polyline, parent, canvasLabelSet.value)
+    const label = createPolylineElementLabel(polyline, parent)
     if (label) labels.push(label)
   }
 
@@ -1351,7 +1354,7 @@ function buildActionTargetSelectionFromPolygon(polygon: RenderablePolygon): { ta
       type: 'REGION',
       pages: [{ pageId: currentPageId, regionIds: [polygon.id], textLineIds: [] }]
     },
-    targetSummary: `${polygon.label || polygon.regionKind || 'Region'} ${polygon.id}`
+    targetSummary: `${resolveRegionLabelDisplayName(canvasLabelSet.value?.labels, polygon, polygon.label || polygon.regionKind || 'Region') ?? 'Region'} ${polygon.id}`
   }
 }
 

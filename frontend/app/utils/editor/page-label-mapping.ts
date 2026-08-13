@@ -11,7 +11,7 @@ export interface PageXmlMappingLike {
 export interface RegionLabelDefinitionLike {
   id?: string | null
   name?: string | null
-  scope?: string | null
+  scope?: 'region' | null
   mapping?: {
     pageXml?: PageXmlMappingLike | null
   } | null
@@ -27,6 +27,12 @@ export interface RuntimePageRegionLike {
   kind?: string | null
   type?: string | null
   custom?: string | null
+}
+
+export interface ResolvedPageXmlRegionMapping {
+  regionType: string
+  type?: string
+  custom?: string
 }
 
 const CUSTOM_BLOCK_PATTERN = /([^\s{}]+)\s*\{([^}]*)\}/g
@@ -220,8 +226,19 @@ export function createCanonicalRegionMappingSignatureFromPageXml(mapping: PageXm
 }
 
 export function createCanonicalRegionMappingSignatureFromLabel(label: RegionLabelDefinitionLike): string | null {
-  if (label.scope !== 'region') return null
   return createCanonicalRegionMappingSignatureFromPageXml(label.mapping?.pageXml)
+}
+
+export function resolveRegionLabelDisplayName(
+  labels: RegionLabelDefinitionLike[] | null | undefined,
+  region: RegionLikeForLabelMatching | RuntimePageRegionLike,
+  fallback?: string | null
+): string | undefined {
+  const mappedName = findRegionLabelDefinitionForRegion(labels ?? undefined, region)?.name?.trim()
+  if (mappedName) return mappedName
+
+  const fallbackName = normalizeString(fallback)
+  return fallbackName ?? undefined
 }
 
 function runtimeRegionParts(input: RegionLikeForLabelMatching | RuntimePageRegionLike): {
@@ -266,7 +283,6 @@ export function createCanonicalRegionSignatureFromRuntimeRegion(
 }
 
 function getRegionLabelMatchScore(label: RegionLabelDefinitionLike, region: RegionLikeForLabelMatching | RuntimePageRegionLike): number {
-  if (label.scope !== 'region') return 0
   const mapping = label.mapping?.pageXml
   if (!mapping) return 0
 
@@ -357,6 +373,58 @@ export function buildMergedCustomForRegionLabel(
   return mergePageCustomBlock(currentCustom, blockKey, pairs)
 }
 
+/**
+ * Resolve a label mapping to the PAGE region attributes used by the editor model
+ * and, ultimately, PAGE XML serialization.
+ */
+export function resolvePageXmlRegionMapping(
+  mapping: PageXmlMappingLike | null | undefined,
+  currentCustom?: string | null
+): ResolvedPageXmlRegionMapping | null {
+  if (!mapping) return null
+
+  const regionType = normalizeString(mapping.regionType)
+  if (!regionType) return null
+
+  const custom = buildMergedCustomForRegionLabel(currentCustom, mapping)
+  if (regionType !== 'TextRegion') {
+    const type = normalizeString(mapping.customSubType) ?? undefined
+    return { regionType, ...(type ? { type } : {}), ...(custom ? { custom } : {}) }
+  }
+
+  const textType = normalizeTextTypeForSignature(mapping.textType)
+  const type = textType === 'custom' ? 'other' : (textType || undefined)
+  return { regionType, ...(type ? { type } : {}), ...(custom ? { custom } : {}) }
+}
+
+export function resolvePageXmlRegionLabel(
+  label: RegionLabelDefinitionLike,
+  currentCustom?: string | null
+): ResolvedPageXmlRegionMapping | null {
+  const customWithLabelMetadata = addLarexRegionLabelMetadata(currentCustom, label)
+  return resolvePageXmlRegionMapping(label.mapping?.pageXml, customWithLabelMetadata)
+}
+
+function escapeXmlAttribute(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+}
+
+export function serializePageXmlRegionStartTag(mapping: PageXmlMappingLike | null | undefined): string | null {
+  const resolved = resolvePageXmlRegionMapping(mapping)
+  if (!resolved) return null
+
+  const attributes = [
+    resolved.type ? `type="${escapeXmlAttribute(resolved.type)}"` : null,
+    resolved.custom ? `custom="${escapeXmlAttribute(resolved.custom)}"` : null
+  ].filter((attribute): attribute is string => attribute !== null)
+  const suffix = attributes.length > 0 ? ` ${attributes.join(' ')}` : ''
+  return `<${resolved.regionType}${suffix}>`
+}
+
 export function addLarexRegionLabelMetadata(
   currentCustom: string | null | undefined,
   label: Pick<RegionLabelDefinitionLike, 'id' | 'name'>
@@ -378,19 +446,5 @@ export function buildMergedCustomForAppliedRegionLabel(
   currentCustom: string | null | undefined,
   label: RegionLabelDefinitionLike
 ): string | undefined {
-  let nextCustom = addLarexRegionLabelMetadata(currentCustom, label)
-  nextCustom = buildMergedCustomForRegionLabel(nextCustom, label.mapping?.pageXml)
-  return nextCustom
-}
-
-export function buildTextRegionCustomPreview(mapping: PageXmlMappingLike | null | undefined): string | null {
-  if (!mapping) return null
-  if (normalizeString(mapping.regionType) !== 'TextRegion') return null
-  if (normalizeTextTypeForSignature(mapping.textType) !== 'custom') return null
-
-  const blockKey = getTextRegionCustomBlockKey(mapping)
-  const pairs = normalizeExpectedPairsForTextRegionCustom(mapping)
-  const type = normalizeSubtypeForSignature(mapping.customSubType)
-  const mergedPairs = { ...pairs, type }
-  return serializePageCustomBlocks({ [blockKey]: mergedPairs }) ?? null
+  return resolvePageXmlRegionLabel(label, currentCustom)?.custom
 }

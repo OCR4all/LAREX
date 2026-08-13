@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
+import { isEditableLabelDefinition } from '@/composables/use-label-builder'
 
 const props = defineProps<{
   isNew: boolean
   isSystem?: boolean
+  isDirty?: boolean
+  isSaving?: boolean
   canShare?: boolean
   breadcrumbItems: BreadcrumbItem[]
   helpTitle?: string
@@ -14,6 +17,7 @@ const props = defineProps<{
 const emit = defineEmits(['import', 'export', 'save', 'share', 'optimize', 'openSettings'])
 
 const { labels, totalErrors } = useLabelBuilder()
+const labelCount = computed(() => labels.value.filter(isEditableLabelDefinition).length)
 
 const actionItems = computed<DropdownMenuItem[]>(() => {
   const items: DropdownMenuItem[] = [
@@ -46,6 +50,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
             variant="outline"
             color="neutral"
             :disabled="isSystem"
+            aria-label="Label set settings"
             @click="$emit('openSettings')"
           />
           <UButton
@@ -53,7 +58,8 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
             icon="i-lucide-save"
             :variant="totalErrors > 0 ? 'subtle' : 'outline'"
             :color="totalErrors > 0 ? 'error' : 'neutral'"
-            :disabled="totalErrors > 0 || isSystem"
+            :loading="isSaving"
+            :disabled="totalErrors > 0 || isSystem || isSaving || (!isNew && !isDirty)"
             @click="$emit('save')"
           >
             <template v-if="totalErrors > 0" #trailing>
@@ -61,7 +67,12 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
             </template>
           </UButton>
           <UDropdownMenu v-if="!isSystem" :items="actionItems" :content="{ align: 'end' }">
-            <UButton color="neutral" variant="outline" icon="i-lucide-chevron-down" />
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-chevron-down"
+              aria-label="More label set actions"
+            />
           </UDropdownMenu>
         </UFieldGroup>
       </div>
@@ -72,7 +83,16 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
       <UBreadcrumb :items="breadcrumbItems" />
     </template>
     <template #right>
-      <span class="text-xs text-muted">{{ labels.length }} labels</span>
+      <div class="flex items-center gap-2">
+        <UBadge
+          v-if="isDirty"
+          label="Modified"
+          color="warning"
+          variant="subtle"
+          size="sm"
+        />
+        <span class="text-xs text-muted">{{ labelCount }} label{{ labelCount === 1 ? '' : 's' }}</span>
+      </div>
     </template>
   </UDashboardToolbar>
 </template>

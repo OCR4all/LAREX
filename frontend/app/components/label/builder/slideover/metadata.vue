@@ -1,12 +1,22 @@
 <script setup lang="ts">
-const props = defineProps<{ onSave?: () => void }>()
-const { meta } = useLabelBuilder()
+const props = defineProps<{
+  isNew?: boolean
+  onSave?: () => Promise<boolean>
+}>()
+const { meta, isDirty } = useLabelBuilder()
 
 const emit = defineEmits<{ close: [] }>()
 const formId = useId()
+const isSaving = ref(false)
 
-const handleSave = () => {
-  props.onSave?.()
+const handleSave = async () => {
+  if ((!props.isNew && !isDirty.value) || isSaving.value) return
+  isSaving.value = true
+  try {
+    await props.onSave?.()
+  } finally {
+    isSaving.value = false
+  }
 }
 </script>
 
@@ -38,7 +48,13 @@ const handleSave = () => {
         <UButton variant="ghost" color="neutral" @click="emit('close')">
           Close
         </UButton>
-        <UButton type="submit" :form="formId" icon="i-lucide-save">
+        <UButton
+          type="submit"
+          :form="formId"
+          icon="i-lucide-save"
+          :loading="isSaving"
+          :disabled="isSaving || (!isNew && !isDirty)"
+        >
           Save
         </UButton>
       </div>

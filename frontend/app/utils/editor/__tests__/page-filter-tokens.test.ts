@@ -60,23 +60,6 @@ describe('page-filter-tokens', () => {
     expect(paragraph).not.toBe(heading)
   })
 
-  it('creates sorted key-value line custom token', () => {
-    const token = createCanonicalTokenFromLabelDefinition(label({
-      scope: 'line',
-      mapping: {
-        pageXml: {
-          customKey: 'structure',
-          customData: 'zeta:2; alpha:1',
-          regionType: null,
-          textType: null,
-          customSubType: null
-        }
-      }
-    }))
-
-    expect(token).toBe('line|customKey=structure|pairs=alpha=1,zeta=2')
-  })
-
   it('normalizes legacy filter values and keeps canonical tokens', () => {
     const normalized = normalizeLegacyLabelFilterValues([
       'TextRegion',
