@@ -1,12 +1,12 @@
 import { useMediaQuery } from '@vueuse/core'
 import type { Ref } from 'vue'
 import type { ProjectPackageRelease } from '@/types/project-package-release'
-import type { ProjectData } from '@/types/project-page'
+import type { Page, ProjectData } from '@/types/project-page'
 import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
 import { extractApiErrorMessage } from '@/utils/api-error'
 
 type CreateReleaseSlideover = {
-  open: (props: { projectId: string, suggestedTag: string }) => { result: Promise<unknown> }
+  open: (props: { projectId: string, suggestedTag: string, imageVariantPages: Page[] }) => { result: Promise<unknown> }
 }
 
 type ReleaseShareSlideover = {
@@ -17,6 +17,7 @@ type ProjectReleasesOptions = {
   projectId: string
   selectedWorkspace: Ref<string | null | undefined>
   project: Ref<ProjectData | null | undefined>
+  pages: Ref<Page[] | null | undefined>
   canShareProject: Ref<boolean>
   createReleaseSlideover: unknown
   releaseShareSlideover: unknown
@@ -97,7 +98,8 @@ export async function useProjectReleases(options: ProjectReleasesOptions) {
     const createReleaseSlideover = options.createReleaseSlideover as CreateReleaseSlideover
     const instance = createReleaseSlideover.open({
       projectId: options.projectId,
-      suggestedTag: nextReleaseTag.value
+      suggestedTag: nextReleaseTag.value,
+      imageVariantPages: options.pages.value ?? []
     })
     const createdReleaseId = await instance.result as string | null
     if (!createdReleaseId) return

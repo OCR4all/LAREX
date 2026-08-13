@@ -1,4 +1,4 @@
-import type { ExportDialogMode, ExportDialogResult } from '@/types/project-page'
+import type { ExportDialogMode, ExportDialogResult, Page } from '@/types/project-page'
 import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
 import {
   normalizeDocxOptions,
@@ -23,6 +23,7 @@ export function useProjectExportDialog(exportTargetSlideover: ExportTargetSlideo
       suggestedBaseName?: string
       suggestedFileName?: string
       prepareDownload?: (suggestedName: string) => Promise<PreparedDownloadTarget | null>
+      imageVariantPages?: Page[]
     } = {}
   ): Promise<ExportDialogResultWithDownload | null> {
     const selector = exportTargetSlideover.open({
@@ -30,6 +31,7 @@ export function useProjectExportDialog(exportTargetSlideover: ExportTargetSlideo
       suggestedBaseName: options.suggestedBaseName,
       suggestedFileName: options.suggestedFileName,
       prepareDownload: options.prepareDownload,
+      imageVariantPages: options.imageVariantPages,
       title: mode === 'page'
         ? 'Export Page'
         : mode === 'project'
@@ -77,7 +79,8 @@ export function useProjectExportDialog(exportTargetSlideover: ExportTargetSlideo
           pdfProfile: normalizePdfProfile(output.pdfProfile),
           teiProfile: normalizeTeiProfile(output.teiProfile),
           spreadsheetProfiles: normalizeSpreadsheetProfiles(output.spreadsheetProfiles),
-          docxOptions: normalizeDocxOptions(output.docxOptions)
+          docxOptions: normalizeDocxOptions(output.docxOptions),
+          imageVariantSelection: output.imageVariantSelection
         }]
       })
     }

@@ -713,6 +713,7 @@ const {
   projectId,
   selectedWorkspace,
   project,
+  pages,
   selectedPageIds,
   exportTargetSlideover,
   confirmSlideover
@@ -734,6 +735,7 @@ const {
   projectId,
   selectedWorkspace,
   project,
+  pages,
   canShareProject,
   createReleaseSlideover,
   releaseShareSlideover,

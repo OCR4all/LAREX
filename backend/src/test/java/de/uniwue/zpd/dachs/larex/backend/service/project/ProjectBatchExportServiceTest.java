@@ -179,6 +179,7 @@ class ProjectBatchExportServiceTest {
                 workingRequest.teiProfile(),
                 workingRequest.spreadsheetProfiles(),
                 workingRequest.docxOptions(),
+                workingRequest.imageVariantSelection(),
                 true
         );
         assertTrue(archivalRequest.toPackageExportRequest().includeXmlHistoryResolved());

@@ -1544,6 +1544,14 @@ public class ProjectPackageService {
                                 output.docxOptions().includeImageNames(),
                                 output.docxOptions().markUnclearWords(),
                                 output.docxOptions().unclearConfidenceThreshold()
+                        ),
+                        output.imageVariantSelection() == null ? null : new DocumentExportDto.ImageVariantSelection(
+                                output.imageVariantSelection().mode(),
+                                output.imageVariantSelection().variant(),
+                                output.imageVariantSelection().pageVariants() == null
+                                        ? null
+                                        : new LinkedHashMap<>(output.imageVariantSelection().pageVariants()),
+                                output.imageVariantSelection().fallbackImage()
                         )
                 ))
                 .toList();

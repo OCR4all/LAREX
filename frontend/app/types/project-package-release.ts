@@ -22,6 +22,12 @@ export interface ProjectPackageEmbeddedOutputRequest {
   teiProfile?: ProjectReleaseTeiProfile | null
   spreadsheetProfiles?: ProjectReleaseSpreadsheetProfile[] | null
   docxOptions?: ProjectReleaseDocxOptions | null
+  imageVariantSelection?: {
+    mode: 'GLOBAL' | 'PER_PAGE'
+    variant?: string
+    pageVariants?: Record<string, string>
+    fallbackImage: boolean
+  } | null
 }
 
 export interface ProjectPackageCreateReleaseRequest {

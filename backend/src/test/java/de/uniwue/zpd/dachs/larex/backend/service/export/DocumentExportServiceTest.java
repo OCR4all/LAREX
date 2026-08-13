@@ -39,6 +39,8 @@ import javax.imageio.ImageIO;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +53,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -458,6 +461,101 @@ class DocumentExportServiceTest {
     }
 
     @Test
+    void exportProjectPdf_selectsGlobalAndPerPageImageVariantsWithOptionalFallback() throws Exception {
+        writeSolidImage("images/alpha-main.png", Color.RED);
+        writeSolidImage("images/alpha-processed.png", Color.BLUE);
+        writeSolidImage("images/beta-main.png", Color.RED);
+
+        Project project = project("project-1", "Demo Project");
+        Page alpha = page(project, "page-1", "Alpha", "alpha.xml", "images/alpha-main.png");
+        addImageVariant(alpha, "img-page-1-processed", "processed", "images/alpha-processed.png");
+        Page beta = page(project, "page-2", "Beta", "beta.xml", "images/beta-main.png");
+        project.setPages(new ArrayList<>(List.of(alpha, beta)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1"))
+                .thenReturn(pageDto("Alpha.png", List.of(), null));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-2"))
+                .thenReturn(pageDto("Beta.png", List.of(), null));
+
+        DocumentExportService.DocumentExportResult withoutFallback = service.exportProject(
+                "ws-1",
+                "project-1",
+                "user-1",
+                new DocumentExportDto.ProjectExportRequest(
+                        DocumentExportDto.ExportFormat.PDF,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        DocumentExportDto.PdfProfile.IMAGES_ONLY,
+                        null,
+                        null,
+                        null,
+                        new DocumentExportDto.ImageVariantSelection("GLOBAL", "processed", null, false)
+                )
+        );
+
+        try (var pdf = Loader.loadPDF(withoutFallback.bytes())) {
+            assertEquals(1, pdf.getNumberOfPages());
+            BufferedImage exportedImage = firstPdfImage(pdf.getPage(0));
+            assertNotNull(exportedImage);
+            Color exportedColor = new Color(exportedImage.getRGB(0, 0));
+            assertTrue(exportedColor.getBlue() > exportedColor.getRed());
+        }
+
+        DocumentExportService.DocumentExportResult withFallback = service.exportProject(
+                "ws-1",
+                "project-1",
+                "user-1",
+                new DocumentExportDto.ProjectExportRequest(
+                        DocumentExportDto.ExportFormat.PDF,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        DocumentExportDto.PdfProfile.IMAGES_ONLY,
+                        null,
+                        null,
+                        null,
+                        new DocumentExportDto.ImageVariantSelection("GLOBAL", "processed", null, true)
+                )
+        );
+        try (var pdf = Loader.loadPDF(withFallback.bytes())) {
+            assertEquals(2, pdf.getNumberOfPages());
+        }
+
+        DocumentExportService.DocumentExportResult perPage = service.exportProject(
+                "ws-1",
+                "project-1",
+                "user-1",
+                new DocumentExportDto.ProjectExportRequest(
+                        DocumentExportDto.ExportFormat.PDF,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        DocumentExportDto.PdfProfile.IMAGES_ONLY,
+                        null,
+                        null,
+                        null,
+                        new DocumentExportDto.ImageVariantSelection(
+                                "PER_PAGE",
+                                null,
+                                Map.of("page-1", "processed", "page-2", "main"),
+                                false
+                        )
+                )
+        );
+        try (var pdf = Loader.loadPDF(perPage.bytes())) {
+            assertEquals(2, pdf.getNumberOfPages());
+        }
+    }
+
+    @Test
     void exportPagePdf_pdfaAddsMetadataAndOutputIntent() throws Exception {
         Path imagePath = tempDir.resolve("images/pdfa.png");
         Files.createDirectories(imagePath.getParent());
@@ -718,6 +816,43 @@ class DocumentExportServiceTest {
         }
 
         return page;
+    }
+
+    private void writeSolidImage(String relativePath, Color color) throws Exception {
+        Path imagePath = tempDir.resolve(relativePath);
+        Files.createDirectories(imagePath.getParent());
+        BufferedImage image = new BufferedImage(400, 200, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                image.setRGB(x, y, color.getRGB());
+            }
+        }
+        ImageIO.write(image, "png", imagePath.toFile());
+    }
+
+    private void addImageVariant(Page page,
+                                 String id,
+                                 String variant,
+                                 String relativePath) {
+        PageImage image = new PageImage();
+        image.setId(id);
+        image.setFileName(page.getName() + "-" + variant + ".png");
+        image.setFilePath(relativePath);
+        image.setMimeType("image/png");
+        image.setVariant(variant);
+        image.setBaseName(page.getName().toLowerCase());
+        image.setPage(page);
+        page.getImages().add(image);
+    }
+
+    private BufferedImage firstPdfImage(org.apache.pdfbox.pdmodel.PDPage page) throws Exception {
+        for (COSName name : page.getResources().getXObjectNames()) {
+            var object = page.getResources().getXObject(name);
+            if (object instanceof PDImageXObject image) {
+                return image.getImage();
+            }
+        }
+        return null;
     }
 
     private PageDto pageDto(String imageFilename, List<RegionDto> regions, ReadingOrderDto readingOrder) {

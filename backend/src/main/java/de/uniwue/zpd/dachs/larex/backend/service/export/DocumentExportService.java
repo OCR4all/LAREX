@@ -24,6 +24,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -40,6 +41,7 @@ public class DocumentExportService {
 
     private static final Comparator<PageImage> PAGE_IMAGE_COMPARATOR =
             Comparator.comparing((PageImage image) -> image.getVariant() == null ? "" : image.getVariant(), String.CASE_INSENSITIVE_ORDER)
+                    .thenComparing(PageImage::getFileName, String.CASE_INSENSITIVE_ORDER)
                     .thenComparing(PageImage::getId);
 
     private final ProjectRepository projectRepository;
@@ -103,8 +105,9 @@ public class DocumentExportService {
             return exportPageXmlStream(page, request == null ? null : request.targetPageXmlVersion());
         }
 
-        List<ExportPage> exportPages = preparePages(project, List.of(page));
-        return renderExportStream(project, exportPages, ExportOptions.fromPageRequest(request), true);
+        ExportOptions options = ExportOptions.fromPageRequest(request);
+        List<ExportPage> exportPages = preparePages(project, List.of(page), options.pdfImageVariantSelection());
+        return renderExportStream(project, exportPages, options, true);
     }
 
     public StreamingDocumentExportResult exportPageXmlStream(String projectId,
@@ -175,8 +178,9 @@ public class DocumentExportService {
         }
 
         List<Page> selectedPages = resolvePages(project, request.pageIds());
-        List<ExportPage> exportPages = preparePages(project, selectedPages);
-        return renderExportStream(project, exportPages, ExportOptions.fromProjectRequest(request), false);
+        ExportOptions options = ExportOptions.fromProjectRequest(request);
+        List<ExportPage> exportPages = preparePages(project, selectedPages, options.pdfImageVariantSelection());
+        return renderExportStream(project, exportPages, options, false);
     }
 
     public List<EmbeddedProjectOutput> exportEmbeddedProjectOutputs(Project project,
@@ -186,7 +190,7 @@ public class DocumentExportService {
             return List.of();
         }
 
-        List<ExportPage> exportPages = preparePages(project, pages);
+        List<ExportPage> defaultExportPages = null;
         Map<String, EmbeddedProjectOutput> outputsByPath = new LinkedHashMap<>();
 
         for (DocumentExportDto.EmbeddedProjectOutputRequest request : requests) {
@@ -197,7 +201,17 @@ public class DocumentExportService {
                 throw new IllegalArgumentException("Unsupported embedded project output format: " + request.format());
             }
 
-            StreamingDocumentExportResult export = renderExportStream(project, exportPages, ExportOptions.fromEmbeddedRequest(request), false);
+            ExportOptions options = ExportOptions.fromEmbeddedRequest(request);
+            List<ExportPage> exportPages;
+            if (options.pdfImageVariantSelection() != null) {
+                exportPages = preparePages(project, pages, options.pdfImageVariantSelection());
+            } else {
+                if (defaultExportPages == null) {
+                    defaultExportPages = preparePages(project, pages, null);
+                }
+                exportPages = defaultExportPages;
+            }
+            StreamingDocumentExportResult export = renderExportStream(project, exportPages, options, false);
             String archivePath = "exports/" + export.fileName();
             if (outputsByPath.containsKey(archivePath)) {
                 continue;
@@ -249,7 +263,9 @@ public class DocumentExportService {
                 .toList();
     }
 
-    private List<ExportPage> preparePages(Project project, List<Page> pages) throws IOException {
+    private List<ExportPage> preparePages(Project project,
+                                          List<Page> pages,
+                                          DocumentExportDto.ImageVariantSelection imageVariantSelection) throws IOException {
         int gtIndex = project.getEffectiveDefaultGtIndex();
         List<ExportPage> exportPages = new ArrayList<>();
         Map<String, PageXml> headsByPageId = pageXmlRepository.findByPage_IdIn(
@@ -259,7 +275,10 @@ public class DocumentExportService {
 
         for (Page page : pages) {
             PageXml primaryXml = headsByPageId.get(page.getId());
-            PageImage primaryImage = resolvePrimaryImage(page);
+            PageImage primaryImage = resolvePrimaryImage(page, imageVariantSelection);
+            if (imageVariantSelection != null && primaryImage == null) {
+                continue;
+            }
             Path imagePath = primaryImage == null ? null : resolveUploadPath(primaryImage.getFilePath());
             PageDto pageDto = primaryXml == null
                     ? emptyPageDto(primaryImage, imagePath)
@@ -272,6 +291,11 @@ public class DocumentExportService {
                     primaryImage,
                     imagePath
             ));
+        }
+
+        if (!pages.isEmpty() && exportPages.isEmpty() && imageVariantSelection != null) {
+            throw new IllegalArgumentException(
+                    "No pages have the selected image variant; choose another variant or enable fallback");
         }
 
         return exportPages;
@@ -351,9 +375,39 @@ public class DocumentExportService {
         };
     }
 
-    private PageImage resolvePrimaryImage(Page page) {
-        return page.getImages().stream().min(PAGE_IMAGE_COMPARATOR)
-                .orElse(null);
+    private PageImage resolvePrimaryImage(Page page,
+                                          DocumentExportDto.ImageVariantSelection selection) {
+        List<PageImage> sortedImages = page.getImages().stream()
+                .sorted(PAGE_IMAGE_COMPARATOR)
+                .toList();
+        if (sortedImages.isEmpty()) {
+            return null;
+        }
+        if (selection == null) {
+            return sortedImages.getFirst();
+        }
+
+        String wantedVariant = wantedImageVariant(page.getId(), selection);
+        if (wantedVariant != null && !wantedVariant.isBlank()) {
+            PageImage matchingImage = sortedImages.stream()
+                    .filter(image -> wantedVariant.equals(image.getVariant()))
+                    .findFirst()
+                    .orElse(null);
+            if (matchingImage != null) {
+                return matchingImage;
+            }
+        }
+        return Boolean.TRUE.equals(selection.fallbackImage()) ? sortedImages.getFirst() : null;
+    }
+
+    private String wantedImageVariant(String pageId,
+                                      DocumentExportDto.ImageVariantSelection selection) {
+        String mode = selection.mode() == null ? "GLOBAL" : selection.mode().trim().toUpperCase(Locale.ROOT);
+        if ("PER_PAGE".equals(mode)) {
+            String pageVariant = selection.pageVariants() == null ? null : selection.pageVariants().get(pageId);
+            return pageVariant == null ? null : pageVariant.trim();
+        }
+        return selection.variant() == null ? null : selection.variant().trim();
     }
 
     private Path resolveUploadPath(String relativePath) {
@@ -397,8 +451,13 @@ public class DocumentExportService {
             DocumentExportDto.PdfProfile pdfProfile,
             DocumentExportDto.TeiProfile teiProfile,
             List<DocumentExportDto.SpreadsheetProfile> spreadsheetProfiles,
-            ResolvedDocxOptions docxOptions
+            ResolvedDocxOptions docxOptions,
+            DocumentExportDto.ImageVariantSelection imageVariantSelection
     ) {
+        private DocumentExportDto.ImageVariantSelection pdfImageVariantSelection() {
+            return format == DocumentExportDto.ExportFormat.PDF ? imageVariantSelection : null;
+        }
+
         private static ExportOptions fromPageRequest(DocumentExportDto.PageExportRequest request) {
             return new ExportOptions(
                     request.format(),
@@ -408,7 +467,8 @@ public class DocumentExportService {
                     request.pdfProfile(),
                     request.teiProfile(),
                     request.spreadsheetProfiles(),
-                    ResolvedDocxOptions.from(request.docxOptions(), true)
+                    ResolvedDocxOptions.from(request.docxOptions(), true),
+                    request.imageVariantSelection()
             );
         }
 
@@ -421,7 +481,8 @@ public class DocumentExportService {
                     request.pdfProfile(),
                     request.teiProfile(),
                     request.spreadsheetProfiles(),
-                    ResolvedDocxOptions.from(request.docxOptions(), false)
+                    ResolvedDocxOptions.from(request.docxOptions(), false),
+                    request.imageVariantSelection()
             );
         }
 
@@ -434,7 +495,8 @@ public class DocumentExportService {
                     request.pdfProfile(),
                     request.teiProfile(),
                     request.spreadsheetProfiles(),
-                    ResolvedDocxOptions.from(request.docxOptions(), false)
+                    ResolvedDocxOptions.from(request.docxOptions(), false),
+                    request.imageVariantSelection()
             );
         }
     }

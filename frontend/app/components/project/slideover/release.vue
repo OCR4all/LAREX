@@ -10,6 +10,7 @@ import type {
   ProjectReleaseExportFormat,
   ProjectReleaseSpreadsheetProfile
 } from '@/types/project-package-release'
+import type { Page } from '@/types/project-page'
 
 type ExportDialogResult = {
   targetPageXmlVersion: string
@@ -19,10 +20,13 @@ type ExportDialogResult = {
 
 const PAGE_XML_PRIMARY_VERSION = '2019-07-15'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   projectId: string
   suggestedTag?: string
-}>()
+  imageVariantPages?: Page[]
+}>(), {
+  imageVariantPages: () => []
+})
 
 const emit = defineEmits<{ close: [string | null] }>()
 
@@ -70,6 +74,8 @@ async function openPackageOptions() {
     initialEmbeddedTxtTextLevel: textOutput()?.textLevel ?? 'PAGE',
     initialEmbeddedTxtTextVariantIndex: Number.isFinite(textOutput()?.textVariantIndex) ? Number(textOutput()?.textVariantIndex) : 0,
     initialPdfProfile: pdfOutput()?.pdfProfile ?? 'SEARCHABLE',
+    initialImageVariantSelection: pdfOutput()?.imageVariantSelection ?? undefined,
+    imageVariantPages: props.imageVariantPages,
     initialTeiProfile: teiOutput()?.teiProfile ?? 'STANDARD',
     initialSpreadsheetProfiles: spreadsheetOutput()?.spreadsheetProfiles ?? ['PAGE_METADATA'],
     initialDocxOptions: normalizeDocxOptions(docxOutput()?.docxOptions) ?? {
@@ -129,7 +135,8 @@ function normalizeEmbeddedOutputs(outputs: ProjectPackageEmbeddedOutputRequest[]
     pdfProfile: output.pdfProfile,
     teiProfile: output.teiProfile,
     spreadsheetProfiles: normalizeSpreadsheetProfiles(output.spreadsheetProfiles),
-    docxOptions: normalizeDocxOptions(output.docxOptions)
+    docxOptions: normalizeDocxOptions(output.docxOptions),
+    imageVariantSelection: output.imageVariantSelection ?? undefined
   }))
 }
 

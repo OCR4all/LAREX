@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.dto;
 
 import java.util.List;
+import java.util.Map;
 
 public class DocumentExportDto {
 
@@ -80,6 +81,14 @@ public class DocumentExportDto {
     ) {
     }
 
+    public record ImageVariantSelection(
+            String mode,
+            String variant,
+            Map<String, String> pageVariants,
+            Boolean fallbackImage
+    ) {
+    }
+
     public record PageExportRequest(
             ExportFormat format,
             String targetPageXmlVersion,
@@ -89,8 +98,21 @@ public class DocumentExportDto {
             PdfProfile pdfProfile,
             TeiProfile teiProfile,
             List<SpreadsheetProfile> spreadsheetProfiles,
-            DocxOptions docxOptions
+            DocxOptions docxOptions,
+            ImageVariantSelection imageVariantSelection
     ) {
+        public PageExportRequest(ExportFormat format,
+                                 String targetPageXmlVersion,
+                                 Boolean includePageDelimiters,
+                                 TextLevel textLevel,
+                                 Integer textVariantIndex,
+                                 PdfProfile pdfProfile,
+                                 TeiProfile teiProfile,
+                                 List<SpreadsheetProfile> spreadsheetProfiles,
+                                 DocxOptions docxOptions) {
+            this(format, targetPageXmlVersion, includePageDelimiters, textLevel, textVariantIndex,
+                    pdfProfile, teiProfile, spreadsheetProfiles, docxOptions, null);
+        }
     }
 
     public record ProjectExportRequest(
@@ -103,8 +125,22 @@ public class DocumentExportDto {
             PdfProfile pdfProfile,
             TeiProfile teiProfile,
             List<SpreadsheetProfile> spreadsheetProfiles,
-            DocxOptions docxOptions
+            DocxOptions docxOptions,
+            ImageVariantSelection imageVariantSelection
     ) {
+        public ProjectExportRequest(ExportFormat format,
+                                    List<String> pageIds,
+                                    String targetPageXmlVersion,
+                                    Boolean includePageDelimiters,
+                                    TextLevel textLevel,
+                                    Integer textVariantIndex,
+                                    PdfProfile pdfProfile,
+                                    TeiProfile teiProfile,
+                                    List<SpreadsheetProfile> spreadsheetProfiles,
+                                    DocxOptions docxOptions) {
+            this(format, pageIds, targetPageXmlVersion, includePageDelimiters, textLevel, textVariantIndex,
+                    pdfProfile, teiProfile, spreadsheetProfiles, docxOptions, null);
+        }
     }
 
     public record EmbeddedProjectOutputRequest(
@@ -115,7 +151,19 @@ public class DocumentExportDto {
             PdfProfile pdfProfile,
             TeiProfile teiProfile,
             List<SpreadsheetProfile> spreadsheetProfiles,
-            DocxOptions docxOptions
+            DocxOptions docxOptions,
+            ImageVariantSelection imageVariantSelection
     ) {
+        public EmbeddedProjectOutputRequest(ExportFormat format,
+                                            Boolean includePageDelimiters,
+                                            TextLevel textLevel,
+                                            Integer textVariantIndex,
+                                            PdfProfile pdfProfile,
+                                            TeiProfile teiProfile,
+                                            List<SpreadsheetProfile> spreadsheetProfiles,
+                                            DocxOptions docxOptions) {
+            this(format, includePageDelimiters, textLevel, textVariantIndex, pdfProfile, teiProfile,
+                    spreadsheetProfiles, docxOptions, null);
+        }
     }
 }

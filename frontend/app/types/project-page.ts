@@ -111,6 +111,13 @@ export type TeiProfile = 'STANDARD' | 'LAYOUT'
 export type ExportDialogMode = 'page' | 'project' | 'basic' | 'package'
 export type ProjectActionScope = 'all' | 'selection'
 
+export type ImageVariantSelection = {
+  mode: 'GLOBAL' | 'PER_PAGE'
+  variant?: string
+  pageVariants?: Record<string, string>
+  fallbackImage: boolean
+}
+
 export type DocxOptions = {
   preserveLineBreaks: boolean
   forcePageBreaks: boolean
@@ -129,6 +136,7 @@ export type ExportDialogResult = {
   teiProfile: TeiProfile
   spreadsheetProfiles: SpreadsheetProfile[]
   docxOptions: DocxOptions
+  imageVariantSelection?: ImageVariantSelection
   includeXmlHistory: boolean
   embeddedOutputs: Array<{
     format: Exclude<ExportFormat, 'PAGE_XML'>
@@ -139,5 +147,6 @@ export type ExportDialogResult = {
     teiProfile?: TeiProfile
     spreadsheetProfiles?: SpreadsheetProfile[]
     docxOptions?: DocxOptions
+    imageVariantSelection?: ImageVariantSelection
   }>
 }

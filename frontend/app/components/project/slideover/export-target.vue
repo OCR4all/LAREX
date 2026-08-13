@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
+import type { ImageVariantSelection, Page } from '@/types/project-page'
 
 type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
 type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
@@ -25,6 +26,7 @@ type EmbeddedOutputRequest = {
   teiProfile?: TeiProfile
   spreadsheetProfiles?: SpreadsheetProfile[]
   docxOptions?: DocxOptions
+  imageVariantSelection?: ImageVariantSelection
 }
 
 type ExportDialogResult = {
@@ -37,6 +39,7 @@ type ExportDialogResult = {
   teiProfile: TeiProfile
   spreadsheetProfiles: SpreadsheetProfile[]
   docxOptions: DocxOptions
+  imageVariantSelection?: ImageVariantSelection
   includeXmlHistory: boolean
   embeddedOutputs: EmbeddedOutputRequest[]
   downloadTarget?: PreparedDownloadTarget
@@ -106,6 +109,7 @@ const props = withDefaults(defineProps<{
   initialTextLevel?: TextLevel
   initialTextVariantIndex?: number
   initialPdfProfile?: PdfProfile
+  initialImageVariantSelection?: ImageVariantSelection
   initialTeiProfile?: TeiProfile
   initialSpreadsheetProfiles?: SpreadsheetProfile[]
   initialDocxOptions?: Partial<DocxOptions>
@@ -117,6 +121,7 @@ const props = withDefaults(defineProps<{
   suggestedBaseName?: string
   suggestedFileName?: string
   prepareDownload?: (suggestedName: string) => Promise<PreparedDownloadTarget | null>
+  imageVariantPages?: Page[]
   confirmLabel?: string
 }>(), {
   title: 'Export',
@@ -144,6 +149,7 @@ const props = withDefaults(defineProps<{
   initialIncludeXmlHistory: false,
   suggestedBaseName: 'export',
   suggestedFileName: undefined,
+  imageVariantPages: () => [],
   confirmLabel: 'Continue'
 })
 
@@ -165,6 +171,7 @@ const includePageDelimiters = ref(Boolean(props.initialIncludePageDelimiters))
 const textLevel = ref<TextLevel>(props.initialTextLevel)
 const textVariantIndex = ref<number>(props.initialTextVariantIndex)
 const pdfProfile = ref<PdfProfile>(props.initialPdfProfile)
+const imageVariantSelection = ref<ImageVariantSelection | undefined>(props.initialImageVariantSelection)
 const teiProfile = ref<TeiProfile>(props.initialTeiProfile)
 const spreadsheetSelection = reactive<Record<SpreadsheetProfile, boolean>>({
   PAGE_METADATA: props.initialSpreadsheetProfiles.includes('PAGE_METADATA'),
@@ -296,7 +303,13 @@ async function closeWithResult() {
         textVariantIndex: Number.isFinite(embeddedTxtTextVariantIndex.value) ? embeddedTxtTextVariantIndex.value : 0
       })
     }
-    if (embeddedSelection.PDF) embeddedOutputs.push({ format: 'PDF', pdfProfile: pdfProfile.value })
+    if (embeddedSelection.PDF) {
+      embeddedOutputs.push({
+        format: 'PDF',
+        pdfProfile: pdfProfile.value,
+        imageVariantSelection: imageVariantSelection.value
+      })
+    }
     if (embeddedSelection.DOCX) {
       embeddedOutputs.push({
         format: 'DOCX',
@@ -327,6 +340,7 @@ async function closeWithResult() {
     teiProfile: teiProfile.value,
     spreadsheetProfiles,
     docxOptions: { ...docxOptions },
+    imageVariantSelection: selectedFormat.value === 'PDF' ? imageVariantSelection.value : undefined,
     includeXmlHistory: props.mode === 'package' && includeXmlHistory.value,
     embeddedOutputs,
     downloadTarget: resolvedDownloadTarget
@@ -448,6 +462,11 @@ async function closeWithResult() {
               class="w-full"
             />
           </UFormField>
+
+          <ProjectExportImageVariantSelector
+            v-model="imageVariantSelection"
+            :pages="props.imageVariantPages"
+          />
         </div>
 
         <div
@@ -636,6 +655,11 @@ async function closeWithResult() {
                 class="w-full"
               />
             </UFormField>
+
+            <ProjectExportImageVariantSelector
+              v-model="imageVariantSelection"
+              :pages="props.imageVariantPages"
+            />
           </div>
 
           <div

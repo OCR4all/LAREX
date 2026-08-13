@@ -39,6 +39,7 @@ type ProjectExportsOptions = {
   projectId: string
   selectedWorkspace: Ref<string | null | undefined>
   project: Ref<ProjectData | null | undefined>
+  pages: Ref<Page[] | null | undefined>
   selectedPageIds: Ref<Set<string>>
   exportTargetSlideover: ExportTargetSlideover
   confirmSlideover: ConfirmSlideover
@@ -53,12 +54,20 @@ export function useProjectExports(options: ProjectExportsOptions) {
     return scope === 'selection' ? Array.from(options.selectedPageIds.value) : null
   }
 
+  function getExportPages(scope: ProjectActionScope): Page[] {
+    const pages = options.pages.value ?? []
+    if (scope !== 'selection') return pages
+    const selected = options.selectedPageIds.value
+    return pages.filter(page => selected.has(page.id))
+  }
+
   async function exportBasicProject(scope: ProjectActionScope = 'all') {
     if (!options.selectedWorkspace.value || !options.project.value) return
 
     const exportOptions = await requestExportOptions('basic', {
       suggestedBaseName: options.project.value.name,
-      prepareDownload: backgroundDownloads.prepareDownload
+      prepareDownload: backgroundDownloads.prepareDownload,
+      imageVariantPages: getExportPages(scope)
     })
     if (!exportOptions) return
 
@@ -111,7 +120,8 @@ export function useProjectExports(options: ProjectExportsOptions) {
 
     const exportOptions = await requestExportOptions('package', {
       suggestedBaseName: options.project.value.name,
-      prepareDownload: backgroundDownloads.prepareDownload
+      prepareDownload: backgroundDownloads.prepareDownload,
+      imageVariantPages: getExportPages(scope)
     })
     if (!exportOptions) return
 
@@ -165,7 +175,8 @@ export function useProjectExports(options: ProjectExportsOptions) {
 
     const exportOptions = await requestExportOptions('project', {
       suggestedBaseName: options.project.value.name,
-      prepareDownload: backgroundDownloads.prepareDownload
+      prepareDownload: backgroundDownloads.prepareDownload,
+      imageVariantPages: getExportPages(scope)
     })
     if (!exportOptions) return
 
@@ -182,7 +193,8 @@ export function useProjectExports(options: ProjectExportsOptions) {
       pdfProfile: normalizePdfProfile(exportOptions.pdfProfile),
       teiProfile: normalizeTeiProfile(exportOptions.teiProfile),
       spreadsheetProfiles: normalizeSpreadsheetProfiles(exportOptions.spreadsheetProfiles),
-      docxOptions: normalizeDocxOptions(exportOptions.docxOptions)
+      docxOptions: normalizeDocxOptions(exportOptions.docxOptions),
+      imageVariantSelection: exportOptions.imageVariantSelection
     }
 
     try {
@@ -225,7 +237,8 @@ export function useProjectExports(options: ProjectExportsOptions) {
   async function exportPageOutput(page: Page) {
     const exportOptions = await requestExportOptions('page', {
       suggestedBaseName: page.name,
-      prepareDownload: backgroundDownloads.prepareDownload
+      prepareDownload: backgroundDownloads.prepareDownload,
+      imageVariantPages: [page]
     })
     if (!exportOptions) return
 
@@ -258,7 +271,8 @@ export function useProjectExports(options: ProjectExportsOptions) {
               pdfProfile: normalizePdfProfile(exportOptions.pdfProfile),
               teiProfile: normalizeTeiProfile(exportOptions.teiProfile),
               spreadsheetProfiles: normalizeSpreadsheetProfiles(exportOptions.spreadsheetProfiles),
-              docxOptions: normalizeDocxOptions(exportOptions.docxOptions)
+              docxOptions: normalizeDocxOptions(exportOptions.docxOptions),
+              imageVariantSelection: exportOptions.imageVariantSelection
             })
           })
 

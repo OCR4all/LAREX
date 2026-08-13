@@ -31,6 +31,7 @@ public class ProjectBatchExportDto {
             DocumentExportDto.TeiProfile teiProfile,
             List<DocumentExportDto.SpreadsheetProfile> spreadsheetProfiles,
             DocumentExportDto.DocxOptions docxOptions,
+            DocumentExportDto.ImageVariantSelection imageVariantSelection,
             Boolean includeXmlHistory
     ) {
         public ExportRequest(List<String> projectIds,
@@ -46,7 +47,7 @@ public class ProjectBatchExportDto {
                              List<DocumentExportDto.SpreadsheetProfile> spreadsheetProfiles,
                              DocumentExportDto.DocxOptions docxOptions) {
             this(projectIds, mode, targetPageXmlVersion, embeddedOutputs, format, includePageDelimiters,
-                    textLevel, textVariantIndex, pdfProfile, teiProfile, spreadsheetProfiles, docxOptions, false);
+                    textLevel, textVariantIndex, pdfProfile, teiProfile, spreadsheetProfiles, docxOptions, null, false);
         }
 
         public ProjectPackageDto.ExportRequest toPackageExportRequest() {
@@ -69,7 +70,8 @@ public class ProjectBatchExportDto {
                     pdfProfile,
                     teiProfile,
                     spreadsheetProfiles,
-                    docxOptions
+                    docxOptions,
+                    imageVariantSelection
             );
         }
     }

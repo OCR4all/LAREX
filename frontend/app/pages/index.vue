@@ -37,6 +37,7 @@ import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { naturalSortBy } from '@/utils/natural-sort'
 import { getResponseFileName, isCompleteZipBlob, readResponseBlob } from '@/composables/use-background-downloads'
 import { buildBatchProjectExportFileName } from '@/utils/download-file-names'
+import type { Page } from '@/types/project-page'
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
@@ -837,9 +838,24 @@ type BatchExportMode = 'basic' | 'project' | 'package'
 async function exportSelectedProjects(mode: BatchExportMode) {
   if (!selectedWorkspace.value || !canExportSelectedProjects.value) return
 
+  let imageVariantPages: Page[] = []
+  try {
+    imageVariantPages = (await Promise.all(selectedProjects.value.map(project =>
+      $fetch<Page[]>(`/api/projects/${project.id}/pages`)
+    ))).flat()
+  } catch (error) {
+    toast.add({
+      title: 'Could not load PDF image variants',
+      description: extractApiErrorMessage(error, 'Could not load the selected projects\' page images.'),
+      color: 'error'
+    })
+    return
+  }
+
   const exportOptions = await requestExportOptions(mode, {
     suggestedFileName: buildBatchProjectExportFileName(),
-    prepareDownload: backgroundDownloads.prepareDownload
+    prepareDownload: backgroundDownloads.prepareDownload,
+    imageVariantPages
   })
   if (!exportOptions || (mode === 'project' && !exportOptions.format)) return
 
@@ -875,6 +891,7 @@ async function exportSelectedProjects(mode: BatchExportMode) {
             teiProfile: exportOptions.teiProfile,
             spreadsheetProfiles: exportOptions.spreadsheetProfiles,
             docxOptions: exportOptions.docxOptions,
+            imageVariantSelection: exportOptions.imageVariantSelection,
             includeXmlHistory: exportOptions.includeXmlHistory
           })
         })
