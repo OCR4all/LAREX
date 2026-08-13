@@ -744,6 +744,25 @@ export function useEditorCommand(
     contextMenuVisible.value = true
   }
 
+  /**
+   * Show only the region type choices after a region has just been created.
+   */
+  function showRegionTypeMenuForPolygon(event: MouseEvent, polygon: RenderablePolygon): void {
+    if (polygon.type !== PolygonType.REGION) return
+
+    const labelSet = editorStore.labelSet
+    contextMenuTarget.value = {
+      type: 'polygon',
+      element: polygon
+    }
+    contextMenuX.value = event.clientX
+    contextMenuY.value = event.clientY
+    contextMenuItems.value = labelSet && labelSet.labels.length > 0
+      ? buildLabelSetSubmenu(labelSet.labels, polygon.regionKind, polygon.regionSubtype, polygon.regionCustom)
+      : buildRegionTypeSubmenu(polygon.regionKind)
+    contextMenuVisible.value = true
+  }
+
   function showContextMenuForCanvas(event: MouseEvent): void {
     contextMenuTarget.value = {
       type: 'page',
@@ -1415,6 +1434,7 @@ export function useEditorCommand(
     duplicatePolyline,
 
     showContextMenuForPolygon,
+    showRegionTypeMenuForPolygon,
     showContextMenuForPolyline,
     showContextMenuForCanvas,
     closeContextMenu,

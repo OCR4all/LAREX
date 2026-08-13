@@ -40,7 +40,8 @@ export function useRectangleDrawing(
   viewMode?: Ref<string>,
   preventOverlapOnCreate?: Ref<boolean>,
   overlapMinAreaThreshold?: Ref<number>,
-  defaultRegionLabel?: Ref<LabelDefinition | undefined>
+  defaultRegionLabel?: Ref<LabelDefinition | undefined>,
+  onRegionCreated?: (regionId: string, event: MouseEvent) => void
 ) {
   const dialogs = useOverlayDialogs()
   const startPoint = reactive<RectanglePoint>({ x: null, y: null })
@@ -153,7 +154,7 @@ export function useRectangleDrawing(
    *
    * @returns True if rectangle was created, false if not drawing
    */
-  function finishRectangle(): boolean {
+  function finishRectangle(event?: MouseEvent): boolean {
     if (!isDrawing.value) return false
 
     const currentType = regionType?.value || PolygonType.REGION
@@ -255,7 +256,7 @@ export function useRectangleDrawing(
 
     const session = getEditorSession(canvasId)
     const commandCtx = session ? { canvasId, session } : undefined
-    let result: { id: string } | undefined
+    let result: { id: string, created?: boolean } | undefined
     try {
       result = commander.execute(createCommand, commandCtx)
     } catch (error) {
@@ -275,6 +276,10 @@ export function useRectangleDrawing(
         const idx = polygons.findIndex(p => p.id === result.id)
         if (idx >= 0) selectedPolygonIndex.value = idx
       }, 0)
+    }
+
+    if (currentType === PolygonType.REGION && result?.id && result.created !== false && event) {
+      onRegionCreated?.(result.id, event)
     }
 
     clearDrawing()
@@ -323,7 +328,7 @@ export function useRectangleDrawing(
     if (!canvas) return false
 
     if (isDrawing.value) {
-      return finishRectangle()
+      return finishRectangle(_e)
     } else {
       const point = getWorldCoordsFromEvent(_e, canvas, view, aspectRatioScale)
       startRectangle(point)

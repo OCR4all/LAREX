@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   updatePreference: vi.fn(),
   fetchedToolbarCompact: null as boolean | null,
   fetchedPageFocusMode: null as boolean | null,
+  fetchedOpenRegionTypeMenuOnCreate: null as boolean | null,
   fetchedTextModeSubmode: null as 'visual' | 'expert' | 'full' | null,
   fetchedTextItemLayout: null as 'side-by-side' | 'vertical' | null
 }))
@@ -13,6 +14,7 @@ vi.mock('@/composables/use-editor-preferences', () => ({
     fetchPreferences: vi.fn(async () => ({
       toolbarCompact: mocks.fetchedToolbarCompact,
       pageFocusMode: mocks.fetchedPageFocusMode,
+      openRegionTypeMenuOnCreate: mocks.fetchedOpenRegionTypeMenuOnCreate,
       textModeSubmode: mocks.fetchedTextModeSubmode,
       textItemLayout: mocks.fetchedTextItemLayout
     })),
@@ -38,6 +40,7 @@ describe('editor.ui.store preferences', () => {
   beforeEach(() => {
     mocks.fetchedToolbarCompact = null
     mocks.fetchedPageFocusMode = null
+    mocks.fetchedOpenRegionTypeMenuOnCreate = null
     mocks.fetchedTextModeSubmode = null
     mocks.fetchedTextItemLayout = null
     mocks.updatePreference.mockReset()
@@ -79,6 +82,27 @@ describe('editor.ui.store preferences', () => {
 
     expect(store.pageFocusMode).toBe(true)
     expect(mocks.updatePreference).toHaveBeenCalledWith('pageFocusMode', true, { immediate: true })
+  })
+
+  it('opens the region type menu after creation by default', async () => {
+    const store = await createStore()
+
+    await store.loadPreferences()
+
+    expect(store.globalSettings.openRegionTypeMenuOnCreate).toBe(true)
+  })
+
+  it('loads and persists the region type menu preference', async () => {
+    mocks.fetchedOpenRegionTypeMenuOnCreate = false
+    const store = await createStore()
+
+    await store.loadPreferences()
+    expect(store.globalSettings.openRegionTypeMenuOnCreate).toBe(false)
+
+    store.toggleOpenRegionTypeMenuOnCreate()
+
+    expect(store.globalSettings.openRegionTypeMenuOnCreate).toBe(true)
+    expect(mocks.updatePreference).toHaveBeenCalledWith('openRegionTypeMenuOnCreate', true)
   })
 
   it('loads and persists the Full text submode', async () => {

@@ -37,7 +37,8 @@ export function usePolygonDraw(
   viewMode?: Ref<string>,
   preventOverlapOnCreate?: Ref<boolean>,
   overlapMinAreaThreshold?: Ref<number>,
-  defaultRegionLabel?: Ref<LabelDefinition | undefined>
+  defaultRegionLabel?: Ref<LabelDefinition | undefined>,
+  onRegionCreated?: (regionId: string, event: MouseEvent) => void
 ) {
   const dialogs = useOverlayDialogs()
   const currentPolygonPoints = reactive<Point[]>([])
@@ -143,7 +144,7 @@ export function usePolygonDraw(
    *
    * @returns True if polygon was created, false if insufficient points
    */
-  function finishPolygon(): boolean {
+  function finishPolygon(event?: MouseEvent): boolean {
     if (currentPolygonPoints.length < 2) {
       return false
     }
@@ -243,7 +244,7 @@ export function usePolygonDraw(
 
     const session = getEditorSession(canvasId)
     const commandCtx = session ? { canvasId, session } : undefined
-    let result: { id: string } | undefined
+    let result: { id: string, created?: boolean } | undefined
     try {
       result = commander.execute(createCommand, commandCtx)
     } catch (error) {
@@ -263,6 +264,10 @@ export function usePolygonDraw(
         const idx = polygons.findIndex(p => p.id === result.id)
         if (idx >= 0) selectedPolygonIndex.value = idx
       }, 0)
+    }
+
+    if (currentType === PolygonType.REGION && result?.id && result.created !== false && event) {
+      onRegionCreated?.(result.id, event)
     }
 
     clearDrawing()
@@ -400,7 +405,7 @@ export function usePolygonDraw(
   function handleDoubleClick(e: MouseEvent): boolean {
     if (currentPolygonPoints.length < 2) return false
     e.preventDefault()
-    return finishPolygon()
+    return finishPolygon(e)
   }
 
   return {

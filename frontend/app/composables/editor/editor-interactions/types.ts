@@ -198,6 +198,7 @@ export interface CutDrawing {
 
 export interface EditorCommands {
   showContextMenuForPolygon: (event: MouseEvent, polygon: RenderablePolygon) => void
+  showRegionTypeMenuForPolygon?: (event: MouseEvent, polygon: RenderablePolygon) => void
   showContextMenuForPolyline: (event: MouseEvent, polyline: RenderablePolyline) => void
   showContextMenuForCanvas: (event: MouseEvent) => void
 }

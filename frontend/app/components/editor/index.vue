@@ -239,6 +239,7 @@ const constrainToParent = computed(() => editorStore.globalSettings.constrainToP
 const autoSelect = computed(() => editorStore.globalSettings.autoSelect)
 const moveWithChildren = computed(() => editorStore.globalSettings.moveWithChildren)
 const preventOverlapOnCreate = computed(() => editorStore.globalSettings.preventOverlapOnCreate)
+const openRegionTypeMenuOnCreate = computed(() => editorStore.globalSettings.openRegionTypeMenuOnCreate)
 const overlapMinAreaThreshold = computed(() => editorStore.globalSettings.cutMinAreaThreshold)
 
 const currentImageSrc = ref(props.src)
@@ -476,17 +477,38 @@ const aspectRatioScale = computed(() => {
   return { scaleX, scaleY, rotationCos, rotationSin, rotationAspect }
 })
 
+const pendingCreatedRegionTypeMenuId = ref<string | null>(null)
+
+function handleRegionCreated(regionId: string, event: MouseEvent): void {
+  if (!openRegionTypeMenuOnCreate.value) return
+
+  const clientX = event.clientX
+  const clientY = event.clientY
+  void nextTick().then(() => {
+    const canvasElement = canvas.value
+    if (!canvasElement || !polygons.some(polygon => polygon.id === regionId)) return
+
+    pendingCreatedRegionTypeMenuId.value = regionId
+    canvasElement.dispatchEvent(new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX,
+      clientY
+    }))
+  })
+}
+
 const polygonDrawing = usePolygonDraw(
   polygons, view, pixelsToWorld, constrainToImage, webglRenderer.imageSize,
   canvasControls.regionType, mouseInteraction, selectedPolygonIndex, constrainToParent,
   polygons, autoSelect, canvasControls.commander, props.canvasId, canvasControls.viewMode,
-  preventOverlapOnCreate, overlapMinAreaThreshold, defaultRegionLabel
+  preventOverlapOnCreate, overlapMinAreaThreshold, defaultRegionLabel, handleRegionCreated
 )
 
 const rectangleDrawing = useRectangleDrawing(
   polygons, constrainToImage, webglRenderer.imageSize, canvasControls.regionType,
   selectedPolygonIndex, constrainToParent, polygons, autoSelect, canvasControls.commander, props.canvasId, canvasControls.viewMode,
-  preventOverlapOnCreate, overlapMinAreaThreshold, defaultRegionLabel
+  preventOverlapOnCreate, overlapMinAreaThreshold, defaultRegionLabel, handleRegionCreated
 )
 
 const polygonEditing = usePolygonEditing(
@@ -584,6 +606,21 @@ const mapContextMenuItems = (items: EditorContextMenuItem[] = []): UiContextMenu
 }
 
 const contextMenuItems = computed(() => mapContextMenuItems(editorCommands.contextMenuItems.value || []))
+
+function handleEditorCanvasContextMenu(event: MouseEvent): void {
+  const createdRegionId = pendingCreatedRegionTypeMenuId.value
+  pendingCreatedRegionTypeMenuId.value = null
+
+  if (createdRegionId) {
+    const region = polygons.find(polygon => polygon.id === createdRegionId)
+    if (region) {
+      editorCommands.showRegionTypeMenuForPolygon(event, region)
+      return
+    }
+  }
+
+  editorInteractions.handleCanvasContextMenu(event)
+}
 
 watch(contextMenuOpen, (open) => {
   if (!open) {
@@ -3282,7 +3319,7 @@ watch(() => props.src, (newSrc) => {
               canReceiveCanvasInput && canShowCanvasContent ? 'cursor-grab' : 'cursor-default pointer-events-none',
               canShowCanvasContent ? 'opacity-100' : 'opacity-0'
             ]"
-            @contextmenu="(event: MouseEvent) => { if (canShowCanvasContent && isCanvasWritable && !isCanvasInteractionBlocked) editorInteractions.handleCanvasContextMenu(event) }"
+            @contextmenu="(event: MouseEvent) => { if (canShowCanvasContent && isCanvasWritable && !isCanvasInteractionBlocked) handleEditorCanvasContextMenu(event) }"
           />
         </template>
         <template #item-leading="{ item }">

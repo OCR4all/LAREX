@@ -124,6 +124,13 @@ onBeforeUnmount(() => {
           @update:model-value="toggleSetting(() => editorUiStore.togglePreventOverlapOnCreate())"
         />
       </div>
+      <div class="flex items-center justify-between gap-3">
+        <span class="text-sm">Open Type Menu after Region Creation</span>
+        <USwitch
+          :model-value="editorUiStore.globalSettings.openRegionTypeMenuOnCreate"
+          @update:model-value="toggleSetting(() => editorUiStore.toggleOpenRegionTypeMenuOnCreate())"
+        />
+      </div>
       <div class="flex items-center justify-between">
         <span class="text-sm">Move with Children</span>
         <USwitch

@@ -37,6 +37,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     autoSelect: false,
     showPolygonLabelFill: true,
     preventOverlapOnCreate: false,
+    openRegionTypeMenuOnCreate: true,
     cutMinAreaThreshold: 0.0001,
     moveWithChildren: true,
     defaultLineWidth: 'normal'
@@ -149,6 +150,9 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.autoSelect !== null) globalSettings.value.autoSelect = prefs.autoSelect
     if (prefs.showPolygonLabelFill !== null) globalSettings.value.showPolygonLabelFill = prefs.showPolygonLabelFill
     if (prefs.preventOverlapOnCreate !== null) globalSettings.value.preventOverlapOnCreate = prefs.preventOverlapOnCreate
+    if (typeof prefs.openRegionTypeMenuOnCreate === 'boolean') {
+      globalSettings.value.openRegionTypeMenuOnCreate = prefs.openRegionTypeMenuOnCreate
+    }
     if (prefs.moveWithChildren !== null) globalSettings.value.moveWithChildren = prefs.moveWithChildren
     if (prefs.cutMinAreaThreshold !== null) globalSettings.value.cutMinAreaThreshold = prefs.cutMinAreaThreshold
     if (prefs.defaultLineWidth) globalSettings.value.defaultLineWidth = prefs.defaultLineWidth as LineWidthPreset
@@ -287,6 +291,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
       autoSelect: globalSettings.value.autoSelect,
       showPolygonLabelFill: globalSettings.value.showPolygonLabelFill,
       preventOverlapOnCreate: globalSettings.value.preventOverlapOnCreate,
+      openRegionTypeMenuOnCreate: globalSettings.value.openRegionTypeMenuOnCreate,
       cutMinAreaThreshold: globalSettings.value.cutMinAreaThreshold
     })
   }
@@ -314,6 +319,11 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   function togglePreventOverlapOnCreate() {
     globalSettings.value.preventOverlapOnCreate = !globalSettings.value.preventOverlapOnCreate
     editorPreferences.updatePreference('preventOverlapOnCreate', globalSettings.value.preventOverlapOnCreate)
+  }
+
+  function toggleOpenRegionTypeMenuOnCreate() {
+    globalSettings.value.openRegionTypeMenuOnCreate = !globalSettings.value.openRegionTypeMenuOnCreate
+    editorPreferences.updatePreference('openRegionTypeMenuOnCreate', globalSettings.value.openRegionTypeMenuOnCreate)
   }
 
   function toggleMoveWithChildren() {
@@ -713,6 +723,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     toggleAutoSelect,
     togglePolygonLabelFill,
     togglePreventOverlapOnCreate,
+    toggleOpenRegionTypeMenuOnCreate,
     toggleMoveWithChildren,
     setDefaultLineWidth,
     setReadingOrderOverlayVisible,

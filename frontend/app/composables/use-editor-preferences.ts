@@ -23,6 +23,7 @@ export interface EditorPreferences {
   autoSelect: boolean | null
   showPolygonLabelFill: boolean | null
   preventOverlapOnCreate: boolean | null
+  openRegionTypeMenuOnCreate: boolean | null
   moveWithChildren: boolean | null
   cutMinAreaThreshold: number | null
   defaultLineWidth: string | null
@@ -69,6 +70,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   autoSelect: null,
   showPolygonLabelFill: null,
   preventOverlapOnCreate: null,
+  openRegionTypeMenuOnCreate: null,
   moveWithChildren: null,
   cutMinAreaThreshold: null,
   defaultLineWidth: null,

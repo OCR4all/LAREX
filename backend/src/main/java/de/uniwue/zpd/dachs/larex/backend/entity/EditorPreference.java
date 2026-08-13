@@ -68,6 +68,9 @@ public class EditorPreference {
     @Column(name = "prevent_overlap_on_create")
     private Boolean preventOverlapOnCreate;
 
+    @Column(name = "open_region_type_menu_on_create")
+    private Boolean openRegionTypeMenuOnCreate;
+
     @Column(name = "move_with_children")
     private Boolean moveWithChildren;
 
@@ -197,6 +200,9 @@ public class EditorPreference {
 
     public Boolean getPreventOverlapOnCreate() { return preventOverlapOnCreate; }
     public void setPreventOverlapOnCreate(Boolean preventOverlapOnCreate) { this.preventOverlapOnCreate = preventOverlapOnCreate; }
+
+    public Boolean getOpenRegionTypeMenuOnCreate() { return openRegionTypeMenuOnCreate; }
+    public void setOpenRegionTypeMenuOnCreate(Boolean openRegionTypeMenuOnCreate) { this.openRegionTypeMenuOnCreate = openRegionTypeMenuOnCreate; }
 
     public Boolean getMoveWithChildren() { return moveWithChildren; }
     public void setMoveWithChildren(Boolean moveWithChildren) { this.moveWithChildren = moveWithChildren; }

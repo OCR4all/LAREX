@@ -38,6 +38,7 @@ public class EditorPreferenceService {
         if (dto.autoSelect() != null) pref.setAutoSelect(dto.autoSelect());
         if (dto.showPolygonLabelFill() != null) pref.setShowPolygonLabelFill(dto.showPolygonLabelFill());
         if (dto.preventOverlapOnCreate() != null) pref.setPreventOverlapOnCreate(dto.preventOverlapOnCreate());
+        if (dto.openRegionTypeMenuOnCreate() != null) pref.setOpenRegionTypeMenuOnCreate(dto.openRegionTypeMenuOnCreate());
         if (dto.moveWithChildren() != null) pref.setMoveWithChildren(dto.moveWithChildren());
         if (dto.cutMinAreaThreshold() != null) pref.setCutMinAreaThreshold(dto.cutMinAreaThreshold());
         if (dto.defaultLineWidth() != null) pref.setDefaultLineWidth(dto.defaultLineWidth());
