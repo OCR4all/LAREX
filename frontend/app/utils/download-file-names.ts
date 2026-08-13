@@ -1,7 +1,14 @@
-const INVALID_DOWNLOAD_FILE_NAME_CHARACTERS = /[\\\\/:*?"<>|\u0000-\u001F\u007F]+/g
+const INVALID_DOWNLOAD_FILE_NAME_CHARACTERS = /[\\\\/:*?"<>|]+/g
+
+function replaceControlCharacters(value: string): string {
+  return Array.from(value, (character) => {
+    const codePoint = character.codePointAt(0)
+    return codePoint !== undefined && (codePoint <= 0x1F || codePoint === 0x7F) ? ' ' : character
+  }).join('')
+}
 
 export function sanitizeDownloadFileName(value: string | null | undefined, fallback: string): string {
-  const normalized = (value ?? '')
+  const normalized = replaceControlCharacters(value ?? '')
     .replace(INVALID_DOWNLOAD_FILE_NAME_CHARACTERS, ' ')
     .replace(/\s+/g, ' ')
     .trim()

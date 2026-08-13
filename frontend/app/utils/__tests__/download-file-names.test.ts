@@ -13,6 +13,11 @@ describe('download file names', () => {
       .toBe('My Project Edition')
   })
 
+  it('removes control characters without relying on a control-character regex', () => {
+    expect(sanitizeDownloadFileName('My\u0000 Project\u001F Name\u007F', 'fallback'))
+      .toBe('My Project Name')
+  })
+
   it('builds semantic package names', () => {
     expect(buildProjectBasicExportFileName('My Project')).toBe('My Project - flat export.zip')
     expect(buildProjectPackageFileName('My Project')).toBe('My Project - LAREX package.larex-project.zip')
