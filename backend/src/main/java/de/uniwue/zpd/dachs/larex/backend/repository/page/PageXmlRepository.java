@@ -18,6 +18,12 @@ public interface PageXmlRepository extends JpaRepository<PageXml, String> {
 
     boolean existsByPage_Id(String pageId);
 
+    @Query("SELECT px.page.id FROM PageXml px WHERE px.page.project.id = :projectId")
+    List<String> findPageIdsByProjectId(@Param("projectId") String projectId);
+
+    @Query("SELECT COUNT(px) FROM PageXml px WHERE px.page.project.id = :projectId AND px.schema = de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema.PAGE_XML")
+    long countPageXmlByProjectId(@Param("projectId") String projectId);
+
     List<PageXml> findByBaseName(String baseName);
 
     List<PageXml> findByPage_IdIn(Collection<String> pageIds);

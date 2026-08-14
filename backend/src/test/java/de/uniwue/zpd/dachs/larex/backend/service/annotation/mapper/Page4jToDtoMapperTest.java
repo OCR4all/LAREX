@@ -65,7 +65,8 @@ class Page4jToDtoMapperTest {
             true,
             true,
             Set.of("r1"),
-            Map.of()
+            Map.of(),
+            Set.of()
         );
 
         Page4jToDtoMapper mapper = new Page4jToDtoMapper();
@@ -99,7 +100,8 @@ class Page4jToDtoMapperTest {
             false,
             false,
             Set.of(),
-            Map.of("tl1", Set.of(1))
+            Map.of("tl1", Set.of(1)),
+            Set.of()
         );
         Page4jToDtoMapper mapper = new Page4jToDtoMapper();
         var dto = mapper.toDto(page, presence);

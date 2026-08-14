@@ -16,7 +16,7 @@ const props = defineProps<{
   pageNameFilter: string
   onlyWithOpenSubtasks: boolean
   hasBackendFilters: boolean
-  backendFilteredPageIdsByProjectId: Record<string, string[]>
+  backendFilteredPageIdsByProjectId: Readonly<Record<string, readonly string[]>>
   visible: boolean
   getProjectContextMenuItems: (projectId: string) => DropdownMenuItem[][]
 }>()

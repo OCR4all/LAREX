@@ -1,28 +1,20 @@
 <script setup lang="ts">
 import type { LabelDefinition } from '@/types/label-set'
-import { createCanonicalLabelFilterOptions } from '@/utils/editor/page-filter-tokens'
 import type { PageWorkflowState } from '@/types/project-page'
+import { createCanonicalLabelFilterOptions } from '@/utils/editor/page-filter-tokens'
+import type { PageFilterType, SingletonPageFilterType, XmlAttributeFilterRow, XmlAttributeWithCount } from '@/composables/use-page-filter'
 
 const props = defineProps<{
   projectId: string
-  /** Available labels from the project's label set */
   availableLabels?: LabelDefinition[]
-  /** Available tags from all pages */
   availableTags?: { label: string, value: string, count?: number }[]
-  /** Page IDs with open subtasks */
   openSubtaskPageIds?: Set<string>
-  /** Optional page name filter — when provided, a name filter input is shown inside the popover */
-  pageNameFilter?: string
-  /** Side for the popover to open on */
   popoverSide?: 'bottom' | 'right' | 'left' | 'top'
-  /** Optional externally controlled open state */
   open?: boolean
 }>()
 
 const emit = defineEmits<{
-  'filter-changed': [pageIds: Set<string>]
   'rebuild-index': []
-  'update:pageNameFilter': [value: string]
   'update:open': [value: boolean]
 }>()
 
@@ -34,157 +26,129 @@ const {
   filterOperator,
   confidenceRange,
   confidenceElementTypes,
-  hasComments,
+  commentText,
   onlyWithOpenSubtasks,
   workflowStates,
+  annotationPresence,
+  xmlAttributeFilters,
+  visibleFilters,
+  activeFilterCount,
   hasActiveFilters,
-  hasBackendFilters,
   isFiltering,
   filterError,
-  filteredPageIds,
+  filteredCount,
   filtersApplied,
+  addFilter,
+  removeFilter,
   clearFilters,
-  clearLabelFilter,
-  clearTextContentFilter,
-  clearTagFilter,
-  clearConfidenceFilter,
-  clearWorkflowStateFilter,
-  applyFilters,
   fetchIndexStats,
+  fetchAvailableXmlAttributes,
   rebuildIndex
 } = usePageFilter(projectIdRef)
 
 const editorStore = useEditorStore()
-
 const localOpen = ref(false)
 const isOpen = computed({
   get: () => props.open ?? localOpen.value,
-  set: (next: boolean) => {
-    if (props.open === undefined) {
-      localOpen.value = next
-    }
-    emit('update:open', next)
+  set: (value: boolean) => {
+    if (props.open === undefined) localOpen.value = value
+    emit('update:open', value)
   }
 })
-
-const indexStats = ref<{
-  totalPages: number
-  indexedTextContentPages: number
-  indexedLabelPages: number
-  pagesNeedingIndex: number
-} | null>(null)
-
+const addMenuOpen = ref(false)
+const addSearch = ref('')
 const isLoadingStats = ref(false)
+const isRebuilding = ref(false)
+const indexStats = ref<IndexStats | null>(null)
+const availableXmlAttributes = ref<XmlAttributeWithCount[]>([])
 
-watch(isOpen, async (open) => {
-  if (open && !indexStats.value) {
-    isLoadingStats.value = true
-    const stats = await fetchIndexStats()
-    if (stats) {
-      indexStats.value = stats
-    }
-    isLoadingStats.value = false
-  }
-})
-
-const labelItems = computed(() => {
-  if (!props.availableLabels) return []
-  return createCanonicalLabelFilterOptions(props.availableLabels)
-})
-
-const operatorOptions = [
-  { label: 'Match all (AND)', value: 'and' as const },
-  { label: 'Match any (OR)', value: 'or' as const }
-]
-const workflowStateOptions: Array<{ label: string, value: PageWorkflowState, icon: string }> = [
-  { label: 'Open', value: 'OPEN', icon: 'i-lucide-circle' },
-  { label: 'In progress', value: 'IN_PROGRESS', icon: 'i-lucide-loader-circle' },
-  { label: 'Done', value: 'DONE', icon: 'i-lucide-circle-check' }
+const filterDefinitions: Array<{ type: PageFilterType, label: string, description: string, icon: string }> = [
+  { type: 'workflowStates', label: 'Page state', description: 'Open, in progress, or done', icon: 'i-lucide-list-checks' },
+  { type: 'annotationPresence', label: 'Annotation', description: 'With or without XML', icon: 'i-lucide-file-code-2' },
+  { type: 'labels', label: 'Labels', description: 'PAGE label definitions', icon: 'i-lucide-tags' },
+  { type: 'textContent', label: 'Text content', description: 'TextEquiv/Unicode contains', icon: 'i-lucide-text-search' },
+  { type: 'tags', label: 'Tags', description: 'Page tags', icon: 'i-lucide-tag' },
+  { type: 'confidence', label: 'Confidence', description: 'PAGE @conf range', icon: 'i-lucide-gauge' },
+  { type: 'comments', label: 'Comments', description: 'Pages containing comments', icon: 'i-lucide-message-square' },
+  { type: 'openSubtasks', label: 'Open tasks', description: 'Your incomplete subtasks', icon: 'i-lucide-square-check-big' },
+  { type: 'xmlAttribute', label: 'PAGE XML attribute', description: 'Source attribute presence or value', icon: 'i-lucide-brackets' }
 ]
 
-const localPageNameFilter = computed({
-  get: () => props.pageNameFilter ?? '',
-  set: (val: string) => emit('update:pageNameFilter', val)
+const filteredAddDefinitions = computed(() => {
+  const query = addSearch.value.trim().toLowerCase()
+  return filterDefinitions.filter(definition => !query || `${definition.label} ${definition.description}`.toLowerCase().includes(query))
 })
-
-const hasPageNameFilter = computed(() => props.pageNameFilter !== undefined)
+const visibleFilterSet = computed(() => new Set(visibleFilters.value))
+const labelItems = computed(() => createCanonicalLabelFilterOptions(props.availableLabels ?? []))
 const confidenceElementTypeOptions = PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS.map(option => ({ ...option }))
-const confidenceFilterActive = computed(() => isConfidenceFilterActive({
-  confidenceRange: confidenceRange.value,
-  confidenceElementTypes: confidenceElementTypes.value
-}))
+const workflowStateOptions: Array<{ label: string, value: PageWorkflowState }> = [
+  { label: 'Open', value: 'OPEN' },
+  { label: 'In progress', value: 'IN_PROGRESS' },
+  { label: 'Done', value: 'DONE' }
+]
+const annotationOptions = [
+  { label: 'With annotation', value: 'with_xml' },
+  { label: 'Without annotation', value: 'without_xml' }
+]
+const xmlOperatorOptions = [
+  { label: 'Exists', value: 'exists' },
+  { label: 'Does not exist', value: 'not_exists' },
+  { label: 'Equals', value: 'equals' },
+  { label: 'Does not equal', value: 'not_equals' },
+  { label: 'Contains', value: 'contains' },
+  { label: 'Does not contain', value: 'not_contains' }
+]
+const valueOperators = new Set(['equals', 'not_equals', 'contains', 'not_contains'])
+const elementSuggestions = computed(() => [...new Set(availableXmlAttributes.value.map(item => item.elementName))].sort())
+const attributeSuggestions = computed(() => [...new Set(availableXmlAttributes.value.map(item => item.attributeName))].sort())
+function attributeSuggestionsFor(row: XmlAttributeFilterRow): string[] {
+  const elementName = row.elementName.trim()
+  if (!elementName) return attributeSuggestions.value
+  return [...new Set(availableXmlAttributes.value
+    .filter(item => item.elementName === elementName)
+    .map(item => item.attributeName))].sort()
+}
+const matchingPageCount = computed(() => {
+  if (!hasActiveFilters.value) return editorStore.getProjectPages(props.projectId).length
+  return filtersApplied.value ? filteredCount.value : editorStore.getProjectPages(props.projectId).length
+})
 const confidenceRangeModel = computed<[number, number]>({
   get: () => confidenceRange.value,
-  set: (value) => {
-    confidenceRange.value = [value[0] ?? 0, value[1] ?? 1]
-  }
+  set: (value) => { confidenceRange.value = [value[0] ?? 0, value[1] ?? 1] }
 })
 
-const activeFilterCount = computed(() => {
-  let count = 0
-  if (localPageNameFilter.value.trim()) count++
-  if (labelIds.value.length > 0) count++
-  if (textContent.value.trim()) count++
-  if (tags.value.length > 0) count++
-  if (confidenceFilterActive.value) count++
-  if (hasComments.value) count++
-  if (onlyWithOpenSubtasks.value) count++
-  if (workflowStates.value.length > 0) count++
-  return count
+watch(isOpen, async (open) => {
+  if (!open) return
+  if (!indexStats.value) {
+    isLoadingStats.value = true
+    indexStats.value = await fetchIndexStats()
+    isLoadingStats.value = false
+  }
+  availableXmlAttributes.value = await fetchAvailableXmlAttributes()
 })
 
-const openSubtaskPageCount = computed(() => {
-  return props.openSubtaskPageIds?.size ?? 0
-})
-
-const matchingPageCount = computed(() => {
-  let pages = editorStore.getProjectPages(props.projectId)
-
-  const nameQuery = localPageNameFilter.value.trim().toLowerCase()
-  if (nameQuery) {
-    pages = pages.filter(page => (page.label ?? '').toLowerCase().includes(nameQuery))
-  }
-
-  if (hasBackendFilters.value && filtersApplied.value) {
-    const matchingIds = filteredPageIds.value
-    pages = pages.filter(page => matchingIds.has(page.id))
-  }
-
-  if (workflowStates.value.length > 0) {
-    const selectedStates = new Set(workflowStates.value)
-    pages = pages.filter(page => selectedStates.has(page.workflowState ?? 'OPEN'))
-  }
-
-  if (onlyWithOpenSubtasks.value) {
-    const pageIds = props.openSubtaskPageIds ?? new Set<string>()
-    pages = pages.filter(page => pageIds.has(page.id))
-  }
-
-  return pages.length
-})
-
-async function handleApply() {
-  const result = await applyFilters()
-  emit('filter-changed', result.pageIds)
+function selectFilter(type: PageFilterType) {
+  addFilter(type)
+  addMenuOpen.value = false
+  addSearch.value = ''
 }
 
-const isRebuilding = ref(false)
+function updateXmlRow(rowId: string, key: keyof Omit<XmlAttributeFilterRow, 'id'>, value: string) {
+  xmlAttributeFilters.value = xmlAttributeFilters.value.map(row => row.id === rowId ? { ...row, [key]: value } : row)
+}
+
 async function handleRebuildIndex() {
   isRebuilding.value = true
   const success = await rebuildIndex()
   isRebuilding.value = false
-  if (success) {
-    emit('rebuild-index')
-    const stats = await fetchIndexStats()
-    if (stats) {
-      indexStats.value = stats
-    }
-  }
+  if (!success) return
+  emit('rebuild-index')
+  indexStats.value = await fetchIndexStats()
+  availableXmlAttributes.value = await fetchAvailableXmlAttributes()
 }
 
-function handleClearAll() {
-  clearFilters()
-  emit('filter-changed', new Set())
+function titleFor(type: SingletonPageFilterType): string {
+  return filterDefinitions.find(definition => definition.type === type)?.label ?? type
 }
 </script>
 
@@ -192,11 +156,11 @@ function handleClearAll() {
   <UPopover v-model:open="isOpen" :content="{ side: popoverSide ?? 'bottom', align: 'start', sideOffset: 8 }">
     <UButton
       data-tour="editor-page-filter-button"
-      :icon="hasActiveFilters ? 'i-lucide-filter-x' : 'i-lucide-filter'"
+      :icon="hasActiveFilters ? 'i-lucide-list-filter-plus' : 'i-lucide-list-filter'"
       :color="hasActiveFilters ? 'primary' : 'neutral'"
       variant="ghost"
       size="sm"
-      :aria-label="hasActiveFilters ? `Filter active (${activeFilterCount})` : 'Filter pages'"
+      :aria-label="hasActiveFilters ? `Page filters active (${activeFilterCount})` : 'Filter pages'"
     >
       <template v-if="hasActiveFilters" #trailing>
         <UBadge size="xs" color="primary" variant="solid">
@@ -206,352 +170,278 @@ function handleClearAll() {
     </UButton>
 
     <template #content>
-      <div class="w-80 p-4 space-y-4">
-        <template v-if="hasPageNameFilter">
-          <UInput
-            :model-value="localPageNameFilter"
-            size="sm"
-            placeholder="Filter pages by name…"
-            icon="i-lucide-search"
-            aria-label="Filter pages by name"
-            @update:model-value="localPageNameFilter = $event"
-          />
-          <USeparator />
-        </template>
-
-        <div class="flex items-center justify-between">
-          <h3 class="font-semibold text-sm">
-            Page Filters
-          </h3>
-          <UButton
-            v-if="hasActiveFilters"
-            size="xs"
-            variant="ghost"
-            color="neutral"
-            @click="handleClearAll"
-          >
-            Clear all
-          </UButton>
-        </div>
-
-        <div class="flex items-center justify-between p-2 bg-muted/30 rounded-sm">
-          <span class="text-xs font-medium text-muted">Combine filters with:</span>
-          <UFieldGroup size="xs">
+      <div class="flex max-h-[min(82vh,760px)] w-96 flex-col overflow-hidden">
+        <div class="shrink-0 space-y-3 border-b border-default p-4">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-semibold">
+                Page filters
+              </h3>
+              <p class="text-xs text-muted">
+                {{ matchingPageCount }} pages match in this project
+              </p>
+            </div>
             <UButton
-              v-for="opt in operatorOptions"
-              :key="opt.value"
-              :color="filterOperator === opt.value ? 'primary' : 'neutral'"
-              :variant="filterOperator === opt.value ? 'solid' : 'outline'"
-              @click="() => { filterOperator = opt.value }"
-            >
-              {{ opt.value.toUpperCase() }}
-            </UButton>
-          </UFieldGroup>
-        </div>
-
-        <div v-if="isFiltering" class="absolute inset-0 bg-default/80 flex items-center justify-center z-10 rounded-sm">
-          <div class="flex items-center gap-2 text-sm text-muted">
-            <UIcon name="i-lucide-loader-2" class="animate-spin" />
-            <span>Filtering...</span>
-          </div>
-        </div>
-
-        <UAlert
-          v-if="filterError"
-          color="error"
-          icon="i-lucide-alert-circle"
-          :description="filterError"
-        />
-
-        <div class="space-y-2">
-          <div class="flex items-center justify-between">
-            <label class="text-xs font-medium text-muted">Page state</label>
-            <UButton
-              v-if="workflowStates.length > 0"
+              v-if="visibleFilters.length || xmlAttributeFilters.length"
               size="xs"
-              variant="link"
+              variant="ghost"
               color="neutral"
-              class="h-auto p-0"
-              @click="clearWorkflowStateFilter"
+              @click="clearFilters"
             >
-              Clear
+              Clear all
             </UButton>
           </div>
-          <USelectMenu
-            v-model="workflowStates"
-            :items="workflowStateOptions"
-            multiple
-            placeholder="All page states"
-            size="sm"
-            class="w-full"
-            value-key="value"
-          />
-        </div>
 
-        <USeparator />
-
-        <div data-tour="editor-page-filter-section-labels" class="space-y-2">
-          <div class="flex items-center justify-between">
-            <label class="text-xs font-medium text-muted">Labels</label>
+          <UPopover v-model:open="addMenuOpen" :content="{ side: 'bottom', align: 'start', sideOffset: 6 }">
             <UButton
-              v-if="labelIds.length > 0"
-              size="xs"
-              variant="link"
+              data-tour="editor-page-filter-add"
+              block
+              icon="i-lucide-plus"
+              variant="outline"
               color="neutral"
-              class="h-auto p-0"
-              @click="clearLabelFilter"
             >
-              Clear
+              Add filter
             </UButton>
-          </div>
-          <USelectMenu
-            v-model="labelIds"
-            :items="labelItems"
-            multiple
-            placeholder="Select labels..."
-            size="sm"
-            class="w-full"
-            value-key="value"
-          >
-            <template #item="{ item }">
-              <div class="flex items-center gap-2">
-                <span
-                  class="w-3 h-3 rounded-sm shrink-0"
-                  :style="{ backgroundColor: item.color }"
+            <template #content>
+              <div class="w-80 space-y-2 p-2">
+                <UInput
+                  v-model="addSearch"
+                  autofocus
+                  icon="i-lucide-search"
+                  placeholder="Search filters…"
+                  aria-label="Search filters"
                 />
-                <span class="truncate">{{ item.label }}</span>
-                <UBadge
-                  size="xs"
-                  color="neutral"
-                  variant="subtle"
-                  class="ml-auto"
-                >
-                  {{ item.scope }}
-                </UBadge>
-              </div>
-            </template>
-          </USelectMenu>
-        </div>
-
-        <USeparator />
-
-        <div class="space-y-2">
-          <div class="flex items-center justify-between">
-            <label class="text-xs font-medium text-muted">Text Content</label>
-            <UButton
-              v-if="textContent.trim()"
-              size="xs"
-              variant="link"
-              color="neutral"
-              class="h-auto p-0"
-              @click="clearTextContentFilter"
-            >
-              Clear
-            </UButton>
-          </div>
-          <UInput
-            v-model="textContent"
-            placeholder="Search in text content..."
-            size="sm"
-            icon="i-lucide-search"
-          />
-          <p class="text-xs text-muted">
-            Searches in all PAGE XML TextEquiv/Unicode content
-          </p>
-        </div>
-
-        <USeparator />
-
-        <div class="space-y-2">
-          <div class="flex items-center justify-between">
-            <label class="text-xs font-medium text-muted">Tags</label>
-            <UButton
-              v-if="tags.length > 0"
-              size="xs"
-              variant="link"
-              color="neutral"
-              class="h-auto p-0"
-              @click="clearTagFilter"
-            >
-              Clear
-            </UButton>
-          </div>
-          <USelectMenu
-            v-model="tags"
-            :items="availableTags ?? []"
-            multiple
-            placeholder="Select tags..."
-            size="sm"
-            class="w-full"
-            value-key="value"
-          >
-            <template #item="{ item }">
-              <div class="flex items-center justify-between w-full">
-                <span>{{ item.label }}</span>
-                <UBadge
-                  v-if="item.count"
-                  size="xs"
-                  color="neutral"
-                  variant="subtle"
-                >
-                  {{ item.count }}
-                </UBadge>
-              </div>
-            </template>
-          </USelectMenu>
-        </div>
-
-        <USeparator />
-
-        <div class="space-y-2">
-          <div class="flex items-center justify-between">
-            <label class="text-xs font-medium text-muted">Confidence</label>
-            <UButton
-              v-if="confidenceFilterActive"
-              size="xs"
-              variant="link"
-              color="neutral"
-              class="h-auto p-0"
-              @click="clearConfidenceFilter"
-            >
-              Clear
-            </UButton>
-          </div>
-          <div class="space-y-2">
-            <div class="flex items-center justify-between text-xs text-muted">
-              <span>Range</span>
-              <span class="font-medium text-default">
-                {{ confidenceRangeModel[0].toFixed(2) }}-{{ confidenceRangeModel[1].toFixed(2) }}
-              </span>
-            </div>
-            <USlider
-              v-model="confidenceRangeModel"
-              :min="0"
-              :max="1"
-              :step="0.01"
-            />
-          </div>
-          <USelectMenu
-            v-model="confidenceElementTypes"
-            :items="confidenceElementTypeOptions"
-            multiple
-            placeholder="All PAGE @conf element types"
-            size="sm"
-            class="w-full"
-            value-key="value"
-          />
-          <p class="text-xs text-muted">
-            If no types are selected, all indexed confidence element types are included.
-          </p>
-        </div>
-
-        <USeparator />
-
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <UCheckbox v-model="hasComments" />
-            <label class="text-xs text-default cursor-pointer" @click="hasComments = !hasComments">
-              Only pages with comments
-            </label>
-          </div>
-        </div>
-
-        <USeparator />
-
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <UCheckbox
-              v-model="onlyWithOpenSubtasks"
-              :disabled="openSubtaskPageCount === 0"
-            />
-            <label class="text-xs text-default cursor-pointer" @click="onlyWithOpenSubtasks = !onlyWithOpenSubtasks">
-              Only pages with open tasks
-            </label>
-          </div>
-          <UBadge
-            v-if="openSubtaskPageCount > 0"
-            size="xs"
-            color="warning"
-            variant="subtle"
-          >
-            {{ openSubtaskPageCount }}
-          </UBadge>
-        </div>
-
-        <USeparator />
-
-        <div class="space-y-2">
-          <div v-if="hasActiveFilters" class="flex items-center justify-between text-sm">
-            <span class="text-muted">Matching pages:</span>
-            <span class="font-medium">{{ matchingPageCount }}</span>
-          </div>
-
-          <UButton
-            block
-            :loading="isFiltering"
-            :disabled="!hasActiveFilters"
-            @click="handleApply"
-          >
-            Apply Filters
-          </UButton>
-        </div>
-
-        <UAccordion
-          :items="[{ label: 'Index Status', icon: 'i-lucide-database', slot: 'stats' }]"
-          size="sm"
-        >
-          <template #stats>
-            <div class="space-y-2 py-2">
-              <div v-if="isLoadingStats" class="flex items-center gap-2 text-sm text-muted">
-                <UIcon name="i-lucide-loader-2" class="animate-spin" />
-                <span>Loading stats...</span>
-              </div>
-              <template v-else-if="indexStats">
-                <div class="grid grid-cols-2 gap-2 text-xs">
-                  <div class="text-muted">
-                    Total pages:
-                  </div>
-                  <div class="font-medium">
-                    {{ indexStats.totalPages }}
-                  </div>
-                  <div class="text-muted">
-                    Indexed (text):
-                  </div>
-                  <div class="font-medium">
-                    {{ indexStats.indexedTextContentPages }}
-                  </div>
-                  <div class="text-muted">
-                    Indexed (labels):
-                  </div>
-                  <div class="font-medium">
-                    {{ indexStats.indexedLabelPages }}
-                  </div>
-                  <div class="text-muted">
-                    Needs indexing:
-                  </div>
-                  <div class="font-medium" :class="{ 'text-warning': indexStats.pagesNeedingIndex > 0 }">
-                    {{ indexStats.pagesNeedingIndex }}
-                  </div>
+                <div class="max-h-72 space-y-1 overflow-y-auto">
+                  <UButton
+                    v-for="definition in filteredAddDefinitions"
+                    :key="definition.type"
+                    :icon="definition.icon"
+                    :disabled="definition.type !== 'xmlAttribute' && visibleFilterSet.has(definition.type as SingletonPageFilterType)"
+                    color="neutral"
+                    variant="ghost"
+                    class="h-auto w-full justify-start py-2 text-left"
+                    @click="selectFilter(definition.type)"
+                  >
+                    <span class="min-w-0">
+                      <span class="block text-sm">{{ definition.label }}</span>
+                      <span class="block truncate text-xs font-normal text-muted">{{ definition.description }}</span>
+                    </span>
+                  </UButton>
                 </div>
-                <UButton
-                  v-if="indexStats.pagesNeedingIndex > 0"
-                  size="xs"
-                  variant="outline"
-                  color="warning"
-                  block
-                  :loading="isRebuilding"
-                  @click="handleRebuildIndex"
-                >
-                  <UIcon name="i-lucide-refresh-cw" class="mr-1" />
-                  Rebuild Index
-                </UButton>
-              </template>
-              <div v-else class="text-xs text-muted">
-                Failed to load index stats
               </div>
+            </template>
+          </UPopover>
+
+          <div v-if="activeFilterCount > 1" class="flex items-center justify-between rounded-md bg-muted/30 p-2">
+            <span class="text-xs font-medium text-muted">Combine with</span>
+            <UFieldGroup size="xs">
+              <UButton :color="filterOperator === 'and' ? 'primary' : 'neutral'" :variant="filterOperator === 'and' ? 'solid' : 'outline'" @click="() => { filterOperator = 'and' }">
+                AND
+              </UButton>
+              <UButton :color="filterOperator === 'or' ? 'primary' : 'neutral'" :variant="filterOperator === 'or' ? 'solid' : 'outline'" @click="() => { filterOperator = 'or' }">
+                OR
+              </UButton>
+            </UFieldGroup>
+          </div>
+
+          <div v-if="isFiltering" class="flex items-center gap-2 text-xs text-muted" role="status">
+            <UIcon name="i-lucide-loader-2" class="animate-spin" /> Updating results…
+          </div>
+          <UAlert
+            v-if="filterError"
+            color="warning"
+            icon="i-lucide-triangle-alert"
+            :description="filterError"
+          />
+        </div>
+
+        <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+          <div v-if="!visibleFilters.length && !xmlAttributeFilters.length" class="py-8 text-center text-sm text-muted">
+            Add a filter to narrow the page list.
+          </div>
+
+          <section
+            v-for="type in visibleFilters"
+            :key="type"
+            class="space-y-3 rounded-lg border border-default p-3"
+            :data-tour="type === 'labels' ? 'editor-page-filter-section-labels' : undefined"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <h4 class="text-xs font-semibold">
+                {{ titleFor(type) }}
+              </h4>
+              <UButton
+                icon="i-lucide-x"
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                :aria-label="`Remove ${titleFor(type)} filter`"
+                @click="removeFilter(type)"
+              />
             </div>
-          </template>
-        </UAccordion>
+
+            <USelectMenu
+              v-if="type === 'workflowStates'"
+              v-model="workflowStates"
+              :items="workflowStateOptions"
+              multiple
+              value-key="value"
+              placeholder="Select page states…"
+              class="w-full"
+            />
+            <USelect
+              v-else-if="type === 'annotationPresence'"
+              :model-value="annotationPresence ?? undefined"
+              :items="annotationOptions"
+              value-key="value"
+              placeholder="Choose annotation presence…"
+              class="w-full"
+              @update:model-value="annotationPresence = ($event === 'with_xml' || $event === 'without_xml') ? $event : null"
+            />
+            <USelectMenu
+              v-else-if="type === 'labels'"
+              v-model="labelIds"
+              :items="labelItems"
+              multiple
+              value-key="value"
+              placeholder="Select labels…"
+              class="w-full"
+            />
+            <template v-else-if="type === 'textContent'">
+              <UInput v-model="textContent" icon="i-lucide-search" placeholder="Search TextEquiv/Unicode…" />
+              <p class="text-xs text-muted">
+                Searches all indexed PAGE XML text content.
+              </p>
+            </template>
+            <USelectMenu
+              v-else-if="type === 'tags'"
+              v-model="tags"
+              :items="availableTags ?? []"
+              multiple
+              value-key="value"
+              placeholder="Select tags…"
+              class="w-full"
+            />
+            <template v-else-if="type === 'confidence'">
+              <div class="flex justify-between text-xs text-muted">
+                <span>Range</span><span>{{ confidenceRangeModel[0].toFixed(2) }}–{{ confidenceRangeModel[1].toFixed(2) }}</span>
+              </div>
+              <USlider
+                v-model="confidenceRangeModel"
+                :min="0"
+                :max="1"
+                :step="0.01"
+              />
+              <USelectMenu
+                v-model="confidenceElementTypes"
+                :items="confidenceElementTypeOptions"
+                multiple
+                value-key="value"
+                placeholder="All @conf element types"
+                class="w-full"
+              />
+            </template>
+            <template v-else-if="type === 'comments'">
+              <UInput
+                v-model="commentText"
+                icon="i-lucide-search"
+                placeholder="Search comments…"
+                aria-label="Search comments"
+              />
+              <p class="text-xs text-muted">
+                Leave empty to match any metadata or PAGE XML comment.
+              </p>
+            </template>
+            <div v-else-if="type === 'openSubtasks'" class="flex items-center justify-between gap-2">
+              <UCheckbox v-model="onlyWithOpenSubtasks" label="Only pages with my open tasks" />
+              <UBadge color="warning" variant="subtle" size="xs">
+                {{ openSubtaskPageIds?.size ?? 0 }}
+              </UBadge>
+            </div>
+          </section>
+
+          <section v-for="(row, index) in xmlAttributeFilters" :key="row.id" class="space-y-3 rounded-lg border border-default p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h4 class="text-xs font-semibold">
+                PAGE XML attribute {{ index + 1 }}
+              </h4>
+              <UButton
+                icon="i-lucide-x"
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                aria-label="Remove PAGE XML attribute filter"
+                @click="removeFilter('xmlAttribute', row.id)"
+              />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <UInputMenu
+                :model-value="row.elementName"
+                :items="elementSuggestions"
+                mode="autocomplete"
+                open-on-focus
+                placeholder="Any element"
+                aria-label="PAGE XML element name"
+                @update:model-value="updateXmlRow(row.id, 'elementName', String($event))"
+              />
+              <UInputMenu
+                :model-value="row.attributeName"
+                :items="attributeSuggestionsFor(row)"
+                mode="autocomplete"
+                open-on-focus
+                placeholder="Attribute name"
+                aria-label="PAGE XML attribute name"
+                @update:model-value="updateXmlRow(row.id, 'attributeName', String($event))"
+              />
+            </div>
+            <USelect
+              :model-value="row.operator"
+              :items="xmlOperatorOptions"
+              value-key="value"
+              class="w-full"
+              @update:model-value="updateXmlRow(row.id, 'operator', String($event))"
+            />
+            <UInput
+              v-if="valueOperators.has(row.operator)"
+              :model-value="row.value"
+              placeholder="Attribute value (case-sensitive)"
+              @update:model-value="updateXmlRow(row.id, 'value', String($event))"
+            />
+            <p v-if="!row.attributeName.trim()" class="text-xs text-muted">
+              Enter an attribute name to activate this filter.
+            </p>
+          </section>
+
+          <UAccordion :items="[{ label: 'Index status', icon: 'i-lucide-database', slot: 'stats' }]" size="sm">
+            <template #stats>
+              <div class="space-y-2 py-2">
+                <div v-if="isLoadingStats" class="flex items-center gap-2 text-xs text-muted">
+                  <UIcon name="i-lucide-loader-2" class="animate-spin" /> Loading…
+                </div>
+                <template v-else-if="indexStats">
+                  <div class="grid grid-cols-2 gap-2 text-xs">
+                    <span class="text-muted">Total pages</span><span>{{ indexStats.totalPages }}</span>
+                    <span class="text-muted">Indexed text</span><span>{{ indexStats.indexedTextContentPages }}</span>
+                    <span class="text-muted">Indexed labels</span><span>{{ indexStats.indexedLabelPages }}</span>
+                    <span class="text-muted">Indexed attributes</span><span>{{ indexStats.indexedXmlAttributePages }}</span>
+                    <span class="text-muted">Needs indexing</span><span :class="{ 'text-warning': indexStats.pagesNeedingIndex > 0 }">{{ indexStats.pagesNeedingIndex }}</span>
+                  </div>
+                  <UButton
+                    v-if="indexStats.pagesNeedingIndex > 0"
+                    block
+                    size="xs"
+                    variant="outline"
+                    color="warning"
+                    :loading="isRebuilding"
+                    @click="handleRebuildIndex"
+                  >
+                    Rebuild index
+                  </UButton>
+                </template>
+              </div>
+            </template>
+          </UAccordion>
+        </div>
       </div>
     </template>
   </UPopover>

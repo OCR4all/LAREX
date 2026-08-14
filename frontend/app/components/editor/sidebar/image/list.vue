@@ -18,7 +18,7 @@ const props = withDefaults(defineProps<{
   filter?: string
   onlyWithOpenSubtasks?: boolean
   openSubtaskCountByPage?: Record<string, number>
-  filteredPageIds?: string[] | null
+  filteredPageIds?: readonly string[] | null
   visible?: boolean
 }>(), {
   pages: () => [],

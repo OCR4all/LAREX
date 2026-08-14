@@ -14,12 +14,18 @@ import org.springframework.stereotype.Repository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface PageRepository extends JpaRepository<Page, String> {
 
     @EntityGraph(attributePaths = {"images", "project"})
     List<Page> findByProjectId(String projectId);
+
+    @Query("SELECT p.id FROM Page p WHERE p.project.id = :projectId AND p.workflowState IN :states")
+    List<String> findIdsByProjectIdAndWorkflowStateIn(
+            @Param("projectId") String projectId,
+            @Param("states") Set<Page.WorkflowState> states);
 
     @EntityGraph(attributePaths = {"images", "project"})
     @Query("SELECT p FROM Page p WHERE p.project.id = :projectId")

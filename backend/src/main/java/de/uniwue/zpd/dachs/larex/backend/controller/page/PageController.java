@@ -229,6 +229,22 @@ public class PageController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         String operator = request.filterOperator() != null ? request.filterOperator() : "or";
+        List<String> accessiblePageIds = pageService.getProjectPages(projectId, userId).stream()
+                .map(Page::getId)
+                .toList();
+        Set<String> openSubtaskPageIds = Boolean.TRUE.equals(request.onlyWithOpenSubtasks())
+                ? subtaskService.getOpenSubtaskCountsForPages(accessiblePageIds, userId).keySet()
+                : Collections.emptySet();
+        List<PageFilterIndexService.XmlAttributePredicate> xmlAttributePredicates =
+                request.xmlAttributeFilters() == null
+                        ? Collections.emptyList()
+                        : request.xmlAttributeFilters().stream()
+                            .map(filter -> new PageFilterIndexService.XmlAttributePredicate(
+                                    filter.elementName(),
+                                    filter.attributeName(),
+                                    filter.operator(),
+                                    filter.value()))
+                            .toList();
         Set<String> pageIds = pageFilterIndexService.filterPages(
                 projectId,
                 request.textContent(),
@@ -239,8 +255,16 @@ public class PageController {
                 request.confidenceMin(),
                 request.confidenceMax(),
                 request.confidenceElementTypes(),
-                request.hasComments()
+                request.hasComments(),
+                request.commentText(),
+                request.workflowStates(),
+                request.annotationPresence(),
+                request.onlyWithOpenSubtasks(),
+                openSubtaskPageIds,
+                xmlAttributePredicates,
+                operator
         );
+        pageIds.retainAll(accessiblePageIds);
 
         return ResponseEntity.ok(new PageDto.FilterResponse(pageIds, pageIds.size()));
     }
@@ -309,6 +333,7 @@ public class PageController {
             Long totalPages = (Long) stats.get("totalPages");
             Long indexedTextContentPages = (Long) stats.get("indexedTextContentPages");
             Long indexedLabelPages = (Long) stats.get("indexedLabelPages");
+            Long indexedXmlAttributePages = (Long) stats.get("indexedXmlAttributePages");
             Long pagesNeedingIndex = (Long) stats.get("pagesNeedingIndex");
             
             log.info("Creating response with totalPages={}, indexedTextContentPages={}, indexedLabelPages={}, pagesNeedingIndex={}",
@@ -318,6 +343,7 @@ public class PageController {
                     totalPages,
                     indexedTextContentPages,
                     indexedLabelPages,
+                    indexedXmlAttributePages,
                     pagesNeedingIndex
             ));
         } catch (Exception e) {
@@ -340,6 +366,24 @@ public class PageController {
                         (String) m.get("labelId"),
                         (Long) m.get("pageCount")
                 ))
+                .toList();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/available-xml-attributes")
+    public ResponseEntity<List<PageDto.XmlAttributeWithCount>> getAvailableXmlAttributes(
+            @PathVariable String projectId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        if (pageService.getProjectPages(projectId, userId).isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+        List<PageDto.XmlAttributeWithCount> response = pageFilterIndexService
+                .getAvailableXmlAttributesWithCounts(projectId)
+                .stream()
+                .map(attribute -> new PageDto.XmlAttributeWithCount(
+                        (String) attribute.get("elementName"),
+                        (String) attribute.get("attributeName"),
+                        ((Number) attribute.get("pageCount")).longValue()))
                 .toList();
         return ResponseEntity.ok(response);
     }

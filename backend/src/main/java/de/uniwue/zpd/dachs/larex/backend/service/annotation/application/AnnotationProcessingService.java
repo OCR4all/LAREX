@@ -18,6 +18,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.Annotati
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.PageXmlWriteResult;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.AltoXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlParseResult;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import org.slf4j.Logger;
@@ -162,6 +163,24 @@ public class AnnotationProcessingService {
         PageXml headXml = pageXmlRepository.findByPage_Id(pageId)
                 .orElseThrow(() -> new IllegalArgumentException("No XML file found for page: " + pageId));
         return parseXmlToAnnotation(headXml.getId());
+    }
+
+    /**
+     * Parse the current PAGE XML while retaining exact source attribute presence for indexing.
+     * This intentionally bypasses the DTO-only cache because the cache does not contain presence metadata.
+     */
+    public PageXmlParseResult parseXmlToAnnotationWithPresence(String xmlId) throws IOException {
+        PageXml xml = pageXmlRepository.findById(xmlId)
+                .orElseThrow(() -> new IllegalArgumentException("XML file not found: " + xmlId));
+        if (xml.getSchema() != XmlSchema.PAGE_XML) {
+            throw new UnsupportedOperationException("No PAGE parser available for schema: " + xml.getSchema());
+        }
+
+        Path xmlPath = Paths.get(uploadDir, xml.getFilePath());
+        if (!Files.exists(xmlPath)) {
+            throw new IOException("XML file not found on disk: " + xmlPath);
+        }
+        return pageXmlParser.parseWithPresence(xmlPath, xml);
     }
 
     /**

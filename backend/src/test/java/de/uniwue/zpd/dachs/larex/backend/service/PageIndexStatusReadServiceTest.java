@@ -3,9 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service;
 import de.uniwue.zpd.dachs.larex.backend.dto.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
-import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlAttributeIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
@@ -26,13 +24,7 @@ import static org.mockito.Mockito.when;
 class PageIndexStatusReadServiceTest {
 
     @Mock
-    private PageConfidenceIndexRepository pageConfidenceIndexRepository;
-
-    @Mock
-    private PageTextContentRepository pageTextContentRepository;
-
-    @Mock
-    private PageLabelIndexRepository pageLabelIndexRepository;
+    private PageXmlAttributeIndexRepository pageXmlAttributeIndexRepository;
 
     @Mock
     private PageXmlRepository pageXmlRepository;
@@ -44,10 +36,8 @@ class PageIndexStatusReadServiceTest {
     void setUp() {
         tracker = new PageIndexStatusTracker();
         service = new PageIndexStatusReadService(
-                pageConfidenceIndexRepository,
-                pageTextContentRepository,
-                pageLabelIndexRepository,
                 pageXmlRepository,
+                pageXmlAttributeIndexRepository,
                 tracker
         );
     }
@@ -60,12 +50,8 @@ class PageIndexStatusReadServiceTest {
         Page indexed = page("p4");
 
         tracker.markIndexingIfAbsent(indexing.getId());
-        when(pageConfidenceIndexRepository.findIndexedPageIdsByProjectIdAndPageIds("project-1", List.of("p1", "p2", "p3", "p4")))
+        when(pageXmlAttributeIndexRepository.findIndexedPageIdsByProjectIdAndPageIds("project-1", List.of("p1", "p2", "p3", "p4")))
                 .thenReturn(List.of("p3", "p4"));
-        when(pageTextContentRepository.findIndexedPageIdsByProjectIdAndPageIds("project-1", List.of("p1", "p2", "p3", "p4")))
-                .thenReturn(List.of());
-        when(pageLabelIndexRepository.findIndexedPageIdsByProjectIdAndPageIds("project-1", List.of("p1", "p2", "p3", "p4")))
-                .thenReturn(List.of());
         when(pageXmlRepository.findByPage_IdIn(List.of("p1", "p2", "p3", "p4")))
                 .thenReturn(List.of(head(unindexed), head(indexing), head(indexed)));
 

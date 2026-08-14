@@ -114,6 +114,13 @@ public class PageDto {
     /**
      * Request for filtering pages with multiple criteria.
      */
+    public record XmlAttributeFilter(
+            String elementName,
+            String attributeName,
+            String operator,
+            String value
+    ) {}
+
     public record FilterRequest(
             /** Text content substring to search for */
             String textContent,
@@ -127,8 +134,18 @@ public class PageDto {
             Double confidenceMax,
             /** PAGE XML element types with @conf to include */
             List<String> confidenceElementTypes,
-            /** Filter only pages that have at least one non-empty PAGE XML @comments value */
+            /** Filter only pages that have at least one indexed metadata or PAGE XML comment */
             Boolean hasComments,
+            /** Optional case-insensitive substring within dedicated metadata or PAGE XML comments */
+            String commentText,
+            /** Workflow states included by the page-state criterion */
+            List<String> workflowStates,
+            /** "with_xml", "without_xml", or null */
+            String annotationPresence,
+            /** Filter to pages with an incomplete subtask assigned to the authenticated user */
+            Boolean onlyWithOpenSubtasks,
+            /** Independent PAGE XML source-attribute predicates */
+            List<XmlAttributeFilter> xmlAttributeFilters,
             /** Global operator for combining all filters: "and" or "or" (default: "or") */
             String filterOperator
     ) {}
@@ -150,7 +167,14 @@ public class PageDto {
             long totalPages,
             long indexedTextContentPages,
             long indexedLabelPages,
+            long indexedXmlAttributePages,
             long pagesNeedingIndex
+    ) {}
+
+    public record XmlAttributeWithCount(
+            String elementName,
+            String attributeName,
+            long pageCount
     ) {}
 
     /**

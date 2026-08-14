@@ -1,7 +1,11 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser;
 
 import com.maxnth.page4j.dla.page.Page;
+import com.maxnth.page4j.dla.page.io.FileInput;
 import com.maxnth.page4j.dla.page.io.xml.PageXmlInputOutput;
+import com.maxnth.page4j.dla.page.io.xml.XmlPageReadResult;
+import com.maxnth.page4j.dla.page.io.xml.XmlPageReader;
+import com.maxnth.page4j.io.xml.IOError;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
@@ -38,19 +42,31 @@ public class PageXmlToAnnotationParser {
      * @throws IOException if the file cannot be read or parsed
      */
     public PageDto parse(Path xmlPath, PageXml pageXml) throws IOException {
+        return parseWithPresence(xmlPath, pageXml).pageDto();
+    }
+
+    /** Parse PAGE XML and retain the source-presence information gathered in the same read flow. */
+    public PageXmlParseResult parseWithPresence(Path xmlPath, PageXml pageXml) throws IOException {
         if (!Files.exists(xmlPath)) {
             throw new IOException("XML file not found: " + xmlPath);
         }
 
         try {
             long startedAt = System.nanoTime();
-            PageXmlPresenceIndex presenceIndex = PageXmlPresenceIndex.fromPath(xmlPath);
-            long presenceIndexMs = (System.nanoTime() - startedAt) / 1_000_000;
-
-            // Use page4j to parse the PAGE XML file
-            startedAt = System.nanoTime();
-            Page page = PageXmlInputOutput.readPage(xmlPath.toString());
+            XmlPageReader reader = PageXmlInputOutput.getReader();
+            XmlPageReadResult readResult = reader.readWithSourceMetadata(new FileInput(xmlPath.toFile()));
+            if (readResult == null) {
+                String errors = reader.getErrors() == null
+                    ? "unknown parser error"
+                    : reader.getErrors().stream().map(IOError::getMessage).toList().toString();
+                throw new IOException("page4j could not read PAGE XML: " + errors);
+            }
             long parseMs = (System.nanoTime() - startedAt) / 1_000_000;
+
+            startedAt = System.nanoTime();
+            Page page = readResult.page();
+            PageXmlPresenceIndex presenceIndex = PageXmlPresenceIndex.fromSourceMetadata(readResult.sourceMetadata());
+            long presenceIndexMs = (System.nanoTime() - startedAt) / 1_000_000;
 
             // Convert to DTO using sparse presence information from source XML
             startedAt = System.nanoTime();
@@ -58,11 +74,11 @@ public class PageXmlToAnnotationParser {
             long mapMs = (System.nanoTime() - startedAt) / 1_000_000;
             if (log.isDebugEnabled()) {
                 log.debug(
-                        "Parsed PAGE XML {} in {} ms (presence={} ms, page4j={} ms, mapper={} ms)",
-                        xmlPath, presenceIndexMs + parseMs + mapMs, presenceIndexMs, parseMs, mapMs
+                        "Parsed PAGE XML {} in {} ms (page4j={} ms, source-index={} ms, mapper={} ms)",
+                        xmlPath, presenceIndexMs + parseMs + mapMs, parseMs, presenceIndexMs, mapMs
                 );
             }
-            return dto;
+            return new PageXmlParseResult(dto, presenceIndex);
         } catch (Exception e) {
             throw new IOException("Failed to parse PAGE XML file: " + xmlPath, e);
         }

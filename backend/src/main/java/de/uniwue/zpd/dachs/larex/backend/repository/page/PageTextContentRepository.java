@@ -49,6 +49,17 @@ public interface PageTextContentRepository extends JpaRepository<PageTextContent
     @Query("SELECT DISTINCT p.page.id FROM PageTextContent p WHERE p.page.project.id = :projectId AND p.commentEntry = true")
     List<String> findPageIdsByProjectIdWithComments(@Param("projectId") String projectId);
 
+    @Query("""
+            SELECT DISTINCT p.page.id
+            FROM PageTextContent p
+            WHERE p.page.project.id = :projectId
+              AND p.commentEntry = true
+              AND LOWER(p.textContent) LIKE LOWER(CONCAT('%', :searchText, '%'))
+            """)
+    List<String> findPageIdsByProjectIdAndCommentContaining(
+            @Param("projectId") String projectId,
+            @Param("searchText") String searchText);
+
     /**
      * Find text line IDs within a page that contain the given text substring.
      */

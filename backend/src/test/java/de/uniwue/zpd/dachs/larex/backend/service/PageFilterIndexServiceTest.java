@@ -12,28 +12,36 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageConfidenceIndex;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageLabelIndex;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageTextContent;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageXmlAttributeIndex;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlAttributeIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -50,6 +58,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PageFilterIndexServiceTest {
 
+    @TempDir
+    Path tempDir;
+
     @Mock
     private PageRepository pageRepository;
 
@@ -64,6 +75,8 @@ class PageFilterIndexServiceTest {
 
     @Mock
     private PageConfidenceIndexRepository confidenceIndexRepository;
+    @Mock
+    private PageXmlAttributeIndexRepository xmlAttributeIndexRepository;
 
     @Mock
     private AnnotationProcessingService annotationProcessingService;
@@ -80,9 +93,38 @@ class PageFilterIndexServiceTest {
             textContentRepository,
             labelIndexRepository,
             confidenceIndexRepository,
+            xmlAttributeIndexRepository,
             annotationProcessingService,
-            searchLexiconService
+            searchLexiconService,
+            tempDir.toString()
         );
+    }
+
+    @Test
+    void indexPage_afterEditorSaveCombinesDtoWithLightweightSourceAttributePass() throws Exception {
+        Page page = page("page-1", "project-1");
+        Files.writeString(tempDir.resolve("saved.xml"), """
+            <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+              <Page imageFilename="image.png" imageWidth="100" imageHeight="200" comments=" raw value "/>
+            </PcGts>
+            """);
+        PageXml xml = new PageXml();
+        xml.setSchema(XmlSchema.PAGE_XML);
+        xml.setFilePath("saved.xml");
+        when(pageXmlRepository.findByPage_Id(page.getId())).thenReturn(Optional.of(xml));
+
+        service.indexPage(page, pageDto(List.of(), null, null));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Iterable<PageXmlAttributeIndex>> captor = ArgumentCaptor.forClass(
+            (Class<Iterable<PageXmlAttributeIndex>>) (Class<?>) Iterable.class
+        );
+        verify(xmlAttributeIndexRepository).saveAll(captor.capture());
+        Set<String> attributes = streamOf(captor.getValue()).stream()
+            .map(attribute -> attribute.getElementName() + "@" + attribute.getAttributeName() + "=" + attribute.getAttributeValue())
+            .collect(Collectors.toSet());
+        assertTrue(attributes.contains("Page@comments= raw value "));
+        assertTrue(attributes.contains("Page@imageFilename=image.png"));
     }
 
     @Test
@@ -396,6 +438,99 @@ class PageFilterIndexServiceTest {
     }
 
     @Test
+    void filterPages_commentsTextSearchesOnlyDedicatedCommentEntries() {
+        String projectId = "project-1";
+        when(textContentRepository.findPageIdsByProjectIdAndCommentContaining(projectId, "review me"))
+            .thenReturn(List.of("page-3"));
+
+        Set<String> result = service.filterPages(
+            projectId, null, null, "and", null, "and", null, null, null, true,
+            "  review me  ", null, null, false, Set.of(), List.of(), "and"
+        );
+
+        assertEquals(Set.of("page-3"), result);
+        verify(textContentRepository, never()).findPageIdsByProjectIdWithComments(projectId);
+    }
+
+    @Test
+    void filterPages_combinesRepeatedScopedAndUnscopedXmlAttributePredicates() {
+        String projectId = "project-1";
+        when(xmlAttributeIndexRepository.findPageIdsWithAttribute(projectId, "TextLine", "comments"))
+            .thenReturn(List.of("page-1", "page-2"));
+        when(xmlAttributeIndexRepository.findPageIdsWithAttributeValueContaining(projectId, null, "custom", "readingOrder"))
+            .thenReturn(List.of("page-2", "page-3"));
+
+        Set<String> result = service.filterPages(
+            projectId, null, null, "and", null, "and", null, null, null, null,
+            null, null, null, false, Set.of(),
+            List.of(
+                new PageFilterIndexService.XmlAttributePredicate("TextLine", "comments", "exists", null),
+                new PageFilterIndexService.XmlAttributePredicate(null, "custom", "contains", "readingOrder")
+            ),
+            "and"
+        );
+
+        assertEquals(Set.of("page-2"), result);
+    }
+
+    @Test
+    void filterPages_negativeAttributeOperatorIncludesPagesWithoutXml() {
+        String projectId = "project-1";
+        when(pageRepository.findByProjectId(projectId)).thenReturn(List.of(
+            page("page-with-match", projectId),
+            page("page-with-other-value", projectId),
+            page("page-without-xml", projectId)
+        ));
+        when(xmlAttributeIndexRepository.findPageIdsWithAttributeValue(projectId, null, "comments", "reviewed"))
+            .thenReturn(List.of("page-with-match"));
+
+        Set<String> result = service.filterPages(
+            projectId, null, null, "and", null, "and", null, null, null, null,
+            null, null, null, false, Set.of(),
+            List.of(new PageFilterIndexService.XmlAttributePredicate(null, "comments", "not_equals", "reviewed")),
+            "and"
+        );
+
+        assertEquals(Set.of("page-with-other-value", "page-without-xml"), result);
+    }
+
+    @Test
+    void filterPages_supportsExactNotExistsAndNotContainsAttributeOperators() {
+        String projectId = "project-1";
+        when(pageRepository.findByProjectId(projectId)).thenReturn(List.of(
+            page("page-1", projectId), page("page-2", projectId), page("page-3", projectId)
+        ));
+        when(xmlAttributeIndexRepository.findPageIdsWithAttributeValue(projectId, "Page", "imageFilename", "one.png"))
+            .thenReturn(List.of("page-1"));
+        when(xmlAttributeIndexRepository.findPageIdsWithAttribute(projectId, null, "comments"))
+            .thenReturn(List.of("page-1", "page-2"));
+        when(xmlAttributeIndexRepository.findPageIdsWithAttributeValueContaining(projectId, "TextLine", "custom", "readingOrder"))
+            .thenReturn(List.of("page-2"));
+
+        assertEquals(Set.of("page-1"), filterByXmlPredicate(projectId,
+            new PageFilterIndexService.XmlAttributePredicate("Page", "imageFilename", "equals", "one.png")));
+        assertEquals(Set.of("page-3"), filterByXmlPredicate(projectId,
+            new PageFilterIndexService.XmlAttributePredicate(null, "comments", "not_exists", null)));
+        assertEquals(Set.of("page-1", "page-3"), filterByXmlPredicate(projectId,
+            new PageFilterIndexService.XmlAttributePredicate("TextLine", "custom", "not_contains", "readingOrder")));
+    }
+
+    @Test
+    void filterPages_unifiesWorkflowAnnotationAndUserOpenTasksUnderGlobalOr() {
+        String projectId = "project-1";
+        when(pageRepository.findIdsByProjectIdAndWorkflowStateIn(projectId, Set.of(Page.WorkflowState.DONE)))
+            .thenReturn(List.of("done-page"));
+        when(pageXmlRepository.findPageIdsByProjectId(projectId)).thenReturn(List.of("xml-page"));
+
+        Set<String> result = service.filterPages(
+            projectId, null, null, "or", null, "or", null, null, null, null,
+            null, List.of("DONE"), "with_xml", true, Set.of("task-page"), List.of(), "or"
+        );
+
+        assertEquals(Set.of("done-page", "xml-page", "task-page"), result);
+    }
+
+    @Test
     void getMatchingTextLineIds_skipsBlankQueries() {
         List<String> result = service.getMatchingTextLineIds("page-1", "   ");
 
@@ -420,6 +555,15 @@ class PageFilterIndexServiceTest {
         page.setProject(project);
         page.setTags(new ArrayList<>());
         return page;
+    }
+
+    private Set<String> filterByXmlPredicate(
+            String projectId,
+            PageFilterIndexService.XmlAttributePredicate predicate) {
+        return service.filterPages(
+            projectId, null, null, "and", null, "and", null, null, null, null,
+            null, null, null, false, Set.of(), List.of(predicate), "and"
+        );
     }
 
     private static PageDto pageDto(List<RegionDto> regions, Double confidence, ReadingOrderDto readingOrder) {

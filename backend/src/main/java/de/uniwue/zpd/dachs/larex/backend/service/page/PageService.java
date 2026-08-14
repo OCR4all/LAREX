@@ -13,10 +13,12 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepositor
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlAttributeIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
@@ -53,6 +55,7 @@ public class PageService {
     private final PageTextContentRepository pageTextContentRepository;
     private final PageLabelIndexRepository pageLabelIndexRepository;
     private final PageConfidenceIndexRepository pageConfidenceIndexRepository;
+    private final PageXmlAttributeIndexRepository pageXmlAttributeIndexRepository;
     private final TaskPageLinkRepository taskPageLinkRepository;
     private final ProjectRepository projectRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
@@ -65,6 +68,7 @@ public class PageService {
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     private final PageOrderService pageOrderService;
     private final AnnotationReadCache annotationReadCache;
+    private final PageFilterIndexService pageFilterIndexService;
 
     public PageService(
             PageRepository pageRepository,
@@ -73,6 +77,7 @@ public class PageService {
             PageTextContentRepository pageTextContentRepository,
             PageLabelIndexRepository pageLabelIndexRepository,
             PageConfidenceIndexRepository pageConfidenceIndexRepository,
+            PageXmlAttributeIndexRepository pageXmlAttributeIndexRepository,
             TaskPageLinkRepository taskPageLinkRepository,
             ProjectRepository projectRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
@@ -84,7 +89,8 @@ public class PageService {
             PageXmlCanonicalizationService pageXmlCanonicalizationService,
             WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
             PageOrderService pageOrderService,
-            AnnotationReadCache annotationReadCache) {
+            AnnotationReadCache annotationReadCache,
+            PageFilterIndexService pageFilterIndexService) {
 
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -92,6 +98,7 @@ public class PageService {
         this.pageTextContentRepository = pageTextContentRepository;
         this.pageLabelIndexRepository = pageLabelIndexRepository;
         this.pageConfidenceIndexRepository = pageConfidenceIndexRepository;
+        this.pageXmlAttributeIndexRepository = pageXmlAttributeIndexRepository;
         this.taskPageLinkRepository = taskPageLinkRepository;
         this.projectRepository = projectRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
@@ -104,6 +111,7 @@ public class PageService {
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
         this.pageOrderService = pageOrderService;
         this.annotationReadCache = annotationReadCache;
+        this.pageFilterIndexService = pageFilterIndexService;
     }
 
     public List<Page> getProjectPages(String projectId, String userId) {
@@ -403,6 +411,11 @@ public class PageService {
             );
             pageXml = pageXmlRepository.save(pageXml);
             pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, userId, "direct XML upload");
+            try {
+                pageFilterIndexService.indexPageFromXml(page);
+            } catch (RuntimeException exception) {
+                log.warn("Failed to index page {} after direct XML upload: {}", page.getId(), exception.getMessage());
+            }
 
             return true;
         }
@@ -528,6 +541,7 @@ public class PageService {
         pageTextContentRepository.deleteByPageIdIn(affectedPageIds);
         pageLabelIndexRepository.deleteByPageIdIn(affectedPageIds);
         pageConfidenceIndexRepository.deleteByPageIdIn(affectedPageIds);
+        pageXmlAttributeIndexRepository.deleteByPageIdIn(affectedPageIds);
         pageXmlRepository.deleteAllInBatch(xmlFiles);
 
         pages.stream()

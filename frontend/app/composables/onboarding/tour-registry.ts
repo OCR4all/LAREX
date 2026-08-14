@@ -770,24 +770,24 @@ const tours: OnboardingTourDefinition[] = [
         element: '[data-tour="editor-page-filter-button"]',
         popover: {
           title: 'Page Filter Popover',
-          description: 'Click Next to open page filters.',
+          description: 'Click Next to open the page filter builder.',
           side: 'right',
           align: 'start',
           onNextClick: withNextAction(async () => {
             dispatchOnboardingEvent('larex:onboarding:open-editor-filter-popover')
-            await waitForVisibleElement('[data-tour="editor-page-filter-section-labels"]')
+            await waitForVisibleElement('[data-tour="editor-page-filter-add"]')
           })
         }
       },
       {
-        element: '[data-tour="editor-page-filter-section-labels"]',
+        element: '[data-tour="editor-page-filter-add"]',
         onHighlightStarted: withHookAction(async () => {
           dispatchOnboardingEvent('larex:onboarding:open-editor-filter-popover')
-          await waitForVisibleElement('[data-tour="editor-page-filter-section-labels"]')
+          await waitForVisibleElement('[data-tour="editor-page-filter-add"]')
         }),
         popover: {
-          title: 'Filter Options',
-          description: 'Combine label, text, tag, and subtask filters to focus the page list.',
+          title: 'Add Filters as Needed',
+          description: 'Search the list, add only the criteria you need, and remove rows when you are done. Changes apply automatically.',
           side: 'left',
           align: 'start'
         }

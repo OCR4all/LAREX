@@ -20,13 +20,18 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageConfidenceIndex;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageLabelIndex;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageTextContent;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageXmlAttributeIndex;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlAttributeIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlParseResult;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlPresenceIndex;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
+import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -36,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -60,6 +66,12 @@ import java.util.stream.Collectors;
 @Service
 public class PageFilterIndexService {
 
+    public record XmlAttributePredicate(
+            String elementName,
+            String attributeName,
+            String operator,
+            String value) {}
+
     private static final Logger log = LoggerFactory.getLogger(PageFilterIndexService.class);
 
     private static final String REGION_KIND_TEXT = "TextRegion";
@@ -72,8 +84,10 @@ public class PageFilterIndexService {
     private final PageTextContentRepository textContentRepository;
     private final PageLabelIndexRepository labelIndexRepository;
     private final PageConfidenceIndexRepository confidenceIndexRepository;
+    private final PageXmlAttributeIndexRepository xmlAttributeIndexRepository;
     private final AnnotationProcessingService annotationProcessingService;
     private final SearchLexiconService searchLexiconService;
+    private final String uploadDir;
 
     public PageFilterIndexService(
             PageRepository pageRepository,
@@ -81,15 +95,19 @@ public class PageFilterIndexService {
             PageTextContentRepository textContentRepository,
             PageLabelIndexRepository labelIndexRepository,
             PageConfidenceIndexRepository confidenceIndexRepository,
+            PageXmlAttributeIndexRepository xmlAttributeIndexRepository,
             AnnotationProcessingService annotationProcessingService,
-            SearchLexiconService searchLexiconService) {
+            SearchLexiconService searchLexiconService,
+            @Value("${file.upload-dir}") String uploadDir) {
         this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.textContentRepository = textContentRepository;
         this.labelIndexRepository = labelIndexRepository;
         this.confidenceIndexRepository = confidenceIndexRepository;
+        this.xmlAttributeIndexRepository = xmlAttributeIndexRepository;
         this.annotationProcessingService = annotationProcessingService;
         this.searchLexiconService = searchLexiconService;
+        this.uploadDir = uploadDir;
     }
 
     // ============================================================================
@@ -105,16 +123,27 @@ public class PageFilterIndexService {
             return;
         }
 
+        PageXmlPresenceIndex presenceIndex = pageXmlRepository.findByPage_Id(page.getId())
+            .filter(xml -> xml.getSchema() == de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema.PAGE_XML)
+            .map(xml -> PageXmlPresenceIndex.fromPath(Paths.get(uploadDir, xml.getFilePath())))
+            .orElseGet(PageXmlPresenceIndex::empty);
+        indexPage(page, pageDto, presenceIndex);
+    }
+
+    private void indexPage(Page page, PageDto pageDto, PageXmlPresenceIndex presenceIndex) {
+
         log.debug("Indexing page {} with {} regions", page.getId(), pageDto.getRegionCount());
 
         // Clear existing index data for this page
         textContentRepository.deleteByPageId(page.getId());
         labelIndexRepository.deleteByPageId(page.getId());
         confidenceIndexRepository.deleteByPageId(page.getId());
+        xmlAttributeIndexRepository.deleteByPageId(page.getId());
 
         List<PageTextContent> textContents = new ArrayList<>();
         List<PageLabelIndex> labelIndices = new ArrayList<>();
         List<PageConfidenceIndex> confidenceIndices = new ArrayList<>();
+        List<PageXmlAttributeIndex> xmlAttributeIndices = new ArrayList<>();
 
         Set<String> labelDedupKeys = new HashSet<>();
         Set<String> confidenceDedupKeys = new HashSet<>();
@@ -161,6 +190,15 @@ public class PageFilterIndexService {
             }
         }
 
+        for (PageXmlPresenceIndex.AttributeOccurrence occurrence : presenceIndex.attributeOccurrences()) {
+            xmlAttributeIndices.add(new PageXmlAttributeIndex(
+                page,
+                occurrence.elementName(),
+                occurrence.attributeName(),
+                occurrence.value()
+            ));
+        }
+
         if (!textContents.isEmpty()) {
             textContentRepository.saveAll(textContents);
             textContentRepository.refreshSearchFieldsByPageId(page.getId());
@@ -173,6 +211,10 @@ public class PageFilterIndexService {
         if (!confidenceIndices.isEmpty()) {
             confidenceIndexRepository.saveAll(confidenceIndices);
             log.debug("Indexed {} confidence records for page {}", confidenceIndices.size(), page.getId());
+        }
+        if (!xmlAttributeIndices.isEmpty()) {
+            xmlAttributeIndexRepository.saveAll(xmlAttributeIndices);
+            log.debug("Indexed {} PAGE XML attribute records for page {}", xmlAttributeIndices.size(), page.getId());
         }
     }
 
@@ -188,6 +230,7 @@ public class PageFilterIndexService {
         textContentRepository.deleteByPageId(pageId);
         labelIndexRepository.deleteByPageId(pageId);
         confidenceIndexRepository.deleteByPageId(pageId);
+        xmlAttributeIndexRepository.deleteByPageId(pageId);
     }
 
     /**
@@ -211,8 +254,8 @@ public class PageFilterIndexService {
         PageXml xml = headXml.get();
         try {
             log.debug("Attempting to parse PageXml {} (schema: {})", xml.getId(), xml.getSchema());
-            PageDto pageDto = annotationProcessingService.parseXmlToAnnotation(xml.getId());
-            indexPage(page, pageDto);
+            PageXmlParseResult parseResult = annotationProcessingService.parseXmlToAnnotationWithPresence(xml.getId());
+            indexPage(page, parseResult.pageDto(), parseResult.presenceIndex());
             log.info("Successfully indexed page {} from PageXml {}", page.getId(), xml.getId());
         } catch (IOException e) {
             log.warn("Failed to parse XML {} for page {}: {}", xml.getId(), page.getId(), e.getMessage());
@@ -293,6 +336,50 @@ public class PageFilterIndexService {
             List<String> confidenceElementTypes,
             Boolean hasComments) {
 
+        return filterPages(
+            projectId,
+            textContent,
+            labelIds,
+            labelOperator,
+            tags,
+            tagOperator,
+            confidenceMin,
+            confidenceMax,
+            confidenceElementTypes,
+            hasComments,
+            null,
+            null,
+            null,
+            false,
+            Collections.emptySet(),
+            Collections.emptyList(),
+            labelOperator
+        );
+    }
+
+    /**
+     * Unified builder evaluation. Every non-empty criterion is one group participating in the
+     * same global AND/OR operation; each XML attribute predicate is its own group.
+     */
+    public Set<String> filterPages(
+            String projectId,
+            String textContent,
+            List<String> labelIds,
+            String labelOperator,
+            List<String> tags,
+            String tagOperator,
+            Double confidenceMin,
+            Double confidenceMax,
+            List<String> confidenceElementTypes,
+            Boolean hasComments,
+            String commentText,
+            List<String> workflowStates,
+            String annotationPresence,
+            Boolean onlyWithOpenSubtasks,
+            Set<String> openSubtaskPageIds,
+            List<XmlAttributePredicate> xmlAttributeFilters,
+            String filterOperator) {
+
         List<Set<String>> activeFilterGroups = new ArrayList<>();
 
         if (textContent != null && !textContent.trim().isEmpty()) {
@@ -346,17 +433,51 @@ public class PageFilterIndexService {
             activeFilterGroups.add(confidenceMatches);
         }
 
-        if (Boolean.TRUE.equals(hasComments)) {
+        if (commentText != null && !commentText.trim().isEmpty()) {
+            activeFilterGroups.add(new HashSet<>(
+                textContentRepository.findPageIdsByProjectIdAndCommentContaining(projectId, commentText.trim())
+            ));
+        } else if (Boolean.TRUE.equals(hasComments)) {
             activeFilterGroups.add(new HashSet<>(
                 textContentRepository.findPageIdsByProjectIdWithComments(projectId)
             ));
+        }
+
+        Set<Page.WorkflowState> parsedWorkflowStates = parseWorkflowStates(workflowStates);
+        if (!parsedWorkflowStates.isEmpty()) {
+            activeFilterGroups.add(new HashSet<>(
+                pageRepository.findIdsByProjectIdAndWorkflowStateIn(projectId, parsedWorkflowStates)
+            ));
+        }
+
+        if ("with_xml".equals(annotationPresence)) {
+            activeFilterGroups.add(new HashSet<>(pageXmlRepository.findPageIdsByProjectId(projectId)));
+        } else if ("without_xml".equals(annotationPresence)) {
+            Set<String> withoutXml = allPageIds(projectId);
+            withoutXml.removeAll(pageXmlRepository.findPageIdsByProjectId(projectId));
+            activeFilterGroups.add(withoutXml);
+        }
+
+        if (Boolean.TRUE.equals(onlyWithOpenSubtasks)) {
+            activeFilterGroups.add(openSubtaskPageIds == null
+                ? Collections.emptySet()
+                : new HashSet<>(openSubtaskPageIds));
+        }
+
+        if (xmlAttributeFilters != null) {
+            for (XmlAttributePredicate predicate : xmlAttributeFilters) {
+                Set<String> matches = findXmlAttributeMatches(projectId, predicate);
+                if (matches != null) {
+                    activeFilterGroups.add(matches);
+                }
+            }
         }
 
         if (activeFilterGroups.isEmpty()) {
             return allPageIds(projectId);
         }
 
-        boolean useOr = "or".equalsIgnoreCase(labelOperator);
+        boolean useOr = "or".equalsIgnoreCase(filterOperator);
         if (useOr) {
             Set<String> union = new HashSet<>();
             for (Set<String> matches : activeFilterGroups) {
@@ -393,6 +514,8 @@ public class PageFilterIndexService {
 
         long indexedTextPages = 0L;
         long indexedLabelPages = 0L;
+        long indexedXmlAttributePages = 0L;
+        long pageXmlPages = 0L;
         try {
             indexedTextPages = textContentRepository.countIndexedPagesByProjectId(projectId);
         } catch (Exception e) {
@@ -403,11 +526,22 @@ public class PageFilterIndexService {
         } catch (Exception e) {
             log.warn("Failed to count indexed label pages: {}", e.getMessage());
         }
+        try {
+            indexedXmlAttributePages = xmlAttributeIndexRepository.countIndexedPagesByProjectId(projectId);
+        } catch (Exception e) {
+            log.warn("Failed to count indexed PAGE XML attribute pages: {}", e.getMessage());
+        }
+        try {
+            pageXmlPages = pageXmlRepository.countPageXmlByProjectId(projectId);
+        } catch (Exception e) {
+            log.warn("Failed to count PAGE XML pages: {}", e.getMessage());
+        }
 
         stats.put("totalPages", Long.valueOf(totalPages));
         stats.put("indexedTextContentPages", Long.valueOf(indexedTextPages));
         stats.put("indexedLabelPages", Long.valueOf(indexedLabelPages));
-        stats.put("pagesNeedingIndex", Long.valueOf(totalPages - Math.max(indexedTextPages, indexedLabelPages)));
+        stats.put("indexedXmlAttributePages", Long.valueOf(indexedXmlAttributePages));
+        stats.put("pagesNeedingIndex", Long.valueOf(Math.max(0L, pageXmlPages - indexedXmlAttributePages)));
 
         return stats;
     }
@@ -424,6 +558,18 @@ public class PageFilterIndexService {
         }
 
         return labels;
+    }
+
+    public List<Map<String, Object>> getAvailableXmlAttributesWithCounts(String projectId) {
+        List<Map<String, Object>> attributes = new ArrayList<>();
+        for (Object[] row : xmlAttributeIndexRepository.findAvailableAttributesByProjectId(projectId)) {
+            Map<String, Object> attribute = new HashMap<>();
+            attribute.put("elementName", row[0]);
+            attribute.put("attributeName", row[1]);
+            attribute.put("pageCount", row[2]);
+            attributes.add(attribute);
+        }
+        return attributes;
     }
 
     // ============================================================================
@@ -918,6 +1064,71 @@ public class PageFilterIndexService {
             .map(Page::getId)
             .filter(Objects::nonNull)
             .collect(Collectors.toSet());
+    }
+
+    private Set<Page.WorkflowState> parseWorkflowStates(List<String> rawStates) {
+        Set<Page.WorkflowState> states = EnumSet.noneOf(Page.WorkflowState.class);
+        if (rawStates == null) {
+            return states;
+        }
+        for (String rawState : rawStates) {
+            String normalized = blankToNull(rawState);
+            if (normalized == null) {
+                continue;
+            }
+            try {
+                states.add(Page.WorkflowState.valueOf(normalized.toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ignored) {
+                log.debug("Ignoring unsupported workflow state: {}", rawState);
+            }
+        }
+        return states;
+    }
+
+    /** Returns null for an incomplete predicate so it does not become an active filter group. */
+    private Set<String> findXmlAttributeMatches(String projectId, XmlAttributePredicate predicate) {
+        if (predicate == null) {
+            return null;
+        }
+
+        String attributeName = blankToNull(predicate.attributeName());
+        String elementName = blankToNull(predicate.elementName());
+        String operator = blankToNull(predicate.operator());
+        if (attributeName == null || operator == null) {
+            return null;
+        }
+        operator = operator.toLowerCase(Locale.ROOT);
+
+        boolean valueOperator = Set.of("equals", "not_equals", "contains", "not_contains").contains(operator);
+        if (valueOperator && (predicate.value() == null || predicate.value().isEmpty())) {
+            return null;
+        }
+
+        Set<String> positiveMatches;
+        switch (operator) {
+            case "exists", "not_exists" -> positiveMatches = new HashSet<>(
+                xmlAttributeIndexRepository.findPageIdsWithAttribute(projectId, elementName, attributeName)
+            );
+            case "equals", "not_equals" -> positiveMatches = new HashSet<>(
+                xmlAttributeIndexRepository.findPageIdsWithAttributeValue(
+                    projectId, elementName, attributeName, predicate.value())
+            );
+            case "contains", "not_contains" -> positiveMatches = new HashSet<>(
+                xmlAttributeIndexRepository.findPageIdsWithAttributeValueContaining(
+                    projectId, elementName, attributeName, predicate.value())
+            );
+            default -> {
+                log.debug("Ignoring unsupported PAGE XML attribute operator: {}", operator);
+                return null;
+            }
+        }
+
+        if (operator.startsWith("not_")) {
+            Set<String> complement = allPageIds(projectId);
+            complement.removeAll(positiveMatches);
+            return complement;
+        }
+        return positiveMatches;
     }
 
     private Set<String> findTagMatches(String projectId, List<String> tags, String tagOperator) {

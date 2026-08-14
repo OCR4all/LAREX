@@ -2,10 +2,8 @@ package de.uniwue.zpd.dachs.larex.backend.service.page.indexing;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
-import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlAttributeIndexRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
@@ -18,21 +16,15 @@ import java.util.stream.Collectors;
 @Service
 public class PageIndexStatusReadService {
 
-    private final PageConfidenceIndexRepository pageConfidenceIndexRepository;
-    private final PageTextContentRepository pageTextContentRepository;
-    private final PageLabelIndexRepository pageLabelIndexRepository;
     private final PageXmlRepository pageXmlRepository;
+    private final PageXmlAttributeIndexRepository pageXmlAttributeIndexRepository;
     private final PageIndexStatusTracker pageIndexStatusTracker;
 
-    public PageIndexStatusReadService(PageConfidenceIndexRepository pageConfidenceIndexRepository,
-                                      PageTextContentRepository pageTextContentRepository,
-                                      PageLabelIndexRepository pageLabelIndexRepository,
-                                      PageXmlRepository pageXmlRepository,
+    public PageIndexStatusReadService(PageXmlRepository pageXmlRepository,
+                                      PageXmlAttributeIndexRepository pageXmlAttributeIndexRepository,
                                       PageIndexStatusTracker pageIndexStatusTracker) {
-        this.pageConfidenceIndexRepository = pageConfidenceIndexRepository;
-        this.pageTextContentRepository = pageTextContentRepository;
-        this.pageLabelIndexRepository = pageLabelIndexRepository;
         this.pageXmlRepository = pageXmlRepository;
+        this.pageXmlAttributeIndexRepository = pageXmlAttributeIndexRepository;
         this.pageIndexStatusTracker = pageIndexStatusTracker;
     }
 
@@ -75,9 +67,7 @@ public class PageIndexStatusReadService {
             return PageDto.PageIndexingStatus.INDEXING;
         }
 
-        if (pageConfidenceIndexRepository.existsByPageId(page.getId())
-                || pageTextContentRepository.existsByPageId(page.getId())
-                || pageLabelIndexRepository.existsByPageId(page.getId())) {
+        if (pageXmlAttributeIndexRepository.existsByPageId(page.getId())) {
             return PageDto.PageIndexingStatus.INDEXED;
         }
 
@@ -89,11 +79,8 @@ public class PageIndexStatusReadService {
             return Set.of();
         }
 
-        Set<String> indexedPageIds = pageConfidenceIndexRepository.findIndexedPageIdsByProjectIdAndPageIds(projectId, pageIds).stream()
+        return pageXmlAttributeIndexRepository.findIndexedPageIdsByProjectIdAndPageIds(projectId, pageIds).stream()
                 .collect(Collectors.toSet());
-        indexedPageIds.addAll(pageTextContentRepository.findIndexedPageIdsByProjectIdAndPageIds(projectId, pageIds));
-        indexedPageIds.addAll(pageLabelIndexRepository.findIndexedPageIdsByProjectIdAndPageIds(projectId, pageIds));
-        return indexedPageIds;
     }
 
     private PageDto.PageIndexingStatus resolveStatus(Page page,

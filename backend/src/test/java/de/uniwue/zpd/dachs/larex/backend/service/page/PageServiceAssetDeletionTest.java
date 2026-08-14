@@ -17,11 +17,13 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepositor
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlAttributeIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
@@ -45,6 +47,7 @@ class PageServiceAssetDeletionTest {
     @Mock PageTextContentRepository pageTextContentRepository;
     @Mock PageLabelIndexRepository pageLabelIndexRepository;
     @Mock PageConfidenceIndexRepository pageConfidenceIndexRepository;
+    @Mock PageXmlAttributeIndexRepository pageXmlAttributeIndexRepository;
     @Mock TaskPageLinkRepository taskPageLinkRepository;
     @Mock ProjectRepository projectRepository;
     @Mock WorkspaceMemberRepository workspaceMemberRepository;
@@ -57,6 +60,7 @@ class PageServiceAssetDeletionTest {
     @Mock WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     @Mock PageOrderService pageOrderService;
     @Mock AnnotationReadCache annotationReadCache;
+    @Mock PageFilterIndexService pageFilterIndexService;
 
     private PageService service;
 
@@ -69,6 +73,7 @@ class PageServiceAssetDeletionTest {
                 pageTextContentRepository,
                 pageLabelIndexRepository,
                 pageConfidenceIndexRepository,
+                pageXmlAttributeIndexRepository,
                 taskPageLinkRepository,
                 projectRepository,
                 workspaceMemberRepository,
@@ -80,7 +85,8 @@ class PageServiceAssetDeletionTest {
                 pageXmlCanonicalizationService,
                 workspaceQuotaRefreshService,
                 pageOrderService,
-                annotationReadCache
+                annotationReadCache,
+                pageFilterIndexService
         );
     }
 
@@ -110,6 +116,7 @@ class PageServiceAssetDeletionTest {
         verify(pageTextContentRepository).deleteByPageIdIn(List.of("page-1"));
         verify(pageLabelIndexRepository).deleteByPageIdIn(List.of("page-1"));
         verify(pageConfidenceIndexRepository).deleteByPageIdIn(List.of("page-1"));
+        verify(pageXmlAttributeIndexRepository).deleteByPageIdIn(List.of("page-1"));
         verify(pageXmlRepository).deleteAllInBatch(List.of(xml));
         verify(workspaceQuotaRefreshService).scheduleUsageRefresh("workspace-1");
     }

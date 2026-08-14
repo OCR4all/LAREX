@@ -208,15 +208,9 @@ const {
   hasActiveFilters: hasAdvancedFilters,
   hasBackendFilters,
   isFiltering,
-  labelIds,
-  textContent: backendTextContentFilter,
-  tags: backendTagsFilter,
-  filterOperator: backendFilterOperator,
-  confidenceRange: backendConfidenceRange,
-  confidenceElementTypes: backendConfidenceElementTypes,
-  hasComments: backendHasComments,
-  onlyWithOpenSubtasks,
-  workflowStates: pageWorkflowStateFilters
+  filterState: pageFilterState,
+  filteredPageIdsByProjectId: backendFilteredPageIdsByProjectId,
+  applyFiltersForProjects
 } = usePageFilter(currentProjectIdForFilter)
 
 const availableLabelsForFilter = computed<ApiLabelDefinition[]>(() => {
@@ -1156,75 +1150,14 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
   return [pageActions, toolkitActions]
 })
 
-const backendFilteredPageIdsByProjectId = ref<Record<string, string[]>>({})
-
-watch(() => [...sessionStore.openedProjectIds], (projectIds) => {
-  const openedIdSet = new Set(projectIds)
-  backendFilteredPageIdsByProjectId.value = Object.fromEntries(
-    Object.entries(backendFilteredPageIdsByProjectId.value).filter(([projectId]) => openedIdSet.has(projectId))
-  )
-}, { immediate: true })
-
 const backendFilterSignature = computed(() => JSON.stringify({
   enabled: hasBackendFilters.value,
-  labelIds: [...labelIds.value].sort(),
-  textContent: backendTextContentFilter.value.trim(),
-  tags: [...backendTagsFilter.value].sort(),
-  confidenceRange: [...backendConfidenceRange.value],
-  confidenceElementTypes: [...backendConfidenceElementTypes.value].sort(),
-  hasComments: backendHasComments.value,
-  filterOperator: backendFilterOperator.value,
+  request: buildPageFilterRequestBody(pageFilterState.value),
   projectIds: [...sessionStore.openedProjectIds]
 }))
 
 async function refreshBackendFiltersForOpenedProjects() {
-  if (!hasBackendFilters.value || sessionStore.openedProjectIds.length === 0) {
-    backendFilteredPageIdsByProjectId.value = {}
-    return
-  }
-
-  const requestBody = buildPageFilterRequestBody({
-    labelIds: labelIds.value,
-    textContent: backendTextContentFilter.value,
-    tags: backendTagsFilter.value,
-    filterOperator: backendFilterOperator.value,
-    confidenceRange: backendConfidenceRange.value,
-    confidenceElementTypes: backendConfidenceElementTypes.value,
-    hasComments: backendHasComments.value,
-    onlyWithOpenSubtasks: false
-  })
-
-  const projectIds = [...sessionStore.openedProjectIds]
-  const results = await Promise.allSettled(
-    projectIds.map(projectId =>
-      $fetch<{ pageIds: string[], count: number }>(`/api/projects/${projectId}/pages/filter`, {
-        method: 'POST',
-        body: requestBody
-      })
-    )
-  )
-
-  const next: Record<string, string[]> = {}
-  let hasError = false
-  for (const [index, result] of results.entries()) {
-    const projectId = projectIds[index]
-    if (!projectId) continue
-    if (result.status === 'fulfilled') {
-      next[projectId] = result.value.pageIds ?? []
-    } else {
-      next[projectId] = []
-      hasError = true
-    }
-  }
-
-  backendFilteredPageIdsByProjectId.value = next
-  if (hasError) {
-    toast.add({
-      title: 'Some filters failed',
-      description: 'Could not apply backend filters for all opened projects.',
-      color: 'warning'
-    })
-  }
+  await applyFiltersForProjects([...sessionStore.openedProjectIds])
 }
 
 const debouncedRefreshBackendFiltersForOpenedProjects = useDebounceFn(() => {
@@ -1595,7 +1528,6 @@ const {
   isOpenSubtasksLoading,
   openSubtaskPageIds,
   getOpenSubtaskCountByPage,
-  getOpenSubtaskPageIds,
   activeOpenSubtasks,
   isActivePageTasksLoading,
   activeTaskByIdRecord,
@@ -1619,16 +1551,6 @@ function getFilteredPagesForProject(projectId: string) {
 
   if (q) {
     result = result.filter(p => (p.label ?? '').toLowerCase().includes(q))
-  }
-
-  if (onlyWithOpenSubtasks.value) {
-    const pageIdsWithSubtasks = getOpenSubtaskPageIds(projectId)
-    result = result.filter(p => pageIdsWithSubtasks.has(p.id))
-  }
-
-  if (pageWorkflowStateFilters.value.length > 0) {
-    const selectedStates = new Set(pageWorkflowStateFilters.value)
-    result = result.filter(page => selectedStates.has(page.workflowState ?? 'OPEN'))
   }
 
   if (hasBackendFilters.value) {
@@ -1661,8 +1583,6 @@ const openedProjectById = computed(() => {
 
 const isPageListFilteringActive = computed(() => {
   return pageNameFilter.value.trim().length > 0
-    || onlyWithOpenSubtasks.value
-    || pageWorkflowStateFilters.value.length > 0
     || hasBackendFilters.value
 })
 
@@ -2323,9 +2243,6 @@ function removeProjectFromLoadedState(projectId: string) {
   loadedProjectMetadata.value = new Set(
     [...loadedProjectMetadata.value].filter(id => id !== projectId)
   )
-
-  const { [projectId]: _filtersRemoved, ...remainingFilters } = backendFilteredPageIdsByProjectId.value
-  backendFilteredPageIdsByProjectId.value = remainingFilters
 }
 
 function clearProjectTabState(projectId: string) {
@@ -2676,8 +2593,8 @@ const {
           :projects="openedProjectsForSidebar"
           :project-accordion-items="projectAccordionItems"
           :page-name-filter="pageNameFilter"
-          :only-with-open-subtasks="onlyWithOpenSubtasks"
-          :has-backend-filters="hasBackendFilters"
+          :only-with-open-subtasks="false"
+          :has-backend-filters="false"
           :backend-filtered-page-ids-by-project-id="backendFilteredPageIdsByProjectId"
           :visible="true"
           :get-project-context-menu-items="getProjectContextMenuItems"
@@ -2692,8 +2609,8 @@ const {
           :projects="openedProjectsForSidebar"
           :project-accordion-items="projectAccordionItems"
           :page-name-filter="pageNameFilter"
-          :only-with-open-subtasks="onlyWithOpenSubtasks"
-          :has-backend-filters="hasBackendFilters"
+          :only-with-open-subtasks="false"
+          :has-backend-filters="false"
           :backend-filtered-page-ids-by-project-id="backendFilteredPageIdsByProjectId"
           :visible="visible"
           :get-project-context-menu-items="getProjectContextMenuItems"
