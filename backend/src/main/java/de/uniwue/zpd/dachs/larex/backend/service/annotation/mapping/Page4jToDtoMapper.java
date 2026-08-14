@@ -85,14 +85,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class Page4jToDtoMapper {
 
-    private int imageWidth;
-    private int imageHeight;
-    private PageXmlPresenceIndex presenceIndex;
-
-    private static String nullIfEmpty(String value) {
-        return (value == null || value.isBlank()) ? null : value;
-    }
-
     public PageDto toDto(Page page) {
         return toDto(page, null);
     }
@@ -102,10 +94,28 @@ public class Page4jToDtoMapper {
             return null;
         }
 
-        this.presenceIndex = presenceIndex;
-        PageLayout layout = page.getLayout();
+        return new Page4jToDtoMappingSession(page.getLayout(), presenceIndex).toDto(page);
+    }
+}
+
+final class Page4jToDtoMappingSession {
+
+    private final int imageWidth;
+    private final int imageHeight;
+    private final PageXmlPresenceIndex presenceIndex;
+
+    Page4jToDtoMappingSession(PageLayout layout, PageXmlPresenceIndex presenceIndex) {
         this.imageWidth = layout.getWidth();
         this.imageHeight = layout.getHeight();
+        this.presenceIndex = presenceIndex;
+    }
+
+    private static String nullIfEmpty(String value) {
+        return (value == null || value.isBlank()) ? null : value;
+    }
+
+    PageDto toDto(Page page) {
+        PageLayout layout = page.getLayout();
 
         return new PageDto(
             page.getImageFilename(),
@@ -920,5 +930,4 @@ public class Page4jToDtoMapper {
             default -> false;
         };
     }
-
 }

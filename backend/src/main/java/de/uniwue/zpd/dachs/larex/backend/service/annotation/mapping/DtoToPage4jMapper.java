@@ -93,19 +93,28 @@ import org.springframework.stereotype.Component;
 @Component
 public class DtoToPage4jMapper {
 
-    private static final DateTimeFormatter ISO_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-
-    private int imageWidth;
-    private int imageHeight;
-
     public Page toPage4j(PageDto dto) {
         if (dto == null) {
             return null;
         }
 
-        this.imageWidth = dto.imageWidth();
-        this.imageHeight = dto.imageHeight();
+        return new DtoToPage4jMappingSession(dto.imageWidth(), dto.imageHeight()).toPage4j(dto);
+    }
+}
 
+final class DtoToPage4jMappingSession {
+
+    private static final DateTimeFormatter ISO_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
+    private final int imageWidth;
+    private final int imageHeight;
+
+    DtoToPage4jMappingSession(int imageWidth, int imageHeight) {
+        this.imageWidth = imageWidth;
+        this.imageHeight = imageHeight;
+    }
+
+    Page toPage4j(PageDto dto) {
         Page page = new Page(PageXmlInputOutput.getLatestSchemaModel());
         page.setImageFilename(dto.imageFilename());
 
