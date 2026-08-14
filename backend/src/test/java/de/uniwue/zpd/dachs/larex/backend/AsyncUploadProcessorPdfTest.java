@@ -34,6 +34,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.imageio.ImageIO;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -264,5 +265,53 @@ class AsyncUploadProcessorPdfTest {
     assertThat(updated.getPdfRenderDpi()).isEqualTo(150);
     assertThat(updated.getPreflightEstimatedBytes()).isEqualTo(response.estimatedStorageBytes());
     assertThat(updated.getProcessingTotalItems()).isEqualTo(2);
+  }
+
+  @Test
+  void processesCompletedImagesWhileUploadedPdfsWaitForFinalization() throws Exception {
+    Library library = libraryRepository.save(new Library("ws-incremental", "Incremental Library"));
+    Project project = projectRepository.save(new Project("Incremental Project", "desc", library));
+
+    UploadSession session = new UploadSession(project.getId(), library.getWorkspaceId(), "user-incremental", 2, 2);
+    session.setStatus(UploadSession.UploadSessionStatus.UPLOADING);
+    session = uploadSessionRepository.save(session);
+
+    Path sessionDir = tempDir.resolve(session.getId());
+    Files.createDirectories(sessionDir);
+    Path imagePath = sessionDir.resolve("page-1.png");
+    ImageIO.write(new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB), "png", imagePath.toFile());
+    Path pdfPath = sessionDir.resolve("document.pdf");
+    try (PDDocument doc = new PDDocument()) {
+      doc.addPage(new PDPage());
+      doc.save(pdfPath.toFile());
+    }
+
+    UploadSessionFile imageFile = new UploadSessionFile(
+      "page-1.png", Files.size(imagePath), "image/png", "page-1", "png", 1
+    );
+    imageFile.setSession(session);
+    imageFile.setTempFilePath(imagePath.toString());
+    imageFile.setStatus(UploadSessionFile.UploadFileStatus.UPLOADED);
+    imageFile = uploadSessionFileRepository.save(imageFile);
+
+    UploadSessionFile pdfFile = new UploadSessionFile(
+      "document.pdf", Files.size(pdfPath), "application/pdf", "document", "pdf", 1
+    );
+    pdfFile.setSession(session);
+    pdfFile.setTempFilePath(pdfPath.toString());
+    pdfFile.setStatus(UploadSessionFile.UploadFileStatus.UPLOADED);
+    pdfFile = uploadSessionFileRepository.save(pdfFile);
+
+    asyncUploadProcessor.doProcessUploadSession(session.getId());
+
+    assertThat(pageRepository.findByProjectId(project.getId()))
+      .extracting(de.uniwue.zpd.dachs.larex.backend.entity.Page::getName)
+      .containsExactly("page-1");
+    assertThat(uploadSessionFileRepository.findById(imageFile.getId()).orElseThrow().getStatus())
+      .isEqualTo(UploadSessionFile.UploadFileStatus.COMPLETED);
+    assertThat(uploadSessionFileRepository.findById(pdfFile.getId()).orElseThrow().getStatus())
+      .isEqualTo(UploadSessionFile.UploadFileStatus.UPLOADED);
+    assertThat(uploadSessionRepository.findById(session.getId()).orElseThrow().getStatus())
+      .isEqualTo(UploadSession.UploadSessionStatus.UPLOADING);
   }
 }

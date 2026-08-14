@@ -5,7 +5,6 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.JobRealtimePublisher;
-import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadSessionEventBroadcaster;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,9 +25,6 @@ class UploadPageIndexWorkerTest {
     @Mock
     private PageFilterIndexService pageFilterIndexService;
 
-    @Mock
-    private UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
-
     private PageIndexStatusTracker pageIndexStatusTracker;
     private UploadPageIndexWorker worker;
 
@@ -39,7 +35,6 @@ class UploadPageIndexWorkerTest {
                 pageRepository,
                 pageFilterIndexService,
                 pageIndexStatusTracker,
-                uploadSessionEventBroadcaster,
                 mock(JobRealtimePublisher.class)
         );
     }
@@ -56,6 +51,5 @@ class UploadPageIndexWorkerTest {
         worker.indexPageAsync("session-1", "project-1", "page-1");
 
         assertFalse(pageIndexStatusTracker.isIndexing("page-1"));
-        verify(uploadSessionEventBroadcaster).broadcastPageIndexState("session-1", "project-1", "page-1", "failed");
     }
 }

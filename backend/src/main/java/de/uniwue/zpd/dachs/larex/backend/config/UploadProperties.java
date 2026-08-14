@@ -38,6 +38,9 @@ public class UploadProperties {
     @Valid
     private PdfProperties pdf = new PdfProperties();
 
+    @Valid
+    private RealtimeProperties realtime = new RealtimeProperties();
+
     public long getChunkSizeBytes() {
         return chunkSizeBytes;
     }
@@ -108,6 +111,39 @@ public class UploadProperties {
 
     public void setPdf(PdfProperties pdf) {
         this.pdf = pdf;
+    }
+
+    public RealtimeProperties getRealtime() {
+        return realtime;
+    }
+
+    public void setRealtime(RealtimeProperties realtime) {
+        this.realtime = realtime;
+    }
+
+    public static class RealtimeProperties {
+
+        @Min(1)
+        private long coalesceMs = 75;
+
+        @Min(1)
+        private int schedulerPoolSize = 2;
+
+        public long getCoalesceMs() {
+            return coalesceMs;
+        }
+
+        public void setCoalesceMs(long coalesceMs) {
+            this.coalesceMs = coalesceMs;
+        }
+
+        public int getSchedulerPoolSize() {
+            return schedulerPoolSize;
+        }
+
+        public void setSchedulerPoolSize(int schedulerPoolSize) {
+            this.schedulerPoolSize = schedulerPoolSize;
+        }
     }
 
     public static class IndexingProperties {

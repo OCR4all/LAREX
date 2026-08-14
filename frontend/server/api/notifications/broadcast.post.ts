@@ -122,13 +122,16 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  if (eventType === 'JOB_UPDATED') {
+  if (eventType === 'JOB_UPDATED' || eventType === 'UPLOAD_UPDATED') {
     if (!eventPayload || typeof eventPayload !== 'object') {
-      throw createError({ statusCode: 400, statusMessage: 'Invalid job event bridge payload' })
+      throw createError({ statusCode: 400, statusMessage: 'Invalid user realtime event bridge payload' })
     }
     const message = {
       type: eventType,
       payload: eventPayload
+    }
+    if (eventType === 'UPLOAD_UPDATED' && !body?.userId) {
+      throw createError({ statusCode: 400, statusMessage: 'Upload realtime event requires a user' })
     }
     const delivered = body?.userId
       ? websocketUtils.sendToUser(body.userId, { ...message, userId: body.userId })

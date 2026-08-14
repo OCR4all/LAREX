@@ -2,16 +2,13 @@ package de.uniwue.zpd.dachs.larex.backend.controller.upload;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.UploadSessionDto;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.ChunkedUploadService;
-import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadSessionEventBroadcaster;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadSessionProcessingCoordinator;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.List;
@@ -22,14 +19,11 @@ public class UploadController {
 
     private final ChunkedUploadService chunkedUploadService;
     private final UploadSessionProcessingCoordinator uploadSessionProcessingCoordinator;
-    private final UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
 
     public UploadController(ChunkedUploadService chunkedUploadService,
-                            UploadSessionProcessingCoordinator uploadSessionProcessingCoordinator,
-                            UploadSessionEventBroadcaster uploadSessionEventBroadcaster) {
+                            UploadSessionProcessingCoordinator uploadSessionProcessingCoordinator) {
         this.chunkedUploadService = chunkedUploadService;
         this.uploadSessionProcessingCoordinator = uploadSessionProcessingCoordinator;
-        this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
     }
 
     /**
@@ -80,19 +74,6 @@ public class UploadController {
                 request
         );
         return ResponseEntity.ok(response);
-    }
-
-    @GetMapping(path = "/{sessionId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamSessionEvents(
-            @PathVariable String workspaceId,
-            @PathVariable String projectId,
-            @PathVariable String sessionId,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
-        UploadSessionDto.SessionResponse session = chunkedUploadService.getSession(userId, sessionId);
-        if (!workspaceId.equals(session.workspaceId()) || !projectId.equals(session.projectId())) {
-            throw new IllegalArgumentException("Upload session does not belong to the requested project/workspace");
-        }
-        return uploadSessionEventBroadcaster.subscribe(sessionId);
     }
 
     /**

@@ -12,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadSessionFinalizedEvent;
+import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadFileReassembledEvent;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
@@ -47,7 +48,7 @@ public class ChunkedUploadService {
     private final WorkspaceAccessService workspaceAccessService;
     private final UploadDirectoryPreflightService uploadDirectoryPreflightService;
     private final ApplicationEventPublisher applicationEventPublisher;
-    private final UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
+    private final UploadRealtimePublisher uploadRealtimePublisher;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final UploadProperties uploadProperties;
     private final PdfPreflightService pdfPreflightService;
@@ -72,7 +73,7 @@ public class ChunkedUploadService {
                                 WorkspaceAccessService workspaceAccessService,
                                 UploadDirectoryPreflightService uploadDirectoryPreflightService,
                                 ApplicationEventPublisher applicationEventPublisher,
-                                UploadSessionEventBroadcaster uploadSessionEventBroadcaster,
+                                UploadRealtimePublisher uploadRealtimePublisher,
                                 WorkspaceQuotaGuardService workspaceQuotaGuardService,
                                 UploadProperties uploadProperties,
                                 PdfPreflightService pdfPreflightService) {
@@ -82,7 +83,7 @@ public class ChunkedUploadService {
         this.workspaceAccessService = workspaceAccessService;
         this.uploadDirectoryPreflightService = uploadDirectoryPreflightService;
         this.applicationEventPublisher = applicationEventPublisher;
-        this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
+        this.uploadRealtimePublisher = uploadRealtimePublisher;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.uploadProperties = uploadProperties;
         this.pdfPreflightService = pdfPreflightService;
@@ -188,7 +189,7 @@ public class ChunkedUploadService {
         if (session.getStatus() == UploadSessionStatus.PENDING) {
             session.setStatus(UploadSessionStatus.UPLOADING);
             sessionRepository.save(session);
-            uploadSessionEventBroadcaster.broadcastSessionState(session.getId(), "upload-started");
+            uploadRealtimePublisher.broadcastSessionState(session.getId(), "upload-started");
         }
 
         // Update file status
@@ -213,8 +214,9 @@ public class ChunkedUploadService {
 
         fileRepository.save(sessionFile);
         if (fileComplete) {
-            uploadSessionEventBroadcaster.broadcastFileState(sessionId, sessionFile);
-            uploadSessionEventBroadcaster.broadcastSessionState(sessionId, "file-uploaded");
+            uploadRealtimePublisher.broadcastFileState(sessionId, sessionFile);
+            uploadRealtimePublisher.broadcastSessionState(sessionId, "file-uploaded");
+            applicationEventPublisher.publishEvent(new UploadFileReassembledEvent(sessionId, fileId));
         }
 
         log.debug("Received chunk {}/{} for file {} in session {}",
@@ -437,7 +439,7 @@ public class ChunkedUploadService {
         // after this transaction commits to avoid race conditions
         session.setStatus(UploadSessionStatus.PROCESSING);
         sessionRepository.save(session);
-        uploadSessionEventBroadcaster.broadcastSessionState(sessionId, "session-finalized");
+        uploadRealtimePublisher.broadcastSessionState(sessionId, "session-finalized");
         applicationEventPublisher.publishEvent(new UploadSessionFinalizedEvent(sessionId));
 
         log.info("Upload session {} finalized and ready for async processing", sessionId);
@@ -473,7 +475,7 @@ public class ChunkedUploadService {
         if (!unfinishedFiles.isEmpty()) {
             fileRepository.saveAll(unfinishedFiles);
             for (UploadSessionFile unfinishedFile : unfinishedFiles) {
-                uploadSessionEventBroadcaster.broadcastFileState(sessionId, unfinishedFile);
+                uploadRealtimePublisher.broadcastFileState(sessionId, unfinishedFile);
             }
         }
 
@@ -481,7 +483,7 @@ public class ChunkedUploadService {
         session.setCompletedAt(LocalDateTime.now());
         releaseSessionReservationIfNeeded(session, true);
         sessionRepository.save(session);
-        uploadSessionEventBroadcaster.broadcastSessionState(sessionId, "cancelled");
+        uploadRealtimePublisher.broadcastSessionState(sessionId, "cancelled");
 
         // Clean up temp files
         cleanupSessionTempFiles(sessionId);
@@ -544,7 +546,7 @@ public class ChunkedUploadService {
         session.setCompletedAt(completedAt);
         releaseSessionReservationIfNeeded(session, true);
         sessionRepository.save(session);
-        uploadSessionEventBroadcaster.broadcastSessionState(session.getId(), "failed");
+        uploadRealtimePublisher.broadcastSessionState(session.getId(), "failed");
         if (cleanupTempFiles) {
             cleanupSessionTempFiles(session.getId());
         }

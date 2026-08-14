@@ -127,6 +127,18 @@ public class AsyncConfig {
         return scheduler;
     }
 
+    @Bean(name = "uploadRealtimeTaskScheduler")
+    public ThreadPoolTaskScheduler uploadRealtimeTaskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(uploadProperties.getRealtime().getSchedulerPoolSize());
+        scheduler.setThreadNamePrefix("upload-realtime-");
+        scheduler.setRemoveOnCancelPolicy(true);
+        scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+        scheduler.setWaitForTasksToCompleteOnShutdown(false);
+        scheduler.initialize();
+        return scheduler;
+    }
+
     private ThreadPoolTaskExecutor taskExecutor(String label,
                                                 ExecutorPoolProperties pool,
                                                 String threadNamePrefix,

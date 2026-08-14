@@ -2,7 +2,6 @@ package de.uniwue.zpd.dachs.larex.backend.service.upload.indexing;
 
 import de.uniwue.zpd.dachs.larex.backend.config.UploadProperties;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
-import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadSessionEventBroadcaster;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,16 +17,13 @@ public class UploadPageIndexDispatcher {
 
     private final PageIndexStatusTracker pageIndexStatusTracker;
     private final UploadPageIndexWorker uploadPageIndexWorker;
-    private final UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
     private final long staleThresholdMs;
 
     public UploadPageIndexDispatcher(PageIndexStatusTracker pageIndexStatusTracker,
                                      UploadPageIndexWorker uploadPageIndexWorker,
-                                     UploadSessionEventBroadcaster uploadSessionEventBroadcaster,
                                      UploadProperties uploadProperties) {
         this.pageIndexStatusTracker = pageIndexStatusTracker;
         this.uploadPageIndexWorker = uploadPageIndexWorker;
-        this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
         this.staleThresholdMs = uploadProperties.getIndexing().getStaleThresholdMs();
     }
 
@@ -51,12 +47,10 @@ public class UploadPageIndexDispatcher {
                         pageId, event.projectId(), staleThresholdMs);
             }
 
-            uploadSessionEventBroadcaster.broadcastPageIndexState(event.sessionId(), event.projectId(), pageId, "queued");
             try {
                 uploadPageIndexWorker.indexPageAsync(event.sessionId(), event.projectId(), pageId);
             } catch (Exception e) {
                 pageIndexStatusTracker.clearIndexing(pageId);
-                uploadSessionEventBroadcaster.broadcastPageIndexState(event.sessionId(), event.projectId(), pageId, "failed");
                 log.warn("Failed to schedule background indexing for page {} in project {}: {}",
                         pageId, event.projectId(), e.getMessage(), e);
             }

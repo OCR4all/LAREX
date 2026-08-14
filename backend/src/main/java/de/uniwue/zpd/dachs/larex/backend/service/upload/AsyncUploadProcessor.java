@@ -56,7 +56,7 @@ public class AsyncUploadProcessor {
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final ApplicationEventPublisher applicationEventPublisher;
-    private final UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
+    private final UploadRealtimePublisher uploadRealtimePublisher;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final UploadProperties uploadProperties;
 
@@ -72,7 +72,7 @@ public class AsyncUploadProcessor {
                                 HierarchicalFileStorageService hierarchicalFileStorageService,
                                 PageXmlCanonicalizationService pageXmlCanonicalizationService,
                                 ApplicationEventPublisher applicationEventPublisher,
-                                UploadSessionEventBroadcaster uploadSessionEventBroadcaster,
+                                UploadRealtimePublisher uploadRealtimePublisher,
                                 WorkspaceQuotaGuardService workspaceQuotaGuardService,
                                 UploadProperties uploadProperties) {
         this.sessionRepository = sessionRepository;
@@ -87,7 +87,7 @@ public class AsyncUploadProcessor {
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
         this.applicationEventPublisher = applicationEventPublisher;
-        this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
+        this.uploadRealtimePublisher = uploadRealtimePublisher;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.uploadProperties = uploadProperties;
     }
@@ -119,10 +119,11 @@ public class AsyncUploadProcessor {
             return;
         }
 
-        // Uploading only stores and reassembles temporary files. Conversion is
-        // deliberately gated by finalizeSession(), which is called only after
-        // PDF preflight and the user's confirmation.
-        if (session.getStatus() != UploadSessionStatus.PROCESSING) {
+        // Images and XML can be made visible as soon as their files are complete.
+        // PDFs remain gated by finalizeSession() so preflight and confirmation
+        // always happen before the expensive conversion starts.
+        boolean finalized = session.getStatus() == UploadSessionStatus.PROCESSING;
+        if (session.getStatus() != UploadSessionStatus.UPLOADING && !finalized) {
             log.debug("Session {} is not in upload-processing state, current state: {}", sessionId, session.getStatus());
             if (session.getStatus() == UploadSessionStatus.CANCELLED || session.getStatus() == UploadSessionStatus.FAILED) {
                 releaseSessionReservationIfNeeded(session, true);
@@ -141,7 +142,9 @@ public class AsyncUploadProcessor {
         Map<String, List<UploadSessionFile>> filesByBaseName = new HashMap<>();
         for (UploadSessionFile file : filesToProcess) {
             if (isPdfFile(file)) {
-                pdfFiles.add(file);
+                if (finalized) {
+                    pdfFiles.add(file);
+                }
             } else {
                 filesByBaseName.computeIfAbsent(file.getBaseName(), k -> new ArrayList<>()).add(file);
             }
@@ -151,7 +154,7 @@ public class AsyncUploadProcessor {
                 .collect(java.util.stream.Collectors.toMap(Page::getName, page -> page));
         Set<String> existingPageNames = new HashSet<>(pageRepository.findPageNamesByProjectId(project.getId()));
 
-        if (session.getProcessingTotalItems() == 0) {
+        if (finalized) {
             int processingTotalItems = filesByBaseName.size();
             for (UploadSessionFile pdfFile : pdfFiles) {
                 processingTotalItems = safeAddProcessingItems(
@@ -159,7 +162,9 @@ public class AsyncUploadProcessor {
                         getPdfPageCount(pdfFile)
                 );
             }
+            session.setProcessingCompletedItems(0);
             session.setProcessingTotalItems(processingTotalItems);
+            session.setProcessingCurrentFileName(null);
             sessionRepository.save(session);
             emitSessionState(sessionId, "processing-started");
         }
@@ -244,11 +249,13 @@ public class AsyncUploadProcessor {
                 if (stopProcessingIfCancelled(sessionId, session)) {
                     return;
                 }
-                session.setProcessingCurrentFileName(groupFiles.get(0).getOriginalFileName());
-                if (!persistSessionProgressIfNotCancelled(sessionId, session)) {
-                    return;
+                if (finalized) {
+                    session.setProcessingCurrentFileName(groupFiles.get(0).getOriginalFileName());
+                    if (!persistSessionProgressIfNotCancelled(sessionId, session)) {
+                        return;
+                    }
+                    emitSessionState(sessionId, "processing-file");
                 }
-                emitSessionState(sessionId, "processing-file");
                 boolean processed = processFileGroup(sessionId, project, session.getWorkspaceId(), baseName, groupFiles, session.getUserId(), pagesByName, existingPageNames, pagesNeedingIndex);
                 if (!processed || stopProcessingIfCancelled(sessionId, session)) {
                     return;
@@ -269,7 +276,9 @@ public class AsyncUploadProcessor {
                 if (stopProcessingIfCancelled(sessionId, session)) {
                     return;
                 }
-                session.addProcessingCompletedItems(1);
+                if (finalized) {
+                    session.addProcessingCompletedItems(1);
+                }
                 if (!persistSessionProgressIfNotCancelled(sessionId, session)) {
                     return;
                 }
@@ -288,7 +297,9 @@ public class AsyncUploadProcessor {
                     failedCount++;
                     session.incrementFailedFiles();
                 }
-                session.addProcessingCompletedItems(1);
+                if (finalized) {
+                    session.addProcessingCompletedItems(1);
+                }
                 if (stopProcessingIfCancelled(sessionId, session)) {
                     return;
                 }
@@ -341,12 +352,12 @@ public class AsyncUploadProcessor {
                 if (isImageFile(sessionFile)) {
                     processImageFile(page, sessionFile, workspaceId, project.getId(), createdByUserId);
                     if (sessionFile.getStatus() == UploadFileStatus.COMPLETED) {
-                        uploadSessionEventBroadcaster.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "image");
+                        uploadRealtimePublisher.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "image");
                     }
                 } else if (isXmlFile(sessionFile)) {
                     boolean queuedForIndex = processXmlFile(page, sessionFile, workspaceId, project.getId(), createdByUserId);
                     if (sessionFile.getStatus() == UploadFileStatus.COMPLETED) {
-                        uploadSessionEventBroadcaster.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "xml");
+                        uploadRealtimePublisher.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "xml");
                     }
                     if (queuedForIndex) {
                         queuePageIndexing(sessionId, project.getId(), page.getId(), pagesNeedingIndex);
@@ -575,7 +586,7 @@ public class AsyncUploadProcessor {
                     );
 
                     pageImage = pageImageRepository.save(pageImage);
-                    uploadSessionEventBroadcaster.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "pdf");
+                    uploadRealtimePublisher.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "pdf");
 
                     if (firstCreatedPageId == null) {
                         firstCreatedPageId = page.getId();
@@ -832,7 +843,7 @@ public class AsyncUploadProcessor {
 
     private void emitFileState(String sessionId, UploadSessionFile file) {
         try {
-            uploadSessionEventBroadcaster.broadcastFileState(sessionId, file);
+            uploadRealtimePublisher.broadcastFileState(sessionId, file);
         } catch (Exception e) {
             log.debug("Failed to broadcast upload file state for session {} file {}: {}", sessionId, file != null ? file.getId() : "null", e.getMessage());
         }
@@ -840,7 +851,7 @@ public class AsyncUploadProcessor {
 
     private void emitSessionState(String sessionId, String message) {
         try {
-            uploadSessionEventBroadcaster.broadcastSessionState(sessionId, message);
+            uploadRealtimePublisher.broadcastSessionState(sessionId, message);
         } catch (Exception e) {
             log.debug("Failed to broadcast upload session state for session {}: {}", sessionId, e.getMessage());
         }

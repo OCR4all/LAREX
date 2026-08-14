@@ -142,6 +142,9 @@ larex:
       queue-capacity: ${LAREX_UPLOAD_INDEX_ASYNC_QUEUE:200}
     indexing:
       stale-threshold-ms: ${LAREX_UPLOAD_INDEXING_STALE_THRESHOLD_MS:60000}
+    realtime:
+      coalesce-ms: ${LAREX_UPLOAD_REALTIME_COALESCE_MS:75}
+      scheduler-pool-size: ${LAREX_UPLOAD_REALTIME_SCHEDULER_POOL_SIZE:2}
     # PDF rendering configuration. Oversized pages are rendered at a lower DPI
     # so that a single PDF page cannot allocate an unbounded raster in the heap.
     pdf:

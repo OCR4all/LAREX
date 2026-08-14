@@ -62,10 +62,8 @@ export default defineEventHandler(async (event) => {
 
   try {
     const isBlobRequest = path.includes('/blob') || path.includes('/export') || path.includes('/download')
-    const acceptHeader = event.node.req.headers.accept || ''
-    const isSseRequest = typeof acceptHeader === 'string' && acceptHeader.includes('text/event-stream')
 
-    if (isBlobRequest || isSseRequest) {
+    if (isBlobRequest) {
       const query = getQuery(event) as Record<string, string | string[] | undefined>
       const queryString = toQueryString(query)
       const fullUrl = `${backendUrl}${queryString}`
@@ -93,9 +91,6 @@ export default defineEventHandler(async (event) => {
       setHeader(event, 'Content-Type', contentType)
       if (cacheControl) {
         setHeader(event, 'Cache-Control', cacheControl)
-      }
-      if (isSseRequest) {
-        setHeader(event, 'X-Accel-Buffering', 'no')
       }
       if (contentLength) {
         const parsedLength = Number.parseInt(contentLength, 10)
