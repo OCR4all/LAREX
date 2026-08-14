@@ -21,17 +21,7 @@ interface UploadUiFileBase {
   conflictResolution?: string
 }
 
-export interface LocalUploadUiFile extends UploadUiFileBase {
-  source: 'local'
-  file: File
-}
-
-export interface RecoveredUploadUiFile extends UploadUiFileBase {
-  source: 'recovered'
-  file?: undefined
-}
-
-export type UploadUiFile = LocalUploadUiFile | RecoveredUploadUiFile
+export type UploadUiFile = UploadUiFileBase
 
 export interface ActiveUpload {
   sessionId: string
@@ -41,6 +31,7 @@ export interface ActiveUpload {
   status: UploadSessionStatus
   cancelable?: boolean
   totalFiles: number
+  uploadedFiles: number
   processedFiles: number
   failedFiles: number
   progressPercent: number
@@ -64,11 +55,50 @@ function isActiveStatus(status: ActiveUpload['status']): boolean {
 type RegisterUploadOptions = Partial<Pick<ActiveUpload, 'status' | 'processedFiles' | 'failedFiles' | 'progressPercent' | 'processingCompletedItems' | 'processingTotalItems' | 'processingProgressPercent' | 'processingCurrentFileName' | 'created' | 'error' | 'cancelable'>>
 
 export const useUploadStore = defineStore('upload', () => {
-  const activeUploads = ref<Map<string, ActiveUpload>>(new Map())
+  const activeUploads = shallowRef<Map<string, ActiveUpload>>(new Map())
   const showProgressPanel = ref(false)
   const minimized = ref(false)
   const cancellingSessionIds = ref<Set<string>>(new Set())
   const dismissedSessionIds = ref<Set<string>>(new Set())
+  const uploadedFileIdsBySession = new Map<string, Set<string>>()
+  const trackedFileIndexesBySession = new Map<string, Map<string, number>>()
+
+  const MAX_TRACKED_FILE_DETAILS = 20
+
+  function fileKey(file: Pick<UploadUiFile, 'id' | 'fileName'>): string {
+    return file.id || file.fileName
+  }
+
+  function isUploadedFile(file: UploadUiFile): boolean {
+    if (file.totalChunks > 0 && file.chunksReceived >= file.totalChunks) return true
+    return file.status === 'uploaded'
+      || file.status === 'processing'
+      || file.status === 'completed'
+      || file.status === 'failed'
+      || file.status === 'conflict'
+      || file.status === 'skipped'
+  }
+
+  function copyUploadUiFile(file: UploadUiFile): UploadUiFile {
+    const { file: _file, source: _source, ...metadata } = file as UploadUiFile & {
+      file?: File
+      source?: string
+    }
+    return { ...metadata }
+  }
+
+  function rebuildTrackedFileIndex(sessionId: string, files: UploadUiFile[]) {
+    const indexes = new Map<string, number>()
+    files.forEach((file, index) => {
+      indexes.set(file.fileName, index)
+      if (file.id) indexes.set(file.id, index)
+    })
+    trackedFileIndexesBySession.set(sessionId, indexes)
+  }
+
+  function triggerUploads() {
+    triggerRef(activeUploads)
+  }
 
   const hasActiveUploads = computed(() => {
     return Array.from(activeUploads.value.values()).some(
@@ -108,7 +138,10 @@ export const useUploadStore = defineStore('upload', () => {
     nextDismissed.delete(sessionId)
     dismissedSessionIds.value = nextDismissed
 
-    const filesCopy = files.map(f => ({ ...f }))
+    const uploadedFileIds = new Set(files.filter(isUploadedFile).map(fileKey))
+    const filesCopy = files.slice(0, MAX_TRACKED_FILE_DETAILS).map(copyUploadUiFile)
+    uploadedFileIdsBySession.set(sessionId, uploadedFileIds)
+    rebuildTrackedFileIndex(sessionId, filesCopy)
 
     activeUploads.value.set(sessionId, {
       sessionId,
@@ -117,7 +150,8 @@ export const useUploadStore = defineStore('upload', () => {
       workspaceId,
       status: options.status ?? 'PENDING',
       cancelable: options.cancelable ?? true,
-      totalFiles: filesCopy.length,
+      totalFiles: files.length,
+      uploadedFiles: uploadedFileIds.size,
       processedFiles: options.processedFiles ?? 0,
       failedFiles: options.failedFiles ?? 0,
       progressPercent: options.progressPercent ?? 0,
@@ -131,6 +165,7 @@ export const useUploadStore = defineStore('upload', () => {
     })
     showProgressPanel.value = true
     minimized.value = false
+    triggerUploads()
   }
 
   function updateUploadProgress(
@@ -158,8 +193,26 @@ export const useUploadStore = defineStore('upload', () => {
       if (typeof mergedUpdates.failedFiles === 'number') {
         mergedUpdates.failedFiles = Math.max(upload.failedFiles, mergedUpdates.failedFiles)
       }
+      if (typeof mergedUpdates.uploadedFiles === 'number') {
+        mergedUpdates.uploadedFiles = Math.max(upload.uploadedFiles, mergedUpdates.uploadedFiles)
+      }
+      if (mergedUpdates.files) {
+        const allFiles = mergedUpdates.files
+        const uploadedFileIds = uploadedFileIdsBySession.get(sessionId) ?? new Set<string>()
+        for (const file of allFiles) {
+          if (isUploadedFile(file)) uploadedFileIds.add(fileKey(file))
+        }
+        uploadedFileIdsBySession.set(sessionId, uploadedFileIds)
+        mergedUpdates.uploadedFiles = Math.max(upload.uploadedFiles, uploadedFileIds.size)
+        mergedUpdates.files = allFiles.slice(0, MAX_TRACKED_FILE_DETAILS).map(copyUploadUiFile)
+        rebuildTrackedFileIndex(sessionId, mergedUpdates.files)
+      }
+      if (mergedUpdates.status === 'PROCESSING' || mergedUpdates.status === 'COMPLETED') {
+        mergedUpdates.uploadedFiles = Math.max(mergedUpdates.uploadedFiles ?? 0, upload.totalFiles)
+      }
       const updatedUpload = { ...upload, ...mergedUpdates }
       activeUploads.value.set(sessionId, updatedUpload)
+      triggerUploads()
     }
   }
 
@@ -173,64 +226,48 @@ export const useUploadStore = defineStore('upload', () => {
       ...upload,
       sessionId: nextSessionId
     })
+    const uploadedFileIds = uploadedFileIdsBySession.get(previousSessionId)
+    if (uploadedFileIds) {
+      uploadedFileIdsBySession.delete(previousSessionId)
+      uploadedFileIdsBySession.set(nextSessionId, uploadedFileIds)
+    }
+    const trackedFileIndexes = trackedFileIndexesBySession.get(previousSessionId)
+    if (trackedFileIndexes) {
+      trackedFileIndexesBySession.delete(previousSessionId)
+      trackedFileIndexesBySession.set(nextSessionId, trackedFileIndexes)
+    }
 
     if (isCancelling(previousSessionId)) {
       setCancelling(previousSessionId, false)
       setCancelling(nextSessionId, true)
     }
+    triggerUploads()
   }
 
   function updateFileProgress(sessionId: string, fileId: string, updates: Partial<UploadUiFile>) {
     const upload = activeUploads.value.get(sessionId)
     if (upload) {
-      const fileIndex = upload.files.findIndex(f => f.id === fileId || f.fileName === updates.fileName)
-      if (fileIndex !== -1) {
-        const updatedFiles = [...upload.files]
-        const currentFile = updatedFiles[fileIndex]
-        if (!currentFile) return
-
-        let mergedFile: UploadUiFile
-        if (currentFile.source === 'local') {
-          mergedFile = {
-            ...currentFile,
-            ...updates,
-            source: 'local',
-            file: currentFile.file
-          }
-        } else {
-          const { file: _ignoredFile, ...updatesWithoutFile } = updates
-          mergedFile = {
-            ...currentFile,
-            ...updatesWithoutFile,
-            source: 'recovered'
-          }
-        }
-        updatedFiles[fileIndex] = mergedFile
-
-        const totalChunks = updatedFiles.reduce((sum, f) => sum + f.totalChunks, 0)
-        const completedChunks = updatedFiles.reduce((sum, f) => sum + f.chunksReceived, 0)
-        const progressPercent = upload.status === 'PROCESSING'
-          ? upload.progressPercent
-          : totalChunks > 0 ? Math.round((completedChunks / totalChunks) * 100) : 0
-
-        const processedFiles = Math.max(
-          upload.processedFiles,
-          updatedFiles.filter(f => f.status === 'completed').length
-        )
-        const failedFiles = Math.max(
-          upload.failedFiles,
-          updatedFiles.filter(f => f.status === 'failed').length
-        )
-
-        const updatedUpload = {
-          ...upload,
-          files: updatedFiles,
-          progressPercent,
-          processedFiles,
-          failedFiles
-        }
-        activeUploads.value.set(sessionId, updatedUpload)
+      const uploadedFileIds = uploadedFileIdsBySession.get(sessionId) ?? new Set<string>()
+      const statusCandidate = { ...updates, id: fileId, fileName: updates.fileName || fileId } as UploadUiFile
+      if (isUploadedFile(statusCandidate)) {
+        uploadedFileIds.add(fileId || updates.fileName || '')
+        uploadedFileIdsBySession.set(sessionId, uploadedFileIds)
+        upload.uploadedFiles = Math.max(upload.uploadedFiles, uploadedFileIds.size)
       }
+
+      const indexes = trackedFileIndexesBySession.get(sessionId)
+      const fileIndex = indexes?.get(fileId) ?? (updates.fileName ? indexes?.get(updates.fileName) : undefined) ?? -1
+      if (fileIndex !== -1) {
+        const currentFile = upload.files[fileIndex]
+        if (currentFile) {
+          const { file: _file, source: _source, ...safeUpdates } = updates as Partial<UploadUiFile> & {
+            file?: File
+            source?: string
+          }
+          Object.assign(currentFile, safeUpdates)
+        }
+      }
+      triggerUploads()
     }
   }
 
@@ -248,9 +285,11 @@ export const useUploadStore = defineStore('upload', () => {
         ...upload,
         status,
         progressPercent: status === 'COMPLETED' ? 100 : upload.progressPercent,
+        uploadedFiles: status === 'COMPLETED' ? upload.totalFiles : upload.uploadedFiles,
         ...(error ? { error } : {})
       }
       activeUploads.value.set(sessionId, updatedUpload)
+      triggerUploads()
     }
     setCancelling(sessionId, false)
   }
@@ -258,10 +297,13 @@ export const useUploadStore = defineStore('upload', () => {
   function removeUpload(sessionId: string) {
     acknowledgeUpload(sessionId)
     activeUploads.value.delete(sessionId)
+    uploadedFileIdsBySession.delete(sessionId)
+    trackedFileIndexesBySession.delete(sessionId)
     setCancelling(sessionId, false)
     if (activeUploads.value.size === 0) {
       showProgressPanel.value = false
     }
+    triggerUploads()
   }
 
   function clearCompletedUploads() {
@@ -274,11 +316,14 @@ export const useUploadStore = defineStore('upload', () => {
     }
     for (const id of toRemove) {
       activeUploads.value.delete(id)
+      uploadedFileIdsBySession.delete(id)
+      trackedFileIndexesBySession.delete(id)
       setCancelling(id, false)
     }
     if (activeUploads.value.size === 0) {
       showProgressPanel.value = false
     }
+    triggerUploads()
   }
 
   function acknowledgeUpload(sessionId: string) {

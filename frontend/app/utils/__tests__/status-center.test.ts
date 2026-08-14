@@ -13,6 +13,7 @@ function createUpload(overrides: Partial<ActiveUpload> = {}): ActiveUpload {
     workspaceId: 'ws-1',
     status: 'UPLOADING',
     totalFiles: 2,
+    uploadedFiles: 0,
     processedFiles: 0,
     failedFiles: 0,
     progressPercent: 35,
@@ -21,7 +22,6 @@ function createUpload(overrides: Partial<ActiveUpload> = {}): ActiveUpload {
     processingProgressPercent: 0,
     files: [
       {
-        source: 'recovered',
         fileName: 'page-001.png',
         fileSize: 1024,
         mimeType: 'image/png',

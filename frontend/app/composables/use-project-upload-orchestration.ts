@@ -9,7 +9,7 @@ type ProjectPageLike = {
   indexingStatus?: string
 }
 
-type UploadSessionSseEvent = {
+type UploadSessionRealtimeEvent = {
   sessionId: string
   status?: UploadSessionStatus
   processedFiles?: number
@@ -21,7 +21,7 @@ type UploadSessionSseEvent = {
   processingCurrentFileName?: string | null
 }
 
-type UploadFileSseEvent = {
+type UploadFileRealtimeEvent = {
   sessionId: string
   fileId: string
   fileName?: string
@@ -70,20 +70,34 @@ type UploadSessionSummaryResponse = {
   status: UploadSessionStatus
 }
 
-type PageCreatedOrUpdatedSseEvent = {
+type PageCreatedOrUpdatedRealtimeEvent = {
   projectId: string
+  pageId: string
+  pageName?: string
+  reason?: string
+}
+
+type UploadRealtimePayload = {
+  streamId: string
+  sequence: number
+  sessionId: string
+  workspaceId: string
+  projectId: string
+  session: UploadSessionRealtimeEvent
+  files?: UploadFileRealtimeEvent[]
+  pages?: PageCreatedOrUpdatedRealtimeEvent[]
 }
 
 type UploadSessionRuntime = {
-  eventSource: EventSource | null
-  eventsConnected: boolean
   pollTimer: ReturnType<typeof setTimeout> | null
   pollInFlight: boolean
-  pollCount: number
+  realtimeStreamId: string | null
+  realtimeSequence: number
 }
 
 type RefreshPagesOptions = {
   manual?: boolean
+  clearUploadChanges?: boolean
 }
 
 export interface UseProjectUploadOrchestrationOptions<TPage extends ProjectPageLike = ProjectPageLike> {
@@ -101,7 +115,7 @@ export interface UseProjectUploadOrchestrationOptions<TPage extends ProjectPageL
 }
 
 const UPLOAD_PROCESSING_POLL_MS = 2000
-const UPLOAD_PROCESSING_MAX_POLLS = 300
+const UPLOAD_REALTIME_AUDIT_MS = 60_000
 
 function isActiveUploadStatus(status?: UploadSessionStatus): boolean {
   return status === 'PENDING' || status === 'UPLOADING' || status === 'PROCESSING'
@@ -123,6 +137,10 @@ function getSessionProgressPercent(
     return processingProgressPercent
   }
 
+  if (status === 'PENDING' || status === 'UPLOADING') {
+    return fallbackProgressPercent
+  }
+
   if (totalFiles > 0) {
     return Math.round(((processedFiles + failedFiles) / totalFiles) * 100)
   }
@@ -130,6 +148,52 @@ function getSessionProgressPercent(
   return status && isTerminalUploadStatus(status)
     ? 100
     : fallbackProgressPercent
+}
+
+function getRecoveredUploadProgressPercent(files: UploadSessionFileResponse[]): number {
+  const totalBytes = files.reduce((sum, file) => sum + Math.max(0, Number(file.fileSize || 0)), 0)
+  if (totalBytes <= 0) return 0
+  const uploadedBytes = files.reduce((sum, file) => {
+    const chunkCount = Math.max(1, Number(file.chunkCount || 1))
+    const chunksReceived = Math.min(chunkCount, Math.max(0, Number(file.chunksReceived || 0)))
+    return sum + Math.max(0, Number(file.fileSize || 0)) * (chunksReceived / chunkCount)
+  }, 0)
+  return Math.round((uploadedBytes / totalBytes) * 100)
+}
+
+export function getUploadSessionRealtimeProgressPercent(event: UploadSessionRealtimeEvent): number | undefined {
+  const shouldUpdateFromServer
+    = event.status === 'PROCESSING'
+      || event.status === 'COMPLETED'
+      || event.status === 'FAILED'
+      || event.status === 'CANCELLED'
+
+  if (
+    !shouldUpdateFromServer
+    || typeof event.totalFiles !== 'number'
+    || typeof event.processedFiles !== 'number'
+    || typeof event.failedFiles !== 'number'
+  ) {
+    return undefined
+  }
+
+  return getSessionProgressPercent(
+    event.status,
+    event.processedFiles,
+    event.failedFiles,
+    event.totalFiles,
+    0,
+    event.processingProgressPercent
+  )
+}
+
+export function shouldApplyUploadRealtimeSequence(
+  currentStreamId: string | null,
+  currentSequence: number,
+  nextStreamId: string,
+  nextSequence: number
+): boolean {
+  return currentStreamId !== nextStreamId || nextSequence > currentSequence
 }
 
 function hasIndexingPages(list: ProjectPageLike[] | null | undefined): boolean {
@@ -146,8 +210,6 @@ function toUploadFileUiStatus(status?: string | null): UploadUiFileStatus {
 
 function toLocalUiFile(file: UploadFile): UploadUiFile {
   return {
-    source: 'local',
-    file: file.file,
     id: file.id,
     fileName: file.fileName,
     fileSize: file.fileSize,
@@ -173,7 +235,6 @@ function mapServerFileToRecoveredUiFile(file: UploadSessionFileResponse): Upload
   const fileName = file.originalFileName || 'upload-file'
 
   return {
-    source: 'recovered',
     id: file.id,
     fileName,
     fileSize: Number(file.fileSize || 0),
@@ -194,9 +255,13 @@ function mapServerFileToRecoveredUiFile(file: UploadSessionFileResponse): Upload
 export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(options: UseProjectUploadOrchestrationOptions<TPage>) {
   const uploadStore = useUploadStore()
   const uploadSessionActions = useUploadSessionActions()
+  const realtime = useRealtimeSocket()
 
   const isManualPagesRefresh = ref(false)
   const hasLoadedPagesOnce = ref(false)
+  const changedUploadPageIds = ref<Set<string>>(new Set())
+  const hasUnrefreshedUploadChanges = ref(false)
+  const unrefreshedUploadPageCount = computed(() => changedUploadPageIds.value.size)
   const showPagesLoadingSpinner = computed(() => isManualPagesRefresh.value || (!hasLoadedPagesOnce.value && options.pagesPending.value))
 
   watch([options.pages, options.pagesError], ([nextPages, nextError]) => {
@@ -207,21 +272,21 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
 
   const currentUploadSessionId = ref<string | null>(null)
   const tempUploadSessionId = ref<string | null>(null)
-  let pageRefreshDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  let realtimeUnsubscribe: (() => void) | null = null
+  let restoreInFlight: Promise<void> | null = null
+  let orchestrationMounted = false
 
   const uploadSessionRuntimes = ref<Map<string, UploadSessionRuntime>>(new Map())
   const terminalSessionsHandled = ref<Set<string>>(new Set())
 
   const {
     isUploading,
-    files: uploadFiles,
     session: uploadSession,
     error: _uploadError,
     addFiles,
     startUpload,
     cancelUpload,
-    clearFiles,
-    overallProgress: _overallProgress
+    clearFiles
   } = useChunkedUpload({
     workspaceId: options.workspaceId,
     projectId: computed(() => options.projectId) as Ref<string | undefined>,
@@ -246,14 +311,9 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
         return
       }
 
-      const localFiles = uploadFiles.value
-      const totalChunks = localFiles.reduce((sum, f) => sum + f.totalChunks, 0)
-      const completedChunks = localFiles.reduce((sum, f) => sum + f.chunksReceived, 0)
-      const calculatedProgress = totalChunks > 0 ? Math.round((completedChunks / totalChunks) * 100) : 0
-
       uploadStore.updateUploadProgress(sessionId, {
         status: 'UPLOADING',
-        progressPercent: calculatedProgress
+        progressPercent: session.progressPercent
       })
     },
     onFileComplete: (file) => {
@@ -261,6 +321,7 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       if (!sessionId || !file.id) return
 
       uploadStore.updateFileProgress(sessionId, file.id, {
+        fileName: file.fileName,
         status: file.status,
         progress: file.progress,
         chunksReceived: file.chunksReceived
@@ -271,18 +332,21 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       if (!session || !sessionId) return
 
       const existingUpload = uploadStore.activeUploads.get(sessionId)
-      if (existingUpload?.status !== 'FAILED' && existingUpload?.status !== 'CANCELLED') {
+      if (!existingUpload || !isTerminalUploadStatus(existingUpload.status)) {
         uploadStore.updateUploadProgress(sessionId, {
           status: 'PROCESSING',
-          progressPercent: 0,
-          processingCompletedItems: 0,
-          processingTotalItems: 0,
-          processingProgressPercent: 0,
-          processingCurrentFileName: undefined
+          ...(existingUpload?.status !== 'PROCESSING'
+            ? {
+                progressPercent: 0,
+                processingCompletedItems: 0,
+                processingTotalItems: 0,
+                processingProgressPercent: 0,
+                processingCurrentFileName: undefined
+              }
+            : {})
         })
       }
 
-      connectUploadEventSource(sessionId)
       scheduleUploadSessionPoll(sessionId, UPLOAD_PROCESSING_POLL_MS)
       clearFiles()
     },
@@ -309,11 +373,10 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     const existing = uploadSessionRuntimes.value.get(sessionId)
     if (existing) return existing
     const runtime: UploadSessionRuntime = {
-      eventSource: null,
-      eventsConnected: false,
       pollTimer: null,
       pollInFlight: false,
-      pollCount: 0
+      realtimeStreamId: null,
+      realtimeSequence: 0
     }
     uploadSessionRuntimes.value.set(sessionId, runtime)
     return runtime
@@ -326,23 +389,13 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     runtime.pollTimer = null
   }
 
-  function closeUploadEventSource(sessionId: string) {
-    const runtime = uploadSessionRuntimes.value.get(sessionId)
-    if (!runtime) return
-    if (runtime.eventSource) {
-      runtime.eventSource.close()
-      runtime.eventSource = null
-    }
-    runtime.eventsConnected = false
-  }
-
   function stopMonitoringUploadSession(sessionId: string, options: { removeRuntime?: boolean } = {}) {
     clearUploadSessionPollTimer(sessionId)
-    closeUploadEventSource(sessionId)
     const runtime = uploadSessionRuntimes.value.get(sessionId)
     if (runtime) {
       runtime.pollInFlight = false
-      runtime.pollCount = 0
+      runtime.realtimeStreamId = null
+      runtime.realtimeSequence = 0
     }
     if (options.removeRuntime !== false) {
       uploadSessionRuntimes.value.delete(sessionId)
@@ -355,8 +408,25 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     }
   }
 
+  function markUploadPagesChanged(pages: PageCreatedOrUpdatedRealtimeEvent[] = []) {
+    hasUnrefreshedUploadChanges.value = true
+    if (pages.length === 0) return
+
+    const nextPageIds = new Set(changedUploadPageIds.value)
+    for (const page of pages) {
+      if (page.pageId) nextPageIds.add(page.pageId)
+    }
+    changedUploadPageIds.value = nextPageIds
+  }
+
+  function clearUploadPageChanges() {
+    hasUnrefreshedUploadChanges.value = false
+    changedUploadPageIds.value = new Set()
+  }
+
   async function refreshPagesData(refreshOptions: RefreshPagesOptions = {}) {
     const manual = refreshOptions.manual === true
+    const clearUploadChanges = manual || refreshOptions.clearUploadChanges === true
 
     if (manual) {
       isManualPagesRefresh.value = true
@@ -364,6 +434,12 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
 
     try {
       await options.refreshPagesFetch()
+      if (clearUploadChanges && !options.pagesError.value) {
+        clearUploadPageChanges()
+        if (hasIndexingPages(options.pages.value)) {
+          options.onIndexingPagesDetected?.()
+        }
+      }
     } finally {
       if (manual) {
         isManualPagesRefresh.value = false
@@ -374,31 +450,16 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
   async function syncProjectDataAfterUploadTerminal() {
     const workspaceId = options.workspaceId.value
     await Promise.allSettled([
-      refreshPagesData(),
+      refreshPagesData({ clearUploadChanges: true }),
       options.refreshProject(),
       options.refreshProjectStatus(),
       workspaceId ? refreshNuxtData(wsKey(workspaceId, 'storage', 'quota')) : Promise.resolve()
     ])
-
-    if (hasIndexingPages(options.pages.value)) {
-      options.onIndexingPagesDetected?.()
-    }
-  }
-
-  function scheduleUploadPageRefresh() {
-    if (pageRefreshDebounceTimer) return
-    pageRefreshDebounceTimer = setTimeout(() => {
-      pageRefreshDebounceTimer = null
-      void Promise.allSettled([
-        refreshPagesData(),
-        options.refreshProject(),
-        options.refreshProjectStatus()
-      ])
-    }, 800)
   }
 
   function upsertUploadStoreSession(detail: UploadSessionDetailResponse) {
     const mappedFiles = (detail.files ?? []).map(mapServerFileToRecoveredUiFile)
+    const recoveredUploadProgressPercent = getRecoveredUploadProgressPercent(detail.files ?? [])
     const existingUpload = uploadStore.activeUploads.get(detail.id)
     if (!existingUpload) {
       uploadStore.registerUpload(
@@ -410,24 +471,32 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       )
     }
 
+    const preserveLocalUploadState = !!existingUpload
+      && (detail.status === 'PENDING' || detail.status === 'UPLOADING')
+      && currentUploadSessionId.value === detail.id
+
     uploadStore.updateUploadProgress(detail.id, {
       status: detail.status,
       totalFiles: detail.totalFiles,
       processedFiles: detail.processedFiles,
       failedFiles: detail.failedFiles,
-      progressPercent: getSessionProgressPercent(
-        detail.status,
-        detail.processedFiles,
-        detail.failedFiles,
-        detail.totalFiles,
-        detail.progressPercent,
-        detail.processingProgressPercent
-      ),
+      progressPercent: preserveLocalUploadState
+        ? existingUpload.progressPercent
+        : getSessionProgressPercent(
+            detail.status,
+            detail.processedFiles,
+            detail.failedFiles,
+            detail.totalFiles,
+            detail.status === 'PENDING' || detail.status === 'UPLOADING'
+              ? recoveredUploadProgressPercent
+              : detail.progressPercent,
+            detail.processingProgressPercent
+          ),
       processingCompletedItems: detail.processingCompletedItems,
       processingTotalItems: detail.processingTotalItems,
       processingProgressPercent: detail.processingProgressPercent,
       processingCurrentFileName: detail.processingCurrentFileName || undefined,
-      files: mappedFiles
+      ...(!preserveLocalUploadState ? { files: mappedFiles } : {})
     })
   }
 
@@ -455,6 +524,10 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
 
     uploadSessionActions.clearLocalAbortHandler(sessionId)
     stopMonitoringUploadSession(sessionId)
+    const completedUpload = uploadStore.activeUploads.get(sessionId)
+    if (completedUpload && completedUpload.processedFiles > 0) {
+      markUploadPagesChanged()
+    }
     await syncProjectDataAfterUploadTerminal()
 
     if (status === 'FAILED') {
@@ -466,14 +539,10 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     }
   }
 
-  function applyUploadSessionSseEvent(event: UploadSessionSseEvent) {
+  function applyUploadSessionRealtimeEvent(event: UploadSessionRealtimeEvent) {
     if (!event?.sessionId) return
 
-    const shouldUpdateProgressFromServer
-      = event.status === 'PROCESSING'
-        || event.status === 'COMPLETED'
-        || event.status === 'FAILED'
-        || event.status === 'CANCELLED'
+    const serverProgressPercent = getUploadSessionRealtimeProgressPercent(event)
 
     uploadStore.updateUploadProgress(event.sessionId, {
       ...(event.status ? { status: event.status } : {}),
@@ -482,25 +551,15 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       ...(typeof event.processingCompletedItems === 'number' ? { processingCompletedItems: event.processingCompletedItems } : {}),
       ...(typeof event.processingTotalItems === 'number' ? { processingTotalItems: event.processingTotalItems } : {}),
       ...(typeof event.processingProgressPercent === 'number'
-        ? { processingProgressPercent: event.processingProgressPercent, progressPercent: event.processingProgressPercent }
+        ? {
+            processingProgressPercent: event.processingProgressPercent
+          }
         : {}),
       ...(event.processingCurrentFileName !== undefined
         ? { processingCurrentFileName: event.processingCurrentFileName || undefined }
         : {}),
-      ...(shouldUpdateProgressFromServer
-        && typeof event.totalFiles === 'number'
-        && typeof event.processedFiles === 'number'
-        && typeof event.failedFiles === 'number'
-        ? {
-            progressPercent: getSessionProgressPercent(
-              event.status,
-              event.processedFiles,
-              event.failedFiles,
-              event.totalFiles,
-              0,
-              event.processingProgressPercent
-            )
-          }
+      ...(serverProgressPercent !== undefined
+        ? { progressPercent: serverProgressPercent }
         : {})
     })
 
@@ -509,7 +568,7 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     }
   }
 
-  function applyUploadFileSseEvent(event: UploadFileSseEvent) {
+  function applyUploadFileRealtimeEvent(event: UploadFileRealtimeEvent) {
     if (!event?.sessionId || !event?.fileId) return
     const status = event.status ? event.status.toLowerCase() as UploadUiFileStatus : undefined
     uploadStore.updateFileProgress(event.sessionId, event.fileId, {
@@ -524,70 +583,68 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     })
   }
 
-  function scheduleUploadSessionPoll(sessionId: string, delayMs = UPLOAD_PROCESSING_POLL_MS, runtimeOptions: { force?: boolean } = {}) {
+  function scheduleUploadSessionPoll(sessionId: string, delayMs?: number) {
     if (import.meta.server) return
     if (!sessionId) return
     const runtime = ensureUploadSessionRuntime(sessionId)
-    const force = runtimeOptions.force === true
-    if (!force && runtime.eventSource && runtime.eventsConnected) return
-    if (runtime.pollTimer || runtime.pollInFlight) return
+    if (runtime.pollTimer) return
+    const effectiveDelay = delayMs ?? (realtime.connectionStatus.value === 'connected'
+      ? UPLOAD_REALTIME_AUDIT_MS
+      : UPLOAD_PROCESSING_POLL_MS)
     runtime.pollTimer = setTimeout(() => {
       runtime.pollTimer = null
       void pollBackendProcessing(sessionId)
-    }, delayMs)
+    }, effectiveDelay)
   }
 
-  function connectUploadEventSource(sessionId: string) {
-    if (import.meta.server) return
+  function isUploadRealtimePayload(payload: unknown): payload is UploadRealtimePayload {
+    if (!payload || typeof payload !== 'object') return false
+    const candidate = payload as Partial<UploadRealtimePayload>
+    return typeof candidate.streamId === 'string'
+      && typeof candidate.sequence === 'number'
+      && typeof candidate.sessionId === 'string'
+      && typeof candidate.workspaceId === 'string'
+      && typeof candidate.projectId === 'string'
+      && !!candidate.session
+      && typeof candidate.session === 'object'
+      && candidate.session.sessionId === candidate.sessionId
+  }
+
+  function applyUploadRealtimePayload(payload: UploadRealtimePayload) {
     const workspaceId = options.workspaceId.value
-    if (!sessionId || !workspaceId) return
-    const runtime = ensureUploadSessionRuntime(sessionId)
-    if (runtime.eventSource) return
-
-    const es = new EventSource(`/api/workspaces/${workspaceId}/projects/${options.projectId}/upload-sessions/${sessionId}/events`)
-    runtime.eventSource = es
-
-    es.addEventListener('upload-session-state', (raw) => {
-      runtime.eventsConnected = true
-      runtime.pollCount = 0
-      clearUploadSessionPollTimer(sessionId)
-      try {
-        applyUploadSessionSseEvent(JSON.parse((raw as MessageEvent).data))
-      } catch {
-        // Ignore malformed payloads.
-      }
-    })
-
-    es.addEventListener('upload-file-state', (raw) => {
-      try {
-        applyUploadFileSseEvent(JSON.parse((raw as MessageEvent).data))
-      } catch {
-        // Ignore malformed payloads.
-      }
-    })
-
-    es.addEventListener('page-created-or-updated', (raw) => {
-      try {
-        const payload = JSON.parse((raw as MessageEvent).data) as PageCreatedOrUpdatedSseEvent
-        if (payload.projectId === options.projectId) {
-          scheduleUploadPageRefresh()
-        }
-      } catch {
-        // Ignore malformed payloads.
-      }
-    })
-
-    es.addEventListener('page-index-state', () => {
-      options.onIndexingPagesDetected?.()
-    })
-
-    es.onerror = () => {
-      closeUploadEventSource(sessionId)
-      const upload = uploadStore.activeUploads.get(sessionId)
-      if (upload && isActiveUploadStatus(upload.status)) {
-        scheduleUploadSessionPoll(sessionId, 0, { force: true })
-      }
+    if (payload.projectId !== options.projectId || !workspaceId || payload.workspaceId !== workspaceId) {
+      return
     }
+
+    const runtime = ensureUploadSessionRuntime(payload.sessionId)
+    if (!shouldApplyUploadRealtimeSequence(
+      runtime.realtimeStreamId,
+      runtime.realtimeSequence,
+      payload.streamId,
+      payload.sequence
+    )) {
+      return
+    }
+    runtime.realtimeStreamId = payload.streamId
+    runtime.realtimeSequence = payload.sequence
+
+    clearUploadSessionPollTimer(payload.sessionId)
+    applyUploadSessionRealtimeEvent(payload.session)
+    for (const fileEvent of payload.files ?? []) {
+      applyUploadFileRealtimeEvent(fileEvent)
+    }
+    if ((payload.pages?.length ?? 0) > 0) markUploadPagesChanged(payload.pages)
+
+    if (!isTerminalUploadStatus(payload.session.status)) {
+      scheduleUploadSessionPoll(payload.sessionId)
+    }
+  }
+
+  function handleRealtimeMessage(message: { type?: string, payload?: unknown }) {
+    if (message.type !== 'UPLOAD_UPDATED' || !isUploadRealtimePayload(message.payload)) {
+      return
+    }
+    applyUploadRealtimePayload(message.payload)
   }
 
   async function pollBackendProcessing(sessionId: string) {
@@ -595,75 +652,47 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     if (!workspaceId) return
 
     const runtime = ensureUploadSessionRuntime(sessionId)
-    if (runtime.pollInFlight) return
+    if (runtime.pollInFlight) {
+      scheduleUploadSessionPoll(sessionId, UPLOAD_PROCESSING_POLL_MS)
+      return
+    }
     runtime.pollInFlight = true
+    const realtimeStreamAtRequest = runtime.realtimeStreamId
+    const realtimeSequenceAtRequest = runtime.realtimeSequence
 
     try {
-      const status = await $fetch<{
-        status: UploadSessionStatus
-        processedFiles: number
-        failedFiles: number
-        totalFiles: number
-        processingCompletedItems: number
-        processingTotalItems: number
-        processingProgressPercent: number
-        processingCurrentFileName?: string | null
-      }>(
+      const status = await $fetch<UploadSessionDetailResponse>(
         `/api/workspaces/${workspaceId}/projects/${options.projectId}/upload-sessions/${sessionId}`
       )
 
-      uploadStore.updateUploadProgress(sessionId, {
-        status: status.status,
-        processedFiles: status.processedFiles,
-        failedFiles: status.failedFiles,
-        progressPercent: getSessionProgressPercent(
-          status.status,
-          status.processedFiles,
-          status.failedFiles,
-          status.totalFiles,
-          0,
-          status.processingProgressPercent
-        ),
-        processingCompletedItems: status.processingCompletedItems,
-        processingTotalItems: status.processingTotalItems,
-        processingProgressPercent: status.processingProgressPercent,
-        processingCurrentFileName: status.processingCurrentFileName || undefined
-      })
+      if (
+        uploadSessionRuntimes.value.get(sessionId) !== runtime
+        || runtime.realtimeStreamId !== realtimeStreamAtRequest
+        || runtime.realtimeSequence !== realtimeSequenceAtRequest
+      ) {
+        if (uploadSessionRuntimes.value.get(sessionId) === runtime) {
+          scheduleUploadSessionPoll(sessionId)
+        }
+        return
+      }
+
+      upsertUploadStoreSession(status)
 
       if (isTerminalUploadStatus(status.status)) {
         await handleTerminalUploadStatus(sessionId, status.status)
         return
       }
 
-      if (runtime.eventSource && runtime.eventsConnected) {
-        return
+      if (realtime.connectionStatus.value !== 'connected' && status.status === 'PROCESSING') {
+        markUploadPagesChanged()
       }
-
-      runtime.pollCount += 1
-      if (runtime.pollCount % 5 === 0) {
-        await refreshPagesData()
-      }
-
-      if (runtime.pollCount >= UPLOAD_PROCESSING_MAX_POLLS) {
-        uploadStore.completeUpload(sessionId, 'FAILED', 'Processing timeout')
-        stopMonitoringUploadSession(sessionId)
-        return
-      }
-
-      scheduleUploadSessionPoll(sessionId, UPLOAD_PROCESSING_POLL_MS)
+      scheduleUploadSessionPoll(sessionId)
     } catch {
+      if (uploadSessionRuntimes.value.get(sessionId) !== runtime) {
+        return
+      }
       const upload = uploadStore.activeUploads.get(sessionId)
       if (uploadSessionActions.isCancellationInProgress(sessionId) || upload?.status === 'CANCELLED') {
-        stopMonitoringUploadSession(sessionId)
-        return
-      }
-
-      if (runtime.eventSource && runtime.eventsConnected) {
-        return
-      }
-
-      runtime.pollCount += 1
-      if (runtime.pollCount >= UPLOAD_PROCESSING_MAX_POLLS) {
         stopMonitoringUploadSession(sessionId)
         return
       }
@@ -691,12 +720,13 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
           const detail = await $fetch<UploadSessionDetailResponse>(
             `/api/workspaces/${workspaceId}/projects/${options.projectId}/upload-sessions/${sessionSummary.id}`
           )
+          if (!orchestrationMounted) return
 
           upsertUploadStoreSession(detail)
 
           if (isActiveUploadStatus(detail.status)) {
-            connectUploadEventSource(detail.id)
-            scheduleUploadSessionPoll(detail.id, UPLOAD_PROCESSING_POLL_MS)
+            ensureUploadSessionRuntime(detail.id)
+            scheduleUploadSessionPoll(detail.id)
           } else if (isTerminalUploadStatus(detail.status)) {
             await handleTerminalUploadStatus(detail.id, detail.status)
           }
@@ -709,7 +739,35 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     }
   }
 
-  async function startProjectUpload(selectedFiles: File[], baseNameOverrides?: Record<string, string>) {
+  function requestProjectUploadSessionRestore() {
+    if (restoreInFlight) return restoreInFlight
+    restoreInFlight = restoreProjectUploadSessions().finally(() => {
+      restoreInFlight = null
+    })
+    return restoreInFlight
+  }
+
+  function resyncKnownUploadSessions(delayMs = 0) {
+    for (const upload of uploadStore.uploadsArray) {
+      if (
+        upload.projectId !== options.projectId
+        || upload.workspaceId !== options.workspaceId.value
+        || !isActiveUploadStatus(upload.status)
+      ) {
+        continue
+      }
+      ensureUploadSessionRuntime(upload.sessionId)
+    }
+
+    for (const [sessionId] of uploadSessionRuntimes.value) {
+      const upload = uploadStore.activeUploads.get(sessionId)
+      if (!upload || !isActiveUploadStatus(upload.status)) continue
+      clearUploadSessionPollTimer(sessionId)
+      scheduleUploadSessionPoll(sessionId, delayMs)
+    }
+  }
+
+  function startProjectUpload(selectedFiles: File[], baseNameOverrides?: Record<string, string>) {
     const uploadFilesList = addFiles(selectedFiles)
     if (baseNameOverrides) {
       for (const file of uploadFilesList) {
@@ -736,6 +794,10 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       clearFiles()
     })
 
+    void runProjectUpload()
+  }
+
+  async function runProjectUpload() {
     try {
       await startUpload()
     } catch (error) {
@@ -767,8 +829,8 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
 
     currentUploadSessionId.value = newSessionId
     tempUploadSessionId.value = null
-    connectUploadEventSource(newSessionId)
-    scheduleUploadSessionPoll(newSessionId, UPLOAD_PROCESSING_POLL_MS)
+    ensureUploadSessionRuntime(newSessionId)
+    scheduleUploadSessionPoll(newSessionId)
   })
 
   watch(
@@ -784,21 +846,35 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     }
   )
 
+  watch(realtime.connectionStatus, (status, previousStatus) => {
+    if (import.meta.server || !orchestrationMounted) return
+    if (status === 'connected') {
+      resyncKnownUploadSessions(0)
+      void requestProjectUploadSessionRestore()
+    } else if (previousStatus === 'connected' || status === 'error' || status === 'disconnected') {
+      resyncKnownUploadSessions(0)
+    }
+  })
+
   onMounted(() => {
-    void restoreProjectUploadSessions()
+    orchestrationMounted = true
+    realtimeUnsubscribe = realtime.subscribe(handleRealtimeMessage)
+    realtime.connect()
+    void requestProjectUploadSessionRestore()
   })
 
   onBeforeUnmount(() => {
+    orchestrationMounted = false
+    realtimeUnsubscribe?.()
+    realtimeUnsubscribe = null
     stopAllUploadSessionMonitoring()
-    if (pageRefreshDebounceTimer) {
-      clearTimeout(pageRefreshDebounceTimer)
-      pageRefreshDebounceTimer = null
-    }
   })
 
   return {
     isUploading,
     isManualPagesRefresh,
+    hasUnrefreshedUploadChanges,
+    unrefreshedUploadPageCount,
     showPagesLoadingSpinner,
     refreshPagesData,
     startProjectUpload

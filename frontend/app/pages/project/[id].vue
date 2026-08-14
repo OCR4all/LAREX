@@ -438,6 +438,8 @@ async function preflightBeforeFinalize(session: UploadSession, uploadFiles: Uplo
 const {
   isUploading,
   isManualPagesRefresh,
+  hasUnrefreshedUploadChanges,
+  unrefreshedUploadPageCount,
   showPagesLoadingSpinner,
   refreshPagesData,
   startProjectUpload
@@ -525,7 +527,8 @@ async function handleFileUpload(files: FileList | null) {
     selectedPdfPrefixes.value = settings.prefixes
   }
 
-  await startProjectUpload(fileArray, pdfPrefixesByFileName || undefined)
+  startProjectUpload(fileArray, pdfPrefixesByFileName || undefined)
+  fileArray.length = 0
 
   if (fileInput.value) {
     fileInput.value.value = ''
@@ -2494,15 +2497,29 @@ useHead({
           />
         </template>
         <template #right>
-          <UTooltip text="Refresh">
-            <UButton
-              icon="i-lucide-refresh-cw"
-              color="neutral"
-              variant="ghost"
+          <UTooltip
+            :text="hasUnrefreshedUploadChanges
+              ? `${unrefreshedUploadPageCount || 'New'} upload ${unrefreshedUploadPageCount === 1 ? 'change' : 'changes'} available — refresh pages`
+              : 'Refresh'"
+          >
+            <UChip
+              :show="hasUnrefreshedUploadChanges"
+              color="success"
               size="sm"
-              :loading="isManualPagesRefresh"
-              @click="refreshPagesData({ manual: true })"
-            />
+              inset
+              position="top-right"
+              :ui="{ base: 'animate-pulse' }"
+            >
+              <UButton
+                icon="i-lucide-refresh-cw"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :loading="isManualPagesRefresh"
+                aria-label="Refresh pages"
+                @click="refreshPagesData({ manual: true })"
+              />
+            </UChip>
           </UTooltip>
 
           <UTooltip text="Columns">

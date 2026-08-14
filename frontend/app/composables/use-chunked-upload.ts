@@ -3,7 +3,7 @@ import { extractApiErrorMessage } from '@/utils/api-error'
 
 export interface UploadFile {
   id?: string
-  file: File
+  file: File | null
   fileName: string
   fileSize: number
   mimeType: string
@@ -64,6 +64,29 @@ const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024 // 5MB
 const DEFAULT_MAX_CONCURRENT = 3
 const DEFAULT_MAX_RETRIES = 3
 
+export async function runSettledWorkerPool<T>(
+  items: readonly T[],
+  concurrency: number,
+  task: (item: T) => Promise<void>,
+  shouldStop: () => boolean = () => false
+): Promise<void> {
+  let nextItemIndex = 0
+  const workerCount = Math.min(Math.max(1, concurrency), items.length)
+  const worker = async () => {
+    while (!shouldStop()) {
+      const item = items[nextItemIndex]
+      nextItemIndex += 1
+      if (item === undefined) return
+      try {
+        await task(item)
+      } catch {
+        // Match Promise.allSettled semantics while retaining only workerCount promises.
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+}
+
 export function useChunkedUpload(options: UseChunkedUploadOptions) {
   const {
     workspaceId,
@@ -79,12 +102,15 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
   } = options
 
   const session = ref<UploadSession | null>(null)
-  const files = ref<UploadFile[]>([])
+  const files = shallowRef<UploadFile[]>([])
   const isUploading = ref(false)
   const isPaused = ref(false)
   const error = ref<string | null>(null)
 
   let abortController: AbortController | null = null
+  let totalUploadBytes = 0
+  let completedUploadBytes = 0
+  let progressTimer: ReturnType<typeof setTimeout> | null = null
 
   function parseFileName(fileName: string): { baseName: string, variant: string } {
     const dotIndex = fileName.indexOf('.')
@@ -101,7 +127,7 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
     const uploadFiles: UploadFile[] = newFiles.map((file) => {
       const { baseName, variant } = parseFileName(file.name)
       return {
-        file,
+        file: markRaw(file),
         fileName: file.name,
         fileSize: file.size,
         mimeType: file.type || 'application/octet-stream',
@@ -118,13 +144,19 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
   }
 
   function removeFile(fileName: string) {
+    const removed = files.value.find(file => file.fileName === fileName)
+    if (removed) removed.file = null
     files.value = files.value.filter(f => f.fileName !== fileName)
   }
 
   function clearFiles() {
+    for (const file of files.value) file.file = null
     files.value = []
     session.value = null
     error.value = null
+    clearProgressTimer()
+    totalUploadBytes = 0
+    completedUploadBytes = 0
   }
 
   async function createSession(): Promise<UploadSession> {
@@ -152,12 +184,11 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
       }
     )
 
-    session.value = response
-
     if (response.files && Array.isArray(response.files)) {
+      const localFilesByName = new Map(files.value.map(file => [file.fileName, file]))
       for (const serverFile of response.files as UploadSessionServerFile[]) {
         const serverFileName = serverFile.originalFileName || serverFile.fileName
-        const localFile = files.value.find(f => f.fileName === serverFileName)
+        const localFile = localFilesByName.get(serverFileName)
         if (localFile) {
           localFile.id = serverFile.id
           localFile.totalChunks = serverFile.chunkCount || serverFile.totalChunks
@@ -165,7 +196,11 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
       }
     }
 
-    return response
+    // The server file list is only needed to attach IDs to local entries. Keeping
+    // a second full 1,500-file response tree alive for the entire upload doubles
+    // the metadata retained by the long-running upload task.
+    session.value = { ...response, files: [] }
+    return session.value
   }
 
   async function uploadChunkWithRetry(
@@ -221,6 +256,12 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
     uploadFile.status = 'uploading'
 
     const file = uploadFile.file
+    if (!file) {
+      const err = new Error(`Local file is no longer available: ${uploadFile.fileName}`)
+      uploadFile.status = 'failed'
+      uploadFile.error = err.message
+      throw err
+    }
     const totalChunks = uploadFile.totalChunks
 
     for (let chunkIndex = uploadFile.chunksReceived; chunkIndex < totalChunks; chunkIndex++) {
@@ -244,9 +285,10 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
         uploadFile.chunksReceived = chunkIndex + 1
         uploadFile.progress = Math.round((uploadFile.chunksReceived / totalChunks) * 100)
 
-        updateSessionProgress()
+        updateSessionProgress(chunk.size)
       } catch (err) {
         uploadFile.status = 'failed'
+        uploadFile.file = null
         const message = extractApiErrorMessage(err, 'Upload failed')
         uploadFile.error = message
         onError?.(new Error(message), uploadFile)
@@ -255,49 +297,52 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
     }
 
     uploadFile.status = 'uploaded'
+    uploadFile.file = null
     onFileComplete?.(uploadFile)
   }
 
   async function uploadFilesWithConcurrency(): Promise<void> {
     const pendingFiles = files.value.filter(f => f.status === 'pending' || f.status === 'uploading')
-
-    const uploadPromises: Promise<void>[] = []
-    let activeUploads = 0
-
-    for (const file of pendingFiles) {
-      if (isPaused.value) break
-
-      while (activeUploads >= maxConcurrentChunks && !isPaused.value) {
-        await new Promise(resolve => setTimeout(resolve, 100))
-      }
-
-      if (isPaused.value) break
-
-      activeUploads++
-      const promise = uploadFile(file)
-        .finally(() => { activeUploads-- })
-
-      uploadPromises.push(promise)
-    }
-
-    await Promise.allSettled(uploadPromises)
+    await runSettledWorkerPool(pendingFiles, maxConcurrentChunks, uploadFile, () => isPaused.value)
   }
 
-  function updateSessionProgress() {
+  function clearProgressTimer() {
+    if (!progressTimer) return
+    clearTimeout(progressTimer)
+    progressTimer = null
+  }
+
+  function emitProgressNow() {
+    clearProgressTimer()
+    if (session.value) onProgress?.(session.value)
+  }
+
+  function scheduleProgressUpdate() {
+    if (progressTimer) return
+    progressTimer = setTimeout(() => {
+      progressTimer = null
+      if (session.value) onProgress?.(session.value)
+    }, 100)
+  }
+
+  function initializeProgressCounters() {
+    totalUploadBytes = files.value.reduce((sum, file) => sum + file.fileSize, 0)
+    completedUploadBytes = files.value.reduce((sum, file) => {
+      if (file.totalChunks <= 0) return sum
+      const completedRatio = Math.min(1, Math.max(0, file.chunksReceived / file.totalChunks))
+      return sum + file.fileSize * completedRatio
+    }, 0)
+  }
+
+  function updateSessionProgress(uploadedBytes: number) {
     if (!session.value) return
 
-    const totalChunks = files.value.reduce((sum, f) => sum + f.totalChunks, 0)
-    const completedChunks = files.value.reduce((sum, f) => sum + f.chunksReceived, 0)
-
-    session.value.processedBytes = files.value.reduce((sum, f) => {
-      return sum + (f.chunksReceived / f.totalChunks) * f.fileSize
-    }, 0)
-
-    session.value.progressPercent = totalChunks > 0
-      ? Math.round((completedChunks / totalChunks) * 100)
+    completedUploadBytes = Math.min(totalUploadBytes, completedUploadBytes + Math.max(0, uploadedBytes))
+    session.value.processedBytes = completedUploadBytes
+    session.value.progressPercent = totalUploadBytes > 0
+      ? Math.round((completedUploadBytes / totalUploadBytes) * 100)
       : 0
-
-    onProgress?.(session.value)
+    scheduleProgressUpdate()
   }
 
   async function finalizeSession(conflictResolutions?: Array<{ fileId: string, resolution: string }>): Promise<void> {
@@ -306,7 +351,7 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
     }
 
     session.value.status = 'PROCESSING'
-    onProgress?.(session.value)
+    emitProgressNow()
 
     try {
       await $fetch(
@@ -338,6 +383,8 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
       if (!session.value) {
         await createSession()
       }
+
+      initializeProgressCounters()
 
       await uploadFilesWithConcurrency()
 
@@ -381,6 +428,9 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
     isPaused.value = true
     abortController?.abort()
 
+    for (const file of files.value) file.file = null
+    clearProgressTimer()
+
     session.value = null
     isUploading.value = false
   }
@@ -401,11 +451,7 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
   const totalFiles = computed(() => files.value.length)
   const completedFiles = computed(() => files.value.filter(f => f.status === 'completed').length)
   const failedFiles = computed(() => files.value.filter(f => f.status === 'failed').length)
-  const overallProgress = computed(() => {
-    if (files.value.length === 0) return 0
-    const totalProgress = files.value.reduce((sum, f) => sum + f.progress, 0)
-    return Math.round(totalProgress / files.value.length)
-  })
+  const overallProgress = computed(() => session.value?.progressPercent ?? 0)
 
   return {
     session: readonly(session),

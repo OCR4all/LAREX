@@ -510,8 +510,8 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
                     <span class="min-w-0 flex-1 truncate">{{ file.fileName }}</span>
                     <span class="shrink-0 text-muted">{{ formatBytes(file.fileSize) }}</span>
                   </div>
-                  <div v-if="job.upload.files.length > 20" class="p-1 text-xs text-muted">
-                    ... and {{ job.upload.files.length - 20 }} more files
+                  <div v-if="job.upload.totalFiles > job.upload.files.length" class="p-1 text-xs text-muted">
+                    ... and {{ job.upload.totalFiles - job.upload.files.length }} more files
                   </div>
                 </div>
               </UCollapsible>

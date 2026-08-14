@@ -158,15 +158,7 @@ export function getUploadStatusLabel(upload: ActiveUpload): string {
 }
 
 export function getUploadedFileCount(upload: ActiveUpload): number {
-  return upload.files.filter((file) => {
-    if (file.totalChunks > 0 && file.chunksReceived >= file.totalChunks) return true
-    return file.status === 'uploaded'
-      || file.status === 'processing'
-      || file.status === 'completed'
-      || file.status === 'failed'
-      || file.status === 'conflict'
-      || file.status === 'skipped'
-  }).length
+  return Math.min(upload.totalFiles, upload.uploadedFiles)
 }
 
 export function getSettledFileCount(upload: ActiveUpload): number {

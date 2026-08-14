@@ -46,8 +46,6 @@ function getFileVariant(fileName: string) {
 function toUploadUiFile(input: TrackedUploadFileInput, status: UploadUiFile['status']): UploadUiFile {
   const fileName = input.fileName || input.file.name
   return {
-    source: 'local',
-    file: input.file,
     id: fileName,
     fileName,
     fileSize: input.file.size,
