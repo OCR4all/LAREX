@@ -19,7 +19,8 @@ import {
   LazyUiConfirmSlideover,
   LazyUiDeleteSlideover,
   LazyEditorVersionHistorySlideover,
-  LazyShareSlideover } from '#components'
+  LazyShareSlideover, UChip
+} from '#components'
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import type { DropdownMenuItem, BreadcrumbItem } from '@nuxt/ui'
@@ -33,7 +34,6 @@ import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodec
 import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse } from '@/types/dictionary'
 import type { ApplySourcesResponse, NormalizePreview, NormalizeSourcesResponse, NormalizationProfile, NormalizationProjectScope, NormalizeTarget } from '@/types/normalization-profile'
 import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/types/validation-ruleset'
-import PageImageFolderBadge from '@/components/page/image-folder-badge.vue'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowState, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
 import type { UploadFile, UploadSession } from '@/composables/use-chunked-upload'
@@ -2111,13 +2111,37 @@ const pageColumns = [
         }
       })
     ]),
-    cell: ({ row }: { row: { original: Page } }) => h(PageImageFolderBadge, {
-      projectId,
-      pageName: row.original.name,
-      imageCount: row.original.imageCount,
-      images: row.original.imageVariants ?? [],
-      onOpen: () => openImageModal(row.original)
-    })
+    cell: ({ row }: { row: { original: Page } }) => {
+      const page = row.original
+      const hasImages = page.imageCount > 0
+      const label = hasImages
+        ? `View ${page.imageCount} ${page.imageCount === 1 ? 'image' : 'images'} for ${page.name}`
+        : `No images for ${page.name}`
+
+      return h('div', { class: 'flex justify-end' }, [
+        h(UChip, {
+          inset: false,
+          show: hasImages,
+          text: page.imageCount,
+          color: 'neutral',
+          position: 'top-right',
+          ui: { base: 'h-4 min-w-4 px-1 text-[10px] leading-none tabular-nums ring-2 ring-bg' }
+        }, () => h(UButton, {
+          'icon': 'i-lucide-images',
+          'color': hasImages ? 'success' : 'neutral',
+          'variant': hasImages ? 'soft' : 'ghost',
+          'size': 'sm',
+          'square': true,
+          'disabled': !hasImages,
+          'aria-label': label,
+          'title': label,
+          'onClick': (event: MouseEvent) => {
+            event.stopPropagation()
+            openImageModal(page)
+          }
+        }))
+      ])
+    }
   },
   {
     id: 'mySubtasks',
@@ -2795,7 +2819,7 @@ useHead({
           <Transition name="release-sidebar">
             <aside
               v-if="isReleaseSidebarVisible"
-              class="hidden w-[340px] shrink-0 self-stretch border-l border-default bg-muted/40 xl:block"
+              class="hidden w-85 shrink-0 self-stretch border-l border-default bg-muted/40 xl:block"
             >
               <ProjectReleasePanel
                 :releases="releasesForSidebar"
@@ -2813,7 +2837,7 @@ useHead({
           <Transition name="release-sidebar">
             <aside
               v-if="isOutputSidebarVisible"
-              class="hidden w-[380px] shrink-0 self-stretch border-l border-default bg-muted/40 xl:block"
+              class="hidden w-95 shrink-0 self-stretch border-l border-default bg-muted/40 xl:block"
             >
               <ProjectOutputPanel
                 :outputs="outputsForPanel"
