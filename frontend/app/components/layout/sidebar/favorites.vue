@@ -18,22 +18,14 @@ const starredKey = computed(() => {
   return wsKey(selectedWorkspace.value, 'projects', 'starred')
 })
 
-const { data: starredProjects, refresh: refreshStarredProjects } = await useFetch<StarredProject[]>(() =>
+const { data: starredProjects } = await useFetch<StarredProject[]>(() =>
   `/api/stars/workspace/${selectedWorkspace.value as string}`,
 {
   key: starredKey,
   watch: [selectedWorkspace],
   default: () => [],
-  immediate: false
+  immediate: !!selectedWorkspace.value
 })
-
-watch(selectedWorkspace, (workspaceId) => {
-  if (workspaceId) {
-    void refreshStarredProjects()
-  } else {
-    starredProjects.value = []
-  }
-}, { immediate: true })
 
 const displayedProjects = computed(() => {
   if (!starredProjects.value) return []
