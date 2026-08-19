@@ -93,6 +93,14 @@ public class PageDto {
             LocalDateTime created
     ) {}
 
+    public record ImageDownloadRequest(
+            @NotEmpty(message = "Image IDs are required")
+            @Size(max = 100, message = "At most 100 images can be downloaded at once")
+            List<String> imageIds,
+            @Size(max = 120, message = "Archive name must not exceed 120 characters")
+            String archiveName
+    ) {}
+
     public record XmlResponse(
             String id,
             String fileName,

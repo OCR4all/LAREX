@@ -18,6 +18,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.PageTextConfidenceStatsSer
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchPreviewService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
+import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.task.SubtaskService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagLookupService;
@@ -68,6 +69,7 @@ public class PageController {
     private final PageOrderService pageOrderService;
     private final PageTextConfidenceStatsService pageTextConfidenceStatsService;
     private final PageWorkflowService pageWorkflowService;
+    private final ArchiveIoService archiveIoService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -79,9 +81,10 @@ public class PageController {
                           DocumentExportService documentExportService,
                           WorkspaceQuotaGuardService workspaceQuotaGuardService,
                           SearchPreviewService searchPreviewService,
-                          PageOrderService pageOrderService,
-                          PageTextConfidenceStatsService pageTextConfidenceStatsService,
-                          PageWorkflowService pageWorkflowService) {
+                           PageOrderService pageOrderService,
+                           PageTextConfidenceStatsService pageTextConfidenceStatsService,
+                           PageWorkflowService pageWorkflowService,
+                           ArchiveIoService archiveIoService) {
         this.pageService = pageService;
         this.subtaskService = subtaskService;
         this.pageFilterIndexService = pageFilterIndexService;
@@ -95,6 +98,7 @@ public class PageController {
         this.pageOrderService = pageOrderService;
         this.pageTextConfidenceStatsService = pageTextConfidenceStatsService;
         this.pageWorkflowService = pageWorkflowService;
+        this.archiveIoService = archiveIoService;
     }
 
     @GetMapping
@@ -700,6 +704,67 @@ public class PageController {
         return ResponseEntity.ok(pageService.deleteImages(projectId, pageId, imageIds, userId));
     }
 
+    @PostMapping("/{pageId}/images/download")
+    public ResponseEntity<StreamingResponseBody> downloadImagesPost(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @Valid @RequestBody PageDto.ImageDownloadRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return downloadImages(projectId, pageId, request.imageIds(), request.archiveName(), userId);
+    }
+
+    @GetMapping("/{pageId}/images/download")
+    public ResponseEntity<StreamingResponseBody> downloadImagesGet(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @RequestParam List<String> imageIds,
+            @RequestParam(required = false) String archiveName,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return downloadImages(projectId, pageId, imageIds, archiveName, userId);
+    }
+
+    private ResponseEntity<StreamingResponseBody> downloadImages(
+            String projectId,
+            String pageId,
+            List<String> imageIds,
+            String archiveName,
+            String userId) {
+        if (imageIds == null || imageIds.isEmpty() || imageIds.size() > 100) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Optional<Page> pageOpt = pageService.getPageById(pageId, userId);
+        if (pageOpt.isEmpty() || !projectId.equals(pageOpt.get().getProject().getId())) {
+            return ResponseEntity.notFound().build();
+        }
+
+        List<PageImage> pageImages = pageService.getPageImages(pageId, userId);
+        Map<String, PageImage> imagesById = pageImages.stream()
+                .collect(Collectors.toMap(PageImage::getId, image -> image));
+        List<String> distinctImageIds = imageIds.stream().distinct().toList();
+        List<PageImage> selectedImages = distinctImageIds.stream()
+                .map(imagesById::get)
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (selectedImages.size() != distinctImageIds.size()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        String fallbackName = sanitizeFileName(pageOpt.get().getName(), "page") + " - images.zip";
+        String normalizedArchiveName = normalizeArchiveName(archiveName, fallbackName);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/zip"));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(normalizedArchiveName)
+                .build());
+
+        StreamingResponseBody body = outputStream -> writeImageArchive(outputStream, selectedImages);
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(body);
+    }
+
     @GetMapping("/{pageId}/thumbnails")
     public ResponseEntity<Map<String, String>> getPageThumbnails(
             @PathVariable String projectId,
@@ -1072,5 +1137,43 @@ public class PageController {
                 .replaceAll("\\s+", " ")
                 .trim();
         return sanitized.isBlank() ? fallback : sanitized;
+    }
+
+    private String normalizeArchiveName(String value, String fallback) {
+        String sanitized = sanitizeFileName(value, fallback);
+        return sanitized.toLowerCase(Locale.ROOT).endsWith(".zip") ? sanitized : sanitized + ".zip";
+    }
+
+    private void writeImageArchive(java.io.OutputStream outputStream, List<PageImage> images) throws IOException {
+        Path uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Set<String> entryNames = new HashSet<>();
+
+        archiveIoService.writeZip(outputStream, zipOutputStream -> {
+            for (PageImage image : images) {
+                Path imagePath = uploadRoot.resolve(image.getFilePath()).normalize();
+                if (!imagePath.startsWith(uploadRoot) || !Files.isRegularFile(imagePath)) {
+                    throw new IOException("Image file is unavailable: " + image.getId());
+                }
+
+                String entryName = uniqueArchiveEntryName(
+                        entryNames,
+                        sanitizeFileName(image.getFileName(), "image-" + image.getId())
+                );
+                entryNames.add(entryName);
+                archiveIoService.writeFileEntry(zipOutputStream, entryName, imagePath);
+            }
+        });
+    }
+
+    private String uniqueArchiveEntryName(Set<String> existingNames, String fileName) {
+        int extensionIndex = fileName.lastIndexOf('.');
+        String stem = extensionIndex > 0 ? fileName.substring(0, extensionIndex) : fileName;
+        String extension = extensionIndex > 0 ? fileName.substring(extensionIndex) : "";
+        String candidate = fileName;
+        int suffix = 2;
+        while (existingNames.contains(candidate)) {
+            candidate = stem + "-" + suffix++ + extension;
+        }
+        return candidate;
     }
 }

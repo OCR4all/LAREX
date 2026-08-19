@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
+import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageTextConfidenceStatsService;
@@ -66,6 +67,8 @@ class PageControllerExportTest {
     private PageTextConfidenceStatsService pageTextConfidenceStatsService;
     @Mock
     private de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService pageWorkflowService;
+    @Mock
+    private ArchiveIoService archiveIoService;
 
     @org.junit.jupiter.api.io.TempDir
     Path tempDir;
@@ -85,7 +88,8 @@ class PageControllerExportTest {
                 searchPreviewService,
                 pageOrderService,
                 pageTextConfidenceStatsService,
-                pageWorkflowService
+                pageWorkflowService,
+                archiveIoService
         );
 
         byte[] body = "hello".getBytes();
@@ -123,7 +127,8 @@ class PageControllerExportTest {
                 searchPreviewService,
                 pageOrderService,
                 pageTextConfidenceStatsService,
-                pageWorkflowService
+                pageWorkflowService,
+                archiveIoService
         );
         ReflectionTestUtils.setField(controller, "uploadDir", tempDir.toString());
 

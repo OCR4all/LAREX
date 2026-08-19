@@ -42,6 +42,7 @@ const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const backgroundDownloads = useBackgroundDownloads()
 const isLoading = ref(true)
 const isDeleting = ref(false)
+const isDownloading = ref(false)
 const hasChanges = ref(false)
 const pageImages = ref<PageImage[]>([])
 const imageStates = ref<Record<string, 'loading' | 'loaded' | 'error'>>({})
@@ -283,6 +284,43 @@ async function downloadImage(image: PageImage) {
   }
 }
 
+async function downloadSelectedImages() {
+  const page = currentPage.value
+  const images = selectedImages.value
+  if (!page || images.length === 0 || isDownloading.value) return
+
+  const query = new URLSearchParams()
+  images.forEach(image => query.append('imageIds', image.id))
+  const fileName = `${page.name} - images.zip`
+  const target = await backgroundDownloads.prepareDownload(fileName)
+  if (!target) return
+
+  isDownloading.value = true
+  try {
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Downloading selected images',
+      subtitle: `${images.length} image${images.length === 1 ? '' : 's'}`,
+      statusLabel: 'Preparing ZIP',
+      completedLabel: 'Downloaded',
+      icon: 'i-lucide-file-archive',
+      task: async (job) => {
+        const response = await fetch(
+          `/api/projects/${props.projectId}/pages/${page.id}/images/download?${query.toString()}`
+        )
+        if (!response.ok) {
+          throw new Error(`Download failed (${response.status})`)
+        }
+        await backgroundDownloads.downloadBlobResponse(response, fileName, job, target)
+      }
+    })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to download selected images'
+    toast.add({ title: 'Download failed', description: message, color: 'error', icon: 'i-lucide-alert-circle' })
+  } finally {
+    isDownloading.value = false
+  }
+}
+
 async function deleteImages(images: PageImage[]) {
   const page = currentPage.value
   if (!page || !canDeleteCurrentPageImages.value || images.length === 0 || isDeleting.value) return
@@ -425,7 +463,10 @@ onUnmounted(() => {
     side="right"
     :dismissible="!lightboxOpen"
     :close="{ onClick: closeSlideover }"
-    :ui="{ content: 'w-full max-w-[96vw] sm:max-w-[92vw] flex flex-col' }"
+    :ui="{
+      content: 'w-full max-w-[96vw] sm:max-w-[92vw] flex flex-col',
+      body: 'flex min-h-0 flex-1 flex-col overflow-hidden p-4 sm:p-6'
+    }"
   >
     <template #header>
       <div class="flex items-center justify-between w-full gap-4">
@@ -469,7 +510,7 @@ onUnmounted(() => {
     </template>
 
     <template #body>
-      <div class="flex flex-col h-[calc(100vh-130px)] overflow-hidden">
+      <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div class="shrink-0 px-4 pt-1">
           <div class="flex items-center justify-between gap-3">
             <UTabs
@@ -495,6 +536,17 @@ onUnmounted(() => {
                   @click="selectAllImages"
                 >
                   {{ selectedImageIds.size === pageImages.length ? 'Clear all' : 'Select all' }}
+                </UButton>
+                <UButton
+                  icon="i-lucide-download"
+                  color="primary"
+                  variant="soft"
+                  size="sm"
+                  :disabled="selectedImageIds.size === 0"
+                  :loading="isDownloading"
+                  @click="downloadSelectedImages"
+                >
+                  Download Selected
                 </UButton>
                 <UButton
                   icon="i-lucide-trash-2"
@@ -530,33 +582,35 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="isLoading" class="flex-1 overflow-auto p-4">
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
-            <div v-for="i in 5" :key="i" class="rounded-2xl bg-elevated p-2.5 shadow-sm">
-              <USkeleton class="aspect-4/5 w-full rounded-xl" />
-              <div class="px-1.5 pt-3 pb-1.5 space-y-2">
-                <div class="flex items-center justify-between gap-3">
-                  <USkeleton class="h-4 w-20" />
-                  <USkeleton class="h-5 w-12 rounded-full" />
-                </div>
-                <USkeleton class="h-3 w-3/4" />
-              </div>
-            </div>
-          </div>
+        <div v-if="isLoading" class="flex-1 min-h-0 overflow-hidden p-4 sm:p-5">
+          <USkeleton class="size-full" />
         </div>
 
-        <div v-else-if="activeTab === 'overview' && pageImages.length > 0" class="flex-1 overflow-auto p-4 sm:p-5">
-          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
-            <article
-              v-for="image in pageImages"
-              :key="image.id"
-              class="group relative min-w-0 cursor-pointer rounded-2xl bg-elevated p-2.5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-            >
+        <div v-else-if="activeTab === 'overview' && pageImages.length > 0" class="flex-1 min-h-0 overflow-hidden p-20">
+          <UCarousel
+            v-slot="{ item: image }"
+            :items="pageImages"
+            arrows
+            wheel-gestures
+            :prev="{ variant: 'solid' }"
+            :next="{ variant: 'solid' }"
+            :ui="{
+              viewport: 'h-full min-h-0 overflow-hidden',
+              container: 'h-full min-h-0 items-stretch ms-0',
+              item: 'h-full min-h-0 basis-1/3',
+              prev: 'sm:start-8',
+              next: 'sm:end-8'
+            }"
+            class="h-full min-h-0 max-h-full overflow-hidden"
+          >
+            <article class="group relative h-full min-w-0 cursor-pointer overflow-hidden bg-default">
               <button
                 v-if="isSelectionMode"
                 type="button"
-                class="absolute left-4 top-4 z-30 flex size-7 items-center justify-center rounded-full border bg-default shadow-sm"
-                :class="selectedImageIds.has(image.id) ? 'border-primary text-primary' : 'border-default text-muted'"
+                class="absolute left-4 top-4 z-30 flex size-7 items-center justify-center rounded-full border bg-default shadow-sm transition-colors duration-150"
+                :class="selectedImageIds.has(image.id)
+                  ? 'border-success bg-success text-white shadow-lg ring-2 ring-success/30'
+                  : 'border-default text-muted'"
                 :aria-label="selectedImageIds.has(image.id) ? `Deselect ${image.fileName}` : `Select ${image.fileName}`"
                 @click.stop="toggleImageSelection(image.id)"
               >
@@ -570,50 +624,49 @@ onUnmounted(() => {
                 class="absolute inset-0 z-10 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 @click="isSelectionMode ? toggleImageSelection(image.id) : openLightbox(image)"
               />
-              <div class="relative aspect-[4/5] overflow-hidden rounded-xl bg-default">
-                <div
-                  v-if="imageStates[image.id] === 'loading'"
-                  class="absolute inset-0 flex items-center justify-center text-muted"
-                >
-                  <UIcon name="i-lucide-loader" class="size-5 animate-spin" />
-                </div>
-                <div
-                  v-if="imageStates[image.id] === 'error'"
-                  class="absolute inset-0 flex flex-col items-center justify-center text-muted"
-                >
-                  <UIcon name="i-lucide-image-off" class="size-7 mb-2" />
-                  <span class="text-xs">Failed to load</span>
-                </div>
-                <img
-                  v-show="imageStates[image.id] !== 'error'"
-                  :src="getImageSrc(image.id)"
-                  :alt="image.fileName"
-                  class="size-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.02]"
-                  loading="lazy"
-                  @load="imageStates[image.id] = 'loaded'"
-                  @error="imageStates[image.id] = 'error'"
-                >
+              <div
+                v-if="imageStates[image.id] === 'loading'"
+                class="absolute inset-0 z-20 flex items-center justify-center text-muted"
+              >
+                <UIcon name="i-lucide-loader" class="size-5 animate-spin" />
+              </div>
+              <div
+                v-if="imageStates[image.id] === 'error'"
+                class="absolute inset-0 z-20 flex flex-col items-center justify-center text-muted"
+              >
+                <UIcon name="i-lucide-image-off" class="mb-2 size-7" />
+                <span class="text-xs">Failed to load</span>
               </div>
 
-              <div class="min-w-0 px-1.5 pt-3 pb-1.5">
+              <img
+                v-show="imageStates[image.id] !== 'error'"
+                :src="getImageSrc(image.id)"
+                :alt="image.fileName"
+                class="block size-full max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                loading="lazy"
+                @load="imageStates[image.id] = 'loaded'"
+                @error="imageStates[image.id] = 'error'"
+              >
+
+              <div class="absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-black/85 via-black/45 to-transparent px-3 pb-3 pt-14 text-white">
                 <div class="flex items-center justify-between gap-3">
-                  <h5 class="truncate text-sm font-semibold text-highlighted">
+                  <h5 class="truncate text-sm font-semibold">
                     {{ image.variant || 'Original' }}
                   </h5>
                   <UBadge
                     size="xs"
                     color="neutral"
                     variant="soft"
-                    class="shrink-0 rounded-full tabular-nums"
+                    class="shrink-0 rounded-full bg-black/35 text-white tabular-nums backdrop-blur-sm"
                   >
                     {{ formatFileSize(image.fileSize) }}
                   </UBadge>
                 </div>
-                <div class="mt-1.5 flex items-center justify-between gap-3">
-                  <p class="min-w-0 truncate text-xs text-muted">
+                <div class="mt-1 flex items-center justify-between gap-3">
+                  <p class="min-w-0 truncate text-xs text-white/75">
                     {{ image.fileName }}
                   </p>
-                  <div class="relative z-20 shrink-0">
+                  <div class="relative z-30 shrink-0">
                     <UDropdownMenu
                       :items="getImageCardItems(image)"
                       :content="{ align: 'end' }"
@@ -623,6 +676,7 @@ onUnmounted(() => {
                         size="sm"
                         color="neutral"
                         variant="ghost"
+                        class="text-white hover:bg-white/15 hover:text-white"
                         aria-label="Open image actions"
                       />
                     </UDropdownMenu>
@@ -630,7 +684,7 @@ onUnmounted(() => {
                 </div>
               </div>
             </article>
-          </div>
+          </UCarousel>
         </div>
 
         <div v-else-if="activeTab === 'compare' && pageImages.length >= 2" class="flex-1 flex flex-col min-h-0 p-4 gap-4">
