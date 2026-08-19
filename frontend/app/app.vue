@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { provideSSRWidth } from '@vueuse/core'
+
+provideSSRWidth(1024)
+
 const colorMode = useColorMode()
 const { instanceName } = useInstance()
 const { loggedIn } = useUserSession()

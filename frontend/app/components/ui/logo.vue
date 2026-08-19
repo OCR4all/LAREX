@@ -1,9 +1,25 @@
 <template>
   <svg
-    :width="size"
-    :height="size"
+    v-if="isLetterViewBox"
+    :style="svgStyle"
     :class="[className]"
-    :viewBox="viewBox"
+    viewBox="800 550 1400 2200"
+    xmlns="http://www.w3.org/2000/svg"
+    role="img"
+    :aria-label="ariaLabel"
+  >
+    <path
+      :fill="textColor"
+      :stroke="strokeColor"
+      stroke-width="0"
+      :d="letterPath"
+    />
+  </svg>
+  <svg
+    v-else
+    :style="svgStyle"
+    :class="[className]"
+    viewBox="0 0 3360 3360"
     xmlns="http://www.w3.org/2000/svg"
     role="img"
     :aria-label="ariaLabel"
@@ -13,7 +29,7 @@
       :fill="backgroundColor"
       :stroke="strokeColor"
       stroke-width="0"
-      d="m 480,0 h 2400 c 265.92,0 480,214.08 480,480 v 2400 c 0,265.92 -214.08,480 -480,480 H 480 C 214.08,3360 0,3145.92 0,2880 V 480 C 0,214.08 214.08,0 480,0 Z"
+      d="m 480,0 h 2400 c 265.92,0 480,214.08 480,480 v 2400 c 0,265.92 -214.08 480 -480,480 H 480 C 214.08,3360 0,3145.92 0,2880 V 480 C 0,214.08 214.08,0 480,0 Z"
     />
     <path
       :fill="textColor"
@@ -46,11 +62,19 @@ const showBackground = computed(() => {
   return !['letter-only', 'splash-screen'].includes(props.variant)
 })
 
-const viewBox = computed(() => {
+const isLetterViewBox = computed(() => {
   return ['letter-only', 'splash-screen'].includes(props.variant)
-    ? '800 550 1400 2200'
-    : '0 0 3360 3360'
 })
+
+const svgSize = computed(() => {
+  if (typeof props.size === 'number') return `${props.size}px`
+  return /^\d+(?:\.\d+)?$/.test(props.size) ? `${props.size}px` : props.size
+})
+
+const svgStyle = computed(() => ({
+  width: svgSize.value,
+  height: svgSize.value
+}))
 
 const letterPath = computed(() => {
   return 'm 840.6445,600.41017 q 90.8203,0 360.3516,0 0,448.24223 0,1798.82813 -90.8203,0 -360.3516,0 0,-448.2422 0,-1798.82813 z m 360.3516,1798.82813 q 331.0547,0 1318.3594,0 0,90.8203 0,360.3516 -246.0938,0 -987.3047,0 -84.961,0 -331.0547,0 0,-90.8204 0,-360.3516 z'
