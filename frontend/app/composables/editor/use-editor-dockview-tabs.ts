@@ -46,7 +46,7 @@ export function useEditorDockviewTabs(options: EditorDockviewTabsOptions) {
     })
   }
 
-  function ensurePagePanelExists(projectId: string, pageId: string) {
+  function ensurePagePanelExists(projectId: string, pageId: string, panelOptions?: { inactive?: boolean }) {
     const api = options.projectDockviewRegistry.get(projectId)
     if (!api) return
 
@@ -60,7 +60,7 @@ export function useEditorDockviewTabs(options: EditorDockviewTabsOptions) {
       component: 'EditorDockviewDefaultPanel',
       tabComponent: 'EditorDockviewTab',
       title: getPageTitle(projectId, pageId),
-      inactive: options.projectTabCloseState.isPageReplacementActive(projectId),
+      inactive: panelOptions?.inactive ?? options.projectTabCloseState.isPageReplacementActive(projectId),
       params: {
         projectId,
         pageId,

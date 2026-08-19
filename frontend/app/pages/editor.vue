@@ -2115,10 +2115,21 @@ async function performOpenEditorForPage(
       ensureProjectPanelExists(api, projectId)
       await projectDockviewRegistry.waitFor(projectId)
       await nextTick()
-      ensurePagePanelExists(projectId, pageId)
+      ensurePagePanelExists(projectId, pageId, { inactive: false })
     }
 
     void loadProjectLabelSet(projectId)
+
+    // Activate the new tab before waiting for the full image and annotation payload.
+    editorStore.setActiveCanvas(canvasId)
+    sessionStore.setActiveProject(projectId)
+    sessionStore.setActivePage(projectId, pageId)
+
+    if (api) {
+      api.getPanel(getProjectPanelId(projectId))?.api.setActive()
+      await nextTick()
+      projectDockviewRegistry.get(projectId)?.getPanel(getPagePanelId(projectId, pageId))?.api.setActive()
+    }
 
     let loadedImageSrc: string | null = existingCanvas?.imageSrc ?? null
     if (!isAlreadyLoaded) {
