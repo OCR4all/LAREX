@@ -33,7 +33,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-websocket")
 	implementation("tools.jackson.dataformat:jackson-dataformat-yaml")
-    implementation("org.keycloak:keycloak-admin-client:26.0.8")
+    implementation("org.keycloak:keycloak-admin-client:26.0.12")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("net.coobird:thumbnailator:0.4.20")
 	implementation("org.apache.pdfbox:pdfbox:3.0.3")

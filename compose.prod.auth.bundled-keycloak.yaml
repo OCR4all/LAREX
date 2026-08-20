@@ -28,7 +28,7 @@ services:
         max-file: "3"
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.5.5
+    image: quay.io/keycloak/keycloak:26.7.2
     restart: unless-stopped
     command: start --import-realm
     ports:
