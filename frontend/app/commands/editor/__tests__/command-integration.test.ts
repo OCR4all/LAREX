@@ -1,9 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { computed, ref } from 'vue'
+import type { Point } from '@/models/editor'
+import { PolygonType } from '@/models/editor'
+import { LabelDefinition } from '@/models/editor/labels'
 import { Commander } from '../commander'
 import { CreatePolygonCommand } from '../create-polygon-command'
 import { DeletePolygonCommand } from '../delete-polygon-command'
 import { UpdatePolygonCommand } from '../update-polygon-command'
-import { PolygonType } from '@/models/editor'
 import {
   createMockSession,
   createTestContext,
@@ -11,13 +14,9 @@ import {
   createTestTextRegion,
   findRegionById
 } from './test-utils'
-import { computed, ref } from 'vue'
-import { LabelDefinition } from '@/models/editor/labels'
 
 vi.mock('@/services/visibility-service', () => ({
-  visibilityService: {
-    clearCache: vi.fn()
-  }
+  visibilityService: { clearCache: vi.fn() }
 }))
 
 vi.mock('@/composables/use-geometry-cache-integrations', () => ({
@@ -26,12 +25,46 @@ vi.mock('@/composables/use-geometry-cache-integrations', () => ({
 }))
 
 vi.mock('@/stores/editor/editor.ui.store', () => ({
-  useEditorUiStore: () => ({
-    bumpReadingOrderVersion: vi.fn()
-  })
+  useEditorUiStore: () => ({ bumpReadingOrderVersion: vi.fn() })
 }))
 
-describe('Commander Integration Tests', () => {
+function square(x = 0, y = 0, size = 100): Point[] {
+  return [
+    { x, y },
+    { x: x + size, y },
+    { x: x + size, y: y + size },
+    { x, y: y + size }
+  ]
+}
+
+function createRegionCommand(
+  overrides: Partial<ConstructorParameters<typeof CreatePolygonCommand>[0]> = {}
+): CreatePolygonCommand {
+  return new CreatePolygonCommand({
+    points: square(),
+    type: PolygonType.REGION,
+    ...overrides
+  })
+}
+
+function installPolygonControls(
+  session: ReturnType<typeof createMockSession>['session'],
+  polygons: Array<{ id: string, type: PolygonType, points: Point[] }>,
+  hiddenPolygonIds: string[] = [],
+  selectedPolygonIndex = -1
+) {
+  session.controls.value = {
+    polygons,
+    polylines: [],
+    selectedPolygonIndex: ref(selectedPolygonIndex),
+    selectedPolylineIndex: ref(-1),
+    viewMode: ref('default'),
+    hiddenPolygonIds: computed(() => hiddenPolygonIds),
+    hiddenPolylineIds: computed(() => [])
+  } as any
+}
+
+describe('Commander integration', () => {
   let commander: Commander
 
   beforeEach(() => {
@@ -39,197 +72,81 @@ describe('Commander Integration Tests', () => {
     vi.clearAllMocks()
   })
 
-  describe('Basic undo/redo functionality', () => {
-    it('should start with empty history', () => {
-      expect(commander.canUndo()).toBe(false)
-      expect(commander.canRedo()).toBe(false)
-      expect(commander.getState().totalCount).toBe(0)
-    })
-
-    it('should track commands after execution', () => {
-      const { session } = createMockSession()
-      const ctx = createTestContext(session)
-
-      const command = new CreatePolygonCommand({
-        points: [
-          { x: 0, y: 0 },
-          { x: 100, y: 0 },
-          { x: 100, y: 100 },
-          { x: 0, y: 100 }
-        ],
-        type: PolygonType.REGION
-      })
-
-      commander.execute(command, ctx)
-
-      expect(commander.canUndo()).toBe(true)
-      expect(commander.canRedo()).toBe(false)
-      expect(commander.getState().totalCount).toBe(1)
-    })
-
-    it('should allow undo after execution', () => {
-      const { session, getDocument } = createMockSession()
-      const ctx = createTestContext(session)
-
-      const initialRegionCount = getDocument()?.page.regions.length ?? 0
-
-      const command = new CreatePolygonCommand({
-        points: [
-          { x: 0, y: 0 },
-          { x: 100, y: 0 },
-          { x: 100, y: 100 },
-          { x: 0, y: 100 }
-        ],
-        type: PolygonType.REGION
-      })
-
-      commander.execute(command, ctx)
-
-      expect(getDocument()?.page.regions.length).toBe(initialRegionCount + 1)
-
-      commander.undo(ctx)
-
-      expect(getDocument()?.page.regions.length).toBe(initialRegionCount)
-      expect(commander.canUndo()).toBe(false)
-      expect(commander.canRedo()).toBe(true)
-    })
-
-    it('should allow redo after undo', () => {
-      const { session, getDocument } = createMockSession()
-      const ctx = createTestContext(session)
-
-      const command = new CreatePolygonCommand({
-        points: [
-          { x: 0, y: 0 },
-          { x: 100, y: 0 },
-          { x: 100, y: 100 },
-          { x: 0, y: 100 }
-        ],
-        type: PolygonType.REGION
-      })
-
-      commander.execute(command, ctx)
-      commander.undo(ctx)
-
-      expect(getDocument()?.page.regions.length).toBe(0)
-
-      commander.redo(ctx)
-
-      expect(getDocument()?.page.regions.length).toBe(1)
-      expect(commander.canUndo()).toBe(true)
-      expect(commander.canRedo()).toBe(false)
-    })
-  })
-
-  describe('Command branching', () => {
-    it('should clear redo stack when new command is executed after undo', () => {
-      const { session } = createMockSession()
-      const ctx = createTestContext(session)
-
-      commander.execute(
-        new CreatePolygonCommand({
-          points: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }],
-          type: PolygonType.REGION
-        }),
-        ctx
-      )
-
-      commander.execute(
-        new CreatePolygonCommand({
-          points: [{ x: 200, y: 0 }, { x: 300, y: 0 }, { x: 300, y: 100 }, { x: 200, y: 100 }],
-          type: PolygonType.REGION
-        }),
-        ctx
-      )
-
-      expect(commander.getState().totalCount).toBe(2)
-
-      commander.undo(ctx)
-      expect(commander.canRedo()).toBe(true)
-
-      commander.execute(
-        new CreatePolygonCommand({
-          points: [{ x: 400, y: 0 }, { x: 500, y: 0 }, { x: 500, y: 100 }, { x: 400, y: 100 }],
-          type: PolygonType.REGION
-        }),
-        ctx
-      )
-
-      expect(commander.canRedo()).toBe(false)
-      expect(commander.getState().totalCount).toBe(2) // Original + new (branch)
-    })
-  })
-
-  describe('History navigation', () => {
-    it('should jump to specific history point', () => {
-      const { session, getDocument } = createMockSession()
-      const ctx = createTestContext(session)
-
-      for (let i = 0; i < 3; i++) {
-        commander.execute(
-          new CreatePolygonCommand({
-            points: [
-              { x: i * 100, y: 0 },
-              { x: i * 100 + 50, y: 0 },
-              { x: i * 100 + 50, y: 50 },
-              { x: i * 100, y: 50 }
-            ],
-            type: PolygonType.REGION
-          }),
-          ctx
-        )
-      }
-
-      expect(getDocument()?.page.regions.length).toBe(3)
-
-      commander.jumpToHistory(0, ctx)
-      expect(getDocument()?.page.regions.length).toBe(1)
-
-      commander.jumpToHistory(-1, ctx)
-      expect(getDocument()?.page.regions.length).toBe(0)
-
-      commander.jumpToHistory(2, ctx)
-      expect(getDocument()?.page.regions.length).toBe(3)
-    })
-  })
-})
-
-describe('Create Polygon Command Integration', () => {
-  let commander: Commander
-
-  beforeEach(() => {
-    commander = new Commander()
-    vi.clearAllMocks()
-  })
-
-  it('should create a region at root level', () => {
+  it('tracks a complete execute, undo, and redo lifecycle', () => {
     const { session, getDocument } = createMockSession()
     const ctx = createTestContext(session)
 
-    const result = commander.execute(
-      new CreatePolygonCommand({
-        points: [
-          { x: 100, y: 100 },
-          { x: 500, y: 100 },
-          { x: 500, y: 300 },
-          { x: 100, y: 300 }
-        ],
-        type: PolygonType.REGION,
-        label: 'TestRegion'
-      }),
-      ctx
-    )
+    expect(commander.getState().totalCount).toBe(0)
+    expect(commander.canUndo()).toBe(false)
+    expect(commander.canRedo()).toBe(false)
+
+    commander.execute(createRegionCommand(), ctx)
+    expect(getDocument()?.page.regions).toHaveLength(1)
+    expect(commander.getState().totalCount).toBe(1)
+    expect(commander.canUndo()).toBe(true)
+    expect(commander.canRedo()).toBe(false)
+
+    commander.undo(ctx)
+    expect(getDocument()?.page.regions).toHaveLength(0)
+    expect(commander.canUndo()).toBe(false)
+    expect(commander.canRedo()).toBe(true)
+
+    commander.redo(ctx)
+    expect(getDocument()?.page.regions).toHaveLength(1)
+    expect(commander.canUndo()).toBe(true)
+    expect(commander.canRedo()).toBe(false)
+  })
+
+  it('clears the redo branch when a new command follows undo', () => {
+    const { session } = createMockSession()
+    const ctx = createTestContext(session)
+
+    commander.execute(createRegionCommand(), ctx)
+    commander.execute(createRegionCommand({ points: square(200) }), ctx)
+    commander.undo(ctx)
+    expect(commander.canRedo()).toBe(true)
+
+    commander.execute(createRegionCommand({ points: square(400) }), ctx)
+    expect(commander.canRedo()).toBe(false)
+    expect(commander.getState().totalCount).toBe(2)
+  })
+
+  it('jumps backward and forward to exact history points', () => {
+    const { session, getDocument } = createMockSession()
+    const ctx = createTestContext(session)
+
+    for (let index = 0; index < 3; index++) {
+      commander.execute(createRegionCommand({ points: square(index * 100, 0, 50) }), ctx)
+    }
+
+    commander.jumpToHistory(0, ctx)
+    expect(getDocument()?.page.regions).toHaveLength(1)
+    commander.jumpToHistory(-1, ctx)
+    expect(getDocument()?.page.regions).toHaveLength(0)
+    commander.jumpToHistory(2, ctx)
+    expect(getDocument()?.page.regions).toHaveLength(3)
+  })
+})
+
+describe('CreatePolygonCommand integration', () => {
+  let commander: Commander
+
+  beforeEach(() => {
+    commander = new Commander()
+    vi.clearAllMocks()
+  })
+
+  it('creates a root text region', () => {
+    const { session, getDocument } = createMockSession()
+    const result = commander.execute(createRegionCommand({ label: 'TestRegion' }), createTestContext(session))
 
     expect(result.id).toBeDefined()
-    expect(getDocument()?.page.regions.length).toBe(1)
-
-    const region = getDocument()?.page.regions[0]
-    expect(region?.kind).toBe('TextRegion')
+    expect(getDocument()?.page.regions).toHaveLength(1)
+    expect(getDocument()?.page.regions[0]?.kind).toBe('TextRegion')
   })
 
   it('creates a region using the supplied label mapping', () => {
     const { session, getDocument } = createMockSession()
-    const ctx = createTestContext(session)
     const imageLabel = new LabelDefinition(
       'image-label',
       'Illustration',
@@ -250,16 +167,7 @@ describe('Create Polygon Command Integration', () => {
       }
     )
 
-    commander.execute(new CreatePolygonCommand({
-      points: [
-        { x: 100, y: 100 },
-        { x: 500, y: 100 },
-        { x: 500, y: 300 },
-        { x: 100, y: 300 }
-      ],
-      type: PolygonType.REGION,
-      labelDefinition: imageLabel
-    }), ctx)
+    commander.execute(createRegionCommand({ labelDefinition: imageLabel }), createTestContext(session))
 
     const region = getDocument()?.page.regions[0]
     expect(region?.kind).toBe('ImageRegion')
@@ -267,445 +175,147 @@ describe('Create Polygon Command Integration', () => {
     expect(region?.custom).toContain('labelId:image-label')
   })
 
-  it('should create a nested region inside parent', () => {
-    const parentRegion = createTestTextRegion({ id: 'parent-region' })
-    const doc = createTestDocument({ regions: [parentRegion] })
-    const { session, getDocument } = createMockSession(doc)
-    const ctx = createTestContext(session)
+  it('creates a nested region inside its parent', () => {
+    const document = createTestDocument({ regions: [createTestTextRegion({ id: 'parent-region' })] })
+    const { session, getDocument } = createMockSession(document)
 
     commander.execute(
-      new CreatePolygonCommand({
-        points: [
-          { x: 150, y: 120 },
-          { x: 400, y: 120 },
-          { x: 400, y: 180 },
-          { x: 150, y: 180 }
-        ],
-        type: PolygonType.REGION,
-        parentId: 'parent-region'
-      }),
-      ctx
+      createRegionCommand({ points: square(20, 20, 50), parentId: 'parent-region' }),
+      createTestContext(session)
     )
 
-    const parent = getDocument()?.page.regions[0]
-    expect(parent?.regions?.length).toBe(1)
+    expect(getDocument()?.page.regions[0]?.regions).toHaveLength(1)
   })
 
-  it('should create a TextLine inside a TextRegion', () => {
-    const parentRegion = createTestTextRegion({ id: 'parent-region' })
-    const doc = createTestDocument({ regions: [parentRegion] })
-    const { session, getDocument } = createMockSession(doc)
+  it('creates, undoes, and redoes a text line inside a text region', () => {
+    const document = createTestDocument({ regions: [createTestTextRegion({ id: 'parent-region' })] })
+    const { session, getDocument } = createMockSession(document)
     const ctx = createTestContext(session)
 
-    commander.execute(
-      new CreatePolygonCommand({
-        points: [
-          { x: 110, y: 110 },
-          { x: 490, y: 110 },
-          { x: 490, y: 130 },
-          { x: 110, y: 130 }
-        ],
-        type: PolygonType.TEXTLINE,
-        parentId: 'parent-region'
-      }),
-      ctx
-    )
-
-    const parent = getDocument()?.page.regions[0] as any
-    expect(parent?.textLines?.length).toBe(1)
-  })
-
-  it('should properly undo TextLine creation', () => {
-    const parentRegion = createTestTextRegion({ id: 'parent-region' })
-    const doc = createTestDocument({ regions: [parentRegion] })
-    const { session, getDocument } = createMockSession(doc)
-    const ctx = createTestContext(session)
-
-    commander.execute(
-      new CreatePolygonCommand({
-        points: [
-          { x: 110, y: 110 },
-          { x: 490, y: 110 },
-          { x: 490, y: 130 },
-          { x: 110, y: 130 }
-        ],
-        type: PolygonType.TEXTLINE,
-        parentId: 'parent-region'
-      }),
-      ctx
-    )
-
-    const parent = getDocument()?.page.regions[0] as any
-    expect(parent?.textLines?.length).toBe(1)
+    commander.execute(new CreatePolygonCommand({
+      points: square(10, 10, 20),
+      type: PolygonType.TEXTLINE,
+      parentId: 'parent-region'
+    }), ctx)
+    expect((getDocument()?.page.regions[0] as any)?.textLines).toHaveLength(1)
 
     commander.undo(ctx)
-
-    const parentAfterUndo = getDocument()?.page.regions[0] as any
-    expect(parentAfterUndo?.textLines?.length).toBe(0)
+    expect((getDocument()?.page.regions[0] as any)?.textLines).toHaveLength(0)
+    commander.redo(ctx)
+    expect((getDocument()?.page.regions[0] as any)?.textLines).toHaveLength(1)
   })
 
-  it('should subtract overlap from visible regions when enabled', () => {
-    const existing = createTestTextRegion({
-      id: 'existing',
-      points: [
-        { x: 0, y: 0 },
-        { x: 100, y: 0 },
-        { x: 100, y: 100 },
-        { x: 0, y: 100 }
-      ]
-    })
-    const doc = createTestDocument({ regions: [existing] })
-    const { session, getDocument } = createMockSession(doc)
-    session.controls.value = {
-      polygons: [{
-        id: 'existing',
-        type: PolygonType.REGION,
-        points: [
-          { x: 0, y: 0 },
-          { x: 100, y: 0 },
-          { x: 100, y: 100 },
-          { x: 0, y: 100 }
-        ]
-      }],
-      polylines: [],
-      selectedPolygonIndex: ref(-1),
-      selectedPolylineIndex: ref(-1),
-      viewMode: ref('default'),
-      hiddenPolygonIds: computed(() => []),
-      hiddenPolylineIds: computed(() => [])
-    } as any
+  it('subtracts overlap from visible peer regions when enabled', () => {
+    const existing = createTestTextRegion({ id: 'existing', points: square() })
+    const { session, getDocument } = createMockSession(createTestDocument({ regions: [existing] }))
+    installPolygonControls(session, [{ id: 'existing', type: PolygonType.REGION, points: square() }])
 
-    const ctx = createTestContext(session)
-    const result = commander.execute(
-      new CreatePolygonCommand({
-        points: [
-          { x: 50, y: 0 },
-          { x: 150, y: 0 },
-          { x: 150, y: 100 },
-          { x: 50, y: 100 }
-        ],
-        type: PolygonType.REGION,
-        preventOverlapOnCreate: true,
-        overlapMinAreaThreshold: 0
-      }),
-      ctx
-    )
+    const result = commander.execute(createRegionCommand({
+      points: square(50),
+      preventOverlapOnCreate: true,
+      overlapMinAreaThreshold: 0
+    }), createTestContext(session))
 
     expect(result.created).toBe(true)
-    const createdRegion = findRegionById(getDocument()!.page.regions, result.id) as any
-    const xs = createdRegion.coords.points.map((p: [number, number]) => p[0])
-    expect(Math.min(...xs)).toBeGreaterThanOrEqual(99.999)
+    const created = findRegionById(getDocument()!.page.regions, result.id) as any
+    expect(Math.min(...created.coords.points.map((point: [number, number]) => point[0]))).toBeGreaterThanOrEqual(99.999)
   })
 
-  it('should ignore hidden regions for overlap subtraction', () => {
-    const existing = createTestTextRegion({
-      id: 'existing',
-      points: [
-        { x: 0, y: 0 },
-        { x: 100, y: 0 },
-        { x: 100, y: 100 },
-        { x: 0, y: 100 }
-      ]
-    })
-    const doc = createTestDocument({ regions: [existing] })
-    const { session, getDocument } = createMockSession(doc)
-    session.controls.value = {
-      polygons: [{
-        id: 'existing',
-        type: PolygonType.REGION,
-        points: [
-          { x: 0, y: 0 },
-          { x: 100, y: 0 },
-          { x: 100, y: 100 },
-          { x: 0, y: 100 }
-        ]
-      }],
-      polylines: [],
-      selectedPolygonIndex: ref(-1),
-      selectedPolylineIndex: ref(-1),
-      viewMode: ref('default'),
-      hiddenPolygonIds: computed(() => ['existing']),
-      hiddenPolylineIds: computed(() => [])
-    } as any
-
-    const ctx = createTestContext(session)
-    const result = commander.execute(
-      new CreatePolygonCommand({
-        points: [
-          { x: 50, y: 0 },
-          { x: 150, y: 0 },
-          { x: 150, y: 100 },
-          { x: 50, y: 100 }
-        ],
-        type: PolygonType.REGION,
-        preventOverlapOnCreate: true,
-        overlapMinAreaThreshold: 0
-      }),
-      ctx
+  it('does not subtract overlap from hidden peer regions', () => {
+    const existing = createTestTextRegion({ id: 'existing', points: square() })
+    const { session, getDocument } = createMockSession(createTestDocument({ regions: [existing] }))
+    installPolygonControls(
+      session,
+      [{ id: 'existing', type: PolygonType.REGION, points: square() }],
+      ['existing']
     )
 
-    expect(result.created).toBe(true)
-    const createdRegion = findRegionById(getDocument()!.page.regions, result.id) as any
-    const xs = createdRegion.coords.points.map((p: [number, number]) => p[0])
-    expect(Math.min(...xs)).toBeLessThanOrEqual(50.001)
+    const result = commander.execute(createRegionCommand({
+      points: square(50),
+      preventOverlapOnCreate: true,
+      overlapMinAreaThreshold: 0
+    }), createTestContext(session))
+
+    const created = findRegionById(getDocument()!.page.regions, result.id) as any
+    expect(Math.min(...created.coords.points.map((point: [number, number]) => point[0]))).toBeLessThanOrEqual(50.001)
   })
 
-  it('should not subtract against ancestor regions during nested creation', () => {
-    const parent = createTestTextRegion({
-      id: 'parent-region',
-      points: [
-        { x: 0, y: 0 },
-        { x: 200, y: 0 },
-        { x: 200, y: 200 },
-        { x: 0, y: 200 }
-      ]
-    })
-    const doc = createTestDocument({ regions: [parent] })
-    const { session, getDocument } = createMockSession(doc)
-    session.controls.value = {
-      polygons: [{
-        id: 'parent-region',
-        type: PolygonType.REGION,
-        points: [
-          { x: 0, y: 0 },
-          { x: 200, y: 0 },
-          { x: 200, y: 200 },
-          { x: 0, y: 200 }
-        ]
-      }],
-      polylines: [],
-      selectedPolygonIndex: ref(0),
-      selectedPolylineIndex: ref(-1),
-      viewMode: ref('default'),
-      hiddenPolygonIds: computed(() => []),
-      hiddenPolylineIds: computed(() => [])
-    } as any
-
-    const ctx = createTestContext(session)
-    const result = commander.execute(
-      new CreatePolygonCommand({
-        points: [
-          { x: 50, y: 50 },
-          { x: 150, y: 50 },
-          { x: 150, y: 150 },
-          { x: 50, y: 150 }
-        ],
-        type: PolygonType.REGION,
-        parentId: 'parent-region',
-        preventOverlapOnCreate: true,
-        overlapMinAreaThreshold: 0
-      }),
-      ctx
+  it('does not subtract against ancestors during nested creation', () => {
+    const parent = createTestTextRegion({ id: 'parent-region', points: square(0, 0, 200) })
+    const { session, getDocument } = createMockSession(createTestDocument({ regions: [parent] }))
+    installPolygonControls(
+      session,
+      [{ id: 'parent-region', type: PolygonType.REGION, points: square(0, 0, 200) }],
+      [],
+      0
     )
+
+    const result = commander.execute(createRegionCommand({
+      points: square(50),
+      parentId: 'parent-region',
+      preventOverlapOnCreate: true,
+      overlapMinAreaThreshold: 0
+    }), createTestContext(session))
 
     expect(result.created).toBe(true)
     const nested = (getDocument()!.page.regions[0] as any).regions[0]
-    const xs = nested.coords.points.map((p: [number, number]) => p[0])
-    expect(Math.min(...xs)).toBeLessThanOrEqual(50.001)
+    expect(Math.min(...nested.coords.points.map((point: [number, number]) => point[0]))).toBeLessThanOrEqual(50.001)
   })
 })
 
-describe('Update Polygon Command Integration', () => {
-  let commander: Commander
-
-  beforeEach(() => {
-    commander = new Commander()
-    vi.clearAllMocks()
-  })
-
-  it('should update region coordinates', () => {
-    const region = createTestTextRegion({
-      id: 'test-region',
-      points: [
-        { x: 100, y: 100 },
-        { x: 200, y: 100 },
-        { x: 200, y: 200 },
-        { x: 100, y: 200 }
-      ]
+describe('UpdatePolygonCommand integration', () => {
+  it('updates coordinates and restores them on undo', () => {
+    const document = createTestDocument({
+      regions: [createTestTextRegion({ id: 'test-region', points: square(100, 100) })]
     })
-    const doc = createTestDocument({ regions: [region] })
-    const { session, getDocument } = createMockSession(doc)
+    const { session, getDocument } = createMockSession(document)
     const ctx = createTestContext(session)
+    const commander = new Commander()
 
-    const newPoints = [
-      { x: 150, y: 150 },
-      { x: 300, y: 150 },
-      { x: 300, y: 300 },
-      { x: 150, y: 300 }
-    ]
+    commander.execute(new UpdatePolygonCommand({
+      polygonId: 'test-region',
+      newPoints: square(500, 500)
+    }), ctx)
+    expect(getDocument()?.page.regions[0]?.coords.points.slice(0, 2)).toEqual([[500, 500], [600, 500]])
 
-    commander.execute(
-      new UpdatePolygonCommand({
-        polygonId: 'test-region',
-        newPoints
-      }),
-      ctx
-    )
-
-    const updatedRegion = getDocument()?.page.regions[0]
-    expect(updatedRegion?.coords.points[0]).toEqual([150, 150])
-    expect(updatedRegion?.coords.points[1]).toEqual([300, 150])
+    commander.undo(ctx)
+    expect(getDocument()?.page.regions[0]?.coords.points.slice(0, 2)).toEqual([[100, 100], [200, 100]])
   })
+})
 
-  it('should restore original coordinates on undo', () => {
-    const originalPoints = [
-      { x: 100, y: 100 },
-      { x: 200, y: 100 },
-      { x: 200, y: 200 },
-      { x: 100, y: 200 }
-    ]
-
-    const region = createTestTextRegion({
-      id: 'test-region',
-      points: originalPoints
+describe('DeletePolygonCommand integration', () => {
+  it('deletes a region and restores its exact position on undo', () => {
+    const document = createTestDocument({
+      regions: ['region-1', 'region-2', 'region-3'].map(id => createTestTextRegion({ id }))
     })
-    const doc = createTestDocument({ regions: [region] })
-    const { session, getDocument } = createMockSession(doc)
+    const { session, getDocument } = createMockSession(document)
     const ctx = createTestContext(session)
+    const commander = new Commander()
 
-    commander.execute(
-      new UpdatePolygonCommand({
-        polygonId: 'test-region',
-        newPoints: [
-          { x: 500, y: 500 },
-          { x: 600, y: 500 },
-          { x: 600, y: 600 },
-          { x: 500, y: 600 }
-        ]
-      }),
-      ctx
-    )
+    commander.execute(new DeletePolygonCommand({ polygonId: 'region-2' }), ctx)
+    expect(getDocument()?.page.regions.map(region => region.id)).toEqual(['region-1', 'region-3'])
 
     commander.undo(ctx)
-
-    const restoredRegion = getDocument()?.page.regions[0]
-    expect(restoredRegion?.coords.points[0]).toEqual([100, 100])
-    expect(restoredRegion?.coords.points[1]).toEqual([200, 100])
+    expect(getDocument()?.page.regions.map(region => region.id)).toEqual(['region-1', 'region-2', 'region-3'])
   })
 })
 
-describe('Delete Polygon Command Integration', () => {
-  let commander: Commander
-
-  beforeEach(() => {
-    commander = new Commander()
-    vi.clearAllMocks()
-  })
-
-  it('should delete a region', () => {
-    const region = createTestTextRegion({ id: 'to-delete' })
-    const doc = createTestDocument({ regions: [region] })
-    const { session, getDocument } = createMockSession(doc)
-    const ctx = createTestContext(session)
-
-    expect(getDocument()?.page.regions.length).toBe(1)
-
-    commander.execute(
-      new DeletePolygonCommand({ polygonId: 'to-delete' }),
-      ctx
-    )
-
-    expect(getDocument()?.page.regions.length).toBe(0)
-  })
-
-  it('should restore region on undo', () => {
-    const region = createTestTextRegion({ id: 'to-delete' })
-    const doc = createTestDocument({ regions: [region] })
-    const { session, getDocument } = createMockSession(doc)
-    const ctx = createTestContext(session)
-
-    commander.execute(
-      new DeletePolygonCommand({ polygonId: 'to-delete' }),
-      ctx
-    )
-
-    expect(getDocument()?.page.regions.length).toBe(0)
-
-    commander.undo(ctx)
-
-    expect(getDocument()?.page.regions.length).toBe(1)
-    expect(getDocument()?.page.regions[0]?.id).toBe('to-delete')
-  })
-
-  it('should preserve region position in array on undo', () => {
-    const regions = [
-      createTestTextRegion({ id: 'region-1' }),
-      createTestTextRegion({ id: 'region-2' }),
-      createTestTextRegion({ id: 'region-3' })
-    ]
-    const doc = createTestDocument({ regions })
-    const { session, getDocument } = createMockSession(doc)
-    const ctx = createTestContext(session)
-
-    commander.execute(
-      new DeletePolygonCommand({ polygonId: 'region-2' }),
-      ctx
-    )
-
-    expect(getDocument()?.page.regions.length).toBe(2)
-
-    commander.undo(ctx)
-
-    const restoredRegions = getDocument()?.page.regions
-    expect(restoredRegions?.length).toBe(3)
-    expect(restoredRegions?.[1]?.id).toBe('region-2')
-  })
-})
-
-describe('Complex Multi-Command Workflows', () => {
-  let commander: Commander
-
-  beforeEach(() => {
-    commander = new Commander()
-    vi.clearAllMocks()
-  })
-
-  it('should handle create-update-delete-undo sequence', () => {
+describe('Multi-command integration', () => {
+  it('unwinds a create-update-delete workflow one command at a time', () => {
     const { session, getDocument } = createMockSession()
     const ctx = createTestContext(session)
+    const commander = new Commander()
+    const { id } = commander.execute(createRegionCommand(), ctx)
 
-    const result = commander.execute(
-      new CreatePolygonCommand({
-        points: [
-          { x: 0, y: 0 },
-          { x: 100, y: 0 },
-          { x: 100, y: 100 },
-          { x: 0, y: 100 }
-        ],
-        type: PolygonType.REGION
-      }),
-      ctx
-    )
-    const regionId = result.id
-
-    commander.execute(
-      new UpdatePolygonCommand({
-        polygonId: regionId,
-        newPoints: [
-          { x: 50, y: 50 },
-          { x: 150, y: 50 },
-          { x: 150, y: 150 },
-          { x: 50, y: 150 }
-        ]
-      }),
-      ctx
-    )
-
-    commander.execute(
-      new DeletePolygonCommand({ polygonId: regionId }),
-      ctx
-    )
-
-    expect(getDocument()?.page.regions.length).toBe(0)
+    commander.execute(new UpdatePolygonCommand({ polygonId: id, newPoints: square(50) }), ctx)
+    commander.execute(new DeletePolygonCommand({ polygonId: id }), ctx)
+    expect(getDocument()?.page.regions).toHaveLength(0)
 
     commander.undo(ctx)
-    expect(getDocument()?.page.regions.length).toBe(1)
-
+    expect(getDocument()?.page.regions).toHaveLength(1)
     commander.undo(ctx)
-    const region = getDocument()?.page.regions[0]
-    expect(region?.coords.points[0]).toEqual([0, 0])
-
+    expect(getDocument()?.page.regions[0]?.coords.points[0]).toEqual([0, 0])
     commander.undo(ctx)
-    expect(getDocument()?.page.regions.length).toBe(0)
+    expect(getDocument()?.page.regions).toHaveLength(0)
   })
 })

@@ -1,13 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, ref, toValue } from 'vue'
-
-type GlobalWithVueHelpers = typeof globalThis & {
-  computed: typeof computed
-  toValue: typeof toValue
-}
-
-;(globalThis as GlobalWithVueHelpers).computed = computed
-;(globalThis as GlobalWithVueHelpers).toValue = toValue
+import { ref } from 'vue'
 
 describe('authorization composables', () => {
   beforeEach(() => {

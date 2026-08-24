@@ -12,7 +12,7 @@ const revoking = ref(false)
 const changed = ref(false)
 const recentShare = ref<ActionOutputShareResponse | null>(null)
 const browserDownloadUrl = computed(() => recentShare.value ? buildReleaseShareBrowserDownloadUrl(recentShare.value.downloadUrl) : null)
-const curlSnippet = computed(() => recentShare.value ? buildProjectReleaseShareCurlSnippet(recentShare.value.downloadUrl, recentShare.value.secret) : '')
+const curlSnippet = computed(() => recentShare.value ? buildReleaseShareCurlSnippet('project', recentShare.value.downloadUrl, recentShare.value.secret) : '')
 
 function formatLocal(date: Date) {
   const pad = (value: number) => String(value).padStart(2, '0')

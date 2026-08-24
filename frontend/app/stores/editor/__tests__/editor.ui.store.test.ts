@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 
 const mocks = vi.hoisted(() => ({
   updatePreference: vi.fn(),
@@ -23,15 +24,8 @@ vi.mock('@/composables/use-editor-preferences', () => ({
   })
 }))
 
-async function initializeStoreGlobals() {
-  const [pinia, vue] = await Promise.all([import('pinia'), import('vue')])
-  ;(globalThis as any).defineStore = pinia.defineStore
-  ;(globalThis as any).ref = vue.ref
-  pinia.setActivePinia(pinia.createPinia())
-}
-
 async function createStore() {
-  await initializeStoreGlobals()
+  setActivePinia(createPinia())
   const { useEditorUiStore } = await import('../editor.ui.store')
   return useEditorUiStore()
 }
@@ -46,29 +40,42 @@ describe('editor.ui.store preferences', () => {
     mocks.updatePreference.mockReset()
   })
 
-  it('defaults to a compact toolbar when the saved preference is missing', async () => {
+  it('loads all preference defaults when saved values are missing', async () => {
     const store = await createStore()
 
     await store.loadPreferences()
 
-    expect(store.toolbarCompact).toBe(true)
+    const defaults = [
+      ['toolbarCompact', store.toolbarCompact, true],
+      ['pageFocusMode', store.pageFocusMode, true],
+      ['openRegionTypeMenuOnCreate', store.globalSettings.openRegionTypeMenuOnCreate, true],
+      ['textItemLayout', store.textItemLayout, 'vertical']
+    ] as const
+    for (const [name, actual, expected] of defaults) {
+      expect(actual, name).toBe(expected)
+    }
   })
 
-  it('loads an explicit non-compact toolbar preference', async () => {
+  it('loads all explicit preference values', async () => {
     mocks.fetchedToolbarCompact = false
+    mocks.fetchedPageFocusMode = false
+    mocks.fetchedOpenRegionTypeMenuOnCreate = false
+    mocks.fetchedTextModeSubmode = 'full'
+    mocks.fetchedTextItemLayout = 'side-by-side'
     const store = await createStore()
 
     await store.loadPreferences()
 
-    expect(store.toolbarCompact).toBe(false)
-  })
-
-  it('defaults to enabled when the saved preference is missing', async () => {
-    const store = await createStore()
-
-    await store.loadPreferences()
-
-    expect(store.pageFocusMode).toBe(true)
+    const loadedValues = [
+      ['toolbarCompact', store.toolbarCompact, false],
+      ['pageFocusMode', store.pageFocusMode, false],
+      ['openRegionTypeMenuOnCreate', store.globalSettings.openRegionTypeMenuOnCreate, false],
+      ['textModeSubmode', store.textModeSubmode, 'full'],
+      ['textItemLayout', store.textItemLayout, 'side-by-side']
+    ] as const
+    for (const [name, actual, expected] of loadedValues) {
+      expect(actual, name).toBe(expected)
+    }
   })
 
   it('loads and immediately persists an explicit user choice', async () => {
@@ -82,14 +89,6 @@ describe('editor.ui.store preferences', () => {
 
     expect(store.pageFocusMode).toBe(true)
     expect(mocks.updatePreference).toHaveBeenCalledWith('pageFocusMode', true, { immediate: true })
-  })
-
-  it('opens the region type menu after creation by default', async () => {
-    const store = await createStore()
-
-    await store.loadPreferences()
-
-    expect(store.globalSettings.openRegionTypeMenuOnCreate).toBe(true)
   })
 
   it('loads and persists the region type menu preference', async () => {
@@ -116,22 +115,5 @@ describe('editor.ui.store preferences', () => {
 
     expect(store.textModeSubmode).toBe('visual')
     expect(mocks.updatePreference).toHaveBeenCalledWith('textModeSubmode', 'visual')
-  })
-
-  it('defaults text items to the vertical layout when the saved preference is missing', async () => {
-    const store = await createStore()
-
-    await store.loadPreferences()
-
-    expect(store.textItemLayout).toBe('vertical')
-  })
-
-  it('keeps an explicit side-by-side text item preference', async () => {
-    mocks.fetchedTextItemLayout = 'side-by-side'
-    const store = await createStore()
-
-    await store.loadPreferences()
-
-    expect(store.textItemLayout).toBe('side-by-side')
   })
 })

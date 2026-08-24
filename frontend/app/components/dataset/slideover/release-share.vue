@@ -24,11 +24,11 @@ watch(() => props.release, (value) => {
 }, { immediate: true })
 
 const curlSnippet = computed(() =>
-  recentShare.value ? buildDatasetReleaseShareCurlSnippet(recentShare.value.downloadUrl, recentShare.value.secret) : ''
+  recentShare.value ? buildReleaseShareCurlSnippet('dataset', recentShare.value.downloadUrl, recentShare.value.secret) : ''
 )
 
 const wgetSnippet = computed(() =>
-  recentShare.value ? buildDatasetReleaseShareWgetSnippet(recentShare.value.downloadUrl, recentShare.value.secret) : ''
+  recentShare.value ? buildReleaseShareWgetSnippet('dataset', recentShare.value.downloadUrl, recentShare.value.secret) : ''
 )
 
 const browserDownloadUrl = computed(() =>

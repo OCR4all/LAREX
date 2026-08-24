@@ -1,10 +1,5 @@
-/* eslint-disable import/newline-after-import */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, ref, watch } from 'vue'
-
-;(globalThis as any).ref = ref
-;(globalThis as any).computed = computed
-;(globalThis as any).watch = watch
+import { ref } from 'vue'
 
 const globalSearchTerm = ref('')
 const globalResultGroups = ref<any[]>([])

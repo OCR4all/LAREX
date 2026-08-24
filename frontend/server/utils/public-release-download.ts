@@ -1,7 +1,3 @@
-import { buildPublicDatasetReleaseProxyRequest } from './public-dataset-release-download'
-import { buildPublicProjectReleaseProxyRequest } from './public-project-release-download'
-import { buildPublicActionOutputProxyRequest } from './public-action-output-download'
-
 export const PUBLIC_RELEASE_KINDS = ['dataset-releases', 'project-releases', 'action-outputs'] as const
 
 export type PublicReleaseKind = typeof PUBLIC_RELEASE_KINDS[number]
@@ -23,11 +19,11 @@ export function buildPublicReleaseProxyRequest(
   authorizationHeader?: string | null,
   method: 'GET' | 'HEAD' = 'GET'
 ): { url: string, init: RequestInit } {
-  if (kind === 'dataset-releases') {
-    return buildPublicDatasetReleaseProxyRequest(apiBaseInternal, sharePublicId, authorizationHeader, method)
+  const headers = new Headers()
+  if (authorizationHeader) headers.set('Authorization', authorizationHeader)
+
+  return {
+    url: `${apiBaseInternal.replace(/\/+$/, '')}/public/${kind}/${sharePublicId}/download`,
+    init: { method, headers }
   }
-  if (kind === 'action-outputs') {
-    return buildPublicActionOutputProxyRequest(apiBaseInternal, sharePublicId, authorizationHeader, method)
-  }
-  return buildPublicProjectReleaseProxyRequest(apiBaseInternal, sharePublicId, authorizationHeader, method)
 }

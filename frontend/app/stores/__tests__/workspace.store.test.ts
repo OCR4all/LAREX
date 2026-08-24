@@ -116,14 +116,9 @@ function createFetchMock(options: {
 async function setActiveTestingPinia() {
   const pinia = await import('pinia')
   pinia.setActivePinia(pinia.createPinia())
-  ;(globalThis as any).defineStore = pinia.defineStore
 }
 
 async function initializeStoreGlobals(fetchMock: ReturnType<typeof vi.fn>) {
-  const vue = await import('vue')
-
-  ;(globalThis as any).ref = vue.ref
-  ;(globalThis as any).computed = vue.computed
   ;(globalThis as any).useCookie = vi.fn(useCookieMock)
   ;(globalThis as any).$fetch = fetchMock
   ;(globalThis as any).useRequestFetch = vi.fn(() => fetchMock)

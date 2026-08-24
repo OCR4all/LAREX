@@ -1,4 +1,4 @@
-import { buildPublicDatasetReleaseProxyRequest } from '#server/utils/public-dataset-release-download'
+import { buildPublicReleaseProxyRequest } from '#server/utils/public-release-download'
 
 export default defineEventHandler(async (event) => {
   const method = (event.node.req.method || 'GET').toUpperCase()
@@ -13,8 +13,9 @@ export default defineEventHandler(async (event) => {
 
   const config = useRuntimeConfig(event)
   const authorizationHeader = getHeader(event, 'authorization')
-  const request = buildPublicDatasetReleaseProxyRequest(
+  const request = buildPublicReleaseProxyRequest(
     config.apiBaseInternal,
+    'dataset-releases',
     sharePublicId,
     authorizationHeader,
     method as 'GET' | 'HEAD'

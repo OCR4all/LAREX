@@ -3,9 +3,7 @@ import {
   nextTick,
   onMounted,
   onServerPrefetch,
-  ref,
-  toValue,
-  watch
+  ref
 } from 'vue'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -27,12 +25,8 @@ vi.mock('@/composables/use-editor-preferences', () => ({
 
 describe('usePersistentTableSorting', () => {
   beforeAll(() => {
-    vi.stubGlobal('computed', computed)
     vi.stubGlobal('onMounted', onMounted)
     vi.stubGlobal('onServerPrefetch', onServerPrefetch)
-    vi.stubGlobal('ref', ref)
-    vi.stubGlobal('toValue', toValue)
-    vi.stubGlobal('watch', watch)
   })
 
   beforeEach(() => {

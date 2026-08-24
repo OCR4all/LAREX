@@ -1,12 +1,13 @@
-import { buildPublicActionOutputProxyRequest } from '#server/utils/public-action-output-download'
+import { buildPublicReleaseProxyRequest } from '#server/utils/public-release-download'
 
 export default defineEventHandler(async (event) => {
   const method = (event.node.req.method || 'GET').toUpperCase()
   if (method !== 'GET' && method !== 'HEAD') throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' })
   const sharePublicId = getRouterParam(event, 'sharePublicId')
   if (!sharePublicId) throw createError({ statusCode: 400, statusMessage: 'Missing sharePublicId' })
-  const request = buildPublicActionOutputProxyRequest(
+  const request = buildPublicReleaseProxyRequest(
     useRuntimeConfig(event).apiBaseInternal,
+    'action-outputs',
     sharePublicId,
     getHeader(event, 'authorization'),
     method as 'GET' | 'HEAD'

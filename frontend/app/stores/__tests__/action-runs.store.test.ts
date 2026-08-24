@@ -35,10 +35,7 @@ async function createStore(
   subscribe = vi.fn(),
   connectionStatus?: { value: string }
 ) {
-  const vue = await import('vue')
   const pinia = await import('pinia')
-  ;(globalThis as any).ref = vue.ref
-  ;(globalThis as any).computed = vue.computed
   ;(globalThis as any).$fetch = fetchMock
   ;(globalThis as any).useRealtimeSocket = () => ({ subscribe, connectionStatus })
   pinia.setActivePinia(pinia.createPinia())

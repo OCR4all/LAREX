@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, reactive, ref } from 'vue'
+import { reactive, ref } from 'vue'
 
 class TestMouseEvent {
   button: number
@@ -17,7 +17,7 @@ class TestMouseEvent {
   }
 }
 
-Object.assign(globalThis, { ref, reactive, computed, MouseEvent: TestMouseEvent })
+Object.assign(globalThis, { MouseEvent: TestMouseEvent })
 
 const editorUiStoreMock = vi.hoisted(() => ({
   relationsEditor: {
@@ -308,7 +308,7 @@ async function createHarness(
   }
 }
 
-describe('useEditorInteractions shift-pan routing', () => {
+describe('useEditorInteractions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -318,62 +318,31 @@ describe('useEditorInteractions shift-pan routing', () => {
     ['rectangle'],
     ['polyline'],
     ['cut']
-  ] as const)('does not run drawing mouse down handlers when Shift is held in %s mode', async (mode) => {
-    const harness = await createHarness(mode)
+  ] as const)('routes Shift to pan and preserves normal drawing in %s mode', async (mode) => {
+    const shifted = await createHarness(mode)
+    shifted.interactions.onMouseDown(eventStub({ shiftKey: true, clientX: 10, clientY: 10 }))
+    shifted.interactions.onMouseMove(eventStub({ shiftKey: true, clientX: 30, clientY: 30 }))
+    shifted.interactions.onMouseMove(eventStub({ shiftKey: false, clientX: 50, clientY: 50 }))
 
-    harness.interactions.onMouseDown(eventStub({ shiftKey: true }))
-
-    expect(harness.mouseInteraction.handleMouseDown).toHaveBeenCalledOnce()
-    expect(harness.polygonDrawing.handleMouseDown).not.toHaveBeenCalled()
-    expect(harness.rectangleDrawing.handleMouseDown).not.toHaveBeenCalled()
-    expect(harness.polylineDrawing.handleMouseDown).not.toHaveBeenCalled()
-    expect(harness.cutDrawing.handleMouseDown).not.toHaveBeenCalled()
-  })
-
-  it.each([
-    ['polygon'],
-    ['rectangle'],
-    ['polyline'],
-    ['cut']
-  ] as const)('routes Shift+drag to pan and suppresses drawing move handlers in %s mode', async (mode) => {
-    const harness = await createHarness(mode)
-
-    harness.interactions.onMouseDown(eventStub({ shiftKey: true, clientX: 10, clientY: 10 }))
-    harness.interactions.onMouseMove(eventStub({ shiftKey: true, clientX: 30, clientY: 30 }))
-    harness.interactions.onMouseMove(eventStub({ shiftKey: false, clientX: 50, clientY: 50 }))
-
-    expect(harness.mouseInteraction.startPanning).toHaveBeenCalled()
-    expect(harness.mouseInteraction.updatePanning).toHaveBeenCalledTimes(2)
-    expect(harness.polygonDrawing.handleMouseMove).not.toHaveBeenCalled()
-    expect(harness.rectangleDrawing.handleMouseMove).not.toHaveBeenCalled()
-    expect(harness.polylineDrawing.handleMouseMove).not.toHaveBeenCalled()
-    expect(harness.cutDrawing.handleMouseMove).not.toHaveBeenCalled()
-  })
-
-  it.each([
-    ['polygon'],
-    ['rectangle'],
-    ['polyline'],
-    ['cut']
-  ] as const)('keeps non-Shift behavior unchanged in %s mode', async (mode) => {
-    const harness = await createHarness(mode)
-
-    harness.interactions.onMouseDown(eventStub({ shiftKey: false }))
-    harness.interactions.onMouseMove(eventStub({ shiftKey: false }))
-
-    if (mode === 'polygon') {
-      expect(harness.polygonDrawing.handleMouseDown).toHaveBeenCalledOnce()
-      expect(harness.polygonDrawing.handleMouseMove).toHaveBeenCalledOnce()
-    } else if (mode === 'rectangle') {
-      expect(harness.rectangleDrawing.handleMouseDown).toHaveBeenCalledOnce()
-      expect(harness.rectangleDrawing.handleMouseMove).toHaveBeenCalledOnce()
-    } else if (mode === 'polyline') {
-      expect(harness.polylineDrawing.handleMouseDown).toHaveBeenCalledOnce()
-      expect(harness.polylineDrawing.handleMouseMove).toHaveBeenCalledOnce()
-    } else {
-      expect(harness.cutDrawing.handleMouseDown).toHaveBeenCalledOnce()
-      expect(harness.cutDrawing.handleMouseMove).toHaveBeenCalledOnce()
+    expect(shifted.mouseInteraction.handleMouseDown).toHaveBeenCalledOnce()
+    expect(shifted.mouseInteraction.startPanning).toHaveBeenCalled()
+    expect(shifted.mouseInteraction.updatePanning).toHaveBeenCalledTimes(2)
+    for (const drawing of [shifted.polygonDrawing, shifted.rectangleDrawing, shifted.polylineDrawing, shifted.cutDrawing]) {
+      expect(drawing.handleMouseDown).not.toHaveBeenCalled()
+      expect(drawing.handleMouseMove).not.toHaveBeenCalled()
     }
+
+    const normal = await createHarness(mode)
+    normal.interactions.onMouseDown(eventStub())
+    normal.interactions.onMouseMove(eventStub())
+    const activeDrawing = {
+      polygon: normal.polygonDrawing,
+      rectangle: normal.rectangleDrawing,
+      polyline: normal.polylineDrawing,
+      cut: normal.cutDrawing
+    }[mode]
+    expect(activeDrawing.handleMouseDown).toHaveBeenCalledOnce()
+    expect(activeDrawing.handleMouseMove).toHaveBeenCalledOnce()
   })
 
   it('does not run command undo from the canvas key handler when no drawing is active', async () => {

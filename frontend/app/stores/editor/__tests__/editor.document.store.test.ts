@@ -1,20 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createPinia, defineStore, setActivePinia } from 'pinia'
-import { computed, nextTick, ref, watch } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
+import { nextTick } from 'vue'
 import { LabelSet } from '../../../models/editor/labels'
 import type { PageData } from '../types'
-
-type TestGlobal = typeof globalThis & {
-  defineStore: typeof defineStore
-  ref: typeof ref
-  computed: typeof computed
-  watch: typeof watch
-}
-
-;(globalThis as TestGlobal).defineStore = defineStore
-;(globalThis as TestGlobal).ref = ref
-;(globalThis as TestGlobal).computed = computed
-;(globalThis as TestGlobal).watch = watch
 
 async function createStores() {
   const { useEditorSessionStore } = await import('../editor.session.store')

@@ -1,11 +1,5 @@
-/* eslint-disable import/newline-after-import */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, readonly, ref, watch } from 'vue'
-
-;(globalThis as any).ref = ref
-;(globalThis as any).computed = computed
-;(globalThis as any).watch = watch
-;(globalThis as any).readonly = readonly
+import { ref } from 'vue'
 
 describe('use-page-filter helpers', () => {
   beforeEach(() => {

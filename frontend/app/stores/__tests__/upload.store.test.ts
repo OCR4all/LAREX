@@ -2,12 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UploadUiFile } from '../upload.store'
 
 async function createStore() {
-  const vue = await import('vue')
   const pinia = await import('pinia')
-  ;(globalThis as any).ref = vue.ref
-  ;(globalThis as any).shallowRef = vue.shallowRef
-  ;(globalThis as any).triggerRef = vue.triggerRef
-  ;(globalThis as any).computed = vue.computed
   pinia.setActivePinia(pinia.createPinia())
   const { useUploadStore } = await import('../upload.store')
   return useUploadStore()

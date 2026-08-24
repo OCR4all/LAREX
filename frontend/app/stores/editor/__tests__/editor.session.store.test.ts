@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 
 const STORAGE_KEY = 'larex-editor-session'
 
@@ -32,42 +33,54 @@ function ensureStorage(target: Record<string, unknown>, key: 'localStorage' | 's
   }
 }
 
-let piniaModulePromise: Promise<typeof import('pinia')> | null = null
-
-async function getPiniaModule() {
-  piniaModulePromise ??= import('pinia')
-  return piniaModulePromise
-}
-
-async function initializeStoreGlobals() {
-  const [pinia, vue] = await Promise.all([import('pinia'), import('vue')])
-  ;(globalThis as any).defineStore = pinia.defineStore
-  ;(globalThis as any).ref = vue.ref
-  ;(globalThis as any).computed = vue.computed
-}
-
 async function createStore() {
-  await initializeStoreGlobals()
   const { useEditorSessionStore } = await import('../editor.session.store')
   return useEditorSessionStore()
 }
 
+function installStorageGlobals() {
+  const globalTarget = globalThis as unknown as Record<string, unknown>
+  if (!(globalTarget.window && typeof globalTarget.window === 'object')) {
+    globalTarget.window = globalTarget
+  }
+
+  const windowTarget = globalTarget.window as Record<string, unknown>
+  ensureStorage(globalTarget, 'localStorage')
+  ensureStorage(globalTarget, 'sessionStorage')
+  ensureStorage(windowTarget, 'localStorage')
+  ensureStorage(windowTarget, 'sessionStorage')
+  ;(window as Window & { sessionStorage: StorageLike }).sessionStorage.clear()
+}
+
+const DEFAULT_TEXT_VIEW_SETTINGS = {
+  mode: 'textline',
+  gtIndex: 0,
+  searchQuery: '',
+  showDiff: false,
+  showComments: false,
+  showRecognition: true,
+  focusMode: false,
+  confidenceRange: [0, 1],
+  selectedIndices: [],
+  filterUnindexed: false,
+  showNonAssignedIndices: false,
+  onlyMissingGt: false
+}
+
+function expectTextViewSettings(
+  store: { textViewSettings: unknown },
+  overrides: Record<string, unknown> = {}
+) {
+  expect(store.textViewSettings).toEqual({
+    ...DEFAULT_TEXT_VIEW_SETTINGS,
+    ...overrides
+  })
+}
+
 describe('editor.session.store', () => {
-  beforeEach(async () => {
-    const globalTarget = globalThis as unknown as Record<string, unknown>
-    if (!(globalTarget.window && typeof globalTarget.window === 'object')) {
-      globalTarget.window = globalTarget
-    }
-
-    const windowTarget = globalTarget.window as Record<string, unknown>
-    ensureStorage(globalTarget, 'localStorage')
-    ensureStorage(globalTarget, 'sessionStorage')
-    ensureStorage(windowTarget, 'localStorage')
-    ensureStorage(windowTarget, 'sessionStorage')
-
-    const pinia = await getPiniaModule()
-    pinia.setActivePinia(pinia.createPinia())
-    ;(window as Window & { sessionStorage: StorageLike }).sessionStorage.clear()
+  beforeEach(() => {
+    installStorageGlobals()
+    setActivePinia(createPinia())
   })
 
   it('tracks opened projects/pages and active context per project', async () => {
@@ -122,20 +135,7 @@ describe('editor.session.store', () => {
     expect(store.getOpenedPageIds('legacy-project')).toEqual(['page-1', 'page-2'])
     expect(store.getActivePageId('legacy-project')).toBe('page-2')
     expect(store.getSelectedVariantIdByPageId('legacy-project')).toEqual({ 'page-2': 'variant-2' })
-    expect(store.textViewSettings).toEqual({
-      mode: 'textline',
-      gtIndex: 0,
-      searchQuery: '',
-      showDiff: false,
-      showComments: false,
-      showRecognition: true,
-      focusMode: false,
-      confidenceRange: [0, 1],
-      selectedIndices: [],
-      filterUnindexed: false,
-      showNonAssignedIndices: false,
-      onlyMissingGt: false
-    })
+    expectTextViewSettings(store)
   })
 
   it('retains only the active page for each project in page Focus mode', async () => {
@@ -156,8 +156,7 @@ describe('editor.session.store', () => {
     expect(store.getOpenedPageIds('project-b')).toEqual(['page-b1'])
     expect(store.getActivePageId('project-b')).toBe('page-b1')
 
-    const pinia = await getPiniaModule()
-    pinia.setActivePinia(pinia.createPinia())
+    setActivePinia(createPinia())
     const reloadedStore = await createStore()
     expect(reloadedStore.loadPersistedSession()).toBe(true)
     expect(reloadedStore.getOpenedPageIds('project-a')).toEqual(['page-a2'])
@@ -181,25 +180,19 @@ describe('editor.session.store', () => {
       filterUnindexed: true
     }))
 
-    const pinia = await getPiniaModule()
-    pinia.setActivePinia(pinia.createPinia())
+    setActivePinia(createPinia())
     const reloadedStore = await createStore()
     const loaded = reloadedStore.loadPersistedSession()
 
     expect(loaded).toBe(true)
-    expect(reloadedStore.textViewSettings).toEqual({
-      mode: 'textline',
+    expectTextViewSettings(reloadedStore, {
       gtIndex: 3,
-      searchQuery: '',
       showDiff: true,
-      showComments: false,
       showRecognition: false,
       focusMode: true,
       confidenceRange: [0.2, 0.9],
       selectedIndices: [2, 5],
-      filterUnindexed: true,
-      showNonAssignedIndices: false,
-      onlyMissingGt: false
+      filterUnindexed: true
     })
   })
 
@@ -220,19 +213,11 @@ describe('editor.session.store', () => {
 
     expect(store.openedProjectIds).toEqual([])
     expect(store.activeProjectId).toBeNull()
-    expect(store.textViewSettings).toEqual({
-      mode: 'textline',
-      gtIndex: 0,
-      searchQuery: '',
+    expectTextViewSettings(store, {
       showDiff: true,
-      showComments: false,
-      showRecognition: true,
-      focusMode: false,
       confidenceRange: [0.25, 0.75],
       selectedIndices: [7],
-      filterUnindexed: true,
-      showNonAssignedIndices: false,
-      onlyMissingGt: false
+      filterUnindexed: true
     })
   })
 
@@ -258,18 +243,8 @@ describe('editor.session.store', () => {
     const loaded = store.loadPersistedSession()
 
     expect(loaded).toBe(true)
-    expect(store.textViewSettings).toEqual({
-      mode: 'textline',
+    expectTextViewSettings(store, {
       gtIndex: 4,
-      searchQuery: '',
-      showDiff: false,
-      showComments: false,
-      showRecognition: true,
-      focusMode: false,
-      confidenceRange: [0, 1],
-      selectedIndices: [],
-      filterUnindexed: false,
-      showNonAssignedIndices: false,
       onlyMissingGt: true
     })
   })
@@ -301,24 +276,13 @@ describe('editor.session.store', () => {
       }
     }))
 
-    const pinia = await getPiniaModule()
-    pinia.setActivePinia(pinia.createPinia())
+    setActivePinia(createPinia())
     const reloadedStore = await createStore()
     const loaded = reloadedStore.loadPersistedSession()
 
     expect(loaded).toBe(true)
-    expect(reloadedStore.textViewSettings).toEqual({
-      mode: 'textline',
+    expectTextViewSettings(reloadedStore, {
       gtIndex: undefined,
-      searchQuery: '',
-      showDiff: false,
-      showComments: false,
-      showRecognition: true,
-      focusMode: false,
-      confidenceRange: [0, 1],
-      selectedIndices: [],
-      filterUnindexed: false,
-      showNonAssignedIndices: false,
       onlyMissingGt: true
     })
   })

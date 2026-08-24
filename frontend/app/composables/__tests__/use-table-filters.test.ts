@@ -1,10 +1,8 @@
-import { computed, ref } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { ref } from 'vue'
+import { describe, expect, it } from 'vitest'
 
 describe('useTableFilters', () => {
   it('includes searchText in the global filter', async () => {
-    vi.stubGlobal('ref', ref)
-    vi.stubGlobal('computed', computed)
     const { useTableFilters } = await import('../use-table-filters')
     const rows = ref([
       { name: 'Personal Workspace', description: '', searchText: 'Personal Workspace alice' },

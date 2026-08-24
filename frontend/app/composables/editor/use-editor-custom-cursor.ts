@@ -5,19 +5,12 @@ export interface EditorCustomCursorState {
   actionWandActive: boolean
 }
 
-export function resolveEditorCustomCursorPreset(state: EditorCustomCursorState): IconCursorPresetName | null {
-  switch (true) {
-    case state.actionWandActive:
-      return 'actionWand'
-    default:
-      return null
-  }
-}
-
 export function useEditorCustomCursor(state: Readonly<Ref<EditorCustomCursorState>>) {
   const { cursor: actionWandCursor } = useIconCursorPreset('actionWand')
 
-  const activePreset = computed(() => resolveEditorCustomCursorPreset(state.value))
+  const activePreset = computed<IconCursorPresetName | null>(() =>
+    state.value.actionWandActive ? 'actionWand' : null
+  )
 
   const activeCursor = computed(() => {
     switch (activePreset.value) {
