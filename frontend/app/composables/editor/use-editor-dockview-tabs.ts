@@ -73,7 +73,7 @@ export function useEditorDockviewTabs(options: EditorDockviewTabsOptions) {
   function onReady(event: DockviewReadyEvent) {
     options.setDockviewApi(event.api)
 
-    event.api.onDidActivePanelChange((panel) => {
+    event.api.onDidActivePanelChange(({ panel }) => {
       if (!panel) return
       const projectId = parseProjectPanelId(panel.id)
       if (projectId) {

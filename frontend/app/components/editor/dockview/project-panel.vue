@@ -124,7 +124,7 @@ const onReady = (event: DockviewReadyEvent) => {
     }
   })
 
-  event.api.onDidActivePanelChange((panel) => {
+  event.api.onDidActivePanelChange(({ panel }) => {
     if (!panel) return
     const parsed = parsePagePanelId(panel.id)
     if (!parsed) return
