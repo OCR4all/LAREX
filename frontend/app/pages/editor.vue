@@ -271,6 +271,7 @@ const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 const handledActionPageResultEvents = ref<Set<number>>(new Set())
 const pageFocusModeBusy = ref(false)
 let editorActionIndexStatusTimers: Array<ReturnType<typeof setTimeout>> = []
+let lastHandledActionTerminalSequence = 0
 
 type SelectionOpenSource = 'modal' | 'project-search' | 'page-search'
 
@@ -996,6 +997,17 @@ async function refreshActionRunPageSummaries(projectId: string, pageIds: string[
   }
 }
 
+async function reconcileActionRunTerminalLocks(projectId: string) {
+  if (editorStore.getProjectPages(projectId).length === 0) return
+
+  try {
+    const pages = await $fetch<PageResponse[]>(`/api/projects/${projectId}/pages`)
+    editorStore.patchProjectPageSummaries(projectId, pages)
+  } catch (error) {
+    console.error(`Failed to reconcile page locks after Action run for project ${projectId}:`, error)
+  }
+}
+
 async function refreshActionRunIndexStatuses(projectId: string, pageIds: string[]) {
   if (pageIds.length === 0) return
 
@@ -1089,6 +1101,19 @@ watch(() => actionRunsStore.pageResultEvents, (events) => {
     void reloadPageTouchedByActionResult(event)
   }
 }, { deep: false })
+
+watch(() => actionRunsStore.terminalEvents.at(-1)?.sequence, () => {
+  const events = actionRunsStore.terminalEvents.filter(event =>
+    event.sequence > lastHandledActionTerminalSequence
+  )
+  if (events.length === 0) return
+
+  lastHandledActionTerminalSequence = Math.max(...events.map(event => event.sequence))
+  const affectedProjectIds = new Set(events.map(event => event.run.projectId))
+  for (const projectId of affectedProjectIds) {
+    void reconcileActionRunTerminalLocks(projectId)
+  }
+}, { immediate: true })
 
 const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
   const pageActions: DropdownMenuItem[] = [

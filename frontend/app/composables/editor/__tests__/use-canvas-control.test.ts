@@ -3,11 +3,14 @@ import { ref } from 'vue'
 import type { SelectionFocusOptions } from '@/types/editor/canvas-controls'
 
 const editorStoreMock = vi.hoisted(() => ({
+  canvases: {} as Record<string, { pageId: string, projectId: string }>,
   clearCanvasSelection: vi.fn(),
+  getPage: vi.fn(),
   updateCanvasHistoryState: vi.fn()
 }))
 
 const editorUiStoreMock = vi.hoisted(() => ({
+  setActionWandActive: vi.fn(),
   setLastLayoutViewMode: vi.fn(),
   setTemporaryHoverPolygonId: vi.fn(),
   setTemporaryHoverPolylineId: vi.fn()
@@ -44,6 +47,25 @@ async function loadUseCanvasControl() {
 describe('useCanvasControl', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    editorStoreMock.canvases = {}
+    editorStoreMock.getPage.mockReset()
+  })
+
+  it('exposes persisted action locks after a faulty run becomes inactive', async () => {
+    editorStoreMock.canvases['locked-canvas'] = {
+      pageId: 'page-1',
+      projectId: 'project-1'
+    }
+    editorStoreMock.getPage.mockReturnValue({
+      locked: true,
+      lockedReason: 'LAREX Action running: Faulty OCR'
+    })
+
+    const useCanvasControl = await loadUseCanvasControl()
+    const controls = useCanvasControl('locked-canvas')
+
+    expect(controls.pageLockReason.value).toBe('LAREX Action running: Faulty OCR')
+    expect(controls.isCanvasEditable.value).toBe(false)
   })
 
   it('clears selection state before switching view modes', async () => {

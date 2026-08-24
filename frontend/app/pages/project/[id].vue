@@ -37,6 +37,7 @@ import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/t
 import UiColorTag from '@/components/ui/color-tag.vue'
 import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowState, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
 import type { UploadFile, UploadSession } from '@/composables/use-chunked-upload'
+import { resolvePageLockReason } from '@/utils/page-lock'
 
 type PdfPreflightResponse = {
   ready: boolean
@@ -831,15 +832,17 @@ watch(() => iiifImportJobsStore.terminalEvents.at(-1)?.sequence, () => {
   }
 }, { immediate: true })
 
-let lastHandledActionOutputSequence = 0
+let lastHandledActionTerminalSequence = 0
 watch(() => actionRunsStore.terminalEvents.at(-1)?.sequence, () => {
-  for (let index = actionRunsStore.terminalEvents.length - 1; index >= 0; index--) {
-    const event = actionRunsStore.terminalEvents[index]
-    if (!event || event.sequence <= lastHandledActionOutputSequence || event.run.projectId !== projectId) continue
-    lastHandledActionOutputSequence = event.sequence
-    if (event.run.status === 'COMPLETED') void refreshOutputs()
-    break
-  }
+  const events = actionRunsStore.terminalEvents.filter(event =>
+    event.sequence > lastHandledActionTerminalSequence
+    && event.run.projectId === projectId
+  )
+  if (events.length === 0) return
+
+  lastHandledActionTerminalSequence = Math.max(...events.map(event => event.sequence))
+  void refreshProjectPagesData()
+  if (events.some(event => event.run.status === 'COMPLETED')) void refreshOutputs()
 }, { immediate: true })
 
 const { openActionRunSlideover } = useProjectActions({
@@ -1958,11 +1961,8 @@ const pageColumns = [
     ]),
     cell: ({ row }: { row: { original: Page } }) => {
       const actionLockReason = actionRunsStore.getPageActionLockReason(projectId, row.original.id)
-      const lockReason = row.original.lockedReason || actionLockReason || 'Page is locked'
-      const staleActionLock = Boolean(row.original.locked
-        && row.original.lockedReason?.startsWith('LAREX Action running:')
-        && !actionLockReason)
-      const locked = Boolean(actionLockReason || (row.original.locked && !staleActionLock))
+      const lockReason = resolvePageLockReason(row.original, actionLockReason)
+      const locked = lockReason !== null
 
       return h('div', { class: 'flex min-w-0 items-center gap-2' }, [
         locked

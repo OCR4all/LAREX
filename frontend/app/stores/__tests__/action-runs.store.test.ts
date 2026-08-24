@@ -78,6 +78,20 @@ describe('action-runs.store', () => {
     expect(store.getPageActionLockReason('project-1', 'page-1')).toContain('Processor')
   })
 
+  it.each(['COMPLETED', 'FAILED', 'CANCELLED'] as const)(
+    'emits a terminal reconciliation event when a run becomes %s',
+    async (status) => {
+      const store = await createStore(vi.fn())
+      store.upsertRun(createRun())
+
+      store.upsertRun(createRun({ status }))
+
+      expect(store.terminalEvents).toHaveLength(1)
+      expect(store.terminalEvents[0]?.run.status).toBe(status)
+      expect(store.terminalEvents[0]?.run.pageIds).toEqual(['page-1', 'page-2'])
+    }
+  )
+
   it('coalesces realtime run refreshes for the same scope', async () => {
     vi.useFakeTimers()
     let listener: ((message: { type?: string, payload?: unknown }) => void) | undefined

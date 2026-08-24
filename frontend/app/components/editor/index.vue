@@ -3189,6 +3189,19 @@ watch(() => props.src, (newSrc) => {
     </div>
 
     <div
+      v-else-if="!isCanvasEditable"
+      class="flex min-h-10 items-center gap-2.5 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
+    >
+      <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+        <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
+      </div>
+      <p class="truncate text-[13px] text-amber-50/90">
+        <span class="text-amber-50/70">Read-only view.</span>
+        Editing is disabled for this page.
+      </p>
+    </div>
+
+    <div
       v-if="isCanvasEditable && isCanvasLeaseExpiringSoon"
       class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
     >

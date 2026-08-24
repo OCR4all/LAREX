@@ -4,6 +4,7 @@ import type { PageData } from '@/stores/editor/types'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import type { PageWorkflowState } from '@/types/project-page'
+import { resolvePageLockReason } from '@/utils/page-lock'
 
 type VariantItem = { label: string, value: string }
 
@@ -55,11 +56,8 @@ const { user } = useUserSession()
 
 const isSelected = computed(() => props.page.id === props.currentPageId)
 const actionLockReason = computed(() => actionRunsStore.getPageActionLockReason(props.page.projectId, props.page.id))
-const isStaleActionLock = computed(() =>
-  Boolean(props.page.locked && props.page.lockedReason?.startsWith('LAREX Action running:') && !actionLockReason.value)
-)
-const isPageLocked = computed(() => Boolean(actionLockReason.value || (props.page.locked && !isStaleActionLock.value)))
-const pageLockReason = computed(() => actionLockReason.value || props.page.lockedReason || 'Page is locked')
+const pageLockReason = computed(() => resolvePageLockReason(props.page, actionLockReason.value))
+const isPageLocked = computed(() => pageLockReason.value !== null)
 
 const pageLabel = computed(() => props.page.label || props.page.id)
 const workflowStateBadge = computed(() => {
@@ -369,7 +367,7 @@ async function handleCopyPageId() {
           <div class="flex items-center gap-1">
             <UTooltip
               v-if="isPageLocked"
-              :text="pageLockReason"
+              :text="pageLockReason ?? undefined"
               :content="{ side: 'left' }"
               :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
             >

@@ -11,6 +11,7 @@ import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rende
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 import type { LabelSet } from '@/models/editor/labels'
 import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
+import { resolvePageLockReason } from '@/utils/page-lock'
 
 type StatusEntityInfo = {
   regionType: RegionKind | 'TextLine' | 'Baseline' | 'Polyline'
@@ -225,12 +226,8 @@ export function useEditorActiveCanvasStatus(options: EditorActiveCanvasStatusOpt
     const projectId = currentProjectId.value
     if (!pageId) return false
     const actionLockReason = actionRunsStore.getPageActionLockReason(projectId, pageId)
-    if (actionLockReason) return true
-
     const page = editorStore.getPage(pageId, projectId ?? undefined)
-    if (!page?.locked) return false
-
-    return !page.lockedReason?.startsWith('LAREX Action running:')
+    return resolvePageLockReason(page, actionLockReason) !== null
   })
 
   return {

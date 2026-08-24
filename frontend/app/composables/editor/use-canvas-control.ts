@@ -7,6 +7,7 @@ import { PolygonType } from '@/models/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { getOrCreateSessionCommander } from '@/session/editor/canvas-commander'
 import type { EditorCanvasControls, SetViewModeOptions } from '@/types/editor/canvas-controls'
+import { resolvePageLockReason } from '@/utils/page-lock'
 import { computed, reactive, ref, watch } from 'vue'
 
 export const DRAWING_MODES = {
@@ -54,13 +55,8 @@ export function useCanvasControl(canvasId: string): EditorCanvasControls {
 
     const projectId = canvas?.projectId ?? null
     const actionLockReason = actionRunsStore.getPageActionLockReason(projectId, pageId)
-    if (actionLockReason) return actionLockReason
-
     const page = editorStore.getPage(pageId, projectId ?? undefined)
-    if (!page?.locked) return null
-
-    if (page.lockedReason?.startsWith('LAREX Action running:')) return null
-    return page.lockedReason || 'Page is locked'
+    return resolvePageLockReason(page, actionLockReason)
   })
   const isCanvasEditable = computed(() => collaboration.canEditCanvas(canvasId) && !pageLockReason.value)
 
