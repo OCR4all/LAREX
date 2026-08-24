@@ -1,4 +1,4 @@
-minimumReleaseAge: 14400
+minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - '@maxnth/gestalt'
 
