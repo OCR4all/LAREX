@@ -22,6 +22,7 @@ import {
   type ActionEndpointSecretRevealResponse
 } from '@/types/action'
 import { extractApiErrorMessage } from '@/utils/api-error'
+import { actionYamlIndentKeymap, actionYamlWhitespaceExtension } from '@/utils/action-yaml-editor'
 import { copyTextToClipboard } from '@/utils/clipboard'
 import { generateRandomActionSlug } from '@/utils/random-action-slug'
 import { getWorkspaceDisplayName } from '@/utils/workspace-display'
@@ -78,6 +79,7 @@ const diagnostics = ref<ActionValidationDiagnostic[]>([])
 const validation = ref<ActionValidationResponse | null>(null)
 const initialYaml = ref(DEFAULT_ACTION_YAML)
 const editorContent = ref(DEFAULT_ACTION_YAML)
+const isWhitespaceVisible = ref(false)
 const workflowFilter = ref('')
 const selectedAvailabilityWorkspaceIds = ref<string[]>([])
 const workspaceAvailability = ref<ActionWorkspaceAvailability[]>([])
@@ -96,6 +98,7 @@ const recentEndpointSecretReveal = ref<ActionEndpointSecretRevealResponse | null
 
 let editorView: EditorView | null = null
 const themeCompartment = new Compartment()
+const whitespaceCompartment = new Compartment()
 const yamlSearchKeymap = keymap.of([
   { key: 'Mod-h', run: openSearchPanel },
   ...searchKeymap
@@ -225,9 +228,11 @@ function createEditor(content: string) {
       doc: content,
       extensions: [
         themeCompartment.of(buildThemeExtension()),
+        whitespaceCompartment.of(actionYamlWhitespaceExtension(isWhitespaceVisible.value)),
         basicSetup,
         search({ top: true }),
         highlightSelectionMatches(),
+        actionYamlIndentKeymap,
         yamlSearchKeymap,
         yaml(),
         lintGutter(),
@@ -914,6 +919,14 @@ function toggleFindReplacePanel() {
   }
 }
 
+function toggleWhitespaceVisibility() {
+  isWhitespaceVisible.value = !isWhitespaceVisible.value
+  editorView?.dispatch({
+    effects: whitespaceCompartment.reconfigure(actionYamlWhitespaceExtension(isWhitespaceVisible.value))
+  })
+  editorView?.focus()
+}
+
 function toggleAuditEventExpanded(eventId: string) {
   expandedAuditEventIds.value = expandedAuditEventIds.value.includes(eventId)
     ? expandedAuditEventIds.value.filter(id => id !== eventId)
@@ -1380,6 +1393,18 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                       @click="toggleFindReplacePanel"
                     >
                       Find
+                    </UButton>
+                    <UButton
+                      color="neutral"
+                      :variant="isWhitespaceVisible ? 'soft' : 'ghost'"
+                      size="sm"
+                      icon="i-lucide-pilcrow"
+                      :aria-label="isWhitespaceVisible ? 'Hide whitespace characters' : 'Show whitespace characters'"
+                      :aria-pressed="isWhitespaceVisible"
+                      :title="isWhitespaceVisible ? 'Hide spaces and tabs' : 'Show spaces and tabs'"
+                      @click="toggleWhitespaceVisibility"
+                    >
+                      Whitespace
                     </UButton>
                     <UButton
                       color="neutral"
