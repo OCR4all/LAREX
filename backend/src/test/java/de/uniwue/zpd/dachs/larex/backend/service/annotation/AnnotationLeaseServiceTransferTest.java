@@ -50,7 +50,7 @@ class AnnotationLeaseServiceTransferTest {
 
         service.joinLease(previousEditor, "previous-instance");
         service.joinLease(requester, "requester-instance");
-        service.requestTakeover(requester, false);
+        service.requestTakeoverAction(requester, false, "requester-instance");
 
         AnnotationCollaborationDto.LeaseState accepted =
                 service.respondToTakeover(previousEditor, "accept", "save");
@@ -74,7 +74,8 @@ class AnnotationLeaseServiceTransferTest {
         service.joinLease(previousEditor, "previous-instance");
         service.joinLease(manager, "manager-instance");
 
-        AnnotationCollaborationDto.LeaseState forced = service.requestTakeover(manager, true);
+        AnnotationCollaborationDto.LeaseState forced =
+                service.requestTakeoverAction(manager, true, "manager-instance").lease();
         assertEditor(forced, "manager");
 
         AnnotationCollaborationDto.LeaseState afterPreviousHeartbeat =
@@ -93,12 +94,49 @@ class AnnotationLeaseServiceTransferTest {
 
         service.joinLease(previousEditor, "previous-instance");
 
-        AnnotationCollaborationDto.LeaseState forced = service.requestTakeover(manager, true);
+        AnnotationCollaborationDto.LeaseState forced =
+                service.requestTakeoverAction(manager, true, "manager-instance").lease();
         assertEditor(forced, "manager");
 
         AnnotationCollaborationDto.LeaseState afterPreviousHeartbeat =
                 service.heartbeat(previousEditor, "previous-instance");
         assertEditor(afterPreviousHeartbeat, "manager");
+    }
+
+    @Test
+    void acceptedTakeoverBindsLeaseToRequestingInstanceWithoutPriorJoin() {
+        AnnotationLeaseService.RoomAccessContext previousEditor = context("previous-editor", false);
+        AnnotationLeaseService.RoomAccessContext requester = context("requester", false);
+
+        service.joinLease(previousEditor, "previous-instance");
+
+        AnnotationCollaborationDto.LeaseActionResult requested =
+                service.requestTakeoverAction(requester, false, "requester-instance");
+        assertEquals(AnnotationCollaborationDto.LeaseActionOutcome.PENDING, requested.outcome());
+
+        AnnotationCollaborationDto.LeaseState accepted =
+                service.respondToTakeover(previousEditor, "accept", "save");
+        assertEditor(accepted, "requester");
+
+        AnnotationCollaborationDto.LeaseState renewed =
+                service.heartbeat(requester, "requester-instance");
+        assertEditor(renewed, "requester");
+    }
+
+    @Test
+    void forcedTakeoverBindsLeaseToRequestingInstanceWithoutPriorJoin() {
+        AnnotationLeaseService.RoomAccessContext previousEditor = context("previous-editor", false);
+        AnnotationLeaseService.RoomAccessContext manager = context("manager", true);
+
+        service.joinLease(previousEditor, "previous-instance");
+
+        AnnotationCollaborationDto.LeaseState forced =
+                service.requestTakeoverAction(manager, true, "manager-instance").lease();
+        assertEditor(forced, "manager");
+
+        AnnotationCollaborationDto.LeaseState renewed =
+                service.heartbeat(manager, "manager-instance");
+        assertEditor(renewed, "manager");
     }
 
     @Test

@@ -206,6 +206,12 @@ public class AnnotationLeaseService {
     }
 
     public AnnotationCollaborationDto.LeaseActionResult requestTakeoverAction(RoomAccessContext context, boolean force) {
+        return requestTakeoverAction(context, force, null);
+    }
+
+    public AnnotationCollaborationDto.LeaseActionResult requestTakeoverAction(RoomAccessContext context,
+                                                                               boolean force,
+                                                                               String instanceId) {
         List<NotificationIntent> notifications = new ArrayList<>();
         AnnotationCollaborationDto.LeaseActionResult result;
         synchronized (leases) {
@@ -222,13 +228,18 @@ public class AnnotationLeaseService {
                         "You do not have permission to edit this page."
                 );
             } else if (record.owner == null) {
-                assignOwner(record, context.user(), null);
+                touchParticipant(record, context.user(), instanceId);
+                assignOwner(record, context.user(), instanceId);
                 result = actionResult(
                         record,
                         AnnotationCollaborationDto.LeaseActionOutcome.GRANTED,
                         "The edit lock was granted."
                 );
             } else if (isOwner(record, context.user().id())) {
+                touchParticipant(record, context.user(), instanceId);
+                if (instanceId != null && !instanceId.isBlank()) {
+                    touchInstance(record, instanceId);
+                }
                 result = actionResult(
                         record,
                         AnnotationCollaborationDto.LeaseActionOutcome.GRANTED,
@@ -243,7 +254,8 @@ public class AnnotationLeaseService {
                     );
                 } else {
                     AnnotationCollaborationDto.UserSummary previousEditor = record.owner == null ? null : record.owner.user;
-                    assignOwner(record, context.user(), null);
+                    touchParticipant(record, context.user(), instanceId);
+                    assignOwner(record, context.user(), instanceId);
                     if (previousEditor != null && !previousEditor.id().equals(context.user().id())) {
                         queueNotification(notifications, "takeover-forced", () -> notificationService.createCollaborationTakeoverForcedNotification(
                                 previousEditor.id(),
@@ -263,6 +275,7 @@ public class AnnotationLeaseService {
             } else if (record.pendingTakeover != null
                     && record.pendingTakeover.requester != null
                     && context.user().id().equals(record.pendingTakeover.requester.id())) {
+                touchParticipant(record, context.user(), instanceId);
                 result = actionResult(
                         record,
                         AnnotationCollaborationDto.LeaseActionOutcome.PENDING,
@@ -275,7 +288,13 @@ public class AnnotationLeaseService {
                         "Another edit request is already pending."
                 );
             } else {
-                record.pendingTakeover = new PendingTakeoverRecord(context.user(), Instant.now().toString(), false);
+                touchParticipant(record, context.user(), instanceId);
+                record.pendingTakeover = new PendingTakeoverRecord(
+                        context.user(),
+                        Instant.now().toString(),
+                        false,
+                        instanceId
+                );
                 record.epoch++;
                 if (record.owner != null
                         && record.owner.user != null
@@ -363,7 +382,7 @@ public class AnnotationLeaseService {
                             "The pending edit request is no longer valid."
                     );
                 } else {
-                    assignOwner(record, pending.requester, null);
+                    assignOwner(record, pending.requester, pending.instanceId);
                     if (!pending.requester.id().equals(context.user().id())) {
                         queueNotification(notifications, "takeover-granted", () -> notificationService.createCollaborationTakeoverGrantedNotification(
                                 pending.requester.id(),
@@ -882,7 +901,8 @@ public class AnnotationLeaseService {
     private record PendingTakeoverRecord(
             AnnotationCollaborationDto.UserSummary requester,
             String requestedAt,
-            boolean force
+            boolean force,
+            String instanceId
     ) {}
 
     private static final class ParticipantInstanceRecord {

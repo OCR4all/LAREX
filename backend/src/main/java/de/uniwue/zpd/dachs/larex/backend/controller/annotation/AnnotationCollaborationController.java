@@ -100,12 +100,12 @@ public class AnnotationCollaborationController {
             @PathVariable String projectId,
             @PathVariable String pageId,
             @PathVariable String xmlId,
-            @RequestBody(required = false) AnnotationCollaborationDto.TakeoverRequestPayload payload,
+            @Valid @RequestBody AnnotationCollaborationDto.TakeoverRequestPayload payload,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         AnnotationLeaseService.RoomAccessContext context = annotationLeaseService.resolveRoomAccess(projectId, pageId, xmlId, userId);
         AnnotationCollaborationDto.LeaseActionResult result =
-                annotationLeaseService.requestTakeoverAction(context, payload != null && payload.force());
+                annotationLeaseService.requestTakeoverAction(context, payload.force(), payload.instanceId());
         return ResponseEntity.ok(new AnnotationCollaborationDto.LeaseActionResponse(
                 context.roomKey(),
                 result.lease(),

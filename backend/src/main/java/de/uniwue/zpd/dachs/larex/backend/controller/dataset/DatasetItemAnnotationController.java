@@ -198,7 +198,7 @@ public class DatasetItemAnnotationController {
             @PathVariable String datasetId,
             @PathVariable String itemId,
             @PathVariable String xmlId,
-            @RequestBody(required = false) AnnotationCollaborationDto.TakeoverRequestPayload payload,
+            @Valid @RequestBody AnnotationCollaborationDto.TakeoverRequestPayload payload,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         DatasetCopyAnnotationService.DatasetCopyXmlAccessContext context = datasetCopyAnnotationService.resolveAccessContext(
@@ -211,7 +211,7 @@ public class DatasetItemAnnotationController {
         AnnotationLeaseService.RoomAccessContext roomContext = toRoomAccessContext(context, workspaceId, datasetId, itemId, userId);
 
         AnnotationCollaborationDto.LeaseActionResult result =
-                annotationLeaseService.requestTakeoverAction(roomContext, payload != null && payload.force());
+                annotationLeaseService.requestTakeoverAction(roomContext, payload.force(), payload.instanceId());
         return ResponseEntity.ok(new AnnotationCollaborationDto.LeaseActionResponse(
                 roomContext.roomKey(),
                 result.lease(),

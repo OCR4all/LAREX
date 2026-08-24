@@ -105,7 +105,8 @@ public class AnnotationCollaborationDto {
     ) {}
 
     public record TakeoverRequestPayload(
-            boolean force
+            boolean force,
+            @NotBlank String instanceId
     ) {}
 
     public record TakeoverResponsePayload(

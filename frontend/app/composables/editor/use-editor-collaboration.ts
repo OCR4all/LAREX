@@ -1543,15 +1543,26 @@ export function useEditorCollaboration() {
     if (!roomKey || !room) return null
 
     try {
+      // A takeover can be initiated before the initial WebSocket room join has
+      // been acknowledged. Rejoining here guarantees that subsequent batched
+      // renewals can resolve this room for the instance receiving the lease.
+      sendMessage('JOIN_ROOM', { token: room.identity.token })
+
       const response = await $fetch<CollaborationLeaseActionResponse>(
         collaborationPathForRoom(room, 'lease/request'),
         {
           method: 'POST',
-          body: { force }
+          body: {
+            force,
+            instanceId: ensureInstanceId()
+          }
         }
       )
 
       applyLeaseState(roomKey, response.lease)
+      if (response.outcome === 'GRANTED' || response.outcome === 'PENDING') {
+        reconcileLeaseHeartbeatTimer(true)
+      }
       return response.outcome
     } catch (error) {
       console.error('[editor-collaboration] Failed to request takeover:', error)
