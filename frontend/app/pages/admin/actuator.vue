@@ -21,6 +21,9 @@ const {
 } = await useLazyFetch<HealthResponse>('/api/actuator/health')
 
 const lastUpdatedAt = ref<Date | null>(null)
+const healthErrorMessage = computed(() =>
+  extractApiErrorMessage(healthError.value, 'Unable to fetch application health status')
+)
 
 watch(health, (value) => {
   if (value) {
@@ -120,7 +123,7 @@ function formatDetailValue(value: unknown) {
           color="error"
           variant="soft"
           title="Failed to load health data"
-          :description="healthError.data?.message || 'Unable to fetch application health status'"
+          :description="healthErrorMessage"
         />
 
         <div v-if="healthLoading" class="space-y-4">
