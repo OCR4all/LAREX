@@ -31,24 +31,13 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 
 /**
  * Check if we're in production mode.
- * Uses multiple detection methods for reliability.
+ * Uses build-time flags so the logger remains independent of Nuxt context.
  */
 function isProduction(): boolean {
   if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') {
     return true
   }
-  if (typeof useRuntimeConfig !== 'undefined') {
-    try {
-      const config = useRuntimeConfig()
-      return config.public?.env === 'production' || import.meta.env?.PROD === true
-    } catch {
-      // Runtime config is unavailable when this utility runs outside a Nuxt context.
-    }
-  }
-  if (typeof import.meta !== 'undefined' && import.meta.env?.PROD) {
-    return true
-  }
-  return false
+  return import.meta.env?.PROD === true
 }
 
 class LoggerService {

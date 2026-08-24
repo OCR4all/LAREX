@@ -37,11 +37,12 @@ export function formatLocalDateTime(value: DateTimeInput): string {
 }
 
 export function useLocalDateTime(value: MaybeRefOrGetter<DateTimeInput>) {
+  const isHydrated = ref(false)
   const date = computed(() => normalizeLocalDateTimeInput(toValue(value)))
   const absoluteLabel = computed(() => formatLocalDateTime(date.value))
   const isoDate = computed(() => date.value?.toISOString())
   const shouldUseRelativeLabel = computed(() => {
-    if (!date.value) return false
+    if (!isHydrated.value || !date.value) return false
     return Math.abs(Date.now() - date.value.getTime()) <= RELATIVE_MAX_MS
   })
   const relativeLabel = useTimeAgo(
@@ -52,6 +53,11 @@ export function useLocalDateTime(value: MaybeRefOrGetter<DateTimeInput>) {
       updateInterval: 30_000
     }
   )
+
+  onMounted(() => {
+    isHydrated.value = true
+  })
+
   const label = computed(() => {
     if (!date.value) return '—'
     return shouldUseRelativeLabel.value ? relativeLabel.value : absoluteLabel.value
