@@ -11,6 +11,50 @@ import java.util.List;
 
 public class WorkspaceDto {
 
+    public enum ProjectDefaultPropagationScope {
+        FUTURE_ONLY,
+        UNSET_ONLY,
+        ALL
+    }
+
+    public enum ProjectDefaultKey {
+        CODEC,
+        LABEL_SET,
+        DICTIONARY,
+        TAG_SET,
+        NORMALIZATION_PROFILE,
+        VALIDATION_RULESET,
+        TEXT_INDICES
+    }
+
+    public record ProjectDefaultsImpact(
+            int affectedProjects,
+            int skippedLockedProjects
+    ) {}
+
+    public record ProjectDefaultsProposal(
+            String codecId,
+            String labelSetId,
+            String dictionaryId,
+            String tagSetId,
+            String normalizationProfileId,
+            String validationRulesetId,
+            Integer defaultGtIndex,
+            List<Integer> defaultRecognitionIndices
+    ) {}
+
+    public record ProjectDefaultsPreviewResponse(
+            List<ProjectDefaultKey> changedDefaults,
+            ProjectDefaultsImpact unsetOnly,
+            ProjectDefaultsImpact all
+    ) {}
+
+    public record ProjectDefaultsPropagationResult(
+            ProjectDefaultPropagationScope scope,
+            int updatedProjects,
+            int skippedLockedProjects
+    ) {}
+
     /**
      * Base response DTO using polymorphic serialization
      */
@@ -41,13 +85,15 @@ public class WorkspaceDto {
         private final Integer defaultGtIndex;
         private final List<Integer> defaultRecognitionIndices;
         private final AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities;
+        private final ProjectDefaultsPropagationResult projectDefaultsPropagation;
 
         protected Response(String id, String name, String description, String avatar,
                           LocalDateTime created, LocalDateTime updated, boolean isPersonal,
                           String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                           String normalizationProfileId, String validationRulesetId,
                           Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
-                          AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities) {
+                          AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
+                          ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             this.id = id;
             this.name = name;
             this.description = description;
@@ -65,6 +111,7 @@ public class WorkspaceDto {
             this.defaultGtIndex = defaultGtIndex;
             this.defaultRecognitionIndices = defaultRecognitionIndices;
             this.capabilities = capabilities;
+            this.projectDefaultsPropagation = projectDefaultsPropagation;
         }
 
         public String getId() { return id; }
@@ -85,6 +132,7 @@ public class WorkspaceDto {
         public Integer getDefaultGtIndex() { return defaultGtIndex; }
         public List<Integer> getDefaultRecognitionIndices() { return defaultRecognitionIndices; }
         public AuthorizationCapabilitiesDto.WorkspaceCapabilities getCapabilities() { return capabilities; }
+        public ProjectDefaultsPropagationResult getProjectDefaultsPropagation() { return projectDefaultsPropagation; }
     }
 
     public static class PersonalWorkspaceResponse extends Response {
@@ -93,10 +141,11 @@ public class WorkspaceDto {
                                        String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                        String normalizationProfileId, String validationRulesetId,
                                        Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
-                                       AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities) {
+                                       AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
+                                       ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             super(id, "Personal Workspace", description, avatar, created, updated, true, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId,
-                    defaultGtIndex, defaultRecognitionIndices, capabilities);
+                    defaultGtIndex, defaultRecognitionIndices, capabilities, projectDefaultsPropagation);
         }
     }
 
@@ -106,10 +155,11 @@ public class WorkspaceDto {
                                    String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                    String normalizationProfileId, String validationRulesetId,
                                    Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
-                                   AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities) {
+                                   AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
+                                   ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             super(id, name, description, avatar, created, updated, false, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId,
-                    defaultGtIndex, defaultRecognitionIndices, capabilities);
+                    defaultGtIndex, defaultRecognitionIndices, capabilities, projectDefaultsPropagation);
         }
     }
 
@@ -163,7 +213,8 @@ public class WorkspaceDto {
             String normalizationProfileId,
             String validationRulesetId,
             Integer defaultGtIndex,
-            List<Integer> defaultRecognitionIndices
+            List<Integer> defaultRecognitionIndices,
+            ProjectDefaultPropagationScope projectDefaultPropagationScope
     ) {}
 
     public record UpdatePersonalWorkspaceRequest(
@@ -177,7 +228,8 @@ public class WorkspaceDto {
             String normalizationProfileId,
             String validationRulesetId,
             Integer defaultGtIndex,
-            List<Integer> defaultRecognitionIndices
+            List<Integer> defaultRecognitionIndices,
+            ProjectDefaultPropagationScope projectDefaultPropagationScope
     ) {}
 
     // Invitation DTOs (only for team workspaces)

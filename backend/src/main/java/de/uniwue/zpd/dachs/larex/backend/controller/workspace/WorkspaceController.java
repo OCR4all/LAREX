@@ -127,7 +127,8 @@ public class WorkspaceController {
                 teamWorkspace.getValidationRuleset() != null ? teamWorkspace.getValidationRuleset().getId() : null,
                 teamWorkspace.getEffectiveDefaultGtIndex(),
                 teamWorkspace.getDefaultRecognitionIndicesList(),
-                authorizationPolicyService.resolveWorkspaceCapabilities(teamWorkspace.getId(), userId)
+                authorizationPolicyService.resolveWorkspaceCapabilities(teamWorkspace.getId(), userId),
+                null
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -142,7 +143,7 @@ public class WorkspaceController {
             @Valid @RequestBody WorkspaceDto.UpdateTeamWorkspaceRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
-        Optional<AbstractWorkspace> workspaceOpt = workspaceService.updateWorkspace(
+        Optional<WorkspaceService.WorkspaceUpdateResult> workspaceOpt = workspaceService.updateWorkspace(
                 workspaceId,
                 request.name(),
                 request.description(),
@@ -155,12 +156,21 @@ public class WorkspaceController {
                 request.validationRulesetId(),
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
+                request.projectDefaultPropagationScope(),
                 userId
         );
 
-        return workspaceOpt.map(workspace -> mapToResponse(workspace, userId))
+        return workspaceOpt.map(result -> mapToResponse(result.workspace(), userId, result.projectDefaultsPropagation()))
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
+    }
+
+    @PostMapping("/{workspaceId}/project-defaults/preview")
+    public ResponseEntity<WorkspaceDto.ProjectDefaultsPreviewResponse> previewProjectDefaults(
+            @PathVariable String workspaceId,
+            @RequestBody WorkspaceDto.ProjectDefaultsProposal proposal,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(workspaceService.previewProjectDefaults(workspaceId, proposal, userId));
     }
 
     /**
@@ -379,6 +389,12 @@ public class WorkspaceController {
      * Map workspace entity to appropriate DTO response
      */
     private WorkspaceDto.Response mapToResponse(AbstractWorkspace workspace, String userId) {
+        return mapToResponse(workspace, userId, null);
+    }
+
+    private WorkspaceDto.Response mapToResponse(AbstractWorkspace workspace,
+                                                 String userId,
+                                                 WorkspaceDto.ProjectDefaultsPropagationResult projectDefaultsPropagation) {
         String codecId = workspace.getCodec() != null ? workspace.getCodec().getId() : null;
         String labelSetId = workspace.getLabelSet() != null ? workspace.getLabelSet().getId() : null;
         String dictionaryId = workspace.getDictionary() != null ? workspace.getDictionary().getId() : null;
@@ -405,7 +421,8 @@ public class WorkspaceController {
                     validationRulesetId,
                     defaultGtIndex,
                     defaultRecognitionIndices,
-                    capabilities
+                    capabilities,
+                    projectDefaultsPropagation
             );
         } else if (workspace instanceof TeamWorkspace teamWorkspace) {
             return new WorkspaceDto.TeamWorkspaceResponse(
@@ -424,7 +441,8 @@ public class WorkspaceController {
                     validationRulesetId,
                     defaultGtIndex,
                     defaultRecognitionIndices,
-                    capabilities
+                    capabilities,
+                    projectDefaultsPropagation
             );
         } else {
             throw new IllegalArgumentException("Unknown workspace type: " + workspace.getClass());

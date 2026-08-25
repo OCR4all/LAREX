@@ -30,15 +30,18 @@ public class WorkspaceService {
     private final TeamWorkspaceService teamWorkspaceService;
     private final WorkspaceQueryService workspaceQueryService;
     private final WorkspaceAccessService workspaceAccessService;
+    private final WorkspaceProjectDefaultsService workspaceProjectDefaultsService;
 
     public WorkspaceService(PersonalWorkspaceService personalWorkspaceService,
                            TeamWorkspaceService teamWorkspaceService,
                            WorkspaceQueryService workspaceQueryService,
-                           WorkspaceAccessService workspaceAccessService) {
+                           WorkspaceAccessService workspaceAccessService,
+                           WorkspaceProjectDefaultsService workspaceProjectDefaultsService) {
         this.personalWorkspaceService = personalWorkspaceService;
         this.teamWorkspaceService = teamWorkspaceService;
         this.workspaceQueryService = workspaceQueryService;
         this.workspaceAccessService = workspaceAccessService;
+        this.workspaceProjectDefaultsService = workspaceProjectDefaultsService;
     }
 
     /**
@@ -78,29 +81,50 @@ public class WorkspaceService {
     /**
      * Update workspace (handles both types)
      */
-    public Optional<AbstractWorkspace> updateWorkspace(String workspaceId, String name, String description, String avatar,
-                                                       String codecId, String labelSetId, String dictionaryId, String tagSetId,
-                                                       String normalizationProfileId, String validationRulesetId,
-                                                       Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
-                                                       String userId) {
+    public Optional<WorkspaceUpdateResult> updateWorkspace(String workspaceId, String name, String description, String avatar,
+                                                           String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                                           String normalizationProfileId, String validationRulesetId,
+                                                           Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                                                           WorkspaceDto.ProjectDefaultPropagationScope propagationScope,
+                                                           String userId) {
         Optional<AbstractWorkspace> workspaceOpt = workspaceQueryService.findWorkspaceById(workspaceId);
         if (workspaceOpt.isEmpty()) return Optional.empty();
 
         AbstractWorkspace workspace = workspaceOpt.get();
+        WorkspaceProjectDefaultsService.WorkspaceDefaults before =
+                WorkspaceProjectDefaultsService.WorkspaceDefaults.from(workspace);
+        Optional<AbstractWorkspace> updated;
         if (workspace instanceof PersonalWorkspace) {
             Optional<PersonalWorkspace> personal = personalWorkspaceService.updatePersonalWorkspace(
                     workspaceId, description, avatar, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices, userId
             );
-            return personal.map(pw -> (AbstractWorkspace) pw);
+            updated = personal.map(pw -> (AbstractWorkspace) pw);
+        } else {
+            Optional<TeamWorkspace> team = teamWorkspaceService.updateTeamWorkspace(
+                    workspaceId, name, description, avatar, codecId, labelSetId, dictionaryId, tagSetId,
+                    normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices, userId
+            );
+            updated = team.map(tw -> (AbstractWorkspace) tw);
         }
 
-        Optional<TeamWorkspace> team = teamWorkspaceService.updateTeamWorkspace(
-                workspaceId, name, description, avatar, codecId, labelSetId, dictionaryId, tagSetId,
-                normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices, userId
-        );
-        return team.map(tw -> (AbstractWorkspace) tw);
+        return updated.map(value -> new WorkspaceUpdateResult(
+                value,
+                workspaceProjectDefaultsService.apply(workspaceId, before, value, propagationScope, userId)
+        ));
     }
+
+    public WorkspaceDto.ProjectDefaultsPreviewResponse previewProjectDefaults(
+            String workspaceId,
+            WorkspaceDto.ProjectDefaultsProposal proposal,
+            String userId) {
+        return workspaceProjectDefaultsService.preview(workspaceId, proposal, userId);
+    }
+
+    public record WorkspaceUpdateResult(
+            AbstractWorkspace workspace,
+            WorkspaceDto.ProjectDefaultsPropagationResult projectDefaultsPropagation
+    ) {}
 
     /**
      * Delete workspace (handles both types)

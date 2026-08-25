@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { LazyUiDeleteSlideover } from '#components'
+import WorkspaceModalProjectDefaultPropagation from '~/components/workspace/modal/project-default-propagation.vue'
 import type { CodecSummary } from '@/types/codec'
 import type { DictionarySummary } from '@/types/dictionary'
 import type { LabelSetSummary } from '@/types/label-set'
@@ -7,6 +8,13 @@ import type { NormalizationProfileSummary } from '@/types/normalization-profile'
 import type { TagSetSummary } from '@/types/tag-set'
 import type { ValidationRulesetSummary } from '@/types/validation-ruleset'
 import type { ActionAssignmentResponse, ActionDefinitionResponse } from '@/types/action'
+import type {
+  ProjectDefaultKey,
+  ProjectDefaultPropagationScope,
+  ProjectDefaultsPreview,
+  ProjectDefaultsPropagationResult
+} from '~/types/workspace-project-defaults'
+import { changedProjectDefaultKeys } from '~/utils/workspace-project-defaults'
 
 type SelectOption = { label: string, value: string }
 
@@ -26,6 +34,7 @@ interface Workspace {
   validationRulesetId?: string
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
+  projectDefaultsPropagation?: ProjectDefaultsPropagationResult | null
   created?: string
   updated?: string
 }
@@ -47,6 +56,7 @@ const { refreshWorkspaceDetails, refreshWorkspaceList } = useDataRefresh()
 const { allow } = useActionVisibility()
 
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
+const projectDefaultsPropagationModal = overlay.create(WorkspaceModalProjectDefaultPropagation)
 
 const selectedWorkspace = computed(() => workspaceStore.selectedWorkspaceId)
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
@@ -123,6 +133,88 @@ function formatRecognitionIndices(value?: number[] | null): string {
   return Array.isArray(value) && value.length > 0 ? value.join(', ') : '1'
 }
 
+const defaultLabels: Record<ProjectDefaultKey, string> = {
+  CODEC: 'Codec',
+  LABEL_SET: 'Label set',
+  DICTIONARY: 'Dictionary',
+  TAG_SET: 'Tag set',
+  NORMALIZATION_PROFILE: 'Normalization profile',
+  VALIDATION_RULESET: 'Validation ruleset',
+  TEXT_INDICES: 'Text indices'
+}
+
+function normalizeId(value?: string | null): string | null {
+  return value?.trim() || null
+}
+
+function optionLabel(options: SelectOption[], id?: string | null): string {
+  if (!id) return 'Not set'
+  return options.find(option => option.value === id)?.label || id
+}
+
+function changedWorkspaceDefaults(defaultGtIndex: number, defaultRecognitionIndices: number[]) {
+  if (!workspace.value) return []
+
+  const currentRecognitionIndices = workspace.value.defaultRecognitionIndices?.length
+    ? workspace.value.defaultRecognitionIndices
+    : [1]
+  const changedKeys = changedProjectDefaultKeys(
+    {
+      codecId: workspace.value.codecId,
+      labelSetId: workspace.value.labelSetId,
+      dictionaryId: workspace.value.dictionaryId,
+      tagSetId: workspace.value.tagSetId,
+      normalizationProfileId: workspace.value.normalizationProfileId,
+      validationRulesetId: workspace.value.validationRulesetId,
+      defaultGtIndex: workspace.value.defaultGtIndex ?? 0,
+      defaultRecognitionIndices: currentRecognitionIndices
+    },
+    {
+      codecId: form.codecId,
+      labelSetId: form.labelSetId,
+      dictionaryId: form.dictionaryId,
+      tagSetId: form.tagSetId,
+      normalizationProfileId: form.normalizationProfileId,
+      validationRulesetId: form.validationRulesetId,
+      defaultGtIndex,
+      defaultRecognitionIndices
+    }
+  )
+  const changed: Array<{ key: ProjectDefaultKey, label: string, before: string, after: string }> = []
+  const resources: Array<{ key: Exclude<ProjectDefaultKey, 'TEXT_INDICES'>, current?: string | null, next: string, options: SelectOption[] }> = [
+    { key: 'CODEC', current: workspace.value.codecId, next: form.codecId, options: codecsSafe.value },
+    { key: 'LABEL_SET', current: workspace.value.labelSetId, next: form.labelSetId, options: labelSetsSafe.value },
+    { key: 'DICTIONARY', current: workspace.value.dictionaryId, next: form.dictionaryId, options: dictionariesSafe.value },
+    { key: 'TAG_SET', current: workspace.value.tagSetId, next: form.tagSetId, options: tagSetsSafe.value },
+    { key: 'NORMALIZATION_PROFILE', current: workspace.value.normalizationProfileId, next: form.normalizationProfileId, options: normalizationProfilesSafe.value },
+    { key: 'VALIDATION_RULESET', current: workspace.value.validationRulesetId, next: form.validationRulesetId, options: validationRulesetsSafe.value }
+  ]
+
+  for (const resource of resources) {
+    if (!changedKeys.includes(resource.key)) continue
+    const before = normalizeId(resource.current)
+    const after = normalizeId(resource.next)
+    changed.push({
+      key: resource.key,
+      label: defaultLabels[resource.key],
+      before: optionLabel(resource.options, before),
+      after: optionLabel(resource.options, after)
+    })
+  }
+
+  const currentGtIndex = workspace.value.defaultGtIndex ?? 0
+  if (changedKeys.includes('TEXT_INDICES')) {
+    changed.push({
+      key: 'TEXT_INDICES',
+      label: defaultLabels.TEXT_INDICES,
+      before: `GT ${currentGtIndex}; Recognition ${currentRecognitionIndices.join(', ')}`,
+      after: `GT ${defaultGtIndex}; Recognition ${defaultRecognitionIndices.join(', ')}`
+    })
+  }
+
+  return changed
+}
+
 function parseDefaultGtIndex(value: string | undefined): number {
   const parsed = Number.parseInt(String(value ?? '').trim(), 10)
   if (!Number.isFinite(parsed) || parsed < 0) {
@@ -143,10 +235,10 @@ const inheritedGlobalActionDefinitions = computed(() => actionDefinitions.value.
 
 const scopedActionDefinitions = computed(() => actionDefinitions.value.filter(definition => !definition.global))
 
-const actionProjectOptions = computed(() => [
-  { label: 'Workspace default', value: '' },
-  ...workspaceActionProjects.value.map(project => ({ label: project.name, value: project.id }))
-])
+const actionProjectOptions = computed(() => workspaceActionProjects.value.map(project => ({
+  label: project.name,
+  value: project.id
+})))
 
 async function loadWorkspaceActions() {
   if (!selectedWorkspace.value || !canManageWorkspaceActions.value) return
@@ -387,7 +479,33 @@ const saveWorkspace = async () => {
   try {
     const defaultGtIndex = parseDefaultGtIndex(form.defaultGtIndexInput)
     const defaultRecognitionIndices = parseRecognitionIndices(form.defaultRecognitionIndicesInput, defaultGtIndex)
-    await $fetch(`/api/workspaces/${selectedWorkspace.value}`, {
+    const changedDefaults = changedWorkspaceDefaults(defaultGtIndex, defaultRecognitionIndices)
+    let propagationScope: ProjectDefaultPropagationScope = 'FUTURE_ONLY'
+
+    if (changedDefaults.length > 0) {
+      const preview = await $fetch<ProjectDefaultsPreview>(`/api/workspaces/${selectedWorkspace.value}/project-defaults/preview`, {
+        method: 'POST',
+        body: {
+          codecId: normalizeId(form.codecId),
+          labelSetId: normalizeId(form.labelSetId),
+          dictionaryId: normalizeId(form.dictionaryId),
+          tagSetId: normalizeId(form.tagSetId),
+          normalizationProfileId: normalizeId(form.normalizationProfileId),
+          validationRulesetId: normalizeId(form.validationRulesetId),
+          defaultGtIndex,
+          defaultRecognitionIndices
+        }
+      })
+      const modal = projectDefaultsPropagationModal.open({
+        preview,
+        changedDefaults: changedDefaults.map(({ label, before, after }) => ({ label, before, after }))
+      })
+      const selectedScope = await modal.result
+      if (!selectedScope) return
+      propagationScope = selectedScope
+    }
+
+    const response = await $fetch<Workspace & { projectDefaultsPropagation?: ProjectDefaultsPropagationResult | null }>(`/api/workspaces/${selectedWorkspace.value}`, {
       method: 'PUT',
       body: {
         name: form.name.trim(),
@@ -399,7 +517,8 @@ const saveWorkspace = async () => {
         normalizationProfileId: form.normalizationProfileId || null,
         validationRulesetId: form.validationRulesetId || null,
         defaultGtIndex,
-        defaultRecognitionIndices
+        defaultRecognitionIndices,
+        projectDefaultPropagationScope: propagationScope
       }
     })
 
@@ -410,9 +529,16 @@ const saveWorkspace = async () => {
 
     isEditing.value = false
 
+    const propagation = response.projectDefaultsPropagation
+    const propagationDescription = propagation && propagation.updatedProjects > 0
+      ? `${propagation.updatedProjects} existing project${propagation.updatedProjects === 1 ? '' : 's'} updated${propagation.skippedLockedProjects > 0 ? `; ${propagation.skippedLockedProjects} locked skipped` : ''}.`
+      : propagation && propagation.skippedLockedProjects > 0
+        ? `${propagation.skippedLockedProjects} locked project${propagation.skippedLockedProjects === 1 ? '' : 's'} skipped; no existing projects were updated.`
+        : 'Workspace settings have been saved.'
+
     toast.add({
       title: 'Workspace updated',
-      description: 'Workspace settings have been saved',
+      description: propagationDescription,
       color: 'success'
     })
   } catch (err: unknown) {
@@ -547,68 +673,88 @@ async function openDeleteSlideover() {
             class="max-w-md"
           />
         </UFormField>
-        <UiFormSectionHeader data-tour="workspace-general-presets" title="Presets" />
-        <UFormField label="Default Codec" hint="Default Codec for all newly created projects in this workspace">
-          <USelect
+        <UiFormSectionHeader data-tour="workspace-general-presets" title="Project defaults">
+          <ProjectWorkspaceDefaultsInfo context="workspace" />
+        </UiFormSectionHeader>
+        <UFormField label="Default Codec" hint="Copied into newly created projects in this workspace">
+          <USelectMenu
             v-model="form.codecId"
             :items="codecsSafe"
+            value-key="value"
             icon="i-lucide-case-lower"
+            :clear="isEditing"
+            :search-input="false"
             :disabled="!isEditing || !!codecsError"
             placeholder="Select a codec"
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Label Set" hint="Default Label Set for all newly created projects in this workspace">
-          <USelect
+        <UFormField label="Default Label Set" hint="Copied into newly created projects in this workspace">
+          <USelectMenu
             v-model="form.labelSetId"
             :items="labelSetsSafe"
+            value-key="value"
             icon="i-lucide-tags"
+            :clear="isEditing"
+            :search-input="false"
             :disabled="!isEditing || !!labelSetsError"
             placeholder="Select a label set"
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Dictionary" hint="Default Dictionary for all newly created projects in this workspace">
-          <USelect
+        <UFormField label="Default Dictionary" hint="Copied into newly created projects in this workspace">
+          <USelectMenu
             v-model="form.dictionaryId"
             :items="dictionariesSafe"
+            value-key="value"
             icon="i-lucide-book-copy"
+            :clear="isEditing"
+            :search-input="false"
             :disabled="!isEditing || !!dictionariesError"
             placeholder="Select a dictionary"
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Tag Set" hint="Default Tag Set for all newly created projects in this workspace">
-          <USelect
+        <UFormField label="Default Tag Set" hint="Copied into newly created projects in this workspace">
+          <USelectMenu
             v-model="form.tagSetId"
             :items="tagSetsSafe"
+            value-key="value"
             icon="i-lucide-network"
+            :clear="isEditing"
+            :search-input="false"
             :disabled="!isEditing || !!tagSetsError"
             placeholder="Select a tag set"
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Normalization Profile" hint="Default text normalization profile for new projects in this workspace">
-          <USelect
+        <UFormField label="Default Normalization Profile" hint="Copied into newly created projects in this workspace">
+          <USelectMenu
             v-model="form.normalizationProfileId"
             :items="normalizationProfilesSafe"
+            value-key="value"
             icon="i-lucide-wand-sparkles"
+            :clear="isEditing"
+            :search-input="false"
             :disabled="!isEditing || !!normalizationProfilesError"
             placeholder="Select a normalization profile"
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Validation Ruleset" hint="Default QA ruleset for new projects in this workspace">
-          <USelect
+        <UFormField label="Default Validation Ruleset" hint="Copied into newly created projects in this workspace">
+          <USelectMenu
             v-model="form.validationRulesetId"
             :items="validationRulesetsSafe"
+            value-key="value"
             icon="i-lucide-shield-alert"
+            :clear="isEditing"
+            :search-input="false"
             :disabled="!isEditing || !!validationRulesetsError"
             placeholder="Select a validation ruleset"
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default GT Index" hint="Single Ground Truth index used in the text editor for new projects.">
+        <UFormField label="Default GT Index" hint="Copied into newly created projects in this workspace.">
           <UInput
             v-model="form.defaultGtIndexInput"
             :disabled="!isEditing"
@@ -616,7 +762,7 @@ async function openDeleteSlideover() {
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Recognition Indices" hint="Comma-separated indices for recognition variants (e.g. 1, 2).">
+        <UFormField label="Default Recognition Indices" hint="Copied into newly created projects (e.g. 1, 2).">
           <UInput
             v-model="form.defaultRecognitionIndicesInput"
             :disabled="!isEditing"
@@ -683,67 +829,88 @@ async function openDeleteSlideover() {
 
           <USeparator />
 
+          <UiFormSectionHeader v-if="canSetWorkspacePresets" data-tour="workspace-general-presets" title="Project defaults">
+            <ProjectWorkspaceDefaultsInfo context="workspace" />
+          </UiFormSectionHeader>
+
           <UFormField
             v-if="canSetWorkspacePresets"
-            data-tour="workspace-general-presets"
             label="Default Codec"
-            hint="Default codec for new projects"
+            hint="Copied into newly created projects"
           >
-            <USelect
+            <USelectMenu
               v-model="form.codecId"
               :items="codecsSafe"
+              value-key="value"
+              :clear="isEditing && canSetWorkspacePresets"
+              :search-input="false"
               :disabled="!isEditing || !canSetWorkspacePresets || !!codecsError || codecsSafe.length === 0"
               placeholder="Select a codec"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Label Set" hint="Default label set for new projects">
-            <USelect
+          <UFormField v-if="canSetWorkspacePresets" label="Default Label Set" hint="Copied into newly created projects">
+            <USelectMenu
               v-model="form.labelSetId"
               :items="labelSetsSafe"
+              value-key="value"
+              :clear="isEditing && canSetWorkspacePresets"
+              :search-input="false"
               :disabled="!isEditing || !canSetWorkspacePresets || !!labelSetsError || labelSetsSafe.length === 0"
               placeholder="Select a label set"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Dictionary" hint="Default dictionary for new projects">
-            <USelect
+          <UFormField v-if="canSetWorkspacePresets" label="Default Dictionary" hint="Copied into newly created projects">
+            <USelectMenu
               v-model="form.dictionaryId"
               :items="dictionariesSafe"
+              value-key="value"
+              :clear="isEditing && canSetWorkspacePresets"
+              :search-input="false"
               :disabled="!isEditing || !canSetWorkspacePresets || !!dictionariesError || dictionariesSafe.length === 0"
               placeholder="Select a dictionary"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Tag Set" hint="Default tag set for new projects">
-            <USelect
+          <UFormField v-if="canSetWorkspacePresets" label="Default Tag Set" hint="Copied into newly created projects">
+            <USelectMenu
               v-model="form.tagSetId"
               :items="tagSetsSafe"
+              value-key="value"
+              :clear="isEditing && canSetWorkspacePresets"
+              :search-input="false"
               :disabled="!isEditing || !canSetWorkspacePresets || !!tagSetsError || tagSetsSafe.length === 0"
               placeholder="Select a tag set"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Normalization Profile" hint="Default normalization profile for new projects">
-            <USelect
+          <UFormField v-if="canSetWorkspacePresets" label="Default Normalization Profile" hint="Copied into newly created projects">
+            <USelectMenu
               v-model="form.normalizationProfileId"
               :items="normalizationProfilesSafe"
+              value-key="value"
+              :clear="isEditing && canSetWorkspacePresets"
+              :search-input="false"
               :disabled="!isEditing || !canSetWorkspacePresets || !!normalizationProfilesError || normalizationProfilesSafe.length === 0"
               placeholder="Select a normalization profile"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Validation Ruleset" hint="Default validation ruleset for new projects">
-            <USelect
+          <UFormField v-if="canSetWorkspacePresets" label="Default Validation Ruleset" hint="Copied into newly created projects">
+            <USelectMenu
               v-model="form.validationRulesetId"
               :items="validationRulesetsSafe"
+              value-key="value"
+              :clear="isEditing && canSetWorkspacePresets"
+              :search-input="false"
               :disabled="!isEditing || !canSetWorkspacePresets || !!validationRulesetsError || validationRulesetsSafe.length === 0"
               placeholder="Select a validation ruleset"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default GT Index" hint="Single Ground Truth index for new projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default GT Index" hint="Copied into newly created projects">
             <UInput
               v-model="form.defaultGtIndexInput"
               :disabled="!isEditing || !canEditWorkspaceTextIndexDefaults"
               placeholder="0"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Recognition Indices" hint="Comma-separated recognition indices for new projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default Recognition Indices" hint="Copied into newly created projects">
             <UInput
               v-model="form.defaultRecognitionIndicesInput"
               :disabled="!isEditing || !canEditWorkspaceTextIndexDefaults"
@@ -834,7 +1001,9 @@ async function openDeleteSlideover() {
                 v-model="selectedActionProjectId"
                 :items="actionProjectOptions"
                 value-key="value"
+                clear
                 searchable
+                placeholder="Workspace default"
               />
             </UFormField>
             <UFormField label="Available Actions">

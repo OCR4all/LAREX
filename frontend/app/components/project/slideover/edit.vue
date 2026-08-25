@@ -8,6 +8,17 @@ import type { NormalizationProfileSummary } from '~/types/normalization-profile'
 import type { TagSetSummary } from '~/types/tag-set'
 import type { ValidationRulesetSummary } from '~/types/validation-ruleset'
 import type { KeyboardLayout } from '@/types/virtual-keyboard'
+import type { WorkspaceProjectDefaultResourceKey } from '~/utils/workspace-project-defaults'
+import {
+  formatWorkspaceResourceDefault,
+  formatWorkspaceTextIndexDefault,
+  normalizeWorkspaceProjectDefaults,
+  resetWorkspaceResourceDefault,
+  resetTextIndexDefaults,
+  resourceMatchesWorkspaceDefault,
+  textIndicesMatchWorkspaceDefault,
+  workspaceResourceDefault
+} from '~/utils/workspace-project-defaults'
 
 const UNDEFINED_RECOGNITION_SENTINEL = -1
 type SelectOption = { label: string, value: string }
@@ -36,7 +47,14 @@ interface Project {
   outputRetentionDays?: number | null
 }
 type WorkspaceDefaults = {
+  codecId?: string | null
+  labelSetId?: string | null
+  dictionaryId?: string | null
+  tagSetId?: string | null
+  normalizationProfileId?: string | null
+  validationRulesetId?: string | null
   defaultGtIndex?: number | null
+  defaultRecognitionIndices?: number[] | null
 }
 
 const props = defineProps<{ project: Project }>()
@@ -174,6 +192,83 @@ const { data: workspaceDefaults } = await useFetch<WorkspaceDefaults>(
     key: wsKey(workspace.selectedWorkspaceId!, 'details')
   }
 )
+
+const workspaceDefaultsSnapshot = computed(() => normalizeWorkspaceProjectDefaults(workspaceDefaults.value))
+const resourceStateFields: Record<WorkspaceProjectDefaultResourceKey, keyof Schema> = {
+  CODEC: 'codecId',
+  LABEL_SET: 'labelSetId',
+  DICTIONARY: 'dictionaryId',
+  TAG_SET: 'tagSetId',
+  NORMALIZATION_PROFILE: 'normalizationProfileId',
+  VALIDATION_RULESET: 'validationRulesetId'
+}
+
+function resourceOptions(key: WorkspaceProjectDefaultResourceKey): SelectOption[] {
+  switch (key) {
+    case 'CODEC': return codecsSafe.value
+    case 'LABEL_SET': return labelSetsSafe.value
+    case 'DICTIONARY': return dictionariesSafe.value
+    case 'TAG_SET': return tagSetsSafe.value
+    case 'NORMALIZATION_PROFILE': return normalizationProfilesSafe.value
+    case 'VALIDATION_RULESET': return validationRulesetsSafe.value
+  }
+}
+
+function workspaceResourceLabel(key: WorkspaceProjectDefaultResourceKey): string {
+  return formatWorkspaceResourceDefault(workspaceResourceDefault(workspaceDefaultsSnapshot.value, key), resourceOptions(key))
+}
+
+function projectResourceMatchesWorkspaceDefault(key: WorkspaceProjectDefaultResourceKey): boolean {
+  return resourceMatchesWorkspaceDefault(
+    state.value[resourceStateFields[key]] as string | null | undefined,
+    workspaceResourceDefault(workspaceDefaultsSnapshot.value, key)
+  )
+}
+
+function resetResourceToWorkspaceDefault(key: WorkspaceProjectDefaultResourceKey): void {
+  const value = resetWorkspaceResourceDefault(workspaceDefaultsSnapshot.value, key) ?? ''
+  switch (key) {
+    case 'CODEC':
+      state.value.codecId = value
+      break
+    case 'LABEL_SET':
+      state.value.labelSetId = value
+      break
+    case 'DICTIONARY':
+      state.value.dictionaryId = value
+      break
+    case 'TAG_SET':
+      state.value.tagSetId = value
+      break
+    case 'NORMALIZATION_PROFILE':
+      state.value.normalizationProfileId = value
+      break
+    case 'VALIDATION_RULESET':
+      state.value.validationRulesetId = value
+      break
+  }
+}
+
+function workspaceTextIndexLabel(): string {
+  return formatWorkspaceTextIndexDefault(workspaceDefaultsSnapshot.value)
+}
+
+function projectTextIndicesMatchWorkspaceDefault(): boolean {
+  return textIndicesMatchWorkspaceDefault({
+    gtIndexInput: state.value.defaultGtIndexInput,
+    gtIndexUndefined: state.value.defaultGtIndexUndefined,
+    recognitionIndicesInput: state.value.defaultRecognitionIndicesInput,
+    recognitionIndicesUndefined: state.value.defaultRecognitionIndicesUndefined
+  }, workspaceDefaultsSnapshot.value)
+}
+
+function resetTextIndicesToWorkspaceDefault(): void {
+  const reset = resetTextIndexDefaults(workspaceDefaultsSnapshot.value)
+  state.value.defaultGtIndexInput = reset.gtIndexInput
+  state.value.defaultGtIndexUndefined = reset.gtIndexUndefined
+  state.value.defaultRecognitionIndicesInput = reset.recognitionIndicesInput
+  state.value.defaultRecognitionIndicesUndefined = reset.recognitionIndicesUndefined
+}
 
 const effectiveTagSetId = computed(() => state.value.tagSetId || null)
 const canSetProjectPresets = computed(() => workspace.currentWorkspace?.capabilities?.canSetPresets ?? workspace.isCurrentUserOwner)
@@ -393,9 +488,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 <UIcon name="i-lucide-sliders-horizontal" class="size-4 text-muted" />
               </div>
               <div class="min-w-0">
-                <h3 class="text-sm font-semibold text-highlighted">
-                  Project Defaults
-                </h3>
+                <div class="flex items-center gap-1">
+                  <h3 class="text-sm font-semibold text-highlighted">
+                    Project Defaults
+                  </h3>
+                  <ProjectWorkspaceDefaultsInfo context="edit" />
+                </div>
                 <p class="mt-1 text-sm text-muted">
                   Choose the resources and tools editors use when working in this project.
                 </p>
@@ -415,6 +513,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 placeholder="Select a tag set"
                 class="w-full"
                 :disabled="isSubmitting || !!tagSetsError || tagSetsSafe.length === 0"
+              />
+              <ProjectWorkspaceDefaultHint
+                :default-label="workspaceResourceLabel('TAG_SET')"
+                :matches="projectResourceMatchesWorkspaceDefault('TAG_SET')"
+                show-reset
+                :disabled="isSubmitting"
+                @reset="resetResourceToWorkspaceDefault('TAG_SET')"
               />
             </UFormField>
             <UFormField
@@ -443,6 +548,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 class="w-full"
                 :disabled="isSubmitting || !!codecsError || codecsSafe.length === 0"
               />
+              <ProjectWorkspaceDefaultHint
+                :default-label="workspaceResourceLabel('CODEC')"
+                :matches="projectResourceMatchesWorkspaceDefault('CODEC')"
+                show-reset
+                :disabled="isSubmitting"
+                @reset="resetResourceToWorkspaceDefault('CODEC')"
+              />
             </UFormField>
             <UFormField
               label="Label Set"
@@ -455,6 +567,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 placeholder="Select a label set"
                 class="w-full"
                 :disabled="isSubmitting || !!labelSetsError || labelSetsSafe.length === 0"
+              />
+              <ProjectWorkspaceDefaultHint
+                :default-label="workspaceResourceLabel('LABEL_SET')"
+                :matches="projectResourceMatchesWorkspaceDefault('LABEL_SET')"
+                show-reset
+                :disabled="isSubmitting"
+                @reset="resetResourceToWorkspaceDefault('LABEL_SET')"
               />
             </UFormField>
             <UFormField
@@ -469,11 +588,18 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 class="w-full"
                 :disabled="isSubmitting || !!dictionariesError || dictionariesSafe.length === 0"
               />
+              <ProjectWorkspaceDefaultHint
+                :default-label="workspaceResourceLabel('DICTIONARY')"
+                :matches="projectResourceMatchesWorkspaceDefault('DICTIONARY')"
+                show-reset
+                :disabled="isSubmitting"
+                @reset="resetResourceToWorkspaceDefault('DICTIONARY')"
+              />
             </UFormField>
             <UFormField
               label="Virtual Keyboard"
               name="virtualKeyboardId"
-              help="The default keyboard layout for text editing."
+              help="Project-only setting; there is no workspace default for virtual keyboards."
             >
               <USelect
                 v-model="state.virtualKeyboardId"
@@ -495,6 +621,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 class="w-full"
                 :disabled="isSubmitting || !!normalizationProfilesError || normalizationProfilesSafe.length === 0"
               />
+              <ProjectWorkspaceDefaultHint
+                :default-label="workspaceResourceLabel('NORMALIZATION_PROFILE')"
+                :matches="projectResourceMatchesWorkspaceDefault('NORMALIZATION_PROFILE')"
+                show-reset
+                :disabled="isSubmitting"
+                @reset="resetResourceToWorkspaceDefault('NORMALIZATION_PROFILE')"
+              />
             </UFormField>
             <UFormField
               label="Validation Ruleset"
@@ -507,6 +640,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 placeholder="Select a validation ruleset"
                 class="w-full"
                 :disabled="isSubmitting || !!validationRulesetsError || validationRulesetsSafe.length === 0"
+              />
+              <ProjectWorkspaceDefaultHint
+                :default-label="workspaceResourceLabel('VALIDATION_RULESET')"
+                :matches="projectResourceMatchesWorkspaceDefault('VALIDATION_RULESET')"
+                show-reset
+                :disabled="isSubmitting"
+                @reset="resetResourceToWorkspaceDefault('VALIDATION_RULESET')"
               />
             </UFormField>
           </div>
@@ -547,6 +687,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                     :disabled="isSubmitting || !canEditTextIndexDefaults"
                   />
                 </div>
+                <ProjectWorkspaceDefaultHint
+                  :default-label="workspaceTextIndexLabel()"
+                  :matches="projectTextIndicesMatchWorkspaceDefault()"
+                  show-reset
+                  :disabled="isSubmitting || !canEditTextIndexDefaults"
+                  @reset="resetTextIndicesToWorkspaceDefault"
+                />
               </UFormField>
               <UFormField label="Default Recognition Indices" name="defaultRecognitionIndicesInput" help="Recognition indices used in the text editor; multiple values are allowed.">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -562,6 +709,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                     :disabled="isSubmitting || !canEditTextIndexDefaults"
                   />
                 </div>
+                <ProjectWorkspaceDefaultHint
+                  :default-label="workspaceTextIndexLabel()"
+                  :matches="projectTextIndicesMatchWorkspaceDefault()"
+                  show-reset
+                  :disabled="isSubmitting || !canEditTextIndexDefaults"
+                  @reset="resetTextIndicesToWorkspaceDefault"
+                />
               </UFormField>
               <p v-if="!canEditTextIndexDefaults" class="text-xs text-muted">
                 You do not have permission to change project text-index defaults.
