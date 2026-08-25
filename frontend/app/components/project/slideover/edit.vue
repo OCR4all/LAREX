@@ -273,12 +273,8 @@ function resetTextIndicesToWorkspaceDefault(): void {
 const effectiveTagSetId = computed(() => state.value.tagSetId || null)
 const canSetProjectPresets = computed(() => workspace.currentWorkspace?.capabilities?.canSetPresets ?? workspace.isCurrentUserOwner)
 const canEditTextIndexDefaults = computed(() => canSetProjectPresets.value)
-const openConfigurationPanels = ref<string[]>([])
-const editorOverridesOpen = ref(false)
+const openConfigurationPanels = ref<string[]>(['general'])
 const formId = 'edit-project-form'
-const configurationPanelItems = [
-  { label: 'Text Variants', value: 'text-variants', slot: 'text-variants', icon: 'i-lucide-text' }
-]
 const enabledEditorOverrideCount = computed(() => [
   state.value.allowCodecOverride,
   state.value.allowDictionaryOverride,
@@ -288,6 +284,43 @@ const enabledEditorOverrideCount = computed(() => [
   state.value.allowNormalizationProfileOverride,
   state.value.allowValidationRulesetOverride
 ].filter(value => value !== false).length)
+const configurationPanelItems = computed(() => [
+  {
+    label: 'General',
+    description: 'The name and description shown throughout the workspace.',
+    value: 'general',
+    slot: 'general',
+    icon: 'i-lucide-file-pen-line'
+  },
+  {
+    label: 'Action Outputs',
+    description: 'Set how long newly started Action outputs are retained.',
+    value: 'action-outputs',
+    slot: 'action-outputs',
+    icon: 'i-lucide-archive-restore'
+  },
+  {
+    label: 'Project Defaults',
+    description: 'Choose the resources and tools editors use in this project.',
+    value: 'project-defaults',
+    slot: 'project-defaults',
+    icon: 'i-lucide-sliders-horizontal'
+  },
+  {
+    label: 'Text Variants',
+    description: 'Configure the default ground-truth and recognition indices.',
+    value: 'text-variants',
+    slot: 'text-variants',
+    icon: 'i-lucide-text'
+  },
+  {
+    label: 'Editor Tool Overrides',
+    description: `${enabledEditorOverrideCount.value} of 7 overrides enabled`,
+    value: 'editor-tool-overrides',
+    slot: 'editor-tool-overrides',
+    icon: 'i-lucide-settings-2'
+  }
+])
 
 const isSubmitting = ref(false)
 
@@ -403,268 +436,231 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         class="space-y-6"
         @submit="onSubmit"
       >
-        <UCard
-          variant="subtle"
-        >
-          <template #header>
-            <div class="flex items-start gap-3">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
-                <UIcon name="i-lucide-file-pen-line" class="size-4 text-muted" />
-              </div>
-              <div class="min-w-0">
-                <h3 class="text-sm font-semibold text-highlighted">
-                  General
-                </h3>
-                <p class="mt-1 text-sm text-muted">
-                  The name and description shown throughout the workspace.
-                </p>
-              </div>
-            </div>
-          </template>
-
-          <div class="grid gap-5">
-            <UFormField label="Project Name" name="name" required>
-              <UInput
-                v-model="state.name"
-                placeholder="Enter project name"
-                :disabled="isSubmitting"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField label="Description" name="description">
-              <UTextarea
-                v-model="state.description"
-                placeholder="Enter description (optional)"
-                :rows="3"
-                :disabled="isSubmitting"
-                class="w-full"
-              />
-            </UFormField>
-          </div>
-        </UCard>
-
-        <UCard variant="subtle">
-          <template #header>
-            <div class="flex items-start gap-3">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
-                <UIcon name="i-lucide-archive-restore" class="size-4 text-muted" />
-              </div>
-              <div class="min-w-0">
-                <h3 class="text-sm font-semibold text-highlighted">
-                  Action Outputs
-                </h3>
-                <p class="mt-1 text-sm text-muted">
-                  Set how long newly started Action outputs are retained.
-                </p>
-              </div>
-            </div>
-          </template>
-
-          <UFormField label="Automatic deletion" name="outputRetentionDaysInput" help="The value is snapshotted when an Action run starts; existing outputs are unchanged.">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <UInput
-                v-model="state.outputRetentionDaysInput"
-                type="number"
-                min="1"
-                step="1"
-                class="w-40"
-                :disabled="isSubmitting || state.retainOutputsForever === true"
-              >
-                <template #trailing>
-                  <span class="text-xs text-muted">days</span>
-                </template>
-              </UInput>
-              <UCheckbox v-model="state.retainOutputsForever" label="Never delete automatically" :disabled="isSubmitting" />
-            </div>
-          </UFormField>
-        </UCard>
-
-        <UCard
-          variant="subtle"
-        >
-          <template #header>
-            <div class="flex items-start gap-3">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
-                <UIcon name="i-lucide-sliders-horizontal" class="size-4 text-muted" />
-              </div>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1">
-                  <h3 class="text-sm font-semibold text-highlighted">
-                    Project Defaults
-                  </h3>
-                  <ProjectWorkspaceDefaultsInfo context="edit" />
-                </div>
-                <p class="mt-1 text-sm text-muted">
-                  Choose the resources and tools editors use when working in this project.
-                </p>
-              </div>
-            </div>
-          </template>
-
-          <div class="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2">
-            <UFormField
-              label="Tag Set"
-              name="tagSetId"
-              help="Defines the tag structure available to this project."
-            >
-              <USelect
-                v-model="state.tagSetId"
-                :items="tagSetsSafe"
-                placeholder="Select a tag set"
-                class="w-full"
-                :disabled="isSubmitting || !!tagSetsError || tagSetsSafe.length === 0"
-              />
-              <ProjectWorkspaceDefaultHint
-                :default-label="workspaceResourceLabel('TAG_SET')"
-                :matches="projectResourceMatchesWorkspaceDefault('TAG_SET')"
-                show-reset
-                :disabled="isSubmitting"
-                @reset="resetResourceToWorkspaceDefault('TAG_SET')"
-              />
-            </UFormField>
-            <UFormField
-              label="Tags"
-              name="tags"
-              help="Tags used to organize and filter the project."
-            >
-              <TagSetTagSelector
-                :model-value="state.tags ?? []"
-                :tag-set-id="effectiveTagSetId"
-                :workspace-id="workspace.selectedWorkspaceId!"
-                :disabled="isSubmitting"
-                class="w-full"
-                @update:model-value="state.tags = $event"
-              />
-            </UFormField>
-            <UFormField
-              label="Primary Codec"
-              name="codecId"
-              help="The default codec for this project."
-            >
-              <USelect
-                v-model="state.codecId"
-                :items="codecsSafe"
-                placeholder="Select a codec"
-                class="w-full"
-                :disabled="isSubmitting || !!codecsError || codecsSafe.length === 0"
-              />
-              <ProjectWorkspaceDefaultHint
-                :default-label="workspaceResourceLabel('CODEC')"
-                :matches="projectResourceMatchesWorkspaceDefault('CODEC')"
-                show-reset
-                :disabled="isSubmitting"
-                @reset="resetResourceToWorkspaceDefault('CODEC')"
-              />
-            </UFormField>
-            <UFormField
-              label="Label Set"
-              name="labelSetId"
-              help="The labels available during editing."
-            >
-              <USelect
-                v-model="state.labelSetId"
-                :items="labelSetsSafe"
-                placeholder="Select a label set"
-                class="w-full"
-                :disabled="isSubmitting || !!labelSetsError || labelSetsSafe.length === 0"
-              />
-              <ProjectWorkspaceDefaultHint
-                :default-label="workspaceResourceLabel('LABEL_SET')"
-                :matches="projectResourceMatchesWorkspaceDefault('LABEL_SET')"
-                show-reset
-                :disabled="isSubmitting"
-                @reset="resetResourceToWorkspaceDefault('LABEL_SET')"
-              />
-            </UFormField>
-            <UFormField
-              label="Dictionary"
-              name="dictionaryId"
-              help="Validates project ground-truth text."
-            >
-              <USelect
-                v-model="state.dictionaryId"
-                :items="dictionariesSafe"
-                placeholder="Select a dictionary"
-                class="w-full"
-                :disabled="isSubmitting || !!dictionariesError || dictionariesSafe.length === 0"
-              />
-              <ProjectWorkspaceDefaultHint
-                :default-label="workspaceResourceLabel('DICTIONARY')"
-                :matches="projectResourceMatchesWorkspaceDefault('DICTIONARY')"
-                show-reset
-                :disabled="isSubmitting"
-                @reset="resetResourceToWorkspaceDefault('DICTIONARY')"
-              />
-            </UFormField>
-            <UFormField
-              label="Virtual Keyboard"
-              name="virtualKeyboardId"
-              help="Project-only setting; there is no workspace default for virtual keyboards."
-            >
-              <USelect
-                v-model="state.virtualKeyboardId"
-                :items="virtualKeyboardsSafe"
-                placeholder="Select a virtual keyboard"
-                class="w-full"
-                :disabled="isSubmitting || !!virtualKeyboardsError || virtualKeyboardsSafe.length === 0"
-              />
-            </UFormField>
-            <UFormField
-              label="Normalization Profile"
-              name="normalizationProfileId"
-              help="Normalizes text before search, QA, and export."
-            >
-              <USelect
-                v-model="state.normalizationProfileId"
-                :items="normalizationProfilesSafe"
-                placeholder="Select a normalization profile"
-                class="w-full"
-                :disabled="isSubmitting || !!normalizationProfilesError || normalizationProfilesSafe.length === 0"
-              />
-              <ProjectWorkspaceDefaultHint
-                :default-label="workspaceResourceLabel('NORMALIZATION_PROFILE')"
-                :matches="projectResourceMatchesWorkspaceDefault('NORMALIZATION_PROFILE')"
-                show-reset
-                :disabled="isSubmitting"
-                @reset="resetResourceToWorkspaceDefault('NORMALIZATION_PROFILE')"
-              />
-            </UFormField>
-            <UFormField
-              label="Validation Ruleset"
-              name="validationRulesetId"
-              help="Flags suspicious transcription patterns."
-            >
-              <USelect
-                v-model="state.validationRulesetId"
-                :items="validationRulesetsSafe"
-                placeholder="Select a validation ruleset"
-                class="w-full"
-                :disabled="isSubmitting || !!validationRulesetsError || validationRulesetsSafe.length === 0"
-              />
-              <ProjectWorkspaceDefaultHint
-                :default-label="workspaceResourceLabel('VALIDATION_RULESET')"
-                :matches="projectResourceMatchesWorkspaceDefault('VALIDATION_RULESET')"
-                show-reset
-                :disabled="isSubmitting"
-                @reset="resetResourceToWorkspaceDefault('VALIDATION_RULESET')"
-              />
-            </UFormField>
-          </div>
-        </UCard>
-
         <UAccordion
           v-model="openConfigurationPanels"
           :items="configurationPanelItems"
           type="multiple"
-          class="rounded-lg bg-elevated/50 px-4 ring ring-default"
+          class="space-y-4"
           :ui="{
-            trigger: 'py-4 font-semibold',
-            body: 'pb-0'
+            item: 'rounded-lg border-b-0 bg-elevated/50 px-4 ring ring-default',
+            trigger: 'py-4',
+            label: 'min-w-0',
+            body: 'pb-4'
           }"
         >
-          <template #leading>
+          <template #leading="{ item }">
             <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
-              <UIcon name="i-lucide-text" class="size-4 text-muted" />
+              <UIcon :name="item.icon" class="size-4 text-muted" />
+            </div>
+          </template>
+
+          <template #default="{ item }">
+            <span class="block min-w-0 text-start">
+              <span class="block font-semibold text-highlighted">{{ item.label }}</span>
+              <span class="mt-0.5 block truncate text-xs font-normal text-muted">{{ item.description }}</span>
+            </span>
+          </template>
+
+          <template #general>
+            <div class="grid gap-5 pb-4">
+              <UFormField label="Project Name" name="name" required>
+                <UInput
+                  v-model="state.name"
+                  placeholder="Enter project name"
+                  :disabled="isSubmitting"
+                  class="w-full"
+                />
+              </UFormField>
+              <UFormField label="Description" name="description">
+                <UTextarea
+                  v-model="state.description"
+                  placeholder="Enter description (optional)"
+                  :rows="3"
+                  :disabled="isSubmitting"
+                  class="w-full"
+                />
+              </UFormField>
+            </div>
+          </template>
+
+          <template #action-outputs>
+            <div class="pb-4">
+              <UFormField label="Automatic deletion" name="outputRetentionDaysInput" help="The value is snapshotted when an Action run starts; existing outputs are unchanged.">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <UInput
+                    v-model="state.outputRetentionDaysInput"
+                    type="number"
+                    min="1"
+                    step="1"
+                    class="w-40"
+                    :disabled="isSubmitting || state.retainOutputsForever === true"
+                  >
+                    <template #trailing>
+                      <span class="text-xs text-muted">days</span>
+                    </template>
+                  </UInput>
+                  <UCheckbox v-model="state.retainOutputsForever" label="Never delete automatically" :disabled="isSubmitting" />
+                </div>
+              </UFormField>
+            </div>
+          </template>
+
+          <template #project-defaults>
+            <div class="pb-4">
+              <div class="mb-4 flex items-center gap-1 text-xs text-muted">
+                <span>Workspace defaults</span>
+                <ProjectWorkspaceDefaultsInfo context="edit" />
+              </div>
+
+              <div class="grid grid-cols-1 gap-5">
+                <UFormField
+                  label="Tag Set"
+                  name="tagSetId"
+                  help="Defines the tag structure available to this project."
+                >
+                  <USelect
+                    v-model="state.tagSetId"
+                    :items="tagSetsSafe"
+                    placeholder="Select a tag set"
+                    class="w-full"
+                    :disabled="isSubmitting || !!tagSetsError || tagSetsSafe.length === 0"
+                  />
+                  <ProjectWorkspaceDefaultHint
+                    :default-label="workspaceResourceLabel('TAG_SET')"
+                    :matches="projectResourceMatchesWorkspaceDefault('TAG_SET')"
+                    show-reset
+                    :disabled="isSubmitting"
+                    @reset="resetResourceToWorkspaceDefault('TAG_SET')"
+                  />
+                </UFormField>
+                <UFormField
+                  label="Tags"
+                  name="tags"
+                  help="Tags used to organize and filter the project."
+                >
+                  <TagSetTagSelector
+                    :model-value="state.tags ?? []"
+                    :tag-set-id="effectiveTagSetId"
+                    :workspace-id="workspace.selectedWorkspaceId!"
+                    :disabled="isSubmitting"
+                    class="w-full"
+                    @update:model-value="state.tags = $event"
+                  />
+                </UFormField>
+                <UFormField
+                  label="Primary Codec"
+                  name="codecId"
+                  help="The default codec for this project."
+                >
+                  <USelect
+                    v-model="state.codecId"
+                    :items="codecsSafe"
+                    placeholder="Select a codec"
+                    class="w-full"
+                    :disabled="isSubmitting || !!codecsError || codecsSafe.length === 0"
+                  />
+                  <ProjectWorkspaceDefaultHint
+                    :default-label="workspaceResourceLabel('CODEC')"
+                    :matches="projectResourceMatchesWorkspaceDefault('CODEC')"
+                    show-reset
+                    :disabled="isSubmitting"
+                    @reset="resetResourceToWorkspaceDefault('CODEC')"
+                  />
+                </UFormField>
+                <UFormField
+                  label="Label Set"
+                  name="labelSetId"
+                  help="The labels available during editing."
+                >
+                  <USelect
+                    v-model="state.labelSetId"
+                    :items="labelSetsSafe"
+                    placeholder="Select a label set"
+                    class="w-full"
+                    :disabled="isSubmitting || !!labelSetsError || labelSetsSafe.length === 0"
+                  />
+                  <ProjectWorkspaceDefaultHint
+                    :default-label="workspaceResourceLabel('LABEL_SET')"
+                    :matches="projectResourceMatchesWorkspaceDefault('LABEL_SET')"
+                    show-reset
+                    :disabled="isSubmitting"
+                    @reset="resetResourceToWorkspaceDefault('LABEL_SET')"
+                  />
+                </UFormField>
+                <UFormField
+                  label="Dictionary"
+                  name="dictionaryId"
+                  help="Validates project ground-truth text."
+                >
+                  <USelect
+                    v-model="state.dictionaryId"
+                    :items="dictionariesSafe"
+                    placeholder="Select a dictionary"
+                    class="w-full"
+                    :disabled="isSubmitting || !!dictionariesError || dictionariesSafe.length === 0"
+                  />
+                  <ProjectWorkspaceDefaultHint
+                    :default-label="workspaceResourceLabel('DICTIONARY')"
+                    :matches="projectResourceMatchesWorkspaceDefault('DICTIONARY')"
+                    show-reset
+                    :disabled="isSubmitting"
+                    @reset="resetResourceToWorkspaceDefault('DICTIONARY')"
+                  />
+                </UFormField>
+                <UFormField
+                  label="Virtual Keyboard"
+                  name="virtualKeyboardId"
+                  help="Project-only setting; there is no workspace default for virtual keyboards."
+                >
+                  <USelect
+                    v-model="state.virtualKeyboardId"
+                    :items="virtualKeyboardsSafe"
+                    placeholder="Select a virtual keyboard"
+                    class="w-full"
+                    :disabled="isSubmitting || !!virtualKeyboardsError || virtualKeyboardsSafe.length === 0"
+                  />
+                </UFormField>
+                <UFormField
+                  label="Normalization Profile"
+                  name="normalizationProfileId"
+                  help="Normalizes text before search, QA, and export."
+                >
+                  <USelect
+                    v-model="state.normalizationProfileId"
+                    :items="normalizationProfilesSafe"
+                    placeholder="Select a normalization profile"
+                    class="w-full"
+                    :disabled="isSubmitting || !!normalizationProfilesError || normalizationProfilesSafe.length === 0"
+                  />
+                  <ProjectWorkspaceDefaultHint
+                    :default-label="workspaceResourceLabel('NORMALIZATION_PROFILE')"
+                    :matches="projectResourceMatchesWorkspaceDefault('NORMALIZATION_PROFILE')"
+                    show-reset
+                    :disabled="isSubmitting"
+                    @reset="resetResourceToWorkspaceDefault('NORMALIZATION_PROFILE')"
+                  />
+                </UFormField>
+                <UFormField
+                  label="Validation Ruleset"
+                  name="validationRulesetId"
+                  help="Flags suspicious transcription patterns."
+                >
+                  <USelect
+                    v-model="state.validationRulesetId"
+                    :items="validationRulesetsSafe"
+                    placeholder="Select a validation ruleset"
+                    class="w-full"
+                    :disabled="isSubmitting || !!validationRulesetsError || validationRulesetsSafe.length === 0"
+                  />
+                  <ProjectWorkspaceDefaultHint
+                    :default-label="workspaceResourceLabel('VALIDATION_RULESET')"
+                    :matches="projectResourceMatchesWorkspaceDefault('VALIDATION_RULESET')"
+                    show-reset
+                    :disabled="isSubmitting"
+                    @reset="resetResourceToWorkspaceDefault('VALIDATION_RULESET')"
+                  />
+                </UFormField>
+              </div>
             </div>
           </template>
 
@@ -722,123 +718,75 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               </p>
             </div>
           </template>
+
+          <template #editor-tool-overrides>
+            <div class="space-y-4 pb-4">
+              <p v-if="!canSetProjectPresets" class="rounded-lg bg-elevated px-4 py-3 text-sm text-muted">
+                You do not have permission to change project tool overrides.
+              </p>
+
+              <div class="divide-y divide-default overflow-hidden rounded-lg border border-default">
+                <USwitch
+                  v-model="state.allowCodecOverride"
+                  label="Allow codec switching"
+                  description="Editors may select a different codec."
+                  class="p-4"
+                  :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+                  :disabled="isSubmitting || !canSetProjectPresets"
+                />
+                <USwitch
+                  v-model="state.allowDictionaryOverride"
+                  label="Allow dictionary switching"
+                  description="Editors may select a different dictionary."
+                  class="p-4"
+                  :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+                  :disabled="isSubmitting || !canSetProjectPresets"
+                />
+                <USwitch
+                  v-model="state.allowVirtualKeyboardOverride"
+                  label="Allow virtual keyboard switching"
+                  description="Editors may select a different keyboard layout."
+                  class="p-4"
+                  :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+                  :disabled="isSubmitting || !canSetProjectPresets"
+                />
+                <USwitch
+                  v-model="state.allowLabelSetOverride"
+                  label="Allow label set switching"
+                  description="Editors may select a different label set."
+                  class="p-4"
+                  :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+                  :disabled="isSubmitting || !canSetProjectPresets"
+                />
+                <USwitch
+                  v-model="state.allowTagSetOverride"
+                  label="Allow tag set switching"
+                  description="Editors may select a different tag set."
+                  class="p-4"
+                  :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+                  :disabled="isSubmitting || !canSetProjectPresets"
+                />
+                <USwitch
+                  v-model="state.allowNormalizationProfileOverride"
+                  label="Allow normalization profile switching"
+                  description="Editors may select a different normalization profile."
+                  class="p-4"
+                  :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+                  :disabled="isSubmitting || !canSetProjectPresets"
+                />
+                <USwitch
+                  v-model="state.allowValidationRulesetOverride"
+                  label="Allow validation ruleset switching"
+                  description="Editors may select a different validation ruleset."
+                  class="p-4"
+                  :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
+                  :disabled="isSubmitting || !canSetProjectPresets"
+                />
+              </div>
+            </div>
+          </template>
         </UAccordion>
-
-        <UCard variant="subtle" :ui="{ body: 'p-4 sm:p-4' }">
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex min-w-0 items-start gap-3">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
-                <UIcon name="i-lucide-settings-2" class="size-4 text-muted" />
-              </div>
-              <div class="min-w-0">
-                <p class="text-sm font-medium text-highlighted">
-                  Editor Tool Overrides
-                </p>
-                <p class="mt-0.5 text-sm text-muted">
-                  {{ enabledEditorOverrideCount }} of 7 overrides enabled
-                </p>
-              </div>
-            </div>
-            <UButton
-              type="button"
-              color="neutral"
-              variant="outline"
-              trailing-icon="i-lucide-chevron-right"
-              :disabled="isSubmitting"
-              @click="() => { editorOverridesOpen = true }"
-            >
-              Configure
-            </UButton>
-          </div>
-        </UCard>
       </UForm>
-
-      <UiResponsiveSlideover
-        v-model:open="editorOverridesOpen"
-        inset
-        :ui="{ content: 'max-w-none xl:max-w-md' }"
-      >
-        <template #header>
-          <UiSlideoverHeader
-            title="Editor Tool Overrides"
-            icon="i-lucide-settings-2"
-            description="Choose which project defaults editors may temporarily replace."
-          />
-        </template>
-
-        <template #body>
-          <div class="space-y-4">
-            <p v-if="!canSetProjectPresets" class="rounded-lg bg-elevated px-4 py-3 text-sm text-muted">
-              You do not have permission to change project tool overrides.
-            </p>
-
-            <div class="divide-y divide-default overflow-hidden rounded-lg border border-default">
-              <USwitch
-                v-model="state.allowCodecOverride"
-                label="Allow codec switching"
-                description="Editors may select a different codec."
-                class="p-4"
-                :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
-                :disabled="isSubmitting || !canSetProjectPresets"
-              />
-              <USwitch
-                v-model="state.allowDictionaryOverride"
-                label="Allow dictionary switching"
-                description="Editors may select a different dictionary."
-                class="p-4"
-                :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
-                :disabled="isSubmitting || !canSetProjectPresets"
-              />
-              <USwitch
-                v-model="state.allowVirtualKeyboardOverride"
-                label="Allow virtual keyboard switching"
-                description="Editors may select a different keyboard layout."
-                class="p-4"
-                :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
-                :disabled="isSubmitting || !canSetProjectPresets"
-              />
-              <USwitch
-                v-model="state.allowLabelSetOverride"
-                label="Allow label set switching"
-                description="Editors may select a different label set."
-                class="p-4"
-                :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
-                :disabled="isSubmitting || !canSetProjectPresets"
-              />
-              <USwitch
-                v-model="state.allowTagSetOverride"
-                label="Allow tag set switching"
-                description="Editors may select a different tag set."
-                class="p-4"
-                :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
-                :disabled="isSubmitting || !canSetProjectPresets"
-              />
-              <USwitch
-                v-model="state.allowNormalizationProfileOverride"
-                label="Allow normalization profile switching"
-                description="Editors may select a different normalization profile."
-                class="p-4"
-                :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
-                :disabled="isSubmitting || !canSetProjectPresets"
-              />
-              <USwitch
-                v-model="state.allowValidationRulesetOverride"
-                label="Allow validation ruleset switching"
-                description="Editors may select a different validation ruleset."
-                class="p-4"
-                :ui="{ root: 'w-full flex-row-reverse items-center justify-between gap-4', wrapper: 'ms-0 flex-1' }"
-                :disabled="isSubmitting || !canSetProjectPresets"
-              />
-            </div>
-          </div>
-        </template>
-
-        <template #footer>
-          <UButton @click="() => { editorOverridesOpen = false }">
-            Done
-          </UButton>
-        </template>
-      </UiResponsiveSlideover>
     </template>
 
     <template #footer>
