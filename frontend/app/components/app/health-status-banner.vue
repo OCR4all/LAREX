@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { createScopedLogger } from '@/services/editor/logger-service'
+
+const log = createScopedLogger('HealthStatus')
+
 const {
   isHealthy,
   isChecking,
@@ -13,7 +17,7 @@ const isInitialized = useState<boolean>('app.isInitialized', () => false)
 const retry = async () => {
   const success = await retryConnection()
   if (success) {
-    console.log('Connection restored!')
+    log.debug('Connection restored')
   }
 }
 

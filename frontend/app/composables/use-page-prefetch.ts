@@ -1,4 +1,7 @@
 import type { PageDto } from '@/services/editor/page-conversion.service'
+import { createScopedLogger } from '@/services/editor/logger-service'
+
+const log = createScopedLogger('PagePrefetch')
 
 interface PrefetchState {
   prefetchedAnnotations: Map<string, PageDto>
@@ -49,9 +52,9 @@ export function usePagePrefetch() {
         )
 
         state.value.prefetchedAnnotations.set(cacheKey, pageDto)
-        console.log(`[PagePrefetch] Prefetched annotations for page ${pageId}`)
+        log.debug(`Prefetched annotations for page ${pageId}`)
       } catch (error) {
-        console.warn(`[PagePrefetch] Failed to prefetch annotations for page ${pageId}:`, error)
+        log.debug(`Failed to prefetch annotations for page ${pageId}:`, error)
       } finally {
         state.value.pendingPrefetches.delete(cacheKey)
       }
@@ -81,9 +84,9 @@ export function usePagePrefetch() {
 
         await preloadImage(imageUrl)
         state.value.prefetchedImages.add(pageId)
-        console.log(`[PagePrefetch] Prefetched image for page ${pageId}`)
+        log.debug(`Prefetched image for page ${pageId}`)
       } catch (error) {
-        console.warn(`[PagePrefetch] Failed to prefetch image for page ${pageId}:`, error)
+        log.debug(`Failed to prefetch image for page ${pageId}:`, error)
       }
     }
   }
@@ -107,7 +110,7 @@ export function usePagePrefetch() {
   async function prefetchForEditor(projectId: string, pageIds: string[]): Promise<void> {
     if (!projectId || pageIds.length === 0) return
 
-    console.log(`[PagePrefetch] Starting prefetch for ${pageIds.length} pages`)
+    log.debug(`Starting prefetch for ${pageIds.length} pages`)
 
     await Promise.allSettled([
       prefetchAnnotations(projectId, pageIds),
@@ -137,7 +140,7 @@ export function usePagePrefetch() {
       }
     }
 
-    console.log(`[PagePrefetch] Transferred ${transferred} prefetched annotations to editor cache`)
+    log.debug(`Transferred ${transferred} prefetched annotations to editor cache`)
     return transferred
   }
 
@@ -148,7 +151,7 @@ export function usePagePrefetch() {
     state.value.prefetchedAnnotations.clear()
     state.value.pendingPrefetches.clear()
     state.value.prefetchedImages.clear()
-    console.log('[PagePrefetch] Cleared all prefetched data')
+    log.debug('Cleared all prefetched data')
   }
 
   /**

@@ -1,6 +1,6 @@
 /**
- * Structured logging service with production-aware log levels.
- * Prevents debug logs from appearing in production builds.
+ * Structured logging service with quiet-by-default log levels.
+ * Set VITE_LOG_LEVEL=debug to enable verbose diagnostics when needed.
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
@@ -14,9 +14,9 @@ export interface LogEntry {
 }
 
 export interface LoggerOptions {
-  /** Minimum log level to output. Defaults to 'debug' in dev, 'warn' in production */
+  /** Minimum log level to output. Defaults to 'warn'; VITE_LOG_LEVEL can override it. */
   minLevel?: LogLevel
-  /** Enable console output. Defaults to true in dev */
+  /** Enable console output. Defaults to true so warn/error diagnostics remain available. */
   enableConsole?: boolean
   /** Optional callback for log entries (e.g., for remote logging) */
   onLog?: (entry: LogEntry) => void
@@ -29,15 +29,16 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
   error: 3
 }
 
+function isLogLevel(value: unknown): value is LogLevel {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(LOG_LEVEL_PRIORITY, value)
+}
+
 /**
- * Check if we're in production mode.
- * Uses build-time flags so the logger remains independent of Nuxt context.
+ * Set VITE_LOG_LEVEL=debug when verbose diagnostic output is needed.
  */
-function isProduction(): boolean {
-  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') {
-    return true
-  }
-  return import.meta.env?.PROD === true
+function getConfiguredMinLevel(): LogLevel | undefined {
+  const configuredLevel = import.meta.env?.VITE_LOG_LEVEL
+  return isLogLevel(configuredLevel) ? configuredLevel : undefined
 }
 
 class LoggerService {
@@ -45,11 +46,9 @@ class LoggerService {
   private static instance: LoggerService | null = null
 
   constructor(options: LoggerOptions = {}) {
-    const isProd = isProduction()
-
     this.options = {
-      minLevel: options.minLevel ?? (isProd ? 'warn' : 'debug'),
-      enableConsole: options.enableConsole ?? !isProd,
+      minLevel: options.minLevel ?? getConfiguredMinLevel() ?? 'warn',
+      enableConsole: options.enableConsole ?? true,
       onLog: options.onLog ?? (() => {})
     }
   }

@@ -993,7 +993,7 @@ export const useEditorStore = defineStore('editor', () => {
         await annotationsPromise
       }
     } else {
-      log.info(`No XML files available for page ${pageId}, using empty document`)
+      log.debug(`No XML files available for page ${pageId}, using empty document`)
     }
 
     return variant.url
@@ -1014,7 +1014,7 @@ export const useEditorStore = defineStore('editor', () => {
   ): Promise<void> {
     const pageXmlFile = xmlFiles.find(xml => xml.schema === 'PAGE_XML')
     if (!pageXmlFile) {
-      log.info(`No PAGE XML file found for page ${pageId}, using empty document`)
+      log.debug(`No PAGE XML file found for page ${pageId}, using empty document`)
       return
     }
 
@@ -1032,10 +1032,10 @@ export const useEditorStore = defineStore('editor', () => {
       let pageDto: PageDto
 
       if (annotationCache.has(cacheKey)) {
-        log.info(`Using cached annotations for page ${pageId}`)
+        log.debug(`Using cached annotations for page ${pageId}`)
         pageDto = annotationCache.get(cacheKey)!
       } else {
-        log.info(`Fetching annotations from ${pageXmlFile.fileName} (id: ${pageXmlFile.id}) for page ${pageId}`)
+        log.debug(`Fetching annotations from ${pageXmlFile.fileName} (id: ${pageXmlFile.id}) for page ${pageId}`)
 
         pageDto = await $fetch<PageDto>(
           annotationResourcePath(context, pageXmlFile.id)
@@ -1043,7 +1043,7 @@ export const useEditorStore = defineStore('editor', () => {
 
         annotationCache.set(cacheKey, pageDto)
 
-        log.info(`Cached annotations for page ${pageId}`)
+        log.debug(`Cached annotations for page ${pageId}`)
       }
 
       const pcGts = convertPageDtoToPcGts(pageDto)
@@ -1053,7 +1053,7 @@ export const useEditorStore = defineStore('editor', () => {
       }
 
       const regionCount = pcGts.page?.regions?.length ?? 0
-      log.info(`Successfully loaded annotations for page ${pageId}: ${regionCount} regions`)
+      log.debug(`Successfully loaded annotations for page ${pageId}: ${regionCount} regions`)
 
       setCanvasDocument(canvasId, pcGts)
 
@@ -1135,7 +1135,7 @@ export const useEditorStore = defineStore('editor', () => {
       prefetchTimeoutByProjectId.delete(projectId)
       void prefetchAdjacentAnnotations(projectId, currentPageId, generation).catch((error) => {
         if (!isAbortError(error)) {
-          log.warn(`Adjacent annotation prefetch failed for project ${projectId}:`, error)
+          log.debug(`Adjacent annotation prefetch failed for project ${projectId}:`, error)
         }
       })
     }, ADJACENT_PREFETCH_DELAY_MS)
@@ -1180,7 +1180,7 @@ export const useEditorStore = defineStore('editor', () => {
         return pageXmlId
       } catch (error) {
         if (!isAbortError(error)) {
-          log.warn(`Failed to resolve PAGE XML file for prefetch on page ${page.id}:`, error)
+          log.debug(`Failed to resolve PAGE XML file for prefetch on page ${page.id}:`, error)
         }
         return null
       } finally {
@@ -1266,10 +1266,10 @@ export const useEditorStore = defineStore('editor', () => {
               { signal: controller.signal }
             )
             annotationCache.set(cacheKey, pageDto)
-            log.info(`Prefetched annotations for page ${page.id}`)
+            log.debug(`Prefetched annotations for page ${page.id}`)
           } catch (error) {
             if (!isAbortError(error)) {
-              log.warn(`Failed to prefetch annotations for page ${page.id}:`, error)
+              log.debug(`Failed to prefetch annotations for page ${page.id}:`, error)
             }
           } finally {
             pendingPrefetches.value.delete(cacheKey)
@@ -1305,7 +1305,7 @@ export const useEditorStore = defineStore('editor', () => {
     pendingPrefetches.value.clear()
     pageXmlPrefetchCache.clear()
     pageXmlLookupByKey.clear()
-    log.info('Annotation cache cleared')
+    log.debug('Annotation cache cleared')
   }
 
   /**
@@ -1318,7 +1318,7 @@ export const useEditorStore = defineStore('editor', () => {
       return key.includes(prefix)
     })
     if (deleted > 0) {
-      log.info(`Invalidated ${deleted} annotation cache entries for page ${pageId}`)
+      log.debug(`Invalidated ${deleted} annotation cache entries for page ${pageId}`)
     }
   }
 
@@ -1380,7 +1380,7 @@ export const useEditorStore = defineStore('editor', () => {
           log.warn(`Initial XML creation is disabled for page ${pageId} in context ${context.mode}`)
           return false
         }
-        log.info(`Creating initial PAGE XML for page ${pageId}`)
+        log.debug(`Creating initial PAGE XML for page ${pageId}`)
         const created = await $fetch<{ xmlId: string, fileName?: string, schema?: string, schemaVersion?: string }>(
           context.basePath,
           {
@@ -1410,7 +1410,7 @@ export const useEditorStore = defineStore('editor', () => {
           page.xmlFileCount = page.xmlFiles.length
         }
       } else {
-        log.info(`Saving annotations for page ${pageId} to XML file ${xmlFileId}`)
+        log.debug(`Saving annotations for page ${pageId} to XML file ${xmlFileId}`)
         const revision = await $fetch<{ persistedRevision?: string } | null>(annotationResourcePath(context, xmlFileId), {
           method: 'PUT',
           body: pageDto
@@ -1418,7 +1418,7 @@ export const useEditorStore = defineStore('editor', () => {
         persistedRevision = revision?.persistedRevision
       }
 
-      log.info(`Successfully saved annotations for page ${pageId}`)
+      log.debug(`Successfully saved annotations for page ${pageId}`)
 
       invalidateAnnotationCache(pageId, projectId)
 

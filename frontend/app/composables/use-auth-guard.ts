@@ -4,6 +4,10 @@
  * Periodically checks auth status and handles token expiry.
  * Uses the dedicated /api/auth/check endpoint for efficient validation.
  */
+import { createScopedLogger } from '@/services/editor/logger-service'
+
+const log = createScopedLogger('AuthGuard')
+
 interface AuthCheckResponse {
   valid: boolean
   expiresIn?: number
@@ -98,7 +102,7 @@ export const useAuthGuard = () => {
     if (!visibilityChangeHandler) {
       visibilityChangeHandler = () => {
         if (document.visibilityState === 'visible' && loggedIn.value) {
-          console.log('Tab visible, checking auth status...')
+          log.debug('Tab visible, checking auth status')
           void checkAuthStatus()
         }
       }

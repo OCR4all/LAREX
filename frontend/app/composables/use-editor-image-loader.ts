@@ -1,4 +1,7 @@
 import type { PageData } from '@/stores/editor/types'
+import { createScopedLogger } from '@/services/editor/logger-service'
+
+const log = createScopedLogger('EditorImageLoader')
 
 const isLoading = ref(false)
 const loadedThumbnails = ref(new Set<string>())
@@ -74,7 +77,7 @@ async function prefetchImage(variantId: string, url: string): Promise<void> {
     loadedImages.value.add(variantId)
     trackImageAccess(variantId)
   } catch (error) {
-    console.warn(`Failed to prefetch ${variantId}:`, error)
+    log.debug(`Failed to prefetch ${variantId}:`, error)
   }
 }
 
@@ -142,7 +145,7 @@ async function prefetchImagesBidirectional(
             loadedImages.value.add(variant.id)
             trackImageAccess(variant.id)
           })
-          .catch(err => console.warn(`Failed to prefetch ${variant.id}:`, err))
+          .catch(err => log.debug(`Failed to prefetch ${variant.id}:`, err))
       )
     } else {
       if (!isActivePrefetchBatch(batchId)) continue
@@ -174,7 +177,7 @@ async function prefetchImages(pageIds: string[], pages: PageData[], count: numbe
               loadedImages.value.add(variant.id)
               trackImageAccess(variant.id)
             })
-            .catch(err => console.warn(`Failed to prefetch ${variant.id}:`, err))
+            .catch(err => log.debug(`Failed to prefetch ${variant.id}:`, err))
         )
       } else if (isActivePrefetchBatch(batchId)) {
         trackImageAccess(variant.id)
