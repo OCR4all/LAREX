@@ -19,7 +19,7 @@ import {
   LazyUiConfirmSlideover,
   LazyUiDeleteSlideover,
   LazyEditorVersionHistorySlideover,
-  LazyShareSlideover, UChip
+  LazyShareSlideover
 } from '#components'
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
@@ -2068,32 +2068,41 @@ const pageColumns = [
   },
   {
     id: 'annotationState',
-    header: 'Annotation',
+    header: () => h('div', { class: 'text-center' }, 'Annotation'),
+    meta: {
+      label: 'Annotation',
+      class: {
+        th: 'w-28 text-center',
+        td: 'w-28 text-center'
+      }
+    },
     cell: ({ row }: { row: { original: Page } }) => {
       const hasAnnotation = row.original.xmlFileCount > 0
       const label = hasAnnotation
         ? `Open annotation for ${row.original.name}`
         : `No annotation available for ${row.original.name}`
 
-      return h(UButton, {
-        'icon': 'i-lucide-file-code-2',
-        'color': hasAnnotation ? 'success' : 'neutral',
-        'variant': 'soft',
-        'size': 'sm',
-        'square': true,
-        'disabled': !hasAnnotation,
-        'aria-label': label,
-        'title': label,
-        'onClick': (event: MouseEvent) => {
-          event.stopPropagation()
-          void openXmlEditor(row.original)
-        }
-      })
+      return h('div', { class: 'flex justify-center' }, [
+        h(UButton, {
+          'icon': 'i-lucide-file-code-2',
+          'color': hasAnnotation ? 'success' : 'neutral',
+          'variant': 'subtle',
+          'size': 'sm',
+          'class': 'min-w-7 justify-center',
+          'disabled': !hasAnnotation,
+          'aria-label': label,
+          'title': label,
+          'onClick': (event: MouseEvent) => {
+            event.stopPropagation()
+            void openXmlEditor(row.original)
+          }
+        })
+      ])
     }
   },
   {
     accessorKey: 'imageCount',
-    header: () => h('div', { class: 'flex items-center justify-end gap-2' }, [
+    header: () => h('div', { class: 'flex items-center justify-center gap-2' }, [
       h('span', 'Images'),
       h(UButton, {
         icon: sort.value.column === 'imageCount'
@@ -2111,6 +2120,13 @@ const pageColumns = [
         }
       })
     ]),
+    meta: {
+      label: 'Images',
+      class: {
+        th: 'w-24 text-center',
+        td: 'w-24 text-center'
+      }
+    },
     cell: ({ row }: { row: { original: Page } }) => {
       const page = row.original
       const hasImages = page.imageCount > 0
@@ -2118,20 +2134,12 @@ const pageColumns = [
         ? `View ${page.imageCount} ${page.imageCount === 1 ? 'image' : 'images'} for ${page.name}`
         : `No images for ${page.name}`
 
-      return h('div', { class: 'flex justify-end' }, [
-        h(UChip, {
-          inset: false,
-          show: hasImages,
-          text: page.imageCount,
-          color: 'neutral',
-          position: 'top-right',
-          ui: { base: 'h-4 min-w-4 px-1 text-[10px] leading-none tabular-nums ring-2 ring-bg' }
-        }, () => h(UButton, {
-          'icon': 'i-lucide-images',
-          'color': hasImages ? 'success' : 'neutral',
-          'variant': hasImages ? 'soft' : 'ghost',
+      return h('div', { class: 'flex justify-center' }, [
+        h(UButton, {
+          'color': hasImages  ? 'info' : 'neutral',
+          'variant': 'subtle',
           'size': 'sm',
-          'square': true,
+          'class': 'min-w-7 justify-center tabular-nums',
           'disabled': !hasImages,
           'aria-label': label,
           'title': label,
@@ -2139,7 +2147,7 @@ const pageColumns = [
             event.stopPropagation()
             openImageModal(page)
           }
-        }))
+        }, () => String(page.imageCount))
       ])
     }
   },
@@ -2380,7 +2388,7 @@ useHead({
               color="neutral"
               variant="ghost"
               :loading="isStarring"
-              :class="project.isStarred ? 'text-yellow-500 dark:text-yellow-400' : 'text-primary'"
+              :class="project.isStarred ? 'text-yellow-500' : 'text-primary'"
               :aria-label="project.isStarred ? 'Unstar project' : 'Star project'"
               @click="toggleStar"
             />
