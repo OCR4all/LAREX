@@ -2136,7 +2136,7 @@ const pageColumns = [
 
       return h('div', { class: 'flex justify-center' }, [
         h(UButton, {
-          'color': hasImages  ? 'info' : 'neutral',
+          'color': hasImages ? 'info' : 'neutral',
           'variant': 'subtle',
           'size': 'sm',
           'class': 'min-w-7 justify-center tabular-nums',
