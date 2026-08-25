@@ -660,6 +660,20 @@ async function openDeleteSlideover() {
       description="This is your personal workspace. It cannot be renamed or deleted."
       variant="subtle"
     >
+      <UTooltip v-if="!isEditing" text="Edit workspace settings">
+        <UButton
+          icon="i-lucide-pencil"
+          color="primary"
+          variant="ghost"
+          size="sm"
+          square
+          aria-label="Edit workspace settings"
+          type="button"
+          class="absolute end-4 top-4 sm:end-6 sm:top-6"
+          @click="startEditing"
+        />
+      </UTooltip>
+
       <div class="flex flex-col gap-4">
         <UiFormSectionHeader title="Metadata" />
         <UFormField label="Name">
@@ -676,7 +690,7 @@ async function openDeleteSlideover() {
         <UiFormSectionHeader data-tour="workspace-general-presets" title="Project defaults">
           <ProjectWorkspaceDefaultsInfo context="workspace" />
         </UiFormSectionHeader>
-        <UFormField label="Default Codec" hint="Copied into newly created projects in this workspace">
+        <UFormField label="Default Codec">
           <USelectMenu
             v-model="form.codecId"
             :items="codecsSafe"
@@ -689,7 +703,7 @@ async function openDeleteSlideover() {
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Label Set" hint="Copied into newly created projects in this workspace">
+        <UFormField label="Default Label Set">
           <USelectMenu
             v-model="form.labelSetId"
             :items="labelSetsSafe"
@@ -702,7 +716,7 @@ async function openDeleteSlideover() {
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Dictionary" hint="Copied into newly created projects in this workspace">
+        <UFormField label="Default Dictionary">
           <USelectMenu
             v-model="form.dictionaryId"
             :items="dictionariesSafe"
@@ -715,7 +729,7 @@ async function openDeleteSlideover() {
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Tag Set" hint="Copied into newly created projects in this workspace">
+        <UFormField label="Default Tag Set">
           <USelectMenu
             v-model="form.tagSetId"
             :items="tagSetsSafe"
@@ -728,7 +742,7 @@ async function openDeleteSlideover() {
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Normalization Profile" hint="Copied into newly created projects in this workspace">
+        <UFormField label="Default Normalization Profile">
           <USelectMenu
             v-model="form.normalizationProfileId"
             :items="normalizationProfilesSafe"
@@ -741,7 +755,7 @@ async function openDeleteSlideover() {
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Validation Ruleset" hint="Copied into newly created projects in this workspace">
+        <UFormField label="Default Validation Ruleset">
           <USelectMenu
             v-model="form.validationRulesetId"
             :items="validationRulesetsSafe"
@@ -754,7 +768,7 @@ async function openDeleteSlideover() {
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default GT Index" hint="Copied into newly created projects in this workspace.">
+        <UFormField label="Default GT Index">
           <UInput
             v-model="form.defaultGtIndexInput"
             :disabled="!isEditing"
@@ -762,7 +776,7 @@ async function openDeleteSlideover() {
             class="max-w-md"
           />
         </UFormField>
-        <UFormField label="Default Recognition Indices" hint="Copied into newly created projects (e.g. 1, 2).">
+        <UFormField label="Default Recognition Indices">
           <UInput
             v-model="form.defaultRecognitionIndicesInput"
             :disabled="!isEditing"
@@ -788,14 +802,6 @@ async function openDeleteSlideover() {
               @click="cancelEditing"
             />
           </template>
-          <UButton
-            v-else
-            label="Edit"
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-pencil"
-            @click="startEditing"
-          />
         </div>
       </div>
     </UPageCard>
@@ -807,6 +813,20 @@ async function openDeleteSlideover() {
         :description="canEditWorkspaceSettings ? 'Update workspace settings based on your role permissions.' : 'View workspace details.'"
         variant="subtle"
       >
+        <UTooltip v-if="canEditWorkspaceSettings && !isEditing" text="Edit workspace settings">
+          <UButton
+            icon="i-lucide-pencil"
+            color="primary"
+            variant="ghost"
+            size="sm"
+            square
+            aria-label="Edit workspace settings"
+            type="button"
+            class="absolute end-4 top-4 sm:end-6 sm:top-6"
+            @click="startEditing"
+          />
+        </UTooltip>
+
         <div class="flex flex-col gap-4">
           <UFormField label="Name" :hint="isEditing ? 'Required' : ''">
             <UInput
@@ -836,7 +856,6 @@ async function openDeleteSlideover() {
           <UFormField
             v-if="canSetWorkspacePresets"
             label="Default Codec"
-            hint="Copied into newly created projects"
           >
             <USelectMenu
               v-model="form.codecId"
@@ -848,7 +867,7 @@ async function openDeleteSlideover() {
               placeholder="Select a codec"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Label Set" hint="Copied into newly created projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default Label Set">
             <USelectMenu
               v-model="form.labelSetId"
               :items="labelSetsSafe"
@@ -859,7 +878,7 @@ async function openDeleteSlideover() {
               placeholder="Select a label set"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Dictionary" hint="Copied into newly created projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default Dictionary">
             <USelectMenu
               v-model="form.dictionaryId"
               :items="dictionariesSafe"
@@ -870,7 +889,7 @@ async function openDeleteSlideover() {
               placeholder="Select a dictionary"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Tag Set" hint="Copied into newly created projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default Tag Set">
             <USelectMenu
               v-model="form.tagSetId"
               :items="tagSetsSafe"
@@ -881,7 +900,7 @@ async function openDeleteSlideover() {
               placeholder="Select a tag set"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Normalization Profile" hint="Copied into newly created projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default Normalization Profile">
             <USelectMenu
               v-model="form.normalizationProfileId"
               :items="normalizationProfilesSafe"
@@ -892,7 +911,7 @@ async function openDeleteSlideover() {
               placeholder="Select a normalization profile"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Validation Ruleset" hint="Copied into newly created projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default Validation Ruleset">
             <USelectMenu
               v-model="form.validationRulesetId"
               :items="validationRulesetsSafe"
@@ -903,14 +922,14 @@ async function openDeleteSlideover() {
               placeholder="Select a validation ruleset"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default GT Index" hint="Copied into newly created projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default GT Index">
             <UInput
               v-model="form.defaultGtIndexInput"
               :disabled="!isEditing || !canEditWorkspaceTextIndexDefaults"
               placeholder="0"
             />
           </UFormField>
-          <UFormField v-if="canSetWorkspacePresets" label="Default Recognition Indices" hint="Copied into newly created projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default Recognition Indices">
             <UInput
               v-model="form.defaultRecognitionIndicesInput"
               :disabled="!isEditing || !canEditWorkspaceTextIndexDefaults"
@@ -940,14 +959,6 @@ async function openDeleteSlideover() {
                   @click="cancelEditing"
                 />
               </template>
-              <UButton
-                v-else
-                label="Edit"
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-pencil"
-                @click="startEditing"
-              />
             </template>
           </div>
         </div>

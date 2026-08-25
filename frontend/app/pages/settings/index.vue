@@ -256,55 +256,39 @@ const removeImage = async () => {
       title="Profile"
       description="Manage your personal information and avatar."
       variant="subtle"
-      orientation="horizontal"
       class="mb-4"
     >
-      <UButton
-        v-if="!isEditing"
-        data-tour="settings-profile-edit"
-        variant="outline"
-        icon="i-lucide-pencil"
-        label="Edit Profile"
-        color="primary"
-        class="w-fit lg:ms-auto"
-        @click="startEditing"
-      />
-      <div v-else class="flex gap-2 w-fit lg:ms-auto">
+      <UTooltip v-if="profile && !isEditing" text="Edit profile">
         <UButton
-          label="Cancel"
-          color="neutral"
-          variant="outline"
-          @click="cancelEditing"
+          data-tour="settings-profile-edit"
+          icon="i-lucide-pencil"
+          color="primary"
+          variant="ghost"
+          size="sm"
+          square
+          aria-label="Edit profile"
+          type="button"
+          class="absolute end-4 top-4 sm:end-6 sm:top-6"
+          @click="startEditing"
         />
-        <UButton
-          label="Save"
-          icon="i-lucide-save"
-          variant="solid"
-          :loading="isSaving"
-          @click="saveProfile"
-        />
-      </div>
-    </UPageCard>
+      </UTooltip>
 
-    <UPageCard
-      v-if="error"
-      title="Error"
-      variant="subtle"
-      class="mb-4"
-    >
-      <p class="text-error">
+      <div v-if="error" class="text-error">
         Failed to load profile: {{ error }}
-      </p>
-    </UPageCard>
+      </div>
 
-    <UPageCard variant="subtle">
-      <div v-if="pending" class="flex items-center justify-center p-8">
+      <div v-else-if="pending" class="flex items-center justify-center p-8">
         <UButton loading variant="ghost" disabled>
           Loading profile...
         </UButton>
       </div>
 
-      <div v-else-if="profile" class="space-y-6">
+      <UForm
+        v-else-if="profile"
+        :state="form"
+        class="space-y-6"
+        @submit="saveProfile"
+      >
         <div class="flex items-center gap-4">
           <AppAvatar
             :seed="profile.id"
@@ -324,8 +308,7 @@ const removeImage = async () => {
             </p>
           </div>
           <div v-else class="flex-1">
-            <div class="space-y-2">
-              <label class="block text-sm font-medium">Profile Picture</label>
+            <UFormField label="Profile picture">
               <div class="flex gap-2">
                 <UButton
                   color="neutral"
@@ -355,50 +338,53 @@ const removeImage = async () => {
                 class="hidden"
                 @change="handleImageUpload"
               >
-            </div>
+            </UFormField>
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium mb-1">First Name</label>
+          <UFormField label="First name">
             <UInput
-              v-if="isEditing"
               v-model="form.firstName"
               placeholder="Enter your first name"
+              :disabled="!isEditing || isSaving"
             />
-            <p v-else class="p-2 bg-neutral-50 rounded-sm border text-sm">
-              {{ profile.firstName || 'Not set' }}
-            </p>
-          </div>
+          </UFormField>
 
-          <div>
-            <label class="block text-sm font-medium mb-1">Last Name</label>
+          <UFormField label="Last name">
             <UInput
-              v-if="isEditing"
               v-model="form.lastName"
               placeholder="Enter your last name"
+              :disabled="!isEditing || isSaving"
             />
-            <p v-else class="p-2 bg-neutral-50 rounded-sm border text-sm">
-              {{ profile.lastName || 'Not set' }}
-            </p>
-          </div>
+          </UFormField>
 
-          <div>
-            <label class="block text-sm font-medium mb-1">Username</label>
-            <p class="p-2 bg-neutral-100 rounded-sm border text-sm text-muted">
-              {{ profile.username }} (read-only)
-            </p>
-          </div>
+          <UFormField label="Username" hint="Read-only">
+            <UInput :model-value="profile.username" readonly />
+          </UFormField>
 
-          <div>
-            <label class="block text-sm font-medium mb-1">Email</label>
-            <p class="p-2 bg-neutral-100 rounded-sm border text-sm text-muted">
-              {{ profile.email || 'Not set' }} (read-only)
-            </p>
-          </div>
+          <UFormField label="Email" hint="Read-only">
+            <UInput :model-value="profile.email || 'Not set'" readonly />
+          </UFormField>
         </div>
-      </div>
+
+        <div v-if="isEditing" class="flex justify-end gap-2 border-t border-default pt-4">
+          <UButton
+            label="Cancel"
+            color="neutral"
+            variant="outline"
+            type="button"
+            @click="cancelEditing"
+          />
+          <UButton
+            label="Save"
+            icon="i-lucide-save"
+            variant="solid"
+            type="submit"
+            :loading="isSaving"
+          />
+        </div>
+      </UForm>
     </UPageCard>
 
     <UPageCard
