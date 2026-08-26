@@ -3066,7 +3066,7 @@ watch(() => props.src, (newSrc) => {
 <template>
   <div class="w-full h-full flex flex-col min-h-0">
     <div
-      v-if="!isCanvasEditable && hasCanvasLeaseExpiredLocally && canReclaimCanvasEdit"
+      v-if="!pageLockReason && !isCanvasEditable && hasCanvasLeaseExpiredLocally && canReclaimCanvasEdit"
       class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
     >
       <div class="flex min-w-0 items-center gap-2.5">
