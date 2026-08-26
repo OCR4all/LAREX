@@ -42,14 +42,22 @@ public class DevActionBootstrap implements ApplicationRunner {
         upsertDevAction(
                 MOCK_PROCESSOR_KEY,
                 mockProcessor.isEnabled(),
-                mockProcessorYaml(mockProcessor.getEndpointUrl(), mockProcessor.getHealthUrl())
+                mockProcessorYaml(
+                        mockProcessor.getEndpointUrl(),
+                        mockProcessor.getHealthUrl(),
+                        mockProcessor.getPreflightUrl()
+                )
         );
 
         DevProcessor krakenProcessor = actionProperties.getDev().getKrakenProcessor();
         upsertDevAction(
                 KRAKEN_PROCESSOR_KEY,
                 krakenProcessor.isEnabled(),
-                krakenProcessorYaml(krakenProcessor.getEndpointUrl(), krakenProcessor.getHealthUrl())
+                krakenProcessorYaml(
+                        krakenProcessor.getEndpointUrl(),
+                        krakenProcessor.getHealthUrl(),
+                        krakenProcessor.getPreflightUrl()
+                )
         );
     }
 
@@ -80,7 +88,7 @@ public class DevActionBootstrap implements ApplicationRunner {
         logger.info("Dev Action '{}' is available globally", processorKey);
     }
 
-    private String mockProcessorYaml(String endpointUrl, String healthUrl) {
+    private String mockProcessorYaml(String endpointUrl, String healthUrl, String preflightUrl) {
         return """
                 version: 1
                 id: mock-image-copy
@@ -95,6 +103,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 endpoint:
                   url: %s
                   healthUrl: %s
+                  preflightUrl: %s
                   timeoutSeconds: 30
                   auth:
                     type: hmac
@@ -126,10 +135,10 @@ public class DevActionBootstrap implements ApplicationRunner {
                 concurrency:
                   maxActiveRuns: 2
                   scope: PROJECT
-                """.formatted(endpointUrl, healthUrl);
+                """.formatted(endpointUrl, healthUrl, preflightUrl);
     }
 
-    private String krakenProcessorYaml(String endpointUrl, String healthUrl) {
+    private String krakenProcessorYaml(String endpointUrl, String healthUrl, String preflightUrl) {
         return """
                 version: 1
                 id: kraken-segmentation
@@ -143,6 +152,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 endpoint:
                   url: %s
                   healthUrl: %s
+                  preflightUrl: %s
                   timeoutSeconds: 30
                   auth:
                     type: hmac
@@ -172,7 +182,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 concurrency:
                   maxActiveRuns: 1
                   scope: PROJECT
-                """.formatted(endpointUrl, healthUrl);
+                """.formatted(endpointUrl, healthUrl, preflightUrl);
     }
 
 }

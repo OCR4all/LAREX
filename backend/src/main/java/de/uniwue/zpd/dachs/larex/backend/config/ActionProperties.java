@@ -233,7 +233,8 @@ public class ActionProperties {
             return new DevProcessor(
                     true,
                     "http://mock-action-processor:9000/dispatch",
-                    "http://mock-action-processor:9000/health"
+                    "http://mock-action-processor:9000/health",
+                    "http://mock-action-processor:9000/preflight"
             );
         }
 
@@ -241,7 +242,8 @@ public class ActionProperties {
             return new DevProcessor(
                     false,
                     "http://action-kraken-segmentation:9000/dispatch",
-                    "http://action-kraken-segmentation:9000/health"
+                    "http://action-kraken-segmentation:9000/health",
+                    "http://action-kraken-segmentation:9000/preflight"
             );
         }
     }
@@ -250,14 +252,16 @@ public class ActionProperties {
         private boolean enabled;
         private String endpointUrl;
         private String healthUrl;
+        private String preflightUrl;
 
         public DevProcessor() {
         }
 
-        public DevProcessor(boolean enabled, String endpointUrl, String healthUrl) {
+        public DevProcessor(boolean enabled, String endpointUrl, String healthUrl, String preflightUrl) {
             this.enabled = enabled;
             this.endpointUrl = endpointUrl;
             this.healthUrl = healthUrl;
+            this.preflightUrl = preflightUrl;
         }
 
         public boolean isEnabled() {
@@ -282,6 +286,14 @@ public class ActionProperties {
 
         public void setHealthUrl(String healthUrl) {
             this.healthUrl = healthUrl;
+        }
+
+        public String getPreflightUrl() {
+            return preflightUrl;
+        }
+
+        public void setPreflightUrl(String preflightUrl) {
+            this.preflightUrl = preflightUrl;
         }
     }
 }

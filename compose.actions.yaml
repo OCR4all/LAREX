@@ -25,13 +25,14 @@ services:
       LAREX_DEV_KRAKEN_ACTION_ENABLED: ${LAREX_DEV_KRAKEN_ACTION_ENABLED:-true}
       LAREX_DEV_KRAKEN_ACTION_ENDPOINT_URL: http://action-kraken-segmentation:9000/dispatch
       LAREX_DEV_KRAKEN_ACTION_HEALTH_URL: http://action-kraken-segmentation:9000/health
+      LAREX_DEV_KRAKEN_ACTION_PREFLIGHT_URL: http://action-kraken-segmentation:9000/preflight
 
   action-kraken-segmentation:
     <<: *action-processor-defaults
     profiles:
       - actions
       - action-kraken
-    image: ${LAREX_ACTION_KRAKEN_IMAGE:-ghcr.io/ocr4all/larex-action-kraken:${LAREX_ACTION_KRAKEN_IMAGE_TAG:-0.3.0}}
+    image: ${LAREX_ACTION_KRAKEN_IMAGE:-ghcr.io/ocr4all/larex-action-kraken:${LAREX_ACTION_KRAKEN_IMAGE_TAG:-0.4.0}}
     environment:
       LAREX_DISPATCH_HMAC_SECRET: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:?Run scripts/bootstrap-env-secrets.sh actions first}
       LAREX_PROCESSOR_ID: kraken-segmentation

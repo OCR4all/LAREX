@@ -9,7 +9,9 @@ larex:
         enabled: ${LAREX_DEV_MOCK_ACTION_ENABLED:true}
         endpoint-url: ${LAREX_DEV_MOCK_ACTION_ENDPOINT_URL:http://mock-action-processor:9000/dispatch}
         health-url: ${LAREX_DEV_MOCK_ACTION_HEALTH_URL:http://mock-action-processor:9000/health}
+        preflight-url: ${LAREX_DEV_MOCK_ACTION_PREFLIGHT_URL:http://mock-action-processor:9000/preflight}
       kraken-processor:
         enabled: ${LAREX_DEV_KRAKEN_ACTION_ENABLED:false}
         endpoint-url: ${LAREX_DEV_KRAKEN_ACTION_ENDPOINT_URL:http://action-kraken-segmentation:9000/dispatch}
         health-url: ${LAREX_DEV_KRAKEN_ACTION_HEALTH_URL:http://action-kraken-segmentation:9000/health}
+        preflight-url: ${LAREX_DEV_KRAKEN_ACTION_PREFLIGHT_URL:http://action-kraken-segmentation:9000/preflight}
