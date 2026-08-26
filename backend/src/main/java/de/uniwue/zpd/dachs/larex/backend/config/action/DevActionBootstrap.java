@@ -107,8 +107,10 @@ public class DevActionBootstrap implements ApplicationRunner {
                   mode: PAGES
 
                 inputs:
-                  images: true
-                  xml: true
+                  images:
+                    level: optional
+                  xml:
+                    level: optional
 
                 outputs:
                   xml:
@@ -153,8 +155,12 @@ public class DevActionBootstrap implements ApplicationRunner {
                   mode: PAGES
 
                 inputs:
-                  images: true
-                  xml: true
+                  images:
+                    level: required
+                  xml:
+                    level: optional
+                    requiredForTargets:
+                      - REGION
 
                 outputs:
                   xml:

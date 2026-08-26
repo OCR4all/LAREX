@@ -88,6 +88,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -259,6 +260,20 @@ class ActionRunServiceTest {
         lenient().when(pageResultRepository.findByRunIdAndPageId(anyString(), anyString())).thenReturn(Optional.empty());
         lenient().when(pageResultRepository.findByRunIdOrderByCreatedAsc(anyString())).thenReturn(List.of());
         lenient().when(pageOrderService.sortPages(anyCollection())).thenAnswer(invocation -> List.copyOf(invocation.getArgument(0)));
+        lenient().when(definitionService.readInputRequirements(any(ActionProcessorDefinition.class)))
+                .thenAnswer(invocation -> {
+                    ActionProcessorDefinition definition = invocation.getArgument(0);
+                    return new ActionDto.InputRequirements(
+                            new ActionDto.InputRequirement(
+                                    definition.isAcceptsImages() ? ActionDto.InputLevel.OPTIONAL : ActionDto.InputLevel.NONE,
+                                    List.of()
+                            ),
+                            new ActionDto.InputRequirement(
+                                    definition.isAcceptsXml() ? ActionDto.InputLevel.OPTIONAL : ActionDto.InputLevel.NONE,
+                                    List.of()
+                            )
+                    );
+                });
     }
 
     @Test
@@ -319,6 +334,101 @@ class ActionRunServiceTest {
                 .containsExactly(includedPage.getId());
         assertThat(includedPage.isLocked()).isTrue();
         assertThat(skippedPage.isLocked()).isFalse();
+    }
+
+    @Test
+    void eligibleProcessorPagesHonorTargetSpecificRequiredInputs() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        Page completePage = new Page("0015", null, project);
+        completePage.setId("page-1");
+        Page missingImagePage = new Page("0016", null, project);
+        missingImagePage.setId("page-2");
+        Page missingXmlPage = new Page("0017", null, project);
+        missingXmlPage.setId("page-3");
+        PageImage image = new PageImage(
+                "0015.png", "images/0015.png", "image/png", 10L, "original", "0015", completePage);
+        PageImage imageWithoutXml = new PageImage(
+                "0017.png", "images/0017.png", "image/png", 10L, "original", "0017", missingXmlPage);
+        PageXml xml = mock(PageXml.class);
+        when(xml.getPage()).thenReturn(completePage);
+
+        ActionProcessorDefinition definition = definition("processor-required-inputs");
+        ActionDto.InputRequirements requirements = new ActionDto.InputRequirements(
+                new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of()),
+                new ActionDto.InputRequirement(ActionDto.InputLevel.OPTIONAL, List.of(ActionTarget.REGION))
+        );
+        when(definitionService.readInputRequirements(definition)).thenReturn(requirements);
+        when(pageImageRepository.findByPageIdIn(anyList())).thenReturn(List.of(image, imageWithoutXml));
+        when(pageXmlRepository.findByPage_IdIn(anyList())).thenReturn(List.of(xml));
+
+        assertThat(service.eligibleProcessorPageIds(
+                List.of(completePage.getId(), missingImagePage.getId(), missingXmlPage.getId()),
+                definition,
+                ActionTarget.PAGE,
+                null
+        )).containsExactly(completePage.getId(), missingXmlPage.getId());
+
+        assertThat(service.eligibleProcessorPageIds(
+                List.of(completePage.getId(), missingImagePage.getId(), missingXmlPage.getId()),
+                definition,
+                ActionTarget.REGION,
+                null
+        )).containsExactly(completePage.getId());
+    }
+
+    @Test
+    void resolveRunParametersAppliesValidatedOverridesToDefaults() {
+        ActionProcessorDefinition definition = definition("processor-parameters");
+        Map<String, ActionDefinitionDocument.Parameter> parameterDefinitions = Map.of(
+                "threshold", new ActionDefinitionDocument.Parameter("number", 0.5, 0.0, 1.0, null, false),
+                "iterations", new ActionDefinitionDocument.Parameter("integer", 1, 1.0, 10.0, null, false),
+                "enabled", new ActionDefinitionDocument.Parameter("boolean", true, null, null, null, false),
+                "label", new ActionDefinitionDocument.Parameter("string", "default", null, null, null, false)
+        );
+        when(definitionService.readParsedDocument(definition))
+                .thenReturn(parsedDefinition(definition.getProcessorKey(), "PROJECT", false, parameterDefinitions));
+
+        Map<String, Object> resolved = service.resolveRunParameters(
+                definition,
+                Map.of(
+                        "threshold", "0.75",
+                        "iterations", "3",
+                        "enabled", "false",
+                        "label", 42
+                ),
+                null
+        );
+
+        assertThat(resolved).containsEntry("threshold", 0.75);
+        assertThat(resolved).containsEntry("iterations", 3);
+        assertThat(resolved).containsEntry("enabled", false);
+        assertThat(resolved).containsEntry("label", "42");
+    }
+
+    @Test
+    void resolveRunParametersRejectsUnknownAndOutOfRangeOverrides() {
+        ActionProcessorDefinition definition = definition("processor-parameter-validation");
+        Map<String, ActionDefinitionDocument.Parameter> parameterDefinitions = Map.of(
+                "threshold", new ActionDefinitionDocument.Parameter("number", 0.5, 0.0, 1.0, null, false)
+        );
+        when(definitionService.readParsedDocument(definition))
+                .thenReturn(parsedDefinition(definition.getProcessorKey(), "PROJECT", false, parameterDefinitions));
+
+        assertThatThrownBy(() -> service.resolveRunParameters(
+                definition,
+                Map.of("missing", "value"),
+                null
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Unknown Action parameter missing");
+
+        assertThatThrownBy(() -> service.resolveRunParameters(
+                definition,
+                Map.of("threshold", 1.5),
+                null
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Action parameter threshold must be less than or equal to 1.0");
     }
 
     @Test
@@ -931,6 +1041,13 @@ class ActionRunServiceTest {
     }
 
     private ActionDefinitionDocument parsedDefinition(String processorKey, String scope, boolean acceptsImages) {
+        return parsedDefinition(processorKey, scope, acceptsImages, Map.of());
+    }
+
+    private ActionDefinitionDocument parsedDefinition(String processorKey,
+                                                      String scope,
+                                                      boolean acceptsImages,
+                                                      Map<String, ActionDefinitionDocument.Parameter> parameters) {
         return new ActionDefinitionDocument(
                 1,
                 processorKey,
@@ -949,7 +1066,7 @@ class ActionRunServiceTest {
                 ),
                 new ActionDefinitionDocument.Concurrency(1, scope),
                 null,
-                Map.of()
+                parameters
         );
     }
 

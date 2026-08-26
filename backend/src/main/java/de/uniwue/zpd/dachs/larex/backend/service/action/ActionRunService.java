@@ -373,8 +373,12 @@ public class ActionRunService {
         List<Page> pages = resolveRunPagesForUpdate(projectId, targetSelection.pages().stream()
                 .map(ActionDto.TargetSelectionPage::pageId)
                 .toList());
-        Map<String, Object> parameters = resolveRunParameters(definition, request.imageVariantSelection());
-        pages = processorPages(pages, definition, parameters);
+        Map<String, Object> parameters = resolveRunParameters(
+                definition,
+                request.parameters(),
+                request.imageVariantSelection()
+        );
+        pages = processorPages(pages, definition, parameters, targetSelection.type());
         targetSelection = restrictTargetSelection(targetSelection, pages);
         ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, projectId);
         boolean dispatchImmediately = concurrency.available();
@@ -546,7 +550,7 @@ public class ActionRunService {
         requireTargetSupported(definition, targetSelection.type());
         List<Page> pages = resolveRunPagesForUpdate(projectId, payloadService.readPageIds(sourceRun));
         Map<String, Object> parameters = payloadService.readObjectMap(sourceRun.getParametersJson());
-        pages = processorPages(pages, definition, parameters);
+        pages = processorPages(pages, definition, parameters, targetSelection.type());
         targetSelection = restrictTargetSelection(targetSelection, pages);
         ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, projectId);
         boolean dispatchImmediately = concurrency.available();
@@ -710,17 +714,28 @@ public class ActionRunService {
         List<String> pageIds = payloadService.readPageIds(run);
         Map<String, Object> parameters = payloadService.readObjectMap(run.getParametersJson());
         ActionDto.ImageVariantSelection imageVariantSelection = payloadService.readImageVariantSelection(parameters);
+        ActionDto.TargetSelection targetSelection = payloadService.readTargetSelection(run);
+        ActionDto.InputRequirements inputRequirements = definitionService.readInputRequirements(definition);
 
-        Map<String, List<PageImage>> imagesByPage = definition.isAcceptsImages()
+        Map<String, List<PageImage>> imagesByPage = inputRequirements.images().accepts(targetSelection.type())
                 ? pageImageRepository.findByPageIdIn(pageIds).stream().collect(Collectors.groupingBy(image -> image.getPage().getId()))
                 : Map.of();
-        Map<String, PageXml> xmlByPage = definition.isAcceptsXml()
+        Map<String, PageXml> xmlByPage = inputRequirements.xml().accepts(targetSelection.type())
                 ? pageXmlRepository.findByPage_IdIn(pageIds).stream()
                         .collect(Collectors.toMap(xml -> xml.getPage().getId(), xml -> xml))
                 : Map.of();
 
         List<ActionDto.MachinePageInput> pages = pageOrderService.sortPages(pageRepository.findByIdInAndProjectId(pageIds, run.getProjectId())).stream()
-                .map(page -> toMachinePageInput(page, imagesByPage, xmlByPage, imageVariantSelection, definition, publicApiBaseUrl, runId))
+                .map(page -> toMachinePageInput(
+                        page,
+                        imagesByPage,
+                        xmlByPage,
+                        imageVariantSelection,
+                        inputRequirements,
+                        targetSelection.type(),
+                        publicApiBaseUrl,
+                        runId
+                ))
                 .flatMap(Optional::stream)
                 .toList();
         Set<String> includedPageIds = pages.stream()
@@ -735,6 +750,7 @@ public class ActionRunService {
                 payloadService.processorParameters(parameters),
                 pages,
                 buildMachineTargetSelection(run, includedPageIds),
+                resolvedInputRequirements(inputRequirements, targetSelection.type()),
                 imageVariantSelection,
                 new ActionDto.MachineCapabilities(true, true),
                 run.isCancelRequested()
@@ -745,8 +761,10 @@ public class ActionRunService {
     public MachineFile resolveMachineFile(String runId, String authorizationHeader, String type, String fileId) {
         ActionRun run = authenticateRun(runId, authorizationHeader);
         List<String> pageIds = payloadService.readPageIds(run);
+        ActionTarget target = payloadService.readTargetSelection(run).type();
+        ActionDto.InputRequirements inputRequirements = definitionService.readInputRequirements(run.getProcessorDefinition());
         if ("images".equals(type)) {
-            if (!run.getProcessorDefinition().isAcceptsImages()) {
+            if (!inputRequirements.images().accepts(target)) {
                 throw new SecurityException("Image inputs are not allowed for this run");
             }
             PageImage image = pageImageRepository.findById(fileId)
@@ -757,7 +775,7 @@ public class ActionRunService {
             return new MachineFile(image.getFilePath(), image.getFileName(), image.getMimeType());
         }
         if ("xml".equals(type)) {
-            if (!run.getProcessorDefinition().isAcceptsXml()) {
+            if (!inputRequirements.xml().accepts(target)) {
                 throw new SecurityException("XML inputs are not allowed for this run");
             }
             PageXml xml = pageXmlRepository.findById(fileId)
@@ -1490,7 +1508,9 @@ public class ActionRunService {
         ActionProcessorDefinition definition = run.getProcessorDefinition();
         Map<String, Object> runParameters = payloadService.readObjectMap(run.getParametersJson());
         ActionDto.ImageVariantSelection imageVariantSelection = payloadService.readImageVariantSelection(runParameters);
-        List<String> processorPageIds = processorPageIds(run, definition, imageVariantSelection);
+        ActionTarget target = payloadService.readTargetSelection(run).type();
+        ActionDto.InputRequirements inputRequirements = definitionService.readInputRequirements(definition);
+        List<String> processorPageIds = processorPageIds(run, definition, imageVariantSelection, target);
         Set<String> processorPageIdSet = new LinkedHashSet<>(processorPageIds);
         run.setStatus(Status.DISPATCHING);
         run.setStatusMessage(attempts > 1 ? "Dispatching (attempt " + attempt + "/" + attempts + ")" : "Dispatching");
@@ -1506,6 +1526,7 @@ public class ActionRunService {
         payload.put("pageIds", processorPageIds);
         payload.put("targetSelection", buildMachineTargetSelection(run, processorPageIdSet));
         payload.put("parameters", payloadService.processorParameters(runParameters));
+        payload.put("inputRequirements", resolvedInputRequirements(inputRequirements, target));
         payload.put("imageVariantSelection", imageVariantSelection);
         payload.put("capabilities", Map.of("incrementalPageResults", true, "customFileResults", true));
         payload.put("secret", rawSecret);
@@ -2017,14 +2038,24 @@ public class ActionRunService {
         );
     }
 
-    private Map<String, Object> resolveRunParameters(ActionProcessorDefinition definition,
-                                                     ActionDto.ImageVariantSelection imageVariantSelection) {
+    Map<String, Object> resolveRunParameters(ActionProcessorDefinition definition,
+                                             Map<String, Object> requestedParameters,
+                                             ActionDto.ImageVariantSelection imageVariantSelection) {
         ActionDefinitionDocument document = definitionService.readParsedDocument(definition);
         Map<String, ActionDefinitionDocument.Parameter> definitions = document.parameters() == null ? Map.of() : document.parameters();
         Map<String, Object> resolved = new LinkedHashMap<>();
 
         for (Map.Entry<String, ActionDefinitionDocument.Parameter> entry : definitions.entrySet()) {
             resolved.put(entry.getKey(), defaultParameterValue(entry.getValue()));
+        }
+        if (requestedParameters != null) {
+            for (Map.Entry<String, Object> entry : requestedParameters.entrySet()) {
+                ActionDefinitionDocument.Parameter parameter = definitions.get(entry.getKey());
+                if (parameter == null) {
+                    throw new IllegalArgumentException("Unknown Action parameter " + entry.getKey());
+                }
+                resolved.put(entry.getKey(), coerceParameterValue(entry.getKey(), parameter, entry.getValue()));
+            }
         }
         if (imageVariantSelection != null) {
             resolved.put(ActionRunPayloadService.IMAGE_VARIANT_SELECTION_PARAMETER_KEY, normalizeImageVariantSelection(imageVariantSelection));
@@ -2323,14 +2354,21 @@ public class ActionRunService {
                                                                    Map<String, List<PageImage>> imagesByPage,
                                                                    Map<String, PageXml> xmlByPage,
                                                                    ActionDto.ImageVariantSelection imageVariantSelection,
-                                                                   ActionProcessorDefinition definition,
+                                                                   ActionDto.InputRequirements inputRequirements,
+                                                                   ActionTarget target,
                                                                    String publicApiBaseUrl,
                                                                    String runId) {
         List<PageImage> images = imagesByPage.getOrDefault(page.getId(), List.of());
-        List<PageImage> selectedImages = definition.isAcceptsImages()
+        boolean acceptsImages = inputRequirements.images().accepts(target);
+        List<PageImage> selectedImages = acceptsImages
                 ? selectImagesForPage(page.getId(), images, imageVariantSelection)
                 : List.of();
-        if (definition.isAcceptsImages() && imageVariantSelection != null && selectedImages.isEmpty()) {
+        if ((inputRequirements.images().required(target) || acceptsImages && imageVariantSelection != null)
+                && selectedImages.isEmpty()) {
+            return Optional.empty();
+        }
+        PageXml xml = inputRequirements.xml().accepts(target) ? xmlByPage.get(page.getId()) : null;
+        if (inputRequirements.xml().required(target) && xml == null) {
             return Optional.empty();
         }
         return Optional.of(new ActionDto.MachinePageInput(
@@ -2339,52 +2377,75 @@ public class ActionRunService {
                 selectedImages.stream()
                         .map(image -> toMachineImageFile(publicApiBaseUrl, runId, image))
                         .toList(),
-                Optional.ofNullable(xmlByPage.get(page.getId())).stream()
-                        .map(xml -> toMachineXmlFile(publicApiBaseUrl, runId, xml))
+                Optional.ofNullable(xml).stream()
+                        .map(value -> toMachineXmlFile(publicApiBaseUrl, runId, value))
                         .toList()
         ));
     }
 
     private List<String> processorPageIds(ActionRun run,
                                           ActionProcessorDefinition definition,
-                                          ActionDto.ImageVariantSelection imageVariantSelection) {
+                                          ActionDto.ImageVariantSelection imageVariantSelection,
+                                          ActionTarget target) {
         List<String> pageIds = payloadService.readPageIds(run);
-        if (!definition.isAcceptsImages() || imageVariantSelection == null) {
-            return pageIds;
-        }
-        Map<String, List<PageImage>> imagesByPage = pageImageRepository.findByPageIdIn(pageIds).stream()
-                .collect(Collectors.groupingBy(image -> image.getPage().getId()));
-        return pageIds.stream()
-                .filter(pageId -> !selectImagesForPage(
-                        pageId,
-                        imagesByPage.getOrDefault(pageId, List.of()),
-                        imageVariantSelection
-                ).isEmpty())
-                .toList();
+        return eligibleProcessorPageIds(pageIds, definition, target, imageVariantSelection);
     }
 
     private List<Page> processorPages(List<Page> pages,
                                       ActionProcessorDefinition definition,
-                                      Map<String, Object> parameters) {
+                                      Map<String, Object> parameters,
+                                      ActionTarget target) {
         ActionDto.ImageVariantSelection imageVariantSelection = payloadService.readImageVariantSelection(parameters);
-        if (!definition.isAcceptsImages() || imageVariantSelection == null) {
-            return pages;
-        }
         List<String> pageIds = pages.stream().map(Page::getId).toList();
-        Map<String, List<PageImage>> imagesByPage = pageImageRepository.findByPageIdIn(pageIds).stream()
-                .collect(Collectors.groupingBy(image -> image.getPage().getId()));
+        Set<String> includedPageIds = new LinkedHashSet<>(eligibleProcessorPageIds(
+                pageIds,
+                definition,
+                target,
+                imageVariantSelection
+        ));
         List<Page> includedPages = pages.stream()
-                .filter(page -> !selectImagesForPage(
-                        page.getId(),
-                        imagesByPage.getOrDefault(page.getId(), List.of()),
-                        imageVariantSelection
-                ).isEmpty())
+                .filter(page -> includedPageIds.contains(page.getId()))
                 .toList();
         if (includedPages.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "No pages have the selected image variant; choose another variant or enable fallback");
+            throw new IllegalArgumentException("No pages satisfy the Action's required inputs");
         }
         return includedPages;
+    }
+
+    List<String> eligibleProcessorPageIds(List<String> pageIds,
+                                          ActionProcessorDefinition definition,
+                                          ActionTarget target,
+                                          ActionDto.ImageVariantSelection imageVariantSelection) {
+        ActionDto.InputRequirements requirements = definitionService.readInputRequirements(definition);
+        boolean acceptsImages = requirements.images().accepts(target);
+        boolean checksImages = requirements.images().required(target)
+                || acceptsImages && imageVariantSelection != null;
+        Map<String, List<PageImage>> imagesByPage = checksImages
+                ? pageImageRepository.findByPageIdIn(pageIds).stream()
+                        .collect(Collectors.groupingBy(image -> image.getPage().getId()))
+                : Map.of();
+        Set<String> pagesWithXml = requirements.xml().required(target)
+                ? pageXmlRepository.findByPage_IdIn(pageIds).stream()
+                        .map(xml -> xml.getPage().getId())
+                        .collect(Collectors.toSet())
+                : Set.of();
+
+        return pageIds.stream()
+                .filter(pageId -> !checksImages || !selectImagesForPage(
+                        pageId,
+                        imagesByPage.getOrDefault(pageId, List.of()),
+                        imageVariantSelection
+                ).isEmpty())
+                .filter(pageId -> !requirements.xml().required(target) || pagesWithXml.contains(pageId))
+                .toList();
+    }
+
+    private ActionDto.InputRequirements resolvedInputRequirements(ActionDto.InputRequirements requirements,
+                                                                  ActionTarget target) {
+        return new ActionDto.InputRequirements(
+                new ActionDto.InputRequirement(requirements.images().levelFor(target), List.of()),
+                new ActionDto.InputRequirement(requirements.xml().levelFor(target), List.of())
+        );
     }
 
     private ActionDto.TargetSelection restrictTargetSelection(ActionDto.TargetSelection targetSelection,

@@ -2,6 +2,8 @@ package de.uniwue.zpd.dachs.larex.backend.service.action;
 
 import de.uniwue.zpd.dachs.larex.backend.config.ActionProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
+import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
@@ -14,6 +16,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
@@ -54,6 +57,42 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
 
         assertThatCode(() -> service.parseAndValidate(validExternalYaml(), null))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void parsesTargetAwareInputRequirementsAndLegacyBooleans() {
+        when(endpointAuthService.normalizeAuthType(new de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument.EndpointAuth("hmac", "processor-v1")))
+                .thenCallRealMethod();
+        when(endpointAuthService.hasSecret("processor-v1")).thenReturn(true);
+
+        ActionDefinitionService.ParsedDefinition legacy = service.parseAndValidate(validExternalYaml(), null);
+        assertThat(legacy.preview().inputs().images().level()).isEqualTo(ActionDto.InputLevel.OPTIONAL);
+        assertThat(legacy.preview().inputs().xml().level()).isEqualTo(ActionDto.InputLevel.NONE);
+
+        ActionDefinitionService.ParsedDefinition targetAware = service.parseAndValidate(
+                targetAwareExternalYaml(),
+                null
+        );
+        assertThat(targetAware.preview().inputs().images().level()).isEqualTo(ActionDto.InputLevel.REQUIRED);
+        assertThat(targetAware.preview().inputs().xml().level()).isEqualTo(ActionDto.InputLevel.OPTIONAL);
+        assertThat(targetAware.preview().inputs().xml().requiredForTargets())
+                .containsExactly(ActionProcessorDefinition.ActionTarget.REGION);
+    }
+
+    @Test
+    void rejectsInputRequirementForUnsupportedTarget() {
+        when(endpointAuthService.normalizeAuthType(new de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument.EndpointAuth("hmac", "processor-v1")))
+                .thenCallRealMethod();
+        when(endpointAuthService.hasSecret("processor-v1")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.parseAndValidate(
+                targetAwareExternalYaml().replace("targets:\n  - PAGE\n  - REGION\n", "targets:\n  - PAGE\n"),
+                null
+        ))
+                .isInstanceOf(ActionDefinitionService.ValidationException.class)
+                .satisfies(error -> assertThat(((ActionDefinitionService.ValidationException) error).diagnostics())
+                        .anySatisfy(diagnostic -> assertThat(diagnostic.message())
+                                .isEqualTo("target must also be declared in targets")));
     }
 
     @Test
@@ -103,5 +142,20 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
                     variant: external-processor
                     mode: upsert
                 """;
+    }
+
+    private String targetAwareExternalYaml() {
+        return validExternalYaml()
+                .replace("targets:\n  - PAGE\n", "targets:\n  - PAGE\n  - REGION\n")
+                .replace(
+                        "inputs:\n  images: true\n  xml: false\n",
+                        "inputs:\n"
+                                + "  images:\n"
+                                + "    level: required\n"
+                                + "  xml:\n"
+                                + "    level: optional\n"
+                                + "    requiredForTargets:\n"
+                                + "      - REGION\n"
+                );
     }
 }

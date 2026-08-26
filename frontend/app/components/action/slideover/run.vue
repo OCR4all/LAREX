@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { parse } from 'yaml'
 import { extractApiErrorDetails } from '@/utils/api-error'
+import { actionInputLevelForTarget } from '@/utils/action-input-requirements'
 import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
 import type {
   ActionParameterDefinition,
@@ -12,6 +13,7 @@ import type {
   ActionCategory,
   ActionTargetSelection,
   ActionTarget,
+  ActionInputLevel,
   ActionImageVariantSelection
 } from '@/types/action'
 
@@ -102,26 +104,51 @@ const scopedPages = computed(() => {
   }
   return pages
 })
-const compatibilityWarnings = computed(() => {
-  const processor = selectedProcessor.value?.processor
-  if (!processor || scopedPages.value.length === 0) return []
+function selectedInputLevel(type: 'images' | 'xml'): ActionInputLevel {
+  const requirement = selectedProcessor.value?.processor.inputs?.[type]
+  const legacyAccepted = type === 'images'
+    ? selectedProcessor.value?.processor.acceptsImages
+    : selectedProcessor.value?.processor.acceptsXml
+  return actionInputLevelForTarget(requirement, targetType.value, legacyAccepted)
+}
 
-  const warnings: string[] = []
-  if (processor.acceptsImages) {
+const selectedImageInputLevel = computed(() => selectedInputLevel('images'))
+const selectedXmlInputLevel = computed(() => selectedInputLevel('xml'))
+const selectedProcessorAcceptsImages = computed(() => selectedImageInputLevel.value !== 'NONE')
+const selectedProcessorRequiresImages = computed(() => selectedImageInputLevel.value === 'REQUIRED')
+const selectedProcessorRequiresXml = computed(() => selectedXmlInputLevel.value === 'REQUIRED')
+const compatibilityWarnings = computed(() => {
+  if (!selectedProcessor.value || scopedPages.value.length === 0) return []
+
+  const warnings: Array<{ title: string, description: string }> = []
+  if (selectedProcessorAcceptsImages.value) {
     const missingImages = scopedPages.value.filter(page => page.imageCount <= 0)
-    if (missingImages.length > 0) {
-      warnings.push(`${missingImages.length} selected page${missingImages.length === 1 ? '' : 's'} ${missingImages.length === 1 ? 'has' : 'have'} no images.`)
+    if (missingImages.length > 0 && (selectedProcessorRequiresImages.value || imageVariantOptions.value.length > 0)) {
+      warnings.push({
+        title: `${missingImages.length} selected page${missingImages.length === 1 ? '' : 's'} ${missingImages.length === 1 ? 'has' : 'have'} no images.`,
+        description: selectedProcessorRequiresImages.value
+          ? 'Those pages will be skipped because this Action requires image input.'
+          : 'Those pages will be skipped because no image is available for the selected variant input.'
+      })
     }
     if (pagesMissingSelectedVariant.value.length > 0) {
-      warnings.push(fallbackImage.value
-        ? `${pagesMissingSelectedVariant.value.length} selected page${pagesMissingSelectedVariant.value.length === 1 ? '' : 's'} will use a fallback image.`
-        : `${pagesMissingSelectedVariant.value.length} selected page${pagesMissingSelectedVariant.value.length === 1 ? '' : 's'} will be skipped because the selected image variant is missing.`)
+      warnings.push({
+        title: fallbackImage.value
+          ? `${pagesMissingSelectedVariant.value.length} selected page${pagesMissingSelectedVariant.value.length === 1 ? '' : 's'} will use a fallback image.`
+          : `${pagesMissingSelectedVariant.value.length} selected page${pagesMissingSelectedVariant.value.length === 1 ? '' : 's'} will be skipped because the selected image variant is missing.`,
+        description: fallbackImage.value
+          ? 'LAREX will use the first available image on those pages.'
+          : 'Choose another variant or enable fallback to include those pages.'
+      })
     }
   }
-  if (processor.acceptsXml) {
+  if (selectedProcessorRequiresXml.value) {
     const missingXml = scopedPages.value.filter(page => page.xmlFileCount <= 0)
     if (missingXml.length > 0) {
-      warnings.push(`${missingXml.length} selected page${missingXml.length === 1 ? '' : 's'} ${missingXml.length === 1 ? 'has' : 'have'} no XML.`)
+      warnings.push({
+        title: `${missingXml.length} selected page${missingXml.length === 1 ? '' : 's'} ${missingXml.length === 1 ? 'has' : 'have'} no XML.`,
+        description: 'Those pages will be skipped because this Action requires XML input.'
+      })
     }
   }
   return warnings
@@ -143,7 +170,6 @@ const processorOptions = computed(() => executableProcessors.value.map(item => (
   label: item.processor.name,
   value: item.processor.id
 })))
-const selectedProcessorAcceptsImages = computed(() => selectedProcessor.value?.processor.acceptsImages === true)
 const imageVariantOptions = computed(() => {
   const variants = new Set<string>()
   for (const page of scopedPages.value) {
@@ -172,6 +198,7 @@ const imageVariantByPageId = computed(() => {
 const pagesMissingSelectedVariant = computed(() => {
   if (!selectedProcessorAcceptsImages.value) return []
   return scopedPages.value.filter((page) => {
+    if (page.imageCount <= 0) return false
     const available = imageVariantByPageId.value[page.id] ?? new Set<string>()
     const wanted = imageVariantMode.value === 'global' ? selectedImageVariant.value : pageImageVariants[page.id]
     return typeof wanted === 'string' && wanted.length > 0 && !available.has(wanted)
@@ -209,6 +236,19 @@ const submittedImageVariantSelection = computed<ActionImageVariantSelection | nu
     fallbackImage: fallbackImage.value
   }
 })
+const incompatibleScopedPages = computed(() => scopedPages.value.filter((page) => {
+  if (selectedProcessorRequiresImages.value && page.imageCount <= 0) return true
+  if (selectedProcessorRequiresXml.value && page.xmlFileCount <= 0) return true
+  if (!selectedProcessorAcceptsImages.value) return false
+
+  const available = imageVariantByPageId.value[page.id] ?? new Set<string>()
+  const wanted = imageVariantMode.value === 'global' ? selectedImageVariant.value : pageImageVariants[page.id]
+  if (!wanted || available.has(wanted)) return false
+  return !fallbackImage.value || page.imageCount <= 0
+}))
+const hasCompatiblePages = computed(() =>
+  scopedPages.value.length === 0 || incompatibleScopedPages.value.length < scopedPages.value.length
+)
 const parameterEntries = computed(() => {
   const yaml = selectedProcessor.value?.processor.yaml
   if (!yaml) return [] as Array<{ key: string, definition: ActionParameterDefinition }>
@@ -254,6 +294,7 @@ const accordionItems = computed(() => {
 const canStart = computed(() =>
   Boolean(selectedProcessor.value?.executable)
   && !starting.value
+  && hasCompatiblePages.value
   && (scope.value === 'all' || selectedPageIds.value.length > 0)
 )
 
@@ -402,7 +443,7 @@ async function clearRunHistory() {
 
 function resetParameters() {
   Object.keys(parameterValues).forEach((key) => {
-    parameterValues[key] = undefined
+    Reflect.deleteProperty(parameterValues, key)
   })
   parameterEntries.value.forEach(({ key, definition }) => {
     parameterValues[key] = definition.defaultValue ?? definition.default ?? defaultParameterValue(definition)
@@ -413,6 +454,18 @@ function defaultParameterValue(definition: ActionParameterDefinition) {
   if (definition.type === 'boolean') return false
   if (definition.type === 'number' || definition.type === 'integer') return 0
   return ''
+}
+
+function parameterInputValue(key: string): string {
+  return String(parameterValues[key] ?? '')
+}
+
+function updateParameterInputValue(key: string, value: string | number | null | undefined) {
+  parameterValues[key] = value ?? ''
+}
+
+function updateBooleanParameterValue(key: string, value: boolean) {
+  parameterValues[key] = value
 }
 
 function concurrencyErrorDetails(error: unknown) {
@@ -454,6 +507,7 @@ async function submitRun(options: { enqueueIfBusy?: boolean } = {}) {
         pageIds: submittedPageIds.value,
         targetSelection: submittedTargetSelection.value,
         imageVariantSelection: submittedImageVariantSelection.value,
+        parameters: { ...parameterValues },
         enqueueIfBusy: options.enqueueIfBusy ?? false
       }
     })
@@ -785,12 +839,12 @@ function close() {
 
           <UAlert
             v-for="warning in compatibilityWarnings"
-            :key="warning"
+            :key="warning.title"
             color="warning"
             variant="subtle"
             icon="i-lucide-triangle-alert"
-            :title="warning"
-            description="The Action can still run, but the processor will not receive that input type for those pages."
+            :title="warning.title"
+            :description="warning.description"
           />
 
           <UTabs
@@ -893,7 +947,7 @@ function close() {
           <template #parameters>
             <div class="space-y-3 p-1">
               <p v-if="parameterEntries.length > 0" class="text-sm text-muted">
-                Parameter values are fixed by the Action definition.
+                Adjust the parameter values for this run.
               </p>
 
               <p v-if="parameterEntries.length === 0" class="text-sm text-muted">
@@ -910,15 +964,17 @@ function close() {
                   <USwitch
                     v-if="entry.definition.type === 'boolean'"
                     :model-value="Boolean(parameterValues[entry.key])"
-                    disabled
+                    :disabled="starting"
+                    @update:model-value="updateBooleanParameterValue(entry.key, $event)"
                   />
                   <UInput
                     v-else
-                    :model-value="String(parameterValues[entry.key] ?? '')"
+                    :model-value="parameterInputValue(entry.key)"
                     :type="entry.definition.type === 'number' || entry.definition.type === 'integer' ? 'number' : 'text'"
                     :min="entry.definition.min"
                     :max="entry.definition.max"
-                    disabled
+                    :disabled="starting"
+                    @update:model-value="updateParameterInputValue(entry.key, $event)"
                   />
                 </UFormField>
               </div>

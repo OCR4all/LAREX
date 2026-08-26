@@ -9,6 +9,7 @@ import de.uniwue.zpd.dachs.larex.backend.config.ActionProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.InputLevel;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorAssignment;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionCategory;
@@ -57,6 +58,7 @@ public class ActionDefinitionService {
     private static final int ENDPOINT_RESPONSE_DETAIL_LIMIT = 1000;
     private static final TypeReference<List<ActionTarget>> ACTION_TARGET_LIST = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {};
+    private static final Set<String> INPUT_REQUIREMENT_FIELDS = Set.of("level", "requiredForTargets");
 
     private final ActionProcessorDefinitionRepository definitionRepository;
     private final ActionProcessorWorkspaceAvailabilityRepository availabilityRepository;
@@ -384,8 +386,9 @@ public class ActionDefinitionService {
 
         List<ActionTarget> targets = parseTargets(document.targets(), diagnostics);
 
-        boolean acceptsImages = document.inputs() != null && Boolean.TRUE.equals(document.inputs().images());
-        boolean acceptsXml = document.inputs() != null && Boolean.TRUE.equals(document.inputs().xml());
+        ActionDto.InputRequirements inputRequirements = parseInputRequirements(document.inputs(), targets, diagnostics);
+        boolean acceptsImages = inputRequirements.images().acceptsAnyTarget();
+        boolean acceptsXml = inputRequirements.xml().acceptsAnyTarget();
         if (!acceptsImages && !acceptsXml) {
             diagnostics.add(error("inputs", "At least one input type must be enabled"));
         }
@@ -430,6 +433,7 @@ public class ActionDefinitionService {
                     lockMode,
                     category,
                     targets,
+                    inputRequirements,
                     acceptsImages,
                     acceptsXml,
                     outputsImages,
@@ -452,6 +456,19 @@ public class ActionDefinitionService {
         }
     }
 
+    public ActionDto.InputRequirements readInputRequirements(ActionProcessorDefinition definition) {
+        List<ActionDto.ValidationDiagnostic> diagnostics = new ArrayList<>();
+        ActionDto.InputRequirements requirements = parseInputRequirements(
+                readParsedDocument(definition).inputs(),
+                readTargetTypes(definition),
+                diagnostics
+        );
+        if (!diagnostics.isEmpty()) {
+            throw new IllegalStateException("Stored Action input requirements are invalid: " + diagnostics.getFirst().message());
+        }
+        return requirements;
+    }
+
     public void requireEndpointUrlAllowed(String rawUrl) {
         List<ActionDto.ValidationDiagnostic> diagnostics = new ArrayList<>();
         validateEndpointUrl(rawUrl, "endpoint.url", diagnostics);
@@ -461,6 +478,7 @@ public class ActionDefinitionService {
     }
 
     public ActionDto.DefinitionResponse toDefinitionResponse(ActionProcessorDefinition definition) {
+        ActionDto.InputRequirements inputRequirements = readInputRequirements(definition);
         return new ActionDto.DefinitionResponse(
                 definition.getId(),
                 definition.getProcessorKey(),
@@ -473,6 +491,7 @@ public class ActionDefinitionService {
                 definition.getLockMode(),
                 definition.getCategory(),
                 readTargetTypes(definition),
+                inputRequirements,
                 definition.isAcceptsImages(),
                 definition.isAcceptsXml(),
                 definition.isOutputsImages(),
@@ -798,6 +817,115 @@ public class ActionDefinitionService {
             diagnostics.add(error("targets", "At least one target must be declared"));
         }
         return targets.isEmpty() ? List.of(ActionTarget.PAGE) : targets;
+    }
+
+    private ActionDto.InputRequirements parseInputRequirements(
+            ActionDefinitionDocument.Inputs inputs,
+            List<ActionTarget> supportedTargets,
+            List<ActionDto.ValidationDiagnostic> diagnostics
+    ) {
+        Object images = inputs == null ? null : inputs.images();
+        Object xml = inputs == null ? null : inputs.xml();
+        return new ActionDto.InputRequirements(
+                parseInputRequirement(images, "inputs.images", supportedTargets, diagnostics),
+                parseInputRequirement(xml, "inputs.xml", supportedTargets, diagnostics)
+        );
+    }
+
+    private ActionDto.InputRequirement parseInputRequirement(
+            Object rawValue,
+            String path,
+            List<ActionTarget> supportedTargets,
+            List<ActionDto.ValidationDiagnostic> diagnostics
+    ) {
+        if (rawValue == null) {
+            return new ActionDto.InputRequirement(InputLevel.NONE, List.of());
+        }
+        if (rawValue instanceof Boolean enabled) {
+            return new ActionDto.InputRequirement(enabled ? InputLevel.OPTIONAL : InputLevel.NONE, List.of());
+        }
+        if (rawValue instanceof String level) {
+            return new ActionDto.InputRequirement(parseInputLevel(level, path, diagnostics), List.of());
+        }
+        if (!(rawValue instanceof Map<?, ?> rawMap)) {
+            diagnostics.add(error(path, "input must be a boolean, level name, or requirement object"));
+            return new ActionDto.InputRequirement(InputLevel.NONE, List.of());
+        }
+
+        for (Object key : rawMap.keySet()) {
+            if (!(key instanceof String stringKey) || !INPUT_REQUIREMENT_FIELDS.contains(stringKey)) {
+                diagnostics.add(error(path, "Unknown input requirement field: " + key));
+            }
+        }
+
+        Object rawLevel = rawMap.get("level");
+        InputLevel level;
+        if (rawLevel instanceof String stringLevel) {
+            level = parseInputLevel(stringLevel, path + ".level", diagnostics);
+        } else {
+            diagnostics.add(error(path + ".level", "level must be none, optional, or required"));
+            level = InputLevel.NONE;
+        }
+
+        List<ActionTarget> requiredForTargets = parseRequiredInputTargets(
+                rawMap.get("requiredForTargets"),
+                path + ".requiredForTargets",
+                supportedTargets,
+                diagnostics
+        );
+        return new ActionDto.InputRequirement(level, requiredForTargets);
+    }
+
+    private InputLevel parseInputLevel(String rawLevel,
+                                       String path,
+                                       List<ActionDto.ValidationDiagnostic> diagnostics) {
+        if (rawLevel != null && !rawLevel.isBlank()) {
+            try {
+                return InputLevel.valueOf(rawLevel.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ignored) {
+                // Add the consistent validation diagnostic below.
+            }
+        }
+        diagnostics.add(error(path, "level must be none, optional, or required"));
+        return InputLevel.NONE;
+    }
+
+    private List<ActionTarget> parseRequiredInputTargets(
+            Object rawTargets,
+            String path,
+            List<ActionTarget> supportedTargets,
+            List<ActionDto.ValidationDiagnostic> diagnostics
+    ) {
+        if (rawTargets == null) {
+            return List.of();
+        }
+        if (!(rawTargets instanceof List<?> values)) {
+            diagnostics.add(error(path, "requiredForTargets must be a list"));
+            return List.of();
+        }
+        Set<ActionTarget> targets = new LinkedHashSet<>();
+        for (int index = 0; index < values.size(); index++) {
+            Object value = values.get(index);
+            if (!(value instanceof String rawTarget)) {
+                diagnostics.add(error(path + "[" + index + "]", "target must be PAGE, REGION, or TEXT_LINE"));
+                continue;
+            }
+            ActionTarget target = enumValue(
+                    ActionTarget.class,
+                    rawTarget,
+                    path + "[" + index + "]",
+                    diagnostics,
+                    null
+            );
+            if (target != null && !supportedTargets.contains(target)) {
+                diagnostics.add(error(path + "[" + index + "]", "target must also be declared in targets"));
+                continue;
+            }
+            if (target != null) {
+                targets.add(target);
+            }
+        }
+        return List.copyOf(targets);
     }
 
     private void validateParameters(Map<String, ActionDefinitionDocument.Parameter> parameters,

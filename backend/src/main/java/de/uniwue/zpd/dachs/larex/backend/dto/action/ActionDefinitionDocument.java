@@ -40,7 +40,7 @@ public record ActionDefinitionDocument(
     public record Locking(String mode) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record Inputs(Boolean images, Boolean xml) {}
+    public record Inputs(Object images, Object xml) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record Outputs(OutputTarget xml, ImageOutputTarget images, FileOutputTarget files) {}

@@ -301,6 +301,10 @@ function createNewDefinition() {
     lockMode: 'PAGES',
     category: 'WORKFLOW',
     targets: ['PAGE'],
+    inputs: {
+      images: { level: 'REQUIRED', requiredForTargets: [] },
+      xml: { level: 'OPTIONAL', requiredForTargets: [] }
+    },
     acceptsImages: true,
     acceptsXml: true,
     outputsImages: false,
@@ -346,8 +350,10 @@ locking:
   mode: PAGES
 
 inputs:
-  images: true
-  xml: true
+  images:
+    level: required
+  xml:
+    level: optional
 
 outputs:
   xml:

@@ -2,7 +2,18 @@ export type ActionExecuteRole = 'EDITOR' | 'CURATOR'
 export type ActionLockMode = 'PAGES' | 'PROJECT'
 export type ActionCategory = 'WORKFLOW' | 'OCR_HTR' | 'LAYOUT' | 'POSTPROCESSING'
 export type ActionTarget = 'PAGE' | 'REGION' | 'TEXT_LINE'
+export type ActionInputLevel = 'NONE' | 'OPTIONAL' | 'REQUIRED'
 export type ActionRunStatus = 'QUEUED' | 'PENDING' | 'DISPATCHING' | 'RUNNING' | 'IMPORTING_RESULTS' | 'COMPLETED' | 'FAILED' | 'CANCEL_REQUESTED' | 'CANCELLED'
+
+export interface ActionInputRequirement {
+  level: ActionInputLevel
+  requiredForTargets: ActionTarget[]
+}
+
+export interface ActionInputRequirements {
+  images: ActionInputRequirement
+  xml: ActionInputRequirement
+}
 
 export interface ActionTargetSelectionPage {
   pageId: string
@@ -43,6 +54,7 @@ export interface ActionDefinitionPreview {
   lockMode: ActionLockMode
   category: ActionCategory
   targets: ActionTarget[]
+  inputs: ActionInputRequirements
   acceptsImages: boolean
   acceptsXml: boolean
   outputsImages: boolean
@@ -79,6 +91,7 @@ export interface ActionDefinition {
   lockMode: ActionLockMode
   category: ActionCategory
   targets: ActionTarget[]
+  inputs: ActionInputRequirements
   acceptsImages: boolean
   acceptsXml: boolean
   outputsImages: boolean
@@ -261,8 +274,10 @@ locking:
   mode: PAGES
 
 inputs:
-  images: true
-  xml: true
+  images:
+    level: optional
+  xml:
+    level: optional
 
 outputs:
   xml:

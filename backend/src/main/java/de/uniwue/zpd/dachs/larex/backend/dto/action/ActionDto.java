@@ -13,6 +13,40 @@ import java.util.Map;
 
 public class ActionDto {
 
+    public enum InputLevel {
+        NONE,
+        OPTIONAL,
+        REQUIRED
+    }
+
+    public record InputRequirement(
+            InputLevel level,
+            List<ActionTarget> requiredForTargets
+    ) {
+        public InputLevel levelFor(ActionTarget target) {
+            return requiredForTargets != null && requiredForTargets.contains(target)
+                    ? InputLevel.REQUIRED
+                    : level;
+        }
+
+        public boolean accepts(ActionTarget target) {
+            return levelFor(target) != InputLevel.NONE;
+        }
+
+        public boolean required(ActionTarget target) {
+            return levelFor(target) == InputLevel.REQUIRED;
+        }
+
+        public boolean acceptsAnyTarget() {
+            return level != InputLevel.NONE || (requiredForTargets != null && !requiredForTargets.isEmpty());
+        }
+    }
+
+    public record InputRequirements(
+            InputRequirement images,
+            InputRequirement xml
+    ) {}
+
     public record ValidationDiagnostic(
             String severity,
             String path,
@@ -37,6 +71,7 @@ public class ActionDto {
             LockMode lockMode,
             ActionCategory category,
             List<ActionTarget> targets,
+            InputRequirements inputs,
             boolean acceptsImages,
             boolean acceptsXml,
             boolean outputsImages,
@@ -62,6 +97,7 @@ public class ActionDto {
             LockMode lockMode,
             ActionCategory category,
             List<ActionTarget> targets,
+            InputRequirements inputs,
             boolean acceptsImages,
             boolean acceptsXml,
             boolean outputsImages,
@@ -296,6 +332,7 @@ public class ActionDto {
             Map<String, Object> parameters,
             List<MachinePageInput> pages,
             MachineTargetSelection targetSelection,
+            InputRequirements inputRequirements,
             ImageVariantSelection imageVariantSelection,
             MachineCapabilities capabilities,
             boolean cancelRequested

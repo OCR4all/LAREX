@@ -23,8 +23,12 @@ locking:
   mode: PAGES
 
 inputs:
-  images: true
-  xml: true
+  images:
+    level: required
+  xml:
+    level: optional
+    requiredForTargets:
+      - REGION
 
 outputs:
   xml:
