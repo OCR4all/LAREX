@@ -7,6 +7,8 @@ import type { PageData } from '@/stores/editor/types'
 import { getVerticalScrollDirection, getVerticalVisibilityDirection } from '@/utils/editor/vertical-visibility'
 
 const IMAGE_CARD_ASPECT_RATIO = 4 / 3
+const IMAGE_CARD_HORIZONTAL_INSET_PX = 16
+const IMAGE_CARD_VERTICAL_CHROME_PX = 112
 const emit = defineEmits<{
   'select-page': [pageId: string, variantId?: string, projectId?: string]
   'unload-page': [pageId: string, projectId?: string]
@@ -285,7 +287,8 @@ function calculateEstimatedRowHeight(): number {
   const usableWidth = Math.max(0, root.clientWidth - paddingLeft - paddingRight)
   if (usableWidth <= 0) return ESTIMATED_ROW_HEIGHT
 
-  return Math.round(usableWidth * IMAGE_CARD_ASPECT_RATIO + 12)
+  const imageWidth = Math.max(0, usableWidth - IMAGE_CARD_HORIZONTAL_INSET_PX)
+  return Math.round(imageWidth * IMAGE_CARD_ASPECT_RATIO + IMAGE_CARD_VERTICAL_CHROME_PX)
 }
 
 function calculateScrollMargin(): number {
