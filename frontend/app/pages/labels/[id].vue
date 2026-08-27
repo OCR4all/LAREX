@@ -639,7 +639,7 @@ onBeforeRouteLeave(async () => {
           color="neutral"
           variant="ghost"
           size="sm"
-          class="text-neutral-50 hover:bg-white/10"
+          class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
           aria-label="Group selected labels"
           @click="openGroupSelectedDialog"
         >
@@ -656,7 +656,7 @@ onBeforeRouteLeave(async () => {
             color="neutral"
             variant="ghost"
             size="sm"
-            class="text-neutral-50 hover:bg-white/10"
+            class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
             aria-label="Move selected labels to group"
           >
             <span class="hidden sm:inline">Move</span>
@@ -669,7 +669,7 @@ onBeforeRouteLeave(async () => {
           color="error"
           variant="ghost"
           size="sm"
-          class="hover:bg-white/10"
+          class="hover:bg-error/20"
           aria-label="Delete selected labels"
           @click="handleDeleteSelected"
         >

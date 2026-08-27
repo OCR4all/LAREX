@@ -2765,7 +2765,7 @@ useHead({
                 color="neutral"
                 variant="ghost"
                 size="sm"
-                class="text-neutral-50 hover:bg-white/10"
+                class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
                 :loading="isLoadingEditor"
                 :disabled="!pages || pages.length === 0 || project?.locked"
                 aria-label="Open selected pages in editor"
@@ -2778,7 +2778,7 @@ useHead({
                 color="neutral"
                 variant="ghost"
                 size="sm"
-                class="text-neutral-50 hover:bg-white/10"
+                class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
                 :disabled="!hasSelection || project?.locked || !canExecuteProjectActions"
                 aria-label="Run Action on selected pages"
                 @click="openActionRunSlideover('selection')"
@@ -2791,7 +2791,7 @@ useHead({
                   color="neutral"
                   variant="ghost"
                   size="sm"
-                  class="text-neutral-50 hover:bg-white/10"
+                  class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
                   aria-label="More selected page actions"
                 >
                   <span class="hidden sm:inline">More</span>
@@ -2803,7 +2803,7 @@ useHead({
                 color="error"
                 variant="ghost"
                 size="sm"
-                class="hover:bg-white/10"
+                class="hover:bg-error/20"
                 :aria-label="selectedAnnotationPages.length === 1 ? 'Delete annotation from selected page' : 'Delete annotations from selected pages'"
                 @click="deleteAnnotations(selectedAnnotationPages)"
               >
@@ -2815,7 +2815,7 @@ useHead({
                 color="error"
                 variant="ghost"
                 size="sm"
-                class="hover:bg-white/10"
+                class="hover:bg-error/20"
                 aria-label="Delete selected pages"
                 @click="openBulkDeleteSlideover"
               >

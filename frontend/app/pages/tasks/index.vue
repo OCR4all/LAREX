@@ -642,7 +642,7 @@ const viewModeItems = [
               color="neutral"
               variant="ghost"
               size="sm"
-              class="text-neutral-50 hover:bg-white/10"
+              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
               :loading="bulkLoading"
             >
               Status
@@ -661,7 +661,7 @@ const viewModeItems = [
               color="neutral"
               variant="ghost"
               size="sm"
-              class="text-neutral-50 hover:bg-white/10"
+              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
               :loading="bulkLoading"
             >
               Priority
@@ -678,7 +678,7 @@ const viewModeItems = [
               color="neutral"
               variant="ghost"
               size="sm"
-              class="text-neutral-50 hover:bg-white/10"
+              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
               :ui="{ leadingIcon: bulkLoading ? 'animate-spin' : '' }"
               :disabled="bulkLoading"
             >
@@ -722,7 +722,7 @@ const viewModeItems = [
             color="error"
             variant="ghost"
             size="sm"
-            class="hover:bg-white/10"
+            class="hover:bg-error/20"
             :loading="bulkLoading"
             @click="handleBulkDelete"
           >

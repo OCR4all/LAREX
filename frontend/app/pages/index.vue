@@ -1483,7 +1483,7 @@ async function handleLegacyOcr4allImport(event: Event) {
             color="neutral"
             variant="ghost"
             size="sm"
-            class="text-neutral-50 hover:bg-white/10"
+            class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
             :loading="isOpeningSelectedProjectsInEditor"
             :disabled="!canOpenSelectedProjectsInEditor"
             @click="handleOpenSelectedProjectsInEditor"
@@ -1495,7 +1495,7 @@ async function handleLegacyOcr4allImport(event: Event) {
             color="neutral"
             variant="ghost"
             size="sm"
-            class="text-neutral-50 hover:bg-white/10"
+            class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
             :disabled="!canShareSelectedProjects"
             @click="openBatchShareSlideover"
           >
@@ -1507,7 +1507,7 @@ async function handleLegacyOcr4allImport(event: Event) {
               color="neutral"
               variant="ghost"
               size="sm"
-              class="text-neutral-50 hover:bg-white/10"
+              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
               :loading="isBatchExporting"
               :disabled="!canExportSelectedProjects"
             >
@@ -1521,7 +1521,7 @@ async function handleLegacyOcr4allImport(event: Event) {
               color="neutral"
               variant="ghost"
               size="sm"
-              class="text-neutral-50 hover:bg-white/10"
+              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
               :disabled="!hasSelection"
             >
               Toolkit
@@ -1533,7 +1533,7 @@ async function handleLegacyOcr4allImport(event: Event) {
             color="error"
             variant="ghost"
             size="sm"
-            class="hover:bg-white/10"
+            class="hover:bg-error/20"
             :disabled="!canDeleteSelectedProjects"
             @click="handleDeleteSelectedProjects"
           >

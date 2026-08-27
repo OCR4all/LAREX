@@ -648,7 +648,7 @@ async function refreshAll() {
             variant="ghost"
             size="sm"
             icon="i-lucide-trash-2"
-            class="hover:bg-white/10"
+            class="hover:bg-error/20"
             :loading="isDeleting"
             @click="deleteSelectedFiles"
           >

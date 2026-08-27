@@ -1488,7 +1488,7 @@ useHead({
                       color="neutral"
                       variant="ghost"
                       size="sm"
-                      class="text-neutral-50 hover:bg-white/10"
+                      class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
                       :disabled="!canOpenSelectedItemsInEditor"
                       :loading="openingEditor"
                       @click="openSelectedItemsInEditor"
@@ -1501,7 +1501,7 @@ useHead({
                       color="error"
                       variant="ghost"
                       size="sm"
-                      class="hover:bg-white/10"
+                      class="hover:bg-error/20"
                       :disabled="!canDeleteSelectedItems"
                       @click="deleteSelectedItems"
                     >

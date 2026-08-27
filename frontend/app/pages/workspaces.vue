@@ -383,7 +383,7 @@ async function leaveWorkspace(ws: WorkspaceRow) {
             color="error"
             variant="ghost"
             size="sm"
-            class="hover:bg-white/10"
+            class="hover:bg-error/20"
             :disabled="!canDeleteSelected"
             @click="handleDeleteSelected"
           >

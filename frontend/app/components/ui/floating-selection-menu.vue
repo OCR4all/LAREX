@@ -29,14 +29,14 @@ const isVisible = computed(() => props.selectedCount > 0)
       class="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 pb-[env(safe-area-inset-bottom)] sm:bottom-6"
     >
       <div
-        class="pointer-events-auto inline-flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-neutral-800/80 bg-neutral-950/95 px-3 py-2 text-neutral-50 shadow-2xl shadow-neutral-950/20 backdrop-blur-md dark:border-white/10"
+        class="pointer-events-auto inline-flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-neutral-50/95 dark:bg-neutral-950/95 px-3 py-2 text-neutral-950 dark:text-neutral-50 shadow-2xl shadow-neutral-200/20 dark:shadow-neutral-950/20 backdrop-blur-md dark:border-white/10"
         role="toolbar"
         aria-live="polite"
       >
         <span class="whitespace-nowrap px-2 text-sm font-semibold">
           {{ selectedCount }} {{ label }}
         </span>
-        <div class="hidden h-5 w-px bg-white/15 sm:block" />
+        <div class="hidden h-5 w-px dark:bg-white/15 bg-black/15 sm:block" />
 
         <div class="flex flex-wrap items-center justify-center gap-2">
           <slot />
@@ -48,7 +48,7 @@ const isVisible = computed(() => props.selectedCount > 0)
           color="neutral"
           variant="ghost"
           size="sm"
-          class="text-neutral-50 hover:bg-white/10"
+          class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
           aria-label="Clear selection"
           @click="$emit('clear')"
         />
