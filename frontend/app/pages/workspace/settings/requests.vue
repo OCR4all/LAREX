@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { WorkspaceToolkitResourceType } from '@/types/capabilities'
+import { LazyProjectModalTransferConflict } from '#components'
+import { extractApiErrorMessage, isProjectNameConflictError } from '@/utils/api-error'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -8,8 +10,10 @@ await useWorkspaceBootstrap()
 
 const toast = useToast()
 const workspace = useWorkspaceStore()
+const overlay = useOverlay()
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
 const { refreshWorkspaceTransfers, refreshUserTransfers } = useDataRefresh()
+const transferConflictModal = overlay.create(LazyProjectModalTransferConflict)
 
 type TransferRequest = {
   id: string
@@ -93,20 +97,45 @@ async function refreshTransferCaches(request: TransferRequest) {
 
 async function approve(request: TransferRequest) {
   const endpoint = request.projectId ? `/api/project-transfers/${request.id}/approve` : `/api/resource-transfers/${request.id}/approve`
-  try {
-    await $fetch(endpoint, { method: 'POST' })
-    toast.add({ title: 'Transfer approved', color: 'success' })
-    await refreshTransferCaches(request)
-  } catch {
-    toast.add({ title: 'Failed to approve', color: 'error' })
+  let projectName: string | undefined
+
+  while (true) {
+    try {
+      await $fetch(endpoint, {
+        method: 'POST',
+        ...(projectName ? { body: { projectName } } : {})
+      })
+      toast.add({ title: 'Transfer approved', color: 'success' })
+      await refreshTransferCaches(request)
+      return
+    } catch (error: unknown) {
+      if (!request.projectId || !isProjectNameConflictError(error)) {
+        toast.add({ title: 'Failed to approve', description: extractApiErrorMessage(error, 'Could not approve the transfer.'), color: 'error' })
+        return
+      }
+
+      const renamed = await transferConflictModal.open({
+        projectId: request.projectId,
+        projectName: projectName || (request.transferType === 'COPY' ? `${request.projectName || 'Project'} (Copy)` : request.projectName || 'Project'),
+        targetWorkspaceId: request.targetWorkspaceId,
+        targetWorkspaceName: request.targetWorkspaceName,
+        transferType: request.transferType
+      }).result
+
+      if (!renamed) {
+        await reject(request, 'Transfer cancelled')
+        return
+      }
+      projectName = renamed
+    }
   }
 }
 
-async function reject(request: TransferRequest) {
+async function reject(request: TransferRequest, title = 'Transfer rejected') {
   const endpoint = request.projectId ? `/api/project-transfers/${request.id}/reject` : `/api/resource-transfers/${request.id}/reject`
   try {
     await $fetch(endpoint, { method: 'POST', body: { rejectionReason: '' } })
-    toast.add({ title: 'Transfer rejected', color: 'neutral' })
+    toast.add({ title, color: 'neutral' })
     await refreshTransferCaches(request)
   } catch {
     toast.add({ title: 'Failed to reject', color: 'error' })

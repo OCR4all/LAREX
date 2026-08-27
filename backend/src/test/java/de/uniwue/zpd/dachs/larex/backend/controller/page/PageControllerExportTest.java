@@ -22,11 +22,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -36,7 +38,14 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
+import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 @ExtendWith(MockitoExtension.class)
 class PageControllerExportTest {
@@ -158,6 +167,56 @@ class PageControllerExportTest {
         assertEquals(200, response.getStatusCode().value());
         assertEquals("application/xml", response.getHeaders().getContentType().toString());
         assertNotNull(response.getBody());
-        assertTrue(response.getBody() instanceof Resource);
+        assertTrue(response.getBody() instanceof StreamingResponseBody);
+        ByteArrayOutputStream streamedBody = new ByteArrayOutputStream();
+        ((StreamingResponseBody) response.getBody()).writeTo(streamedBody);
+        assertEquals("<PcGts/>", streamedBody.toString(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void exportXml_streamsPageXmlThroughSpringMvc() throws Exception {
+        PageController controller = new PageController(
+                pageService,
+                subtaskService,
+                pageFilterIndexService,
+                pageIndexStatusReadService,
+                tagLookupService,
+                pageXmlRawEditService,
+                pageXmlConversionService,
+                documentExportService,
+                workspaceQuotaGuardService,
+                searchPreviewService,
+                pageOrderService,
+                pageTextConfidenceStatsService,
+                pageWorkflowService,
+                archiveIoService
+        );
+        ReflectionTestUtils.setField(controller, "uploadDir", tempDir.toString());
+
+        Path xmlFile = tempDir.resolve("sample.xml");
+        Files.writeString(xmlFile, "<PcGts/>", StandardCharsets.UTF_8);
+
+        PageXml xml = new PageXml();
+        xml.setId("xml-1");
+        xml.setFileName("sample.xml");
+        xml.setFilePath("sample.xml");
+        xml.setMimeType("application/xml");
+        xml.setSchema(XmlSchema.PAGE_XML);
+        when(pageService.getXmlById("xml-1", null)).thenReturn(xml);
+        when(pageXmlConversionService.normalizeTargetVersion("2019-07-15")).thenReturn("2019-07-15");
+        doAnswer(invocation -> {
+            invocation.<OutputStream>getArgument(2).write("<converted/>".getBytes(StandardCharsets.UTF_8));
+            return null;
+        }).when(pageXmlConversionService).writeFileToVersion(eq(xmlFile), eq("2019-07-15"), any());
+
+        MockMvc mockMvc = standaloneSetup(controller).build();
+        MvcResult asyncResult = mockMvc.perform(get("/projects/project-1/pages/xml/xml-1/export")
+                        .param("targetPageXmlVersion", "2019-07-15"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        MvcResult result = mockMvc.perform(asyncDispatch(asyncResult)).andReturn();
+
+        assertEquals(200, result.getResponse().getStatus());
+        assertEquals("<converted/>", result.getResponse().getContentAsString());
     }
 }

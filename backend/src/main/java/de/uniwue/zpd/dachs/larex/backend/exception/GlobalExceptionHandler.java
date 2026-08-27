@@ -76,7 +76,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDto> handleValidationErrors(
             MethodArgumentNotValidException ex, HttpServletRequest request) {
-        
+
         List<String> errors = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -100,7 +100,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponseDto> handleConstraintViolationException(
             ConstraintViolationException ex, HttpServletRequest request) {
-        
+
         List<String> errors = ex.getConstraintViolations()
                 .stream()
                 .map(ConstraintViolation::getMessage)
@@ -153,7 +153,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponseDto> handleIllegalArgumentException(
             IllegalArgumentException ex, HttpServletRequest request) {
-        
+
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 HttpStatus.BAD_REQUEST.value(),
                 "Invalid Request",
@@ -201,23 +201,41 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorResponse);
     }
 
+        @ExceptionHandler(ProjectNameConflictException.class)
+    public ResponseEntity<ErrorResponseDto> handleProjectNameConflictException(
+            ProjectNameConflictException ex, HttpServletRequest request) {
+
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                HttpStatus.CONFLICT.value(),
+                "Project Name Conflict",
+                ex.getMessage(),
+                request.getRequestURI(),
+                "PROJECT_NAME_CONFLICT"
+        );
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
     /**
      * Handle database constraint violations (e.g., unique constraint violations)
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponseDto> handleDataIntegrityViolationException(
             DataIntegrityViolationException ex, HttpServletRequest request) {
-        
+
         String message = "Data integrity violation";
-        
+        String code = null;
+
         // Try to provide more specific error messages for common constraint violations
         if (ex.getMessage() != null) {
             String exMessage = ex.getMessage().toLowerCase();
             if (exMessage.contains("unique constraint") || exMessage.contains("duplicate key")) {
                 if (exMessage.contains("workspace") && exMessage.contains("name")) {
                     message = "A workspace with this name already exists";
-                } else if (exMessage.contains("project") && exMessage.contains("name")) {
+                } else if (exMessage.contains("uk_project_name_library")
+                        || (exMessage.contains("project") && exMessage.contains("name"))) {
                     message = "A project with this name already exists in this workspace";
+                    code = "PROJECT_NAME_CONFLICT";
                 } else {
                     message = "This value already exists and must be unique";
                 }
@@ -233,7 +251,7 @@ public class GlobalExceptionHandler {
                 HttpStatus.CONFLICT.value(),
                 "Data Conflict",
                 message,
-                null,
+                code,
                 ex,
                 null,
                 true
@@ -243,7 +261,7 @@ public class GlobalExceptionHandler {
                 "Data Conflict",
                 message,
                 request.getRequestURI(),
-                (String) null,
+                code,
                 errorId
         );
 
@@ -314,7 +332,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponseDto> handleResourceNotFoundException(
             ResourceNotFoundException ex, HttpServletRequest request) {
-        
+
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 HttpStatus.NOT_FOUND.value(),
                 "Resource Not Found",
@@ -377,7 +395,7 @@ public class GlobalExceptionHandler {
 
         // Log the full exception for debugging
         logger.error("Unexpected error at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
-        
+
         String errorId = captureEvent(
                 request,
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),

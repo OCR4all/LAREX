@@ -521,7 +521,7 @@ public class PageController {
     }
 
     @PostMapping("/{pageId}/export")
-    public ResponseEntity<?> exportPage(
+    public ResponseEntity<StreamingResponseBody> exportPage(
             @PathVariable String projectId,
             @PathVariable String pageId,
             @RequestBody DocumentExportDto.PageExportRequest request,
@@ -961,23 +961,23 @@ public class PageController {
     }
 
     @GetMapping("/xml/{xmlId}/blob")
-    public ResponseEntity<?> getXmlBlob(
+    public ResponseEntity<Resource> getXmlBlob(
             @PathVariable String projectId,
             @PathVariable String xmlId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        return streamXml(xmlId, userId, false, null);
+        return streamXmlBlob(xmlId, userId);
     }
 
     @GetMapping("/xml/{xmlId}/export")
-    public ResponseEntity<?> exportXml(
+    public ResponseEntity<StreamingResponseBody> exportXml(
             @PathVariable String projectId,
             @PathVariable String xmlId,
             @RequestParam(required = false) String targetPageXmlVersion,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        return streamXml(xmlId, userId, true, targetPageXmlVersion);
+        return streamXmlExport(xmlId, userId, targetPageXmlVersion);
     }
 
-    private ResponseEntity<?> streamXml(String xmlId, String userId, boolean asAttachment, String targetPageXmlVersion) {
+    private ResponseEntity<Resource> streamXmlBlob(String xmlId, String userId) {
         try {
             PageXml xml = pageService.getXmlById(xmlId, userId);
             if (xml == null) {
@@ -994,25 +994,9 @@ public class PageController {
             MediaType contentType = resolveXmlContentType(xml);
 
             headers.setContentType(contentType);
-            if (asAttachment) {
-                headers.setContentDisposition(ContentDisposition.attachment()
-                        .filename(sanitizeFileName(xml.getFileName(), "document.xml"))
-                        .build());
-            } else {
-                headers.setContentDisposition(ContentDisposition.inline()
-                        .filename(sanitizeFileName(xml.getFileName(), "document.xml"))
-                        .build());
-            }
-
-            if (asAttachment && xml.getSchema() == XmlSchema.PAGE_XML) {
-                String normalizedTarget = pageXmlConversionService.normalizeTargetVersion(targetPageXmlVersion);
-                StreamingResponseBody body = outputStream ->
-                        pageXmlConversionService.writeFileToVersion(filePath, normalizedTarget, outputStream);
-                return ResponseEntity.ok()
-                        .headers(headers)
-                        .body(body);
-            }
-
+            headers.setContentDisposition(ContentDisposition.inline()
+                    .filename(sanitizeFileName(xml.getFileName(), "document.xml"))
+                    .build());
             headers.setContentLength(resource.contentLength());
             return ResponseEntity.ok()
                     .headers(headers)
@@ -1021,8 +1005,47 @@ public class PageController {
             log.warn("Failed to export XML {}: {}", xmlId, e.getMessage());
             return ResponseEntity.badRequest().build();
         } catch (IOException e) {
-            log.error("I/O failure while exporting XML {}", xmlId, e);
+            log.error("I/O failure while reading XML {}", xmlId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    private ResponseEntity<StreamingResponseBody> streamXmlExport(
+            String xmlId,
+            String userId,
+            String targetPageXmlVersion) {
+        try {
+            PageXml xml = pageService.getXmlById(xmlId, userId);
+            if (xml == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Path filePath = Paths.get(uploadDir).resolve(xml.getFilePath());
+            if (!Files.exists(filePath)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(resolveXmlContentType(xml));
+            headers.setContentDisposition(ContentDisposition.attachment()
+                    .filename(sanitizeFileName(xml.getFileName(), "document.xml"))
+                    .build());
+
+            StreamingResponseBody body;
+            if (xml.getSchema() == XmlSchema.PAGE_XML) {
+                String normalizedTarget = pageXmlConversionService.normalizeTargetVersion(targetPageXmlVersion);
+                body = outputStream ->
+                        pageXmlConversionService.writeFileToVersion(filePath, normalizedTarget, outputStream);
+            } else {
+                body = outputStream -> Files.copy(filePath, outputStream);
+            }
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(body);
+        } catch (IllegalArgumentException e) {
+            log.warn("Failed to export XML {}: {}", xmlId, e.getMessage());
+            return ResponseEntity.badRequest().build();
         }
     }
 

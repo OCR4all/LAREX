@@ -598,7 +598,8 @@ public class ProjectController {
                 request.targetWorkspaceId(),
                 userId,
                 request.message(),
-                request.transferType() != null ? request.transferType() : ProjectTransferRequest.TransferType.MOVE
+                request.transferType() != null ? request.transferType() : ProjectTransferRequest.TransferType.MOVE,
+                request.projectName()
         );
 
         return transferOpt.map(projectTransferService::toResponse)

@@ -57,15 +57,34 @@ export function extractApiErrorMessage(error: unknown, fallback: string): string
   return extractApiErrorDetails(error, fallback).message
 }
 
+export function isProjectNameConflictError(error: unknown): boolean {
+  const details = extractApiErrorDetails(error, '')
+  if (details.code === 'PROJECT_NAME_CONFLICT') return true
+
+  // Keep the rename flow usable when an older API instance (or a proxy) drops
+  // the machine-readable code/status but preserves the conflict response message.
+  const message = details.message.toLowerCase()
+  return message.includes('project')
+    && message.includes('name')
+    && (message.includes('already exists') || message.includes('conflict'))
+}
+
 export function extractApiErrorDetails(error: unknown, fallback: string): ApiErrorDetails {
-  if (isRecord(error) && isRecord(error.data)) {
+  const errorRecord = isRecord(error) ? error : undefined
+  const payload = getApiErrorPayload(errorRecord)
+
+  if (payload) {
     if (isStorageQuotaError(error)) {
-      return toApiErrorDetails(error.data, STORAGE_QUOTA_FALLBACK_MESSAGE, toNumber(error.statusCode))
+      return toApiErrorDetails(payload, STORAGE_QUOTA_FALLBACK_MESSAGE, getApiErrorStatus(errorRecord))
     }
 
-    const dataMessage = extractApiMessageFromPayload(error.data, '')
+    const dataMessage = extractApiMessageFromPayload(payload, '')
     if (dataMessage) {
-      return toApiErrorDetails(error.data, dataMessage, toNumber(error.statusCode))
+      return toApiErrorDetails(payload, dataMessage, getApiErrorStatus(errorRecord))
+    }
+
+    if (typeof payload.code === 'string' || toNumber(payload.status) != null) {
+      return toApiErrorDetails(payload, fallback, getApiErrorStatus(errorRecord))
     }
   }
 
@@ -78,10 +97,18 @@ export function extractApiErrorDetails(error: unknown, fallback: string): ApiErr
     if (isStorageQuotaTransportMessage(normalizedMessage)) {
       return { message: STORAGE_QUOTA_FALLBACK_MESSAGE, status: 507, code: 'STORAGE_QUOTA_EXCEEDED' }
     }
-    return { message: normalizedMessage }
+    return {
+      message: normalizedMessage,
+      status: getApiErrorStatus(errorRecord),
+      code: getApiErrorCode(errorRecord)
+    }
   }
 
-  return { message: fallback }
+  return {
+    message: fallback,
+    status: getApiErrorStatus(errorRecord),
+    code: getApiErrorCode(errorRecord)
+  }
 }
 
 export function isStorageQuotaError(error: unknown): boolean {
@@ -130,6 +157,38 @@ function toApiErrorDetails(payload: Record<string, unknown>, fallback: string, f
     errorId: typeof payload.errorId === 'string' ? payload.errorId : undefined,
     workspaceId: typeof payload.workspaceId === 'string' ? payload.workspaceId : undefined
   }
+}
+
+function getApiErrorPayload(error: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!error) return undefined
+  if (isRecord(error.data)) return error.data
+
+  const response = isRecord(error.response) ? error.response : undefined
+  if (!response) return undefined
+  if (isRecord(response._data)) return response._data
+  if (isRecord(response.data)) return response.data
+
+  return undefined
+}
+
+function getApiErrorStatus(error: Record<string, unknown> | undefined): number | undefined {
+  if (!error) return undefined
+
+  const response = isRecord(error.response) ? error.response : undefined
+  const payload = getApiErrorPayload(error)
+  return toNumber(error.statusCode)
+    ?? toNumber(error.status)
+    ?? toNumber(response?.statusCode)
+    ?? toNumber(response?.status)
+    ?? toNumber(payload?.status)
+}
+
+function getApiErrorCode(error: Record<string, unknown> | undefined): string | undefined {
+  if (!error) return undefined
+
+  const payload = getApiErrorPayload(error)
+  if (typeof payload?.code === 'string') return payload.code
+  return typeof error.code === 'string' ? error.code : undefined
 }
 
 function toNumber(value: unknown): number | undefined {

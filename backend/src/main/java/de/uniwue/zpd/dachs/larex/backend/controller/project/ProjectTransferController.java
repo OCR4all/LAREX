@@ -32,7 +32,8 @@ public class ProjectTransferController {
                 request.targetWorkspaceId(),
                 userId,
                 request.message(),
-                request.transferType() != null ? request.transferType() : ProjectTransferRequest.TransferType.MOVE
+                request.transferType() != null ? request.transferType() : ProjectTransferRequest.TransferType.MOVE,
+                request.projectName()
         );
 
         return transferOpt.map(projectTransferService::toResponse)
@@ -65,6 +66,19 @@ public class ProjectTransferController {
         ));
     }
 
+    @GetMapping("/name-availability")
+    public ResponseEntity<ProjectTransferDto.NameAvailabilityResponse> checkProjectNameAvailability(
+            @RequestParam String projectId,
+            @RequestParam String targetWorkspaceId,
+            @RequestParam String projectName,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        boolean available = projectTransferService.isProjectNameAvailable(
+                projectId, targetWorkspaceId, projectName, userId
+        );
+        return ResponseEntity.ok(new ProjectTransferDto.NameAvailabilityResponse(available));
+    }
+
     @GetMapping("/my-requests")
     public ResponseEntity<List<ProjectTransferDto.Response>> getMyRequests(
             @AuthenticationPrincipal(expression = "subject") String userId) {
@@ -95,9 +109,12 @@ public class ProjectTransferController {
     @PostMapping("/{requestId}/approve")
     public ResponseEntity<Void> approveRequest(
             @PathVariable String requestId,
+            @Valid @RequestBody(required = false) ProjectTransferDto.ApproveRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
-        boolean approved = projectTransferService.approveTransferRequest(requestId, userId);
+        boolean approved = projectTransferService.approveTransferRequest(
+                requestId, userId, request != null ? request.projectName() : null
+        );
         return approved ? ResponseEntity.ok().build() : ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 

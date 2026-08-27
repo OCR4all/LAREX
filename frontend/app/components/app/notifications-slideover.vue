@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { Notification, NotificationGroup, WorkspaceInvitation } from '~/types'
 import { ROLE_LABELS } from '~/types'
+import { LazyProjectModalTransferConflict } from '#components'
+import { extractApiErrorMessage, isProjectNameConflictError } from '@/utils/api-error'
 
 const { isNotificationsSlideoverOpen } = useDashboard()
 const toast = useToast()
+const overlay = useOverlay()
 const workspaceStore = useWorkspaceStore()
 const {
   refreshWorkspaceList,
@@ -31,9 +34,14 @@ await ensureInitialData()
 type TransferRequest = {
   id: string
   projectId?: string
+  projectName?: string
+  transferType?: 'MOVE' | 'COPY'
+  targetWorkspaceName?: string
   sourceWorkspaceId: string
   targetWorkspaceId: string
 }
+
+const transferConflictModal = overlay.create(LazyProjectModalTransferConflict)
 
 const hasUnread = computed(() => groupedNotifications.value.some(g => g.items.some(n => !n.read)))
 
@@ -135,13 +143,39 @@ async function refreshTransferCaches(transfer: TransferRequest) {
 
 async function approveTransfer(transfer: TransferRequest) {
   const endpoint = transfer.projectId ? `/api/project-transfers/${transfer.id}/approve` : `/api/resource-transfers/${transfer.id}/approve`
-  try {
-    await $fetch(endpoint, { method: 'POST' })
-    toast.add({ title: 'Transfer approved', color: 'success' })
-    await refreshTransferCaches(transfer)
-    await refresh()
-  } catch {
-    toast.add({ title: 'Failed to approve', color: 'error' })
+  let projectName: string | undefined
+
+  while (true) {
+    try {
+      await $fetch(endpoint, {
+        method: 'POST',
+        ...(projectName ? { body: { projectName } } : {})
+      })
+      toast.add({ title: 'Transfer approved', color: 'success' })
+      await refreshTransferCaches(transfer)
+      await refresh()
+      return
+    } catch (error: unknown) {
+      if (!transfer.projectId || !isProjectNameConflictError(error)) {
+        toast.add({ title: 'Failed to approve', description: extractApiErrorMessage(error, 'Could not approve the transfer.'), color: 'error' })
+        return
+      }
+
+      const transferType = transfer.transferType || 'MOVE'
+      const renamed = await transferConflictModal.open({
+        projectId: transfer.projectId,
+        projectName: projectName || (transferType === 'COPY' ? `${transfer.projectName || 'Project'} (Copy)` : transfer.projectName || 'Project'),
+        targetWorkspaceId: transfer.targetWorkspaceId,
+        targetWorkspaceName: transfer.targetWorkspaceName || 'the target workspace',
+        transferType
+      }).result
+
+      if (!renamed) {
+        await rejectTransfer(transfer)
+        return
+      }
+      projectName = renamed
+    }
   }
 }
 

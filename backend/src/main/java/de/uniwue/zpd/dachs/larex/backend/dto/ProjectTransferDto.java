@@ -19,9 +19,17 @@ public class ProjectTransferDto {
             
             @Size(max = 500, message = "Message cannot exceed 500 characters")
             String message,
-            
-            ProjectTransferRequest.TransferType transferType
-    ) {}
+
+            ProjectTransferRequest.TransferType transferType,
+
+            @Size(max = 255, message = "Project name cannot exceed 255 characters")
+            String projectName
+    ) {
+        public CreateRequest(String projectId, String targetWorkspaceId, String message,
+                             ProjectTransferRequest.TransferType transferType) {
+            this(projectId, targetWorkspaceId, message, transferType, null);
+        }
+    }
 
     public record BatchCreateRequest(
             @NotEmpty(message = "At least one project is required")
@@ -65,6 +73,15 @@ public class ProjectTransferDto {
     public record ApprovalRequest(
             @Size(max = 500, message = "Rejection reason cannot exceed 500 characters")
             String rejectionReason
+    ) {}
+
+    public record ApproveRequest(
+            @Size(max = 255, message = "Project name cannot exceed 255 characters")
+            String projectName
+    ) {}
+
+    public record NameAvailabilityResponse(
+            boolean available
     ) {}
 
     public record TransferSummary(

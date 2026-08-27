@@ -5,6 +5,7 @@ import {
   extractApiErrorDetails,
   extractApiErrorMessage,
   extractApiMessageFromPayload,
+  isProjectNameConflictError,
   isStorageQuotaError
 } from '../api-error'
 
@@ -26,6 +27,40 @@ describe('api-error utils', () => {
     expect(isStorageQuotaError({ statusCode: 507 })).toBe(true)
     expect(isStorageQuotaError({ data: { code: 'STORAGE_QUOTA_EXCEEDED' } })).toBe(true)
     expect(isStorageQuotaError({ data: { code: 'OTHER' } })).toBe(false)
+  })
+
+  it('detects project name conflicts from structured API errors', () => {
+    expect(isProjectNameConflictError({
+      statusCode: 409,
+      data: { code: 'PROJECT_NAME_CONFLICT' }
+    })).toBe(true)
+    expect(isProjectNameConflictError({
+      statusCode: 409,
+      data: { code: 'OTHER' }
+    })).toBe(false)
+  })
+
+  it('detects project name conflicts when the proxy omits the conflict code', () => {
+    expect(isProjectNameConflictError({
+      status: 500,
+      data: { message: 'A project with this name already exists in the target workspace' }
+    })).toBe(true)
+  })
+
+  it('detects conflicts from the nested fetch response payload', () => {
+    expect(isProjectNameConflictError({
+      response: {
+        status: 409,
+        _data: { code: 'PROJECT_NAME_CONFLICT' }
+      }
+    })).toBe(true)
+  })
+
+  it('uses the conflict code even if an upstream proxy reports a different status', () => {
+    expect(isProjectNameConflictError({
+      statusCode: 500,
+      data: { code: 'PROJECT_NAME_CONFLICT' }
+    })).toBe(true)
   })
 
   it('extracts structured error details from API payloads', () => {

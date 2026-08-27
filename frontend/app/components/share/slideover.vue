@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { z } from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
+import { LazyProjectModalTransferConflict } from '#components'
 import type { TransferableResourceType } from '@/types/capabilities'
+import { extractApiErrorMessage, isProjectNameConflictError } from '@/utils/api-error'
 
 interface Workspace {
   id: string
@@ -19,6 +21,7 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [transferred: boolean], transferred: [] }>()
 
 const toast = useToast()
+const overlay = useOverlay()
 const { refreshUserTransfers, refreshWorkspaceTransfers } = useDataRefresh()
 
 const { data: workspaces } = await useFetch<Workspace[]>('/api/workspaces', {
@@ -69,23 +72,79 @@ const endpoint = computed(() =>
   props.resourceType === 'PROJECT' ? '/api/project-transfers' : '/api/resource-transfers'
 )
 
+const transferConflictModal = overlay.create(LazyProjectModalTransferConflict)
+
+function defaultProjectName(resourceName: string, transferType: 'MOVE' | 'COPY'): string {
+  return transferType === 'COPY' ? `${resourceName} (Copy)` : resourceName
+}
+
+async function requestProjectTransfer(
+  resource: { id: string, name: string },
+  targetWorkspaceId: string,
+  transferType: 'MOVE' | 'COPY',
+  message?: string
+): Promise<boolean> {
+  let projectName: string | undefined
+
+  while (true) {
+    try {
+      await $fetch('/api/project-transfers', {
+        method: 'POST',
+        body: {
+          projectId: resource.id,
+          targetWorkspaceId,
+          transferType,
+          message,
+          ...(projectName ? { projectName } : {})
+        }
+      })
+      return true
+    } catch (error: unknown) {
+      if (!isProjectNameConflictError(error)) throw error
+
+      const targetWorkspaceName = availableWorkspaces.value.find(workspace => workspace.id === targetWorkspaceId)?.name
+        || 'the target workspace'
+      const renamed = await transferConflictModal.open({
+        projectId: resource.id,
+        projectName: projectName || defaultProjectName(resource.name, transferType),
+        targetWorkspaceId,
+        targetWorkspaceName,
+        transferType
+      }).result
+
+      if (!renamed) return false
+      projectName = renamed
+    }
+  }
+}
+
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (selectedResources.value.length === 0) return
 
   isSubmitting.value = true
   try {
     if (isBatchProjectShare.value) {
-      const response = await $fetch<{ successCount: number, failedCount: number }>('/api/project-transfers/bulk', {
-        method: 'POST',
-        body: {
-          projectIds: selectedResources.value.map(resource => resource.id),
-          targetWorkspaceId: event.data.targetWorkspaceId,
-          transferType: event.data.transferType,
-          message: event.data.message
-        }
-      })
+      let successCount = 0
+      let failedCount = 0
+      let cancelledCount = 0
 
-      if (response.successCount === 0) {
+      for (const resource of selectedResources.value) {
+        try {
+          const transferred = await requestProjectTransfer(
+            resource,
+            event.data.targetWorkspaceId,
+            event.data.transferType,
+            event.data.message
+          )
+          if (transferred) successCount++
+          else cancelledCount++
+        } catch {
+          failedCount++
+        }
+      }
+
+      if (successCount === 0) {
+        if (cancelledCount > 0 && failedCount === 0) return
         toast.add({
           title: 'No requests created',
           description: 'The selected projects could not be shared. Check existing transfers and permissions.',
@@ -101,11 +160,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       ])
       toast.add({
         title: event.data.transferType === 'MOVE' ? 'Transfer requests created' : 'Copy requests created',
-        description: response.failedCount > 0
-          ? `${response.successCount} created; ${response.failedCount} could not be created.`
-          : `${response.successCount} project${response.successCount === 1 ? '' : 's'} shared.`,
-        color: response.failedCount > 0 ? 'warning' : 'success',
-        icon: response.failedCount > 0 ? 'i-lucide-triangle-alert' : 'i-lucide-check'
+        description: failedCount > 0
+          ? `${successCount} created; ${failedCount} could not be created.`
+          : `${successCount} project${successCount === 1 ? '' : 's'} shared.`,
+        color: failedCount > 0 ? 'warning' : 'success',
+        icon: failedCount > 0 ? 'i-lucide-triangle-alert' : 'i-lucide-check'
       })
       emit('transferred')
       emit('close', true)
@@ -113,11 +172,25 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     }
 
     const resource = selectedResources.value[0]!
-    const body = props.resourceType === 'PROJECT'
-      ? { projectId: resource.id, targetWorkspaceId: event.data.targetWorkspaceId, transferType: event.data.transferType, message: event.data.message }
-      : { resourceId: resource.id, resourceType: props.resourceType, targetWorkspaceId: event.data.targetWorkspaceId, transferType: event.data.transferType, message: event.data.message }
+    if (props.resourceType === 'PROJECT') {
+      const transferred = await requestProjectTransfer(
+        resource,
+        event.data.targetWorkspaceId,
+        event.data.transferType,
+        event.data.message
+      )
+      if (!transferred) return
+    } else {
+      const body = {
+        resourceId: resource.id,
+        resourceType: props.resourceType,
+        targetWorkspaceId: event.data.targetWorkspaceId,
+        transferType: event.data.transferType,
+        message: event.data.message
+      }
 
-    await $fetch(endpoint.value, { method: 'POST', body })
+      await $fetch(endpoint.value, { method: 'POST', body })
+    }
     await Promise.all([
       refreshUserTransfers(),
       refreshWorkspaceTransfers(props.currentWorkspaceId),
@@ -126,8 +199,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     toast.add({ title: event.data.transferType === 'MOVE' ? 'Transfer Requested' : 'Copy Requested', color: 'success', icon: 'i-lucide-check' })
     emit('transferred')
     emit('close', true)
-  } catch {
-    toast.add({ title: 'Request Failed', color: 'error' })
+  } catch (error: unknown) {
+    toast.add({ title: 'Request Failed', description: extractApiErrorMessage(error, 'Could not create the transfer request.'), color: 'error' })
   } finally {
     isSubmitting.value = false
   }

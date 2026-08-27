@@ -43,6 +43,9 @@ public class ProjectTransferRequest {
     @Column(columnDefinition = "TEXT")
     private String rejectionReason;
 
+    @Column(name = "target_project_name")
+    private String targetProjectName;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime created;
@@ -158,6 +161,14 @@ public class ProjectTransferRequest {
 
     public void setRejectionReason(String rejectionReason) {
         this.rejectionReason = rejectionReason;
+    }
+
+    public String getTargetProjectName() {
+        return targetProjectName;
+    }
+
+    public void setTargetProjectName(String targetProjectName) {
+        this.targetProjectName = targetProjectName;
     }
 
     public LocalDateTime getCreated() {

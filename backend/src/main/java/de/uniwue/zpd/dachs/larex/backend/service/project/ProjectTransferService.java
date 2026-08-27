@@ -12,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryServ
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceService;
+import de.uniwue.zpd.dachs.larex.backend.exception.ProjectNameConflictException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -70,6 +71,13 @@ public class ProjectTransferService {
     public Optional<ProjectTransferRequest> requestProjectTransfer(String projectId, String targetWorkspaceId,
                                                                 String requestedByUserId, String message,
                                                                 ProjectTransferRequest.TransferType transferType) {
+        return requestProjectTransfer(projectId, targetWorkspaceId, requestedByUserId, message, transferType, null);
+    }
+
+    public Optional<ProjectTransferRequest> requestProjectTransfer(String projectId, String targetWorkspaceId,
+                                                                String requestedByUserId, String message,
+                                                                ProjectTransferRequest.TransferType transferType,
+                                                                String requestedProjectName) {
         Optional<Project> projectOpt = projectRepository.findById(projectId);
         if (projectOpt.isEmpty()) {
             return Optional.empty();
@@ -99,6 +107,11 @@ public class ProjectTransferService {
         ProjectTransferRequest request = new ProjectTransferRequest(
                 projectId, sourceWorkspaceId, targetWorkspaceId, requestedByUserId, message, transferType
         );
+        String targetProjectName = resolveTargetProjectName(project, transferType, requestedProjectName);
+        request.setTargetProjectName(targetProjectName);
+        findTargetLibrary(targetWorkspaceId).ifPresent(library -> ensureProjectNameAvailable(
+                project, library, transferType, targetProjectName
+        ));
 
         if (canAutoApprove) {
             request.setStatus(ProjectTransferRequest.Status.APPROVED);
@@ -132,6 +145,10 @@ public class ProjectTransferService {
     }
 
     public boolean approveTransferRequest(String requestId, String approvingUserId) {
+        return approveTransferRequest(requestId, approvingUserId, null);
+    }
+
+    public boolean approveTransferRequest(String requestId, String approvingUserId, String requestedProjectName) {
         Optional<ProjectTransferRequest> requestOpt = transferRequestRepository.findById(requestId);
         if (requestOpt.isEmpty()) {
             return false;
@@ -146,6 +163,10 @@ public class ProjectTransferService {
         // Check if user has admin rights in target workspace
         if (!isUserAdministratorInWorkspace(request.getTargetWorkspaceId(), approvingUserId)) {
             return false;
+        }
+
+        if (requestedProjectName != null && !requestedProjectName.isBlank()) {
+            request.setTargetProjectName(requestedProjectName.trim());
         }
 
         request.setStatus(ProjectTransferRequest.Status.APPROVED);
@@ -224,6 +245,40 @@ public class ProjectTransferService {
         return transferRequestRepository.findPendingRequestsForTargetWorkspace(workspaceId);
     }
 
+    public boolean isProjectNameAvailable(String projectId, String targetWorkspaceId,
+                                          String projectName, String userId) {
+        String normalizedProjectName = projectName == null ? "" : projectName.trim();
+        if (projectId == null || projectId.isBlank()
+                || targetWorkspaceId == null || targetWorkspaceId.isBlank()
+                || normalizedProjectName.isBlank()) {
+            return false;
+        }
+
+        Optional<Project> projectOpt = projectRepository.findById(projectId);
+        if (projectOpt.isEmpty()) {
+            return false;
+        }
+
+        Project project = projectOpt.get();
+        String sourceWorkspaceId = project.getLibrary().getWorkspaceId();
+        boolean canManageSource = isUserAdministratorInWorkspace(sourceWorkspaceId, userId);
+        boolean canManageTarget = isUserAdministratorInWorkspace(targetWorkspaceId, userId);
+        if (!canManageSource && !canManageTarget) {
+            throw new SecurityException("Access denied to project transfer");
+        }
+
+        if (workspaceQueryService.findWorkspaceById(targetWorkspaceId).isEmpty()
+                || sourceWorkspaceId.equals(targetWorkspaceId)) {
+            return false;
+        }
+
+        return findTargetLibrary(targetWorkspaceId)
+                .map(library -> projectRepository.findByNameAndLibraryId(
+                        normalizedProjectName, library.getId()
+                ).isEmpty())
+                .orElse(true);
+    }
+
     public List<ProjectTransferRequest> getPendingOutgoingRequestsForWorkspace(String workspaceId) {
         return transferRequestRepository.findPendingRequestsFromSourceWorkspace(workspaceId);
     }
@@ -293,34 +348,40 @@ public class ProjectTransferService {
 
         Project project = projectOpt.get();
         Library targetLibrary = getOrCreateTargetLibrary(request.getTargetWorkspaceId());
+        String targetProjectName = resolveTargetProjectName(
+                project, request.getTransferType(), request.getTargetProjectName()
+        );
+        ensureProjectNameAvailable(project, targetLibrary, request.getTransferType(), targetProjectName);
 
         if (request.getTransferType() == ProjectTransferRequest.TransferType.COPY) {
-            executeCopy(project, targetLibrary);
+            executeCopy(project, targetLibrary, targetProjectName);
         } else {
-            executeMove(project, targetLibrary, request);
+            executeMove(project, targetLibrary, request, targetProjectName);
         }
 
         request.setStatus(ProjectTransferRequest.Status.COMPLETED);
         transferRequestRepository.save(request);
     }
 
-    private void executeMove(Project project, Library targetLibrary, ProjectTransferRequest request) {
+    private void executeMove(Project project, Library targetLibrary, ProjectTransferRequest request,
+                             String targetProjectName) {
         projectStarService.handleProjectTransfer(
                 request.getProjectId(),
                 request.getSourceWorkspaceId(),
                 request.getTargetWorkspaceId()
         );
 
+        project.setName(targetProjectName);
         project.setLibrary(targetLibrary);
         project.setLocked(false);
         project.setLockedReason(null);
         projectRepository.save(project);
     }
 
-    private void executeCopy(Project sourceProject, Library targetLibrary) {
+    private void executeCopy(Project sourceProject, Library targetLibrary, String targetProjectName) {
         // Create new project
         Project newProject = new Project(
-                sourceProject.getName() + " (Copy)",
+                targetProjectName,
                 sourceProject.getDescription(),
                 targetLibrary
         );
@@ -388,6 +449,33 @@ public class ProjectTransferService {
                     String name = workspaceQueryService.findWorkspaceById(targetWorkspaceId)
                             .map(w -> w.getName()).orElse("Unknown Workspace");
                     return libraryRepository.save(new Library(targetWorkspaceId, name));
+                });
+    }
+
+    private Optional<Library> findTargetLibrary(String targetWorkspaceId) {
+        return libraryRepository.findByWorkspaceId(targetWorkspaceId);
+    }
+
+    private String resolveTargetProjectName(Project project, ProjectTransferRequest.TransferType transferType,
+                                            String requestedProjectName) {
+        if (requestedProjectName != null && !requestedProjectName.isBlank()) {
+            return requestedProjectName.trim();
+        }
+        return transferType == ProjectTransferRequest.TransferType.COPY
+                ? project.getName() + " (Copy)"
+                : project.getName();
+    }
+
+    private void ensureProjectNameAvailable(Project project, Library targetLibrary,
+                                             ProjectTransferRequest.TransferType transferType,
+                                             String targetProjectName) {
+        projectRepository.findByNameAndLibraryId(targetProjectName, targetLibrary.getId())
+                .filter(existing -> transferType == ProjectTransferRequest.TransferType.COPY
+                        || !existing.getId().equals(project.getId()))
+                .ifPresent(existing -> {
+                    throw new ProjectNameConflictException(
+                            targetProjectName, targetLibrary.getWorkspaceId()
+                    );
                 });
     }
 
