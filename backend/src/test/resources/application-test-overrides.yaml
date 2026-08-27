@@ -1,2 +1,8 @@
 file:
   upload-dir: ${java.io.tmpdir}/larex-test-uploads
+
+larex:
+  scheduling:
+    enabled: false
+  async:
+    wait-for-tasks-to-complete-on-shutdown: false

@@ -8,8 +8,18 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties(prefix = "larex.async")
 public class AsyncExecutorProperties {
 
+    private boolean waitForTasksToCompleteOnShutdown = true;
+
     @Valid
     private ExecutorPoolProperties defaultExecutor = new ExecutorPoolProperties(2, 4, 100);
+
+    public boolean isWaitForTasksToCompleteOnShutdown() {
+        return waitForTasksToCompleteOnShutdown;
+    }
+
+    public void setWaitForTasksToCompleteOnShutdown(boolean waitForTasksToCompleteOnShutdown) {
+        this.waitForTasksToCompleteOnShutdown = waitForTasksToCompleteOnShutdown;
+    }
 
     public ExecutorPoolProperties getDefault() {
         return defaultExecutor;

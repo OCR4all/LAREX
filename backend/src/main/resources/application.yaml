@@ -91,6 +91,7 @@ larex:
     quota-refresh:
       pool-size: ${LAREX_STORAGE_QUOTA_REFRESH_POOL_SIZE:1}
   async:
+    wait-for-tasks-to-complete-on-shutdown: ${LAREX_ASYNC_WAIT_FOR_TASKS_ON_SHUTDOWN:true}
     default:
       core-pool-size: ${LAREX_ASYNC_DEFAULT_CORE_POOL:2}
       max-pool-size: ${LAREX_ASYNC_DEFAULT_MAX_POOL:4}
