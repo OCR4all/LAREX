@@ -6,6 +6,11 @@ export default defineAppConfig({
   ui: {
     colors: {
       primary: 'navy',
+      secondary: 'copper',
+      success: 'leaf',
+      info: 'river',
+      warning: 'ochre',
+      error: 'brick',
       neutral: 'smoke'
     },
     slideover: {

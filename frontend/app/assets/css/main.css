@@ -9,10 +9,20 @@
 :root {
   --ui-radius: 0.25rem;
   --ui-primary: #1c1c19;
+  --ui-secondary: var(--ui-color-secondary-700);
+  --ui-success: var(--ui-color-success-700);
+  --ui-info: var(--ui-color-info-700);
+  --ui-warning: var(--ui-color-warning-700);
+  --ui-error: var(--ui-color-error-700);
 }
 
 .dark {
   --ui-primary: #f0eee6;
+  --ui-secondary: var(--ui-color-secondary-400);
+  --ui-success: var(--ui-color-success-400);
+  --ui-info: var(--ui-color-info-400);
+  --ui-warning: var(--ui-color-warning-400);
+  --ui-error: var(--ui-color-error-400);
 }
 
 @font-face {
@@ -46,6 +56,66 @@
   --color-navy-800: oklch(0.434 0.138 255.46);
   --color-navy-900: oklch(0.365 0.115 255.33);
   --color-navy-950: oklch(0.251 0.08 255.53);
+
+  --color-copper-50: #fff0eb;
+  --color-copper-100: #ffdbd0;
+  --color-copper-200: #ffc0ae;
+  --color-copper-300: #f69b80;
+  --color-copper-400: #e87959;
+  --color-copper-500: #d85a3a;
+  --color-copper-600: #b9452d;
+  --color-copper-700: #913321;
+  --color-copper-800: #6d271a;
+  --color-copper-900: #4d1a12;
+  --color-copper-950: #2d0c08;
+
+  --color-leaf-50: #eff8e9;
+  --color-leaf-100: #ddefd2;
+  --color-leaf-200: #bfe2ad;
+  --color-leaf-300: #94cc79;
+  --color-leaf-400: #68b84f;
+  --color-leaf-500: #49a33a;
+  --color-leaf-600: #378a2f;
+  --color-leaf-700: #2b6d27;
+  --color-leaf-800: #225221;
+  --color-leaf-900: #193c1a;
+  --color-leaf-950: #0e240f;
+
+  --color-river-50: #edf9fb;
+  --color-river-100: #d1eff2;
+  --color-river-200: #a9dde4;
+  --color-river-300: #75c3ce;
+  --color-river-400: #45a9b7;
+  --color-river-500: #2c8f9f;
+  --color-river-600: #217482;
+  --color-river-700: #1b5a67;
+  --color-river-800: #164653;
+  --color-river-900: #10323f;
+  --color-river-950: #071f29;
+
+  --color-ochre-50: #fff8e3;
+  --color-ochre-100: #ffedb5;
+  --color-ochre-200: #ffdc8a;
+  --color-ochre-300: #f7c259;
+  --color-ochre-400: #efac2f;
+  --color-ochre-500: #d98a0d;
+  --color-ochre-600: #b86d00;
+  --color-ochre-700: #925000;
+  --color-ochre-800: #6d3b00;
+  --color-ochre-900: #472500;
+  --color-ochre-950: #291400;
+
+  --color-brick-50: #fff0eb;
+  --color-brick-100: #ffdbd1;
+  --color-brick-200: #fac0af;
+  --color-brick-300: #f09a7e;
+  --color-brick-400: #e27660;
+  --color-brick-500: #cc5942;
+  --color-brick-600: #ab422f;
+  --color-brick-700: #843126;
+  --color-brick-800: #60231b;
+  --color-brick-900: #42160f;
+  --color-brick-950: #260b08;
 
   --color-smoke-50:  #f2f2f2;
   --color-smoke-100: #ebebeb;
