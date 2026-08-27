@@ -176,8 +176,28 @@ describe('shortcut-registry', () => {
   it('exposes default bindings for close-and-advance page shortcuts', () => {
     const bindings = getEffectiveShortcutBindings(null)
 
-    expect(bindings.closeActiveTabAndNextPage).toEqual(['meta_ctrl_arrowdown'])
-    expect(bindings.closeActiveTabAndPrevPage).toEqual(['meta_ctrl_arrowup'])
+    expect(bindings.closeActiveTabAndNextPage).toEqual(['meta_shift_arrowdown'])
+    expect(bindings.closeActiveTabAndPrevPage).toEqual(['meta_shift_arrowup'])
+  })
+
+  it('serializes close-and-advance defaults from Linux and Windows key events', () => {
+    expect(serializeKeyboardEventToBinding({
+      key: 'ArrowDown',
+      code: 'ArrowDown',
+      ctrlKey: true,
+      metaKey: false,
+      altKey: false,
+      shiftKey: true
+    }, { platform: 'other' })).toBe('meta_shift_arrowdown')
+
+    expect(serializeKeyboardEventToBinding({
+      key: 'ArrowUp',
+      code: 'ArrowUp',
+      ctrlKey: true,
+      metaKey: false,
+      altKey: false,
+      shiftKey: true
+    }, { platform: 'other' })).toBe('meta_shift_arrowup')
   })
 
   it('maps the six editor mode and view choices to number keys without conflicts', () => {

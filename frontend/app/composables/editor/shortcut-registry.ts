@@ -380,13 +380,13 @@ export const SHORTCUT_DEFINITIONS = {
     description: 'Close current tab and open next page',
     group: 'navigation',
     scope: 'global',
-    defaultBindings: ['meta_ctrl_arrowdown']
+    defaultBindings: ['meta_shift_arrowdown']
   },
   closeActiveTabAndPrevPage: {
     description: 'Close current tab and open previous page',
     group: 'navigation',
     scope: 'global',
-    defaultBindings: ['meta_ctrl_arrowup']
+    defaultBindings: ['meta_shift_arrowup']
   },
   showHelp: {
     description: 'Open keyboard shortcuts',
