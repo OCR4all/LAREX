@@ -3667,10 +3667,17 @@ watch(() => props.src, (newSrc) => {
 
           <div v-else class="absolute inset-0">
             <USkeleton class="absolute inset-0 h-full w-full rounded-none" />
-            <div class="absolute inset-0 flex items-center justify-center bg-default/20 backdrop-blur-[1px]">
-              <div class="flex items-center gap-3 rounded-md border border-default bg-default/90 px-4 py-2.5 shadow-lg">
-                <Icon name="i-lucide-loader-2" class="h-4 w-4 animate-spin text-muted" />
-                <span class="text-sm font-medium text-highlighted">{{ canvasReadinessLabel }}</span>
+            <div class="absolute inset-0 flex items-center justify-center bg-default/10">
+              <div
+                class="mx-4 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full border border-default bg-default px-3 py-1.5"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <Icon name="i-lucide-loader-2" class="h-3.5 w-3.5 shrink-0 animate-spin text-muted" />
+                <span class="truncate text-xs font-medium text-highlighted">
+                  {{ canvasReadinessLabel }}
+                </span>
               </div>
             </div>
           </div>
