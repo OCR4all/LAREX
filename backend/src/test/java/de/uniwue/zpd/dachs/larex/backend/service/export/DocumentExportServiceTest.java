@@ -24,6 +24,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -203,6 +204,34 @@ class DocumentExportServiceTest {
                     .map(paragraph -> paragraph.getText())
                     .reduce("", (left, right) -> left + "\n" + right);
             assertEquals("Alpha.docx", result.fileName());
+            assertTrue(combinedText.contains("Alpha"));
+            verify(annotationProcessingService, org.mockito.Mockito.never()).parseXmlToAnnotation(anyString());
+        }
+    }
+
+    @Test
+    void exportPageDocx_withMissingXmlFileRendersEmptyPage() throws Exception {
+        Project project = project("project-1", "Demo Project");
+        Page page = page(project, "page-1", "Alpha", "missing.xml", null);
+        Files.deleteIfExists(tempDir.resolve("missing.xml"));
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+
+        DocumentExportService.DocumentExportResult result = service.exportPage(
+                "project-1",
+                "page-1",
+                "user-1",
+                new DocumentExportDto.PageExportRequest(
+                        DocumentExportDto.ExportFormat.DOCX,
+                        null, null, null, null, null, null, null, null
+                )
+        );
+
+        try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(result.bytes()))) {
+            String combinedText = document.getParagraphs().stream()
+                    .map(paragraph -> paragraph.getText())
+                    .reduce("", (left, right) -> left + "\n" + right);
             assertTrue(combinedText.contains("Alpha"));
             verify(annotationProcessingService, org.mockito.Mockito.never()).parseXmlToAnnotation(anyString());
         }
@@ -802,6 +831,15 @@ class DocumentExportServiceTest {
         xml.setBaseName(name.toLowerCase());
         xml.setPage(page);
         xmlHeadsByPageId.put(id, xml);
+        try {
+            Path xmlPath = tempDir.resolve(xmlRelativePath);
+            if (xmlPath.getParent() != null) {
+                Files.createDirectories(xmlPath.getParent());
+            }
+            Files.writeString(xmlPath, "<PcGts/>", StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
 
         if (imageRelativePath != null) {
             PageImage image = new PageImage();

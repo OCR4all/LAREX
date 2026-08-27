@@ -24,6 +24,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @Transactional
@@ -140,14 +142,16 @@ public class UploadConflictService {
                     return;
                 }
                 Page page = pageOpt.get();
+                List<String> replacedStoragePaths = new ArrayList<>();
 
                 if ("IMAGE_VARIANT_EXISTS".equals(file.getConflictType())) {
-                    // Find and delete existing image with same variant
+                    // Remove the old database rows now, but keep their bytes until this
+                    // replacement transaction has committed successfully.
                     List<PageImage> existingImages = pageImageRepository.findByPageIdAndVariant(page.getId(), file.getVariant());
                     for (PageImage existingImage : existingImages) {
-                        hierarchicalFileStorageService.deleteStoredFile(existingImage.getFilePath());
+                        replacedStoragePaths.add(existingImage.getFilePath());
                         if (existingImage.getThumbnailPath() != null) {
-                            hierarchicalFileStorageService.deleteStoredFile(existingImage.getThumbnailPath());
+                            replacedStoragePaths.add(existingImage.getThumbnailPath());
                         }
                         pageImageRepository.delete(existingImage);
                     }
@@ -178,7 +182,7 @@ public class UploadConflictService {
 
                 } else if ("XML_FILE_EXISTS".equals(file.getConflictType())) {
                     pageXmlRepository.findByPage_Id(page.getId()).ifPresent(existingXml -> {
-                        hierarchicalFileStorageService.deleteStoredFile(existingXml.getFilePath());
+                        replacedStoragePaths.add(existingXml.getFilePath());
                         pageXmlRepository.delete(existingXml);
                         pageXmlRepository.flush();
                     });
@@ -221,6 +225,8 @@ public class UploadConflictService {
                     }
                 }
 
+                deleteStoredFilesAfterCommit(replacedStoragePaths);
+
                 file.setStatus(UploadFileStatus.COMPLETED);
                 file.setCreatedPageId(page.getId());
             }
@@ -234,6 +240,28 @@ public class UploadConflictService {
         }
 
         uploadSessionFileRepository.save(file);
+    }
+
+    private void deleteStoredFilesAfterCommit(Collection<String> storagePaths) {
+        List<String> paths = storagePaths.stream()
+                .filter(path -> path != null && !path.isBlank())
+                .distinct()
+                .toList();
+        if (paths.isEmpty()) {
+            return;
+        }
+
+        Runnable cleanup = () -> hierarchicalFileStorageService.deleteUnreferencedStoredFiles(paths);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    cleanup.run();
+                }
+            });
+        } else {
+            cleanup.run();
+        }
     }
 
     public boolean hasUnresolvedConflicts(String projectId) {

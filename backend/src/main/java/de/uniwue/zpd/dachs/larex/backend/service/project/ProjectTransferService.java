@@ -11,12 +11,12 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectTransferReque
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceService;
 import de.uniwue.zpd.dachs.larex.backend.exception.ProjectNameConflictException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,6 +26,8 @@ import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @Transactional
@@ -42,6 +44,7 @@ public class ProjectTransferService {
     private final ProjectStarService projectStarService;
     private final PageOrderService pageOrderService;
     private final AuthorizationPolicyService authorizationPolicyService;
+    private final HierarchicalFileStorageService hierarchicalFileStorageService;
 
     public ProjectTransferService(
             ProjectTransferRequestRepository transferRequestRepository,
@@ -54,7 +57,8 @@ public class ProjectTransferService {
             WorkspaceService workspaceService,
             ProjectStarService projectStarService,
             PageOrderService pageOrderService,
-            AuthorizationPolicyService authorizationPolicyService) {
+            AuthorizationPolicyService authorizationPolicyService,
+            HierarchicalFileStorageService hierarchicalFileStorageService) {
         this.transferRequestRepository = transferRequestRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
@@ -66,6 +70,7 @@ public class ProjectTransferService {
         this.projectStarService = projectStarService;
         this.pageOrderService = pageOrderService;
         this.authorizationPolicyService = authorizationPolicyService;
+        this.hierarchicalFileStorageService = hierarchicalFileStorageService;
     }
 
     public Optional<ProjectTransferRequest> requestProjectTransfer(String projectId, String targetWorkspaceId,
@@ -354,7 +359,7 @@ public class ProjectTransferService {
         ensureProjectNameAvailable(project, targetLibrary, request.getTransferType(), targetProjectName);
 
         if (request.getTransferType() == ProjectTransferRequest.TransferType.COPY) {
-            executeCopy(project, targetLibrary, targetProjectName);
+            executeCopy(project, targetLibrary, targetProjectName, request.getRequestedByUserId());
         } else {
             executeMove(project, targetLibrary, request, targetProjectName);
         }
@@ -365,6 +370,24 @@ public class ProjectTransferService {
 
     private void executeMove(Project project, Library targetLibrary, ProjectTransferRequest request,
                              String targetProjectName) {
+        List<String> createdStoragePaths = new ArrayList<>();
+        List<String> replacedStoragePaths = new ArrayList<>();
+        try {
+            migratePageFilesForMove(
+                    project,
+                    targetLibrary.getWorkspaceId(),
+                    request.getRequestedByUserId(),
+                    createdStoragePaths,
+                    replacedStoragePaths
+            );
+        } catch (IOException | RuntimeException exception) {
+            hierarchicalFileStorageService.deleteStoredFiles(createdStoragePaths);
+            throw new IllegalStateException(
+                    "Could not move files for project '" + project.getId() + "'",
+                    exception
+            );
+        }
+
         projectStarService.handleProjectTransfer(
                 request.getProjectId(),
                 request.getSourceWorkspaceId(),
@@ -376,9 +399,116 @@ public class ProjectTransferService {
         project.setLocked(false);
         project.setLockedReason(null);
         projectRepository.save(project);
+        deleteReplacedFilesAfterCommit(replacedStoragePaths);
     }
 
-    private void executeCopy(Project sourceProject, Library targetLibrary, String targetProjectName) {
+    private void migratePageFilesForMove(Project project,
+                                         String targetWorkspaceId,
+                                         String createdBy,
+                                         List<String> createdStoragePaths,
+                                         List<String> replacedStoragePaths) throws IOException {
+        List<Page> pages = pageRepository.findByProjectId(project.getId());
+        List<String> pageIds = pages.stream().map(Page::getId).toList();
+
+        for (PageImage image : pageImageRepository.findByPageIdIn(pageIds)) {
+            String oldImagePath = image.getFilePath();
+            var storedImage = copyFile(
+                    oldImagePath,
+                    image.getFileName(),
+                    image.getMimeType(),
+                    targetWorkspaceId,
+                    project.getId(),
+                    StoredFile.StoredFileType.IMG,
+                    createdBy,
+                    createdStoragePaths
+            );
+            image.setFilePath(storedImage.storagePath());
+            image.setFileSize(storedImage.sizeBytes());
+            replacedStoragePaths.add(oldImagePath);
+
+            if (image.getThumbnailPath() != null && !image.getThumbnailPath().isBlank()) {
+                String oldThumbnailPath = image.getThumbnailPath();
+                var storedThumbnail = copyFile(
+                        oldThumbnailPath,
+                        image.getFileName(),
+                        image.getMimeType(),
+                        targetWorkspaceId,
+                        project.getId(),
+                        StoredFile.StoredFileType.THUMB,
+                        createdBy,
+                        createdStoragePaths
+                );
+                image.setThumbnailPath(storedThumbnail.storagePath());
+                replacedStoragePaths.add(oldThumbnailPath);
+            }
+            pageImageRepository.save(image);
+        }
+
+        for (PageXml xml : pageXmlRepository.findByPage_IdIn(pageIds)) {
+            String oldXmlPath = xml.getFilePath();
+            var storedXml = copyFile(
+                    oldXmlPath,
+                    xml.getFileName(),
+                    xml.getMimeType(),
+                    targetWorkspaceId,
+                    project.getId(),
+                    StoredFile.StoredFileType.XML,
+                    createdBy,
+                    createdStoragePaths
+            );
+            xml.setFilePath(storedXml.storagePath());
+            xml.setFileSize(storedXml.sizeBytes());
+            pageXmlRepository.save(xml);
+            replacedStoragePaths.add(oldXmlPath);
+        }
+    }
+
+    private void deleteReplacedFilesAfterCommit(List<String> storagePaths) {
+        List<String> paths = storagePaths.stream()
+                .filter(path -> path != null && !path.isBlank())
+                .distinct()
+                .toList();
+        if (paths.isEmpty()) {
+            return;
+        }
+        Runnable cleanup = () -> hierarchicalFileStorageService.deleteUnreferencedStoredFiles(paths);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    cleanup.run();
+                }
+            });
+        } else {
+            cleanup.run();
+        }
+    }
+
+    private void executeCopy(Project sourceProject,
+                             Library targetLibrary,
+                             String targetProjectName,
+                             String createdBy) {
+        List<String> createdStoragePaths = new ArrayList<>();
+
+        try {
+            executeCopy(sourceProject, targetLibrary, targetProjectName, createdBy, createdStoragePaths);
+        } catch (IOException exception) {
+            hierarchicalFileStorageService.deleteStoredFiles(createdStoragePaths);
+            throw new IllegalStateException(
+                    "Could not copy files for project '" + sourceProject.getId() + "'",
+                    exception
+            );
+        } catch (RuntimeException exception) {
+            hierarchicalFileStorageService.deleteStoredFiles(createdStoragePaths);
+            throw exception;
+        }
+    }
+
+    private void executeCopy(Project sourceProject,
+                             Library targetLibrary,
+                             String targetProjectName,
+                             String createdBy,
+                             List<String> createdStoragePaths) throws IOException {
         // Create new project
         Project newProject = new Project(
                 targetProjectName,
@@ -404,20 +534,51 @@ public class ProjectTransferService {
 
             // Copy images
             for (PageImage sourceImage : imagesByPageId.getOrDefault(sourcePage.getId(), List.of())) {
-                String newFilePath = copyFile(sourceImage.getFilePath(), newProject.getId(), newPage.getId());
-                PageImage newImage = new PageImage(
-                        sourceImage.getFileName(), newFilePath, sourceImage.getMimeType(),
-                        sourceImage.getFileSize(), sourceImage.getVariant(), sourceImage.getBaseName(), newPage
+                var storedImage = copyFile(
+                        sourceImage.getFilePath(),
+                        sourceImage.getFileName(),
+                        sourceImage.getMimeType(),
+                        targetLibrary.getWorkspaceId(),
+                        newProject.getId(),
+                        StoredFile.StoredFileType.IMG,
+                        createdBy,
+                        createdStoragePaths
                 );
+                PageImage newImage = new PageImage(
+                        sourceImage.getFileName(), storedImage.storagePath(), storedImage.mimeType(),
+                        storedImage.sizeBytes(), sourceImage.getVariant(), sourceImage.getBaseName(), newPage
+                );
+                if (sourceImage.getThumbnailPath() != null && !sourceImage.getThumbnailPath().isBlank()) {
+                    var storedThumbnail = copyFile(
+                            sourceImage.getThumbnailPath(),
+                            sourceImage.getFileName(),
+                            sourceImage.getMimeType(),
+                            targetLibrary.getWorkspaceId(),
+                            newProject.getId(),
+                            StoredFile.StoredFileType.THUMB,
+                            createdBy,
+                            createdStoragePaths
+                    );
+                    newImage.setThumbnailPath(storedThumbnail.storagePath());
+                }
                 pageImageRepository.save(newImage);
             }
 
             // Copy XMLs
             for (PageXml sourceXml : Optional.ofNullable(xmlByPageId.get(sourcePage.getId())).stream().toList()) {
-                String newFilePath = copyFile(sourceXml.getFilePath(), newProject.getId(), newPage.getId());
+                var storedXml = copyFile(
+                        sourceXml.getFilePath(),
+                        sourceXml.getFileName(),
+                        sourceXml.getMimeType(),
+                        targetLibrary.getWorkspaceId(),
+                        newProject.getId(),
+                        StoredFile.StoredFileType.XML,
+                        createdBy,
+                        createdStoragePaths
+                );
                 PageXml newXml = new PageXml(
-                        sourceXml.getFileName(), newFilePath, sourceXml.getMimeType(),
-                        sourceXml.getFileSize(), sourceXml.getVariant(), sourceXml.getBaseName(),
+                        sourceXml.getFileName(), storedXml.storagePath(), storedXml.mimeType(),
+                        storedXml.sizeBytes(), sourceXml.getVariant(), sourceXml.getBaseName(),
                         sourceXml.getSchema(), sourceXml.getSchemaVersion(), newPage
                 );
                 pageXmlRepository.save(newXml);
@@ -425,22 +586,33 @@ public class ProjectTransferService {
         }
     }
 
-    private String copyFile(String sourcePath, String newProjectId, String newPageId) {
-        try {
-            Path source = Path.of(sourcePath);
-            if (!Files.exists(source)) {
-                return sourcePath; // Return original if file doesn't exist
-            }
-            String fileName = source.getFileName().toString();
-            Path targetDir = source.getParent().getParent().getParent()
-                    .resolve(newProjectId).resolve(newPageId);
-            Files.createDirectories(targetDir);
-            Path target = targetDir.resolve(fileName);
-            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-            return target.toString();
-        } catch (IOException e) {
-            return sourcePath; // Return original on error
+    private HierarchicalFileStorageService.StoredFileDescriptor copyFile(
+            String sourcePath,
+            String originalFileName,
+            String mimeType,
+            String targetWorkspaceId,
+            String targetProjectId,
+            StoredFile.StoredFileType fileType,
+            String createdBy,
+            List<String> createdStoragePaths) throws IOException {
+        Path source = hierarchicalFileStorageService.resolveUploadPath(sourcePath);
+        if (!Files.isRegularFile(source)) {
+            throw new IOException("Source project file does not exist: " + source);
         }
+
+        HierarchicalFileStorageService.StoredFileDescriptor storedFile =
+                hierarchicalFileStorageService.storeFromPath(
+                        source,
+                        originalFileName,
+                        mimeType,
+                        targetWorkspaceId,
+                        targetProjectId,
+                        fileType,
+                        createdBy,
+                        false
+                );
+        createdStoragePaths.add(storedFile.storagePath());
+        return storedFile;
     }
 
     private Library getOrCreateTargetLibrary(String targetWorkspaceId) {

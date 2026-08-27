@@ -17,6 +17,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.List;
@@ -245,11 +246,24 @@ public class HierarchicalFileStorageService {
             return 0;
         }
 
+        Set<String> sharedPaths = new HashSet<>(
+                storedFileRepository.findPageAssetPathsWithMultipleReferences(normalizedPaths)
+        );
+        if (!sharedPaths.isEmpty()) {
+            log.warn(
+                    "Skipped deleting {} file(s) that are still referenced by multiple page assets",
+                    sharedPaths.size()
+            );
+        }
+
         List<String> validStoragePaths = new ArrayList<>(normalizedPaths.size());
         List<Path> absolutePaths = new ArrayList<>(normalizedPaths.size());
         Set<Path> parentDirs = new LinkedHashSet<>();
 
         for (String storagePath : normalizedPaths) {
+            if (sharedPaths.contains(storagePath)) {
+                continue;
+            }
             try {
                 Path absolutePath = resolveUploadPath(storagePath);
                 validStoragePaths.add(storagePath);
@@ -286,6 +300,82 @@ public class HierarchicalFileStorageService {
         }
 
         return deletedCount;
+    }
+
+    /**
+     * Delete only files whose storage metadata belongs to the expected project.
+     *
+     * <p>This ownership check protects projects created by older transfer code, which could point
+     * a copied page at the source project's storage path. Deleting such a copy must not remove the
+     * source project's file.</p>
+     */
+    @Transactional
+    public int deleteStoredFilesOwnedByProject(String projectId, Collection<String> storagePaths) {
+        if (projectId == null || projectId.isBlank() || storagePaths == null || storagePaths.isEmpty()) {
+            return 0;
+        }
+
+        Set<String> requestedPaths = storagePaths.stream()
+                .filter(path -> path != null && !path.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (requestedPaths.isEmpty()) {
+            return 0;
+        }
+
+        Set<String> ownedPaths = storedFileRepository.findByStoragePathIn(requestedPaths).stream()
+                .filter(storedFile -> projectId.equals(storedFile.getProjectId()))
+                .map(StoredFile::getStoragePath)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (ownedPaths.size() < requestedPaths.size()) {
+            Set<String> skippedPaths = new LinkedHashSet<>(requestedPaths);
+            skippedPaths.removeAll(ownedPaths);
+            log.warn(
+                    "Skipped deleting {} file(s) not owned by project {}",
+                    skippedPaths.size(),
+                    projectId
+            );
+        }
+
+        return deleteStoredFiles(ownedPaths);
+    }
+
+    /**
+     * Delete files after their owning database rows have been removed, while preserving every path
+     * that is still referenced by another page asset.
+     */
+    @Transactional
+    public int deleteUnreferencedStoredFiles(Collection<String> storagePaths) {
+        if (storagePaths == null || storagePaths.isEmpty()) {
+            return 0;
+        }
+
+        Set<String> requestedPaths = storagePaths.stream()
+                .filter(path -> path != null && !path.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (requestedPaths.isEmpty()) {
+            return 0;
+        }
+
+        Set<String> referencedPaths = new HashSet<>(
+                storedFileRepository.findReferencedPageAssetPaths(requestedPaths)
+        );
+        if (!referencedPaths.isEmpty()) {
+            log.warn("Skipped deleting {} file(s) still referenced by page assets", referencedPaths.size());
+        }
+        requestedPaths.removeAll(referencedPaths);
+        return deleteStoredFiles(requestedPaths);
+    }
+
+    /** Delete tracked project files without recursively removing paths owned by another project. */
+    @Transactional
+    public int deleteStoredFilesForProject(String projectId) {
+        List<String> storagePaths = storedFileRepository
+                .findByProjectIdAndStatus(projectId, StoredFileStatus.READY)
+                .stream()
+                .map(StoredFile::getStoragePath)
+                .toList();
+        return deleteStoredFiles(storagePaths);
     }
 
     @Transactional
@@ -330,8 +420,8 @@ public class HierarchicalFileStorageService {
     public void deleteReplacedProjectFiles(String workspaceId,
                                            String projectId,
                                            Collection<String> storagePaths) {
-        deleteProjectTree(workspaceId, projectId);
-        deleteStoredFiles(storagePaths);
+        deleteUnreferencedStoredFiles(storagePaths);
+        cleanupEmptyWorkspaceDirectories();
     }
 
     @Transactional

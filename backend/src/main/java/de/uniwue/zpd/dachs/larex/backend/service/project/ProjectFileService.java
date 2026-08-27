@@ -37,13 +37,12 @@ public class ProjectFileService {
     }
 
     public void deleteProjectFiles(Project project) {
-        String workspaceId = project.getLibrary().getWorkspaceId();
-        hierarchicalFileStorageService.deleteProjectTree(workspaceId, project.getId());
-
         List<Page> pages = pageRepository.findByProjectId(project.getId());
         for (Page page : pages) {
             deletePageFiles(page);
         }
+        hierarchicalFileStorageService.deleteStoredFilesForProject(project.getId());
+        hierarchicalFileStorageService.cleanupEmptyWorkspaceDirectories();
     }
 
     public void deletePageFiles(Page page) {
@@ -71,6 +70,9 @@ public class ProjectFileService {
             }
         }
 
-        hierarchicalFileStorageService.deleteStoredFiles(storagePaths);
+        hierarchicalFileStorageService.deleteStoredFilesOwnedByProject(
+                page.getProject().getId(),
+                storagePaths
+        );
     }
 }

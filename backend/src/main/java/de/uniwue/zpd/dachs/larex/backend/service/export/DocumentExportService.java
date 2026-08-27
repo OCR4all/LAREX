@@ -31,6 +31,8 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class DocumentExportService {
 
+    private static final Logger log = LoggerFactory.getLogger(DocumentExportService.class);
     private static final Comparator<PageImage> PAGE_IMAGE_COMPARATOR =
             Comparator.comparing((PageImage image) -> image.getVariant() == null ? "" : image.getVariant(), String.CASE_INSENSITIVE_ORDER)
                     .thenComparing(PageImage::getFileName, String.CASE_INSENSITIVE_ORDER)
@@ -280,6 +283,15 @@ public class DocumentExportService {
                 continue;
             }
             Path imagePath = primaryImage == null ? null : resolveUploadPath(primaryImage.getFilePath());
+            if (imagePath != null && !Files.isRegularFile(imagePath)) {
+                log.warn("Ignoring missing image {} while exporting page {}", imagePath, page.getId());
+                imagePath = null;
+            }
+            Path xmlPath = primaryXml == null ? null : resolveUploadPath(primaryXml.getFilePath());
+            if (primaryXml != null && (xmlPath == null || !Files.isRegularFile(xmlPath))) {
+                log.warn("Ignoring missing XML {} while exporting page {}", xmlPath, page.getId());
+                primaryXml = null;
+            }
             PageDto pageDto = primaryXml == null
                     ? emptyPageDto(primaryImage, imagePath)
                     : annotationProcessingService.parseXmlToAnnotation(primaryXml.getId());

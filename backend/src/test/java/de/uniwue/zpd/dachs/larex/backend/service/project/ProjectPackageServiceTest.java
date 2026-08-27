@@ -183,6 +183,15 @@ class ProjectPackageServiceTest {
 
         Project project = project();
         Page page = page(project);
+        PageImage missingImage = new PageImage();
+        missingImage.setId("img-missing");
+        missingImage.setFileName("missing.png");
+        missingImage.setFilePath("uploads/missing.png");
+        missingImage.setMimeType("image/png");
+        missingImage.setVariant("missing");
+        missingImage.setBaseName("missing");
+        missingImage.setPage(page);
+        page.getImages().add(missingImage);
         page.setSortOrder(2000);
         Page collidingPage = page(project);
         collidingPage.setId("page-2");
@@ -195,6 +204,8 @@ class ProjectPackageServiceTest {
         when(pageOrderService.projectOrderComparator())
                 .thenReturn(Comparator.comparing(Page::getName, String.CASE_INSENSITIVE_ORDER));
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.png")).thenReturn(imagePath);
+        when(hierarchicalFileStorageService.resolveUploadPath("uploads/missing.png"))
+                .thenReturn(tempDir.resolve("uploads/missing.png"));
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.xml")).thenReturn(xmlPath);
         when(pageXmlConversionService.normalizeTargetVersion(PageXmlConversionService.PRIMARY_PAGE_VERSION))
                 .thenReturn(PageXmlConversionService.PRIMARY_PAGE_VERSION);
@@ -242,6 +253,7 @@ class ProjectPackageServiceTest {
         boolean foundReadableImage = false;
         boolean foundReadableXml = false;
         List<String> pageDescriptorPaths = List.of();
+        List<String> manifestWarnings = List.of();
         ProjectPackageDto.PageDescriptor exportedPage = null;
         try (ZipInputStream zipIn = new ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
             java.util.zip.ZipEntry entry;
@@ -252,6 +264,7 @@ class ProjectPackageServiceTest {
                     assertEquals(ProjectPackageDto.DEFAULT_SCHEMA_VERSION, manifest.schemaVersion());
                     assertFalse(manifest.includesXmlHistory());
                     pageDescriptorPaths = manifest.pages();
+                    manifestWarnings = manifest.warnings();
                 }
                 if ("exports/project.txt".equals(entry.getName())) {
                     foundEmbedded = true;
@@ -278,6 +291,8 @@ class ProjectPackageServiceTest {
         assertTrue(foundReadableImage);
         assertTrue(foundReadableXml);
         assertTrue(foundEmbedded);
+        assertTrue(manifestWarnings.stream().anyMatch(warning -> warning.contains("missing.png")));
+        assertEquals(1, exportedPage.images().size());
         assertEquals("images/page.png", exportedPage.images().getFirst().path());
         assertEquals("xml/page.xml", exportedPage.xml().getFirst().path());
         assertTrue(exportedPage.xml().getFirst().history().isEmpty());
@@ -343,6 +358,15 @@ class ProjectPackageServiceTest {
         secondImage.setBaseName("page");
         secondImage.setPage(page);
         page.getImages().add(secondImage);
+        PageImage missingImage = new PageImage();
+        missingImage.setId("img-3");
+        missingImage.setFileName("missing.png");
+        missingImage.setFilePath("uploads/missing.png");
+        missingImage.setMimeType("image/png");
+        missingImage.setVariant("tertiary");
+        missingImage.setBaseName("missing");
+        missingImage.setPage(page);
+        page.getImages().add(missingImage);
         project.setPages(new ArrayList<>(List.of(page)));
 
         when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
@@ -351,6 +375,8 @@ class ProjectPackageServiceTest {
                 .thenReturn(Comparator.comparing(Page::getName, String.CASE_INSENSITIVE_ORDER));
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.png")).thenReturn(imagePath);
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page-copy.png")).thenReturn(secondImagePath);
+        when(hierarchicalFileStorageService.resolveUploadPath("uploads/missing.png"))
+                .thenReturn(tempDir.resolve("uploads/missing.png"));
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.xml")).thenReturn(xmlPath);
         when(pageXmlConversionService.normalizeTargetVersion(PageXmlConversionService.PRIMARY_PAGE_VERSION))
                 .thenReturn(PageXmlConversionService.PRIMARY_PAGE_VERSION);
@@ -385,10 +411,14 @@ class ProjectPackageServiceTest {
         );
 
         Set<String> entries = new HashSet<>();
+        String exportWarnings = null;
         try (ZipInputStream zipIn = new ZipInputStream(new java.io.ByteArrayInputStream(zipOut.toByteArray()))) {
             java.util.zip.ZipEntry entry;
             while ((entry = zipIn.getNextEntry()) != null) {
                 entries.add(entry.getName());
+                if ("_export-warnings.txt".equals(entry.getName())) {
+                    exportWarnings = new String(zipIn.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                }
             }
         }
 
@@ -396,6 +426,8 @@ class ProjectPackageServiceTest {
         assertTrue(entries.contains("page (1).png"));
         assertTrue(entries.contains("page.xml"));
         assertTrue(entries.contains("project.txt"));
+        assertTrue(entries.contains("_export-warnings.txt"));
+        assertTrue(exportWarnings.contains("missing.png"));
         assertFalse(entries.contains("manifest.json"));
         assertFalse(entries.contains("mets.xml"));
         assertFalse(entries.stream().anyMatch(name -> name.contains("/") || name.contains("img-1") || name.contains("xml-1")));

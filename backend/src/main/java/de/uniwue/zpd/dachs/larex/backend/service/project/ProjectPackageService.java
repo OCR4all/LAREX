@@ -85,6 +85,8 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -97,6 +99,7 @@ import org.w3c.dom.Element;
 @Transactional
 public class ProjectPackageService {
 
+    private static final Logger log = LoggerFactory.getLogger(ProjectPackageService.class);
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final long PREVIEW_CACHE_WEIGHT_UNIT_BYTES = 1024L;
 
@@ -914,6 +917,7 @@ public class ProjectPackageService {
         Map<String, ProjectPackageDto.PageDescriptor> pageDescriptors = new LinkedHashMap<>();
         List<String> pagePaths = new ArrayList<>();
         List<ProjectPackageArchiveService.BinaryEntry> binaryEntries = new ArrayList<>();
+        List<String> exportWarnings = new ArrayList<>();
         Set<String> usedPageDirectories = new HashSet<>();
         Map<String, PageXml> xmlHeadsByPageId = pageXmlHeadsByPageId(pages);
 
@@ -941,13 +945,17 @@ public class ProjectPackageService {
                 );
                 String relativePath = "images/" + archiveName;
                 String archivePath = pageDirectory + "/" + relativePath;
+                Path source = hierarchicalFileStorageService.resolveUploadPath(image.getFilePath());
+                if (!isReadableExportFile(source)) {
+                    exportWarnings.add(missingAssetWarning(page, "image", image.getFileName(), source));
+                    continue;
+                }
                 images.add(new ProjectPackageDto.FileDescriptor(
                         relativePath,
                         image.getFileName(),
                         image.getVariant(),
                         image.getBaseName()
                 ));
-                Path source = hierarchicalFileStorageService.resolveUploadPath(image.getFilePath());
                 binaryEntries.add(new ProjectPackageArchiveService.BinaryEntry(
                         archivePath,
                         Files.size(source),
@@ -964,6 +972,10 @@ public class ProjectPackageService {
                 String relativePath = "xml/" + archiveName;
                 String archivePath = pageDirectory + "/" + relativePath;
                 Path source = hierarchicalFileStorageService.resolveUploadPath(xml.getFilePath());
+                if (!isReadableExportFile(source)) {
+                    exportWarnings.add(missingAssetWarning(page, "XML", xml.getFileName(), source));
+                    continue;
+                }
                 if (xml.getSchema() == XmlSchema.PAGE_XML) {
                     binaryEntries.add(new ProjectPackageArchiveService.BinaryEntry(
                             archivePath,
@@ -993,6 +1005,15 @@ public class ProjectPackageService {
                                 + String.format(Locale.ROOT, "%06d.xml", version.getVersionNumber());
                         String historyArchivePath = pageDirectory + "/" + historyRelativePath;
                         Path historySource = hierarchicalFileStorageService.resolveUploadPath(version.getFilePath());
+                        if (!isReadableExportFile(historySource)) {
+                            exportWarnings.add(missingAssetWarning(
+                                    page,
+                                    "XML history version " + version.getVersionNumber(),
+                                    xml.getFileName(),
+                                    historySource
+                            ));
+                            continue;
+                        }
                         history.add(new ProjectPackageDto.XmlVersionDescriptor(
                                 version.getVersionNumber(),
                                 historyRelativePath,
@@ -1085,7 +1106,7 @@ public class ProjectPackageService {
                 ),
                 List.copyOf(pagePaths),
                 Map.copyOf(resourcePaths),
-                buildManifestWarnings(legacyTarget, targetPageXmlVersion)
+                buildManifestWarnings(legacyTarget, targetPageXmlVersion, exportWarnings)
         );
         return new ProjectPackageArchiveService.ExportPackage(
                 manifest,
@@ -1096,8 +1117,9 @@ public class ProjectPackageService {
     }
 
     private List<String> buildManifestWarnings(boolean legacyTarget,
-                                               String targetPageXmlVersion) {
-        List<String> warnings = new ArrayList<>();
+                                               String targetPageXmlVersion,
+                                               Collection<String> exportWarnings) {
+        List<String> warnings = new ArrayList<>(exportWarnings);
         if (legacyTarget) {
             warnings.add("Export target PAGE XML " + targetPageXmlVersion
                     + " may lose data because older PAGE schemas do not support all PAGE 2019 features.");
@@ -1719,6 +1741,7 @@ public class ProjectPackageService {
                                                 String entryPrefix) throws IOException {
         Map<String, Integer> usedEntryPaths = new HashMap<>();
         Map<String, PageXml> xmlHeadsByPageId = pageXmlHeadsByPageId(pages);
+        List<String> exportWarnings = new ArrayList<>();
 
         for (Page page : pages) {
             List<PageImage> images = new ArrayList<>(page.getImages() == null ? Set.<PageImage>of() : page.getImages());
@@ -1729,10 +1752,15 @@ public class ProjectPackageService {
                         sanitizeArchiveName(image.getFileName(), image.getVariant() + fileExtension(image.getFileName())),
                         usedEntryPaths
                 );
+                Path source = hierarchicalFileStorageService.resolveUploadPath(image.getFilePath());
+                if (!isReadableExportFile(source)) {
+                    exportWarnings.add(missingAssetWarning(page, "image", image.getFileName(), source));
+                    continue;
+                }
                 archiveIoService.writeFileEntry(
                         zipOut,
                         prefixedArchivePath(entryPrefix, entryPath),
-                        hierarchicalFileStorageService.resolveUploadPath(image.getFilePath())
+                        source
                 );
             }
 
@@ -1743,6 +1771,10 @@ public class ProjectPackageService {
                         usedEntryPaths
                 );
                 Path source = hierarchicalFileStorageService.resolveUploadPath(xml.getFilePath());
+                if (!isReadableExportFile(source)) {
+                    exportWarnings.add(missingAssetWarning(page, "XML", xml.getFileName(), source));
+                    continue;
+                }
                 if (xml.getSchema() == XmlSchema.PAGE_XML) {
                     archiveIoService.writeStreamEntry(
                             zipOut,
@@ -1759,6 +1791,28 @@ public class ProjectPackageService {
             String entryPath = uniqueArchivePath(sanitizeArchiveName(output.archivePath(), "export"), usedEntryPaths);
             archiveIoService.writeFileEntry(zipOut, prefixedArchivePath(entryPrefix, entryPath), output.absolutePath());
         }
+
+        if (!exportWarnings.isEmpty()) {
+            String warningPath = uniqueArchivePath("_export-warnings.txt", usedEntryPaths);
+            byte[] warningBytes = (String.join(System.lineSeparator(), exportWarnings) + System.lineSeparator())
+                    .getBytes(StandardCharsets.UTF_8);
+            archiveIoService.writeStreamEntry(
+                    zipOut,
+                    prefixedArchivePath(entryPrefix, warningPath),
+                    entryOut -> entryOut.write(warningBytes)
+            );
+        }
+    }
+
+    private boolean isReadableExportFile(Path source) {
+        return source != null && Files.isRegularFile(source) && Files.isReadable(source);
+    }
+
+    private String missingAssetWarning(Page page, String assetType, String fileName, Path source) {
+        String warning = "Skipped missing " + assetType + " '" + fileName + "' for page '"
+                + page.getName() + "' (" + page.getId() + "): " + source;
+        log.warn(warning);
+        return warning;
     }
 
     private String prefixedArchivePath(String entryPrefix, String entryPath) {

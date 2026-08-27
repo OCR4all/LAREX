@@ -17,7 +17,61 @@ public interface StoredFileRepository extends JpaRepository<StoredFile, String> 
 
     Optional<StoredFile> findByStoragePath(String storagePath);
 
+    List<StoredFile> findByStoragePathIn(Collection<String> storagePaths);
+
+    @Query(value = """
+            SELECT asset_refs.storage_path
+            FROM (
+                SELECT page_images.file_path AS storage_path
+                FROM page_images
+                WHERE page_images.file_path IN (:storagePaths)
+                UNION ALL
+                SELECT page_images.thumbnail_path AS storage_path
+                FROM page_images
+                WHERE page_images.thumbnail_path IN (:storagePaths)
+                UNION ALL
+                SELECT page_xmls.file_path AS storage_path
+                FROM page_xmls
+                WHERE page_xmls.file_path IN (:storagePaths)
+                UNION ALL
+                SELECT page_xml_versions.file_path AS storage_path
+                FROM page_xml_versions
+                WHERE page_xml_versions.file_path IN (:storagePaths)
+            ) asset_refs
+            GROUP BY asset_refs.storage_path
+            HAVING COUNT(*) > 1
+            """, nativeQuery = true)
+    List<String> findPageAssetPathsWithMultipleReferences(
+            @Param("storagePaths") Collection<String> storagePaths
+    );
+
+    @Query(value = """
+            SELECT DISTINCT asset_refs.storage_path
+            FROM (
+                SELECT page_images.file_path AS storage_path
+                FROM page_images
+                WHERE page_images.file_path IN (:storagePaths)
+                UNION ALL
+                SELECT page_images.thumbnail_path AS storage_path
+                FROM page_images
+                WHERE page_images.thumbnail_path IN (:storagePaths)
+                UNION ALL
+                SELECT page_xmls.file_path AS storage_path
+                FROM page_xmls
+                WHERE page_xmls.file_path IN (:storagePaths)
+                UNION ALL
+                SELECT page_xml_versions.file_path AS storage_path
+                FROM page_xml_versions
+                WHERE page_xml_versions.file_path IN (:storagePaths)
+            ) asset_refs
+            """, nativeQuery = true)
+    List<String> findReferencedPageAssetPaths(
+            @Param("storagePaths") Collection<String> storagePaths
+    );
+
     List<StoredFile> findByWorkspaceIdAndProjectIdAndStatus(String workspaceId, String projectId, StoredFileStatus status);
+
+    List<StoredFile> findByProjectIdAndStatus(String projectId, StoredFileStatus status);
 
     @Modifying
     @Query("UPDATE StoredFile sf SET sf.status = :status WHERE sf.workspaceId = :workspaceId AND sf.projectId = :projectId AND sf.status <> :status")

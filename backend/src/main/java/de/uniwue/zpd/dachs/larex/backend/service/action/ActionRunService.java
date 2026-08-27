@@ -1241,7 +1241,7 @@ public class ActionRunService {
         if (paths.isEmpty()) {
             return;
         }
-        Runnable task = () -> fileStorageService.deleteStoredFiles(paths);
+        Runnable task = () -> fileStorageService.deleteUnreferencedStoredFiles(paths);
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
