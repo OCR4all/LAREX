@@ -5,6 +5,7 @@ APP_USER="${LAREX_APP_USER:-appuser}"
 APP_GROUP="${LAREX_APP_GROUP:-appgroup}"
 UPLOAD_ROOT="${LAREX_UPLOAD_DIR:-/mnt/data/uploads}"
 UPLOAD_TEMP="${LAREX_UPLOAD_TEMP_DIR:-${UPLOAD_ROOT}/temp}"
+PROJECT_EXPORT_ROOT="${LAREX_PROJECT_EXPORT_DIR:-/mnt/data/export-artifacts}"
 UPLOAD_OWNER="${LAREX_UPLOAD_OWNER:-${APP_USER}:${APP_GROUP}}"
 UPLOAD_MODE="${LAREX_UPLOAD_MODE:-755}"
 SKIP_APP_START="${LAREX_SKIP_APP_START:-false}"
@@ -46,6 +47,7 @@ ensure_directory() {
 log "Preparing upload directories"
 ensure_directory "$UPLOAD_ROOT" "upload root"
 ensure_directory "$UPLOAD_TEMP" "upload temp"
+ensure_directory "$PROJECT_EXPORT_ROOT" "project export artifact"
 
 if [ "$SKIP_APP_START" = "true" ]; then
   log "Skipping app startup (LAREX_SKIP_APP_START=true)"

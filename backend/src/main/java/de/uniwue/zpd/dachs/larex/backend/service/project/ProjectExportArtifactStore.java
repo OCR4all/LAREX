@@ -25,9 +25,15 @@ public class ProjectExportArtifactStore {
     @PostConstruct
     void initialize() throws IOException {
         root = Path.of(properties.getArtifactDirectory()).toAbsolutePath().normalize();
-        Files.createDirectories(root);
+        try {
+            Files.createDirectories(root);
+        } catch (IOException error) {
+            throw new IOException("Unable to create project export artifact directory at " + root
+                    + ". Check the mounted volume and container-user permissions.", error);
+        }
         if (!Files.isWritable(root)) {
-            throw new IOException("Project export artifact directory is not writable: " + root);
+            throw new IOException("Project export artifact directory is not writable by the application user: "
+                    + root);
         }
     }
 
