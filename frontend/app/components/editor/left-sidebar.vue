@@ -49,7 +49,7 @@ const DEFAULT_FLOATING_LEFT_SIDEBAR_LEFT = 24
 const utilityButtonClass = 'size-7 justify-center p-0'
 const utilityIconClass = 'size-4'
 const notificationChipUi = {
-  base: 'h-4 min-w-4 translate-x-1 -translate-y-1 px-1 text-[10px] leading-none ring-2 ring-bg'
+  base: 'h-4 min-w-4 translate-x-1 -translate-y-1 px-1 text-[10px] bg-navy-600 text-white leading-none ring-2 ring-bg'
 }
 
 await ensureInitialData()
