@@ -17,6 +17,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectTransferService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectBatchExportService;
+import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectExportJobService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.importer.IiifImportService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadConflictService;
@@ -49,6 +50,7 @@ public class ProjectController {
     private final ProjectReadService projectReadService;
     private final ProjectPackageService projectPackageService;
     private final ProjectBatchExportService projectBatchExportService;
+    private final ProjectExportJobService projectExportJobService;
     private final LegacyOcr4allImportService legacyOcr4allImportService;
     private final DocumentExportService documentExportService;
     private final IiifImportService iiifImportService;
@@ -58,6 +60,7 @@ public class ProjectController {
                            ProjectReadService projectReadService,
                            ProjectPackageService projectPackageService,
                            ProjectBatchExportService projectBatchExportService,
+                           ProjectExportJobService projectExportJobService,
                            LegacyOcr4allImportService legacyOcr4allImportService,
                            DocumentExportService documentExportService,
                            IiifImportService iiifImportService,
@@ -67,6 +70,7 @@ public class ProjectController {
         this.projectReadService = projectReadService;
         this.projectPackageService = projectPackageService;
         this.projectBatchExportService = projectBatchExportService;
+        this.projectExportJobService = projectExportJobService;
         this.legacyOcr4allImportService = legacyOcr4allImportService;
         this.documentExportService = documentExportService;
         this.iiifImportService = iiifImportService;
@@ -350,6 +354,54 @@ public class ProjectController {
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(body);
+    }
+
+    @PostMapping("/batch-export-jobs")
+    public ResponseEntity<ProjectBatchExportDto.JobResponse> createBatchExportJob(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody ProjectBatchExportDto.ExportRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.accepted().body(projectExportJobService.create(workspaceId, userId, request));
+    }
+
+    @GetMapping("/batch-export-jobs")
+    public List<ProjectBatchExportDto.JobResponse> listBatchExportJobs(
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return projectExportJobService.list(workspaceId, userId);
+    }
+
+    @GetMapping("/batch-export-jobs/{jobId}")
+    public ProjectBatchExportDto.JobResponse getBatchExportJob(
+            @PathVariable String workspaceId,
+            @PathVariable String jobId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return projectExportJobService.get(workspaceId, jobId, userId);
+    }
+
+    @DeleteMapping("/batch-export-jobs/{jobId}")
+    public ProjectBatchExportDto.JobResponse cancelBatchExportJob(
+            @PathVariable String workspaceId,
+            @PathVariable String jobId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return projectExportJobService.cancel(workspaceId, jobId, userId);
+    }
+
+    @GetMapping("/batch-export-jobs/{jobId}/download")
+    public ResponseEntity<Resource> downloadBatchExportJob(
+            @PathVariable String workspaceId,
+            @PathVariable String jobId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        ProjectExportJobService.ArtifactDownload download = projectExportJobService.download(
+                workspaceId, jobId, userId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentLength(download.contentLength());
+        headers.setContentDisposition(ContentDisposition.attachment().filename(download.fileName()).build());
+        headers.setETag('"' + download.checksumSha256() + '"');
+        headers.set("X-Checksum-Sha256", download.checksumSha256());
+        headers.setCacheControl("private, no-store");
+        return ResponseEntity.ok().headers(headers).body(new FileSystemResource(download.path()));
     }
 
     @GetMapping("/{projectId}/releases")

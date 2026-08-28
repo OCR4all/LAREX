@@ -128,7 +128,7 @@ const utilityButtonClass = 'size-7 justify-center p-0'
 const collapseButtonClass = 'size-7 justify-center p-0 [&_[data-slot=leadingIcon]]:size-4'
 const utilityIconClass = 'size-4'
 const notificationChipUi = {
-  base: 'h-4 min-w-4 translate-x-1 -translate-y-1 px-1 text-[10px] leading-none ring-2 ring-bg'
+  base: 'h-4 min-w-4 translate-x-1 -translate-y-1 px-1 text-[10px] bg-navy-600 text-white leading-none ring-2 ring-bg'
 }
 
 const collapsedNavigation = computed<NavigationMenuItem[]>(() => {
@@ -329,10 +329,8 @@ function openNotifications() {
           <UTooltip :text="'Notifications'" :content="{ side: collapsed ? 'right' : 'top' }">
             <UChip
               inset
-              size="3xl"
               :show="unreadCount > 0"
               :text="unreadCount"
-              color="error"
               position="top-right"
               :ui="notificationChipUi"
             >

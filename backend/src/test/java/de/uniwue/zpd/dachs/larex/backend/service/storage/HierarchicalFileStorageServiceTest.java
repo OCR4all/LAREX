@@ -6,19 +6,26 @@ import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadDirectoryPreflight
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class HierarchicalFileStorageServiceTest {
+
+    @TempDir
+    Path tempDir;
 
     @Mock
     private StoredFileRepository storedFileRepository;
@@ -33,6 +40,21 @@ class HierarchicalFileStorageServiceTest {
                 storedFileRepository,
                 uploadDirectoryPreflightService
         );
+        ReflectionTestUtils.setField(service, "uploadRoot", tempDir.toAbsolutePath().normalize());
+    }
+
+    @Test
+    void resolvesAbsolutePathInsideUploadRoot() {
+        Path expected = tempDir.resolve("ws/workspace/pr/project/img/file.png").normalize();
+
+        assertEquals(expected, service.resolveUploadPath(expected.toString()));
+    }
+
+    @Test
+    void rejectsAbsolutePathOutsideUploadRoot() {
+        Path outside = tempDir.getParent().resolve("outside.png").normalize();
+
+        assertThrows(IllegalArgumentException.class, () -> service.resolveUploadPath(outside.toString()));
     }
 
     @Test

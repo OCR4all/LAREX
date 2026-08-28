@@ -18,7 +18,8 @@ import java.util.concurrent.ThreadPoolExecutor;
         ImportProperties.class,
         IiifProperties.class,
         AnnotationProperties.class,
-        StorageProperties.class
+        StorageProperties.class,
+        ProjectExportProperties.class
 })
 public class AsyncConfig {
 
@@ -31,6 +32,7 @@ public class AsyncConfig {
     private final AnnotationProperties annotationProperties;
     private final StorageProperties storageProperties;
     private final BackupProperties backupProperties;
+    private final ProjectExportProperties projectExportProperties;
 
     public AsyncConfig(AsyncExecutorProperties asyncProperties,
                        UploadProperties uploadProperties,
@@ -38,7 +40,8 @@ public class AsyncConfig {
                        IiifProperties iiifProperties,
                        AnnotationProperties annotationProperties,
                        StorageProperties storageProperties,
-                       BackupProperties backupProperties) {
+                       BackupProperties backupProperties,
+                       ProjectExportProperties projectExportProperties) {
         this.asyncProperties = asyncProperties;
         this.uploadProperties = uploadProperties;
         this.importProperties = importProperties;
@@ -46,6 +49,7 @@ public class AsyncConfig {
         this.annotationProperties = annotationProperties;
         this.storageProperties = storageProperties;
         this.backupProperties = backupProperties;
+        this.projectExportProperties = projectExportProperties;
     }
 
     @Bean(name = "taskExecutor")
@@ -77,6 +81,11 @@ public class AsyncConfig {
     @Bean(name = "backupTaskExecutor")
     public ThreadPoolTaskExecutor backupTaskExecutor() {
         return taskExecutor("backup", backupProperties.getAsync(), "backup-", 120, null);
+    }
+
+    @Bean(name = "projectExportTaskExecutor")
+    public ThreadPoolTaskExecutor projectExportTaskExecutor() {
+        return taskExecutor("project export", projectExportProperties.getAsync(), "project-export-", 120, null);
     }
 
     @Bean(name = "actionNotificationTaskExecutor")

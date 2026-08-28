@@ -96,6 +96,20 @@ larex:
       core-pool-size: ${LAREX_ASYNC_DEFAULT_CORE_POOL:2}
       max-pool-size: ${LAREX_ASYNC_DEFAULT_MAX_POOL:4}
       queue-capacity: ${LAREX_ASYNC_DEFAULT_QUEUE:100}
+  project-export:
+    artifact-directory: ${LAREX_PROJECT_EXPORT_DIR:/mnt/data/export-artifacts}
+    artifact-ttl-hours: ${LAREX_PROJECT_EXPORT_TTL_HOURS:24}
+    max-artifact-bytes: ${LAREX_PROJECT_EXPORT_MAX_BYTES:107374182400}
+    minimum-free-bytes: ${LAREX_PROJECT_EXPORT_MIN_FREE_BYTES:5368709120}
+    max-active-jobs-per-user: ${LAREX_PROJECT_EXPORT_MAX_ACTIVE_PER_USER:2}
+    max-queued-jobs: ${LAREX_PROJECT_EXPORT_MAX_QUEUED:100}
+    worker-lease-duration-ms: ${LAREX_PROJECT_EXPORT_WORKER_LEASE_MS:120000}
+    worker-heartbeat-interval-ms: ${LAREX_PROJECT_EXPORT_WORKER_HEARTBEAT_MS:30000}
+    worker-recovery-interval-ms: ${LAREX_PROJECT_EXPORT_WORKER_RECOVERY_MS:5000}
+    async:
+      core-pool-size: ${LAREX_PROJECT_EXPORT_CORE_POOL:1}
+      max-pool-size: ${LAREX_PROJECT_EXPORT_MAX_POOL:1}
+      queue-capacity: ${LAREX_PROJECT_EXPORT_QUEUE:50}
   # XML versioning configuration
   versioning:
     # Maximum number of versions to keep per XML file (default: 25)

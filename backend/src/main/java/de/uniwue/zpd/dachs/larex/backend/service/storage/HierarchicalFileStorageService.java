@@ -471,7 +471,12 @@ public class HierarchicalFileStorageService {
     }
 
     public Path resolveUploadPath(String relativeStoragePath) {
-        Path resolved = uploadRoot.resolve(relativeStoragePath).normalize();
+        if (relativeStoragePath == null || relativeStoragePath.isBlank()) {
+            throw new IllegalArgumentException("Storage path must not be blank");
+        }
+
+        Path candidate = Paths.get(relativeStoragePath);
+        Path resolved = (candidate.isAbsolute() ? candidate : uploadRoot.resolve(candidate)).normalize();
         if (!resolved.startsWith(uploadRoot)) {
             throw new IllegalArgumentException("Path escapes upload root: " + relativeStoragePath);
         }

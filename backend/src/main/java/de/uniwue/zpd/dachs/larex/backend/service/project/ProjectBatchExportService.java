@@ -24,7 +24,6 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 @Service
-@Transactional(readOnly = true)
 public class ProjectBatchExportService {
 
     private final ProjectRepository projectRepository;
@@ -45,6 +44,7 @@ public class ProjectBatchExportService {
         this.archiveIoService = archiveIoService;
     }
 
+    @Transactional(readOnly = true)
     public PreparedBatchExport prepareBatchExport(String workspaceId,
                                                   String userId,
                                                   ProjectBatchExportDto.ExportRequest request) {

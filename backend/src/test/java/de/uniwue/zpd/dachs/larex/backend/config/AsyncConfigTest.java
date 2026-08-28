@@ -16,13 +16,15 @@ class AsyncConfigTest {
                 new IiifProperties(),
                 new AnnotationProperties(),
                 new StorageProperties(),
-                new BackupProperties()
+                new BackupProperties(),
+                new ProjectExportProperties()
         );
 
         ThreadPoolTaskExecutor preview = config.iiifPreviewTaskExecutor();
         ThreadPoolTaskExecutor download = config.iiifDownloadTaskExecutor();
         ThreadPoolTaskExecutor generalImport = config.importTaskExecutor();
         ThreadPoolTaskExecutor backup = config.backupTaskExecutor();
+        ThreadPoolTaskExecutor projectExport = config.projectExportTaskExecutor();
         try {
             assertThat(preview).isNotSameAs(download).isNotSameAs(generalImport).isNotSameAs(backup);
             assertThat(preview.getThreadNamePrefix()).isEqualTo("iiif-preview-");
@@ -35,11 +37,14 @@ class AsyncConfigTest {
             assertThat(backup.getThreadNamePrefix()).isEqualTo("backup-");
             assertThat(backup.getCorePoolSize()).isEqualTo(1);
             assertThat(backup.getMaxPoolSize()).isEqualTo(1);
+            assertThat(projectExport.getThreadNamePrefix()).isEqualTo("project-export-");
+            assertThat(projectExport.getMaxPoolSize()).isEqualTo(1);
         } finally {
             preview.shutdown();
             download.shutdown();
             generalImport.shutdown();
             backup.shutdown();
+            projectExport.shutdown();
         }
     }
 }

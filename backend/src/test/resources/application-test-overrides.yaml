@@ -6,3 +6,6 @@ larex:
     enabled: false
   async:
     wait-for-tasks-to-complete-on-shutdown: false
+  project-export:
+    artifact-directory: ${java.io.tmpdir}/larex-test-export-artifacts
+    minimum-free-bytes: 0

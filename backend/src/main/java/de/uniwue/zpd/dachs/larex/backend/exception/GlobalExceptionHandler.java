@@ -23,6 +23,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -343,6 +344,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
+    /**
+     * A streaming client can close its connection before the archive is complete. There is no
+     * usable response channel left for an error DTO in that case, so handling it as a normal API
+     * error only produces a misleading converter warning.
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public ResponseEntity<Void> handleAsyncRequestNotUsableException(
+            AsyncRequestNotUsableException ex, HttpServletRequest request) {
+        if (isClientDisconnect(ex)) {
+            logger.debug("Client disconnected while streaming {}", request.getRequestURI());
+            return ResponseEntity.noContent().build();
+        }
+
+        logger.warn("Async response became unusable at {}", request.getRequestURI(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+
     @ExceptionHandler(StorageQuotaExceededException.class)
     public ResponseEntity<StorageQuotaErrorResponseDto> handleStorageQuotaExceededException(
             StorageQuotaExceededException ex, HttpServletRequest request) {
@@ -449,6 +467,25 @@ public class GlobalExceptionHandler {
                 || status == HttpStatus.FORBIDDEN
                 || status == HttpStatus.CONFLICT
                 || status == HttpStatus.INSUFFICIENT_STORAGE;
+    }
+
+    private boolean isClientDisconnect(Throwable exception) {
+        Throwable current = exception;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null) {
+                String normalized = message.toLowerCase(java.util.Locale.ROOT);
+                if (normalized.contains("disconnected client")
+                        || normalized.contains("connection reset")
+                        || normalized.contains("broken pipe")
+                        || normalized.contains("closed channel")
+                        || normalized.contains("clientabort")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private String captureEvent(

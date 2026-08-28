@@ -30,6 +30,7 @@ type WritableFileLike = {
 }
 
 export type PreparedDownloadTarget = {
+  kind: 'browser' | 'file-system'
   saveBlob: (blob: Blob, fileName: string, controls?: BackgroundJobControls) => Promise<void>
   saveResponse: (response: Response, fallbackName: string, controls?: BackgroundJobControls) => Promise<void>
 }
@@ -245,6 +246,7 @@ function isDownloadPickerCancellation(error: unknown): boolean {
 
 function createBrowserDownloadTarget(): PreparedDownloadTarget {
   return {
+    kind: 'browser',
     async saveBlob(blob, fileName, controls) {
       const normalizedFileName = sanitizeDownloadFileName(fileName, 'download')
       updateDownloadStart(controls, normalizedFileName)
@@ -265,6 +267,7 @@ function createBrowserDownloadTarget(): PreparedDownloadTarget {
 
 function createFileSystemDownloadTarget(handle: SaveFileHandleLike): PreparedDownloadTarget {
   return {
+    kind: 'file-system',
     async saveBlob(blob, fileName, controls) {
       const normalizedFileName = sanitizeDownloadFileName(fileName, 'download')
       updateDownloadStart(controls, normalizedFileName)

@@ -6,8 +6,24 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 public class ProjectBatchExportDto {
+
+    public record JobResponse(
+            String id,
+            String workspaceId,
+            ExportMode mode,
+            String status,
+            String fileName,
+            Long fileSize,
+            String checksumSha256,
+            String errorMessage,
+            LocalDateTime created,
+            LocalDateTime startedAt,
+            LocalDateTime completedAt,
+            LocalDateTime expiresAt
+    ) {}
 
     public enum ExportMode {
         BASIC,

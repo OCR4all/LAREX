@@ -1,3 +1,6 @@
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
+
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
 
@@ -40,10 +43,13 @@ export default defineEventHandler(async (event) => {
 
   const updatedSession = await getUserSession(event)
 
-  const headers = {
+  const headers: Record<string, string> = {
     'Authorization': `Bearer ${updatedSession.secure?.accessToken}`,
     'Content-Type': event.node.req.headers['content-type'] || 'application/json'
   }
+  copyRequestHeader(headers, 'Range', event.node.req.headers.range)
+  copyRequestHeader(headers, 'If-Range', event.node.req.headers['if-range'])
+  copyRequestHeader(headers, 'If-None-Match', event.node.req.headers['if-none-match'])
 
   let body: unknown
   if (method !== 'GET' && method !== 'HEAD') {
@@ -87,6 +93,9 @@ export default defineEventHandler(async (event) => {
       const contentLength = response.headers.get('content-length')
       const contentDisposition = response.headers.get('content-disposition')
       const connection = response.headers.get('connection')
+      const contentRange = response.headers.get('content-range')
+      const acceptRanges = response.headers.get('accept-ranges')
+      const etag = response.headers.get('etag')
 
       setHeader(event, 'Content-Type', contentType)
       if (cacheControl) {
@@ -104,8 +113,19 @@ export default defineEventHandler(async (event) => {
       if (contentDisposition) {
         setHeader(event, 'Content-Disposition', contentDisposition)
       }
+      if (contentRange) setHeader(event, 'Content-Range', contentRange)
+      if (acceptRanges) setHeader(event, 'Accept-Ranges', acceptRanges)
+      if (etag) setHeader(event, 'ETag', etag)
 
-      await sendStream(event, response.body!)
+      // H3's Web Stream adapter does not wait for the Node response's drain
+      // event. Large exports can therefore be buffered in the frontend process
+      // until the container reaches its memory limit. Node's pipeline preserves
+      // backpressure and also tears down the upstream stream when the client
+      // disconnects.
+      await pipeline(
+        Readable.fromWeb(response.body! as unknown as Parameters<typeof Readable.fromWeb>[0]),
+        event.node.res
+      )
       return
     } else {
       return await $fetch(backendUrl, {
@@ -201,6 +221,11 @@ function isErrorResponseData(value: unknown): value is ErrorResponseData {
 
   const candidate = value as Record<string, unknown>
   return typeof candidate.message === 'string'
+}
+
+function copyRequestHeader(target: Record<string, string>, name: string, value: string | string[] | undefined): void {
+  if (Array.isArray(value)) target[name] = value.join(', ')
+  else if (value) target[name] = value
 }
 
 type ProxyMethod = 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'CONNECT' | 'OPTIONS' | 'TRACE'

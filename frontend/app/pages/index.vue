@@ -35,7 +35,6 @@ import { createSkeletonPageData, type PageResponse } from '@/services/editor/pro
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { naturalSortBy } from '@/utils/natural-sort'
-import { getResponseFileName, isCompleteZipBlob, readResponseBlob } from '@/composables/use-background-downloads'
 import { buildBatchProjectExportFileName } from '@/utils/download-file-names'
 import type { Page } from '@/types/project-page'
 
@@ -835,6 +834,14 @@ async function openBatchShareSlideover() {
 
 type BatchExportMode = 'basic' | 'project' | 'package'
 
+type BatchExportJob = {
+  id: string
+  status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'EXPIRED'
+  fileName?: string | null
+  fileSize?: number | null
+  errorMessage?: string | null
+}
+
 async function exportSelectedProjects(mode: BatchExportMode) {
   if (!selectedWorkspace.value || !canExportSelectedProjects.value) return
 
@@ -875,7 +882,7 @@ async function exportSelectedProjects(mode: BatchExportMode) {
       completedLabel: 'Exported',
       icon: mode === 'package' ? 'i-lucide-package' : 'i-lucide-file-archive',
       task: async (job) => {
-        const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/projects/batch-export`, {
+        const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/projects/batch-export-jobs`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -895,13 +902,43 @@ async function exportSelectedProjects(mode: BatchExportMode) {
             includeXmlHistory: exportOptions.includeXmlHistory
           })
         })
-        if (!response.ok) throw new Error(`Batch export failed (${response.status})`)
-        const fileName = getResponseFileName(response, buildBatchProjectExportFileName())
-        const archive = await readResponseBlob(response, job)
-        if (!await isCompleteZipBlob(archive)) {
-          throw new Error('The batch export stream ended before the ZIP archive was finalized. Please retry the export.')
+        if (!response.ok) throw new Error(`Could not queue batch export (${response.status})`)
+        let exportJob = await response.json() as BatchExportJob
+
+        while (exportJob.status === 'QUEUED' || exportJob.status === 'RUNNING') {
+          job.update({
+            statusLabel: exportJob.status === 'QUEUED' ? 'Waiting for export worker' : 'Generating archive',
+            progressPercent: null,
+            detail: exportJob.status === 'QUEUED' ? 'Queued' : 'Exporting'
+          })
+          await new Promise(resolve => setTimeout(resolve, 2000))
+          exportJob = await $fetch<BatchExportJob>(
+            `/api/workspaces/${selectedWorkspace.value}/projects/batch-export-jobs/${exportJob.id}`
+          )
         }
-        await backgroundDownloads.downloadBlob(archive, fileName, job, exportOptions.downloadTarget)
+
+        if (exportJob.status !== 'COMPLETED') {
+          throw new Error(exportJob.errorMessage || `Batch export ${exportJob.status.toLowerCase()}`)
+        }
+
+        const downloadUrl = `/api/workspaces/${selectedWorkspace.value}/projects/batch-export-jobs/${exportJob.id}/download`
+        if (exportOptions.downloadTarget?.kind === 'file-system') {
+          const downloadResponse = await fetch(downloadUrl)
+          if (!downloadResponse.ok) throw new Error(`Batch export download failed (${downloadResponse.status})`)
+          await exportOptions.downloadTarget.saveResponse(
+            downloadResponse,
+            exportJob.fileName || buildBatchProjectExportFileName(),
+            job
+          )
+        } else {
+          const anchor = document.createElement('a')
+          anchor.href = downloadUrl
+          anchor.download = exportJob.fileName || buildBatchProjectExportFileName()
+          document.body.appendChild(anchor)
+          anchor.click()
+          anchor.remove()
+          job.update({ statusLabel: 'Download started', progressPercent: 100 })
+        }
       }
     })
 
