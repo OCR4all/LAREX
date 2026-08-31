@@ -64,7 +64,7 @@ export default defineNuxtConfig({
   vite: {
     server: {
       allowedHosts: ['frontend'],
-      hmr: {
+      ws: {
         port: 3000
       }
     },
