@@ -83,14 +83,20 @@ public class IiifImportQueueService {
         enqueuePendingJobs();
     }
 
-    @Scheduled(fixedDelayString = "${larex.iiif.worker-recovery-interval-ms:5000}")
+    @Scheduled(
+            fixedDelayString = "${larex.iiif.worker-recovery-interval-ms:5000}",
+            scheduler = "coordinationTaskScheduler"
+    )
     @Transactional(readOnly = true)
     public void enqueuePendingJobs() {
         jobRepository.findByStatusOrderByCreatedAsc(IiifImportJob.Status.PENDING)
                 .forEach(job -> enqueue(job.getId()));
     }
 
-    @Scheduled(fixedDelayString = "${larex.iiif.worker-recovery-interval-ms:5000}")
+    @Scheduled(
+            fixedDelayString = "${larex.iiif.worker-recovery-interval-ms:5000}",
+            scheduler = "coordinationTaskScheduler"
+    )
     @Transactional
     public void recoverExpiredLeases() {
         int recovered = jobRepository.requeueExpiredLeases(LocalDateTime.now(clock));
@@ -99,7 +105,10 @@ public class IiifImportQueueService {
         }
     }
 
-    @Scheduled(fixedDelayString = "${larex.iiif.worker-heartbeat-interval-ms:30000}")
+    @Scheduled(
+            fixedDelayString = "${larex.iiif.worker-heartbeat-interval-ms:30000}",
+            scheduler = "coordinationTaskScheduler"
+    )
     @Transactional
     public void renewSubmittedJobLeases() {
         List<String> jobIds = List.copyOf(submittedJobIds);

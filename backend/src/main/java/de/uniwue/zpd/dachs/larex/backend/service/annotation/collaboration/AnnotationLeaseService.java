@@ -500,7 +500,10 @@ public class AnnotationLeaseService {
                 .orElseGet(() -> new AnnotationCollaborationDto.UserSummary(userId, userId, userId, null));
     }
 
-    @Scheduled(fixedDelayString = "${larex.collaboration.lease-cleanup-ms:10000}")
+    @Scheduled(
+            fixedDelayString = "${larex.collaboration.lease-cleanup-ms:10000}",
+            scheduler = "coordinationTaskScheduler"
+    )
     public void pruneExpiredLeases() {
         List<NotificationIntent> notifications = new ArrayList<>();
         synchronized (leases) {

@@ -689,7 +689,10 @@ public class ActionRunService {
         return new ActionDto.ClearRunsResponse(dismissed);
     }
 
-    @Scheduled(fixedDelayString = "${larex.actions.watchdog-interval-ms:60000}")
+    @Scheduled(
+            fixedDelayString = "${larex.actions.watchdog-interval-ms:60000}",
+            scheduler = "coordinationTaskScheduler"
+    )
     public void reconcileStaleRuns() {
         LocalDateTime now = LocalDateTime.now();
         expireDispatchingRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getDispatchMinutes())));

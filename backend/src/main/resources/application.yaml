@@ -79,6 +79,10 @@ app:
 
 # Storage quota configuration
 larex:
+  scheduling:
+    enabled: ${LAREX_SCHEDULING_ENABLED:true}
+    default-pool-size: ${LAREX_SCHEDULING_DEFAULT_POOL_SIZE:4}
+    coordination-pool-size: ${LAREX_SCHEDULING_COORDINATION_POOL_SIZE:2}
   auth:
     user-provisioning-mode: ${LAREX_USER_PROVISIONING_MODE:LOCAL}
   storage:

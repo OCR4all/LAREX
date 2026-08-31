@@ -57,19 +57,28 @@ public class ProjectExportQueueService {
         enqueuePending();
     }
 
-    @Scheduled(fixedDelayString = "${larex.project-export.worker-recovery-interval-ms:5000}")
+    @Scheduled(
+            fixedDelayString = "${larex.project-export.worker-recovery-interval-ms:5000}",
+            scheduler = "coordinationTaskScheduler"
+    )
     public void enqueuePending() {
         repository.findByStatusOrderByCreatedAsc(ProjectExportJob.Status.QUEUED)
                 .forEach(job -> enqueue(job.getId()));
     }
 
-    @Scheduled(fixedDelayString = "${larex.project-export.worker-recovery-interval-ms:5000}")
+    @Scheduled(
+            fixedDelayString = "${larex.project-export.worker-recovery-interval-ms:5000}",
+            scheduler = "coordinationTaskScheduler"
+    )
     public void recover() {
         int recovered = stateService.recoverExpiredLeases();
         if (recovered > 0) log.warn("Recovered {} expired project export lease(s)", recovered);
     }
 
-    @Scheduled(fixedDelayString = "${larex.project-export.worker-heartbeat-interval-ms:30000}")
+    @Scheduled(
+            fixedDelayString = "${larex.project-export.worker-heartbeat-interval-ms:30000}",
+            scheduler = "coordinationTaskScheduler"
+    )
     public void heartbeat() {
         stateService.renewLeases(workerId, List.copyOf(submitted));
     }

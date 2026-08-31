@@ -34,7 +34,7 @@ public class IiifSettingsService {
         refreshFromDatabase();
     }
 
-    @Scheduled(fixedDelay = 5_000)
+    @Scheduled(fixedDelay = 5_000, scheduler = "coordinationTaskScheduler")
     @Transactional(readOnly = true)
     public void refreshFromDatabase() {
         try {
