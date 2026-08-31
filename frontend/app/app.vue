@@ -14,7 +14,7 @@ if (loggedIn.value) {
 
 const color = computed(() => colorMode.value === 'dark' ? '#1b1718' : 'white')
 
-const toaster = { expand: false, position: 'bottom-right' as const }
+const toaster = { expand: false, position: 'top-center' as const }
 
 useHead({
   meta: [
@@ -38,9 +38,6 @@ useSeoMeta({
   description,
   ogTitle: title,
   ogDescription: description,
-  ogImage: 'https://ui4.nuxt.com/assets/templates/nuxt/dashboard-light.png',
-  twitterImage: 'https://ui4.nuxt.com/assets/templates/nuxt/dashboard-light.png',
-  twitterCard: 'summary_large_image'
 })
 </script>
 
