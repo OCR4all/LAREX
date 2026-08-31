@@ -62,7 +62,6 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   let pageResultEventSequence = 0
   let realtimeInitialized = false
   let fallbackPollingInitialized = false
-  let lastRealtimeAuditAt = 0
   const emittedPageResultKeys = new Set<string>()
   const pendingRealtimeScopes = new Map<string, {
     workspaceId: string
@@ -227,22 +226,15 @@ export const useActionRunsStore = defineStore('action-runs', () => {
         })
       }
     })
-    lastRealtimeAuditAt = Date.now()
     initializeFallbackPolling()
   }
 
   function initializeFallbackPolling() {
     if (import.meta.server || fallbackPollingInitialized) return
     fallbackPollingInitialized = true
-    const realtime = useRealtimeSocket()
     setInterval(() => {
       const pageVisible = typeof document === 'undefined' || document.visibilityState === 'visible'
-      const realtimeConnected = realtime.connectionStatus?.value === 'connected'
-      const auditDue = !realtimeConnected || Date.now() - lastRealtimeAuditAt >= 60_000
-      if (pageVisible && hasActiveRuns.value && auditDue) {
-        if (realtimeConnected) {
-          lastRealtimeAuditAt = Date.now()
-        }
+      if (pageVisible && hasActiveRuns.value) {
         void refreshActiveRuns()
       }
     }, 2500)

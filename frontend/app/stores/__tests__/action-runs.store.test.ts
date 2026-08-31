@@ -124,18 +124,18 @@ describe('action-runs.store', () => {
     )
   })
 
-  it('uses a slow audit while realtime is connected', async () => {
+  it('reconciles active runs promptly when realtime is connected but an event is missed', async () => {
     vi.useFakeTimers()
     const fetchMock = vi.fn().mockResolvedValue([])
     const store = await createStore(fetchMock, vi.fn(), { value: 'connected' })
     store.upsertRun(createRun())
     store.initializeRealtime()
 
-    await vi.advanceTimersByTimeAsync(59_999)
-    expect(fetchMock).not.toHaveBeenCalled()
-
-    await vi.advanceTimersByTimeAsync(1)
+    await vi.advanceTimersByTimeAsync(2500)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/workspaces/workspace-1/actions/projects/project-1/runs'
+    )
   })
 
   it('stops page processing immediately when the realtime result event arrives', async () => {
