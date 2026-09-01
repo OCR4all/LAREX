@@ -156,7 +156,7 @@ public class PageXmlConversionService {
 
     private void writePage(Page page, Path outputPath, String targetVersion) throws IOException {
         try {
-            if (!PageXmlInputOutput.writePage(page, outputPath.toString())) {
+            if (!PageXmlInputOutput.writePage(page, outputPath.toString(), true)) {
                 throw new IOException("Error writing target PAGE XML file for version " + targetVersion);
             }
         } catch (Exception e) {

@@ -64,6 +64,8 @@ public class PageXmlCanonicalizationService {
             messages = conversionOutcome.messages();
         }
 
+        PageXmlPrettyPrinter.prettyPrint(xmlPath);
+
         pageXml.setSchemaVersion(targetVersion);
         pageXml.setFileSize(Files.size(xmlPath));
         pageXmlRepository.save(pageXml);

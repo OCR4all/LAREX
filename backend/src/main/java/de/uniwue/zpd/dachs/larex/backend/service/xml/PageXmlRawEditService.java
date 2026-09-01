@@ -108,7 +108,7 @@ public class PageXmlRawEditService {
 
         Path tempPath = Files.createTempFile(xmlPath.getParent(), xmlPath.getFileName().toString(), ".tmp");
         try {
-            Files.writeString(tempPath, xmlText, StandardCharsets.UTF_8);
+            Files.writeString(tempPath, PageXmlPrettyPrinter.prettyPrint(xmlText), StandardCharsets.UTF_8);
             replaceAtomically(tempPath, xmlPath);
             long newSize = Files.size(xmlPath);
             pageXml.setFileSize(newSize);

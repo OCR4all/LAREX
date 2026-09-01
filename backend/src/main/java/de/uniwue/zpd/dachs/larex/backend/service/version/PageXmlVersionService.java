@@ -11,6 +11,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshSe
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.events.PageXmlVersionCreatedEvent;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlPrettyPrinter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -168,6 +169,7 @@ public class PageXmlVersionService {
         Path canonicalPath = uploadPathService.resolve(xml.getFilePath());
 
         Files.copy(versionPath, canonicalPath, StandardCopyOption.REPLACE_EXISTING);
+        PageXmlPrettyPrinter.prettyPrint(canonicalPath);
 
         // Update file size on the PageXml entity
         long newSize = Files.size(canonicalPath);

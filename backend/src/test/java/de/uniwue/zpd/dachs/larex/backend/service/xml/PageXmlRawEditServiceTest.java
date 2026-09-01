@@ -132,7 +132,9 @@ class PageXmlRawEditServiceTest {
         );
 
         assertTrue(result.valid());
-        assertEquals(xml, Files.readString(file));
+        String savedXml = Files.readString(file);
+        assertTrue(savedXml.contains("\n  <Metadata>\n    <Creator>tester</Creator>"));
+        assertTrue(savedXml.endsWith("\n"));
         assertEquals("2013-07-15", pageXml.getSchemaVersion());
         verify(pageXmlVersionService).createVersion("xml-1", "user-1", "Saved from XML editor");
         verify(pageXmlRepository).save(pageXml);

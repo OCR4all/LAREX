@@ -23,6 +23,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -75,6 +77,30 @@ class PageXmlVersionServiceTest {
 
         assertThrows(IOException.class,
                 () -> service.resolveVersionPath("version-1", "xml-1"));
+    }
+
+    @Test
+    void restoreVersionPrettyPrintsRestoredPageXml() throws Exception {
+        PageXmlVersionService service = service();
+        PageXmlVersion version = version("version-1", "xml-1", "xml/versions/xml-1/1.xml");
+        PageXml xml = version.getPageXml();
+        xml.setFilePath("xml/current.xml");
+
+        Path versionPath = tempDir.resolve(version.getFilePath());
+        Path currentPath = tempDir.resolve(xml.getFilePath());
+        Files.createDirectories(versionPath.getParent());
+        Files.createDirectories(currentPath.getParent());
+        Files.writeString(versionPath, "<PcGts><Metadata><Creator>tester</Creator></Metadata><Page/></PcGts>");
+        Files.writeString(currentPath, "<PcGts/>");
+
+        when(versionRepository.findById("version-1")).thenReturn(Optional.of(version));
+        when(pageXmlRepository.findById("xml-1")).thenReturn(Optional.of(xml));
+        when(versionRepository.findMaxVersionNumber("xml-1")).thenReturn(1);
+        when(versionRepository.save(any(PageXmlVersion.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.restoreVersion("version-1", "xml-1", "user-1");
+
+        assertTrue(Files.readString(currentPath).contains("\n  <Metadata>\n    <Creator>tester</Creator>"));
     }
 
     private PageXmlVersionService service() {

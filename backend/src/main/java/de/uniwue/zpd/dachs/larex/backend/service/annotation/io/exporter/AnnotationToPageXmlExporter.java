@@ -111,7 +111,7 @@ public class AnnotationToPageXmlExporter {
 
     private PageXmlWriteResult writePage(Page page, StreamTarget target, Path fileTarget) throws Exception {
         XmlPageWriter writer = PageXmlInputOutput.getWriter(LATEST_VERSION);
-        boolean writeSuccess = writer.write(page, target);
+        boolean writeSuccess = writer.write(page, target, true);
 
         List<String> warnings = extractMessages(writer, false);
         List<String> errors = extractMessages(writer, true);

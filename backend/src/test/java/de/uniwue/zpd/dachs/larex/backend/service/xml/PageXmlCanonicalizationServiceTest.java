@@ -60,7 +60,7 @@ class PageXmlCanonicalizationServiceTest {
     @Test
     void canonicalizeAtIngest_primaryPageXml_isNoOpWithoutSnapshot() throws Exception {
         Path xmlPath = tempDir.resolve("primary.xml");
-        Files.writeString(xmlPath, exported2019Xml(), StandardCharsets.UTF_8);
+        Files.writeString(xmlPath, compact2019Xml(), StandardCharsets.UTF_8);
 
         PageXml pageXml = new PageXml();
         pageXml.setId("xml-2");
@@ -83,6 +83,7 @@ class PageXmlCanonicalizationServiceTest {
         assertFalse(outcome.converted());
         assertFalse(outcome.snapshotCreated());
         assertEquals("2019-07-15", pageXml.getSchemaVersion());
+        assertEquals(true, Files.readString(xmlPath).contains("\n  <Metadata>\n    <Creator>tester</Creator>"));
         verify(pageXmlVersionService, never()).createVersion(any(), any(), any());
         verify(pageXmlRepository).save(pageXml);
     }
@@ -123,8 +124,12 @@ class PageXmlCanonicalizationServiceTest {
         verify(pageXmlRepository).save(pageXml);
     }
 
-    private String exported2019Xml() {
-        return pageXml("2019-07-15");
+    private String compact2019Xml() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<PcGts xmlns=\"http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15\">"
+                + "<Metadata><Creator>tester</Creator><Created>2026-03-05T10:00:00</Created>"
+                + "<LastChange>2026-03-05T10:00:00</LastChange></Metadata>"
+                + "<Page imageFilename=\"img.png\" imageWidth=\"1000\" imageHeight=\"1000\"/></PcGts>";
     }
 
     private String exported2017Xml() {

@@ -10,6 +10,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyXmlVe
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlPrettyPrinter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -140,6 +141,7 @@ public class DatasetItemCopyXmlVersionService {
         Path canonicalPath = resolvePath(copyXmlFile.getFilePath());
 
         Files.copy(versionPath, canonicalPath, StandardCopyOption.REPLACE_EXISTING);
+        PageXmlPrettyPrinter.prettyPrint(canonicalPath);
 
         long newSize = Files.size(canonicalPath);
         copyXmlFile.setFileSize(newSize);

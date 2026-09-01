@@ -18,6 +18,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicySer
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.DatasetItemCopyXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlPrettyPrinter;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
@@ -336,7 +337,7 @@ public class DatasetCopyAnnotationService {
 
         Path tempPath = Files.createTempFile(context.xmlPath().getParent(), context.xmlPath().getFileName().toString(), ".tmp");
         try {
-            Files.writeString(tempPath, xmlText, StandardCharsets.UTF_8);
+            Files.writeString(tempPath, PageXmlPrettyPrinter.prettyPrint(xmlText), StandardCharsets.UTF_8);
             replaceAtomically(tempPath, context.xmlPath());
 
             long newSize = Files.size(context.xmlPath());
