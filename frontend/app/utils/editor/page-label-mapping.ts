@@ -401,8 +401,7 @@ export function resolvePageXmlRegionLabel(
   label: RegionLabelDefinitionLike,
   currentCustom?: string | null
 ): ResolvedPageXmlRegionMapping | null {
-  const customWithLabelMetadata = addLarexRegionLabelMetadata(currentCustom, label)
-  return resolvePageXmlRegionMapping(label.mapping?.pageXml, customWithLabelMetadata)
+  return resolvePageXmlRegionMapping(label.mapping?.pageXml, currentCustom)
 }
 
 function escapeXmlAttribute(value: string): string {
@@ -423,16 +422,6 @@ export function serializePageXmlRegionStartTag(mapping: PageXmlMappingLike | nul
   ].filter((attribute): attribute is string => attribute !== null)
   const suffix = attributes.length > 0 ? ` ${attributes.join(' ')}` : ''
   return `<${resolved.regionType}${suffix}>`
-}
-
-export function addLarexRegionLabelMetadata(
-  currentCustom: string | null | undefined,
-  label: Pick<RegionLabelDefinitionLike, 'id' | 'name'>
-): string | undefined {
-  return mergePageCustomBlock(currentCustom, LAREX_LABEL_BLOCK_KEY, {
-    [LAREX_LABEL_ALIAS_KEY]: normalizeString(label.name),
-    [LAREX_LABEL_ID_KEY]: normalizeString(label.id)
-  })
 }
 
 export function clearLarexRegionLabelMetadata(currentCustom: string | null | undefined): string | undefined {

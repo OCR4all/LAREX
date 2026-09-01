@@ -172,7 +172,7 @@ describe('CreatePolygonCommand integration', () => {
     const region = getDocument()?.page.regions[0]
     expect(region?.kind).toBe('ImageRegion')
     expect((region as { type?: string })?.type).toBe('photo')
-    expect(region?.custom).toContain('labelId:image-label')
+    expect(region?.custom).toBeUndefined()
   })
 
   it('creates a nested region inside its parent', () => {

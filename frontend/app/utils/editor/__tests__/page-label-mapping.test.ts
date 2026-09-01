@@ -67,14 +67,14 @@ describe('page-label-mapping', () => {
     expect(merged).toBe('reading { dir:ltr; } structure { foo:bar; subclass:lead; type:article; }')
   })
 
-  it('stores label alias metadata in larex custom block when applying label', () => {
+  it('does not store internal label identity in PAGE custom data', () => {
     const label = createRegionLabel({
       id: 'label-42',
       name: 'Main Heading'
     })
 
     const merged = buildMergedCustomForAppliedRegionLabel('reading { dir:ltr; }', label)
-    expect(merged).toBe('larex { labelAlias:Main Heading; labelId:label-42; } reading { dir:ltr; }')
+    expect(merged).toBe('reading { dir:ltr; }')
   })
 
   it('uses the configured label name instead of the raw PAGE subtype for display', () => {
@@ -111,7 +111,7 @@ describe('page-label-mapping', () => {
     expect(resolvePageXmlRegionLabel(label)).toEqual({
       regionType: 'TextRegion',
       type: 'other',
-      custom: 'larex { labelAlias:Label; labelId:l1; } structure { subclass:lead; type:article; }'
+      custom: 'structure { subclass:lead; type:article; }'
     })
     expect(serializePageXmlRegionStartTag(label.mapping.pageXml)).toBe(
       '<TextRegion type="other" custom="structure { subclass:lead; type:article; }">'
