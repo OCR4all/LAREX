@@ -18,6 +18,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.Execut
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorWorkspaceAvailability;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
+import de.uniwue.zpd.dachs.larex.backend.exception.ActionParameterValueDiscoveryException;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
@@ -34,6 +35,7 @@ import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -56,6 +58,8 @@ public class ActionDefinitionService {
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
     private static final int DEFAULT_TOKEN_TTL_MINUTES = 1440;
     private static final int ENDPOINT_RESPONSE_DETAIL_LIMIT = 1000;
+    private static final int MAX_PARAMETER_CHOICES = 1000;
+    private static final int MAX_PARAMETER_VALUE_RESPONSE_BYTES = 1_048_576;
     private static final TypeReference<List<ActionTarget>> ACTION_TARGET_LIST = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {};
     private static final Set<String> INPUT_REQUIREMENT_FIELDS = Set.of("level", "requiredForTargets");
@@ -360,6 +364,7 @@ public class ActionDefinitionService {
             validateEndpointUrl(endpointUrl, diagnostics);
             validateEndpointUrl(document.endpoint().healthUrl(), "endpoint.healthUrl", diagnostics);
             validateEndpointUrl(document.endpoint().preflightUrl(), "endpoint.preflightUrl", diagnostics);
+            validateEndpointUrl(document.endpoint().parameterValuesUrl(), "endpoint.parameterValuesUrl", diagnostics);
             validateEndpointAuth(document.endpoint(), endpointUrl, diagnostics);
             if (document.endpoint().timeoutSeconds() != null) {
                 timeoutSeconds = document.endpoint().timeoutSeconds();
@@ -410,6 +415,13 @@ public class ActionDefinitionService {
         validateConcurrency(document.concurrency(), diagnostics);
 
         validateParameters(document.parameters(), diagnostics);
+        if (hasDynamicParameterValues(document.parameters())
+                && (document.endpoint() == null
+                || document.endpoint().parameterValuesUrl() == null
+                || document.endpoint().parameterValuesUrl().isBlank())) {
+            diagnostics.add(error("endpoint.parameterValuesUrl",
+                    "parameterValuesUrl is required when a parameter uses a dynamic allowed-values provider"));
+        }
 
         if (key != null) {
             definitionRepository.findByProcessorKey(key)
@@ -479,6 +491,7 @@ public class ActionDefinitionService {
 
     public ActionDto.DefinitionResponse toDefinitionResponse(ActionProcessorDefinition definition) {
         ActionDto.InputRequirements inputRequirements = readInputRequirements(definition);
+        ActionDefinitionDocument document = readParsedDocument(definition);
         return new ActionDto.DefinitionResponse(
                 definition.getId(),
                 definition.getProcessorKey(),
@@ -500,7 +513,10 @@ public class ActionDefinitionService {
                 definition.isEnabled(),
                 definition.isGlobalAvailable(),
                 definition.getCreated(),
-                definition.getUpdated()
+                definition.getUpdated(),
+                document.parameters() == null
+                        ? Map.of()
+                        : document.parameters()
         );
     }
 
@@ -527,6 +543,185 @@ public class ActionDefinitionService {
         return testReachability(definition, document);
     }
 
+    public ActionDto.ParameterValuesResponse discoverParameterValues(ActionProcessorDefinition definition) {
+        ActionDefinitionDocument document = readParsedDocument(definition);
+        LinkedHashSet<String> providers = dynamicParameterProviders(document.parameters());
+        if (providers.isEmpty()) {
+            return new ActionDto.ParameterValuesResponse(Map.of());
+        }
+        Map<String, List<ActionDefinitionDocument.ParameterChoice>> values = requestParameterValues(
+                definition, document, providers);
+        validateDiscoveredParameterValues(document.parameters(), values);
+        return new ActionDto.ParameterValuesResponse(values);
+    }
+
+    public void validateAllowedParameterValues(ActionProcessorDefinition definition,
+                                               Map<String, Object> parameters) {
+        ActionDefinitionDocument document = readParsedDocument(definition);
+        if (document.parameters() == null || document.parameters().isEmpty()) {
+            return;
+        }
+        Map<String, List<ActionDefinitionDocument.ParameterChoice>> dynamicValues = Map.of();
+        LinkedHashSet<String> providers = dynamicParameterProviders(document.parameters());
+        if (!providers.isEmpty()) {
+            dynamicValues = requestParameterValues(definition, document, providers);
+            validateDiscoveredParameterValues(document.parameters(), dynamicValues);
+        }
+        for (Map.Entry<String, ActionDefinitionDocument.Parameter> entry : document.parameters().entrySet()) {
+            ActionDefinitionDocument.Parameter parameter = entry.getValue();
+            ActionDefinitionDocument.AllowedValues allowed = parameter.allowedValues();
+            if (allowed == null) {
+                continue;
+            }
+            List<ActionDefinitionDocument.ParameterChoice> choices = allowed.values() != null
+                    ? allowed.values()
+                    : dynamicValues.getOrDefault(allowed.provider(), List.of());
+            if (choices.isEmpty()) {
+                throw new ActionParameterValueDiscoveryException(
+                        "No allowed values are currently available for Action parameter " + entry.getKey());
+            }
+            Object value = parameters.get(entry.getKey());
+            if (choices.stream().noneMatch(choice -> parameterValuesEqual(parameter, value, choice.value()))) {
+                throw new IllegalArgumentException(
+                        "Action parameter " + entry.getKey() + " must be one of its allowed values");
+            }
+        }
+    }
+
+    private Map<String, List<ActionDefinitionDocument.ParameterChoice>> requestParameterValues(
+            ActionProcessorDefinition definition,
+            ActionDefinitionDocument document,
+            Set<String> providers) {
+        String url = document.endpoint() == null ? null : document.endpoint().parameterValuesUrl();
+        try {
+            requireEndpointUrlAllowed(url);
+            URI endpointUri = URI.create(url);
+            String requestId = "parameter-values-" + UUID.randomUUID();
+            Map<String, Object> requestPayload = new LinkedHashMap<>();
+            requestPayload.put("protocolVersion", ACTION_PROTOCOL_VERSION);
+            requestPayload.put("requestId", requestId);
+            requestPayload.put("processorId", definition.getProcessorKey());
+            requestPayload.put("providers", List.copyOf(providers));
+            String body = jsonMapper.writeValueAsString(requestPayload);
+            Map<String, String> authHeaders = endpointAuthService.buildDispatchHeaders(
+                    document.endpoint().auth(),
+                    definition.getProcessorKey(),
+                    requestId,
+                    endpointUri,
+                    UUID.randomUUID().toString(),
+                    body
+            );
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(endpointUri)
+                    .timeout(endpointTestTimeout(definition))
+                    .header("Content-Type", "application/json")
+                    .header("Accept", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body));
+            authHeaders.forEach(requestBuilder::header);
+            HttpResponse<String> response = httpClient.send(
+                    requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
+            if (response.body().getBytes(StandardCharsets.UTF_8).length > MAX_PARAMETER_VALUE_RESPONSE_BYTES) {
+                throw new ActionParameterValueDiscoveryException(
+                        "Action parameter discovery response exceeded 1 MiB");
+            }
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                String detail = responseDetail(response.body());
+                throw new ActionParameterValueDiscoveryException(
+                        "Action parameter discovery returned HTTP " + response.statusCode()
+                                + (detail == null ? "" : ": " + detail));
+            }
+            ProcessorParameterValuesResponse parsed = jsonMapper.readValue(
+                    response.body(), ProcessorParameterValuesResponse.class);
+            validateParameterValuesResponse(definition, requestId, providers, parsed);
+            return parsed.values();
+        } catch (ActionParameterValueDiscoveryException e) {
+            throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ActionParameterValueDiscoveryException("Action parameter discovery was interrupted", e);
+        } catch (IOException | IllegalArgumentException | IllegalStateException e) {
+            throw new ActionParameterValueDiscoveryException(
+                    "Could not discover Action parameter values: " + e.getMessage(), e);
+        }
+    }
+
+    private void validateParameterValuesResponse(ActionProcessorDefinition definition,
+                                                 String requestId,
+                                                 Set<String> providers,
+                                                 ProcessorParameterValuesResponse response) {
+        if (response == null || !"ok".equals(response.status())) {
+            throw new ActionParameterValueDiscoveryException(
+                    "Action parameter discovery returned an invalid status");
+        }
+        if (response.protocolVersion() == null || response.protocolVersion() != ACTION_PROTOCOL_VERSION) {
+            throw new ActionParameterValueDiscoveryException("Action parameter discovery protocol mismatch");
+        }
+        if (!requestId.equals(response.requestId())) {
+            throw new ActionParameterValueDiscoveryException("Action parameter discovery request id mismatch");
+        }
+        if (!definition.getProcessorKey().equals(response.processorId())) {
+            throw new ActionParameterValueDiscoveryException("Action parameter discovery processor id mismatch");
+        }
+        if (response.values() == null || !response.values().keySet().equals(providers)) {
+            throw new ActionParameterValueDiscoveryException(
+                    "Action parameter discovery did not return exactly the requested providers");
+        }
+        response.values().forEach((provider, choices) -> {
+            if (choices == null || choices.size() > MAX_PARAMETER_CHOICES) {
+                throw new ActionParameterValueDiscoveryException(
+                        "Action parameter value provider " + provider + " returned too many choices");
+            }
+        });
+    }
+
+    private void validateDiscoveredParameterValues(
+            Map<String, ActionDefinitionDocument.Parameter> parameters,
+            Map<String, List<ActionDefinitionDocument.ParameterChoice>> values) {
+        for (Map.Entry<String, ActionDefinitionDocument.Parameter> entry : parameters.entrySet()) {
+            ActionDefinitionDocument.Parameter parameter = entry.getValue();
+            ActionDefinitionDocument.AllowedValues allowed = parameter.allowedValues();
+            if (allowed == null || allowed.provider() == null || allowed.provider().isBlank()) {
+                continue;
+            }
+            Set<String> seen = new LinkedHashSet<>();
+            for (ActionDefinitionDocument.ParameterChoice choice : values.getOrDefault(allowed.provider(), List.of())) {
+                if (choice == null
+                        || choice.label() == null
+                        || choice.label().isBlank()
+                        || choice.label().length() > 256) {
+                    throw new ActionParameterValueDiscoveryException(
+                            "Provider " + allowed.provider() + " returned an invalid choice label");
+                }
+                String valueError = parameterChoiceValueError(parameter, choice.value());
+                if (valueError != null) {
+                    throw new ActionParameterValueDiscoveryException(
+                            "Provider " + allowed.provider() + " returned an invalid value for parameter "
+                                    + entry.getKey() + ": " + valueError);
+                }
+                String fingerprint = parameterChoiceFingerprint(parameter, choice.value());
+                if (!seen.add(fingerprint)) {
+                    throw new ActionParameterValueDiscoveryException(
+                            "Provider " + allowed.provider() + " returned duplicate values");
+                }
+            }
+        }
+    }
+
+    private LinkedHashSet<String> dynamicParameterProviders(
+            Map<String, ActionDefinitionDocument.Parameter> parameters) {
+        LinkedHashSet<String> providers = new LinkedHashSet<>();
+        if (parameters == null) {
+            return providers;
+        }
+        parameters.values().stream()
+                .filter(java.util.Objects::nonNull)
+                .map(ActionDefinitionDocument.Parameter::allowedValues)
+                .filter(java.util.Objects::nonNull)
+                .map(ActionDefinitionDocument.AllowedValues::provider)
+                .filter(provider -> provider != null && !provider.isBlank())
+                .forEach(providers::add);
+        return providers;
+    }
+
     private ActionDto.HealthCheckResponse testAuthenticatedPreflight(ActionProcessorDefinition definition,
                                                                      ActionDefinitionDocument document) {
         String url = document.endpoint().preflightUrl();
@@ -542,7 +737,8 @@ public class ActionDefinitionService {
             requestPayload.put("processorId", definition.getProcessorKey());
             requestPayload.put("capabilities", Map.of(
                     "incrementalPageResults", true,
-                    "customFileResults", true
+                    "customFileResults", true,
+                    "parameterValueDiscovery", true
             ));
             String body = jsonMapper.writeValueAsString(requestPayload);
             Map<String, String> authHeaders = endpointAuthService.buildDispatchHeaders(
@@ -677,6 +873,10 @@ public class ActionDefinitionService {
                 && !Boolean.TRUE.equals(response.capabilities().get("customFileResults"))) {
             return "Processor does not advertise required capability customFileResults";
         }
+        if (hasDynamicParameterValues(readParsedDocument(definition).parameters())
+                && !Boolean.TRUE.equals(response.capabilities().get("parameterValueDiscovery"))) {
+            return "Processor does not advertise required capability parameterValueDiscovery";
+        }
         return null;
     }
 
@@ -710,6 +910,14 @@ public class ActionDefinitionService {
             String requestId,
             String processorId,
             Map<String, Boolean> capabilities
+    ) {}
+
+    private record ProcessorParameterValuesResponse(
+            String status,
+            Integer protocolVersion,
+            String requestId,
+            String processorId,
+            Map<String, List<ActionDefinitionDocument.ParameterChoice>> values
     ) {}
 
     private ActionProcessorDefinition requireDefinition(String definitionId) {
@@ -953,7 +1161,78 @@ public class ActionDefinitionService {
             if (parameter.defaultValue() != null) {
                 validateParameterValue("parameters." + key + ".default", parameter, parameter.defaultValue(), diagnostics);
             }
+            validateAllowedValues(key, parameter, diagnostics);
         }
+    }
+
+    private void validateAllowedValues(String key,
+                                       ActionDefinitionDocument.Parameter parameter,
+                                       List<ActionDto.ValidationDiagnostic> diagnostics) {
+        ActionDefinitionDocument.AllowedValues allowed = parameter.allowedValues();
+        if (allowed == null) {
+            return;
+        }
+        boolean hasValues = allowed.values() != null;
+        boolean hasProvider = allowed.provider() != null && !allowed.provider().isBlank();
+        String path = "parameters." + key + ".allowedValues";
+        if (hasValues == hasProvider) {
+            diagnostics.add(error(path, "exactly one of values or provider must be configured"));
+            return;
+        }
+        if (hasProvider) {
+            if (!allowed.provider().matches("[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}")) {
+                diagnostics.add(error(path + ".provider", "provider must be identifier-like"));
+            }
+            return;
+        }
+        if (allowed.values().isEmpty()) {
+            diagnostics.add(error(path + ".values", "values must not be empty"));
+            return;
+        }
+        if (allowed.values().size() > MAX_PARAMETER_CHOICES) {
+            diagnostics.add(error(path + ".values", "values must not contain more than 1000 choices"));
+            return;
+        }
+        Set<String> seen = new LinkedHashSet<>();
+        Object effectiveDefault = parameter.defaultValue() == null
+                ? defaultParameterValue(parameter)
+                : parameter.defaultValue();
+        boolean defaultMatched = false;
+        for (int index = 0; index < allowed.values().size(); index++) {
+            ActionDefinitionDocument.ParameterChoice choice = allowed.values().get(index);
+            String choicePath = path + ".values[" + index + "]";
+            if (choice == null) {
+                diagnostics.add(error(choicePath, "choice must not be empty"));
+                continue;
+            }
+            if (choice.label() == null || choice.label().isBlank() || choice.label().length() > 256) {
+                diagnostics.add(error(choicePath + ".label", "label must contain 1 to 256 characters"));
+            }
+            String valueError = parameterChoiceValueError(parameter, choice.value());
+            if (valueError != null) {
+                diagnostics.add(error(choicePath + ".value", valueError));
+                continue;
+            }
+            String fingerprint = parameterChoiceFingerprint(parameter, choice.value());
+            if (!seen.add(fingerprint)) {
+                diagnostics.add(error(choicePath + ".value", "choice values must be unique"));
+            }
+            if (parameterValuesEqual(parameter, effectiveDefault, choice.value())) {
+                defaultMatched = true;
+            }
+        }
+        if (!defaultMatched) {
+            diagnostics.add(error("parameters." + key + ".default",
+                    "default must be one of the statically allowed values"));
+        }
+    }
+
+    private boolean hasDynamicParameterValues(Map<String, ActionDefinitionDocument.Parameter> parameters) {
+        return parameters != null && parameters.values().stream()
+                .filter(java.util.Objects::nonNull)
+                .map(ActionDefinitionDocument.Parameter::allowedValues)
+                .filter(java.util.Objects::nonNull)
+                .anyMatch(allowed -> allowed.provider() != null && !allowed.provider().isBlank());
     }
 
     private void validateConcurrency(ActionDefinitionDocument.Concurrency concurrency,
@@ -1011,6 +1290,69 @@ public class ActionDefinitionService {
         if (!(value instanceof String)) {
             diagnostics.add(error(path, "default must be a string"));
         }
+    }
+
+    private String parameterChoiceValueError(ActionDefinitionDocument.Parameter parameter, Object value) {
+        String type = parameterType(parameter);
+        if ("string".equals(type)) {
+            if (!(value instanceof String stringValue)) {
+                return "value must be a string";
+            }
+            return stringValue.length() <= 1_024 ? null : "string values must not exceed 1024 characters";
+        }
+        if ("boolean".equals(type)) {
+            return value instanceof Boolean ? null : "value must be a boolean";
+        }
+        if (!(value instanceof Number number)) {
+            return "value must be numeric";
+        }
+        double numericValue = number.doubleValue();
+        if (!Double.isFinite(numericValue)) {
+            return "numeric values must be finite";
+        }
+        if ("integer".equals(type)
+                && (Math.rint(numericValue) != numericValue
+                || numericValue < Integer.MIN_VALUE
+                || numericValue > Integer.MAX_VALUE)) {
+            return "value must be a 32-bit integer";
+        }
+        return null;
+    }
+
+    private Object defaultParameterValue(ActionDefinitionDocument.Parameter parameter) {
+        return switch (parameterType(parameter)) {
+            case "boolean" -> false;
+            case "number" -> 0.0;
+            case "integer" -> 0;
+            default -> "";
+        };
+    }
+
+    private boolean parameterValuesEqual(ActionDefinitionDocument.Parameter parameter,
+                                         Object left,
+                                         Object right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        String type = parameterType(parameter);
+        if (("number".equals(type) || "integer".equals(type))
+                && left instanceof Number leftNumber
+                && right instanceof Number rightNumber) {
+            return Double.compare(leftNumber.doubleValue(), rightNumber.doubleValue()) == 0;
+        }
+        return left.equals(right);
+    }
+
+    private String parameterChoiceFingerprint(ActionDefinitionDocument.Parameter parameter, Object value) {
+        String type = parameterType(parameter);
+        if (("number".equals(type) || "integer".equals(type)) && value instanceof Number number) {
+            return type + ":" + Double.toString(number.doubleValue());
+        }
+        return type + ":" + writeJson(value);
+    }
+
+    private String parameterType(ActionDefinitionDocument.Parameter parameter) {
+        return parameter.type() == null ? "string" : parameter.type().trim().toLowerCase(Locale.ROOT);
     }
 
     private void validateEndpointUrl(String rawUrl, List<ActionDto.ValidationDiagnostic> diagnostics) {

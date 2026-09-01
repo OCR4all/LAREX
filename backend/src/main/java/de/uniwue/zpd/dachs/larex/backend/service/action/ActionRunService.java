@@ -409,6 +409,22 @@ public class ActionRunService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public ActionDto.ParameterValuesResponse discoverParameterValues(String workspaceId,
+                                                                     String projectId,
+                                                                     String definitionId,
+                                                                     String userId) {
+        ActionProcessorDefinition definition = definitionRepository.findById(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (!definition.isEnabled()) {
+            throw new IllegalArgumentException("Action processor is disabled");
+        }
+        requireProject(workspaceId, projectId);
+        requireAssigned(workspaceId, projectId, definitionId);
+        requireExecuteAccess(definition, workspaceId, userId);
+        return definitionService.discoverParameterValues(definition);
+    }
+
     private ActionDto.StartRunResponse createRun(String workspaceId,
                                                  String projectId,
                                                  Project project,
@@ -550,6 +566,7 @@ public class ActionRunService {
         requireTargetSupported(definition, targetSelection.type());
         List<Page> pages = resolveRunPagesForUpdate(projectId, payloadService.readPageIds(sourceRun));
         Map<String, Object> parameters = payloadService.readObjectMap(sourceRun.getParametersJson());
+        definitionService.validateAllowedParameterValues(definition, parameters);
         pages = processorPages(pages, definition, parameters, targetSelection.type());
         targetSelection = restrictTargetSelection(targetSelection, pages);
         ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, projectId);
@@ -2063,6 +2080,7 @@ public class ActionRunService {
         if (imageVariantSelection != null) {
             resolved.put(ActionRunPayloadService.IMAGE_VARIANT_SELECTION_PARAMETER_KEY, normalizeImageVariantSelection(imageVariantSelection));
         }
+        definitionService.validateAllowedParameterValues(definition, resolved);
         return resolved;
     }
 
@@ -2119,8 +2137,10 @@ public class ActionRunService {
                 throw new IllegalArgumentException("Action parameter " + key + " must be less than or equal to " + parameter.max());
             }
             if ("integer".equals(type)) {
-                if (Math.rint(numericValue) != numericValue) {
-                    throw new IllegalArgumentException("Action parameter " + key + " must be an integer");
+                if (Math.rint(numericValue) != numericValue
+                        || numericValue < Integer.MIN_VALUE
+                        || numericValue > Integer.MAX_VALUE) {
+                    throw new IllegalArgumentException("Action parameter " + key + " must be a 32-bit integer");
                 }
                 return (int) numericValue;
             }

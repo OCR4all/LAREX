@@ -73,6 +73,16 @@ public class ActionProjectController {
         return ResponseEntity.ok(actionRunService.listExecutableProcessors(workspaceId, projectId, userId, target));
     }
 
+    @GetMapping("/projects/{projectId}/processors/{definitionId}/parameter-values")
+    public ResponseEntity<ActionDto.ParameterValuesResponse> discoverParameterValues(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String definitionId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.discoverParameterValues(
+                workspaceId, projectId, definitionId, userId));
+    }
+
     @PostMapping("/projects/{projectId}/runs")
     public ResponseEntity<ActionDto.StartRunResponse> startRun(
             @PathVariable String workspaceId,

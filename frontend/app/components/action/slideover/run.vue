@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { parse } from 'yaml'
 import { extractApiErrorDetails } from '@/utils/api-error'
 import { actionInputLevelForTarget } from '@/utils/action-input-requirements'
+import {
+  actionParameterChoices,
+  actionParameterDefaultValue,
+  coerceActionParameterInput,
+  hasAllowedActionParameterValue
+} from '@/utils/action-parameter-values'
 import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
 import type {
   ActionParameterDefinition,
@@ -14,7 +19,10 @@ import type {
   ActionTargetSelection,
   ActionTarget,
   ActionInputLevel,
-  ActionImageVariantSelection
+  ActionImageVariantSelection,
+  ActionParameterChoice,
+  ActionParameterValuesResponse,
+  ActionParameterValue
 } from '@/types/action'
 
 useBlockEditorCanvasInteractions()
@@ -53,7 +61,12 @@ const actionRunsStore = useActionRunsStore()
 const processors = ref<ExecutableActionProcessorResponse[]>([])
 const runs = ref<ActionRun[]>([])
 const selectedProcessorId = ref('')
-const parameterValues = reactive<Record<string, unknown>>({})
+const parameterValues = reactive<Record<string, ActionParameterValue | '' | undefined>>({})
+const discoveredParameterValues = ref<Record<string, ActionParameterChoice[]>>({})
+const parameterDiscoveryLoading = ref(false)
+const parameterDiscoveryError = ref<string | null>(null)
+const parameterFieldErrors = reactive<Record<string, string>>({})
+let parameterDiscoveryRequest = 0
 const scope = ref<'all' | 'selection'>(props.targetSelection || (props.pageIds?.length ?? 0) > 0 ? 'selection' : 'all')
 const categoryFilter = ref<ActionCategory | 'ALL'>('ALL')
 const imageVariantMode = ref<'global' | 'perPage'>('global')
@@ -250,15 +263,19 @@ const hasCompatiblePages = computed(() =>
   scopedPages.value.length === 0 || incompatibleScopedPages.value.length < scopedPages.value.length
 )
 const parameterEntries = computed(() => {
-  const yaml = selectedProcessor.value?.processor.yaml
-  if (!yaml) return [] as Array<{ key: string, definition: ActionParameterDefinition }>
-  try {
-    const parsed = parse(yaml) as { parameters?: Record<string, ActionParameterDefinition> } | null
-    return Object.entries(parsed?.parameters ?? {}).map(([key, definition]) => ({ key, definition }))
-  } catch {
-    return []
-  }
+  const parameters = selectedProcessor.value?.processor.parameters ?? {}
+  return Object.entries(parameters).map(([key, definition]) => ({ key, definition }))
 })
+const hasDynamicParameters = computed(() => parameterEntries.value.some(
+  entry => Boolean(entry.definition.allowedValues?.provider)
+))
+const parameterValuesReady = computed(() =>
+  !parameterDiscoveryLoading.value
+  && !parameterDiscoveryError.value
+  && parameterEntries.value.every(entry =>
+    hasAllowedActionParameterValue(entry.definition, parameterValues[entry.key], discoveredParameterValues.value)
+  )
+)
 
 const clearableHistoryRuns = computed(() => runs.value.filter(run => run.status === 'COMPLETED' || run.status === 'FAILED'))
 const paginatedRuns = computed(() => {
@@ -295,6 +312,7 @@ const canStart = computed(() =>
   Boolean(selectedProcessor.value?.executable)
   && !starting.value
   && hasCompatiblePages.value
+  && parameterValuesReady.value
   && (scope.value === 'all' || selectedPageIds.value.length > 0)
 )
 
@@ -314,6 +332,7 @@ watch(() => actionRunsStore.runsArray, (trackedRuns) => {
 
 watch(selectedProcessorId, () => {
   resetParameters()
+  void refreshParameterValues()
   reconcileImageVariantSelection()
 })
 
@@ -446,26 +465,85 @@ function resetParameters() {
     Reflect.deleteProperty(parameterValues, key)
   })
   parameterEntries.value.forEach(({ key, definition }) => {
-    parameterValues[key] = definition.defaultValue ?? definition.default ?? defaultParameterValue(definition)
+    parameterValues[key] = actionParameterDefaultValue(definition)
   })
-}
-
-function defaultParameterValue(definition: ActionParameterDefinition) {
-  if (definition.type === 'boolean') return false
-  if (definition.type === 'number' || definition.type === 'integer') return 0
-  return ''
+  discoveredParameterValues.value = {}
+  parameterDiscoveryError.value = null
+  Object.keys(parameterFieldErrors).forEach(key => Reflect.deleteProperty(parameterFieldErrors, key))
 }
 
 function parameterInputValue(key: string): string {
   return String(parameterValues[key] ?? '')
 }
 
-function updateParameterInputValue(key: string, value: string | number | null | undefined) {
-  parameterValues[key] = value ?? ''
+function updateParameterInputValue(
+  key: string,
+  definition: ActionParameterDefinition,
+  value: string | number | null | undefined
+) {
+  parameterValues[key] = coerceActionParameterInput(definition, value)
 }
 
 function updateBooleanParameterValue(key: string, value: boolean) {
   parameterValues[key] = value
+}
+
+function allowedChoices(definition: ActionParameterDefinition) {
+  return actionParameterChoices(definition, discoveredParameterValues.value)
+}
+
+function updateAllowedParameterValue(
+  key: string,
+  definition: ActionParameterDefinition,
+  value: unknown
+) {
+  if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') return
+  parameterValues[key] = value
+  if (hasAllowedActionParameterValue(definition, value, discoveredParameterValues.value)) {
+    Reflect.deleteProperty(parameterFieldErrors, key)
+  }
+}
+
+async function refreshParameterValues() {
+  const request = ++parameterDiscoveryRequest
+  parameterDiscoveryError.value = null
+  Object.keys(parameterFieldErrors).forEach(key => Reflect.deleteProperty(parameterFieldErrors, key))
+  if (!selectedProcessor.value || !hasDynamicParameters.value) {
+    discoveredParameterValues.value = {}
+    parameterDiscoveryLoading.value = false
+    return
+  }
+  parameterDiscoveryLoading.value = true
+  try {
+    const response = await $fetch<ActionParameterValuesResponse>(
+      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/processors/${selectedProcessor.value.processor.id}/parameter-values`
+    )
+    if (request !== parameterDiscoveryRequest) return
+    discoveredParameterValues.value = response.values
+    for (const entry of parameterEntries.value) {
+      if (!entry.definition.allowedValues) continue
+      const choices = allowedChoices(entry.definition)
+      if (choices.length === 0) {
+        parameterFieldErrors[entry.key] = 'No allowed values are currently available.'
+      } else if (!hasAllowedActionParameterValue(
+        entry.definition,
+        parameterValues[entry.key],
+        discoveredParameterValues.value
+      )) {
+        parameterValues[entry.key] = undefined
+        parameterFieldErrors[entry.key] = 'Select an allowed value.'
+      }
+    }
+  } catch (error: unknown) {
+    if (request !== parameterDiscoveryRequest) return
+    parameterDiscoveryError.value = extractApiErrorDetails(
+      error,
+      'Could not discover allowed parameter values.'
+    ).message
+    discoveredParameterValues.value = {}
+  } finally {
+    if (request === parameterDiscoveryRequest) parameterDiscoveryLoading.value = false
+  }
 }
 
 function concurrencyErrorDetails(error: unknown) {
@@ -946,9 +1024,31 @@ function close() {
 
           <template #parameters>
             <div class="space-y-3 p-1">
-              <p v-if="parameterEntries.length > 0" class="text-sm text-muted">
-                Adjust the parameter values for this run.
-              </p>
+              <div v-if="parameterEntries.length > 0" class="flex items-center justify-between gap-3">
+                <p class="text-sm text-muted">
+                  Adjust the parameter values for this run.
+                </p>
+                <UButton
+                  v-if="hasDynamicParameters"
+                  label="Refresh values"
+                  icon="i-lucide-refresh-cw"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  :loading="parameterDiscoveryLoading"
+                  :disabled="starting"
+                  @click="refreshParameterValues"
+                />
+              </div>
+
+              <UAlert
+                v-if="parameterDiscoveryError"
+                color="error"
+                variant="subtle"
+                icon="i-lucide-triangle-alert"
+                title="Allowed values unavailable"
+                :description="parameterDiscoveryError"
+              />
 
               <p v-if="parameterEntries.length === 0" class="text-sm text-muted">
                 This Action does not declare parameters.
@@ -960,9 +1060,23 @@ function close() {
                   :key="entry.key"
                   :label="entry.key"
                   :hint="entry.definition.description"
+                  :error="parameterFieldErrors[entry.key]"
                 >
+                  <USelectMenu
+                    v-if="entry.definition.allowedValues"
+                    :model-value="parameterValues[entry.key]"
+                    :items="allowedChoices(entry.definition)"
+                    value-key="value"
+                    searchable
+                    searchable-placeholder="Filter allowed values..."
+                    :loading="parameterDiscoveryLoading && Boolean(entry.definition.allowedValues.provider)"
+                    :disabled="starting || parameterDiscoveryLoading"
+                    placeholder="Select an allowed value"
+                    class="w-full"
+                    @update:model-value="updateAllowedParameterValue(entry.key, entry.definition, $event)"
+                  />
                   <USwitch
-                    v-if="entry.definition.type === 'boolean'"
+                    v-else-if="entry.definition.type === 'boolean'"
                     :model-value="Boolean(parameterValues[entry.key])"
                     :disabled="starting"
                     @update:model-value="updateBooleanParameterValue(entry.key, $event)"
@@ -974,7 +1088,7 @@ function close() {
                     :min="entry.definition.min"
                     :max="entry.definition.max"
                     :disabled="starting"
-                    @update:model-value="updateParameterInputValue(entry.key, $event)"
+                    @update:model-value="updateParameterInputValue(entry.key, entry.definition, $event)"
                   />
                 </UFormField>
               </div>

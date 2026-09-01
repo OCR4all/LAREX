@@ -77,6 +77,23 @@ export interface ActionParameterDefinition {
   max?: number
   description?: string
   required?: boolean
+  allowedValues?: ActionAllowedValues
+}
+
+export type ActionParameterValue = string | number | boolean
+
+export interface ActionParameterChoice {
+  value: ActionParameterValue
+  label: string
+}
+
+export interface ActionAllowedValues {
+  values?: ActionParameterChoice[]
+  provider?: string
+}
+
+export interface ActionParameterValuesResponse {
+  values: Record<string, ActionParameterChoice[]>
 }
 
 export interface ActionDefinition {
@@ -101,6 +118,7 @@ export interface ActionDefinition {
   global: boolean
   created: string
   updated: string
+  parameters: Record<string, ActionParameterDefinition>
 }
 
 export interface ActionAssignment {

@@ -313,7 +313,8 @@ function createNewDefinition() {
     enabled: true,
     global: false,
     created: new Date().toISOString(),
-    updated: new Date().toISOString()
+    updated: new Date().toISOString(),
+    parameters: {}
   }
   draftDefinition.value = draft
   selectedId.value = draft.id

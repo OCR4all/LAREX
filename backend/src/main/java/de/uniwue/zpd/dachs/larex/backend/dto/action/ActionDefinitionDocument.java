@@ -28,7 +28,12 @@ public record ActionDefinitionDocument(
                            Integer timeoutSeconds,
                            String healthUrl,
                            String preflightUrl,
-                           EndpointAuth auth) {}
+                           String parameterValuesUrl,
+                           EndpointAuth auth) {
+        public Endpoint(String url, Integer timeoutSeconds, String healthUrl, String preflightUrl, EndpointAuth auth) {
+            this(url, timeoutSeconds, healthUrl, preflightUrl, null, auth);
+        }
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record EndpointAuth(String type, String secretRef) {}
@@ -69,5 +74,21 @@ public record ActionDefinitionDocument(
                             Double min,
                             Double max,
                             String description,
-                            Boolean required) {}
+                            Boolean required,
+                            AllowedValues allowedValues) {
+        public Parameter(String type,
+                         Object defaultValue,
+                         Double min,
+                         Double max,
+                         String description,
+                         Boolean required) {
+            this(type, defaultValue, min, max, description, required, null);
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = false)
+    public record AllowedValues(List<ParameterChoice> values, String provider) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = false)
+    public record ParameterChoice(Object value, String label) {}
 }

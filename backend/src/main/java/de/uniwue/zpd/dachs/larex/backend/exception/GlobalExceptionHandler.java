@@ -180,6 +180,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
     }
 
+    @ExceptionHandler(ActionParameterValueDiscoveryException.class)
+    public ResponseEntity<ErrorResponseDto> handleActionParameterValueDiscoveryException(
+            ActionParameterValueDiscoveryException ex, HttpServletRequest request) {
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                HttpStatus.BAD_GATEWAY.value(),
+                "Action parameter discovery failed",
+                ex.getMessage(),
+                request.getRequestURI(),
+                "ACTION_PARAMETER_VALUE_DISCOVERY_FAILED"
+        );
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(errorResponse);
+    }
+
     /**
      * Handle malformed JSON / unreadable request bodies.
      * This includes cases like unknown properties when DTOs are configured strictly.

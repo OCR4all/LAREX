@@ -106,7 +106,8 @@ public class ActionDto {
             boolean enabled,
             boolean global,
             LocalDateTime created,
-            LocalDateTime updated
+            LocalDateTime updated,
+            Map<String, ActionDefinitionDocument.Parameter> parameters
     ) {}
 
     public record WorkspaceAvailabilityRequest(
@@ -173,6 +174,10 @@ public class ActionDto {
 
     public record StartRunResponse(
             RunResponse run
+    ) {}
+
+    public record ParameterValuesResponse(
+            Map<String, List<ActionDefinitionDocument.ParameterChoice>> values
     ) {}
 
     public record RunResponse(
