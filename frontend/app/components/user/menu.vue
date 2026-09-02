@@ -127,7 +127,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
           :seed="user?.id || user?.login || 'user'"
           :src="avatarSrc"
           :alt="displayName"
-          size="sm"
+          size="xs"
         />
       </template>
     </UButton>

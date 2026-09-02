@@ -149,7 +149,7 @@ watch(() => props.imagePopoverDismissKey, () => {
             variant="ghost"
             color="neutral"
             square
-            size="sm"
+            size="xs"
             aria-label="Open LAREX menu"
           >
             <UiLogo size="28" class="self-center" />
