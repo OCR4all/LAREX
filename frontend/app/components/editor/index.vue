@@ -1491,12 +1491,18 @@ function handleEditorDoubleClick(event: MouseEvent) {
 }
 
 function handleEditorMouseMove(event: MouseEvent) {
-  if (isCanvasInteractionBlocked.value) return
+  if (isCanvasInteractionBlocked.value) {
+    editorInteractions.cancelMarquee()
+    return
+  }
   editorInteractions.onMouseMove(event)
 }
 
 function handleEditorMouseUp(event: MouseEvent) {
-  if (isCanvasInteractionBlocked.value) return
+  if (isCanvasInteractionBlocked.value) {
+    editorInteractions.cancelMarquee()
+    return
+  }
   const publishClick = event.button === 0
     && isCanvasEditable.value
     && !mouseInteraction.hasMoved()
@@ -1507,7 +1513,10 @@ function handleEditorMouseUp(event: MouseEvent) {
 }
 
 function handleEditorMouseLeave() {
-  if (isCanvasInteractionBlocked.value) return
+  if (isCanvasInteractionBlocked.value) {
+    editorInteractions.cancelMarquee()
+    return
+  }
   editorInteractions.onMouseLeave()
 }
 
@@ -1555,6 +1564,7 @@ function handleEditorKeyUp(event: KeyboardEvent) {
 
 function handleEditorWindowBlur() {
   elementLabelsHeld.value = false
+  editorInteractions.cancelMarquee()
 }
 
 function publishEditorClick(event: MouseEvent) {
@@ -1605,6 +1615,7 @@ function attachInteractions() {
 
 function detachInteractions() {
   if (!interactionsAttached) return
+  editorInteractions.cancelMarquee()
   const el = canvas.value
 
   if (el) {
@@ -3866,7 +3877,7 @@ watch(() => props.src, (newSrc) => {
 
       <div
         v-if="editorInteractions?.isMarqueeSelecting?.value && editorInteractions?.marqueeRectPx?.value"
-        class="absolute border border-primary/50 bg-primary/10 pointer-events-none z-[900]"
+        class="editor-marquee absolute pointer-events-none z-[900]"
         :style="{
           left: editorInteractions?.marqueeRectPx?.value?.x + 'px',
           top: editorInteractions?.marqueeRectPx?.value?.y + 'px',
@@ -4032,6 +4043,14 @@ watch(() => props.src, (newSrc) => {
   background-size: 20px 20px;
   background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
   background-color: #c0c0c0;
+}
+
+.editor-marquee {
+  border: 2px solid #0284c7;
+  background: rgb(14 165 233 / 16%);
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 90%),
+    inset 0 0 0 1px rgb(255 255 255 / 45%);
 }
 
 /* Fade transition for loading indicator */

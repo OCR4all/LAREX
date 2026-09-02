@@ -38,6 +38,7 @@ type Mode = 'select' | 'polygon' | 'rectangle' | 'polyline' | 'cut'
 function eventStub(overrides: Partial<MouseEvent> = {}): MouseEvent {
   return {
     button: 0,
+    buttons: 1,
     clientX: 100,
     clientY: 100,
     shiftKey: false,
@@ -343,6 +344,46 @@ describe('useEditorInteractions', () => {
     }[mode]
     expect(activeDrawing.handleMouseDown).toHaveBeenCalledOnce()
     expect(activeDrawing.handleMouseMove).toHaveBeenCalledOnce()
+  })
+
+  it('cancels a marquee when a move reveals that the primary button was released', async () => {
+    const harness = await createHarness('select')
+
+    harness.interactions.onMouseDown(eventStub({ shiftKey: true, clientX: 10, clientY: 10 }))
+    harness.interactions.onMouseMove(eventStub({ shiftKey: true, clientX: 40, clientY: 40 }))
+
+    expect(harness.interactions.isMarqueeSelecting.value).toBe(true)
+    expect(harness.interactions.marqueeRectPx.value).not.toBeNull()
+
+    harness.interactions.onMouseMove(eventStub({ buttons: 0, clientX: 60, clientY: 60 }))
+
+    expect(harness.interactions.isMarqueeSelecting.value).toBe(false)
+    expect(harness.interactions.marqueeRectPx.value).toBeNull()
+    expect(harness.mouseInteraction.resetActionState).toHaveBeenCalledOnce()
+  })
+
+  it('allows an interrupted marquee to be cancelled explicitly', async () => {
+    const harness = await createHarness('select')
+
+    harness.interactions.onMouseDown(eventStub({ shiftKey: true, clientX: 10, clientY: 10 }))
+    harness.interactions.onMouseMove(eventStub({ shiftKey: true, clientX: 40, clientY: 40 }))
+
+    expect(harness.interactions.cancelMarquee()).toBe(true)
+    expect(harness.interactions.isMarqueeSelecting.value).toBe(false)
+    expect(harness.interactions.marqueeRectPx.value).toBeNull()
+    expect(harness.interactions.cancelMarquee()).toBe(false)
+  })
+
+  it('cancels rather than completing a marquee when the pointer leaves the window', async () => {
+    const harness = await createHarness('select')
+
+    harness.interactions.onMouseDown(eventStub({ shiftKey: true, clientX: 10, clientY: 10 }))
+    harness.interactions.onMouseMove(eventStub({ shiftKey: true, clientX: 40, clientY: 40 }))
+    harness.interactions.onMouseLeave()
+
+    expect(harness.interactions.isMarqueeSelecting.value).toBe(false)
+    expect(harness.interactions.marqueeRectPx.value).toBeNull()
+    expect(harness.stateActions.addPolygonSelection).not.toHaveBeenCalled()
   })
 
   it('does not run command undo from the canvas key handler when no drawing is active', async () => {

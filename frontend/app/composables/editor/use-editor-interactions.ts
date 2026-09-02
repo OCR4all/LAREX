@@ -458,6 +458,13 @@ export function useEditorInteractions(
   }
 
   function onMouseMove(e: MouseEvent): void {
+    const marqueePointerStateActive = isMarqueeSelecting.value || pendingShiftMarquee
+    const primaryButtonWasReleased = typeof e.buttons === 'number' && (e.buttons & 1) === 0
+    if (marqueePointerStateActive && primaryButtonWasReleased) {
+      cancelMarquee()
+      return
+    }
+
     const canvasElement = canvas.value
     if (canvasElement) {
       const rect = canvasElement.getBoundingClientRect()
@@ -868,6 +875,7 @@ export function useEditorInteractions(
   function onMouseLeave(): void {
     mouseInteraction.handleMouseLeave()
     clearElementHover()
+    if (cancelMarquee()) return
     onMouseUp(new MouseEvent('mouseup'))
   }
 
@@ -991,20 +999,23 @@ export function useEditorInteractions(
     pendingShiftStartClient = null
   }
 
+  function cancelMarquee(): boolean {
+    if (!isMarqueeSelecting.value && !pendingShiftMarquee) return false
+
+    resetMarqueeState()
+    mouseInteraction.endPanning()
+    mouseInteraction.resetActionState()
+    clearElementHover()
+    return true
+  }
+
   function cancelActiveOperation(): boolean {
     if (editorUiStore.relationsEditor.pickerMode !== 'idle') {
       editorUiStore.cancelRelationPicking()
       return true
     }
 
-    if (isMarqueeSelecting.value || pendingShiftMarquee) {
-      resetMarqueeState()
-      mouseInteraction.endPanning()
-      mouseInteraction.resetActionState()
-      stateActions?.setHoveredPolygonId(null)
-      stateActions?.setHoveredPolylineId(null)
-      return true
-    }
+    if (cancelMarquee()) return true
 
     if (moveInteraction?.isMoving()) {
       moveInteraction.cancelCurrentOperation?.()
@@ -1305,6 +1316,7 @@ export function useEditorInteractions(
     centerViewOnPolygonFitWidth,
     centerViewOnPolyline,
     cancelActiveOperation,
+    cancelMarquee,
 
     isMarqueeSelecting,
     marqueeRectPx
