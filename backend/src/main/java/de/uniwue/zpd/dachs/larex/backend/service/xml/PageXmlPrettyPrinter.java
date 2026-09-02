@@ -1,17 +1,14 @@
 package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
+import net.sf.saxon.s9api.Processor;
+import net.sf.saxon.s9api.Serializer;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
-import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -25,8 +22,6 @@ import java.nio.file.StandardCopyOption;
  * Produces the canonical, human-readable representation used when PAGE XML is persisted.
  */
 public final class PageXmlPrettyPrinter {
-
-    private static final String INDENT_AMOUNT = "{http://xml.apache.org/xslt}indent-amount";
 
     private PageXmlPrettyPrinter() {
     }
@@ -49,22 +44,15 @@ public final class PageXmlPrettyPrinter {
                     .parse(new InputSource(new StringReader(xml)));
             removeFormattingWhitespace(document);
 
-            // Use the JDK transformer so the widely supported Xalan indent amount is deterministic
-            // even when Saxon is present on the application classpath.
-            TransformerFactory transformerFactory = TransformerFactory.newDefaultInstance();
-            transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-            transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
-
-            Transformer transformer = transformerFactory.newTransformer();
-            transformer.setOutputProperty(OutputKeys.METHOD, "xml");
-            transformer.setOutputProperty(OutputKeys.ENCODING, StandardCharsets.UTF_8.name());
-            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-            transformer.setOutputProperty(INDENT_AMOUNT, "2");
-
             StringWriter output = new StringWriter();
-            transformer.transform(new DOMSource(document), new StreamResult(output));
-            return output.toString().stripTrailing() + System.lineSeparator();
+            Processor processor = new Processor(false);
+            Serializer serializer = processor.newSerializer(output);
+            serializer.setOutputProperty(Serializer.Property.METHOD, "xml");
+            serializer.setOutputProperty(Serializer.Property.ENCODING, StandardCharsets.UTF_8.name());
+            serializer.setOutputProperty(Serializer.Property.INDENT, "yes");
+            serializer.setOutputProperty(Serializer.Property.STANDALONE, "omit");
+            serializer.serialize(new DOMSource(document));
+            return output.toString().stripTrailing() + "\n";
         } catch (Exception e) {
             throw new IOException("Could not pretty print PAGE XML", e);
         }
@@ -105,4 +93,5 @@ public final class PageXmlPrettyPrinter {
             }
         }
     }
+
 }
