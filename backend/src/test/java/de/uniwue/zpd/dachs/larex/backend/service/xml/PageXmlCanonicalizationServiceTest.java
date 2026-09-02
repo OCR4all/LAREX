@@ -17,6 +17,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -83,7 +84,7 @@ class PageXmlCanonicalizationServiceTest {
         assertFalse(outcome.converted());
         assertFalse(outcome.snapshotCreated());
         assertEquals("2019-07-15", pageXml.getSchemaVersion());
-        assertEquals(true, Files.readString(xmlPath).contains("\n  <Metadata>\n    <Creator>tester</Creator>"));
+        assertTrue(Files.readString(xmlPath).contains("\n   <Metadata>\n      <Creator>tester</Creator>"));
         verify(pageXmlVersionService, never()).createVersion(any(), any(), any());
         verify(pageXmlRepository).save(pageXml);
     }

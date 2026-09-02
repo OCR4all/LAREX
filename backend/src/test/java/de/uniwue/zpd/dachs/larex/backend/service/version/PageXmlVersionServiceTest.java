@@ -100,7 +100,7 @@ class PageXmlVersionServiceTest {
 
         service.restoreVersion("version-1", "xml-1", "user-1");
 
-        assertTrue(Files.readString(currentPath).contains("\n  <Metadata>\n    <Creator>tester</Creator>"));
+        assertTrue(Files.readString(currentPath).contains("\n   <Metadata>\n      <Creator>tester</Creator>"));
     }
 
     private PageXmlVersionService service() {

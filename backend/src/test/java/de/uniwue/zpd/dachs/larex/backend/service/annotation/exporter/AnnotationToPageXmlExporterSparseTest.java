@@ -27,7 +27,7 @@ class AnnotationToPageXmlExporterSparseTest {
 
         String xml = exporter.export(dto, null);
 
-        assertTrue(xml.contains("\n  <Metadata>"));
+        assertTrue(xml.contains("\n   <Metadata>"));
         assertTrue(xml.contains("<TextRegion"));
         assertTrue(xml.contains("type=\"paragraph\""));
         assertFalse(xml.contains("<TextStyle"));

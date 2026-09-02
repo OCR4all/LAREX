@@ -19,7 +19,7 @@ repositories {
 }
 
 dependencies {
-	implementation("com.maxnth:page4j-dla:1.2.0")
+	implementation("com.maxnth:page4j-dla:2.0.0")
 	implementation("com.github.ben-manes.caffeine:caffeine:3.2.3")
 
 	implementation("org.springframework.boot:spring-boot-starter-cache")
