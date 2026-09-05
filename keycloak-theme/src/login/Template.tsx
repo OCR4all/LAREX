@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Icon } from "@iconify/react";
 import { FieldDescription } from "@/components/ui/field";
-import AnimatedGradient from "@/components/fancy/background/animated-gradient-with-svg";
+import Dither from "@/components/fancy/background/dither";
 
 import Logo from "./assets/logo.svg";
 import themePackage from "../../package.json";
@@ -46,27 +46,6 @@ export default function Template(props: TemplateProps<KcContext, I18n>) {
   // Apply dark mode from URL parameters and get state
   const isDark = useDarkMode();
 
-  // Gradient colors based on theme
-  const gradientColors = isDark
-    ? [
-        "#1678e4", // navy-600
-        "#1062bc", // navy-700
-        "#0a4f9a", // navy-800
-        "#073d78", // navy-900
-        "#282828", // smoke-800
-        "#181818", // smoke-900
-      ]
-    : [
-        "#1678e4", // navy-600
-        "#1062bc", // navy-700
-        "#73a2fd", // navy-400
-        "#9ab8fd", // navy-300
-        "#f2f2f2", // smoke-50
-        "#ebebeb", // smoke-100
-      ];
-
-  const baseBackgroundClass = isDark ? "bg-navy-800" : "bg-navy-600";
-
   useEffect(() => {
     document.title = documentTitle ?? msgStr("loginTitle", realm.displayName);
   }, []);
@@ -89,23 +68,37 @@ export default function Template(props: TemplateProps<KcContext, I18n>) {
 
   return (
     <div className="bg-background flex min-h-svh w-full">
-      {/* Left side - Login Form */}
-      <div className="flex w-full flex-col md:w-1/2">
-        {/* Header with Logo and links */}
-        <header className="flex items-center justify-between p-6 lg:p-10">
-          <a href="#" className="flex items-center gap-1 font-medium">
-            <img src={Logo} alt="LAREX Logo" className="size-8" />
+      {/* Decorative panel */}
+      <aside className="relative hidden min-h-svh w-1/2 overflow-hidden bg-navy-50 md:flex md:flex-col">
+        <div className="absolute inset-0">
+          <Dither
+            waveColor={isDark ? [0.08, 0.3, 0.7] : [0.35, 0.55, 1]}
+            backgroundColor={isDark ? [0.04, 0.06, 0.1] : [0.95, 0.97, 1]}
+            waveSpeed={0.035}
+            waveFrequency={2.6}
+            waveAmplitude={0.34}
+            pixelSize={3}
+            colorNum={5}
+          />
+        </div>
+        <div className="relative z-10 flex min-h-svh flex-col p-6 lg:p-10">
+          <a href="#" className="flex w-fit items-center gap-3 text-lg font-semibold tracking-tight">
+            <img src={Logo} alt="LAREX logo" className="size-9" />
+            <span>LAREX</span>
           </a>
-          <div className="flex items-center gap-4 text-muted-foreground">
-            <a href="#" className="flex items-center gap-1.5 hover:text-foreground transition-colors" aria-label="GitHub">
-              <Icon icon="lucide:github" className="size-4" />
-            </a>
-            <a href="#" className="flex items-center gap-1.5 hover:text-foreground transition-colors" aria-label="Documentation">
-              <Icon icon="lucide:book-open" className="size-4" />
-            </a>
+          <div className="mt-auto max-w-md pb-2">
+            <p className="text-2xl font-medium leading-tight tracking-tight lg:text-3xl">
+              Your documents. Your annotations. Your infrastructure.
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground lg:text-base">
+              Open-source layout analysis and OCR, fully self-hosted.
+            </p>
           </div>
-        </header>
+        </div>
+      </aside>
 
+      {/* Login form */}
+      <div className="flex w-full flex-col md:w-1/2">
         {/* Main content - centered */}
         <div className="flex flex-1 items-center justify-center px-6 lg:px-10">
           <div className="w-full max-w-sm">
@@ -233,17 +226,6 @@ export default function Template(props: TemplateProps<KcContext, I18n>) {
         </footer>
       </div>
 
-      <div className="hidden w-1/2 md:block relative overflow-hidden">
-        <div className={`absolute inset-0 ${baseBackgroundClass}`} />
-
-        <AnimatedGradient
-          colors={gradientColors}
-          speed={45}
-          blur="heavy"
-        />
-
-        <div className="absolute inset-0 halftone-overlay pointer-events-none" />
-      </div>
     </div>
   );
 }
