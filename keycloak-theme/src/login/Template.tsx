@@ -90,7 +90,7 @@ export default function Template(props: TemplateProps<KcContext, I18n>) {
             <p className="text-2xl font-medium leading-tight tracking-tight lg:text-3xl">
               Your documents. Your annotations. Your infrastructure.
             </p>
-            <p className="mt-4 text-sm leading-relaxed text-muted-foreground lg:text-base">
+            <p className="mt-4 text-sm leading-relaxed text-foreground lg:text-base">
               Open-source layout analysis and OCR, fully self-hosted.
             </p>
           </div>
