@@ -3127,34 +3127,34 @@ watch(() => props.src, (newSrc) => {
       <Transition name="fade">
         <div
           v-if="pageLockActionName"
-          class="pointer-events-auto flex max-w-full items-center gap-1 rounded-full border border-default bg-elevated/95 p-1 pr-4 text-sm text-highlighted shadow-lg backdrop-blur"
+          class="pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pr-3 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
         >
-          <div class="flex shrink-0 items-center gap-2 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
-            <Icon name="i-lucide-loader-2" class="h-4 w-4 animate-spin" />
+          <div class="flex shrink-0 items-center gap-1.5 rounded-full border border-default bg-default px-1.5 py-0.5">
+            <Icon name="i-lucide-loader-2" class="h-3.5 w-3.5 animate-spin" />
             <span class="font-medium">Action running</span>
           </div>
-          <span class="truncate px-3 font-medium text-toned">{{ pageLockActionName }}</span>
+          <span class="truncate px-2 font-medium text-toned">{{ pageLockActionName }}</span>
         </div>
       </Transition>
 
       <div
         v-if="!isActionResultTransitionVisible && !pageLockReason && !isCanvasEditable && hasCanvasLeaseExpiredLocally && canReclaimCanvasEdit"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pl-2 pr-2 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
       >
-        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
-          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-            <Icon name="i-lucide-rotate-ccw" class="h-3.5 w-3.5" />
+        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
+          <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-rotate-ccw" class="h-3 w-3" />
           </div>
           <span class="font-medium">Edit lock expired</span>
         </div>
-        <span class="min-w-0 truncate text-[13px] text-toned">This page is free again.</span>
+        <span class="min-w-0 truncate text-xs text-toned">This page is free again.</span>
 
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="flex shrink-0 items-center gap-1.5">
           <UButton
             size="xs"
-            color="primary"
-            variant="soft"
-            class="h-7 px-2.5 text-[11px]"
+            color="neutral"
+            variant="outline"
+            class="h-6 px-2 text-[11px]"
             label="Reclaim Edit"
             @click="handleReclaimEdit"
           />
@@ -3163,41 +3163,41 @@ watch(() => props.src, (newSrc) => {
 
       <div
         v-else-if="pageLockReason && !pageLockActionName"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pl-2 pr-2 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
       >
-        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
-          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-            <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
+        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
+          <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-lock" class="h-3 w-3" />
           </div>
           <p class="truncate text-[13px] text-highlighted">
             Read-only view
           </p>
         </div>
-        <span class="truncate pr-3 text-[13px] text-toned">{{ pageLockDescription }}</span>
+        <span class="truncate pr-2 text-xs text-toned">{{ pageLockDescription }}</span>
       </div>
 
       <div
         v-else-if="!isActionResultTransitionVisible && !pageLockReason && !isCanvasEditable && canvasEditor"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pl-2 pr-2 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
       >
-        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
-          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-            <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
+        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
+          <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-lock" class="h-3 w-3" />
           </div>
           <span class="font-medium">Read-only view</span>
         </div>
-        <span class="min-w-0 truncate text-[13px] text-toned">
+        <span class="min-w-0 truncate text-xs text-toned">
           {{ canvasEditor.user.displayName }} currently holds the edit lock.
         </span>
 
-        <div class="flex shrink-0 items-center gap-2">
-          <div class="flex items-center rounded-full border border-default bg-default p-0.5">
+        <div class="flex shrink-0 items-center gap-1.5">
+          <div class="flex items-center rounded-lg border border-default/70 bg-default/60 p-0.5">
             <UButton
               size="xs"
               color="neutral"
               :variant="viewerNavigationMode === 'explore' ? 'soft' : 'ghost'"
               :class="[
-                'h-6 px-2 text-[11px]',
+                'h-6 px-1.5 text-[11px]',
                 viewerNavigationMode !== 'explore'
                   && 'text-toned hover:bg-muted active:bg-muted'
               ]"
@@ -3210,7 +3210,7 @@ watch(() => props.src, (newSrc) => {
               color="neutral"
               :variant="viewerNavigationMode === 'follow' ? 'soft' : 'ghost'"
               :class="[
-                'h-6 px-2 text-[11px]',
+                'h-6 px-1.5 text-[11px]',
                 viewerNavigationMode !== 'follow'
                   && 'text-toned hover:bg-muted active:bg-muted'
               ]"
@@ -3223,9 +3223,9 @@ watch(() => props.src, (newSrc) => {
           <UButton
             v-if="canRequestTakeover"
             size="xs"
-            color="info"
-            variant="solid"
-            class="h-7 px-2.5 text-[11px]"
+            color="neutral"
+            variant="soft"
+            class="h-6 px-2 text-[11px]"
             icon="i-lucide-pencil-line"
             label="Request Edit"
             :loading="isTakeoverActionPending"
@@ -3235,10 +3235,10 @@ watch(() => props.src, (newSrc) => {
           <UButton
             v-if="canForceTakeover"
             size="xs"
-            color="error"
+            color="neutral"
             icon="i-lucide-octagon-alert"
-            variant="soft"
-            class="h-7 px-2.5 text-[11px]"
+            variant="outline"
+            class="h-6 px-2 text-[11px]"
             label="Force Takeover"
             :loading="isTakeoverActionPending"
             :disabled="isTakeoverActionPending"
@@ -3249,50 +3249,50 @@ watch(() => props.src, (newSrc) => {
 
       <div
         v-else-if="!isActionResultTransitionVisible && !pageLockReason && !isCanvasEditable"
-        class="pointer-events-auto flex max-w-full items-center gap-2.5 rounded-full border border-default bg-elevated/95 px-3 py-2 text-sm text-highlighted shadow-lg backdrop-blur"
+        class="pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 px-2 py-1 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
       >
-        <div class="flex shrink-0 items-center gap-2 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
-          <Icon name="i-lucide-lock" class="h-4 w-4 text-amber-400" />
+        <div class="flex shrink-0 items-center gap-1.5 rounded-full border border-default bg-default px-1.5 py-0.5">
+          <Icon name="i-lucide-lock" class="h-3.5 w-3.5 text-amber-400" />
           <span class="font-medium">Read-only view</span>
         </div>
-        <span class="min-w-0 truncate text-[13px] text-toned">Editing is disabled for this page.</span>
+        <span class="min-w-0 truncate text-xs text-toned">Editing is disabled for this page.</span>
       </div>
 
       <div
         v-if="isCanvasEditable && isCanvasLeaseExpiringSoon"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 px-3 py-2 text-sm text-highlighted shadow-lg backdrop-blur"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 px-2 py-1 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
       >
-        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
-          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-            <Icon name="i-lucide-clock-3" class="h-3.5 w-3.5" />
+        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
+          <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-clock-3" class="h-3 w-3" />
           </div>
           <span class="font-medium">Edit lock expiring</span>
         </div>
-        <span class="min-w-0 truncate pr-3 text-[13px] text-toned">
+        <span class="min-w-0 truncate pr-2 text-xs text-toned">
           {{ canvasLeaseSecondsUntilExpiry ?? 0 }}s remaining unless the heartbeat resumes.
         </span>
       </div>
 
       <div
         v-if="isCanvasEditable && pendingTakeover"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pl-2 pr-2 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
       >
-        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
-          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-            <Icon name="i-lucide-arrow-right-left" class="h-3.5 w-3.5" />
+        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
+          <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-arrow-right-left" class="h-3 w-3" />
           </div>
           <span class="font-medium">Edit requested</span>
         </div>
-        <span class="min-w-0 truncate text-[13px] text-toned">
+        <span class="min-w-0 truncate text-xs text-toned">
           {{ pendingTakeover.requester.displayName }} requested access.
         </span>
 
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="flex shrink-0 items-center gap-1.5">
           <UButton
             size="xs"
             color="neutral"
-            variant="soft"
-            class="h-7 px-2.5 text-[11px]"
+            variant="outline"
+            class="h-6 px-2 text-[11px]"
             label="Decline"
             :disabled="isTakeoverActionPending"
             @click="handleRespondToTakeover('decline')"
@@ -3300,17 +3300,17 @@ watch(() => props.src, (newSrc) => {
           <UButton
             size="xs"
             color="neutral"
-            variant="soft"
-            class="h-7 px-2.5 text-[11px]"
+            variant="outline"
+            class="h-6 px-2 text-[11px]"
             label="Discard + Transfer"
             :disabled="isTakeoverActionPending"
             @click="handleRespondToTakeover('accept', 'discard')"
           />
           <UButton
             size="xs"
-            color="primary"
-            variant="soft"
-            class="h-7 px-2.5 text-[11px]"
+            color="neutral"
+            variant="outline"
+            class="h-6 px-2 text-[11px]"
             label="Save + Transfer"
             :loading="isTakeoverActionPending"
             :disabled="isTakeoverActionPending"
@@ -3321,24 +3321,24 @@ watch(() => props.src, (newSrc) => {
 
       <div
         v-if="isCollaborationResyncRequired"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pl-2 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
       >
-        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
-          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-            <Icon name="i-lucide-alert-triangle" class="h-3.5 w-3.5" />
+        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
+          <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-alert-triangle" class="h-3 w-3" />
           </div>
           <span class="font-medium">Out of sync</span>
         </div>
-        <span class="min-w-0 truncate text-[13px] text-toned">
+        <span class="min-w-0 truncate text-xs text-toned">
           Another save or restore changed the persisted XML revision.
         </span>
 
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="flex shrink-0 items-center gap-1.5">
           <UButton
             size="xs"
             color="neutral"
-            variant="soft"
-            class="h-7 px-2.5 text-[11px]"
+            variant="outline"
+            class="h-6 px-2 text-[11px]"
             @click="handleResyncRoom"
           >
             Resync
@@ -3348,15 +3348,15 @@ watch(() => props.src, (newSrc) => {
 
       <div
         v-if="regionLabelConflictCount > 0"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-error/30 bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-error/30 bg-neutral-100/95 p-0.5 pl-2 text-sm text-highlighted shadow-md backdrop-blur dark:bg-neutral-800/95"
       >
-        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
-          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-error/15 text-error">
-            <Icon name="i-lucide-tags" class="h-3.5 w-3.5" />
+        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
+          <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-error/15 text-error">
+            <Icon name="i-lucide-tags" class="h-3 w-3" />
           </div>
           <span class="font-medium">Label conflicts</span>
         </div>
-        <span class="min-w-0 truncate text-[13px] text-toned">
+        <span class="min-w-0 truncate text-xs text-toned">
           {{ regionLabelConflictCount }} region{{ regionLabelConflictCount === 1 ? '' : 's' }} use
           {{ regionLabelConflictGroups.length }} mapping{{ regionLabelConflictGroups.length === 1 ? '' : 's' }}
           outside {{ canvasLabelSet?.name }}.
@@ -3367,7 +3367,7 @@ watch(() => props.src, (newSrc) => {
           color="error"
           variant="soft"
           icon="i-lucide-wand-sparkles"
-          class="h-7 shrink-0 px-2.5 text-[11px]"
+          class="h-6 shrink-0 px-2 text-[11px]"
           label="Resolve labels"
           @click="openLabelConflictResolver"
         />

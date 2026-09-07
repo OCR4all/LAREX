@@ -291,7 +291,7 @@ async function handleCopyPageId() {
       @keydown.enter.prevent="handleSelectPage"
       @keydown.space.prevent="handleSelectPage"
     >
-      <div class="relative m-2 mb-0 aspect-3/4 overflow-hidden rounded-lg border border-black/10 bg-neutral-100 shadow-inner dark:border-white/10 dark:bg-neutral-900">
+      <div class="relative m-1 mb-0 aspect-3/4 overflow-hidden rounded-lg border border-black/10 bg-neutral-100 shadow-inner dark:border-white/10 dark:bg-neutral-900">
         <USkeleton
           v-if="hasPreviewImage && !previewImageLoaded"
           class="absolute inset-0 h-full w-full rounded-none"
