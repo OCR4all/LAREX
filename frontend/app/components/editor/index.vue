@@ -3364,7 +3364,7 @@ watch(() => props.src, (newSrc) => {
           aria-live="polite"
         >
           <div class="flex shrink-0 items-center gap-2 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
-            <Icon name="i-lucide-box" class="h-4 w-4" />
+            <Icon name="i-lucide-loader-2" class="h-4 w-4 animate-spin" />
             <span class="font-medium">Action running</span>
           </div>
           <span class="truncate px-3 font-medium text-toned">{{ pageLockActionName }}</span>
