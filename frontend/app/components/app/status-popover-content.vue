@@ -430,9 +430,6 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
                 <p v-else class="truncate text-sm font-medium">
                   {{ job.title }}
                 </p>
-                <p class="truncate text-xs text-muted">
-                  {{ job.subtitle }}
-                </p>
               </div>
             </div>
             <UBadge :color="job.color" size="xs" variant="soft">
