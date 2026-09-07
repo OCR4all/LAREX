@@ -170,6 +170,7 @@ export interface CanvasState {
   isLoadingAnnotations?: boolean
   /** Result event currently replacing this canvas after an Action */
   actionResultTransitionSequence?: number | null
+  actionResultTransitionRunId?: string | null
   /** The XML file ID that was loaded for this canvas (for saving back) */
   xmlFileId?: string
   /** Context for annotation API endpoints for this canvas */

@@ -119,12 +119,16 @@ type CanvasImageLoadStatus = 'idle' | 'loading' | 'ready' | 'error'
 const imageLoadStatus = ref<CanvasImageLoadStatus>('idle')
 const imageLoadRequestId = ref(0)
 const actionResultRevealOpacity = ref(0)
+const actionResultRevealTarget = ref<ActionProcessingRenderTarget | null>(null)
 
 const isLoadingImage = computed(() => imageLoadStatus.value === 'loading' || imageLoadStatus.value === 'idle')
 const hasImageLoadError = computed(() => imageLoadStatus.value === 'error')
 const canShowCanvasContent = computed(() => imageLoadStatus.value === 'ready' && !isLoadingAnnotations.value)
 const isApplyingActionResult = computed(() => (
   editorStore.canvases?.[props.canvasId]?.actionResultTransitionSequence != null
+))
+const actionResultTransitionRunId = computed(() => (
+  editorStore.canvases?.[props.canvasId]?.actionResultTransitionRunId ?? null
 ))
 const isActionResultTransitionVisible = computed(() => (
   isApplyingActionResult.value || actionResultRevealOpacity.value > 0
@@ -877,8 +881,11 @@ const activeActionProcessingTargets = computed<ActionProcessingRenderTarget | nu
   const polygonIds = new Set<string>()
 
   for (const run of actionRunsStore.runsArray) {
-    if (run.projectId !== currentProjectId || !ACTION_ACTIVE_STATUSES.has(run.status)) continue
-    if (!actionRunsStore.isActionRunPageActive(run.id, currentPageId)) continue
+    if (run.projectId !== currentProjectId) continue
+    const isTransitionRun = run.id === actionResultTransitionRunId.value
+    if (!isTransitionRun && !ACTION_ACTIVE_STATUSES.has(run.status)) continue
+    if (!isTransitionRun && !actionRunsStore.isActionRunPageActive(run.id, currentPageId)) continue
+    if (isTransitionRun && !run.pageIds.includes(currentPageId)) continue
 
     const targetPage = run.targetSelection?.pages?.find(candidate => candidate.pageId === currentPageId)
     if (!run.targetSelection || run.targetSelection.type === 'PAGE' || !targetPage) {
@@ -899,7 +906,10 @@ const activeActionProcessingTargets = computed<ActionProcessingRenderTarget | nu
 })
 const actionProcessingTargets = computed<ActionProcessingRenderTarget | null>(() => {
   if (isActionResultTransitionVisible.value) {
-    return { page: true, polygonIds: [], opacity: actionResultRevealOpacity.value || 1 }
+    const target = isApplyingActionResult.value
+      ? activeActionProcessingTargets.value ?? actionResultRevealTarget.value
+      : actionResultRevealTarget.value
+    return { ...(target ?? { page: true, polygonIds: [] }), opacity: actionResultRevealOpacity.value || 1 }
   }
   return activeActionProcessingTargets.value
 })
@@ -954,6 +964,7 @@ function startActionProcessingAnimation() {
     if (!actionProcessingTargets.value) {
       actionProcessingAnimationFrame = null
       actionResultRevealStartedAt = null
+      actionResultRevealTarget.value = null
       nextTick(() => editorRenderer.render())
       return
     }
@@ -969,6 +980,7 @@ watch(isApplyingActionResult, (applying) => {
   if (!applying) return
   actionResultRevealStartedAt = null
   actionResultRevealOpacity.value = 1
+  actionResultRevealTarget.value = activeActionProcessingTargets.value ?? { page: true, polygonIds: [] }
   startActionProcessingAnimation()
 })
 

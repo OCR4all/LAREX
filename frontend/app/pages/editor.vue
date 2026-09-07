@@ -1049,6 +1049,7 @@ async function reloadPageTouchedByActionResult(event: ActionPageResultEvent) {
   }
 
   canvas.actionResultTransitionSequence = event.sequence
+  canvas.actionResultTransitionRunId = event.runId
   try {
     const previousPage = editorStore.getPage(event.pageId, event.projectId)
     const previousVariant = previousPage?.imageVariants?.find(variant => variant.id === canvas.imageVariantId)
@@ -1082,6 +1083,7 @@ async function reloadPageTouchedByActionResult(event: ActionPageResultEvent) {
   } finally {
     if (canvas.actionResultTransitionSequence === event.sequence) {
       canvas.actionResultTransitionSequence = null
+      canvas.actionResultTransitionRunId = null
     }
   }
 }
