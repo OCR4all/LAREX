@@ -64,6 +64,10 @@ const newDatasetName = ref(props.projectName ? `${props.projectName} Dataset` : 
 const newDatasetDescription = ref(props.projectName ? `Selected pages from project ${props.projectName}` : '')
 const newDatasetTags = ref<string[]>(props.projectTags ?? [])
 const globalImageVariants = ref<string[]>([])
+const manualVariantOverride = ref(false)
+const pageDetailsLoaded = ref(false)
+const pageDetailsLoading = ref(false)
+const pageDetailsError = ref<string>()
 
 const datasetTargetOptions = computed<DatasetTargetOption[]>(() => [
   ...availableDatasets.value.map(dataset => ({
@@ -109,7 +113,8 @@ const submittableEntries = computed(() =>
 const canSubmit = computed(() =>
   !loading.value
   && !submitting.value
-  && submittableEntries.value.length > 0
+  && !pageDetailsLoading.value
+  && (pageDetailsLoaded.value ? submittableEntries.value.length > 0 : props.pages.length > 0)
   && (addToDatasetTargetId.value !== NEW_DATASET_TARGET || !!newDatasetName.value.trim())
 )
 
@@ -272,6 +277,40 @@ async function createDatasetForSelectionFlow(): Promise<string> {
   return created.id
 }
 
+async function loadPageDetails(): Promise<boolean> {
+  if (pageDetailsLoaded.value) return true
+  if (!selectedWorkspace.value) return false
+
+  pageDetailsError.value = undefined
+  pageDetailsLoading.value = true
+  try {
+    datasetSelectionEntries.value = await Promise.all(props.pages.map(page => loadDatasetSelectionEntry(page)))
+    pageDetailsLoaded.value = true
+    if (globalImageVariants.value.length === 0) {
+      globalImageVariants.value = globalImageVariantOptions.value.map(option => option.value)
+    }
+    for (const entry of datasetSelectionEntries.value) {
+      applyGlobalImageSelection(entry)
+    }
+    return true
+  } catch (error: unknown) {
+    pageDetailsError.value = extractApiErrorMessage(error, 'Could not load XML and image variants for the selected pages.')
+    toast.add({
+      title: 'Failed to load page details',
+      description: pageDetailsError.value,
+      color: 'error'
+    })
+    return false
+  } finally {
+    pageDetailsLoading.value = false
+  }
+}
+
+async function enableManualVariantOverride() {
+  manualVariantOverride.value = true
+  await loadPageDetails()
+}
+
 async function load() {
   if (!selectedWorkspace.value) {
     loading.value = false
@@ -281,25 +320,16 @@ async function load() {
   loading.value = true
 
   try {
-    const [datasets, entries] = await Promise.all([
-      $fetch<Array<Pick<DatasetSummary, 'id' | 'name' | 'tags'>>>(`/api/workspaces/${selectedWorkspace.value}/datasets`),
-      Promise.all(props.pages.map(page => loadDatasetSelectionEntry(page)))
-    ])
+    const datasets = await $fetch<Array<Pick<DatasetSummary, 'id' | 'name' | 'tags'>>>(`/api/workspaces/${selectedWorkspace.value}/datasets`)
 
     availableDatasets.value = datasets
       .map(dataset => ({ id: dataset.id, name: dataset.name, tags: dataset.tags ?? [] }))
       .sort((left, right) => left.name.localeCompare(right.name))
     addToDatasetTargetId.value = availableDatasets.value[0]?.id ?? NEW_DATASET_TARGET
-    datasetSelectionEntries.value = entries
-    globalImageVariants.value = globalImageVariantOptions.value.map(option => option.value)
-
-    for (const entry of datasetSelectionEntries.value) {
-      applyGlobalImageSelection(entry)
-    }
   } catch (error: unknown) {
     toast.add({
       title: 'Failed to load dataset options',
-      description: extractApiErrorMessage(error, 'Could not load datasets or page variants for the selected pages.'),
+      description: extractApiErrorMessage(error, 'Could not load the available datasets.'),
       color: 'error'
     })
   } finally {
@@ -313,6 +343,8 @@ async function submit() {
   submitting.value = true
 
   try {
+    if (!await loadPageDetails()) return
+
     let targetDatasetId = addToDatasetTargetId.value
     if (targetDatasetId === NEW_DATASET_TARGET) {
       targetDatasetId = await createDatasetForSelectionFlow()
@@ -421,94 +453,144 @@ onMounted(load)
             </UFormField>
           </div>
 
-          <UFormField
-            label="Global image variants"
-            :help="globalImageVariants.length > 0
-              ? 'Rows inherit these variants by default. Disable inheritance on a row to override it.'
-              : 'No global variants selected. Inherited rows will be skipped until you choose at least one.'"
-          >
-            <USelectMenu
-              v-model="globalImageVariants"
-              :items="globalImageVariantOptions"
-              value-key="value"
-              multiple
-              searchable
-              clear-search-on-close
-            />
-          </UFormField>
-
-          <UAlert
-            v-if="blockedEntries.length > 0"
-            color="warning"
-            variant="subtle"
-            title="Some pages cannot be added"
-            :description="`${blockedEntries.length} selected ${blockedEntries.length === 1 ? 'page is' : 'pages are'} missing XML variants or could not be loaded.`"
-          />
-
-          <UAlert
-            v-if="skippedEntries.length > 0"
-            color="neutral"
-            variant="subtle"
-            title="Some pages will be skipped"
-            :description="`${skippedEntries.length} selected ${skippedEntries.length === 1 ? 'page has' : 'pages have'} no currently selected image variant.`"
-          />
-
-          <div class="space-y-3 overflow-y-auto pr-1">
-            <div
-              v-for="entry in datasetSelectionEntries"
-              :key="entry.pageId"
-              class="space-y-4 rounded-lg border border-default p-4"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="truncate font-medium">
-                    {{ entry.pageName }}
-                  </p>
-                  <p class="text-xs text-muted">
-                    {{ entry.pageId }}
-                  </p>
-                </div>
-
-                <UBadge :color="entryStatus(entry).color" variant="soft">
-                  {{ entryStatus(entry).label }}
-                </UBadge>
-              </div>
-
-              <div class="grid gap-4 lg:grid-cols-2">
-                <UFormField label="XML annotation source" required>
-                  <USelect
-                    v-model="entry.selectedXmlId"
-                    :items="entry.xmlOptions.map(option => ({ label: formatDatasetXmlLabel(option), value: option.id }))"
-                    value-key="value"
-                    :disabled="!!entry.error"
-                  />
-                </UFormField>
-
-                <div class="space-y-3">
-                  <UCheckbox
-                    :model-value="entry.useGlobalImageSelection"
-                    label="Use global image variants"
-                    @update:model-value="setEntryUseGlobal(entry, $event)"
-                  />
-
-                  <UFormField
-                    label="Image variants"
-                    :help="entryHint(entry)"
-                  >
-                    <USelectMenu
-                      v-model="entry.selectedImageIds"
-                      :items="entry.imageOptions.map(option => ({ label: formatDatasetImageLabel(option), value: option.id }))"
-                      value-key="value"
-                      multiple
-                      searchable
-                      clear-search-on-close
-                      :disabled="!!entry.error || entry.useGlobalImageSelection"
-                    />
-                  </UFormField>
-                </div>
-              </div>
+          <div v-if="!manualVariantOverride" class="flex items-center justify-between gap-4 rounded-lg border border-default p-4">
+            <div class="min-w-0">
+              <p class="font-medium">
+                Image variants
+              </p>
+              <p class="text-sm text-muted">
+                All available image variants are added by default. Customize this when you need a specific global variant or per-page override.
+              </p>
             </div>
+            <UButton
+              type="button"
+              color="neutral"
+              variant="outline"
+              :loading="pageDetailsLoading"
+              @click="enableManualVariantOverride"
+            >
+              Customize variants
+            </UButton>
           </div>
+
+          <template v-else>
+            <UAlert
+              v-if="pageDetailsLoading"
+              color="neutral"
+              variant="subtle"
+              title="Loading page details"
+              description="Fetching XML and image variants for the selected pages."
+            />
+            <UAlert
+              v-else-if="pageDetailsError"
+              color="error"
+              variant="subtle"
+              title="Could not load page details"
+              :description="pageDetailsError"
+            >
+              <template #actions>
+                <UButton
+                  type="button"
+                  color="error"
+                  variant="outline"
+                  size="sm"
+                  @click="loadPageDetails"
+                >
+                  Retry
+                </UButton>
+              </template>
+            </UAlert>
+            <template v-else-if="pageDetailsLoaded">
+              <UFormField
+                label="Global image variants"
+                :help="globalImageVariants.length > 0
+                  ? 'Rows inherit these variants by default. Disable inheritance on a row to override it.'
+                  : 'No global variants selected. Inherited rows will be skipped until you choose at least one.'"
+              >
+                <USelectMenu
+                  v-model="globalImageVariants"
+                  :items="globalImageVariantOptions"
+                  value-key="value"
+                  multiple
+                  searchable
+                  clear-search-on-close
+                />
+              </UFormField>
+
+              <UAlert
+                v-if="blockedEntries.length > 0"
+                color="warning"
+                variant="subtle"
+                title="Some pages cannot be added"
+                :description="`${blockedEntries.length} selected ${blockedEntries.length === 1 ? 'page is' : 'pages are'} missing XML variants or could not be loaded.`"
+              />
+
+              <UAlert
+                v-if="skippedEntries.length > 0"
+                color="neutral"
+                variant="subtle"
+                title="Some pages will be skipped"
+                :description="`${skippedEntries.length} selected ${skippedEntries.length === 1 ? 'page has' : 'pages have'} no currently selected image variant.`"
+              />
+
+              <div class="space-y-3 overflow-y-auto pr-1">
+                <div
+                  v-for="entry in datasetSelectionEntries"
+                  :key="entry.pageId"
+                  class="space-y-4 rounded-lg border border-default p-4"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate font-medium">
+                        {{ entry.pageName }}
+                      </p>
+                      <p class="text-xs text-muted">
+                        {{ entry.pageId }}
+                      </p>
+                    </div>
+
+                    <UBadge :color="entryStatus(entry).color" variant="soft">
+                      {{ entryStatus(entry).label }}
+                    </UBadge>
+                  </div>
+
+                  <div class="grid gap-4 lg:grid-cols-2">
+                    <UFormField label="XML annotation source" required>
+                      <USelect
+                        v-model="entry.selectedXmlId"
+                        :items="entry.xmlOptions.map(option => ({ label: formatDatasetXmlLabel(option), value: option.id }))"
+                        value-key="value"
+                        :disabled="!!entry.error"
+                      />
+                    </UFormField>
+
+                    <div class="space-y-3">
+                      <UCheckbox
+                        :model-value="entry.useGlobalImageSelection"
+                        label="Use global image variants"
+                        @update:model-value="setEntryUseGlobal(entry, $event)"
+                      />
+
+                      <UFormField
+                        label="Image variants"
+                        :help="entryHint(entry)"
+                      >
+                        <USelectMenu
+                          v-model="entry.selectedImageIds"
+                          :items="entry.imageOptions.map(option => ({ label: formatDatasetImageLabel(option), value: option.id }))"
+                          value-key="value"
+                          multiple
+                          searchable
+                          clear-search-on-close
+                          :disabled="!!entry.error || entry.useGlobalImageSelection"
+                        />
+                      </UFormField>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </template>
         </div>
       </UForm>
     </template>
@@ -516,7 +598,12 @@ onMounted(load)
     <template #footer>
       <div class="flex w-full items-center justify-between gap-3">
         <p class="text-xs text-muted">
-          {{ submittableEntries.length }} ready, {{ skippedEntries.length }} skipped, {{ blockedEntries.length }} blocked
+          <template v-if="pageDetailsLoaded">
+            {{ submittableEntries.length }} ready, {{ skippedEntries.length }} skipped, {{ blockedEntries.length }} blocked
+          </template>
+          <template v-else>
+            {{ props.pages.length }} selected page{{ props.pages.length === 1 ? '' : 's' }}
+          </template>
         </p>
 
         <div class="flex items-center gap-2">

@@ -23,6 +23,12 @@ import java.time.LocalDateTime;
 @EntityListeners(AuditingEntityListener.class)
 public class ActionProcessorDefinition {
 
+    public enum ActionKind {
+        PROCESSING,
+        TRAINING,
+        EVALUATION
+    }
+
     public enum ExecuteRole {
         EDITOR,
         CURATOR
@@ -30,7 +36,8 @@ public class ActionProcessorDefinition {
 
     public enum LockMode {
         PAGES,
-        PROJECT
+        PROJECT,
+        NONE
     }
 
     public enum ActionCategory {
@@ -49,6 +56,10 @@ public class ActionProcessorDefinition {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, name = "action_kind", length = 32, columnDefinition = "varchar(32) default 'PROCESSING'")
+    private ActionKind actionKind = ActionKind.PROCESSING;
 
     @Column(nullable = false, unique = true, name = "processor_key", length = 128)
     private String processorKey;
@@ -123,6 +134,14 @@ public class ActionProcessorDefinition {
 
     public String getId() {
         return id;
+    }
+
+    public ActionKind getActionKind() {
+        return actionKind;
+    }
+
+    public void setActionKind(ActionKind actionKind) {
+        this.actionKind = actionKind;
     }
 
     public void setId(String id) {

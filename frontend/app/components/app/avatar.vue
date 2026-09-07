@@ -16,11 +16,15 @@ const props = withDefaults(defineProps<{
   size?: AvatarSize
   avatarStyle?: AvatarStyle
   ring?: AvatarBaseProps['ring']
+  radius?: AvatarBaseProps['radius']
+  fluid?: boolean
 }>(), {
   src: undefined,
   size: 'md',
   avatarStyle: undefined,
-  ring: undefined
+  ring: undefined,
+  radius: undefined,
+  fluid: false
 })
 
 const avatarComponents = {
@@ -48,11 +52,15 @@ const rootStyle = computed(() => {
   }
 
   return {
-    width: `${pixels.value}px`,
-    height: `${pixels.value}px`,
+    width: props.fluid ? '100%' : `${pixels.value}px`,
+    height: props.fluid ? '100%' : `${pixels.value}px`,
+    borderRadius: props.radius === undefined
+      ? undefined
+      : typeof props.radius === 'number' ? `${props.radius}px` : props.radius,
     boxShadow
   }
 })
+const generatedStyle = computed(() => props.fluid ? { width: '100%', height: '100%' } : undefined)
 
 const handleImageError = () => {
   invalidateAvatarSource(managedSrc.value)
@@ -78,8 +86,9 @@ const handleImageError = () => {
       v-else
       :seed="generatedSeed"
       :size="pixels"
-      radius="9999px"
+      :radius="props.radius ?? '9999px'"
       :ring="ring"
+      :style="generatedStyle"
       aria-hidden="true"
     />
   </span>

@@ -121,6 +121,24 @@ describe('status-center utils', () => {
     expect(jobs[1]?.title).toBe('Upload Project')
   })
 
+  it('describes training runs with their dataset and input count', () => {
+    const jobs = buildStatusJobs([], [createRun({
+      kind: 'TRAINING',
+      projectId: null,
+      projectLabel: null,
+      datasetId: 'dataset-1',
+      datasetLabel: 'Training Dataset',
+      inputCount: 10,
+      pageCount: 0,
+      pageIds: [],
+      projectName: 'Training Dataset'
+    })])
+
+    expect(jobs[0]?.kind).toBe('action')
+    expect(jobs[0]?.subtitle).toBe('Training Dataset · 10 inputs')
+    expect(jobs[0]?.icon).toBe('i-lucide-brain-circuit')
+  })
+
   it('sorts active jobs before terminal jobs regardless of timestamp', () => {
     const activeUpload = createUpload({ created: '2026-05-29T09:00:00.000Z', status: 'UPLOADING' })
     const completedRun = createRun({ status: 'COMPLETED', created: '2026-05-29T11:00:00.000Z', completedAt: '2026-05-29T11:00:10.000Z' })

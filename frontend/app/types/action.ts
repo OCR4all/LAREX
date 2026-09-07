@@ -1,5 +1,6 @@
 export type ActionExecuteRole = 'EDITOR' | 'CURATOR'
-export type ActionLockMode = 'PAGES' | 'PROJECT'
+export type ActionLockMode = 'NONE' | 'PAGES' | 'PROJECT'
+export type ActionKind = 'PROCESSING' | 'TRAINING' | 'EVALUATION'
 export type ActionCategory = 'WORKFLOW' | 'OCR_HTR' | 'LAYOUT' | 'POSTPROCESSING'
 export type ActionTarget = 'PAGE' | 'REGION' | 'TEXT_LINE'
 export type ActionInputLevel = 'NONE' | 'OPTIONAL' | 'REQUIRED'
@@ -50,6 +51,7 @@ export interface ActionDefinitionPreview {
   description: string | null
   endpointUrl: string
   endpointTimeoutSeconds: number
+  kind?: ActionKind
   executeRole: ActionExecuteRole
   lockMode: ActionLockMode
   category: ActionCategory
@@ -60,6 +62,8 @@ export interface ActionDefinitionPreview {
   outputsImages: boolean
   outputsXml: boolean
   outputsFiles: boolean
+  trainingSplits: ActionTrainingSplitRequirements | null
+  evaluation?: ActionEvaluationDefinition | null
   parameters: Record<string, ActionParameterDefinition>
 }
 
@@ -104,6 +108,7 @@ export interface ActionDefinition {
   yaml: string
   endpointUrl: string
   endpointTimeoutSeconds: number
+  kind: ActionKind
   executeRole: ActionExecuteRole
   lockMode: ActionLockMode
   category: ActionCategory
@@ -118,6 +123,8 @@ export interface ActionDefinition {
   global: boolean
   created: string
   updated: string
+  trainingSplits: ActionTrainingSplitRequirements | null
+  evaluation?: ActionEvaluationDefinition | null
   parameters: Record<string, ActionParameterDefinition>
 }
 
@@ -154,13 +161,18 @@ export interface ActionRun {
   processorDefinitionId: string
   processorKey: string
   processorName: string
+  kind?: ActionKind
   workspaceId: string
-  projectId: string
-  projectLabel: string
+  projectId: string | null
+  projectLabel: string | null
+  datasetId?: string | null
+  datasetLabel?: string | null
+  inputCount?: number
+  splitCounts?: Record<string, number>
   pageCount: number
   pageIds: string[]
   completedPageIds: string[]
-  targetSelection: ActionTargetSelection
+  targetSelection: ActionTargetSelection | null
   status: ActionRunStatus
   lockMode: ActionLockMode
   progressPercent: number
@@ -175,6 +187,41 @@ export interface ActionRun {
   completedAt: string | null
 }
 
+export interface ActionTrainingSplitRequirements {
+  train: ActionInputLevel
+  val: ActionInputLevel
+  test: ActionInputLevel
+}
+
+export interface ActionEvaluationDefinition {
+  profile: string
+  profileVersion: number
+  splits: ActionTrainingSplitRequirements
+}
+
+export interface TrainingInputImage {
+  id: string
+  fileName: string
+  variant: string | null
+}
+
+export interface TrainingInputItem {
+  itemId: string
+  sourcePageId: string
+  pageName: string
+  split: 'TRAIN' | 'VAL' | 'TEST'
+  status: 'READY' | 'BROKEN'
+  brokenReason: string | null
+  xmlAvailable: boolean
+  images: TrainingInputImage[]
+}
+
+export interface TrainingInputResponse {
+  datasetId: string
+  datasetName: string
+  items: TrainingInputItem[]
+}
+
 export interface StartActionRunResponse {
   run: ActionRun
 }
@@ -184,7 +231,57 @@ export interface ActionRunDetail {
   logText: string | null
   logEvents: ActionRunLogEvent[]
   resultSummary: unknown
+  evaluationReport?: EvaluationReport | null
   durationSeconds: number | null
+}
+
+export type EvaluationMetricFormat = 'NUMBER' | 'INTEGER' | 'PERCENT'
+export type EvaluationMetricDirection = 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER' | 'NEUTRAL'
+
+export interface EvaluationMetric {
+  key: string
+  label: string
+  value: number
+  format: EvaluationMetricFormat
+  unit?: string | null
+  direction: EvaluationMetricDirection
+}
+
+export interface EvaluationTableColumn {
+  key: string
+  label: string
+  type: 'STRING' | 'NUMBER' | 'INTEGER' | 'BOOLEAN'
+}
+
+export interface EvaluationTable {
+  key: string
+  title: string
+  columns: EvaluationTableColumn[]
+  rows: Array<{ values: Record<string, unknown> }>
+  truncated: boolean
+  totalRows: number
+}
+
+export interface EvaluationSample {
+  id: string
+  inputId: string
+  targetId?: string | null
+  label?: string | null
+  status: 'OK' | 'SKIPPED' | 'FAILED'
+  fields: Record<string, unknown>
+  metrics: EvaluationMetric[]
+}
+
+export interface EvaluationReport {
+  schemaVersion: 1
+  profile: string
+  profileVersion: number
+  title: string
+  summary: EvaluationMetric[]
+  tables: EvaluationTable[]
+  samples: EvaluationSample[]
+  warnings: string[]
+  metadata: Record<string, unknown>
 }
 
 export interface AdminActionRun {
@@ -192,10 +289,15 @@ export interface AdminActionRun {
   processorDefinitionId: string
   processorKey: string
   processorName: string
+  kind?: ActionKind
   workspaceId: string
   workspaceLabel: string
-  projectId: string
-  projectLabel: string
+  projectId: string | null
+  projectLabel: string | null
+  datasetId?: string | null
+  datasetLabel?: string | null
+  inputCount?: number
+  splitCounts?: Record<string, number>
   pageCount: number
   status: ActionRunStatus
   progressPercent: number
@@ -207,6 +309,7 @@ export interface AdminActionRun {
   logText: string | null
   logEvents: ActionRunLogEvent[]
   resultSummary: unknown
+  evaluationReport?: EvaluationReport | null
   lastHeartbeatAt: string | null
   created: string
   updated: string

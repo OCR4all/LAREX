@@ -30,10 +30,18 @@ const {
 } = useLabelBuilder()
 
 const expandedGroups = ref<Set<string>>(new Set())
+const openMetadataPanels = ref<string[]>([])
 const isDragging = ref(false)
 const isDraggingGroup = ref(false)
 const reorderAnnouncement = ref('')
 type LabelGroup = { id: string, groupMeta: GroupMeta, labels: EditableLabelDefinition[] }
+
+const metadataPanelItems = [{
+  label: 'Label set details',
+  icon: 'i-lucide-settings-2',
+  slot: 'metadata',
+  value: 'metadata'
+}]
 
 const labelsWithGroups = computed<{ grouped: LabelGroup[], ungrouped: EditableLabelDefinition[] }>(() => {
   const groupMetas = labels.value.filter(isGroupMeta)
@@ -328,6 +336,49 @@ const handleSortableEnd = () => {
 <template>
   <aside data-tour="label-builder-sidebar" class="flex w-80 shrink-0 flex-col border-r border-default bg-muted/20">
     <div class="space-y-2 border-b border-default p-3">
+      <UAccordion
+        v-model="openMetadataPanels"
+        :items="metadataPanelItems"
+        type="multiple"
+        :ui="{
+          item: 'border-b-0',
+          trigger: 'px-1 py-2',
+          body: 'px-1 pb-1'
+        }"
+      >
+        <template #metadata>
+          <div class="space-y-3">
+            <UFormField label="Name" required>
+              <UInput
+                v-model="meta.name"
+                placeholder="e.g. Medieval Layout"
+                :disabled="isSystem"
+                size="sm"
+              />
+            </UFormField>
+
+            <UFormField label="Description">
+              <UTextarea
+                v-model="meta.description"
+                placeholder="Describe this label set..."
+                :rows="2"
+                :disabled="isSystem"
+                size="sm"
+              />
+            </UFormField>
+
+            <UFormField label="Tags">
+              <UInputTags
+                v-model="meta.tags"
+                placeholder="Add tags..."
+                :disabled="isSystem"
+                size="sm"
+              />
+            </UFormField>
+          </div>
+        </template>
+      </UAccordion>
+      <USeparator />
       <UInput
         v-model="searchQuery"
         placeholder="Search labels..."

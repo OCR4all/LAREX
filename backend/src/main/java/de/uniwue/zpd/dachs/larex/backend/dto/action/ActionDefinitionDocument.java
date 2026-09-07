@@ -12,6 +12,7 @@ public record ActionDefinitionDocument(
         String id,
         String name,
         String description,
+        String kind,
         String category,
         List<String> targets,
         Endpoint endpoint,
@@ -21,8 +22,18 @@ public record ActionDefinitionDocument(
         Outputs outputs,
         Concurrency concurrency,
         Runtime runtime,
+        Training training,
+        Evaluation evaluation,
         Map<String, Parameter> parameters
 ) {
+    public ActionDefinitionDocument(Integer version, String id, String name, String description,
+                                    String kind, String category, List<String> targets, Endpoint endpoint,
+                                    Access access, Locking locking, Inputs inputs, Outputs outputs,
+                                    Concurrency concurrency, Runtime runtime, Training training,
+                                    Map<String, Parameter> parameters) {
+        this(version, id, name, description, kind, category, targets, endpoint, access, locking,
+                inputs, outputs, concurrency, runtime, training, null, parameters);
+    }
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record Endpoint(String url,
                            Integer timeoutSeconds,
@@ -67,6 +78,15 @@ public record ActionDefinitionDocument(
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record Model(String name, Boolean optional) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = false)
+    public record Training(TrainingSplits splits) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = false)
+    public record TrainingSplits(String TRAIN, String VAL, String TEST) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = false)
+    public record Evaluation(String profile, Integer profileVersion, TrainingSplits splits) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record Parameter(String type,

@@ -14,7 +14,7 @@ const props = defineProps<{
   helpItems?: string[]
 }>()
 
-const emit = defineEmits(['import', 'export', 'save', 'share', 'optimize', 'openSettings'])
+const emit = defineEmits(['import', 'export', 'save', 'share', 'optimize'])
 
 const { labels, totalErrors } = useLabelBuilder()
 const labelCount = computed(() => labels.value.filter(isEditableLabelDefinition).length)
@@ -45,14 +45,6 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
           :items="helpItems"
         />
         <UFieldGroup>
-          <UButton
-            icon="i-lucide-settings"
-            variant="outline"
-            color="neutral"
-            :disabled="isSystem"
-            aria-label="Label set settings"
-            @click="$emit('openSettings')"
-          />
           <UButton
             label="Save"
             icon="i-lucide-save"

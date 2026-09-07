@@ -113,6 +113,34 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
                 });
     }
 
+    @Test
+    void acceptsTrainingDefinitionWithoutOutputsAndParsesSplits() {
+        when(endpointAuthService.normalizeAuthType(new de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument.EndpointAuth("hmac", "processor-v1")))
+                .thenCallRealMethod();
+        when(endpointAuthService.hasSecret("processor-v1")).thenReturn(true);
+
+        ActionDefinitionService.ParsedDefinition parsed = service.parseAndValidate(trainingYaml(), null);
+
+        assertThat(parsed.preview().kind()).isEqualTo(ActionProcessorDefinition.ActionKind.TRAINING);
+        assertThat(parsed.preview().lockMode()).isEqualTo(ActionProcessorDefinition.LockMode.NONE);
+        assertThat(parsed.preview().trainingSplits().train()).isEqualTo(ActionDto.InputLevel.REQUIRED);
+        assertThat(parsed.preview().trainingSplits().val()).isEqualTo(ActionDto.InputLevel.OPTIONAL);
+        assertThat(parsed.preview().trainingSplits().test()).isEqualTo(ActionDto.InputLevel.NONE);
+        assertThat(parsed.preview().outputsFiles()).isFalse();
+    }
+
+    @Test
+    void rejectsTrainingOutputsAndProcessingNoneLock() {
+        when(endpointAuthService.normalizeAuthType(new de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument.EndpointAuth("hmac", "processor-v1")))
+                .thenCallRealMethod();
+        when(endpointAuthService.hasSecret("processor-v1")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.parseAndValidate(trainingYaml() + "\noutputs:\n  files:\n    enabled: true\n", null))
+                .isInstanceOf(ActionDefinitionService.ValidationException.class);
+        assertThatThrownBy(() -> service.parseAndValidate(validExternalYaml().replace("mode: PAGES", "mode: NONE"), null))
+                .isInstanceOf(ActionDefinitionService.ValidationException.class);
+    }
+
     private String validExternalYaml() {
         return """
                 version: 1
@@ -157,5 +185,35 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
                                 + "    requiredForTargets:\n"
                                 + "      - REGION\n"
                 );
+    }
+
+    private String trainingYaml() {
+        return """
+                version: 1
+                id: external-processor
+                name: External Training
+                kind: TRAINING
+                category: LAYOUT
+                targets: [PAGE]
+                endpoint:
+                  url: https://processor.example.org/dispatch
+                  auth:
+                    type: hmac
+                    secretRef: processor-v1
+                access:
+                  execute: CURATOR
+                locking:
+                  mode: NONE
+                inputs:
+                  images:
+                    level: required
+                  xml:
+                    level: required
+                training:
+                  splits:
+                    TRAIN: required
+                    VAL: optional
+                    TEST: none
+                """;
     }
 }

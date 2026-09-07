@@ -2,7 +2,7 @@
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import { CANONICAL_PAGE_CUSTOM_KEY, type LabelSet, type LabelSetCreateOrUpdateRequest, type LabelSetSummary } from '@/types/label-set'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
-import { LazyEditorSlideoverUnsavedProgress, LazyLabelBuilderModalImportPreview, LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
+import { LazyEditorSlideoverUnsavedProgress, LazyLabelBuilderModalImportPreview, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
 import { isEditableLabelDefinition, isGroupMeta, normalizeEditableLabel, type BuilderEntry } from '@/composables/use-label-builder'
 import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 import { buildLabelSetImportPreview } from '@/utils/label-set-import-preview'
@@ -14,7 +14,6 @@ const overlay = useOverlay()
 const backgroundDownloads = useBackgroundDownloads()
 const { allow } = useActionVisibility()
 const shareSlideover = overlay.create(LazyShareSlideover)
-const metadataSlideover = overlay.create(LazyLabelBuilderSlideoverMetadata)
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const confirmModal = overlay.create(LazyUiConfirmModal)
 const unsavedProgressSlideover = overlay.create(LazyEditorSlideoverUnsavedProgress)
@@ -510,11 +509,6 @@ const handleDeleteSelected = async () => {
   toast.add({ title: count === 1 ? 'Label deleted' : 'Labels deleted', description: `${count} label${count === 1 ? '' : 's'} removed.`, color: 'success' })
 }
 
-const openSettings = () => {
-  if (isReadOnlyLabelSet.value) return
-  metadataSlideover.open({ isNew, onSave: () => handleSave() })
-}
-
 const confirmNavigationAway = async (): Promise<boolean> => {
   if (!isDirty.value) return true
 
@@ -575,7 +569,6 @@ onBeforeRouteLeave(async () => {
         @save="handleSave"
         @share="handleShareLabelSet"
         @optimize="handleOptimize"
-        @open-settings="openSettings"
       />
     </template>
     <template #body>

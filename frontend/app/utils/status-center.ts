@@ -227,13 +227,15 @@ export function buildStatusJobs(
     kind: 'action',
     id: run.id,
     title: run.processorName,
-    subtitle: `${run.projectName} · ${run.pageIds.length} page${run.pageIds.length === 1 ? '' : 's'}`,
+    subtitle: run.kind === 'TRAINING' || run.kind === 'EVALUATION'
+      ? `${run.datasetLabel || run.projectName} · ${run.inputCount || 0} input${run.inputCount === 1 ? '' : 's'}`
+      : `${run.projectName} · ${run.pageIds.length} page${run.pageIds.length === 1 ? '' : 's'}`,
     status: run.status,
     statusLabel: actionStatusLabels[run.status] || run.status,
     progress: run.progressPercent,
     progressLabel: `${run.progressPercent}%`,
     color: getActionStatusColor(run.status),
-    icon: 'i-lucide-circle-play',
+    icon: run.kind === 'TRAINING' ? 'i-lucide-brain-circuit' : run.kind === 'EVALUATION' ? 'i-lucide-chart-no-axes-combined' : 'i-lucide-circle-play',
     active: isActiveAction(run.status),
     terminal: isTerminalAction(run.status),
     run

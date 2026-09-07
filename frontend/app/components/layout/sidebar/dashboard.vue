@@ -58,7 +58,6 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
   ])
   const toolkitChildren = [
     ...withActive([
-      { label: 'Datasets', icon: 'i-lucide-database', to: '/datasets', onSelect: () => { sidebarOpen.value = false } },
       { label: 'Tags', icon: 'i-lucide-network', to: '/tag-sets', onSelect: () => { sidebarOpen.value = false } },
       { label: 'Labels', icon: 'i-lucide-tags', to: '/labels', onSelect: () => { sidebarOpen.value = false } }
     ]),
@@ -70,6 +69,12 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
       children: toolkitTextChildren
     }
   ]
+  const forgeChildren = withActive([
+    { label: 'Datasets', icon: 'i-lucide-database', to: '/datasets', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Actions', icon: 'i-lucide-zap', to: '/actions', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Training', icon: 'i-lucide-brain-circuit', to: '/training', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Evaluation', icon: 'i-lucide-chart-no-axes-combined', to: '/evaluation', onSelect: () => { sidebarOpen.value = false } }
+  ])
   const workspaceChildren = withActive([
     { label: 'General', to: '/workspace/settings', icon: 'i-lucide-sliders-horizontal', exact: true, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Members', to: '/workspace/settings/members', icon: 'i-lucide-users', onSelect: () => { sidebarOpen.value = false } },
@@ -86,6 +91,7 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
   return [
     { label: 'Projects', icon: 'i-lucide-library', to: '/', active: isProjectsRoute.value, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Tasks', icon: 'i-lucide-clipboard-list', to: '/tasks', active: isTaskRoute.value, onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Forge', icon: 'i-lucide-hammer', defaultOpen: hasActive(forgeChildren), type: 'trigger', children: forgeChildren },
     { label: 'Toolkit', icon: 'i-lucide-tool-case', defaultOpen: hasActive(toolkitChildren), type: 'trigger', children: toolkitChildren },
     { label: 'Workspace', icon: 'i-lucide-layers', defaultOpen: hasActive(workspaceChildren), type: 'trigger', children: workspaceChildren },
     { label: 'Settings', icon: 'i-lucide-settings', defaultOpen: hasActive(settingsChildren), type: 'trigger', children: settingsChildren }

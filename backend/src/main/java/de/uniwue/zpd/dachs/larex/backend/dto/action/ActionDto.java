@@ -4,7 +4,10 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.Execut
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionCategory;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionKind;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Status;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Kind;
+import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDateTime;
@@ -47,6 +50,18 @@ public class ActionDto {
             InputRequirement xml
     ) {}
 
+    public record TrainingSplitRequirements(
+            InputLevel train,
+            InputLevel val,
+            InputLevel test
+    ) {}
+
+    public record EvaluationDefinition(
+            String profile,
+            int profileVersion,
+            TrainingSplitRequirements splits
+    ) {}
+
     public record ValidationDiagnostic(
             String severity,
             String path,
@@ -67,6 +82,7 @@ public class ActionDto {
             String description,
             String endpointUrl,
             int endpointTimeoutSeconds,
+            ActionKind kind,
             ExecuteRole executeRole,
             LockMode lockMode,
             ActionCategory category,
@@ -77,6 +93,8 @@ public class ActionDto {
             boolean outputsImages,
             boolean outputsXml,
             boolean outputsFiles,
+            TrainingSplitRequirements trainingSplits,
+            EvaluationDefinition evaluation,
             Map<String, ActionDefinitionDocument.Parameter> parameters
     ) {}
 
@@ -93,6 +111,7 @@ public class ActionDto {
             String yaml,
             String endpointUrl,
             int endpointTimeoutSeconds,
+            ActionKind kind,
             ExecuteRole executeRole,
             LockMode lockMode,
             ActionCategory category,
@@ -107,6 +126,8 @@ public class ActionDto {
             boolean global,
             LocalDateTime created,
             LocalDateTime updated,
+            TrainingSplitRequirements trainingSplits,
+            EvaluationDefinition evaluation,
             Map<String, ActionDefinitionDocument.Parameter> parameters
     ) {}
 
@@ -176,6 +197,56 @@ public class ActionDto {
             RunResponse run
     ) {}
 
+    public record StartTrainingRunRequest(
+            @NotBlank String processorDefinitionId,
+            TrainingSelection selection,
+            TrainingImageSelection imageSelection,
+            Map<String, Object> parameters,
+            Boolean enqueueIfBusy
+    ) {}
+
+    /** Dataset-scoped evaluation uses the same selection/image contract as training. */
+    public record StartEvaluationRunRequest(
+            @NotBlank String processorDefinitionId,
+            TrainingSelection selection,
+            TrainingImageSelection imageSelection,
+            Map<String, Object> parameters,
+            Boolean enqueueIfBusy
+    ) {}
+
+    public record TrainingSelection(
+            String mode,
+            List<String> itemIds
+    ) {}
+
+    public record TrainingImageSelection(
+            String globalVariant,
+            Map<String, String> itemImageIds
+    ) {}
+
+    public record TrainingInputResponse(
+            String datasetId,
+            String datasetName,
+            List<TrainingInputItem> items
+    ) {}
+
+    public record TrainingInputItem(
+            String itemId,
+            String sourcePageId,
+            String pageName,
+            DatasetItem.Split split,
+            DatasetItem.Status status,
+            String brokenReason,
+            boolean xmlAvailable,
+            List<TrainingImageChoice> images
+    ) {}
+
+    public record TrainingImageChoice(
+            String id,
+            String fileName,
+            String variant
+    ) {}
+
     public record ParameterValuesResponse(
             Map<String, List<ActionDefinitionDocument.ParameterChoice>> values
     ) {}
@@ -185,9 +256,14 @@ public class ActionDto {
             String processorDefinitionId,
             String processorKey,
             String processorName,
+            Kind kind,
             String workspaceId,
             String projectId,
             String projectLabel,
+            String datasetId,
+            String datasetLabel,
+            int inputCount,
+            Map<String, Long> splitCounts,
             int pageCount,
             List<String> pageIds,
             List<String> completedPageIds,
@@ -211,7 +287,28 @@ public class ActionDto {
             String logText,
             List<ActionRunLogEventResponse> logEvents,
             Object resultSummary,
-            Long durationSeconds
+            Long durationSeconds,
+            Object evaluationReport
+    ) {}
+
+    public record EvaluationMetricComparison(
+            String key,
+            String label,
+            Object currentValue,
+            Object baselineValue,
+            double delta,
+            String format,
+            String unit,
+            String direction,
+            String state
+    ) {}
+
+    public record EvaluationComparisonResponse(
+            String currentRunId,
+            String baselineRunId,
+            List<EvaluationMetricComparison> metrics,
+            Object currentReport,
+            Object baselineReport
     ) {}
 
     public record AdminRunResponse(
@@ -219,10 +316,15 @@ public class ActionDto {
             String processorDefinitionId,
             String processorKey,
             String processorName,
+            Kind kind,
             String workspaceId,
             String workspaceLabel,
             String projectId,
             String projectLabel,
+            String datasetId,
+            String datasetLabel,
+            int inputCount,
+            Map<String, Long> splitCounts,
             int pageCount,
             Status status,
             int progressPercent,
@@ -238,7 +340,8 @@ public class ActionDto {
             LocalDateTime created,
             LocalDateTime updated,
             LocalDateTime completedAt,
-            Long durationSeconds
+            Long durationSeconds,
+            Object evaluationReport
     ) {}
 
     public record ClearRunsResponse(
@@ -314,6 +417,8 @@ public class ActionDto {
     public record MachinePageInput(
             String id,
             String name,
+            String sourcePageId,
+            DatasetItem.Split split,
             List<MachinePageFile> images,
             List<MachinePageFile> xml
     ) {}
@@ -333,7 +438,9 @@ public class ActionDto {
             int protocolVersion,
             String runId,
             String processorKey,
+            Kind kind,
             String projectId,
+            String datasetId,
             Map<String, Object> parameters,
             List<MachinePageInput> pages,
             MachineTargetSelection targetSelection,
@@ -345,7 +452,8 @@ public class ActionDto {
 
     public record MachineCapabilities(
             boolean incrementalPageResults,
-            boolean customFileResults
+            boolean customFileResults,
+            boolean evaluationReports
     ) {}
 
     public record HeartbeatRequest(
@@ -367,8 +475,14 @@ public class ActionDto {
             String message,
             String pageId,
             List<ResultFile> files,
-            List<ResultPatch> patches
-    ) {}
+            List<ResultPatch> patches,
+            Object evaluationReport
+    ) {
+        public ResultManifest(Integer protocolVersion, String status, String message, String pageId,
+                              List<ResultFile> files, List<ResultPatch> patches) {
+            this(protocolVersion, status, message, pageId, files, patches, null);
+        }
+    }
 
     public record ResultFile(
             String fieldName,

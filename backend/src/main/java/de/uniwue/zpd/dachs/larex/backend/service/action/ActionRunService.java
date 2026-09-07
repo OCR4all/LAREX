@@ -17,6 +17,8 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunPageResult;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunDismissal;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunLogEvent;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Status;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionTrainingInput;
+import de.uniwue.zpd.dachs.larex.backend.entity.Dataset;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
@@ -31,6 +33,8 @@ import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunDismissalRep
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunLogEventRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunPageResultRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionTrainingInputRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
@@ -120,6 +124,8 @@ public class ActionRunService {
     private final ActionRunDismissalRepository runDismissalRepository;
     private final ActionRunLogEventRepository logEventRepository;
     private final ActionRunPageResultRepository pageResultRepository;
+    private final ActionTrainingInputRepository trainingInputRepository;
+    private final DatasetRepository datasetRepository;
     private final ProjectRepository projectRepository;
     private final PageRepository pageRepository;
     private final PageImageRepository pageImageRepository;
@@ -151,6 +157,7 @@ public class ActionRunService {
     private final ActionResultPageMergeService resultPageMergeService;
     private final ActionRealtimePublisher realtimePublisher;
     private final ActionOutputService actionOutputService;
+    private final ActionTrainingSnapshotService trainingSnapshotService;
     private final JobRealtimePublisher jobRealtimePublisher;
     private final ActionMetrics metrics;
     private final HttpClient httpClient;
@@ -165,6 +172,8 @@ public class ActionRunService {
                             ActionRunDismissalRepository runDismissalRepository,
                             ActionRunLogEventRepository logEventRepository,
                             ActionRunPageResultRepository pageResultRepository,
+                            ActionTrainingInputRepository trainingInputRepository,
+                            DatasetRepository datasetRepository,
                             ProjectRepository projectRepository,
                             PageRepository pageRepository,
                             PageImageRepository pageImageRepository,
@@ -196,6 +205,7 @@ public class ActionRunService {
                             ActionResultPageMergeService resultPageMergeService,
                             ActionRealtimePublisher realtimePublisher,
                             ActionOutputService actionOutputService,
+                            ActionTrainingSnapshotService trainingSnapshotService,
                             JobRealtimePublisher jobRealtimePublisher,
                             ActionMetrics metrics,
                             TransactionTemplate transactionTemplate) {
@@ -206,6 +216,8 @@ public class ActionRunService {
         this.runDismissalRepository = runDismissalRepository;
         this.logEventRepository = logEventRepository;
         this.pageResultRepository = pageResultRepository;
+        this.trainingInputRepository = trainingInputRepository;
+        this.datasetRepository = datasetRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -237,6 +249,7 @@ public class ActionRunService {
         this.resultPageMergeService = resultPageMergeService;
         this.realtimePublisher = realtimePublisher;
         this.actionOutputService = actionOutputService;
+        this.trainingSnapshotService = trainingSnapshotService;
         this.jobRealtimePublisher = jobRealtimePublisher;
         this.metrics = metrics;
         this.transactionTemplate = transactionTemplate;
@@ -338,10 +351,12 @@ public class ActionRunService {
         LinkedHashMap<String, ActionDto.ExecutableProcessorResponse> executable = new LinkedHashMap<>();
         definitionRepository.findByEnabledTrueAndGlobalAvailableTrueOrderByNameAsc()
                 .stream()
+                .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING)
                 .filter(definition -> target == null || definitionService.readTargetTypes(definition).contains(target))
                 .forEach(definition -> executable.put(definition.getId(), toExecutableResponse(null, definition, workspaceId, project, userId)));
 
         assignmentRepository.findExecutableAssignments(workspaceId, projectId).stream()
+                .filter(assignment -> assignment.getProcessorDefinition().getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING)
                 .filter(assignment -> target == null || definitionService.readTargetTypes(assignment.getProcessorDefinition()).contains(target))
                 .filter(assignment -> !assignment.getProcessorDefinition().isGlobalAvailable())
                 .filter(assignment -> isWorkspaceAvailable(assignment.getProcessorDefinition().getId(), workspaceId))
@@ -354,6 +369,169 @@ public class ActionRunService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<ActionDto.DefinitionResponse> listTrainingProcessors(String workspaceId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        return definitionRepository.findAll().stream()
+                .filter(ActionProcessorDefinition::isEnabled)
+                .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.TRAINING)
+                .filter(definition -> definition.isGlobalAvailable() || isWorkspaceAvailable(definition.getId(), workspaceId))
+                .filter(definition -> canExecute(definition, workspaceId, userId))
+                .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
+                .map(definitionService::toDefinitionResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.DefinitionResponse> listEvaluationProcessors(String workspaceId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        return definitionRepository.findAll().stream()
+                .filter(ActionProcessorDefinition::isEnabled)
+                .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.EVALUATION)
+                .filter(definition -> definition.isGlobalAvailable() || isWorkspaceAvailable(definition.getId(), workspaceId))
+                .filter(definition -> canExecute(definition, workspaceId, userId))
+                .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
+                .map(definitionService::toDefinitionResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.DefinitionResponse> listInferenceProcessors(String workspaceId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        return definitionRepository.findAll().stream()
+                .filter(ActionProcessorDefinition::isEnabled)
+                .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING)
+                .filter(definition -> definition.isGlobalAvailable() || isWorkspaceAvailable(definition.getId(), workspaceId))
+                .filter(definition -> canExecute(definition, workspaceId, userId))
+                .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
+                .map(definitionService::toDefinitionResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.ParameterValuesResponse discoverTrainingParameterValues(String workspaceId,
+                                                                              String definitionId,
+                                                                              String userId) {
+        ActionProcessorDefinition definition = requireTrainingDefinition(workspaceId, definitionId);
+        requireExecuteAccess(definition, workspaceId, userId);
+        return definitionService.discoverParameterValues(definition);
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.ParameterValuesResponse discoverEvaluationParameterValues(String workspaceId,
+                                                                                String definitionId,
+                                                                                String userId) {
+        ActionProcessorDefinition definition = requireEvaluationDefinition(workspaceId, definitionId);
+        requireExecuteAccess(definition, workspaceId, userId);
+        return definitionService.discoverParameterValues(definition);
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.TrainingInputResponse listTrainingInputs(String workspaceId, String datasetId, String userId) {
+        return trainingSnapshotService.listInputs(workspaceId, datasetId, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.TrainingInputResponse listEvaluationInputs(String workspaceId, String datasetId, String userId) {
+        return trainingSnapshotService.listEvaluationInputs(workspaceId, datasetId, userId);
+    }
+
+    public ActionDto.StartRunResponse startTrainingRun(String workspaceId,
+                                                       String datasetId,
+                                                       ActionDto.StartTrainingRunRequest request,
+                                                       String userId,
+                                                       String publicApiBaseUrl) throws IOException {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        Dataset dataset = datasetRepository.findByIdAndWorkspaceId(datasetId, workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("Dataset not found"));
+        ActionProcessorDefinition definition = requireTrainingDefinition(workspaceId, request.processorDefinitionId());
+        requireExecuteAccess(definition, workspaceId, userId);
+        ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, null);
+        boolean dispatchImmediately = concurrency.available();
+        if (!dispatchImmediately && !Boolean.TRUE.equals(request.enqueueIfBusy())) {
+            throw new ActionConcurrencyLimitException(concurrency.message());
+        }
+
+        ActionRun run = new ActionRun();
+        run.setKind(ActionRun.Kind.TRAINING);
+        run.setProcessorDefinition(definition);
+        run.setWorkspaceId(workspaceId);
+        run.setDatasetId(dataset.getId());
+        run.setDatasetLabel(dataset.getName());
+        run.setCreatedByUserId(userId);
+        run.setStatus(dispatchImmediately ? Status.PENDING : Status.QUEUED);
+        run.setStatusMessage(dispatchImmediately ? "Freezing training inputs" : "Freezing training inputs before queueing");
+        run.setLockMode(LockMode.NONE);
+        run.setPageIdsJson("[]");
+        run.setParametersJson(payloadService.writeJson(resolveRunParameters(definition, request.parameters(), null)));
+        run.setPublicApiBaseUrl(publicApiBaseUrl);
+        String rawSecret = issueRunSecret(run);
+        run = runRepository.save(run);
+
+        ActionTrainingSnapshotService.SnapshotResult snapshot = trainingSnapshotService.createSnapshot(
+                workspaceId, dataset, run, request, definitionService.readTrainingSplitRequirements(definition));
+        run.setInputCount(snapshot.inputCount());
+        run.setSplitCountsJson(payloadService.writeJson(snapshot.splitCounts()));
+        run.setStatusMessage(dispatchImmediately ? "Created" : "Queued; waiting for an available slot");
+        ActionRun saved = runRepository.save(run);
+        actionAuditService.record("ACTION_TRAINING_RUN_START", "SUCCESS", userId, definition.getId(), saved.getId(),
+                workspaceId, null, Map.of("datasetId", datasetId, "inputCount", saved.getInputCount(), "queued", !dispatchImmediately));
+        publishActionRunUpdatedAfterCommit(saved);
+        if (dispatchImmediately) {
+            dispatchAfterCommit(saved.getId(), rawSecret, publicApiBaseUrl);
+        } else {
+            dispatchQueuedRunsAfterCommit();
+        }
+        return new ActionDto.StartRunResponse(responseMapper.toRunResponse(saved, null, userId));
+    }
+
+    public ActionDto.StartRunResponse startEvaluationRun(String workspaceId,
+                                                         String datasetId,
+                                                         ActionDto.StartEvaluationRunRequest request,
+                                                         String userId,
+                                                         String publicApiBaseUrl) throws IOException {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        Dataset dataset = datasetRepository.findByIdAndWorkspaceId(datasetId, workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("Dataset not found"));
+        ActionProcessorDefinition definition = requireEvaluationDefinition(workspaceId, request.processorDefinitionId());
+        requireExecuteAccess(definition, workspaceId, userId);
+        ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, null);
+        boolean dispatchImmediately = concurrency.available();
+        if (!dispatchImmediately && !Boolean.TRUE.equals(request.enqueueIfBusy())) {
+            throw new ActionConcurrencyLimitException(concurrency.message());
+        }
+        ActionRun run = new ActionRun();
+        run.setKind(ActionRun.Kind.EVALUATION);
+        run.setProcessorDefinition(definition);
+        run.setWorkspaceId(workspaceId);
+        run.setDatasetId(dataset.getId());
+        run.setDatasetLabel(dataset.getName());
+        run.setCreatedByUserId(userId);
+        run.setStatus(dispatchImmediately ? Status.PENDING : Status.QUEUED);
+        run.setStatusMessage(dispatchImmediately ? "Freezing evaluation inputs" : "Freezing evaluation inputs before queueing");
+        run.setLockMode(LockMode.NONE);
+        run.setPageIdsJson("[]");
+        run.setParametersJson(payloadService.writeJson(resolveRunParameters(definition, request.parameters(), null)));
+        run.setPublicApiBaseUrl(publicApiBaseUrl);
+        String rawSecret = issueRunSecret(run);
+        run = runRepository.save(run);
+        ActionTrainingSnapshotService.SnapshotResult snapshot = trainingSnapshotService.createEvaluationSnapshot(
+                workspaceId, dataset, run, request, definitionService.readEvaluationDefinition(definition).splits());
+        run.setInputCount(snapshot.inputCount());
+        run.setSplitCountsJson(payloadService.writeJson(snapshot.splitCounts()));
+        run.setStatusMessage(dispatchImmediately ? "Created" : "Queued; waiting for an available slot");
+        ActionRun saved = runRepository.save(run);
+        actionAuditService.record("ACTION_EVALUATION_RUN_START", "SUCCESS", userId, definition.getId(), saved.getId(),
+                workspaceId, null, Map.of("datasetId", datasetId, "inputCount", saved.getInputCount(), "queued", !dispatchImmediately));
+        publishActionRunUpdatedAfterCommit(saved);
+        if (dispatchImmediately) {
+            dispatchAfterCommit(saved.getId(), rawSecret, publicApiBaseUrl);
+        } else {
+            dispatchQueuedRunsAfterCommit();
+        }
+        return new ActionDto.StartRunResponse(responseMapper.toRunResponse(saved, null, userId));
+    }
+
     public ActionDto.StartRunResponse startRun(String workspaceId,
                                                String projectId,
                                                ActionDto.StartRunRequest request,
@@ -363,6 +541,9 @@ public class ActionRunService {
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         if (!definition.isEnabled()) {
             throw new IllegalArgumentException("Action processor is disabled");
+        }
+        if (definition.getActionKind() != ActionProcessorDefinition.ActionKind.PROCESSING) {
+            throw new IllegalArgumentException("Training Actions must be started from a dataset");
         }
         requireAssigned(workspaceId, projectId, definition.getId());
         requireExecuteAccess(definition, workspaceId, userId);
@@ -418,6 +599,9 @@ public class ActionRunService {
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         if (!definition.isEnabled()) {
             throw new IllegalArgumentException("Action processor is disabled");
+        }
+        if (definition.getActionKind() != ActionProcessorDefinition.ActionKind.PROCESSING) {
+            throw new IllegalArgumentException("Training Action parameters are discovered without a project");
         }
         requireProject(workspaceId, projectId);
         requireAssigned(workspaceId, projectId, definitionId);
@@ -494,6 +678,133 @@ public class ActionRunService {
                 .filter(run -> !dismissedRunIds.contains(run.getId()))
                 .map(run -> responseMapper.toRunResponse(run, project.getName(), userId, queuePositions, completedPageIds))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.RunResponse> listTrainingRuns(String workspaceId, String datasetId, String userId, int limit) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        Dataset dataset = datasetRepository.findByIdAndWorkspaceId(datasetId, workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("Dataset not found"));
+        List<ActionRun> runs = runRepository.findByWorkspaceIdAndDatasetIdAndKindOrderByCreatedDesc(
+                workspaceId, datasetId, ActionRun.Kind.TRAINING, PageRequest.of(0, runHistoryLimit(limit)));
+        Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
+        Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
+        return runs.stream()
+                .filter(run -> !dismissedRunIds.contains(run.getId()))
+                .map(run -> responseMapper.toRunResponse(run, null, userId, queuePositions, Map.of()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.RunResponse> listEvaluationRuns(String workspaceId, String datasetId, String userId, int limit) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        Dataset dataset = datasetRepository.findByIdAndWorkspaceId(datasetId, workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("Dataset not found"));
+        List<ActionRun> runs = runRepository.findByWorkspaceIdAndDatasetIdAndKindOrderByCreatedDesc(
+                workspaceId, datasetId, ActionRun.Kind.EVALUATION, PageRequest.of(0, runHistoryLimit(limit)));
+        Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
+        Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
+        return runs.stream()
+                .filter(run -> run.getKind() == ActionRun.Kind.EVALUATION)
+                .filter(run -> !dismissedRunIds.contains(run.getId()))
+                .map(run -> responseMapper.toRunResponse(run, null, userId, queuePositions, Map.of()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.RunResponse> listEvaluationBaselines(String workspaceId, String runId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        ActionRun current = requireWorkspaceRun(workspaceId, runId);
+        if (current.getKind() != ActionRun.Kind.EVALUATION || current.getStatus() != Status.COMPLETED) {
+            return List.of();
+        }
+        List<ActionRun> candidates = runRepository.findByWorkspaceIdAndDatasetIdAndKindOrderByCreatedDesc(
+                workspaceId, current.getDatasetId(), ActionRun.Kind.EVALUATION, PageRequest.of(0, MAX_RUN_HISTORY_LIMIT));
+        Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(candidates);
+        return candidates.stream()
+                .filter(run -> run.getKind() == ActionRun.Kind.EVALUATION)
+                .filter(run -> run.getStatus() == Status.COMPLETED)
+                .filter(run -> !run.getId().equals(current.getId()))
+                .filter(run -> Objects.equals(run.getDatasetInputFingerprint(), current.getDatasetInputFingerprint()))
+                .filter(run -> compatibleEvaluationProfiles(current, run))
+                .map(run -> responseMapper.toRunResponse(run, null, userId, queuePositions, Map.of()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Object getEvaluationReport(String workspaceId, String runId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        ActionRun run = requireWorkspaceRun(workspaceId, runId);
+        if (run.getKind() != ActionRun.Kind.EVALUATION) {
+            throw new IllegalArgumentException("Action run is not an evaluation");
+        }
+        return payloadService.readObjectMap(run.getResultSummaryJson());
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.EvaluationComparisonResponse compareEvaluationRuns(String workspaceId, String runId,
+                                                                          String baselineRunId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        ActionRun current = requireWorkspaceRun(workspaceId, runId);
+        ActionRun baseline = requireWorkspaceRun(workspaceId, baselineRunId);
+        if (current.getKind() != ActionRun.Kind.EVALUATION || baseline.getKind() != ActionRun.Kind.EVALUATION
+                || current.getStatus() != Status.COMPLETED || baseline.getStatus() != Status.COMPLETED
+                || !Objects.equals(current.getDatasetId(), baseline.getDatasetId())
+                || !Objects.equals(current.getDatasetInputFingerprint(), baseline.getDatasetInputFingerprint())
+                || !compatibleEvaluationProfiles(current, baseline)) {
+            throw new IllegalArgumentException("Evaluation runs are not strictly compatible for comparison");
+        }
+        Map<String, Object> currentReport = payloadService.readObjectMap(current.getResultSummaryJson());
+        Map<String, Object> baselineReport = payloadService.readObjectMap(baseline.getResultSummaryJson());
+        Map<String, Map<String, Object>> baselineMetrics = summaryMetrics(baselineReport);
+        List<ActionDto.EvaluationMetricComparison> metrics = new ArrayList<>();
+        Object currentSummary = currentReport.get("summary");
+        if (currentSummary instanceof List<?> values) {
+            for (Object value : values) {
+                if (!(value instanceof Map<?, ?> metric)) continue;
+                String key = Objects.toString(metric.get("key"), "");
+                Map<String, Object> base = baselineMetrics.get(key);
+                if (base == null || !(metric.get("value") instanceof Number currentValue)
+                        || !(base.get("value") instanceof Number baselineValue)
+                        || !Objects.equals(Objects.toString(metric.get("format"), "NUMBER"), Objects.toString(base.get("format"), "NUMBER"))
+                        || !Objects.equals(metric.get("unit"), base.get("unit"))
+                        || !Objects.equals(Objects.toString(metric.get("direction"), "NEUTRAL"),
+                        Objects.toString(base.get("direction"), "NEUTRAL"))) continue;
+                double delta = currentValue.doubleValue() - baselineValue.doubleValue();
+                String direction = Objects.toString(metric.get("direction"), "NEUTRAL");
+                String state = Math.abs(delta) < 1e-12 ? "NEUTRAL"
+                        : ("HIGHER_IS_BETTER".equals(direction) ? (delta > 0 ? "IMPROVED" : "REGRESSED")
+                        : "LOWER_IS_BETTER".equals(direction) ? (delta < 0 ? "IMPROVED" : "REGRESSED") : "NEUTRAL");
+                metrics.add(new ActionDto.EvaluationMetricComparison(key,
+                        Objects.toString(metric.get("label"), key), currentValue, baselineValue, delta,
+                        Objects.toString(metric.get("format"), "NUMBER"),
+                        metric.get("unit") == null ? null : Objects.toString(metric.get("unit")), direction, state));
+            }
+        }
+        return new ActionDto.EvaluationComparisonResponse(current.getId(), baseline.getId(), metrics,
+                currentReport, baselineReport);
+    }
+
+    private boolean compatibleEvaluationProfiles(ActionRun left, ActionRun right) {
+        Map<String, Object> a = payloadService.readObjectMap(left.getResultSummaryJson());
+        Map<String, Object> b = payloadService.readObjectMap(right.getResultSummaryJson());
+        return Objects.equals(a.get("schemaVersion"), b.get("schemaVersion"))
+                && Objects.equals(a.get("profile"), b.get("profile"))
+                && Objects.equals(a.get("profileVersion"), b.get("profileVersion"));
+    }
+
+    private Map<String, Map<String, Object>> summaryMetrics(Map<String, Object> report) {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+        if (report.get("summary") instanceof List<?> values) {
+            for (Object value : values) {
+                if (value instanceof Map<?, ?> metric && metric.get("key") != null) {
+                    result.put(Objects.toString(metric.get("key")), metric.entrySet().stream()
+                            .collect(Collectors.toMap(entry -> Objects.toString(entry.getKey()), Map.Entry::getValue,
+                                    (left, right) -> right, LinkedHashMap::new)));
+                }
+            }
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)
@@ -636,8 +947,8 @@ public class ActionRunService {
         List<ActionRun> runs = runRepository.findByProcessorDefinitionIdAndStatusIn(definitionId, cancelableStatuses());
         int cancelledCount = 0;
         for (ActionRun run : runs) {
-            ActionDto.RunResponse result = cancelRun(run.getWorkspaceId(), run.getProjectId(), run.getId(), userId);
-            if (result.status() == Status.CANCELLED || result.status() == Status.CANCEL_REQUESTED) {
+            ActionRun result = cancelRunInternal(run, userId, "ACTION_RUN_ADMIN_CANCEL");
+            if (result.getStatus() == Status.CANCELLED || result.getStatus() == Status.CANCEL_REQUESTED) {
                 cancelledCount += 1;
             }
         }
@@ -727,10 +1038,49 @@ public class ActionRunService {
         return responseMapper.toRunResponse(saved, resolveProjectLabel(saved.getProjectId()), userId);
     }
 
+    public ActionDto.RunResponse cancelWorkspaceRun(String workspaceId, String runId, String userId) {
+        ActionRun run = requireWorkspaceRun(workspaceId, runId);
+        requireCancelAccess(workspaceId, run, userId);
+        ActionRun saved = cancelRunInternal(run, userId, "ACTION_RUN_CANCEL");
+        return responseMapper.toRunResponse(saved, resolveProjectLabel(saved.getProjectId()), userId);
+    }
+
+    public void dismissWorkspaceRun(String workspaceId, String runId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        ActionRun run = requireWorkspaceRun(workspaceId, runId);
+        if (!terminalStatuses().contains(run.getStatus())) {
+            throw new IllegalStateException("Only completed Action runs can be dismissed");
+        }
+        dismissRuns(List.of(run), userId);
+    }
+
     @Transactional(readOnly = true)
     public ActionDto.MachineInputResponse buildMachineInput(String runId, String authorizationHeader, String publicApiBaseUrl) {
         ActionRun run = authenticateRun(runId, authorizationHeader);
         ActionProcessorDefinition definition = run.getProcessorDefinition();
+        if (isDatasetAction(run)) {
+            List<ActionDto.MachinePageInput> pages = trainingInputRepository.findByRunIdOrderByCreatedAsc(runId).stream()
+                    .map(input -> new ActionDto.MachinePageInput(
+                            input.getDatasetItemId(),
+                            input.getPageName(),
+                            input.getSourcePageId(),
+                            input.getSplit(),
+                            List.of(new ActionDto.MachinePageFile(
+                                    input.getId(), input.getImageFileName(), input.getImageVariant(), input.getImageMimeType(),
+                                    input.getImageFileSize(), machineFileUrl(publicApiBaseUrl, runId, "images", input.getId()))),
+                            List.of(new ActionDto.MachinePageFile(
+                                    input.getId(), input.getXmlFileName(), null, input.getXmlMimeType(),
+                                    input.getXmlFileSize(), machineFileUrl(publicApiBaseUrl, runId, "xml", input.getId())))
+                    ))
+                    .toList();
+            return new ActionDto.MachineInputResponse(
+                    ACTION_PROTOCOL_VERSION, run.getId(), definition.getProcessorKey(), run.getKind(), null,
+                    run.getDatasetId(), payloadService.processorParameters(payloadService.readObjectMap(run.getParametersJson())),
+                    pages, null, new ActionDto.InputRequirements(
+                    new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of()),
+                    new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of())),
+                    null, new ActionDto.MachineCapabilities(false, false, run.getKind() == ActionRun.Kind.EVALUATION), run.isCancelRequested());
+        }
         List<String> pageIds = payloadService.readPageIds(run);
         Map<String, Object> parameters = payloadService.readObjectMap(run.getParametersJson());
         ActionDto.ImageVariantSelection imageVariantSelection = payloadService.readImageVariantSelection(parameters);
@@ -766,13 +1116,15 @@ public class ActionRunService {
                 ACTION_PROTOCOL_VERSION,
                 run.getId(),
                 definition.getProcessorKey(),
+                run.getKind(),
                 run.getProjectId(),
+                run.getDatasetId(),
                 payloadService.processorParameters(parameters),
                 pages,
                 buildMachineTargetSelection(run, includedPageIds),
                 resolvedInputRequirements(inputRequirements, targetSelection.type()),
                 imageVariantSelection,
-                new ActionDto.MachineCapabilities(true, true),
+                new ActionDto.MachineCapabilities(true, true, false),
                 run.isCancelRequested()
         );
     }
@@ -780,6 +1132,16 @@ public class ActionRunService {
     @Transactional(readOnly = true)
     public MachineFile resolveMachineFile(String runId, String authorizationHeader, String type, String fileId) {
         ActionRun run = authenticateRun(runId, authorizationHeader);
+        if (isDatasetAction(run)) {
+            ActionTrainingInput input = trainingInputRepository.findById(fileId)
+                    .filter(value -> value.getRun() != null && runId.equals(value.getRun().getId()))
+                    .orElseThrow(() -> new IllegalArgumentException("Training input file not found"));
+            return switch (type) {
+                case "images" -> new MachineFile(input.getImageSnapshotPath(), input.getImageFileName(), input.getImageMimeType());
+                case "xml" -> new MachineFile(input.getXmlSnapshotPath(), input.getXmlFileName(), input.getXmlMimeType());
+                default -> throw new IllegalArgumentException("Unsupported file type");
+            };
+        }
         List<String> pageIds = payloadService.readPageIds(run);
         ActionTarget target = payloadService.readTargetSelection(run).type();
         ActionDto.InputRequirements inputRequirements = definitionService.readInputRequirements(run.getProcessorDefinition());
@@ -856,10 +1218,15 @@ public class ActionRunService {
             run.setCompletedAt(LocalDateTime.now());
             expireRunSecret(run);
             releaseLocks(run);
-            actionOutputService.discardDraft(run.getId());
+            if (!isDatasetAction(run)) {
+                actionOutputService.discardDraft(run.getId());
+            }
             actionAuditService.record("ACTION_RUN_HEARTBEAT_FAILED", "FAILURE", run.getCreatedByUserId(),
                     run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                     Map.of("error", limit(Objects.toString(redactProcessorSecrets(request.errorMessage()), ""), 1000)));
+        }
+        if (isDatasetAction(run) && !terminalStatuses().contains(run.getStatus())) {
+            run.setSecretExpiresAt(LocalDateTime.now().plusMinutes(definitionService.defaultTokenTtlMinutes()));
         }
         runRepository.save(run);
         publishActionRunUpdatedAfterCommit(run);
@@ -900,6 +1267,28 @@ public class ActionRunService {
             throw new IllegalArgumentException("Unsupported Action result status: " + manifest.status());
         }
 
+        if (run.getKind() == ActionRun.Kind.TRAINING || run.getKind() == ActionRun.Kind.EVALUATION) {
+            if ("running".equals(resultStatus)) {
+                throw new IllegalArgumentException("Dataset Action progress must be reported through heartbeats");
+            }
+            if (!resultFiles.isEmpty() || !resultPatches.isEmpty() || hasResultFileParts(files)) {
+                throw new IllegalArgumentException("Dataset Actions cannot upload result files");
+            }
+            if (run.getKind() == ActionRun.Kind.EVALUATION) {
+                if ("completed".equals(resultStatus) && manifest.evaluationReport() == null) {
+                    throw new IllegalArgumentException("Completed evaluation Actions must return exactly one evaluationReport");
+                }
+                if (manifest.evaluationReport() != null) {
+                    validateEvaluationReport(run, manifest.evaluationReport());
+                    run.setResultSummaryJson(payloadService.writeJson(manifest.evaluationReport()));
+                }
+            } else if (manifest.evaluationReport() != null) {
+                throw new IllegalArgumentException("Training Actions must not return evaluationReport");
+            }
+            return finalizeResultRun(run, "failed".equals(resultStatus) ? Status.FAILED : Status.COMPLETED,
+                    manifest.message(), 0);
+        }
+
         if ("running".equals(resultStatus)) {
             return receiveIncrementalPageResult(run, manifest, resultFiles, files, pageIdSet);
         }
@@ -921,6 +1310,204 @@ public class ActionRunService {
         }
 
         return receiveLegacyBulkResults(run, manifest, resultFiles, files, pageIdSet, resultStatus);
+    }
+
+    private boolean hasResultFileParts(MultiValueMap<String, MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            return false;
+        }
+        // Spring includes the required JSON manifest part in @RequestParam's
+        // multipart map. It is protocol metadata, not an uploaded Action result.
+        return files.keySet().stream().anyMatch(fieldName -> !"manifest".equals(fieldName));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void validateEvaluationReport(ActionRun run, Object rawReport) {
+        if (!(rawReport instanceof Map<?, ?> rawMap)) {
+            throw new IllegalArgumentException("evaluationReport must be a JSON object");
+        }
+        Map<String, Object> report = rawMap.entrySet().stream()
+                .collect(Collectors.toMap(entry -> Objects.toString(entry.getKey()), Map.Entry::getValue,
+                        (left, right) -> right, LinkedHashMap::new));
+        ActionDto.EvaluationDefinition expected = definitionService.readEvaluationDefinition(run.getProcessorDefinition());
+        if (!Objects.equals(expected.profile(), Objects.toString(report.get("profile"), null))) {
+            throw new IllegalArgumentException("Evaluation report profile does not match the Action definition");
+        }
+        if (Objects.toString(report.get("title"), "").isBlank()) {
+            throw new IllegalArgumentException("Evaluation reports require a title");
+        }
+        Object version = report.get("profileVersion");
+        if (!(version instanceof Number number) || !isWholeNumber(number)
+                || number.intValue() != expected.profileVersion()) {
+            throw new IllegalArgumentException("Evaluation report profileVersion does not match the Action definition");
+        }
+        Object schema = report.get("schemaVersion");
+        if (!(schema instanceof Number schemaNumber) || !isWholeNumber(schemaNumber)
+                || schemaNumber.intValue() != 1) {
+            throw new IllegalArgumentException("Unsupported evaluation report schemaVersion");
+        }
+        if (!(report.get("summary") instanceof List<?> summary) || summary.isEmpty()) {
+            throw new IllegalArgumentException("Evaluation reports require at least one summary metric");
+        }
+        Set<String> keys = new LinkedHashSet<>();
+        for (Object value : summary) {
+            if (!(value instanceof Map<?, ?> metric)
+                    || Objects.toString(metric.get("key"), "").isBlank()
+                    || Objects.toString(metric.get("label"), "").isBlank()
+                    || !(metric.get("value") instanceof Number metricNumber)
+                    || !Double.isFinite(metricNumber.doubleValue())
+                    || !validMetricFormat(metric.get("format"))
+                    || !validMetricDirection(metric.get("direction"))) {
+                throw new IllegalArgumentException("Evaluation summary metrics must contain finite numeric values");
+            }
+            if (!keys.add(Objects.toString(metric.get("key")))) {
+                throw new IllegalArgumentException("Evaluation summary metric keys must be unique");
+            }
+        }
+        validateEvaluationTables(report.get("tables"));
+        Set<String> inputIds = trainingInputRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
+                .map(ActionTrainingInput::getDatasetItemId)
+                .collect(Collectors.toSet());
+        Object samplesValue = report.get("samples");
+        if (samplesValue instanceof List<?> samples) {
+            Set<String> sampleIds = new LinkedHashSet<>();
+            for (Object value : samples) {
+                String sampleId = value instanceof Map<?, ?> sampleValue
+                        ? Objects.toString(sampleValue.get("id"), "") : "";
+                if (!(value instanceof Map<?, ?> sample)
+                        || sampleId.isBlank()
+                        || !sampleIds.add(sampleId)
+                        || !inputIds.contains(Objects.toString(sample.get("inputId"), ""))
+                        || !validSampleStatus(sample.get("status"))) {
+                    throw new IllegalArgumentException("Evaluation samples must have unique IDs and valid inputId references");
+                }
+                validateJsonValue(sample.get("fields"), "sample fields");
+                validateJsonValue(sample.get("metrics"), "sample metrics");
+            }
+        } else if (samplesValue != null) {
+            throw new IllegalArgumentException("Evaluation samples must be an array");
+        }
+        validateStringList(report.get("warnings"), "evaluation warnings");
+        if (report.get("metadata") != null && !(report.get("metadata") instanceof Map<?, ?>)) {
+            throw new IllegalArgumentException("Evaluation metadata must be an object");
+        }
+        validateJsonValue(report.get("metadata"), "evaluation metadata");
+        validateJsonValue(report, "evaluation report");
+        String serialized = payloadService.writeJson(report);
+        if (serialized.getBytes(StandardCharsets.UTF_8).length > 10 * 1024 * 1024) {
+            throw new IllegalArgumentException("Evaluation report must not exceed 10 MiB");
+        }
+    }
+
+    private boolean validMetricFormat(Object value) {
+        return value == null || Set.of("NUMBER", "INTEGER", "PERCENT").contains(Objects.toString(value));
+    }
+
+    private boolean validMetricDirection(Object value) {
+        return value == null || Set.of("HIGHER_IS_BETTER", "LOWER_IS_BETTER", "NEUTRAL").contains(Objects.toString(value));
+    }
+
+    private boolean isWholeNumber(Number value) {
+        return Double.isFinite(value.doubleValue()) && value.doubleValue() == Math.rint(value.doubleValue());
+    }
+
+    private boolean validSampleStatus(Object value) {
+        return value == null || Set.of("OK", "SKIPPED", "FAILED").contains(Objects.toString(value));
+    }
+
+    private void validateEvaluationTables(Object rawTables) {
+        if (rawTables == null) return;
+        if (!(rawTables instanceof List<?> tables)) {
+            throw new IllegalArgumentException("Evaluation tables must be an array");
+        }
+        Set<String> tableKeys = new LinkedHashSet<>();
+        for (Object value : tables) {
+            if (!(value instanceof Map<?, ?> table)
+                    || Objects.toString(table.get("key"), "").isBlank()
+                    || Objects.toString(table.get("title"), "").isBlank()
+                    || !tableKeys.add(Objects.toString(table.get("key")))) {
+                throw new IllegalArgumentException("Evaluation tables require unique keys, titles, and columns");
+            }
+            Object rawColumns = table.get("columns");
+            if (rawColumns instanceof List<?> columns) {
+                Set<String> columnKeys = new LinkedHashSet<>();
+                for (Object columnValue : columns) {
+                    if (!(columnValue instanceof Map<?, ?> column)
+                            || Objects.toString(column.get("key"), "").isBlank()
+                            || Objects.toString(column.get("label"), "").isBlank()
+                            || !validTableColumnType(column.get("type"))
+                            || !columnKeys.add(Objects.toString(column.get("key")))) {
+                        throw new IllegalArgumentException("Evaluation table columns must have unique keys and labels");
+                    }
+                }
+            } else if (rawColumns != null) {
+                throw new IllegalArgumentException("Evaluation table columns must be an array");
+            }
+            Object rows = table.get("rows");
+            if (rows != null && !(rows instanceof List<?>)) {
+                throw new IllegalArgumentException("Evaluation table rows must be an array");
+            }
+            if (rows instanceof List<?> rowList) {
+                for (Object row : rowList) {
+                    if (!(row instanceof Map<?, ?>)) {
+                        throw new IllegalArgumentException("Evaluation table rows must be objects");
+                    }
+                }
+            }
+            if (table.get("totalRows") != null
+                    && (!(table.get("totalRows") instanceof Number totalRows) || !isWholeNumber(totalRows)
+                    || totalRows.longValue() < 0
+                    || rows instanceof List<?> rowList && totalRows.longValue() < rowList.size())) {
+                throw new IllegalArgumentException("Evaluation table totalRows must cover all serialized rows");
+            }
+            if (table.get("truncated") != null && !(table.get("truncated") instanceof Boolean)) {
+                throw new IllegalArgumentException("Evaluation table truncated must be boolean");
+            }
+            validateJsonValue(table, "evaluation table");
+        }
+    }
+
+    private boolean validTableColumnType(Object value) {
+        return value == null || Set.of("STRING", "NUMBER", "INTEGER", "BOOLEAN").contains(Objects.toString(value));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void validateJsonValue(Object value, String field) {
+        if (value == null || value instanceof String || value instanceof Boolean) return;
+        if (value instanceof Number number) {
+            if (!Double.isFinite(number.doubleValue())) {
+                throw new IllegalArgumentException(field + " must contain finite numbers");
+            }
+            return;
+        }
+        if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (!(entry.getKey() instanceof String key) || key.isBlank()) {
+                    throw new IllegalArgumentException(field + " object keys must be nonblank strings");
+                }
+                validateJsonValue(entry.getValue(), field + "." + key);
+            }
+            return;
+        }
+        if (value instanceof List<?> list) {
+            for (Object item : list) validateJsonValue(item, field);
+            return;
+        }
+        throw new IllegalArgumentException(field + " must contain JSON values");
+    }
+
+    private void validateStringList(Object value, String field) {
+        if (value == null) {
+            return;
+        }
+        if (!(value instanceof List<?> list)) {
+            throw new IllegalArgumentException(field + " must be an array");
+        }
+        for (Object item : list) {
+            if (!(item instanceof String)) {
+                throw new IllegalArgumentException(field + " must contain strings");
+            }
+        }
     }
 
     private ActionDto.RunResponse receiveIncrementalPageResult(ActionRun run,
@@ -1077,10 +1664,12 @@ public class ActionRunService {
         }
         run.setProgressPercent(status == Status.COMPLETED ? 100 : run.getProgressPercent());
         run.setCompletedAt(LocalDateTime.now());
-        if (status == Status.COMPLETED) {
-            actionOutputService.finalizeDraft(run.getId(), run.getCompletedAt());
-        } else {
-            actionOutputService.discardDraft(run.getId());
+        if (!isDatasetAction(run)) {
+            if (status == Status.COMPLETED) {
+                actionOutputService.finalizeDraft(run.getId(), run.getCompletedAt());
+            } else {
+                actionOutputService.discardDraft(run.getId());
+            }
         }
         expireRunSecret(run);
         releaseLocks(run);
@@ -1440,10 +2029,12 @@ public class ActionRunService {
                     .orElseThrow(() -> new IllegalStateException("Action processor definition not found"));
             run.setProcessorDefinition(definition);
 
-            Project project = requireProjectForUpdate(run.getWorkspaceId(), run.getProjectId());
-            List<Page> pages = resolveRunPagesForUpdate(run.getProjectId(), payloadService.readPageIds(run));
+            Project project = isDatasetAction(run)
+                    ? null : requireProjectForUpdate(run.getWorkspaceId(), run.getProjectId());
+            List<Page> pages = isDatasetAction(run)
+                    ? List.of() : resolveRunPagesForUpdate(run.getProjectId(), payloadService.readPageIds(run));
             ConcurrencyDecision concurrency = evaluateConcurrency(definition, run.getWorkspaceId(), run.getProjectId());
-            if (!concurrency.available() || hasBlockingLocks(project, pages)) {
+            if (!concurrency.available() || (!isDatasetAction(run) && hasBlockingLocks(project, pages))) {
                 return;
             }
             if (run.getPublicApiBaseUrl() == null || run.getPublicApiBaseUrl().isBlank()) {
@@ -1452,7 +2043,10 @@ public class ActionRunService {
                 run.setErrorMessage("Queued Action run is missing its public API base URL");
                 run.setCompletedAt(LocalDateTime.now());
                 expireRunSecret(run);
-                actionOutputService.discardDraft(run.getId());
+                if (!isDatasetAction(run)) {
+                    actionOutputService.discardDraft(run.getId());
+                }
+                releaseLocks(run);
                 runRepository.save(run);
                 publishActionRunUpdatedAfterCommit(run);
                 actionAuditService.record("ACTION_RUN_QUEUE_FAILED", "FAILURE", run.getCreatedByUserId(),
@@ -1464,7 +2058,9 @@ public class ActionRunService {
             String rawSecret = issueRunSecret(run);
             run.setStatus(Status.PENDING);
             run.setStatusMessage("Created");
-            applyLocks(project, pages, run);
+            if (!isDatasetAction(run)) {
+                applyLocks(project, pages, run);
+            }
             ActionRun savedRun = runRepository.saveAndFlush(run);
             publishActionRunUpdatedAfterCommit(savedRun);
             actionAuditService.record("ACTION_RUN_QUEUE_DEQUEUED", "SUCCESS", run.getCreatedByUserId(),
@@ -1527,10 +2123,11 @@ public class ActionRunService {
         }
         ActionProcessorDefinition definition = run.getProcessorDefinition();
         Map<String, Object> runParameters = payloadService.readObjectMap(run.getParametersJson());
-        ActionDto.ImageVariantSelection imageVariantSelection = payloadService.readImageVariantSelection(runParameters);
-        ActionTarget target = payloadService.readTargetSelection(run).type();
-        ActionDto.InputRequirements inputRequirements = definitionService.readInputRequirements(definition);
-        List<String> processorPageIds = processorPageIds(run, definition, imageVariantSelection, target);
+        boolean datasetAction = isDatasetAction(run);
+        ActionDto.ImageVariantSelection imageVariantSelection = datasetAction ? null : payloadService.readImageVariantSelection(runParameters);
+        ActionTarget target = datasetAction ? null : payloadService.readTargetSelection(run).type();
+        ActionDto.InputRequirements inputRequirements = datasetAction ? null : definitionService.readInputRequirements(definition);
+        List<String> processorPageIds = datasetAction ? List.of() : processorPageIds(run, definition, imageVariantSelection, target);
         Set<String> processorPageIdSet = new LinkedHashSet<>(processorPageIds);
         run.setStatus(Status.DISPATCHING);
         run.setStatusMessage(attempts > 1 ? "Dispatching (attempt " + attempt + "/" + attempts + ")" : "Dispatching");
@@ -1542,13 +2139,23 @@ public class ActionRunService {
         payload.put("protocolVersion", ACTION_PROTOCOL_VERSION);
         payload.put("processorId", definition.getProcessorKey());
         payload.put("workspaceId", run.getWorkspaceId());
+        payload.put("kind", run.getKind().name());
         payload.put("projectId", run.getProjectId());
+        payload.put("datasetId", run.getDatasetId());
         payload.put("pageIds", processorPageIds);
-        payload.put("targetSelection", buildMachineTargetSelection(run, processorPageIdSet));
+        payload.put("datasetItemIds", trainingInputRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
+                .map(ActionTrainingInput::getDatasetItemId).toList());
+        payload.put("targetSelection", datasetAction ? null : buildMachineTargetSelection(run, processorPageIdSet));
         payload.put("parameters", payloadService.processorParameters(runParameters));
-        payload.put("inputRequirements", resolvedInputRequirements(inputRequirements, target));
+        payload.put("inputRequirements", datasetAction ? Map.of(
+                "images", Map.of("level", "REQUIRED", "requiredForTargets", List.of()),
+                "xml", Map.of("level", "REQUIRED", "requiredForTargets", List.of())
+        ) : resolvedInputRequirements(inputRequirements, target));
         payload.put("imageVariantSelection", imageVariantSelection);
-        payload.put("capabilities", Map.of("incrementalPageResults", true, "customFileResults", true));
+        payload.put("capabilities", Map.of(
+                "incrementalPageResults", !datasetAction,
+                "customFileResults", !datasetAction,
+                "evaluationReports", run.getKind() == ActionRun.Kind.EVALUATION));
         payload.put("secret", rawSecret);
         payload.put("pullUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/input");
         payload.put("heartbeatUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/heartbeat");
@@ -1628,7 +2235,9 @@ public class ActionRunService {
         run.setCompletedAt(LocalDateTime.now());
         expireRunSecret(run);
         releaseLocks(run);
-        actionOutputService.discardDraft(run.getId());
+        if (!isDatasetAction(run)) {
+            actionOutputService.discardDraft(run.getId());
+        }
         runRepository.save(run);
         publishActionRunUpdatedAfterCommit(run);
         actionAuditService.record("ACTION_RUN_DISPATCH_FAILED", "FAILURE", run.getCreatedByUserId(), run.getProcessorDefinition().getId(), run.getId(),
@@ -1653,6 +2262,10 @@ public class ActionRunService {
         return e.getClass().getSimpleName();
     }
 
+    private String machineFileUrl(String publicApiBaseUrl, String runId, String type, String fileId) {
+        return publicApiBaseUrl + "/public/actions/runs/" + runId + "/files/" + type + "/" + fileId;
+    }
+
     private void applyLocks(Project project, List<Page> pages, ActionRun run) {
         LocalDateTime now = LocalDateTime.now();
         if (run.getLockMode() == LockMode.PROJECT) {
@@ -1672,6 +2285,10 @@ public class ActionRunService {
     }
 
     private void releaseLocks(ActionRun run) {
+        if (isDatasetAction(run)) {
+            trainingSnapshotService.cleanupSnapshot(run);
+            return;
+        }
         Project project = projectRepository.findById(run.getProjectId()).orElse(null);
         if (project != null && run.getId().equals(project.getLockedByActionRunId())) {
             project.setLocked(false);
@@ -1796,7 +2413,7 @@ public class ActionRunService {
         ActionDefinitionDocument.Concurrency concurrency = definitionService.readParsedDocument(definition).concurrency();
         int maxActiveRuns = concurrency == null || concurrency.maxActiveRuns() == null ? 1 : concurrency.maxActiveRuns();
         String scope = concurrency == null || concurrency.scope() == null || concurrency.scope().isBlank()
-                ? "PROJECT"
+                ? (definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING ? "PROJECT" : "WORKSPACE")
                 : concurrency.scope().trim().toUpperCase(Locale.ROOT);
         long active = switch (scope) {
             case "GLOBAL" -> runRepository.countByProcessorDefinitionIdAndStatusIn(definition.getId(), activeStatuses());
@@ -1823,12 +2440,43 @@ public class ActionRunService {
     }
 
     private void requireExecuteAccess(ActionProcessorDefinition definition, String workspaceId, String userId) {
-        boolean allowed = definition.getExecuteRole() == ExecuteRole.EDITOR
-                ? workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)
-                : workspaceAccessService.canManageProjects(workspaceId, userId);
-        if (!allowed) {
+        if (!canExecute(definition, workspaceId, userId)) {
             throw new SecurityException("You do not have permission to execute this Action");
         }
+    }
+
+    private boolean canExecute(ActionProcessorDefinition definition, String workspaceId, String userId) {
+        return definition.getExecuteRole() == ExecuteRole.EDITOR
+                ? workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)
+                : workspaceAccessService.canManageProjects(workspaceId, userId);
+    }
+
+    private ActionProcessorDefinition requireTrainingDefinition(String workspaceId, String definitionId) {
+        ActionProcessorDefinition definition = definitionRepository.findById(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (!definition.isEnabled() || definition.getActionKind() != ActionProcessorDefinition.ActionKind.TRAINING) {
+            throw new IllegalArgumentException("Training Action processor not found");
+        }
+        if (!definition.isGlobalAvailable() && !isWorkspaceAvailable(definitionId, workspaceId)) {
+            throw new SecurityException("Training Action is not available to this workspace");
+        }
+        return definition;
+    }
+
+    private ActionProcessorDefinition requireEvaluationDefinition(String workspaceId, String definitionId) {
+        ActionProcessorDefinition definition = definitionRepository.findById(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (!definition.isEnabled() || definition.getActionKind() != ActionProcessorDefinition.ActionKind.EVALUATION) {
+            throw new IllegalArgumentException("Evaluation Action processor not found");
+        }
+        if (!definition.isGlobalAvailable() && !isWorkspaceAvailable(definitionId, workspaceId)) {
+            throw new SecurityException("Evaluation Action is not available to this workspace");
+        }
+        return definition;
+    }
+
+    private boolean isDatasetAction(ActionRun run) {
+        return run.getKind() == ActionRun.Kind.TRAINING || run.getKind() == ActionRun.Kind.EVALUATION;
     }
 
     private Project requireProject(String workspaceId, String projectId) {
@@ -1845,6 +2493,15 @@ public class ActionRunService {
         ActionRun run = runRepository.findWithProcessorDefinitionById(runId)
                 .orElseThrow(() -> new IllegalArgumentException("Action run not found"));
         if (!workspaceId.equals(run.getWorkspaceId()) || !projectId.equals(run.getProjectId())) {
+            throw new IllegalArgumentException("Action run not found");
+        }
+        return run;
+    }
+
+    private ActionRun requireWorkspaceRun(String workspaceId, String runId) {
+        ActionRun run = runRepository.findWithProcessorDefinitionById(runId)
+                .orElseThrow(() -> new IllegalArgumentException("Action run not found"));
+        if (!workspaceId.equals(run.getWorkspaceId())) {
             throw new IllegalArgumentException("Action run not found");
         }
         return run;
@@ -1887,7 +2544,9 @@ public class ActionRunService {
         run.setCompletedAt(LocalDateTime.now());
         expireRunSecret(run);
         releaseLocks(run);
-        actionOutputService.discardDraft(run.getId());
+        if (!isDatasetAction(run)) {
+            actionOutputService.discardDraft(run.getId());
+        }
         runRepository.save(run);
         publishActionRunUpdatedAfterCommit(run);
         appendLogEvent(run, "WARN", message);
@@ -1922,6 +2581,7 @@ public class ActionRunService {
         if (runs == null || runs.isEmpty()) {
             return;
         }
+        runs.forEach(trainingSnapshotService::cleanupSnapshot);
         List<String> runIds = runs.stream()
                 .map(ActionRun::getId)
                 .filter(Objects::nonNull)
@@ -2080,6 +2740,14 @@ public class ActionRunService {
         if (imageVariantSelection != null) {
             resolved.put(ActionRunPayloadService.IMAGE_VARIANT_SELECTION_PARAMETER_KEY, normalizeImageVariantSelection(imageVariantSelection));
         }
+        for (Map.Entry<String, ActionDefinitionDocument.Parameter> entry : definitions.entrySet()) {
+            if (Boolean.TRUE.equals(entry.getValue().required())) {
+                Object value = resolved.get(entry.getKey());
+                if (value == null || (value instanceof String text && text.isBlank())) {
+                    throw new IllegalArgumentException("Action parameter " + entry.getKey() + " is required");
+                }
+            }
+        }
         definitionService.validateAllowedParameterValues(definition, resolved);
         return resolved;
     }
@@ -2211,6 +2879,9 @@ public class ActionRunService {
     }
 
     private String resolveProjectLabel(String projectId) {
+        if (projectId == null) {
+            return null;
+        }
         return projectRepository.findById(projectId)
                 .map(Project::getName)
                 .orElse(projectId);
@@ -2262,7 +2933,9 @@ public class ActionRunService {
         run.setStatus(Status.CANCELLED);
         run.setStatusMessage(statusMessage == null || statusMessage.isBlank() ? "Cancelled" : statusMessage);
         run.setCompletedAt(LocalDateTime.now());
-        actionOutputService.discardDraft(run.getId());
+        if (!isDatasetAction(run)) {
+            actionOutputService.discardDraft(run.getId());
+        }
         expireRunSecret(run);
         releaseLocks(run);
     }
@@ -2397,6 +3070,8 @@ public class ActionRunService {
         return Optional.of(new ActionDto.MachinePageInput(
                 page.getId(),
                 page.getName(),
+                page.getId(),
+                null,
                 selectedImages.stream()
                         .map(image -> toMachineImageFile(publicApiBaseUrl, runId, image))
                         .toList(),

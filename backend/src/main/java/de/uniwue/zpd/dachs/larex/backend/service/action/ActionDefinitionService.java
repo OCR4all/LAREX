@@ -13,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.InputLevel;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorAssignment;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionCategory;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionKind;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
@@ -355,6 +356,9 @@ public class ActionDefinitionService {
         }
         String key = requirePattern(document.id(), "id", "[a-zA-Z0-9][a-zA-Z0-9._-]{1,126}", diagnostics);
         String name = requireText(document.name(), "name", diagnostics);
+        ActionKind actionKind = document.kind() == null || document.kind().isBlank()
+                ? ActionKind.PROCESSING
+                : enumValue(ActionKind.class, document.kind(), "kind", diagnostics, ActionKind.PROCESSING);
         String endpointUrl = null;
         int timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
         if (document.endpoint() == null) {
@@ -409,8 +413,33 @@ public class ActionDefinitionService {
                 && Boolean.TRUE.equals(document.outputs().files().enabled());
         validateOutput(document.outputs() == null ? null : document.outputs().xml(), "outputs.xml", outputsXml, diagnostics);
         validateImageOutput(document.outputs() == null ? null : document.outputs().images(), "outputs.images", outputsImages, diagnostics);
-        if (!outputsXml && !outputsImages && !outputsFiles) {
+        ActionDto.TrainingSplitRequirements trainingSplits = parseTrainingSplitRequirements(
+                actionKind, document.training(), diagnostics);
+        ActionDto.EvaluationDefinition evaluation = parseEvaluationDefinition(
+                actionKind, document.evaluation(), diagnostics);
+        if (actionKind == ActionKind.PROCESSING && !outputsXml && !outputsImages && !outputsFiles) {
             diagnostics.add(error("outputs", "At least one output type must be enabled"));
+        }
+        if (actionKind == ActionKind.TRAINING) {
+            if (lockMode != LockMode.NONE) {
+                diagnostics.add(error("locking.mode", "Training Actions must use locking.mode: NONE"));
+            }
+            if (outputsXml || outputsImages || outputsFiles) {
+                diagnostics.add(error("outputs", "Training Actions cannot declare LAREX-managed outputs"));
+            }
+        } else if (actionKind == ActionKind.EVALUATION) {
+            if (lockMode != LockMode.NONE) {
+                diagnostics.add(error("locking.mode", "Evaluation Actions must use locking.mode: NONE"));
+            }
+            if (outputsXml || outputsImages || outputsFiles) {
+                diagnostics.add(error("outputs", "Evaluation Actions cannot declare LAREX-managed outputs"));
+            }
+            if (!inputRequirements.images().required(ActionTarget.PAGE)
+                    || !inputRequirements.xml().required(ActionTarget.PAGE)) {
+                diagnostics.add(error("inputs", "Evaluation Actions require one image and one XML input"));
+            }
+        } else if (lockMode == LockMode.NONE) {
+            diagnostics.add(error("locking.mode", "Processing Actions must lock pages or the project"));
         }
         validateConcurrency(document.concurrency(), diagnostics);
 
@@ -441,6 +470,7 @@ public class ActionDefinitionService {
                     trimToNull(document.description()),
                     endpointUrl,
                     timeoutSeconds,
+                    actionKind,
                     executeRole,
                     lockMode,
                     category,
@@ -451,6 +481,8 @@ public class ActionDefinitionService {
                     outputsImages,
                     outputsXml,
                     outputsFiles,
+                    trainingSplits,
+                    evaluation,
                     document.parameters() == null ? Map.of() : document.parameters()
             );
             return new ParsedDefinition(document, parsedJson, preview);
@@ -500,6 +532,7 @@ public class ActionDefinitionService {
                 definition.getYamlSource(),
                 definition.getEndpointUrl(),
                 definition.getEndpointTimeoutSeconds(),
+                definition.getActionKind(),
                 definition.getExecuteRole(),
                 definition.getLockMode(),
                 definition.getCategory(),
@@ -514,6 +547,8 @@ public class ActionDefinitionService {
                 definition.isGlobalAvailable(),
                 definition.getCreated(),
                 definition.getUpdated(),
+                parseTrainingSplitRequirements(definition.getActionKind(), document.training(), new ArrayList<>()),
+                parseEvaluationDefinition(definition.getActionKind(), document.evaluation(), new ArrayList<>()),
                 document.parameters() == null
                         ? Map.of()
                         : document.parameters()
@@ -738,7 +773,8 @@ public class ActionDefinitionService {
             requestPayload.put("capabilities", Map.of(
                     "incrementalPageResults", true,
                     "customFileResults", true,
-                    "parameterValueDiscovery", true
+                    "parameterValueDiscovery", true,
+                    "evaluationReports", definition.getActionKind() == ActionProcessorDefinition.ActionKind.EVALUATION
             ));
             String body = jsonMapper.writeValueAsString(requestPayload);
             Map<String, String> authHeaders = endpointAuthService.buildDispatchHeaders(
@@ -877,6 +913,10 @@ public class ActionDefinitionService {
                 && !Boolean.TRUE.equals(response.capabilities().get("parameterValueDiscovery"))) {
             return "Processor does not advertise required capability parameterValueDiscovery";
         }
+        if (definition.getActionKind() == ActionProcessorDefinition.ActionKind.EVALUATION
+                && !Boolean.TRUE.equals(response.capabilities().get("evaluationReports"))) {
+            return "Processor does not advertise required capability evaluationReports";
+        }
         return null;
     }
 
@@ -952,6 +992,7 @@ public class ActionDefinitionService {
         definition.setParsedJson(parsed.parsedJson());
         definition.setEndpointUrl(preview.endpointUrl());
         definition.setEndpointTimeoutSeconds(preview.endpointTimeoutSeconds());
+        definition.setActionKind(preview.kind());
         definition.setExecuteRole(preview.executeRole());
         definition.setLockMode(preview.lockMode());
         definition.setCategory(preview.category());
@@ -962,6 +1003,95 @@ public class ActionDefinitionService {
         definition.setOutputsXml(preview.outputsXml());
         definition.setOutputsFiles(preview.outputsFiles());
         definition.setUpdatedByUserId(userId);
+    }
+
+    public ActionDto.TrainingSplitRequirements readTrainingSplitRequirements(ActionProcessorDefinition definition) {
+        List<ActionDto.ValidationDiagnostic> diagnostics = new ArrayList<>();
+        ActionDto.TrainingSplitRequirements requirements = parseTrainingSplitRequirements(
+                definition.getActionKind(), readParsedDocument(definition).training(), diagnostics);
+        if (!diagnostics.isEmpty()) {
+            throw new IllegalStateException("Stored Action training requirements are invalid: " + diagnostics.getFirst().message());
+        }
+        return requirements;
+    }
+
+    public ActionDto.EvaluationDefinition readEvaluationDefinition(ActionProcessorDefinition definition) {
+        List<ActionDto.ValidationDiagnostic> diagnostics = new ArrayList<>();
+        ActionDto.EvaluationDefinition evaluation = parseEvaluationDefinition(
+                definition.getActionKind(), readParsedDocument(definition).evaluation(), diagnostics);
+        if (!diagnostics.isEmpty()) {
+            throw new IllegalStateException("Stored Action evaluation requirements are invalid: " + diagnostics.getFirst().message());
+        }
+        return evaluation;
+    }
+
+    private ActionDto.TrainingSplitRequirements parseTrainingSplitRequirements(
+            ActionKind actionKind,
+            ActionDefinitionDocument.Training training,
+            List<ActionDto.ValidationDiagnostic> diagnostics) {
+        if (actionKind != ActionKind.TRAINING) {
+            if (training != null) {
+                diagnostics.add(error("training", "training is only valid for TRAINING Actions"));
+            }
+            return new ActionDto.TrainingSplitRequirements(InputLevel.NONE, InputLevel.NONE, InputLevel.NONE);
+        }
+        if (training == null || training.splits() == null) {
+            diagnostics.add(error("training.splits", "training.splits is required for TRAINING Actions"));
+            return new ActionDto.TrainingSplitRequirements(InputLevel.REQUIRED, InputLevel.NONE, InputLevel.NONE);
+        }
+        ActionDefinitionDocument.TrainingSplits splits = training.splits();
+        InputLevel train = splitLevel(splits.TRAIN(), "training.splits.TRAIN", diagnostics, InputLevel.REQUIRED);
+        InputLevel val = splitLevel(splits.VAL(), "training.splits.VAL", diagnostics, InputLevel.NONE);
+        InputLevel test = splitLevel(splits.TEST(), "training.splits.TEST", diagnostics, InputLevel.NONE);
+        if (train != InputLevel.REQUIRED) {
+            diagnostics.add(error("training.splits.TRAIN", "TRAIN must be required"));
+        }
+        return new ActionDto.TrainingSplitRequirements(train, val, test);
+    }
+
+    private ActionDto.EvaluationDefinition parseEvaluationDefinition(
+            ActionKind actionKind,
+            ActionDefinitionDocument.Evaluation evaluation,
+            List<ActionDto.ValidationDiagnostic> diagnostics) {
+        if (actionKind != ActionKind.EVALUATION) {
+            if (evaluation != null) {
+                diagnostics.add(error("evaluation", "evaluation is only valid for EVALUATION Actions"));
+            }
+            return null;
+        }
+        if (evaluation == null) {
+            diagnostics.add(error("evaluation", "evaluation is required for EVALUATION Actions"));
+            return new ActionDto.EvaluationDefinition("", 1,
+                    new ActionDto.TrainingSplitRequirements(InputLevel.NONE, InputLevel.NONE, InputLevel.NONE));
+        }
+        String profile = requireText(evaluation.profile(), "evaluation.profile", diagnostics);
+        int profileVersion = evaluation.profileVersion() == null ? 1 : evaluation.profileVersion();
+        if (profileVersion < 1) {
+            diagnostics.add(error("evaluation.profileVersion", "profileVersion must be positive"));
+        }
+        ActionDefinitionDocument.TrainingSplits splits = evaluation.splits();
+        if (splits == null) {
+            diagnostics.add(error("evaluation.splits", "evaluation.splits is required"));
+            splits = new ActionDefinitionDocument.TrainingSplits(null, null, null);
+        }
+        InputLevel train = splitLevel(splits.TRAIN(), "evaluation.splits.TRAIN", diagnostics, InputLevel.NONE);
+        InputLevel val = splitLevel(splits.VAL(), "evaluation.splits.VAL", diagnostics, InputLevel.NONE);
+        InputLevel test = splitLevel(splits.TEST(), "evaluation.splits.TEST", diagnostics, InputLevel.NONE);
+        if (train == InputLevel.NONE && val == InputLevel.NONE && test == InputLevel.NONE) {
+            diagnostics.add(error("evaluation.splits", "At least one split must be accepted"));
+        }
+        return new ActionDto.EvaluationDefinition(profile == null ? "" : profile, profileVersion,
+                new ActionDto.TrainingSplitRequirements(train, val, test));
+    }
+
+    private InputLevel splitLevel(String raw,
+                                  String path,
+                                  List<ActionDto.ValidationDiagnostic> diagnostics,
+                                  InputLevel fallback) {
+        if (raw == null || raw.isBlank()) {
+            return fallback;
+        }
+        return enumValue(InputLevel.class, raw, path, diagnostics, fallback);
     }
 
     public List<ActionTarget> readTargetTypes(ActionProcessorDefinition definition) {

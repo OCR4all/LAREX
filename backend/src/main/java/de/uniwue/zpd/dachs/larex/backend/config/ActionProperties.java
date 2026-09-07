@@ -211,7 +211,9 @@ public class ActionProperties {
 
     public static class Dev {
         private DevProcessor mockProcessor = mockProcessorDefaults();
+        private DevProcessor mockTrainingProcessor = mockTrainingProcessorDefaults();
         private DevProcessor krakenProcessor = krakenProcessorDefaults();
+        private DevProcessor krakenTrainingProcessor = krakenTrainingProcessorDefaults();
 
         public DevProcessor getMockProcessor() {
             return mockProcessor;
@@ -221,12 +223,30 @@ public class ActionProperties {
             this.mockProcessor = mockProcessor == null ? mockProcessorDefaults() : mockProcessor;
         }
 
+        public DevProcessor getMockTrainingProcessor() {
+            return mockTrainingProcessor;
+        }
+
+        public void setMockTrainingProcessor(DevProcessor mockTrainingProcessor) {
+            this.mockTrainingProcessor = mockTrainingProcessor == null
+                    ? mockTrainingProcessorDefaults() : mockTrainingProcessor;
+        }
+
         public DevProcessor getKrakenProcessor() {
             return krakenProcessor;
         }
 
         public void setKrakenProcessor(DevProcessor krakenProcessor) {
             this.krakenProcessor = krakenProcessor == null ? krakenProcessorDefaults() : krakenProcessor;
+        }
+
+        public DevProcessor getKrakenTrainingProcessor() {
+            return krakenTrainingProcessor;
+        }
+
+        public void setKrakenTrainingProcessor(DevProcessor krakenTrainingProcessor) {
+            this.krakenTrainingProcessor = krakenTrainingProcessor == null
+                    ? krakenTrainingProcessorDefaults() : krakenTrainingProcessor;
         }
 
         private static DevProcessor mockProcessorDefaults() {
@@ -238,12 +258,30 @@ public class ActionProperties {
             );
         }
 
+        private static DevProcessor mockTrainingProcessorDefaults() {
+            return new DevProcessor(
+                    true,
+                    "http://mock-action-processor:9000/training/dispatch",
+                    "http://mock-action-processor:9000/training/health",
+                    "http://mock-action-processor:9000/training/preflight"
+            );
+        }
+
         private static DevProcessor krakenProcessorDefaults() {
             return new DevProcessor(
                     false,
                     "http://action-kraken-segmentation:9000/dispatch",
                     "http://action-kraken-segmentation:9000/health",
                     "http://action-kraken-segmentation:9000/preflight"
+            );
+        }
+
+        private static DevProcessor krakenTrainingProcessorDefaults() {
+            return new DevProcessor(
+                    false,
+                    "http://action-kraken-layout-training:9000/dispatch",
+                    "http://action-kraken-layout-training:9000/health",
+                    "http://action-kraken-layout-training:9000/preflight"
             );
         }
     }

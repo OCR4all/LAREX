@@ -98,9 +98,14 @@ public class ActionRunResponseMapper {
                 definition.getId(),
                 definition.getProcessorKey(),
                 definition.getName(),
+                run.getKind(),
                 run.getWorkspaceId(),
                 run.getProjectId(),
                 projectLabel,
+                run.getDatasetId(),
+                run.getDatasetLabel(),
+                run.getKind() == ActionRun.Kind.PROCESSING ? pageIds.size() : run.getInputCount(),
+                splitCounts(run),
                 pageIds.size(),
                 pageIds,
                 completedPageIdsByRunId.getOrDefault(run.getId(), List.of()),
@@ -118,6 +123,17 @@ public class ActionRunResponseMapper {
                 run.getUpdated(),
                 run.getCompletedAt()
         );
+    }
+
+    private Map<String, Long> splitCounts(ActionRun run) {
+        Map<String, Object> values = payloadService.readObjectMap(run.getSplitCountsJson());
+        Map<String, Long> counts = new LinkedHashMap<>();
+        values.forEach((key, value) -> {
+            if (value instanceof Number number) {
+                counts.put(key, number.longValue());
+            }
+        });
+        return counts;
     }
 
     public Map<String, List<String>> completedPageIdsByRunId(List<ActionRun> runs) {
@@ -138,7 +154,10 @@ public class ActionRunResponseMapper {
                 combinedLogText(run, logEvents),
                 logEvents,
                 readResultSummary(run.getResultSummaryJson()),
-                durationSeconds(run)
+                durationSeconds(run),
+                run.getKind() == ActionRun.Kind.EVALUATION
+                        ? readResultSummary(run.getResultSummaryJson())
+                        : null
         );
     }
 
@@ -148,17 +167,22 @@ public class ActionRunResponseMapper {
 
     public ActionDto.AdminRunResponse toAdminRunResponse(ActionRun run, Map<String, Integer> queuePositions) {
         ActionProcessorDefinition definition = run.getProcessorDefinition();
-        Project project = projectRepository.findById(run.getProjectId()).orElse(null);
+        Project project = run.getProjectId() == null ? null : projectRepository.findById(run.getProjectId()).orElse(null);
         List<ActionDto.ActionRunLogEventResponse> logEvents = logEventResponses(run.getId());
         return new ActionDto.AdminRunResponse(
                 run.getId(),
                 definition.getId(),
                 definition.getProcessorKey(),
                 definition.getName(),
+                run.getKind(),
                 run.getWorkspaceId(),
                 run.getWorkspaceId(),
                 run.getProjectId(),
                 project == null ? run.getProjectId() : project.getName(),
+                run.getDatasetId(),
+                run.getDatasetLabel(),
+                run.getInputCount(),
+                splitCounts(run),
                 payloadService.readPageIds(run).size(),
                 run.getStatus(),
                 run.getProgressPercent(),
@@ -174,7 +198,10 @@ public class ActionRunResponseMapper {
                 run.getCreated(),
                 run.getUpdated(),
                 run.getCompletedAt(),
-                durationSeconds(run)
+                durationSeconds(run),
+                run.getKind() == ActionRun.Kind.EVALUATION
+                        ? readResultSummary(run.getResultSummaryJson())
+                        : null
         );
     }
 
@@ -318,6 +345,9 @@ public class ActionRunResponseMapper {
     }
 
     private String resolveProjectLabel(String projectId) {
+        if (projectId == null) {
+            return null;
+        }
         return projectRepository.findById(projectId)
                 .map(Project::getName)
                 .orElse(projectId);

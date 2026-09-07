@@ -297,6 +297,7 @@ function createNewDefinition() {
     yaml,
     endpointUrl: 'http://processor:9000/dispatch',
     endpointTimeoutSeconds: 30,
+    kind: 'PROCESSING',
     executeRole: 'CURATOR',
     lockMode: 'PAGES',
     category: 'WORKFLOW',
@@ -310,6 +311,7 @@ function createNewDefinition() {
     outputsImages: false,
     outputsXml: true,
     outputsFiles: false,
+    trainingSplits: null,
     enabled: true,
     global: false,
     created: new Date().toISOString(),
@@ -981,7 +983,10 @@ function runPrimaryLabel(run: AdminActionRun) {
 }
 
 function runSecondaryLabel(run: AdminActionRun) {
-  const base = `${run.projectLabel} · ${run.pageCount} page${run.pageCount === 1 ? '' : 's'}`
+  const resource = run.datasetLabel || run.projectLabel || 'Workspace'
+  const count = run.kind === 'TRAINING' || run.kind === 'EVALUATION' ? (run.inputCount || 0) : run.pageCount
+  const unit = run.kind === 'TRAINING' || run.kind === 'EVALUATION' ? 'input' : 'page'
+  const base = `${resource} · ${count} ${unit}${count === 1 ? '' : 's'}`
   if (run.status === 'QUEUED' && run.queuePosition) {
     return `${base} · Queue position ${run.queuePosition}`
   }

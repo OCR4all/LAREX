@@ -80,6 +80,7 @@ const filteredRuns = computed(() => runs.value
     if (!needle) return true
     return [
       run.projectLabel,
+      run.datasetLabel,
       run.processorName,
       run.processorKey,
       run.status,
@@ -106,10 +107,10 @@ watch(totalPages, (value) => {
 
 const columns = computed<TableColumn<ActionRun>[]>(() => [
   {
-    id: 'project',
-    header: 'Project',
+    id: 'resource',
+    header: 'Resource',
     cell: ({ row }) => h('div', { class: 'min-w-0' }, [
-      h('div', { class: 'truncate font-medium' }, row.original.projectLabel),
+      h('div', { class: 'truncate font-medium' }, row.original.datasetLabel || row.original.projectLabel || 'Workspace'),
       h('div', { class: 'truncate text-xs text-muted' }, row.original.processorName)
     ])
   },
@@ -129,9 +130,9 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
     }
   },
   {
-    accessorKey: 'pageCount',
-    header: 'Pages',
-    cell: ({ row }) => h('span', { class: 'tabular-nums text-sm' }, String(row.original.pageCount))
+    id: 'inputs',
+    header: 'Inputs',
+    cell: ({ row }) => h('span', { class: 'tabular-nums text-sm' }, String(row.original.kind === 'TRAINING' || row.original.kind === 'EVALUATION' ? (row.original.inputCount ?? 0) : row.original.pageCount))
   },
   {
     accessorKey: 'updated',
@@ -263,11 +264,11 @@ async function cancelRun(run: ActionRun) {
   cancellingRunId.value = run.id
   try {
     const updated = await $fetch<ActionRun>(
-      `/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/runs/${run.id}/cancel`,
+      `/api/workspaces/${run.workspaceId}/actions/runs/${run.id}/cancel`,
       { method: 'POST' }
     )
     updateRun(updated)
-    actionRunsStore.upsertRun(updated, updated.projectLabel)
+    actionRunsStore.upsertRun(updated, updated.datasetLabel || updated.projectLabel || 'Workspace')
     toast.add({
       title: run.status === 'QUEUED' || run.status === 'PENDING' ? 'Run cancelled' : 'Cancellation requested',
       color: 'success',
@@ -431,7 +432,7 @@ function formatDurationFromRun(run: ActionRun) {
             table-id="workspace-action-runs"
             :columns="columns"
             :data="paginatedRuns"
-            :default-visible-column-ids="['project', 'status', 'pageCount', 'updated', 'duration', 'actions']"
+            :default-visible-column-ids="['resource', 'status', 'inputs', 'updated', 'duration', 'actions']"
             class="flex-1 px-4 pb-4"
           />
 

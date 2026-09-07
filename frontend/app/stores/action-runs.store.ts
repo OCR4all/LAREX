@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { ActionRun, ActionRunDetail, ClearActionRunsResponse } from '@/types/action'
+import type { ActionRun, ActionRunDetail } from '@/types/action'
 
 type ActionRunStatus = ActionRun['status']
 
@@ -65,7 +65,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   const emittedPageResultKeys = new Set<string>()
   const pendingRealtimeScopes = new Map<string, {
     workspaceId: string
-    projectId: string
+    projectId?: string
     runId?: string
     projectName?: string | null
   }>()
@@ -82,7 +82,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     return Math.round(active.reduce((sum, run) => sum + run.progressPercent, 0) / active.length)
   })
   const activeProjectIds = computed(() => new Set(
-    runsArray.value.filter(run => isLockingStatus(run.status)).map(run => run.projectId)
+    runsArray.value.filter(run => isLockingStatus(run.status) && run.projectId).map(run => run.projectId as string)
   ))
   const activePageReasons = computed(() => {
     const reasons = new Map<string, string>()
@@ -122,7 +122,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     const next: TrackedActionRun = {
       ...existing,
       ...run,
-      projectName: projectName || existing?.projectName || run.projectId
+      projectName: projectName || existing?.projectName || run.datasetLabel || run.projectLabel || run.projectId || 'Workspace'
     }
     if (existing && isTerminalStatus(existing.status) && !isTerminalStatus(run.status)) {
       next.status = existing.status
@@ -131,6 +131,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     if (existing) {
       const previousCompletedPageIds = new Set(existing.completedPageIds ?? [])
       for (const pageId of next.completedPageIds ?? []) {
+        if (!next.projectId) continue
         if (!previousCompletedPageIds.has(pageId)) {
           appendPageResultEvent({
             runId: next.id,
@@ -177,9 +178,9 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   }
 
   function scheduleRealtimeRefresh(payload: ActionRealtimePayload) {
-    if (!payload.workspaceId || !payload.projectId) return
+    if (!payload.workspaceId) return
     const knownRun = payload.runId ? runsById.value.get(payload.runId) : undefined
-    pendingRealtimeScopes.set(`${payload.workspaceId}:${payload.projectId}:${payload.runId ?? '*'}`, {
+    pendingRealtimeScopes.set(`${payload.workspaceId}:${payload.projectId ?? 'workspace'}:${payload.runId ?? '*'}`, {
       workspaceId: payload.workspaceId,
       projectId: payload.projectId,
       runId: payload.runId,
@@ -191,6 +192,10 @@ export const useActionRunsStore = defineStore('action-runs', () => {
       const scopes = Array.from(pendingRealtimeScopes.values())
       pendingRealtimeScopes.clear()
       void Promise.allSettled(scopes.map(async (scope) => {
+        if (!scope.projectId) {
+          await refreshWorkspaceRuns(scope.workspaceId)
+          return
+        }
         if (scope.runId) {
           await refreshRun(scope.workspaceId, scope.projectId, scope.runId, scope.projectName)
           return
@@ -265,26 +270,28 @@ export const useActionRunsStore = defineStore('action-runs', () => {
 
   async function refreshWorkspaceRuns(workspaceId: string) {
     const runs = await $fetch<ActionRun[]>(`/api/workspaces/${workspaceId}/actions/runs`)
-    runs.forEach(run => upsertRun(run, run.projectLabel))
+    runs.forEach(run => upsertRun(run, run.datasetLabel || run.projectLabel))
     return runs
   }
 
   async function refreshActiveRuns() {
     const active = runsArray.value.filter(run => isActiveStatus(run.status))
+    const trainingWorkspaceIds = new Set(active.filter(run => !run.projectId).map(run => run.workspaceId))
     const scopes = new Map<string, TrackedActionRun>()
-    active.forEach((run) => {
+    active.filter(run => run.projectId).forEach((run) => {
       scopes.set(`${run.workspaceId}:${run.projectId}`, run)
     })
-    await Promise.allSettled(Array.from(scopes.values()).map(run =>
-      refreshProjectRuns(run.workspaceId, run.projectId, run.projectName)
-    ))
+    await Promise.allSettled([
+      ...Array.from(scopes.values()).map(run => refreshProjectRuns(run.workspaceId, run.projectId as string, run.projectName)),
+      ...Array.from(trainingWorkspaceIds).map(refreshWorkspaceRuns)
+    ])
   }
 
   async function cancelRun(run: TrackedActionRun) {
     setCancelling(run.id, true)
     try {
       const updated = await $fetch<ActionRun>(
-        `/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/runs/${run.id}/cancel`,
+        `/api/workspaces/${run.workspaceId}/actions/runs/${run.id}/cancel`,
         { method: 'POST' }
       )
       upsertRun(updated, run.projectName)
@@ -297,7 +304,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     try {
       if (isTerminalStatus(run.status)) {
         await $fetch<unknown>(
-          `/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/runs/${run.id}/dismiss`,
+          `/api/workspaces/${run.workspaceId}/actions/runs/${run.id}/dismiss`,
           { method: 'POST' }
         )
       }
@@ -309,15 +316,10 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   async function dismissCompletedRuns() {
     const terminalRuns = runsArray.value.filter(run => isTerminalStatus(run.status))
     if (terminalRuns.length === 0) return
-    const scopes = new Map<string, TrackedActionRun>()
-    terminalRuns.forEach((run) => {
-      scopes.set(`${run.workspaceId}:${run.projectId}`, run)
-    })
     try {
-      const results = await Promise.allSettled(Array.from(scopes.values()).map(run =>
-        $fetch<ClearActionRunsResponse>(
-          `/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/runs/history/dismiss`,
-          { method: 'POST' }
+      const results = await Promise.allSettled(terminalRuns.map(run =>
+        $fetch<unknown>(
+          `/api/workspaces/${run.workspaceId}/actions/runs/${run.id}/dismiss`, { method: 'POST' }
         )
       ))
       const rejected = results.find(result => result.status === 'rejected')

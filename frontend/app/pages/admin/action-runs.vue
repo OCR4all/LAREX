@@ -169,10 +169,10 @@ const columns = computed<TableColumn<AdminActionRun>[]>(() => [
   },
   {
     id: 'target',
-    header: 'Workspace / Project',
+    header: 'Workspace / Resource',
     cell: ({ row }) => h('div', { class: 'min-w-0' }, [
       h('div', { class: 'truncate font-medium' }, workspaceLabel(row.original)),
-      h('div', { class: 'truncate text-xs text-muted' }, row.original.projectLabel)
+      h('div', { class: 'truncate text-xs text-muted' }, row.original.datasetLabel || row.original.projectLabel || 'Workspace')
     ])
   },
   {

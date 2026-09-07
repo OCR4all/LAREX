@@ -142,6 +142,7 @@ ensure_key() {
 
 if [[ "$MODE" == "actions" ]]; then
   ensure_key "LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1" "$(random_secret)"
+  ensure_key "LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_LAYOUT_TRAINING_V1" "$(random_secret)"
   echo
   echo "Seeded secrets in $OUTPUT"
   echo "Review processor image, resource, and callback settings before deployment."

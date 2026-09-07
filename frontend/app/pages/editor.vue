@@ -1109,7 +1109,7 @@ watch(() => actionRunsStore.terminalEvents.at(-1)?.sequence, () => {
   if (events.length === 0) return
 
   lastHandledActionTerminalSequence = Math.max(...events.map(event => event.sequence))
-  const affectedProjectIds = new Set(events.map(event => event.run.projectId))
+  const affectedProjectIds = new Set(events.map(event => event.run.projectId).filter((id): id is string => Boolean(id)))
   for (const projectId of affectedProjectIds) {
     void reconcileActionRunTerminalLocks(projectId)
   }

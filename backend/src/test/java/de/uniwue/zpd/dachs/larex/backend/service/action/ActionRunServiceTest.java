@@ -13,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.Execut
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunPageResult;
+import de.uniwue.zpd.dachs.larex.backend.entity.Dataset;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
@@ -26,6 +27,8 @@ import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunDismissalRep
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunLogEventRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunPageResultRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionTrainingInputRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
@@ -121,6 +124,10 @@ class ActionRunServiceTest {
     @Mock
     private ActionRunPageResultRepository pageResultRepository;
     @Mock
+    private ActionTrainingInputRepository trainingInputRepository;
+    @Mock
+    private DatasetRepository datasetRepository;
+    @Mock
     private ProjectRepository projectRepository;
     @Mock
     private PageRepository pageRepository;
@@ -175,6 +182,8 @@ class ActionRunServiceTest {
     @Mock
     private ActionOutputService actionOutputService;
     @Mock
+    private ActionTrainingSnapshotService trainingSnapshotService;
+    @Mock
     private JobRealtimePublisher jobRealtimePublisher;
     @Mock
     private ActionMetrics actionMetrics;
@@ -216,6 +225,8 @@ class ActionRunServiceTest {
                 runDismissalRepository,
                 logEventRepository,
                 pageResultRepository,
+                trainingInputRepository,
+                datasetRepository,
                 projectRepository,
                 pageRepository,
                 pageImageRepository,
@@ -247,6 +258,7 @@ class ActionRunServiceTest {
                 resultPageMergeService,
                 realtimePublisher,
                 actionOutputService,
+                trainingSnapshotService,
                 jobRealtimePublisher,
                 actionMetrics,
                 transactionTemplate
@@ -334,6 +346,56 @@ class ActionRunServiceTest {
                 .containsExactly(includedPage.getId());
         assertThat(includedPage.isLocked()).isTrue();
         assertThat(skippedPage.isLocked()).isFalse();
+    }
+
+    @Test
+    void startTrainingRunCreatesDatasetScopedRunWithoutDraftOrLocks() throws Exception {
+        Dataset dataset = new Dataset();
+        dataset.setId("dataset-1");
+        dataset.setWorkspaceId(WORKSPACE_ID);
+        dataset.setName("Layout training data");
+        ActionProcessorDefinition definition = definition("kraken-layout-training");
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        definition.setActionKind(ActionProcessorDefinition.ActionKind.TRAINING);
+        definition.setLockMode(LockMode.NONE);
+
+        when(datasetRepository.findByIdAndWorkspaceId(dataset.getId(), WORKSPACE_ID)).thenReturn(Optional.of(dataset));
+        when(definitionRepository.findById(definition.getId())).thenReturn(Optional.of(definition));
+        when(workspaceAccessService.canManageProjects(WORKSPACE_ID, CURATOR_ID)).thenReturn(true);
+        when(definitionService.readParsedDocument(definition))
+                .thenReturn(parsedDefinition(definition.getProcessorKey(), "WORKSPACE", false));
+        when(definitionService.readTrainingSplitRequirements(definition)).thenReturn(
+                new ActionDto.TrainingSplitRequirements(ActionDto.InputLevel.REQUIRED, ActionDto.InputLevel.OPTIONAL, ActionDto.InputLevel.NONE));
+        when(definitionService.defaultTokenTtlMinutes()).thenReturn(30);
+        when(trainingSnapshotService.createSnapshot(eq(WORKSPACE_ID), eq(dataset), any(ActionRun.class), any(), any()))
+                .thenReturn(new ActionTrainingSnapshotService.SnapshotResult(3, Map.of("TRAIN", 2L, "VAL", 1L)));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> {
+            ActionRun saved = invocation.getArgument(0);
+            if (saved.getId() == null) saved.setId("training-run-1");
+            return saved;
+        });
+
+        ActionDto.StartRunResponse response = service.startTrainingRun(
+                WORKSPACE_ID,
+                dataset.getId(),
+                new ActionDto.StartTrainingRunRequest(
+                        definition.getId(),
+                        new ActionDto.TrainingSelection("ALL", List.of()),
+                        new ActionDto.TrainingImageSelection("original", Map.of()),
+                        Map.of(),
+                        false),
+                CURATOR_ID,
+                "http://app:8080/api/v1");
+
+        assertThat(response.run().kind()).isEqualTo(ActionRun.Kind.TRAINING);
+        assertThat(response.run().projectId()).isNull();
+        assertThat(response.run().datasetId()).isEqualTo(dataset.getId());
+        assertThat(response.run().inputCount()).isEqualTo(3);
+        assertThat(response.run().splitCounts()).containsEntry("TRAIN", 2L).containsEntry("VAL", 1L);
+        assertThat(response.run().lockMode()).isEqualTo(LockMode.NONE);
+        verify(actionOutputService, never()).createDraft(any(), any());
+        verify(pageRepository, never()).saveAll(any());
     }
 
     @Test
@@ -802,6 +864,50 @@ class ActionRunServiceTest {
     }
 
     @Test
+    void trainingCompletionIgnoresMultipartManifestPart() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-training");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.NONE, List.of());
+        run.setKind(ActionRun.Kind.TRAINING);
+        run.setDatasetId("dataset-1");
+        run.setDatasetLabel("Dataset A");
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile> files = new LinkedMultiValueMap<>();
+        files.add("manifest", new MockMultipartFile(
+                "manifest", "manifest.json", "application/json", "{}".getBytes(StandardCharsets.UTF_8)));
+
+        ActionDto.RunResponse response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", "Training done", null, List.of(), List.of()), files);
+
+        assertThat(response.status()).isEqualTo(ActionRun.Status.COMPLETED);
+        assertThat(response.progressPercent()).isEqualTo(100);
+        verify(trainingSnapshotService).cleanupSnapshot(run);
+    }
+
+    @Test
+    void trainingCompletionStillRejectsUploadedFileParts() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-training-upload");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.NONE, List.of());
+        run.setKind(ActionRun.Kind.TRAINING);
+        run.setDatasetId("dataset-1");
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+
+        LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile> files = new LinkedMultiValueMap<>();
+        files.add("manifest", new MockMultipartFile(
+                "manifest", "manifest.json", "application/json", "{}".getBytes(StandardCharsets.UTF_8)));
+        files.add("model", new MockMultipartFile(
+                "model", "model.bin", "application/octet-stream", new byte[]{1}));
+
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(), List.of()), files))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot upload result files");
+    }
+
+    @Test
     void bulkCustomFileAllowsProjectLevelResultAndPublishesOutput() throws Exception {
         Project project = project("project-1", WORKSPACE_ID, "Project A");
         ActionProcessorDefinition definition = definition("processor-custom-output");
@@ -1053,6 +1159,7 @@ class ActionRunServiceTest {
                 processorKey,
                 processorKey,
                 "test",
+                null,
                 "WORKFLOW",
                 List.of("PAGE"),
                 new ActionDefinitionDocument.Endpoint("https://processor.example/dispatch", 30, null, null, null),
@@ -1065,6 +1172,7 @@ class ActionRunServiceTest {
                         null
                 ),
                 new ActionDefinitionDocument.Concurrency(1, scope),
+                null,
                 null,
                 parameters
         );

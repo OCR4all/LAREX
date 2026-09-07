@@ -73,6 +73,124 @@ public class ActionProjectController {
         return ResponseEntity.ok(actionRunService.listExecutableProcessors(workspaceId, projectId, userId, target));
     }
 
+    @GetMapping("/training/processors")
+    public ResponseEntity<List<ActionDto.DefinitionResponse>> listTrainingProcessors(
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listTrainingProcessors(workspaceId, userId));
+    }
+
+    @GetMapping("/evaluation/processors")
+    public ResponseEntity<List<ActionDto.DefinitionResponse>> listEvaluationProcessors(
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listEvaluationProcessors(workspaceId, userId));
+    }
+
+    @GetMapping("/inference/processors")
+    public ResponseEntity<List<ActionDto.DefinitionResponse>> listInferenceProcessors(
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listInferenceProcessors(workspaceId, userId));
+    }
+
+    @GetMapping("/training/processors/{definitionId}/parameter-values")
+    public ResponseEntity<ActionDto.ParameterValuesResponse> discoverTrainingParameterValues(
+            @PathVariable String workspaceId,
+            @PathVariable String definitionId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.discoverTrainingParameterValues(workspaceId, definitionId, userId));
+    }
+
+    @GetMapping("/evaluation/processors/{definitionId}/parameter-values")
+    public ResponseEntity<ActionDto.ParameterValuesResponse> discoverEvaluationParameterValues(
+            @PathVariable String workspaceId,
+            @PathVariable String definitionId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.discoverEvaluationParameterValues(workspaceId, definitionId, userId));
+    }
+
+    @GetMapping("/training/datasets/{datasetId}/inputs")
+    public ResponseEntity<ActionDto.TrainingInputResponse> listTrainingInputs(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listTrainingInputs(workspaceId, datasetId, userId));
+    }
+
+    @GetMapping("/evaluation/datasets/{datasetId}/inputs")
+    public ResponseEntity<ActionDto.TrainingInputResponse> listEvaluationInputs(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listEvaluationInputs(workspaceId, datasetId, userId));
+    }
+
+    @PostMapping("/training/datasets/{datasetId}/runs")
+    public ResponseEntity<ActionDto.StartRunResponse> startTrainingRun(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @Valid @RequestBody ActionDto.StartTrainingRunRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId,
+            HttpServletRequest httpRequest) throws java.io.IOException {
+        return ResponseEntity.ok(actionRunService.startTrainingRun(
+                workspaceId, datasetId, request, userId, publicBaseUrlService.publicApiBaseUrl(httpRequest)));
+    }
+
+    @GetMapping("/training/datasets/{datasetId}/runs")
+    public ResponseEntity<List<ActionDto.RunResponse>> listTrainingRuns(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @RequestParam(defaultValue = "200") int limit,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listTrainingRuns(workspaceId, datasetId, userId, limit));
+    }
+
+    @PostMapping("/evaluation/datasets/{datasetId}/runs")
+    public ResponseEntity<ActionDto.StartRunResponse> startEvaluationRun(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @Valid @RequestBody ActionDto.StartEvaluationRunRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId,
+            HttpServletRequest httpRequest) throws java.io.IOException {
+        return ResponseEntity.ok(actionRunService.startEvaluationRun(
+                workspaceId, datasetId, request, userId, publicBaseUrlService.publicApiBaseUrl(httpRequest)));
+    }
+
+    @GetMapping("/evaluation/datasets/{datasetId}/runs")
+    public ResponseEntity<List<ActionDto.RunResponse>> listEvaluationRuns(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @RequestParam(defaultValue = "200") int limit,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listEvaluationRuns(workspaceId, datasetId, userId, limit));
+    }
+
+    @GetMapping("/evaluation/runs/{runId}/baselines")
+    public ResponseEntity<List<ActionDto.RunResponse>> listEvaluationBaselines(
+            @PathVariable String workspaceId,
+            @PathVariable String runId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listEvaluationBaselines(workspaceId, runId, userId));
+    }
+
+    @GetMapping("/evaluation/runs/{runId}/report")
+    public ResponseEntity<Object> getEvaluationReport(
+            @PathVariable String workspaceId,
+            @PathVariable String runId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.getEvaluationReport(workspaceId, runId, userId));
+    }
+
+    @GetMapping("/evaluation/runs/{runId}/compare")
+    public ResponseEntity<ActionDto.EvaluationComparisonResponse> compareEvaluationRuns(
+            @PathVariable String workspaceId,
+            @PathVariable String runId,
+            @RequestParam String baselineRunId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.compareEvaluationRuns(workspaceId, runId, baselineRunId, userId));
+    }
+
     @GetMapping("/projects/{projectId}/processors/{definitionId}/parameter-values")
     public ResponseEntity<ActionDto.ParameterValuesResponse> discoverParameterValues(
             @PathVariable String workspaceId,
@@ -181,6 +299,23 @@ public class ActionProjectController {
             @PathVariable String runId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.ok(actionRunService.cancelRun(workspaceId, projectId, runId, userId));
+    }
+
+    @PostMapping("/runs/{runId}/cancel")
+    public ResponseEntity<ActionDto.RunResponse> cancelWorkspaceRun(
+            @PathVariable String workspaceId,
+            @PathVariable String runId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.cancelWorkspaceRun(workspaceId, runId, userId));
+    }
+
+    @PostMapping("/runs/{runId}/dismiss")
+    public ResponseEntity<Void> dismissWorkspaceRun(
+            @PathVariable String workspaceId,
+            @PathVariable String runId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        actionRunService.dismissWorkspaceRun(workspaceId, runId, userId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/projects/{projectId}/runs/{runId}/dismiss")

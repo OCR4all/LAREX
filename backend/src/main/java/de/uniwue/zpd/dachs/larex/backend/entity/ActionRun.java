@@ -27,6 +27,12 @@ import java.time.LocalDateTime;
 @EntityListeners(AuditingEntityListener.class)
 public class ActionRun {
 
+    public enum Kind {
+        PROCESSING,
+        TRAINING,
+        EVALUATION
+    }
+
     public enum Status {
         QUEUED,
         PENDING,
@@ -43,6 +49,10 @@ public class ActionRun {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, name = "run_kind", length = 32, columnDefinition = "varchar(32) default 'PROCESSING'")
+    private Kind kind = Kind.PROCESSING;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "processor_definition_id", nullable = false)
     private ActionProcessorDefinition processorDefinition;
@@ -50,8 +60,26 @@ public class ActionRun {
     @Column(nullable = false, name = "workspace_id")
     private String workspaceId;
 
-    @Column(nullable = false, name = "project_id")
+    @Column(name = "project_id")
     private String projectId;
+
+    @Column(name = "dataset_id")
+    private String datasetId;
+
+    @Column(name = "dataset_label")
+    private String datasetLabel;
+
+    @Column(nullable = false, name = "input_count", columnDefinition = "integer default 0")
+    private int inputCount;
+
+    @Column(name = "split_counts_json", columnDefinition = "TEXT")
+    private String splitCountsJson;
+
+    @Column(name = "snapshot_cleaned_at")
+    private LocalDateTime snapshotCleanedAt;
+
+    @Column(name = "dataset_input_fingerprint", length = 64)
+    private String datasetInputFingerprint;
 
     @Column(nullable = false, name = "created_by_user_id")
     private String createdByUserId;
@@ -121,6 +149,14 @@ public class ActionRun {
         return id;
     }
 
+    public Kind getKind() {
+        return kind;
+    }
+
+    public void setKind(Kind kind) {
+        this.kind = kind;
+    }
+
     public void setId(String id) {
         this.id = id;
     }
@@ -147,6 +183,54 @@ public class ActionRun {
 
     public void setProjectId(String projectId) {
         this.projectId = projectId;
+    }
+
+    public String getDatasetId() {
+        return datasetId;
+    }
+
+    public void setDatasetId(String datasetId) {
+        this.datasetId = datasetId;
+    }
+
+    public String getDatasetLabel() {
+        return datasetLabel;
+    }
+
+    public void setDatasetLabel(String datasetLabel) {
+        this.datasetLabel = datasetLabel;
+    }
+
+    public int getInputCount() {
+        return inputCount;
+    }
+
+    public void setInputCount(int inputCount) {
+        this.inputCount = inputCount;
+    }
+
+    public String getSplitCountsJson() {
+        return splitCountsJson;
+    }
+
+    public void setSplitCountsJson(String splitCountsJson) {
+        this.splitCountsJson = splitCountsJson;
+    }
+
+    public LocalDateTime getSnapshotCleanedAt() {
+        return snapshotCleanedAt;
+    }
+
+    public String getDatasetInputFingerprint() {
+        return datasetInputFingerprint;
+    }
+
+    public void setDatasetInputFingerprint(String datasetInputFingerprint) {
+        this.datasetInputFingerprint = datasetInputFingerprint;
+    }
+
+    public void setSnapshotCleanedAt(LocalDateTime snapshotCleanedAt) {
+        this.snapshotCleanedAt = snapshotCleanedAt;
     }
 
     public String getCreatedByUserId() {

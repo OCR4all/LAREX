@@ -1,0 +1,42 @@
+version: 1
+id: kraken-layout-training
+name: Kraken Layout Training
+description: Trains a Kraken segmentation model from frozen dataset inputs.
+kind: TRAINING
+category: LAYOUT
+targets: [PAGE]
+endpoint:
+  url: http://action-kraken-layout-training:9000/dispatch
+  healthUrl: http://action-kraken-layout-training:9000/health
+  preflightUrl: http://action-kraken-layout-training:9000/preflight
+  timeoutSeconds: 30
+  auth:
+    type: hmac
+    secretRef: kraken-layout-training-v1
+access:
+  execute: CURATOR
+locking:
+  mode: NONE
+inputs:
+  images:
+    level: required
+  xml:
+    level: required
+training:
+  splits:
+    TRAIN: required
+    VAL: optional
+    TEST: none
+concurrency:
+  maxActiveRuns: 1
+  scope: WORKSPACE
+parameters:
+  modelName:
+    type: string
+    required: true
+    description: Safe model name.
+  epochs:
+    type: integer
+    default: 50
+    min: 1
+    max: 1000
