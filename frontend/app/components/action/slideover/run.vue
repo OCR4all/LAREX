@@ -567,13 +567,6 @@ function runSummaryText(run: ActionRun) {
   return `${run.pageIds.length} pages · ${run.statusMessage || run.processorKey}`
 }
 
-function queuedToastDescription(run: ActionRun) {
-  const queueText = queuePositionText(run)
-  return queueText
-    ? `${queueText}. The Action will start automatically when a slot becomes available.`
-    : 'The Action will start automatically when a slot becomes available.'
-}
-
 async function submitRun(options: { enqueueIfBusy?: boolean } = {}) {
   if (!selectedProcessor.value || !canStart.value) return null
   starting.value = true
@@ -591,12 +584,6 @@ async function submitRun(options: { enqueueIfBusy?: boolean } = {}) {
     })
     actionRunsStore.upsertRun(result.run, props.projectName || props.projectId)
     changed.value = true
-    toast.add({
-      title: result.run.status === 'QUEUED' ? 'Action run queued' : 'Action run started',
-      description: result.run.status === 'QUEUED' ? queuedToastDescription(result.run) : undefined,
-      color: result.run.status === 'QUEUED' ? 'warning' : 'success',
-      icon: result.run.status === 'QUEUED' ? 'i-lucide-list-ordered' : 'i-lucide-play'
-    })
     close()
     return result
   } catch (error: unknown) {
@@ -671,12 +658,6 @@ async function retryRun(run: ActionRun, options: { enqueueIfBusy?: boolean } = {
     actionRunsStore.upsertRun(result.run, props.projectName || props.projectId)
     changed.value = true
     await loadRuns()
-    toast.add({
-      title: result.run.status === 'QUEUED' ? 'Action retry queued' : 'Action retry started',
-      description: result.run.status === 'QUEUED' ? queuedToastDescription(result.run) : undefined,
-      color: result.run.status === 'QUEUED' ? 'warning' : 'success',
-      icon: result.run.status === 'QUEUED' ? 'i-lucide-list-ordered' : 'i-lucide-rotate-cw'
-    })
   } catch (error: unknown) {
     const { details, isConcurrencyError } = concurrencyErrorDetails(error)
     if (!options.enqueueIfBusy && isConcurrencyError) {
