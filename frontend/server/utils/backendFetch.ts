@@ -12,11 +12,7 @@ export async function backendFetch(
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  try {
-    await refreshTokenIfExpired(event, session)
-  } catch {
-    throw createError({ statusCode: 401, statusMessage: 'Token refresh failed' })
-  }
+  await refreshTokenIfExpired(event, session)
 
   const updatedSession = await getUserSession(event)
   const config = useRuntimeConfig(event)

@@ -9,15 +9,6 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  try {
-    await refreshAccessToken(event, { user, secure })
-    return { success: true }
-  } catch (error) {
-    console.error('Token refresh failed:', error)
-    await clearUserSession(event)
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Token refresh failed'
-    })
-  }
+  await refreshAccessToken(event, { user, secure })
+  return { success: true }
 })

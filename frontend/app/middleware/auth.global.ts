@@ -12,7 +12,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   const isPublicRoute = publicRoutes.some(route => to.path.startsWith(route))
 
-  const { loggedIn } = useUserSession()
+  const { loggedIn, session } = useUserSession()
+
+  if (!isPublicRoute && session.value?.authUnavailable) {
+    throw createError({ statusCode: 503, statusMessage: 'Authentication service unavailable. Please try again.' })
+  }
 
   if (!loggedIn.value && !isPublicRoute) {
     return navigateToAuth({ redirectTo: to.fullPath, replace: true })

@@ -1,3 +1,4 @@
+import { isError } from 'h3'
 import { buildSessionUser } from '#server/utils/session-profile'
 import { refreshTokenIfExpired } from '#server/utils/auth'
 
@@ -59,6 +60,7 @@ export default defineEventHandler(async (event) => {
       message: 'Profile refreshed successfully'
     }
   } catch (error) {
+    if (isError(error) && (error.statusCode === 401 || error.statusCode === 503)) throw error
     console.error('Failed to refresh profile:', error)
     throw createError({
       statusCode: 500,

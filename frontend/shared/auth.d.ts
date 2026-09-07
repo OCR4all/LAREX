@@ -8,8 +8,9 @@ declare module '#auth-utils' {
     roles: string[]
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- required module augmentation hook
-  interface UserSession {}
+  interface UserSession {
+    authUnavailable?: boolean
+  }
 
   interface SecureSessionData {
     accessToken: string

@@ -5,11 +5,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  try {
-    await refreshTokenIfExpired(event, { user, secure })
-  } catch (e) {
-    console.error('[upload-proxy/profile/image] Token refresh failed:', e)
-  }
+  await refreshTokenIfExpired(event, { user, secure })
 
   const updatedSession = await getUserSession(event)
   const config = useRuntimeConfig(event)

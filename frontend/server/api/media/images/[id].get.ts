@@ -17,11 +17,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  try {
-    await refreshTokenIfExpired(event, { user, secure })
-  } catch {
-    throw createError({ statusCode: 401, statusMessage: 'Token refresh failed' })
-  }
+  await refreshTokenIfExpired(event, { user, secure })
 
   const updatedSession = await getUserSession(event)
 

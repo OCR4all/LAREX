@@ -1,63 +1,24 @@
 import { jwtDecode } from 'jwt-decode'
+import { isError } from 'h3'
+import { refreshTokenIfExpired } from '#server/utils/auth'
 
-interface TokenData {
-  exp: number
-  iat: number
-}
+export default defineEventHandler(async (event) => {
+  const session = await getUserSession(event)
+  if (!session.user) return { valid: false }
 
-interface AuthCheckResponse {
-  valid: boolean
-  expiresIn?: number // seconds until token expires
-  expiresAt?: number // Unix timestamp when token expires
-}
-
-/**
- * Auth check endpoint - validates the current session and returns token expiry info.
- * Used by the client to check auth status without making unnecessary API calls.
- */
-export default defineEventHandler(async (event): Promise<AuthCheckResponse> => {
   try {
-    const session = await getUserSession(event)
+    // An expired access token can still have a valid refresh token after sleep.
+    await refreshTokenIfExpired(event, session)
+  } catch (error) {
+    if (isError(error) && error.statusCode === 401) return { valid: false }
+    throw error
+  }
 
-    if (!session?.user || !session?.secure?.accessToken) {
-      return { valid: false }
-    }
-
-    const decoded = jwtDecode<TokenData>(session.secure.accessToken)
-    const now = Math.floor(Date.now() / 1000)
-    const expiresIn = decoded.exp - now
-
-    if (expiresIn <= 0) {
-      return { valid: false }
-    }
-
-    const bufferTime = 5 * 60
-    if (expiresIn <= bufferTime) {
-      try {
-        const { refreshTokenIfExpired } = await import('#server/utils/auth')
-        await refreshTokenIfExpired(event, { user: session.user, secure: session.secure })
-
-        const updatedSession = await getUserSession(event)
-        if (updatedSession?.secure?.accessToken) {
-          const newDecoded = jwtDecode<TokenData>(updatedSession.secure.accessToken)
-          const newExpiresIn = newDecoded.exp - now
-          return {
-            valid: true,
-            expiresIn: newExpiresIn,
-            expiresAt: newDecoded.exp
-          }
-        }
-      } catch {
-        return { valid: false }
-      }
-    }
-
-    return {
-      valid: true,
-      expiresIn,
-      expiresAt: decoded.exp
-    }
-  } catch {
-    return { valid: false }
+  const updatedSession = await getUserSession(event)
+  const { exp } = jwtDecode<{ exp: number }>(updatedSession.secure!.accessToken)
+  return {
+    valid: true,
+    expiresIn: exp - Math.floor(Date.now() / 1000),
+    expiresAt: exp
   }
 })
