@@ -222,7 +222,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         throw new Error('Required resources not initialized')
       }
 
-      fillRenderer = new FillRenderer(gl, fillProgram, resourcePool, actionProcessingProgram, labelConflictProgram, uniformState)
+      fillRenderer = new FillRenderer(gl, fillProgram, resourcePool, actionProcessingProgram, labelConflictProgram, uniformState, imageTexture)
 
       if (!polygonProgram) throw new Error('Polygon program not initialized')
       polygonRenderer = new PolygonRenderer(gl, polygonProgram, resourcePool, uniformState)
@@ -383,27 +383,87 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         gl_Position = vec4(clip, 0.0, 1.0);
       }`
     const actionProcessingFsSource = `#version 300 es
-      precision mediump float;
+      precision highp float;
       in vec2 v_world;
+      uniform sampler2D u_image;
       uniform float u_time;
-      uniform float u_intensity;
-      uniform vec4 u_bounds;
       out vec4 outColor;
 
+      const float pixelSize = 6.0;
+      const float bayer8[64] = float[64](
+        0.0, 48.0, 12.0, 60.0, 3.0, 51.0, 15.0, 63.0,
+        32.0, 16.0, 44.0, 28.0, 35.0, 19.0, 47.0, 31.0,
+        8.0, 56.0, 4.0, 52.0, 11.0, 59.0, 7.0, 55.0,
+        40.0, 24.0, 36.0, 20.0, 43.0, 27.0, 39.0, 23.0,
+        2.0, 50.0, 14.0, 62.0, 1.0, 49.0, 13.0, 61.0,
+        34.0, 18.0, 46.0, 30.0, 33.0, 17.0, 45.0, 29.0,
+        10.0, 58.0, 6.0, 54.0, 9.0, 57.0, 5.0, 53.0,
+        42.0, 26.0, 38.0, 22.0, 41.0, 25.0, 37.0, 21.0
+      );
+
+      vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+      vec4 permute(vec4 x) { return mod289(((x * 34.0) + 1.0) * x); }
+      vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+      vec2 fade(vec2 t) { return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
+
+      float cnoise(vec2 p) {
+        vec4 pi = floor(p.xyxy) + vec4(0.0, 0.0, 1.0, 1.0);
+        vec4 pf = fract(p.xyxy) - vec4(0.0, 0.0, 1.0, 1.0);
+        pi = mod289(pi);
+        vec4 ix = pi.xzxz;
+        vec4 iy = pi.yyww;
+        vec4 fx = pf.xzxz;
+        vec4 fy = pf.yyww;
+        vec4 i = permute(permute(ix) + iy);
+        vec4 gx = fract(i * (1.0 / 41.0)) * 2.0 - 1.0;
+        vec4 gy = abs(gx) - 0.5;
+        vec4 tx = floor(gx + 0.5);
+        gx -= tx;
+        vec2 g00 = vec2(gx.x, gy.x);
+        vec2 g10 = vec2(gx.y, gy.y);
+        vec2 g01 = vec2(gx.z, gy.z);
+        vec2 g11 = vec2(gx.w, gy.w);
+        vec4 norm = taylorInvSqrt(vec4(dot(g00, g00), dot(g01, g01), dot(g10, g10), dot(g11, g11)));
+        g00 *= norm.x;
+        g01 *= norm.y;
+        g10 *= norm.z;
+        g11 *= norm.w;
+        float n00 = dot(g00, vec2(fx.x, fy.x));
+        float n10 = dot(g10, vec2(fx.y, fy.y));
+        float n01 = dot(g01, vec2(fx.z, fy.z));
+        float n11 = dot(g11, vec2(fx.w, fy.w));
+        vec2 fadeXY = fade(pf.xy);
+        vec2 nX = mix(vec2(n00, n01), vec2(n10, n11), fadeXY.x);
+        return 2.3 * mix(nX.x, nX.y, fadeXY.y);
+      }
+
+      float waves(vec2 p) {
+        float value = 0.0;
+        float amplitude = 1.0;
+        for (int i = 0; i < 4; i++) {
+          value += amplitude * abs(cnoise(p));
+          p *= 2.6;
+          amplitude *= 0.34;
+        }
+        return clamp(value, 0.0, 1.0);
+      }
+
       void main() {
-        vec2 uv = (v_world - u_bounds.xy) / max(u_bounds.zw, vec2(0.0001));
-        vec2 center = uv - vec2(0.5);
-        float distanceFromCenter = length(center);
-        float pulse = 0.5 + 0.5 * sin(u_time * 2.8);
-        float scan = fract((uv.x + uv.y) * 0.5 - u_time * 0.28);
-        float scanBand = smoothstep(0.42, 0.5, scan) * (1.0 - smoothstep(0.5, 0.64, scan));
-        float vignette = smoothstep(0.78, 0.12, distanceFromCenter);
+        vec2 imageUv = (v_world + 1.0) * 0.5;
+        vec2 pixelUv = max(fwidth(imageUv) * pixelSize, 1.0 / vec2(textureSize(u_image, 0)));
+        vec2 sampleUv = clamp((floor(imageUv / pixelUv) + 0.5) * pixelUv, 0.0, 1.0);
+        vec3 raster = texture(u_image, sampleUv).rgb;
 
-        vec3 base = mix(vec3(0.0, 0.62, 1.0), vec3(0.72, 0.16, 1.0), clamp(uv.x * 0.65 + uv.y * 0.35, 0.0, 1.0));
-        vec3 glow = vec3(0.45, 0.95, 1.0) * (0.28 + 0.35 * pulse * vignette + 0.58 * scanBand);
-        float alpha = (0.2 + pulse * 0.14 + scanBand * 0.16) * u_intensity;
+        float flow = waves(imageUv * 2.6 - vec2(u_time * 0.035));
+        float luminance = dot(raster, vec3(0.2126, 0.7152, 0.0722));
+        float blueAmount = clamp((1.0 - luminance) * 0.72 + flow * 0.62, 0.0, 1.0);
+        vec3 color = mix(vec3(0.95, 0.97, 1.0), vec3(0.35, 0.55, 1.0), blueAmount);
+        ivec2 cell = ivec2(mod(floor(gl_FragCoord.xy / pixelSize), 8.0));
+        float threshold = bayer8[cell.y * 8 + cell.x] / 64.0 - 0.25;
+        color = clamp(color + threshold * 0.25, 0.0, 1.0);
+        color = floor(color * 4.0 + 0.5) / 4.0;
 
-        outColor = vec4(base + glow, min(alpha, 0.68));
+        outColor = vec4(color, 0.99);
       }`
 
     actionProcessingProgram = shaderManager.registerProgram('action-processing-fill', actionProcessingVsSource, actionProcessingFsSource)
@@ -928,12 +988,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     if (!targets || (!targets.page && targets.polygonIds.length === 0) || !fillRenderer) return
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
-    const pulse = 0.5 + Math.sin(performance.now() / 420) * 0.5
     const timeSeconds = performance.now() / 1000
-    const haloColor: RGBA = [0.16, 0.74, 1.0, 0.18 + pulse * 0.12]
-    const glowColor: RGBA = [0.46, 0.22, 1.0, 0.13 + pulse * 0.1]
-    const strokeColor: RGBA = [0.86, 0.96, 1.0, 0.58 + pulse * 0.34]
-    const strokeWidth = 2.25 + pulse * 2.25
+    const strokeColor: RGBA = [0.65, 0.78, 1.0, 0.9]
 
     if (targets.page) {
       const pagePoints: Point[] = [
@@ -942,20 +998,16 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         { x: 1, y: -1 },
         { x: -1, y: -1 }
       ]
-      fillRenderer.drawFill(pagePoints, [0, 1, 2, 0, 2, 3], haloColor, scale, view)
-      fillRenderer.drawFill(pagePoints, [0, 1, 2, 0, 2, 3], glowColor, scale, view)
-      fillRenderer.drawProcessingFill(pagePoints, [0, 1, 2, 0, 2, 3], scale, view, timeSeconds, 1.22)
-      drawThickLine(pagePoints, strokeColor, strokeWidth, true, aspectRatioScale, view)
+      fillRenderer.drawProcessingFill(pagePoints, [0, 1, 2, 0, 2, 3], scale, view, timeSeconds)
+      drawThickLine(pagePoints, strokeColor, 2, true, aspectRatioScale, view)
     }
 
     const polygonIds = new Set(targets.polygonIds)
     for (const polygon of renderState.polygons) {
       if (!polygonIds.has(polygon.id) || polygon.points.length < 3) continue
       const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
-      fillRenderer.drawFill(polygon.points, triangleIndices, haloColor, scale, view)
-      fillRenderer.drawFill(polygon.points, triangleIndices, glowColor, scale, view)
-      fillRenderer.drawProcessingFill(polygon.points, triangleIndices, scale, view, timeSeconds, 1.25)
-      drawThickLine(polygon.points, strokeColor, strokeWidth, polygon.type !== PolygonType.BASELINE, aspectRatioScale, view)
+      fillRenderer.drawProcessingFill(polygon.points, triangleIndices, scale, view, timeSeconds)
+      drawThickLine(polygon.points, strokeColor, 2, polygon.type !== PolygonType.BASELINE, aspectRatioScale, view)
     }
   }
 
@@ -1825,10 +1877,10 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     drawBackgroundPolygons(renderState, aspectRatioScale, view)
     drawConfidenceHeatmapPolygons(renderState, aspectRatioScale, view, triangulatePolygon)
-    drawActionProcessingTargets(renderState, aspectRatioScale, view, triangulatePolygon)
     drawDiffPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)
     drawPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)
     drawLabelConflictFills(renderState, aspectRatioScale, view, triangulatePolygon)
+    drawActionProcessingTargets(renderState, aspectRatioScale, view, triangulatePolygon)
 
     drawNonSelectedPolygonOutlines(renderState, aspectRatioScale, view)
     drawMultiSelectedPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)

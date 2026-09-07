@@ -23,7 +23,8 @@ export class FillRenderer {
     pool: ResourcePool,
     processingProgram?: WebGLProgram | null,
     conflictProgram?: WebGLProgram | null,
-    uniformState = new UniformStateCache(gl)
+    uniformState = new UniformStateCache(gl),
+    private readonly processingTexture?: WebGLTexture | null
   ) {
     this.gl = gl
     this.program = program
@@ -116,15 +117,13 @@ export class FillRenderer {
     triangleIndices: readonly number[],
     scale: Scale,
     view: View,
-    timeSeconds: number,
-    intensity = 1
+    timeSeconds: number
   ): void {
     if (triangleIndices.length < WEBGL_GEOMETRY.MIN_TRIANGLE_INDEX_COUNT) return
     const program = this.processingProgram ?? this.program
     const vao = this.processingVao ?? this.vao
     const vertexCount = triangleIndices.length
     const fillVertices = this.pool.getFloat32Array('processing-fill-vertices', vertexCount * 2)
-    const bounds = this.getBounds(polygonPoints)
 
     for (let i = 0; i < triangleIndices.length; i++) {
       const triangleIndex = triangleIndices[i]!
@@ -141,14 +140,9 @@ export class FillRenderer {
 
     this.setTransformUniforms(program, scale, view)
     this.uniformState.uniform1f(this.uniformState.getLocation(program, 'u_time'), timeSeconds)
-    this.uniformState.uniform1f(this.uniformState.getLocation(program, 'u_intensity'), intensity)
-    this.uniformState.uniform4f(
-      this.uniformState.getLocation(program, 'u_bounds'),
-      bounds.x,
-      bounds.y,
-      bounds.width,
-      bounds.height
-    )
+    this.gl.activeTexture(this.gl.TEXTURE0)
+    this.gl.bindTexture(this.gl.TEXTURE_2D, this.processingTexture ?? null)
+    this.uniformState.uniform1i(this.uniformState.getLocation(program, 'u_image'), 0)
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer)
     this.gl.bufferData(
@@ -283,31 +277,6 @@ export class FillRenderer {
       this.uniformState.getLocation(program, 'u_canvasAspect'),
       scale.rotationAspect ?? fallbackAspect
     )
-  }
-
-  private getBounds(points: Point[]): { x: number, y: number, width: number, height: number } {
-    let minX = Number.POSITIVE_INFINITY
-    let minY = Number.POSITIVE_INFINITY
-    let maxX = Number.NEGATIVE_INFINITY
-    let maxY = Number.NEGATIVE_INFINITY
-
-    for (const point of points) {
-      minX = Math.min(minX, point.x)
-      minY = Math.min(minY, point.y)
-      maxX = Math.max(maxX, point.x)
-      maxY = Math.max(maxY, point.y)
-    }
-
-    if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
-      return { x: -1, y: -1, width: 2, height: 2 }
-    }
-
-    return {
-      x: minX,
-      y: minY,
-      width: Math.max(0.0001, maxX - minX),
-      height: Math.max(0.0001, maxY - minY)
-    }
   }
 
   cleanup(): void {
