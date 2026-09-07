@@ -3118,250 +3118,16 @@ watch(() => props.src, (newSrc) => {
 </script>
 
 <template>
-  <div class="w-full h-full flex flex-col min-h-0">
+  <div class="relative w-full h-full flex flex-col min-h-0">
     <div
-      v-if="!pageLockReason && !isCanvasEditable && hasCanvasLeaseExpiredLocally && canReclaimCanvasEdit"
-      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
+      class="pointer-events-none absolute left-1/2 top-3 z-[950] flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col items-center gap-2"
+      role="status"
+      aria-live="polite"
     >
-      <div class="flex min-w-0 items-center gap-2.5">
-        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-          <Icon name="i-lucide-rotate-ccw" class="h-3.5 w-3.5" />
-        </div>
-        <p class="truncate text-[13px] text-amber-50/90">
-          Your edit lock expired locally. This page is free again and you can reclaim edit access.
-        </p>
-      </div>
-
-      <div class="flex shrink-0 items-center gap-2">
-        <UButton
-          size="xs"
-          color="primary"
-          variant="soft"
-          class="h-7 px-2.5 text-[11px]"
-          label="Reclaim Edit"
-          @click="handleReclaimEdit"
-        />
-      </div>
-    </div>
-
-    <div
-      v-else-if="pageLockReason && !pageLockActionName"
-      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
-    >
-      <div class="flex min-w-0 items-center gap-2.5">
-        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-          <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
-        </div>
-        <p class="truncate text-[13px] text-amber-50/90">
-          Read-only view
-        </p>
-      </div>
-      <span class="truncate text-[13px] text-amber-50/70">{{ pageLockDescription }}</span>
-    </div>
-
-    <div
-      v-else-if="!pageLockReason && !isCanvasEditable && canvasEditor"
-      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
-    >
-      <div class="flex min-w-0 items-center gap-2.5">
-        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-          <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
-        </div>
-        <p class="truncate text-[13px] text-amber-50/90">
-          <span class="text-amber-50/70">Read-only view.</span>
-          {{ canvasEditor.user.displayName }} currently holds the edit lock.
-        </p>
-      </div>
-
-      <div class="flex shrink-0 items-center gap-2">
-        <div class="flex items-center rounded-md border border-amber-400/20 bg-black/10 p-0.5">
-          <UButton
-            size="xs"
-            color="neutral"
-            :variant="viewerNavigationMode === 'explore' ? 'soft' : 'ghost'"
-            :class="[
-              'h-6 px-2 text-[11px]',
-              viewerNavigationMode !== 'explore'
-                && 'text-amber-50/80 hover:bg-amber-50/10 active:bg-amber-50/15'
-            ]"
-            icon="i-lucide-mouse-pointer-2"
-            label="Explore"
-            @click="editorFollow.explore"
-          />
-          <UButton
-            size="xs"
-            color="neutral"
-            :variant="viewerNavigationMode === 'follow' ? 'soft' : 'ghost'"
-            :class="[
-              'h-6 px-2 text-[11px]',
-              viewerNavigationMode !== 'follow'
-                && 'text-amber-50/80 hover:bg-amber-50/10 active:bg-amber-50/15'
-            ]"
-            icon="i-lucide-navigation"
-            label="Follow editor"
-            :disabled="!canFollowEditor"
-            @click="editorFollow.follow"
-          />
-        </div>
-        <UButton
-          v-if="canRequestTakeover"
-          size="xs"
-          color="info"
-          variant="solid"
-          class="h-7 px-2.5 text-[11px]"
-          icon="i-lucide-pencil-line"
-          label="Request Edit"
-          :loading="isTakeoverActionPending"
-          :disabled="isTakeoverActionPending"
-          @click="handleRequestTakeover(false)"
-        />
-        <UButton
-          v-if="canForceTakeover"
-          size="xs"
-          color="error"
-          icon="i-lucide-octagon-alert"
-          variant="soft"
-          class="h-7 px-2.5 text-[11px]"
-          label="Force Takeover"
-          :loading="isTakeoverActionPending"
-          :disabled="isTakeoverActionPending"
-          @click="handleRequestTakeover(true)"
-        />
-      </div>
-    </div>
-
-    <div
-      v-else-if="!pageLockReason && !isCanvasEditable"
-      class="flex min-h-10 items-center gap-2.5 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
-    >
-      <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-        <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
-      </div>
-      <p class="truncate text-[13px] text-amber-50/90">
-        <span class="text-amber-50/70">Read-only view.</span>
-        Editing is disabled for this page.
-      </p>
-    </div>
-
-    <div
-      v-if="isCanvasEditable && isCanvasLeaseExpiringSoon"
-      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
-    >
-      <div class="flex min-w-0 items-center gap-2.5">
-        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-          <Icon name="i-lucide-clock-3" class="h-3.5 w-3.5" />
-        </div>
-        <p class="truncate text-[13px] text-amber-50/90">
-          Your edit lock expires in {{ canvasLeaseSecondsUntilExpiry ?? 0 }}s unless the heartbeat resumes.
-        </p>
-      </div>
-    </div>
-
-    <div
-      v-if="isCanvasEditable && pendingTakeover"
-      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
-    >
-      <div class="flex min-w-0 items-center gap-2.5">
-        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-          <Icon name="i-lucide-arrow-right-left" class="h-3.5 w-3.5" />
-        </div>
-        <p class="truncate text-[13px] text-amber-50/90">
-          {{ pendingTakeover.requester.displayName }} requested edit access for this page.
-        </p>
-      </div>
-
-      <div class="flex shrink-0 items-center gap-2">
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="soft"
-          class="h-7 px-2.5 text-[11px]"
-          label="Decline"
-          :disabled="isTakeoverActionPending"
-          @click="handleRespondToTakeover('decline')"
-        />
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="soft"
-          class="h-7 px-2.5 text-[11px]"
-          label="Discard + Transfer"
-          :disabled="isTakeoverActionPending"
-          @click="handleRespondToTakeover('accept', 'discard')"
-        />
-        <UButton
-          size="xs"
-          color="primary"
-          variant="soft"
-          class="h-7 px-2.5 text-[11px]"
-          label="Save + Transfer"
-          :loading="isTakeoverActionPending"
-          :disabled="isTakeoverActionPending"
-          @click="handleRespondToTakeover('accept', 'save')"
-        />
-      </div>
-    </div>
-
-    <div
-      v-if="isCollaborationResyncRequired"
-      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
-    >
-      <div class="flex min-w-0 items-center gap-2.5">
-        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-          <Icon name="i-lucide-alert-triangle" class="h-3.5 w-3.5" />
-        </div>
-        <p class="truncate text-[13px] text-amber-50/90">
-          Collaboration state is stale. Another save or restore changed the persisted XML revision.
-        </p>
-      </div>
-
-      <div class="flex shrink-0 items-center gap-2">
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="soft"
-          class="h-7 px-2.5 text-[11px]"
-          @click="handleResyncRoom"
-        >
-          Resync
-        </UButton>
-      </div>
-    </div>
-
-    <div
-      v-if="regionLabelConflictCount > 0"
-      class="flex min-h-10 items-center justify-between gap-3 border-b border-error/30 bg-error/10 px-3 py-2 text-[13px]"
-    >
-      <div class="flex min-w-0 items-center gap-2.5">
-        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-error/15 text-error">
-          <Icon name="i-lucide-tags" class="h-3.5 w-3.5" />
-        </div>
-        <p class="truncate text-[13px] text-highlighted">
-          {{ regionLabelConflictCount }} region{{ regionLabelConflictCount === 1 ? '' : 's' }} use
-          {{ regionLabelConflictGroups.length }} label mapping{{ regionLabelConflictGroups.length === 1 ? '' : 's' }}
-          outside <span class="font-medium">{{ canvasLabelSet?.name }}</span>.
-        </p>
-      </div>
-
-      <UButton
-        size="xs"
-        color="error"
-        variant="soft"
-        icon="i-lucide-wand-sparkles"
-        class="h-7 shrink-0 px-2.5 text-[11px]"
-        label="Resolve labels"
-        @click="openLabelConflictResolver"
-      />
-    </div>
-
-    <div ref="correctionOverlayContainerRef" class="relative isolate flex-1 min-h-0 overflow-hidden" :class="{ 'editor-checkerboard': showCheckerboard }">
-      <div class="absolute inset-0 pointer-events-none" :style="{ backgroundColor: editorBackgroundColor }" />
       <Transition name="fade">
         <div
           v-if="pageLockActionName"
-          class="absolute left-1/2 top-3 z-[940] flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-1 rounded-full border border-default bg-elevated/95 p-1 pr-4 text-sm text-highlighted shadow-lg backdrop-blur"
-          role="status"
-          aria-live="polite"
+          class="pointer-events-auto flex max-w-full items-center gap-1 rounded-full border border-default bg-elevated/95 p-1 pr-4 text-sm text-highlighted shadow-lg backdrop-blur"
         >
           <div class="flex shrink-0 items-center gap-2 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
             <Icon name="i-lucide-loader-2" class="h-4 w-4 animate-spin" />
@@ -3370,6 +3136,246 @@ watch(() => props.src, (newSrc) => {
           <span class="truncate px-3 font-medium text-toned">{{ pageLockActionName }}</span>
         </div>
       </Transition>
+
+      <div
+        v-if="!isActionResultTransitionVisible && !pageLockReason && !isCanvasEditable && hasCanvasLeaseExpiredLocally && canReclaimCanvasEdit"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+      >
+        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
+          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-rotate-ccw" class="h-3.5 w-3.5" />
+          </div>
+          <span class="font-medium">Edit lock expired</span>
+        </div>
+        <span class="min-w-0 truncate text-[13px] text-toned">This page is free again.</span>
+
+        <div class="flex shrink-0 items-center gap-2">
+          <UButton
+            size="xs"
+            color="primary"
+            variant="soft"
+            class="h-7 px-2.5 text-[11px]"
+            label="Reclaim Edit"
+            @click="handleReclaimEdit"
+          />
+        </div>
+      </div>
+
+      <div
+        v-else-if="pageLockReason && !pageLockActionName"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+      >
+        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
+          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
+          </div>
+          <p class="truncate text-[13px] text-highlighted">
+            Read-only view
+          </p>
+        </div>
+        <span class="truncate pr-3 text-[13px] text-toned">{{ pageLockDescription }}</span>
+      </div>
+
+      <div
+        v-else-if="!isActionResultTransitionVisible && !pageLockReason && !isCanvasEditable && canvasEditor"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+      >
+        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
+          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
+          </div>
+          <span class="font-medium">Read-only view</span>
+        </div>
+        <span class="min-w-0 truncate text-[13px] text-toned">
+          {{ canvasEditor.user.displayName }} currently holds the edit lock.
+        </span>
+
+        <div class="flex shrink-0 items-center gap-2">
+          <div class="flex items-center rounded-full border border-default bg-default p-0.5">
+            <UButton
+              size="xs"
+              color="neutral"
+              :variant="viewerNavigationMode === 'explore' ? 'soft' : 'ghost'"
+              :class="[
+                'h-6 px-2 text-[11px]',
+                viewerNavigationMode !== 'explore'
+                  && 'text-toned hover:bg-muted active:bg-muted'
+              ]"
+              icon="i-lucide-mouse-pointer-2"
+              label="Explore"
+              @click="editorFollow.explore"
+            />
+            <UButton
+              size="xs"
+              color="neutral"
+              :variant="viewerNavigationMode === 'follow' ? 'soft' : 'ghost'"
+              :class="[
+                'h-6 px-2 text-[11px]',
+                viewerNavigationMode !== 'follow'
+                  && 'text-toned hover:bg-muted active:bg-muted'
+              ]"
+              icon="i-lucide-navigation"
+              label="Follow editor"
+              :disabled="!canFollowEditor"
+              @click="editorFollow.follow"
+            />
+          </div>
+          <UButton
+            v-if="canRequestTakeover"
+            size="xs"
+            color="info"
+            variant="solid"
+            class="h-7 px-2.5 text-[11px]"
+            icon="i-lucide-pencil-line"
+            label="Request Edit"
+            :loading="isTakeoverActionPending"
+            :disabled="isTakeoverActionPending"
+            @click="handleRequestTakeover(false)"
+          />
+          <UButton
+            v-if="canForceTakeover"
+            size="xs"
+            color="error"
+            icon="i-lucide-octagon-alert"
+            variant="soft"
+            class="h-7 px-2.5 text-[11px]"
+            label="Force Takeover"
+            :loading="isTakeoverActionPending"
+            :disabled="isTakeoverActionPending"
+            @click="handleRequestTakeover(true)"
+          />
+        </div>
+      </div>
+
+      <div
+        v-else-if="!isActionResultTransitionVisible && !pageLockReason && !isCanvasEditable"
+        class="pointer-events-auto flex max-w-full items-center gap-2.5 rounded-full border border-default bg-elevated/95 px-3 py-2 text-sm text-highlighted shadow-lg backdrop-blur"
+      >
+        <div class="flex shrink-0 items-center gap-2 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
+          <Icon name="i-lucide-lock" class="h-4 w-4 text-amber-400" />
+          <span class="font-medium">Read-only view</span>
+        </div>
+        <span class="min-w-0 truncate text-[13px] text-toned">Editing is disabled for this page.</span>
+      </div>
+
+      <div
+        v-if="isCanvasEditable && isCanvasLeaseExpiringSoon"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 px-3 py-2 text-sm text-highlighted shadow-lg backdrop-blur"
+      >
+        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
+          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-clock-3" class="h-3.5 w-3.5" />
+          </div>
+          <span class="font-medium">Edit lock expiring</span>
+        </div>
+        <span class="min-w-0 truncate pr-3 text-[13px] text-toned">
+          {{ canvasLeaseSecondsUntilExpiry ?? 0 }}s remaining unless the heartbeat resumes.
+        </span>
+      </div>
+
+      <div
+        v-if="isCanvasEditable && pendingTakeover"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+      >
+        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
+          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-arrow-right-left" class="h-3.5 w-3.5" />
+          </div>
+          <span class="font-medium">Edit requested</span>
+        </div>
+        <span class="min-w-0 truncate text-[13px] text-toned">
+          {{ pendingTakeover.requester.displayName }} requested access.
+        </span>
+
+        <div class="flex shrink-0 items-center gap-2">
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="soft"
+            class="h-7 px-2.5 text-[11px]"
+            label="Decline"
+            :disabled="isTakeoverActionPending"
+            @click="handleRespondToTakeover('decline')"
+          />
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="soft"
+            class="h-7 px-2.5 text-[11px]"
+            label="Discard + Transfer"
+            :disabled="isTakeoverActionPending"
+            @click="handleRespondToTakeover('accept', 'discard')"
+          />
+          <UButton
+            size="xs"
+            color="primary"
+            variant="soft"
+            class="h-7 px-2.5 text-[11px]"
+            label="Save + Transfer"
+            :loading="isTakeoverActionPending"
+            :disabled="isTakeoverActionPending"
+            @click="handleRespondToTakeover('accept', 'save')"
+          />
+        </div>
+      </div>
+
+      <div
+        v-if="isCollaborationResyncRequired"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-default bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+      >
+        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
+          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+            <Icon name="i-lucide-alert-triangle" class="h-3.5 w-3.5" />
+          </div>
+          <span class="font-medium">Out of sync</span>
+        </div>
+        <span class="min-w-0 truncate text-[13px] text-toned">
+          Another save or restore changed the persisted XML revision.
+        </span>
+
+        <div class="flex shrink-0 items-center gap-2">
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="soft"
+            class="h-7 px-2.5 text-[11px]"
+            @click="handleResyncRoom"
+          >
+            Resync
+          </UButton>
+        </div>
+      </div>
+
+      <div
+        v-if="regionLabelConflictCount > 0"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-3 rounded-full border border-error/30 bg-elevated/95 p-1 pl-3 text-sm text-highlighted shadow-lg backdrop-blur"
+      >
+        <div class="flex min-w-0 items-center gap-2.5 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
+          <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-error/15 text-error">
+            <Icon name="i-lucide-tags" class="h-3.5 w-3.5" />
+          </div>
+          <span class="font-medium">Label conflicts</span>
+        </div>
+        <span class="min-w-0 truncate text-[13px] text-toned">
+          {{ regionLabelConflictCount }} region{{ regionLabelConflictCount === 1 ? '' : 's' }} use
+          {{ regionLabelConflictGroups.length }} mapping{{ regionLabelConflictGroups.length === 1 ? '' : 's' }}
+          outside {{ canvasLabelSet?.name }}.
+        </span>
+
+        <UButton
+          size="xs"
+          color="error"
+          variant="soft"
+          icon="i-lucide-wand-sparkles"
+          class="h-7 shrink-0 px-2.5 text-[11px]"
+          label="Resolve labels"
+          @click="openLabelConflictResolver"
+        />
+      </div>
+    </div>
+
+    <div ref="correctionOverlayContainerRef" class="relative isolate flex-1 min-h-0 overflow-hidden" :class="{ 'editor-checkerboard': showCheckerboard }">
+      <div class="absolute inset-0 pointer-events-none" :style="{ backgroundColor: editorBackgroundColor }" />
       <UContextMenu
         v-model:open="contextMenuOpen"
         :items="contextMenuItems"
