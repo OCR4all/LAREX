@@ -3145,7 +3145,7 @@ watch(() => props.src, (newSrc) => {
     </div>
 
     <div
-      v-else-if="pageLockReason"
+      v-else-if="pageLockReason && !pageLockActionName"
       class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
     >
       <div class="flex min-w-0 items-center gap-2.5">
@@ -3156,23 +3156,11 @@ watch(() => props.src, (newSrc) => {
           Read-only view
         </p>
       </div>
-
-      <div class="flex min-w-0 shrink items-center justify-end gap-2">
-        <span class="truncate text-[13px] text-amber-50/70">{{ pageLockDescription }}</span>
-        <UBadge
-          v-if="pageLockActionName"
-          color="warning"
-          variant="subtle"
-          size="sm"
-          class="max-w-80 truncate"
-        >
-          {{ pageLockActionName }}
-        </UBadge>
-      </div>
+      <span class="truncate text-[13px] text-amber-50/70">{{ pageLockDescription }}</span>
     </div>
 
     <div
-      v-else-if="!isCanvasEditable && canvasEditor"
+      v-else-if="!pageLockReason && !isCanvasEditable && canvasEditor"
       class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
     >
       <div class="flex min-w-0 items-center gap-2.5">
@@ -3243,7 +3231,7 @@ watch(() => props.src, (newSrc) => {
     </div>
 
     <div
-      v-else-if="!isCanvasEditable"
+      v-else-if="!pageLockReason && !isCanvasEditable"
       class="flex min-h-10 items-center gap-2.5 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
     >
       <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
@@ -3368,6 +3356,20 @@ watch(() => props.src, (newSrc) => {
 
     <div ref="correctionOverlayContainerRef" class="relative isolate flex-1 min-h-0 overflow-hidden" :class="{ 'editor-checkerboard': showCheckerboard }">
       <div class="absolute inset-0 pointer-events-none" :style="{ backgroundColor: editorBackgroundColor }" />
+      <Transition name="fade">
+        <div
+          v-if="pageLockActionName"
+          class="absolute left-1/2 top-3 z-[940] flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-1 rounded-full border border-default bg-elevated/95 p-1 pr-4 text-sm text-highlighted shadow-lg backdrop-blur"
+          role="status"
+          aria-live="polite"
+        >
+          <div class="flex shrink-0 items-center gap-2 rounded-full border border-default bg-default px-3 py-1.5 shadow-sm">
+            <Icon name="i-lucide-box" class="h-4 w-4" />
+            <span class="font-medium">Action running</span>
+          </div>
+          <span class="truncate px-3 font-medium text-toned">{{ pageLockActionName }}</span>
+        </div>
+      </Transition>
       <UContextMenu
         v-model:open="contextMenuOpen"
         :items="contextMenuItems"
