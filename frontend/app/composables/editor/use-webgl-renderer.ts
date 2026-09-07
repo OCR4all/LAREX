@@ -387,6 +387,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       in vec2 v_world;
       uniform sampler2D u_image;
       uniform float u_time;
+      uniform float u_intensity;
       out vec4 outColor;
 
       const float pixelSize = 6.0;
@@ -463,7 +464,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         color = clamp(color + threshold * 0.25, 0.0, 1.0);
         color = floor(color * 4.0 + 0.5) / 4.0;
 
-        outColor = vec4(color, 0.99);
+        outColor = vec4(color, 0.99 * u_intensity);
       }`
 
     actionProcessingProgram = shaderManager.registerProgram('action-processing-fill', actionProcessingVsSource, actionProcessingFsSource)
@@ -989,7 +990,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
     const timeSeconds = performance.now() / 1000
-    const strokeColor: RGBA = [0.65, 0.78, 1.0, 0.9]
+    const opacity = targets.opacity ?? 1
+    const strokeColor: RGBA = [0.65, 0.78, 1.0, 0.9 * opacity]
 
     if (targets.page) {
       const pagePoints: Point[] = [
@@ -998,7 +1000,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         { x: 1, y: -1 },
         { x: -1, y: -1 }
       ]
-      fillRenderer.drawProcessingFill(pagePoints, [0, 1, 2, 0, 2, 3], scale, view, timeSeconds)
+      fillRenderer.drawProcessingFill(pagePoints, [0, 1, 2, 0, 2, 3], scale, view, timeSeconds, opacity)
       drawThickLine(pagePoints, strokeColor, 2, true, aspectRatioScale, view)
     }
 
@@ -1006,7 +1008,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     for (const polygon of renderState.polygons) {
       if (!polygonIds.has(polygon.id) || polygon.points.length < 3) continue
       const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
-      fillRenderer.drawProcessingFill(polygon.points, triangleIndices, scale, view, timeSeconds)
+      fillRenderer.drawProcessingFill(polygon.points, triangleIndices, scale, view, timeSeconds, opacity)
       drawThickLine(polygon.points, strokeColor, 2, polygon.type !== PolygonType.BASELINE, aspectRatioScale, view)
     }
   }

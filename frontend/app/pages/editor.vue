@@ -1048,6 +1048,7 @@ async function reloadPageTouchedByActionResult(event: ActionPageResultEvent) {
     return
   }
 
+  canvas.actionResultTransitionSequence = event.sequence
   try {
     const previousPage = editorStore.getPage(event.pageId, event.projectId)
     const previousVariant = previousPage?.imageVariants?.find(variant => variant.id === canvas.imageVariantId)
@@ -1061,7 +1062,13 @@ async function reloadPageTouchedByActionResult(event: ActionPageResultEvent) {
       : undefined
 
     editorStore.invalidateAnnotationCache(event.pageId, event.projectId)
-    await editorStore.loadPageIntoCanvas(canvasId, event.projectId, event.pageId, refreshedVariantId)
+    await editorStore.loadPageIntoCanvas(
+      canvasId,
+      event.projectId,
+      event.pageId,
+      refreshedVariantId,
+      { awaitAnnotations: true }
+    )
     if (event.resultTypes.length === 0 || event.resultTypes.includes('xml')) {
       scheduleActionRunIndexStatusRefresh(event.projectId, [event.pageId])
     }
@@ -1072,6 +1079,10 @@ async function reloadPageTouchedByActionResult(event: ActionPageResultEvent) {
       description: 'Reload the page to fetch the latest images and annotations.',
       color: 'error'
     })
+  } finally {
+    if (canvas.actionResultTransitionSequence === event.sequence) {
+      canvas.actionResultTransitionSequence = null
+    }
   }
 }
 

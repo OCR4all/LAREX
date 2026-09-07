@@ -86,6 +86,7 @@ export interface RelationRenderData {
 export interface ActionProcessingRenderTarget {
   page: boolean
   polygonIds: string[]
+  opacity?: number
 }
 
 /**

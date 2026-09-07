@@ -118,11 +118,19 @@ type CanvasImageLoadStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 const imageLoadStatus = ref<CanvasImageLoadStatus>('idle')
 const imageLoadRequestId = ref(0)
+const actionResultRevealOpacity = ref(0)
 
 const isLoadingImage = computed(() => imageLoadStatus.value === 'loading' || imageLoadStatus.value === 'idle')
 const hasImageLoadError = computed(() => imageLoadStatus.value === 'error')
 const canShowCanvasContent = computed(() => imageLoadStatus.value === 'ready' && !isLoadingAnnotations.value)
-const showCanvasReadinessOverlay = computed(() => !canShowCanvasContent.value)
+const isApplyingActionResult = computed(() => (
+  editorStore.canvases?.[props.canvasId]?.actionResultTransitionSequence != null
+))
+const isActionResultTransitionVisible = computed(() => (
+  isApplyingActionResult.value || actionResultRevealOpacity.value > 0
+))
+const canDisplayCanvasContent = computed(() => canShowCanvasContent.value || isActionResultTransitionVisible.value)
+const showCanvasReadinessOverlay = computed(() => !canShowCanvasContent.value && !isActionResultTransitionVisible.value)
 const canvasReadinessLabel = computed(() => {
   if (hasImageLoadError.value) return 'Image could not be loaded'
   if (isLoadingImage.value && isLoadingAnnotations.value) return 'Loading image and annotations...'
@@ -860,7 +868,7 @@ const bufferPreviewForRenderer = computed(() => {
 
 const ACTION_ACTIVE_STATUSES = new Set(['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'])
 
-const actionProcessingTargets = computed<ActionProcessingRenderTarget | null>(() => {
+const activeActionProcessingTargets = computed<ActionProcessingRenderTarget | null>(() => {
   const currentProjectId = projectId.value
   const currentPageId = pageId.value
   if (!currentProjectId || !currentPageId) return null
@@ -888,6 +896,12 @@ const actionProcessingTargets = computed<ActionProcessingRenderTarget | null>(()
   return page || polygonIds.size > 0
     ? { page, polygonIds: [...polygonIds] }
     : null
+})
+const actionProcessingTargets = computed<ActionProcessingRenderTarget | null>(() => {
+  if (isActionResultTransitionVisible.value) {
+    return { page: true, polygonIds: [], opacity: actionResultRevealOpacity.value || 1 }
+  }
+  return activeActionProcessingTargets.value
 })
 const diffHighlights = computed(() => canvasState.value?.diffHighlights ?? undefined)
 
@@ -917,6 +931,8 @@ const editorRenderer = useEditorRenderer(
 const renderStats = computed(() => editorRenderer.renderStats.value)
 const exposeRenderDiagnostics = import.meta.env.DEV
 let actionProcessingAnimationFrame: number | null = null
+let actionResultRevealStartedAt: number | null = null
+const actionResultRevealDuration = import.meta.client && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600
 
 function stopActionProcessingAnimation() {
   if (actionProcessingAnimationFrame === null) return
@@ -928,8 +944,16 @@ function startActionProcessingAnimation() {
   if (actionProcessingAnimationFrame !== null) return
 
   const animate = () => {
+    if (!isApplyingActionResult.value && actionResultRevealOpacity.value > 0 && (canShowCanvasContent.value || hasImageLoadError.value)) {
+      actionResultRevealStartedAt ??= performance.now()
+      actionResultRevealOpacity.value = actionResultRevealDuration === 0
+        ? 0
+        : Math.max(0, 1 - (performance.now() - actionResultRevealStartedAt) / actionResultRevealDuration)
+    }
+
     if (!actionProcessingTargets.value) {
       actionProcessingAnimationFrame = null
+      actionResultRevealStartedAt = null
       nextTick(() => editorRenderer.render())
       return
     }
@@ -940,6 +964,13 @@ function startActionProcessingAnimation() {
 
   actionProcessingAnimationFrame = requestAnimationFrame(animate)
 }
+
+watch(isApplyingActionResult, (applying) => {
+  if (!applying) return
+  actionResultRevealStartedAt = null
+  actionResultRevealOpacity.value = 1
+  startActionProcessingAnimation()
+})
 
 watch(actionProcessingTargets, (targets) => {
   if (targets) {
@@ -3341,7 +3372,7 @@ watch(() => props.src, (newSrc) => {
             class="block w-full h-full bg-transparent relative z-10"
             :class="[
               canReceiveCanvasInput && canShowCanvasContent ? 'cursor-grab' : 'cursor-default pointer-events-none',
-              canShowCanvasContent ? 'opacity-100' : 'opacity-0'
+              canDisplayCanvasContent ? 'opacity-100' : 'opacity-0'
             ]"
             @contextmenu="(event: MouseEvent) => { if (canShowCanvasContent && isCanvasWritable && !isCanvasInteractionBlocked) handleEditorCanvasContextMenu(event) }"
           />

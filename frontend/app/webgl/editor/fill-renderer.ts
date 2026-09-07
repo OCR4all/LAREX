@@ -117,7 +117,8 @@ export class FillRenderer {
     triangleIndices: readonly number[],
     scale: Scale,
     view: View,
-    timeSeconds: number
+    timeSeconds: number,
+    intensity = 1
   ): void {
     if (triangleIndices.length < WEBGL_GEOMETRY.MIN_TRIANGLE_INDEX_COUNT) return
     const program = this.processingProgram ?? this.program
@@ -140,6 +141,7 @@ export class FillRenderer {
 
     this.setTransformUniforms(program, scale, view)
     this.uniformState.uniform1f(this.uniformState.getLocation(program, 'u_time'), timeSeconds)
+    this.uniformState.uniform1f(this.uniformState.getLocation(program, 'u_intensity'), intensity)
     this.gl.activeTexture(this.gl.TEXTURE0)
     this.gl.bindTexture(this.gl.TEXTURE_2D, this.processingTexture ?? null)
     this.uniformState.uniform1i(this.uniformState.getLocation(program, 'u_image'), 0)

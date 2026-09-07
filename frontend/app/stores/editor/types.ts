@@ -168,6 +168,8 @@ export interface CanvasState {
   imageSize?: { width: number, height: number }
   /** Whether annotations are currently being loaded for this canvas */
   isLoadingAnnotations?: boolean
+  /** Result event currently replacing this canvas after an Action */
+  actionResultTransitionSequence?: number | null
   /** The XML file ID that was loaded for this canvas (for saving back) */
   xmlFileId?: string
   /** Context for annotation API endpoints for this canvas */
