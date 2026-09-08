@@ -1726,13 +1726,13 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             :search-input="false"
             size="sm"
             color="primary"
-            variant="soft"
+            variant="outline"
             :aria-label="modeViewAriaLabel"
             :title="isVertical ? modeViewAriaLabel : undefined"
             :content="{ side: modeViewMenuSide, align: 'end' }"
             :class="isVertical ? 'w-12' : 'min-w-44'"
             :ui="{
-              base: 'justify-between',
+              base: 'justify-between dark:bg-neutral-800',
               content: 'w-88 max-w-[calc(100vw-1rem)] max-h-[min(26rem,var(--reka-combobox-content-available-height,26rem))]',
               itemDescription: 'whitespace-normal',
               itemTrailingIcon: 'text-primary'
