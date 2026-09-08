@@ -455,7 +455,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         vec2 sampleUv = clamp((floor(imageUv / pixelUv) + 0.5) * pixelUv, 0.0, 1.0);
         vec3 raster = texture(u_image, sampleUv).rgb;
 
-        float flow = waves(imageUv * 2.6 - vec2(u_time * 0.035));
+        float flow = waves(imageUv * 2.6 - vec2(u_time * 0.07));
         float luminance = dot(raster, vec3(0.2126, 0.7152, 0.0722));
         float blueAmount = clamp((1.0 - luminance) * 0.72 + flow * 0.62, 0.0, 1.0);
         vec3 color = mix(vec3(0.95, 0.97, 1.0), vec3(0.35, 0.55, 1.0), blueAmount);
