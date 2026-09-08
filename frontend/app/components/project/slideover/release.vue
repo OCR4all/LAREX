@@ -189,19 +189,23 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     embeddedOutputs: options.value.embeddedOutputs
   }
 
-  try {
-    const release = await backgroundDownloads.runBackgroundJob({
-      title: 'Creating project release',
-      subtitle: payload.versionTag || 'Next release',
-      statusLabel: 'Generating',
-      completedLabel: 'Created',
-      icon: 'i-lucide-package-plus',
-      retryable: false,
-      task: async () => await $fetch<ProjectPackageRelease>(`/api/workspaces/${workspaceId}/projects/${props.projectId}/releases`, {
-        method: 'POST',
-        body: payload
-      })
+  const releaseJob = backgroundDownloads.runBackgroundJob({
+    title: 'Creating project release',
+    subtitle: payload.versionTag || 'Next release',
+    statusLabel: 'Generating',
+    completedLabel: 'Created',
+    icon: 'i-lucide-package-plus',
+    retryable: false,
+    task: async () => await $fetch<ProjectPackageRelease>(`/api/workspaces/${workspaceId}/projects/${props.projectId}/releases`, {
+      method: 'POST',
+      body: payload
     })
+  })
+
+  emit('close', null)
+
+  try {
+    const release = await releaseJob
 
     toast.add({
       title: 'Release created',
@@ -209,7 +213,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       color: 'success'
     })
 
-    emit('close', release.id)
+    await refreshNuxtData(wsKey(workspaceId, 'projects', props.projectId, 'releases'))
   } catch (error: unknown) {
     toast.add({
       title: 'Release failed',
