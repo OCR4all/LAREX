@@ -1302,6 +1302,23 @@ function getProjectContextMenuItems(projectId: string): DropdownMenuItem[][] {
   ]]
 }
 
+const globalVariantItems = computed(() => {
+  const map = new Map<string, string>()
+  for (const page of editorStore.pages) {
+    for (const v of page.imageVariants ?? []) {
+      const key = v.type ?? v.label
+      if (!key) continue
+      if (!map.has(key)) {
+        map.set(key, v.type ? v.type : v.label)
+      }
+    }
+  }
+
+  return Array.from(map.entries())
+    .map(([value, label]) => ({ label, value }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+})
+
 const {
   editorFilterPopoverOpen,
   projectAccordionPanels,
@@ -2616,6 +2633,7 @@ const {
       :has-advanced-filters="hasAdvancedFilters"
       :is-filtering="isFiltering"
       :total-filtered-pages-across-projects="totalFilteredPagesAcrossProjects"
+      :global-variant-items="globalVariantItems"
       @open-command-center="openCommandCenter"
     >
       <template #default>
