@@ -1169,40 +1169,50 @@ useHead({
         </template>
 
         <template #right>
-          <UFieldGroup>
-            <UButton
-              v-if="canOpenAllItemsInEditor"
-              icon="i-lucide-pencil"
-              color="neutral"
-              variant="outline"
-              :loading="openingEditor"
-              @click="openAllItemsInEditor"
-            >
-              Open in Editor
-            </UButton>
+          <UButton
+            v-if="canOpenAllItemsInEditor"
+            icon="i-lucide-pencil"
+            color="neutral"
+            variant="outline"
+            :loading="openingEditor"
+            @click="openAllItemsInEditor"
+          >
+            Open in Editor
+          </UButton>
 
-            <UButton
-              v-if="datasetCapabilities.canEdit"
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-save"
-              :loading="saving"
-              :disabled="isBusy && !saving"
-              @click="saveDataset"
-            >
-              Save
-            </UButton>
+          <UButton
+            v-if="datasetCapabilities.canEdit"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-save"
+            :loading="saving"
+            :disabled="isBusy && !saving"
+            @click="saveDataset"
+          >
+            Save
+          </UButton>
 
-            <UDropdownMenu v-if="actionItems.length > 0" :items="actionItems" :content="{ align: 'end' }">
-              <UButton
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-chevron-down"
-                :loading="validating || generating || exporting"
-                :disabled="isBusy && !validating && !generating && !exporting"
-              />
-            </UDropdownMenu>
-          </UFieldGroup>
+          <UButton
+            v-if="actionItems.length === 1"
+            :label="actionItems[0]?.label"
+            :icon="actionItems[0]?.icon"
+            :color="actionItems[0]?.color || 'neutral'"
+            variant="outline"
+            :loading="validating || generating || exporting"
+            :disabled="actionItems[0]?.disabled"
+            @click="actionItems[0]?.onSelect?.($event)"
+          />
+
+          <UDropdownMenu v-else-if="actionItems.length > 1" :items="actionItems" :content="{ align: 'end' }">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-ellipsis-vertical"
+              aria-label="More dataset actions"
+              :loading="validating || generating || exporting"
+              :disabled="isBusy && !validating && !generating && !exporting"
+            />
+          </UDropdownMenu>
         </template>
       </UDashboardNavbar>
 

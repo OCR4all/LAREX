@@ -521,22 +521,32 @@ const tabItems = [
         </template>
 
         <template #right>
-          <UFieldGroup v-if="task && canEdit">
+          <UButton
+            v-if="task && canEdit"
+            label="Edit"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-pencil"
+            @click="openEditSlideover"
+          />
+          <UButton
+            v-if="task && canEdit && actionItems.length === 1"
+            :label="actionItems[0]?.label"
+            :icon="actionItems[0]?.icon"
+            :color="actionItems[0]?.color || 'neutral'"
+            variant="outline"
+            :loading="actionItems[0]?.loading"
+            :disabled="actionItems[0]?.disabled"
+            @click="actionItems[0]?.onSelect?.($event)"
+          />
+          <UDropdownMenu v-else-if="task && canEdit && actionItems.length > 1" :items="actionItems" :content="{ align: 'end' }">
             <UButton
-              label="Edit"
               color="neutral"
-              variant="outline"
-              icon="i-lucide-pencil"
-              @click="openEditSlideover"
+              variant="ghost"
+              icon="i-lucide-ellipsis-vertical"
+              aria-label="More task actions"
             />
-            <UDropdownMenu v-if="actionItems.length > 0" :items="actionItems" :content="{ align: 'end' }">
-              <UButton
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-chevron-down"
-              />
-            </UDropdownMenu>
-          </UFieldGroup>
+          </UDropdownMenu>
         </template>
       </UDashboardNavbar>
     </template>

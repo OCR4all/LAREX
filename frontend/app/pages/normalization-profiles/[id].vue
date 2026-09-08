@@ -392,26 +392,36 @@ async function exportProfile() {
                 'Manual replacement rules run in order and can be defined as plain-string or regex replacements.'
               ]"
             />
-            <UFieldGroup>
-              <UButton
-                label="Save"
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-save"
-                :loading="isSaving"
-                :disabled="!canEditProfile"
-                @click="saveProfile"
-              />
+            <UButton
+              label="Save"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-save"
+              :loading="isSaving"
+              :disabled="!canEditProfile"
+              @click="saveProfile"
+            />
 
-              <UDropdownMenu v-if="actionItems.length > 0" :items="actionItems" :content="{ align: 'end' }">
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  icon="i-lucide-chevron-down"
-                  :loading="isDeleting || isExporting"
-                />
-              </UDropdownMenu>
-            </UFieldGroup>
+            <UButton
+              v-if="actionItems.length === 1"
+              :label="actionItems[0]?.label"
+              :icon="actionItems[0]?.icon"
+              :color="actionItems[0]?.color || 'neutral'"
+              variant="outline"
+              :loading="isDeleting || isExporting"
+              :disabled="actionItems[0]?.disabled"
+              @click="actionItems[0]?.onSelect?.($event)"
+            />
+
+            <UDropdownMenu v-else-if="actionItems.length > 1" :items="actionItems" :content="{ align: 'end' }">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-ellipsis-vertical"
+                aria-label="More normalization profile actions"
+                :loading="isDeleting || isExporting"
+              />
+            </UDropdownMenu>
           </div>
         </template>
       </UDashboardNavbar>

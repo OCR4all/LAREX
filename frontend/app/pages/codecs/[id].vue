@@ -577,24 +577,23 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
                 'Share and export codecs as reusable workspace toolkit resources.'
               ]"
             />
-            <UFieldGroup>
-              <UButton
-                label="Save"
-                color="neutral"
-                variant="subtle"
-                icon="i-lucide-save"
-                :disabled="!canEditCodec"
-                @click="handleSave"
-              />
+            <UButton
+              label="Save"
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-save"
+              :disabled="!canEditCodec"
+              @click="handleSave"
+            />
 
-              <UDropdownMenu :items="actionItems" :content="{ align: 'end' }">
-                <UButton
-                  color="neutral"
-                  variant="subtle"
-                  icon="i-lucide-chevron-down"
-                />
-              </UDropdownMenu>
-            </UFieldGroup>
+            <UDropdownMenu :items="actionItems" :content="{ align: 'end' }">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-ellipsis-vertical"
+                aria-label="More codec actions"
+              />
+            </UDropdownMenu>
           </div>
         </template>
       </UDashboardNavbar>

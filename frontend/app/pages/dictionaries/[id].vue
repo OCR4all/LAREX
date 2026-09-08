@@ -484,27 +484,37 @@ const emptyStateActions = computed<Array<{ label: string, icon: string, color: '
                 'Share and export dictionaries as reusable workspace toolkit resources.'
               ]"
             />
-            <UFieldGroup>
-              <UButton
-                label="Save"
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-save"
-                :loading="isSaving"
-                :disabled="!canEditDictionary || isBusy"
-                @click="saveDictionary"
-              />
+            <UButton
+              label="Save"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-save"
+              :loading="isSaving"
+              :disabled="!canEditDictionary || isBusy"
+              @click="saveDictionary"
+            />
 
-              <UDropdownMenu :items="actionItems" :content="{ align: 'end' }">
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  icon="i-lucide-chevron-down"
-                  :loading="isDeleting || isExporting"
-                  :disabled="isBusy"
-                />
-              </UDropdownMenu>
-            </UFieldGroup>
+            <UButton
+              v-if="actionItems.length === 1"
+              :label="actionItems[0]?.label"
+              :icon="actionItems[0]?.icon"
+              :color="actionItems[0]?.color || 'neutral'"
+              variant="outline"
+              :loading="isDeleting || isExporting"
+              :disabled="actionItems[0]?.disabled"
+              @click="actionItems[0]?.onSelect?.($event)"
+            />
+
+            <UDropdownMenu v-else-if="actionItems.length > 1" :items="actionItems" :content="{ align: 'end' }">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-ellipsis-vertical"
+                aria-label="More dictionary actions"
+                :loading="isDeleting || isExporting"
+                :disabled="isBusy"
+              />
+            </UDropdownMenu>
           </div>
         </template>
       </UDashboardNavbar>

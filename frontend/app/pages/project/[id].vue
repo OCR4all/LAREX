@@ -2403,42 +2403,41 @@ useHead({
               @click="toggleStar"
             />
 
-            <UFieldGroup>
-              <UButton
-                icon="i-lucide-pencil"
-                color="neutral"
-                variant="outline"
-                :loading="isLoadingEditor"
-                :disabled="!pages || pages.length === 0 || project?.locked"
-                @click="handleOpenInEditor"
-                @mouseenter="handleEditorButtonHover"
-                @mouseleave="handleEditorButtonLeave"
-                @focus="handleEditorButtonHover"
-                @blur="handleEditorButtonLeave"
-              >
-                Open in Editor
-              </UButton>
+            <UButton
+              icon="i-lucide-pencil"
+              color="neutral"
+              variant="outline"
+              :loading="isLoadingEditor"
+              :disabled="!pages || pages.length === 0 || project?.locked"
+              @click="handleOpenInEditor"
+              @mouseenter="handleEditorButtonHover"
+              @mouseleave="handleEditorButtonLeave"
+              @focus="handleEditorButtonHover"
+              @blur="handleEditorButtonLeave"
+            >
+              Open in Editor
+            </UButton>
 
-              <UButton
-                v-if="canUploadProject"
-                icon="i-lucide-upload"
-                color="neutral"
-                variant="outline"
-                :loading="isUploading"
-                :disabled="projectStatus?.isBlocked || project?.locked"
-                @click="() => fileInput?.click()"
-              >
-                Upload Files
-              </UButton>
+            <UButton
+              v-if="canUploadProject"
+              icon="i-lucide-upload"
+              color="neutral"
+              variant="outline"
+              :loading="isUploading"
+              :disabled="projectStatus?.isBlocked || project?.locked"
+              @click="() => fileInput?.click()"
+            >
+              Upload Files
+            </UButton>
 
-              <UDropdownMenu :items="actionItems" :content="{ align: 'end' }">
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  icon="i-lucide-chevron-down"
-                />
-              </UDropdownMenu>
-            </UFieldGroup>
+            <UDropdownMenu :items="actionItems" :content="{ align: 'end' }">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-ellipsis-vertical"
+                aria-label="More project actions"
+              />
+            </UDropdownMenu>
 
             <input
               ref="fileInput"

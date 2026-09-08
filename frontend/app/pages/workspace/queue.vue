@@ -353,27 +353,25 @@ function formatDurationFromRun(run: ActionRun) {
     <template #header>
       <UDashboardNavbar :title="`${currentWorkspace?.name || 'Workspace'} Queue`">
         <template #right>
-          <UFieldGroup>
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-list-x"
-              :disabled="terminalCount === 0"
-              :loading="clearingFinished"
-              @click="clearFinishedRuns"
-            >
-              Clear Finished Jobs
-            </UButton>
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-refresh-cw"
-              :loading="loading"
-              @click="loadRuns"
-            >
-              Refresh
-            </UButton>
-          </UFieldGroup>
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-list-x"
+            :disabled="terminalCount === 0"
+            :loading="clearingFinished"
+            @click="clearFinishedRuns"
+          >
+            Clear Finished Jobs
+          </UButton>
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-refresh-cw"
+            :loading="loading"
+            @click="loadRuns"
+          >
+            Refresh
+          </UButton>
         </template>
       </UDashboardNavbar>
 

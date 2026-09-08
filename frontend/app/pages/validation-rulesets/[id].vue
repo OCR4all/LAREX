@@ -369,26 +369,36 @@ async function exportRuleset() {
                 'Keep regex patterns specific enough to reduce noisy matches on real project text.'
               ]"
             />
-            <UFieldGroup>
-              <UButton
-                label="Save"
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-save"
-                :loading="isSaving"
-                :disabled="!canEditRuleset"
-                @click="saveRuleset"
-              />
+            <UButton
+              label="Save"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-save"
+              :loading="isSaving"
+              :disabled="!canEditRuleset"
+              @click="saveRuleset"
+            />
 
-              <UDropdownMenu v-if="actionItems.length > 0" :items="actionItems" :content="{ align: 'end' }">
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  icon="i-lucide-chevron-down"
-                  :loading="isDeleting || isExporting"
-                />
-              </UDropdownMenu>
-            </UFieldGroup>
+            <UButton
+              v-if="actionItems.length === 1"
+              :label="actionItems[0]?.label"
+              :icon="actionItems[0]?.icon"
+              :color="actionItems[0]?.color || 'neutral'"
+              variant="outline"
+              :loading="isDeleting || isExporting"
+              :disabled="actionItems[0]?.disabled"
+              @click="actionItems[0]?.onSelect?.($event)"
+            />
+
+            <UDropdownMenu v-else-if="actionItems.length > 1" :items="actionItems" :content="{ align: 'end' }">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-ellipsis-vertical"
+                aria-label="More validation ruleset actions"
+                :loading="isDeleting || isExporting"
+              />
+            </UDropdownMenu>
           </div>
         </template>
       </UDashboardNavbar>
