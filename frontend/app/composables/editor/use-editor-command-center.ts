@@ -274,8 +274,7 @@ export function useEditorCommandCenter(options: EditorCommandCenterOptions) {
         closeCommandCenter()
         void startCurrentPageTour()
       }
-    }],
-    ignoreFilter: true
+    }]
   }))
 
   const dashboardNavigationGroup = computed<DashboardSearchGroup>(() => ({
@@ -375,8 +374,7 @@ export function useEditorCommandCenter(options: EditorCommandCenterOptions) {
       onSelect: () => {
         void navigateToDashboard('/workspace/settings/members')
       }
-    }],
-    ignoreFilter: true
+    }]
   }))
 
   const openProjectsGroup = computed<DashboardSearchGroup | null>(() => {
