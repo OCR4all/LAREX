@@ -213,9 +213,9 @@ function handleKeyDown(event: KeyboardEvent): void {
       class="group flex items-center py-1.5 pr-2 rounded-sm text-sm cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-default focus:ring-offset-1"
       :class="[
         {
-          'bg-accent text-accent-foreground': isItemSelected,
-          'bg-muted/50': isItemHovered && !isItemSelected,
-          'hover:bg-muted/50': !isItemSelected
+          'bg-primary-600 text-white': isItemSelected,
+          'bg-muted': isItemHovered && !isItemSelected,
+          'hover:bg-muted': !isItemSelected
         }
       ]"
       :style="rowStyle"
@@ -238,7 +238,7 @@ function handleKeyDown(event: KeyboardEvent): void {
       <span v-else class="w-5 mr-1" />
 
       <span
-        class="w-3 h-3 shrink-0 rounded-full mr-2 border border-white/20 shadow-sm"
+        class="w-3 h-3 shrink-0 rounded-full mr-2 border-2 border-white shadow-sm"
         :style="{ backgroundColor: getLabelColor(item) }"
         :title="getItemLabel(item)"
       />
@@ -250,7 +250,11 @@ function handleKeyDown(event: KeyboardEvent): void {
         <span class="min-w-0 shrink truncate text-xs font-medium" :title="getItemLabel(item)">
           {{ getItemLabel(item) }}
         </span>
-        <span class="shrink-0 text-xs text-muted" :title="getItemType(item)">
+        <span
+          class="shrink-0 text-xs"
+          :class="isItemSelected ? 'text-white/70' : 'text-muted'"
+          :title="getItemType(item)"
+        >
           {{ getItemType(item) }}
         </span>
       </div>
