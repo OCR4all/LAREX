@@ -117,6 +117,9 @@ public class Project {
     @Column(name = "output_retention_days")
     private Integer outputRetentionDays;
 
+    @Column(name = "primary_image_variant", length = 255)
+    private String primaryImageVariant;
+
     public Project() {}
 
     public Project(String name, String description, Library library) {
@@ -370,5 +373,21 @@ public class Project {
             throw new IllegalArgumentException("Output retention days must be positive");
         }
         this.outputRetentionDays = outputRetentionDays;
+    }
+
+    public String getPrimaryImageVariant() {
+        return primaryImageVariant;
+    }
+
+    public void setPrimaryImageVariant(String primaryImageVariant) {
+        if (primaryImageVariant == null || primaryImageVariant.isBlank()) {
+            this.primaryImageVariant = null;
+            return;
+        }
+        String normalized = primaryImageVariant.trim();
+        if (normalized.length() > 255) {
+            throw new IllegalArgumentException("Primary image variant must not exceed 255 characters");
+        }
+        this.primaryImageVariant = normalized;
     }
 }

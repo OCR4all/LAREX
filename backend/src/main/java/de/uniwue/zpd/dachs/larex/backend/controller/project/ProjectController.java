@@ -139,6 +139,7 @@ public class ProjectController {
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
                 request.outputRetentionDays(),
+                request.primaryImageVariant(),
                 userId
         );
 
@@ -176,6 +177,7 @@ public class ProjectController {
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
                 request.outputRetentionDays(),
+                request.primaryImageVariant(),
                 userId
         );
 

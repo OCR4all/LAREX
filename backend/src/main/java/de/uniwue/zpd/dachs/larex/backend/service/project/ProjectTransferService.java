@@ -516,6 +516,7 @@ public class ProjectTransferService {
                 targetLibrary
         );
         newProject.setTags(new ArrayList<>(sourceProject.getTags()));
+        newProject.setPrimaryImageVariant(sourceProject.getPrimaryImageVariant());
         newProject = projectRepository.save(newProject);
 
         // Copy pages with images and XMLs

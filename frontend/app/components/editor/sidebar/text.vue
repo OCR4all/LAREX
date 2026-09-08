@@ -172,7 +172,8 @@ async function saveProjectTextIndexDefaults(payload: { defaultGtIndex: number, d
         allowNormalizationProfileOverride: project.allowNormalizationProfileOverride !== false,
         allowValidationRulesetOverride: project.allowValidationRulesetOverride !== false,
         defaultGtIndex: payload.defaultGtIndex,
-        defaultRecognitionIndices: payload.defaultRecognitionIndices
+        defaultRecognitionIndices: payload.defaultRecognitionIndices,
+        primaryImageVariant: project.primaryImageVariant ?? null
       }
     })
     editorStore.setProjectTextIndexDefaults({

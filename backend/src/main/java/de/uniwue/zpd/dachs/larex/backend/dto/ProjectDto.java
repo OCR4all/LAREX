@@ -36,7 +36,9 @@ public class ProjectDto {
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices,
             @Positive(message = "Output retention days must be positive")
-            Integer outputRetentionDays
+            Integer outputRetentionDays,
+            @Size(max = 255, message = "Primary image variant must not exceed 255 characters")
+            String primaryImageVariant
     ) {}
 
     public record ToolkitPresetsRequest(
@@ -89,6 +91,7 @@ public class ProjectDto {
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices,
             Integer outputRetentionDays,
+            String primaryImageVariant,
             AuthorizationCapabilitiesDto.ProjectCapabilities capabilities
     ) {
         private static String formatBytes(Long bytes) {
@@ -117,6 +120,7 @@ public class ProjectDto {
                                   boolean allowValidationRulesetOverride,
                                   Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                   Integer outputRetentionDays,
+                                  String primaryImageVariant,
                                   AuthorizationCapabilitiesDto.ProjectCapabilities capabilities) {
             return new Response(id, name, description, tags, resolvedTags, created, updated, pageCount,
                     completedPageCount, completionPercentage, isStarred,
@@ -124,7 +128,7 @@ public class ProjectDto {
                     normalizationProfileId, validationRulesetId, virtualKeyboardId,
                     allowCodecOverride, allowDictionaryOverride, allowVirtualKeyboardOverride, allowLabelSetOverride,
                     allowTagSetOverride, allowNormalizationProfileOverride, allowValidationRulesetOverride,
-                    defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, capabilities);
+                    defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, primaryImageVariant, capabilities);
         }
     }
 }

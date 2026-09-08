@@ -150,6 +150,33 @@ describe('editor.document.store', () => {
     expect(store.getProjectPages('project-b').map(page => page.id)).toEqual(['b-1'])
   })
 
+  it('scopes temporary image variant defaults per project and keeps page overrides first', async () => {
+    const { sessionStore, store } = await createStores()
+    const page = (projectId: string, pageId: string): PageData => ({
+      ...createPage(projectId, pageId),
+      imageVariants: [
+        { id: `${pageId}-original`, url: '/original', type: 'original', label: 'original' },
+        { id: `${pageId}-processed`, url: '/processed', type: 'processed', label: 'processed' }
+      ]
+    })
+
+    store.setProjectPages('project-a', [page('project-a', 'a-1')], { replaceProject: true })
+    store.setProjectPages('project-b', [page('project-b', 'b-1')], { replaceProject: true })
+
+    sessionStore.setActiveProject('project-a')
+    await nextTick()
+    store.updatePreferredImageVariantKey('processed')
+    expect(store.getDisplayedVariantForPage(store.getPage('a-1', 'project-a')!)?.type).toBe('processed')
+
+    sessionStore.setActiveProject('project-b')
+    await nextTick()
+    expect(store.preferredImageVariantKey).toBeNull()
+    expect(store.getDisplayedVariantForPage(store.getPage('b-1', 'project-b')!)?.type).toBe('original')
+
+    store.setSelectedVariantOverride('b-1', 'b-1-processed', 'project-b')
+    expect(store.getDisplayedVariantForPage(store.getPage('b-1', 'project-b')!)?.type).toBe('processed')
+  })
+
   it('preserves page summary state when enriching its editor data', async () => {
     const { store } = await createStores()
     const page = {

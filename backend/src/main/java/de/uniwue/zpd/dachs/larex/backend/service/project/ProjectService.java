@@ -37,12 +37,24 @@ public class ProjectService {
                                            Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
                                            Boolean allowValidationRulesetOverride,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
-                                           Integer outputRetentionDays, String userId) {
+                                           Integer outputRetentionDays, String primaryImageVariant, String userId) {
         return projectCrudService.createProject(workspaceId, name, description, tags, codecId, labelSetId, dictionaryId, tagSetId,
                 normalizationProfileId, validationRulesetId, virtualKeyboardId,
                 allowCodecOverride, allowDictionaryOverride, allowVirtualKeyboardOverride, allowLabelSetOverride,
                 allowTagSetOverride, allowNormalizationProfileOverride, allowValidationRulesetOverride,
-                defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, userId);
+                defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, primaryImageVariant, userId);
+    }
+
+    public Optional<Project> createProject(String workspaceId, String name, String description, List<String> tags, String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                           String normalizationProfileId, String validationRulesetId, String virtualKeyboardId,
+                                           Boolean allowCodecOverride, Boolean allowDictionaryOverride, Boolean allowVirtualKeyboardOverride,
+                                           Boolean allowLabelSetOverride, Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
+                                           Boolean allowValidationRulesetOverride, Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                                           Integer outputRetentionDays, String userId) {
+        return createProject(workspaceId, name, description, tags, codecId, labelSetId, dictionaryId, tagSetId,
+                normalizationProfileId, validationRulesetId, virtualKeyboardId, allowCodecOverride, allowDictionaryOverride,
+                allowVirtualKeyboardOverride, allowLabelSetOverride, allowTagSetOverride, allowNormalizationProfileOverride,
+                allowValidationRulesetOverride, defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, null, userId);
     }
 
     public Optional<Project> updateProject(String projectId, String name, String description, List<String> tags, String codecId, String labelSetId, String dictionaryId, String tagSetId,
@@ -53,12 +65,24 @@ public class ProjectService {
                                            Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
                                            Boolean allowValidationRulesetOverride,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
-                                           Integer outputRetentionDays, String userId) {
+                                           Integer outputRetentionDays, String primaryImageVariant, String userId) {
         return projectCrudService.updateProject(projectId, name, description, tags, codecId, labelSetId, dictionaryId, tagSetId,
                 normalizationProfileId, validationRulesetId, virtualKeyboardId,
                 allowCodecOverride, allowDictionaryOverride, allowVirtualKeyboardOverride, allowLabelSetOverride,
                 allowTagSetOverride, allowNormalizationProfileOverride, allowValidationRulesetOverride,
-                defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, userId);
+                defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, primaryImageVariant, userId);
+    }
+
+    public Optional<Project> updateProject(String projectId, String name, String description, List<String> tags, String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                           String normalizationProfileId, String validationRulesetId, String virtualKeyboardId,
+                                           Boolean allowCodecOverride, Boolean allowDictionaryOverride, Boolean allowVirtualKeyboardOverride,
+                                           Boolean allowLabelSetOverride, Boolean allowTagSetOverride, Boolean allowNormalizationProfileOverride,
+                                           Boolean allowValidationRulesetOverride, Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                                           Integer outputRetentionDays, String userId) {
+        return updateProject(projectId, name, description, tags, codecId, labelSetId, dictionaryId, tagSetId,
+                normalizationProfileId, validationRulesetId, virtualKeyboardId, allowCodecOverride, allowDictionaryOverride,
+                allowVirtualKeyboardOverride, allowLabelSetOverride, allowTagSetOverride, allowNormalizationProfileOverride,
+                allowValidationRulesetOverride, defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, null, userId);
     }
 
     public Optional<Project> updateToolkitPresets(String workspaceId, String projectId,

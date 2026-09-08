@@ -14,6 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexSe
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageOrderService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
+import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageTextConfidenceStatsService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchPreviewService;
@@ -802,7 +803,9 @@ public class PageController {
         }
 
         String thumbnailUrl = null;
-        List<PageImage> images = page.getImages() != null ? new ArrayList<>(page.getImages()) : List.of();
+        List<PageImage> images = page.getImages() != null
+                ? ImageFileUtils.sortForDisplay(page.getImages(), page.getProject().getPrimaryImageVariant())
+                : List.of();
         if (!images.isEmpty()) {
             PageImage img = images.stream()
                     .filter(i -> i.getThumbnailPath() != null)

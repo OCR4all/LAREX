@@ -952,10 +952,6 @@ export const useEditorStore = defineStore('editor', () => {
     }
     const metadataImageFilename = resolveMetadataImageFilename(variant)
 
-    if (!documentStore.preferredImageVariantKey) {
-      documentStore.updatePreferredImageVariantKey(documentStore.getVariantPreferenceKey(variant))
-    }
-
     canvas.projectId = projectId
     canvas.pageId = pageId
     canvas.imageVariantId = variant.id

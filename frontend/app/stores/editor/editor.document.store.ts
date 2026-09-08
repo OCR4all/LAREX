@@ -83,7 +83,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
   const loadedPageIdsByProjectId = ref<Record<string, Set<string>>>({})
   const loadedPageIds = ref<Set<string>>(new Set())
 
-  const preferredImageVariantKey = ref<string | null>(null)
+  const preferredImageVariantKeyByProjectId = ref<Record<string, string | null>>({})
   const selectedVariantIdByPageIdByProject = ref<Record<string, Record<string, string | null>>>({})
   const selectedVariantIdByPageId = ref<Record<string, string | null>>({})
 
@@ -120,6 +120,10 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
   })
 
   const activeProjectId = computed(() => sessionStore.activeProjectId)
+  const preferredImageVariantKey = computed(() => {
+    const projectId = activeProjectId.value
+    return projectId ? preferredImageVariantKeyByProjectId.value[projectId] ?? null : null
+  })
 
   function syncActiveProjectState() {
     const projectId = activeProjectId.value
@@ -283,6 +287,9 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
 
     const { [projectId]: _textDefaults, ...remainingTextDefaults } = projectTextIndexDefaultsByProjectId.value
     projectTextIndexDefaultsByProjectId.value = remainingTextDefaults
+
+    const { [projectId]: _preferredVariant, ...remainingPreferredVariants } = preferredImageVariantKeyByProjectId.value
+    preferredImageVariantKeyByProjectId.value = remainingPreferredVariants
 
     syncActiveProjectState()
   }
@@ -482,8 +489,13 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     }
   }
 
-  function updatePreferredImageVariantKey(key: string | null) {
-    preferredImageVariantKey.value = key
+  function updatePreferredImageVariantKey(key: string | null, projectId?: string) {
+    const targetProjectId = projectId ?? activeProjectId.value
+    if (!targetProjectId) return
+    preferredImageVariantKeyByProjectId.value = {
+      ...preferredImageVariantKeyByProjectId.value,
+      [targetProjectId]: key
+    }
   }
 
   function getDisplayedVariantForPage(page: PageData): ImageVariant | null {
@@ -494,7 +506,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
       return page.imageVariants.find(v => v.id === overrideId) ?? (page.imageVariants[0] ?? null)
     }
 
-    const preferredKey = preferredImageVariantKey.value
+    const preferredKey = preferredImageVariantKeyByProjectId.value[page.projectId] ?? null
     if (preferredKey) {
       const match = page.imageVariants.find(v => getVariantPreferenceKey(v) === preferredKey)
       if (match) return match
@@ -513,10 +525,15 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
 
   function resolveVariantForPage(page: PageData, specificVariantId?: string): ImageVariant | null {
     if (specificVariantId) {
-      return page.imageVariants.find(v => v.id === specificVariantId) ?? null
+      return page.imageVariants.find(v => v.id === specificVariantId) ?? page.imageVariants[0] ?? null
     }
 
-    const preferredKey = preferredImageVariantKey.value
+    const overrideId = selectedVariantIdByPageIdByProject.value[page.projectId]?.[page.id] ?? null
+    if (overrideId) {
+      return page.imageVariants.find(v => v.id === overrideId) ?? page.imageVariants[0] ?? null
+    }
+
+    const preferredKey = preferredImageVariantKeyByProjectId.value[page.projectId] ?? null
     const preferredVariant = preferredKey
       ? page.imageVariants.find(v => getVariantPreferenceKey(v) === preferredKey) ?? null
       : null

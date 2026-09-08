@@ -156,38 +156,6 @@ async function prefetchImagesBidirectional(
   await Promise.allSettled(promises)
 }
 
-/**
- * Legacy function for backward compatibility
- */
-async function prefetchImages(pageIds: string[], pages: PageData[], count: number = 5) {
-  const batchId = createPrefetchBatchId()
-  const pagesToPrefetch = pageIds.slice(0, count)
-  const promises: Promise<void>[] = []
-
-  for (const pageId of pagesToPrefetch) {
-    const page = pages.find(p => p.id === pageId)
-    if (!page) continue
-
-    for (const variant of page.imageVariants) {
-      if (!loadedImages.value.has(variant.id)) {
-        promises.push(
-          ensureImagePrefetch(variant.id, variant.url)
-            .then(() => {
-              if (!isActivePrefetchBatch(batchId)) return
-              loadedImages.value.add(variant.id)
-              trackImageAccess(variant.id)
-            })
-            .catch(err => log.debug(`Failed to prefetch ${variant.id}:`, err))
-        )
-      } else if (isActivePrefetchBatch(batchId)) {
-        trackImageAccess(variant.id)
-      }
-    }
-  }
-
-  await Promise.allSettled(promises)
-}
-
 function isThumbnailLoaded(pageId: string): boolean {
   return loadedThumbnails.value.has(pageId)
 }
@@ -213,7 +181,6 @@ export function useEditorImageLoader() {
     pendingImageIds: readonly(pendingImageIds),
     loadThumbnails,
     prefetchImage,
-    prefetchImages,
     prefetchImagesBidirectional,
     isThumbnailLoaded,
     isPreviewUrlLoaded,

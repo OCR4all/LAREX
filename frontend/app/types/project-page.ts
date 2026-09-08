@@ -30,6 +30,7 @@ export type ProjectData = {
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
   outputRetentionDays?: number | null
+  primaryImageVariant?: string | null
   capabilities?: {
     canEdit: boolean
     canShare: boolean

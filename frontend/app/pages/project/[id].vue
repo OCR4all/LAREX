@@ -187,6 +187,13 @@ const { data: pages, error: pagesError, pending: pagesPending, refresh: refreshP
   key: projectPagesKey
 })
 
+const availableImageVariants = computed(() => [...new Set(
+  (pages.value ?? [])
+    .flatMap(page => page.imageVariants ?? [])
+    .map(image => image.variant?.trim())
+    .filter((variant): variant is string => Boolean(variant))
+)].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })))
+
 const {
   PROJECT_PAGES_TABLE_ID,
   DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS,
@@ -1087,7 +1094,10 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
       disabled: project.value?.locked,
       onSelect: async () => {
         if (!project.value) return
-        const instance = projectEditSlideover.open({ project: normalizeProjectForEdit(project.value) })
+        const instance = projectEditSlideover.open({
+          project: normalizeProjectForEdit(project.value),
+          availableImageVariants: availableImageVariants.value
+        })
         const updated = await instance.result
         if (updated) {
           await refreshProject()

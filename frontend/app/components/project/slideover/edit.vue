@@ -21,6 +21,7 @@ import {
 } from '~/utils/workspace-project-defaults'
 
 const UNDEFINED_RECOGNITION_SENTINEL = -1
+const AUTOMATIC_IMAGE_VARIANT = '__automatic__'
 type SelectOption = { label: string, value: string }
 
 interface Project {
@@ -45,6 +46,7 @@ interface Project {
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
   outputRetentionDays?: number | null
+  primaryImageVariant?: string | null
 }
 type WorkspaceDefaults = {
   codecId?: string | null
@@ -57,7 +59,10 @@ type WorkspaceDefaults = {
   defaultRecognitionIndices?: number[] | null
 }
 
-const props = defineProps<{ project: Project }>()
+const props = defineProps<{
+  project: Project
+  availableImageVariants?: string[]
+}>()
 const emit = defineEmits<{ close: [updated: boolean], updated: [project: Project] }>()
 
 const workspace = useWorkspaceStore()
@@ -87,7 +92,8 @@ const schema = z.object({
   defaultRecognitionIndicesInput: z.array(z.union([z.string(), z.number()])).optional(),
   defaultRecognitionIndicesUndefined: z.boolean().optional(),
   outputRetentionDaysInput: z.union([z.string(), z.number()]).optional(),
-  retainOutputsForever: z.boolean().optional()
+  retainOutputsForever: z.boolean().optional(),
+  primaryImageVariant: z.string().max(255).optional().or(z.literal(''))
 })
 
 type Schema = z.output<typeof schema>
@@ -119,7 +125,8 @@ const state = ref<Schema>({
     ? props.project.defaultRecognitionIndices.includes(UNDEFINED_RECOGNITION_SENTINEL)
     : false,
   outputRetentionDaysInput: String(props.project.outputRetentionDays ?? 30),
-  retainOutputsForever: props.project.outputRetentionDays == null
+  retainOutputsForever: props.project.outputRetentionDays == null,
+  primaryImageVariant: props.project.primaryImageVariant ?? AUTOMATIC_IMAGE_VARIANT
 })
 
 const { data: codecs, error: codecsError } = await useFetch<CodecSummary[]>(
@@ -185,6 +192,21 @@ const tagSetsSafe = computed<SelectOption[]>(() => (tagSets.value ?? []).map(tag
 const normalizationProfilesSafe = computed<SelectOption[]>(() => (normalizationProfiles.value ?? []).map(profile => ({ label: profile.name, value: profile.id })))
 const validationRulesetsSafe = computed<SelectOption[]>(() => (validationRulesets.value ?? []).map(ruleset => ({ label: ruleset.name, value: ruleset.id })))
 const virtualKeyboardsSafe = computed<SelectOption[]>(() => (virtualKeyboards.value ?? []).map(keyboard => ({ label: keyboard.name, value: keyboard.id })))
+const imageVariantOptions = computed<SelectOption[]>(() => {
+  const values = new Set(props.availableImageVariants ?? [])
+  if (props.project.primaryImageVariant) values.add(props.project.primaryImageVariant)
+  return [
+    { label: 'Automatic — original, then alphabetical', value: AUTOMATIC_IMAGE_VARIANT },
+    ...[...values]
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .map(value => ({
+        label: value === props.project.primaryImageVariant && !(props.availableImageVariants ?? []).includes(value)
+          ? `${value} (currently unavailable)`
+          : value,
+        value
+      }))
+  ]
+})
 
 const { data: workspaceDefaults } = await useFetch<WorkspaceDefaults>(
   `/api/workspaces/${workspace.selectedWorkspaceId}`,
@@ -398,6 +420,9 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         allowNormalizationProfileOverride: event.data.allowNormalizationProfileOverride !== false,
         allowValidationRulesetOverride: event.data.allowValidationRulesetOverride !== false,
         outputRetentionDays,
+        primaryImageVariant: event.data.primaryImageVariant === AUTOMATIC_IMAGE_VARIANT
+          ? null
+          : event.data.primaryImageVariant || null,
         ...(defaultGtIndex !== undefined ? { defaultGtIndex } : {}),
         ...(defaultRecognitionIndices.length > 0 ? { defaultRecognitionIndices } : {})
       }
@@ -618,6 +643,18 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                     placeholder="Select a virtual keyboard"
                     class="w-full"
                     :disabled="isSubmitting || !!virtualKeyboardsError || virtualKeyboardsSafe.length === 0"
+                  />
+                </UFormField>
+                <UFormField
+                  label="Primary image variant"
+                  name="primaryImageVariant"
+                  help="Pages without this variant use original, then the alphabetical fallback."
+                >
+                  <USelect
+                    v-model="state.primaryImageVariant"
+                    :items="imageVariantOptions"
+                    class="w-full"
+                    :disabled="isSubmitting || imageVariantOptions.length === 0"
                   />
                 </UFormField>
                 <UFormField

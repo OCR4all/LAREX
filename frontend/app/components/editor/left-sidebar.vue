@@ -3,7 +3,6 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import type { LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
 import { useFloatingAnchorPosition } from '@/composables/editor/use-floating-anchor-position'
 import { EDITOR_WORKSPACE_FLOATING_ANCHOR_ID } from '@/session/editor/editor-session'
-import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type { PageSortMode } from '@/utils/editor/page-sort'
 import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
@@ -22,7 +21,6 @@ const props = defineProps<{
   hasAdvancedFilters: boolean
   isFiltering: boolean
   totalFilteredPagesAcrossProjects: number
-  globalVariantItems: Array<{ label: string, value: string }>
   pageSortMode: PageSortMode
 }>()
 
@@ -33,7 +31,6 @@ const emit = defineEmits<{
   'open-command-center': []
 }>()
 
-const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
 const { isNotificationsSlideoverOpen } = useDashboard()
 const { unreadCount, ensureInitialData } = useNotifications()
@@ -83,10 +80,6 @@ const pageSortItems: Array<{ label: string, value: PageSortMode }> = [
   { label: 'Median confidence', value: 'confidenceMedian:asc' },
   { label: 'Median confidence desc', value: 'confidenceMedian:desc' }
 ]
-
-function handleImageVariantChange(key: string | undefined) {
-  editorStore.setPreferredImageVariantKey(key ?? null)
-}
 
 function openNotifications() {
   isNotificationsSlideoverOpen.value = true
@@ -220,17 +213,6 @@ watch(() => props.imagePopoverDismissKey, () => {
                         <h3 class="font-semibold text-sm">
                           Settings
                         </h3>
-                        <div class="space-y-1.5">
-                          <label class="text-xs font-medium text-muted">Image Variant</label>
-                          <USelect
-                            :model-value="editorStore.preferredImageVariantKey ?? undefined"
-                            :items="globalVariantItems"
-                            placeholder="Default"
-                            size="sm"
-                            class="w-full"
-                            @update:model-value="handleImageVariantChange"
-                          />
-                        </div>
                         <div class="space-y-1.5">
                           <label class="text-xs font-medium text-muted">Page Sort</label>
                           <USelect
@@ -384,17 +366,6 @@ watch(() => props.imagePopoverDismissKey, () => {
                               Settings
                             </h3>
                             <div class="space-y-1.5">
-                              <label class="text-xs font-medium text-muted">Image Variant</label>
-                              <USelect
-                                :model-value="editorStore.preferredImageVariantKey ?? undefined"
-                                :items="globalVariantItems"
-                                placeholder="Default"
-                                size="sm"
-                                class="w-full"
-                                @update:model-value="handleImageVariantChange"
-                              />
-                            </div>
-                            <div class="space-y-1.5">
                               <label class="text-xs font-medium text-muted">Page Sort</label>
                               <USelect
                                 v-model="pageSortModeModel"
@@ -481,7 +452,6 @@ watch(() => props.imagePopoverDismissKey, () => {
       <div class="flex-1 min-h-0 flex flex-col px-2 pt-2 gap-y-2">
         <div class="shrink-0 flex flex-col gap-2">
           <UDashboardSearchButton
-            class="bg-transparent ring-default"
             :kbds="['meta', 'k']"
             @click="emit('open-command-center')"
           />
@@ -519,17 +489,6 @@ watch(() => props.imagePopoverDismissKey, () => {
                   <h3 class="font-semibold text-sm">
                     Settings
                   </h3>
-                  <div class="space-y-1.5">
-                    <label class="text-xs font-medium text-muted">Image Variant</label>
-                    <USelect
-                      :model-value="editorStore.preferredImageVariantKey ?? undefined"
-                      :items="globalVariantItems"
-                      placeholder="Default"
-                      size="sm"
-                      class="w-full"
-                      @update:model-value="handleImageVariantChange"
-                    />
-                  </div>
                   <div class="space-y-1.5">
                     <label class="text-xs font-medium text-muted">Page Sort</label>
                     <USelect

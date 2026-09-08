@@ -150,8 +150,28 @@ public class ProjectPackageDto {
             boolean allowNormalizationProfileOverride,
             boolean allowValidationRulesetOverride,
             Integer defaultGtIndex,
-            List<Integer> defaultRecognitionIndices
+            List<Integer> defaultRecognitionIndices,
+            String primaryImageVariant
     ) {
+        public ProjectSnapshot(String name,
+                               String description,
+                               List<String> tags,
+                               boolean locked,
+                               String lockedReason,
+                               boolean allowCodecOverride,
+                               boolean allowDictionaryOverride,
+                               boolean allowVirtualKeyboardOverride,
+                               boolean allowLabelSetOverride,
+                               boolean allowTagSetOverride,
+                               boolean allowNormalizationProfileOverride,
+                               boolean allowValidationRulesetOverride,
+                               Integer defaultGtIndex,
+                               List<Integer> defaultRecognitionIndices) {
+            this(name, description, tags, locked, lockedReason, allowCodecOverride, allowDictionaryOverride,
+                    allowVirtualKeyboardOverride, allowLabelSetOverride, allowTagSetOverride,
+                    allowNormalizationProfileOverride, allowValidationRulesetOverride,
+                    defaultGtIndex, defaultRecognitionIndices, null);
+        }
     }
 
     public record PageDescriptor(

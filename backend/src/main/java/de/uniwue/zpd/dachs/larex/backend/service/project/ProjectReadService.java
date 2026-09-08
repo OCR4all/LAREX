@@ -110,6 +110,7 @@ public class ProjectReadService {
                     project.getEffectiveDefaultGtIndex(),
                     project.getDefaultRecognitionIndicesList(),
                     project.getOutputRetentionDays(),
+                    project.getPrimaryImageVariant(),
                     authorizationPolicyService.resolveProjectCapabilities(project, userId)
             ));
         }

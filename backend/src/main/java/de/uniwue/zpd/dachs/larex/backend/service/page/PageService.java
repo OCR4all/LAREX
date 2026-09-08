@@ -488,7 +488,9 @@ public class PageService {
     public List<PageImage> getPageImages(String pageId, String userId) {
         Optional<Page> pageOpt = getPageById(pageId, userId);
         if (pageOpt.isPresent()) {
-            return pageImageRepository.findByPageId(pageId);
+            Page page = pageOpt.get();
+            return ImageFileUtils.sortForDisplay(pageImageRepository.findByPageId(pageId),
+                    page.getProject().getPrimaryImageVariant());
         }
         return List.of();
     }
