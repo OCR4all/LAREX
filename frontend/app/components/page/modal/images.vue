@@ -464,7 +464,7 @@ onUnmounted(() => {
     :dismissible="!lightboxOpen"
     :close="{ onClick: closeSlideover }"
     :ui="{
-      content: 'w-full max-w-[96vw] sm:max-w-[92vw] flex flex-col',
+      content: 'w-full max-w-[96vw] sm:max-w-[92vw] h-[calc(100svh-2rem)] flex flex-col',
       body: 'flex min-h-0 flex-1 flex-col overflow-hidden p-4 sm:p-6'
     }"
   >
@@ -586,7 +586,7 @@ onUnmounted(() => {
           <USkeleton class="size-full" />
         </div>
 
-        <div v-else-if="activeTab === 'overview' && pageImages.length > 0" class="flex-1 min-h-0 overflow-hidden p-20">
+        <div v-else-if="activeTab === 'overview' && pageImages.length > 0" class="flex-1 min-h-0 overflow-hidden p-4 sm:p-6">
           <UCarousel
             v-slot="{ item: image }"
             :items="pageImages"
@@ -597,13 +597,13 @@ onUnmounted(() => {
             :ui="{
               viewport: 'h-full min-h-0 overflow-hidden',
               container: 'h-full min-h-0 items-stretch ms-0',
-              item: 'h-full min-h-0 basis-1/3',
-              prev: 'sm:start-8',
-              next: 'sm:end-8'
+              item: 'h-full min-h-0 basis-full xl:basis-1/3',
+              prev: 'xl:start-8',
+              next: 'xl:end-8'
             }"
             class="h-full min-h-0 max-h-full overflow-hidden"
           >
-            <article class="group relative h-full min-w-0 cursor-pointer overflow-hidden bg-default">
+            <article class="group relative h-fit max-h-full min-w-0 cursor-pointer self-center overflow-hidden bg-default">
               <button
                 v-if="isSelectionMode"
                 type="button"
@@ -642,7 +642,7 @@ onUnmounted(() => {
                 v-show="imageStates[image.id] !== 'error'"
                 :src="getImageSrc(image.id)"
                 :alt="image.fileName"
-                class="block size-full max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                class="block h-auto max-h-full w-full max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
                 loading="lazy"
                 @load="imageStates[image.id] = 'loaded'"
                 @error="imageStates[image.id] = 'error'"
