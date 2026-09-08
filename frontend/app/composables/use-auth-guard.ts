@@ -37,7 +37,7 @@ export const useAuthGuard = () => {
       const response = await $fetch<AuthCheckResponse>('/api/auth/check')
 
       if (!response.valid) {
-        console.warn('Token validation failed, logging out user...')
+        console.warn('Token validation failed, renewing the local session...')
         await handleAuthError()
         return false
       }
@@ -53,7 +53,7 @@ export const useAuthGuard = () => {
         ?? (error as { statusCode?: number, status?: number } | null)?.status
 
       if (status === 401) {
-        console.warn('Auth check returned 401, logging out user...')
+        console.warn('Auth check returned 401, renewing the local session...')
         await handleAuthError()
         return false
       }

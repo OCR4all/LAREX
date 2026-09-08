@@ -3,19 +3,20 @@
  *
  * Handles authentication errors by:
  * - Clearing workspace state
- * - Logging out from Keycloak
- * - Redirecting to login
+ * - Clearing the local session while preserving Keycloak's remembered login
+ * - Returning to the requested page after authentication
  */
 export const useAuthRedirector = () => {
   const { loggedIn, clear } = useUserSession()
   const nuxtApp = useNuxtApp()
+  const route = useRoute()
 
   const handleAuthError = async () => {
     if (!loggedIn.value) {
       return
     }
 
-    console.warn('Authentication error detected, logging out user...')
+    console.warn('Authentication error detected, renewing the local session...')
 
     try {
       const workspaceStore = useWorkspaceStore()
@@ -27,14 +28,10 @@ export const useAuthRedirector = () => {
     const isInitialized = useState<boolean>('app.isInitialized')
     isInitialized.value = false
 
-    try {
-      await $fetch('/api/auth/logout', { method: 'POST' })
-    } catch (logoutError) {
-      console.error('Logout error:', logoutError)
-      await clear()
-    }
+    // Only explicit logout should revoke the remembered Keycloak session.
+    await clear()
 
-    await nuxtApp.runWithContext(() => navigateToAuth({ replace: true }))
+    await nuxtApp.runWithContext(() => navigateToAuth({ redirectTo: route.fullPath, replace: true }))
   }
 
   return {
