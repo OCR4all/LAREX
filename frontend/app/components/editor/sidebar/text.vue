@@ -35,6 +35,7 @@ const editorStore = useEditorStore()
 const uiStore = useEditorUiStore()
 const sessionStore = useEditorSessionStore()
 const workspaceStore = useWorkspaceStore()
+const activePopoverButtonClass = 'bg-navy-600 text-white hover:bg-navy-500 active:bg-navy-700 dark:bg-navy-500 dark:hover:bg-navy-400 dark:active:bg-navy-600'
 
 const effectiveCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
 const textViewSettings = computed(() => sessionStore.textViewSettings)
@@ -306,6 +307,7 @@ onBeforeUnmount(() => {
               size="sm"
               :icon="item.icon"
               :aria-label="item.label"
+              :class="collapsedPopoverSlot === item.slot ? activePopoverButtonClass : undefined"
             />
           </UChip>
         </UTooltip>

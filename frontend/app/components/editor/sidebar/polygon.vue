@@ -29,6 +29,11 @@ const confirmModal = overlay.create(LazyUiConfirmModal)
 
 const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
+const activePopoverButtonClass = 'bg-navy-600 text-white hover:bg-navy-500 active:bg-navy-700 dark:bg-navy-500 dark:hover:bg-navy-400 dark:active:bg-navy-600'
+
+function showReadingOrderOverlay(): void {
+  editorUiStore.setReadingOrderOverlayVisible(true)
+}
 
 function getCommandContext(): CommandContext | undefined {
   const canvasId = editorStore.activeCanvasId
@@ -95,7 +100,11 @@ const emit = defineEmits<{
 
 const accordionModel = computed({
   get: () => props.accordionPanels,
-  set: val => emit('update:accordionPanels', val as string[])
+  set: (val) => {
+    const panels = val as string[]
+    if (panels.includes('reading-order')) showReadingOrderOverlay()
+    emit('update:accordionPanels', panels)
+  }
 })
 
 const items = [
@@ -153,6 +162,7 @@ function closeCollapsedPopover() {
 
 function handleCollapsedPopoverOpenUpdate(slot: string, open: boolean) {
   if (open) {
+    if (slot === 'reading-order') showReadingOrderOverlay()
     openCollapsedPopover(slot)
   } else if (collapsedPopoverSlot.value === slot) {
     closeCollapsedPopover()
@@ -513,6 +523,7 @@ watch(() => props.collapsed, (collapsed) => {
               size="sm"
               :icon="item.icon"
               :aria-label="item.label"
+              :class="collapsedPopoverSlot === item.slot ? activePopoverButtonClass : undefined"
             />
           </UChip>
         </UTooltip>

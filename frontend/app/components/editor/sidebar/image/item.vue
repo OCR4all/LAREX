@@ -462,7 +462,7 @@ async function handleCopyPageId() {
           >
             <UButton
               color="neutral"
-              variant="outline"
+              variant="ghost"
               size="xs"
               square
               icon="i-lucide-ellipsis"

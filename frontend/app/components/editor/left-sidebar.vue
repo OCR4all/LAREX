@@ -46,6 +46,7 @@ const collapsedRailImagePopoverOpen = ref(false)
 
 const DEFAULT_FLOATING_LEFT_SIDEBAR_GAP = 24
 const DEFAULT_FLOATING_LEFT_SIDEBAR_LEFT = 24
+const activePopoverButtonClass = 'bg-navy-600 text-white hover:bg-navy-500 active:bg-navy-700 dark:bg-navy-500 dark:hover:bg-navy-400 dark:active:bg-navy-600'
 const utilityButtonClass = 'size-7 justify-center p-0'
 const utilityIconClass = 'size-4'
 const notificationChipUi = {
@@ -179,7 +180,7 @@ watch(() => props.imagePopoverDismissKey, () => {
               color="neutral"
               icon="i-lucide-images"
               size="sm"
-              class="shrink-0"
+              :class="['shrink-0', floatingImagePopoverOpen ? activePopoverButtonClass : undefined]"
               aria-label="Pages"
             />
           </UTooltip>
@@ -344,6 +345,7 @@ watch(() => props.imagePopoverDismissKey, () => {
                 color="neutral"
                 icon="i-lucide-images"
                 size="sm"
+                :class="collapsedRailImagePopoverOpen ? activePopoverButtonClass : undefined"
                 aria-label="Pages"
               />
             </UTooltip>
