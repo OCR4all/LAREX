@@ -96,7 +96,7 @@ function items(output: ActionOutput): DropdownMenuItem[] {
         </div>
         <div class="mt-2 grid gap-1 text-xs text-muted">
           <span>{{ formatDate(output.completedAt) }} · {{ output.fileCount }} file{{ output.fileCount === 1 ? '' : 's' }} · {{ formatBytes(output.totalSizeBytes) }}</span>
-          <span>Retained until {{ formatDate(output.expiresAt) }}</span>
+          <span>{{ output.expiresAt ? `Retained until ${formatDate(output.expiresAt)}` : 'Retained indefinitely' }}</span>
         </div>
         <div v-if="expanded.has(output.id)" class="mt-3 space-y-1 border-t border-default pt-3">
           <button
