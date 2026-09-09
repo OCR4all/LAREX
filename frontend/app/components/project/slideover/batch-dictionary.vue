@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
 import type {
   DictionarySummary,
   DictionaryValidateAgainstSourcesResponse
@@ -38,6 +39,22 @@ const dictionaryOptions = computed(() => (dictionaries.value ?? []).map(dictiona
 const projectsById = computed(() => new Map(props.projects.map(project => [project.id, project])))
 const selectedDictionary = computed(() => (dictionaries.value ?? [])
   .find(dictionary => dictionary.id === selectedDictionaryId.value) ?? null)
+
+type DictionaryProjectResultRow = DictionaryValidateAgainstSourcesResponse['projectResults'][number] & {
+  projectLabel: string
+}
+
+const projectResultRows = computed<DictionaryProjectResultRow[]>(() => (result.value?.projectResults ?? []).map(projectResult => ({
+  ...projectResult,
+  projectLabel: projectsById.value.get(projectResult.projectId)?.name || projectResult.projectName || projectResult.projectId
+})))
+
+const projectResultColumns: TableColumn<DictionaryProjectResultRow>[] = [
+  { accessorKey: 'projectLabel', header: 'Project' },
+  { accessorKey: 'analyzedPageCount', header: 'Pages checked' },
+  { accessorKey: 'unknownTokenCount', header: 'Unknown tokens' },
+  { id: 'result', header: 'Result', accessorFn: row => row.valid }
+]
 
 watch(selectedDictionaryId, () => {
   result.value = null
@@ -139,42 +156,21 @@ async function runDictionaryCheck() {
           />
 
           <div class="overflow-x-auto rounded-lg border border-default">
-            <table class="w-full min-w-2xl text-sm">
-              <thead class="bg-elevated text-left text-xs text-muted">
-                <tr>
-                  <th class="px-4 py-3 font-medium">
-                    Project
-                  </th>
-                  <th class="px-4 py-3 font-medium">
-                    Pages checked
-                  </th>
-                  <th class="px-4 py-3 font-medium">
-                    Unknown tokens
-                  </th>
-                  <th class="px-4 py-3 font-medium">
-                    Result
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-default">
-                <tr v-for="projectResult in result.projectResults" :key="projectResult.projectId">
-                  <td class="px-4 py-3 font-medium text-highlighted">
-                    {{ projectsById.get(projectResult.projectId)?.name || projectResult.projectName || projectResult.projectId }}
-                  </td>
-                  <td class="px-4 py-3">
-                    {{ projectResult.analyzedPageCount }}
-                  </td>
-                  <td class="px-4 py-3">
-                    {{ projectResult.unknownTokenCount }}
-                  </td>
-                  <td class="px-4 py-3">
-                    <UBadge :color="projectResult.valid ? 'success' : 'warning'" variant="subtle">
-                      {{ projectResult.valid ? 'Passed' : 'Issues' }}
-                    </UBadge>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <AppTable
+              table-id="batch-dictionary-project-results"
+              :columns="projectResultColumns"
+              :data="projectResultRows"
+              class="min-w-2xl text-sm"
+            >
+              <template #projectLabel-cell="{ row }">
+                <span class="font-medium text-highlighted">{{ row.original.projectLabel }}</span>
+              </template>
+              <template #result-cell="{ row }">
+                <UBadge :color="row.original.valid ? 'success' : 'warning'" variant="subtle">
+                  {{ row.original.valid ? 'Passed' : 'Issues' }}
+                </UBadge>
+              </template>
+            </AppTable>
           </div>
 
           <UCard v-if="result.unknownTokenResults.length > 0">

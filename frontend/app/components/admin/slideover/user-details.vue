@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
 import type {
   AdminGlobalRoles,
   AdminUser,
@@ -124,6 +125,21 @@ function formatAuditDetails(details?: string | null): Array<{ label: string, val
     }]
   }
 }
+
+type AuditDetailRow = { label: string, value: string }
+
+const auditDetailColumns: TableColumn<AuditDetailRow>[] = [
+  {
+    accessorKey: 'label',
+    header: 'Field',
+    meta: { class: { td: 'w-40 bg-elevated/30 px-3 py-2 text-left font-medium text-muted' } }
+  },
+  {
+    accessorKey: 'value',
+    header: 'Value',
+    meta: { class: { td: 'px-3 py-2 text-highlighted wrap-break-word' } }
+  }
+]
 
 async function copyUserId(userId: string) {
   await copyTextToClipboard(userId, {
@@ -410,22 +426,13 @@ function handleGlobalCuratorUpdate(enabled: boolean) {
                     v-if="formatAuditDetails(event.details)?.length"
                     class="overflow-hidden rounded-md border border-default"
                   >
-                    <table class="min-w-full divide-y divide-default text-sm">
-                      <tbody class="divide-y divide-default">
-                        <tr
-                          v-for="detail in formatAuditDetails(event.details)"
-                          :key="`${event.id}-${detail.label}`"
-                          class="align-top"
-                        >
-                          <th class="w-40 bg-elevated/30 px-3 py-2 text-left font-medium text-muted">
-                            {{ detail.label }}
-                          </th>
-                          <td class="px-3 py-2 text-highlighted wrap-break-word">
-                            {{ detail.value }}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                    <AppTable
+                      :table-id="`admin-user-audit-${event.id}`"
+                      :columns="auditDetailColumns"
+                      :data="formatAuditDetails(event.details) ?? []"
+                      :ui="{ thead: 'hidden' }"
+                      class="text-sm"
+                    />
                   </div>
                 </div>
               </div>

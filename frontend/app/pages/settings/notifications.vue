@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { NotificationType } from '~/types'
+import type { TableColumn } from '@nuxt/ui'
+import type { NotificationType, NotificationTypeInfo } from '~/types'
 
 const toast = useToast()
 const {
@@ -118,6 +119,32 @@ const permissionColor = computed(() => {
       return 'warning'
   }
 })
+
+const notificationColumns: TableColumn<NotificationTypeInfo>[] = [
+  {
+    accessorKey: 'type',
+    header: 'Notification Type',
+    meta: { class: { th: 'py-3 text-left text-sm font-medium text-muted', td: 'py-4' } }
+  },
+  {
+    id: 'email',
+    header: 'Email',
+    accessorFn: row => getEmailValue(row.type),
+    meta: { class: { th: 'px-4 py-3 text-center text-sm font-medium text-muted', td: 'px-4 py-4 text-center' } }
+  },
+  {
+    id: 'desktop',
+    header: 'Desktop',
+    accessorFn: row => getDesktopValue(row.type),
+    meta: { class: { th: 'px-4 py-3 text-center text-sm font-medium text-muted', td: 'px-4 py-4 text-center' } }
+  },
+  {
+    id: 'inApp',
+    header: 'In-App',
+    accessorFn: row => getInAppValue(row.type),
+    meta: { class: { th: 'px-4 py-3 text-center text-sm font-medium text-muted', td: 'px-4 py-4 text-center' } }
+  }
+]
 </script>
 
 <template>
@@ -177,83 +204,74 @@ const permissionColor = computed(() => {
 
       <UPageCard v-else variant="subtle" data-tour="settings-notifications-matrix">
         <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead>
-              <tr class="border-b border-default">
-                <th class="py-3 text-left text-sm font-medium text-muted">
-                  Notification Type
-                </th>
-                <th class="px-4 py-3 text-center text-sm font-medium text-muted">
-                  <div class="flex items-center justify-center gap-1">
-                    <UIcon name="i-lucide-mail" class="size-4" />
-                    <span>Email</span>
-                  </div>
-                </th>
-                <th class="px-4 py-3 text-center text-sm font-medium text-muted">
-                  <div class="flex items-center justify-center gap-1">
-                    <UIcon name="i-lucide-monitor" class="size-4" />
-                    <span>Desktop</span>
-                  </div>
-                </th>
-                <th class="px-4 py-3 text-center text-sm font-medium text-muted">
-                  <div class="flex items-center justify-center gap-1">
-                    <UIcon name="i-lucide-bell" class="size-4" />
-                    <span>In-App</span>
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="typeInfo in types"
-                :key="typeInfo.type"
-                class="border-b border-default last:border-0"
+          <AppTable
+            v-if="types.length > 0"
+            table-id="settings-notifications"
+            :columns="notificationColumns"
+            :data="types"
+            class="w-full"
+          >
+            <template #type-cell="{ row }">
+              <div>
+                <p class="font-medium">
+                  {{ row.original.label }}
+                </p>
+                <p class="text-sm text-muted">
+                  {{ row.original.description }}
+                </p>
+              </div>
+            </template>
+            <template #email-header>
+              <div class="flex items-center justify-center gap-1">
+                <UIcon name="i-lucide-mail" class="size-4" />
+                <span>Email</span>
+              </div>
+            </template>
+            <template #email-cell="{ row }">
+              <USwitch
+                :model-value="getEmailValue(row.original.type)"
+                :disabled="isSaving"
+                @update:model-value="onEmailToggle(row.original.type, $event)"
+              />
+            </template>
+            <template #desktop-header>
+              <div class="flex items-center justify-center gap-1">
+                <UIcon name="i-lucide-monitor" class="size-4" />
+                <span>Desktop</span>
+              </div>
+            </template>
+            <template #desktop-cell="{ row }">
+              <UTooltip
+                v-if="desktopPermission !== 'granted'"
+                :text="desktopPermission === 'denied' ? 'Notifications blocked in browser' : 'Enable browser permission first'"
               >
-                <td class="py-4">
-                  <div>
-                    <p class="font-medium">
-                      {{ typeInfo.label }}
-                    </p>
-                    <p class="text-sm text-muted">
-                      {{ typeInfo.description }}
-                    </p>
-                  </div>
-                </td>
-                <td class="px-4 py-4 text-center">
-                  <USwitch
-                    :model-value="getEmailValue(typeInfo.type)"
-                    :disabled="isSaving"
-                    @update:model-value="onEmailToggle(typeInfo.type, $event)"
-                  />
-                </td>
-                <td class="px-4 py-4 text-center">
-                  <UTooltip
-                    v-if="desktopPermission !== 'granted'"
-                    :text="desktopPermission === 'denied' ? 'Notifications blocked in browser' : 'Enable browser permission first'"
-                  >
-                    <USwitch
-                      :model-value="getDesktopValue(typeInfo.type)"
-                      :disabled="true"
-                      @update:model-value="onDesktopToggle(typeInfo.type, $event)"
-                    />
-                  </UTooltip>
-                  <USwitch
-                    v-else
-                    :model-value="getDesktopValue(typeInfo.type)"
-                    :disabled="isSaving"
-                    @update:model-value="onDesktopToggle(typeInfo.type, $event)"
-                  />
-                </td>
-                <td class="px-4 py-4 text-center">
-                  <USwitch
-                    :model-value="getInAppValue(typeInfo.type)"
-                    :disabled="isSaving"
-                    @update:model-value="onInAppToggle(typeInfo.type, $event)"
-                  />
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                <USwitch
+                  :model-value="getDesktopValue(row.original.type)"
+                  :disabled="true"
+                  @update:model-value="onDesktopToggle(row.original.type, $event)"
+                />
+              </UTooltip>
+              <USwitch
+                v-else
+                :model-value="getDesktopValue(row.original.type)"
+                :disabled="isSaving"
+                @update:model-value="onDesktopToggle(row.original.type, $event)"
+              />
+            </template>
+            <template #inApp-header>
+              <div class="flex items-center justify-center gap-1">
+                <UIcon name="i-lucide-bell" class="size-4" />
+                <span>In-App</span>
+              </div>
+            </template>
+            <template #inApp-cell="{ row }">
+              <USwitch
+                :model-value="getInAppValue(row.original.type)"
+                :disabled="isSaving"
+                @update:model-value="onInAppToggle(row.original.type, $event)"
+              />
+            </template>
+          </AppTable>
         </div>
 
         <div v-if="types.length === 0" class="py-8 text-center text-muted">

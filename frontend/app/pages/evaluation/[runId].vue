@@ -1,5 +1,6 @@
 <!-- eslint-disable @stylistic/max-statements-per-line -->
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
 import type { ActionRun, ActionRunDetail, EvaluationMetric, EvaluationReport } from '@/types/action'
 
 await useWorkspaceBootstrap()
@@ -45,6 +46,13 @@ const pagedRows = (table: EvaluationReport['tables'][number]) => {
   const currentPage = Math.min(tablePages.value[table.key] || 1, Math.max(1, Math.ceil(rows.length / tablePageSize)))
   return rows.slice((currentPage - 1) * tablePageSize, currentPage * tablePageSize)
 }
+const reportTableColumns = (table: EvaluationReport['tables'][number]): TableColumn<Record<string, unknown>>[] => table.columns.map(column => ({
+  id: column.key,
+  header: column.label,
+  accessorFn: row => row[column.key],
+  cell: ({ getValue }) => printValue(getValue())
+}))
+const reportTableRows = (table: EvaluationReport['tables'][number]) => pagedRows(table).map(row => rowValues(row))
 const setTablePage = (key: string, page: number) => { tablePages.value[key] = page }
 watch(tableSearch, () => { tablePages.value = {} }, { deep: true })
 watch(sampleSearch, () => { samplePage.value = 1 })
@@ -58,6 +66,16 @@ function printValue(value: unknown) {
 function rowValues(row: EvaluationReport['tables'][number]['rows'][number]) {
   return row.values || (row as unknown as { [key: string]: unknown })
 }
+type EvaluationSampleRow = EvaluationReport['samples'][number] & { sample: string }
+const pagedSampleRows = computed<EvaluationSampleRow[]>(() => pagedSamples.value.map(sample => ({
+  ...sample,
+  sample: sample.label || sample.id
+})))
+const sampleColumns: TableColumn<EvaluationSampleRow>[] = [
+  { accessorKey: 'sample', header: 'Sample' },
+  { accessorKey: 'status', header: 'Status' },
+  { id: 'fields', header: 'Fields', accessorFn: row => row.fields }
+]
 function metricValue(metric: EvaluationMetric) {
   if (metric.format === 'PERCENT') return `${(metric.value * 100).toFixed(2)}%`
   if (metric.format === 'INTEGER') return Math.round(metric.value).toLocaleString()
@@ -173,21 +191,12 @@ watch([workspaceId, runId], load, { immediate: true })
                 />
               </div>
             </template><div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="border-b border-default text-left">
-                    <th v-for="column in table.columns" :key="column.key" class="px-3 py-2 font-medium text-muted">
-                      {{ column.label }}
-                    </th>
-                  </tr>
-                </thead><tbody>
-                  <tr v-for="(row, index) in pagedRows(table)" :key="`${table.key}-${index}`" class="border-b border-default/60">
-                    <td v-for="column in table.columns" :key="column.key" class="px-3 py-2">
-                      {{ printValue(rowValues(row)[column.key]) }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <AppTable
+                :table-id="`evaluation-${table.key}`"
+                :columns="reportTableColumns(table)"
+                :data="reportTableRows(table)"
+                class="text-sm"
+              />
             </div>
             <div v-if="filteredRows(table).length > tablePageSize" class="flex items-center justify-between border-t border-default px-3 py-2">
               <span class="text-xs text-muted">Showing {{ Math.min(((tablePages[table.key] || 1) - 1) * tablePageSize + 1, filteredRows(table).length) }}–{{ Math.min((tablePages[table.key] || 1) * tablePageSize, filteredRows(table).length) }}</span>
@@ -214,39 +223,26 @@ watch([workspaceId, runId], load, { immediate: true })
                 </div>
               </div>
             </template><div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="border-b border-default text-left">
-                    <th class="px-3 py-2 text-muted">
-                      Sample
-                    </th><th class="px-3 py-2 text-muted">
-                      Status
-                    </th><th class="px-3 py-2 text-muted">
-                      Fields
-                    </th>
-                  </tr>
-                </thead><tbody>
-                  <tr v-for="sample in pagedSamples" :key="sample.id" class="border-b border-default/60">
-                    <td class="px-3 py-2">
-                      {{ sample.label || sample.id }}
-                    </td><td class="px-3 py-2">
-                      {{ sample.status }}
-                    </td><td class="px-3 py-2">
-                      <dl class="flex flex-wrap gap-x-4 gap-y-1">
-                        <template v-for="(value, key) in sample.fields" :key="key">
-                          <div>
-                            <dt class="inline text-muted">
-                              {{ key }}:
-                            </dt> <dd class="inline">
-                              {{ printValue(value) }}
-                            </dd>
-                          </div>
-                        </template>
-                      </dl>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <AppTable
+                table-id="evaluation-samples"
+                :columns="sampleColumns"
+                :data="pagedSampleRows"
+                class="text-sm"
+              >
+                <template #fields-cell="{ row }">
+                  <dl class="flex flex-wrap gap-x-4 gap-y-1">
+                    <template v-for="(value, key) in row.original.fields" :key="key">
+                      <div>
+                        <dt class="inline text-muted">
+                          {{ key }}:
+                        </dt> <dd class="inline">
+                          {{ printValue(value) }}
+                        </dd>
+                      </div>
+                    </template>
+                  </dl>
+                </template>
+              </AppTable>
             </div>
             <div v-if="filteredSamples.length > samplePageSize" class="flex items-center justify-between border-t border-default px-3 py-2">
               <span class="text-xs text-muted">Showing {{ Math.min((samplePage - 1) * samplePageSize + 1, filteredSamples.length) }}–{{ Math.min(samplePage * samplePageSize, filteredSamples.length) }}</span>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
 import type {
   ValidateAgainstSourcesResponse,
   ValidationRulesetSummary,
@@ -8,6 +9,11 @@ import type {
 type BatchProject = {
   id: string
   name: string
+}
+
+type ProjectResultRow = BatchProject & {
+  matchedRuleCount: number
+  matchedPageCount: number
 }
 
 const props = defineProps<{
@@ -39,7 +45,7 @@ const rulesetOptions = computed(() => (rulesets.value ?? []).map(ruleset => ({
 const selectedRuleset = computed(() => (rulesets.value ?? [])
   .find(ruleset => ruleset.id === selectedRulesetId.value) ?? null)
 
-const projectRows = computed(() => props.projects.map((project) => {
+const projectRows = computed<ProjectResultRow[]>(() => props.projects.map((project) => {
   const matchedRules = new Set<string>()
   const matchedPages = new Set<string>()
   for (const rule of result.value?.ruleResults ?? []) {
@@ -55,6 +61,13 @@ const projectRows = computed(() => props.projects.map((project) => {
     matchedPageCount: matchedPages.size
   }
 }))
+
+const projectResultColumns: TableColumn<ProjectResultRow>[] = [
+  { accessorKey: 'name', header: 'Project' },
+  { accessorKey: 'matchedRuleCount', header: 'Matched rules' },
+  { accessorKey: 'matchedPageCount', header: 'Affected pages' },
+  { id: 'result', header: 'Result', accessorFn: row => row.matchedRuleCount === 0 }
+]
 
 watch(selectedRulesetId, () => {
   result.value = null
@@ -162,42 +175,21 @@ async function runRulesetValidation() {
           />
 
           <div class="overflow-x-auto rounded-lg border border-default">
-            <table class="w-full min-w-2xl text-sm">
-              <thead class="bg-elevated text-left text-xs text-muted">
-                <tr>
-                  <th class="px-4 py-3 font-medium">
-                    Project
-                  </th>
-                  <th class="px-4 py-3 font-medium">
-                    Matched rules
-                  </th>
-                  <th class="px-4 py-3 font-medium">
-                    Affected pages
-                  </th>
-                  <th class="px-4 py-3 font-medium">
-                    Result
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-default">
-                <tr v-for="project in projectRows" :key="project.id">
-                  <td class="px-4 py-3 font-medium text-highlighted">
-                    {{ project.name }}
-                  </td>
-                  <td class="px-4 py-3">
-                    {{ project.matchedRuleCount }}
-                  </td>
-                  <td class="px-4 py-3">
-                    {{ project.matchedPageCount }}
-                  </td>
-                  <td class="px-4 py-3">
-                    <UBadge :color="project.matchedRuleCount === 0 ? 'success' : 'warning'" variant="subtle">
-                      {{ project.matchedRuleCount === 0 ? 'Passed' : 'Issues' }}
-                    </UBadge>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <AppTable
+              table-id="batch-ruleset-project-results"
+              :columns="projectResultColumns"
+              :data="projectRows"
+              class="min-w-2xl text-sm"
+            >
+              <template #name-cell="{ row }">
+                <span class="font-medium text-highlighted">{{ row.original.name }}</span>
+              </template>
+              <template #result-cell="{ row }">
+                <UBadge :color="row.original.matchedRuleCount === 0 ? 'success' : 'warning'" variant="subtle">
+                  {{ row.original.matchedRuleCount === 0 ? 'Passed' : 'Issues' }}
+                </UBadge>
+              </template>
+            </AppTable>
           </div>
 
           <div v-if="result.ruleResults.length > 0" class="space-y-3">
