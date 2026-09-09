@@ -11,8 +11,7 @@ import type { ActionAssignmentResponse, ActionDefinitionResponse } from '@/types
 import type {
   ProjectDefaultKey,
   ProjectDefaultPropagationScope,
-  ProjectDefaultsPreview,
-  ProjectDefaultsPropagationResult
+  ProjectDefaultsPreview
 } from '~/types/workspace-project-defaults'
 import { changedProjectDefaultKeys } from '~/utils/workspace-project-defaults'
 
@@ -34,7 +33,6 @@ interface Workspace {
   validationRulesetId?: string
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
-  projectDefaultsPropagation?: ProjectDefaultsPropagationResult | null
   created?: string
   updated?: string
 }
@@ -505,7 +503,7 @@ const saveWorkspace = async () => {
       propagationScope = selectedScope
     }
 
-    const response = await $fetch<Workspace & { projectDefaultsPropagation?: ProjectDefaultsPropagationResult | null }>(`/api/workspaces/${selectedWorkspace.value}`, {
+    await $fetch<Workspace>(`/api/workspaces/${selectedWorkspace.value}`, {
       method: 'PUT',
       body: {
         name: form.name.trim(),
@@ -528,19 +526,6 @@ const saveWorkspace = async () => {
     ])
 
     isEditing.value = false
-
-    const propagation = response.projectDefaultsPropagation
-    const propagationDescription = propagation && propagation.updatedProjects > 0
-      ? `${propagation.updatedProjects} existing project${propagation.updatedProjects === 1 ? '' : 's'} updated${propagation.skippedLockedProjects > 0 ? `; ${propagation.skippedLockedProjects} locked skipped` : ''}.`
-      : propagation && propagation.skippedLockedProjects > 0
-        ? `${propagation.skippedLockedProjects} locked project${propagation.skippedLockedProjects === 1 ? '' : 's'} skipped; no existing projects were updated.`
-        : 'Workspace settings have been saved.'
-
-    toast.add({
-      title: 'Workspace updated',
-      description: propagationDescription,
-      color: 'success'
-    })
   } catch (err: unknown) {
     toast.add({
       title: 'Failed to update workspace',

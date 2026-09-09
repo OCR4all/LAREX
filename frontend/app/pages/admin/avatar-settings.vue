@@ -3,7 +3,6 @@ import type { AdminAvatarSettings, AvatarStyle } from '~/types/avatar'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
-const toast = useToast()
 const { refresh: refreshGlobalAvatarSettings } = useAvatarSettings()
 const selectedStyle = ref<AvatarStyle>('GRADIENT')
 const isSaving = ref(false)
@@ -58,11 +57,6 @@ async function saveSettings() {
       body: { defaultStyle: selectedStyle.value }
     })
     await refreshGlobalAvatarSettings()
-    toast.add({
-      title: 'Avatar style saved',
-      description: `${options.find(option => option.value === selectedStyle.value)?.label} is now the default generated avatar style.`,
-      color: 'success'
-    })
   } catch (requestError: unknown) {
     showApiErrorToast({
       title: 'Failed to save avatar settings',

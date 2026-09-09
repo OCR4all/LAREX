@@ -237,7 +237,6 @@ async function saveKeyboardDefault() {
       virtualKeyboardId: selectedKeyboardId.value ?? null
     })
     editorStore.setProjectToolkitSettings(toProjectToolkitSettings(updated), projectId)
-    toast.add({ title: 'Project virtual keyboard default updated', color: 'success' })
   } catch (error: unknown) {
     toast.add({ title: 'Could not save keyboard default', description: error instanceof Error ? error.message : undefined, color: 'error' })
   } finally {

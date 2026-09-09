@@ -7,7 +7,6 @@ import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 
 const editorUiStore = useEditorUiStore()
 const editorStore = useEditorStore()
-const toast = useToast()
 
 const heatmapModeOptions = [
   { label: 'Average', value: 'average' },
@@ -19,10 +18,6 @@ const heatmapScaleStrengthOptions = [
   { label: 'Strong', value: 8 },
   { label: 'Extreme', value: 16 }
 ]
-
-function showSavedToast() {
-  toast.add({ title: 'Setting saved', icon: 'i-lucide-check', color: 'success' })
-}
 
 function getRenderablePolygonsForActiveCanvas(): RenderablePolygon[] {
   const canvasId = editorStore.activeCanvasId
@@ -37,7 +32,6 @@ const heatmapEnabledModel = computed({
   get: () => editorUiStore.confidenceHeatmap.enabled,
   set: (next: boolean) => {
     editorUiStore.setConfidenceHeatmapEnabled(Boolean(next))
-    showSavedToast()
   }
 })
 
@@ -45,7 +39,6 @@ const heatmapModeModel = computed({
   get: () => editorUiStore.confidenceHeatmap.mode,
   set: (next: 'indices' | 'average') => {
     editorUiStore.setConfidenceHeatmapMode(next)
-    showSavedToast()
   }
 })
 
@@ -53,7 +46,6 @@ const heatmapSelectedIndicesModel = computed({
   get: () => editorUiStore.confidenceHeatmap.selectedIndices,
   set: (next: number[]) => {
     editorUiStore.setConfidenceHeatmapSelectedIndices(next)
-    showSavedToast()
   }
 })
 
@@ -61,7 +53,6 @@ const heatmapLogScaleModel = computed({
   get: () => editorUiStore.confidenceHeatmap.logScale,
   set: (next: boolean) => {
     editorUiStore.setConfidenceHeatmapLogScale(Boolean(next))
-    showSavedToast()
   }
 })
 
@@ -69,7 +60,6 @@ const heatmapLogScaleStrengthModel = computed({
   get: () => editorUiStore.confidenceHeatmap.logScaleStrength,
   set: (next: unknown) => {
     editorUiStore.setConfidenceHeatmapLogScaleStrength(Number(next))
-    showSavedToast()
   }
 })
 
@@ -77,25 +67,10 @@ const heatmapFillOpacityModel = computed({
   get: () => editorUiStore.confidenceHeatmap.fillOpacity,
   set: (next: unknown) => {
     editorUiStore.setConfidenceHeatmapFillOpacity(Number(next))
-    scheduleFillOpacityToast()
   }
 })
 
 const heatmapFillOpacityPercent = computed(() => `${Math.round(heatmapFillOpacityModel.value * 100)}%`)
-
-let fillOpacityToastTimer: ReturnType<typeof setTimeout> | null = null
-
-function scheduleFillOpacityToast(): void {
-  if (fillOpacityToastTimer) clearTimeout(fillOpacityToastTimer)
-  fillOpacityToastTimer = setTimeout(() => {
-    showSavedToast()
-    fillOpacityToastTimer = null
-  }, 350)
-}
-
-onBeforeUnmount(() => {
-  if (fillOpacityToastTimer) clearTimeout(fillOpacityToastTimer)
-})
 
 const availableHeatmapIndices = computed(() => {
   const indices = new Set<number>()

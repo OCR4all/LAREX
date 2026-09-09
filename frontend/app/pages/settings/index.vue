@@ -120,12 +120,6 @@ const saveProfile = async () => {
       console.warn('Failed to refresh session data:', error)
     }
 
-    toast.add({
-      title: 'Profile updated',
-      description: 'Your profile has been successfully updated',
-      color: 'success'
-    })
-
     isEditing.value = false
   } catch (error: unknown) {
     console.error('Failed to update profile:', error)

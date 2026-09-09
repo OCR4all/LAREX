@@ -84,7 +84,6 @@ async function saveDictionaryDefault() {
       dictionaryId: editorStore.projectDictionaryId ?? null
     })
     editorStore.setProjectToolkitSettings(toProjectToolkitSettings(updated), projectId)
-    toast.add({ title: 'Project dictionary default updated', color: 'success' })
   } catch (error: unknown) {
     toast.add({ title: 'Could not save dictionary default', description: error instanceof Error ? error.message : undefined, color: 'error' })
   } finally {

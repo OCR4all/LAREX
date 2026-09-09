@@ -9,7 +9,6 @@ interface IiifSettings {
   updatedByUserId: string | null
 }
 
-const toast = useToast()
 const intervalInput = ref(100)
 const isSaving = ref(false)
 const isResetting = ref(false)
@@ -55,11 +54,6 @@ async function saveOverride() {
       method: 'PUT',
       body: { downloadMinIntervalMs: intervalInput.value }
     })
-    toast.add({
-      title: 'IIIF settings saved',
-      description: `Downloads now use a ${settings.value.effectiveDownloadMinIntervalMs} ms minimum interval per host.`,
-      color: 'success'
-    })
   } catch (requestError: unknown) {
     showApiErrorToast({
       title: 'Failed to save IIIF settings',
@@ -79,11 +73,6 @@ async function resetOverride() {
       body: { downloadMinIntervalMs: null }
     })
     intervalInput.value = settings.value.effectiveDownloadMinIntervalMs
-    toast.add({
-      title: 'IIIF settings reset',
-      description: 'Download pacing now uses the deployment default.',
-      color: 'success'
-    })
   } catch (requestError: unknown) {
     showApiErrorToast({
       title: 'Failed to reset IIIF settings',

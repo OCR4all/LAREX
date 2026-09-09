@@ -25,13 +25,7 @@ onMounted(() => {
 
 async function onEmailToggle(type: NotificationType, value: boolean) {
   const success = await toggleEmail(type, value)
-  if (success) {
-    toast.add({
-      title: 'Preferences updated',
-      description: `Email notifications ${value ? 'enabled' : 'disabled'} for ${getTypeLabel(type)}`,
-      color: 'success'
-    })
-  } else {
+  if (!success) {
     toast.add({
       title: 'Failed to update',
       description: 'Could not update email notification preference',
@@ -42,13 +36,7 @@ async function onEmailToggle(type: NotificationType, value: boolean) {
 
 async function onDesktopToggle(type: NotificationType, value: boolean) {
   const success = await toggleDesktop(type, value)
-  if (success) {
-    toast.add({
-      title: 'Preferences updated',
-      description: `Desktop notifications ${value ? 'enabled' : 'disabled'} for ${getTypeLabel(type)}`,
-      color: 'success'
-    })
-  } else {
+  if (!success) {
     if (desktopPermission.value === 'denied') {
       toast.add({
         title: 'Permission denied',
@@ -67,13 +55,7 @@ async function onDesktopToggle(type: NotificationType, value: boolean) {
 
 async function onInAppToggle(type: NotificationType, value: boolean) {
   const success = await toggleInApp(type, value)
-  if (success) {
-    toast.add({
-      title: 'Preferences updated',
-      description: `In-app notifications ${value ? 'enabled' : 'disabled'} for ${getTypeLabel(type)}`,
-      color: 'success'
-    })
-  } else {
+  if (!success) {
     toast.add({
       title: 'Failed to update',
       description: 'Could not update in-app notification preference',
@@ -97,11 +79,6 @@ async function onRequestPermission() {
       color: 'warning'
     })
   }
-}
-
-function getTypeLabel(type: NotificationType): string {
-  const typeInfo = types.value.find(t => t.type === type)
-  return typeInfo?.label || type.replace(/_/g, ' ').toLowerCase()
 }
 
 function getEmailValue(type: NotificationType): boolean {

@@ -86,7 +86,6 @@ async function saveCodecDefault() {
       codecId: editorStore.projectCodecId ?? null
     })
     editorStore.setProjectToolkitSettings(toProjectToolkitSettings(updated), projectId)
-    toast.add({ title: 'Project codec default updated', color: 'success' })
   } catch (error: unknown) {
     toast.add({ title: 'Could not save codec default', description: error instanceof Error ? error.message : undefined, color: 'error' })
   } finally {

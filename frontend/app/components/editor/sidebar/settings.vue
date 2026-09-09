@@ -3,7 +3,6 @@ import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type { LineWidthPreset } from '@/stores/editor/types'
 
 const editorUiStore = useEditorUiStore()
-const toast = useToast()
 
 const colorPickerOpen = ref(false)
 const BACKGROUND_SAVE_DEBOUNCE_MS = 450
@@ -19,13 +18,8 @@ const lineWidthOptions = [
   { label: 'Extra Bold', value: 'extraBold' }
 ]
 
-function showSavedToast() {
-  toast.add({ title: 'Setting saved', icon: 'i-lucide-check', color: 'success' })
-}
-
 function toggleSetting(toggleFn: () => void) {
   toggleFn()
-  showSavedToast()
 }
 
 function onColorChange(color: string) {
@@ -42,7 +36,6 @@ function onLineWidthChange(value: string) {
   const presets: LineWidthPreset[] = ['thin', 'light', 'normal', 'medium', 'bold', 'extraBold']
   if (!presets.includes(value as LineWidthPreset)) return
   editorUiStore.setDefaultLineWidth(value as LineWidthPreset)
-  showSavedToast()
 }
 
 function clearBackgroundSaveTimer() {
@@ -54,8 +47,7 @@ function clearBackgroundSaveTimer() {
 async function persistBackgroundSettings() {
   if (!backgroundSavePending) return
   backgroundSavePending = false
-  const saved = await editorUiStore.saveBackgroundAppearance()
-  if (saved) showSavedToast()
+  await editorUiStore.saveBackgroundAppearance()
 }
 
 function queueBackgroundSave() {
