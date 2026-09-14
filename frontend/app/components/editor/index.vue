@@ -623,6 +623,14 @@ function handleEditorCanvasContextMenu(event: MouseEvent): void {
   const createdRegionId = pendingCreatedRegionTypeMenuId.value
   pendingCreatedRegionTypeMenuId.value = null
 
+  if (!canShowCanvasContent.value || !isCanvasWritable.value || isCanvasInteractionBlocked.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    editorCommands.closeContextMenu()
+    contextMenuOpen.value = false
+    return
+  }
+
   if (createdRegionId) {
     const region = polygons.find(polygon => polygon.id === createdRegionId)
     if (region) {
@@ -3394,7 +3402,7 @@ watch(() => props.src, (newSrc) => {
               canReceiveCanvasInput && canShowCanvasContent ? 'cursor-grab' : 'cursor-default pointer-events-none',
               canDisplayCanvasContent ? 'opacity-100' : 'opacity-0'
             ]"
-            @contextmenu="(event: MouseEvent) => { if (canShowCanvasContent && isCanvasWritable && !isCanvasInteractionBlocked) handleEditorCanvasContextMenu(event) }"
+            @contextmenu="handleEditorCanvasContextMenu"
           />
         </template>
         <template #item-leading="{ item }">
