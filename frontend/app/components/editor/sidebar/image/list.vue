@@ -341,9 +341,13 @@ function syncVirtualizerLayout(forceMeasure: boolean = false) {
         return
       }
 
+      const behavior = activePageCenterBehavior
       shouldCenterActivePageAfterLayout = false
       activePageCenterRetryCount = 0
-      scrollToActivePage(activePageCenterBehavior)
+      nextTick(() => {
+        if (!props.visible || !scrollElement.value || scrollElement.value.clientHeight <= 0) return
+        scrollToActivePage(behavior)
+      })
     }
   })
 }
