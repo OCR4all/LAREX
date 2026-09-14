@@ -27,6 +27,13 @@ interface MultiProjectEditorSessionState {
   activeProjectId: string | null
   projectsById: Record<string, ProjectSessionState>
   textViewSettings: EditorTextViewSettings
+  focusedWork?: FocusedWorkSession | null
+}
+
+export interface FocusedWorkSession {
+  workspaceId: string
+  startedAt: string
+  completedSubtaskIds: string[]
 }
 
 interface LegacyEditorSessionState {
@@ -69,7 +76,8 @@ function createEmptyState(): MultiProjectEditorSessionState {
     openedProjectIds: [],
     activeProjectId: null,
     projectsById: {},
-    textViewSettings: createDefaultTextViewSettings()
+    textViewSettings: createDefaultTextViewSettings(),
+    focusedWork: null
   }
 }
 
@@ -213,7 +221,19 @@ function normalizeState(value: unknown): MultiProjectEditorSessionState {
     openedProjectIds,
     activeProjectId,
     projectsById,
-    textViewSettings: normalizeTextViewSettings(candidate.textViewSettings)
+    textViewSettings: normalizeTextViewSettings(candidate.textViewSettings),
+    focusedWork: candidate.focusedWork && typeof candidate.focusedWork === 'object'
+      && typeof (candidate.focusedWork as Record<string, unknown>).workspaceId === 'string'
+      ? {
+          workspaceId: (candidate.focusedWork as Record<string, unknown>).workspaceId as string,
+          startedAt: typeof (candidate.focusedWork as Record<string, unknown>).startedAt === 'string'
+            ? (candidate.focusedWork as Record<string, unknown>).startedAt as string
+            : new Date().toISOString(),
+          completedSubtaskIds: Array.isArray((candidate.focusedWork as Record<string, unknown>).completedSubtaskIds)
+            ? ((candidate.focusedWork as Record<string, unknown>).completedSubtaskIds as unknown[]).filter((id): id is string => typeof id === 'string')
+            : []
+        }
+      : null
   }
 }
 
@@ -223,6 +243,7 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
   const activeProjectId = ref<string | null>(null)
   const projectsById = ref<Record<string, ProjectSessionState>>({})
   const textViewSettings = ref<EditorTextViewSettings>(createDefaultTextViewSettings())
+  const focusedWork = ref<FocusedWorkSession | null>(null)
 
   function persistState() {
     saveSessionState({
@@ -230,7 +251,8 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
       openedProjectIds: openedProjectIds.value,
       activeProjectId: activeProjectId.value,
       projectsById: projectsById.value,
-      textViewSettings: textViewSettings.value
+      textViewSettings: textViewSettings.value,
+      focusedWork: focusedWork.value
     })
   }
 
@@ -327,6 +349,7 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
     openedProjectIds.value = []
     activeProjectId.value = null
     projectsById.value = {}
+    focusedWork.value = null
     if (!options?.preserveTextViewSettings) {
       textViewSettings.value = createDefaultTextViewSettings()
     }
@@ -342,7 +365,8 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
 
     const normalized = normalizeState(stored)
     textViewSettings.value = normalized.textViewSettings
-    if (normalized.openedProjectIds.length === 0) return false
+    focusedWork.value = normalized.focusedWork ?? null
+    if (normalized.openedProjectIds.length === 0 && !focusedWork.value) return false
 
     workspaceId.value = normalized.workspaceId
     openedProjectIds.value = normalized.openedProjectIds
@@ -352,6 +376,33 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
     projectsById.value = normalized.projectsById
     persistState()
     return true
+  }
+
+  function startFocusedWork(newWorkspaceId: string) {
+    workspaceId.value = newWorkspaceId
+    openedProjectIds.value = []
+    activeProjectId.value = null
+    projectsById.value = {}
+    focusedWork.value = {
+      workspaceId: newWorkspaceId,
+      startedAt: new Date().toISOString(),
+      completedSubtaskIds: []
+    }
+    persistState()
+  }
+
+  function markFocusedSubtasksCompleted(ids: string[]) {
+    if (!focusedWork.value || ids.length === 0) return
+    focusedWork.value = {
+      ...focusedWork.value,
+      completedSubtaskIds: [...new Set([...focusedWork.value.completedSubtaskIds, ...ids])]
+    }
+    persistState()
+  }
+
+  function clearFocusedWork() {
+    focusedWork.value = null
+    persistState()
   }
 
   function retainSingleOpenedPagePerProject() {
@@ -476,6 +527,7 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
     activeProjectId,
     projectsById,
     textViewSettings,
+    focusedWork,
     projectId,
     openedPageIds,
     activePageId,
@@ -498,6 +550,9 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
     initSession,
     clearSession,
     loadPersistedSession,
+    startFocusedWork,
+    markFocusedSubtasksCompleted,
+    clearFocusedWork,
     retainSingleOpenedPagePerProject,
     hasSession
   }

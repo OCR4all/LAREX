@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import type { UserProfile } from '~/types/index'
+import { useVirtualizer } from '@tanstack/vue-virtual'
+import type { Subtask, UserProfile } from '~/types/index'
 
 const props = defineProps<{
   taskId: string
   pages: { pageId: string, pageName: string, projectId?: string, projectName?: string }[]
   taskAssignees?: UserProfile[]
   taskDescription?: string | null
-  onConverted?: () => void | Promise<void>
+  onConverted?: (created: Subtask[]) => void | Promise<void>
 }>()
 
 const emit = defineEmits<{
@@ -44,6 +45,8 @@ const effectiveDescription = computed(() => {
   return value.length > 0 ? value : null
 })
 
+type PreviewRow = { kind: 'project', projectName: string } | { kind: 'page', page: typeof props.pages[0] }
+
 const pagesByProject = computed(() => {
   const groups = new Map<string, { projectName: string, pages: typeof props.pages }>()
 
@@ -67,6 +70,26 @@ const pagesByProject = computed(() => {
 
 const hasMultipleProjects = computed(() => pagesByProject.value.length > 1)
 
+const previewScrollerRef = ref<HTMLElement | null>(null)
+const previewRows = computed<PreviewRow[]>(() => pagesByProject.value.flatMap(group => [
+  ...(hasMultipleProjects.value ? [{ kind: 'project' as const, projectName: group.projectName }] : []),
+  ...group.pages.map(page => ({ kind: 'page' as const, page }))
+]))
+const previewVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => ({
+  count: previewRows.value.length,
+  getScrollElement: () => previewScrollerRef.value,
+  estimateSize: () => 28,
+  overscan: 4,
+  getItemKey: index => previewRows.value[index]?.kind === 'project'
+    ? `project-${previewRows.value[index]?.projectName}`
+    : previewRows.value[index]?.page.pageId ?? index
+})))
+const virtualPreviewRows = computed(() => previewVirtualizer.value.getVirtualItems().flatMap((item) => {
+  const row = previewRows.value[item.index]
+  return row ? [{ item, row }] : []
+}))
+const totalPreviewSize = computed(() => previewVirtualizer.value.getTotalSize())
+
 function getSubtaskTitle(page: typeof props.pages[0]) {
   if (page.projectName) {
     return `[${page.projectName}] ${page.pageName}`
@@ -81,45 +104,34 @@ async function convertToSubtasks() {
   }
 
   isConverting.value = true
-  let successCount = 0
-  let failCount = 0
-
-  for (const group of pagesByProject.value) {
-    for (const page of group.pages) {
-      try {
-        await $fetch(`/api/tasks/${props.taskId}/subtasks/with-page`, {
-          method: 'POST',
-          body: {
-            title: getSubtaskTitle(page),
-            pageId: page.pageId,
-            assignedUserId: effectiveAssigneeId.value,
-            description: effectiveDescription.value
-          }
-        })
-        successCount++
-      } catch {
-        failCount++
-      }
-    }
-  }
-
-  if (successCount > 0) {
-    toast.add({
-      title: `Created ${successCount} subtask${successCount !== 1 ? 's' : ''}`,
-      color: 'success'
+  let created: Subtask[] = []
+  try {
+    created = await $fetch<Subtask[]>(`/api/tasks/${props.taskId}/subtasks/with-pages`, {
+      method: 'POST',
+      body: props.pages.map(page => ({
+        title: getSubtaskTitle(page),
+        pageId: page.pageId,
+        assignedUserId: effectiveAssigneeId.value,
+        description: effectiveDescription.value
+      }))
     })
-    await props.onConverted?.()
-  }
-
-  if (failCount > 0) {
+  } catch {
     toast.add({
-      title: `Failed to create ${failCount} subtask${failCount !== 1 ? 's' : ''}`,
+      title: `Failed to create subtasks`,
       color: 'error'
     })
   }
 
+  if (created.length > 0) {
+    toast.add({
+      title: `Created ${created.length} subtask${created.length !== 1 ? 's' : ''}`,
+      color: 'success'
+    })
+    await props.onConverted?.(created)
+  }
+
   isConverting.value = false
-  emit('close', successCount > 0)
+  emit('close', created.length > 0)
 }
 
 function skip() {
@@ -139,26 +151,29 @@ function skip() {
           Would you like to create subtasks for each page to track progress?
         </p>
 
-        <div class="p-3 bg-elevated/50 border border-default rounded-sm max-h-48 overflow-auto">
+        <div
+          ref="previewScrollerRef"
+          class="p-3 bg-elevated/50 border border-default rounded-sm max-h-48 overflow-auto"
+        >
           <p class="text-xs text-muted mb-2 font-medium">
             Subtasks to create:
           </p>
-          <div class="space-y-3">
-            <div v-for="group in pagesByProject" :key="group.projectName">
-              <p v-if="hasMultipleProjects" class="text-xs font-medium text-muted mb-1 flex items-center gap-1">
+          <div class="relative" :style="{ height: `${totalPreviewSize}px` }">
+            <div
+              v-for="{ item, row } in virtualPreviewRows"
+              :key="String(item.key)"
+              :data-index="item.index"
+              class="absolute left-0 top-0 w-full"
+              :style="{ transform: `translateY(${item.start}px)` }"
+            >
+              <p v-if="row.kind === 'project'" class="text-xs font-medium text-muted mb-1 flex items-center gap-1">
                 <UIcon name="i-lucide-folder" class="size-3" />
-                {{ group.projectName }}
+                {{ row.projectName }}
               </p>
-              <ul class="space-y-1" :class="{ 'pl-4': hasMultipleProjects }">
-                <li
-                  v-for="page in group.pages"
-                  :key="page.pageId"
-                  class="text-sm flex items-center gap-2"
-                >
-                  <UIcon name="i-lucide-file" class="size-4 text-muted shrink-0" />
-                  <span class="truncate">{{ getSubtaskTitle(page) }}</span>
-                </li>
-              </ul>
+              <div v-else class="text-sm flex items-center gap-2" :class="{ 'pl-4': hasMultipleProjects }">
+                <UIcon name="i-lucide-file" class="size-4 text-muted shrink-0" />
+                <span class="truncate">{{ getSubtaskTitle(row.page) }}</span>
+              </div>
             </div>
           </div>
         </div>

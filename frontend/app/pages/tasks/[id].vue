@@ -136,9 +136,23 @@ watch(taskId, () => {
   refreshActivity()
 })
 
-async function refreshAllSubtaskData() {
-  await refreshTaskCaches(taskId.value, workspaceId.value)
+function mergeCreatedSubtasks(created: Subtask[]) {
+  const existing = subtasks.value ?? []
+  const existingIds = new Set(existing.map(subtask => subtask.id))
+  subtasks.value = [...existing, ...created.filter(subtask => !existingIds.has(subtask.id))]
 }
+
+watch(subtasks, (items) => {
+  const total = items?.length ?? 0
+  const completed = items?.filter(subtask => subtask.completed).length ?? 0
+  if (subtaskProgress.value) {
+    subtaskProgress.value = {
+      total,
+      completed,
+      percentage: total > 0 ? Math.round((completed * 100) / total) : 0
+    }
+  }
+})
 
 const { user } = useUserSession()
 const currentUserId = computed(() => user.value?.id || '')
@@ -455,7 +469,7 @@ async function openLinkItemsSlideover() {
           pages: linkedPages,
           taskAssignees: task.value?.assignedUsers ?? [],
           taskDescription: task.value?.description,
-          onConverted: () => refreshAllSubtaskData()
+          onConverted: (created: Subtask[]) => mergeCreatedSubtasks(created)
         })
         await convertInstance.result
       }
@@ -659,9 +673,8 @@ const tabItems = [
                 <TaskDetailSubtasks
                   :task-id="taskId"
                   :subtasks="subtasks ?? []"
-                  :progress="subtaskProgress ?? { total: 0, completed: 0, percentage: 0 }"
                   :task-assignees="task?.assignedUsers ?? []"
-                  @refresh="refreshAllSubtaskData"
+                  @update:subtasks="subtasks = $event"
                 />
               </div>
 
@@ -699,7 +712,7 @@ const tabItems = [
                   :links="links ?? { projectLinks: [], pageLinks: [] }"
                   :task-description="task?.description"
                   @refresh="refreshLinks"
-                  @refresh-subtasks="refreshAllSubtaskData"
+                  @subtasks-created="mergeCreatedSubtasks"
                 />
               </div>
             </div>

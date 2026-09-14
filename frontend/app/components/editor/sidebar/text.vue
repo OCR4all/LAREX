@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { getEditorSession } from '@/session/editor/editor-session'
 import EditorSidebarMetadata from '@/components/editor/sidebar/metadata.vue'
-import EditorSidebarTasks from '@/components/editor/sidebar/tasks.vue'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { PcGts } from '@/models/editor/document'
 import type { Page } from '@/models/editor/page'
 import type { Region } from '@/models/editor/region'
 import type { TextLine } from '@/models/editor/text'
-import type { LinkedTask, Subtask } from '~/types/index'
 import { PolygonType } from '@/models/editor'
 import type { ProjectData } from '@/types/project-page'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
@@ -20,11 +18,7 @@ const props = defineProps<{
   document?: PcGts | null
   page?: Page | null
   selectedElement?: Region | TextLine | RenderablePolyline | null
-  openTasks?: Subtask[]
-  taskById?: Record<string, LinkedTask>
   isPageLocked?: boolean
-  isTasksLoading?: boolean
-  onCompleteTask?: (subtask: Subtask) => void
 }>()
 
 const emit = defineEmits<{
@@ -229,8 +223,6 @@ const hasUnindexed = computed(() => {
   return false
 })
 
-const openTaskCount = computed(() => props.openTasks?.length ?? 0)
-
 const accordionItems = computed(() => getTextSidebarItems(uiStore.textModeSubmode))
 
 const accordionModel = ref<TextSidebarSlot[]>(['metadata'])
@@ -294,22 +286,14 @@ onBeforeUnmount(() => {
         @update:open="(open: boolean) => handleCollapsedPopoverOpenUpdate(item.slot, open)"
       >
         <UTooltip :text="item.label" :content="{ side: 'left' }">
-          <UChip
-            :show="item.slot === 'tasks' && openTaskCount > 0"
-            :text="openTaskCount"
-            position="top-right"
-            :color="openTaskCount > 0 ? 'warning' : 'neutral'"
-            class="z-200"
-          >
-            <UButton
-              variant="ghost"
-              color="neutral"
-              size="sm"
-              :icon="item.icon"
-              :aria-label="item.label"
-              :class="collapsedPopoverSlot === item.slot ? activePopoverButtonClass : undefined"
-            />
-          </UChip>
+          <UButton
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            :icon="item.icon"
+            :aria-label="item.label"
+            :class="collapsedPopoverSlot === item.slot ? activePopoverButtonClass : undefined"
+          />
         </UTooltip>
         <template #content>
           <div class="w-80 max-h-[70vh] overflow-auto">
@@ -333,17 +317,6 @@ onBeforeUnmount(() => {
                 :read-only="isPageLocked ?? false"
                 @apply="handleMetadataApply"
               />
-            </template>
-            <template v-else-if="item.slot === 'tasks'">
-              <div class="p-3">
-                <EditorSidebarTasks
-                  :open-tasks="openTasks ?? []"
-                  :task-by-id="taskById ?? {}"
-                  :is-page-locked="isPageLocked ?? false"
-                  :is-loading="isTasksLoading ?? false"
-                  :on-complete-subtask="onCompleteTask ?? (() => {})"
-                />
-              </div>
             </template>
             <template v-else-if="item.slot === 'settings'">
               <EditorSidebarTextSettingsPanel
@@ -400,14 +373,7 @@ onBeforeUnmount(() => {
       :items="accordionItems"
     >
       <template #leading="{ item }">
-        <UChip
-          :show="item.slot === 'tasks' && openTaskCount > 0"
-          :text="openTaskCount"
-          size="md"
-          color="warning"
-        >
-          <Icon class="size-5" :name="item.icon" />
-        </UChip>
+        <Icon class="size-5" :name="item.icon" />
       </template>
 
       <template #metadata>
@@ -418,18 +384,6 @@ onBeforeUnmount(() => {
           :read-only="isPageLocked ?? false"
           @apply="handleMetadataApply"
         />
-      </template>
-
-      <template #tasks>
-        <div class="p-3">
-          <EditorSidebarTasks
-            :open-tasks="openTasks ?? []"
-            :task-by-id="taskById ?? {}"
-            :is-page-locked="isPageLocked ?? false"
-            :is-loading="isTasksLoading ?? false"
-            :on-complete-subtask="onCompleteTask ?? (() => {})"
-          />
-        </div>
       </template>
 
       <template #settings>

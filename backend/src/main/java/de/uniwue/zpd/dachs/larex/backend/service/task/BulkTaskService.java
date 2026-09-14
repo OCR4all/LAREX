@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.BulkTaskDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Task;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.TaskQueueRealtimePublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,17 +27,20 @@ public class BulkTaskService {
     private final WorkspaceAccessService workspaceAccessService;
     private final TaskActivityService activityService;
     private final TaskStatusTransactionService taskStatusTransactionService;
+    private final TaskQueueRealtimePublisher taskQueueRealtimePublisher;
 
     public BulkTaskService(
             TaskRepository taskRepository,
             WorkspaceAccessService workspaceAccessService,
             TaskActivityService activityService,
-            TaskStatusTransactionService taskStatusTransactionService
+            TaskStatusTransactionService taskStatusTransactionService,
+            TaskQueueRealtimePublisher taskQueueRealtimePublisher
     ) {
         this.taskRepository = taskRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.activityService = activityService;
         this.taskStatusTransactionService = taskStatusTransactionService;
+        this.taskQueueRealtimePublisher = taskQueueRealtimePublisher;
     }
 
     public BulkTaskDto.BulkOperationResponse bulkUpdateStatus(
@@ -140,6 +144,14 @@ public class BulkTaskService {
             }
         }
 
+        Set<String> queueUsers = new LinkedHashSet<>();
+        targetTaskIds.forEach(taskId -> {
+            if (taskById.get(taskId).getAssignedUserIds() != null) {
+                queueUsers.addAll(taskById.get(taskId).getAssignedUserIds());
+            }
+        });
+        taskQueueRealtimePublisher.publishAfterCommit(queueUsers, workspaceId);
+
         return new BulkTaskDto.BulkOperationResponse(
                 successCount,
                 failedTaskIds.size(),
@@ -166,6 +178,8 @@ public class BulkTaskService {
 
         Set<String> usersToAdd = request.addUserIds() != null ? new HashSet<>(request.addUserIds()) : new HashSet<>();
         Set<String> usersToRemove = request.removeUserIds() != null ? new HashSet<>(request.removeUserIds()) : new HashSet<>();
+        Set<String> queueUsers = new LinkedHashSet<>(usersToAdd);
+        queueUsers.addAll(usersToRemove);
         Map<String, Task> taskById = preloadTasksInWorkspace(workspaceId, taskIds, failedTaskIds, errors);
         List<Task> tasksToSave = new ArrayList<>();
         List<AssigneeChange> assigneeChanges = new ArrayList<>();
@@ -179,6 +193,7 @@ public class BulkTaskService {
 
                 List<String> currentAssignees = task.getAssignedUserIds() != null ?
                         new ArrayList<>(task.getAssignedUserIds()) : new ArrayList<>();
+                queueUsers.addAll(currentAssignees);
 
                 List<String> addedUsers = new ArrayList<>();
                 List<String> removedUsers = new ArrayList<>();
@@ -230,6 +245,10 @@ public class BulkTaskService {
                 errors.add("Error bulk updating task assignees: " + e.getMessage());
                 successCount -= changedTaskIds.size();
             }
+        }
+
+        if (!tasksToSave.isEmpty()) {
+            taskQueueRealtimePublisher.publishAfterCommit(queueUsers, workspaceId);
         }
 
         return new BulkTaskDto.BulkOperationResponse(

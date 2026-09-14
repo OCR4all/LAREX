@@ -14,6 +14,9 @@ type EditorSessionRestoreOptions = {
   resetEditorState: () => void
   shouldRestorePersistedSession: () => boolean
   loadPersistedSession: () => boolean
+  isFocusedWorkActive: () => boolean
+  loadFocusedWorkQueue: () => Promise<void>
+  openFocusedWorkFirstPage: () => Promise<void>
   isPageFocusModeEnabled: () => boolean
   normalizeSessionForPageFocusMode: () => void
   hasSession: () => boolean
@@ -90,6 +93,18 @@ export function useEditorSessionRestore(options: EditorSessionRestoreOptions) {
     }
 
     const hasPersistedSession = options.loadPersistedSession()
+
+    if (hasPersistedSession && options.isFocusedWorkActive()) {
+      await options.loadFocusedWorkQueue()
+      await options.openFocusedWorkFirstPage()
+      isLoading.value = false
+      hasMounted.value = true
+      void options.maybeAutoStartContextTour('/editor', {
+        editorMode: options.getEditorMode()
+      })
+      return
+    }
+
     if (hasPersistedSession && options.isPageFocusModeEnabled()) {
       options.normalizeSessionForPageFocusMode()
     }

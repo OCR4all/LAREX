@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TaskLinks, TaskPageLink } from '~/types/index'
+import type { Subtask, TaskLinks, TaskPageLink } from '~/types/index'
 import { LazyTaskSlideoverLinkItems, LazyTaskModalConvertToSubtasks, LazyUiConfirmSlideover } from '#components'
 
 type ProjectPageGroup = {
@@ -23,7 +23,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   refresh: []
-  refreshSubtasks: []
+  subtasksCreated: [subtasks: Subtask[]]
 }>()
 
 const toast = useToast()
@@ -86,9 +86,9 @@ async function openLinkItemsSlideover() {
       if (linkedPages.length > 0) {
         const convertInstance = convertToSubtasksModal.open({
           taskId: props.taskId,
-          pages: linkedPages.map(p => ({ pageId: p.pageId, pageName: p.pageName })),
+          pages: linkedPages,
           taskDescription: props.taskDescription,
-          onConverted: () => emit('refreshSubtasks')
+          onConverted: (subtasks: Subtask[]) => emit('subtasksCreated', subtasks)
         })
         await convertInstance.result
       }

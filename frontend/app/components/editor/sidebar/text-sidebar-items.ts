@@ -2,7 +2,6 @@ import type { TextModeSubmode } from '@/stores/editor/types'
 
 export type TextSidebarSlot
   = | 'metadata'
-    | 'tasks'
     | 'settings'
     | 'virtualKeyboard'
     | 'codec'
@@ -18,7 +17,6 @@ export type TextSidebarItem = {
 
 const TEXT_SIDEBAR_ITEMS: readonly TextSidebarItem[] = [
   { label: 'Metadata', icon: 'i-lucide-badge-info', slot: 'metadata' },
-  { label: 'Tasks', icon: 'i-lucide-check-square', slot: 'tasks' },
   { label: 'Settings', icon: 'i-lucide-settings', slot: 'settings' },
   { label: 'Virtual Keyboard', icon: 'i-lucide-keyboard', slot: 'virtualKeyboard' },
   { label: 'Codec', icon: 'i-lucide-badge-check', slot: 'codec' },
@@ -29,7 +27,6 @@ const TEXT_SIDEBAR_ITEMS: readonly TextSidebarItem[] = [
 
 const FULL_TEXT_SIDEBAR_SLOTS = new Set<TextSidebarSlot>([
   'metadata',
-  'tasks',
   'settings',
   'virtualKeyboard',
   'codec',

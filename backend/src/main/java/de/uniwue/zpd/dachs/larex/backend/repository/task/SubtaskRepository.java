@@ -34,6 +34,34 @@ public interface SubtaskRepository extends JpaRepository<Subtask, String> {
     @Query("SELECT s FROM Subtask s WHERE s.pageId IN :pageIds AND s.assignedUserId = :userId AND s.completed = false")
     List<Subtask> findOpenByPageIdsAndAssignedUserId(@Param("pageIds") List<String> pageIds, @Param("userId") String userId);
 
+    @Query("""
+        SELECT s FROM Subtask s JOIN Task t ON s.taskId = t.id
+        WHERE t.workspaceId = :workspaceId
+          AND :userId MEMBER OF t.assignedUserIds
+          AND s.assignedUserId = :userId
+          AND s.completed = false
+          AND s.pageId IS NOT NULL
+          AND t.status IN ('OPEN', 'IN_PROGRESS')
+        """)
+    List<Subtask> findOpenAssignedForEditorQueue(
+            @Param("workspaceId") String workspaceId,
+            @Param("userId") String userId
+    );
+
+    @Query("""
+        SELECT s FROM Subtask s JOIN Task t ON s.taskId = t.id
+        WHERE t.workspaceId IN :workspaceIds
+          AND :userId MEMBER OF t.assignedUserIds
+          AND s.assignedUserId = :userId
+          AND s.completed = false
+          AND s.pageId IS NOT NULL
+          AND t.status IN ('OPEN', 'IN_PROGRESS')
+        """)
+    List<Subtask> findOpenAssignedInWorkspaces(
+            @Param("workspaceIds") Collection<String> workspaceIds,
+            @Param("userId") String userId
+    );
+
     @Query("SELECT s.pageId, COUNT(s) FROM Subtask s WHERE s.pageId IN :pageIds AND s.assignedUserId = :userId AND s.completed = false GROUP BY s.pageId")
     List<Object[]> countOpenByPageIdsAndAssignedUserId(@Param("pageIds") List<String> pageIds, @Param("userId") String userId);
 

@@ -57,6 +57,8 @@ import { useEditorIndexStatusPolling } from '@/composables/editor/use-editor-ind
 import { useEditorMetadataApply } from '@/composables/editor/use-editor-metadata-apply'
 import { useEditorSidebarState } from '@/composables/editor/use-editor-sidebar-state'
 import { useEditorSessionRestore } from '@/composables/editor/use-editor-session-restore'
+import { useFocusedWorkQueue } from '@/composables/editor/use-focused-work-queue'
+import type { EditorQueuePage } from '@/types'
 import { useEditorTaskState } from '@/composables/editor/use-editor-task-state'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { useEditorActiveCanvasStatus } from '@/composables/editor/use-editor-active-canvas-status'
@@ -184,6 +186,7 @@ const {
 const toast = useToast()
 const { refreshTaskCaches } = useDataRefresh()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
+const workspaceStore = useWorkspaceStore()
 const loadedPageIdsForCodecValidation = computed(() => {
   const projectId = currentProjectId.value
   if (!projectId) return []
@@ -201,6 +204,11 @@ const canCheckCodecForLoadedPages = computed(() => {
 })
 
 const currentProjectId = computed(() => editorStore.currentProjectId ?? sessionStore.activeProjectId)
+watch([selectedWorkspace, () => sessionStore.focusedWork?.workspaceId], ([workspaceId, focusedWorkspaceId]) => {
+  if (focusedWorkspaceId && workspaceId !== focusedWorkspaceId) {
+    workspaceStore.selectWorkspace(focusedWorkspaceId)
+  }
+})
 const currentProjectIdForFilter = computed<string | undefined>(() => currentProjectId.value ?? undefined)
 useEditorIndexStatusPolling()
 
@@ -672,6 +680,9 @@ async function handleSaveDocument() {
     const success = await editorStore.saveAnnotations(canvasId)
 
     if (success) {
+      if (sessionStore.focusedWork) {
+        await focusedWorkQueue.refresh()
+      }
       toast.add({
         title: 'Saved',
         description: 'Annotations saved successfully.',
@@ -1562,17 +1573,17 @@ const textSidebarSelectedElement = computed<Region | TextLine | RenderablePolyli
   return findTextLineById(page.regions, selectedPolygonId) ?? findRegionById(page.regions, selectedPolygonId)
 })
 
+let focusedWorkCompletionHandler: ((subtaskIds: string[]) => Promise<void>) | null = null
+
 const {
-  isOpenSubtasksLoading,
   openSubtaskPageIds,
   getOpenSubtaskCountByPage,
   activeOpenSubtasks,
-  isActivePageTasksLoading,
-  activeTaskByIdRecord,
   canCompleteActivePageSubtasks,
   isCompletingOpenSubtasks,
-  handleSaveAndCompleteOpenSubtasks,
-  completeSubtask
+  completingSubtaskId,
+  completeSubtask,
+  handleSaveAndCompleteOpenSubtasks
 } = useEditorTaskState({
   currentProjectId,
   activePageId,
@@ -1580,12 +1591,20 @@ const {
   selectedWorkspace,
   openedProjectIds: computed(() => [...sessionStore.openedProjectIds]),
   refreshTaskCaches,
-  saveDocument: handleSaveDocument
+  saveDocument: handleSaveDocument,
+  onSubtasksCompleted: (ids) => {
+    void focusedWorkCompletionHandler?.(ids)
+  }
 })
 
 function getFilteredPagesForProject(projectId: string) {
   const q = pageNameFilter.value.trim().toLowerCase()
   let result = editorStore.getProjectPages(projectId)
+
+  if (sessionStore.focusedWork) {
+    const focusedPageId = sessionStore.getActivePageId(projectId)
+    result = focusedPageId ? result.filter(page => page.id === focusedPageId) : []
+  }
 
   if (q) {
     result = result.filter(p => (p.label ?? '').toLowerCase().includes(q))
@@ -2321,6 +2340,70 @@ function removePageFromLoadedState(projectId: string, pageId: string) {
   editorStore.setProjectPages(projectId, nextPages, { replaceProject: true })
 }
 
+async function closePagesForFocusedWork(target: EditorQueuePage): Promise<boolean> {
+  const pagesToClose = sessionStore.openedProjectIds.flatMap(projectId =>
+    getOpenPageIdsForProject(projectId)
+      .filter(pageId => projectId !== target.projectId || pageId !== target.pageId)
+      .map(pageId => ({ projectId, pageId }))
+  )
+
+  for (const page of pagesToClose) {
+    if (!(await confirmPageCanClose(page.projectId, page.pageId))) return false
+  }
+  for (const page of pagesToClose) {
+    if (!(await closePageForFocusReplacement(page.projectId, page.pageId))) return false
+  }
+  for (const projectId of [...sessionStore.openedProjectIds]) {
+    if (projectId !== target.projectId) removeProjectFromLoadedState(projectId)
+  }
+  return true
+}
+
+async function openFocusedQueuePage(page: EditorQueuePage): Promise<boolean> {
+  if (page.blocked) return false
+  const focusedWorkspaceId = sessionStore.focusedWork?.workspaceId
+  if (!focusedWorkspaceId) return false
+  if (selectedWorkspace.value !== focusedWorkspaceId) {
+    workspaceStore.selectWorkspace(focusedWorkspaceId)
+    await nextTick()
+  }
+  if (!(await closePagesForFocusedWork(page))) return false
+  await loadProjectLabelSet(page.projectId)
+  const result = await openEditorForPage(page.projectId, page.pageId)
+  return result === 'opened'
+}
+
+const focusedWorkQueue = useFocusedWorkQueue({
+  workspaceId: computed(() => sessionStore.focusedWork?.workspaceId ?? selectedWorkspace.value ?? null),
+  currentPageId: activePageId,
+  focusedWork: computed(() => sessionStore.focusedWork),
+  openPage: openFocusedQueuePage,
+  canLeaveCurrentPage: async () => {
+    const projectId = currentProjectId.value
+    const pageId = activePageId.value
+    return projectId && pageId ? confirmPageCanClose(projectId, pageId) : true
+  },
+  closeCurrentPage: async () => {
+    const projectId = currentProjectId.value
+    const pageId = activePageId.value
+    return projectId && pageId ? closePageForFocusReplacement(projectId, pageId) : true
+  }
+})
+focusedWorkCompletionHandler = focusedWorkQueue.markCompleted
+
+const focusedPreviousPageAvailable = computed(() => {
+  const index = focusedWorkQueue.actionablePages.value.findIndex(page => page.pageId === activePageId.value)
+  return index > 0
+})
+const focusedNextPageAvailable = computed(() => {
+  const index = focusedWorkQueue.actionablePages.value.findIndex(page => page.pageId === activePageId.value)
+  return index >= 0 && index < focusedWorkQueue.actionablePages.value.length - 1
+})
+
+async function exitFocusedWork() {
+  await navigateTo('/tasks')
+}
+
 async function waitForCondition(condition: () => boolean, timeoutMs = 900, intervalMs = 30): Promise<boolean> {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
@@ -2373,7 +2456,7 @@ async function confirmPageFocusClosures(targets: PageFocusClosureTarget[]): Prom
 
   const instance = unsavedProgressSlideover.open({
     title: 'Unsaved changes',
-    message: 'Focus mode keeps one page open per project. What would you like to do with the other open pages?',
+    message: 'Focus mode keeps one page open per session. What would you like to do with the other open pages?',
     confirmLabel: 'Save all and enable',
     discardLabel: 'Close anyway',
     cancelLabel: 'Cancel',
@@ -2586,6 +2669,9 @@ const {
   resetEditorState: () => editorStore.resetEditorState(),
   shouldRestorePersistedSession: () => editorStore.allPages.length === 0,
   loadPersistedSession: () => sessionStore.loadPersistedSession(),
+  isFocusedWorkActive: () => Boolean(sessionStore.focusedWork),
+  loadFocusedWorkQueue: async () => { await focusedWorkQueue.refresh() },
+  openFocusedWorkFirstPage: async () => { await focusedWorkQueue.openFirstPage() },
   isPageFocusModeEnabled: () => editorUiStore.pageFocusMode,
   normalizeSessionForPageFocusMode: () => sessionStore.retainSingleOpenedPagePerProject(),
   hasSession: () => sessionStore.hasSession(),
@@ -2698,6 +2784,7 @@ const {
       <DockviewVue
         :class="['min-h-0 min-w-0 h-full w-full', contentClass]"
         :theme="dockviewTheme"
+        scrollbars="native"
         right-header-actions-component="EditorDockviewTabGroupMaximizeButton"
         default-tab-component="EditorDockviewProjectTab"
         @ready="onReady"
@@ -2716,7 +2803,33 @@ const {
         :annotation-mode="activeAnnotationMode"
       />
 
-      <EditorEmpty v-if="!activeCanvasId" class="absolute inset-0 z-10" />
+      <EditorFocusedWorkTracker
+        v-if="sessionStore.focusedWork"
+        :pages="focusedWorkQueue.pages.value"
+        :current-page-id="activePageId"
+        :remaining-task-count="focusedWorkQueue.remainingTaskCount.value"
+        :remaining-page-count="focusedWorkQueue.remainingPageCount.value"
+        :blocked-page-count="focusedWorkQueue.blockedPageCount.value"
+        :completed-task-count="focusedWorkQueue.completedTaskCount.value"
+        :is-complete="focusedWorkQueue.isComplete.value"
+        :can-go-previous="focusedPreviousPageAvailable"
+        :can-go-next="focusedNextPageAvailable"
+        :open-subtasks="activeOpenSubtasks"
+        :completing-subtask-id="completingSubtaskId"
+        :can-complete-active-page-subtasks="canCompleteActivePageSubtasks"
+        :is-completing-open-subtasks="isCompletingOpenSubtasks"
+        :is-saving-active-canvas="isSavingActiveCanvas"
+        :can-edit-active-canvas="activeCanvasCanEdit"
+        :is-active-page-locked="isActivePageLocked"
+        @previous="focusedWorkQueue.openPreviousPage"
+        @next="focusedWorkQueue.openNextPage"
+        @select="openFocusedQueuePage"
+        @exit="exitFocusedWork"
+        @complete-subtask="completeSubtask"
+        @save-and-continue="handleSaveAndCompleteOpenSubtasks"
+      />
+
+      <EditorEmpty v-if="!activeCanvasId && !sessionStore.focusedWork" class="absolute inset-0 z-10" />
 
       <EditorKeyboardShortcutsHelp
         v-model:open="editorUiStore.shortcutsHelpOpen"
@@ -2746,14 +2859,10 @@ const {
       :is-saving-active-canvas="isSavingActiveCanvas"
       :can-edit-active-canvas="activeCanvasCanEdit"
       :can-open-active-canvas-xml-editor="canOpenActiveCanvasXmlEditor"
-      :can-complete-active-page-subtasks="canCompleteActivePageSubtasks"
-      :is-completing-open-subtasks="isCompletingOpenSubtasks"
-      :is-active-page-locked="isActivePageLocked"
       :action-items="rightSidebarActionItems"
       @save="handleSaveDocument"
       @open-history="openVersionHistory"
       @open-xml-editor="openXmlEditor"
-      @save-and-complete="handleSaveAndCompleteOpenSubtasks"
     >
       <EditorSidebarPolygon
         v-if="activeUiMode === 'layout'"
@@ -2772,11 +2881,7 @@ const {
         :commander="commanderForSidebar"
         :document="activeDocument"
         :page="activePage"
-        :open-tasks="activeOpenSubtasks"
-        :task-by-id="activeTaskByIdRecord"
         :is-page-locked="isActivePageLocked"
-        :is-tasks-loading="isOpenSubtasksLoading || isActivePageTasksLoading"
-        :on-complete-task="completeSubtask"
         @apply-reading-order="handleApplyReadingOrder"
         @apply-metadata="handleApplyMetadataIfWritable"
         @select-polygon="(id, options) => activeControls?.selectPolygonById?.(id, options)"
@@ -2798,11 +2903,7 @@ const {
         :document="activeDocument"
         :page="activePage"
         :selected-element="textSidebarSelectedElement"
-        :open-tasks="activeOpenSubtasks"
-        :task-by-id="activeTaskByIdRecord"
         :is-page-locked="isActivePageLocked"
-        :is-tasks-loading="isOpenSubtasksLoading || isActivePageTasksLoading"
-        :on-complete-task="completeSubtask"
         @apply-metadata="handleApplyMetadataIfWritable"
       />
     </EditorRightSidebar>

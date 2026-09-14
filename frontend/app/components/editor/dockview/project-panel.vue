@@ -185,6 +185,7 @@ onBeforeUnmount(() => {
     <DockviewVue
       class="h-full w-full"
       :theme="dockviewTheme"
+      scrollbars="native"
       right-header-actions-component="EditorDockviewTabGroupMaximizeButton"
       default-tab-component="EditorDockviewTab"
       @ready="onReady"

@@ -36,10 +36,19 @@ function requestClose(ev: MouseEvent) {
 <template>
   <div class="dv-default-tab">
     <div class="dv-default-tab-content">
-      <span class="truncate">{{ title }}</span>
+      <Icon name="i-lucide-folder" class="size-3.5 shrink-0 opacity-70" />
+      <span class="truncate" :title="title">{{ title }}</span>
     </div>
-    <div class="dv-default-tab-action" @pointerdown.prevent @click="requestClose">
+    <button
+      type="button"
+      class="dv-default-tab-action"
+      :aria-label="`Close project ${title}`"
+      :title="`Close project ${title}`"
+      @pointerdown.prevent.stop
+      @keydown.stop
+      @click="requestClose"
+    >
       <Icon name="i-lucide-x" class="h-3.5 w-3.5" />
-    </div>
+    </button>
   </div>
 </template>

@@ -105,16 +105,33 @@ function requestClose(ev: MouseEvent) {
 <template>
   <div class="dv-default-tab">
     <div class="dv-default-tab-content">
-      <span class="truncate">{{ title }}</span>
-      <span v-if="hasUnsavedChanges" class="ml-2 inline-flex h-1.5 w-1.5 rounded-full bg-amber-400" />
+      <Icon name="i-lucide-file-text" class="size-3.5 shrink-0 opacity-70" />
+      <span class="truncate tabular-nums" :title="title">{{ title }}</span>
+      <span
+        v-if="hasUnsavedChanges"
+        class="size-1.5 shrink-0 rounded-full bg-warning"
+        role="img"
+        aria-label="Unsaved changes"
+        title="Unsaved changes"
+      />
       <span
         v-if="showCollaborationDot"
-        :class="['ml-2 inline-flex h-1.5 w-1.5 rounded-full', collaborationDotClass]"
+        :class="['size-1.5 shrink-0 rounded-full', collaborationDotClass]"
+        role="img"
+        :aria-label="collaborationDotTitle"
         :title="collaborationDotTitle"
       />
     </div>
-    <div class="dv-default-tab-action" @pointerdown.prevent @click="requestClose">
+    <button
+      type="button"
+      class="dv-default-tab-action"
+      :aria-label="`Close page ${title}`"
+      :title="`Close page ${title}`"
+      @pointerdown.prevent.stop
+      @keydown.stop
+      @click="requestClose"
+    >
       <Icon name="i-lucide-x" class="h-3.5 w-3.5" />
-    </div>
+    </button>
   </div>
 </template>

@@ -18,8 +18,6 @@ import {
   SetHiddenElementsCommand
 } from '@/commands'
 import { useEditorStore } from '@/stores/editor/editor.store'
-import EditorSidebarTasks from '@/components/editor/sidebar/tasks.vue'
-import type { LinkedTask, Subtask } from '~/types/index'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
@@ -58,11 +56,7 @@ interface PolygonSidebarProps {
   document?: PcGts | null
   page?: Page | null
   accordionPanels?: string[]
-  openTasks?: Subtask[]
-  taskById?: Record<string, LinkedTask>
   isPageLocked?: boolean
-  isTasksLoading?: boolean
-  onCompleteTask?: (subtask: Subtask) => void
 }
 
 const props = withDefaults(defineProps<PolygonSidebarProps>(), {
@@ -80,11 +74,7 @@ const props = withDefaults(defineProps<PolygonSidebarProps>(), {
   document: null,
   page: null,
   accordionPanels: () => ['structure'],
-  openTasks: () => [],
-  taskById: () => ({}),
-  isPageLocked: false,
-  isTasksLoading: false,
-  onCompleteTask: () => {}
+  isPageLocked: false
 })
 
 const emit = defineEmits<{
@@ -129,11 +119,6 @@ const items = [
     slot: 'metadata'
   },
   {
-    label: 'Tasks',
-    icon: 'i-lucide-check-square',
-    slot: 'tasks'
-  },
-  {
     label: 'Heatmap',
     icon: 'i-lucide-flame',
     slot: 'heatmap'
@@ -145,7 +130,6 @@ const items = [
   }
 ]
 
-const openTaskCount = computed(() => props.openTasks?.length ?? 0)
 const collapsedPopoverSlot = ref<string | null>(null)
 
 const expandedRegions = ref<Set<string>>(new Set())
@@ -510,22 +494,14 @@ watch(() => props.collapsed, (collapsed) => {
         @update:open="(open: boolean) => handleCollapsedPopoverOpenUpdate(item.slot, open)"
       >
         <UTooltip :text="item.label" :content="{ side: 'left' }">
-          <UChip
-            :show="item.slot === 'tasks' && openTaskCount > 0"
-            :text="openTaskCount"
-            position="top-right"
-            :color="openTaskCount > 0 ? 'warning' : 'neutral'"
-            class="z-200"
-          >
-            <UButton
-              variant="ghost"
-              color="neutral"
-              size="sm"
-              :icon="item.icon"
-              :aria-label="item.label"
-              :class="collapsedPopoverSlot === item.slot ? activePopoverButtonClass : undefined"
-            />
-          </UChip>
+          <UButton
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            :icon="item.icon"
+            :aria-label="item.label"
+            :class="collapsedPopoverSlot === item.slot ? activePopoverButtonClass : undefined"
+          />
         </UTooltip>
         <template #content>
           <div :class="[item.slot === 'reading-order' || item.slot === 'relations' ? 'w-md' : 'w-80', 'max-h-[70vh] overflow-auto']">
@@ -600,17 +576,6 @@ watch(() => props.collapsed, (collapsed) => {
                 />
               </div>
             </template>
-            <template v-else-if="item.slot === 'tasks'">
-              <div data-tour="editor-layout-tasks-panel" class="p-3">
-                <EditorSidebarTasks
-                  :open-tasks="openTasks"
-                  :task-by-id="taskById"
-                  :is-page-locked="isPageLocked"
-                  :is-loading="isTasksLoading"
-                  :on-complete-subtask="onCompleteTask"
-                />
-              </div>
-            </template>
             <template v-else-if="item.slot === 'heatmap'">
               <div data-tour="editor-layout-heatmap-panel">
                 <EditorSidebarHeatmap />
@@ -631,14 +596,7 @@ watch(() => props.collapsed, (collapsed) => {
       :items="items"
     >
       <template #leading="{ item }">
-        <UChip
-          :show="item.slot === 'tasks' && openTaskCount > 0"
-          :text="openTaskCount"
-          size="md"
-          color="warning"
-        >
-          <Icon class="size-5" :name="item.icon" />
-        </UChip>
+        <Icon class="size-5" :name="item.icon" />
       </template>
 
       <template #structure>
@@ -697,17 +655,6 @@ watch(() => props.collapsed, (collapsed) => {
             :read-only="isPageLocked"
             @apply="handleMetadataApply"
             @change-region-kind="handleRegionKindChange"
-          />
-        </div>
-      </template>
-      <template #tasks>
-        <div data-tour="editor-layout-tasks-panel" class="p-3">
-          <EditorSidebarTasks
-            :open-tasks="openTasks"
-            :task-by-id="taskById"
-            :is-page-locked="isPageLocked"
-            :is-loading="isTasksLoading"
-            :on-complete-subtask="onCompleteTask"
           />
         </div>
       </template>

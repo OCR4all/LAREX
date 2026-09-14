@@ -30,6 +30,15 @@ public class TaskDto {
             AuthorizationCapabilitiesDto.TaskCapabilities capabilities
     ) {}
 
+    public record AssignedWorkspaceResponse(
+            String workspaceId,
+            String workspaceName,
+            List<Response> tasks,
+            long openAssignedSubtaskCount,
+            long openAssignedPageCount,
+            long blockedAssignedPageCount
+    ) {}
+
     public record CreateRequest(
             @NotBlank(message = "Title is required")
             @Size(max = 255, message = "Title must not exceed 255 characters")

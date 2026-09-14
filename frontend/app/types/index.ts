@@ -294,6 +294,35 @@ export interface Subtask {
   assignedTo?: UserProfile | null
 }
 
+export interface AssignedWorkspaceTasks {
+  workspaceId: string
+  workspaceName: string
+  tasks: Task[]
+  openAssignedSubtaskCount: number
+  openAssignedPageCount: number
+  blockedAssignedPageCount: number
+}
+
+export interface EditorQueuePage {
+  pageId: string
+  pageName: string
+  projectId: string
+  projectName: string
+  sortOrder?: number | null
+  blocked: boolean
+  blockedReason?: string | null
+  subtasks: Subtask[]
+}
+
+export interface EditorQueue {
+  workspaceId: string
+  workspaceName: string
+  openAssignedSubtaskCount: number
+  openAssignedPageCount: number
+  blockedAssignedPageCount: number
+  pages: EditorQueuePage[]
+}
+
 export interface SubtaskProgress {
   total: number
   completed: number

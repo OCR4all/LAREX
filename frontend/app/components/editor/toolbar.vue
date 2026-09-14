@@ -733,8 +733,8 @@ const virtualKeyboardMode = computed(() => uiStore.virtualKeyboardMode)
 const { hasKeyboards } = useVirtualKeyboardAvailability()
 const isCompact = computed(() => uiStore.toolbarCompact)
 const pageFocusModeLabel = computed(() => uiStore.pageFocusMode
-  ? 'Disable Focus mode (one page per project)'
-  : 'Enable Focus mode (one page per project)'
+  ? 'Disable Focus mode (one page per session)'
+  : 'Enable Focus mode (one page per session)'
 )
 const isTextCanvasMode = computed(() =>
   isTextUiMode.value && (uiStore.textModeSubmode === 'visual' || uiStore.textModeSubmode === 'full')

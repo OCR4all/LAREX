@@ -51,6 +51,14 @@ describe('floating-anchor-position', () => {
       viewport: { width: 1600, height: 1200 },
       gap: 40
     })).toEqual({ x: 520, y: 900 })
+
+    expect(computeFloatingDefaultPosition({
+      placement: 'top',
+      anchorRect,
+      controlSize: { width: 240, height: 72 },
+      viewport: { width: 1600, height: 1200 },
+      gap: 16
+    })).toEqual({ x: 580, y: 116 })
   })
 
   it('preserves a drag offset when the anchor moves', () => {
@@ -147,5 +155,13 @@ describe('floating-anchor-position', () => {
       viewport: { width: 1440, height: 900 },
       gap: 40
     })).toEqual({ x: 540, y: 812 })
+
+    expect(computeFloatingDefaultPosition({
+      placement: 'top',
+      anchorRect: null,
+      controlSize: { width: 240, height: 72 },
+      viewport: { width: 1440, height: 900 },
+      gap: 16
+    })).toEqual({ x: 600, y: 16 })
   })
 })

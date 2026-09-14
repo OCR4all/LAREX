@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.PaginatedResponse;
 import de.uniwue.zpd.dachs.larex.backend.dto.TaskDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Task;
+import de.uniwue.zpd.dachs.larex.backend.entity.Subtask;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
@@ -14,15 +15,18 @@ import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskCommentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskProjectLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskReminderRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.TaskQueueRealtimePublisher;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -47,6 +51,8 @@ public class TaskService {
     private final TaskProjectLinkRepository taskProjectLinkRepository;
     private final TaskReminderRepository taskReminderRepository;
     private final PageWorkflowService pageWorkflowService;
+    private final PageRepository pageRepository;
+    private final TaskQueueRealtimePublisher taskQueueRealtimePublisher;
 
     public TaskService(
             TaskRepository taskRepository,
@@ -63,6 +69,8 @@ public class TaskService {
             TaskProjectLinkRepository taskProjectLinkRepository,
             TaskReminderRepository taskReminderRepository,
             PageWorkflowService pageWorkflowService,
+            PageRepository pageRepository,
+            TaskQueueRealtimePublisher taskQueueRealtimePublisher,
             @org.springframework.context.annotation.Lazy TaskActivityService activityService
     ) {
         this.taskRepository = taskRepository;
@@ -79,7 +87,77 @@ public class TaskService {
         this.taskProjectLinkRepository = taskProjectLinkRepository;
         this.taskReminderRepository = taskReminderRepository;
         this.pageWorkflowService = pageWorkflowService;
+        this.pageRepository = pageRepository;
+        this.taskQueueRealtimePublisher = taskQueueRealtimePublisher;
         this.activityService = activityService;
+    }
+
+    public List<TaskDto.AssignedWorkspaceResponse> listAssignedTasks(String userId) {
+        List<AbstractWorkspace> workspaces = workspaceQueryService.findAllWorkspacesForUser(userId);
+        if (workspaces.isEmpty()) return List.of();
+
+        Set<String> workspaceIds = workspaces.stream()
+                .map(AbstractWorkspace::getId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+
+        List<Task> assignedTasks = taskRepository.findByAssignedUserId(userId).stream()
+                .filter(task -> workspaceIds.contains(task.getWorkspaceId()))
+                .sorted(Comparator.comparing(Task::getUpdated, Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+        Map<String, TaskDto.Response> mappedTasks = mapTasks(assignedTasks, userId).stream()
+                .collect(Collectors.toMap(TaskDto.Response::id, response -> response));
+
+        List<Subtask> openSubtasks = subtaskRepository.findOpenAssignedInWorkspaces(workspaceIds, userId);
+        Set<String> openPageIds = openSubtasks.stream()
+                        .map(Subtask::getPageId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+        Map<String, de.uniwue.zpd.dachs.larex.backend.entity.Page> pagesById = openPageIds.isEmpty()
+                ? Map.of()
+                : pageRepository.findAllByIdIn(openPageIds).stream()
+                        .collect(Collectors.toMap(de.uniwue.zpd.dachs.larex.backend.entity.Page::getId, page -> page));
+        Map<String, Task> tasksById = assignedTasks.stream()
+                .collect(Collectors.toMap(Task::getId, task -> task));
+
+        List<TaskDto.AssignedWorkspaceResponse> result = new ArrayList<>();
+        for (AbstractWorkspace workspace : workspaces) {
+            List<TaskDto.Response> workspaceTasks = assignedTasks.stream()
+                    .filter(task -> workspace.getId().equals(task.getWorkspaceId()))
+                    .map(task -> mappedTasks.get(task.getId()))
+                    .filter(Objects::nonNull)
+                    .toList();
+            if (workspaceTasks.isEmpty()) continue;
+
+            List<Subtask> workspaceSubtasks = openSubtasks.stream()
+                    .filter(subtask -> {
+                        Task task = tasksById.get(subtask.getTaskId());
+                        return task != null && workspace.getId().equals(task.getWorkspaceId());
+                    })
+                    .toList();
+            Set<String> pageIds = workspaceSubtasks.stream()
+                    .map(Subtask::getPageId)
+                    .filter(Objects::nonNull)
+                    .filter(pagesById::containsKey)
+                    .collect(Collectors.toSet());
+            long blockedPageCount = pageIds.stream()
+                    .map(pagesById::get)
+                    .filter(de.uniwue.zpd.dachs.larex.backend.entity.Page::isEffectivelyLocked)
+                    .count();
+
+            result.add(new TaskDto.AssignedWorkspaceResponse(
+                    workspace.getId(),
+                    workspace.getName(),
+                    workspaceTasks,
+                    workspaceSubtasks.size(),
+                    pageIds.size(),
+                    blockedPageCount
+            ));
+        }
+
+        return result.stream()
+                .sorted(Comparator.comparing(TaskDto.AssignedWorkspaceResponse::workspaceName,
+                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .toList();
     }
 
     public List<TaskDto.Response> listWorkspaceTasks(String workspaceId, String userId, Task.TaskStatus status, boolean assignedToMe) {
@@ -173,6 +251,8 @@ public class TaskService {
             }
         }
 
+        taskQueueRealtimePublisher.publishAfterCommit(normalizedAssignees, workspaceId);
+
         return mapTask(saved, userId);
     }
 
@@ -230,6 +310,8 @@ public class TaskService {
             activityService.logDueDateChanged(taskId, userId, oldDueDate, newDueDate);
         }
 
+        taskQueueRealtimePublisher.publishAfterCommit(saved.getAssignedUserIds(), saved.getWorkspaceId());
+
         return mapTask(saved, userId);
     }
 
@@ -279,6 +361,8 @@ public class TaskService {
             }
         }
 
+        taskQueueRealtimePublisher.publishAfterCommit(saved.getAssignedUserIds(), saved.getWorkspaceId());
+
         return mapTask(saved, userId);
     }
 
@@ -300,6 +384,8 @@ public class TaskService {
                     saved.getDueDate() != null ? saved.getDueDate().toString() : null
             );
         }
+
+        taskQueueRealtimePublisher.publishAfterCommit(task.getAssignedUserIds(), task.getWorkspaceId());
 
         return mapTask(saved, userId);
     }
@@ -351,6 +437,10 @@ public class TaskService {
             }
         }
 
+        Set<String> affectedUsers = new LinkedHashSet<>(previousAssignees);
+        affectedUsers.addAll(normalizedAssignees);
+        taskQueueRealtimePublisher.publishAfterCommit(affectedUsers, task.getWorkspaceId());
+
         return mapTask(saved, userId);
     }
 
@@ -359,6 +449,7 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
+        taskQueueRealtimePublisher.publishAfterCommit(task.getAssignedUserIds(), task.getWorkspaceId());
 
         List<String> linkedPageIds = task.isSyncLinkedPageStates()
                 ? taskPageLinkRepository.findByTaskId(taskId).stream().map(link -> link.getPageId()).toList()

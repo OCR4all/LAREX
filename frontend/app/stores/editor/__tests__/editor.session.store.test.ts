@@ -115,6 +115,26 @@ describe('editor.session.store', () => {
     expect(store.activeProjectId).toBe('project-a')
   })
 
+  it('persists focused work and completed subtasks', async () => {
+    const store = await createStore()
+
+    store.startFocusedWork('workspace-1')
+    store.markFocusedSubtasksCompleted(['subtask-1', 'subtask-1', 'subtask-2'])
+
+    expect(store.focusedWork).toMatchObject({
+      workspaceId: 'workspace-1',
+      completedSubtaskIds: ['subtask-1', 'subtask-2']
+    })
+
+    setActivePinia(createPinia())
+    const reloadedStore = await createStore()
+    expect(reloadedStore.loadPersistedSession()).toBe(true)
+    expect(reloadedStore.focusedWork).toMatchObject({
+      workspaceId: 'workspace-1',
+      completedSubtaskIds: ['subtask-1', 'subtask-2']
+    })
+  })
+
   it('migrates legacy single-project session payload on load', async () => {
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
       projectId: 'legacy-project',

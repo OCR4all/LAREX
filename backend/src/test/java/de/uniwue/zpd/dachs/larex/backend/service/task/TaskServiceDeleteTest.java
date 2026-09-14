@@ -13,9 +13,11 @@ import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskProjectLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskReminderRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.TaskQueueRealtimePublisher;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
@@ -46,6 +48,8 @@ class TaskServiceDeleteTest {
     @Mock TaskProjectLinkRepository taskProjectLinkRepository;
     @Mock TaskReminderRepository taskReminderRepository;
     @Mock PageWorkflowService pageWorkflowService;
+    @Mock PageRepository pageRepository;
+    @Mock TaskQueueRealtimePublisher taskQueueRealtimePublisher;
     @Mock TaskActivityService taskActivityService;
 
     private TaskService service;
@@ -67,6 +71,8 @@ class TaskServiceDeleteTest {
                 taskProjectLinkRepository,
                 taskReminderRepository,
                 pageWorkflowService,
+                pageRepository,
+                taskQueueRealtimePublisher,
                 taskActivityService
         );
     }

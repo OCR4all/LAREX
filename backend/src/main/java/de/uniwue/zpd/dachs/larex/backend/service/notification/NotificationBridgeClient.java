@@ -93,6 +93,20 @@ public class NotificationBridgeClient {
         ), source);
     }
 
+    public void pushTaskQueueChanged(String userId, String workspaceId, String source) {
+        if (!properties.isEnabled() || !properties.isConfigured() || userId == null || userId.isBlank()) {
+            return;
+        }
+        Map<String, Object> payload = workspaceId == null
+                ? Map.of()
+                : Map.of("workspaceId", workspaceId);
+        pushPayload(new RealtimeEventBridgePayload(
+                userId,
+                new BridgeEvent("TASK_QUEUE_CHANGED", payload),
+                source
+        ), source);
+    }
+
     private void pushPayload(Object bridgePayload, String source) {
         try {
             String payload = objectMapper.writeValueAsString(bridgePayload);

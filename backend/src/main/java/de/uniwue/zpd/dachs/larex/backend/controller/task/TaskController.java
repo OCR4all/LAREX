@@ -1,10 +1,12 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.task;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.BulkTaskDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.EditorQueueDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.PaginatedResponse;
 import de.uniwue.zpd.dachs.larex.backend.dto.TaskDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Task;
 import de.uniwue.zpd.dachs.larex.backend.service.task.BulkTaskService;
+import de.uniwue.zpd.dachs.larex.backend.service.task.SubtaskService;
 import de.uniwue.zpd.dachs.larex.backend.service.task.TaskService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
@@ -22,10 +24,27 @@ public class TaskController {
 
     private final TaskService taskService;
     private final BulkTaskService bulkTaskService;
+    private final SubtaskService subtaskService;
 
-    public TaskController(TaskService taskService, BulkTaskService bulkTaskService) {
+    public TaskController(TaskService taskService, BulkTaskService bulkTaskService, SubtaskService subtaskService) {
         this.taskService = taskService;
         this.bulkTaskService = bulkTaskService;
+        this.subtaskService = subtaskService;
+    }
+
+    @GetMapping("/tasks/assigned-to-me")
+    public ResponseEntity<List<TaskDto.AssignedWorkspaceResponse>> listAssignedTasks(
+            @AuthenticationPrincipal(expression = "subject") String userId
+    ) {
+        return ResponseEntity.ok(taskService.listAssignedTasks(userId));
+    }
+
+    @GetMapping("/workspaces/{workspaceId}/tasks/assigned-to-me/queue")
+    public ResponseEntity<EditorQueueDto.Response> getAssignedEditorQueue(
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId
+    ) {
+        return ResponseEntity.ok(subtaskService.getAssignedEditorQueue(workspaceId, userId));
     }
 
     @GetMapping("/workspaces/{workspaceId}/tasks")

@@ -9,7 +9,6 @@ const emit = defineEmits<{
   'save': []
   'open-history': []
   'open-xml-editor': []
-  'save-and-complete': []
 }>()
 
 const props = defineProps<{
@@ -18,9 +17,6 @@ const props = defineProps<{
   isSavingActiveCanvas: boolean
   canEditActiveCanvas: boolean
   canOpenActiveCanvasXmlEditor: boolean
-  canCompleteActivePageSubtasks: boolean
-  isCompletingOpenSubtasks: boolean
-  isActivePageLocked: boolean
   actionItems: DropdownMenuItem[][]
 }>()
 

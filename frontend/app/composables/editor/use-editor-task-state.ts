@@ -1,5 +1,5 @@
 import { computed, ref, watch, type ComputedRef } from 'vue'
-import type { Subtask, LinkedTask } from '~/types/index'
+import type { Subtask } from '~/types/index'
 import { extractApiErrorMessage } from '@/utils/api-error'
 
 type EditorTaskStateOptions = {
@@ -10,6 +10,7 @@ type EditorTaskStateOptions = {
   openedProjectIds: ComputedRef<string[]>
   refreshTaskCaches: (taskId: string, workspaceId?: string | null) => Promise<unknown>
   saveDocument: () => Promise<boolean>
+  onSubtasksCompleted?: (subtaskIds: string[]) => Promise<void> | void
 }
 
 export function useEditorTaskState(options: EditorTaskStateOptions) {
@@ -17,9 +18,8 @@ export function useEditorTaskState(options: EditorTaskStateOptions) {
 
   const openSubtasksByProjectId = ref<Record<string, Record<string, Subtask[]>>>({})
   const isOpenSubtasksLoading = ref(false)
-  const activePageTasks = ref<LinkedTask[]>([])
-  const isActivePageTasksLoading = ref(false)
   const isCompletingOpenSubtasks = ref(false)
+  const completingSubtaskId = ref<string | null>(null)
 
   const openSubtasksByPage = computed<Record<string, Subtask[]>>(() => {
     const projectId = options.currentProjectId.value
@@ -98,56 +98,33 @@ export function useEditorTaskState(options: EditorTaskStateOptions) {
     return openSubtasksByPage.value?.[pageId] ?? []
   })
 
-  async function fetchActivePageTasks(pageId: string | null) {
-    if (!pageId) {
-      activePageTasks.value = []
-      return
-    }
-
-    isActivePageTasksLoading.value = true
-    try {
-      activePageTasks.value = await $fetch<LinkedTask[]>(`/api/pages/${pageId}/tasks?onlyAssigned=true`)
-    } catch (error: unknown) {
-      activePageTasks.value = []
-      toast.add({
-        title: 'Failed to load page tasks',
-        description: extractApiErrorMessage(error, 'Could not load page tasks.'),
-        color: 'error'
-      })
-    } finally {
-      isActivePageTasksLoading.value = false
-    }
-  }
-
-  watch(options.activePageId, (pageId) => {
-    void fetchActivePageTasks(pageId)
-  }, { immediate: true })
-
-  const activeTaskByIdRecord = computed<Record<string, LinkedTask>>(() => {
-    const record: Record<string, LinkedTask> = {}
-    for (const task of activePageTasks.value) {
-      record[task.id] = task
-    }
-    return record
-  })
-
   const canCompleteActivePageSubtasks = computed(() => {
     return !options.isActivePageLocked.value && activeOpenSubtasks.value.length > 0
   })
 
   async function completeSubtask(subtask: Subtask) {
-    if (options.isActivePageLocked.value) return
+    if (options.isActivePageLocked.value || isCompletingOpenSubtasks.value || completingSubtaskId.value) return
+    completingSubtaskId.value = subtask.id
     try {
-      await $fetch(`/api/tasks/${subtask.taskId}/subtasks/${subtask.id}/toggle`, { method: 'PUT' })
+      await $fetch(`/api/tasks/${subtask.taskId}/subtasks/bulk/complete`, {
+        method: 'POST',
+        body: { subtaskIds: [subtask.id] }
+      })
+      await options.onSubtasksCompleted?.([subtask.id])
       await options.refreshTaskCaches(subtask.taskId, options.selectedWorkspace.value)
       await fetchOpenSubtasks()
-      await fetchActivePageTasks(options.activePageId.value)
+      toast.add({
+        title: 'Task completed',
+        color: 'success'
+      })
     } catch (error: unknown) {
       toast.add({
-        title: 'Failed to complete subtask',
-        description: extractApiErrorMessage(error, 'Could not complete subtask.'),
+        title: 'Failed to complete task',
+        description: extractApiErrorMessage(error, 'Could not complete the task.'),
         color: 'error'
       })
+    } finally {
+      completingSubtaskId.value = null
     }
   }
 
@@ -155,15 +132,21 @@ export function useEditorTaskState(options: EditorTaskStateOptions) {
     if (!canCompleteActivePageSubtasks.value) return
     isCompletingOpenSubtasks.value = true
     try {
-      await Promise.all(
-        activeOpenSubtasks.value.map(subtask =>
-          $fetch(`/api/tasks/${subtask.taskId}/subtasks/${subtask.id}/toggle`, { method: 'PUT' })
-        )
-      )
+      const completedIds = activeOpenSubtasks.value.map(subtask => subtask.id)
+      const byTask = activeOpenSubtasks.value.reduce<Record<string, string[]>>((groups, subtask) => {
+        (groups[subtask.taskId] ??= []).push(subtask.id)
+        return groups
+      }, {})
+      await Promise.all(Object.entries(byTask).map(([taskId, subtaskIds]) =>
+        $fetch(`/api/tasks/${taskId}/subtasks/bulk/complete`, {
+          method: 'POST',
+          body: { subtaskIds }
+        })
+      ))
+      await options.onSubtasksCompleted?.(completedIds)
       const affectedTaskIds = [...new Set(activeOpenSubtasks.value.map(subtask => subtask.taskId))]
       await Promise.all(affectedTaskIds.map(taskId => options.refreshTaskCaches(taskId, options.selectedWorkspace.value)))
       await fetchOpenSubtasks()
-      await fetchActivePageTasks(options.activePageId.value)
       toast.add({
         title: 'Completed open subtasks',
         color: 'success'
@@ -193,13 +176,10 @@ export function useEditorTaskState(options: EditorTaskStateOptions) {
     getOpenSubtaskCountByPage,
     getOpenSubtaskPageIds,
     activeOpenSubtasks,
-    activePageTasks,
-    isActivePageTasksLoading,
-    activeTaskByIdRecord,
     canCompleteActivePageSubtasks,
     isCompletingOpenSubtasks,
+    completingSubtaskId,
     fetchOpenSubtasks,
-    fetchActivePageTasks,
     completeSubtask,
     completeActivePageSubtasks,
     handleSaveAndCompleteOpenSubtasks

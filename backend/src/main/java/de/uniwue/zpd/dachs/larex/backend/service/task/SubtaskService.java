@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.task;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.SubtaskDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.EditorQueueDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserProfileDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
@@ -11,6 +12,9 @@ import de.uniwue.zpd.dachs.larex.backend.repository.task.SubtaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
+import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
+import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.TaskQueueRealtimePublisher;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Comparator;
 import java.util.stream.IntStream;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -35,6 +40,9 @@ public class SubtaskService {
     private final TaskActivityService activityService;
     private final UserService userService;
     private final AuthorizationPolicyService authorizationPolicyService;
+    private final WorkspaceAccessService workspaceAccessService;
+    private final WorkspaceQueryService workspaceQueryService;
+    private final TaskQueueRealtimePublisher taskQueueRealtimePublisher;
 
     public SubtaskService(
             SubtaskRepository subtaskRepository,
@@ -42,7 +50,10 @@ public class SubtaskService {
             PageRepository pageRepository,
             TaskActivityService activityService,
             UserService userService,
-            AuthorizationPolicyService authorizationPolicyService
+            AuthorizationPolicyService authorizationPolicyService,
+            WorkspaceAccessService workspaceAccessService,
+            WorkspaceQueryService workspaceQueryService,
+            TaskQueueRealtimePublisher taskQueueRealtimePublisher
     ) {
         this.subtaskRepository = subtaskRepository;
         this.taskRepository = taskRepository;
@@ -50,6 +61,150 @@ public class SubtaskService {
         this.activityService = activityService;
         this.userService = userService;
         this.authorizationPolicyService = authorizationPolicyService;
+        this.workspaceAccessService = workspaceAccessService;
+        this.workspaceQueryService = workspaceQueryService;
+        this.taskQueueRealtimePublisher = taskQueueRealtimePublisher;
+    }
+
+    public EditorQueueDto.Response getAssignedEditorQueue(String workspaceId, String userId) {
+        if (!workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this workspace");
+        }
+
+        String workspaceName = workspaceQueryService.findWorkspaceById(workspaceId)
+                .map(workspace -> workspace.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Workspace not found"));
+
+        List<Subtask> subtasks = subtaskRepository.findOpenAssignedForEditorQueue(workspaceId, userId);
+        if (subtasks.isEmpty()) {
+            return new EditorQueueDto.Response(workspaceId, workspaceName, 0, 0, 0, List.of());
+        }
+
+        List<String> taskIds = subtasks.stream().map(Subtask::getTaskId).distinct().toList();
+        Map<String, Task> tasksById = taskRepository.findAllById(taskIds).stream()
+                .collect(java.util.stream.Collectors.toMap(Task::getId, task -> task));
+        Set<String> pageIds = subtasks.stream()
+                .map(Subtask::getPageId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        Map<String, Page> pagesById = pageRepository.findAllByIdIn(pageIds).stream()
+                .collect(java.util.stream.Collectors.toMap(Page::getId, page -> page));
+        subtasks = subtasks.stream()
+                .filter(subtask -> pagesById.containsKey(subtask.getPageId()))
+                .toList();
+        if (subtasks.isEmpty()) {
+            return new EditorQueueDto.Response(workspaceId, workspaceName, 0, 0, 0, List.of());
+        }
+
+        Map<String, SubtaskDto.Response> responseById = toResponses(subtasks, tasksById).stream()
+                .collect(java.util.stream.Collectors.toMap(SubtaskDto.Response::id, response -> response));
+        Map<String, List<Subtask>> subtasksByPage = subtasks.stream()
+                .filter(subtask -> pagesById.containsKey(subtask.getPageId()))
+                .collect(java.util.stream.Collectors.groupingBy(Subtask::getPageId));
+
+        LocalDateTime now = LocalDateTime.now();
+        List<EditorQueueDto.PageResponse> pages = subtasksByPage.entrySet().stream()
+                .map(entry -> {
+                    Page page = pagesById.get(entry.getKey());
+                    List<Subtask> pageSubtasks = entry.getValue();
+                    boolean blocked = page.isEffectivelyLocked();
+                    return new EditorQueueDto.PageResponse(
+                            page.getId(),
+                            page.getName(),
+                            page.getProject().getId(),
+                            page.getProject().getName(),
+                            page.getSortOrder(),
+                            blocked,
+                            blocked ? page.getEffectiveLockedReason() : null,
+                            pageSubtasks.stream()
+                                    .sorted(Comparator.comparing(Subtask::getSortOrder))
+                                    .map(subtask -> responseById.get(subtask.getId()))
+                                    .filter(Objects::nonNull)
+                                    .toList()
+                    );
+                })
+                .sorted(editorQueueComparator(subtasksByPage, tasksById, pagesById, now))
+                .toList();
+
+        long blockedPageCount = pages.stream().filter(EditorQueueDto.PageResponse::blocked).count();
+        return new EditorQueueDto.Response(
+                workspaceId,
+                workspaceName,
+                subtasks.size(),
+                pages.size(),
+                blockedPageCount,
+                pages
+        );
+    }
+
+    private Comparator<EditorQueueDto.PageResponse> editorQueueComparator(
+            Map<String, List<Subtask>> subtasksByPage,
+            Map<String, Task> tasksById,
+            Map<String, Page> pagesById,
+            LocalDateTime now
+    ) {
+        return (left, right) -> {
+            List<Subtask> leftSubtasks = subtasksByPage.getOrDefault(left.pageId(), List.of());
+            List<Subtask> rightSubtasks = subtasksByPage.getOrDefault(right.pageId(), List.of());
+            Comparator<LocalDateTime> dueComparator = Comparator.nullsLast(Comparator.naturalOrder());
+
+            LocalDateTime leftDue = leftSubtasks.stream()
+                    .map(subtask -> tasksById.get(subtask.getTaskId()))
+                    .filter(Objects::nonNull)
+                    .map(Task::getDueDate)
+                    .filter(Objects::nonNull)
+                    .min(LocalDateTime::compareTo)
+                    .orElse(null);
+            LocalDateTime rightDue = rightSubtasks.stream()
+                    .map(subtask -> tasksById.get(subtask.getTaskId()))
+                    .filter(Objects::nonNull)
+                    .map(Task::getDueDate)
+                    .filter(Objects::nonNull)
+                    .min(LocalDateTime::compareTo)
+                    .orElse(null);
+            boolean leftOverdue = leftDue != null && leftDue.isBefore(now);
+            boolean rightOverdue = rightDue != null && rightDue.isBefore(now);
+
+            int result = Boolean.compare(rightOverdue, leftOverdue);
+            if (result != 0) return result;
+            result = dueComparator.compare(leftDue, rightDue);
+            if (result != 0) return result;
+
+            int leftPriority = leftSubtasks.stream()
+                    .map(subtask -> tasksById.get(subtask.getTaskId()))
+                    .filter(Objects::nonNull)
+                    .map(Task::getPriority)
+                    .mapToInt(this::priorityRank)
+                    .min()
+                    .orElse(Integer.MAX_VALUE);
+            int rightPriority = rightSubtasks.stream()
+                    .map(subtask -> tasksById.get(subtask.getTaskId()))
+                    .filter(Objects::nonNull)
+                    .map(Task::getPriority)
+                    .mapToInt(this::priorityRank)
+                    .min()
+                    .orElse(Integer.MAX_VALUE);
+            result = Integer.compare(leftPriority, rightPriority);
+            if (result != 0) return result;
+
+            Page leftPage = pagesById.get(left.pageId());
+            Page rightPage = pagesById.get(right.pageId());
+            result = String.CASE_INSENSITIVE_ORDER.compare(left.projectName(), right.projectName());
+            if (result != 0) return result;
+            result = Comparator.nullsLast(Comparator.<Integer>naturalOrder()).compare(leftPage.getSortOrder(), rightPage.getSortOrder());
+            if (result != 0) return result;
+            result = String.CASE_INSENSITIVE_ORDER.compare(left.pageName(), right.pageName());
+            return result != 0 ? result : left.pageId().compareTo(right.pageId());
+        };
+    }
+
+    private int priorityRank(Task.TaskPriority priority) {
+        return switch (priority) {
+            case URGENT -> 0;
+            case HIGH -> 1;
+            case MEDIUM -> 2;
+            case LOW -> 3;
+        };
     }
 
     public List<SubtaskDto.Response> getSubtasks(String taskId, String userId) {
@@ -69,6 +224,7 @@ public class SubtaskService {
         subtask = subtaskRepository.save(subtask);
 
         activityService.logSubtaskAdded(taskId, userId, request.title());
+        publishQueueChange(task, subtask.getAssignedUserId());
 
         return toResponse(subtask, task);
     }
@@ -92,6 +248,7 @@ public class SubtaskService {
         }
 
         subtask = subtaskRepository.save(subtask);
+        publishQueueChange(task, subtask.getAssignedUserId());
         return toResponse(subtask, task);
     }
 
@@ -118,11 +275,12 @@ public class SubtaskService {
         }
 
         subtask = subtaskRepository.save(subtask);
+        publishQueueChange(task, subtask.getAssignedUserId());
         return toResponse(subtask, task);
     }
 
     public void reorderSubtasks(String taskId, String userId, SubtaskDto.ReorderRequest request) {
-        verifyTaskMutationAccess(taskId, userId);
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         List<String> subtaskIds = request.subtaskIds();
 
@@ -147,10 +305,11 @@ public class SubtaskService {
             subtask.setSortOrder(i);
         });
         subtaskRepository.saveAll(subtasks);
+        publishQueueChange(task, task.getAssignedUserIds());
     }
 
     public void deleteSubtask(String taskId, String subtaskId, String userId) {
-        verifyTaskMutationAccess(taskId, userId);
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         Subtask subtask = subtaskRepository.findById(subtaskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found"));
@@ -163,17 +322,19 @@ public class SubtaskService {
         subtaskRepository.delete(subtask);
 
         activityService.logSubtaskDeleted(taskId, userId, title);
+        publishQueueChange(task, subtask.getAssignedUserId());
     }
 
     public SubtaskDto.BulkResponse bulkComplete(String taskId, String userId, SubtaskDto.BulkRequest request) {
-        verifyTaskMutationAccess(taskId, userId);
-
         List<String> subtaskIds = normalizeIds(request.subtaskIds());
+        List<Subtask> subtasks = subtaskIds.isEmpty()
+                ? List.of()
+                : subtaskRepository.findByTaskIdAndIdIn(taskId, subtaskIds);
+        Task task = verifyTaskCompletionAccess(taskId, userId, subtasks, subtaskIds.size());
         if (subtaskIds.isEmpty()) {
             return new SubtaskDto.BulkResponse(0);
         }
 
-        List<Subtask> subtasks = subtaskRepository.findByTaskIdAndIdIn(taskId, subtaskIds);
         List<Subtask> toComplete = subtasks.stream()
                 .filter(subtask -> !subtask.isCompleted())
                 .toList();
@@ -191,12 +352,13 @@ public class SubtaskService {
         for (Subtask subtask : toComplete) {
             activityService.logSubtaskCompleted(taskId, userId, subtask.getTitle());
         }
+        publishQueueChange(task, toComplete.stream().map(Subtask::getAssignedUserId).filter(Objects::nonNull).toList());
 
         return new SubtaskDto.BulkResponse(affected);
     }
 
     public SubtaskDto.BulkResponse bulkDelete(String taskId, String userId, SubtaskDto.BulkRequest request) {
-        verifyTaskMutationAccess(taskId, userId);
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         List<String> subtaskIds = normalizeIds(request.subtaskIds());
         if (subtaskIds.isEmpty()) {
@@ -215,6 +377,7 @@ public class SubtaskService {
         for (Subtask subtask : subtasks) {
             activityService.logSubtaskDeleted(taskId, userId, subtask.getTitle());
         }
+        publishQueueChange(task, subtasks.stream().map(Subtask::getAssignedUserId).filter(Objects::nonNull).toList());
 
         return new SubtaskDto.BulkResponse(affected);
     }
@@ -258,8 +421,40 @@ public class SubtaskService {
         subtask = subtaskRepository.save(subtask);
 
         activityService.logSubtaskAdded(taskId, userId, request.title());
+        publishQueueChange(task, subtask.getAssignedUserId());
 
         return toResponse(subtask, task);
+    }
+
+    public List<SubtaskDto.Response> createSubtasksWithPages(
+            String taskId,
+            String userId,
+            List<SubtaskDto.CreateWithPageRequest> requests
+    ) {
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
+
+        requests.forEach(request -> {
+            if (request.assignedUserId() != null && !request.assignedUserId().isBlank()) {
+                validateAssignee(task, request.assignedUserId());
+            }
+        });
+
+        int nextSortOrder = subtaskRepository.getNextSortOrder(taskId);
+        List<Subtask> subtasks = IntStream.range(0, requests.size())
+                .mapToObj(index -> {
+                    SubtaskDto.CreateWithPageRequest request = requests.get(index);
+                    Subtask subtask = new Subtask(taskId, request.title(), nextSortOrder + index);
+                    subtask.setPageId(request.pageId());
+                    subtask.setAssignedUserId(request.assignedUserId());
+                    subtask.setDescription(request.description());
+                    return subtask;
+                })
+                .toList();
+
+        List<Subtask> saved = subtaskRepository.saveAll(subtasks);
+        saved.forEach(subtask -> activityService.logSubtaskAdded(taskId, userId, subtask.getTitle()));
+        publishQueueChange(task, saved.stream().map(Subtask::getAssignedUserId).toList());
+        return toResponses(saved, Map.of(task.getId(), task));
     }
 
     public SubtaskDto.Response assignSubtask(String taskId, String subtaskId, String userId, SubtaskDto.AssignRequest request) {
@@ -267,6 +462,7 @@ public class SubtaskService {
 
         Subtask subtask = subtaskRepository.findById(subtaskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found"));
+        String previousAssignee = subtask.getAssignedUserId();
 
         if (!subtask.getTaskId().equals(taskId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found for this task");
@@ -281,11 +477,12 @@ public class SubtaskService {
         }
 
         subtask = subtaskRepository.save(subtask);
+        publishQueueChange(task, java.util.Arrays.asList(previousAssignee, subtask.getAssignedUserId()));
         return toResponse(subtask, task);
     }
 
     public SubtaskDto.BulkResponse bulkUpdateDescription(String taskId, String userId, SubtaskDto.BulkDescriptionRequest request) {
-        verifyTaskMutationAccess(taskId, userId);
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         List<String> subtaskIds = normalizeIds(request.subtaskIds());
         if (subtaskIds.isEmpty()) {
@@ -293,6 +490,7 @@ public class SubtaskService {
         }
 
         int affected = subtaskRepository.updateDescriptionByTaskIdAndIdIn(taskId, subtaskIds, request.description());
+        publishQueueChange(task, task.getAssignedUserIds());
         return new SubtaskDto.BulkResponse(affected);
     }
 
@@ -312,7 +510,12 @@ public class SubtaskService {
         String assignedUserId = (request.assignedUserId() != null && !request.assignedUserId().isBlank())
                 ? request.assignedUserId()
                 : null;
+        List<Subtask> existingSubtasks = subtaskRepository.findByTaskIdAndIdIn(taskId, subtaskIds);
         int affected = subtaskRepository.updateAssignedUserByTaskIdAndIdIn(taskId, subtaskIds, assignedUserId);
+        Set<String> affectedUsers = new HashSet<>(task.getAssignedUserIds() == null ? List.of() : task.getAssignedUserIds());
+        existingSubtasks.stream().map(Subtask::getAssignedUserId).filter(Objects::nonNull).forEach(affectedUsers::add);
+        if (assignedUserId != null) affectedUsers.add(assignedUserId);
+        publishQueueChange(task, new ArrayList<>(affectedUsers));
 
         return new SubtaskDto.BulkResponse(affected);
     }
@@ -390,6 +593,28 @@ public class SubtaskService {
 
     private void verifyTaskMutationAccess(String taskId, String userId) {
         verifyTaskMutationAccessAndGet(taskId, userId);
+    }
+
+    private Task verifyTaskCompletionAccess(String taskId, String userId, List<Subtask> subtasks, int requestedCount) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+
+        if (authorizationPolicyService.canManageTasks(task.getWorkspaceId(), userId)) {
+            return task;
+        }
+
+        boolean assignedEditor = workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)
+                && (task.getStatus() == Task.TaskStatus.OPEN || task.getStatus() == Task.TaskStatus.IN_PROGRESS)
+                && task.getAssignedUserIds() != null
+                && task.getAssignedUserIds().contains(userId)
+                && subtasks.size() == requestedCount
+                && subtasks.stream().allMatch(subtask -> subtask.getPageId() != null)
+                && subtasks.stream().allMatch(subtask -> userId.equals(subtask.getAssignedUserId()));
+        if (!assignedEditor) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You may only complete your own active assigned subtasks");
+        }
+
+        return task;
     }
 
     private Task verifyTaskMutationAccessAndGet(String taskId, String userId) {
@@ -497,5 +722,17 @@ public class SubtaskService {
                 .filter(id -> id != null && !id.isBlank())
                 .distinct()
                 .toList();
+    }
+
+    private void publishQueueChange(Task task, String userId) {
+        if (task != null && userId != null) {
+            taskQueueRealtimePublisher.publishAfterCommit(List.of(userId), task.getWorkspaceId());
+        }
+    }
+
+    private void publishQueueChange(Task task, List<String> userIds) {
+        if (task != null) {
+            taskQueueRealtimePublisher.publishAfterCommit(userIds, task.getWorkspaceId());
+        }
     }
 }

@@ -5,7 +5,6 @@ describe('getTextSidebarItems', () => {
   it.each(['visual', 'expert'] as const)('keeps the complete Text sidebar in %s mode', (mode) => {
     expect(getTextSidebarItems(mode).map(item => item.slot)).toEqual([
       'metadata',
-      'tasks',
       'settings',
       'virtualKeyboard',
       'codec',
@@ -20,7 +19,6 @@ describe('getTextSidebarItems', () => {
 
     expect(items.map(item => item.slot)).toEqual([
       'metadata',
-      'tasks',
       'settings',
       'virtualKeyboard',
       'codec',

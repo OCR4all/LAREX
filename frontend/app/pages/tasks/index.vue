@@ -2,6 +2,7 @@
 import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import type { Task, TaskStatus, TaskPriority, UserProfile, WorkspaceMember } from '~/types/index'
 import { DEFAULT_TASK_CAPABILITIES } from '@/types/capabilities'
+import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { LazyUiDeleteSlideover, LazyTaskSlideoverEdit } from '#components'
 
 const UButton = resolveComponent('UButton')
@@ -20,6 +21,7 @@ const { refreshTaskOverview } = useTaskOverviewRefresh()
 await useWorkspaceBootstrap()
 
 const workspace = useWorkspaceStore()
+const editorSessionStore = useEditorSessionStore()
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const { allow } = useActionVisibility()
@@ -41,6 +43,7 @@ if (viewMode.value !== 'table' && viewMode.value !== 'kanban') {
 const statusFilter = ref<TaskStatus | 'ALL'>('ALL')
 const assignedToMe = ref(true)
 const q = ref('')
+const isOpeningTaskQueue = ref(false)
 
 const activeTaskFilters = computed(() => {
   const filters: Array<{ key: string, label: string, clear: () => void }> = []
@@ -502,6 +505,17 @@ function openCreate() {
   })
 }
 
+async function openTaskQueue() {
+  if (!selectedWorkspace.value || !assignedToMe.value) return
+  isOpeningTaskQueue.value = true
+  editorSessionStore.startFocusedWork(selectedWorkspace.value)
+  try {
+    await navigateTo('/editor')
+  } finally {
+    isOpeningTaskQueue.value = false
+  }
+}
+
 function handleTaskClick(task: Task) {
   navigateTo(`/tasks/${task.id}`)
 }
@@ -522,6 +536,14 @@ const viewModeItems = [
     <template #header>
       <UDashboardNavbar title="Tasks">
         <template #right>
+          <UButton
+            v-if="selectedWorkspace && assignedToMe"
+            label="Open task queue"
+            color="primary"
+            icon="i-lucide-list-checks"
+            :loading="isOpeningTaskQueue"
+            @click="openTaskQueue"
+          />
           <UButton
             v-if="selectedWorkspace && canCreateTasks"
             data-tour="tasks-new"

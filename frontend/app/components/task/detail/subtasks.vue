@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import type { Subtask, SubtaskProgress, UserProfile } from '~/types/index'
-import { VueDraggable } from 'vue-draggable-plus'
+import { useVirtualizer } from '@tanstack/vue-virtual'
+import type { VNodeRef } from 'vue'
+import type { Subtask, UserProfile } from '~/types/index'
 
 const props = defineProps<{
   taskId: string
   subtasks: Subtask[]
-  progress: SubtaskProgress
   taskAssignees?: UserProfile[]
 }>()
 
 const emit = defineEmits<{
-  refresh: []
+  'update:subtasks': [subtasks: Subtask[]]
 }>()
 
 const toast = useToast()
@@ -29,6 +29,45 @@ const selectedIds = ref<Set<string>>(new Set())
 const isBulkProcessing = ref(false)
 const bulkDescription = ref('')
 const bulkDescriptionOpen = ref(false)
+const pendingToggleIds = ref<Set<string>>(new Set())
+
+const scrollerRef = ref<HTMLElement | null>(null)
+
+const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => ({
+  count: localSubtasks.value.length,
+  getScrollElement: () => scrollerRef.value,
+  estimateSize: () => 48,
+  overscan: 6,
+  getItemKey: index => localSubtasks.value[index]?.id ?? index
+})))
+
+const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems().flatMap((item) => {
+  const subtask = localSubtasks.value[item.index]
+  return subtask ? [{ item, subtask }] : []
+}))
+
+const totalVirtualSize = computed(() => rowVirtualizer.value.getTotalSize())
+
+const measureVirtualRow: VNodeRef = (el) => {
+  if (el instanceof HTMLElement) {
+    rowVirtualizer.value.measureElement(el)
+  }
+}
+
+function commitSubtasks(subtasks: Subtask[]) {
+  localSubtasks.value = subtasks
+  emit('update:subtasks', subtasks)
+}
+
+const progress = computed(() => {
+  const total = localSubtasks.value.length
+  const completed = localSubtasks.value.filter(subtask => subtask.completed).length
+  return {
+    total,
+    completed,
+    percentage: total > 0 ? Math.round((completed * 100) / total) : 0
+  }
+})
 
 const allSelected = computed(() =>
   localSubtasks.value.length > 0 && localSubtasks.value.every(s => selectedIds.value.has(s.id))
@@ -43,39 +82,44 @@ const selectedCount = computed(() => selectedIds.value.size)
 function toggleSelectionMode() {
   selectionMode.value = !selectionMode.value
   if (!selectionMode.value) {
-    selectedIds.value.clear()
+    selectedIds.value = new Set()
   }
 }
 
 function toggleSelectAll() {
   if (allSelected.value) {
-    selectedIds.value.clear()
+    selectedIds.value = new Set()
   } else {
-    localSubtasks.value.forEach(s => selectedIds.value.add(s.id))
+    selectedIds.value = new Set(localSubtasks.value.map(subtask => subtask.id))
   }
 }
 
 function toggleSelection(subtaskId: string) {
-  if (selectedIds.value.has(subtaskId)) {
-    selectedIds.value.delete(subtaskId)
+  const next = new Set(selectedIds.value)
+  if (next.has(subtaskId)) {
+    next.delete(subtaskId)
   } else {
-    selectedIds.value.add(subtaskId)
+    next.add(subtaskId)
   }
+  selectedIds.value = next
 }
 
 async function bulkComplete() {
   if (selectedIds.value.size === 0) return
 
   isBulkProcessing.value = true
+  const selected = new Set(selectedIds.value)
   try {
     const response = await $fetch<{ affected: number }>(`/api/tasks/${props.taskId}/subtasks/bulk/complete`, {
       method: 'POST',
-      body: { subtaskIds: Array.from(selectedIds.value) }
+      body: { subtaskIds: Array.from(selected) }
     })
     toast.add({ title: `Completed ${response.affected} subtask${response.affected !== 1 ? 's' : ''}`, color: 'success' })
-    selectedIds.value.clear()
+    selectedIds.value = new Set()
     selectionMode.value = false
-    emit('refresh')
+    commitSubtasks(localSubtasks.value.map(subtask => selected.has(subtask.id)
+      ? { ...subtask, completed: true }
+      : subtask))
   } catch (err: any) {
     toast.add({ title: 'Failed to complete subtasks', description: err?.data?.message, color: 'error' })
   } finally {
@@ -87,15 +131,16 @@ async function bulkDelete() {
   if (selectedIds.value.size === 0) return
 
   isBulkProcessing.value = true
+  const deletedIds = new Set(selectedIds.value)
   try {
     const response = await $fetch<{ affected: number }>(`/api/tasks/${props.taskId}/subtasks/bulk/delete`, {
       method: 'POST',
-      body: { subtaskIds: Array.from(selectedIds.value) }
+      body: { subtaskIds: Array.from(deletedIds) }
     })
     toast.add({ title: `Deleted ${response.affected} subtask${response.affected !== 1 ? 's' : ''}`, color: 'success' })
-    selectedIds.value.clear()
+    selectedIds.value = new Set()
     selectionMode.value = false
-    emit('refresh')
+    commitSubtasks(localSubtasks.value.filter(subtask => !deletedIds.has(subtask.id)))
   } catch (err: any) {
     toast.add({ title: 'Failed to delete subtasks', description: err?.data?.message, color: 'error' })
   } finally {
@@ -118,11 +163,11 @@ const assigneeOptions = computed(() => {
 
 async function assignSubtask(subtask: Subtask, userId: string | null) {
   try {
-    await $fetch(`/api/tasks/${props.taskId}/subtasks/${subtask.id}/assign`, {
+    const updated = await $fetch<Subtask>(`/api/tasks/${props.taskId}/subtasks/${subtask.id}/assign`, {
       method: 'PUT',
       body: { assignedUserId: userId || null }
     })
-    emit('refresh')
+    commitSubtasks(localSubtasks.value.map(item => item.id === subtask.id ? updated : item))
   } catch (err: any) {
     toast.add({ title: 'Failed to assign subtask', description: err?.data?.message, color: 'error' })
   }
@@ -132,15 +177,21 @@ async function bulkAssign(userId: string | null) {
   if (selectedIds.value.size === 0) return
 
   isBulkProcessing.value = true
+  const selected = new Set(selectedIds.value)
   try {
     const response = await $fetch<{ affected: number }>(`/api/tasks/${props.taskId}/subtasks/bulk/assign`, {
       method: 'POST',
-      body: { subtaskIds: Array.from(selectedIds.value), assignedUserId: userId || null }
+      body: { subtaskIds: Array.from(selected), assignedUserId: userId || null }
     })
     toast.add({ title: `Assigned ${response.affected} subtask${response.affected !== 1 ? 's' : ''}`, color: 'success' })
-    selectedIds.value.clear()
+    const assignedTo = userId
+      ? props.taskAssignees?.find(user => user.id === userId) ?? null
+      : null
+    selectedIds.value = new Set()
     selectionMode.value = false
-    emit('refresh')
+    commitSubtasks(localSubtasks.value.map(subtask => selected.has(subtask.id)
+      ? { ...subtask, assignedUserId: userId, assignedTo }
+      : subtask))
   } catch (err: any) {
     toast.add({ title: 'Failed to assign subtasks', description: err?.data?.message, color: 'error' })
   } finally {
@@ -152,20 +203,24 @@ async function bulkSetDescription() {
   if (selectedIds.value.size === 0) return
 
   isBulkProcessing.value = true
+  const selected = new Set(selectedIds.value)
+  const description = bulkDescription.value.trim() || null
   try {
     const response = await $fetch<{ affected: number }>(`/api/tasks/${props.taskId}/subtasks/bulk/description`, {
       method: 'POST',
       body: {
-        subtaskIds: Array.from(selectedIds.value),
-        description: bulkDescription.value.trim() || null
+        subtaskIds: Array.from(selected),
+        description
       }
     })
     toast.add({ title: `Updated ${response.affected} subtask${response.affected !== 1 ? 's' : ''}`, color: 'success' })
     bulkDescription.value = ''
     bulkDescriptionOpen.value = false
-    selectedIds.value.clear()
+    selectedIds.value = new Set()
     selectionMode.value = false
-    emit('refresh')
+    commitSubtasks(localSubtasks.value.map(subtask => selected.has(subtask.id)
+      ? { ...subtask, description }
+      : subtask))
   } catch (err: any) {
     toast.add({ title: 'Failed to update subtasks', description: err?.data?.message, color: 'error' })
   } finally {
@@ -202,7 +257,7 @@ async function addSubtask() {
 
   isAdding.value = true
   try {
-    await $fetch(`/api/tasks/${props.taskId}/subtasks`, {
+    const created = await $fetch<Subtask>(`/api/tasks/${props.taskId}/subtasks`, {
       method: 'POST',
       body: {
         title: newSubtaskTitle.value.trim(),
@@ -210,7 +265,7 @@ async function addSubtask() {
       }
     })
     closeAddSubtask()
-    emit('refresh')
+    commitSubtasks([...localSubtasks.value, created])
   } catch (err: any) {
     toast.add({ title: 'Failed to add subtask', description: err?.data?.message, color: 'error' })
   } finally {
@@ -220,26 +275,28 @@ async function addSubtask() {
 
 async function toggleSubtask(subtask: Subtask) {
   const index = localSubtasks.value.findIndex(s => s.id === subtask.id)
-  if (index !== -1) {
-    const current = localSubtasks.value[index]
-    if (current) {
-      localSubtasks.value[index] = { ...current, completed: !current.completed }
-    }
-  }
+  if (index === -1 || pendingToggleIds.value.has(subtask.id)) return
+
+  const previous = localSubtasks.value[index]!
+  const nextPending = new Set(pendingToggleIds.value)
+  nextPending.add(subtask.id)
+  pendingToggleIds.value = nextPending
+  commitSubtasks(localSubtasks.value.map(item => item.id === subtask.id
+    ? { ...item, completed: !item.completed }
+    : item))
 
   try {
-    await $fetch(`/api/tasks/${props.taskId}/subtasks/${subtask.id}/toggle`, {
+    const updated = await $fetch<Subtask>(`/api/tasks/${props.taskId}/subtasks/${subtask.id}/toggle`, {
       method: 'PUT'
     })
-    emit('refresh')
+    commitSubtasks(localSubtasks.value.map(item => item.id === subtask.id ? updated : item))
   } catch (err: any) {
-    if (index !== -1) {
-      const current = localSubtasks.value[index]
-      if (current) {
-        localSubtasks.value[index] = { ...current, completed: !current.completed }
-      }
-    }
+    commitSubtasks(localSubtasks.value.map(item => item.id === subtask.id ? previous : item))
     toast.add({ title: 'Failed to toggle subtask', description: err?.data?.message, color: 'error' })
+  } finally {
+    const next = new Set(pendingToggleIds.value)
+    next.delete(subtask.id)
+    pendingToggleIds.value = next
   }
 }
 
@@ -267,14 +324,14 @@ async function saveEdit(subtask: Subtask) {
   }
 
   try {
-    await $fetch(`/api/tasks/${props.taskId}/subtasks/${subtask.id}`, {
+    const updated = await $fetch<Subtask>(`/api/tasks/${props.taskId}/subtasks/${subtask.id}`, {
       method: 'PUT',
       body: {
         title: titleChanged ? title : subtask.title,
         description: description
       }
     })
-    emit('refresh')
+    commitSubtasks(localSubtasks.value.map(item => item.id === subtask.id ? updated : item))
     cancelEditing()
   } catch (err: any) {
     toast.add({ title: 'Failed to update subtask', description: err?.data?.message, color: 'error' })
@@ -286,25 +343,16 @@ async function deleteSubtask(subtask: Subtask) {
     await $fetch(`/api/tasks/${props.taskId}/subtasks/${subtask.id}`, {
       method: 'DELETE'
     })
-    emit('refresh')
+    commitSubtasks(localSubtasks.value.filter(item => item.id !== subtask.id))
   } catch (err: any) {
     toast.add({ title: 'Failed to delete subtask', description: err?.data?.message, color: 'error' })
   }
 }
 
-async function onDragEnd() {
-  const subtaskIds = localSubtasks.value.map(s => s.id)
-
-  try {
-    await $fetch(`/api/tasks/${props.taskId}/subtasks/reorder`, {
-      method: 'PUT',
-      body: { subtaskIds }
-    })
-  } catch (err: any) {
-    localSubtasks.value = [...props.subtasks]
-    toast.add({ title: 'Failed to reorder subtasks', description: err?.data?.message, color: 'error' })
-  }
-}
+watch([localSubtasks, editingId], async () => {
+  await nextTick()
+  rowVirtualizer.value.measure()
+})
 </script>
 
 <template>
@@ -509,150 +557,151 @@ async function onDragEnd() {
       </div>
     </div>
 
-    <VueDraggable
-      v-model="localSubtasks"
-      item-key="id"
-      handle=".drag-handle"
-      :animation="150"
-      ghost-class="opacity-50"
-      :disabled="selectionMode"
-      @end="onDragEnd"
+    <div
+      ref="scrollerRef"
+      class="max-h-[60vh] overflow-y-auto overscroll-contain pr-1"
     >
       <div
-        v-for="subtask in localSubtasks"
-        :key="subtask.id"
-        class="group flex items-center gap-2 py-2 px-2 -mx-2 rounded-sm hover:bg-elevated/30"
-        :class="{ 'bg-primary/5': selectionMode && selectedIds.has(subtask.id) }"
+        class="relative"
+        :style="{ height: `${totalVirtualSize}px` }"
       >
-        <UCheckbox
-          v-if="selectionMode"
-          :model-value="selectedIds.has(subtask.id)"
-          @update:model-value="toggleSelection(subtask.id)"
-        />
-
-        <UIcon
-          v-if="!selectionMode"
-          name="i-lucide-grip-vertical"
-          class="drag-handle size-4 text-muted cursor-grab opacity-0 group-hover:opacity-100 transition-opacity"
-        />
-
-        <UCheckbox
-          :model-value="subtask.completed"
-          :disabled="selectionMode"
-          @update:model-value="toggleSubtask(subtask)"
-        />
-
-        <div v-if="editingId === subtask.id" class="flex-1 flex flex-col gap-2">
-          <UInput
-            v-model="editingTitle"
-            size="sm"
-            class="flex-1"
-            autofocus
-            @keyup.enter="saveEdit(subtask)"
-            @keyup.escape="cancelEditing"
-          />
-          <UTextarea
-            v-model="editingDescription"
-            size="sm"
-            :rows="2"
-            placeholder="Add a description"
-          />
-          <div class="flex items-center gap-2">
-            <UButton
-              icon="i-lucide-check"
-              color="success"
-              variant="ghost"
-              size="xs"
-              @click="saveEdit(subtask)"
-            />
-            <UButton
-              icon="i-lucide-x"
-              color="neutral"
-              variant="ghost"
-              size="xs"
-              @click="cancelEditing"
-            />
-          </div>
-        </div>
-
         <div
-          v-else
-          class="flex-1 min-w-0 flex flex-col gap-0.5"
+          v-for="{ item, subtask } in virtualRows"
+          :key="String(item.key)"
+          :ref="measureVirtualRow"
+          :data-index="item.index"
+          class="absolute left-0 top-0 w-full"
+          :style="{ transform: `translateY(${item.start}px)` }"
         >
-          <div class="flex items-center gap-2 min-w-0">
-            <span
-              class="text-sm cursor-pointer truncate"
-              :class="{ 'line-through text-muted': subtask.completed }"
-              @dblclick="startEditing(subtask)"
-            >
-              {{ subtask.title }}
-            </span>
-
-            <NuxtLink
-              v-if="subtask.pageId && subtask.pageName"
-              :to="`/project/${subtask.projectId}`"
-              class="shrink-0"
-              @click.stop
-            >
-              <UBadge
-                color="neutral"
-                variant="subtle"
-                size="xs"
-                class="cursor-pointer hover:bg-elevated"
-              >
-                <UIcon name="i-lucide-file" class="size-3 mr-1" />
-                {{ subtask.pageName }}
-              </UBadge>
-            </NuxtLink>
-          </div>
-          <p v-if="getDisplayDescription(subtask)" class="text-xs text-muted truncate">
-            {{ getDisplayDescription(subtask) }}
-          </p>
-        </div>
-
-        <div v-if="!selectionMode && taskAssignees && taskAssignees.length > 0" class="shrink-0">
-          <UDropdownMenu
-            :items="assigneeOptions.map(opt => ({ label: opt.label, onSelect: () => assignSubtask(subtask, opt.value || null) }))"
+          <div
+            class="group flex items-center gap-2 py-2 px-2 -mx-2 rounded-sm hover:bg-elevated/30"
+            :class="{ 'bg-primary/5': selectionMode && selectedIds.has(subtask.id) }"
           >
-            <UButton
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              class="gap-1"
-            >
-              <AppAvatar
-                v-if="subtask.assignedTo"
-                :seed="subtask.assignedTo.id"
-                :src="subtask.assignedTo.avatar"
-                :alt="getAssigneeName(subtask)"
-                size="2xs"
-              />
-              <UIcon v-else name="i-lucide-user" class="size-3 text-muted" />
-              <span class="text-xs text-muted max-w-20 truncate hidden sm:inline">
-                {{ subtask.assignedTo ? getAssigneeName(subtask) : '' }}
-              </span>
-            </UButton>
-          </UDropdownMenu>
-        </div>
+            <UCheckbox
+              v-if="selectionMode"
+              :model-value="selectedIds.has(subtask.id)"
+              @update:model-value="toggleSelection(subtask.id)"
+            />
 
-        <div v-if="editingId !== subtask.id && !selectionMode" class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-          <UButton
-            icon="i-lucide-pencil"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            @click="startEditing(subtask)"
-          />
-          <UButton
-            icon="i-lucide-trash-2"
-            color="error"
-            variant="ghost"
-            size="xs"
-            @click="deleteSubtask(subtask)"
-          />
+            <UCheckbox
+              :model-value="subtask.completed"
+              :disabled="selectionMode || pendingToggleIds.has(subtask.id)"
+              @update:model-value="toggleSubtask(subtask)"
+            />
+
+            <div v-if="editingId === subtask.id" class="flex-1 flex flex-col gap-2">
+              <UInput
+                v-model="editingTitle"
+                size="sm"
+                class="flex-1"
+                autofocus
+                @keyup.enter="saveEdit(subtask)"
+                @keyup.escape="cancelEditing"
+              />
+              <UTextarea
+                v-model="editingDescription"
+                size="sm"
+                :rows="2"
+                placeholder="Add a description"
+              />
+              <div class="flex items-center gap-2">
+                <UButton
+                  icon="i-lucide-check"
+                  color="success"
+                  variant="ghost"
+                  size="xs"
+                  @click="saveEdit(subtask)"
+                />
+                <UButton
+                  icon="i-lucide-x"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  @click="cancelEditing"
+                />
+              </div>
+            </div>
+
+            <div
+              v-else
+              class="flex-1 min-w-0 flex flex-col gap-0.5"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <span
+                  class="text-sm cursor-pointer truncate"
+                  :class="{ 'line-through text-muted': subtask.completed }"
+                  @dblclick="startEditing(subtask)"
+                >
+                  {{ subtask.title }}
+                </span>
+
+                <NuxtLink
+                  v-if="subtask.pageId && subtask.pageName"
+                  :to="`/project/${subtask.projectId}`"
+                  class="shrink-0"
+                  @click.stop
+                >
+                  <UBadge
+                    color="neutral"
+                    variant="subtle"
+                    size="xs"
+                    class="cursor-pointer hover:bg-elevated"
+                  >
+                    <UIcon name="i-lucide-file" class="size-3 mr-1" />
+                    {{ subtask.pageName }}
+                  </UBadge>
+                </NuxtLink>
+              </div>
+              <p v-if="getDisplayDescription(subtask)" class="text-xs text-muted truncate">
+                {{ getDisplayDescription(subtask) }}
+              </p>
+            </div>
+
+            <div v-if="!selectionMode && taskAssignees && taskAssignees.length > 0" class="shrink-0">
+              <UDropdownMenu
+                :items="assigneeOptions.map(opt => ({ label: opt.label, onSelect: () => assignSubtask(subtask, opt.value || null) }))"
+              >
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  class="gap-1"
+                >
+                  <AppAvatar
+                    v-if="subtask.assignedTo"
+                    :seed="subtask.assignedTo.id"
+                    :src="subtask.assignedTo.avatar"
+                    :alt="getAssigneeName(subtask)"
+                    size="2xs"
+                  />
+                  <UIcon v-else name="i-lucide-user" class="size-3 text-muted" />
+                  <span class="text-xs text-muted max-w-20 truncate hidden sm:inline">
+                    {{ subtask.assignedTo ? getAssigneeName(subtask) : '' }}
+                  </span>
+                </UButton>
+              </UDropdownMenu>
+            </div>
+
+            <div v-if="editingId !== subtask.id && !selectionMode" class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+              <UButton
+                icon="i-lucide-pencil"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                @click="startEditing(subtask)"
+              />
+              <UButton
+                icon="i-lucide-trash-2"
+                color="error"
+                variant="ghost"
+                size="xs"
+                @click="deleteSubtask(subtask)"
+              />
+            </div>
+          </div>
         </div>
       </div>
-    </VueDraggable>
+    </div>
 
     <div v-if="localSubtasks.length === 0" class="py-6 text-center text-sm text-muted">
       <UIcon name="i-lucide-list-checks" class="size-8 mb-2 mx-auto" />

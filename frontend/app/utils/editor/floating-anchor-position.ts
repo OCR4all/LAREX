@@ -1,4 +1,4 @@
-export type FloatingControlPlacement = 'left-sidebar' | 'right-sidebar' | 'toolbar'
+export type FloatingControlPlacement = 'left-sidebar' | 'right-sidebar' | 'toolbar' | 'top'
 
 export interface FloatingViewportSize {
   width: number
@@ -112,6 +112,11 @@ export function computeFloatingDefaultPosition(
 
   if (anchorRect) {
     switch (input.placement) {
+      case 'top':
+        return {
+          x: anchorRect.left + (anchorRect.width - controlWidth) / 2,
+          y: anchorRect.top + gap
+        }
       case 'left-sidebar':
         return {
           x: anchorRect.left - controlWidth - gap,
@@ -131,6 +136,11 @@ export function computeFloatingDefaultPosition(
   }
 
   switch (input.placement) {
+    case 'top':
+      return {
+        x: (viewportWidth - controlWidth) / 2,
+        y: gap
+      }
     case 'left-sidebar':
       return {
         x: gap,
