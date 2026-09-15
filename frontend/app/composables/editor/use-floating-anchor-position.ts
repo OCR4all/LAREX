@@ -1,4 +1,4 @@
-import type { CSSProperties, ComputedRef, Ref } from 'vue'
+import { isRef, type CSSProperties, type ComputedRef, type Ref } from 'vue'
 import {
   getEditorFloatingAnchorElement,
   getEditorFloatingAnchorRect,
@@ -23,7 +23,7 @@ type UseFloatingAnchorPositionOptions = {
   fallbackSize: FloatingControlSize
   gap: number
   includeFixedPosition?: boolean
-  viewportMargin?: number | Partial<Record<'top' | 'right' | 'bottom' | 'left', number>>
+  viewportMargin?: number | Partial<Record<'top' | 'right' | 'bottom' | 'left', number>> | ComputedRef<number | Partial<Record<'top' | 'right' | 'bottom' | 'left', number>>>
   getOffset: () => FloatingControlOffset | null
   setOffset: (offset: FloatingControlOffset | null) => void
 }
@@ -61,6 +61,10 @@ export function useFloatingAnchorPosition(options: UseFloatingAnchorPositionOpti
     }
   }
 
+  function getViewportMargin() {
+    return isRef(options.viewportMargin) ? options.viewportMargin.value : options.viewportMargin ?? VIEWPORT_MARGIN
+  }
+
   function getDefaultPosition(): FloatingControlPosition {
     return computeFloatingDefaultPosition({
       placement: options.placement,
@@ -77,7 +81,7 @@ export function useFloatingAnchorPosition(options: UseFloatingAnchorPositionOpti
       controlSize: getControlSize(),
       viewport: getViewportSize(),
       offset,
-      margin: options.viewportMargin ?? VIEWPORT_MARGIN
+      margin: getViewportMargin()
     })
   }
 
@@ -142,7 +146,7 @@ export function useFloatingAnchorPosition(options: UseFloatingAnchorPositionOpti
       },
       controlSize: getControlSize(),
       viewport: getViewportSize(),
-      margin: options.viewportMargin ?? VIEWPORT_MARGIN
+      margin: getViewportMargin()
     })
 
     options.setOffset(toFloatingControlOffset(nextPosition, getDefaultPosition()))
@@ -218,6 +222,11 @@ export function useFloatingAnchorPosition(options: UseFloatingAnchorPositionOpti
       requestAnimationFrame(() => syncPosition())
     }
   )
+
+  watch(getViewportMargin, () => {
+    if (!import.meta.client) return
+    requestAnimationFrame(() => syncPosition())
+  }, { deep: true })
 
   const style = computed<CSSProperties | undefined>(() => {
     if (!import.meta.client) return undefined

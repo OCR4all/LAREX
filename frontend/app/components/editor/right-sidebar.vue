@@ -28,6 +28,10 @@ const isFloatingCollapsed = computed(() => editorUiStore.rightCollapsed && props
 
 const DEFAULT_FLOATING_RIGHT_SIDEBAR_GAP = 24
 const DEFAULT_FLOATING_RIGHT_SIDEBAR_RIGHT = 24
+const DOCKED_TOOLBAR_WIDTH = 56
+const floatingViewportMargin = computed(() => ({
+  right: DEFAULT_FLOATING_RIGHT_SIDEBAR_RIGHT + (editorUiStore.toolbarLayout === 'docked-right' ? DOCKED_TOOLBAR_WIDTH : 0)
+}))
 const {
   style: floatingSidebarStyle,
   isDragging: isDraggingSidebar,
@@ -39,7 +43,7 @@ const {
   placement: 'right-sidebar',
   fallbackSize: { width: 48, height: 320 },
   gap: DEFAULT_FLOATING_RIGHT_SIDEBAR_GAP,
-  viewportMargin: { right: DEFAULT_FLOATING_RIGHT_SIDEBAR_RIGHT },
+  viewportMargin: floatingViewportMargin,
   getOffset: () => floatingOffset.value,
   setOffset: (offset: FloatingControlOffset | null) => {
     floatingOffset.value = offset

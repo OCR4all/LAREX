@@ -1059,7 +1059,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
       :class="[
         'flex items-center justify-between dark:bg-neutral-900 bg-neutral-50 border-default',
         toolbarStyle,
-        isVertical ? 'flex-col px-1 py-2 overflow-y-auto' : 'flex-row px-2 py-1 overflow-x-auto',
+        isVertical ? 'w-14 flex-col px-1 py-2 overflow-y-auto' : 'flex-row px-2 py-1 overflow-x-auto',
         isDraggingToolbar ? 'cursor-grabbing select-none' : ''
       ]"
     >
@@ -1727,19 +1727,20 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             size="sm"
             color="primary"
             variant="outline"
+            :trailing="!isVertical"
             :aria-label="modeViewAriaLabel"
             :title="isVertical ? modeViewAriaLabel : undefined"
             :content="{ side: modeViewMenuSide, align: 'end' }"
             :class="isVertical ? 'w-12' : 'min-w-44'"
             :ui="{
-              base: 'justify-between dark:bg-neutral-800',
+              base: isVertical ? 'justify-center px-0 dark:bg-neutral-800' : 'justify-between dark:bg-neutral-800',
               content: 'w-88 max-w-[calc(100vw-1rem)] max-h-[min(26rem,var(--reka-combobox-content-available-height,26rem))]',
               itemDescription: 'whitespace-normal',
               itemTrailingIcon: 'text-primary'
             }"
           >
             <template #default>
-              <span class="flex min-w-0 flex-1 items-center gap-1.5">
+              <span class="flex min-w-0 flex-1 items-center gap-1.5" :class="isVertical && 'justify-center'">
                 <Icon :name="activeModeViewOption.icon" class="size-4 shrink-0" />
                 <span v-if="!isVertical" class="truncate">
                   <span class="font-medium">{{ activeModeViewOption.modeLabel }}</span>

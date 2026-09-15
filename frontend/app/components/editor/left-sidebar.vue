@@ -46,6 +46,10 @@ const collapsedRailImagePopoverOpen = ref(false)
 
 const DEFAULT_FLOATING_LEFT_SIDEBAR_GAP = 24
 const DEFAULT_FLOATING_LEFT_SIDEBAR_LEFT = 24
+const DOCKED_TOOLBAR_WIDTH = 56
+const floatingViewportMargin = computed(() => ({
+  left: DEFAULT_FLOATING_LEFT_SIDEBAR_LEFT + (editorUiStore.toolbarLayout === 'docked-left' ? DOCKED_TOOLBAR_WIDTH : 0)
+}))
 const activePopoverButtonClass = 'bg-navy-600 text-white hover:bg-navy-500 active:bg-navy-700 dark:bg-navy-500 dark:hover:bg-navy-400 dark:active:bg-navy-600'
 const utilityButtonClass = 'size-7 justify-center p-0'
 const utilityIconClass = 'size-4'
@@ -104,7 +108,7 @@ const {
   placement: 'left-sidebar',
   fallbackSize: { width: 48, height: 240 },
   gap: DEFAULT_FLOATING_LEFT_SIDEBAR_GAP,
-  viewportMargin: { left: DEFAULT_FLOATING_LEFT_SIDEBAR_LEFT },
+  viewportMargin: floatingViewportMargin,
   getOffset: () => floatingOffset.value,
   setOffset: (offset: FloatingControlOffset | null) => {
     floatingOffset.value = offset
