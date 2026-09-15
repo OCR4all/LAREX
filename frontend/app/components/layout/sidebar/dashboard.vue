@@ -59,7 +59,7 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
   const toolkitChildren = [
     ...withActive([
       { label: 'Tags', icon: 'i-lucide-network', to: '/tag-sets', onSelect: () => { sidebarOpen.value = false } },
-      { label: 'Labels', icon: 'i-lucide-tags', to: '/labels', onSelect: () => { sidebarOpen.value = false } }
+      { label: 'Label sets', icon: 'i-lucide-tags', to: '/labels', onSelect: () => { sidebarOpen.value = false } }
     ]),
     {
       label: 'Text',
