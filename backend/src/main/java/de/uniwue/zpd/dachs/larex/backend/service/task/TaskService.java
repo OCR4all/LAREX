@@ -45,6 +45,7 @@ public class TaskService {
     private final TaskActivityService activityService;
     private final AuthorizationPolicyService authorizationPolicyService;
     private final SubtaskRepository subtaskRepository;
+    private final SubtaskService subtaskService;
     private final TaskActivityLogRepository taskActivityLogRepository;
     private final TaskCommentRepository taskCommentRepository;
     private final TaskPageLinkRepository taskPageLinkRepository;
@@ -63,6 +64,7 @@ public class TaskService {
             UserService userService,
             AuthorizationPolicyService authorizationPolicyService,
             SubtaskRepository subtaskRepository,
+            SubtaskService subtaskService,
             TaskActivityLogRepository taskActivityLogRepository,
             TaskCommentRepository taskCommentRepository,
             TaskPageLinkRepository taskPageLinkRepository,
@@ -81,6 +83,7 @@ public class TaskService {
         this.userService = userService;
         this.authorizationPolicyService = authorizationPolicyService;
         this.subtaskRepository = subtaskRepository;
+        this.subtaskService = subtaskService;
         this.taskActivityLogRepository = taskActivityLogRepository;
         this.taskCommentRepository = taskCommentRepository;
         this.taskPageLinkRepository = taskPageLinkRepository;
@@ -202,7 +205,7 @@ public class TaskService {
 
     public TaskDto.Response getTask(String taskId, String userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         requireWorkspaceAccess(task.getWorkspaceId(), userId);
         return mapTask(task, userId);
@@ -239,8 +242,17 @@ public class TaskService {
         task.setDueDate(request.dueDate());
         task.setAssignedUserIds(new ArrayList<>(normalizedAssignees));
         task.setSyncLinkedPageStates(Boolean.TRUE.equals(request.syncLinkedPageStates()));
+        task.setStatus(request.status() == null ? Task.TaskStatus.OPEN : request.status());
 
         Task saved = taskRepository.save(task);
+
+        if (request.pageIds() != null && !request.pageIds().isEmpty()) {
+            subtaskService.createSubtasksFromPages(
+                    saved.getId(),
+                    userId,
+                    new de.uniwue.zpd.dachs.larex.backend.dto.SubtaskDto.CreateFromPagesRequest(request.pageIds())
+            );
+        }
 
         // Log activity
         activityService.logTaskCreated(saved.getId(), userId);
@@ -258,7 +270,7 @@ public class TaskService {
 
     public TaskDto.Response updateTask(String taskId, String userId, TaskDto.UpdateRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
@@ -292,7 +304,7 @@ public class TaskService {
         if (oldSyncLinkedPageStates != saved.isSyncLinkedPageStates()) {
             pageWorkflowService.recomputeForPageIds(taskPageLinkRepository.findByTaskId(taskId).stream()
                     .map(link -> link.getPageId())
-                    .toList());
+                    .toList(), userId);
         }
 
         // Log activities for changed fields
@@ -317,7 +329,7 @@ public class TaskService {
 
     public TaskDto.Response updateTaskStatus(String taskId, String userId, TaskDto.UpdateStatusRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         requireWorkspaceAccess(task.getWorkspaceId(), userId);
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
@@ -342,7 +354,7 @@ public class TaskService {
         if (saved.isSyncLinkedPageStates()) {
             pageWorkflowService.recomputeForPageIds(taskPageLinkRepository.findByTaskId(taskId).stream()
                     .map(link -> link.getPageId())
-                    .toList());
+                    .toList(), userId);
         }
 
         // Log activity
@@ -368,7 +380,7 @@ public class TaskService {
 
     public TaskDto.Response updateTaskDueDate(String taskId, String userId, TaskDto.UpdateDueDateRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
@@ -392,7 +404,7 @@ public class TaskService {
 
     public TaskDto.Response updateAssignees(String taskId, String userId, TaskDto.UpdateAssigneesRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         AbstractWorkspace workspace = requireWorkspaceAccess(task.getWorkspaceId(), userId);
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
@@ -418,17 +430,19 @@ public class TaskService {
         task.setAssignedUserIds(new ArrayList<>(normalizedAssignees));
 
         Task saved = taskRepository.save(task);
+        Set<String> removedAssignees = previousAssignees.stream()
+                .filter(id -> !normalizedAssignees.contains(id))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        subtaskService.redistributeOpenTasks(saved, removedAssignees, new ArrayList<>(normalizedAssignees));
 
         // Compute added and removed assignees for activity log
         List<String> addedAssignees = normalizedAssignees.stream()
                 .filter(id -> !previousAssignees.contains(id))
                 .toList();
-        List<String> removedAssignees = previousAssignees.stream()
-                .filter(id -> !normalizedAssignees.contains(id))
-                .toList();
+        List<String> removedAssigneeList = new ArrayList<>(removedAssignees);
 
-        if (!addedAssignees.isEmpty() || !removedAssignees.isEmpty()) {
-            activityService.logAssigneesChanged(taskId, userId, addedAssignees, removedAssignees);
+        if (!addedAssignees.isEmpty() || !removedAssigneeList.isEmpty()) {
+            activityService.logAssigneesChanged(taskId, userId, addedAssignees, removedAssigneeList);
         }
 
         for (String assigneeId : normalizedAssignees) {
@@ -446,7 +460,7 @@ public class TaskService {
 
     public void deleteTask(String taskId, String userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
         taskQueueRealtimePublisher.publishAfterCommit(task.getAssignedUserIds(), task.getWorkspaceId());
@@ -464,7 +478,7 @@ public class TaskService {
         taskRepository.delete(task);
         taskRepository.flush();
         if (!linkedPageIds.isEmpty()) {
-            pageWorkflowService.recomputeForExistingPageIds(linkedPageIds);
+            pageWorkflowService.recomputeForExistingPageIds(linkedPageIds, userId);
         }
     }
 
@@ -490,7 +504,7 @@ public class TaskService {
 
         for (String assigneeId : userIds) {
             if (!acceptedMemberIds.contains(assigneeId)) {
-                throw new IllegalArgumentException("Cannot assign tasks to users outside the workspace.");
+                throw new IllegalArgumentException("Cannot assign Assignments to users outside the workspace.");
             }
         }
     }

@@ -55,7 +55,12 @@ public class TaskDto {
             @Size(max = 50, message = "Cannot assign more than 50 users")
             List<String> assignedUserIds,
 
-            Boolean syncLinkedPageStates
+            Boolean syncLinkedPageStates,
+
+            Task.TaskStatus status,
+
+            @Size(max = 10000, message = "Cannot select more than 10000 pages")
+            List<String> pageIds
     ) {}
 
     public record UpdateRequest(

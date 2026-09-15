@@ -74,6 +74,10 @@ public class PageWorkflowService {
     }
 
     public List<Page> recomputeForPageIds(Collection<String> requestedPageIds) {
+        return recomputeForPageIds(requestedPageIds, null);
+    }
+
+    public List<Page> recomputeForPageIds(Collection<String> requestedPageIds, String allowedUserId) {
         List<String> pageIds = normalizeIds(requestedPageIds);
         if (pageIds.isEmpty()) {
             return List.of();
@@ -83,19 +87,23 @@ public class PageWorkflowService {
         if (pages.size() != pageIds.size()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "One or more linked pages no longer exist");
         }
-        return recomputeForPages(pages);
+        return recomputeForPages(pages, allowedUserId);
     }
 
     public List<Page> recomputeForExistingPageIds(Collection<String> requestedPageIds) {
+        return recomputeForExistingPageIds(requestedPageIds, null);
+    }
+
+    public List<Page> recomputeForExistingPageIds(Collection<String> requestedPageIds, String allowedUserId) {
         List<String> pageIds = normalizeIds(requestedPageIds);
         if (pageIds.isEmpty()) {
             return List.of();
         }
 
-        return recomputeForPages(pageRepository.findAllByIdInForUpdate(pageIds));
+        return recomputeForPages(pageRepository.findAllByIdInForUpdate(pageIds), allowedUserId);
     }
 
-    private List<Page> recomputeForPages(List<Page> pages) {
+    private List<Page> recomputeForPages(List<Page> pages, String allowedUserId) {
         if (pages.isEmpty()) {
             return List.of();
         }
@@ -103,37 +111,55 @@ public class PageWorkflowService {
         pages.forEach(this::assertNoTransientLock);
         List<String> pageIds = pages.stream().map(Page::getId).toList();
 
-        Map<String, List<Task>> tasksByPageId = new LinkedHashMap<>();
-        for (Object[] row : taskPageLinkRepository.findSyncEnabledTasksByPageIds(pageIds)) {
-            if (row != null && row.length >= 2 && row[0] instanceof String pageId && row[1] instanceof Task task) {
-                tasksByPageId.computeIfAbsent(pageId, ignored -> new ArrayList<>()).add(task);
+        Map<String, Map<Task, PageTaskProgress>> progressByPageId = new LinkedHashMap<>();
+        for (Object[] row : taskPageLinkRepository.findSyncEnabledTaskSubtasksByPageIds(pageIds)) {
+            if (row != null
+                    && row.length >= 3
+                    && row[0] instanceof String pageId
+                    && row[1] instanceof Task task
+                    && row[2] instanceof Boolean completed) {
+                PageTaskProgress progress = progressByPageId
+                        .computeIfAbsent(pageId, ignored -> new LinkedHashMap<>())
+                        .computeIfAbsent(task, PageTaskProgress::new);
+                progress.hasOpenSubtask |= !completed;
             }
         }
 
         for (Page page : pages) {
-            Page.WorkflowState state = resolveState(tasksByPageId.getOrDefault(page.getId(), List.of()));
+            Page.WorkflowState state = resolveState(new ArrayList<>(
+                    progressByPageId.getOrDefault(page.getId(), Map.of()).values()
+            ));
             if (state == Page.WorkflowState.DONE) {
-                annotationLeaseService.assertNoOtherActiveEditor(page.getId(), null);
+                annotationLeaseService.assertNoOtherActiveEditor(page.getId(), allowedUserId);
             }
             page.setWorkflowState(state);
         }
         return pageRepository.saveAll(pages);
     }
 
-    private Page.WorkflowState resolveState(List<Task> linkedTasks) {
-        List<Task> participating = linkedTasks.stream()
-                .filter(task -> task.getStatus() != Task.TaskStatus.CANCELLED)
+    private Page.WorkflowState resolveState(List<PageTaskProgress> linkedTasks) {
+        List<PageTaskProgress> participating = linkedTasks.stream()
+                .filter(progress -> progress.task.getStatus() != Task.TaskStatus.CANCELLED)
                 .toList();
         if (participating.isEmpty()) {
             return Page.WorkflowState.OPEN;
         }
-        if (participating.stream().allMatch(task -> task.getStatus() == Task.TaskStatus.COMPLETED)) {
+        if (participating.stream().noneMatch(progress -> progress.hasOpenSubtask)) {
             return Page.WorkflowState.DONE;
         }
-        if (participating.stream().anyMatch(task -> task.getStatus() == Task.TaskStatus.IN_PROGRESS)) {
+        if (participating.stream().anyMatch(progress -> progress.task.getStatus() == Task.TaskStatus.IN_PROGRESS)) {
             return Page.WorkflowState.IN_PROGRESS;
         }
         return Page.WorkflowState.OPEN;
+    }
+
+    private static final class PageTaskProgress {
+        private final Task task;
+        private boolean hasOpenSubtask;
+
+        private PageTaskProgress(Task task) {
+            this.task = task;
+        }
     }
 
     private void requireStateChangeAccess(String projectId, String userId) {

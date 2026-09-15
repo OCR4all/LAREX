@@ -2,6 +2,8 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 import type { Task, TaskPriority, TaskStatus, UserProfile, WorkspaceMember } from '~/types/index'
+import type { SelectedTaskPage } from './link-items.vue'
+import { LazyTaskSlideoverLinkItems } from '#components'
 
 const props = defineProps<{
   workspaceId: string
@@ -18,6 +20,7 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const { refreshTaskOverview } = useTaskOverviewRefresh()
+const overlay = useOverlay()
 
 const isLoading = ref(false)
 const isSubmitting = ref(false)
@@ -25,6 +28,9 @@ const isSubmitting = ref(false)
 const formId = useId()
 
 const taskLocal = ref<Task | null>(props.task ?? null)
+const creationStep = ref<1 | 2>(1)
+const selectedPages = ref<SelectedTaskPage[]>([])
+const pagePicker = overlay.create(LazyTaskSlideoverLinkItems)
 
 const schema = z.object({
   title: z.preprocess(
@@ -67,7 +73,7 @@ const priorityItems = [
 ]
 
 const isEditing = computed(() => !!taskLocal.value?.id)
-const titleText = computed(() => isEditing.value ? 'Edit Task' : 'Create Task')
+const titleText = computed(() => isEditing.value ? 'Edit Assignment' : 'Create Assignment')
 const canEditTaskDetails = computed(() => props.isAdmin || taskLocal.value?.createdByUserId === props.currentUserId)
 
 const { data: workspaceMembers } = useFetch<WorkspaceMember[]>(
@@ -140,10 +146,16 @@ async function loadTaskById(taskId: string) {
     taskLocal.value = task
     applyTaskToState(task)
   } catch (error: unknown) {
-    toast.add({ title: 'Failed to load task', description: extractApiErrorMessage(error, 'An error occurred'), color: 'error' })
+    toast.add({ title: 'Failed to load Assignment', description: extractApiErrorMessage(error, 'An error occurred'), color: 'error' })
   } finally {
     isLoading.value = false
   }
+}
+
+async function choosePages() {
+  const instance = pagePicker.open({ workspaceId: props.workspaceId })
+  const pages = await instance.result
+  if (pages) selectedPages.value = pages
 }
 
 watch(() => props.task, (t) => {
@@ -175,6 +187,11 @@ function toLocalDateTime(value: string | undefined) {
 }
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
+  if (!isEditing.value && creationStep.value === 1) {
+    creationStep.value = 2
+    return
+  }
+
   isSubmitting.value = true
   try {
     const dueDate = toLocalDateTime(event.data.dueDate)
@@ -184,7 +201,9 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       priority: event.data.priority as TaskPriority,
       dueDate,
       assignedUserIds: props.isAdmin ? assignedUserIds.value : [props.currentUserId],
-      syncLinkedPageStates: props.isAdmin ? event.data.syncLinkedPageStates : false
+      syncLinkedPageStates: props.isAdmin ? event.data.syncLinkedPageStates : false,
+      status: event.data.status as TaskStatus,
+      pageIds: selectedPages.value.map(page => page.pageId)
     }
 
     if (!taskLocal.value?.id) {
@@ -192,18 +211,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         method: 'POST',
         body: payload
       })
-      if (event.data.status !== 'OPEN') {
-        await $fetch<Task>(`/api/tasks/${created.id}/status`, {
-          method: 'PUT',
-          body: { status: event.data.status as TaskStatus }
-        })
-      }
       taskLocal.value = created
       applyTaskToState(created)
       await refreshTaskOverview(props.workspaceId)
-      toast.add({ title: 'Task created', color: 'success' })
+      toast.add({ title: 'Assignment created', color: 'success' })
       await props.onUpdated?.()
       emit('close')
+      await navigateTo(`/tasks/${created.id}`)
       return
     }
 
@@ -236,11 +250,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     }
 
     await refreshTaskOverview(props.workspaceId)
-    toast.add({ title: 'Task updated', color: 'success' })
+    toast.add({ title: 'Assignment updated', color: 'success' })
     await props.onUpdated?.()
     emit('close')
   } catch (error: unknown) {
-    toast.add({ title: 'Failed to save task', description: extractApiErrorMessage(error, 'An error occurred'), color: 'error' })
+    toast.add({ title: 'Failed to save assignment', description: extractApiErrorMessage(error, 'An error occurred'), color: 'error' })
   } finally {
     isSubmitting.value = false
   }
@@ -262,7 +276,7 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
       <UiSlideoverHeader
         :title="titleText"
         :icon="isEditing ? 'i-lucide-pencil' : 'i-lucide-clipboard-plus'"
-        :description="isEditing ? 'Update task details, scheduling, and assignment.' : 'Define the task, schedule, and responsible workspace members.'"
+        :description="isEditing ? 'Update assignment details, scheduling, and members.' : (creationStep === 1 ? 'Define the assignment and who will work on it.' : 'Optionally turn pages into Tasks for this Assignment.')"
       />
     </template>
 
@@ -280,8 +294,9 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
         @submit="onSubmit"
       >
         <UiSlideoverSection
-          title="Task Details"
-          description="Core information, status, priority, and due date."
+          v-if="isEditing || creationStep === 1"
+          title="Assignment Details"
+          description="Core assignment information, status, priority, and due date."
           icon="i-lucide-clipboard-list"
         >
           <div class="space-y-4">
@@ -290,7 +305,7 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
                 v-model="state.title"
                 data-tour="task-form-title"
                 :disabled="isSubmitting || !canEditTaskDetails"
-                placeholder="Task title"
+                placeholder="Assignment title"
               />
             </UFormField>
 
@@ -335,7 +350,7 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
               v-if="isAdmin"
               label="Linked page states"
               name="syncLinkedPageStates"
-              hint="Keep explicitly linked pages aligned with this task's status."
+              hint="Set linked pages to Done when all of their page Tasks are complete."
             >
               <USwitch
                 v-model="state.syncLinkedPageStates"
@@ -347,8 +362,9 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
         </UiSlideoverSection>
 
         <UiSlideoverSection
+          v-if="isEditing || creationStep === 1"
           title="Assignees"
-          description="Choose the workspace members responsible for this task."
+          description="Choose the workspace members responsible for this Assignment."
           icon="i-lucide-users"
         >
           <UFormField
@@ -439,6 +455,45 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
             </div>
           </UFormField>
         </UiSlideoverSection>
+
+        <UiSlideoverSection
+          v-if="!isEditing && creationStep === 2"
+          title="Page Tasks"
+          description="Each selected page becomes one Task, balanced across the selected members."
+          icon="i-lucide-files"
+        >
+          <div class="space-y-3">
+            <div class="flex items-center justify-between gap-3 rounded-sm border border-default bg-elevated/40 p-3">
+              <div class="min-w-0">
+                <p class="text-sm font-medium">
+                  {{ selectedPages.length }} page{{ selectedPages.length === 1 ? '' : 's' }} selected
+                </p>
+                <p class="text-xs text-muted">
+                  You can add pages later from the Assignment.
+                </p>
+              </div>
+              <UButton
+                type="button"
+                size="sm"
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-plus"
+                :disabled="isSubmitting"
+                @click="choosePages"
+              >
+                {{ selectedPages.length > 0 ? 'Change pages' : 'Select pages' }}
+              </UButton>
+            </div>
+
+            <div v-if="selectedPages.length > 0" class="max-h-48 space-y-1 overflow-y-auto rounded-sm border border-default p-2">
+              <div v-for="page in selectedPages" :key="page.pageId" class="flex items-center gap-2 px-2 py-1 text-sm">
+                <UIcon name="i-lucide-file" class="size-4 shrink-0 text-muted" />
+                <span class="min-w-0 flex-1 truncate">{{ page.pageName }}</span>
+                <span class="max-w-40 truncate text-xs text-muted">{{ page.projectName }}</span>
+              </div>
+            </div>
+          </div>
+        </UiSlideoverSection>
       </UForm>
     </template>
 
@@ -449,19 +504,19 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
           color="neutral"
           variant="outline"
           :disabled="isSubmitting"
-          @click="emit('close')"
+          @click="!isEditing && creationStep === 2 ? creationStep = 1 : emit('close')"
         >
-          Close
+          {{ !isEditing && creationStep === 2 ? 'Back' : 'Cancel' }}
         </UButton>
         <UButton
           type="submit"
           :form="formId"
           data-tour="task-form-save"
-          icon="i-lucide-save"
+          :icon="!isEditing && creationStep === 1 ? 'i-lucide-arrow-right' : 'i-lucide-save'"
           :loading="isSubmitting"
           :disabled="isSubmitting"
         >
-          Save
+          {{ !isEditing && creationStep === 1 ? 'Next' : (isEditing ? 'Save' : 'Create Assignment') }}
         </UButton>
       </div>
     </template>

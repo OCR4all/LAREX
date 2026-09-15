@@ -18,6 +18,8 @@ public interface SubtaskRepository extends JpaRepository<Subtask, String> {
 
     List<Subtask> findByTaskIdAndIdIn(String taskId, Collection<String> subtaskIds);
 
+    List<Subtask> findByTaskIdAndPageIdIn(String taskId, Collection<String> pageIds);
+
     @Query("SELECT COALESCE(MAX(s.sortOrder), -1) + 1 FROM Subtask s WHERE s.taskId = :taskId")
     int getNextSortOrder(@Param("taskId") String taskId);
 

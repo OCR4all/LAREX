@@ -70,7 +70,7 @@ const filterDefinitions: Array<{ type: PageFilterType, label: string, descriptio
   { type: 'tags', label: 'Tags', description: 'Page tags', icon: 'i-lucide-tag' },
   { type: 'confidence', label: 'Confidence', description: 'PAGE @conf range', icon: 'i-lucide-gauge' },
   { type: 'comments', label: 'Comments', description: 'Pages containing comments', icon: 'i-lucide-message-square' },
-  { type: 'openSubtasks', label: 'Open tasks', description: 'Your incomplete subtasks', icon: 'i-lucide-square-check-big' },
+  { type: 'openSubtasks', label: 'Open tasks', description: 'Your incomplete Tasks', icon: 'i-lucide-square-check-big' },
   { type: 'xmlAttribute', label: 'PAGE XML attribute', description: 'Source attribute presence or value', icon: 'i-lucide-brackets' }
 ]
 

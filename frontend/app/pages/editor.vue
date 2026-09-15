@@ -652,7 +652,7 @@ async function handleMergeSelected() {
   }
 }
 
-async function handleSaveDocument() {
+async function handleSaveDocument(showSuccessToast = true) {
   if (isSavingActiveCanvas.value) {
     return false
   }
@@ -683,11 +683,13 @@ async function handleSaveDocument() {
       if (sessionStore.focusedWork) {
         await focusedWorkQueue.refresh()
       }
-      toast.add({
-        title: 'Saved',
-        description: 'Annotations saved successfully.',
-        color: 'success'
-      })
+      if (showSuccessToast) {
+        toast.add({
+          title: 'Saved',
+          description: 'Annotations saved successfully.',
+          color: 'success'
+        })
+      }
     } else {
       toast.add({
         title: 'Save failed',
@@ -1185,18 +1187,7 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   }
 
-  const toolkitActions: DropdownMenuItem[] = [
-    {
-      label: 'Check Codec',
-      icon: 'i-lucide-badge-check',
-      disabled: !canCheckCodecForLoadedPages.value,
-      onSelect: () => {
-        void openCodecValidationForLoadedPages()
-      }
-    }
-  ]
-
-  return [pageActions, toolkitActions]
+  return [pageActions]
 })
 
 const backendFilterSignature = computed(() => JSON.stringify({
@@ -1592,8 +1583,20 @@ const {
   openedProjectIds: computed(() => [...sessionStore.openedProjectIds]),
   refreshTaskCaches,
   saveDocument: handleSaveDocument,
-  onSubtasksCompleted: (ids) => {
-    void focusedWorkCompletionHandler?.(ids)
+  onSubtasksCompleted: async (ids) => {
+    if (sessionStore.focusedWork) {
+      await focusedWorkCompletionHandler?.(ids)
+      return
+    }
+    const projectId = currentProjectId.value
+    const pageId = activePageId.value
+    if (projectId && pageId) {
+      try {
+        await editorStore.refreshPageData(projectId, pageId)
+      } catch (error) {
+        console.warn('Failed to refresh page workflow state after completing Task:', error)
+      }
+    }
   }
 })
 
@@ -2829,6 +2832,19 @@ const {
         @save-and-continue="handleSaveAndCompleteOpenSubtasks"
       />
 
+      <EditorMinimalTaskOverlay
+        v-if="!sessionStore.focusedWork && activeCanvasId && !activeCanvasIsComparison && activeOpenSubtasks.length > 0"
+        :open-subtasks="activeOpenSubtasks"
+        :completing-subtask-id="completingSubtaskId"
+        :can-complete-active-page-subtasks="canCompleteActivePageSubtasks"
+        :is-completing-open-subtasks="isCompletingOpenSubtasks"
+        :is-saving-active-canvas="isSavingActiveCanvas"
+        :can-edit-active-canvas="activeCanvasCanEdit"
+        :is-active-page-locked="isActivePageLocked"
+        @complete-subtask="completeSubtask"
+        @save-and-continue="handleSaveAndCompleteOpenSubtasks"
+      />
+
       <EditorEmpty v-if="!activeCanvasId && !sessionStore.focusedWork" class="absolute inset-0 z-10" />
 
       <EditorKeyboardShortcutsHelp
@@ -2904,7 +2920,9 @@ const {
         :page="activePage"
         :selected-element="textSidebarSelectedElement"
         :is-page-locked="isActivePageLocked"
+        :can-check-codec="canCheckCodecForLoadedPages"
         @apply-metadata="handleApplyMetadataIfWritable"
+        @check-codec="openCodecValidationForLoadedPages"
       />
     </EditorRightSidebar>
   </div>

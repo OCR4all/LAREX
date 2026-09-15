@@ -42,6 +42,7 @@ class TaskServiceDeleteTest {
     @Mock UserService userService;
     @Mock AuthorizationPolicyService authorizationPolicyService;
     @Mock SubtaskRepository subtaskRepository;
+    @Mock SubtaskService subtaskService;
     @Mock TaskActivityLogRepository taskActivityLogRepository;
     @Mock TaskCommentRepository taskCommentRepository;
     @Mock TaskPageLinkRepository taskPageLinkRepository;
@@ -65,6 +66,7 @@ class TaskServiceDeleteTest {
                 userService,
                 authorizationPolicyService,
                 subtaskRepository,
+                subtaskService,
                 taskActivityLogRepository,
                 taskCommentRepository,
                 taskPageLinkRepository,
@@ -101,7 +103,7 @@ class TaskServiceDeleteTest {
         verify(taskActivityLogRepository).deleteByTaskId("task-1");
         verify(taskProjectLinkRepository).deleteByTaskId("task-1");
         verify(taskPageLinkRepository).deleteByTaskId("task-1");
-        verify(pageWorkflowService).recomputeForExistingPageIds(List.of("page-1"));
+        verify(pageWorkflowService).recomputeForExistingPageIds(List.of("page-1"), "editor-1");
 
         InOrder deletionOrder = inOrder(subtaskRepository, taskRepository);
         deletionOrder.verify(subtaskRepository).deleteByTaskId("task-1");

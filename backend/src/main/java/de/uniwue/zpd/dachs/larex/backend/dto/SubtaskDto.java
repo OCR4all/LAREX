@@ -75,12 +75,9 @@ public class SubtaskDto {
             String assignedUserId
     ) {}
 
-    public record CreateWithPageRequest(
-            @NotBlank(message = "Title is required")
-            String title,
-            String pageId,
-            String assignedUserId,
-            String description
+    public record CreateFromPagesRequest(
+            @NotNull(message = "Page IDs are required")
+            List<String> pageIds
     ) {}
 
     public record PageSubtaskSummary(

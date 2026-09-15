@@ -51,7 +51,7 @@ export function useTaskKanban(tasks: Ref<Task[] | null | undefined>) {
         || 'An error occurred'
       )
       toast.add({
-        title: 'Failed to update task status',
+        title: 'Failed to update Assignment status',
         description: errorMessage,
         color: 'error'
       })

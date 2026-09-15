@@ -74,7 +74,7 @@ public class WorkspaceAccessService {
 
     public void requireManageTasksAccess(String workspaceId, String userId) {
         if (!canManageTasks(workspaceId, userId)) {
-            throw new SecurityException("Task management access required for workspace: " + workspaceId);
+            throw new SecurityException("Assignment management access required for workspace: " + workspaceId);
         }
     }
 

@@ -2,7 +2,7 @@
 import type { Task, TaskStatus, TaskComment, TaskActivityLog, TaskLinks, Subtask, SubtaskProgress, TaskReminder, UserProfile, WorkspaceMember } from '~/types/index'
 import { formatDistanceToNow, isPast, parseISO, format, addHours, addDays, set } from 'date-fns'
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
-import { LazyTaskSlideoverEdit, LazyUiDeleteSlideover, LazyTaskSlideoverLinkItems, LazyTaskModalConvertToSubtasks } from '#components'
+import { LazyTaskSlideoverEdit, LazyUiDeleteSlideover, LazyTaskSlideoverLinkItems } from '#components'
 
 const route = useRoute()
 const router = useRouter()
@@ -106,7 +106,7 @@ const { data: links, refresh: refreshLinks } = await useFetch<TaskLinks>(
   }
 )
 
-const { data: subtasks } = await useFetch<Subtask[]>(
+const { data: subtasks, refresh: refreshSubtasks } = await useFetch<Subtask[]>(
   () => `/api/tasks/${taskId.value}/subtasks`,
   {
     key: globalKey('tasks', taskId.value, 'subtasks'),
@@ -301,6 +301,7 @@ async function saveAssignees() {
     })
     task.value = updated
     assigneeEditorOpen.value = false
+    await refreshSubtasks()
     await refreshAfterInlineTaskUpdate()
     toast.add({ title: 'Assignees updated', color: 'success' })
   } catch (err: any) {
@@ -398,19 +399,18 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     to: '/'
   },
   {
-    label: 'Tasks',
+    label: 'Assignments',
     icon: 'i-lucide-check-square',
     to: '/tasks'
   },
   {
-    label: task.value?.title || 'Task Details'
+    label: task.value?.title || 'Assignment Details'
   }
 ])
 
 const editSlideover = overlay.create(LazyTaskSlideoverEdit)
 const deleteConfirmSlideover = overlay.create(LazyUiDeleteSlideover)
-const linkItemsSlideover = overlay.create(LazyTaskSlideoverLinkItems)
-const convertToSubtasksModal = overlay.create(LazyTaskModalConvertToSubtasks)
+const pagePicker = overlay.create(LazyTaskSlideoverLinkItems)
 
 async function openEditSlideover() {
   if (!task.value || !workspaceId.value) return
@@ -423,13 +423,17 @@ async function openEditSlideover() {
     onUpdated: async () => {
       await refreshTaskCaches(taskId.value, workspaceId.value)
       await refreshLinkedProjectCaches()
+      await refreshSubtasks()
       await refreshActivity()
     }
   })
   await instance.result
 }
 
-const linkedPageIds = computed(() => (links.value?.pageLinks ?? []).map(l => l.pageId))
+const linkedPageIds = computed(() => [
+  ...(links.value?.pageLinks ?? []).map(link => link.pageId),
+  ...(subtasks.value ?? []).map(subtask => subtask.pageId).filter((pageId): pageId is string => Boolean(pageId))
+])
 
 const pagesByProject = computed(() => {
   const groups = new Map<string, { projectId: string, projectName: string, pages: typeof links.value.pageLinks }>()
@@ -452,30 +456,33 @@ const pagesByProject = computed(() => {
     }))
 })
 
-async function openLinkItemsSlideover() {
+async function openPageTaskPicker() {
   if (!canEdit.value) return
   if (!workspaceId.value) return
 
-  const instance = linkItemsSlideover.open({
-    taskId: taskId.value,
+  const instance = pagePicker.open({
     workspaceId: workspaceId.value,
-    linkedPageIds: linkedPageIds.value,
-    onLinked: async (linkedPages: { pageId: string, pageName: string, projectId: string, projectName: string }[]) => {
-      await refreshLinks()
-
-      if (linkedPages.length > 0) {
-        const convertInstance = convertToSubtasksModal.open({
-          taskId: taskId.value,
-          pages: linkedPages,
-          taskAssignees: task.value?.assignedUsers ?? [],
-          taskDescription: task.value?.description,
-          onConverted: (created: Subtask[]) => mergeCreatedSubtasks(created)
-        })
-        await convertInstance.result
-      }
-    }
+    excludedPageIds: linkedPageIds.value
   })
-  await instance.result
+  const selectedPages = await instance.result
+  if (!selectedPages?.length) return
+
+  try {
+    const created = await $fetch<Subtask[]>(`/api/tasks/${taskId.value}/subtasks/from-pages`, {
+      method: 'POST',
+      body: { pageIds: selectedPages.map(page => page.pageId) }
+    })
+    mergeCreatedSubtasks(created)
+    await refreshLinks()
+    toast.add({ title: `Created ${created.length} page task${created.length === 1 ? '' : 's'}`, color: 'success' })
+  } catch (error: unknown) {
+    toast.add({ title: 'Failed to create page tasks', description: extractApiErrorMessage(error, 'An error occurred'), color: 'error' })
+  }
+}
+
+async function updateSubtasks(items: Subtask[]) {
+  subtasks.value = items
+  await refreshLinks()
 }
 
 async function handleDelete() {
@@ -484,7 +491,7 @@ async function handleDelete() {
 
   const instance = deleteConfirmSlideover.open({
     name: task.value.title,
-    entityType: 'Task'
+    entityType: 'Assignment'
   })
   const confirmed = await instance.result
   if (!confirmed) return
@@ -495,10 +502,10 @@ async function handleDelete() {
       body: { taskIds: [taskId.value] }
     })
     await refreshTaskOverview(workspaceId.value)
-    toast.add({ title: 'Task deleted', color: 'success' })
+    toast.add({ title: 'Assignment deleted', color: 'success' })
     await router.push('/tasks')
   } catch (e: any) {
-    toast.add({ title: 'Failed to delete task', description: e?.data?.message, color: 'error' })
+    toast.add({ title: 'Failed to delete assignment', description: e?.data?.message, color: 'error' })
   }
 }
 
@@ -507,7 +514,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
 
   if (allow(taskCapabilities.value.canDelete)) {
     items.push({
-      label: 'Delete task',
+      label: 'Delete assignment',
       icon: 'i-lucide-trash',
       color: 'error' as const,
       onSelect: handleDelete
@@ -519,10 +526,9 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
 
 const activeTab = ref('subtasks')
 const tabItems = [
-  { value: 'subtasks', label: 'Subtasks', icon: 'i-lucide-list-checks' },
+  { value: 'subtasks', label: 'Tasks', icon: 'i-lucide-list-checks' },
   { value: 'comments', label: 'Comments', icon: 'i-lucide-message-square' },
-  { value: 'activity', label: 'Activity', icon: 'i-lucide-activity' },
-  { value: 'links', label: 'Links', icon: 'i-lucide-link' }
+  { value: 'activity', label: 'Activity', icon: 'i-lucide-activity' }
 ]
 </script>
 
@@ -558,7 +564,7 @@ const tabItems = [
               color="neutral"
               variant="ghost"
               icon="i-lucide-ellipsis-vertical"
-              aria-label="More task actions"
+              aria-label="More assignment actions"
             />
           </UDropdownMenu>
         </template>
@@ -572,9 +578,9 @@ const tabItems = [
 
       <div v-else-if="!task" class="flex flex-col items-center justify-center py-16 text-muted">
         <UIcon name="i-lucide-alert-circle" class="size-12 mb-4" />
-        <p>Task not found</p>
+        <p>Assignment not found</p>
         <UButton class="mt-4" @click="goBack">
-          Go back to tasks
+          Go back to assignments
         </UButton>
       </div>
 
@@ -674,7 +680,8 @@ const tabItems = [
                   :task-id="taskId"
                   :subtasks="subtasks ?? []"
                   :task-assignees="task?.assignedUsers ?? []"
-                  @update:subtasks="subtasks = $event"
+                  @update:subtasks="updateSubtasks"
+                  @add-pages="openPageTaskPicker"
                 />
               </div>
 
@@ -704,17 +711,6 @@ const tabItems = [
                   </div>
                 </template>
               </div>
-
-              <div v-else-if="activeTab === 'links'">
-                <TaskDetailLinks
-                  :task-id="taskId"
-                  :workspace-id="workspaceId!"
-                  :links="links ?? { projectLinks: [], pageLinks: [] }"
-                  :task-description="task?.description"
-                  @refresh="refreshLinks"
-                  @subtasks-created="mergeCreatedSubtasks"
-                />
-              </div>
             </div>
           </section>
         </div>
@@ -734,15 +730,6 @@ const tabItems = [
                   {{ links.pageLinks.length }}
                 </UBadge>
               </h3>
-              <UButton
-                v-if="canEdit"
-                icon="i-lucide-plus"
-                size="xs"
-                color="neutral"
-                variant="ghost"
-                title="Link Pages"
-                @click="openLinkItemsSlideover"
-              />
             </div>
 
             <div v-if="pagesByProject.length > 0" class="space-y-2">
@@ -780,13 +767,12 @@ const tabItems = [
                       <UIcon name="i-lucide-file" class="size-3.5 text-muted shrink-0" />
                       <span class="text-sm truncate">{{ page.pageName }}</span>
                     </NuxtLink>
-                    <button
+                    <span
                       v-if="group.pages.length > 3"
-                      class="text-xs text-primary hover:underline pl-5 py-1"
-                      @click="activeTab = 'links'"
+                      class="block text-xs text-muted pl-5 py-1"
                     >
                       +{{ group.pages.length - 3 }} more
-                    </button>
+                    </span>
                   </div>
                 </template>
               </UCollapsible>
@@ -825,7 +811,7 @@ const tabItems = [
                         Assign users
                       </p>
                       <p class="text-xs text-muted">
-                        Select everyone responsible for this task.
+                        Select everyone responsible for this Assignment.
                       </p>
                     </div>
 

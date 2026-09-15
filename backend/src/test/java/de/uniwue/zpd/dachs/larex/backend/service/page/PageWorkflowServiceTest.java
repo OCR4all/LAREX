@@ -64,21 +64,22 @@ class PageWorkflowServiceTest {
     }
 
     @Test
-    void recomputeRequiresAllNonCancelledTasksToComplete() {
+    void recomputeMarksDoneWhenAllPageSubtasksComplete() {
         Project project = project();
         Page page = page("page-1", project);
         Task completed = task(Task.TaskStatus.COMPLETED);
         Task inProgress = task(Task.TaskStatus.IN_PROGRESS);
 
         when(pageRepository.findAllByIdInForUpdate(List.of("page-1"))).thenReturn(List.of(page));
-        when(taskPageLinkRepository.findSyncEnabledTasksByPageIds(List.of("page-1")))
-                .thenReturn(List.of(new Object[]{"page-1", completed}, new Object[]{"page-1", inProgress}));
+        when(taskPageLinkRepository.findSyncEnabledTaskSubtasksByPageIds(List.of("page-1")))
+                .thenReturn(List.of(new Object[]{"page-1", completed, true}, new Object[]{"page-1", inProgress, false}));
         when(pageRepository.saveAll(List.of(page))).thenReturn(List.of(page));
 
         service.recomputeForPageIds(List.of("page-1"));
         assertEquals(Page.WorkflowState.IN_PROGRESS, page.getWorkflowState());
 
-        inProgress.setStatus(Task.TaskStatus.COMPLETED);
+        when(taskPageLinkRepository.findSyncEnabledTaskSubtasksByPageIds(List.of("page-1")))
+                .thenReturn(List.of(new Object[]{"page-1", completed, true}, new Object[]{"page-1", inProgress, true}));
         service.recomputeForPageIds(List.of("page-1"));
         assertEquals(Page.WorkflowState.DONE, page.getWorkflowState());
         verify(annotationLeaseService).assertNoOtherActiveEditor("page-1", null);
@@ -90,7 +91,7 @@ class PageWorkflowServiceTest {
         Page existingPage = page("page-1", project);
         when(pageRepository.findAllByIdInForUpdate(List.of("page-1", "deleted-page")))
                 .thenReturn(List.of(existingPage));
-        when(taskPageLinkRepository.findSyncEnabledTasksByPageIds(List.of("page-1")))
+        when(taskPageLinkRepository.findSyncEnabledTaskSubtasksByPageIds(List.of("page-1")))
                 .thenReturn(List.of());
         when(pageRepository.saveAll(List.of(existingPage))).thenReturn(List.of(existingPage));
 
@@ -133,4 +134,5 @@ class PageWorkflowServiceTest {
         task.setStatus(status);
         return task;
     }
+
 }

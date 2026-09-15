@@ -22,7 +22,7 @@ const searchResults = ref<UserProfile[]>([])
 
 const roleOptions = [
   { label: 'Editor', value: 'EDITOR', description: 'Can edit page annotations only' },
-  { label: 'Curator', value: 'CURATOR', description: 'Can manage projects, tasks, and toolkit' }
+  { label: 'Curator', value: 'CURATOR', description: 'Can manage projects, Assignments, and toolkit' }
 ]
 
 const debouncedSearch = useDebounceFn(async (query: string) => {

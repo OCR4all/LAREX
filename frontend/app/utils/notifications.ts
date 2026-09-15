@@ -25,7 +25,7 @@ export function getNotificationLink(notification: Notification): string | undefi
 
     case 'TASK_ASSIGNED':
     case 'TASK_COMPLETED':
-      return notification.relatedEntityType === 'Task'
+      return notification.relatedEntityType === 'Assignment' || notification.relatedEntityType === 'Task'
         ? `/tasks?taskId=${encodeURIComponent(notification.relatedEntityId)}`
         : '/tasks'
 

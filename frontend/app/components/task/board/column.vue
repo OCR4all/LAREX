@@ -119,7 +119,7 @@ function onAdd(event: any) {
         <div class="space-y-2">
           <UIcon name="i-lucide-move-down" class="mx-auto size-4" />
           <p class="text-xs">
-            Drop tasks here
+            Drop assignments here
           </p>
         </div>
       </div>

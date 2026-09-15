@@ -9,7 +9,6 @@ import de.uniwue.zpd.dachs.larex.backend.service.task.TaskActivityService;
 import de.uniwue.zpd.dachs.larex.backend.service.task.TaskCommentService;
 import de.uniwue.zpd.dachs.larex.backend.service.task.TaskReminderService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -154,6 +153,16 @@ public class TaskDetailController {
         return ResponseEntity.status(HttpStatus.CREATED).body(subtask);
     }
 
+    @PostMapping("/subtasks/from-pages")
+    public ResponseEntity<List<SubtaskDto.Response>> createSubtasksFromPages(
+            @PathVariable String taskId,
+            @Valid @RequestBody SubtaskDto.CreateFromPagesRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId
+    ) {
+        List<SubtaskDto.Response> subtasks = subtaskService.createSubtasksFromPages(taskId, userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(subtasks);
+    }
+
     @PutMapping("/subtasks/{subtaskId}")
     public ResponseEntity<SubtaskDto.Response> updateSubtask(
             @PathVariable String taskId,
@@ -236,23 +245,4 @@ public class TaskDetailController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/subtasks/with-page")
-    public ResponseEntity<SubtaskDto.Response> createSubtaskWithPage(
-            @PathVariable String taskId,
-            @Valid @RequestBody SubtaskDto.CreateWithPageRequest request,
-            @AuthenticationPrincipal(expression = "subject") String userId
-    ) {
-        SubtaskDto.Response subtask = subtaskService.createSubtaskWithPage(taskId, userId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(subtask);
-    }
-
-    @PostMapping("/subtasks/with-pages")
-    public ResponseEntity<List<SubtaskDto.Response>> createSubtasksWithPages(
-            @PathVariable String taskId,
-            @NotEmpty @Valid @RequestBody List<SubtaskDto.CreateWithPageRequest> requests,
-            @AuthenticationPrincipal(expression = "subject") String userId
-    ) {
-        List<SubtaskDto.Response> subtasks = subtaskService.createSubtasksWithPages(taskId, userId, requests);
-        return ResponseEntity.status(HttpStatus.CREATED).body(subtasks);
-    }
 }

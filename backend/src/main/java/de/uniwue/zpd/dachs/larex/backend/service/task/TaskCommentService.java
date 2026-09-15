@@ -50,7 +50,7 @@ public class TaskCommentService {
 
     public List<TaskCommentDto.Response> getTaskComments(String taskId, String userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
             throw new SecurityException("Access denied.");
@@ -62,7 +62,7 @@ public class TaskCommentService {
 
     public TaskCommentDto.Response createComment(String taskId, String userId, TaskCommentDto.CreateRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
@@ -105,7 +105,7 @@ public class TaskCommentService {
 
     public TaskCommentDto.Response updateComment(String taskId, String commentId, String userId, TaskCommentDto.UpdateRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
@@ -146,7 +146,7 @@ public class TaskCommentService {
 
     public void deleteComment(String taskId, String commentId, String userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 

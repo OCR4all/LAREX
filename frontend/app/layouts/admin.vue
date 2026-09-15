@@ -120,9 +120,9 @@ const groups = computed(() => {
       onSelect: () => { open.value = false }
     }, {
       id: 'go-tasks',
-      label: 'Go to Tasks',
+      label: 'Go to Assignments',
       icon: 'i-lucide-clipboard-list',
-      suffix: 'View and manage tasks',
+      suffix: 'View and manage assignments',
       kbds: ['G', 'T'],
       to: '/tasks',
       onSelect: () => { open.value = false }

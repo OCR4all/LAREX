@@ -9,7 +9,7 @@ type EditorTaskStateOptions = {
   selectedWorkspace: ComputedRef<string | null | undefined>
   openedProjectIds: ComputedRef<string[]>
   refreshTaskCaches: (taskId: string, workspaceId?: string | null) => Promise<unknown>
-  saveDocument: () => Promise<boolean>
+  saveDocument: (showSuccessToast?: boolean) => Promise<boolean>
   onSubtasksCompleted?: (subtaskIds: string[]) => Promise<void> | void
 }
 
@@ -40,8 +40,8 @@ export function useEditorTaskState(options: EditorTaskStateOptions) {
       }
     } catch (error: unknown) {
       toast.add({
-        title: 'Failed to load open subtasks',
-        description: extractApiErrorMessage(error, 'Could not load open subtasks.'),
+        title: 'Failed to load open Tasks',
+        description: extractApiErrorMessage(error, 'Could not load open Tasks.'),
         color: 'error'
       })
     } finally {
@@ -128,7 +128,7 @@ export function useEditorTaskState(options: EditorTaskStateOptions) {
     }
   }
 
-  async function completeActivePageSubtasks() {
+  async function completeActivePageSubtasks(showSuccessToast = true) {
     if (!canCompleteActivePageSubtasks.value) return
     isCompletingOpenSubtasks.value = true
     try {
@@ -147,14 +147,16 @@ export function useEditorTaskState(options: EditorTaskStateOptions) {
       const affectedTaskIds = [...new Set(activeOpenSubtasks.value.map(subtask => subtask.taskId))]
       await Promise.all(affectedTaskIds.map(taskId => options.refreshTaskCaches(taskId, options.selectedWorkspace.value)))
       await fetchOpenSubtasks()
-      toast.add({
-        title: 'Completed open subtasks',
-        color: 'success'
-      })
+      if (showSuccessToast) {
+        toast.add({
+          title: 'Completed open Tasks',
+          color: 'success'
+        })
+      }
     } catch (error: unknown) {
       toast.add({
-        title: 'Failed to complete open subtasks',
-        description: extractApiErrorMessage(error, 'Could not complete open subtasks.'),
+        title: 'Failed to complete open Tasks',
+        description: extractApiErrorMessage(error, 'Could not complete open Tasks.'),
         color: 'error'
       })
     } finally {
@@ -163,9 +165,9 @@ export function useEditorTaskState(options: EditorTaskStateOptions) {
   }
 
   async function handleSaveAndCompleteOpenSubtasks() {
-    const saved = await options.saveDocument()
+    const saved = await options.saveDocument(false)
     if (!saved) return
-    await completeActivePageSubtasks()
+    await completeActivePageSubtasks(false)
   }
 
   return {

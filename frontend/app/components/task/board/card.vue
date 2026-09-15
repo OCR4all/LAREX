@@ -108,8 +108,8 @@ const additionalCount = computed(() => {
               color="neutral"
               variant="ghost"
               size="xs"
-              aria-label="Task actions"
-              title="Task actions"
+              aria-label="Assignment actions"
+              title="Assignment actions"
               @pointerdown.stop
               @click.stop
             />

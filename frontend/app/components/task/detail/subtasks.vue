@@ -11,6 +11,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:subtasks': [subtasks: Subtask[]]
+  'add-pages': []
 }>()
 
 const toast = useToast()
@@ -114,14 +115,14 @@ async function bulkComplete() {
       method: 'POST',
       body: { subtaskIds: Array.from(selected) }
     })
-    toast.add({ title: `Completed ${response.affected} subtask${response.affected !== 1 ? 's' : ''}`, color: 'success' })
+    toast.add({ title: `Completed ${response.affected} task${response.affected !== 1 ? 's' : ''}`, color: 'success' })
     selectedIds.value = new Set()
     selectionMode.value = false
     commitSubtasks(localSubtasks.value.map(subtask => selected.has(subtask.id)
       ? { ...subtask, completed: true }
       : subtask))
   } catch (err: any) {
-    toast.add({ title: 'Failed to complete subtasks', description: err?.data?.message, color: 'error' })
+    toast.add({ title: 'Failed to complete tasks', description: err?.data?.message, color: 'error' })
   } finally {
     isBulkProcessing.value = false
   }
@@ -137,12 +138,12 @@ async function bulkDelete() {
       method: 'POST',
       body: { subtaskIds: Array.from(deletedIds) }
     })
-    toast.add({ title: `Deleted ${response.affected} subtask${response.affected !== 1 ? 's' : ''}`, color: 'success' })
+    toast.add({ title: `Deleted ${response.affected} task${response.affected !== 1 ? 's' : ''}`, color: 'success' })
     selectedIds.value = new Set()
     selectionMode.value = false
     commitSubtasks(localSubtasks.value.filter(subtask => !deletedIds.has(subtask.id)))
   } catch (err: any) {
-    toast.add({ title: 'Failed to delete subtasks', description: err?.data?.message, color: 'error' })
+    toast.add({ title: 'Failed to delete tasks', description: err?.data?.message, color: 'error' })
   } finally {
     isBulkProcessing.value = false
   }
@@ -169,7 +170,7 @@ async function assignSubtask(subtask: Subtask, userId: string | null) {
     })
     commitSubtasks(localSubtasks.value.map(item => item.id === subtask.id ? updated : item))
   } catch (err: any) {
-    toast.add({ title: 'Failed to assign subtask', description: err?.data?.message, color: 'error' })
+    toast.add({ title: 'Failed to assign task', description: err?.data?.message, color: 'error' })
   }
 }
 
@@ -183,7 +184,7 @@ async function bulkAssign(userId: string | null) {
       method: 'POST',
       body: { subtaskIds: Array.from(selected), assignedUserId: userId || null }
     })
-    toast.add({ title: `Assigned ${response.affected} subtask${response.affected !== 1 ? 's' : ''}`, color: 'success' })
+    toast.add({ title: `Assigned ${response.affected} task${response.affected !== 1 ? 's' : ''}`, color: 'success' })
     const assignedTo = userId
       ? props.taskAssignees?.find(user => user.id === userId) ?? null
       : null
@@ -193,7 +194,7 @@ async function bulkAssign(userId: string | null) {
       ? { ...subtask, assignedUserId: userId, assignedTo }
       : subtask))
   } catch (err: any) {
-    toast.add({ title: 'Failed to assign subtasks', description: err?.data?.message, color: 'error' })
+    toast.add({ title: 'Failed to assign tasks', description: err?.data?.message, color: 'error' })
   } finally {
     isBulkProcessing.value = false
   }
@@ -213,7 +214,7 @@ async function bulkSetDescription() {
         description
       }
     })
-    toast.add({ title: `Updated ${response.affected} subtask${response.affected !== 1 ? 's' : ''}`, color: 'success' })
+    toast.add({ title: `Updated ${response.affected} task${response.affected !== 1 ? 's' : ''}`, color: 'success' })
     bulkDescription.value = ''
     bulkDescriptionOpen.value = false
     selectedIds.value = new Set()
@@ -222,7 +223,7 @@ async function bulkSetDescription() {
       ? { ...subtask, description }
       : subtask))
   } catch (err: any) {
-    toast.add({ title: 'Failed to update subtasks', description: err?.data?.message, color: 'error' })
+    toast.add({ title: 'Failed to update tasks', description: err?.data?.message, color: 'error' })
   } finally {
     isBulkProcessing.value = false
   }
@@ -267,7 +268,7 @@ async function addSubtask() {
     closeAddSubtask()
     commitSubtasks([...localSubtasks.value, created])
   } catch (err: any) {
-    toast.add({ title: 'Failed to add subtask', description: err?.data?.message, color: 'error' })
+    toast.add({ title: 'Failed to add task', description: err?.data?.message, color: 'error' })
   } finally {
     isAdding.value = false
   }
@@ -292,7 +293,7 @@ async function toggleSubtask(subtask: Subtask) {
     commitSubtasks(localSubtasks.value.map(item => item.id === subtask.id ? updated : item))
   } catch (err: any) {
     commitSubtasks(localSubtasks.value.map(item => item.id === subtask.id ? previous : item))
-    toast.add({ title: 'Failed to toggle subtask', description: err?.data?.message, color: 'error' })
+    toast.add({ title: 'Failed to toggle task', description: err?.data?.message, color: 'error' })
   } finally {
     const next = new Set(pendingToggleIds.value)
     next.delete(subtask.id)
@@ -334,7 +335,7 @@ async function saveEdit(subtask: Subtask) {
     commitSubtasks(localSubtasks.value.map(item => item.id === subtask.id ? updated : item))
     cancelEditing()
   } catch (err: any) {
-    toast.add({ title: 'Failed to update subtask', description: err?.data?.message, color: 'error' })
+    toast.add({ title: 'Failed to update task', description: err?.data?.message, color: 'error' })
   }
 }
 
@@ -345,7 +346,7 @@ async function deleteSubtask(subtask: Subtask) {
     })
     commitSubtasks(localSubtasks.value.filter(item => item.id !== subtask.id))
   } catch (err: any) {
-    toast.add({ title: 'Failed to delete subtask', description: err?.data?.message, color: 'error' })
+    toast.add({ title: 'Failed to delete task', description: err?.data?.message, color: 'error' })
   }
 }
 
@@ -360,87 +361,98 @@ watch([localSubtasks, editingId], async () => {
     <div class="flex items-center justify-between gap-3">
       <div>
         <p class="text-sm font-semibold text-highlighted">
-          {{ localSubtasks.length }} subtask{{ localSubtasks.length === 1 ? '' : 's' }}
+          {{ localSubtasks.length }} task{{ localSubtasks.length === 1 ? '' : 's' }}
         </p>
         <p v-if="progress.total > 0" class="text-xs text-muted">
           {{ progress.completed }} completed
         </p>
       </div>
 
-      <UPopover
-        v-model:open="addSubtaskOpen"
-        :content="{ align: 'end', sideOffset: 8 }"
-      >
+      <div class="flex items-center gap-2">
         <UButton
-          icon="i-lucide-plus"
-          color="primary"
-          variant="soft"
+          icon="i-lucide-files"
+          color="neutral"
+          variant="outline"
           size="sm"
+          @click="emit('add-pages')"
         >
-          Add subtask
+          Add pages
         </UButton>
-
-        <template #content>
-          <UForm
-            class="w-80 max-w-[calc(100vw-2rem)] space-y-3 p-3"
-            @submit="addSubtask"
+        <UPopover
+          v-model:open="addSubtaskOpen"
+          :content="{ align: 'end', sideOffset: 8 }"
+        >
+          <UButton
+            icon="i-lucide-plus"
+            color="primary"
+            variant="soft"
+            size="sm"
           >
-            <div>
-              <p class="text-sm font-semibold text-highlighted">
-                Add subtask
-              </p>
-              <p class="mt-0.5 text-xs text-muted">
-                Break this task into a smaller piece of work.
-              </p>
-            </div>
+            Add task
+          </UButton>
 
-            <UFormField label="Title" required>
-              <UInput
-                v-model="newSubtaskTitle"
-                placeholder="What needs to be done?"
-                size="sm"
-                class="w-full"
-                :disabled="isAdding"
-                autofocus
-              />
-            </UFormField>
+          <template #content>
+            <UForm
+              class="w-80 max-w-[calc(100vw-2rem)] space-y-3 p-3"
+              @submit="addSubtask"
+            >
+              <div>
+                <p class="text-sm font-semibold text-highlighted">
+                  Add task
+                </p>
+                <p class="mt-0.5 text-xs text-muted">
+                  Add a general Task to this Assignment.
+                </p>
+              </div>
 
-            <UFormField label="Description">
-              <UTextarea
-                v-model="newSubtaskDescription"
-                placeholder="Optional description"
-                :rows="3"
-                size="sm"
-                class="w-full"
-                :disabled="isAdding"
-              />
-            </UFormField>
+              <UFormField label="Title" required>
+                <UInput
+                  v-model="newSubtaskTitle"
+                  placeholder="What needs to be done?"
+                  size="sm"
+                  class="w-full"
+                  :disabled="isAdding"
+                  autofocus
+                />
+              </UFormField>
 
-            <div class="flex justify-end gap-2">
-              <UButton
-                type="button"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                :disabled="isAdding"
-                @click="closeAddSubtask"
-              >
-                Cancel
-              </UButton>
-              <UButton
-                type="submit"
-                icon="i-lucide-plus"
-                color="primary"
-                size="sm"
-                :loading="isAdding"
-                :disabled="!newSubtaskTitle.trim()"
-              >
-                Add
-              </UButton>
-            </div>
-          </UForm>
-        </template>
-      </UPopover>
+              <UFormField label="Description">
+                <UTextarea
+                  v-model="newSubtaskDescription"
+                  placeholder="Optional description"
+                  :rows="3"
+                  size="sm"
+                  class="w-full"
+                  :disabled="isAdding"
+                />
+              </UFormField>
+
+              <div class="flex justify-end gap-2">
+                <UButton
+                  type="button"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  :disabled="isAdding"
+                  @click="closeAddSubtask"
+                >
+                  Cancel
+                </UButton>
+                <UButton
+                  type="submit"
+                  icon="i-lucide-plus"
+                  color="primary"
+                  size="sm"
+                  :loading="isAdding"
+                  :disabled="!newSubtaskTitle.trim()"
+                >
+                  Add
+                </UButton>
+              </div>
+            </UForm>
+          </template>
+        </UPopover>
+      </div>
     </div>
 
     <div v-if="progress.total > 0" class="space-y-2">
@@ -504,7 +516,7 @@ watch([localSubtasks, editingId], async () => {
               <UTextarea
                 v-model="bulkDescription"
                 :rows="3"
-                placeholder="Set a description for selected subtasks"
+                placeholder="Set a description for selected tasks"
               />
               <div class="flex justify-end gap-2">
                 <UButton
@@ -705,7 +717,7 @@ watch([localSubtasks, editingId], async () => {
 
     <div v-if="localSubtasks.length === 0" class="py-6 text-center text-sm text-muted">
       <UIcon name="i-lucide-list-checks" class="size-8 mb-2 mx-auto" />
-      <p>No subtasks yet. Add the first one to get started.</p>
+      <p>No Tasks yet. Add a task or select pages to get started.</p>
     </div>
   </div>
 </template>

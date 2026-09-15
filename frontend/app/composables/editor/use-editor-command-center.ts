@@ -292,9 +292,9 @@ export function useEditorCommandCenter(options: EditorCommandCenterOptions) {
       }
     }, {
       id: 'go-tasks',
-      label: 'Go to Tasks',
+      label: 'Go to Assignments',
       icon: 'i-lucide-clipboard-list',
-      suffix: 'View and manage tasks',
+      suffix: 'View and manage assignments',
       kbds: ['G', 'T'],
       to: '/tasks',
       onSelect: () => {

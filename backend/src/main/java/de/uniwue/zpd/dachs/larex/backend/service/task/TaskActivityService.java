@@ -39,7 +39,7 @@ public class TaskActivityService {
 
     public List<TaskActivityLogDto.Response> getTaskActivity(String taskId, String userId, int page, int size) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
             throw new SecurityException("Access denied.");

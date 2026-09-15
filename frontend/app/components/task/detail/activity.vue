@@ -126,7 +126,7 @@ function getActivityDescription(log: TaskActivityLog): string {
 
   switch (log.activityType) {
     case 'CREATED':
-      return `${name} created this task`
+      return `${name} created this Assignment`
     case 'TITLE_CHANGED':
       return `${name} changed the title`
     case 'DESCRIPTION_CHANGED':
@@ -159,11 +159,11 @@ function getActivityDescription(log: TaskActivityLog): string {
     case 'COMMENT_DELETED':
       return `${name} deleted a comment`
     case 'SUBTASK_ADDED':
-      return details ? `${name} added “${details}”` : `${name} added a subtask`
+      return details ? `${name} added “${details}”` : `${name} added a Task`
     case 'SUBTASK_COMPLETED':
-      return details ? `${name} completed “${details}”` : `${name} completed a subtask`
+      return details ? `${name} completed “${details}”` : `${name} completed a Task`
     case 'SUBTASK_DELETED':
-      return details ? `${name} deleted “${details}”` : `${name} deleted a subtask`
+      return details ? `${name} deleted “${details}”` : `${name} deleted a Task`
     case 'LINK_ADDED':
     {
       const parsed = parseJson<{ type?: string, id?: string }>(details)
@@ -199,11 +199,11 @@ function getGroupedDescription(group: ActivityGroup): string {
 
   switch (group.activityType) {
     case 'SUBTASK_ADDED':
-      return `${name} added ${group.count} subtasks`
+      return `${name} added ${group.count} Tasks`
     case 'SUBTASK_COMPLETED':
-      return `${name} completed ${group.count} subtasks`
+      return `${name} completed ${group.count} Tasks`
     case 'SUBTASK_DELETED':
-      return `${name} deleted ${group.count} subtasks`
+      return `${name} deleted ${group.count} Tasks`
     default:
       return `${name} made ${group.count} updates`
   }

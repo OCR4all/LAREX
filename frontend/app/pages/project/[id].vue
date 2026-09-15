@@ -1844,7 +1844,7 @@ function renderOpenTasksContent(page: Page, count: number) {
               : null
           ])
         ))
-      : h('p', { class: 'text-xs text-muted' }, 'Loading subtasks...')
+      : h('p', { class: 'text-xs text-muted' }, 'Loading Tasks...')
   ])
 }
 

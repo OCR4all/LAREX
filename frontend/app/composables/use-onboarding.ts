@@ -24,7 +24,7 @@ const EDITOR_TOUR_VERSION = 2
  */
 const NAV_SELECTOR_TO_LABEL: Record<string, string> = {
   '[data-tour="nav-library"]': 'Projects',
-  '[data-tour="nav-tasks"]': 'Tasks',
+  '[data-tour="nav-tasks"]': 'Assignments',
   '[data-tour="nav-toolkit"]': 'Toolkit',
   '[data-tour="nav-workspace"]': 'Workspace',
   '[data-tour="nav-settings"]': 'Settings'

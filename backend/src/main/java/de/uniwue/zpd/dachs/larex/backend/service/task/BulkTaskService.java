@@ -28,19 +28,22 @@ public class BulkTaskService {
     private final TaskActivityService activityService;
     private final TaskStatusTransactionService taskStatusTransactionService;
     private final TaskQueueRealtimePublisher taskQueueRealtimePublisher;
+    private final SubtaskService subtaskService;
 
     public BulkTaskService(
             TaskRepository taskRepository,
             WorkspaceAccessService workspaceAccessService,
             TaskActivityService activityService,
             TaskStatusTransactionService taskStatusTransactionService,
-            TaskQueueRealtimePublisher taskQueueRealtimePublisher
+            TaskQueueRealtimePublisher taskQueueRealtimePublisher,
+            SubtaskService subtaskService
     ) {
         this.taskRepository = taskRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.activityService = activityService;
         this.taskStatusTransactionService = taskStatusTransactionService;
         this.taskQueueRealtimePublisher = taskQueueRealtimePublisher;
+        this.subtaskService = subtaskService;
     }
 
     public BulkTaskDto.BulkOperationResponse bulkUpdateStatus(
@@ -128,7 +131,7 @@ public class BulkTaskService {
             );
         } catch (Exception e) {
             failedTaskIds.addAll(targetTaskIds);
-            errors.add("Error bulk updating task priority: " + e.getMessage());
+            errors.add("Error bulk updating Assignment priority: " + e.getMessage());
             return new BulkTaskDto.BulkOperationResponse(
                     0,
                     failedTaskIds.size(),
@@ -213,6 +216,13 @@ public class BulkTaskService {
                     }
                 }
 
+                if (currentAssignees.isEmpty()) {
+                    currentAssignees.add(userId);
+                    if (!addedUsers.contains(userId)) {
+                        addedUsers.add(userId);
+                    }
+                }
+
                 if (!addedUsers.isEmpty() || !removedUsers.isEmpty()) {
                     task.setAssignedUserIds(currentAssignees);
                     tasksToSave.add(task);
@@ -230,6 +240,14 @@ public class BulkTaskService {
             try {
                 taskRepository.saveAll(tasksToSave);
                 for (AssigneeChange change : assigneeChanges) {
+                    Task task = taskById.get(change.taskId());
+                    subtaskService.redistributeOpenTasks(
+                            task,
+                            new HashSet<>(change.removedUsers()),
+                            task.getAssignedUserIds()
+                    );
+                }
+                for (AssigneeChange change : assigneeChanges) {
                     activityService.logAssigneesChanged(
                             change.taskId(),
                             userId,
@@ -242,7 +260,7 @@ public class BulkTaskService {
                         .map(AssigneeChange::taskId)
                         .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
                 failedTaskIds.addAll(changedTaskIds);
-                errors.add("Error bulk updating task assignees: " + e.getMessage());
+                errors.add("Error bulk updating Assignment members: " + e.getMessage());
                 successCount -= changedTaskIds.size();
             }
         }
@@ -305,13 +323,13 @@ public class BulkTaskService {
 
     private void verifyWorkspaceAccess(String workspaceId, String userId) {
         if (!workspaceAccessService.canManageTasks(workspaceId, userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Task management access required for this operation");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Assignment management access required for this operation");
         }
     }
 
     private void verifyWorkspaceAdmin(String workspaceId, String userId) {
         if (!workspaceAccessService.canManageTasks(workspaceId, userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Task management access required for this operation");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Assignment management access required for this operation");
         }
     }
 
@@ -330,12 +348,12 @@ public class BulkTaskService {
             Task task = taskById.get(taskId);
             if (task == null) {
                 failedTaskIds.add(taskId);
-                errors.add("Task not found: " + taskId);
+                errors.add("Assignment not found: " + taskId);
                 continue;
             }
             if (!workspaceId.equals(task.getWorkspaceId())) {
                 failedTaskIds.add(taskId);
-                errors.add("Task does not belong to workspace: " + taskId);
+                errors.add("Assignment does not belong to workspace: " + taskId);
                 taskById.remove(taskId);
             }
         }

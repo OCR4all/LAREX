@@ -7,10 +7,13 @@ import de.uniwue.zpd.dachs.larex.backend.dto.UserProfileDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.Subtask;
 import de.uniwue.zpd.dachs.larex.backend.entity.Task;
+import de.uniwue.zpd.dachs.larex.backend.entity.TaskPageLink;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.SubtaskRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
@@ -24,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.stream.IntStream;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -35,6 +39,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class SubtaskService {
 
     private final SubtaskRepository subtaskRepository;
+    private final TaskPageLinkRepository taskPageLinkRepository;
     private final TaskRepository taskRepository;
     private final PageRepository pageRepository;
     private final TaskActivityService activityService;
@@ -43,9 +48,11 @@ public class SubtaskService {
     private final WorkspaceAccessService workspaceAccessService;
     private final WorkspaceQueryService workspaceQueryService;
     private final TaskQueueRealtimePublisher taskQueueRealtimePublisher;
+    private final PageWorkflowService pageWorkflowService;
 
     public SubtaskService(
             SubtaskRepository subtaskRepository,
+            TaskPageLinkRepository taskPageLinkRepository,
             TaskRepository taskRepository,
             PageRepository pageRepository,
             TaskActivityService activityService,
@@ -53,9 +60,11 @@ public class SubtaskService {
             AuthorizationPolicyService authorizationPolicyService,
             WorkspaceAccessService workspaceAccessService,
             WorkspaceQueryService workspaceQueryService,
-            TaskQueueRealtimePublisher taskQueueRealtimePublisher
+            TaskQueueRealtimePublisher taskQueueRealtimePublisher,
+            PageWorkflowService pageWorkflowService
     ) {
         this.subtaskRepository = subtaskRepository;
+        this.taskPageLinkRepository = taskPageLinkRepository;
         this.taskRepository = taskRepository;
         this.pageRepository = pageRepository;
         this.activityService = activityService;
@@ -64,6 +73,7 @@ public class SubtaskService {
         this.workspaceAccessService = workspaceAccessService;
         this.workspaceQueryService = workspaceQueryService;
         this.taskQueueRealtimePublisher = taskQueueRealtimePublisher;
+        this.pageWorkflowService = pageWorkflowService;
     }
 
     public EditorQueueDto.Response getAssignedEditorQueue(String workspaceId, String userId) {
@@ -229,14 +239,142 @@ public class SubtaskService {
         return toResponse(subtask, task);
     }
 
+    public List<SubtaskDto.Response> createSubtasksFromPages(
+            String taskId,
+            String userId,
+            SubtaskDto.CreateFromPagesRequest request
+    ) {
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
+        List<String> requestedPageIds = normalizeIds(request.pageIds());
+        if (requestedPageIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Page> pages = pageRepository.findAllByIdIn(requestedPageIds);
+        Map<String, Page> pagesById = (pages == null ? List.<Page>of() : pages).stream()
+                .collect(java.util.stream.Collectors.toMap(Page::getId, page -> page));
+        for (String pageId : requestedPageIds) {
+            Page page = pagesById.get(pageId);
+            if (page == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Page not found: " + pageId);
+            }
+            if (page.getProject() == null
+                    || page.getProject().getLibrary() == null
+                    || !task.getWorkspaceId().equals(page.getProject().getLibrary().getWorkspaceId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Every page must belong to the task workspace");
+            }
+        }
+
+        List<Subtask> existingPageSubtasks = subtaskRepository.findByTaskIdAndPageIdIn(taskId, requestedPageIds);
+        Set<String> existingPageIds = new HashSet<>((existingPageSubtasks == null ? List.<Subtask>of() : existingPageSubtasks).stream()
+                .map(Subtask::getPageId)
+                .filter(Objects::nonNull)
+                .toList());
+        List<String> pageIds = requestedPageIds.stream()
+                .filter(pageId -> !existingPageIds.contains(pageId))
+                .toList();
+        if (pageIds.isEmpty()) {
+            return List.of();
+        }
+
+        int nextSortOrder = subtaskRepository.getNextSortOrder(taskId);
+        List<String> assigneeIds = task.getAssignedUserIds() == null
+                ? List.of()
+                : task.getAssignedUserIds().stream().filter(Objects::nonNull).distinct().toList();
+        if (assigneeIds.isEmpty()) {
+            assigneeIds = List.of(task.getCreatedByUserId());
+        }
+        Map<String, Integer> openTaskCounts = new HashMap<>();
+        assigneeIds.forEach(assigneeId -> openTaskCounts.put(assigneeId, 0));
+        List<Subtask> existingSubtasks = subtaskRepository.findByTaskIdOrderBySortOrderAsc(taskId);
+        (existingSubtasks == null ? List.<Subtask>of() : existingSubtasks).stream()
+                .filter(subtask -> !subtask.isCompleted())
+                .map(Subtask::getAssignedUserId)
+                .filter(openTaskCounts::containsKey)
+                .forEach(assigneeId -> openTaskCounts.merge(assigneeId, 1, Integer::sum));
+
+        List<Subtask> subtasks = new ArrayList<>(pageIds.size());
+        for (int index = 0; index < pageIds.size(); index++) {
+            String assigneeId = chooseLeastLoadedAssignee(openTaskCounts);
+            String pageId = pageIds.get(index);
+            Subtask subtask = new Subtask(taskId, task.getTitle(), nextSortOrder + index);
+            subtask.setPageId(pageId);
+            subtask.setAssignedUserId(assigneeId);
+            subtasks.add(subtask);
+            openTaskCounts.merge(assigneeId, 1, Integer::sum);
+        }
+
+        List<Subtask> saved = subtaskRepository.saveAll(subtasks);
+        if (saved == null) {
+            saved = subtasks;
+        }
+        List<String> newLinkPageIds = pageIds.stream()
+                .filter(pageId -> !taskPageLinkRepository.existsByTaskIdAndPageId(taskId, pageId))
+                .toList();
+        if (!newLinkPageIds.isEmpty()) {
+            taskPageLinkRepository.saveAll(newLinkPageIds.stream()
+                    .map(pageId -> new TaskPageLink(taskId, pageId, TaskPageLink.LinkType.MANUAL, userId))
+                    .toList());
+            if (task.isSyncLinkedPageStates()) {
+                pageWorkflowService.recomputeForPageIds(newLinkPageIds, userId);
+            }
+        }
+
+        saved.forEach(subtask -> activityService.logSubtaskAdded(taskId, userId, subtask.getTitle()));
+        publishQueueChange(task, saved.stream().map(Subtask::getAssignedUserId).toList());
+        return toResponses(saved, Map.of(task.getId(), task));
+    }
+
+    private String chooseLeastLoadedAssignee(Map<String, Integer> openTaskCounts) {
+        int minimum = openTaskCounts.values().stream().min(Integer::compareTo).orElse(0);
+        List<String> candidates = openTaskCounts.entrySet().stream()
+                .filter(entry -> entry.getValue() == minimum)
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        Collections.shuffle(candidates);
+        return candidates.get(0);
+    }
+
+    public void redistributeOpenTasks(Task task, Set<String> removedAssigneeIds, List<String> remainingAssigneeIds) {
+        if (removedAssigneeIds.isEmpty() || remainingAssigneeIds.isEmpty()) {
+            return;
+        }
+
+        Map<String, Integer> openTaskCounts = new HashMap<>();
+        remainingAssigneeIds.forEach(assigneeId -> openTaskCounts.put(assigneeId, 0));
+        List<Subtask> taskSubtasks = subtaskRepository.findByTaskIdOrderBySortOrderAsc(task.getId());
+        if (taskSubtasks == null) {
+            taskSubtasks = List.of();
+        }
+        taskSubtasks.stream()
+                .filter(subtask -> !subtask.isCompleted())
+                .map(Subtask::getAssignedUserId)
+                .filter(openTaskCounts::containsKey)
+                .forEach(assigneeId -> openTaskCounts.merge(assigneeId, 1, Integer::sum));
+
+        List<Subtask> reassigned = taskSubtasks.stream()
+                .filter(subtask -> !subtask.isCompleted())
+                .filter(subtask -> removedAssigneeIds.contains(subtask.getAssignedUserId()))
+                .toList();
+        for (Subtask subtask : reassigned) {
+            String assigneeId = chooseLeastLoadedAssignee(openTaskCounts);
+            subtask.setAssignedUserId(assigneeId);
+            openTaskCounts.merge(assigneeId, 1, Integer::sum);
+        }
+        if (!reassigned.isEmpty()) {
+            subtaskRepository.saveAll(reassigned);
+            publishQueueChange(task, new ArrayList<>(openTaskCounts.keySet()));
+        }
+    }
+
     public SubtaskDto.Response updateSubtask(String taskId, String subtaskId, String userId, SubtaskDto.UpdateRequest request) {
         Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         Subtask subtask = subtaskRepository.findById(subtaskId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
 
         if (!subtask.getTaskId().equals(taskId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found for this task");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found for this Assignment");
         }
 
         if (request.title() != null && !request.title().isBlank()) {
@@ -256,10 +394,10 @@ public class SubtaskService {
         Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         Subtask subtask = subtaskRepository.findById(subtaskId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
 
         if (!subtask.getTaskId().equals(taskId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found for this task");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found for this Assignment");
         }
 
         boolean wasCompleted = subtask.isCompleted();
@@ -275,6 +413,9 @@ public class SubtaskService {
         }
 
         subtask = subtaskRepository.save(subtask);
+        if (task.isSyncLinkedPageStates() && subtask.getPageId() != null) {
+            pageWorkflowService.recomputeForExistingPageIds(List.of(subtask.getPageId()), userId);
+        }
         publishQueueChange(task, subtask.getAssignedUserId());
         return toResponse(subtask, task);
     }
@@ -290,12 +431,12 @@ public class SubtaskService {
                 .collect(java.util.stream.Collectors.toMap(Subtask::getId, s -> s));
 
         if (subtaskIds.size() != subtasks.size()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Subtask count mismatch");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Task count mismatch");
         }
 
         for (String id : subtaskIds) {
             if (!subtaskMap.containsKey(id)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Subtask does not belong to this task: " + id);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Task does not belong to this Assignment: " + id);
             }
         }
 
@@ -312,14 +453,17 @@ public class SubtaskService {
         Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         Subtask subtask = subtaskRepository.findById(subtaskId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
 
         if (!subtask.getTaskId().equals(taskId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found for this task");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found for this Assignment");
         }
 
         String title = subtask.getTitle();
+        String pageId = subtask.getPageId();
         subtaskRepository.delete(subtask);
+        subtaskRepository.flush();
+        removeDerivedLinkIfUnused(task, pageId, userId);
 
         activityService.logSubtaskDeleted(taskId, userId, title);
         publishQueueChange(task, subtask.getAssignedUserId());
@@ -352,6 +496,9 @@ public class SubtaskService {
         for (Subtask subtask : toComplete) {
             activityService.logSubtaskCompleted(taskId, userId, subtask.getTitle());
         }
+        if (task.isSyncLinkedPageStates()) {
+            recomputeLinkedPageStates(toComplete, userId);
+        }
         publishQueueChange(task, toComplete.stream().map(Subtask::getAssignedUserId).filter(Objects::nonNull).toList());
 
         return new SubtaskDto.BulkResponse(affected);
@@ -374,12 +521,43 @@ public class SubtaskService {
                 taskId,
                 subtasks.stream().map(Subtask::getId).toList()
         );
+        subtaskRepository.flush();
+        subtasks.stream()
+                .map(Subtask::getPageId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .forEach(pageId -> removeDerivedLinkIfUnused(task, pageId, userId));
         for (Subtask subtask : subtasks) {
             activityService.logSubtaskDeleted(taskId, userId, subtask.getTitle());
         }
         publishQueueChange(task, subtasks.stream().map(Subtask::getAssignedUserId).filter(Objects::nonNull).toList());
 
         return new SubtaskDto.BulkResponse(affected);
+    }
+
+    private void recomputeLinkedPageStates(List<Subtask> subtasks, String allowedUserId) {
+        subtasks.stream()
+                .map(Subtask::getPageId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .forEach(pageId -> pageWorkflowService.recomputeForExistingPageIds(List.of(pageId), allowedUserId));
+    }
+
+    private void removeDerivedLinkIfUnused(Task task, String pageId, String allowedUserId) {
+        List<Subtask> remaining = pageId == null
+                ? List.of()
+                : subtaskRepository.findByTaskIdAndPageIdIn(task.getId(), List.of(pageId));
+        if (pageId == null || (remaining != null && remaining.stream().anyMatch(s -> pageId.equals(s.getPageId())))) {
+            return;
+        }
+
+        taskPageLinkRepository.findByTaskIdAndPageId(task.getId(), pageId).ifPresent(link -> {
+            taskPageLinkRepository.delete(link);
+            taskPageLinkRepository.flush();
+            if (task.isSyncLinkedPageStates()) {
+                pageWorkflowService.recomputeForExistingPageIds(List.of(pageId), allowedUserId);
+            }
+        });
     }
 
     public SubtaskDto.ProgressResponse getProgress(String taskId, String userId) {
@@ -394,78 +572,25 @@ public class SubtaskService {
 
     private void verifyTaskAccess(String taskId, String userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
 
         boolean hasAccess = task.getCreatedByUserId().equals(userId) ||
                 (task.getAssignedUserIds() != null && task.getAssignedUserIds().contains(userId));
 
         if (!hasAccess) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this task");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this Assignment");
         }
-    }
-
-    public SubtaskDto.Response createSubtaskWithPage(String taskId, String userId, SubtaskDto.CreateWithPageRequest request) {
-        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
-
-        // Validate assignee is a task assignee
-        if (request.assignedUserId() != null && !request.assignedUserId().isBlank()) {
-            validateAssignee(task, request.assignedUserId());
-        }
-
-        int sortOrder = subtaskRepository.getNextSortOrder(taskId);
-
-        Subtask subtask = new Subtask(taskId, request.title(), sortOrder);
-        subtask.setPageId(request.pageId());
-        subtask.setAssignedUserId(request.assignedUserId());
-        subtask.setDescription(request.description());
-        subtask = subtaskRepository.save(subtask);
-
-        activityService.logSubtaskAdded(taskId, userId, request.title());
-        publishQueueChange(task, subtask.getAssignedUserId());
-
-        return toResponse(subtask, task);
-    }
-
-    public List<SubtaskDto.Response> createSubtasksWithPages(
-            String taskId,
-            String userId,
-            List<SubtaskDto.CreateWithPageRequest> requests
-    ) {
-        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
-
-        requests.forEach(request -> {
-            if (request.assignedUserId() != null && !request.assignedUserId().isBlank()) {
-                validateAssignee(task, request.assignedUserId());
-            }
-        });
-
-        int nextSortOrder = subtaskRepository.getNextSortOrder(taskId);
-        List<Subtask> subtasks = IntStream.range(0, requests.size())
-                .mapToObj(index -> {
-                    SubtaskDto.CreateWithPageRequest request = requests.get(index);
-                    Subtask subtask = new Subtask(taskId, request.title(), nextSortOrder + index);
-                    subtask.setPageId(request.pageId());
-                    subtask.setAssignedUserId(request.assignedUserId());
-                    subtask.setDescription(request.description());
-                    return subtask;
-                })
-                .toList();
-
-        List<Subtask> saved = subtaskRepository.saveAll(subtasks);
-        saved.forEach(subtask -> activityService.logSubtaskAdded(taskId, userId, subtask.getTitle()));
-        publishQueueChange(task, saved.stream().map(Subtask::getAssignedUserId).toList());
-        return toResponses(saved, Map.of(task.getId(), task));
     }
 
     public SubtaskDto.Response assignSubtask(String taskId, String subtaskId, String userId, SubtaskDto.AssignRequest request) {
         Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         Subtask subtask = subtaskRepository.findById(subtaskId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
         String previousAssignee = subtask.getAssignedUserId();
 
         if (!subtask.getTaskId().equals(taskId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found for this task");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found for this Assignment");
         }
 
         // Validate assignee is a task assignee (null means unassign)
@@ -569,23 +694,22 @@ public class SubtaskService {
     }
 
     private void validateAssignee(Task task, String assigneeUserId) {
-        boolean isCreator = task.getCreatedByUserId().equals(assigneeUserId);
         boolean isAssignee = task.getAssignedUserIds() != null && task.getAssignedUserIds().contains(assigneeUserId);
 
-        if (!isCreator && !isAssignee) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User must be assigned to the task to be assigned to a subtask");
+        if (!isAssignee) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User must be a current Assignment member to be assigned to a Task");
         }
     }
 
     private Task verifyTaskAccessAndGet(String taskId, String userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
 
         boolean hasAccess = task.getCreatedByUserId().equals(userId) ||
                 (task.getAssignedUserIds() != null && task.getAssignedUserIds().contains(userId));
 
         if (!hasAccess) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this task");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this Assignment");
         }
 
         return task;
@@ -597,7 +721,7 @@ public class SubtaskService {
 
     private Task verifyTaskCompletionAccess(String taskId, String userId, List<Subtask> subtasks, int requestedCount) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
 
         if (authorizationPolicyService.canManageTasks(task.getWorkspaceId(), userId)) {
             return task;
@@ -611,7 +735,7 @@ public class SubtaskService {
                 && subtasks.stream().allMatch(subtask -> subtask.getPageId() != null)
                 && subtasks.stream().allMatch(subtask -> userId.equals(subtask.getAssignedUserId()));
         if (!assignedEditor) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You may only complete your own active assigned subtasks");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You may only complete your own active assigned Tasks");
         }
 
         return task;
@@ -619,10 +743,10 @@ public class SubtaskService {
 
     private Task verifyTaskMutationAccessAndGet(String taskId, String userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
 
         if (!authorizationPolicyService.canManageTasks(task.getWorkspaceId(), userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Task management access required");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Assignment management access required");
         }
 
         return task;

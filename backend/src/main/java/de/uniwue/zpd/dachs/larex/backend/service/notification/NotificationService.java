@@ -126,33 +126,33 @@ public class NotificationService {
     public void createTaskAssignedNotification(String userId, String taskTitle, String taskId) {
         createNotification(
                 userId,
-                "Task Assigned",
-                "You have been assigned to task: " + taskTitle,
+                "Assignment Assigned",
+                "You have been added to Assignment: " + taskTitle,
                 Notification.NotificationType.TASK_ASSIGNED,
                 taskId,
-                "Task"
+                "Assignment"
         );
     }
 
     public void createTaskCompletedNotification(String userId, String taskTitle, String taskId) {
         createNotification(
                 userId,
-                "Task Completed",
-                "Task has been completed: " + taskTitle,
+                "Assignment Completed",
+                "Assignment has been completed: " + taskTitle,
                 Notification.NotificationType.TASK_COMPLETED,
                 taskId,
-                "Task"
+                "Assignment"
         );
     }
 
     public void createTaskMentionedNotification(String userId, String taskTitle, String taskId) {
         createNotification(
                 userId,
-                "Mentioned in Task",
-                "You were mentioned in task: " + taskTitle,
+                "Mentioned in Assignment",
+                "You were mentioned in Assignment: " + taskTitle,
                 Notification.NotificationType.TASK_MENTIONED,
                 taskId,
-                "Task"
+                "Assignment"
         );
     }
 
@@ -160,32 +160,32 @@ public class NotificationService {
         createNotification(
                 userId,
                 "New Comment",
-                "New comment on task: " + taskTitle,
+                "New comment on Assignment: " + taskTitle,
                 Notification.NotificationType.TASK_COMMENT_ADDED,
                 taskId,
-                "Task"
+                "Assignment"
         );
     }
 
     public void createTaskDueSoonNotification(String userId, String taskTitle, String taskId) {
         createNotification(
                 userId,
-                "Task Due Soon",
-                "Task is due within 24 hours: " + taskTitle,
+                "Assignment Due Soon",
+                "Assignment is due within 24 hours: " + taskTitle,
                 Notification.NotificationType.TASK_DUE_SOON,
                 taskId,
-                "Task"
+                "Assignment"
         );
     }
 
     public void createTaskOverdueNotification(String userId, String taskTitle, String taskId) {
         createNotification(
                 userId,
-                "Task Overdue",
-                "Task is overdue: " + taskTitle,
+                "Assignment Overdue",
+                "Assignment is overdue: " + taskTitle,
                 Notification.NotificationType.TASK_OVERDUE,
                 taskId,
-                "Task"
+                "Assignment"
         );
     }
 

@@ -90,7 +90,7 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
 
   return [
     { label: 'Projects', icon: 'i-lucide-library', to: '/', active: isProjectsRoute.value, onSelect: () => { sidebarOpen.value = false } },
-    { label: 'Tasks', icon: 'i-lucide-clipboard-list', to: '/tasks', active: isTaskRoute.value, onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Assignments', icon: 'i-lucide-clipboard-list', to: '/tasks', active: isTaskRoute.value, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Forge', icon: 'i-lucide-hammer', defaultOpen: hasActive(forgeChildren), type: 'trigger', children: forgeChildren },
     { label: 'Toolkit', icon: 'i-lucide-tool-case', defaultOpen: hasActive(toolkitChildren), type: 'trigger', children: toolkitChildren },
     { label: 'Workspace', icon: 'i-lucide-layers', defaultOpen: hasActive(workspaceChildren), type: 'trigger', children: workspaceChildren },

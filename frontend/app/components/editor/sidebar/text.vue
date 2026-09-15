@@ -19,10 +19,12 @@ const props = defineProps<{
   page?: Page | null
   selectedElement?: Region | TextLine | RenderablePolyline | null
   isPageLocked?: boolean
+  canCheckCodec?: boolean
 }>()
 
 const emit = defineEmits<{
   'apply-metadata': [payload: MetadataApplyPayload]
+  'check-codec': []
 }>()
 
 const editorStore = useEditorStore()
@@ -336,6 +338,8 @@ onBeforeUnmount(() => {
               <EditorSidebarCodecSettingsPanel
                 v-model:include-whitespace-in-codec-highlight="includeWhitespaceInCodecHighlightModel"
                 :has-project-codec="hasProjectCodec"
+                :can-check-codec="canCheckCodec"
+                @check-codec="emit('check-codec')"
               />
             </template>
             <template v-else-if="item.slot === 'dictionary'">
@@ -408,6 +412,8 @@ onBeforeUnmount(() => {
         <EditorSidebarCodecSettingsPanel
           v-model:include-whitespace-in-codec-highlight="includeWhitespaceInCodecHighlightModel"
           :has-project-codec="hasProjectCodec"
+          :can-check-codec="canCheckCodec"
+          @check-codec="emit('check-codec')"
         />
       </template>
 

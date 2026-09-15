@@ -40,11 +40,6 @@ public class TaskLinkDto {
             String projectId
     ) {}
 
-    public record LinkPagesRequest(
-            List<String> pageIds,
-            String byTag
-    ) {}
-
     public record LinkedTaskResponse(
             String id,
             String title,

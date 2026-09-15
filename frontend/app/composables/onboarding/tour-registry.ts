@@ -83,7 +83,7 @@ const tours: OnboardingTourDefinition[] = [
         }),
         popover: {
           title: 'Navigation Sidebar',
-          description: 'Use the sidebar to move between Projects, Tasks, Toolkit, Workspace, and your personal settings.',
+          description: 'Use the sidebar to move between Projects, Assignments, Toolkit, Workspace, and your personal settings.',
           side: 'right',
           align: 'start'
         }
@@ -106,8 +106,8 @@ const tours: OnboardingTourDefinition[] = [
           await ensureDashboardSidebarVisible()
         }),
         popover: {
-          title: 'Tasks',
-          description: 'Create, assign, and track work across projects.',
+          title: 'Assignments',
+          description: 'Create, assign, and track Assignments across projects.',
           side: 'right',
           align: 'start'
         }
@@ -176,8 +176,8 @@ const tours: OnboardingTourDefinition[] = [
       {
         element: '[data-tour="tasks-panel"]',
         popover: {
-          title: 'Tasks Overview',
-          description: 'View tasks as a table or board, filter results, and run bulk actions.',
+          title: 'Assignments Overview',
+          description: 'View Assignments as a table or board, filter results, and run bulk actions.',
           side: 'bottom',
           align: 'start'
         }
@@ -185,8 +185,8 @@ const tours: OnboardingTourDefinition[] = [
       {
         element: '[data-tour="tasks-search"]',
         popover: {
-          title: 'Task Filters',
-          description: 'Narrow tasks by text, status, assignee, and other filters.',
+          title: 'Assignment Filters',
+          description: 'Narrow Assignments by text, status, assignee, and other filters.',
           side: 'bottom',
           align: 'start'
         }
@@ -194,8 +194,8 @@ const tours: OnboardingTourDefinition[] = [
       {
         element: '[data-tour="tasks-new"]',
         popover: {
-          title: 'Create a Task',
-          description: 'Click Next to open the task form. We will review key fields without saving.',
+          title: 'Create an Assignment',
+          description: 'Click Next to open the Assignment form. We will review key fields without saving.',
           side: 'left',
           align: 'center',
           onNextClick: withNextAction(async () => {
@@ -206,7 +206,7 @@ const tours: OnboardingTourDefinition[] = [
       {
         element: '[data-tour="task-form-title"]',
         popover: {
-          title: 'Task Basics',
+          title: 'Assignment Basics',
           description: 'Set title, description, status, priority, and due date. No changes are saved during this tour.',
           side: 'left',
           align: 'start'
@@ -216,7 +216,7 @@ const tours: OnboardingTourDefinition[] = [
         element: '[data-tour="task-form-assignees"]',
         popover: {
           title: 'Assignees',
-          description: 'Add assignees so the right people can see and complete the task.',
+          description: 'Add members so the right people can see and complete its Tasks.',
           side: 'left',
           align: 'start'
         }
@@ -849,7 +849,7 @@ const tours: OnboardingTourDefinition[] = [
         element: '[data-tour="editor-layout-tasks-panel"]',
         popover: {
           title: 'Tasks Panel',
-          description: 'View and complete page-related subtasks without leaving the editor.',
+          description: 'View and complete page-related Tasks without leaving the editor.',
           side: 'left',
           align: 'start'
         }

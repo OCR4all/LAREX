@@ -40,7 +40,7 @@ function getTaskDescription(subtask: Subtask) {
 </script>
 
 <template>
-  <div class="absolute top-14 right-4 z-30 w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-default bg-default/95 p-3 shadow-xl backdrop-blur">
+  <div class="absolute top-4 right-4 z-30 w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-default bg-default/95 p-3 shadow-xl backdrop-blur">
     <h2 class="mb-2 text-xs font-semibold text-muted">
       Task
     </h2>

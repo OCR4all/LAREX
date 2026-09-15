@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
-import type { Task, TaskStatus, TaskPriority, UserProfile, WorkspaceMember } from '~/types/index'
+import type { EditorQueue, Task, TaskStatus, TaskPriority, UserProfile, WorkspaceMember } from '~/types/index'
 import { DEFAULT_TASK_CAPABILITIES } from '@/types/capabilities'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { LazyUiDeleteSlideover, LazyTaskSlideoverEdit } from '#components'
@@ -104,6 +104,18 @@ const { data: tasks, status: tasksStatus } = await useFetch<Task[]>(
   }
 )
 
+const { data: taskQueue, status: taskQueueStatus, refresh: refreshTaskQueue } = await useFetch<EditorQueue | null>(
+  () => selectedWorkspace.value ? `/api/workspaces/${selectedWorkspace.value}/tasks/assigned-to-me/queue` : '',
+  {
+    key: computed(() => selectedWorkspace.value
+      ? wsKey(selectedWorkspace.value, 'tasks', 'assigned-queue')
+      : globalKey('pending', 'tasks', 'assigned-queue')),
+    default: () => null,
+    immediate: !!selectedWorkspace.value,
+    watch: [selectedWorkspace, assignedToMe]
+  }
+)
+
 const membersKey = computed(() => {
   if (!selectedWorkspace.value) return globalKey('pending', 'members', 'list')
   return wsKey(selectedWorkspace.value, 'members', 'list')
@@ -125,6 +137,7 @@ const canCreateTasks = computed(() => canManageTasks.value)
 
 const tasksSafe = computed(() => Array.isArray(tasks.value) ? tasks.value : [])
 const tasksSafeCount = computed(() => tasksSafe.value.length)
+const hasQueuedTasks = computed(() => (taskQueue.value?.openAssignedSubtaskCount ?? 0) > 0)
 
 const filteredTasks = computed(() => {
   const source = Array.isArray(tasksSafe.value) ? tasksSafe.value : []
@@ -231,6 +244,7 @@ const createTaskSlideover = overlay.create(LazyTaskSlideoverEdit)
 
 async function refreshOverview() {
   await refreshTaskOverview(selectedWorkspace.value)
+  if (selectedWorkspace.value) await refreshTaskQueue()
 }
 
 async function refreshCurrentTasksView() {
@@ -304,10 +318,10 @@ async function handleBulkDelete() {
   if (!canBulkDeleteSelected.value) return
   const count = selectedTasksCount.value
   const instance = deleteSlideover.open({
-    name: `${count} task${count > 1 ? 's' : ''}`,
-    entityType: 'Task',
+    name: `${count} assignment${count > 1 ? 's' : ''}`,
+    entityType: 'Assignment',
     items: selectedTasks.value.map(task => ({ id: task.id, label: task.title })),
-    warningMessage: `This will permanently delete ${count} task${count > 1 ? 's' : ''} and all associated data.`
+    warningMessage: `This will permanently delete ${count} assignment${count > 1 ? 's' : ''} and all associated data.`
   })
   const confirmed = await instance.result
   if (!confirmed) return
@@ -325,20 +339,20 @@ async function handleDeleteTask(task: Task) {
 
   const instance = deleteSlideover.open({
     name: task.title,
-    entityType: 'Task',
-    warningMessage: 'This will permanently delete this task and all associated data.'
+    entityType: 'Assignment',
+    warningMessage: 'This will permanently delete this Assignment and all associated data.'
   })
   const confirmed = await instance.result
   if (!confirmed) return
 
   try {
     await $fetch(`/api/tasks/${task.id}`, { method: 'DELETE' })
-    toast.add({ title: 'Task deleted', color: 'success' })
+    toast.add({ title: 'Assignment deleted', color: 'success' })
     await refreshOverview()
   } catch (error: unknown) {
     toast.add({
-      title: 'Failed to delete task',
-      description: extractApiErrorMessage(error, 'Could not delete the task.'),
+      title: 'Failed to delete Assignment',
+      description: extractApiErrorMessage(error, 'Could not delete the Assignment.'),
       color: 'error'
     })
   }
@@ -501,12 +515,13 @@ function openCreate() {
   createTaskSlideover.open({
     workspaceId: selectedWorkspace.value,
     isAdmin: canManageTasks.value,
-    currentUserId: currentUserId.value
+    currentUserId: currentUserId.value,
+    onUpdated: refreshTaskQueue
   })
 }
 
 async function openTaskQueue() {
-  if (!selectedWorkspace.value || !assignedToMe.value) return
+  if (!selectedWorkspace.value || !assignedToMe.value || !hasQueuedTasks.value) return
   isOpeningTaskQueue.value = true
   editorSessionStore.startFocusedWork(selectedWorkspace.value)
   try {
@@ -534,20 +549,21 @@ const viewModeItems = [
 <template>
   <UDashboardPanel id="tasks" data-tour="tasks-panel">
     <template #header>
-      <UDashboardNavbar title="Tasks">
+      <UDashboardNavbar title="Assignments">
         <template #right>
           <UButton
             v-if="selectedWorkspace && assignedToMe"
-            label="Open task queue"
+            label="Open Task Queue (Editor)"
             color="primary"
             icon="i-lucide-list-checks"
-            :loading="isOpeningTaskQueue"
+            :loading="isOpeningTaskQueue || taskQueueStatus === 'pending'"
+            :disabled="!hasQueuedTasks || taskQueueStatus === 'pending'"
             @click="openTaskQueue"
           />
           <UButton
             v-if="selectedWorkspace && canCreateTasks"
             data-tour="tasks-new"
-            label="New Task"
+            label="New Assignment"
             color="neutral"
             variant="outline"
             icon="i-lucide-clipboard-plus"
@@ -561,7 +577,7 @@ const viewModeItems = [
           <UInput
             v-model="q"
             data-tour="tasks-search"
-            placeholder="Search tasks..."
+            placeholder="Search assignments..."
             icon="i-lucide-search"
             class="w-64"
           />
@@ -606,7 +622,7 @@ const viewModeItems = [
       <div v-if="tasksStatus === 'pending' && tasksSafeCount === 0" class="py-8 text-center">
         <div class="flex items-center justify-center">
           <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
-          <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading tasks...</span>
+          <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading assignments...</span>
         </div>
       </div>
 
@@ -615,7 +631,7 @@ const viewModeItems = [
           v-if="activeTaskFilters.length > 0"
           variant="naked"
           icon="i-lucide-search-x"
-          title="No tasks match your filters"
+          title="No assignments match your filters"
           description="Try adjusting or clearing your filters to see more results."
         />
 
@@ -623,12 +639,12 @@ const viewModeItems = [
           v-else
           variant="naked"
           icon="i-lucide-clipboard-list"
-          title="No tasks found"
-          description="Create your first task to get started."
+          title="No assignments found"
+          description="Create your first Assignment to get started."
           :actions="[
             {
               icon: 'i-lucide-clipboard-plus',
-              label: 'Create Task',
+              label: 'Create Assignment',
               variant: 'solid',
               disabled: !selectedWorkspace || !canCreateTasks,
               onClick: openCreate

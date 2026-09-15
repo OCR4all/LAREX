@@ -70,23 +70,23 @@ public class TaskReminderService {
 
     private void verifyTaskAccess(String taskId, String userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
 
         // User must be assigned to the task or be the creator
         boolean hasAccess = task.getCreatedByUserId().equals(userId) ||
                 (task.getAssignedUserIds() != null && task.getAssignedUserIds().contains(userId));
 
         if (!hasAccess) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this task");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this Assignment");
         }
     }
 
     private void verifyTaskMutationAccess(String taskId, String userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
 
         if (!authorizationPolicyService.canManageTasks(task.getWorkspaceId(), userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Task management access required");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Assignment management access required");
         }
     }
 

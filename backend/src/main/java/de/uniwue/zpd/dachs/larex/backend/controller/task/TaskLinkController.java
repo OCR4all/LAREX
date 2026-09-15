@@ -55,16 +55,6 @@ public class TaskLinkController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/tasks/{taskId}/links/pages")
-    public ResponseEntity<List<TaskLinkDto.PageLinkResponse>> linkPages(
-            @PathVariable String taskId,
-            @Valid @RequestBody TaskLinkDto.LinkPagesRequest request,
-            @AuthenticationPrincipal(expression = "subject") String userId
-    ) {
-        List<TaskLinkDto.PageLinkResponse> links = linkService.linkPages(taskId, userId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(links);
-    }
-
     @PostMapping("/tasks/{taskId}/subtasks/bulk/description")
     public ResponseEntity<SubtaskDto.BulkResponse> bulkUpdateSubtaskDescriptions(
             @PathVariable String taskId,
@@ -73,16 +63,6 @@ public class TaskLinkController {
     ) {
         SubtaskDto.BulkResponse response = subtaskService.bulkUpdateDescription(taskId, userId, request);
         return ResponseEntity.ok(response);
-    }
-
-    @DeleteMapping("/tasks/{taskId}/links/pages/{pageId}")
-    public ResponseEntity<Void> unlinkPage(
-            @PathVariable String taskId,
-            @PathVariable String pageId,
-            @AuthenticationPrincipal(expression = "subject") String userId
-    ) {
-        linkService.unlinkPage(taskId, pageId, userId);
-        return ResponseEntity.noContent().build();
     }
 
     // ==================== REVERSE LOOKUPS ====================

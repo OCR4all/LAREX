@@ -23,7 +23,7 @@ const circleDashOffset = computed(() => 100 - (progress.value?.percentage ?? 0))
   <div
     v-if="hasProgress && compact"
     class="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-elevated px-2 py-1 text-xs font-semibold text-muted ring-1 ring-inset ring-default"
-    :aria-label="`${progress!.percentage}% of subtasks completed`"
+    :aria-label="`${progress!.percentage}% of Tasks completed`"
   >
     <svg class="size-4 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
       <circle

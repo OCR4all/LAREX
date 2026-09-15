@@ -9,9 +9,15 @@ const includeWhitespaceInCodecHighlight = defineModel<boolean>('includeWhitespac
 
 const props = withDefaults(defineProps<{
   hasProjectCodec?: boolean
+  canCheckCodec?: boolean
 }>(), {
-  hasProjectCodec: true
+  hasProjectCodec: true,
+  canCheckCodec: false
 })
+
+const emit = defineEmits<{
+  'check-codec': []
+}>()
 
 const toast = useToast()
 const overlay = useOverlay()
@@ -203,6 +209,16 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
         This project uses a fixed codec.
       </p>
     </UFormField>
+
+    <UButton
+      label="Check Codec"
+      icon="i-lucide-badge-check"
+      color="neutral"
+      variant="outline"
+      block
+      :disabled="!props.canCheckCodec"
+      @click="emit('check-codec')"
+    />
 
     <div class="flex items-center justify-between gap-3">
       <div class="min-w-0">

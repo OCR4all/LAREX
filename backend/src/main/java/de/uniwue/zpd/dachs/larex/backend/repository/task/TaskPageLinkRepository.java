@@ -36,7 +36,14 @@ public interface TaskPageLinkRepository extends JpaRepository<TaskPageLink, Stri
      */
     void deleteByPageIdIn(List<String> pageIds);
 
-    @Query("SELECT tpl.pageId, t FROM TaskPageLink tpl JOIN Task t ON tpl.taskId = t.id " +
-           "WHERE tpl.pageId IN :pageIds AND t.syncLinkedPageStates = true")
-    List<Object[]> findSyncEnabledTasksByPageIds(@Param("pageIds") Collection<String> pageIds);
+    @Query("""
+           SELECT tpl.pageId, t, s.completed
+           FROM TaskPageLink tpl, Task t, Subtask s
+           WHERE tpl.taskId = t.id
+             AND s.taskId = t.id
+             AND s.pageId = tpl.pageId
+             AND tpl.pageId IN :pageIds
+             AND t.syncLinkedPageStates = true
+           """)
+    List<Object[]> findSyncEnabledTaskSubtasksByPageIds(@Param("pageIds") Collection<String> pageIds);
 }

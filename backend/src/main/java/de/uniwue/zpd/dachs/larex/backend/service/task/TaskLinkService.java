@@ -11,7 +11,6 @@ import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskProjectLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
-import de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +31,6 @@ public class TaskLinkService {
     private final WorkspaceAccessService workspaceAccessService;
     private final UserService userService;
     private final TaskActivityService activityService;
-    private final PageWorkflowService pageWorkflowService;
 
     public TaskLinkService(
             TaskProjectLinkRepository projectLinkRepository,
@@ -42,8 +40,7 @@ public class TaskLinkService {
             PageRepository pageRepository,
             WorkspaceAccessService workspaceAccessService,
             UserService userService,
-            TaskActivityService activityService,
-            PageWorkflowService pageWorkflowService
+            TaskActivityService activityService
     ) {
         this.projectLinkRepository = projectLinkRepository;
         this.pageLinkRepository = pageLinkRepository;
@@ -53,12 +50,11 @@ public class TaskLinkService {
         this.workspaceAccessService = workspaceAccessService;
         this.userService = userService;
         this.activityService = activityService;
-        this.pageWorkflowService = pageWorkflowService;
     }
 
     public TaskLinkDto.TaskLinksResponse getTaskLinks(String taskId, String userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
             throw new SecurityException("Access denied.");
@@ -75,7 +71,7 @@ public class TaskLinkService {
 
     public TaskLinkDto.ProjectLinkResponse linkProject(String taskId, String userId, TaskLinkDto.LinkProjectRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
@@ -103,7 +99,7 @@ public class TaskLinkService {
 
     public void unlinkProject(String taskId, String projectId, String userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
@@ -112,74 +108,6 @@ public class TaskLinkService {
 
         projectLinkRepository.delete(link);
         activityService.logLinkRemoved(taskId, userId, "project", projectId);
-    }
-
-    public List<TaskLinkDto.PageLinkResponse> linkPages(String taskId, String userId, TaskLinkDto.LinkPagesRequest request) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
-
-        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
-
-        List<TaskPageLink> savedLinks = new ArrayList<>();
-
-        if (request.byTag() != null && !request.byTag().isBlank()) {
-            // Link pages by tag
-            List<Page> pages = pageRepository.findByTagsContaining(request.byTag());
-            Set<String> pageIds = pages.stream().map(Page::getId).collect(Collectors.toSet());
-            Set<String> existingPageIds = pageLinkRepository.findByTaskIdAndPageIdIn(taskId, new ArrayList<>(pageIds)).stream()
-                    .map(TaskPageLink::getPageId)
-                    .collect(Collectors.toSet());
-            for (Page page : pages) {
-                if (!existingPageIds.contains(page.getId())) {
-                    TaskPageLink link = new TaskPageLink(taskId, page.getId(), TaskPageLink.LinkType.BY_TAG, request.byTag(), userId);
-                    savedLinks.add(pageLinkRepository.save(link));
-                }
-            }
-        } else if (request.pageIds() != null && !request.pageIds().isEmpty()) {
-            // Link pages manually
-            List<String> requestedPageIds = request.pageIds().stream().distinct().toList();
-            Map<String, Page> pagesById = pageRepository.findAllByIdIn(requestedPageIds).stream()
-                    .collect(Collectors.toMap(Page::getId, p -> p));
-            Set<String> existingPageIds = pageLinkRepository.findByTaskIdAndPageIdIn(taskId, requestedPageIds).stream()
-                    .map(TaskPageLink::getPageId)
-                    .collect(Collectors.toSet());
-
-            for (String pageId : requestedPageIds) {
-                if (!pagesById.containsKey(pageId)) {
-                    throw new ResourceNotFoundException("Page", pageId);
-                }
-                if (!existingPageIds.contains(pageId)) {
-                    TaskPageLink link = new TaskPageLink(taskId, pageId, TaskPageLink.LinkType.MANUAL, userId);
-                    savedLinks.add(pageLinkRepository.save(link));
-                }
-            }
-        }
-
-        if (!savedLinks.isEmpty()) {
-            activityService.logLinkAdded(taskId, userId, "pages", String.valueOf(savedLinks.size()));
-            if (task.isSyncLinkedPageStates()) {
-                pageWorkflowService.recomputeForPageIds(savedLinks.stream().map(TaskPageLink::getPageId).toList());
-            }
-        }
-
-        return mapPageLinks(savedLinks);
-    }
-
-    public void unlinkPage(String taskId, String pageId, String userId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
-
-        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
-
-        TaskPageLink link = pageLinkRepository.findByTaskIdAndPageId(taskId, pageId)
-                .orElseThrow(() -> new ResourceNotFoundException("Link", taskId + "-" + pageId));
-
-        pageLinkRepository.delete(link);
-        pageLinkRepository.flush();
-        if (task.isSyncLinkedPageStates()) {
-            pageWorkflowService.recomputeForPageIds(List.of(pageId));
-        }
-        activityService.logLinkRemoved(taskId, userId, "page", pageId);
     }
 
     public List<TaskLinkDto.LinkedTaskResponse> getTasksLinkedToProject(String projectId, String userId) {
