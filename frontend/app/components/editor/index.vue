@@ -3128,7 +3128,7 @@ watch(() => props.src, (newSrc) => {
 <template>
   <div class="relative w-full h-full flex flex-col min-h-0">
     <div
-      class="pointer-events-none absolute left-1/2 top-3 z-[950] flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col items-center gap-2"
+      class="editor-status-stack pointer-events-none z-[950] flex flex-col gap-2"
       role="status"
       aria-live="polite"
     >
@@ -3178,7 +3178,7 @@ watch(() => props.src, (newSrc) => {
             <Icon name="i-lucide-lock" class="h-3 w-3" />
           </div>
           <p class="truncate text-[13px] text-highlighted">
-            Read-only view
+            Read-only
           </p>
         </div>
         <span class="truncate pr-2 text-xs text-toned">{{ pageLockDescription }}</span>
@@ -3192,7 +3192,7 @@ watch(() => props.src, (newSrc) => {
           <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
             <Icon name="i-lucide-lock" class="h-3 w-3" />
           </div>
-          <span class="font-medium">Read-only view</span>
+          <span class="font-medium">Read-only</span>
         </div>
         <span class="min-w-0 truncate text-xs text-toned">
           {{ canvasEditor.user.displayName }} currently holds the edit lock.
@@ -3261,7 +3261,7 @@ watch(() => props.src, (newSrc) => {
       >
         <div class="flex shrink-0 items-center gap-1.5 rounded-full border border-default bg-default px-1.5 py-0.5">
           <Icon name="i-lucide-lock" class="h-3.5 w-3.5 text-amber-400" />
-          <span class="font-medium">Read-only view</span>
+          <span class="font-medium">Read-only</span>
         </div>
         <span class="min-w-0 truncate text-xs text-toned">Editing is disabled for this page.</span>
       </div>
@@ -4094,6 +4094,20 @@ watch(() => props.src, (newSrc) => {
 </template>
 
 <style scoped>
+.editor-status-stack {
+  position: absolute;
+  top: calc(var(--dv-tab-overlay-top, 16px) + var(--dv-tabs-and-actions-container-height, 40px) + var(--dv-tabs-and-actions-container-height, 40px));
+  left: var(--dv-tab-overlay-left, 16px);
+  width: var(--dv-tab-overlay-width, 22rem);
+  max-width: calc(100% - 2rem);
+}
+
+.editor-status-stack > :first-child {
+  width: 100%;
+  border-top: 0;
+  border-radius: 0 0 var(--dv-border-radius, 12px) var(--dv-border-radius, 12px);
+}
+
 .editor-checkerboard {
   background-image: linear-gradient(45deg, #808080 25%, transparent 25%),
     linear-gradient(-45deg, #808080 25%, transparent 25%),

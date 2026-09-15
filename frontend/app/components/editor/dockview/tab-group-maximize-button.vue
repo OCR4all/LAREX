@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import type { IDockviewHeaderActionsProps } from 'dockview-vue'
-import { useFloatingAnchorPosition } from '@/composables/editor/use-floating-anchor-position'
-import { EDITOR_WORKSPACE_FLOATING_ANCHOR_ID } from '@/session/editor/editor-session'
 import { parseProjectPanelId } from '@/stores/editor/editor.keys'
-import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
 
 const props = defineProps<{
   params: IDockviewHeaderActionsProps
@@ -11,30 +8,8 @@ const props = defineProps<{
 
 const isMaximized = ref(false)
 const actionsRef = ref<HTMLElement | null>(null)
-const headerRef = ref<HTMLElement | null>(null)
 const groupRef = ref<HTMLElement | null>(null)
-const overlayOffset = useState<FloatingControlOffset | null>('editor-tab-overlay-offset', () => null)
 const isProjectGroup = computed(() => props.params.panels.some(panel => Boolean(parseProjectPanelId(panel.id))))
-const overlayEnabled = computed(() => isProjectGroup.value && Boolean(headerRef.value))
-const floatingAnchorId = computed(() => EDITOR_WORKSPACE_FLOATING_ANCHOR_ID)
-
-const {
-  style: overlayStyle,
-  isDragging: isDraggingOverlay,
-  startDrag: startOverlayDrag
-} = useFloatingAnchorPosition({
-  enabled: overlayEnabled,
-  anchorId: floatingAnchorId,
-  shellRef: headerRef,
-  placement: 'top',
-  fallbackSize: { width: 240, height: 76 },
-  gap: 16,
-  includeFixedPosition: true,
-  getOffset: () => overlayOffset.value,
-  setOffset: (offset) => {
-    overlayOffset.value = offset
-  }
-})
 
 let disposable: { dispose: () => void } | null = null
 let subscribedContainerApi: IDockviewHeaderActionsProps['containerApi'] | null = null
@@ -103,20 +78,13 @@ watch(() => props.params, () => {
 }, { immediate: true })
 
 watchEffect(() => {
-  const header = headerRef.value
   const group = groupRef.value
-  const style = overlayStyle.value
-  if (!isProjectGroup.value || !header || !group || !style?.left || !style.top) return
-
-  group.classList.add('dv-project-tab-overlay')
-  group.style.setProperty('--dv-tab-overlay-left', String(style.left))
-  group.style.setProperty('--dv-tab-overlay-top', String(style.top))
-  group.style.setProperty('--dv-tab-overlay-transform', 'none')
+  if (!group) return
+  group.classList.toggle('dv-project-tab-overlay', isProjectGroup.value)
 })
 
 onMounted(() => {
-  headerRef.value = actionsRef.value?.closest<HTMLElement>('.dv-tabs-and-actions-container') ?? null
-  groupRef.value = headerRef.value?.closest<HTMLElement>('.dv-groupview') ?? null
+  groupRef.value = actionsRef.value?.closest<HTMLElement>('.dv-groupview') ?? null
 })
 
 onUnmounted(() => {
@@ -124,27 +92,12 @@ onUnmounted(() => {
   disposable = null
   subscribedContainerApi = null
   groupRef.value?.classList.remove('dv-project-tab-overlay')
-  groupRef.value?.style.removeProperty('--dv-tab-overlay-left')
-  groupRef.value?.style.removeProperty('--dv-tab-overlay-top')
-  groupRef.value?.style.removeProperty('--dv-tab-overlay-transform')
 })
 </script>
 
 <template>
   <div ref="actionsRef" class="header-actions">
-    <button
-      v-if="isProjectGroup"
-      type="button"
-      title="Drag to move tabs"
-      class="drag-handle header-button touch-none"
-      :class="isDraggingOverlay ? 'cursor-grabbing' : 'cursor-grab'"
-      aria-label="Drag tab overlay"
-      @pointerdown.prevent.stop="startOverlayDrag"
-      @click.prevent.stop
-    >
-      <Icon name="i-lucide-grip-vertical" :size="16" />
-    </button>
-    <span v-else class="page-branch" aria-hidden="true">
+    <span v-if="!isProjectGroup" class="page-branch" aria-hidden="true">
       <Icon name="i-lucide-corner-down-right" :size="14" />
     </span>
     <button
@@ -192,17 +145,10 @@ onUnmounted(() => {
   outline: 2px solid var(--dv-paneview-active-outline-color);
   outline-offset: -2px;
 }
-.drag-handle,
 .page-branch {
   position: absolute;
   top: 5px;
   left: 5px;
-}
-.drag-handle {
-  cursor: grab;
-}
-.drag-handle.cursor-grabbing {
-  cursor: grabbing;
 }
 .page-branch {
   opacity: 0.55;

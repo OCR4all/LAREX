@@ -71,14 +71,14 @@
 }
 
 :is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview > .dv-tabs-and-actions-container {
-  position: fixed;
+  position: absolute;
   top: var(--dv-tab-overlay-top, 16px);
-  left: var(--dv-tab-overlay-left, 50%);
+  left: var(--dv-tab-overlay-left, 16px);
   z-index: 30;
   width: var(--dv-tab-overlay-width);
-  max-width: calc(100vw - 2rem);
+  max-width: calc(100% - 2rem);
   padding-left: 36px;
-  transform: var(--dv-tab-overlay-transform, translateX(-50%));
+  transform: none;
   overflow: hidden;
   border: 1px solid var(--dv-separator-border);
   border-radius: var(--dv-border-radius);
@@ -89,6 +89,7 @@
 
 :is(.dockview-theme-larex-light, .dockview-theme-larex-dark)
   .dv-groupview.dv-project-tab-overlay:has(.dv-content-container .dv-tabs-and-actions-container) > .dv-tabs-and-actions-container {
+  padding-left: 4px;
   border-bottom-color: transparent;
   border-radius: var(--dv-border-radius) var(--dv-border-radius) 0 0;
   box-shadow: 0 -2px 8px -4px rgb(0 0 0 / 0.12);
@@ -99,6 +100,13 @@
   .dv-groupview > .dv-tabs-and-actions-container {
   top: calc(var(--dv-tab-overlay-top, 16px) + var(--dv-tabs-and-actions-container-height));
   border-radius: 0 0 var(--dv-border-radius) var(--dv-border-radius);
+}
+
+:is(.dockview-theme-larex-light, .dockview-theme-larex-dark)
+  .dv-groupview.dv-project-tab-overlay:has(.editor-status-stack > *)
+  .dv-content-container .dv-tabs-and-actions-container {
+  border-bottom-color: transparent;
+  border-radius: 0;
 }
 
 :is(.dockview-theme-larex-light, .dockview-theme-larex-dark)
