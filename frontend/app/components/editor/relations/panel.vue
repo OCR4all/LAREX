@@ -234,7 +234,7 @@ watch(selectedRelation, (relation) => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col bg-elevated">
+  <div class="h-full flex flex-col bg-default">
     <div class="toolbar flex items-center gap-2 p-2 border-b border-default bg-muted/50">
       <UButton
         size="xs"

@@ -594,6 +594,7 @@ watch(() => props.collapsed, (collapsed) => {
       v-model="accordionModel"
       type="multiple"
       :items="items"
+      value-key="slot"
     >
       <template #leading="{ item }">
         <Icon class="size-5" :name="item.icon" />

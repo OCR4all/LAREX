@@ -433,7 +433,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="reading-order-list flex flex-col h-full bg-elevated">
+  <div class="reading-order-list flex flex-col h-full bg-default">
     <div class="toolbar flex items-center gap-2 p-2 border-b border-default bg-muted/50">
       <UButton
         size="xs"
@@ -502,6 +502,7 @@ defineExpose({
       <UAccordion
         :items="accordionItems"
         type="multiple"
+        :default-value="['reading-order']"
         class="flex-1 overflow-auto"
       >
         <template #reading-order>

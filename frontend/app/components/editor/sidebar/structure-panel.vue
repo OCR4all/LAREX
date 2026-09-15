@@ -163,7 +163,7 @@ watch(rowOrderSignature, () => {
 
 <template>
   <div class="h-full flex flex-col">
-    <div class="px-4 py-2 flex justify-between items-center bg-muted/10">
+    <div class="px-4 py-2 flex justify-between items-center bg-muted/50">
       <span class="text-xs text-muted font-medium">
         {{ polygons.length }} items
       </span>
