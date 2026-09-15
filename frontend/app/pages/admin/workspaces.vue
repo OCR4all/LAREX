@@ -52,11 +52,16 @@ const datatableUi = {
   separator: 'h-0'
 }
 
-const { sort, globalFilter, filteredAndSortedData } = useTableFilters(
+const { sort, globalFilter, columnFilters, filteredAndSortedData, activeFilters, setColumnFilter, clearColumnFilter, resetAllFilters } = useTableFilters(
   rows,
   { column: 'created', direction: 'desc' },
   'admin-workspaces'
 )
+
+const hidePersonalWorkspaces = computed({
+  get: () => columnFilters.value.isPersonal === false,
+  set: hide => hide ? setColumnFilter('isPersonal', false) : clearColumnFilter('isPersonal')
+})
 
 const page = ref(1)
 const itemsPerPage = ref(25)
@@ -66,23 +71,14 @@ const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / items
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
-const hasActiveFilters = computed(() => Boolean(globalFilter.value.trim()))
-const activeWorkspaceFilters = computed(() => hasActiveFilters.value
-  ? [{
-      key: 'search',
-      label: `Search: ${globalFilter.value}`,
-      clear: () => { globalFilter.value = '' }
-    }]
-  : []
-)
 const paginatedRows = computed(() => {
   const start = (page.value - 1) * itemsPerPage.value
   return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
 })
 
-watch(globalFilter, () => {
+watch([globalFilter, columnFilters], () => {
   page.value = 1
-})
+}, { deep: true })
 
 watch(totalPages, (newTotalPages) => {
   if (page.value > newTotalPages) {
@@ -190,7 +186,7 @@ const personalCount = computed(() => workspaces.value.filter(w => w.isPersonal).
 const teamCount = computed(() => workspaces.value.filter(w => !w.isPersonal).length)
 
 function clearFilters() {
-  globalFilter.value = ''
+  resetAllFilters()
   page.value = 1
 }
 </script>
@@ -229,8 +225,12 @@ function clearFilters() {
               />
             </template>
           </UInput>
+          <UCheckbox
+            v-model="hidePersonalWorkspaces"
+            label="Hide personal workspaces"
+          />
           <AppTableClearFiltersButton
-            :active="activeWorkspaceFilters.length > 0"
+            :active="activeFilters.length > 0"
             @clear="clearFilters"
           />
         </template>
