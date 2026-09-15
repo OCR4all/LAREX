@@ -241,6 +241,13 @@ const groups = computed(() => {
       to: '/admin/storage',
       onSelect: () => { open.value = false }
     }, {
+      id: 'go-admin-outputs',
+      label: 'Go to Outputs',
+      icon: 'i-lucide-archive',
+      suffix: 'Review and clean up stored Action outputs',
+      to: '/admin/outputs',
+      onSelect: () => { open.value = false }
+    }, {
       id: 'go-admin-workspaces',
       label: 'Go to Workspaces',
       icon: 'i-lucide-layers',

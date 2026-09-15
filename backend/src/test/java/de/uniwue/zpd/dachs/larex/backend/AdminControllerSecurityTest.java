@@ -9,11 +9,14 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifSettingsDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AvatarSettingsDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AvatarStyle;
+import de.uniwue.zpd.dachs.larex.backend.dto.StorageCleanupDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionOutputDto;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserManagementException;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminService;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.IiifSettingsService;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.AvatarSettingsService;
+import de.uniwue.zpd.dachs.larex.backend.service.action.ActionOutputService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +38,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -59,6 +63,103 @@ class AdminControllerSecurityTest {
 
     @MockitoBean
     private AvatarSettingsService avatarSettingsService;
+
+    @MockitoBean
+    private ActionOutputService actionOutputService;
+
+    @Test
+    void outputs_requiresAuthentication() throws Exception {
+        mockMvc.perform(get("/admin/outputs"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void outputs_forbiddenForNonAdmin() throws Exception {
+        mockMvc.perform(get("/admin/outputs"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(delete("/admin/outputs/output-1"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void outputs_areAvailableToAdmin() throws Exception {
+        when(actionOutputService.listAdminOutputs(1, 25, "created", "desc"))
+                .thenReturn(new ActionOutputDto.AdminOutputPageResponse(
+                        List.of(new ActionOutputDto.AdminOutputResponse(
+                                "output-1", "workspace-1", "project-1", "Project", "run-1", "definition-1",
+                                "processor", "Processor", "user-1", 2, 2048, null, null,
+                                LocalDateTime.of(2026, 7, 18, 12, 0), LocalDateTime.of(2026, 7, 18, 12, 0),
+                                LocalDateTime.of(2026, 7, 18, 12, 0)
+                        )),
+                        1, 25, 1, 1
+                ));
+        when(actionOutputService.deleteAdminOutput("output-1"))
+                .thenReturn(new StorageCleanupDto.CleanupResponse(1, 0, 2048, "2.0 KB", List.of()));
+        when(actionOutputService.deleteAdminOutputsOlderThan(30, null))
+                .thenReturn(new StorageCleanupDto.CleanupResponse(0, 0, 0, "0 B", List.of()));
+        when(actionOutputService.listAdminOutputsOlderThan(30))
+                .thenReturn(List.of(new ActionOutputDto.AdminOutputResponse(
+                        "output-1", "workspace-1", "project-1", "Project", "run-1", "definition-1",
+                        "processor", "Processor", "user-1", 2, 2048, null, null,
+                        LocalDateTime.of(2026, 7, 18, 12, 0), LocalDateTime.of(2026, 7, 18, 12, 0),
+                        LocalDateTime.of(2026, 7, 18, 12, 0)
+                )));
+        when(actionOutputService.deleteAdminOutputsOlderThan(30, List.of("output-1")))
+                .thenReturn(new StorageCleanupDto.CleanupResponse(1, 0, 2048, "2.0 KB", List.of()));
+
+        mockMvc.perform(get("/admin/outputs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.outputs[0].id").value("output-1"))
+                .andExpect(jsonPath("$.outputs[0].totalSizeBytes").value(2048));
+
+        mockMvc.perform(delete("/admin/outputs/output-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deletedCount").value(1));
+
+        mockMvc.perform(post("/admin/outputs/cleanup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"olderThanDays\":30}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deletedCount").value(0));
+
+        mockMvc.perform(get("/admin/outputs/cleanup-preview").param("olderThanDays", "30"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value("output-1"));
+
+        mockMvc.perform(post("/admin/outputs/cleanup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"olderThanDays\":30,\"outputIds\":[\"output-1\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deletedCount").value(1));
+
+        verify(actionOutputService).deleteAdminOutputsOlderThan(30, null);
+        verify(actionOutputService).deleteAdminOutputsOlderThan(30, List.of("output-1"));
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void outputs_rejectsInvalidCleanupAge() throws Exception {
+        mockMvc.perform(post("/admin/outputs/cleanup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"olderThanDays\":0}"))
+                .andExpect(status().isBadRequest());
+
+        verify(actionOutputService, never()).deleteAdminOutputsOlderThan(any(Integer.class), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void outputs_rejectsInvalidPagination() throws Exception {
+        mockMvc.perform(get("/admin/outputs").param("size", "101"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/admin/outputs").param("page", "0"))
+                .andExpect(status().isBadRequest());
+
+        verify(actionOutputService, never()).listAdminOutputs(any(Integer.class), any(Integer.class), any(), any());
+    }
 
     @Test
     void avatarSettings_requiresAuthentication() throws Exception {

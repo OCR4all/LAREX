@@ -11,6 +11,7 @@ const adminSections = [
   { title: 'Actions', description: 'Manage processor definitions and dispatch metadata', icon: 'i-lucide-circle-play', to: '/admin/actions', group: 'Actions' },
   { title: 'Action Runs', description: 'Inspect workspace queues and run history across all Actions', icon: 'i-lucide-list-ordered', to: '/admin/action-runs', group: 'Actions' },
   { title: 'Storage', description: 'Clean up orphaned files and manage storage', icon: 'i-lucide-trash-2', to: '/admin/storage', group: 'Data Management' },
+  { title: 'Outputs', description: 'Review and clean up stored Action outputs', icon: 'i-lucide-archive', to: '/admin/outputs', group: 'Data Management' },
   { title: 'Errors', description: 'Inspect captured API error events by user and workspace', icon: 'i-lucide-bug', to: '/admin/errors', group: 'System' },
   { title: 'Workspaces', description: 'View and manage all workspaces', icon: 'i-lucide-layers', to: '/admin/workspaces', group: 'Directory' },
   { title: 'Users', description: 'View all registered users', icon: 'i-lucide-users', to: '/admin/users', group: 'Directory' },

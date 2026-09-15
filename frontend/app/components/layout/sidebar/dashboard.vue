@@ -113,6 +113,7 @@ const adminNavigation = computed<NavigationMenuItem[]>(() => {
     { label: 'Import', icon: 'i-lucide-folder-input', to: '/admin/import' },
     { label: 'Backup', icon: 'i-lucide-database-backup', to: '/admin/backup' },
     { label: 'Storage', icon: 'i-lucide-trash-2', to: '/admin/storage' },
+    { label: 'Outputs', icon: 'i-lucide-archive', to: '/admin/outputs' },
     { label: 'Search Index', icon: 'i-lucide-search', to: '/admin/search-index' }
   ])
   const directoryChildren = withActive([

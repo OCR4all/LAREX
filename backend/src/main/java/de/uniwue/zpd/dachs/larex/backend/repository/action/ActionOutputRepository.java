@@ -1,8 +1,12 @@
 package de.uniwue.zpd.dachs.larex.backend.repository.action;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionOutput;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -28,4 +32,32 @@ public interface ActionOutputRepository extends JpaRepository<ActionOutput, Stri
 
     @EntityGraph(attributePaths = {"files", "files.storedFile", "project"})
     List<ActionOutput> findByStatus(ActionOutput.Status status);
+
+    @EntityGraph(attributePaths = {"project"})
+    Page<ActionOutput> findByStatus(ActionOutput.Status status, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"project"})
+    @Query("""
+            select o from ActionOutput o
+            join o.project p
+            where o.status = :status
+              and (
+                  lower(o.workspaceId) like lower(concat('%', :search, '%'))
+                  or lower(p.name) like lower(concat('%', :search, '%'))
+                  or lower(o.processorName) like lower(concat('%', :search, '%'))
+                  or lower(o.processorKey) like lower(concat('%', :search, '%'))
+                  or lower(o.sourceRunId) like lower(concat('%', :search, '%'))
+              )
+            """)
+    Page<ActionOutput> findByStatusAndAdminSearch(
+            @Param("status") ActionOutput.Status status,
+            @Param("search") String search,
+            Pageable pageable
+    );
+
+    @EntityGraph(attributePaths = {"files", "files.storedFile", "project"})
+    Optional<ActionOutput> findByIdAndStatus(String id, ActionOutput.Status status);
+
+    @EntityGraph(attributePaths = {"project"})
+    List<ActionOutput> findByStatusAndCreatedBefore(ActionOutput.Status status, LocalDateTime cutoff);
 }

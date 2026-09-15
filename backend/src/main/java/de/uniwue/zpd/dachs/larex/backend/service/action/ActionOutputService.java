@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.action;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionOutputDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.StorageCleanupDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionOutput;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionOutputFile;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
@@ -18,6 +19,10 @@ import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.util.DownloadFileNames;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +43,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -49,6 +55,7 @@ import java.util.zip.ZipOutputStream;
 public class ActionOutputService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final DateTimeFormatter BUNDLE_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+    private static final int MAX_ADMIN_PAGE_SIZE = 100;
 
     private final ActionOutputRepository outputRepository;
     private final ActionOutputFileRepository outputFileRepository;
@@ -173,6 +180,118 @@ public class ActionOutputService {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         return outputRepository.findByProjectIdAndStatusOrderByCompletedAtDesc(projectId, ActionOutput.Status.READY)
                 .stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ActionOutputDto.AdminOutputPageResponse listAdminOutputs(int page, int size,
+                                                                     String sort, String direction) {
+        return listAdminOutputs(page, size, sort, direction, null);
+    }
+
+    @Transactional(readOnly = true)
+    public ActionOutputDto.AdminOutputPageResponse listAdminOutputs(int page, int size,
+                                                                     String sort, String direction,
+                                                                     String search) {
+        if (page < 1) {
+            throw new IllegalArgumentException("Page must be at least 1");
+        }
+        if (size < 1 || size > MAX_ADMIN_PAGE_SIZE) {
+            throw new IllegalArgumentException("Size must be between 1 and " + MAX_ADMIN_PAGE_SIZE);
+        }
+
+        String sortProperty = switch (sort == null ? "" : sort.trim()) {
+            case "created" -> "created";
+            case "totalSizeBytes" -> "totalSizeBytes";
+            default -> throw new IllegalArgumentException("Sort must be created or totalSizeBytes");
+        };
+        Sort.Direction sortDirection = switch (direction == null ? "" : direction.trim().toLowerCase(Locale.ROOT)) {
+            case "asc" -> Sort.Direction.ASC;
+            case "desc" -> Sort.Direction.DESC;
+            default -> throw new IllegalArgumentException("Direction must be asc or desc");
+        };
+
+        Pageable pageable = PageRequest.of(page - 1, size,
+                Sort.by(sortDirection, sortProperty).and(Sort.by("id")));
+        String searchTerm = search == null ? "" : search.trim();
+        Page<ActionOutput> result = searchTerm.isEmpty()
+                ? outputRepository.findByStatus(ActionOutput.Status.READY, pageable)
+                : outputRepository.findByStatusAndAdminSearch(ActionOutput.Status.READY, searchTerm, pageable);
+        List<ActionOutputDto.AdminOutputResponse> outputs = result.getContent().stream()
+                .map(this::toAdminResponse)
+                .toList();
+        return new ActionOutputDto.AdminOutputPageResponse(
+                outputs, page, size, result.getTotalElements(), result.getTotalPages()
+        );
+    }
+
+    @Transactional
+    public StorageCleanupDto.CleanupResponse deleteAdminOutput(String outputId) {
+        ActionOutput output = outputRepository.findByIdAndStatus(outputId, ActionOutput.Status.READY)
+                .orElseThrow(() -> new ResourceNotFoundException("Action output", outputId));
+        boolean deleted = deleteOutputFilesAndRecord(output);
+        workspaceQuotaGuardService.syncUsage(output.getWorkspaceId());
+        return cleanupResponse(output, deleted, deleted ? List.of() : List.of("Output deletion is pending retry"));
+    }
+
+    @Transactional
+    public StorageCleanupDto.CleanupResponse deleteAdminOutputsOlderThan(int olderThanDays) {
+        return deleteAdminOutputsOlderThan(olderThanDays, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionOutputDto.AdminOutputResponse> listAdminOutputsOlderThan(int olderThanDays) {
+        return findAdminOutputsOlderThan(olderThanDays).stream()
+                .map(this::toAdminResponse)
+                .toList();
+    }
+
+    @Transactional
+    public StorageCleanupDto.CleanupResponse deleteAdminOutputsOlderThan(int olderThanDays, List<String> outputIds) {
+        List<ActionOutput> candidates = findAdminOutputsOlderThan(olderThanDays);
+        int deletedCount = 0;
+        int failedCount = 0;
+        long freedBytes = 0;
+        List<String> errors = new ArrayList<>();
+        LinkedHashSet<String> workspaceIds = new LinkedHashSet<>();
+
+        if (outputIds != null) {
+            LinkedHashSet<String> selectedIds = new LinkedHashSet<>(outputIds);
+            LinkedHashSet<String> candidateIds = new LinkedHashSet<>();
+            candidates.forEach(output -> candidateIds.add(output.getId()));
+            for (String selectedId : selectedIds) {
+                if (!candidateIds.contains(selectedId)) {
+                    failedCount++;
+                    errors.add("Output is no longer available: " + selectedId);
+                }
+            }
+            candidates = candidates.stream()
+                    .filter(output -> selectedIds.contains(output.getId()))
+                    .toList();
+        }
+
+        for (ActionOutput output : candidates) {
+            workspaceIds.add(output.getWorkspaceId());
+            if (deleteOutputFilesAndRecord(output)) {
+                deletedCount++;
+                freedBytes += output.getTotalSizeBytes();
+            } else {
+                failedCount++;
+                errors.add("Output deletion is pending retry: " + output.getId());
+            }
+        }
+        workspaceIds.forEach(workspaceQuotaGuardService::syncUsage);
+
+        return new StorageCleanupDto.CleanupResponse(
+                deletedCount, failedCount, freedBytes, formatBytes(freedBytes), errors
+        );
+    }
+
+    private List<ActionOutput> findAdminOutputsOlderThan(int olderThanDays) {
+        if (olderThanDays <= 0) {
+            throw new IllegalArgumentException("Older-than days must be positive");
+        }
+        return outputRepository.findByStatusAndCreatedBefore(
+                ActionOutput.Status.READY, LocalDateTime.now().minusDays(olderThanDays));
     }
 
     @Transactional(readOnly = true)
@@ -341,6 +460,29 @@ public class ActionOutputService {
                         file.getSizeBytes(), file.getChecksumSha256(), file.getCreated()
                 )).toList(), output.getCreated(), output.getUpdated()
         );
+    }
+
+    private ActionOutputDto.AdminOutputResponse toAdminResponse(ActionOutput output) {
+        return new ActionOutputDto.AdminOutputResponse(
+                output.getId(), output.getWorkspaceId(), output.getProject().getId(), output.getProject().getName(),
+                output.getSourceRunId(), output.getProcessorDefinitionId(), output.getProcessorKey(),
+                output.getProcessorName(), output.getCreatedByUserId(), output.getFileCount(), output.getTotalSizeBytes(),
+                output.getRetentionDays(), output.getExpiresAt(), output.getCompletedAt(), output.getCreated(), output.getUpdated()
+        );
+    }
+
+    private StorageCleanupDto.CleanupResponse cleanupResponse(ActionOutput output, boolean deleted, List<String> errors) {
+        long freedBytes = deleted ? output.getTotalSizeBytes() : 0;
+        return new StorageCleanupDto.CleanupResponse(
+                deleted ? 1 : 0, deleted ? 0 : 1, freedBytes, formatBytes(freedBytes), errors
+        );
+    }
+
+    private String formatBytes(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        String pre = "KMGTPE".charAt(exp - 1) + "";
+        return String.format(Locale.ROOT, "%.1f %sB", bytes / Math.pow(1024, exp), pre);
     }
 
     private Path resolveExisting(String storagePath) throws IOException {
