@@ -112,6 +112,7 @@ export interface UseProjectUploadOrchestrationOptions<TPage extends ProjectPageL
   refreshProjectStatus: () => Promise<unknown>
   onBeforeFinalize?: (session: UploadSession, files: UploadFile[]) => Promise<boolean>
   onIndexingPagesDetected?: () => void
+  onTerminal?: (status: Extract<UploadSessionStatus, 'COMPLETED' | 'FAILED' | 'CANCELLED'>) => void
 }
 
 const UPLOAD_PROCESSING_POLL_MS = 2000
@@ -361,6 +362,8 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
         uploadStore.completeUpload(sessionId, 'FAILED', error.message)
       }
 
+      options.onTerminal?.('FAILED')
+
       showApiErrorToast({
         title: 'Upload failed',
         error,
@@ -529,6 +532,7 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       markUploadPagesChanged()
     }
     await syncProjectDataAfterUploadTerminal()
+    options.onTerminal?.(status)
 
     if (status === 'FAILED') {
       showApiErrorToast({

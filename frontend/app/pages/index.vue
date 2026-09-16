@@ -4,6 +4,7 @@ import type { Row } from '@tanstack/vue-table'
 import {
   LazyCodecSlideoverAction,
   LazyLibrarySlideoverCreate,
+  LazyLibrarySlideoverDirectoryProjectName,
   LazyProjectSlideoverBatchDictionary,
   LazyProjectSlideoverBatchNormalization,
   LazyProjectSlideoverBatchRuleset,
@@ -37,6 +38,7 @@ import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { naturalSortBy } from '@/utils/natural-sort'
 import { buildBatchProjectExportFileName } from '@/utils/download-file-names'
 import type { Page } from '@/types/project-page'
+import { getDirectoryProjectName, getProjectNameError, isProjectImageOrXml } from '@/utils/directory-project-upload'
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
@@ -68,6 +70,7 @@ watch(selectedWorkspace, (workspaceId) => {
 }, { immediate: true })
 
 const projectSlideoverCreate = overlay.create(LazyLibrarySlideoverCreate)
+const directoryProjectNameSlideover = overlay.create(LazyLibrarySlideoverDirectoryProjectName)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 
 const emptyActions = computed(() => {
@@ -105,6 +108,13 @@ const { requestExportOptions } = useProjectExportDialog(exportTargetSlideover, c
 const backgroundDownloads = useBackgroundDownloads()
 const importProjectPackageInput = ref<HTMLInputElement | null>(null)
 const importLegacyOcr4allInput = ref<HTMLInputElement | null>(null)
+const uploadDirectoryInput = ref<HTMLInputElement | null>(null)
+const directoryUploadJobs = shallowRef<Array<{
+  projectId: string
+  projectName: string
+  workspaceId: string
+  files: File[]
+}>>([])
 
 type ResolvedTag = {
   id: string
@@ -1140,7 +1150,87 @@ function triggerLegacyOcr4allImport() {
   importLegacyOcr4allInput.value?.click()
 }
 
+function triggerDirectoryProjectUpload() {
+  uploadDirectoryInput.value?.click()
+}
+
+async function requestDirectoryProjectName(initialName: string, reason: string, unavailableName?: string): Promise<string | null> {
+  const instance = directoryProjectNameSlideover.open({
+    initialName,
+    existingNames: [...(data.value ?? []).map(project => project.name), ...(unavailableName ? [unavailableName] : [])],
+    reason
+  })
+  return await instance.result as string | null
+}
+
+async function handleDirectoryProjectUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const selectedFiles = Array.from(input.files ?? [])
+  const files = selectedFiles.filter(isProjectImageOrXml)
+  const workspaceId = selectedWorkspace.value
+
+  try {
+    if (!workspaceId || selectedFiles.length === 0) return
+    if (files.length === 0) {
+      toast.add({
+        title: 'No supported files found',
+        description: 'The selected directory does not contain images or XML files.',
+        color: 'warning',
+        icon: 'i-lucide-folder-x'
+      })
+      return
+    }
+
+    let projectName = getDirectoryProjectName(selectedFiles)
+    const initialError = getProjectNameError(projectName, (data.value ?? []).map(project => project.name))
+    if (initialError) {
+      projectName = await requestDirectoryProjectName(projectName, initialError) ?? ''
+    }
+
+    while (projectName) {
+      try {
+        const project = await $fetch<{ id: string, name: string }>(`/api/workspaces/${workspaceId}/projects`, {
+          method: 'POST',
+          body: { name: projectName }
+        })
+        directoryUploadJobs.value = [...directoryUploadJobs.value, {
+          projectId: project.id,
+          projectName: project.name,
+          workspaceId,
+          files
+        }]
+        toast.add({
+          title: 'Project created',
+          description: `Uploading ${files.length} file${files.length === 1 ? '' : 's'} to "${project.name}".`,
+          color: 'success',
+          icon: 'i-lucide-folder-up'
+        })
+        await refresh()
+        return
+      } catch (error: unknown) {
+        const message = extractApiErrorMessage(error, 'Failed to create project')
+        if (!/name|already exists|required|255 characters/i.test(message)) throw error
+        projectName = await requestDirectoryProjectName(projectName, message, projectName) ?? ''
+      }
+    }
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Directory upload failed',
+      description: extractApiErrorMessage(error, 'Failed to create the project'),
+      color: 'error'
+    })
+  } finally {
+    input.value = ''
+  }
+}
+
 const projectsActionItems = computed<DropdownMenuItem[][]>(() => [[
+  {
+    label: 'Upload directory as project',
+    icon: 'i-lucide-folder-up',
+    disabled: !selectedWorkspace.value || !canCreateProjects.value,
+    onSelect: triggerDirectoryProjectUpload
+  },
   {
     label: 'Import Package',
     icon: 'i-lucide-file-up',
@@ -1317,6 +1407,16 @@ async function handleLegacyOcr4allImport(event: Event) {
             directory
             @change="handleLegacyOcr4allImport"
           >
+          <input
+            ref="uploadDirectoryInput"
+            type="file"
+            class="hidden"
+            multiple
+            webkitdirectory
+            directory
+            accept="image/*,.xml"
+            @change="handleDirectoryProjectUpload"
+          >
           <UFieldGroup>
             <UButton
               v-if="canCreateProjects"
@@ -1431,6 +1531,12 @@ async function handleLegacyOcr4allImport(event: Event) {
     </template>
 
     <template #body>
+      <LibraryDirectoryProjectUpload
+        v-for="job in directoryUploadJobs"
+        :key="job.projectId"
+        v-bind="job"
+        @terminal="directoryUploadJobs = directoryUploadJobs.filter(candidate => candidate.projectId !== job.projectId)"
+      />
       <div v-if="error" class="py-8 text-center">
         <div class="flex items-center justify-center gap-2 text-error">
           <UIcon name="i-lucide-alert-circle" />
