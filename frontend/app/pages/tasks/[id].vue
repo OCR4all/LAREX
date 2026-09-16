@@ -7,6 +7,7 @@ import { LazyTaskSlideoverEdit, LazyUiDeleteSlideover, LazyTaskSlideoverLinkItem
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const requestFetch = useRequestFetch()
 const overlay = useOverlay()
 const { refreshTaskOverview } = useTaskOverviewRefresh()
 const { refreshTaskCaches, refreshProjectCaches } = useDataRefresh()
@@ -67,7 +68,7 @@ async function loadActivity(reset = false) {
 
   activityLoading.value = true
   try {
-    const data = await $fetch<TaskActivityLog[]>(`/api/tasks/${taskId.value}/activity`, {
+    const data = await requestFetch<TaskActivityLog[]>(`/api/tasks/${taskId.value}/activity`, {
       query: {
         page: activityPage.value,
         size: activitySize

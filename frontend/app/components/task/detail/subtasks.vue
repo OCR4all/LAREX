@@ -16,7 +16,7 @@ const emit = defineEmits<{
 
 const toast = useToast()
 
-const localSubtasks = ref<Subtask[]>([])
+const localSubtasks = ref<Subtask[]>([...props.subtasks])
 const newSubtaskTitle = ref('')
 const newSubtaskDescription = ref('')
 const isAdding = ref(false)
@@ -50,9 +50,7 @@ const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems().flatMa
 const totalVirtualSize = computed(() => rowVirtualizer.value.getTotalSize())
 
 const measureVirtualRow: VNodeRef = (el) => {
-  if (el instanceof HTMLElement) {
-    rowVirtualizer.value.measureElement(el)
-  }
+  rowVirtualizer.value.measureElement(el instanceof HTMLElement ? el : null)
 }
 
 function commitSubtasks(subtasks: Subtask[]) {
@@ -229,18 +227,6 @@ async function bulkSetDescription() {
   }
 }
 
-function getAssigneeName(subtask: Subtask): string {
-  if (!subtask.assignedTo) return 'Unassigned'
-  const user = subtask.assignedTo
-  return user.firstName && user.lastName
-    ? `${user.firstName} ${user.lastName}`
-    : user.username
-}
-
-function getDisplayDescription(subtask: Subtask) {
-  return subtask.description || subtask.taskDescription || null
-}
-
 function closeAddSubtask() {
   addSubtaskOpen.value = false
   newSubtaskTitle.value = ''
@@ -349,11 +335,6 @@ async function deleteSubtask(subtask: Subtask) {
     toast.add({ title: 'Failed to delete task', description: err?.data?.message, color: 'error' })
   }
 }
-
-watch([localSubtasks, editingId], async () => {
-  await nextTick()
-  rowVirtualizer.value.measure()
-})
 </script>
 
 <template>
@@ -571,10 +552,10 @@ watch([localSubtasks, editingId], async () => {
 
     <div
       ref="scrollerRef"
-      class="max-h-[60vh] overflow-y-auto overscroll-contain pr-1"
+      class="max-h-[60vh] overflow-x-hidden overflow-y-auto overscroll-contain pr-1 [overflow-anchor:none]"
     >
       <div
-        class="relative"
+        class="relative w-full [contain:strict]"
         :style="{ height: `${totalVirtualSize}px` }"
       >
         <div
@@ -582,135 +563,28 @@ watch([localSubtasks, editingId], async () => {
           :key="String(item.key)"
           :ref="measureVirtualRow"
           :data-index="item.index"
-          class="absolute left-0 top-0 w-full"
+          class="absolute left-0 top-0 w-full will-change-transform"
           :style="{ transform: `translateY(${item.start}px)` }"
         >
-          <div
-            class="group flex items-center gap-2 py-2 px-2 -mx-2 rounded-sm hover:bg-elevated/30"
-            :class="{ 'bg-primary/5': selectionMode && selectedIds.has(subtask.id) }"
-          >
-            <UCheckbox
-              v-if="selectionMode"
-              :model-value="selectedIds.has(subtask.id)"
-              @update:model-value="toggleSelection(subtask.id)"
-            />
-
-            <UCheckbox
-              :model-value="subtask.completed"
-              :disabled="selectionMode || pendingToggleIds.has(subtask.id)"
-              @update:model-value="toggleSubtask(subtask)"
-            />
-
-            <div v-if="editingId === subtask.id" class="flex-1 flex flex-col gap-2">
-              <UInput
-                v-model="editingTitle"
-                size="sm"
-                class="flex-1"
-                autofocus
-                @keyup.enter="saveEdit(subtask)"
-                @keyup.escape="cancelEditing"
-              />
-              <UTextarea
-                v-model="editingDescription"
-                size="sm"
-                :rows="2"
-                placeholder="Add a description"
-              />
-              <div class="flex items-center gap-2">
-                <UButton
-                  icon="i-lucide-check"
-                  color="success"
-                  variant="ghost"
-                  size="xs"
-                  @click="saveEdit(subtask)"
-                />
-                <UButton
-                  icon="i-lucide-x"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  @click="cancelEditing"
-                />
-              </div>
-            </div>
-
-            <div
-              v-else
-              class="flex-1 min-w-0 flex flex-col gap-0.5"
-            >
-              <div class="flex items-center gap-2 min-w-0">
-                <span
-                  class="text-sm cursor-pointer truncate"
-                  :class="{ 'line-through text-muted': subtask.completed }"
-                  @dblclick="startEditing(subtask)"
-                >
-                  {{ subtask.title }}
-                </span>
-
-                <NuxtLink
-                  v-if="subtask.pageId && subtask.pageName"
-                  :to="`/project/${subtask.projectId}`"
-                  class="shrink-0"
-                  @click.stop
-                >
-                  <UBadge
-                    color="neutral"
-                    variant="subtle"
-                    size="xs"
-                    class="cursor-pointer hover:bg-elevated"
-                  >
-                    <UIcon name="i-lucide-file" class="size-3 mr-1" />
-                    {{ subtask.pageName }}
-                  </UBadge>
-                </NuxtLink>
-              </div>
-              <p v-if="getDisplayDescription(subtask)" class="text-xs text-muted truncate">
-                {{ getDisplayDescription(subtask) }}
-              </p>
-            </div>
-
-            <div v-if="!selectionMode && taskAssignees && taskAssignees.length > 0" class="shrink-0">
-              <UDropdownMenu
-                :items="assigneeOptions.map(opt => ({ label: opt.label, onSelect: () => assignSubtask(subtask, opt.value || null) }))"
-              >
-                <UButton
-                  size="xs"
-                  color="neutral"
-                  variant="ghost"
-                  class="gap-1"
-                >
-                  <AppAvatar
-                    v-if="subtask.assignedTo"
-                    :seed="subtask.assignedTo.id"
-                    :src="subtask.assignedTo.avatar"
-                    :alt="getAssigneeName(subtask)"
-                    size="2xs"
-                  />
-                  <UIcon v-else name="i-lucide-user" class="size-3 text-muted" />
-                  <span class="text-xs text-muted max-w-20 truncate hidden sm:inline">
-                    {{ subtask.assignedTo ? getAssigneeName(subtask) : '' }}
-                  </span>
-                </UButton>
-              </UDropdownMenu>
-            </div>
-
-            <div v-if="editingId !== subtask.id && !selectionMode" class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-              <UButton
-                icon="i-lucide-pencil"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                @click="startEditing(subtask)"
-              />
-              <UButton
-                icon="i-lucide-trash-2"
-                color="error"
-                variant="ghost"
-                size="xs"
-                @click="deleteSubtask(subtask)"
-              />
-            </div>
-          </div>
+          <TaskDetailSubtaskRow
+            :subtask="subtask"
+            :selection-mode="selectionMode"
+            :selected="selectedIds.has(subtask.id)"
+            :pending="pendingToggleIds.has(subtask.id)"
+            :editing="editingId === subtask.id"
+            :editing-title="editingId === subtask.id ? editingTitle : ''"
+            :editing-description="editingId === subtask.id ? editingDescription : ''"
+            :assignee-options="assigneeOptions"
+            @update:editing-title="editingTitle = $event"
+            @update:editing-description="editingDescription = $event"
+            @select="toggleSelection(subtask.id)"
+            @toggle="toggleSubtask(subtask)"
+            @edit="startEditing(subtask)"
+            @cancel="cancelEditing"
+            @save="saveEdit(subtask)"
+            @delete="deleteSubtask(subtask)"
+            @assign="assignSubtask(subtask, $event)"
+          />
         </div>
       </div>
     </div>
