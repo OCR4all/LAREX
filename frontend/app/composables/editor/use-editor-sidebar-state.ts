@@ -11,7 +11,7 @@ type EditorSidebarStateOptions = {
 export function useEditorSidebarState(options: EditorSidebarStateOptions) {
   const editorFilterPopoverOpen = ref(false)
   const projectAccordionPanels = ref<string[]>([])
-  const accordionPanels = ref<string[]>(['structure'])
+  const accordionPanels = ref<string[]>([])
 
   const openedProjectIdsSignature = computed(() => options.openedProjectIds.value.join('|'))
 

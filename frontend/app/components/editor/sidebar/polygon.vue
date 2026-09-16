@@ -73,7 +73,7 @@ const props = withDefaults(defineProps<PolygonSidebarProps>(), {
   hoveredPolygonId: null,
   document: null,
   page: null,
-  accordionPanels: () => ['structure'],
+  accordionPanels: () => [],
   isPageLocked: false
 })
 
