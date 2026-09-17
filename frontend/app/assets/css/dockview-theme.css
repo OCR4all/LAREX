@@ -34,7 +34,7 @@
   --dv-activegroup-hiddenpanel-tab-color: var(--color-smoke-600);
   --dv-inactivegroup-visiblepanel-tab-color: var(--color-smoke-700);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--color-smoke-600);
-  --dv-separator-border: rgb(0 0 0 / 0.12);
+  --dv-separator-border: rgb(0 0 0 / 0.18);
   --dv-paneview-header-border-color: var(--color-smoke-800);
   --dv-scrollbar-background-color: rgb(0 0 0 / 0.25);
   --dv-tab-hover-background: var(--color-smoke-100);
@@ -57,7 +57,7 @@
   --dv-activegroup-hiddenpanel-tab-color: var(--color-smoke-400);
   --dv-inactivegroup-visiblepanel-tab-color: var(--color-smoke-200);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--color-smoke-400);
-  --dv-separator-border: rgb(255 255 255 / 0.13);
+  --dv-separator-border: rgb(255 255 255 / 0.16);
   --dv-paneview-header-border-color: var(--color-smoke-200);
   --dv-scrollbar-background-color: rgb(255 255 255 / 0.15);
   --dv-tab-hover-background: var(--color-smoke-800);
@@ -68,6 +68,11 @@
 
 :is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview {
   position: relative;
+}
+
+:is(.dockview-theme-larex-light, .dockview-theme-larex-dark)
+  .dv-split-view-container > .dv-sash-container > .dv-sash {
+  z-index: 20;
 }
 
 :is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview > .dv-tabs-and-actions-container {
@@ -103,6 +108,20 @@
 }
 
 :is(.dockview-theme-larex-light, .dockview-theme-larex-dark)
+  .dv-groupview > .dv-tabs-and-actions-container.parent-tab-overlay {
+  top: var(--dv-tab-overlay-top, 16px);
+  z-index: 29;
+  padding-left: 4px;
+  border-bottom-color: transparent;
+  border-radius: var(--dv-border-radius) var(--dv-border-radius) 0 0;
+  box-shadow: 0 -2px 8px -4px rgb(0 0 0 / 0.12);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--dv-inactivegroup-visiblepanel-tab-background-color);
+  --dv-activegroup-visiblepanel-tab-color: var(--dv-inactivegroup-visiblepanel-tab-color);
+  --dv-active-tab-hover-background: var(--dv-icon-hover-background-color);
+  --dv-selected-tab-border: var(--dv-separator-border);
+}
+
+:is(.dockview-theme-larex-light, .dockview-theme-larex-dark)
   .dv-groupview.dv-project-tab-overlay:has(.editor-status-stack > *)
   .dv-content-container .dv-tabs-and-actions-container {
   border-bottom-color: transparent;
@@ -129,6 +148,18 @@
 
 :is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-tabs-and-actions-container .dv-right-actions-container {
   flex-shrink: 0;
+}
+
+:is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-tabs-overflow-dropdown-default {
+  height: 28px;
+  margin: 6px 2px;
+  padding: 0 6px;
+  border-radius: 6px;
+}
+
+:is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-tabs-overflow-dropdown-default > svg {
+  width: 14px;
+  height: 14px;
 }
 
 :is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview .dv-tab {

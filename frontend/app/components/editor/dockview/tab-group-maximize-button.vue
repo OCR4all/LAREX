@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { IDockviewHeaderActionsProps } from 'dockview-vue'
-import { parseProjectPanelId } from '@/stores/editor/editor.keys'
+import { parsePagePanelId, parseProjectPanelId } from '@/stores/editor/editor.keys'
+import { getScrollLeftToRevealTab, isDetachedTabHeader } from '@/utils/editor/dockview-tab-layout'
 
 const props = defineProps<{
   params: IDockviewHeaderActionsProps
@@ -10,12 +11,24 @@ const isMaximized = ref(false)
 const actionsRef = ref<HTMLElement | null>(null)
 const groupRef = ref<HTMLElement | null>(null)
 const isProjectGroup = computed(() => props.params.panels.some(panel => Boolean(parseProjectPanelId(panel.id))))
+const editorStore = useEditorStore()
+const pageProjectId = computed(() => props.params.panels
+  .map(panel => parsePagePanelId(panel.id)?.projectId)
+  .find((projectId): projectId is string => Boolean(projectId)) ?? null)
+const parentProjectTitle = computed(() => {
+  const projectId = pageProjectId.value
+  if (!projectId) return null
+  return editorStore.getProjectPages(projectId)[0]?.projectName ?? projectId
+})
 
 let disposable: { dispose: () => void } | null = null
 let subscribedContainerApi: IDockviewHeaderActionsProps['containerApi'] | null = null
 
 const groupApi = shallowRef<IDockviewHeaderActionsProps['api'] | null>(null)
 const containerApi = shallowRef<IDockviewHeaderActionsProps['containerApi'] | null>(null)
+const showParentTab = ref(false)
+let layoutDisposable: { dispose: () => void } | null = null
+let tabsResizeObserver: ResizeObserver | null = null
 
 const maybeParams = computed(() => props.params as Partial<IDockviewHeaderActionsProps>)
 
@@ -72,6 +85,33 @@ const onClick = () => {
   }
 }
 
+const updateParentTabVisibility = () => {
+  const group = groupRef.value
+  const pageHeader = actionsRef.value?.closest<HTMLElement>('.dv-tabs-and-actions-container')
+  const parentGroup = group?.parentElement?.closest<HTMLElement>('.dv-groupview')
+  const parentHeader = parentGroup?.querySelector<HTMLElement>(':scope > .dv-tabs-and-actions-container')
+  if (!pageHeader || !parentHeader) return
+
+  const pageRect = pageHeader.getBoundingClientRect()
+  const parentRect = parentHeader.getBoundingClientRect()
+  showParentTab.value = isDetachedTabHeader(pageRect, parentRect)
+}
+
+const revealActiveTab = () => {
+  const tabList = actionsRef.value
+    ?.closest<HTMLElement>('.dv-tabs-and-actions-container')
+    ?.querySelector<HTMLElement>('.dv-tabs-container')
+  const activeTab = tabList?.querySelector<HTMLElement>('.dv-tab.dv-active-tab')
+  if (!tabList || !activeTab) return
+
+  tabList.scrollLeft = getScrollLeftToRevealTab({
+    scrollLeft: tabList.scrollLeft,
+    viewportWidth: tabList.clientWidth,
+    tabLeft: activeTab.offsetLeft,
+    tabWidth: activeTab.offsetWidth
+  })
+}
+
 watch(() => props.params, () => {
   syncApis()
   ensureSubscription()
@@ -83,19 +123,51 @@ watchEffect(() => {
   group.classList.toggle('dv-project-tab-overlay', isProjectGroup.value)
 })
 
+watch(() => props.params.activePanel?.id, () => void nextTick(revealActiveTab))
+
 onMounted(() => {
   groupRef.value = actionsRef.value?.closest<HTMLElement>('.dv-groupview') ?? null
+  if (pageProjectId.value) {
+    layoutDisposable = props.params.containerApi.onDidLayoutChange(updateParentTabVisibility)
+    void nextTick(updateParentTabVisibility)
+  }
+  const tabList = actionsRef.value
+    ?.closest<HTMLElement>('.dv-tabs-and-actions-container')
+    ?.querySelector<HTMLElement>('.dv-tabs-container')
+  if (tabList) {
+    tabsResizeObserver = new ResizeObserver(revealActiveTab)
+    tabsResizeObserver.observe(tabList)
+    void nextTick(revealActiveTab)
+  }
 })
 
 onUnmounted(() => {
   disposable?.dispose()
   disposable = null
   subscribedContainerApi = null
+  layoutDisposable?.dispose()
+  layoutDisposable = null
+  tabsResizeObserver?.disconnect()
+  tabsResizeObserver = null
   groupRef.value?.classList.remove('dv-project-tab-overlay')
 })
 </script>
 
 <template>
+  <Teleport v-if="parentProjectTitle && showParentTab" :to="props.params.group.element">
+    <div class="dv-tabs-and-actions-container parent-tab-overlay" aria-hidden="true">
+      <div class="dv-tabs-container">
+        <div class="dv-tab dv-active-tab">
+          <div class="dv-default-tab">
+            <div class="dv-default-tab-content">
+              <Icon name="i-lucide-folder" class="size-3.5 shrink-0 opacity-70" />
+              <span class="truncate" :title="parentProjectTitle">{{ parentProjectTitle }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
   <div ref="actionsRef" class="header-actions">
     <span v-if="!isProjectGroup" class="page-branch" aria-hidden="true">
       <Icon name="i-lucide-corner-down-right" :size="14" />
