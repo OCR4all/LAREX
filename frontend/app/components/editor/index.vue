@@ -2192,6 +2192,35 @@ const selectedTextlineGtText = computed(() => {
   return gt?.unicode ?? ''
 })
 
+const selectedTextlineGtVariant = computed(() => {
+  const polygon = selectedTextlinePolygon.value
+  if (!polygon) return undefined
+  return normalizeEditableTextVariants(polygon.textContentVariants)
+    .find(variant => variant.index === activeGtIndex.value)
+})
+
+const selectedTextlineFirstRecognitionVariant = computed(() => {
+  const polygon = selectedTextlinePolygon.value
+  if (!polygon) return undefined
+
+  const variants = normalizeEditableTextVariants(polygon.textContentVariants)
+  for (const recognitionIndex of activeRecognitionIndices.value) {
+    const variant = variants.find(candidate => (
+      (recognitionIndex === -1 ? candidate.index === undefined : candidate.index === recognitionIndex)
+      && candidate.unicode.trim().length > 0
+    ))
+    if (variant) return variant
+  }
+
+  return undefined
+})
+
+const canCreateGtFromRecognition = computed(() => (
+  isTextVisualMode.value
+  && !!selectedTextlineFirstRecognitionVariant.value
+  && !selectedTextlineGtVariant.value?.unicode.trim()
+))
+
 type OverlayDiffSegment = {
   text: string
   type: 'equal' | 'insert' | 'delete'
@@ -2549,6 +2578,23 @@ function commitTextlineVariants(textlineId: string, variants: Array<{
     }),
     getCommandContext()
   )
+}
+
+function createGtFromRecognition(): void {
+  const polygon = selectedTextlinePolygon.value
+  const source = selectedTextlineFirstRecognitionVariant.value
+  if (!polygon || !source || !isCanvasWritable.value) return
+  if (selectedTextlineGtVariant.value?.unicode.trim()) return
+
+  const updated = setGtVariantUnicode(
+    polygon.textContentVariants,
+    activeGtIndex.value,
+    normalizeSingleLineText(source.unicode)
+  )
+  if (!updated.changed && !updated.created) return
+
+  commitTextlineVariants(polygon.id, updated.variants)
+  correctionInputValue.value = updated.variants[updated.gtPos]?.unicode ?? ''
 }
 
 function ensureSelectedTextlineGtVariant(): boolean {
@@ -3469,6 +3515,18 @@ watch(() => props.src, (newSrc) => {
             >
               Fit
             </UButton>
+            <UTooltip v-if="canCreateGtFromRecognition" :delay-duration="0" text="Create GT from first recognition variant">
+              <UButton
+                size="xs"
+                color="success"
+                variant="soft"
+                icon="i-lucide-copy-plus"
+                :disabled="!isCanvasWritable"
+                @click="createGtFromRecognition"
+              >
+                Copy to GT
+              </UButton>
+            </UTooltip>
             <span class="font-medium text-muted">GT #{{ activeGtIndex }}</span>
             <span class="text-muted">{{ correctionFontSizePx }}px</span>
             <div class="flex items-center gap-1">
