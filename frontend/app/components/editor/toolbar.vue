@@ -637,11 +637,15 @@ function getIconForShape(option: ShapeOption): string {
   return 'i-lucide-pen-tool'
 }
 
-function getEntryToolLabel(entry: 'region' | 'textline'): string {
-  const element = entry === 'region' ? 'Region' : 'Text line'
+function getEntryTooltipProps(entry: 'region' | 'textline') {
   const shape = getPrimaryShapeForEntry(entry)
-  return `${element} ${shape}`
+  const shortcutId = entry === 'region'
+    ? shape === 'rectangle' ? 'regionRectangle' : 'regionPolygon'
+    : shape === 'rectangle' ? 'textlineRectangle' : 'textlinePolygon'
+  return getTooltipProps(shortcutId)
 }
+
+const actionWandTooltip = 'Action wand'
 
 const handleToggleSelectMode = () => {
   cancelActionWand()
@@ -1441,14 +1445,14 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
           <template v-else>
             <div v-if="showRegionTools" data-tour="region-tools" class="flex items-center">
               <UFieldGroup>
-                <UTooltip :delay-duration="0" v-bind="getTooltipProps('regionPolygon')">
+                <UTooltip :delay-duration="0" v-bind="getEntryTooltipProps('region')">
                   <UButton
                     variant="ghost"
                     size="md"
                     color="neutral"
                     :active="isRegionTypeRegion && (isPolygonMode || isRectangleMode)"
                     :aria-pressed="isRegionTypeRegion && (isPolygonMode || isRectangleMode)"
-                    :aria-label="getEntryToolLabel('region')"
+                    :aria-label="getEntryTooltipProps('region').text"
                     :class="activeToolClass(isRegionTypeRegion && (isPolygonMode || isRectangleMode))"
                     :disabled="!currentCanvasState || !canCreateRegion"
                     @click="setEntryAndMode('region', getPrimaryShapeForEntry('region'))"
@@ -1481,14 +1485,14 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
 
             <div v-if="showTextlineTools" data-tour="textline-tools" class="flex items-center">
               <UFieldGroup>
-                <UTooltip :delay-duration="0" v-bind="getTooltipProps('textlinePolygon')">
+                <UTooltip :delay-duration="0" v-bind="getEntryTooltipProps('textline')">
                   <UButton
                     variant="ghost"
                     size="md"
                     color="neutral"
                     :active="isRegionTypeTextline && (isPolygonMode || isRectangleMode)"
                     :aria-pressed="isRegionTypeTextline && (isPolygonMode || isRectangleMode)"
-                    :aria-label="getEntryToolLabel('textline')"
+                    :aria-label="getEntryTooltipProps('textline').text"
                     :class="activeToolClass(isRegionTypeTextline && (isPolygonMode || isRectangleMode))"
                     :disabled="!currentCanvasState || !canCreateTextline"
                     @click="setEntryAndMode('textline', getPrimaryShapeForEntry('textline'))"
@@ -1640,7 +1644,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
           <UTooltip
             v-if="showActionTool"
             :delay-duration="0"
-            :text="uiStore.actionWandActive ? 'Cancel Action target picker' : 'Pick a page, region, or textline for an Action'"
+            :text="actionWandTooltip"
           >
             <UButton
               variant="ghost"
@@ -1649,7 +1653,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
               color="neutral"
               :active="uiStore.actionWandActive"
               :aria-pressed="uiStore.actionWandActive"
-              :aria-label="uiStore.actionWandActive ? 'Cancel Action target picker' : 'Pick an Action target'"
+              :aria-label="actionWandTooltip"
               :class="activeToolClass(uiStore.actionWandActive)"
               :disabled="!currentCanvasState || !canEditCurrentCanvas"
               @click="handleToggleActionWand"
