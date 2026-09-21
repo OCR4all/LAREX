@@ -116,6 +116,9 @@ public class ActionRun {
     @Column(nullable = false, name = "cancel_requested")
     private boolean cancelRequested = false;
 
+    @Column(name = "cancel_requested_at")
+    private LocalDateTime cancelRequestedAt;
+
     @Column(nullable = false, name = "progress_percent")
     private int progressPercent = 0;
 
@@ -319,6 +322,14 @@ public class ActionRun {
 
     public void setCancelRequested(boolean cancelRequested) {
         this.cancelRequested = cancelRequested;
+    }
+
+    public LocalDateTime getCancelRequestedAt() {
+        return cancelRequestedAt;
+    }
+
+    public void setCancelRequestedAt(LocalDateTime cancelRequestedAt) {
+        this.cancelRequestedAt = cancelRequestedAt;
     }
 
     public int getProgressPercent() {

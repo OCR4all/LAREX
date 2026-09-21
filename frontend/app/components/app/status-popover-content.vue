@@ -522,7 +522,7 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
                   :loading="isCancellingJob(job)"
                   @click="cancelJob(job)"
                 >
-                  Cancel
+                  {{ job.kind === 'action' && job.run.status === 'CANCEL_REQUESTED' ? 'Force cancel' : 'Cancel' }}
                 </UButton>
                 <UButton
                   v-if="canRetryJob(job)"

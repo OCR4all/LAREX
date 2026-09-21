@@ -511,11 +511,51 @@ class ActionRunServiceTest {
         when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, OWNER_ID)).thenReturn(true);
         when(globalAdminService.isGlobalAdmin()).thenReturn(false);
 
-        ActionDto.RunResponse response = service.cancelRun(WORKSPACE_ID, project.getId(), run.getId(), OWNER_ID);
+        ActionDto.RunResponse response = service.cancelRun(WORKSPACE_ID, project.getId(), run.getId(), OWNER_ID, false);
 
         assertThat(response.status()).isEqualTo(ActionRun.Status.CANCEL_REQUESTED);
         assertThat(run.getStatus()).isEqualTo(ActionRun.Status.CANCEL_REQUESTED);
         assertThat(run.isCancelRequested()).isTrue();
+        assertThat(run.getCancelRequestedAt()).isNotNull();
+    }
+
+    @Test
+    void repeatedCancellationDoesNotExtendDeadline() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionRun run = run(definition("processor-repeat-cancel"), project, OWNER_ID,
+                ActionRun.Status.CANCEL_REQUESTED, LockMode.PAGES, List.of("page-1"));
+        LocalDateTime requestedAt = LocalDateTime.now().minusMinutes(10);
+        run.setCancelRequestedAt(requestedAt);
+        when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
+        when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
+        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, OWNER_ID)).thenReturn(true);
+
+        service.cancelRun(WORKSPACE_ID, project.getId(), run.getId(), OWNER_ID, false);
+
+        assertThat(run.getCancelRequestedAt()).isEqualTo(requestedAt);
+    }
+
+    @Test
+    void forceCancelImmediatelyFinalizesAndRevokesRun() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionRun run = run(definition("processor-force-cancel"), project, OWNER_ID,
+                ActionRun.Status.CANCEL_REQUESTED, LockMode.PAGES, List.of("page-1"));
+        when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
+        when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
+        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, OWNER_ID)).thenReturn(true);
+
+        ActionDto.RunResponse response = service.cancelRun(WORKSPACE_ID, project.getId(), run.getId(), OWNER_ID, true);
+
+        assertThat(response.status()).isEqualTo(ActionRun.Status.CANCELLED);
+        assertThat(run.getCompletedAt()).isNotNull();
+        assertThat(run.getSecretExpiresAt()).isBeforeOrEqualTo(LocalDateTime.now());
+        verify(actionOutputService).discardDraft(run.getId());
+        verify(actionAuditService).record(eq("ACTION_RUN_FORCE_CANCEL"), eq("SUCCESS"), eq(OWNER_ID),
+                any(), eq(run.getId()), eq(WORKSPACE_ID), eq(project.getId()), any());
     }
 
     @Test
@@ -530,7 +570,7 @@ class ActionRunServiceTest {
         when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, OUTSIDER_ID)).thenReturn(true);
         when(globalAdminService.isGlobalAdmin()).thenReturn(false);
 
-        assertThatThrownBy(() -> service.cancelRun(WORKSPACE_ID, project.getId(), run.getId(), OUTSIDER_ID))
+        assertThatThrownBy(() -> service.cancelRun(WORKSPACE_ID, project.getId(), run.getId(), OUTSIDER_ID, false))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("permission");
     }
@@ -549,7 +589,7 @@ class ActionRunServiceTest {
         when(workspaceAccessService.canManageProjects(WORKSPACE_ID, CURATOR_ID)).thenReturn(true);
         when(globalAdminService.isGlobalAdmin()).thenReturn(false);
 
-        ActionDto.RunResponse response = service.cancelRun(WORKSPACE_ID, project.getId(), run.getId(), CURATOR_ID);
+        ActionDto.RunResponse response = service.cancelRun(WORKSPACE_ID, project.getId(), run.getId(), CURATOR_ID, false);
 
         assertThat(response.status()).isEqualTo(ActionRun.Status.CANCEL_REQUESTED);
     }
@@ -1066,7 +1106,9 @@ class ActionRunServiceTest {
         ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.CANCEL_REQUESTED, LockMode.PAGES, List.of("page-1"));
         run.setCancelRequested(true);
 
-        when(runRepository.findByStatusInAndUpdatedBefore(anyCollection(), any()))
+        run.setCancelRequestedAt(LocalDateTime.now().minusMinutes(10));
+        run.setUpdated(LocalDateTime.now());
+        when(runRepository.findByStatusInAndCancelRequestedAtBefore(anyCollection(), any()))
                 .thenReturn(List.of(run));
         when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
         when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -1076,6 +1118,11 @@ class ActionRunServiceTest {
 
         assertThat(run.getStatus()).isEqualTo(ActionRun.Status.CANCELLED);
         assertThat(run.getCompletedAt()).isNotNull();
+        assertThat(run.getStatusMessage()).isEqualTo("Action cancellation timed out");
+        verify(runRepository).findByStatusInAndCancelRequestedAtBefore(
+                eq(List.of(ActionRun.Status.CANCEL_REQUESTED)),
+                org.mockito.ArgumentMatchers.argThat(cutoff -> cutoff.isBefore(LocalDateTime.now().minusMinutes(4))
+                        && cutoff.isAfter(LocalDateTime.now().minusMinutes(6))));
     }
 
     @Test

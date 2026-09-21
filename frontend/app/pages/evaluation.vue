@@ -48,7 +48,7 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
   { id: 'test', header: 'Test', cell: ({ row }) => h('span', { class: 'tabular-nums' }, String(row.original.splitCounts?.TEST ?? 0)) },
   { id: 'progress', header: 'Progress', cell: ({ row }) => h(UProgressComponent, { modelValue: row.original.progressPercent, max: 100, size: 'xs', color: row.original.status === 'COMPLETED' ? 'success' : 'primary', class: 'w-20' }) },
   { accessorKey: 'updated', header: 'Updated' },
-  { id: 'actions', header: '', cell: ({ row }) => row.original.canCancel && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(row.original.status) ? h(UButtonComponent, { 'color': 'warning', 'variant': 'ghost', 'size': 'xs', 'icon': 'i-lucide-ban', 'loading': cancelling.value === row.original.id, 'aria-label': 'Cancel evaluation', 'onClick': (event: MouseEvent) => { event.stopPropagation(); void cancelRun(row.original) } }) : null }
+  { id: 'actions', header: '', cell: ({ row }) => row.original.canCancel && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(row.original.status) ? h(UButtonComponent, { 'color': 'warning', 'variant': 'ghost', 'size': 'xs', 'icon': 'i-lucide-ban', 'loading': cancelling.value === row.original.id, 'aria-label': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel evaluation' : 'Cancel evaluation', 'title': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel evaluation' : 'Cancel evaluation', 'onClick': (event: MouseEvent) => { event.stopPropagation(); void cancelRun(row.original) } }) : null }
 ])
 
 async function loadRuns() {
@@ -64,7 +64,7 @@ async function loadRuns() {
 async function cancelRun(run: ActionRun) {
   cancelling.value = run.id
   try {
-    const updated = await $fetch<ActionRun>(`/api/workspaces/${workspaceId.value}/actions/runs/${run.id}/cancel`, { method: 'POST' })
+    const updated = await $fetch<ActionRun>(`/api/workspaces/${workspaceId.value}/actions/runs/${run.id}/cancel${run.status === 'CANCEL_REQUESTED' ? '?force=true' : ''}`, { method: 'POST' })
     runs.value = runs.value.map(item => item.id === updated.id ? updated : item)
   } catch (error: unknown) {
     toast.add({ title: 'Could not cancel evaluation', description: error instanceof Error ? error.message : undefined, color: 'error' })

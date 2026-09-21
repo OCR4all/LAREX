@@ -245,6 +245,8 @@ larex:
     endpoint-require-https: ${LAREX_ACTIONS_ENDPOINT_REQUIRE_HTTPS:true}
     endpoint-allow-insecure-local: ${LAREX_ACTIONS_ENDPOINT_ALLOW_INSECURE_LOCAL:true}
     endpoint-secret-encryption-key: ${LAREX_ACTION_ENDPOINT_SECRET_ENCRYPTION_KEY:}
+    timeout:
+      cancellation-minutes: ${LAREX_ACTION_CANCELLATION_TIMEOUT_MINUTES:5}
     endpoint-secrets: {}
     results:
       max-file-bytes: ${LAREX_ACTION_RESULT_MAX_FILE_BYTES:104857600}

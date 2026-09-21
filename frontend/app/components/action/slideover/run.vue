@@ -628,13 +628,13 @@ async function cancelRun(run: ActionRun) {
   cancellingRunId.value = run.id
   try {
     const updated = await $fetch<ActionRun>(
-      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs/${run.id}/cancel`,
+      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs/${run.id}/cancel${run.status === 'CANCEL_REQUESTED' ? '?force=true' : ''}`,
       { method: 'POST' }
     )
     actionRunsStore.upsertRun(updated, props.projectName || props.projectId)
     changed.value = true
     await loadRuns()
-    toast.add({ title: 'Action cancellation requested', color: 'success' })
+    toast.add({ title: updated.status === 'CANCELLED' ? 'Action run cancelled' : 'Action cancellation requested', color: 'success' })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Could not cancel Action run.'
     toast.add({ title: 'Cancel failed', description: message, color: 'error' })
@@ -1146,6 +1146,8 @@ function close() {
                         icon="i-lucide-ban"
                         size="sm"
                         :loading="cancellingRunId === run.id"
+                        :aria-label="run.status === 'CANCEL_REQUESTED' ? 'Force cancel Action run' : 'Cancel Action run'"
+                        :title="run.status === 'CANCEL_REQUESTED' ? 'Force cancel Action run' : 'Cancel Action run'"
                         @click="cancelRun(run)"
                       />
                       <UButton

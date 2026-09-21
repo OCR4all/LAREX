@@ -149,13 +149,15 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
     cell: ({ row }) => h('div', { class: 'flex items-center justify-end gap-2' }, [
       row.original.canCancel && isActiveRun(row.original.status)
         ? h(UButtonComponent, {
-            color: 'warning',
-            variant: 'ghost',
-            size: 'xs',
-            icon: 'i-lucide-ban',
-            type: 'button',
-            loading: cancellingRunId.value === row.original.id,
-            onClick: async (event: MouseEvent) => {
+            'color': 'warning',
+            'variant': 'ghost',
+            'size': 'xs',
+            'icon': 'i-lucide-ban',
+            'aria-label': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel Action run' : 'Cancel Action run',
+            'title': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel Action run' : 'Cancel Action run',
+            'type': 'button',
+            'loading': cancellingRunId.value === row.original.id,
+            'onClick': async (event: MouseEvent) => {
               event.stopPropagation()
               await cancelRun(row.original)
             }
@@ -264,13 +266,13 @@ async function cancelRun(run: ActionRun) {
   cancellingRunId.value = run.id
   try {
     const updated = await $fetch<ActionRun>(
-      `/api/workspaces/${run.workspaceId}/actions/runs/${run.id}/cancel`,
+      `/api/workspaces/${run.workspaceId}/actions/runs/${run.id}/cancel${run.status === 'CANCEL_REQUESTED' ? '?force=true' : ''}`,
       { method: 'POST' }
     )
     updateRun(updated)
     actionRunsStore.upsertRun(updated, updated.datasetLabel || updated.projectLabel || 'Workspace')
     toast.add({
-      title: run.status === 'QUEUED' || run.status === 'PENDING' ? 'Run cancelled' : 'Cancellation requested',
+      title: run.status === 'CANCEL_REQUESTED' || run.status === 'QUEUED' || run.status === 'PENDING' ? 'Run cancelled' : 'Cancellation requested',
       color: 'success',
       icon: 'i-lucide-ban'
     })

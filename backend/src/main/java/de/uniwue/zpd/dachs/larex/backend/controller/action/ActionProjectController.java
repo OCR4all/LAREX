@@ -297,16 +297,18 @@ public class ActionProjectController {
             @PathVariable String workspaceId,
             @PathVariable String projectId,
             @PathVariable String runId,
+            @RequestParam(defaultValue = "false") boolean force,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        return ResponseEntity.ok(actionRunService.cancelRun(workspaceId, projectId, runId, userId));
+        return ResponseEntity.ok(actionRunService.cancelRun(workspaceId, projectId, runId, userId, force));
     }
 
     @PostMapping("/runs/{runId}/cancel")
     public ResponseEntity<ActionDto.RunResponse> cancelWorkspaceRun(
             @PathVariable String workspaceId,
             @PathVariable String runId,
+            @RequestParam(defaultValue = "false") boolean force,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        return ResponseEntity.ok(actionRunService.cancelWorkspaceRun(workspaceId, runId, userId));
+        return ResponseEntity.ok(actionRunService.cancelWorkspaceRun(workspaceId, runId, userId, force));
     }
 
     @PostMapping("/runs/{runId}/dismiss")

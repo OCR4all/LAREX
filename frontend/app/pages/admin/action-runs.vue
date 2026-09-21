@@ -202,13 +202,15 @@ const columns = computed<TableColumn<AdminActionRun>[]>(() => [
     cell: ({ row }) => h('div', { class: 'flex items-center justify-end gap-2' }, [
       canCancelRun(row.original)
         ? h(UButtonComponent, {
-            color: 'warning',
-            variant: 'ghost',
-            size: 'xs',
-            icon: 'i-lucide-ban',
-            type: 'button',
-            loading: isCancellingRun(row.original.id),
-            onClick: async (event: MouseEvent) => {
+            'color': 'warning',
+            'variant': 'ghost',
+            'size': 'xs',
+            'icon': 'i-lucide-ban',
+            'aria-label': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel Action run' : 'Cancel Action run',
+            'title': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel Action run' : 'Cancel Action run',
+            'type': 'button',
+            'loading': isCancellingRun(row.original.id),
+            'onClick': async (event: MouseEvent) => {
               event.stopPropagation()
               await cancelRun(row.original)
             }
@@ -273,12 +275,12 @@ async function cancelRun(run: AdminActionRun) {
   if (!canCancelRun(run) || isCancellingRun(run.id)) return
   setCancellingRun(run.id, true)
   try {
-    await $fetch(`/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/runs/${run.id}/cancel`, {
+    await $fetch(`/api/workspaces/${run.workspaceId}/actions/runs/${run.id}/cancel${run.status === 'CANCEL_REQUESTED' ? '?force=true' : ''}`, {
       method: 'POST'
     })
     await loadRuns()
     toast.add({
-      title: run.status === 'QUEUED' || run.status === 'PENDING' ? 'Run cancelled' : 'Cancellation requested',
+      title: run.status === 'CANCEL_REQUESTED' || run.status === 'QUEUED' || run.status === 'PENDING' ? 'Run cancelled' : 'Cancellation requested',
       color: 'success',
       icon: 'i-lucide-ban'
     })

@@ -135,12 +135,14 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
     cell: ({ row }) => row.original.canCancel && isActiveRun(row.original.status)
       ? h('div', { class: 'flex justify-end' }, [
           h(UButtonComponent, {
-            color: 'warning',
-            variant: 'ghost',
-            size: 'xs',
-            icon: 'i-lucide-ban',
-            loading: cancellingRunId.value === row.original.id,
-            onClick: (event: MouseEvent) => {
+            'color': 'warning',
+            'variant': 'ghost',
+            'size': 'xs',
+            'icon': 'i-lucide-ban',
+            'aria-label': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel training run' : 'Cancel training run',
+            'title': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel training run' : 'Cancel training run',
+            'loading': cancellingRunId.value === row.original.id,
+            'onClick': (event: MouseEvent) => {
               event.stopPropagation()
               void cancelRun(row.original)
             }
@@ -170,9 +172,9 @@ async function cancelRun(run: ActionRun) {
   if (!run.canCancel || !isActiveRun(run.status) || cancellingRunId.value === run.id) return
   cancellingRunId.value = run.id
   try {
-    const updated = await $fetch<ActionRun>(`/api/workspaces/${workspaceId.value}/actions/runs/${run.id}/cancel`, { method: 'POST' })
+    const updated = await $fetch<ActionRun>(`/api/workspaces/${workspaceId.value}/actions/runs/${run.id}/cancel${run.status === 'CANCEL_REQUESTED' ? '?force=true' : ''}`, { method: 'POST' })
     runs.value = runs.value.map(item => item.id === updated.id ? updated : item)
-    toast.add({ title: 'Cancellation requested', color: 'success', icon: 'i-lucide-ban' })
+    toast.add({ title: updated.status === 'CANCELLED' ? 'Run cancelled' : 'Cancellation requested', color: 'success', icon: 'i-lucide-ban' })
   } catch (error: unknown) {
     toast.add({ title: 'Could not cancel training', description: error instanceof Error ? error.message : undefined, color: 'error' })
   } finally {

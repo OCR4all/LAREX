@@ -100,6 +100,20 @@ describe('action-runs.store', () => {
     expect(store.terminalEvents).toHaveLength(1)
   })
 
+  it('force cancels an Action run after cooperative cancellation was requested', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(createRun({ status: 'CANCELLED' }))
+    const store = await createStore(fetchMock)
+    store.upsertRun(createRun({ status: 'CANCEL_REQUESTED', cancelRequested: true }))
+
+    await store.cancelRun(store.runsArray[0]!)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/workspaces/workspace-1/actions/runs/run-1/cancel?force=true',
+      { method: 'POST' }
+    )
+    expect(store.runsArray[0]?.status).toBe('CANCELLED')
+  })
+
   it('coalesces realtime run refreshes for the same scope', async () => {
     vi.useFakeTimers()
     let listener: ((message: { type?: string, payload?: unknown }) => void) | undefined

@@ -291,7 +291,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     setCancelling(run.id, true)
     try {
       const updated = await $fetch<ActionRun>(
-        `/api/workspaces/${run.workspaceId}/actions/runs/${run.id}/cancel`,
+        `/api/workspaces/${run.workspaceId}/actions/runs/${run.id}/cancel${run.status === 'CANCEL_REQUESTED' ? '?force=true' : ''}`,
         { method: 'POST' }
       )
       upsertRun(updated, run.projectName)

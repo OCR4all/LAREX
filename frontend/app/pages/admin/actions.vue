@@ -725,12 +725,12 @@ async function cancelAdminRun(run: AdminActionRun) {
   if (!canCancelAdminRun(run) || isCancellingRun(run.id)) return
   setCancellingRun(run.id, true)
   try {
-    await $fetch(`/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/runs/${run.id}/cancel`, {
+    await $fetch(`/api/workspaces/${run.workspaceId}/actions/runs/${run.id}/cancel${run.status === 'CANCEL_REQUESTED' ? '?force=true' : ''}`, {
       method: 'POST'
     })
     await loadRuns()
     toast.add({
-      title: run.status === 'QUEUED' || run.status === 'PENDING' ? 'Run cancelled' : 'Cancellation requested',
+      title: run.status === 'CANCEL_REQUESTED' || run.status === 'QUEUED' || run.status === 'PENDING' ? 'Run cancelled' : 'Cancellation requested',
       color: 'success',
       icon: 'i-lucide-ban'
     })
@@ -1605,7 +1605,8 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                         icon="i-lucide-ban"
                         size="sm"
                         :loading="isCancellingRun(run.id)"
-                        aria-label="Cancel Action run"
+                        :aria-label="run.status === 'CANCEL_REQUESTED' ? 'Force cancel Action run' : 'Cancel Action run'"
+                        :title="run.status === 'CANCEL_REQUESTED' ? 'Force cancel Action run' : 'Cancel Action run'"
                         @click="cancelAdminRun(run)"
                       />
                     </div>

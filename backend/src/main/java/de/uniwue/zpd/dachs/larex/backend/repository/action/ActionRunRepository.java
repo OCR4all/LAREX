@@ -103,6 +103,8 @@ public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
 
     List<ActionRun> findByStatusInAndUpdatedBefore(Collection<Status> statuses, LocalDateTime updatedBefore);
 
+    List<ActionRun> findByStatusInAndCancelRequestedAtBefore(Collection<Status> statuses, LocalDateTime cancelRequestedAtBefore);
+
     List<ActionRun> findByStatusInAndLastHeartbeatAtBefore(Collection<Status> statuses, LocalDateTime lastHeartbeatAtBefore);
 
     List<ActionRun> findByStatusInAndCompletedAtBefore(Collection<Status> statuses, LocalDateTime completedAtBefore);

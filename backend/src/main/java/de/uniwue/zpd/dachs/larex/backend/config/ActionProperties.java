@@ -149,6 +149,7 @@ public class ActionProperties {
     public static class Timeout {
         private long dispatchMinutes = 5;
         private long heartbeatMinutes = 30;
+        private long cancellationMinutes = 5;
 
         public long getDispatchMinutes() {
             return dispatchMinutes;
@@ -164,6 +165,14 @@ public class ActionProperties {
 
         public void setHeartbeatMinutes(long heartbeatMinutes) {
             this.heartbeatMinutes = heartbeatMinutes;
+        }
+
+        public long getCancellationMinutes() {
+            return cancellationMinutes;
+        }
+
+        public void setCancellationMinutes(long cancellationMinutes) {
+            this.cancellationMinutes = cancellationMinutes;
         }
     }
 

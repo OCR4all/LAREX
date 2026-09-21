@@ -1025,23 +1025,23 @@ public class ActionRunService {
         LocalDateTime now = LocalDateTime.now();
         expireDispatchingRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getDispatchMinutes())));
         expireHeartbeatRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getHeartbeatMinutes())));
-        expireCancellationRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getHeartbeatMinutes())));
+        expireCancellationRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getCancellationMinutes())));
         pruneTerminalRuns(now.minusDays(Math.max(1, actionProperties.getRetention().getTerminalDays())));
         dispatchQueuedRunsAsync();
     }
 
-    public ActionDto.RunResponse cancelRun(String workspaceId, String projectId, String runId, String userId) {
+    public ActionDto.RunResponse cancelRun(String workspaceId, String projectId, String runId, String userId, boolean force) {
         requireProject(workspaceId, projectId);
         ActionRun run = requireRun(workspaceId, projectId, runId);
         requireCancelAccess(workspaceId, run, userId);
-        ActionRun saved = cancelRunInternal(run, userId, "ACTION_RUN_CANCEL");
+        ActionRun saved = force ? forceCancelRunInternal(run, userId) : cancelRunInternal(run, userId, "ACTION_RUN_CANCEL");
         return responseMapper.toRunResponse(saved, resolveProjectLabel(saved.getProjectId()), userId);
     }
 
-    public ActionDto.RunResponse cancelWorkspaceRun(String workspaceId, String runId, String userId) {
+    public ActionDto.RunResponse cancelWorkspaceRun(String workspaceId, String runId, String userId, boolean force) {
         ActionRun run = requireWorkspaceRun(workspaceId, runId);
         requireCancelAccess(workspaceId, run, userId);
-        ActionRun saved = cancelRunInternal(run, userId, "ACTION_RUN_CANCEL");
+        ActionRun saved = force ? forceCancelRunInternal(run, userId) : cancelRunInternal(run, userId, "ACTION_RUN_CANCEL");
         return responseMapper.toRunResponse(saved, resolveProjectLabel(saved.getProjectId()), userId);
     }
 
@@ -2532,7 +2532,7 @@ public class ActionRunService {
     }
 
     private void expireCancellationRuns(LocalDateTime cutoff) {
-        List<ActionRun> stale = runRepository.findByStatusInAndUpdatedBefore(List.of(Status.CANCEL_REQUESTED), cutoff);
+        List<ActionRun> stale = runRepository.findByStatusInAndCancelRequestedAtBefore(List.of(Status.CANCEL_REQUESTED), cutoff);
         for (ActionRun run : stale) {
             cancelRunFromWatchdog(run, "Action cancellation timed out");
         }
@@ -2563,7 +2563,7 @@ public class ActionRunService {
         if (run.getStatus() == Status.CANCELLED) {
             return;
         }
-        finalizeCancelledRun(run, "Cancelled");
+        finalizeCancelledRun(run, message);
         runRepository.save(run);
         publishActionRunUpdatedAfterCommit(run);
         appendLogEvent(run, "WARN", message);
@@ -2916,6 +2916,9 @@ public class ActionRunService {
             return run;
         }
         run.setCancelRequested(true);
+        if (run.getCancelRequestedAt() == null) {
+            run.setCancelRequestedAt(LocalDateTime.now());
+        }
         if (run.getStatus() == Status.QUEUED || run.getStatus() == Status.PENDING) {
             finalizeCancelledRun(run, "Cancelled");
         } else {
@@ -2932,8 +2935,25 @@ public class ActionRunService {
         return saved;
     }
 
+    private ActionRun forceCancelRunInternal(ActionRun run, String actorUserId) {
+        if (terminalStatuses().contains(run.getStatus())) {
+            return run;
+        }
+        finalizeCancelledRun(run, "Force cancelled");
+        ActionRun saved = runRepository.save(run);
+        publishActionRunUpdatedAfterCommit(saved);
+        appendLogEvent(saved, "WARN", "Action run force cancelled");
+        actionAuditService.record("ACTION_RUN_FORCE_CANCEL", "SUCCESS", actorUserId,
+                run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(), Map.of());
+        dispatchQueuedRunsAfterCommit();
+        return saved;
+    }
+
     private void finalizeCancelledRun(ActionRun run, String statusMessage) {
         run.setCancelRequested(true);
+        if (run.getCancelRequestedAt() == null) {
+            run.setCancelRequestedAt(LocalDateTime.now());
+        }
         run.setStatus(Status.CANCELLED);
         run.setStatusMessage(statusMessage == null || statusMessage.isBlank() ? "Cancelled" : statusMessage);
         run.setCompletedAt(LocalDateTime.now());
