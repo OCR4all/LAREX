@@ -89,6 +89,17 @@ describe('action-runs.store', () => {
     }
   )
 
+  it('reconciles a dispatch failure first observed after the run already ended', async () => {
+    const store = await createStore(vi.fn())
+    store.upsertRun(createRun({ status: 'FAILED', errorMessage: 'IOException: HTTP 502' }))
+
+    expect(store.terminalEvents).toHaveLength(1)
+    expect(store.getPageActionLockReason('project-1', 'page-1')).toBeNull()
+
+    store.upsertRun(createRun({ status: 'FAILED' }))
+    expect(store.terminalEvents).toHaveLength(1)
+  })
+
   it('coalesces realtime run refreshes for the same scope', async () => {
     vi.useFakeTimers()
     let listener: ((message: { type?: string, payload?: unknown }) => void) | undefined

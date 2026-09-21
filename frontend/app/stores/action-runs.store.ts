@@ -151,7 +151,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     }
     if (isTerminalStatus(next.status)) {
       setCancelling(run.id, false)
-      if (existingWasActive) {
+      if (!existing || existingWasActive) {
         terminalEvents.value = [
           ...terminalEvents.value.slice(-49),
           {

@@ -1016,6 +1016,13 @@ async function reconcileActionRunTerminalLocks(projectId: string) {
   try {
     const pages = await $fetch<PageResponse[]>(`/api/projects/${projectId}/pages`)
     editorStore.patchProjectPageSummaries(projectId, pages)
+    for (const page of pages) {
+      const canvasId = getCanvasId(projectId, page.id)
+      if (page.locked || !editorStore.canvases[canvasId] || collaboration.canEditCanvas(canvasId)) continue
+      await collaboration.ensureCanvasRoom(canvasId)
+      const session = getEditorSession(canvasId)
+      if (session) collaboration.attachCanvasSession(canvasId, session)
+    }
   } catch (error) {
     console.error(`Failed to reconcile page locks after Action run for project ${projectId}:`, error)
   }
