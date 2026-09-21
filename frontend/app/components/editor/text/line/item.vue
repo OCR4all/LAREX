@@ -227,7 +227,6 @@ const textDirectionAttributes = computed(() => getReadingDirectionTextAttributes
 const textDirectionStyle = computed(() => textDirectionAttributes.value.style)
 const textDirectionDir = computed(() => textDirectionAttributes.value.dir)
 const textInputBaseWidthCh = computed(() => props.focusMode ? 48 : 56)
-const textInputMaxWidthCh = computed(() => props.focusMode ? 96 : 112)
 const normalizedTextHighlightQuery = computed(() => props.textHighlightQuery?.trim() ?? '')
 const normalizedComment = computed(() => (props.textline.comments ?? '').trim())
 const hasElementComment = computed(() => normalizedComment.value.length > 0)
@@ -685,24 +684,6 @@ function highlightShellClass(index: number | undefined, text: string): string {
 
 function highlightedSegments(text: string) {
   return getHighlightedSegments(text, normalizedTextHighlightQuery.value)
-}
-
-function getTextInputWidthStyle(text: string) {
-  const longestLineLength = Math.max(
-    1,
-    ...String(text ?? '')
-      .split(/\r?\n/)
-      .map(line => Array.from(line).length)
-  )
-  const widthCh = Math.min(
-    textInputMaxWidthCh.value,
-    Math.max(textInputBaseWidthCh.value, longestLineLength + 3)
-  )
-
-  return {
-    width: `min(100%, ${widthCh}ch)`,
-    maxWidth: '100%'
-  }
 }
 
 const textInputSkeletonStyle = computed(() => ({
@@ -1541,7 +1522,7 @@ onBeforeUnmount(() => {
 
                 <div class="flex-1 min-w-0 flex flex-col gap-1">
                   <div class="flex items-center gap-1">
-                    <div class="shrink-0 max-w-full" :style="getTextInputWidthStyle(textEquiv.text)">
+                    <div class="min-w-0 max-w-full">
                       <UTextarea
                         :id="`textequiv_${props.textline.id}_${String(textEquiv.index ?? textEquiv.pos)}`"
                         :model-value="textEquiv.text"
@@ -1558,7 +1539,7 @@ onBeforeUnmount(() => {
                         :data-textline-id="props.textline.id"
                         :data-textequiv-index="typeof textEquiv.index === 'number' ? String(textEquiv.index) : ''"
                         :data-textequiv-pos="String(textEquiv.pos)"
-                        class="textline-textarea w-full min-w-0 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
+                        class="textline-textarea min-w-0 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
                         :class="[
                           props.focusMode ? 'min-h-7' : 'min-h-9',
                           !props.allowMultiline && 'textline-textarea--single-line',
@@ -1861,6 +1842,23 @@ onBeforeUnmount(() => {
 
 .textline-textarea :deep(textarea) {
   font-size: var(--text-font-size, 18px);
+}
+
+.textline-textarea {
+  width: 100%;
+  max-width: 100%;
+}
+
+@supports (field-sizing: content) {
+  .textline-textarea {
+    width: fit-content;
+  }
+
+  .textline-textarea :deep(textarea) {
+    field-sizing: content;
+    width: fit-content;
+    max-width: 100%;
+  }
 }
 
 .textline-textarea.textline-textarea--single-line :deep(textarea) {
