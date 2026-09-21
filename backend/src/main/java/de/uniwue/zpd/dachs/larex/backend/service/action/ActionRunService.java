@@ -2215,6 +2215,10 @@ public class ActionRunService {
     }
 
     private void markDispatchFailed(String runId, Exception e) {
+        transactionTemplate.executeWithoutResult(status -> markDispatchFailedInTransaction(runId, e));
+    }
+
+    private void markDispatchFailedInTransaction(String runId, Exception e) {
         ActionRun run = runRepository.findById(runId).orElse(null);
         if (run == null) {
             return;
@@ -2242,7 +2246,7 @@ public class ActionRunService {
         publishActionRunUpdatedAfterCommit(run);
         actionAuditService.record("ACTION_RUN_DISPATCH_FAILED", "FAILURE", run.getCreatedByUserId(), run.getProcessorDefinition().getId(), run.getId(),
                 run.getWorkspaceId(), run.getProjectId(), Map.of("error", limit(describeException(e), 1000)));
-        dispatchQueuedRunsAsync();
+        dispatchQueuedRunsAfterCommit();
     }
 
     private boolean isRunCancelled(String runId) {

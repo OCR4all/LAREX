@@ -60,6 +60,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.scheduling.TaskScheduler;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -68,6 +69,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -79,6 +81,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -843,6 +846,30 @@ class ActionRunServiceTest {
                 new ActionDto.HeartbeatRequest(25, null, null, null, "running", null));
 
         assertThat(run.getProgressPercent()).isEqualTo(70);
+    }
+
+    @Test
+    void dispatchFailureReleasesActionPageLocks() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("processor-dispatch-failure");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.DISPATCHING, LockMode.PAGES, List.of("page-1"));
+        Page page = page("page-1", project, run);
+
+        when(runRepository.findById(run.getId())).thenReturn(Optional.of(run));
+        when(pageRepository.findAllByIdIn(anyCollection())).thenReturn(List.of(page));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doAnswer(invocation -> {
+            Consumer<TransactionStatus> action = invocation.getArgument(0);
+            action.accept(transactionStatus);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+
+        ReflectionTestUtils.invokeMethod(service, "markDispatchFailed", run.getId(), new IOException("HTTP 502"));
+
+        assertThat(run.getStatus()).isEqualTo(ActionRun.Status.FAILED);
+        assertThat(page.isLocked()).isFalse();
+        assertThat(page.getLockedByActionRunId()).isNull();
+        verify(pageRepository).saveAll(List.of(page));
     }
 
     @Test
