@@ -69,6 +69,15 @@ public abstract class AbstractWorkspace {
     @Column(name = "default_recognition_indices", columnDefinition = "TEXT")
     private String defaultRecognitionIndices;
 
+    @Column(name = "allow_editors_edit_page_name", nullable = false)
+    private boolean allowEditorsToEditPageName = false;
+
+    @Column(name = "allow_editors_edit_page_description", nullable = false)
+    private boolean allowEditorsToEditPageDescription = false;
+
+    @Column(name = "allow_editors_edit_page_tags", nullable = false)
+    private boolean allowEditorsToEditPageTags = false;
+
     protected AbstractWorkspace() {}
 
     protected AbstractWorkspace(String ownerUserId, String description) {
@@ -194,6 +203,30 @@ public abstract class AbstractWorkspace {
 
     public void setDefaultRecognitionIndicesList(List<Integer> indices) {
         this.defaultRecognitionIndices = TextIndexDefaultsUtil.toCsv(indices);
+    }
+
+    public boolean isAllowEditorsToEditPageName() {
+        return allowEditorsToEditPageName;
+    }
+
+    public void setAllowEditorsToEditPageName(boolean allowEditorsToEditPageName) {
+        this.allowEditorsToEditPageName = allowEditorsToEditPageName;
+    }
+
+    public boolean isAllowEditorsToEditPageDescription() {
+        return allowEditorsToEditPageDescription;
+    }
+
+    public void setAllowEditorsToEditPageDescription(boolean allowEditorsToEditPageDescription) {
+        this.allowEditorsToEditPageDescription = allowEditorsToEditPageDescription;
+    }
+
+    public boolean isAllowEditorsToEditPageTags() {
+        return allowEditorsToEditPageTags;
+    }
+
+    public void setAllowEditorsToEditPageTags(boolean allowEditorsToEditPageTags) {
+        this.allowEditorsToEditPageTags = allowEditorsToEditPageTags;
     }
 
     @Override

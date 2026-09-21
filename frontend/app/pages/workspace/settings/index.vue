@@ -33,6 +33,9 @@ interface Workspace {
   validationRulesetId?: string
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
+  allowEditorsToEditPageName?: boolean
+  allowEditorsToEditPageDescription?: boolean
+  allowEditorsToEditPageTags?: boolean
   created?: string
   updated?: string
 }
@@ -124,7 +127,10 @@ const form = reactive({
   normalizationProfileId: '',
   validationRulesetId: '',
   defaultGtIndexInput: '0',
-  defaultRecognitionIndicesInput: '1'
+  defaultRecognitionIndicesInput: '1',
+  allowEditorsToEditPageName: false,
+  allowEditorsToEditPageDescription: false,
+  allowEditorsToEditPageTags: false
 })
 
 function formatRecognitionIndices(value?: number[] | null): string {
@@ -445,6 +451,9 @@ watchEffect(() => {
     form.validationRulesetId = workspace.value.validationRulesetId || ''
     form.defaultGtIndexInput = String(workspace.value.defaultGtIndex ?? 0)
     form.defaultRecognitionIndicesInput = formatRecognitionIndices(workspace.value.defaultRecognitionIndices)
+    form.allowEditorsToEditPageName = workspace.value.allowEditorsToEditPageName ?? false
+    form.allowEditorsToEditPageDescription = workspace.value.allowEditorsToEditPageDescription ?? false
+    form.allowEditorsToEditPageTags = workspace.value.allowEditorsToEditPageTags ?? false
   }
 })
 
@@ -465,6 +474,9 @@ const cancelEditing = () => {
     form.validationRulesetId = workspace.value.validationRulesetId || ''
     form.defaultGtIndexInput = String(workspace.value.defaultGtIndex ?? 0)
     form.defaultRecognitionIndicesInput = formatRecognitionIndices(workspace.value.defaultRecognitionIndices)
+    form.allowEditorsToEditPageName = workspace.value.allowEditorsToEditPageName ?? false
+    form.allowEditorsToEditPageDescription = workspace.value.allowEditorsToEditPageDescription ?? false
+    form.allowEditorsToEditPageTags = workspace.value.allowEditorsToEditPageTags ?? false
   }
   isEditing.value = false
 }
@@ -516,7 +528,10 @@ const saveWorkspace = async () => {
         validationRulesetId: form.validationRulesetId || null,
         defaultGtIndex,
         defaultRecognitionIndices,
-        projectDefaultPropagationScope: propagationScope
+        projectDefaultPropagationScope: propagationScope,
+        allowEditorsToEditPageName: form.allowEditorsToEditPageName,
+        allowEditorsToEditPageDescription: form.allowEditorsToEditPageDescription,
+        allowEditorsToEditPageTags: form.allowEditorsToEditPageTags
       }
     })
 
@@ -924,6 +939,59 @@ async function openDeleteSlideover() {
           <p v-if="canSetWorkspacePresets && !canEditWorkspaceTextIndexDefaults" class="text-xs text-muted">
             You do not have permission to change default text-index settings.
           </p>
+
+          <USeparator v-if="canSetWorkspacePresets" />
+
+          <template v-if="canSetWorkspacePresets">
+            <UiFormSectionHeader title="Page metadata permissions" />
+            <p class="text-sm text-muted">
+              Allow editors to update these page metadata fields in the editor.
+            </p>
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-sm font-medium">
+                    Page name
+                  </p>
+                  <p class="text-xs text-muted">
+                    Editors can rename pages.
+                  </p>
+                </div>
+                <USwitch
+                  v-model="form.allowEditorsToEditPageName"
+                  :disabled="!isEditing || !canSetWorkspacePresets"
+                />
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-sm font-medium">
+                    Page description
+                  </p>
+                  <p class="text-xs text-muted">
+                    Editors can edit page descriptions.
+                  </p>
+                </div>
+                <USwitch
+                  v-model="form.allowEditorsToEditPageDescription"
+                  :disabled="!isEditing || !canSetWorkspacePresets"
+                />
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-sm font-medium">
+                    Page tags
+                  </p>
+                  <p class="text-xs text-muted">
+                    Editors can assign and remove page tags.
+                  </p>
+                </div>
+                <USwitch
+                  v-model="form.allowEditorsToEditPageTags"
+                  :disabled="!isEditing || !canSetWorkspacePresets"
+                />
+              </div>
+            </div>
+          </template>
 
           <div class="flex gap-2">
             <template v-if="canEditWorkspaceSettings">

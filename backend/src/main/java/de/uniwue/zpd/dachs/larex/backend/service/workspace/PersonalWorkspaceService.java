@@ -117,6 +117,9 @@ public class PersonalWorkspaceService extends AbstractWorkspaceService {
                                                                String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                                                String normalizationProfileId, String validationRulesetId,
                                                                Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                                                               Boolean allowEditorsToEditPageName,
+                                                               Boolean allowEditorsToEditPageDescription,
+                                                               Boolean allowEditorsToEditPageTags,
                                                                String userId) {
         Optional<PersonalWorkspace> workspaceOpt = personalWorkspaceRepository.findById(workspaceId);
 
@@ -129,6 +132,15 @@ public class PersonalWorkspaceService extends AbstractWorkspaceService {
 
             workspace.setDescription(description);
             workspace.setAvatar(avatar);
+            if (allowEditorsToEditPageName != null) {
+                workspace.setAllowEditorsToEditPageName(allowEditorsToEditPageName);
+            }
+            if (allowEditorsToEditPageDescription != null) {
+                workspace.setAllowEditorsToEditPageDescription(allowEditorsToEditPageDescription);
+            }
+            if (allowEditorsToEditPageTags != null) {
+                workspace.setAllowEditorsToEditPageTags(allowEditorsToEditPageTags);
+            }
 
             Codec codec = null;
             if (codecId != null && !codecId.trim().isEmpty()) {

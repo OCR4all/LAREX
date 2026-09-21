@@ -86,6 +86,9 @@ public class WorkspaceService {
                                                            String normalizationProfileId, String validationRulesetId,
                                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                                            WorkspaceDto.ProjectDefaultPropagationScope propagationScope,
+                                                           Boolean allowEditorsToEditPageName,
+                                                           Boolean allowEditorsToEditPageDescription,
+                                                           Boolean allowEditorsToEditPageTags,
                                                            String userId) {
         Optional<AbstractWorkspace> workspaceOpt = workspaceQueryService.findWorkspaceById(workspaceId);
         if (workspaceOpt.isEmpty()) return Optional.empty();
@@ -97,13 +100,15 @@ public class WorkspaceService {
         if (workspace instanceof PersonalWorkspace) {
             Optional<PersonalWorkspace> personal = personalWorkspaceService.updatePersonalWorkspace(
                     workspaceId, description, avatar, codecId, labelSetId, dictionaryId, tagSetId,
-                    normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices, userId
+                    normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices,
+                    allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags, userId
             );
             updated = personal.map(pw -> (AbstractWorkspace) pw);
         } else {
             Optional<TeamWorkspace> team = teamWorkspaceService.updateTeamWorkspace(
                     workspaceId, name, description, avatar, codecId, labelSetId, dictionaryId, tagSetId,
-                    normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices, userId
+                    normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices,
+                    allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags, userId
             );
             updated = team.map(tw -> (AbstractWorkspace) tw);
         }

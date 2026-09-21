@@ -453,7 +453,7 @@ public class PageController {
     public ResponseEntity<PageDto.Response> updatePage(
             @PathVariable String projectId,
             @PathVariable String pageId,
-            @Valid @RequestBody PageDto.CreateOrUpdateRequest request,
+            @Valid @RequestBody PageDto.UpdateRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         Optional<Page> pageOpt = pageService.updatePage(

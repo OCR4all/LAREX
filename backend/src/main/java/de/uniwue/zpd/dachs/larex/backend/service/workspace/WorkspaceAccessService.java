@@ -92,6 +92,10 @@ public class WorkspaceAccessService {
         return authorizationPolicyService.canSetPresets(workspaceId, userId);
     }
 
+    public de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto.PageMetadataPermissions resolvePageMetadataPermissions(String workspaceId, String userId) {
+        return authorizationPolicyService.resolvePageMetadataPermissions(workspaceId, userId);
+    }
+
     public void requireSetPresetsAccess(String workspaceId, String userId) {
         if (!canSetPresets(workspaceId, userId)) {
             throw new SecurityException("Preset management access required for workspace: " + workspaceId);

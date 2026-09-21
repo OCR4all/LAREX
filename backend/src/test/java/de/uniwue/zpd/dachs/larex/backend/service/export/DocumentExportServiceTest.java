@@ -9,6 +9,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.WordDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
@@ -55,6 +56,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -459,6 +461,46 @@ class DocumentExportServiceTest {
     }
 
     @Test
+    void exportPagePdf_rendersWordsAtTheirOwnPositions() throws Exception {
+        Path imagePath = tempDir.resolve("images/word-sample.png");
+        Files.createDirectories(imagePath.getParent());
+        BufferedImage bufferedImage = new BufferedImage(400, 200, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < bufferedImage.getHeight(); y++) {
+            for (int x = 0; x < bufferedImage.getWidth(); x++) {
+                bufferedImage.setRGB(x, y, Color.WHITE.getRGB());
+            }
+        }
+        ImageIO.write(bufferedImage, "png", imagePath.toFile());
+
+        Project project = project("project-1", "Demo Project");
+        Page page = page(project, "page-1", "Alpha", "alpha.xml", "images/word-sample.png");
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        WordDto hello = word("w1", "hello", 10, 20, 60, 40);
+        WordDto world = word("w2", "world", 70, 20, 140, 40);
+        TextLineDto line = textLineWithWords("l1", "hello world", simpleBaseline(10, 30, 140, 30), List.of(hello, world));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(pageDto(
+                "word-sample.png",
+                List.of(textRegion("r1", List.of(line))),
+                null
+        ));
+
+        DocumentExportService.DocumentExportResult result = service.exportPage(
+                "project-1",
+                "page-1",
+                "user-1",
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PDF, null, null, null, null, null, null, null, null)
+        );
+
+        try (var pdf = Loader.loadPDF(result.bytes())) {
+            String extracted = new PDFTextStripper().getText(pdf);
+            assertTrue(extracted.contains("hello") && extracted.contains("world"));
+        }
+    }
+
+    @Test
     void exportPagePdf_imagesOnlyContainsNoExtractableText() throws Exception {
         Path imagePath = tempDir.resolve("images/image-only.png");
         Files.createDirectories(imagePath.getParent());
@@ -486,6 +528,45 @@ class DocumentExportServiceTest {
         try (var pdf = Loader.loadPDF(result.bytes())) {
             String extracted = new PDFTextStripper().getText(pdf).trim();
             assertFalse(extracted.contains("hidden text"));
+        }
+    }
+
+    @Test
+    void exportPagePdf_textPagesContainsOnlyTextWithoutImage() throws Exception {
+        Path imagePath = tempDir.resolve("images/text-pages.png");
+        Files.createDirectories(imagePath.getParent());
+        BufferedImage bufferedImage = new BufferedImage(400, 200, BufferedImage.TYPE_INT_RGB);
+        ImageIO.write(bufferedImage, "png", imagePath.toFile());
+
+        Project project = project("project-1", "Demo Project");
+        Page page = page(project, "page-1", "Alpha", "alpha.xml", "images/text-pages.png");
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(pageDto(
+                "text-pages.png",
+                List.of(textRegion("r1", List.of(
+                        textLine("l1", "first line", 0, simpleBaseline(10, 30, 120, 30)),
+                        textLine("l2", "second line", 0, simpleBaseline(10, 60, 150, 60))
+                ))),
+                null
+        ));
+
+        DocumentExportService.DocumentExportResult result = service.exportPage(
+                "project-1",
+                "page-1",
+                "user-1",
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PDF, null, null, null, null, DocumentExportDto.PdfProfile.TEXT_PAGES, null, null, null)
+        );
+
+        try (var pdf = Loader.loadPDF(result.bytes())) {
+            assertEquals(1, pdf.getNumberOfPages());
+            assertNull(firstPdfImage(pdf.getPage(0)));
+            assertEquals(org.apache.pdfbox.pdmodel.common.PDRectangle.A4.getWidth(), pdf.getPage(0).getMediaBox().getWidth(), 0.01f);
+            assertEquals(org.apache.pdfbox.pdmodel.common.PDRectangle.A4.getHeight(), pdf.getPage(0).getMediaBox().getHeight(), 0.01f);
+            String extracted = new PDFTextStripper().getText(pdf);
+            assertTrue(extracted.contains("first line"));
+            assertTrue(extracted.contains("second line"));
         }
     }
 
@@ -1004,6 +1085,32 @@ class DocumentExportServiceTest {
                 gtIndex,
                 null,
                 null
+        );
+    }
+
+    private TextLineDto textLineWithWords(String id, String text, PolygonDto baseline, List<WordDto> words) {
+        return new TextLineDto(
+                id,
+                simplePolygon(10, 20, 280, 40),
+                baseline,
+                List.of(new TextContentVariantDto(text, null, 0)),
+                words,
+                null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null,
+                0,
+                null,
+                null
+        );
+    }
+
+    private WordDto word(String id, String text, int minX, int minY, int maxX, int maxY) {
+        return new WordDto(
+                id,
+                simplePolygon(minX, minY, maxX, maxY),
+                List.of(new TextContentVariantDto(text, null, 0)),
+                null,
+                null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null
         );
     }
 

@@ -41,6 +41,9 @@ export type ProjectData = {
     canExecuteActions: boolean
     canManageActions: boolean
     canChangePageState: boolean
+    canEditPageName: boolean
+    canEditPageDescription: boolean
+    canEditPageTags: boolean
   }
 }
 

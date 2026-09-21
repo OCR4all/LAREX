@@ -7,6 +7,9 @@ export interface WorkspaceCapabilities {
   canManageTasks: boolean
   canManageToolkit: boolean
   canSetPresets: boolean
+  canEditPageName: boolean
+  canEditPageDescription: boolean
+  canEditPageTags: boolean
 }
 
 export interface ProjectCapabilities {
@@ -19,6 +22,9 @@ export interface ProjectCapabilities {
   canExecuteActions: boolean
   canManageActions: boolean
   canChangePageState: boolean
+  canEditPageName: boolean
+  canEditPageDescription: boolean
+  canEditPageTags: boolean
 }
 
 export interface DatasetCapabilities {
@@ -63,7 +69,10 @@ export const DEFAULT_WORKSPACE_CAPABILITIES: WorkspaceCapabilities = {
   canManageProjects: false,
   canManageTasks: false,
   canManageToolkit: false,
-  canSetPresets: false
+  canSetPresets: false,
+  canEditPageName: false,
+  canEditPageDescription: false,
+  canEditPageTags: false
 }
 
 export const DEFAULT_PROJECT_CAPABILITIES: ProjectCapabilities = {
@@ -75,7 +84,10 @@ export const DEFAULT_PROJECT_CAPABILITIES: ProjectCapabilities = {
   canExportPackage: false,
   canExecuteActions: false,
   canManageActions: false,
-  canChangePageState: false
+  canChangePageState: false,
+  canEditPageName: false,
+  canEditPageDescription: false,
+  canEditPageTags: false
 }
 
 export const DEFAULT_DATASET_CAPABILITIES: DatasetCapabilities = {

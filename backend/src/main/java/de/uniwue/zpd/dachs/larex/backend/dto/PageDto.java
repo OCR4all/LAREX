@@ -29,6 +29,14 @@ public class PageDto {
             List<String> tags
     ) {}
 
+    public record UpdateRequest(
+            @Size(max = 255, message = "Name must not exceed 255 characters")
+            String name,
+            @Size(max = 1000, message = "Description must not exceed 1000 characters")
+            String description,
+            List<String> tags
+    ) {}
+
     public record ResolvedTag(String id, String label, String color) {}
 
     public record ImageVariantPreview(

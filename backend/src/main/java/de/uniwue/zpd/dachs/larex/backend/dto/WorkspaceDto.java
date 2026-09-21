@@ -84,6 +84,9 @@ public class WorkspaceDto {
         private final String validationRulesetId;
         private final Integer defaultGtIndex;
         private final List<Integer> defaultRecognitionIndices;
+        private final boolean allowEditorsToEditPageName;
+        private final boolean allowEditorsToEditPageDescription;
+        private final boolean allowEditorsToEditPageTags;
         private final AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities;
         private final ProjectDefaultsPropagationResult projectDefaultsPropagation;
 
@@ -92,6 +95,7 @@ public class WorkspaceDto {
                           String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                           String normalizationProfileId, String validationRulesetId,
                           Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                          boolean allowEditorsToEditPageName, boolean allowEditorsToEditPageDescription, boolean allowEditorsToEditPageTags,
                           AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
                           ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             this.id = id;
@@ -110,6 +114,9 @@ public class WorkspaceDto {
             this.validationRulesetId = validationRulesetId;
             this.defaultGtIndex = defaultGtIndex;
             this.defaultRecognitionIndices = defaultRecognitionIndices;
+            this.allowEditorsToEditPageName = allowEditorsToEditPageName;
+            this.allowEditorsToEditPageDescription = allowEditorsToEditPageDescription;
+            this.allowEditorsToEditPageTags = allowEditorsToEditPageTags;
             this.capabilities = capabilities;
             this.projectDefaultsPropagation = projectDefaultsPropagation;
         }
@@ -131,6 +138,9 @@ public class WorkspaceDto {
         public String getValidationRulesetId() { return validationRulesetId; }
         public Integer getDefaultGtIndex() { return defaultGtIndex; }
         public List<Integer> getDefaultRecognitionIndices() { return defaultRecognitionIndices; }
+        public boolean isAllowEditorsToEditPageName() { return allowEditorsToEditPageName; }
+        public boolean isAllowEditorsToEditPageDescription() { return allowEditorsToEditPageDescription; }
+        public boolean isAllowEditorsToEditPageTags() { return allowEditorsToEditPageTags; }
         public AuthorizationCapabilitiesDto.WorkspaceCapabilities getCapabilities() { return capabilities; }
         public ProjectDefaultsPropagationResult getProjectDefaultsPropagation() { return projectDefaultsPropagation; }
     }
@@ -141,11 +151,14 @@ public class WorkspaceDto {
                                        String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                        String normalizationProfileId, String validationRulesetId,
                                        Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                                       boolean allowEditorsToEditPageName, boolean allowEditorsToEditPageDescription, boolean allowEditorsToEditPageTags,
                                        AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
                                        ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             super(id, "Personal Workspace", description, avatar, created, updated, true, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId,
-                    defaultGtIndex, defaultRecognitionIndices, capabilities, projectDefaultsPropagation);
+                    defaultGtIndex, defaultRecognitionIndices,
+                    allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags,
+                    capabilities, projectDefaultsPropagation);
         }
     }
 
@@ -155,11 +168,14 @@ public class WorkspaceDto {
                                    String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                    String normalizationProfileId, String validationRulesetId,
                                    Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                                   boolean allowEditorsToEditPageName, boolean allowEditorsToEditPageDescription, boolean allowEditorsToEditPageTags,
                                    AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
                                    ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             super(id, name, description, avatar, created, updated, false, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId,
-                    defaultGtIndex, defaultRecognitionIndices, capabilities, projectDefaultsPropagation);
+                    defaultGtIndex, defaultRecognitionIndices,
+                    allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags,
+                    capabilities, projectDefaultsPropagation);
         }
     }
 
@@ -214,7 +230,10 @@ public class WorkspaceDto {
             String validationRulesetId,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices,
-            ProjectDefaultPropagationScope projectDefaultPropagationScope
+            ProjectDefaultPropagationScope projectDefaultPropagationScope,
+            Boolean allowEditorsToEditPageName,
+            Boolean allowEditorsToEditPageDescription,
+            Boolean allowEditorsToEditPageTags
     ) {}
 
     public record UpdatePersonalWorkspaceRequest(
@@ -229,7 +248,10 @@ public class WorkspaceDto {
             String validationRulesetId,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices,
-            ProjectDefaultPropagationScope projectDefaultPropagationScope
+            ProjectDefaultPropagationScope projectDefaultPropagationScope,
+            Boolean allowEditorsToEditPageName,
+            Boolean allowEditorsToEditPageDescription,
+            Boolean allowEditorsToEditPageTags
     ) {}
 
     // Invitation DTOs (only for team workspaces)

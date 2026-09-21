@@ -10,6 +10,7 @@ import {
   LazyCodecSlideoverAction,
   LazyActionSlideoverRun,
   LazyEditorSlideoverPageOrder,
+  LazyPageSlideoverEdit,
   LazyUiConfirmSlideover
 } from '#components'
 
@@ -41,7 +42,7 @@ import type { ActionPageResultEvent } from '@/stores/action-runs.store'
 import type { ActionTargetSelection } from '@/types/action'
 import type { Dictionary } from '@/types/dictionary'
 import type { RenderablePolyline } from '@/types/editor/rendering'
-import type { PageIndexingStatus } from '@/stores/editor/types'
+import type { ImageVariant, PageIndexingStatus } from '@/stores/editor/types'
 import type { PageDto } from '@/types/page-dto'
 import type { PageXmlVersion } from '@/types/version'
 import { getCanvasId, getCompareCanvasId, getPagePanelId, getProjectPanelId } from '@/stores/editor/editor.keys'
@@ -50,7 +51,7 @@ import { useProjectDockviewRegistry } from '@/composables/editor/use-project-doc
 import { useProjectTabCloseState } from '@/composables/editor/use-project-tab-close-state'
 import { useEditorCommandCenter } from '@/composables/editor/use-editor-command-center'
 import type { OpenProjectPagesSelection } from '@/components/editor/modal/open-project-pages.vue'
-import type { PageWorkflowState } from '@/types/project-page'
+import type { Page, PageWorkflowState } from '@/types/project-page'
 
 import EditorEmpty from '@/components/editor/empty.vue'
 import { useEditorIndexStatusPolling } from '@/composables/editor/use-editor-index-status-polling'
@@ -184,9 +185,17 @@ const {
 })
 
 const toast = useToast()
+const backgroundDownloads = useBackgroundDownloads()
 const { refreshTaskCaches } = useDataRefresh()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const workspaceStore = useWorkspaceStore()
+const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
+const canEditPageName = computed(() => workspaceCapabilities.value.canEditPageName)
+const canEditPageDescription = computed(() => workspaceCapabilities.value.canEditPageDescription)
+const canEditPageTags = computed(() => workspaceCapabilities.value.canEditPageTags)
+const canEditActivePageMetadata = computed(() =>
+  canEditPageName.value || canEditPageDescription.value || canEditPageTags.value
+)
 const loadedPageIdsForCodecValidation = computed(() => {
   const projectId = currentProjectId.value
   if (!projectId) return []
@@ -274,6 +283,7 @@ const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 const actionRunSlideover = overlay.create(LazyActionSlideoverRun)
 const pageOrderSlideover = overlay.create(LazyEditorSlideoverPageOrder)
+const pageEditSlideover = overlay.create(LazyPageSlideoverEdit)
 const openProjectPagesModal = overlay.create(LazyEditorModalOpenProjectPages)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 const handledActionPageResultEvents = ref<Set<number>>(new Set())
@@ -1148,7 +1158,95 @@ watch(() => actionRunsStore.terminalEvents.at(-1)?.sequence, () => {
   }
 }, { immediate: true })
 
+async function downloadEditorImageVariant(variant: ImageVariant) {
+  const fileName = variant.fileName || variant.label || 'image'
+  const target = await backgroundDownloads.prepareDownload(fileName)
+  if (!target) return
+
+  try {
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Downloading image variant',
+      subtitle: variant.label,
+      statusLabel: 'Preparing',
+      completedLabel: 'Downloaded',
+      icon: 'i-lucide-image-down',
+      task: async (job) => {
+        const response = await fetch(variant.url)
+        if (!response.ok) throw new Error(`Download failed (${response.status})`)
+        await backgroundDownloads.downloadBlobResponse(response, fileName, job, target)
+      }
+    })
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Download failed',
+      description: getErrorMessage(error, 'Could not download the image variant.'),
+      color: 'error'
+    })
+  }
+}
+
+async function downloadActiveAnnotation() {
+  const canvasId = activeCanvasId.value
+  const canvas = canvasId ? editorStore.canvases[canvasId] : undefined
+  const page = canvas?.projectId && canvas.pageId
+    ? editorStore.getPage(canvas.pageId, canvas.projectId)
+    : undefined
+  const xmlFile = page?.xmlFiles.find(xml => xml.id === canvas?.xmlFileId)
+  const annotationContext = canvasId ? resolveCanvasAnnotationContext(canvasId) : null
+  if (!canvas?.xmlFileId || !xmlFile || !annotationContext) return
+
+  const fileName = xmlFile.fileName || `${page?.label ?? 'annotation'}.xml`
+  const target = await backgroundDownloads.prepareDownload(fileName)
+  if (!target) return
+
+  try {
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Downloading annotation',
+      subtitle: fileName,
+      statusLabel: 'Preparing',
+      completedLabel: 'Downloaded',
+      icon: 'i-lucide-file-code',
+      task: async (job) => {
+        const xmlBasePath = annotationContext.basePath.replace(/\/annotations$/, '/xml')
+        const response = await $fetch<{ xml: string }>(`${xmlBasePath}/${canvas.xmlFileId}/text`)
+        await backgroundDownloads.downloadBlob(
+          new Blob([response.xml], { type: 'application/xml' }),
+          fileName,
+          job,
+          target
+        )
+      }
+    })
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Download failed',
+      description: getErrorMessage(error, 'Could not download the annotation.'),
+      color: 'error'
+    })
+  }
+}
+
 const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
+  const canvas = activeCanvasId.value ? editorStore.canvases[activeCanvasId.value] : undefined
+  const page = canvas?.projectId && canvas.pageId
+    ? editorStore.getPage(canvas.pageId, canvas.projectId)
+    : undefined
+  const activeXml = page?.xmlFiles.find(xml => xml.id === canvas?.xmlFileId)
+  const downloadItems: DropdownMenuItem[] = [
+    ...(activeXml
+      ? [{
+          label: `Annotation · ${activeXml.variant || activeXml.fileName}`,
+          icon: 'i-lucide-file-code',
+          onSelect: () => { void downloadActiveAnnotation() }
+        }]
+      : []),
+    ...(page?.imageVariants ?? []).map(variant => ({
+      label: `Image · ${variant.label}`,
+      icon: 'i-lucide-image',
+      onSelect: () => { void downloadEditorImageVariant(variant) }
+    }))
+  ]
+
   const pageActions: DropdownMenuItem[] = [
     {
       label: 'Version History',
@@ -1166,6 +1264,14 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
       }
     },
     {
+      label: 'Edit Page Metadata',
+      icon: 'i-lucide-tags',
+      disabled: !activePageId.value || !currentProjectId.value || !canEditActivePageMetadata.value,
+      onSelect: () => {
+        void openPageMetadataSlideover()
+      }
+    },
+    {
       label: `Page state: ${editorWorkflowStateOptions.find(option => option.value === activeWorkflowState.value)?.label ?? 'Open'}`,
       icon: 'i-lucide-list-checks',
       children: editorWorkflowStateOptions.map(option => ({
@@ -1178,6 +1284,12 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
           void updateActiveWorkflowState(option.value)
         }
       }))
+    },
+    {
+      label: 'Download',
+      icon: 'i-lucide-download',
+      disabled: downloadItems.length === 0,
+      children: downloadItems
     }
   ]
 
@@ -1278,6 +1390,48 @@ async function openPageOrderSlideover(projectId: string) {
     preserveLoaded: true
   })
   pageSortMode.value = DEFAULT_PAGE_SORT_MODE
+}
+
+async function openPageMetadataSlideover() {
+  const projectId = currentProjectId.value
+  const pageId = activePageId.value
+  if (!projectId || !pageId || !canEditActivePageMetadata.value) return
+
+  let page: Page | null = null
+  try {
+    page = await $fetch<Page>(`/api/projects/${projectId}/pages/${pageId}`)
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Failed to load page metadata',
+      description: getErrorMessage(error, 'Could not load the page metadata.'),
+      color: 'error'
+    })
+    return
+  }
+
+  const instance = pageEditSlideover.open({
+    projectId,
+    page: {
+      id: page.id,
+      name: page.name,
+      description: page.description ?? null,
+      tags: page.tags ?? []
+    },
+    editable: {
+      name: canEditPageName.value,
+      description: canEditPageDescription.value,
+      tags: canEditPageTags.value
+    }
+  })
+  const saved = await instance.result
+  if (!saved) return
+
+  try {
+    const updated = await $fetch<PageResponse>(`/api/projects/${projectId}/pages/${pageId}`)
+    editorStore.patchProjectPageSummaries(projectId, [updated])
+  } catch {
+    // The slideover already reported success; a failed summary refresh is non-fatal.
+  }
 }
 
 function getProjectContextMenuItems(projectId: string): DropdownMenuItem[][] {

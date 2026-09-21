@@ -182,6 +182,12 @@ const canShareProject = computed(() => allow(projectCapabilities.value.canShare)
 const canManageProjects = computed(() => allow(workspaceCapabilities.value.canManageProjects))
 const canDeleteProjectPages = computed(() => allow(projectCapabilities.value.canDeletePages))
 const canChangePageState = computed(() => allow(projectCapabilities.value.canChangePageState))
+const canEditPageName = computed(() => allow(projectCapabilities.value.canEditPageName))
+const canEditPageDescription = computed(() => allow(projectCapabilities.value.canEditPageDescription))
+const canEditPageTags = computed(() => allow(projectCapabilities.value.canEditPageTags))
+const canEditPageMetadata = computed(() =>
+  canEditPageName.value || canEditPageDescription.value || canEditPageTags.value
+)
 
 const { data: pages, error: pagesError, pending: pagesPending, refresh: refreshPagesFetch } = await useFetch<Page[]>(() => `/api/projects/${projectId}/pages`, {
   key: projectPagesKey
@@ -2198,7 +2204,7 @@ const pageColumns = [
 
 function getPageRowItems(page: Page) {
   const items: Array<Record<string, unknown>> = [
-    { label: 'Edit', icon: 'i-lucide-edit', disabled: project.value?.locked || !allow(projectCapabilities.value.canEdit), onSelect: () => openEditModal(page) },
+    { label: 'Edit', icon: 'i-lucide-edit', disabled: project.value?.locked || !canEditPageMetadata.value, onSelect: () => openEditModal(page) },
     { label: 'View Images', icon: 'i-lucide-images', disabled: page.imageCount === 0, onSelect: () => openImageModal(page) },
     { label: 'View/Edit XML', icon: 'i-lucide-file-pen-line', disabled: page.xmlFileCount === 0, onSelect: () => openXmlEditor(page) },
     { label: 'Export', icon: 'i-lucide-file-output', disabled: page.xmlFileCount === 0, onSelect: () => exportPageOutput(page) },
@@ -2233,7 +2239,12 @@ function handlePageRowContextMenu(_event: Event, row: { original: Record<string,
 function openEditModal(page: Page) {
   pageEditSlideover.open({
     projectId,
-    page
+    page,
+    editable: {
+      name: canEditPageName.value,
+      description: canEditPageDescription.value,
+      tags: canEditPageTags.value
+    }
   })
 }
 

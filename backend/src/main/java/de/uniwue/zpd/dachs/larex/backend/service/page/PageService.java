@@ -223,15 +223,29 @@ public class PageService {
         if (pageOpt.isPresent()) {
             Page page = pageOpt.get();
             String workspaceId = page.getProject().getLibrary().getWorkspaceId();
-            if (!workspaceAccessService.canManageProjects(workspaceId, userId)) {
+            var permissions = workspaceAccessService.resolvePageMetadataPermissions(workspaceId, userId);
+
+            boolean canEditName = permissions.canEditName();
+            boolean canEditDescription = permissions.canEditDescription();
+            boolean canEditTags = permissions.canEditTags();
+
+            if ((name != null && !canEditName)
+                    || (description != null && !canEditDescription)
+                    || (tags != null && !canEditTags)) {
                 return Optional.empty();
             }
+
             assertPageWritable(page);
-            if (!page.getName().equals(name) && pageRepository.existsByNameAndProjectId(name, page.getProject().getId())) {
-                throw new IllegalArgumentException("Page name '" + name + "' already exists in this project");
+
+            if (name != null) {
+                if (!page.getName().equals(name) && pageRepository.existsByNameAndProjectId(name, page.getProject().getId())) {
+                    throw new IllegalArgumentException("Page name '" + name + "' already exists in this project");
+                }
+                page.setName(name);
             }
-            page.setName(name);
-            page.setDescription(description);
+            if (description != null) {
+                page.setDescription(description);
+            }
             if (tags != null) {
                 page.setTags(tags);
             }

@@ -133,6 +133,20 @@ public class AuthorizationPolicyService {
         return canManageWorkspaceOperations(workspaceId, userId);
     }
 
+    /**
+     * Resolve which page metadata fields a user may edit in a workspace.
+     * Curator-like members (and owners/global admins) can edit everything;
+     * editors can only edit the fields explicitly enabled on the workspace.
+     */
+    public AuthorizationCapabilitiesDto.PageMetadataPermissions resolvePageMetadataPermissions(String workspaceId, String userId) {
+        boolean manage = canManageProjects(workspaceId, userId);
+        Optional<AbstractWorkspace> workspaceOpt = resolveWorkspace(workspaceId);
+        boolean canEditName = manage || workspaceOpt.map(AbstractWorkspace::isAllowEditorsToEditPageName).orElse(false);
+        boolean canEditDescription = manage || workspaceOpt.map(AbstractWorkspace::isAllowEditorsToEditPageDescription).orElse(false);
+        boolean canEditTags = manage || workspaceOpt.map(AbstractWorkspace::isAllowEditorsToEditPageTags).orElse(false);
+        return new AuthorizationCapabilitiesDto.PageMetadataPermissions(canEditName, canEditDescription, canEditTags);
+    }
+
     public AuthorizationCapabilitiesDto.WorkspaceCapabilities resolveWorkspaceCapabilities(String workspaceId, String userId) {
         boolean canAccessWorkspace = canAccessWorkspace(workspaceId, userId);
         boolean canAdminWorkspace = canAdminWorkspace(workspaceId, userId);
@@ -143,6 +157,7 @@ public class AuthorizationPolicyService {
         boolean canManageTasks = canManageTasks(workspaceId, userId);
         boolean canManageToolkit = canManageToolkit(workspaceId, userId);
         boolean canSetPresets = canSetPresets(workspaceId, userId);
+        AuthorizationCapabilitiesDto.PageMetadataPermissions metadata = resolvePageMetadataPermissions(workspaceId, userId);
 
         return new AuthorizationCapabilitiesDto.WorkspaceCapabilities(
                 canAdminWorkspace,
@@ -152,7 +167,10 @@ public class AuthorizationPolicyService {
                 canManageProjects,
                 canManageTasks,
                 canManageToolkit,
-                canSetPresets
+                canSetPresets,
+                metadata.canEditName(),
+                metadata.canEditDescription(),
+                metadata.canEditTags()
         );
     }
 
@@ -161,16 +179,18 @@ public class AuthorizationPolicyService {
         boolean canAccessWorkspace = canAccessWorkspace(workspaceId, userId);
         boolean canManageProjects = canManageProjects(workspaceId, userId);
         boolean canManageReleasesAndShares = canManageProjectReleasesAndShares(workspaceId, userId);
+        boolean unlocked = !project.isLocked();
 
-        boolean canEdit = canManageProjects && !project.isLocked();
-        boolean canShare = canManageReleasesAndShares && !project.isLocked();
-        boolean canDelete = canManageProjects && !project.isLocked();
-        boolean canDeletePages = canManageProjects && !project.isLocked();
-        boolean canUpload = canManageProjects && !project.isLocked();
+        boolean canEdit = canManageProjects && unlocked;
+        boolean canShare = canManageReleasesAndShares && unlocked;
+        boolean canDelete = canManageProjects && unlocked;
+        boolean canDeletePages = canManageProjects && unlocked;
+        boolean canUpload = canManageProjects && unlocked;
         boolean canExportPackage = canAccessWorkspace;
-        boolean canExecuteActions = canAccessWorkspace && !project.isLocked();
+        boolean canExecuteActions = canAccessWorkspace && unlocked;
         boolean canManageActions = canManageProjects;
-        boolean canChangePageState = canAccessWorkspace && !project.isLocked();
+        boolean canChangePageState = canAccessWorkspace && unlocked;
+        AuthorizationCapabilitiesDto.PageMetadataPermissions metadata = resolvePageMetadataPermissions(workspaceId, userId);
 
         return new AuthorizationCapabilitiesDto.ProjectCapabilities(
                 canEdit,
@@ -181,7 +201,10 @@ public class AuthorizationPolicyService {
                 canExportPackage,
                 canExecuteActions,
                 canManageActions,
-                canChangePageState
+                canChangePageState,
+                unlocked && metadata.canEditName(),
+                unlocked && metadata.canEditDescription(),
+                unlocked && metadata.canEditTags()
         );
     }
 

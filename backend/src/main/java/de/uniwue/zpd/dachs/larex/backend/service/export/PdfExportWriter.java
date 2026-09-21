@@ -1,11 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.export;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PointDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
-import de.uniwue.zpd.dachs.larex.backend.util.CoordinateUtils;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,7 +26,6 @@ import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.graphics.color.PDOutputIntent;
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.state.RenderingMode;
-import org.apache.pdfbox.util.Matrix;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -38,6 +33,10 @@ public class PdfExportWriter {
 
     private static final String PDF_FONT_RESOURCE_PATH = "/fonts/Junicode.ttf";
     private static final String PDF_A_ICC_RESOURCE_PATH = "/color/sRGB.icc";
+
+    private static final float TEXT_FONT_SIZE = 11f;
+    private static final float TEXT_LINE_LEADING = TEXT_FONT_SIZE * 1.4f;
+    private static final float TEXT_MARGIN = 72f;
 
     DocumentExportService.StreamingDocumentExportResult render(String baseName,
                                                                Project project,
@@ -62,10 +61,7 @@ public class PdfExportWriter {
                 switch (resolvedProfile) {
                     case SEARCHABLE, PDFA_SEARCHABLE -> addPage(document, font, exportPage, true, true, RenderingMode.NEITHER);
                     case IMAGES_ONLY -> addPage(document, font, exportPage, true, false, null);
-                    case TEXT_PAGES -> {
-                        addPage(document, font, exportPage, true, false, null);
-                        addPage(document, font, exportPage, false, true, RenderingMode.FILL);
-                    }
+                    case TEXT_PAGES -> addPage(document, font, exportPage, false, true, RenderingMode.FILL);
                 }
             }
 
@@ -83,7 +79,9 @@ public class PdfExportWriter {
                          boolean drawImage,
                          boolean drawText,
                          RenderingMode renderingMode) throws IOException {
-        PDRectangle pageSize = new PDRectangle(exportPage.pageDto().imageWidth(), exportPage.pageDto().imageHeight());
+        PDRectangle pageSize = drawImage
+                ? new PDRectangle(exportPage.pageDto().imageWidth(), exportPage.pageDto().imageHeight())
+                : PDRectangle.A4;
         PDPage pdfPage = new PDPage(pageSize);
         document.addPage(pdfPage);
 
@@ -101,11 +99,7 @@ public class PdfExportWriter {
             }
 
             contentStream.setRenderingMode(renderingMode);
-            contentStream.setFont(font, 1);
-
-            for (ExportTextLine line : collectLines(exportPage)) {
-                renderTextLine(contentStream, font, line, exportPage.pageDto());
-            }
+            renderText(contentStream, font, exportPage, pageSize);
         }
     }
 
@@ -165,111 +159,86 @@ public class PdfExportWriter {
         catalog.setMetadata(metadata);
     }
 
-    private List<ExportTextLine> collectLines(ExportPage page) {
-        List<ExportTextLine> lines = new ArrayList<>();
+    private void renderText(PDPageContentStream contentStream,
+                            PDFont font,
+                            ExportPage exportPage,
+                            PDRectangle pageSize) throws IOException {
+        List<String> lines = collectTextLines(exportPage);
+        if (lines.isEmpty()) {
+            return;
+        }
+
+        contentStream.setFont(font, TEXT_FONT_SIZE);
+
+        float maxWidth = pageSize.getWidth() - 2 * TEXT_MARGIN;
+        List<String> wrapped = wrapLines(font, lines, maxWidth);
+
+        float y = pageSize.getHeight() - TEXT_MARGIN - TEXT_FONT_SIZE;
+        contentStream.beginText();
+        contentStream.newLineAtOffset(TEXT_MARGIN, y);
+        for (String line : wrapped) {
+            contentStream.showText(line);
+            contentStream.newLineAtOffset(0, -TEXT_LINE_LEADING);
+        }
+        contentStream.endText();
+    }
+
+    private List<String> collectTextLines(ExportPage page) {
+        List<String> lines = new ArrayList<>();
         for (ExportRegion region : page.regions()) {
             if (!region.lines().isEmpty()) {
-                lines.addAll(region.lines().stream().filter(ExportTextLine::hasText).toList());
-                continue;
-            }
-            if (region.hasText()) {
-                lines.add(new ExportTextLine(
-                        region.id(),
-                        region.text(),
-                        region.coords(),
-                        null,
-                        null,
-                        null,
-                        List.of()
-                ));
+                for (ExportTextLine line : region.lines()) {
+                    addText(lines, line.text());
+                }
+            } else {
+                addText(lines, region.text());
             }
         }
         return lines;
     }
 
-    private void renderTextLine(PDPageContentStream contentStream,
-                                PDFont font,
-                                ExportTextLine line,
-                                PageDto pageDto) throws IOException {
-        String pdfText = sanitizePdfText(line.text());
-        if (pdfText == null || pdfText.isBlank()) {
+    private void addText(List<String> lines, String text) {
+        if (text == null) {
             return;
         }
-
-        LinePlacement placement = computePlacement(line, pageDto);
-        if (placement == null) {
-            return;
+        for (String part : text.split("\\R")) {
+            String sanitized = sanitizePdfText(part);
+            if (sanitized != null && !sanitized.isBlank()) {
+                lines.add(sanitized);
+            }
         }
-
-        float textWidthUnits = font.getStringWidth(pdfText) / 1000f;
-        if (textWidthUnits <= 0.001f) {
-            return;
-        }
-
-        float horizontalScale = placement.length() / textWidthUnits;
-        float verticalScale = placement.fontSize();
-        float cos = (float) Math.cos(placement.angleRadians());
-        float sin = (float) Math.sin(placement.angleRadians());
-
-        Matrix matrix = new Matrix(
-                horizontalScale * cos,
-                horizontalScale * sin,
-                -verticalScale * sin,
-                verticalScale * cos,
-                placement.startX(),
-                placement.startY()
-        );
-
-        contentStream.beginText();
-        contentStream.setTextMatrix(matrix);
-        contentStream.showText(pdfText);
-        contentStream.endText();
     }
 
-    private LinePlacement computePlacement(ExportTextLine line, PageDto pageDto) {
-        PolygonDto baseline = line.baseline();
-        if (baseline != null && baseline.points() != null && baseline.points().size() >= 2) {
-            PointDto start = baseline.points().getFirst();
-            PointDto end = baseline.points().getLast();
-            float startX = CoordinateUtils.worldToPixelX(start.x(), pageDto.imageWidth());
-            float startY = pageDto.imageHeight() - CoordinateUtils.worldToPixelY(start.y(), pageDto.imageHeight());
-            float endX = CoordinateUtils.worldToPixelX(end.x(), pageDto.imageWidth());
-            float endY = pageDto.imageHeight() - CoordinateUtils.worldToPixelY(end.y(), pageDto.imageHeight());
-
-            PolygonDto.BoundingBoxDto box = line.coords() == null ? null : line.coords().getBoundingBox();
-            float boxHeight = box == null
-                    ? 12f
-                    : Math.max(8f, Math.abs(CoordinateUtils.worldToPixelY(box.y(), pageDto.imageHeight())
-                    - CoordinateUtils.worldToPixelY(box.y() + box.height(), pageDto.imageHeight())) * 0.8f);
-
-            return new LinePlacement(
-                    startX,
-                    startY,
-                    (float) Math.atan2(endY - startY, endX - startX),
-                    (float) Math.max(1d, Math.hypot(endX - startX, endY - startY)),
-                    boxHeight
-            );
+    private List<String> wrapLines(PDFont font, List<String> lines, float maxWidth) throws IOException {
+        if (maxWidth <= 0f) {
+            return lines;
         }
-
-        PolygonDto coords = line.coords();
-        if (coords == null || coords.points() == null || coords.points().isEmpty()) {
-            return null;
+        List<String> wrapped = new ArrayList<>();
+        for (String line : lines) {
+            StringBuilder current = new StringBuilder();
+            for (String word : line.split(" ")) {
+                if (word.isEmpty()) {
+                    continue;
+                }
+                String candidate = current.length() == 0 ? word : current + " " + word;
+                if (textWidth(font, candidate) <= maxWidth) {
+                    current = new StringBuilder(candidate);
+                } else {
+                    if (current.length() > 0) {
+                        wrapped.add(current.toString());
+                    }
+                    current = new StringBuilder(word);
+                }
+            }
+            if (current.length() > 0) {
+                wrapped.add(current.toString());
+            }
         }
+        return wrapped;
+    }
 
-        PolygonDto.BoundingBoxDto box = coords.getBoundingBox();
-        float minX = CoordinateUtils.worldToPixelX(box.x(), pageDto.imageWidth());
-        float maxX = CoordinateUtils.worldToPixelX(box.x() + box.width(), pageDto.imageWidth());
-        float topY = CoordinateUtils.worldToPixelY(box.y() + box.height(), pageDto.imageHeight());
-        float bottomY = CoordinateUtils.worldToPixelY(box.y(), pageDto.imageHeight());
-        float fontSize = Math.max(8f, Math.abs(bottomY - topY) * 0.8f);
-
-        return new LinePlacement(
-                minX,
-                pageDto.imageHeight() - bottomY + (fontSize * 0.1f),
-                0f,
-                Math.max(1f, maxX - minX),
-                fontSize
-        );
+    private float textWidth(PDFont font, String text) throws IOException {
+        return font.getStringWidth(text) / 1000f * TEXT_FONT_SIZE;
     }
 
     private BufferedImage readImage(Path imagePath) throws IOException {
@@ -292,7 +261,7 @@ public class PdfExportWriter {
         if (text == null) {
             return null;
         }
-        return text.replaceAll("\\R+", " ").trim();
+        return text.replaceAll("\\s+", " ").trim();
     }
 
     private DocumentExportDto.PdfProfile resolvePdfProfile(DocumentExportDto.PdfProfile pdfProfile) {
@@ -307,14 +276,5 @@ public class PdfExportWriter {
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;");
-    }
-
-    private record LinePlacement(
-            float startX,
-            float startY,
-            float angleRadians,
-            float length,
-            float fontSize
-    ) {
     }
 }

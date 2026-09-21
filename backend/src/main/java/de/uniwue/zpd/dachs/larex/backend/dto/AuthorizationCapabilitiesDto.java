@@ -10,7 +10,10 @@ public class AuthorizationCapabilitiesDto {
             boolean canManageProjects,
             boolean canManageTasks,
             boolean canManageToolkit,
-            boolean canSetPresets
+            boolean canSetPresets,
+            boolean canEditPageName,
+            boolean canEditPageDescription,
+            boolean canEditPageTags
     ) {}
 
     public record ProjectCapabilities(
@@ -22,7 +25,16 @@ public class AuthorizationCapabilitiesDto {
             boolean canExportPackage,
             boolean canExecuteActions,
             boolean canManageActions,
-            boolean canChangePageState
+            boolean canChangePageState,
+            boolean canEditPageName,
+            boolean canEditPageDescription,
+            boolean canEditPageTags
+    ) {}
+
+    public record PageMetadataPermissions(
+            boolean canEditName,
+            boolean canEditDescription,
+            boolean canEditTags
     ) {}
 
     public record DatasetCapabilities(

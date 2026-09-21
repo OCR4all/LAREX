@@ -127,6 +127,9 @@ public class WorkspaceController {
                 teamWorkspace.getValidationRuleset() != null ? teamWorkspace.getValidationRuleset().getId() : null,
                 teamWorkspace.getEffectiveDefaultGtIndex(),
                 teamWorkspace.getDefaultRecognitionIndicesList(),
+                teamWorkspace.isAllowEditorsToEditPageName(),
+                teamWorkspace.isAllowEditorsToEditPageDescription(),
+                teamWorkspace.isAllowEditorsToEditPageTags(),
                 authorizationPolicyService.resolveWorkspaceCapabilities(teamWorkspace.getId(), userId),
                 null
         );
@@ -157,6 +160,9 @@ public class WorkspaceController {
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
                 request.projectDefaultPropagationScope(),
+                request.allowEditorsToEditPageName(),
+                request.allowEditorsToEditPageDescription(),
+                request.allowEditorsToEditPageTags(),
                 userId
         );
 
@@ -421,6 +427,9 @@ public class WorkspaceController {
                     validationRulesetId,
                     defaultGtIndex,
                     defaultRecognitionIndices,
+                    personalWorkspace.isAllowEditorsToEditPageName(),
+                    personalWorkspace.isAllowEditorsToEditPageDescription(),
+                    personalWorkspace.isAllowEditorsToEditPageTags(),
                     capabilities,
                     projectDefaultsPropagation
             );
@@ -441,6 +450,9 @@ public class WorkspaceController {
                     validationRulesetId,
                     defaultGtIndex,
                     defaultRecognitionIndices,
+                    teamWorkspace.isAllowEditorsToEditPageName(),
+                    teamWorkspace.isAllowEditorsToEditPageDescription(),
+                    teamWorkspace.isAllowEditorsToEditPageTags(),
                     capabilities,
                     projectDefaultsPropagation
             );

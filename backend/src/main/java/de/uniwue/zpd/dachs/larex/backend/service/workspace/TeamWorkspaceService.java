@@ -119,6 +119,9 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                                                        String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                                        String normalizationProfileId, String validationRulesetId,
                                                        Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                                                       Boolean allowEditorsToEditPageName,
+                                                       Boolean allowEditorsToEditPageDescription,
+                                                       Boolean allowEditorsToEditPageTags,
                                                        String userId) {
         Optional<TeamWorkspace> workspaceOpt = teamWorkspaceRepository.findById(workspaceId);
 
@@ -147,6 +150,16 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                 workspace.setName(name);
                 workspace.setDescription(description);
                 workspace.setAvatar(avatar);
+            }
+
+            if (allowEditorsToEditPageName != null) {
+                workspace.setAllowEditorsToEditPageName(allowEditorsToEditPageName);
+            }
+            if (allowEditorsToEditPageDescription != null) {
+                workspace.setAllowEditorsToEditPageDescription(allowEditorsToEditPageDescription);
+            }
+            if (allowEditorsToEditPageTags != null) {
+                workspace.setAllowEditorsToEditPageTags(allowEditorsToEditPageTags);
             }
 
             Codec codec = null;

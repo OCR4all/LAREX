@@ -275,6 +275,29 @@ class AuthorizationPolicyServiceTest {
     }
 
     @Test
+    void pageMetadataPermissions_respectRoleAndWorkspaceFlags() {
+        String workspaceId = "ws-meta-1";
+        TeamWorkspace workspace = teamWorkspace(workspaceId, "owner");
+        workspace.setAllowEditorsToEditPageDescription(true);
+        workspace.setAllowEditorsToEditPageTags(true);
+        when(workspaceQueryService.findWorkspaceById(workspaceId)).thenReturn(Optional.of(workspace));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "curator"))
+                .thenReturn(Optional.of(member("curator", WorkspaceMember.Role.CURATOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "editor"))
+                .thenReturn(Optional.of(member("editor", WorkspaceMember.Role.EDITOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+
+        AuthorizationCapabilitiesDto.PageMetadataPermissions curator = service.resolvePageMetadataPermissions(workspaceId, "curator");
+        assertTrue(curator.canEditName());
+        assertTrue(curator.canEditDescription());
+        assertTrue(curator.canEditTags());
+
+        AuthorizationCapabilitiesDto.PageMetadataPermissions editor = service.resolvePageMetadataPermissions(workspaceId, "editor");
+        assertFalse(editor.canEditName());
+        assertTrue(editor.canEditDescription());
+        assertTrue(editor.canEditTags());
+    }
+
+    @Test
     void taskCapabilities_followManagerVsEditorRules() {
         String workspaceId = "ws-4";
         TeamWorkspace workspace = teamWorkspace(workspaceId, "owner");

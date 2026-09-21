@@ -10,9 +10,16 @@ interface Props {
     description: string | null
     tags: string[]
   }
+  editable?: {
+    name?: boolean
+    description?: boolean
+    tags?: boolean
+  }
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  editable: () => ({ name: true, description: true, tags: true })
+})
 const emit = defineEmits<{ close: [boolean] }>()
 
 const workspace = useWorkspaceStore()
@@ -22,13 +29,19 @@ await workspace.validateAndSelectWorkspace()
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId as string)
 const projectPagesKey = computed(() => wsKey(selectedWorkspace.value, 'projects', props.projectId, 'pages'))
 
+const canEditName = computed(() => props.editable?.name ?? true)
+const canEditDescription = computed(() => props.editable?.description ?? true)
+const canEditTags = computed(() => props.editable?.tags ?? true)
+
 const { data: project } = await useFetch<{ tagSetId: string | null }>(
   () => `/api/workspaces/${selectedWorkspace.value}/projects/${props.projectId}`,
   { key: wsKey(selectedWorkspace.value, 'projects', props.projectId) }
 )
 
 const schema = z.object({
-  name: z.string().trim().min(1, { error: 'Name is required' }),
+  name: canEditName.value
+    ? z.string().trim().min(1, { error: 'Name is required' })
+    : z.string().optional(),
   description: z.string().optional(),
   tags: z.array(z.string()).default([])
 })
@@ -51,9 +64,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   try {
     isSubmitting.value = true
 
+    const body: { name?: string, description?: string | null, tags?: string[] } = {}
+    if (canEditName.value) body.name = event.data.name
+    if (canEditDescription.value) body.description = event.data.description || null
+    if (canEditTags.value) body.tags = event.data.tags
+
     await $fetch(`/api/projects/${props.projectId}/pages/${props.page.id}`, {
       method: 'PUT',
-      body: event.data
+      body
     })
 
     toast.add({
@@ -104,7 +122,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           icon="i-lucide-file-pen-line"
         >
           <div class="space-y-4">
-            <UFormField label="Page Name" name="name">
+            <UFormField v-if="canEditName" label="Page Name" name="name">
               <UInput
                 v-model="state.name"
                 placeholder="Enter page name"
@@ -112,7 +130,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               />
             </UFormField>
 
-            <UFormField label="Description" name="description">
+            <UFormField v-if="canEditDescription" label="Description" name="description">
               <UTextarea
                 v-model="state.description"
                 placeholder="Enter page description (optional)"
@@ -120,7 +138,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               />
             </UFormField>
 
-            <UFormField label="Tags" name="tags">
+            <UFormField v-if="canEditTags" label="Tags" name="tags">
               <TagSetTagSelector
                 v-model="state.tags"
                 :tag-set-id="project?.tagSetId"
