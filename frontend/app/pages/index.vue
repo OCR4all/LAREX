@@ -448,7 +448,6 @@ const columns: TableColumn<ProjectListItem>[] = [
     cell: ({ row }) => {
       const completed = row.original.completedPageCount
       const total = row.original.pageCount
-      const remaining = Math.max(total - completed, 0)
       const percentage = row.original.completionPercentage
 
       return h(UPopover, {
@@ -473,10 +472,6 @@ const columns: TableColumn<ProjectListItem>[] = [
             h('div', { class: 'flex items-center justify-between gap-6' }, [
               h('dt', { class: 'text-muted' }, 'Done'),
               h('dd', { class: 'font-medium text-highlighted' }, `${completed} of ${total} pages`)
-            ]),
-            h('div', { class: 'flex items-center justify-between gap-6' }, [
-              h('dt', { class: 'text-muted' }, 'Remaining'),
-              h('dd', { class: 'font-medium text-highlighted' }, `${remaining} pages`)
             ]),
             h('div', { class: 'flex items-center justify-between gap-6' }, [
               h('dt', { class: 'text-muted' }, 'Completion'),
