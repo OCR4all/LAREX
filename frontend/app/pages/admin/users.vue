@@ -60,6 +60,12 @@ const createUserSchema = z.object({
 
 type CreateUserSchema = z.output<typeof createUserSchema>
 
+const inviteUsersSchema = z.object({
+  users: z.array(createUserSchema).min(1)
+})
+
+type InviteUsersSchema = z.output<typeof inviteUsersSchema>
+
 const statusOptions: { label: string, value: AdminUserStatusFilter }[] = [
   { label: 'All', value: 'ALL' },
   { label: 'Active', value: 'ACTIVE' },
@@ -73,8 +79,9 @@ const itemsPerPageOptions = [10, 25, 50, 100].map(value => ({ label: `${value} p
 const statusFilter = ref<AdminUserStatusFilter>('ALL')
 const searchInput = ref('')
 const debouncedSearch = ref('')
-const isCreateUserModalOpen = ref(false)
-const isCreatingUser = ref(false)
+const isInviteSlideoverOpen = ref(false)
+const isInvitingUsers = ref(false)
+const inviteFailures = ref<Array<{ email: string, message: string }>>([])
 const selectedUserId = ref<string | null>(null)
 const isDetailsOpen = ref(false)
 const detailUser = ref<AdminUser | null>(null)
@@ -88,12 +95,17 @@ const globalRoleAction = ref<'grant' | 'revoke' | null>(null)
 const globalRoleReason = ref('')
 const isSubmittingGlobalRole = ref(false)
 
-const createUserState = reactive<Partial<CreateUserSchema>>({
-  username: '',
-  email: '',
-  firstName: '',
-  lastName: ''
-})
+function createEmptyInviteUser(): CreateUserSchema {
+  return {
+    username: '',
+    email: '',
+    firstName: '',
+    lastName: ''
+  }
+}
+
+const inviteUsersState = reactive<InviteUsersSchema>({ users: [createEmptyInviteUser()] })
+const inviteUsersFormId = useId()
 
 const defaultUsersPage = (): AdminUserPage => ({
   items: [],
@@ -423,23 +435,35 @@ function normalizeOptional(value?: string) {
   return normalized ? normalized : undefined
 }
 
-function resetCreateUserForm() {
-  createUserState.username = ''
-  createUserState.email = ''
-  createUserState.firstName = ''
-  createUserState.lastName = ''
+function resetInviteUsersForm() {
+  inviteUsersState.users = [createEmptyInviteUser()]
+  inviteFailures.value = []
 }
 
-function openCreateUserModal() {
+function openInviteSlideover() {
   if (!creationAllowed.value) {
     return
   }
-  resetCreateUserForm()
-  isCreateUserModalOpen.value = true
+  resetInviteUsersForm()
+  isInviteSlideoverOpen.value = true
 }
 
-function closeCreateUserModal() {
-  isCreateUserModalOpen.value = false
+function closeInviteSlideover() {
+  isInviteSlideoverOpen.value = false
+}
+
+function addInviteUser() {
+  if (inviteUsersState.users.length >= 100) {
+    return
+  }
+  inviteUsersState.users.push(createEmptyInviteUser())
+}
+
+function removeInviteUser(index: number) {
+  if (inviteUsersState.users.length === 1) {
+    return
+  }
+  inviteUsersState.users.splice(index, 1)
 }
 
 function clearFilters() {
@@ -525,37 +549,56 @@ function closeUserDetails() {
   closeGlobalRoleModal()
 }
 
-async function onCreateUserSubmit(event: FormSubmitEvent<CreateUserSchema>) {
-  isCreatingUser.value = true
+async function onInviteUsersSubmit(event: FormSubmitEvent<InviteUsersSchema>) {
+  isInvitingUsers.value = true
+  inviteFailures.value = []
+  const failedUsers: InviteUsersSchema['users'] = []
+  let invited = 0
 
   try {
-    await $fetch('/api/admin/users', {
-      method: 'POST',
-      body: {
-        username: event.data.username.trim(),
-        email: event.data.email.trim(),
-        firstName: normalizeOptional(event.data.firstName),
-        lastName: normalizeOptional(event.data.lastName)
+    for (const user of event.data.users) {
+      try {
+        await $fetch('/api/admin/users', {
+          method: 'POST',
+          body: {
+            username: user.username.trim(),
+            email: user.email.trim(),
+            firstName: normalizeOptional(user.firstName),
+            lastName: normalizeOptional(user.lastName)
+          }
+        })
+        invited++
+      } catch (error: unknown) {
+        failedUsers.push(user)
+        inviteFailures.value.push({
+          email: user.email,
+          message: getErrorMessage(error, 'Failed to invite user.')
+        })
       }
-    })
+    }
 
-    toast.add({
-      title: 'User created, setup email sent',
-      color: 'success'
-    })
+    if (invited > 0) {
+      page.value = 1
+      await refreshUsersAndDetails()
+    }
 
-    resetCreateUserForm()
-    closeCreateUserModal()
-    page.value = 1
-    await refreshUsersAndDetails()
-  } catch (error: unknown) {
-    showApiErrorToast({
-      title: 'User creation failed',
-      error,
-      fallback: getErrorMessage(error, 'Failed to create user.')
-    })
+    if (inviteFailures.value.length === 0) {
+      toast.add({
+        title: `${invited} user${invited === 1 ? '' : 's'} invited, setup email sent`,
+        color: 'success'
+      })
+      resetInviteUsersForm()
+      closeInviteSlideover()
+    } else {
+      inviteUsersState.users = failedUsers
+      toast.add({
+        title: 'Some invitations failed',
+        description: `${invited} sent, ${inviteFailures.value.length} failed.`,
+        color: 'warning'
+      })
+    }
   } finally {
-    isCreatingUser.value = false
+    isInvitingUsers.value = false
   }
 }
 
@@ -697,8 +740,8 @@ async function submitGlobalRoleAction() {
             color="primary"
             variant="solid"
             icon="i-lucide-user-plus"
-            label="Create User"
-            @click="openCreateUserModal"
+            label="Invite User"
+            @click="openInviteSlideover"
           />
         </template>
       </UDashboardNavbar>
@@ -826,71 +869,122 @@ async function submitGlobalRoleAction() {
     </template>
   </UDashboardPanel>
 
-  <UModal
-    v-model:open="isCreateUserModalOpen"
-    title="Create User"
-    :close="{ onClick: closeCreateUserModal }"
+  <USlideover
+    v-model:open="isInviteSlideoverOpen"
+    title="Invite Users"
+    description="Create local accounts and send setup emails."
+    :close="{ onClick: closeInviteSlideover }"
   >
     <template #body>
       <UForm
-        :schema="createUserSchema"
-        :state="createUserState"
-        class="space-y-4"
-        @submit="onCreateUserSubmit"
+        :id="inviteUsersFormId"
+        :schema="inviteUsersSchema"
+        :state="inviteUsersState"
+        class="space-y-6"
+        @submit="onInviteUsersSubmit"
       >
-        <UFormField label="Username" name="username" required>
-          <UInput
-            v-model="createUserState.username"
-            placeholder="username"
-            autocomplete="off"
-          />
-        </UFormField>
+        <div
+          v-for="(user, index) in inviteUsersState.users"
+          :key="index"
+          class="space-y-4 rounded-lg border border-default p-4"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <p class="font-medium text-highlighted">
+              User {{ index + 1 }}
+            </p>
+            <UButton
+              v-if="inviteUsersState.users.length > 1"
+              type="button"
+              color="error"
+              variant="ghost"
+              icon="i-lucide-trash-2"
+              aria-label="Remove user"
+              @click="removeInviteUser(index)"
+            />
+          </div>
 
-        <UFormField label="Email" name="email" required>
-          <UInput
-            v-model="createUserState.email"
-            type="email"
-            placeholder="user@example.org"
-            autocomplete="off"
-          />
-        </UFormField>
+          <UFormField :name="`users.${index}.username`" label="Username" required>
+            <UInput
+              v-model="user.username"
+              placeholder="username"
+              autocomplete="off"
+            />
+          </UFormField>
 
-        <UFormField label="First name" name="firstName">
-          <UInput
-            v-model="createUserState.firstName"
-            placeholder="Optional"
-            autocomplete="off"
-          />
-        </UFormField>
+          <UFormField :name="`users.${index}.email`" label="Email" required>
+            <UInput
+              v-model="user.email"
+              type="email"
+              placeholder="user@example.org"
+              autocomplete="off"
+            />
+          </UFormField>
 
-        <UFormField label="Last name" name="lastName">
-          <UInput
-            v-model="createUserState.lastName"
-            placeholder="Optional"
-            autocomplete="off"
-          />
-        </UFormField>
+          <UFormField :name="`users.${index}.firstName`" label="First name">
+            <UInput
+              v-model="user.firstName"
+              placeholder="Optional"
+              autocomplete="off"
+            />
+          </UFormField>
 
-        <div class="flex justify-end gap-2 pt-2">
-          <UButton
-            color="neutral"
-            variant="outline"
-            :disabled="isCreatingUser"
-            @click="closeCreateUserModal"
-          >
-            Cancel
-          </UButton>
-          <UButton
-            color="primary"
-            type="submit"
-            :loading="isCreatingUser"
-          >
-            Create User
-          </UButton>
+          <UFormField :name="`users.${index}.lastName`" label="Last name">
+            <UInput
+              v-model="user.lastName"
+              placeholder="Optional"
+              autocomplete="off"
+            />
+          </UFormField>
+        </div>
+
+        <UButton
+          type="button"
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-plus"
+          :disabled="inviteUsersState.users.length >= 100"
+          @click="addInviteUser"
+        >
+          Add
+        </UButton>
+
+        <div
+          v-if="inviteFailures.length > 0"
+          class="rounded-lg border border-error/30 bg-error/5 p-3"
+        >
+          <p class="text-sm font-medium text-error">
+            Some invitations failed. Correct them and try again.
+          </p>
+          <ul class="mt-2 space-y-1 text-sm text-muted">
+            <li v-for="failure in inviteFailures" :key="`${failure.email}-${failure.message}`">
+              <span class="font-medium text-highlighted">{{ failure.email }}</span>: {{ failure.message }}
+            </li>
+          </ul>
         </div>
       </UForm>
     </template>
-  </UModal>
+
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="outline"
+          :disabled="isInvitingUsers"
+          @click="closeInviteSlideover"
+        >
+          Cancel
+        </UButton>
+        <UButton
+          color="primary"
+          type="submit"
+          :form="inviteUsersFormId"
+          :loading="isInvitingUsers"
+        >
+          Send Invites
+        </UButton>
+      </div>
+    </template>
+  </USlideover>
 
   <AdminSlideoverUserDetails
     :open="isDetailsOpen"
