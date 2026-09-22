@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDropZone } from '@vueuse/core'
 import {
   ActionActiveIndicator,
   LazyActionSlideoverRun,
@@ -37,6 +38,7 @@ import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/t
 import UiColorTag from '@/components/ui/color-tag.vue'
 import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowState, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
 import type { UploadFile, UploadSession } from '@/composables/use-chunked-upload'
+import { isProjectImageOrXml } from '@/utils/directory-project-upload'
 import { isActionLockedPage, resolvePageLockReason } from '@/utils/page-lock'
 
 type PdfPreflightResponse = {
@@ -505,8 +507,15 @@ async function toggleStar() {
 }
 
 const fileInput = ref<HTMLInputElement>()
+const projectPagesDropZone = ref<HTMLElement | null>(null)
 
-async function handleFileUpload(files: FileList | null) {
+function isSupportedProjectUploadFile(file: File): boolean {
+  return isProjectImageOrXml(file)
+    || file.type === 'application/pdf'
+    || file.name.toLowerCase().endsWith('.pdf')
+}
+
+async function handleFileUpload(files: FileList | File[] | null) {
   if (!files || files.length === 0) {
     toast.add({
       title: 'No files selected',
@@ -517,7 +526,16 @@ async function handleFileUpload(files: FileList | null) {
     return
   }
 
-  const fileArray = Array.from(files)
+  const fileArray = Array.from(files).filter(isSupportedProjectUploadFile)
+  if (fileArray.length === 0) {
+    toast.add({
+      title: 'No supported files selected',
+      description: 'Please select images, XML files, and/or PDFs.',
+      color: 'warning',
+      icon: 'i-lucide-file-warning'
+    })
+    return
+  }
   const pdfFiles = fileArray.filter(f => (f.type === 'application/pdf') || f.name.toLowerCase().endsWith('.pdf'))
   let pdfPrefixesByFileName: Record<string, string> | null = null
 
@@ -548,6 +566,16 @@ async function handleFileUpload(files: FileList | null) {
     fileInput.value.value = ''
   }
 }
+
+const { isOverDropZone: isOverProjectPagesDropZone } = useDropZone(projectPagesDropZone, {
+  multiple: true,
+  checkValidity: items => Boolean(
+    canUploadProject.value
+    && !projectStatus.value?.isBlocked
+    && !project.value?.locked
+  ) && Array.from(items).every(item => item.kind === 'file'),
+  onDrop: (files) => { void handleFileUpload(files) }
+})
 
 async function viewConflicts() {
   try {
@@ -2687,7 +2715,7 @@ useHead({
         <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading project...</span>
       </div>
 
-      <div v-else-if="project" class="flex min-h-full flex-col gap-4">
+      <div v-else-if="project" ref="projectPagesDropZone" class="relative flex min-h-full flex-col gap-4">
         <div v-if="project.locked" class="bg-warning/10 border border-warning/30 rounded-sm p-4">
           <div class="flex items-start">
             <UIcon name="i-lucide-lock" class="text-warning mt-0.5 mr-3" />
@@ -2917,6 +2945,23 @@ useHead({
               />
             </aside>
           </Transition>
+        </div>
+
+        <div
+          v-if="isOverProjectPagesDropZone"
+          role="status"
+          aria-live="polite"
+          class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 p-6 backdrop-blur-sm"
+        >
+          <div class="flex flex-col items-center gap-2 rounded-lg border border-primary/20 bg-default/90 px-8 py-6 text-center shadow-lg">
+            <UIcon name="i-lucide-files" class="size-8 text-primary" />
+            <p class="font-medium text-highlighted">
+              Drop files to upload
+            </p>
+            <p class="text-sm text-muted">
+              Images, XML files, and PDFs are supported
+            </p>
+          </div>
         </div>
       </div>
     </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDropZone } from '@vueuse/core'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
 import {
@@ -39,6 +40,7 @@ import { naturalSortBy } from '@/utils/natural-sort'
 import { buildBatchProjectExportFileName } from '@/utils/download-file-names'
 import type { Page } from '@/types/project-page'
 import { getDirectoryProjectName, getProjectNameError, isProjectImageOrXml } from '@/utils/directory-project-upload'
+import { getDroppedDirectoryFiles } from '@/utils/file-drop'
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
@@ -109,12 +111,20 @@ const backgroundDownloads = useBackgroundDownloads()
 const importProjectPackageInput = ref<HTMLInputElement | null>(null)
 const importLegacyOcr4allInput = ref<HTMLInputElement | null>(null)
 const uploadDirectoryInput = ref<HTMLInputElement | null>(null)
+const projectOverviewDropZone = ref<HTMLElement | null>(null)
 const directoryUploadJobs = shallowRef<Array<{
   projectId: string
   projectName: string
   workspaceId: string
   files: File[]
 }>>([])
+
+const { isOverDropZone: isOverProjectOverviewDropZone } = useDropZone(projectOverviewDropZone, {
+  multiple: true,
+  checkValidity: items => Boolean(selectedWorkspace.value && canCreateProjects.value)
+    && Array.from(items).every(item => item.kind === 'file'),
+  onDrop: (_files, event) => { void handleDirectoryProjectDrop(event) }
+})
 
 type ResolvedTag = {
   id: string
@@ -1158,9 +1168,7 @@ async function requestDirectoryProjectName(initialName: string, reason: string, 
   return await instance.result as string | null
 }
 
-async function handleDirectoryProjectUpload(event: Event) {
-  const input = event.target as HTMLInputElement
-  const selectedFiles = Array.from(input.files ?? [])
+async function processDirectoryProjectUpload(selectedFiles: File[], directoryName = '') {
   const files = selectedFiles.filter(isProjectImageOrXml)
   const workspaceId = selectedWorkspace.value
 
@@ -1176,7 +1184,7 @@ async function handleDirectoryProjectUpload(event: Event) {
       return
     }
 
-    let projectName = getDirectoryProjectName(selectedFiles)
+    let projectName = getDirectoryProjectName(selectedFiles, directoryName)
     const initialError = getProjectNameError(projectName, (data.value ?? []).map(project => project.name))
     if (initialError) {
       projectName = await requestDirectoryProjectName(projectName, initialError) ?? ''
@@ -1214,9 +1222,31 @@ async function handleDirectoryProjectUpload(event: Event) {
       description: extractApiErrorMessage(error, 'Failed to create the project'),
       color: 'error'
     })
+  }
+}
+
+async function handleDirectoryProjectUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  try {
+    await processDirectoryProjectUpload(Array.from(input.files ?? []))
   } finally {
     input.value = ''
   }
+}
+
+async function handleDirectoryProjectDrop(event: DragEvent) {
+  const directory = await getDroppedDirectoryFiles(event)
+  if (!directory) {
+    toast.add({
+      title: 'Folder required',
+      description: 'Drop a folder to upload it as a new project. Use “Upload directory as project” if your browser does not support folder drops.',
+      color: 'warning',
+      icon: 'i-lucide-folder-up'
+    })
+    return
+  }
+
+  await processDirectoryProjectUpload(directory.files, directory.name)
 }
 
 const projectsActionItems = computed<DropdownMenuItem[][]>(() => [[
@@ -1526,159 +1556,176 @@ async function handleLegacyOcr4allImport(event: Event) {
     </template>
 
     <template #body>
-      <LibraryDirectoryProjectUpload
-        v-for="job in directoryUploadJobs"
-        :key="job.projectId"
-        v-bind="job"
-        @terminal="directoryUploadJobs = directoryUploadJobs.filter(candidate => candidate.projectId !== job.projectId)"
-      />
-      <div v-if="error" class="py-8 text-center">
-        <div class="flex items-center justify-center gap-2 text-error">
-          <UIcon name="i-lucide-alert-circle" />
-          <p class="text-sm">
-            <strong>Error loading projects:</strong> {{ error.message || error }}
-          </p>
-        </div>
-      </div>
-
-      <div v-else-if="status === 'pending'" class="py-8 text-center">
-        <div class="flex items-center justify-center">
-          <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
-          <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading projects...</span>
-        </div>
-      </div>
-
-      <template v-else>
-        <UEmpty
-          v-if="data && data.length === 0"
-          variant="naked"
-          icon="i-lucide-book"
-          title="No projects found"
-          description="It looks like you haven't added any projects. Create one to get started."
-          :actions="emptyActions as any"
+      <div ref="projectOverviewDropZone" class="relative min-h-full">
+        <LibraryDirectoryProjectUpload
+          v-for="job in directoryUploadJobs"
+          :key="job.projectId"
+          v-bind="job"
+          @terminal="directoryUploadJobs = directoryUploadJobs.filter(candidate => candidate.projectId !== job.projectId)"
         />
-
-        <div v-else-if="data">
-          <UEmpty
-            v-if="filteredAndSortedData.length === 0 && activeFilters.length > 0"
-            variant="naked"
-            icon="i-lucide-search-x"
-            title="No projects match your filters"
-            description="Try adjusting or clearing your filters to see more results."
-            :actions="[{
-              icon: 'i-lucide-x',
-              label: 'Clear filters',
-              color: 'neutral',
-              variant: 'subtle',
-              onClick: clearProjectFilters
-            }]"
-          />
-
-          <UContextMenu v-else :items="contextMenuItems as any">
-            <AppTable
-              table-id="dashboard-projects-v2"
-              :data="paginatedData"
-              :columns="columns"
-              :default-visible-column-ids="DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS"
-              class="flex-1"
-              @row-click="handleRowClick"
-              @contextmenu="handleRowContextMenu"
-            />
-          </UContextMenu>
-
-          <div v-if="totalItems > 0" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
-            <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-              <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} projects</span>
-            </div>
-
-            <div class="flex items-center gap-4">
-              <USelect
-                v-model="itemsPerPage"
-                :items="[5, 10, 15, 20, 50, 100]"
-                class="w-32"
-                size="sm"
-              />
-
-              <UPagination
-                v-model:page="page"
-                :total="totalItems"
-                :items-per-page="itemsPerPage"
-                :disabled="totalPages <= 1"
-                show-edges
-                :sibling-count="1"
-              />
-            </div>
+        <div v-if="error" class="py-8 text-center">
+          <div class="flex items-center justify-center gap-2 text-error">
+            <UIcon name="i-lucide-alert-circle" />
+            <p class="text-sm">
+              <strong>Error loading projects:</strong> {{ error.message || error }}
+            </p>
           </div>
         </div>
 
-        <UiFloatingSelectionMenu
-          :selected-count="selectedProjectIds.size"
-          @clear="clearSelection"
+        <div v-else-if="status === 'pending'" class="py-8 text-center">
+          <div class="flex items-center justify-center">
+            <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
+            <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading projects...</span>
+          </div>
+        </div>
+
+        <template v-else>
+          <UEmpty
+            v-if="data && data.length === 0"
+            variant="naked"
+            icon="i-lucide-book"
+            title="No projects found"
+            description="It looks like you haven't added any projects. Create one to get started."
+            :actions="emptyActions as any"
+          />
+
+          <div v-else-if="data">
+            <UEmpty
+              v-if="filteredAndSortedData.length === 0 && activeFilters.length > 0"
+              variant="naked"
+              icon="i-lucide-search-x"
+              title="No projects match your filters"
+              description="Try adjusting or clearing your filters to see more results."
+              :actions="[{
+                icon: 'i-lucide-x',
+                label: 'Clear filters',
+                color: 'neutral',
+                variant: 'subtle',
+                onClick: clearProjectFilters
+              }]"
+            />
+
+            <UContextMenu v-else :items="contextMenuItems as any">
+              <AppTable
+                table-id="dashboard-projects-v2"
+                :data="paginatedData"
+                :columns="columns"
+                :default-visible-column-ids="DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS"
+                class="flex-1"
+                @row-click="handleRowClick"
+                @contextmenu="handleRowContextMenu"
+              />
+            </UContextMenu>
+
+            <div v-if="totalItems > 0" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+              <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} projects</span>
+              </div>
+
+              <div class="flex items-center gap-4">
+                <USelect
+                  v-model="itemsPerPage"
+                  :items="[5, 10, 15, 20, 50, 100]"
+                  class="w-32"
+                  size="sm"
+                />
+
+                <UPagination
+                  v-model:page="page"
+                  :total="totalItems"
+                  :items-per-page="itemsPerPage"
+                  :disabled="totalPages <= 1"
+                  show-edges
+                  :sibling-count="1"
+                />
+              </div>
+            </div>
+          </div>
+
+          <UiFloatingSelectionMenu
+            :selected-count="selectedProjectIds.size"
+            @clear="clearSelection"
+          >
+            <UButton
+              v-if="hasSelection"
+              icon="i-lucide-pencil"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
+              :loading="isOpeningSelectedProjectsInEditor"
+              :disabled="!canOpenSelectedProjectsInEditor"
+              @click="handleOpenSelectedProjectsInEditor"
+            >
+              Open in Editor
+            </UButton>
+            <UButton
+              icon="i-lucide-share-2"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
+              :disabled="!canShareSelectedProjects"
+              @click="openBatchShareSlideover"
+            >
+              Share
+            </UButton>
+            <UDropdownMenu :items="batchExportItems" :content="{ align: 'center', side: 'top' }">
+              <UButton
+                icon="i-lucide-download"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
+                :loading="isBatchExporting"
+                :disabled="!canExportSelectedProjects"
+              >
+                Export
+                <UIcon name="i-lucide-chevron-down" class="size-4" />
+              </UButton>
+            </UDropdownMenu>
+            <UDropdownMenu :items="batchToolkitItems" :content="{ align: 'center', side: 'top' }">
+              <UButton
+                icon="i-lucide-tool-case"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
+                :disabled="!hasSelection"
+              >
+                Toolkit
+                <UIcon name="i-lucide-chevron-down" class="size-4" />
+              </UButton>
+            </UDropdownMenu>
+            <UButton
+              icon="i-lucide-trash"
+              color="error"
+              variant="ghost"
+              size="sm"
+              class="hover:bg-error/20"
+              :disabled="!canDeleteSelectedProjects"
+              @click="handleDeleteSelectedProjects"
+            >
+              Delete
+            </UButton>
+          </UiFloatingSelectionMenu>
+        </template>
+
+        <div
+          v-if="isOverProjectOverviewDropZone"
+          class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 p-6 backdrop-blur-sm"
         >
-          <UButton
-            v-if="hasSelection"
-            icon="i-lucide-pencil"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
-            :loading="isOpeningSelectedProjectsInEditor"
-            :disabled="!canOpenSelectedProjectsInEditor"
-            @click="handleOpenSelectedProjectsInEditor"
-          >
-            Open in Editor
-          </UButton>
-          <UButton
-            icon="i-lucide-share-2"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
-            :disabled="!canShareSelectedProjects"
-            @click="openBatchShareSlideover"
-          >
-            Share
-          </UButton>
-          <UDropdownMenu :items="batchExportItems" :content="{ align: 'center', side: 'top' }">
-            <UButton
-              icon="i-lucide-download"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
-              :loading="isBatchExporting"
-              :disabled="!canExportSelectedProjects"
-            >
-              Export
-              <UIcon name="i-lucide-chevron-down" class="size-4" />
-            </UButton>
-          </UDropdownMenu>
-          <UDropdownMenu :items="batchToolkitItems" :content="{ align: 'center', side: 'top' }">
-            <UButton
-              icon="i-lucide-tool-case"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
-              :disabled="!hasSelection"
-            >
-              Toolkit
-              <UIcon name="i-lucide-chevron-down" class="size-4" />
-            </UButton>
-          </UDropdownMenu>
-          <UButton
-            icon="i-lucide-trash"
-            color="error"
-            variant="ghost"
-            size="sm"
-            class="hover:bg-error/20"
-            :disabled="!canDeleteSelectedProjects"
-            @click="handleDeleteSelectedProjects"
-          >
-            Delete
-          </UButton>
-        </UiFloatingSelectionMenu>
-      </template>
+          <div class="flex flex-col items-center gap-2 rounded-lg border border-primary/20 bg-default/90 px-8 py-6 text-center shadow-lg">
+            <UIcon name="i-lucide-folder-up" class="size-8 text-primary" />
+            <p class="font-medium text-highlighted">
+              Drop a folder to upload it as a project
+            </p>
+            <p class="text-sm text-muted">
+              Images and XML files will be imported automatically
+            </p>
+          </div>
+        </div>
+      </div>
     </template>
   </UDashboardPanel>
 </template>

@@ -2,9 +2,9 @@ const SUPPORTED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.t
 
 type DirectoryFile = Pick<File, 'name' | 'type'> & Partial<Pick<File, 'webkitRelativePath'>>
 
-export function getDirectoryProjectName(files: DirectoryFile[]): string {
+export function getDirectoryProjectName(files: DirectoryFile[], fallbackName = ''): string {
   const relativePath = files.find(file => file.webkitRelativePath)?.webkitRelativePath ?? ''
-  return relativePath.split('/').filter(Boolean)[0] ?? ''
+  return relativePath.split('/').filter(Boolean)[0] ?? fallbackName
 }
 
 export function isProjectImageOrXml(file: DirectoryFile): boolean {
