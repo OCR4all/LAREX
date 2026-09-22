@@ -69,6 +69,7 @@ import { useEditorLayoutState } from '@/composables/editor/use-editor-layout-sta
 import { UpdateReadingOrderCommand } from '@/commands'
 import type { ReadingOrder } from '@/models/editor'
 import { resolveAdjacentPageId } from '@/utils/editor/page-navigation'
+import { isActionLockedPage } from '@/utils/page-lock'
 import { convertPageDtoToPcGts, convertPcGtsToPageDto } from '@/services/editor/page-conversion.service'
 
 definePageMeta({ layout: 'editor' })
@@ -1223,6 +1224,45 @@ async function downloadActiveAnnotation() {
       description: getErrorMessage(error, 'Could not download the annotation.'),
       color: 'error'
     })
+  }
+}
+
+async function forceUnlockEditorPage(projectId: string, pageId: string) {
+  const workspaceId = selectedWorkspace.value
+  if (!workspaceId || !workspaceCapabilities.value.canManageProjects
+    || !isActionLockedPage(editorStore.getPage(pageId, projectId))) return
+  const confirmation = confirmSlideover.open({
+    title: 'Force unlock page?',
+    message: 'This cancels the owning Action run and unlocks its pages. Any processor still running will no longer be able to submit results.',
+    confirmLabel: 'Force unlock',
+    confirmColor: 'warning',
+    confirmIcon: 'i-lucide-lock-keyhole-open'
+  })
+  if (!await confirmation.result) return
+  try {
+    await $fetch(`/api/workspaces/${workspaceId}/actions/projects/${projectId}/pages/${pageId}/force-unlock`, { method: 'POST' })
+    await actionRunsStore.refreshProjectRuns(workspaceId, projectId, getProjectTitle(projectId))
+    await reconcileActionRunTerminalLocks(projectId)
+    const canvasId = getCanvasId(projectId, pageId)
+    if (editorStore.canvases[canvasId] && !editorStore.canvases[canvasId].hasUnsavedChanges) {
+      editorStore.invalidateAnnotationCache(pageId, projectId)
+      await editorStore.loadPageIntoCanvas(canvasId, projectId, pageId)
+    }
+    toast.add({ title: 'Action pages unlocked', color: 'success' })
+  } catch (error: unknown) {
+    toast.add({ title: 'Force unlock failed', description: getErrorMessage(error, 'Could not unlock the page.'), color: 'error' })
+  }
+}
+
+const canForceUnlockActivePage = computed(() => Boolean(
+  workspaceCapabilities.value.canManageProjects && activeAnnotationMode.value === 'PROJECT'
+  && currentProjectId.value && activePageId.value
+  && isActionLockedPage(editorStore.getPage(activePageId.value, currentProjectId.value))
+))
+
+function forceUnlockActivePage() {
+  if (currentProjectId.value && activePageId.value) {
+    void forceUnlockEditorPage(currentProjectId.value, activePageId.value)
   }
 }
 
@@ -2964,7 +3004,9 @@ const {
         :pending-takeover="activePendingTakeover"
         :can-edit="activeCanvasCanEdit"
         :page-lock-reason="activePageLockReason"
+        :can-force-unlock="canForceUnlockActivePage"
         :annotation-mode="activeAnnotationMode"
+        @force-unlock="forceUnlockActivePage"
       />
 
       <EditorFocusedWorkTracker

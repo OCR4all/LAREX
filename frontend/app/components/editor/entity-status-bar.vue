@@ -35,6 +35,7 @@ const props = withDefaults(defineProps<{
   pendingTakeover?: CollaborationTakeoverRequest | null
   canEdit?: boolean
   pageLockReason?: string | null
+  canForceUnlock?: boolean
   annotationMode?: 'PROJECT' | 'DATASET_LINK' | 'DATASET_COPY' | null
 }>(), {
   hoveredEntity: null,
@@ -45,8 +46,11 @@ const props = withDefaults(defineProps<{
   pendingTakeover: null,
   canEdit: true,
   pageLockReason: null,
+  canForceUnlock: false,
   annotationMode: null
 })
+
+const emit = defineEmits<{ forceUnlock: [] }>()
 
 const tooltipUi = {
   content: 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-xs text-neutral-700 dark:text-neutral-300 shadow-lg'
@@ -336,6 +340,15 @@ const pageLockLabel = computed(() => {
             <span>Page locked</span>
           </UBadge>
         </UTooltip>
+        <UButton
+          v-if="canForceUnlock"
+          label="Force unlock"
+          icon="i-lucide-lock-keyhole-open"
+          color="warning"
+          variant="ghost"
+          size="xs"
+          @click="emit('forceUnlock')"
+        />
       </div>
 
       <div v-if="collaborationStatusVisible" class="flex items-center shrink-0 min-w-0 justify-end">

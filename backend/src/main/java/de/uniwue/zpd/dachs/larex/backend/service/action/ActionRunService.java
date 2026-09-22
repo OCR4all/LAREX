@@ -1032,17 +1032,50 @@ public class ActionRunService {
 
     public ActionDto.RunResponse cancelRun(String workspaceId, String projectId, String runId, String userId, boolean force) {
         requireProject(workspaceId, projectId);
-        ActionRun run = requireRun(workspaceId, projectId, runId);
+        ActionRun run = requireRun(workspaceId, projectId, runId, force);
         requireCancelAccess(workspaceId, run, userId);
         ActionRun saved = force ? forceCancelRunInternal(run, userId) : cancelRunInternal(run, userId, "ACTION_RUN_CANCEL");
         return responseMapper.toRunResponse(saved, resolveProjectLabel(saved.getProjectId()), userId);
     }
 
     public ActionDto.RunResponse cancelWorkspaceRun(String workspaceId, String runId, String userId, boolean force) {
-        ActionRun run = requireWorkspaceRun(workspaceId, runId);
+        ActionRun run = requireWorkspaceRun(workspaceId, runId, force);
         requireCancelAccess(workspaceId, run, userId);
         ActionRun saved = force ? forceCancelRunInternal(run, userId) : cancelRunInternal(run, userId, "ACTION_RUN_CANCEL");
         return responseMapper.toRunResponse(saved, resolveProjectLabel(saved.getProjectId()), userId);
+    }
+
+    public void forceUnlockPage(String workspaceId, String projectId, String pageId, String userId) {
+        if (!projectRepository.existsByIdAndLibraryWorkspaceId(projectId, workspaceId)) {
+            throw new IllegalArgumentException("Project not found");
+        }
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        String runId = pageRepository.findActionLockOwner(projectId, pageId)
+                .orElseGet(() -> projectRepository.findActionLockOwner(projectId, workspaceId).orElse(null));
+        if (runId == null) {
+            throw new IllegalStateException("Page is not locked by an Action run");
+        }
+        ActionRun run = runRepository.findWithProcessorDefinitionByIdForUpdate(runId).orElse(null);
+        if (run != null && (!workspaceId.equals(run.getWorkspaceId()) || !projectId.equals(run.getProjectId()))) {
+            throw new IllegalStateException("Page Action lock belongs to another project");
+        }
+        Page page = pageRepository.findByIdAndProjectIdForUpdate(pageId, projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Page not found"));
+        if (!runId.equals(page.getLockedByActionRunId())
+                && !runId.equals(page.getProject().getLockedByActionRunId())) {
+            throw new IllegalStateException("Page lock changed; refresh and try again");
+        }
+        if (run != null) {
+            if (terminalStatuses().contains(run.getStatus())) {
+                releaseLocks(run);
+            } else {
+                forceCancelRunInternal(run, userId);
+            }
+        }
+        clearActionLocks(projectId, runId);
+        actionAuditService.record("ACTION_PAGE_FORCE_UNLOCK", "SUCCESS", userId,
+                run == null ? null : run.getProcessorDefinition().getId(), runId, workspaceId, projectId,
+                Map.of("pageId", pageId));
     }
 
     public void dismissWorkspaceRun(String workspaceId, String runId, String userId) {
@@ -1176,7 +1209,7 @@ public class ActionRunService {
     }
 
     public ActionDto.HeartbeatResponse heartbeat(String runId, String authorizationHeader, ActionDto.HeartbeatRequest request) {
-        ActionRun run = authenticateRun(runId, authorizationHeader);
+        ActionRun run = authenticateRunForUpdate(runId, authorizationHeader);
         if (run.getStatus() == Status.COMPLETED || run.getStatus() == Status.FAILED || run.getStatus() == Status.CANCELLED) {
             return new ActionDto.HeartbeatResponse(run.isCancelRequested());
         }
@@ -2313,6 +2346,25 @@ public class ActionRunService {
         pageRepository.saveAll(pages);
     }
 
+    private void clearActionLocks(String projectId, String runId) {
+        Project project = projectRepository.findById(projectId).orElse(null);
+        if (project != null && runId.equals(project.getLockedByActionRunId())) {
+            project.setLocked(false);
+            project.setLockedReason(null);
+            project.setLockedByActionRunId(null);
+            project.setLockedAt(null);
+            projectRepository.save(project);
+        }
+        List<Page> pages = pageRepository.findByProjectIdAndLockedByActionRunId(projectId, runId);
+        for (Page page : pages) {
+            page.setLocked(false);
+            page.setLockedReason(null);
+            page.setLockedByActionRunId(null);
+            page.setLockedAt(null);
+        }
+        pageRepository.saveAll(pages);
+    }
+
     private void releasePageLock(ActionRun run, String pageId) {
         Page page = pageRepository.findByIdAndProjectId(pageId, run.getProjectId()).orElse(null);
         if (page == null || !run.getId().equals(page.getLockedByActionRunId())) {
@@ -2494,7 +2546,12 @@ public class ActionRunService {
     }
 
     private ActionRun requireRun(String workspaceId, String projectId, String runId) {
-        ActionRun run = runRepository.findWithProcessorDefinitionById(runId)
+        return requireRun(workspaceId, projectId, runId, false);
+    }
+
+    private ActionRun requireRun(String workspaceId, String projectId, String runId, boolean forUpdate) {
+        ActionRun run = (forUpdate ? runRepository.findWithProcessorDefinitionByIdForUpdate(runId)
+                : runRepository.findWithProcessorDefinitionById(runId))
                 .orElseThrow(() -> new IllegalArgumentException("Action run not found"));
         if (!workspaceId.equals(run.getWorkspaceId()) || !projectId.equals(run.getProjectId())) {
             throw new IllegalArgumentException("Action run not found");
@@ -2503,7 +2560,12 @@ public class ActionRunService {
     }
 
     private ActionRun requireWorkspaceRun(String workspaceId, String runId) {
-        ActionRun run = runRepository.findWithProcessorDefinitionById(runId)
+        return requireWorkspaceRun(workspaceId, runId, false);
+    }
+
+    private ActionRun requireWorkspaceRun(String workspaceId, String runId, boolean forUpdate) {
+        ActionRun run = (forUpdate ? runRepository.findWithProcessorDefinitionByIdForUpdate(runId)
+                : runRepository.findWithProcessorDefinitionById(runId))
                 .orElseThrow(() -> new IllegalArgumentException("Action run not found"));
         if (!workspaceId.equals(run.getWorkspaceId())) {
             throw new IllegalArgumentException("Action run not found");

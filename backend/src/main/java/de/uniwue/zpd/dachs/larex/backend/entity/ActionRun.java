@@ -13,6 +13,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -48,6 +49,10 @@ public class ActionRun {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, name = "run_kind", length = 32, columnDefinition = "varchar(32) default 'PROCESSING'")

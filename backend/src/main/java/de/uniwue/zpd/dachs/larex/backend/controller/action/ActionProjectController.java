@@ -311,6 +311,16 @@ public class ActionProjectController {
         return ResponseEntity.ok(actionRunService.cancelWorkspaceRun(workspaceId, runId, userId, force));
     }
 
+    @PostMapping("/projects/{projectId}/pages/{pageId}/force-unlock")
+    public ResponseEntity<Void> forceUnlockPage(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        actionRunService.forceUnlockPage(workspaceId, projectId, pageId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/runs/{runId}/dismiss")
     public ResponseEntity<Void> dismissWorkspaceRun(
             @PathVariable String workspaceId,

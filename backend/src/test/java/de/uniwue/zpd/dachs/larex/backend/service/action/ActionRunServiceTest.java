@@ -544,7 +544,7 @@ class ActionRunServiceTest {
                 ActionRun.Status.CANCEL_REQUESTED, LockMode.PAGES, List.of("page-1"));
         when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
         when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
-        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
         when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, OWNER_ID)).thenReturn(true);
 
@@ -556,6 +556,93 @@ class ActionRunServiceTest {
         verify(actionOutputService).discardDraft(run.getId());
         verify(actionAuditService).record(eq("ACTION_RUN_FORCE_CANCEL"), eq("SUCCESS"), eq(OWNER_ID),
                 any(), eq(run.getId()), eq(WORKSPACE_ID), eq(project.getId()), any());
+    }
+
+    @Test
+    void forceUnlockCancelsOwnerRunBeforeReleasingItsPage() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionRun run = run(definition("processor-locked-page"), project, OWNER_ID,
+                ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        Page page = page("page-1", project, run);
+        when(projectRepository.existsByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(true);
+        when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
+        when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
+        when(pageRepository.findActionLockOwner(project.getId(), page.getId())).thenReturn(Optional.of(run.getId()));
+        when(pageRepository.findByIdAndProjectIdForUpdate(page.getId(), project.getId())).thenReturn(Optional.of(page));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pageRepository.findAllByIdIn(anyCollection())).thenReturn(List.of(page));
+        when(pageRepository.findByProjectIdAndLockedByActionRunId(project.getId(), run.getId())).thenReturn(List.of());
+
+        service.forceUnlockPage(WORKSPACE_ID, project.getId(), page.getId(), CURATOR_ID);
+
+        assertThat(run.getStatus()).isEqualTo(ActionRun.Status.CANCELLED);
+        assertThat(run.getSecretExpiresAt()).isBeforeOrEqualTo(LocalDateTime.now());
+        assertThat(page.isLocked()).isFalse();
+        assertThat(page.getLockedByActionRunId()).isNull();
+        assertThatThrownBy(() -> service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.HeartbeatRequest(50, null, null, null, "running", null)))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("expired");
+        verify(workspaceAccessService).requireManageProjectsAccess(WORKSPACE_ID, CURATOR_ID);
+    }
+
+    @Test
+    void forceUnlockClearsOrphanedActionLocksButRejectsOtherLocks() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionRun run = run(definition("processor-orphaned-lock"), project, OWNER_ID,
+                ActionRun.Status.CANCELLED, LockMode.PROJECT, List.of("page-1"));
+        Page page = page("page-1", project, run);
+        project.setLocked(true);
+        project.setLockedByActionRunId(run.getId());
+        when(projectRepository.existsByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(true);
+        when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
+        when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
+        when(pageRepository.findActionLockOwner(project.getId(), page.getId())).thenReturn(Optional.of(run.getId()));
+        when(pageRepository.findByIdAndProjectIdForUpdate(page.getId(), project.getId())).thenReturn(Optional.of(page));
+        when(pageRepository.findByProjectIdAndLockedByActionRunId(project.getId(), run.getId())).thenReturn(List.of(page));
+
+        service.forceUnlockPage(WORKSPACE_ID, project.getId(), page.getId(), CURATOR_ID);
+
+        assertThat(page.isLocked()).isFalse();
+        assertThat(project.isLocked()).isFalse();
+        assertThatThrownBy(() -> service.forceUnlockPage(WORKSPACE_ID, project.getId(), "manual-lock", CURATOR_ID))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not locked by an Action run");
+        verify(runRepository).findWithProcessorDefinitionByIdForUpdate(run.getId());
+    }
+
+    @Test
+    void forceUnlockCanRecoverPageBlockedByProjectWideActionLock() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionRun run = run(definition("processor-project-lock"), project, OWNER_ID,
+                ActionRun.Status.CANCELLED, LockMode.PROJECT, List.of("page-2"));
+        Page page = new Page("page-1", null, project);
+        page.setId("page-1");
+        project.setLocked(true);
+        project.setLockedByActionRunId(run.getId());
+        when(projectRepository.existsByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(true);
+        when(projectRepository.findActionLockOwner(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(run.getId()));
+        when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
+        when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
+        when(pageRepository.findByIdAndProjectIdForUpdate(page.getId(), project.getId())).thenReturn(Optional.of(page));
+        when(pageRepository.findByProjectIdAndLockedByActionRunId(project.getId(), run.getId())).thenReturn(List.of());
+
+        service.forceUnlockPage(WORKSPACE_ID, project.getId(), page.getId(), CURATOR_ID);
+
+        assertThat(project.isLocked()).isFalse();
+        assertThat(page.isLocked()).isFalse();
+    }
+
+    @Test
+    void forceUnlockRequiresCuratorAccess() {
+        when(projectRepository.existsByIdAndLibraryWorkspaceId("project-1", WORKSPACE_ID)).thenReturn(true);
+        org.mockito.Mockito.doThrow(new SecurityException("Project management access required"))
+                .when(workspaceAccessService).requireManageProjectsAccess(WORKSPACE_ID, OUTSIDER_ID);
+
+        assertThatThrownBy(() -> service.forceUnlockPage(WORKSPACE_ID, "project-1", "page-1", OUTSIDER_ID))
+                .isInstanceOf(SecurityException.class);
+        verify(pageRepository, org.mockito.Mockito.never()).findActionLockOwner(any(), any());
     }
 
     @Test
@@ -629,7 +716,7 @@ class ActionRunServiceTest {
         project.setLockedByActionRunId(run.getId());
         project.setLockedAt(LocalDateTime.now().minusMinutes(1));
 
-        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
         when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
         when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(pageRepository.findAllByIdIn(anyCollection())).thenReturn(List.of());
@@ -879,7 +966,7 @@ class ActionRunServiceTest {
         ActionProcessorDefinition definition = definition("processor-progress");
         ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
         run.setProgressPercent(70);
-        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
         when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,

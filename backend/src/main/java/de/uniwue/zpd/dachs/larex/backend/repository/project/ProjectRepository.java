@@ -37,6 +37,11 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
 
     Optional<Project> findByIdAndLibraryWorkspaceId(String projectId, String workspaceId);
 
+    boolean existsByIdAndLibraryWorkspaceId(String projectId, String workspaceId);
+
+    @Query("SELECT p.lockedByActionRunId FROM Project p WHERE p.id = :projectId AND p.library.workspaceId = :workspaceId")
+    Optional<String> findActionLockOwner(@Param("projectId") String projectId, @Param("workspaceId") String workspaceId);
+
     Optional<Project> findByNameAndLibraryId(String name, String libraryId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolvePageLockReason } from '../page-lock'
+import { isActionLockedPage, resolvePageLockReason } from '../page-lock'
 
 describe('resolvePageLockReason', () => {
   it('keeps a persisted action lock visible after the run is no longer active', () => {
@@ -22,4 +22,10 @@ describe('resolvePageLockReason', () => {
   it('returns null for an unlocked page without an active action run', () => {
     expect(resolvePageLockReason({ locked: false })).toBeNull()
   })
+})
+
+it('offers Action recovery only for persisted Action locks', () => {
+  expect(isActionLockedPage({ locked: true, lockedReason: 'LAREX Action running: OCR' })).toBe(true)
+  expect(isActionLockedPage({ locked: true, lockedReason: 'Page workflow state is Done' })).toBe(false)
+  expect(isActionLockedPage({ locked: false, lockedReason: 'LAREX Action running: OCR' })).toBe(false)
 })

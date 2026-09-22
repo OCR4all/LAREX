@@ -37,7 +37,7 @@ import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/t
 import UiColorTag from '@/components/ui/color-tag.vue'
 import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowState, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
 import type { UploadFile, UploadSession } from '@/composables/use-chunked-upload'
-import { resolvePageLockReason } from '@/utils/page-lock'
+import { isActionLockedPage, resolvePageLockReason } from '@/utils/page-lock'
 
 type PdfPreflightResponse = {
   ready: boolean
@@ -1992,6 +1992,20 @@ const pageColumns = [
           ? h(ActionActiveIndicator, { label: 'LAREX Action running on this page' })
           : null,
         h('p', { class: 'min-w-0 truncate font-medium' }, row.original.name),
+        canManageProjects.value && isActionLockedPage(row.original)
+          ? h(UButton, {
+              icon: 'i-lucide-lock-keyhole-open',
+              label: 'Force unlock',
+              color: 'warning',
+              variant: 'ghost',
+              size: 'xs',
+              class: 'shrink-0',
+              onClick: (event: MouseEvent) => {
+                event.stopPropagation()
+                void forceUnlockPage(row.original)
+              }
+            })
+          : null,
         renderPageEditorIndicator(row.original)
       ])
     }
@@ -2224,6 +2238,29 @@ function getPageRowItems(page: Page) {
   }
 
   return items
+}
+
+async function forceUnlockPage(page: Page) {
+  const workspaceId = selectedWorkspace.value
+  if (!workspaceId || !canManageProjects.value || !isActionLockedPage(page)) return
+  const confirmation = confirmSlideover.open({
+    title: 'Force unlock page?',
+    message: 'This cancels the owning Action run and unlocks its pages. Any processor still running will no longer be able to submit results.',
+    confirmLabel: 'Force unlock',
+    confirmColor: 'warning',
+    confirmIcon: 'i-lucide-lock-keyhole-open'
+  })
+  if (!await confirmation.result) return
+  try {
+    await $fetch(`/api/workspaces/${workspaceId}/actions/projects/${projectId}/pages/${page.id}/force-unlock`, { method: 'POST' })
+    await Promise.allSettled([
+      refreshProjectPagesData(),
+      actionRunsStore.refreshProjectRuns(workspaceId, projectId, project.value?.name || projectId)
+    ])
+    toast.add({ title: 'Action pages unlocked', color: 'success' })
+  } catch (error: unknown) {
+    toast.add({ title: 'Force unlock failed', description: getErrorMessage(error, 'Could not unlock the page.'), color: 'error' })
+  }
 }
 
 const contextMenuPage = ref<Page | null>(null)
