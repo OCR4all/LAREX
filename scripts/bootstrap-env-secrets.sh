@@ -117,27 +117,37 @@ path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 PY
 }
 
+is_placeholder() {
+  case "$1" in
+    ''|change-me|PLEASE_CHANGE_IN_PRODUCTION|replace-with-random-32-plus-character-secret|change-me-initial-admin|larex_dev_pw|admin)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 ensure_key() {
   local key="$1"
   local generated_value="$2"
   local current
   current="$(current_value "$key")"
 
-  if [[ -z "$current" ]]; then
+  if is_placeholder "$current"; then
     write_value "$key" "$generated_value"
-    echo "Added $key"
+    if [[ -n "$current" ]]; then
+      echo "Seeded $key"
+    else
+      echo "Added $key"
+    fi
     return
   fi
 
-  case "$current" in
-    change-me|PLEASE_CHANGE_IN_PRODUCTION|replace-with-random-32-plus-character-secret|change-me-initial-admin|larex_dev_pw|admin)
-      write_value "$key" "$generated_value"
-      echo "Seeded $key"
-      ;;
-    *)
-      echo "Keeping existing $key"
-      ;;
-  esac
+  # Preserve configured secrets and only replace placeholders.
+  if [[ -n "$current" ]]; then
+    echo "Keeping existing $key"
+  fi
 }
 
 if [[ "$MODE" == "actions" ]]; then
@@ -156,8 +166,16 @@ ensure_key "KEYCLOAK_ADMIN_CLIENT_SECRET" "$(random_secret)"
 ensure_key "NUXT_SESSION_PASSWORD" "$(random_secret)"
 ensure_key "NUXT_OAUTH_KEYCLOAK_CLIENT_SECRET" "$(random_secret)"
 ensure_key "LAREX_INITIAL_ADMIN_TEMP_PASSWORD" "$(random_password)"
-ensure_key "LAREX_NOTIFICATIONS_BRIDGE_SECRET" "$(random_secret)"
-ensure_key "NUXT_NOTIFICATION_BRIDGE_SECRET" "$(random_secret)"
+NOTIFICATION_BRIDGE_SECRET="$(current_value "LAREX_NOTIFICATIONS_BRIDGE_SECRET")"
+if is_placeholder "$NOTIFICATION_BRIDGE_SECRET"; then
+  NOTIFICATION_BRIDGE_SECRET="$(current_value "NUXT_NOTIFICATION_BRIDGE_SECRET")"
+fi
+if is_placeholder "$NOTIFICATION_BRIDGE_SECRET"; then
+  NOTIFICATION_BRIDGE_SECRET="$(random_secret)"
+fi
+write_value "LAREX_NOTIFICATIONS_BRIDGE_SECRET" "$NOTIFICATION_BRIDGE_SECRET"
+write_value "NUXT_NOTIFICATION_BRIDGE_SECRET" "$NOTIFICATION_BRIDGE_SECRET"
+echo "Synchronized notification bridge secrets"
 ensure_key "NUXT_COLLABORATION_SECRET" "$(random_secret)"
 ensure_key "LAREX_ACTION_ENDPOINT_SECRET_ENCRYPTION_KEY" "$(random_secret)"
 
