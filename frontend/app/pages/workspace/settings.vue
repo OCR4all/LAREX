@@ -1,25 +1,8 @@
 <script setup lang="ts">
-import type { NavigationMenuItem } from '@nuxt/ui'
-
 await useWorkspaceBootstrap()
 
 const workspaceStore = useWorkspaceStore()
 const currentWorkspace = computed(() => workspaceStore.currentWorkspace)
-
-const links = computed<NavigationMenuItem[][]>(() => [[{
-  label: 'General',
-  icon: 'i-lucide-settings',
-  to: '/workspace/settings',
-  exact: true
-}, {
-  label: 'Members',
-  icon: 'i-lucide-users',
-  to: '/workspace/settings/members'
-}, {
-  label: 'Requests',
-  icon: 'i-lucide-git-pull-request',
-  to: '/workspace/settings/requests'
-}]])
 
 const workspaceName = computed(() => currentWorkspace.value?.name || 'Workspace')
 </script>
@@ -30,7 +13,7 @@ const workspaceName = computed(() => currentWorkspace.value?.name || 'Workspace'
       <UDashboardNavbar :title="`${workspaceName} Settings`" />
 
       <UDashboardToolbar>
-        <UNavigationMenu :items="links" highlight class="-mx-1 flex-1" />
+        <WorkspaceSettingsNavigation />
       </UDashboardToolbar>
     </template>
 

@@ -79,6 +79,7 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
     { label: 'General', to: '/workspace/settings', icon: 'i-lucide-sliders-horizontal', exact: true, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Members', to: '/workspace/settings/members', icon: 'i-lucide-users', onSelect: () => { sidebarOpen.value = false } },
     { label: 'Requests', to: '/workspace/settings/requests', icon: 'i-lucide-git-pull-request', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Actions', to: '/workspace/settings/actions', icon: 'i-lucide-zap', onSelect: () => { sidebarOpen.value = false } },
     { label: 'Queue', to: '/workspace/queue', icon: 'i-lucide-list-ordered', onSelect: () => { sidebarOpen.value = false } }
   ])
 

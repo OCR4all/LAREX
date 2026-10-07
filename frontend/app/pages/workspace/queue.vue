@@ -378,6 +378,10 @@ function formatDurationFromRun(run: ActionRun) {
       </UDashboardNavbar>
 
       <UDashboardToolbar>
+        <WorkspaceSettingsNavigation />
+      </UDashboardToolbar>
+
+      <UDashboardToolbar>
         <template #left>
           <UInput
             v-model="searchInput"
