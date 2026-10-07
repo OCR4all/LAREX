@@ -1,4 +1,5 @@
 import { defineNuxtConfig } from 'nuxt/config'
+import { version } from './package.json'
 
 export default defineNuxtConfig({
   modules: [
@@ -39,6 +40,7 @@ export default defineNuxtConfig({
     },
     apiBaseInternal: process.env.NUXT_API_BASE_INTERNAL || 'http://app:8080/api/v1',
     public: {
+      appVersion: process.env.NUXT_PUBLIC_APP_VERSION || version,
       instanceName: 'LAREX Local',
       documentationUrl: 'https://docs.larex.kallimachos.de'
     }

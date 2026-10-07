@@ -17,7 +17,8 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}" pnpm build
+ARG VERSION
+RUN NUXT_PUBLIC_APP_VERSION="$VERSION" NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}" pnpm build
 
 FROM base AS runner
 

@@ -8,7 +8,8 @@ import {
   LazyUserSettingsInvitations,
   LazyUserSettingsTransfers,
   LazyUserSettingsNotifications,
-  LazyUserSettingsSecurity
+  LazyUserSettingsSecurity,
+  LazyUserSettingsAbout
 } from '#components'
 
 const isMobile = useMediaQuery('(max-width: 639px)')
@@ -22,7 +23,8 @@ const sections = [
   { id: 'invitations', label: 'Invitations', icon: 'i-lucide-mail', component: LazyUserSettingsInvitations },
   { id: 'transfers', label: 'Transfers', icon: 'i-lucide-arrow-right-left', component: LazyUserSettingsTransfers },
   { id: 'notifications', label: 'Notifications', icon: 'i-lucide-bell', component: LazyUserSettingsNotifications },
-  { id: 'security', label: 'Security', icon: 'i-lucide-shield', component: LazyUserSettingsSecurity }
+  { id: 'security', label: 'Security', icon: 'i-lucide-shield', component: LazyUserSettingsSecurity },
+  { id: 'about', label: 'About', icon: 'i-lucide-info', component: LazyUserSettingsAbout }
 ] as const
 
 const mobileLinks = sections.map(section => ({ label: section.label, value: section.id, icon: section.icon }))

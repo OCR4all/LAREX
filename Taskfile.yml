@@ -470,7 +470,7 @@ tasks:
     desc: Build production Docker images
     cmds:
       - 'docker build -f backend/Dockerfile.prod -t {{.DOCKER_REGISTRY}}/backend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/backend:latest ./backend'
-      - 'docker build -f frontend/Dockerfile.prod -t {{.DOCKER_REGISTRY}}/frontend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/frontend:latest ./frontend'
+      - 'docker build -f frontend/Dockerfile.prod --build-arg VERSION={{.VERSION}} -t {{.DOCKER_REGISTRY}}/frontend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/frontend:latest ./frontend'
 
   # ============================================================================
   # Versioning
@@ -522,7 +522,7 @@ tasks:
     cmds:
       - 'echo "Building release images for version {{.VERSION}}..."'
       - 'docker build -f backend/Dockerfile.prod -t {{.DOCKER_REGISTRY}}/backend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/backend:latest ./backend'
-      - 'docker build -f frontend/Dockerfile.prod -t {{.DOCKER_REGISTRY}}/frontend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/frontend:latest ./frontend'
+      - 'docker build -f frontend/Dockerfile.prod --build-arg VERSION={{.VERSION}} -t {{.DOCKER_REGISTRY}}/frontend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/frontend:latest ./frontend'
 
   release:docker:push:
     desc: Push Docker images to registry

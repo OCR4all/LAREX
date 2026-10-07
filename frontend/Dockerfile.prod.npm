@@ -12,7 +12,8 @@ RUN npm install
 
 COPY . .
 
-RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
+ARG VERSION
+RUN NUXT_PUBLIC_APP_VERSION="$VERSION" NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
 FROM node:22-alpine AS runner
 

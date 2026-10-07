@@ -1,4 +1,4 @@
-export const USER_SETTINGS_SECTIONS = ['profile', 'appearance', 'invitations', 'transfers', 'notifications', 'security'] as const
+export const USER_SETTINGS_SECTIONS = ['profile', 'appearance', 'invitations', 'transfers', 'notifications', 'security', 'about'] as const
 export type UserSettingsSection = typeof USER_SETTINGS_SECTIONS[number]
 
 export function isUserSettingsSection(value: unknown): value is UserSettingsSection {
