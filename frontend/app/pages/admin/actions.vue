@@ -1149,7 +1149,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                       Availability
                     </p>
                     <p class="text-xs leading-5 text-muted">
-                      Make this Action global or available to selected workspaces.
+                      Choose which workspaces may enable this Action. Curators/admins must activate it in each workspace.
                     </p>
                   </div>
                   <UBadge variant="soft" :color="selectedDefinition.global ? 'primary' : 'neutral'">
@@ -1168,7 +1168,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                         Global availability
                       </p>
                       <p class="text-xs leading-5 text-muted">
-                        Global Actions can be executed in every workspace.
+                        Every workspace may enable this Action. It cannot run until a curator/admin activates it.
                       </p>
                     </div>
                     <UButton

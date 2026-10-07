@@ -279,7 +279,7 @@ function refreshProcessors() {
           variant="naked"
           icon="i-lucide-scan-text"
           title="No Actions available"
-          description="A workspace administrator can enable Actions for this workspace."
+          description="A workspace curator or administrator must enable Actions for this workspace."
         />
 
         <UEmpty

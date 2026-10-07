@@ -45,7 +45,8 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
                 endpointAuthService,
                 mock(ActionAuditService.class),
                 new ObjectMapper(),
-                new ActionProperties()
+                new ActionProperties(),
+                mock(ActionWorkspaceActivationService.class)
         );
     }
 

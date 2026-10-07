@@ -71,6 +71,7 @@ class ActionDefinitionServiceParameterValuesTest {
                 mock(ActionAuditService.class),
                 new ObjectMapper(),
                 new ActionProperties(),
+                mock(ActionWorkspaceActivationService.class),
                 httpClient
         );
 

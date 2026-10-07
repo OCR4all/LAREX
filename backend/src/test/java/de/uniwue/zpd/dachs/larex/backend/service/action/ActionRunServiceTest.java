@@ -8,6 +8,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlTextDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorAssignment;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
@@ -98,6 +99,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -224,6 +226,7 @@ class ActionRunServiceTest {
                 definitionRepository,
                 assignmentRepository,
                 availabilityRepository,
+                new ActionWorkspaceActivationService(availabilityRepository, assignmentRepository),
                 runRepository,
                 runDismissalRepository,
                 logEventRepository,
@@ -304,6 +307,11 @@ class ActionRunServiceTest {
         ActionProcessorDefinition definition = definition("processor-image-scope");
         definition.setEnabled(true);
         definition.setGlobalAvailable(true);
+        ActionProcessorAssignment activation = new ActionProcessorAssignment();
+        activation.setProcessorDefinition(definition);
+        activation.setWorkspaceId(WORKSPACE_ID);
+        when(assignmentRepository.findExecutableAssignments(eq(WORKSPACE_ID), any()))
+                .thenReturn(List.of(activation));
         definition.setAcceptsImages(true);
 
         when(definitionRepository.findByIdForUpdate(definition.getId())).thenReturn(Optional.of(definition));
@@ -360,7 +368,13 @@ class ActionRunServiceTest {
         ActionProcessorDefinition definition = definition("kraken-layout-training");
         definition.setEnabled(true);
         definition.setGlobalAvailable(true);
+        ActionProcessorAssignment activation = new ActionProcessorAssignment();
+        activation.setProcessorDefinition(definition);
+        activation.setWorkspaceId(WORKSPACE_ID);
+        when(assignmentRepository.findExecutableAssignments(eq(WORKSPACE_ID), any()))
+                .thenReturn(List.of(activation));
         definition.setActionKind(ActionProcessorDefinition.ActionKind.TRAINING);
+        when(definitionRepository.findByIdForUpdate(definition.getId())).thenReturn(Optional.of(definition));
         definition.setLockMode(LockMode.NONE);
 
         when(datasetRepository.findByIdAndWorkspaceId(dataset.getId(), WORKSPACE_ID)).thenReturn(Optional.of(dataset));
@@ -1246,6 +1260,152 @@ class ActionRunServiceTest {
                 .findByProcessorDefinitionIdInAndStatusOrderByCreatedAsc(
                         anyCollection(), eq(ActionRun.Status.QUEUED));
         verify(runRepository, never()).findByWorkspaceIdAndProjectIdOrderByCreatedDesc(anyString(), anyString());
+    }
+
+    @Test
+    void alreadyDispatchedRunCanCompleteAfterDefinitionAndScopeAreDisabled() throws Exception {
+        Project project = project("project", WORKSPACE_ID, "Project");
+        ActionProcessorDefinition definition = definition("revoked-running");
+        definition.setEnabled(false);
+        definition.setGlobalAvailable(false);
+        ActionRun run = run(definition, project, CURATOR_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of());
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.saveAndFlush(run)).thenReturn(run);
+        when(runRepository.save(run)).thenReturn(run);
+        ActionDto.RunResponse response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", "Done", null, List.of(), List.of()),
+                new LinkedMultiValueMap<>());
+        assertThat(response.status()).isEqualTo(ActionRun.Status.COMPLETED);
+        assertThat(run.getCompletedAt()).isNotNull();
+        verifyNoInteractions(assignmentRepository, availabilityRepository);
+    }
+
+    @Test
+    void globalActionCannotStartWithoutManualActivation() {
+        ActionProcessorDefinition definition = definition("unassigned-global");
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        when(definitionRepository.findByIdForUpdate(definition.getId())).thenReturn(Optional.of(definition));
+        when(definitionRepository.findById(definition.getId())).thenReturn(Optional.of(definition));
+        assertThatThrownBy(() -> service.startRun(WORKSPACE_ID, "project", new ActionDto.StartRunRequest(
+                definition.getId(), List.of(), Map.of(), null, null, false), CURATOR_ID, "http://app/api"))
+                .isInstanceOf(SecurityException.class).hasMessageContaining("not enabled");
+        verifyNoInteractions(projectRepository, importTaskExecutor);
+    }
+
+    @Test
+    void parameterDiscoveryCannotBypassManualActivation() {
+        ActionProcessorDefinition definition = definition("unassigned-parameters");
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        Project project = project("project", WORKSPACE_ID, "Project");
+        when(definitionRepository.findById(definition.getId())).thenReturn(Optional.of(definition));
+        when(projectRepository.findByIdAndLibraryWorkspaceId("project", WORKSPACE_ID)).thenReturn(Optional.of(project));
+        assertThatThrownBy(() -> service.discoverParameterValues(WORKSPACE_ID, "project", definition.getId(), CURATOR_ID))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(definitionService);
+    }
+
+    @Test
+    void revokedScopeCannotAppearInExecutionListsEvenWithAssignment() {
+        ActionProcessorDefinition definition = definition("revoked-scope");
+        definition.setEnabled(true);
+        ActionProcessorAssignment assignment = new ActionProcessorAssignment();
+        assignment.setProcessorDefinition(definition);
+        when(assignmentRepository.findExecutableAssignments(WORKSPACE_ID, "project")).thenReturn(List.of(assignment));
+        when(projectRepository.findByIdAndLibraryWorkspaceId("project", WORKSPACE_ID))
+                .thenReturn(Optional.of(project("project", WORKSPACE_ID, "Project")));
+        assertThat(service.listExecutableProcessors(WORKSPACE_ID, "project", CURATOR_ID)).isEmpty();
+    }
+
+    @Test
+    void datasetAndInferenceListsRequireWorkspaceActivation() {
+        assertThat(service.listTrainingProcessors(WORKSPACE_ID, CURATOR_ID)).isEmpty();
+        assertThat(service.listEvaluationProcessors(WORKSPACE_ID, CURATOR_ID)).isEmpty();
+        assertThat(service.listInferenceProcessors(WORKSPACE_ID, CURATOR_ID)).isEmpty();
+        verifyNoInteractions(definitionRepository);
+    }
+
+    @Test
+    void datasetParameterDiscoveryRequiresWorkspaceActivation() {
+        ActionProcessorDefinition definition = definition("unassigned-dataset");
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        definition.setActionKind(ActionProcessorDefinition.ActionKind.TRAINING);
+        when(definitionRepository.findById(definition.getId())).thenReturn(Optional.of(definition));
+        assertThatThrownBy(() -> service.discoverTrainingParameterValues(WORKSPACE_ID, definition.getId(), CURATOR_ID))
+                .isInstanceOf(SecurityException.class);
+        definition.setActionKind(ActionProcessorDefinition.ActionKind.EVALUATION);
+        assertThatThrownBy(() -> service.discoverEvaluationParameterValues(WORKSPACE_ID, definition.getId(), CURATOR_ID))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(definitionService);
+    }
+
+    @Test
+    void retryCannotBypassRevokedActivation() {
+        ActionProcessorDefinition definition = definition("revoked-retry");
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        Project project = project("project", WORKSPACE_ID, "Project");
+        ActionRun run = run(definition, project, CURATOR_ID, ActionRun.Status.FAILED, LockMode.PAGES, List.of());
+        when(projectRepository.findByIdAndLibraryWorkspaceId("project", WORKSPACE_ID)).thenReturn(Optional.of(project));
+        when(runRepository.findProcessorDefinitionIdById(run.getId())).thenReturn(Optional.of(definition.getId()));
+        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(definitionRepository.findByIdForUpdate(definition.getId())).thenReturn(Optional.of(definition));
+        when(definitionRepository.findById(definition.getId())).thenReturn(Optional.of(definition));
+        assertThatThrownBy(() -> service.retryRun(WORKSPACE_ID, "project", run.getId(), false, CURATOR_ID, "http://app/api"))
+                .isInstanceOf(SecurityException.class);
+        verify(runRepository, never()).save(any());
+    }
+
+    @Test
+    void revokedQueuedRunFailsBeforeConcurrencyChecks() {
+        ActionProcessorDefinition definition = definition("revoked-queued");
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        Project project = project("project", WORKSPACE_ID, "Project");
+        ActionRun run = run(definition, project, CURATOR_ID, ActionRun.Status.QUEUED, LockMode.PAGES, List.of());
+        when(runRepository.findProcessorDefinitionIdById(run.getId())).thenReturn(Optional.of(definition.getId()));
+        when(runRepository.claimQueuedRunId(run.getId())).thenReturn(Optional.of(run.getId()));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(definitionRepository.findByIdForUpdate(definition.getId())).thenReturn(Optional.of(definition));
+        when(runRepository.save(run)).thenReturn(run);
+        doAnswer(invocation -> {
+            Consumer<TransactionStatus> action = invocation.getArgument(0);
+            action.accept(transactionStatus);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+        ReflectionTestUtils.invokeMethod(service, "tryActivateQueuedRun", run.getId());
+        assertThat(run.getStatus()).isEqualTo(ActionRun.Status.FAILED);
+        assertThat(run.getErrorMessage()).contains("no longer assigned");
+        assertThat(run.getSecretExpiresAt()).isBeforeOrEqualTo(LocalDateTime.now());
+        verify(actionOutputService).discardDraft(run.getId());
+        verify(projectRepository, never()).findByIdAndLibraryWorkspaceIdForUpdate(anyString(), anyString());
+        verifyNoInteractions(importTaskExecutor);
+    }
+
+    @Test
+    void revokedPendingRunFailsBeforeDispatchAndReleasesLocks() {
+        ActionProcessorDefinition definition = definition("revoked-pending");
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        Project project = project("project", WORKSPACE_ID, "Project");
+        ActionRun run = run(definition, project, CURATOR_ID, ActionRun.Status.PENDING, LockMode.PAGES, List.of("page"));
+        Page page = page("page", project, run);
+        when(runRepository.findProcessorDefinitionIdById(run.getId())).thenReturn(Optional.of(definition.getId()));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(definitionRepository.findByIdForUpdate(definition.getId())).thenReturn(Optional.of(definition));
+        when(pageRepository.findAllByIdIn(anyCollection())).thenReturn(List.of(page));
+        when(runRepository.save(run)).thenReturn(run);
+        doAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(transactionStatus);
+        }).when(transactionTemplate).execute(any());
+        ReflectionTestUtils.invokeMethod(service, "dispatch", run.getId(), "secret", "http://app/api", 1, 1);
+        assertThat(run.getStatus()).isEqualTo(ActionRun.Status.FAILED);
+        assertThat(page.isLocked()).isFalse();
+        verify(actionOutputService).discardDraft(run.getId());
+        verifyNoInteractions(endpointAuthService);
     }
 
     private ActionProcessorDefinition definition(String processorKey) {

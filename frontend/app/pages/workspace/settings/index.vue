@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { actionActivationOptions } from '~/utils/action-activation'
 import { LazyUiDeleteSlideover } from '#components'
 import WorkspaceModalProjectDefaultPropagation from '~/components/workspace/modal/project-default-propagation.vue'
 import type { CodecSummary } from '@/types/codec'
@@ -227,17 +228,11 @@ function parseDefaultGtIndex(value: string | undefined): number {
   return parsed
 }
 
-const actionDefinitionOptions = computed(() => actionDefinitions.value
-  .filter(definition => !definition.global)
-  .filter(definition => !actionAssignments.value.some(assignment => assignment.processor.id === definition.id))
-  .map(definition => ({
-    label: definition.name,
-    value: definition.id
-  })))
-
-const inheritedGlobalActionDefinitions = computed(() => actionDefinitions.value.filter(definition => definition.global))
-
-const scopedActionDefinitions = computed(() => actionDefinitions.value.filter(definition => !definition.global))
+const actionDefinitionOptions = computed(() => actionActivationOptions(
+  actionDefinitions.value,
+  actionAssignments.value,
+  selectedActionProjectId.value || null
+))
 
 const actionProjectOptions = computed(() => workspaceActionProjects.value.map(project => ({
   label: project.name,
@@ -286,10 +281,10 @@ async function assignWorkspaceAction() {
     ))
     selectedActionDefinitionIds.value = []
     await loadWorkspaceActions()
-    toast.add({ title: 'Action assigned', color: 'success', icon: 'i-lucide-circle-play' })
+    toast.add({ title: 'Action enabled', color: 'success', icon: 'i-lucide-circle-play' })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Could not assign Action.'
-    toast.add({ title: 'Assignment failed', description: message, color: 'error' })
+    const message = error instanceof Error ? error.message : 'Could not enable Action.'
+    toast.add({ title: 'Activation failed', description: message, color: 'error' })
   } finally {
     assigningAction.value = false
   }
@@ -302,10 +297,10 @@ async function unassignWorkspaceAction(assignmentId: string) {
       method: 'DELETE'
     })
     await loadWorkspaceActions()
-    toast.add({ title: 'Action unassigned', color: 'success' })
+    toast.add({ title: 'Action disabled', color: 'success' })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Could not unassign Action.'
-    toast.add({ title: 'Unassign failed', description: message, color: 'error' })
+    const message = error instanceof Error ? error.message : 'Could not disable Action.'
+    toast.add({ title: 'Disable failed', description: message, color: 'error' })
   }
 }
 
@@ -318,16 +313,24 @@ async function loadWorkspaceActionProjects() {
   }
 }
 
+let workspaceActionsMounted = false
+
+onMounted(() => {
+  workspaceActionsMounted = true
+  void loadWorkspaceActionProjects()
+  void loadWorkspaceActions()
+})
+
 watch([selectedWorkspace, canManageWorkspaceActions], () => {
-  if (canManageWorkspaceActions.value) {
+  if (workspaceActionsMounted && canManageWorkspaceActions.value) {
     void loadWorkspaceActionProjects()
     void loadWorkspaceActions()
   }
-}, { immediate: true })
+})
 
 watch(selectedActionProjectId, () => {
   selectedActionDefinitionIds.value = []
-  void loadWorkspaceActions()
+  if (workspaceActionsMounted) void loadWorkspaceActions()
 })
 
 function parseRecognitionIndices(value: string | undefined, gtIndex: number): number[] {
@@ -1016,165 +1019,145 @@ async function openDeleteSlideover() {
           </div>
         </div>
       </UPageCard>
+    </template>
 
-      <UPageCard
-        v-if="canManageWorkspaceActions"
-        title="Actions"
-        description="Manage inherited, workspace-default, and project-specific Actions."
-        variant="subtle"
-      >
-        <div class="flex flex-col gap-4">
-          <div v-if="inheritedGlobalActionDefinitions.length > 0" class="rounded-sm border border-default p-3">
-            <div class="mb-2 flex items-center justify-between gap-2">
-              <div>
-                <p class="text-sm font-medium">
-                  Inherited Global Actions
-                </p>
-                <p class="text-xs text-muted">
-                  These Actions are available in every workspace and project.
-                </p>
-              </div>
-              <UBadge size="sm" variant="soft" color="primary">
-                Read-only
+    <UPageCard
+      v-if="canManageWorkspaceActions"
+      title="Actions"
+      description="Enable Actions for the workspace or selected projects. Global availability also requires manual activation."
+      variant="subtle"
+    >
+      <div class="flex flex-col gap-4">
+        <div class="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
+          <UFormField label="Activation Scope">
+            <USelectMenu
+              v-model="selectedActionProjectId"
+              :items="actionProjectOptions"
+              value-key="value"
+              clear
+              searchable
+              placeholder="Entire workspace"
+            />
+          </UFormField>
+          <UFormField label="Available Actions">
+            <USelectMenu
+              v-model="selectedActionDefinitionIds"
+              :items="actionDefinitionOptions"
+              value-key="value"
+              multiple
+              searchable
+              :disabled="loadingActions || actionDefinitionOptions.length === 0"
+              placeholder="Select Actions"
+            />
+          </UFormField>
+          <UButton
+            label="Enable"
+            icon="i-lucide-plus"
+            :loading="assigningAction"
+            :disabled="selectedActionDefinitionIds.length === 0"
+            @click="assignWorkspaceAction"
+          />
+        </div>
+
+        <p class="text-sm text-muted">
+          Training and evaluation Actions must be enabled for the entire workspace.
+          Disabled assignments can be re-enabled using the selector above.
+        </p>
+
+        <p v-if="!loadingActions && actionDefinitions.length === 0" class="text-sm text-muted">
+          No Actions are available. A global administrator can make Actions available from the Actions admin page.
+        </p>
+
+        <div v-if="loadingActions" class="space-y-2">
+          <USkeleton class="h-10 w-full" />
+          <USkeleton class="h-10 w-full" />
+        </div>
+
+        <div v-else-if="actionAssignments.length === 0" class="rounded-sm border border-default p-3 text-sm text-muted">
+          No Actions are enabled for this scope.
+        </div>
+
+        <div v-else class="divide-y divide-default rounded-sm border border-default">
+          <div
+            v-for="assignment in actionAssignments"
+            :key="assignment.id"
+            class="flex items-center justify-between gap-3 p-3"
+          >
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium">
+                {{ assignment.processor.name }}
+              </p>
+              <p class="truncate text-xs text-muted">
+                {{ assignment.processor.processorKey }} · {{ assignment.processor.executeRole }} · {{ assignment.processor.lockMode }}
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <UBadge :color="assignment.processor.global ? 'primary' : 'neutral'" variant="soft">
+                {{ assignment.processor.global ? 'Global availability' : 'Workspace availability' }}
+              </UBadge>
+              <UBadge :color="assignment.enabled ? 'success' : 'neutral'" variant="soft">
+                {{ assignment.enabled ? 'Enabled' : 'Disabled' }}
               </UBadge>
             </div>
-            <div class="divide-y divide-default rounded-sm border border-default">
-              <div
-                v-for="definition in inheritedGlobalActionDefinitions"
-                :key="definition.id"
-                class="flex items-center justify-between gap-3 p-3"
-              >
-                <div class="min-w-0">
-                  <p class="truncate text-sm font-medium">
-                    {{ definition.name }}
-                  </p>
-                  <p class="truncate text-xs text-muted">
-                    {{ definition.processorKey }} · {{ definition.executeRole }} · {{ definition.lockMode }}
-                  </p>
-                </div>
-                <UBadge size="sm" variant="soft" color="primary">
-                  Global
-                </UBadge>
-              </div>
-            </div>
-          </div>
-
-          <div class="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
-            <UFormField label="Assignment Scope">
-              <USelectMenu
-                v-model="selectedActionProjectId"
-                :items="actionProjectOptions"
-                value-key="value"
-                clear
-                searchable
-                placeholder="Workspace default"
-              />
-            </UFormField>
-            <UFormField label="Available Actions">
-              <USelectMenu
-                v-model="selectedActionDefinitionIds"
-                :items="actionDefinitionOptions"
-                value-key="value"
-                multiple
-                searchable
-                :disabled="loadingActions || actionDefinitionOptions.length === 0"
-                placeholder="Select Actions"
-              />
-            </UFormField>
             <UButton
-              label="Assign"
-              icon="i-lucide-plus"
-              :loading="assigningAction"
-              :disabled="selectedActionDefinitionIds.length === 0"
-              @click="assignWorkspaceAction"
+              color="error"
+              variant="ghost"
+              label="Disable"
+              icon="i-lucide-x"
+              @click="unassignWorkspaceAction(assignment.id)"
+            />
+          </div>
+        </div>
+      </div>
+    </UPageCard>
+
+    <UPageCard
+      v-if="!workspace?.isPersonal"
+      data-tour="workspace-danger-zone"
+      title="Danger Zone"
+      description="Irreversible actions for this workspace."
+      variant="subtle"
+      class="bg-linear-to-tl from-error/5 from-5% to-default"
+    >
+      <template #footer>
+        <div class="flex flex-col gap-4">
+          <div v-if="!canDeleteWorkspace" class="flex items-center justify-between">
+            <div>
+              <h4 class="font-medium">
+                Leave workspace
+              </h4>
+              <p class="text-sm text-muted">
+                Remove yourself from this workspace.
+              </p>
+            </div>
+            <UButton
+              label="Leave"
+              color="error"
+              variant="outline"
+              icon="i-lucide-log-out"
+              @click="leaveWorkspace"
             />
           </div>
 
-          <p v-if="!loadingActions && scopedActionDefinitions.length === 0" class="text-sm text-muted">
-            No workspace-scoped Actions are available. A global administrator can make Actions available from the Actions admin page.
-          </p>
-
-          <div v-if="loadingActions" class="space-y-2">
-            <USkeleton class="h-10 w-full" />
-            <USkeleton class="h-10 w-full" />
-          </div>
-
-          <div v-else-if="actionAssignments.length === 0" class="rounded-sm border border-default p-3 text-sm text-muted">
-            No Actions are assigned for this scope.
-          </div>
-
-          <div v-else class="divide-y divide-default rounded-sm border border-default">
-            <div
-              v-for="assignment in actionAssignments"
-              :key="assignment.id"
-              class="flex items-center justify-between gap-3 p-3"
-            >
-              <div class="min-w-0">
-                <p class="truncate text-sm font-medium">
-                  {{ assignment.processor.name }}
-                </p>
-                <p class="truncate text-xs text-muted">
-                  {{ assignment.processor.processorKey }} · {{ assignment.processor.executeRole }} · {{ assignment.processor.lockMode }}
-                </p>
-              </div>
-              <UButton
-                color="error"
-                variant="ghost"
-                icon="i-lucide-x"
-                @click="unassignWorkspaceAction(assignment.id)"
-              />
+          <div v-if="canDeleteWorkspace" class="flex flex-col gap-y-2 items-start justify-between">
+            <div>
+              <h4 class="font-medium">
+                Delete workspace
+              </h4>
+              <p class="text-sm text-muted">
+                Permanently delete this workspace and all its data.
+              </p>
             </div>
+            <UButton
+              label="Delete workspace"
+              color="error"
+              variant="solid"
+              icon="i-lucide-trash-2"
+              @click="openDeleteSlideover"
+            />
           </div>
         </div>
-      </UPageCard>
-
-      <UPageCard
-        data-tour="workspace-danger-zone"
-        title="Danger Zone"
-        description="Irreversible actions for this workspace."
-        variant="subtle"
-        class="bg-linear-to-tl from-error/5 from-5% to-default"
-      >
-        <template #footer>
-          <div class="flex flex-col gap-4">
-            <div v-if="!canDeleteWorkspace" class="flex items-center justify-between">
-              <div>
-                <h4 class="font-medium">
-                  Leave workspace
-                </h4>
-                <p class="text-sm text-muted">
-                  Remove yourself from this workspace.
-                </p>
-              </div>
-              <UButton
-                label="Leave"
-                color="error"
-                variant="outline"
-                icon="i-lucide-log-out"
-                @click="leaveWorkspace"
-              />
-            </div>
-
-            <div v-if="canDeleteWorkspace" class="flex flex-col gap-y-2 items-start justify-between">
-              <div>
-                <h4 class="font-medium">
-                  Delete workspace
-                </h4>
-                <p class="text-sm text-muted">
-                  Permanently delete this workspace and all its data.
-                </p>
-              </div>
-              <UButton
-                label="Delete workspace"
-                color="error"
-                variant="solid"
-                icon="i-lucide-trash-2"
-                @click="openDeleteSlideover"
-              />
-            </div>
-          </div>
-        </template>
-      </UPageCard>
-    </template>
+      </template>
+    </UPageCard>
   </div>
 </template>

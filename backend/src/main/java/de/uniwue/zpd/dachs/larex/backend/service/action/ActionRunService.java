@@ -119,6 +119,7 @@ public class ActionRunService {
 
     private final ActionProcessorDefinitionRepository definitionRepository;
     private final ActionProcessorAssignmentRepository assignmentRepository;
+    private final ActionWorkspaceActivationService activationService;
     private final ActionProcessorWorkspaceAvailabilityRepository availabilityRepository;
     private final ActionRunRepository runRepository;
     private final ActionRunDismissalRepository runDismissalRepository;
@@ -168,6 +169,7 @@ public class ActionRunService {
     public ActionRunService(ActionProcessorDefinitionRepository definitionRepository,
                             ActionProcessorAssignmentRepository assignmentRepository,
                             ActionProcessorWorkspaceAvailabilityRepository availabilityRepository,
+                            ActionWorkspaceActivationService activationService,
                             ActionRunRepository runRepository,
                             ActionRunDismissalRepository runDismissalRepository,
                             ActionRunLogEventRepository logEventRepository,
@@ -212,6 +214,7 @@ public class ActionRunService {
         this.definitionRepository = definitionRepository;
         this.assignmentRepository = assignmentRepository;
         this.availabilityRepository = availabilityRepository;
+        this.activationService = activationService;
         this.runRepository = runRepository;
         this.runDismissalRepository = runDismissalRepository;
         this.logEventRepository = logEventRepository;
@@ -273,11 +276,6 @@ public class ActionRunService {
                 .filter(ActionProcessorDefinition::isEnabled)
                 .filter(definition -> !definition.isGlobalAvailable())
                 .forEach(definition -> available.putIfAbsent(definition.getId(), definition));
-        assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(workspaceId).stream()
-                .map(ActionProcessorAssignment::getProcessorDefinition)
-                .filter(ActionProcessorDefinition::isEnabled)
-                .filter(definition -> !definition.isGlobalAvailable())
-                .forEach(definition -> available.putIfAbsent(definition.getId(), definition));
         return available.values().stream()
                 .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(definitionService::toDefinitionResponse)
@@ -300,14 +298,9 @@ public class ActionRunService {
             requireProject(workspaceId, projectId);
         }
 
-        ActionProcessorDefinition definition = definitionRepository.findById(request.processorDefinitionId())
+        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(request.processorDefinitionId())
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
-        if (definition.isGlobalAvailable()) {
-            throw new IllegalArgumentException("Global Actions are available automatically and cannot be assigned");
-        }
-        if (!availabilityRepository.existsByProcessorDefinitionIdAndWorkspaceIdAndEnabledTrue(definition.getId(), workspaceId)) {
-            throw new SecurityException("Action workflow is not available to this workspace");
-        }
+        activationService.requireAssignable(definition, workspaceId, projectId);
         ActionProcessorAssignment assignment = projectId == null
                 ? assignmentRepository.findWorkspaceAssignment(definition.getId(), workspaceId).orElseGet(ActionProcessorAssignment::new)
                 : assignmentRepository.findByProcessorDefinitionIdAndWorkspaceIdAndProjectId(definition.getId(), workspaceId, projectId)
@@ -333,6 +326,7 @@ public class ActionRunService {
             throw new IllegalArgumentException("Action processor assignment not found");
         }
         String definitionId = assignment.getProcessorDefinition().getId();
+        definitionRepository.findByIdForUpdate(definitionId).orElseThrow();
         String projectId = assignment.getProjectId();
         assignmentRepository.delete(assignment);
         actionAuditService.record("ACTION_ASSIGNMENT_DELETE", "SUCCESS", userId, definitionId, null,
@@ -349,17 +343,10 @@ public class ActionRunService {
         Project project = requireProject(workspaceId, projectId);
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         LinkedHashMap<String, ActionDto.ExecutableProcessorResponse> executable = new LinkedHashMap<>();
-        definitionRepository.findByEnabledTrueAndGlobalAvailableTrueOrderByNameAsc()
-                .stream()
-                .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING)
-                .filter(definition -> target == null || definitionService.readTargetTypes(definition).contains(target))
-                .forEach(definition -> executable.put(definition.getId(), toExecutableResponse(null, definition, workspaceId, project, userId)));
-
         assignmentRepository.findExecutableAssignments(workspaceId, projectId).stream()
                 .filter(assignment -> assignment.getProcessorDefinition().getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING)
                 .filter(assignment -> target == null || definitionService.readTargetTypes(assignment.getProcessorDefinition()).contains(target))
-                .filter(assignment -> !assignment.getProcessorDefinition().isGlobalAvailable())
-                .filter(assignment -> isWorkspaceAvailable(assignment.getProcessorDefinition().getId(), workspaceId))
+                .filter(assignment -> activationService.isEligible(assignment.getProcessorDefinition(), workspaceId))
                 .sorted(Comparator.comparing((ActionProcessorAssignment assignment) -> projectId.equals(assignment.getProjectId()) ? 1 : 0)
                         .thenComparing(ActionProcessorAssignment::getCreated))
                 .forEach(assignment -> executable.put(assignment.getProcessorDefinition().getId(),
@@ -372,10 +359,8 @@ public class ActionRunService {
     @Transactional(readOnly = true)
     public List<ActionDto.DefinitionResponse> listTrainingProcessors(String workspaceId, String userId) {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-        return definitionRepository.findAll().stream()
-                .filter(ActionProcessorDefinition::isEnabled)
+        return activationService.listActivatedDefinitions(workspaceId, null).stream()
                 .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.TRAINING)
-                .filter(definition -> definition.isGlobalAvailable() || isWorkspaceAvailable(definition.getId(), workspaceId))
                 .filter(definition -> canExecute(definition, workspaceId, userId))
                 .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(definitionService::toDefinitionResponse)
@@ -385,10 +370,8 @@ public class ActionRunService {
     @Transactional(readOnly = true)
     public List<ActionDto.DefinitionResponse> listEvaluationProcessors(String workspaceId, String userId) {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-        return definitionRepository.findAll().stream()
-                .filter(ActionProcessorDefinition::isEnabled)
+        return activationService.listActivatedDefinitions(workspaceId, null).stream()
                 .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.EVALUATION)
-                .filter(definition -> definition.isGlobalAvailable() || isWorkspaceAvailable(definition.getId(), workspaceId))
                 .filter(definition -> canExecute(definition, workspaceId, userId))
                 .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(definitionService::toDefinitionResponse)
@@ -398,10 +381,8 @@ public class ActionRunService {
     @Transactional(readOnly = true)
     public List<ActionDto.DefinitionResponse> listInferenceProcessors(String workspaceId, String userId) {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-        return definitionRepository.findAll().stream()
-                .filter(ActionProcessorDefinition::isEnabled)
+        return activationService.listActivatedDefinitions(workspaceId, null).stream()
                 .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING)
-                .filter(definition -> definition.isGlobalAvailable() || isWorkspaceAvailable(definition.getId(), workspaceId))
                 .filter(definition -> canExecute(definition, workspaceId, userId))
                 .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(definitionService::toDefinitionResponse)
@@ -444,6 +425,8 @@ public class ActionRunService {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         Dataset dataset = datasetRepository.findByIdAndWorkspaceId(datasetId, workspaceId)
                 .orElseThrow(() -> new IllegalArgumentException("Dataset not found"));
+        definitionRepository.findByIdForUpdate(request.processorDefinitionId())
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         ActionProcessorDefinition definition = requireTrainingDefinition(workspaceId, request.processorDefinitionId());
         requireExecuteAccess(definition, workspaceId, userId);
         ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, null);
@@ -493,6 +476,8 @@ public class ActionRunService {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         Dataset dataset = datasetRepository.findByIdAndWorkspaceId(datasetId, workspaceId)
                 .orElseThrow(() -> new IllegalArgumentException("Dataset not found"));
+        definitionRepository.findByIdForUpdate(request.processorDefinitionId())
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         ActionProcessorDefinition definition = requireEvaluationDefinition(workspaceId, request.processorDefinitionId());
         requireExecuteAccess(definition, workspaceId, userId);
         ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, null);
@@ -859,13 +844,15 @@ public class ActionRunService {
                                                String userId,
                                                String publicApiBaseUrl) {
         Project project = requireProject(workspaceId, projectId);
+        String definitionId = runRepository.findProcessorDefinitionIdById(runId)
+                .orElseThrow(() -> new IllegalArgumentException("Action run not found"));
+        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         ActionRun sourceRun = requireRun(workspaceId, projectId, runId);
         if (sourceRun.getStatus() != Status.FAILED && sourceRun.getStatus() != Status.CANCELLED) {
             throw new IllegalStateException("Only failed or cancelled Action runs can be retried");
         }
 
-        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(sourceRun.getProcessorDefinition().getId())
-                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         if (!definition.isEnabled()) {
             throw new IllegalArgumentException("Action processor is disabled");
         }
@@ -1936,7 +1923,7 @@ public class ActionRunService {
     private void persistResultImportFailure(String runId, String failureMessage) {
         try {
             ActionRun run = runRepository.findWithProcessorDefinitionById(runId).orElse(null);
-            if (run == null || terminalStatuses().contains(run.getStatus())) {
+            if (run == null || run.getStatus() == Status.FAILED || run.getStatus() == Status.COMPLETED) {
                 return;
             }
             run.setStatus(Status.FAILED);
@@ -2046,6 +2033,11 @@ public class ActionRunService {
 
     private void tryActivateQueuedRun(String runId) {
         transactionTemplate.executeWithoutResult(status -> {
+            String definitionId = runRepository.findProcessorDefinitionIdById(runId).orElse(null);
+            if (definitionId == null) {
+                return;
+            }
+            ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(definitionId).orElseThrow();
             if (runRepository.claimQueuedRunId(runId).isEmpty()) {
                 return;
             }
@@ -2058,9 +2050,11 @@ public class ActionRunService {
                 return;
             }
 
-            ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(run.getProcessorDefinition().getId())
-                    .orElseThrow(() -> new IllegalStateException("Action processor definition not found"));
             run.setProcessorDefinition(definition);
+            if (!isRunActivated(run)) {
+                failWaitingRun(run);
+                return;
+            }
 
             Project project = isDatasetAction(run)
                     ? null : requireProjectForUpdate(run.getWorkspaceId(), run.getProjectId());
@@ -2103,6 +2097,27 @@ public class ActionRunService {
         });
     }
 
+    private boolean isRunActivated(ActionRun run) {
+        return activationService.isActivated(run.getProcessorDefinition(), run.getWorkspaceId(),
+                isDatasetAction(run) ? null : run.getProjectId());
+    }
+
+    private void failWaitingRun(ActionRun run) {
+        run.setStatus(Status.FAILED);
+        run.setStatusMessage("Action is no longer enabled");
+        run.setErrorMessage("Action is disabled, outside workspace scope, or no longer assigned to this workspace or project");
+        run.setCompletedAt(LocalDateTime.now());
+        expireRunSecret(run);
+        releaseLocks(run);
+        if (!isDatasetAction(run)) {
+            actionOutputService.discardDraft(run.getId());
+        }
+        runRepository.save(run);
+        publishActionRunUpdatedAfterCommit(run);
+        actionAuditService.record("ACTION_RUN_ACTIVATION_REVOKED", "FAILURE", run.getCreatedByUserId(),
+                run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(), Map.of());
+    }
+
     private void dispatchAsync(String runId, String rawSecret, String publicApiBaseUrl) {
         dispatchAttemptAsync(runId, rawSecret, publicApiBaseUrl, 1,
                 Math.max(1, actionProperties.getDispatch().getMaxAttempts()));
@@ -2141,8 +2156,28 @@ public class ActionRunService {
     }
 
     private void dispatch(String runId, String rawSecret, String publicApiBaseUrl, int attempt, int attempts) throws IOException, InterruptedException {
-        ActionRun run = runRepository.findWithProcessorDefinitionById(runId)
-                .orElseThrow(() -> new IllegalStateException("Action run not found"));
+        ActionRun run = transactionTemplate.execute(status -> {
+            String definitionId = runRepository.findProcessorDefinitionIdById(runId)
+                    .orElseThrow(() -> new IllegalStateException("Action run not found"));
+            ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(definitionId).orElseThrow();
+            ActionRun lockedRun = runRepository.findWithProcessorDefinitionByIdForUpdate(runId)
+                    .orElseThrow(() -> new IllegalStateException("Action run not found"));
+            if (lockedRun.getStatus() == Status.PENDING) {
+                lockedRun.setProcessorDefinition(definition);
+                if (!isRunActivated(lockedRun)) {
+                    failWaitingRun(lockedRun);
+                    return null;
+                }
+                lockedRun.setStatus(Status.DISPATCHING);
+                lockedRun.setStatusMessage("Dispatching");
+                runRepository.save(lockedRun);
+                publishActionRunUpdatedAfterCommit(lockedRun);
+            }
+            return lockedRun;
+        });
+        if (run == null || run.getStatus() == Status.FAILED || run.getStatus() == Status.COMPLETED) {
+            return;
+        }
         if (run.getStatus() == Status.CANCELLED) {
             dispatchQueuedRunsAsync();
             return;
@@ -2162,10 +2197,11 @@ public class ActionRunService {
         ActionDto.InputRequirements inputRequirements = datasetAction ? null : definitionService.readInputRequirements(definition);
         List<String> processorPageIds = datasetAction ? List.of() : processorPageIds(run, definition, imageVariantSelection, target);
         Set<String> processorPageIdSet = new LinkedHashSet<>(processorPageIds);
-        run.setStatus(Status.DISPATCHING);
-        run.setStatusMessage(attempts > 1 ? "Dispatching (attempt " + attempt + "/" + attempts + ")" : "Dispatching");
-        runRepository.save(run);
-        publishActionRunUpdatedAfterCommit(run);
+        if (attempt > 1 && run.getStatus() == Status.DISPATCHING) {
+            run.setStatusMessage("Dispatching (attempt " + attempt + "/" + attempts + ")");
+            runRepository.save(run);
+            publishActionRunUpdatedAfterCommit(run);
+        }
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("runId", run.getId());
@@ -2444,17 +2480,8 @@ public class ActionRunService {
     }
 
     private void requireAssigned(String workspaceId, String projectId, String definitionId) {
-        ActionProcessorDefinition definition = definitionRepository.findById(definitionId)
-                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
-        if (definition.isEnabled() && definition.isGlobalAvailable()) {
-            return;
-        }
-        boolean assigned = assignmentRepository.findExecutableAssignments(workspaceId, projectId).stream()
-                .filter(assignment -> isWorkspaceAvailable(assignment.getProcessorDefinition().getId(), workspaceId))
-                .anyMatch(assignment -> assignment.getProcessorDefinition().getId().equals(definitionId));
-        if (!assigned) {
-            throw new SecurityException("Action processor is not assigned to this project");
-        }
+        ActionProcessorDefinition definition = requireDefinition(definitionId);
+        activationService.requireActivated(definition, workspaceId, projectId);
     }
 
     private String issueRunSecret(ActionRun run) {
@@ -2477,11 +2504,6 @@ public class ActionRunService {
             default -> runRepository.countByProcessorDefinitionIdAndWorkspaceIdAndProjectIdAndStatusIn(definition.getId(), workspaceId, projectId, activeStatuses());
         };
         return new ConcurrencyDecision(active < maxActiveRuns, active, maxActiveRuns, scope);
-    }
-
-    private boolean isWorkspaceAvailable(String definitionId, String workspaceId) {
-        return availabilityRepository.existsByProcessorDefinitionIdAndWorkspaceIdAndEnabledTrue(definitionId, workspaceId)
-                || assignmentRepository.existsByProcessorDefinitionIdAndWorkspaceId(definitionId, workspaceId);
     }
 
     private void requireGlobalAdmin() {
@@ -2513,9 +2535,7 @@ public class ActionRunService {
         if (!definition.isEnabled() || definition.getActionKind() != ActionProcessorDefinition.ActionKind.TRAINING) {
             throw new IllegalArgumentException("Training Action processor not found");
         }
-        if (!definition.isGlobalAvailable() && !isWorkspaceAvailable(definitionId, workspaceId)) {
-            throw new SecurityException("Training Action is not available to this workspace");
-        }
+        activationService.requireActivated(definition, workspaceId, null);
         return definition;
     }
 
@@ -2525,9 +2545,7 @@ public class ActionRunService {
         if (!definition.isEnabled() || definition.getActionKind() != ActionProcessorDefinition.ActionKind.EVALUATION) {
             throw new IllegalArgumentException("Evaluation Action processor not found");
         }
-        if (!definition.isGlobalAvailable() && !isWorkspaceAvailable(definitionId, workspaceId)) {
-            throw new SecurityException("Evaluation Action is not available to this workspace");
-        }
+        activationService.requireActivated(definition, workspaceId, null);
         return definition;
     }
 

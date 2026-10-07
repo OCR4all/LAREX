@@ -19,6 +19,9 @@ import java.time.LocalDateTime;
 @Repository
 public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
 
+    @Query("SELECT r.processorDefinition.id FROM ActionRun r WHERE r.id = :id")
+    Optional<String> findProcessorDefinitionIdById(@Param("id") String id);
+
     @EntityGraph(attributePaths = {"processorDefinition"})
     @Query("SELECT r FROM ActionRun r WHERE r.id = :id")
     Optional<ActionRun> findWithProcessorDefinitionById(@Param("id") String id);

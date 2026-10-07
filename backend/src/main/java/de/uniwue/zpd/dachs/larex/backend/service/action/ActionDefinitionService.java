@@ -78,6 +78,7 @@ public class ActionDefinitionService {
     private final ObjectMapper jsonMapper;
     private final HttpClient httpClient;
     private final ActionProperties actionProperties;
+    private final ActionWorkspaceActivationService activationService;
 
     @Autowired
     public ActionDefinitionService(ActionProcessorDefinitionRepository definitionRepository,
@@ -90,7 +91,8 @@ public class ActionDefinitionService {
                                    ActionEndpointAuthService endpointAuthService,
                                    ActionAuditService actionAuditService,
                                    ObjectMapper objectMapper,
-                                   ActionProperties actionProperties) {
+                                   ActionProperties actionProperties,
+                                   ActionWorkspaceActivationService activationService) {
         this(
                 definitionRepository,
                 availabilityRepository,
@@ -103,6 +105,7 @@ public class ActionDefinitionService {
                 actionAuditService,
                 objectMapper,
                 actionProperties,
+                activationService,
                 HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()
         );
     }
@@ -118,6 +121,7 @@ public class ActionDefinitionService {
                             ActionAuditService actionAuditService,
                             ObjectMapper objectMapper,
                             ActionProperties actionProperties,
+                            ActionWorkspaceActivationService activationService,
                             HttpClient httpClient) {
         this.definitionRepository = definitionRepository;
         this.availabilityRepository = availabilityRepository;
@@ -132,6 +136,7 @@ public class ActionDefinitionService {
         this.jsonMapper = objectMapper;
         this.httpClient = httpClient;
         this.actionProperties = actionProperties;
+        this.activationService = activationService;
     }
 
     @Transactional(readOnly = true)
@@ -176,7 +181,7 @@ public class ActionDefinitionService {
 
     public ActionDto.DefinitionResponse updateDefinition(String id, ActionDto.DefinitionRequest request, String userId) {
         requireGlobalAdmin();
-        ActionProcessorDefinition definition = definitionRepository.findById(id)
+        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         ParsedDefinition parsed = parseAndValidate(request.yaml(), id);
         definitionRepository.findByProcessorKey(parsed.preview().processorKey())
@@ -202,6 +207,7 @@ public class ActionDefinitionService {
                                                                boolean globalAvailable,
                                                                String userId) {
         ActionProcessorDefinition definition = definitionRepository.findByProcessorKey(processorKey)
+                .map(existing -> definitionRepository.findByIdForUpdate(existing.getId()).orElseThrow())
                 .orElseGet(ActionProcessorDefinition::new);
         String existingId = definition.getId();
         ParsedDefinition parsed = parseAndValidate(yaml, existingId);
@@ -216,12 +222,14 @@ public class ActionDefinitionService {
         definition.setUpdatedByUserId(userId);
         definition.setEnabled(enabled);
         definition.setGlobalAvailable(globalAvailable);
-        return toDefinitionResponse(definitionRepository.save(definition));
+        ActionProcessorDefinition saved = definitionRepository.save(definition);
+        activationService.reconcileAssignments(saved);
+        return toDefinitionResponse(saved);
     }
 
     public ActionDto.DefinitionResponse setEnabled(String id, boolean enabled, String userId) {
         requireGlobalAdmin();
-        ActionProcessorDefinition definition = definitionRepository.findById(id)
+        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         definition.setEnabled(enabled);
         definition.setUpdatedByUserId(userId);
@@ -233,11 +241,12 @@ public class ActionDefinitionService {
 
     public ActionDto.DefinitionResponse setGlobalAvailable(String id, boolean globalAvailable, String userId) {
         requireGlobalAdmin();
-        ActionProcessorDefinition definition = definitionRepository.findById(id)
+        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         definition.setGlobalAvailable(globalAvailable);
         definition.setUpdatedByUserId(userId);
         ActionProcessorDefinition saved = definitionRepository.save(definition);
+        activationService.reconcileAssignments(saved);
         actionAuditService.record(globalAvailable ? "ACTION_DEFINITION_GLOBAL_ENABLE" : "ACTION_DEFINITION_GLOBAL_DISABLE",
                 "SUCCESS", userId, saved.getId(), null, null, null, Map.of("processorKey", saved.getProcessorKey()));
         return toDefinitionResponse(saved);
@@ -294,7 +303,8 @@ public class ActionDefinitionService {
                                                                               ActionDto.WorkspaceAvailabilityRequest request,
                                                                               String userId) {
         requireGlobalAdmin();
-        ActionProcessorDefinition definition = requireDefinition(definitionId);
+        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         ActionProcessorWorkspaceAvailability availability = availabilityRepository
                 .findByProcessorDefinitionIdAndWorkspaceId(definitionId, request.workspaceId())
                 .orElseGet(ActionProcessorWorkspaceAvailability::new);
@@ -305,6 +315,7 @@ public class ActionDefinitionService {
             availability.setCreatedByUserId(userId);
         }
         ActionProcessorWorkspaceAvailability saved = availabilityRepository.save(availability);
+        activationService.reconcileAssignments(definition);
         actionAuditService.record("ACTION_WORKSPACE_AVAILABILITY_ASSIGN", "SUCCESS", userId, definitionId, null,
                 request.workspaceId(), null, Map.of("enabled", saved.isEnabled()));
         return toWorkspaceAvailabilityResponse(saved);
@@ -312,6 +323,8 @@ public class ActionDefinitionService {
 
     public void removeWorkspaceAvailability(String definitionId, String availabilityId) {
         requireGlobalAdmin();
+        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         ActionProcessorWorkspaceAvailability availability = availabilityRepository.findById(availabilityId)
                 .orElseThrow(() -> new IllegalArgumentException("Action workspace availability not found"));
         if (!definitionId.equals(availability.getProcessorDefinition().getId())) {
@@ -319,6 +332,8 @@ public class ActionDefinitionService {
         }
         String workspaceId = availability.getWorkspaceId();
         availabilityRepository.delete(availability);
+        availabilityRepository.flush();
+        activationService.reconcileAssignments(definition);
         actionAuditService.record("ACTION_WORKSPACE_AVAILABILITY_REMOVE", "SUCCESS", null, definitionId, null,
                 workspaceId, null, Map.of());
     }
