@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
 import type { ActionCategory, ActionDefinitionResponse, ActionKind, ActionTarget } from '@/types/action'
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
@@ -49,11 +50,11 @@ const processors = computed(() => [
 const loading = computed(() => processingRequest.pending.value || trainingRequest.pending.value || evaluationRequest.pending.value)
 const error = computed(() => processingRequest.error.value || trainingRequest.error.value || evaluationRequest.error.value)
 
-const categoryMeta: Record<ActionCategory, { label: string, surface: string }> = {
-  WORKFLOW: { label: 'Workflow', surface: 'bg-primary/10' },
-  OCR_HTR: { label: 'OCR / HTR', surface: 'bg-info/10' },
-  LAYOUT: { label: 'Layout', surface: 'bg-success/10' },
-  POSTPROCESSING: { label: 'Post-processing', surface: 'bg-warning/10' }
+const categoryMeta: Record<ActionCategory, { label: string }> = {
+  WORKFLOW: { label: 'Workflow' },
+  OCR_HTR: { label: 'OCR / HTR' },
+  LAYOUT: { label: 'Layout' },
+  POSTPROCESSING: { label: 'Post-processing' }
 }
 const actionKindMeta: Record<ActionKind, { label: string, icon: string }> = {
   PROCESSING: { label: 'Processing', icon: 'i-lucide-play' },
@@ -62,7 +63,7 @@ const actionKindMeta: Record<ActionKind, { label: string, icon: string }> = {
 }
 
 function categoryDetails(category: ActionCategory) {
-  return categoryMeta[category] ?? { label: category, surface: 'bg-elevated' }
+  return categoryMeta[category] ?? { label: category }
 }
 
 function actionKindDetails(kind?: ActionKind) {
@@ -87,6 +88,17 @@ function outputLabels(processor: ActionDefinitionResponse) {
   if (processor.outputsFiles) outputs.push('Files')
   return outputs.length > 0 ? outputs : ['No LAREX outputs']
 }
+
+const columns: TableColumn<ActionDefinitionResponse>[] = [
+  { accessorKey: 'name', header: 'Action' },
+  { accessorKey: 'description', header: 'Description' },
+  { accessorKey: 'kind', header: 'Kind' },
+  { accessorKey: 'category', header: 'Category' },
+  { id: 'scope', header: 'Scope' },
+  { accessorKey: 'targets', header: 'Targets' },
+  { id: 'inputs', header: 'Inputs' },
+  { id: 'outputs', header: 'Outputs' }
+]
 
 const searchFilter = ref('')
 const selectedKinds = ref<ActionKind[]>([])
@@ -244,137 +256,84 @@ function refreshProcessors() {
             @clear="clearFilters"
           />
         </template>
+        <template #right>
+          <AppTableColumnsDropdown table-id="workspace-actions" :columns="columns" />
+        </template>
       </UDashboardToolbar>
     </template>
 
     <template #body>
-      <div class="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <UAlert
-          v-if="error"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-circle-alert"
-          title="Could not load Actions"
-          :description="error.message || 'Try refreshing the page.'"
-        />
+      <UAlert
+        v-if="error"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="Could not load Actions"
+        :description="error.message || 'Try refreshing the page.'"
+      />
 
-        <div v-else-if="loading" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <UCard
-            v-for="index in 6"
-            :key="index"
-            variant="subtle"
-            class="min-h-64"
-          >
-            <div class="space-y-4">
-              <USkeleton class="size-12 rounded-lg" />
-              <USkeleton class="h-5 w-2/3" />
-              <USkeleton class="h-4 w-full" />
-              <USkeleton class="h-4 w-5/6" />
-            </div>
-          </UCard>
-        </div>
-
-        <UEmpty
-          v-else-if="!processors?.length"
-          variant="naked"
-          icon="i-lucide-scan-text"
-          title="No Actions available"
-          description="A workspace curator or administrator must enable Actions for this workspace."
-        />
-
-        <UEmpty
-          v-else-if="!filteredProcessors.length"
-          variant="naked"
-          icon="i-lucide-filter-x"
-          title="No matching Actions"
-          description="Adjust the current filters."
-        />
-
-        <div v-else class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          <UCard
-            v-for="processor in filteredProcessors"
-            :key="processor.id"
-            variant="outline"
-            class="h-full overflow-hidden rounded-3xl shadow-sm"
-            :ui="{ body: 'p-3 sm:p-3' }"
-          >
-            <div class="flex h-full flex-col gap-4">
-              <div
-                :class="[
-                  'relative aspect-[4/3] overflow-hidden rounded-2xl',
-                  categoryDetails(processor.category).surface
-                ]"
-              >
-                <AppAvatar
-                  class="absolute inset-0 size-full scale-125"
-                  :seed="processor.id"
-                  :alt="processor.name"
-                  :radius="24"
-                  fluid
-                />
-                <div class="pointer-events-none absolute inset-0 z-10 bg-linear-to-br from-default/50 via-transparent to-primary/10" />
-
-                <div class="absolute inset-x-4 top-4 z-20 flex items-start justify-between gap-3">
-                  <div class="flex min-w-0 flex-wrap items-center gap-2">
-                    <UBadge color="neutral" variant="outline" class="bg-default/75 backdrop-blur-sm">
-                      <UIcon :name="actionKindDetails(processor.kind).icon" class="size-3.5" />
-                      {{ actionKindDetails(processor.kind).label }}
-                    </UBadge>
-                    <UBadge color="neutral" variant="soft" class="bg-default/75 backdrop-blur-sm">
-                      {{ categoryDetails(processor.category).label }}
-                    </UBadge>
-                  </div>
-                  <UBadge :color="processor.global ? 'primary' : 'neutral'" variant="soft" class="bg-default/75 backdrop-blur-sm">
-                    {{ processor.global ? 'Global' : 'Workspace' }}
-                  </UBadge>
-                </div>
-
-                <div class="absolute inset-x-4 bottom-4 z-20 rounded-xl bg-default/75 px-3 py-2 backdrop-blur-sm">
-                  <h2 class="truncate text-base font-semibold text-highlighted">
-                    {{ processor.name }}
-                  </h2>
-                  <p class="truncate font-mono text-[11px] text-muted" :title="processor.processorKey">
-                    {{ processor.processorKey }}
-                  </p>
-                </div>
-              </div>
-
-              <div class="px-2">
-                <p class="line-clamp-2 min-h-10 text-sm leading-5 text-muted">
-                  {{ processor.description || 'No description provided.' }}
-                </p>
-              </div>
-
-              <div class="mt-auto grid grid-cols-3 gap-3 border-t border-default px-2 pt-4 text-xs">
-                <div>
-                  <p class="text-muted">
-                    Targets
-                  </p>
-                  <p class="mt-1 truncate font-medium text-highlighted" :title="processor.targets.map(targetLabel).join(', ')">
-                    {{ processor.targets.length ? processor.targets.map(targetLabel).join(', ') : '—' }}
-                  </p>
-                </div>
-                <div>
-                  <p class="text-muted">
-                    Inputs
-                  </p>
-                  <p class="mt-1 truncate font-medium text-highlighted" :title="inputLabels(processor).join(', ')">
-                    {{ inputLabels(processor).join(', ') }}
-                  </p>
-                </div>
-                <div>
-                  <p class="text-muted">
-                    Outputs
-                  </p>
-                  <p class="mt-1 truncate font-medium text-highlighted" :title="outputLabels(processor).join(', ')">
-                    {{ outputLabels(processor).join(', ') }}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </UCard>
-        </div>
-      </div>
+      <AppTable
+        v-else
+        table-id="workspace-actions"
+        :columns="columns"
+        :data="filteredProcessors"
+        :loading="loading"
+        class="flex-1"
+      >
+        <template #name-cell="{ row }">
+          <div class="min-w-0">
+            <p class="truncate font-medium text-highlighted" :title="row.original.name">
+              {{ row.original.name }}
+            </p>
+            <p class="truncate font-mono text-xs text-muted" :title="row.original.processorKey">
+              {{ row.original.processorKey }}
+            </p>
+          </div>
+        </template>
+        <template #description-cell="{ row }">
+          <p class="line-clamp-2 whitespace-normal text-muted" :title="row.original.description || undefined">
+            {{ row.original.description || 'No description provided.' }}
+          </p>
+        </template>
+        <template #kind-cell="{ row }">
+          <UBadge color="neutral" variant="subtle" :icon="actionKindDetails(row.original.kind).icon">
+            {{ actionKindDetails(row.original.kind).label }}
+          </UBadge>
+        </template>
+        <template #category-cell="{ row }">
+          {{ categoryDetails(row.original.category).label }}
+        </template>
+        <template #scope-cell="{ row }">
+          <UBadge :color="row.original.global ? 'primary' : 'neutral'" variant="subtle">
+            {{ row.original.global ? 'Global' : 'Workspace' }}
+          </UBadge>
+        </template>
+        <template #targets-cell="{ row }">
+          <span class="whitespace-normal">
+            {{ row.original.targets.length ? row.original.targets.map(targetLabel).join(', ') : '—' }}
+          </span>
+        </template>
+        <template #inputs-cell="{ row }">
+          <span class="whitespace-normal">{{ inputLabels(row.original).join(', ') }}</span>
+        </template>
+        <template #outputs-cell="{ row }">
+          <span class="whitespace-normal">{{ outputLabels(row.original).join(', ') }}</span>
+        </template>
+        <template #loading>
+          <div class="flex items-center justify-center gap-2 py-6 text-muted">
+            <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin" />
+            <span>Loading Actions…</span>
+          </div>
+        </template>
+        <template #empty>
+          <UEmpty
+            variant="naked"
+            :icon="processors.length ? 'i-lucide-filter-x' : 'i-lucide-scan-text'"
+            :title="processors.length ? 'No matching Actions' : 'No Actions available'"
+            :description="processors.length ? 'Adjust the current filters.' : 'A workspace curator or administrator must enable Actions for this workspace.'"
+          />
+        </template>
+      </AppTable>
     </template>
   </UDashboardPanel>
 </template>
