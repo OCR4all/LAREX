@@ -442,7 +442,7 @@ defineExpose({ visible })
         }"
       >
         <div
-          class="h-11 bg-elevated border-b border-default rounded-t-lg flex items-center justify-between px-3"
+          class="h-11 bg-elevated border-b border-default rounded-t-[calc(var(--radius-sm)-1px)] flex items-center justify-between px-3"
         >
           <div class="flex items-center gap-2">
             <UButton
@@ -530,7 +530,7 @@ defineExpose({ visible })
         </div>
 
         <div
-          class="relative w-full transition-[height] duration-200 ease-out overflow-hidden rounded-b-lg"
+          class="relative w-full transition-[height] duration-200 ease-out overflow-hidden rounded-b-[calc(var(--radius-sm)-1px)]"
           :class="[palette.boardClass, palette.boardBorderClass]"
           :style="{ height: minimized ? cellSize + 'px' : (layout.rows * cellSize) + 'px', background: palette.boardStyle }"
         >
