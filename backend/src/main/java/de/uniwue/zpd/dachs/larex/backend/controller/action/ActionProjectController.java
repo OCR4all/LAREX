@@ -58,6 +58,15 @@ public class ActionProjectController {
         return ResponseEntity.ok(actionRunService.updateActivation(workspaceId, processorDefinitionId, request, userId));
     }
 
+    @DeleteMapping("/processors/{processorDefinitionId}/activation")
+    public ResponseEntity<Void> removeActivation(
+            @PathVariable String workspaceId,
+            @PathVariable String processorDefinitionId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        actionRunService.removeActivation(workspaceId, processorDefinitionId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/assignments")
     public ResponseEntity<ActionDto.AssignmentResponse> assignProcessor(
             @PathVariable String workspaceId,

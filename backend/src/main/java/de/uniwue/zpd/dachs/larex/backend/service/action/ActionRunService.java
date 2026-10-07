@@ -350,6 +350,18 @@ public class ActionRunService {
         return result.stream().map(this::toAssignmentResponse).toList();
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public void removeActivation(String workspaceId, String definitionId, String userId) {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        definitionRepository.findByIdForUpdate(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        List<ActionProcessorAssignment> assignments = assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(workspaceId)
+                .stream().filter(assignment -> assignment.getProcessorDefinition().getId().equals(definitionId)).toList();
+        assignmentRepository.deleteAll(assignments);
+        actionAuditService.record("ACTION_ACTIVATION_DELETE", "SUCCESS", userId, definitionId, null,
+                workspaceId, null, Map.of("assignmentCount", assignments.size()));
+    }
+
     public ActionDto.AssignmentResponse assignProcessor(String workspaceId, ActionDto.AssignmentRequest request, String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
         String projectId = normalizeOptional(request.projectId());

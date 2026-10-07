@@ -30,6 +30,7 @@ const editScope = ref<ActionActivationRequest['scope']>('WORKSPACE')
 const editProjectIds = ref<string[]>([])
 const editError = ref('')
 const pendingIds = ref<string[]>([])
+const removingIds = ref<string[]>([])
 let generation = 0
 let loadSequence = 0
 let mounted = false
@@ -114,6 +115,7 @@ function reset() {
   editScope.value = 'WORKSPACE'
   editError.value = ''
   pendingIds.value = []
+  removingIds.value = []
   loading.value = !!selectedWorkspace.value && canManage.value
   loadError.value = ''
 }
@@ -197,6 +199,32 @@ async function updateActivation(row: WorkspaceActionRow, request: ActionActivati
     else toast.add({ title: 'Could not update Action', description: message(error), color: 'error' })
   } finally {
     if (version === generation) pendingIds.value = pendingIds.value.filter(id => id !== row.id)
+  }
+}
+
+async function removeAction(row: WorkspaceActionRow) {
+  const workspaceId = selectedWorkspace.value
+  if (!workspaceId || !canManage.value || pendingIds.value.includes(row.id)) return
+  const version = generation
+  pendingIds.value = [...pendingIds.value, row.id]
+  removingIds.value = [...removingIds.value, row.id]
+  try {
+    await $fetch(`/api/workspaces/${workspaceId}/actions/processors/${row.id}/activation`, { method: 'DELETE' })
+    if (version !== generation) return
+    assignments.value = assignments.value.filter(assignment => assignment.processor.id !== row.id)
+    delete expanded.value[row.id]
+    if (editRow.value?.id === row.id) {
+      editOpen.value = false
+      editRow.value = null
+    }
+    toast.add({ title: 'Action removed', color: 'success' })
+  } catch (error) {
+    if (version === generation) toast.add({ title: 'Could not remove Action', description: message(error), color: 'error' })
+  } finally {
+    if (version === generation) {
+      pendingIds.value = pendingIds.value.filter(id => id !== row.id)
+      removingIds.value = removingIds.value.filter(id => id !== row.id)
+    }
   }
 }
 
@@ -349,30 +377,68 @@ function saveScope() {
                 :color="row.original.enabled ? 'neutral' : 'primary'"
                 variant="ghost"
                 size="sm"
-                :loading="pendingIds.includes(row.original.id)"
+                :loading="pendingIds.includes(row.original.id) && !removingIds.includes(row.original.id)"
                 @click="updateActivation(row.original, { scope: row.original.scope, projectIds: row.original.projectIds, enabled: !row.original.enabled })"
+              />
+            </UTooltip>
+            <UTooltip text="Remove Action from workspace">
+              <UButton
+                icon="i-lucide-trash-2"
+                :aria-label="`Remove ${row.original.processor.name} from workspace`"
+                color="error"
+                variant="ghost"
+                size="sm"
+                :disabled="pendingIds.includes(row.original.id)"
+                :loading="removingIds.includes(row.original.id)"
+                @click="removeAction(row.original)"
               />
             </UTooltip>
           </div>
         </template>
         <template #expanded="{ row }">
-          <dl class="flex flex-wrap gap-x-8 gap-y-3 p-4 text-sm">
-            <div>
-              <dt class="text-muted">
-                Action key
-              </dt><dd class="break-all">
-                {{ row.original.processor.processorKey }}
-              </dd>
+          <dl class="grid gap-6 rounded-lg border border-default bg-default p-4 sm:grid-cols-3 sm:p-5 whitespace-normal">
+            <div class="flex min-w-0 items-start gap-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated">
+                <UIcon name="i-lucide-code" class="size-4 text-muted" />
+              </div>
+              <div class="min-w-0 space-y-2">
+                <dt class="text-xs font-medium text-muted opacity-70">
+                  Action key
+                </dt>
+                <dd>
+                  <code class="break-all text-sm font-medium">{{ row.original.processor.processorKey }}</code>
+                </dd>
+              </div>
             </div>
-            <div>
-              <dt class="text-muted">
-                Execution role
-              </dt><dd>{{ row.original.processor.executeRole }}</dd>
+            <div class="flex min-w-0 items-start gap-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated">
+                <UIcon name="i-lucide-shield-user" class="size-4 text-muted" />
+              </div>
+              <div class="min-w-0 space-y-2">
+                <dt class="text-xs font-medium text-muted opacity-70">
+                  Execution role
+                </dt>
+                <dd>
+                  <UBadge color="neutral" variant="soft">
+                    {{ row.original.processor.executeRole === 'CURATOR' ? 'Curator' : 'Editor' }}
+                  </UBadge>
+                </dd>
+              </div>
             </div>
-            <div>
-              <dt class="text-muted">
-                Locking
-              </dt><dd>{{ row.original.processor.lockMode }}</dd>
+            <div class="flex min-w-0 items-start gap-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated">
+                <UIcon :name="row.original.processor.lockMode === 'NONE' ? 'i-lucide-lock-open' : 'i-lucide-lock'" class="size-4 text-muted" />
+              </div>
+              <div class="min-w-0 space-y-2">
+                <dt class="text-xs font-medium text-muted opacity-70">
+                  Locking
+                </dt>
+                <dd>
+                  <UBadge color="neutral" variant="soft">
+                    {{ row.original.processor.lockMode === 'NONE' ? 'No locking' : row.original.processor.lockMode === 'PAGES' ? 'Pages' : 'Project' }}
+                  </UBadge>
+                </dd>
+              </div>
             </div>
           </dl>
         </template>

@@ -1522,6 +1522,40 @@ class ActionRunServiceTest {
         verify(manager, never()).commit(any());
     }
 
+    @Test
+    void removingActivationDeletesEveryScopeOnlyForTheSelectedAction() {
+        ActionProcessorDefinition definition = activationDefinition("remove");
+        definition.setEnabled(false);
+        definition.setGlobalAvailable(false);
+        var workspace = activationAssignment(definition, null, true);
+        var project = activationAssignment(definition, "a", false);
+        var otherAction = activationAssignment(definition("keep"), "a", true);
+        when(assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(WORKSPACE_ID))
+                .thenReturn(List.of(workspace, project, otherAction));
+        service.removeActivation(WORKSPACE_ID, definition.getId(), OWNER_ID);
+        verify(assignmentRepository).deleteAll(List.of(workspace, project));
+        verify(actionAuditService).record("ACTION_ACTIVATION_DELETE", "SUCCESS", OWNER_ID, definition.getId(), null,
+                WORKSPACE_ID, null, Map.of("assignmentCount", 2));
+        verifyNoInteractions(availabilityRepository);
+    }
+
+    @Test
+    void removingActivationRequiresWorkspaceManagementPermission() {
+        doThrow(new SecurityException("Forbidden")).when(workspaceAccessService)
+                .requireManageProjectsAccess(WORKSPACE_ID, OWNER_ID);
+        assertThatThrownBy(() -> service.removeActivation(WORKSPACE_ID, "action", OWNER_ID))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(definitionRepository, assignmentRepository);
+    }
+
+    @Test
+    void removingActivationWithoutAssignmentsIsIdempotent() {
+        ActionProcessorDefinition definition = activationDefinition("remove-empty");
+        when(assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(WORKSPACE_ID)).thenReturn(List.of());
+        service.removeActivation(WORKSPACE_ID, definition.getId(), OWNER_ID);
+        verify(assignmentRepository).deleteAll(List.of());
+    }
+
     private ActionProcessorDefinition activationDefinition(String key) {
         ActionProcessorDefinition definition = definition(key);
         definition.setEnabled(true);
