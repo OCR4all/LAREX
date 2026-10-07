@@ -111,6 +111,7 @@ watch(
     :open-delay="1000"
     :close-delay="100"
     :content="{ side: 'top', align: 'center', sideOffset: 6 }"
+    :ui="{ content: 'z-[10000]' }"
     class="block w-full h-full"
   >
     <div
