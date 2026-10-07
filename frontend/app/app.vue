@@ -6,6 +6,23 @@ provideSSRWidth(1024)
 const colorMode = useColorMode()
 const { instanceName } = useInstance()
 const { loggedIn } = useUserSession()
+const route = useRoute()
+const router = useRouter()
+const { openSettings, closeSettings } = useUserSettings()
+
+// Preserve old settings links and account-security callbacks.
+onMounted(() => {
+  watch(() => route.query.settings, (section) => {
+    if (!loggedIn.value || typeof section !== 'string') return
+    openSettings(isUserSettingsSection(section) ? section : 'profile')
+    const { settings: _settings, ...query } = route.query
+    void router.replace({ path: route.path, query, hash: route.hash })
+  }, { immediate: true })
+})
+
+watch(loggedIn, (isLoggedIn) => {
+  if (!isLoggedIn) closeSettings()
+})
 const { initialize: initializeAvatarSettings } = useAvatarSettings()
 
 if (loggedIn.value) {
@@ -49,5 +66,7 @@ useSeoMeta({
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+
+    <UserSettingsModal v-if="loggedIn" />
   </UApp>
 </template>

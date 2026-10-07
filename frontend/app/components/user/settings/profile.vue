@@ -2,6 +2,7 @@
 import type { UserProfile, UpdateUserProfileRequest } from '~/types'
 
 const toast = useToast()
+const { closeSettings } = useUserSettings()
 const { resetTours } = useOnboarding()
 const { uploadFormDataWithProgress } = useTrackedUpload()
 const { fetch: refreshUserSession } = useUserSession()
@@ -11,6 +12,7 @@ const isResettingTour = ref(false)
 const handleResetTours = async () => {
   isResettingTour.value = true
   try {
+    closeSettings()
     await resetTours()
     toast.add({
       title: 'Tours reset',

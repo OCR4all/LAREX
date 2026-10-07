@@ -348,13 +348,13 @@ export function useEditorCommandCenter(options: EditorCommandCenterOptions) {
       }
     }, {
       id: 'go-settings',
-      label: 'Go to Settings',
+      label: 'Open Settings',
       icon: 'i-lucide-settings',
       suffix: 'Profile and preferences',
       kbds: ['G', 'S'],
-      to: '/settings',
       onSelect: () => {
-        void navigateToDashboard('/settings')
+        useUserSettings().openSettings()
+        open.value = false
       }
     }, {
       id: 'go-workspace-settings',

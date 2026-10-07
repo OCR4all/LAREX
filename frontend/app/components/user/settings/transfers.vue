@@ -125,46 +125,40 @@ function handleRowContextMenu(_event: Event, row: { original: TransferRow }) {
 </script>
 
 <template>
-  <UDashboardPanel id="transfers">
-    <template #header>
-      <UDashboardNavbar title="Transfer Requests">
-        <template #right>
-          <UButton
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="ghost"
-            @click="() => { refreshProjectTransfers(); refreshResourceTransfers() }"
-          >
-            Refresh
-          </UButton>
-        </template>
-      </UDashboardNavbar>
-
-      <UDashboardToolbar>
-        <template #right>
-          <AppTableColumnsDropdown table-id="settings-transfers" :columns="columns" />
-        </template>
-      </UDashboardToolbar>
-    </template>
-
-    <template #body>
-      <div class="space-y-6 p-4">
-        <div v-if="allTransfers.length === 0" class="text-center py-12">
-          <UIcon name="i-lucide-send" class="mx-auto text-4xl text-neutral-400 mb-4" />
-          <p class="text-muted">
-            No transfer requests yet
-          </p>
-        </div>
-
-        <UContextMenu v-else :items="contextMenuItems as any">
-          <AppTable
-            table-id="settings-transfers"
-            :columns="columns"
-            :data="allTransfers"
-            @contextmenu="handleRowContextMenu"
-          />
-        </UContextMenu>
+  <div class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-semibold text-highlighted">
+          Transfer Requests
+        </h2>
+        <p class="mt-1 text-sm text-muted">
+          Manage your project and resource transfers.
+        </p>
       </div>
-    </template>
-  </UDashboardPanel>
+      <div class="flex items-center gap-2">
+        <AppTableColumnsDropdown table-id="settings-transfers" :columns="columns" />
+        <UButton
+          icon="i-lucide-refresh-cw"
+          color="neutral"
+          variant="ghost"
+          label="Refresh"
+          @click="() => { refreshProjectTransfers(); refreshResourceTransfers() }"
+        />
+      </div>
+    </div>
+    <div v-if="allTransfers.length === 0" class="text-center py-12">
+      <UIcon name="i-lucide-send" class="mx-auto size-10 text-muted mb-4" />
+      <p class="text-muted">
+        No transfer requests yet
+      </p>
+    </div>
+    <UContextMenu v-else :items="contextMenuItems as any">
+      <AppTable
+        table-id="settings-transfers"
+        :columns="columns"
+        :data="allTransfers"
+        @contextmenu="handleRowContextMenu"
+      />
+    </UContextMenu>
+  </div>
 </template>

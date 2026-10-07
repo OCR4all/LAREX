@@ -46,6 +46,23 @@ describe('useEditorCommandCenter', () => {
     }))
   })
 
+  it('opens settings over the editor without navigating away', async () => {
+    const openSettings = vi.fn()
+    vi.stubGlobal('useUserSettings', () => ({ openSettings }))
+    const { useEditorCommandCenter } = await import('../use-editor-command-center')
+    const center = useEditorCommandCenter({
+      openProjectModal: vi.fn(async () => {}),
+      openProjectSelection: vi.fn(async () => {})
+    })
+    center.open.value = true
+    const settings = center.groups.value.flatMap(group => group.items).find(item => item.id === 'go-settings')
+    expect(settings?.to).toBeUndefined()
+    await settings?.onSelect?.()
+    expect(openSettings).toHaveBeenCalledOnce()
+    expect(center.open.value).toBe(false)
+    expect(navigateTo).not.toHaveBeenCalled()
+  })
+
   it('builds workspace index once and refetches when workspace changes', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url === '/api/workspaces/ws-1/projects') {

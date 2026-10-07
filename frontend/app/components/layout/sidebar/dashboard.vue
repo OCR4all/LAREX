@@ -81,20 +81,13 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
     { label: 'Requests', to: '/workspace/settings/requests', icon: 'i-lucide-git-pull-request', onSelect: () => { sidebarOpen.value = false } },
     { label: 'Queue', to: '/workspace/queue', icon: 'i-lucide-list-ordered', onSelect: () => { sidebarOpen.value = false } }
   ])
-  const settingsChildren = withActive([
-    { label: 'Profile', to: '/settings', icon: 'i-lucide-user', exact: true, onSelect: () => { sidebarOpen.value = false } },
-    { label: 'Invitations', to: '/settings/invitations', icon: 'i-lucide-mailbox', onSelect: () => { sidebarOpen.value = false } },
-    { label: 'Notifications', to: '/settings/notifications', icon: 'i-lucide-bell', onSelect: () => { sidebarOpen.value = false } },
-    { label: 'Security', to: '/settings/security', icon: 'i-lucide-shield', onSelect: () => { sidebarOpen.value = false } }
-  ])
 
   return [
     { label: 'Projects', icon: 'i-lucide-library', to: '/', active: isProjectsRoute.value, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Assignments', icon: 'i-lucide-clipboard-list', to: '/tasks', active: isTaskRoute.value, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Forge', icon: 'i-lucide-hammer', defaultOpen: hasActive(forgeChildren), type: 'trigger', children: forgeChildren },
     { label: 'Toolkit', icon: 'i-lucide-tool-case', defaultOpen: hasActive(toolkitChildren), type: 'trigger', children: toolkitChildren },
-    { label: 'Workspace', icon: 'i-lucide-layers', defaultOpen: hasActive(workspaceChildren), type: 'trigger', children: workspaceChildren },
-    { label: 'Settings', icon: 'i-lucide-settings', defaultOpen: hasActive(settingsChildren), type: 'trigger', children: settingsChildren }
+    { label: 'Workspace', icon: 'i-lucide-layers', defaultOpen: hasActive(workspaceChildren), type: 'trigger', children: workspaceChildren }
   ]
 })
 

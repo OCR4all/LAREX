@@ -4,6 +4,13 @@ import { ROLE_LABELS } from '~/types'
 import { LazyLabelModalTransferConflict, LazyProjectModalTransferConflict } from '#components'
 import { extractApiErrorMessage, isLabelSetNameConflictError, isProjectNameConflictError } from '@/utils/api-error'
 
+const { openSettings } = useUserSettings()
+
+function openSettingsSection(section: 'invitations' | 'notifications') {
+  isNotificationsSlideoverOpen.value = false
+  openSettings(section)
+}
+
 const { isNotificationsSlideoverOpen } = useDashboard()
 const toast = useToast()
 const overlay = useOverlay()
@@ -252,7 +259,9 @@ async function handleArchiveAllRead() {
             <h3 class="text-sm font-semibold text-highlighted">
               Pending Invitations
             </h3>
-            <NuxtLink to="/settings/invitations" class="text-xs text-primary hover:underline" @click="isNotificationsSlideoverOpen = false">View all</NuxtLink>
+            <button type="button" class="text-xs text-primary hover:underline" @click="openSettingsSection('invitations')">
+              View all
+            </button>
           </div>
           <div class="space-y-2">
             <div v-for="invitation in invitations.slice(0, 3)" :key="invitation.id" class="p-3 rounded-sm bg-primary/5 border border-primary/20">
@@ -286,9 +295,9 @@ async function handleArchiveAllRead() {
             </div>
           </div>
           <div v-if="invitations.length > 3" class="mt-2 text-center">
-            <NuxtLink to="/settings/invitations" class="text-xs text-muted hover:text-primary" @click="isNotificationsSlideoverOpen = false">
+            <button type="button" class="text-xs text-muted hover:text-primary" @click="openSettingsSection('invitations')">
               +{{ invitations.length - 3 }} more invitation{{ invitations.length - 3 > 1 ? 's' : '' }}
-            </NuxtLink>
+            </button>
           </div>
         </div>
 
@@ -446,14 +455,14 @@ async function handleArchiveAllRead() {
         </div>
 
         <div class="border-t border-default pt-4 mt-4">
-          <NuxtLink
-            to="/settings/notifications"
+          <button
+            type="button"
             class="flex items-center gap-2 text-sm text-muted hover:text-highlighted transition-colors"
-            @click="isNotificationsSlideoverOpen = false"
+            @click="openSettingsSection('notifications')"
           >
             <UIcon name="i-lucide-settings" class="w-4 h-4" />
             <span>Notification settings</span>
-          </NuxtLink>
+          </button>
         </div>
       </div>
     </template>

@@ -3,6 +3,7 @@ import { LazyWorkspaceSlideoverCreate, LazyLibrarySlideoverCreate } from '#compo
 
 const workspace = useWorkspaceStore()
 const open = ref(false)
+const { openSettings } = useUserSettings()
 const { storageKey } = useInstance()
 const dashboardStorageKey = storageKey('dashboard')
 const { loggedIn } = useUserSession()
@@ -157,12 +158,14 @@ const groups = computed(() => {
       onSelect: () => { open.value = false }
     }, {
       id: 'go-settings',
-      label: 'Go to Settings',
+      label: 'Open Settings',
       icon: 'i-lucide-settings',
       suffix: 'Profile and preferences',
       kbds: ['G', 'S'],
-      to: '/settings',
-      onSelect: () => { open.value = false }
+      onSelect: () => {
+        openSettings()
+        open.value = false
+      }
     }, {
       id: 'go-workspace-settings',
       label: 'Go to Workspace Settings',

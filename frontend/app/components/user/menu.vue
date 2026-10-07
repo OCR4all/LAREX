@@ -6,6 +6,7 @@ defineProps<{
 }>()
 
 const colorMode = useColorMode()
+const { openSettings } = useUserSettings()
 const { user } = useUserSession()
 const { documentationUrl } = useRuntimeConfig().public
 
@@ -25,7 +26,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
   const settingsItems: DropdownMenuItem[] = [{
     label: 'Settings',
     icon: 'i-lucide-settings',
-    to: '/settings'
+    onSelect: () => openSettings()
   }]
 
   const menuItems: DropdownMenuItem[][] = [[{
