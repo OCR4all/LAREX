@@ -665,9 +665,8 @@ const mapContextMenuItems = (items: EditorContextMenuItem[] = []): UiContextMenu
     color: item.danger ? 'error' : undefined,
     disabled: item.disabled,
     dotColor: item.color,
-    onSelect: async (event: Event) => {
+    onSelect: async () => {
       if (item.id === 'edit-region-comment') {
-        event.preventDefault()
         await openRegionComment()
         return
       }
