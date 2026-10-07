@@ -8,6 +8,7 @@ const props = defineProps<{
   layouts?: KeyboardLayout[]
   editable?: boolean
   workspaceId?: string | null
+  inputScope?: HTMLElement | null
 }>()
 
 const emit = defineEmits<{
@@ -237,6 +238,7 @@ const onFocus = (e: FocusEvent) => {
 
   if (keyboardRootRef.value?.contains(target)) return
   if (!isTextInputTarget(target)) return
+  if (props.inputScope !== undefined && !props.inputScope?.contains(target)) return
   if (dismissedInput.value === target) return
 
   if (activeInput.value !== target) {

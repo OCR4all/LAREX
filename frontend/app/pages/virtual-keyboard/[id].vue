@@ -88,6 +88,7 @@ const canDeleteKeyboard = computed(() => !isNew && allow(keyboardCapabilities.va
 const builderState = useVirtualKeyboardBuilder(initialLayout)
 
 const activeTab = ref<'builder' | 'preview'>('builder')
+const previewInputsRef = ref<HTMLElement | null>(null)
 
 const tabs = [
   {
@@ -411,7 +412,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
           />
 
           <div v-else-if="activeTab === 'preview'" class="flex-1 p-4">
-            <div class="space-y-4">
+            <div ref="previewInputsRef" class="space-y-4">
               <h2 class="text-xl tracking-wider font-bold">
                 Test Input
               </h2>
@@ -420,6 +421,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
             </div>
 
             <VirtualKeyboard
+              :input-scope="previewInputsRef"
               :layout="builderState.currentLayout.value"
               :layouts="availableLayouts"
               @update:layout-id="builderState.layoutId.value = $event"
