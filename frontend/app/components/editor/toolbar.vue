@@ -813,7 +813,6 @@ const hasUndoRedoRuntime = computed(() => Boolean(currentCanvasState.value || ac
 const showUndoTool = computed(() => !isCompact.value || (hasUndoRedoRuntime.value && canUndo.value))
 const showRedoTool = computed(() => !isCompact.value || (hasUndoRedoRuntime.value && canRedo.value))
 const showHistoryTool = computed(() => !isCompact.value || hasUndoRedoRuntime.value)
-const showMoreMenu = computed(() => !isCompact.value || !!currentCanvasState.value)
 
 const vkModeIcon = computed(() => {
   switch (virtualKeyboardMode.value) {
@@ -1781,7 +1780,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
           />
         </UDropdownMenu>
 
-        <UDropdownMenu v-if="showMoreMenu" :items="moreOptionsDropdownItems">
+        <UDropdownMenu :items="moreOptionsDropdownItems">
           <UButton
             variant="ghost"
             icon="i-lucide-more-vertical"
