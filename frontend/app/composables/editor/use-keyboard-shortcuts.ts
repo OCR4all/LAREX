@@ -189,6 +189,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         polygonIds,
         polylineIds
       })
+      callbacks.clearSelection()
       commander.execute(command, ctx)
     }
 
