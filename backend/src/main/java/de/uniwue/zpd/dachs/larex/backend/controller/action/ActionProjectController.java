@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -43,8 +44,18 @@ public class ActionProjectController {
     public ResponseEntity<List<ActionDto.AssignmentResponse>> listAssignments(
             @PathVariable String workspaceId,
             @RequestParam(required = false) String projectId,
+            @RequestParam(defaultValue = "false") boolean allScopes,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        return ResponseEntity.ok(actionRunService.listAssignments(workspaceId, projectId, userId));
+        return ResponseEntity.ok(actionRunService.listAssignments(workspaceId, projectId, allScopes, userId));
+    }
+
+    @PutMapping("/processors/{processorDefinitionId}/activation")
+    public ResponseEntity<List<ActionDto.AssignmentResponse>> updateActivation(
+            @PathVariable String workspaceId,
+            @PathVariable String processorDefinitionId,
+            @Valid @RequestBody ActionDto.ActivationRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.updateActivation(workspaceId, processorDefinitionId, request, userId));
     }
 
     @PostMapping("/assignments")

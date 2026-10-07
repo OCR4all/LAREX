@@ -9,6 +9,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Status;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Kind;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -149,6 +150,14 @@ public class ActionDto {
             @NotBlank String processorDefinitionId,
             String projectId,
             Boolean enabled
+    ) {}
+
+    public enum ActivationScope { WORKSPACE, PROJECTS }
+
+    public record ActivationRequest(
+            @NotNull ActivationScope scope,
+            @NotNull List<@NotBlank String> projectIds,
+            @NotNull Boolean enabled
     ) {}
 
     public record AssignmentResponse(

@@ -128,6 +128,12 @@ export interface ActionDefinition {
   parameters: Record<string, ActionParameterDefinition>
 }
 
+export interface ActionActivationRequest {
+  scope: 'WORKSPACE' | 'PROJECTS'
+  projectIds: string[]
+  enabled: boolean
+}
+
 export interface ActionAssignment {
   id: string
   workspaceId: string

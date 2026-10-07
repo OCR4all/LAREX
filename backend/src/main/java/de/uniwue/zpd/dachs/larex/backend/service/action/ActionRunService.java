@@ -291,6 +291,65 @@ public class ActionRunService {
         return assignments.stream().map(this::toAssignmentResponse).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<ActionDto.AssignmentResponse> listAssignments(String workspaceId, String projectId,
+                                                              boolean allScopes, String userId) {
+        if (!allScopes) return listAssignments(workspaceId, projectId, userId);
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        if (projectId != null) {
+            throw new IllegalArgumentException("allScopes cannot be combined with projectId");
+        }
+        return assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(workspaceId).stream()
+                .map(this::toAssignmentResponse).toList();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public List<ActionDto.AssignmentResponse> updateActivation(String workspaceId, String definitionId,
+                                                               ActionDto.ActivationRequest request, String userId) {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        if (request.scope() == null || request.projectIds() == null || request.enabled() == null) {
+            throw new IllegalArgumentException("Scope, projectIds and enabled are required");
+        }
+        if (request.projectIds().stream().anyMatch(id -> id == null || id.isBlank())) {
+            throw new IllegalArgumentException("Project IDs must not be blank");
+        }
+        List<String> projectIds = request.projectIds().stream().distinct().toList();
+        if (request.scope() == ActionDto.ActivationScope.WORKSPACE && !projectIds.isEmpty()) {
+            throw new IllegalArgumentException("Workspace scope cannot include project IDs");
+        }
+        if (request.scope() == ActionDto.ActivationScope.PROJECTS && projectIds.isEmpty()) {
+            throw new IllegalArgumentException("Select at least one project");
+        }
+        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        activationService.requireAssignable(definition, workspaceId, null);
+        for (String projectId : projectIds) {
+            requireProject(workspaceId, projectId);
+            activationService.requireAssignable(definition, workspaceId, projectId);
+        }
+        List<ActionProcessorAssignment> existing = assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(workspaceId)
+                .stream().filter(a -> a.getProcessorDefinition().getId().equals(definitionId)).toList();
+        List<String> targets = request.scope() == ActionDto.ActivationScope.WORKSPACE
+                ? java.util.Collections.singletonList(null) : projectIds;
+        assignmentRepository.deleteAll(existing.stream().filter(a -> !targets.contains(a.getProjectId())).toList());
+        List<ActionProcessorAssignment> result = new ArrayList<>();
+        for (String projectId : targets) {
+            ActionProcessorAssignment assignment = existing.stream()
+                    .filter(a -> java.util.Objects.equals(a.getProjectId(), projectId)).findFirst()
+                    .orElseGet(ActionProcessorAssignment::new);
+            assignment.setProcessorDefinition(definition);
+            assignment.setWorkspaceId(workspaceId);
+            assignment.setProjectId(projectId);
+            assignment.setEnabled(request.enabled());
+            if (assignment.getCreatedByUserId() == null) assignment.setCreatedByUserId(userId);
+            result.add(assignmentRepository.save(assignment));
+        }
+        actionAuditService.record("ACTION_ACTIVATION_UPDATE", "SUCCESS", userId, definitionId, null,
+                workspaceId, null, Map.of("scope", request.scope().name(), "projectIds", projectIds,
+                        "enabled", request.enabled()));
+        return result.stream().map(this::toAssignmentResponse).toList();
+    }
+
     public ActionDto.AssignmentResponse assignProcessor(String workspaceId, ActionDto.AssignmentRequest request, String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
         String projectId = normalizeOptional(request.projectId());

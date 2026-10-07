@@ -1408,6 +1408,139 @@ class ActionRunServiceTest {
         verifyNoInteractions(endpointAuthService);
     }
 
+    @Test
+    void allScopesListsEveryAssignmentAndRejectsProjectFilter() {
+        ActionProcessorAssignment assignment = activationAssignment(definition("all"), "project", true);
+        when(assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(WORKSPACE_ID)).thenReturn(List.of(assignment));
+        assertThat(service.listAssignments(WORKSPACE_ID, null, true, OWNER_ID)).hasSize(1);
+        assertThatThrownBy(() -> service.listAssignments(WORKSPACE_ID, "project", true, OWNER_ID))
+                .isInstanceOf(IllegalArgumentException.class);
+        service.listAssignments(WORKSPACE_ID, null, false, OWNER_ID);
+        verify(assignmentRepository).findByWorkspaceIdAndProjectIdIsNullOrderByCreatedAsc(WORKSPACE_ID);
+    }
+
+    @Test
+    void activationReplacesWorkspaceScopeWithUniqueProjectsAndRetainsExistingRows() {
+        ActionProcessorDefinition definition = activationDefinition("scopes");
+        ActionProcessorAssignment workspace = activationAssignment(definition, null, true);
+        ActionProcessorAssignment retained = activationAssignment(definition, "a", true);
+        when(assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(WORKSPACE_ID)).thenReturn(List.of(workspace, retained));
+        for (String id : List.of("a", "b")) {
+            when(projectRepository.findByIdAndLibraryWorkspaceId(id, WORKSPACE_ID))
+                    .thenReturn(Optional.of(project(id, WORKSPACE_ID, id)));
+        }
+        when(assignmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var result = service.updateActivation(WORKSPACE_ID, definition.getId(),
+                new ActionDto.ActivationRequest(ActionDto.ActivationScope.PROJECTS, List.of("a", "b", "a"), false), OWNER_ID);
+        assertThat(result).extracting(ActionDto.AssignmentResponse::projectId).containsExactly("a", "b");
+        assertThat(result).allMatch(a -> !a.enabled());
+        verify(assignmentRepository).deleteAll(List.of(workspace));
+        verify(assignmentRepository).save(retained);
+        verify(assignmentRepository, times(2)).save(any());
+    }
+
+    @Test
+    void activationCanReturnToWorkspaceScopeAndReenableWithoutDuplicating() {
+        ActionProcessorDefinition definition = activationDefinition("workspace-scope");
+        ActionProcessorAssignment workspace = activationAssignment(definition, null, false);
+        ActionProcessorAssignment project = activationAssignment(definition, "a", true);
+        when(assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(WORKSPACE_ID)).thenReturn(List.of(workspace, project));
+        when(assignmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var result = service.updateActivation(WORKSPACE_ID, definition.getId(),
+                new ActionDto.ActivationRequest(ActionDto.ActivationScope.WORKSPACE, List.of(), true), OWNER_ID);
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().projectId()).isNull();
+        assertThat(result.getFirst().enabled()).isTrue();
+        verify(assignmentRepository).deleteAll(List.of(project));
+        verify(assignmentRepository).save(workspace);
+    }
+
+    @Test
+    void activationValidatesCompleteScopeBeforeMutating() {
+        ActionProcessorDefinition definition = activationDefinition("invalid-project");
+        when(projectRepository.findByIdAndLibraryWorkspaceId("outside", WORKSPACE_ID)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.updateActivation(WORKSPACE_ID, definition.getId(),
+                new ActionDto.ActivationRequest(ActionDto.ActivationScope.PROJECTS, List.of("outside"), true), OWNER_ID))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.updateActivation(WORKSPACE_ID, definition.getId(),
+                new ActionDto.ActivationRequest(ActionDto.ActivationScope.PROJECTS, List.of(), true), OWNER_ID))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.updateActivation(WORKSPACE_ID, definition.getId(),
+                new ActionDto.ActivationRequest(ActionDto.ActivationScope.WORKSPACE, List.of("a"), true), OWNER_ID))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(assignmentRepository, never()).deleteAll(anyList());
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void datasetActionsRejectProjectScope() {
+        ActionProcessorDefinition definition = activationDefinition("dataset-scope");
+        when(projectRepository.findByIdAndLibraryWorkspaceId("a", WORKSPACE_ID))
+                .thenReturn(Optional.of(project("a", WORKSPACE_ID, "A")));
+        for (var kind : List.of(ActionProcessorDefinition.ActionKind.TRAINING, ActionProcessorDefinition.ActionKind.EVALUATION)) {
+            definition.setActionKind(kind);
+            assertThatThrownBy(() -> service.updateActivation(WORKSPACE_ID, definition.getId(),
+                    new ActionDto.ActivationRequest(ActionDto.ActivationScope.PROJECTS, List.of("a"), true), OWNER_ID))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void activationRequiresPermissionAndAvailability() {
+        ActionProcessorDefinition definition = activationDefinition("permission");
+        definition.setGlobalAvailable(false);
+        assertThatThrownBy(() -> service.updateActivation(WORKSPACE_ID, definition.getId(),
+                new ActionDto.ActivationRequest(ActionDto.ActivationScope.WORKSPACE, List.of(), true), OWNER_ID))
+                .isInstanceOf(SecurityException.class);
+        doThrow(new SecurityException("Forbidden")).when(workspaceAccessService)
+                .requireManageProjectsAccess(WORKSPACE_ID, OWNER_ID);
+        assertThatThrownBy(() -> service.updateActivation(WORKSPACE_ID, definition.getId(),
+                new ActionDto.ActivationRequest(ActionDto.ActivationScope.WORKSPACE, List.of(), true), OWNER_ID))
+                .isInstanceOf(SecurityException.class);
+        verify(assignmentRepository, never()).save(any());
+    }
+
+    @Test
+    void failedActivationSaveRollsBackTransaction() {
+        ActionProcessorDefinition definition = activationDefinition("rollback");
+        when(assignmentRepository.save(any())).thenThrow(new IllegalStateException("Database failed"));
+        PlatformTransactionManager manager = mock(PlatformTransactionManager.class);
+        TransactionStatus status = mock(TransactionStatus.class);
+        when(manager.getTransaction(any())).thenReturn(status);
+        var interceptor = new org.springframework.transaction.interceptor.TransactionInterceptor();
+        interceptor.setTransactionManager(manager);
+        interceptor.setTransactionAttributeSource(new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource());
+        var factory = new org.springframework.aop.framework.ProxyFactory(service);
+        factory.setProxyTargetClass(true);
+        factory.addAdvice(interceptor);
+        ActionRunService transactional = (ActionRunService) factory.getProxy();
+        assertThatThrownBy(() -> transactional.updateActivation(WORKSPACE_ID, definition.getId(),
+                new ActionDto.ActivationRequest(ActionDto.ActivationScope.WORKSPACE, List.of(), true), OWNER_ID))
+                .isInstanceOf(IllegalStateException.class);
+        verify(manager).rollback(status);
+        verify(manager, never()).commit(any());
+    }
+
+    private ActionProcessorDefinition activationDefinition(String key) {
+        ActionProcessorDefinition definition = definition(key);
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        definition.setActionKind(ActionProcessorDefinition.ActionKind.PROCESSING);
+        when(definitionRepository.findByIdForUpdate(definition.getId())).thenReturn(Optional.of(definition));
+        return definition;
+    }
+
+    private ActionProcessorAssignment activationAssignment(ActionProcessorDefinition definition, String projectId, boolean enabled) {
+        ActionProcessorAssignment assignment = new ActionProcessorAssignment();
+        assignment.setId(projectId == null ? "workspace" : projectId);
+        assignment.setWorkspaceId(WORKSPACE_ID);
+        assignment.setProcessorDefinition(definition);
+        assignment.setProjectId(projectId);
+        assignment.setEnabled(enabled);
+        return assignment;
+    }
+
     private ActionProcessorDefinition definition(String processorKey) {
         ActionProcessorDefinition definition = new ActionProcessorDefinition();
         definition.setId(processorKey + "-id");
