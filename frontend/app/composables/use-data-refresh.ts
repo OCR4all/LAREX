@@ -46,6 +46,14 @@ export function useDataRefresh() {
     ])
   }
 
+  async function refreshLabelSets(workspaceId: string | null | undefined, labelSetId?: string): Promise<void> {
+    if (!workspaceId) return
+    await refreshKeys([
+      wsKey(workspaceId, 'label-sets', 'list'),
+      labelSetId ? wsKey(workspaceId, 'label-sets', labelSetId) : null
+    ])
+  }
+
   async function refreshUserInvitations(): Promise<void> {
     await refreshKeys([
       globalKey('user', 'invitations', 'list')
@@ -100,6 +108,7 @@ export function useDataRefresh() {
     refreshWorkspaceMembership,
     refreshWorkspaceDetails,
     refreshWorkspaceTransfers,
+    refreshLabelSets,
     refreshUserInvitations,
     refreshUserTransfers,
     refreshAdminQuotas,

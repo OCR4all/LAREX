@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
+import de.uniwue.zpd.dachs.larex.backend.exception.LabelSetNameConflictException;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.label.LabelSetDefinitionValidator;
 import de.uniwue.zpd.dachs.larex.backend.service.label.LabelSetService;
@@ -42,6 +43,22 @@ class LabelSetServiceTest {
     private final LabelSetDefinitionValidator validator = new LabelSetDefinitionValidator(
             Validation.buildDefaultValidatorFactory().getValidator()
     );
+
+    @Test
+    void createLabelSet_reportsNameConflict() throws Exception {
+        LabelSetService service = new LabelSetService(labelSetRepository, workspaceAccessService,
+                objectMapper, validator, authorizationPolicyService);
+        when(labelSetRepository.existsByNameAndWorkspaceId("Shared Labels", WORKSPACE_ID)).thenReturn(true);
+
+        JsonNode request = objectMapper.readTree("""
+                {"meta":{"name":"Shared Labels","description":"","tags":[]},"labels":[]}
+                """);
+
+        LabelSetNameConflictException error = assertThrows(LabelSetNameConflictException.class,
+                () -> service.createLabelSet(USER_ID, WORKSPACE_ID, request));
+        assertEquals("A label set named 'Shared Labels' already exists in the selected workspace. Choose another name.",
+                error.getMessage());
+    }
 
     @Test
     void createLabelSet_normalizesLegacyCustomRegionPayload() throws Exception {

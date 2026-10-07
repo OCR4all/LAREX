@@ -16,6 +16,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.workspace.PersonalWorkspaceR
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.TeamWorkspaceRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
+import de.uniwue.zpd.dachs.larex.backend.exception.LabelSetNameConflictException;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.PersonalWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
 import java.util.ArrayList;
@@ -26,6 +27,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.CacheEvict;
+import tools.jackson.databind.node.ObjectNode;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -78,10 +81,19 @@ public class ResourceTransferService {
         this.authorizationPolicyService = authorizationPolicyService;
     }
 
+    @CacheEvict(value = "labelSets", allEntries = true)
     public Optional<ResourceTransferRequest> requestTransfer(
             String resourceId, ResourceTransferRequest.ResourceType resourceType,
             String targetWorkspaceId, String requestedByUserId, String message,
             ResourceTransferRequest.TransferType transferType) {
+        return requestTransfer(resourceId, resourceType, targetWorkspaceId, requestedByUserId, message, transferType, null);
+    }
+
+    @CacheEvict(value = "labelSets", allEntries = true)
+    public Optional<ResourceTransferRequest> requestTransfer(
+            String resourceId, ResourceTransferRequest.ResourceType resourceType,
+            String targetWorkspaceId, String requestedByUserId, String message,
+            ResourceTransferRequest.TransferType transferType, String targetName) {
 
         String sourceWorkspaceId = getSourceWorkspaceId(resourceId, resourceType);
         if (sourceWorkspaceId == null || sourceWorkspaceId.equals(targetWorkspaceId)) {
@@ -101,12 +113,24 @@ public class ResourceTransferService {
             return Optional.empty();
         }
 
+        String resolvedName = null;
+        if (resourceType == ResourceTransferRequest.ResourceType.LABEL_SET) {
+            resolvedName = targetName == null ? null : targetName.trim();
+            if (resolvedName != null && resolvedName.isEmpty()) {
+                throw new IllegalArgumentException("Target label set name is required");
+            }
+            String nameToCheck = resolvedName;
+            labelSetRepository.findById(resourceId).ifPresent(labelSet ->
+                    requireLabelSetNameAvailable(labelSet, targetWorkspaceId, transferType, nameToCheck));
+        }
+
         boolean canAutoApprove = isUserAdministratorInWorkspace(targetWorkspaceId, requestedByUserId);
 
         ResourceTransferRequest request = new ResourceTransferRequest(
                 resourceId, resourceType, sourceWorkspaceId, targetWorkspaceId,
                 requestedByUserId, message, transferType
         );
+        request.setTargetName(resolvedName);
 
         if (canAutoApprove) {
             request.setStatus(ResourceTransferRequest.Status.APPROVED);
@@ -120,11 +144,41 @@ public class ResourceTransferService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public boolean isLabelSetNameAvailable(String resourceId, String targetWorkspaceId, String name, String userId) {
+        if (resourceId == null || resourceId.isBlank() || targetWorkspaceId == null || targetWorkspaceId.isBlank()
+                || name == null || name.isBlank() || name.trim().length() > 255) {
+            return false;
+        }
+        Optional<LabelSet> labelSet = labelSetRepository.findById(resourceId);
+        if (labelSet.isEmpty()) return false;
+        String sourceWorkspaceId = labelSet.get().getWorkspaceId();
+        if (!isUserAdministratorInWorkspace(sourceWorkspaceId, userId)
+                && !isUserAdministratorInWorkspace(targetWorkspaceId, userId)) {
+            throw new SecurityException("Access denied to label set transfer");
+        }
+        return !sourceWorkspaceId.equals(targetWorkspaceId)
+                && workspaceQueryService.findWorkspaceById(targetWorkspaceId).isPresent()
+                && !labelSetRepository.existsByNameAndWorkspaceId(name.trim(), targetWorkspaceId);
+    }
+
+    @CacheEvict(value = "labelSets", allEntries = true)
     public boolean approveTransferRequest(String requestId, String approvingUserId) {
+        return approveTransferRequest(requestId, approvingUserId, null);
+    }
+
+    @CacheEvict(value = "labelSets", allEntries = true)
+    public boolean approveTransferRequest(String requestId, String approvingUserId, String targetName) {
         return transferRequestRepository.findById(requestId)
                 .filter(r -> r.getStatus() == ResourceTransferRequest.Status.PENDING)
                 .filter(r -> isUserAdministratorInWorkspace(r.getTargetWorkspaceId(), approvingUserId))
                 .map(request -> {
+                    if (targetName != null) {
+                        if (request.getResourceType() != ResourceTransferRequest.ResourceType.LABEL_SET || targetName.isBlank()) {
+                            throw new IllegalArgumentException("Target label set name is required");
+                        }
+                        request.setTargetName(targetName.trim());
+                    }
                     request.setStatus(ResourceTransferRequest.Status.APPROVED);
                     request.setApprovedByUserId(approvingUserId);
                     transferRequestRepository.save(request);
@@ -232,6 +286,7 @@ public class ResourceTransferService {
                     workspaceNames.getOrDefault(request.getSourceWorkspaceId(), "Unknown"),
                     request.getTargetWorkspaceId(),
                     workspaceNames.getOrDefault(request.getTargetWorkspaceId(), "Unknown"),
+                    request.getTargetName(),
                     request.getRequestedByUserId(),
                     request.getApprovedByUserId(),
                     request.getStatus(),
@@ -347,20 +402,36 @@ public class ResourceTransferService {
 
     private void executeLabelSetTransfer(ResourceTransferRequest request) {
         labelSetRepository.findById(request.getResourceId()).ifPresent(labelSet -> {
+            String targetName = requireLabelSetNameAvailable(labelSet, request.getTargetWorkspaceId(),
+                    request.getTransferType(), request.getTargetName());
+            ObjectNode definition = (ObjectNode) labelSet.getDefinition().deepCopy();
+            ((ObjectNode) definition.get("meta")).put("name", targetName);
             if (request.getTransferType() == ResourceTransferRequest.TransferType.COPY) {
                 LabelSet newLabelSet = new LabelSet(
                         request.getTargetWorkspaceId(),
-                        labelSet.getName() + " (Copy)",
+                        targetName,
                         labelSet.getDescription(),
-                        labelSet.getDefinition()
+                        definition
                 );
                 newLabelSet.setTags(new ArrayList<>(labelSet.getTags()));
                 labelSetRepository.save(newLabelSet);
             } else {
+                labelSet.setName(targetName);
+                labelSet.setDefinition(definition);
                 labelSet.setWorkspaceId(request.getTargetWorkspaceId());
                 labelSetRepository.save(labelSet);
             }
         });
+    }
+
+    private String requireLabelSetNameAvailable(LabelSet labelSet, String targetWorkspaceId,
+                                               ResourceTransferRequest.TransferType transferType, String requestedName) {
+        String name = requestedName != null ? requestedName
+                : labelSet.getName() + (transferType == ResourceTransferRequest.TransferType.COPY ? " (Copy)" : "");
+        if (labelSetRepository.existsByNameAndWorkspaceId(name, targetWorkspaceId)) {
+            throw new LabelSetNameConflictException(name);
+        }
+        return name;
     }
 
     private void executeTagSetTransfer(ResourceTransferRequest request) {

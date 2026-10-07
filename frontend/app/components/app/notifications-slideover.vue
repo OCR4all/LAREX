@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { Notification, NotificationGroup, WorkspaceInvitation } from '~/types'
 import { ROLE_LABELS } from '~/types'
-import { LazyProjectModalTransferConflict } from '#components'
-import { extractApiErrorMessage, isProjectNameConflictError } from '@/utils/api-error'
+import { LazyLabelModalTransferConflict, LazyProjectModalTransferConflict } from '#components'
+import { extractApiErrorMessage, isLabelSetNameConflictError, isProjectNameConflictError } from '@/utils/api-error'
 
 const { isNotificationsSlideoverOpen } = useDashboard()
 const toast = useToast()
@@ -12,6 +12,7 @@ const {
   refreshWorkspaceList,
   refreshWorkspaceMembership,
   refreshWorkspaceTransfers,
+  refreshLabelSets,
   refreshUserInvitations,
   refreshUserTransfers
 } = useDataRefresh()
@@ -35,6 +36,10 @@ type TransferRequest = {
   id: string
   projectId?: string
   projectName?: string
+  resourceId?: string
+  resourceName?: string
+  resourceType?: string
+  targetName?: string
   transferType?: 'MOVE' | 'COPY'
   targetWorkspaceName?: string
   sourceWorkspaceId: string
@@ -42,6 +47,7 @@ type TransferRequest = {
 }
 
 const transferConflictModal = overlay.create(LazyProjectModalTransferConflict)
+const labelConflictModal = overlay.create(LazyLabelModalTransferConflict)
 
 const hasUnread = computed(() => groupedNotifications.value.some(g => g.items.some(n => !n.read)))
 
@@ -137,25 +143,43 @@ async function refreshTransferCaches(transfer: TransferRequest) {
   await Promise.all([
     refreshWorkspaceTransfers(transfer.targetWorkspaceId),
     refreshWorkspaceTransfers(transfer.sourceWorkspaceId),
-    refreshUserTransfers()
+    refreshUserTransfers(),
+    ...(transfer.resourceType === 'LABEL_SET'
+      ? [refreshLabelSets(transfer.sourceWorkspaceId, transfer.resourceId), refreshLabelSets(transfer.targetWorkspaceId)]
+      : [])
   ])
 }
 
 async function approveTransfer(transfer: TransferRequest) {
   const endpoint = transfer.projectId ? `/api/project-transfers/${transfer.id}/approve` : `/api/resource-transfers/${transfer.id}/approve`
   let projectName: string | undefined
+  let targetName: string | undefined
 
   while (true) {
     try {
       await $fetch(endpoint, {
         method: 'POST',
-        ...(projectName ? { body: { projectName } } : {})
+        ...(projectName || targetName ? { body: { ...(projectName ? { projectName } : {}), ...(targetName ? { targetName } : {}) } } : {})
       })
       toast.add({ title: 'Transfer approved', color: 'success' })
       await refreshTransferCaches(transfer)
       await refresh()
       return
     } catch (error: unknown) {
+      if (transfer.resourceType === 'LABEL_SET' && isLabelSetNameConflictError(error)) {
+        const name = targetName || transfer.targetName || (transfer.transferType === 'COPY'
+          ? `${transfer.resourceName || 'Label set'} (Copy)`
+          : transfer.resourceName || 'Label set')
+        const renamed = await labelConflictModal.open({
+          name,
+          workspaceName: transfer.targetWorkspaceName || 'the target workspace',
+          resourceId: transfer.resourceId!,
+          targetWorkspaceId: transfer.targetWorkspaceId
+        }).result
+        if (!renamed) return
+        targetName = renamed
+        continue
+      }
       if (!transfer.projectId || !isProjectNameConflictError(error)) {
         toast.add({ title: 'Failed to approve', description: extractApiErrorMessage(error, 'Could not approve the transfer.'), color: 'error' })
         return

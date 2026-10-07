@@ -4,8 +4,10 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.LabelSetDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
+import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.VirtualKeyboard;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryEntryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
@@ -38,10 +40,12 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -155,6 +159,35 @@ class ToolkitPackageServiceTest {
         assertEquals(1, result.resources().size());
         assertEquals("IMPORTED", result.resources().getFirst().action());
         assertEquals("codec-1", result.resources().getFirst().targetId());
+    }
+
+    @Test
+    void labelSetPackageOmitsSystemFlagAndAcceptsOlderExports() throws Exception {
+        LabelSet labelSet = new LabelSet("source", "Shared Labels", "", objectMapper.readTree("""
+                {"meta":{"name":"Shared Labels","description":"","isSystem":true},"labels":[]}
+                """));
+        labelSet.setId("label-source");
+        labelSet.setSystem(true);
+        when(labelSetRepository.findByWorkspaceId("source")).thenReturn(List.of(labelSet));
+
+        ToolkitPackageDto.ToolkitResource exported = service.buildToolkitPackage("source",
+                new ToolkitPackageDto.ExportRequest(List.of(
+                        new ToolkitPackageDto.ResourceSelector(ToolkitPackageDto.ToolkitType.LABEL_SET, List.of("label-source"))
+                ), false)).resources().getFirst();
+        assertFalse(exported.payload().path("meta").has("isSystem"));
+
+        LabelSetDto.Meta importedMeta = new LabelSetDto.Meta("Shared Labels", "", List.of(), false);
+        when(labelSetRepository.findByNameAndWorkspaceId("Shared Labels", "target")).thenReturn(Optional.empty());
+        when(labelSetService.createLabelSet(eq("user"), eq("target"), any())).thenReturn(
+                new LabelSetDto.Response("label-target", importedMeta, List.of(), null, null, null));
+
+        service.importToolkitPackage("target", "user", new ToolkitPackageDto.ToolkitPackage(null,
+                List.of(new ToolkitPackageDto.ToolkitResource(ToolkitPackageDto.ToolkitType.LABEL_SET,
+                        "label-source", "Shared Labels", null, null, labelSet.getDefinition()))), Map.of());
+
+        var payload = forClass(tools.jackson.databind.JsonNode.class);
+        verify(labelSetService).createLabelSet(eq("user"), eq("target"), payload.capture());
+        assertFalse(payload.getValue().path("meta").has("isSystem"));
     }
 
     @Test

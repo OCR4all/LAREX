@@ -9,6 +9,8 @@ import java.time.LocalDateTime;
 
 public class ResourceTransferDto {
 
+    public record NameAvailabilityResponse(boolean available) {}
+
     public record CreateRequest(
             @NotBlank(message = "Resource ID is required")
             String resourceId,
@@ -22,7 +24,10 @@ public class ResourceTransferDto {
             @Size(max = 500, message = "Message cannot exceed 500 characters")
             String message,
             
-            ResourceTransferRequest.TransferType transferType
+            ResourceTransferRequest.TransferType transferType,
+
+            @Size(max = 255, message = "Target name cannot exceed 255 characters")
+            String targetName
     ) {}
 
     public record Response(
@@ -34,6 +39,7 @@ public class ResourceTransferDto {
             String sourceWorkspaceName,
             String targetWorkspaceId,
             String targetWorkspaceName,
+            String targetName,
             String requestedByUserId,
             String approvedByUserId,
             ResourceTransferRequest.Status status,
@@ -46,6 +52,8 @@ public class ResourceTransferDto {
 
     public record ApprovalRequest(
             @Size(max = 500, message = "Rejection reason cannot exceed 500 characters")
-            String rejectionReason
+            String rejectionReason,
+            @Size(max = 255, message = "Target name cannot exceed 255 characters")
+            String targetName
     ) {}
 }

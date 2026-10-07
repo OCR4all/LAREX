@@ -20,7 +20,7 @@ import { getEditorSession, useEditorSession, usePageVisibilityState } from '@/se
 import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
 import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import { useEditorCanvasInteractionBlocker } from '@/composables/editor/use-canvas-interaction-blocker'
-import { CreateRelationCommand, UpdateRelationCommand } from '@/commands'
+import { CreateRelationCommand, UpdateRelationCommand, UpdateRegionCommentCommand } from '@/commands'
 import { PolygonType, type RegionKind, type Relation, type TextContentVariantData } from '@/models/editor'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import type { ActionProcessingRenderTarget, CommentOverlayLabel, ElementOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
@@ -52,6 +52,7 @@ import { tokenizeForDictionary } from '@/components/editor/text/shared/text-high
 import { createPolygonElementLabel, createPolylineElementLabel } from '@/utils/editor/element-labels'
 import { isTypingTarget } from '@/utils/editor/keyboard-shortcut-target'
 import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
+import { findRegionRecursive } from '@/utils/editor/pcgts-editor-primitives'
 
 const CommentsLabelsOverlay = LazyEditorCommentsLabelsOverlay
 const ElementLabelsOverlay = LazyEditorElementLabelsOverlay
@@ -590,6 +591,62 @@ canvasControls.addHoveredElementToReadingOrder = () => {
   return editorCommands.addPolygonToReadingOrder(polygon.id)
 }
 const contextMenuOpen = ref(false)
+const regionCommentOpen = ref(false)
+const regionCommentId = ref<string | null>(null)
+const regionCommentDraft = ref('')
+const regionCommentReference = ref<{ getBoundingClientRect: () => DOMRect } | null>(null)
+
+function closeRegionComment(): void {
+  regionCommentOpen.value = false
+  regionCommentId.value = null
+  regionCommentDraft.value = ''
+}
+
+async function openRegionComment(): Promise<void> {
+  const target = editorCommands.contextMenuTarget.value
+  const region = isCanvasWritable.value && target?.type === 'polygon' && target.element?.type === PolygonType.REGION
+    ? findRegionRecursive(session.document.value?.page.regions ?? [], target.element.id)?.region
+    : null
+  if (!region) {
+    editorCommands.closeContextMenu()
+    contextMenuOpen.value = false
+    return
+  }
+
+  const x = editorCommands.contextMenuX.value
+  const y = editorCommands.contextMenuY.value
+  regionCommentId.value = region.id
+  regionCommentDraft.value = region.comments ?? ''
+  regionCommentReference.value = { getBoundingClientRect: () => new DOMRect(x, y, 0, 0) }
+  editorCommands.closeContextMenu()
+  contextMenuOpen.value = false
+  await nextTick()
+  regionCommentOpen.value = true
+}
+
+function saveRegionComment(): void {
+  const regionId = regionCommentId.value
+  const currentSession = getEditorSession(props.canvasId)
+  if (!regionId || !isCanvasWritable.value || !currentSession?.document.value) {
+    closeRegionComment()
+    return
+  }
+
+  const region = findRegionRecursive(currentSession.document.value.page.regions, regionId)?.region
+  if (!region) {
+    closeRegionComment()
+    return
+  }
+
+  const comment = regionCommentDraft.value.trim() || undefined
+  if (comment !== region.comments) {
+    canvasControls.commander.execute(
+      new UpdateRegionCommentCommand(regionId, comment),
+      { canvasId: props.canvasId, session: currentSession }
+    )
+  }
+  closeRegionComment()
+}
 
 type UiContextMenuItem = {
   label?: string
@@ -608,7 +665,12 @@ const mapContextMenuItems = (items: EditorContextMenuItem[] = []): UiContextMenu
     color: item.danger ? 'error' : undefined,
     disabled: item.disabled,
     dotColor: item.color,
-    onSelect: async () => {
+    onSelect: async (event: Event) => {
+      if (item.id === 'edit-region-comment') {
+        event.preventDefault()
+        await openRegionComment()
+        return
+      }
       await editorCommands.handleContextMenuSelect(item)
       editorCommands.closeContextMenu()
       contextMenuOpen.value = false
@@ -619,7 +681,12 @@ const mapContextMenuItems = (items: EditorContextMenuItem[] = []): UiContextMenu
 
 const contextMenuItems = computed(() => mapContextMenuItems(editorCommands.contextMenuItems.value || []))
 
+function handleContextMenuCloseAutoFocus(event: Event): void {
+  if (regionCommentId.value) event.preventDefault()
+}
+
 function handleEditorCanvasContextMenu(event: MouseEvent): void {
+  closeRegionComment()
   const createdRegionId = pendingCreatedRegionTypeMenuId.value
   pendingCreatedRegionTypeMenuId.value = null
 
@@ -646,6 +713,10 @@ watch(contextMenuOpen, (open) => {
   if (!open) {
     editorCommands.closeContextMenu()
   }
+})
+
+watch(isCanvasWritable, (writable) => {
+  if (!writable) closeRegionComment()
 })
 
 const bufferSlideoverRef = ref<{ previewPoints: { x: number, y: number }[] | null } | null>(null)
@@ -1573,6 +1644,13 @@ function handleEditorMouseLeave() {
 
 function handleEditorKeyDown(event: KeyboardEvent) {
   if (isCanvasInteractionBlocked.value) return
+  if (regionCommentOpen.value) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeRegionComment()
+    }
+    return
+  }
 
   if (
     event.key === 'Alt'
@@ -3433,6 +3511,7 @@ watch(() => props.src, (newSrc) => {
       <UContextMenu
         v-model:open="contextMenuOpen"
         :items="contextMenuItems"
+        :content="{ onCloseAutoFocus: handleContextMenuCloseAutoFocus }"
         :ui="{ content: 'min-w-48' }"
       >
         <template #default>
@@ -3459,6 +3538,48 @@ watch(() => props.src, (newSrc) => {
           </div>
         </template>
       </UContextMenu>
+
+      <UPopover
+        :open="regionCommentOpen"
+        :reference="regionCommentReference ?? undefined"
+        :content="{ side: 'right', align: 'start', sideOffset: 8 }"
+        @update:open="(open: boolean) => { if (!open) closeRegionComment() }"
+      >
+        <template #content>
+          <div class="w-80 max-w-[calc(100vw-2rem)] space-y-3 p-3">
+            <label for="region-comment-input" class="block text-sm font-medium text-highlighted">Region comment</label>
+            <UTextarea
+              id="region-comment-input"
+              v-model="regionCommentDraft"
+              autofocus
+              autoresize
+              :rows="4"
+              placeholder="Enter comment..."
+              :disabled="!isCanvasWritable"
+            />
+            <div class="flex justify-end gap-2">
+              <UButton
+                type="button"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                @click="closeRegionComment"
+              >
+                Cancel
+              </UButton>
+              <UButton
+                type="button"
+                color="primary"
+                size="sm"
+                :disabled="!isCanvasWritable"
+                @click="saveRegionComment"
+              >
+                Save
+              </UButton>
+            </div>
+          </div>
+        </template>
+      </UPopover>
 
       <div
         v-if="isCanvasInteractionBlocked"

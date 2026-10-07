@@ -680,6 +680,11 @@ export function useEditorCommand(
         icon: 'i-lucide-replace',
         submenu: regionTypeSubmenu
       })
+      menuItems.push({
+        id: 'edit-region-comment',
+        label: polygon.comments?.trim() ? 'Edit comment' : 'Add comment',
+        icon: 'i-lucide-message-square'
+      })
     }
 
     const session = getEditorSession(canvasId)

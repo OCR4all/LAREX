@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { z } from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
-import { LazyProjectModalTransferConflict } from '#components'
+import { LazyLabelModalTransferConflict, LazyProjectModalTransferConflict } from '#components'
 import type { TransferableResourceType } from '@/types/capabilities'
 import { extractApiErrorMessage, isProjectNameConflictError } from '@/utils/api-error'
+import { defaultLabelSetTransferName, requestLabelSetTransfer, type LabelSetNameStatus } from '@/utils/label-set-transfer'
 
 interface Workspace {
   id: string
@@ -22,7 +23,7 @@ const emit = defineEmits<{ close: [transferred: boolean], transferred: [] }>()
 
 const toast = useToast()
 const overlay = useOverlay()
-const { refreshUserTransfers, refreshWorkspaceTransfers } = useDataRefresh()
+const { refreshUserTransfers, refreshWorkspaceTransfers, refreshLabelSets } = useDataRefresh()
 
 const { data: workspaces } = await useFetch<Workspace[]>('/api/workspaces', {
   key: globalKey('workspaces', 'list'),
@@ -49,6 +50,7 @@ const state = ref<Schema>({
 
 const isSubmitting = ref(false)
 const formId = useId()
+const labelSetNameStatus = ref<LabelSetNameStatus>(null)
 
 const selectedResources = computed(() => {
   if (props.resources?.length) {
@@ -73,6 +75,39 @@ const endpoint = computed(() =>
 )
 
 const transferConflictModal = overlay.create(LazyProjectModalTransferConflict)
+const labelConflictModal = overlay.create(LazyLabelModalTransferConflict)
+
+watch(
+  () => [props.resourceType, selectedResources.value[0]?.id, selectedResources.value[0]?.name, state.value.targetWorkspaceId, state.value.transferType] as const,
+  ([resourceType, resourceId, resourceName, targetWorkspaceId, transferType], _, onCleanup) => {
+    if (resourceType !== 'LABEL_SET' || !resourceId || !resourceName || !targetWorkspaceId) {
+      labelSetNameStatus.value = null
+      return
+    }
+
+    labelSetNameStatus.value = 'checking'
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        const result = await $fetch<{ available: boolean }>('/api/resource-transfers/label-set-name-availability', {
+          query: {
+            resourceId,
+            targetWorkspaceId,
+            name: defaultLabelSetTransferName(resourceName, transferType)
+          }
+        })
+        if (!cancelled) labelSetNameStatus.value = result.available ? 'available' : 'taken'
+      } catch {
+        if (!cancelled) labelSetNameStatus.value = 'unavailable'
+      }
+    }, 350)
+    onCleanup(() => {
+      cancelled = true
+      clearTimeout(timer)
+    })
+  },
+  { immediate: true }
+)
 
 function defaultProjectName(resourceName: string, transferType: 'MOVE' | 'COPY'): string {
   return transferType === 'COPY' ? `${resourceName} (Copy)` : resourceName
@@ -180,6 +215,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         event.data.message
       )
       if (!transferred) return
+      toast.add({ title: event.data.transferType === 'MOVE' ? 'Transfer requested' : 'Copy requested', color: 'success', icon: 'i-lucide-check' })
     } else {
       const body = {
         resourceId: resource.id,
@@ -189,14 +225,46 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         message: event.data.message
       }
 
-      await $fetch(endpoint.value, { method: 'POST', body })
+      const workspaceName = availableWorkspaces.value.find(w => w.id === event.data.targetWorkspaceId)?.name || 'the target workspace'
+      let result: { status: string } | null
+      if (props.resourceType === 'LABEL_SET') {
+        result = await requestLabelSetTransfer({
+          name: defaultLabelSetTransferName(resource.name, event.data.transferType),
+          nameStatus: labelSetNameStatus.value,
+          request: targetName => $fetch<{ status: string }>(endpoint.value, {
+            method: 'POST',
+            body: { ...body, ...(targetName ? { targetName } : {}) }
+          }),
+          chooseName: suggestedName => labelConflictModal.open({
+            name: suggestedName,
+            workspaceName,
+            resourceId: resource.id,
+            targetWorkspaceId: event.data.targetWorkspaceId
+          }).result
+        })
+      } else {
+        result = await $fetch<{ status: string }>(endpoint.value, { method: 'POST', body })
+      }
+      if (!result) return
+      if (props.resourceType === 'LABEL_SET' && result.status === 'COMPLETED') {
+        await Promise.all([
+          refreshLabelSets(props.currentWorkspaceId, resource.id),
+          refreshLabelSets(event.data.targetWorkspaceId)
+        ])
+      }
+      toast.add({
+        title: result.status === 'COMPLETED'
+          ? `${props.resourceType === 'LABEL_SET' ? 'Label set' : 'Resource'} ${event.data.transferType === 'MOVE' ? 'moved' : 'copied'}`
+          : event.data.transferType === 'MOVE' ? 'Move requested' : 'Copy requested',
+        color: 'success',
+        icon: 'i-lucide-check'
+      })
     }
     await Promise.all([
       refreshUserTransfers(),
       refreshWorkspaceTransfers(props.currentWorkspaceId),
       refreshWorkspaceTransfers(event.data.targetWorkspaceId)
     ])
-    toast.add({ title: event.data.transferType === 'MOVE' ? 'Transfer Requested' : 'Copy Requested', color: 'success', icon: 'i-lucide-check' })
     emit('transferred')
     emit('close', true)
   } catch (error: unknown) {
@@ -220,7 +288,7 @@ const transferTypeOptions = [
       <UiSlideoverHeader
         :title="shareTitle"
         icon="i-lucide-share-2"
-        :description="isBatchProjectShare ? 'Request a move or copy for all selected projects.' : 'Request a move or copy to another workspace.'"
+        :description="isBatchProjectShare ? 'Move or copy all selected projects.' : 'Move or copy to another workspace.'"
       />
     </template>
 
@@ -233,7 +301,7 @@ const transferTypeOptions = [
         @submit="onSubmit"
       >
         <UiSlideoverSection
-          title="Transfer Request"
+          title="Transfer"
           description="Choose the destination, transfer mode, and optional context."
           icon="i-lucide-arrow-right-left"
         >
@@ -266,7 +334,15 @@ const transferTypeOptions = [
               icon="i-lucide-info"
               color="info"
               variant="subtle"
-              :title="isBatchProjectShare ? 'Move will lock the projects until approved' : 'Move will lock the resource until approved'"
+              title="Moves may require approval in the target workspace"
+            />
+            <UAlert
+              v-if="labelSetNameStatus === 'taken'"
+              icon="i-lucide-info"
+              color="warning"
+              variant="subtle"
+              title="This label set name is taken in the target workspace"
+              description="You can choose a new name when you continue."
             />
           </div>
         </UiSlideoverSection>
@@ -289,7 +365,7 @@ const transferTypeOptions = [
         :loading="isSubmitting"
         :disabled="!state.targetWorkspaceId || selectedResources.length === 0"
       >
-        {{ state.transferType === 'MOVE' ? 'Request Move' : 'Request Copy' }}
+        {{ state.transferType === 'MOVE' ? 'Move' : 'Copy' }}
       </UButton>
     </template>
   </UiResponsiveSlideover>

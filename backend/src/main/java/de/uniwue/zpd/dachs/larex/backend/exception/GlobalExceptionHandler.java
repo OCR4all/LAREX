@@ -215,7 +215,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorResponse);
     }
 
-        @ExceptionHandler(ProjectNameConflictException.class)
+    @ExceptionHandler(ProjectNameConflictException.class)
     public ResponseEntity<ErrorResponseDto> handleProjectNameConflictException(
             ProjectNameConflictException ex, HttpServletRequest request) {
 
@@ -228,6 +228,14 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
+    @ExceptionHandler(LabelSetNameConflictException.class)
+    public ResponseEntity<ErrorResponseDto> handleLabelSetNameConflictException(
+            LabelSetNameConflictException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDto(
+                HttpStatus.CONFLICT.value(), "Label Set Name Conflict", ex.getMessage(),
+                request.getRequestURI(), "LABEL_SET_NAME_CONFLICT"));
     }
 
     /**

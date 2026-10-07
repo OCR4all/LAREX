@@ -1171,7 +1171,6 @@ public class ToolkitPackageService {
                     .forEach(tags::add);
         }
         meta.set("tags", tags);
-        meta.put("isSystem", labelSet.isSystem());
         return node;
     }
 
@@ -1475,7 +1474,9 @@ public class ToolkitPackageService {
         ObjectNode root = ensureObject(sanitized);
 
         ObjectNode node = objectMapper.createObjectNode();
-        node.set("meta", ensureObject(root.path("meta")).deepCopy());
+        ObjectNode meta = ensureObject(root.path("meta")).deepCopy();
+        meta.remove("isSystem");
+        node.set("meta", meta);
 
         if (root.path("labels").isArray()) {
             node.set("labels", root.path("labels").deepCopy());

@@ -34,6 +34,9 @@ public class ResourceTransferRequest {
 
     private String approvedByUserId;
 
+    @Column(length = 255)
+    private String targetName;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Status status = Status.PENDING;
@@ -102,6 +105,8 @@ public class ResourceTransferRequest {
     public void setRequestedByUserId(String requestedByUserId) { this.requestedByUserId = requestedByUserId; }
     public String getApprovedByUserId() { return approvedByUserId; }
     public void setApprovedByUserId(String approvedByUserId) { this.approvedByUserId = approvedByUserId; }
+    public String getTargetName() { return targetName; }
+    public void setTargetName(String targetName) { this.targetName = targetName; }
     public Status getStatus() { return status; }
     public void setStatus(Status status) { this.status = status; }
     public TransferType getTransferType() { return transferType; }

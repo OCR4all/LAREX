@@ -14,6 +14,7 @@ export { UpdatePolylineCommand, type UpdatePolylineCommandData } from './update-
 
 export { UpdateTextContentVariantsCommand, type UpdateTextContentVariantsCommandData } from './update-text-content-variants-command'
 export { UpdateTextlineCommentCommand, type UpdateTextlineCommentCommandData } from './update-textline-comment-command'
+export { UpdateRegionCommentCommand } from './update-region-comment-command'
 
 export { ChangeRegionLabelCommand, type ChangeRegionLabelCommandParams } from './change-region-label-command'
 

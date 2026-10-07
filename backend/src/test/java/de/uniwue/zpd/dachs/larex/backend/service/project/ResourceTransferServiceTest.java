@@ -2,6 +2,8 @@ package de.uniwue.zpd.dachs.larex.backend.service.project;
 
 import tools.jackson.databind.node.JsonNodeFactory;
 import de.uniwue.zpd.dachs.larex.backend.entity.KeyboardItem;
+import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
+import de.uniwue.zpd.dachs.larex.backend.exception.LabelSetNameConflictException;
 import de.uniwue.zpd.dachs.larex.backend.entity.ResourceTransferRequest;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.VirtualKeyboard;
@@ -31,7 +33,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
@@ -245,6 +249,81 @@ class ResourceTransferServiceTest {
         assertEquals(List.of("editorial", "review"), copy.getTags());
         assertEquals(tagSet.getDefinition(), copy.getDefinition());
         assertEquals(sourceWorkspaceId, tagSet.getWorkspaceId());
+    }
+
+    @Test
+    void requestTransfer_labelSetNameConflictIsReportedBeforeRequestIsSaved() {
+        LabelSet labelSet = new LabelSet("ws-source", "Shared Labels", "", JsonNodeFactory.instance.objectNode());
+        labelSet.setId("label-1");
+        when(labelSetRepository.findById("label-1")).thenReturn(Optional.of(labelSet));
+        when(labelSetRepository.existsByNameAndWorkspaceId("Shared Labels (Copy)", "ws-target")).thenReturn(true);
+        when(authorizationPolicyService.canManageToolkit("ws-source", "user-1")).thenReturn(true);
+        when(workspaceQueryService.findWorkspaceById("ws-target")).thenReturn(Optional.of(workspace("ws-target")));
+
+        var error = assertThrows(LabelSetNameConflictException.class, () -> service.requestTransfer(
+                "label-1", ResourceTransferRequest.ResourceType.LABEL_SET, "ws-target", "user-1", null,
+                ResourceTransferRequest.TransferType.COPY));
+
+        assertTrue(error.getMessage().contains("Shared Labels (Copy)"));
+        verify(transferRequestRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void requestTransfer_labelSetCopyUsesChosenNameInDefinition() {
+        LabelSet labelSet = new LabelSet("ws-source", "Shared Labels", "",
+                JsonNodeFactory.instance.objectNode().set("meta", JsonNodeFactory.instance.objectNode().put("name", "Shared Labels")));
+        labelSet.setId("label-1");
+        when(labelSetRepository.findById("label-1")).thenReturn(Optional.of(labelSet));
+        when(authorizationPolicyService.canManageToolkit("ws-source", "user-1")).thenReturn(true);
+        when(authorizationPolicyService.canManageToolkit("ws-target", "user-1")).thenReturn(true);
+        when(workspaceQueryService.findWorkspaceById("ws-target")).thenReturn(Optional.of(workspace("ws-target")));
+        when(transferRequestRepository.save(any(ResourceTransferRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(labelSetRepository.save(any(LabelSet.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = service.requestTransfer("label-1", ResourceTransferRequest.ResourceType.LABEL_SET,
+                "ws-target", "user-1", null, ResourceTransferRequest.TransferType.COPY, "Renamed Labels");
+
+        assertEquals(ResourceTransferRequest.Status.COMPLETED, result.orElseThrow().getStatus());
+        ArgumentCaptor<LabelSet> captor = ArgumentCaptor.forClass(LabelSet.class);
+        verify(labelSetRepository).save(captor.capture());
+        assertEquals("Renamed Labels", captor.getValue().getName());
+        assertEquals("Renamed Labels", captor.getValue().getDefinition().path("meta").path("name").asText());
+        assertEquals("Shared Labels", labelSet.getDefinition().path("meta").path("name").asText());
+    }
+
+    @Test
+    void approveTransfer_labelSetMoveCanUseChosenName() {
+        LabelSet labelSet = new LabelSet("ws-source", "Shared Labels", "",
+                JsonNodeFactory.instance.objectNode().set("meta", JsonNodeFactory.instance.objectNode().put("name", "Shared Labels")));
+        labelSet.setId("label-1");
+        ResourceTransferRequest request = new ResourceTransferRequest("label-1",
+                ResourceTransferRequest.ResourceType.LABEL_SET, "ws-source", "ws-target", "requester", null,
+                ResourceTransferRequest.TransferType.MOVE);
+        request.setId("transfer-1");
+        when(transferRequestRepository.findById("transfer-1")).thenReturn(Optional.of(request));
+        when(authorizationPolicyService.canManageToolkit("ws-target", "approver")).thenReturn(true);
+        when(labelSetRepository.findById("label-1")).thenReturn(Optional.of(labelSet));
+        when(transferRequestRepository.save(any(ResourceTransferRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(labelSetRepository.save(any(LabelSet.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertTrue(service.approveTransferRequest("transfer-1", "approver", "Renamed Labels"));
+        assertEquals(ResourceTransferRequest.Status.COMPLETED, request.getStatus());
+        assertEquals("ws-target", labelSet.getWorkspaceId());
+        assertEquals("Renamed Labels", labelSet.getName());
+        assertEquals("Renamed Labels", labelSet.getDefinition().path("meta").path("name").asText());
+    }
+
+    @Test
+    void labelSetNameAvailabilityChecksTargetWorkspace() {
+        LabelSet labelSet = new LabelSet("ws-source", "Shared Labels", "", JsonNodeFactory.instance.objectNode());
+        labelSet.setId("label-1");
+        when(labelSetRepository.findById("label-1")).thenReturn(Optional.of(labelSet));
+        when(authorizationPolicyService.canManageToolkit("ws-source", "user-1")).thenReturn(true);
+        when(workspaceQueryService.findWorkspaceById("ws-target")).thenReturn(Optional.of(workspace("ws-target")));
+        when(labelSetRepository.existsByNameAndWorkspaceId("Taken", "ws-target")).thenReturn(true);
+
+        assertFalse(service.isLabelSetNameAvailable("label-1", "ws-target", " Taken ", "user-1"));
+        assertTrue(service.isLabelSetNameAvailable("label-1", "ws-target", "Available", "user-1"));
     }
 
     private static VirtualKeyboard keyboard(String id, String workspaceId) {

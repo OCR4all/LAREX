@@ -6,6 +6,7 @@ import { LazyEditorSlideoverUnsavedProgress, LazyLabelBuilderModalImportPreview,
 import { isEditableLabelDefinition, isGroupMeta, normalizeEditableLabel, type BuilderEntry } from '@/composables/use-label-builder'
 import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 import { buildLabelSetImportPreview } from '@/utils/label-set-import-preview'
+import { extractApiErrorDetails, extractApiErrorMessage } from '@/utils/api-error'
 
 const route = useRoute()
 const router = useRouter()
@@ -243,7 +244,7 @@ const handleSave = async (navigateAfterCreate = true): Promise<boolean> => {
     }
     return true
   } catch (e: unknown) {
-    const description = e instanceof Error ? e.message : undefined
+    const description = extractApiErrorMessage(e, 'Could not save the label set.')
     toast.add({ title: 'Error saving label set', description, color: 'error' })
     return false
   } finally {
@@ -439,6 +440,11 @@ async function handleShareLabelSet() {
   const transferred = await instance.result
   if (transferred) {
     await refreshNuxtData(labelSetsKey.value)
+    try {
+      await $fetch(`/api/workspaces/${workspaceId.value}/label-sets/${id}`)
+    } catch (error: unknown) {
+      if (extractApiErrorDetails(error, '').status === 404) await router.push('/labels')
+    }
   }
 }
 

@@ -69,6 +69,10 @@ export function isProjectNameConflictError(error: unknown): boolean {
     && (message.includes('already exists') || message.includes('conflict'))
 }
 
+export function isLabelSetNameConflictError(error: unknown): boolean {
+  return extractApiErrorDetails(error, '').code === 'LABEL_SET_NAME_CONFLICT'
+}
+
 export function extractApiErrorDetails(error: unknown, fallback: string): ApiErrorDetails {
   const errorRecord = isRecord(error) ? error : undefined
   const payload = getApiErrorPayload(errorRecord)

@@ -5,6 +5,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.LabelSetDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
+import de.uniwue.zpd.dachs.larex.backend.exception.LabelSetNameConflictException;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
@@ -56,7 +57,7 @@ public class LabelSetService {
         List<String> tags = request.meta().tags() != null ? request.meta().tags() : new ArrayList<>();
 
         if (labelSetRepository.existsByNameAndWorkspaceId(name, workspaceId)) {
-            throw new IllegalArgumentException("Label set with name '" + name + "' already exists in this workspace");
+            throw new LabelSetNameConflictException(name);
         }
 
         LabelSet labelSet = new LabelSet(workspaceId, name, description, objectMapper.valueToTree(request));
@@ -84,7 +85,7 @@ public class LabelSetService {
 
         if (!labelSet.getName().equals(name) &&
             labelSetRepository.existsByNameAndWorkspaceId(name, workspaceId)) {
-            throw new IllegalArgumentException("Label set with name '" + name + "' already exists in this workspace");
+            throw new LabelSetNameConflictException(name);
         }
 
         labelSet.setName(name);

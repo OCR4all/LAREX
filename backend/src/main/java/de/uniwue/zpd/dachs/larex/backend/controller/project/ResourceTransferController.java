@@ -22,6 +22,16 @@ public class ResourceTransferController {
         this.resourceTransferService = resourceTransferService;
     }
 
+    @GetMapping("/label-set-name-availability")
+    public ResourceTransferDto.NameAvailabilityResponse checkLabelSetNameAvailability(
+            @RequestParam String resourceId,
+            @RequestParam String targetWorkspaceId,
+            @RequestParam String name,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return new ResourceTransferDto.NameAvailabilityResponse(resourceTransferService.isLabelSetNameAvailable(
+                resourceId, targetWorkspaceId, name, userId));
+    }
+
     @PostMapping
     public ResponseEntity<ResourceTransferDto.Response> requestTransfer(
             @Valid @RequestBody ResourceTransferDto.CreateRequest request,
@@ -33,7 +43,8 @@ public class ResourceTransferController {
                 request.targetWorkspaceId(),
                 userId,
                 request.message(),
-                request.transferType() != null ? request.transferType() : ResourceTransferRequest.TransferType.MOVE
+                request.transferType() != null ? request.transferType() : ResourceTransferRequest.TransferType.MOVE,
+                request.targetName()
         );
 
         return transferOpt.map(resourceTransferService::toResponse)
@@ -69,8 +80,10 @@ public class ResourceTransferController {
     @PostMapping("/{requestId}/approve")
     public ResponseEntity<Void> approveRequest(
             @PathVariable String requestId,
+            @Valid @RequestBody(required = false) ResourceTransferDto.ApprovalRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        boolean approved = resourceTransferService.approveTransferRequest(requestId, userId);
+        boolean approved = resourceTransferService.approveTransferRequest(requestId, userId,
+                request == null ? null : request.targetName());
         return approved ? ResponseEntity.ok().build() : ResponseEntity.status(HttpStatus.FORBIDDEN).build();
     }
 

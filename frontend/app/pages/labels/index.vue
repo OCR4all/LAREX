@@ -2,11 +2,13 @@
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
 import type { LabelSet, LabelSetSummary } from '@/types/label-set'
-import { LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover } from '#components'
+import { extractApiErrorMessage } from '@/utils/api-error'
+import { LazyShareSlideover, LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover } from '#components'
 
 const toast = useToast()
 const overlay = useOverlay()
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
+const shareSlideover = overlay.create(LazyShareSlideover)
 const { allow, compactGroups } = useActionVisibility()
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
@@ -21,6 +23,17 @@ const { data: labelSets } = await useFetch<LabelSetSummary[]>(() => `/api/worksp
 })
 
 const labelSetsSafe = computed(() => labelSets.value ?? [])
+const isRefreshing = ref(false)
+
+async function refreshLabelSets() {
+  if (isRefreshing.value) return
+  isRefreshing.value = true
+  try {
+    await refreshNuxtData(labelSetsKey.value)
+  } finally {
+    isRefreshing.value = false
+  }
+}
 
 type LabelSetRow = LabelSetSummary & {
   name: string
@@ -172,6 +185,18 @@ const handleDelete = async (row: LabelSetRow) => {
   }
 }
 
+async function handleShare(row: LabelSetRow) {
+  if (!allow(row.capabilities?.canShare)) return
+
+  const transferred = await shareSlideover.open({
+    resourceId: row.id,
+    resourceName: row.name,
+    resourceType: 'LABEL_SET',
+    currentWorkspaceId: workspaceId.value
+  }).result
+  if (transferred) await refreshNuxtData(labelSetsKey.value)
+}
+
 async function handleDeleteSelected() {
   if (!canDeleteSelected.value) return
 
@@ -240,8 +265,8 @@ const handleDuplicate = async (row: LabelSetRow) => {
     })
     toast.add({ title: 'Label set duplicated', color: 'success' })
     await refreshNuxtData(labelSetsKey.value)
-  } catch {
-    toast.add({ title: 'Error duplicating label set', color: 'error' })
+  } catch (error: unknown) {
+    toast.add({ title: 'Error duplicating label set', description: extractApiErrorMessage(error, 'Could not duplicate the label set.'), color: 'error' })
   }
 }
 
@@ -264,6 +289,14 @@ const items = (row: LabelSetRow): DropdownMenuItem[][] => {
       label: 'Duplicate',
       icon: 'i-lucide-copy-plus',
       onSelect: () => handleDuplicate(row)
+    })
+  }
+
+  if (allow(row.capabilities?.canShare)) {
+    actions.push({
+      label: 'Share',
+      icon: 'i-lucide-share-2',
+      onSelect: () => { void handleShare(row) }
     })
   }
 
@@ -296,7 +329,7 @@ const emptyStateActions = computed(() => {
       label: 'Refresh',
       color: 'neutral',
       variant: 'subtle',
-      onClick: () => refreshNuxtData(labelSetsKey.value)
+      onClick: refreshLabelSets
     }
   ]
 
@@ -398,6 +431,16 @@ const emptyStateActions = computed(() => {
         </template>
 
         <template #right>
+          <UButton
+            icon="i-lucide-refresh-cw"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            square
+            aria-label="Refresh label sets"
+            :loading="isRefreshing"
+            @click="refreshLabelSets"
+          />
           <AppTableColumnsDropdown table-id="workspace-label-sets" :columns="columns" />
         </template>
       </UDashboardToolbar>
