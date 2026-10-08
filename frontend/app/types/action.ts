@@ -414,11 +414,9 @@ inputs:
 outputs:
   xml:
     enabled: true
-    mode: upsert
   images:
     enabled: true
     variant: action-copy
-    mode: upsert
 
 concurrency:
   maxActiveRuns: 1

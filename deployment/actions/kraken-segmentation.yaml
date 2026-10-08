@@ -33,7 +33,6 @@ inputs:
 outputs:
   xml:
     enabled: true
-    mode: upsert
     overwrites:
       PAGE: [REGIONS, READING_ORDER]
       REGION: [TEXT_LINES]

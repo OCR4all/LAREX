@@ -1849,7 +1849,7 @@ class ActionRunServiceTest {
                 new ActionDefinitionDocument.Locking("PAGES"),
                 new ActionDefinitionDocument.Inputs(acceptsImages, true),
                 new ActionDefinitionDocument.Outputs(
-                        new ActionDefinitionDocument.OutputTarget(true, "REPLACE_PAGE"),
+                        new ActionDefinitionDocument.OutputTarget(true, null),
                         null,
                         null
                 ),

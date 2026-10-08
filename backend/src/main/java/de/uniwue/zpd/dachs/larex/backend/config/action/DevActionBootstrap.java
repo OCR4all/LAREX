@@ -177,11 +177,9 @@ public class DevActionBootstrap implements ApplicationRunner {
                 outputs:
                   xml:
                     enabled: true
-                    mode: upsert
                   images:
                     enabled: true
                     variant: action-copy
-                    mode: upsert
                   files:
                     enabled: true
 
@@ -228,7 +226,6 @@ public class DevActionBootstrap implements ApplicationRunner {
                 outputs:
                   xml:
                     enabled: true
-                    mode: upsert
                   images:
                     enabled: false
 

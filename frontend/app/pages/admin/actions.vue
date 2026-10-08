@@ -362,11 +362,9 @@ inputs:
 outputs:
   xml:
     enabled: true
-    mode: upsert
   images:
     enabled: false
     variant: ${processorKey}
-    mode: upsert
   files:
     enabled: false
 

@@ -242,7 +242,6 @@ class ActionWorkspaceActivationIntegrationTest {
                 outputs:
                   xml:
                     enabled: true
-                    mode: upsert
                 """.formatted(definition.getProcessorKey());
         definitions.upsertSystemDefinition(definition.getProcessorKey(), yaml, true, false, "system");
         assertThat(assignmentRepository.findByDefinitionIds(List.of(definition.getId()))).isEmpty();

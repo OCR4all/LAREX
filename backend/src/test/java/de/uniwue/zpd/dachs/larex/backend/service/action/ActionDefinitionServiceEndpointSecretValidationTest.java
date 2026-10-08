@@ -167,6 +167,74 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
                 .isInstanceOf(ActionDefinitionService.ValidationException.class);
     }
 
+    @Test
+    void rejectsRemovedOutputModeAsAnUnknownField() {
+        configureSecret();
+        for (String output : java.util.List.of("xml", "images")) {
+            for (String value : java.util.List.of("upsert", "append", "replace", "null")) {
+                for (boolean enabled : java.util.List.of(true, false)) {
+                    String yaml = validExternalYaml().replace("  " + output + ":\n",
+                            "  " + output + ":\n    mode: " + value + "\n");
+                    if (output.equals("xml") && !enabled) yaml = yaml.replace("    enabled: true", "    enabled: false");
+                    if (output.equals("images") && enabled) yaml = yaml.replace("    enabled: false", "    enabled: true");
+                    String candidate = yaml;
+                    assertThatThrownBy(() -> service.parseAndValidate(candidate, null))
+                            .as("%s mode=%s enabled=%s", output, value, enabled)
+                            .isInstanceOf(ActionDefinitionService.ValidationException.class)
+                            .satisfies(error -> assertThat(((ActionDefinitionService.ValidationException) error).diagnostics())
+                                    .anySatisfy(diagnostic -> {
+                                        assertThat(diagnostic.path()).isEqualTo("outputs." + output + ".mode");
+                                        assertThat(diagnostic.message()).contains("Unrecognized property", "mode");
+                                    }));
+                }
+            }
+        }
+    }
+
+    @Test
+    void serializedDefinitionsHaveNoOutputModeAndRetainLockingAndOverwriteDeclarations() {
+        configureSecret();
+        var parsed = service.parseAndValidate(withOverwrites("PAGE: [REGIONS]"), null);
+        var json = new ObjectMapper().readTree(parsed.parsedJson());
+        assertThat(json.path("outputs").path("xml").has("mode")).isFalse();
+        assertThat(json.path("outputs").path("images").has("mode")).isFalse();
+        assertThat(json.path("locking").path("mode").asString()).isEqualTo("PAGES");
+        assertThat(parsed.preview().overwrites().get(ActionProcessorDefinition.ActionTarget.PAGE))
+                .containsExactly(ActionDto.AnnotationLevel.REGIONS);
+        var definition = new ActionProcessorDefinition();
+        definition.setParsedJson(parsed.parsedJson());
+        assertThat(service.readParsedDocument(definition).outputs().xml().overwrites())
+                .containsEntry("PAGE", java.util.List.of("REGIONS"));
+    }
+
+    @Test
+    void rejectsRemovedOutputModeInStoredJsonIncludingNullValues() {
+        configureSecret();
+        String parsedJson = service.parseAndValidate(validExternalYaml(), null).parsedJson();
+        for (String output : java.util.List.of("xml", "images")) {
+            for (String value : java.util.List.of("\"upsert\"", "null")) {
+                var definition = new ActionProcessorDefinition();
+                definition.setParsedJson(parsedJson.replace("\"" + output + "\":{",
+                        "\"" + output + "\":{\"mode\":" + value + ","));
+                assertThatThrownBy(() -> service.readParsedDocument(definition))
+                        .as("stored %s mode=%s", output, value)
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessage("Stored Action definition is invalid");
+            }
+        }
+    }
+
+    @Test
+    void continuesToValidateImageVariants() {
+        configureSecret();
+        String imageYaml = validExternalYaml().replace("enabled: false", "enabled: true");
+        assertThatCode(() -> service.parseAndValidate(imageYaml, null)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> service.parseAndValidate(imageYaml.replace("variant: external-processor", "variant: invalid variant"), null))
+                .isInstanceOf(ActionDefinitionService.ValidationException.class)
+                .satisfies(error -> assertThat(((ActionDefinitionService.ValidationException) error).diagnostics())
+                        .anySatisfy(diagnostic -> assertThat(diagnostic.path()).isEqualTo("outputs.images.variant")));
+    }
+
     private void configureSecret() {
         when(endpointAuthService.normalizeAuthType(new de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument.EndpointAuth("hmac", "processor-v1")))
                 .thenCallRealMethod();
@@ -200,11 +268,9 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
                 outputs:
                   xml:
                     enabled: true
-                    mode: upsert
                   images:
                     enabled: false
                     variant: external-processor
-                    mode: upsert
                 """;
     }
 

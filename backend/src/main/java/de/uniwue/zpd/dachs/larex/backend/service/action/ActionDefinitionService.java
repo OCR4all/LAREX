@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationFeature;
 
 @Service
 @Transactional
@@ -132,7 +133,9 @@ public class ActionDefinitionService {
         this.globalAdminService = globalAdminService;
         this.endpointAuthService = endpointAuthService;
         this.actionAuditService = actionAuditService;
-        this.yamlMapper = new ObjectMapper(new YAMLFactory());
+        this.yamlMapper = new ObjectMapper(new YAMLFactory()).rebuild()
+                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
         this.jsonMapper = objectMapper;
         this.httpClient = httpClient;
         this.actionProperties = actionProperties;
@@ -427,7 +430,6 @@ public class ActionDefinitionService {
                 && document.outputs().files() != null
                 && Boolean.TRUE.equals(document.outputs().files().enabled());
         validateOverwriteDeclarations(document, targets, diagnostics);
-        validateOutput(document.outputs() == null ? null : document.outputs().xml(), "outputs.xml", outputsXml, diagnostics);
         validateImageOutput(document.outputs() == null ? null : document.outputs().images(), "outputs.images", outputsImages, diagnostics);
         ActionDto.TrainingSplitRequirements trainingSplits = parseTrainingSplitRequirements(
                 actionKind, document.training(), diagnostics);
@@ -511,7 +513,9 @@ public class ActionDefinitionService {
 
     public ActionDefinitionDocument readParsedDocument(ActionProcessorDefinition definition) {
         try {
-            return jsonMapper.readValue(definition.getParsedJson(), ActionDefinitionDocument.class);
+            return jsonMapper.readerFor(ActionDefinitionDocument.class)
+                    .with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                    .readValue(definition.getParsedJson());
         } catch (JacksonException e) {
             throw new IllegalStateException("Stored Action definition is invalid", e);
         }
@@ -1168,19 +1172,6 @@ public class ActionDefinitionService {
         }
     }
 
-    private void validateOutput(ActionDefinitionDocument.OutputTarget output,
-                                String path,
-                                boolean enabled,
-                                List<ActionDto.ValidationDiagnostic> diagnostics) {
-        if (!enabled) {
-            return;
-        }
-        String mode = output.mode() == null ? "upsert" : output.mode().trim().toLowerCase(Locale.ROOT);
-        if (!mode.equals("upsert") && !mode.equals("append")) {
-            diagnostics.add(error(path + ".mode", "mode must be upsert or append"));
-        }
-    }
-
     private void validateImageOutput(ActionDefinitionDocument.ImageOutputTarget output,
                                      String path,
                                      boolean enabled,
@@ -1189,10 +1180,6 @@ public class ActionDefinitionService {
             return;
         }
         requirePattern(output.variant(), path + ".variant", "[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}", diagnostics);
-        String mode = output.mode() == null ? "upsert" : output.mode().trim().toLowerCase(Locale.ROOT);
-        if (!mode.equals("upsert") && !mode.equals("append")) {
-            diagnostics.add(error(path + ".mode", "mode must be upsert or append"));
-        }
     }
 
     private List<ActionTarget> parseTargets(List<String> rawTargets,
