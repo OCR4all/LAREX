@@ -19,6 +19,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
+import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
@@ -293,6 +294,199 @@ class ActionRunServiceTest {
                     );
                 });
     }
+
+    @Test
+    void impactPreviewUsesDeclarationsAndNeverWritesOrLocks() throws Exception {
+        ImpactFixture fixture = prepareImpact();
+        when(definitionService.readOverwriteDeclarations(fixture.definition())).thenReturn(Map.of(ActionTarget.PAGE,
+                List.of(ActionDto.AnnotationLevel.REGIONS)));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-1")).thenReturn(objectMapper.readValue(
+                "{\"imageWidth\":100,\"imageHeight\":100,\"regions\":[{\"id\":\"region\",\"textLines\":[{\"id\":\"line\",\"textContentVariants\":[{\"unicode\":\"old text\"}]}]}]}",
+                de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto.class));
+        ActionDto.RunImpactResponse impact = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID);
+        assertThat(impact.pages()).extracting(ActionDto.ImpactPage::pageId).containsExactly("page-1", "page-2");
+        assertThat(impact.pages().getFirst().affectedLevels()).containsExactly(ActionDto.AnnotationLevel.REGIONS,
+                ActionDto.AnnotationLevel.TEXT_LINES, ActionDto.AnnotationLevel.TEXT);
+        assertThat(impact.pages().getFirst().warningPrecision()).isEqualTo(ActionDto.WarningPrecision.DECLARED);
+        assertThat(impact.pages().get(1).affected()).isFalse();
+        assertThat(fixture.pages()).noneMatch(Page::isLocked);
+        verify(definitionRepository, never()).findByIdForUpdate(anyString());
+        verify(projectRepository, never()).findByIdAndLibraryWorkspaceIdForUpdate(anyString(), anyString());
+        verify(pageRepository, never()).findByIdInAndProjectIdForUpdate(anyList(), anyString());
+        verify(runRepository, never()).save(any());
+        verifyNoInteractions(pageXmlVersionService, pageXmlCanonicalizationService, actionAuditService, importTaskExecutor);
+        verify(annotationProcessingService, never()).saveAnnotationToXml(anyString(), any(), anyString());
+    }
+
+    @Test
+    void impactPreviewFallsBackForLegacyActionsAndUnreadableXml() throws Exception {
+        ImpactFixture fixture = prepareImpact();
+        var legacy = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID);
+        assertThat(legacy.pages().getFirst().affected()).isTrue();
+        assertThat(legacy.pages().getFirst().warningPrecision()).isEqualTo(ActionDto.WarningPrecision.UNKNOWN);
+        verifyNoInteractions(annotationProcessingService);
+        when(definitionService.readOverwriteDeclarations(fixture.definition())).thenReturn(Map.of(ActionTarget.PAGE,
+                List.of(ActionDto.AnnotationLevel.TEXT)));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-1")).thenThrow(new IOException("Malformed XML"));
+        var unreadable = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID);
+        assertThat(unreadable.pages().getFirst().affected()).isTrue();
+        assertThat(unreadable.pages().getFirst().warningPrecision()).isEqualTo(ActionDto.WarningPrecision.UNKNOWN);
+        assertThat(unreadable.pages().getFirst().affectedLevels()).isEmpty();
+    }
+
+    @Test
+    void scopedPreviewIgnoresUnrelatedTextAndWarnsWhenXmlIsUnreadable() throws Exception {
+        ImpactFixture fixture = prepareImpact();
+        PageXml xml = pageXmlRepository.findByPage_IdIn(List.of("page-1")).getFirst();
+        when(pageXmlRepository.findByPage_Id("page-1")).thenReturn(Optional.of(xml));
+        var selection = new ActionDto.TargetSelection(ActionTarget.REGION,
+                List.of(new ActionDto.TargetSelectionPage("page-1", List.of("selected"), List.of()),
+                        new ActionDto.TargetSelectionPage("page-2", List.of("missing"), List.of())));
+        var request = new ActionDto.StartRunRequest(fixture.definition().getId(), List.of("page-1", "page-2"), Map.of(), selection, null, false);
+        when(definitionService.readOverwriteDeclarations(fixture.definition())).thenReturn(Map.of(ActionTarget.REGION,
+                List.of(ActionDto.AnnotationLevel.TEXT)));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-1")).thenReturn(objectMapper.readValue(
+                "{\"imageWidth\":100,\"imageHeight\":100,\"regions\":[{\"id\":\"selected\",\"textContentVariants\":[{\"unicode\":\"preserved\"}]},{\"id\":\"other\",\"textLines\":[{\"id\":\"line\",\"textContentVariants\":[{\"unicode\":\"unrelated\"}]}]}]}",
+                de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto.class));
+        var preview = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), request, OWNER_ID);
+        assertThat(preview.pages()).hasSize(1);
+        assertThat(preview.skippedPages()).extracting(ActionDto.SkippedImpactPage::pageId).containsExactly("page-2");
+        assertThat(preview.skippedPages().getFirst().reason()).contains("PAGE XML");
+        assertThat(preview.pages().getFirst().affected()).isFalse();
+        assertThat(preview.pages().getFirst().targetSelection().regionIds()).containsExactly("selected");
+        when(annotationProcessingService.parseXmlToAnnotation("xml-1")).thenThrow(new IOException("Unreadable"));
+        preview = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), request, OWNER_ID);
+        assertThat(preview.pages().getFirst().warningPrecision()).isEqualTo(ActionDto.WarningPrecision.UNKNOWN);
+        assertThat(preview.pages().getFirst().affected()).isTrue();
+    }
+
+    @Test
+    void impactPreviewHandlesEmptyDeclarationsAndNonXmlActions() {
+        ImpactFixture fixture = prepareImpact();
+        when(definitionService.readOverwriteDeclarations(fixture.definition())).thenReturn(Map.of(ActionTarget.PAGE, List.of()));
+        assertThat(service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID).pages())
+                .noneMatch(ActionDto.ImpactPage::affected);
+        fixture.definition().setOutputsXml(false);
+        assertThat(service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID).pages())
+                .noneMatch(ActionDto.ImpactPage::affected);
+        verifyNoInteractions(annotationProcessingService);
+    }
+
+    @Test
+    void impactPreviewReturnsSkippedPagesAndRequiresExecuteAccess() {
+        ImpactFixture fixture = prepareImpact();
+        when(definitionService.readInputRequirements(fixture.definition())).thenReturn(new ActionDto.InputRequirements(
+                new ActionDto.InputRequirement(ActionDto.InputLevel.NONE, List.of()),
+                new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of())));
+        var preview = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID);
+        assertThat(preview.pages()).extracting(ActionDto.ImpactPage::pageId).containsExactly("page-1");
+        assertThat(preview.skippedPages()).extracting(ActionDto.SkippedImpactPage::pageId).containsExactly("page-2");
+        assertThat(preview.skippedPages().getFirst().reason()).contains("XML");
+        assertThatThrownBy(() -> service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OUTSIDER_ID))
+                .isInstanceOf(SecurityException.class);
+        when(assignmentRepository.findExecutableAssignments(eq(WORKSPACE_ID), any())).thenReturn(List.of());
+        assertThatThrownBy(() -> service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    void impactPreviewMatchesImageVariantEligibility() {
+        ImpactFixture fixture = prepareImpact();
+        fixture.definition().setAcceptsImages(true);
+        var image = new PageImage("test.png", "test.png", "image/png", 10L, "chosen", "test", fixture.pages().getFirst());
+        when(pageImageRepository.findByPageIdIn(anyList())).thenReturn(List.of(image));
+        var request = new ActionDto.StartRunRequest(fixture.definition().getId(), List.of("page-1", "page-2"), Map.of(), null,
+                new ActionDto.ImageVariantSelection("GLOBAL", "chosen", Map.of(), false), false);
+        var preview = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), request, OWNER_ID);
+        assertThat(preview.pages()).extracting(ActionDto.ImpactPage::pageId).containsExactly("page-1");
+        assertThat(preview.skippedPages().getFirst().reason()).contains("image");
+    }
+
+    @Test
+    void retryImpactAndExclusionsPreserveRetainedScope() {
+        ImpactFixture fixture = prepareImpact();
+        ActionRun source = prepareRetry(fixture);
+        fixture.definition().setAcceptsImages(true);
+        source.setParametersJson(toJson(Map.of(ActionRunPayloadService.IMAGE_VARIANT_SELECTION_PARAMETER_KEY,
+                new ActionDto.ImageVariantSelection("PER_PAGE", null, Map.of("page-1", "chosen", "page-2", "chosen"), false))));
+        when(pageImageRepository.findByPageIdIn(anyList())).thenReturn(fixture.pages().stream()
+                .map(page -> new PageImage(page.getName() + ".png", "test.png", "image/png", 10L, "chosen", "test", page)).toList());
+        var preview = service.previewRetryImpact(WORKSPACE_ID, fixture.project().getId(), source.getId(), OWNER_ID);
+        assertThat(preview.pages()).hasSize(2);
+        var response = service.retryRun(WORKSPACE_ID, fixture.project().getId(), source.getId(), false, OWNER_ID,
+                "http://app/api", new ActionDto.RetryRunRequest(List.of("page-1")));
+        assertThat(response.run().pageIds()).containsExactly("page-2");
+        assertThat(response.run().targetSelection().pages()).extracting(ActionDto.TargetSelectionPage::pageId)
+                .containsExactly("page-2");
+        assertThat(fixture.pages().getFirst().isLocked()).isFalse();
+        assertThat(fixture.pages().get(1).isLocked()).isTrue();
+        var saved = org.mockito.ArgumentCaptor.forClass(ActionRun.class);
+        verify(runRepository, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
+        var payloadReader = new ActionRunPayloadService(objectMapper);
+        assertThat(payloadReader.readImageVariantSelection(payloadReader.readObjectMap(saved.getValue().getParametersJson())).pageVariants())
+                .containsOnly(Map.entry("page-2", "chosen"));
+    }
+
+    @Test
+    void retryRejectsAllExcludedAndUnknownPages() {
+        ImpactFixture fixture = prepareImpact();
+        ActionRun source = prepareRetry(fixture);
+        for (List<String> excluded : List.of(List.of("page-1", "page-2"), List.of("outsider-page"))) {
+            assertThatThrownBy(() -> service.retryRun(WORKSPACE_ID, fixture.project().getId(), source.getId(), false, OWNER_ID,
+                    "http://app/api", new ActionDto.RetryRunRequest(excluded))).isInstanceOf(IllegalArgumentException.class);
+        }
+        verify(runRepository, never()).save(any());
+    }
+
+    private ActionRun prepareRetry(ImpactFixture fixture) {
+        ActionRun source = run(fixture.definition(), fixture.project(), OWNER_ID, ActionRun.Status.FAILED, LockMode.PAGES,
+                List.of("page-1", "page-2"));
+        when(runRepository.findProcessorDefinitionIdById(source.getId())).thenReturn(Optional.of(fixture.definition().getId()));
+        when(runRepository.findWithProcessorDefinitionById(source.getId())).thenReturn(Optional.of(source));
+        when(definitionRepository.findByIdForUpdate(fixture.definition().getId())).thenReturn(Optional.of(fixture.definition()));
+        when(projectRepository.findByIdAndLibraryWorkspaceIdForUpdate(fixture.project().getId(), WORKSPACE_ID))
+                .thenReturn(Optional.of(fixture.project()));
+        when(pageRepository.findByIdInAndProjectIdForUpdate(anyList(), eq(fixture.project().getId())))
+                .thenAnswer(invocation -> fixture.pages().stream().filter(page -> ((List<?>) invocation.getArgument(0)).contains(page.getId())).toList());
+        when(definitionService.defaultTokenTtlMinutes()).thenReturn(30);
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> {
+            ActionRun saved = invocation.getArgument(0);
+            if (saved.getId() == null) saved.setId("retry-1");
+            return saved;
+        });
+        return source;
+    }
+
+    private ImpactFixture prepareImpact() {
+        Project project = project("impact-project", WORKSPACE_ID, "Impact Project");
+        List<Page> pages = List.of(new Page("First", null, project), new Page("Second", null, project));
+        pages.getFirst().setId("page-1");
+        pages.get(1).setId("page-2");
+        ActionProcessorDefinition definition = definition("impact");
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        definition.setActionKind(ActionProcessorDefinition.ActionKind.PROCESSING);
+        definition.setOutputsXml(true);
+        when(definitionRepository.findById(definition.getId())).thenReturn(Optional.of(definition));
+        when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
+        when(pageRepository.findByIdInAndProjectId(anyList(), eq(project.getId()))).thenAnswer(invocation ->
+                pages.stream().filter(page -> ((List<?>) invocation.getArgument(0)).contains(page.getId())).toList());
+        when(assignmentRepository.findExecutableAssignments(eq(WORKSPACE_ID), any()))
+                .thenReturn(List.of(activationAssignment(definition, project.getId(), true)));
+        when(workspaceAccessService.canManageProjects(WORKSPACE_ID, OWNER_ID)).thenReturn(true);
+        when(definitionService.readTargetTypes(definition)).thenReturn(List.of(ActionTarget.PAGE, ActionTarget.REGION, ActionTarget.TEXT_LINE));
+        when(definitionService.readParsedDocument(definition)).thenReturn(parsedDefinition(definition.getProcessorKey(), "PROJECT", true));
+        PageXml xml = mock(PageXml.class);
+        when(xml.getId()).thenReturn("xml-1");
+        when(xml.getSchema()).thenReturn(XmlSchema.PAGE_XML);
+        when(xml.getPage()).thenReturn(pages.getFirst());
+        when(pageXmlRepository.findByPage_IdIn(anyList())).thenReturn(List.of(xml));
+        return new ImpactFixture(project, definition, pages, new ActionDto.StartRunRequest(definition.getId(),
+                List.of("page-1", "page-2"), Map.of(), null, null, false));
+    }
+
+    private record ImpactFixture(Project project, ActionProcessorDefinition definition, List<Page> pages,
+                                  ActionDto.StartRunRequest request) {}
 
     @Test
     void startRunRestrictsScopeToPagesWithSelectedImageVariant() {

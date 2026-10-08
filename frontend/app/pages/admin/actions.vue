@@ -311,6 +311,7 @@ function createNewDefinition() {
     outputsImages: false,
     outputsXml: true,
     outputsFiles: false,
+    overwrites: {},
     trainingSplits: null,
     enabled: true,
     global: false,

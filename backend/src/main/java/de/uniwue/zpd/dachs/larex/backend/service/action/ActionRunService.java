@@ -588,6 +588,107 @@ public class ActionRunService {
         return new ActionDto.StartRunResponse(responseMapper.toRunResponse(saved, null, userId));
     }
 
+    @Transactional(readOnly = true)
+    public ActionDto.RunImpactResponse previewRunImpact(String workspaceId, String projectId,
+                                                        ActionDto.StartRunRequest request, String userId) {
+        ActionProcessorDefinition definition = requireImpactDefinition(workspaceId, projectId,
+                request.processorDefinitionId(), userId);
+        requireProject(workspaceId, projectId);
+        ActionDto.TargetSelection selection = normalizeTargetSelection(request, projectId, true);
+        requireTargetSupported(definition, selection.type());
+        Map<String, Object> parameters = resolveRunParameters(definition, request.parameters(), request.imageVariantSelection());
+        List<Page> pages = resolveRunPages(projectId, selection.pages().stream()
+                .map(ActionDto.TargetSelectionPage::pageId).toList());
+        return buildRunImpact(definition, selection, pages, parameters);
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.RunImpactResponse previewRetryImpact(String workspaceId, String projectId,
+                                                          String runId, String userId) {
+        requireProject(workspaceId, projectId);
+        ActionRun source = requireRun(workspaceId, projectId, runId);
+        if (source.getStatus() != Status.FAILED && source.getStatus() != Status.CANCELLED) {
+            throw new IllegalStateException("Only failed or cancelled Action runs can be retried");
+        }
+        ActionProcessorDefinition definition = requireImpactDefinition(workspaceId, projectId,
+                source.getProcessorDefinition().getId(), userId);
+        ActionDto.TargetSelection selection = payloadService.readTargetSelection(source);
+        requireTargetSupported(definition, selection.type());
+        Map<String, Object> parameters = payloadService.readObjectMap(source.getParametersJson());
+        definitionService.validateAllowedParameterValues(definition, parameters);
+        List<Page> pages = resolveRunPages(projectId, payloadService.readPageIds(source));
+        validateTargetSelection(projectId, selection.type(), selection.pages(), true);
+        return buildRunImpact(definition, selection, pages, parameters);
+    }
+
+    private ActionProcessorDefinition requireImpactDefinition(String workspaceId, String projectId,
+                                                               String definitionId, String userId) {
+        ActionProcessorDefinition definition = definitionRepository.findById(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (!definition.isEnabled()) throw new IllegalArgumentException("Action processor is disabled");
+        if (definition.getActionKind() != ActionProcessorDefinition.ActionKind.PROCESSING) {
+            throw new IllegalArgumentException("Only processing Actions have page overwrite previews");
+        }
+        requireAssigned(workspaceId, projectId, definitionId);
+        requireExecuteAccess(definition, workspaceId, userId);
+        return definition;
+    }
+
+    private ActionDto.RunImpactResponse buildRunImpact(ActionProcessorDefinition definition,
+                                                       ActionDto.TargetSelection selection, List<Page> pages,
+                                                       Map<String, Object> parameters) {
+        Set<String> eligible = new LinkedHashSet<>(eligibleProcessorPageIds(pages.stream().map(Page::getId).toList(),
+                definition, selection.type(), payloadService.readImageVariantSelection(parameters)));
+        Map<String, PageXml> xmlByPage = pageXmlRepository.findByPage_IdIn(pages.stream().map(Page::getId).toList())
+                .stream().collect(Collectors.toMap(xml -> xml.getPage().getId(), xml -> xml));
+        // Scoped import requires existing PAGE XML even when YAML makes XML input optional.
+        if (selection.type() != ActionTarget.PAGE) {
+            eligible.removeIf(id -> !xmlByPage.containsKey(id) || xmlByPage.get(id).getSchema() != XmlSchema.PAGE_XML);
+        }
+        Map<String, ActionDto.TargetSelectionPage> targets = selection.pages().stream()
+                .collect(Collectors.toMap(ActionDto.TargetSelectionPage::pageId, page -> page));
+        Map<ActionTarget, List<ActionDto.AnnotationLevel>> declarations = definition.isOutputsXml()
+                ? definitionService.readOverwriteDeclarations(definition) : Map.of();
+        ActionDto.InputRequirements requirements = definitionService.readInputRequirements(definition);
+        List<ActionDto.ImpactPage> impacts = new ArrayList<>();
+        List<ActionDto.SkippedImpactPage> skipped = new ArrayList<>();
+        for (Page page : pages) {
+            if (!eligible.contains(page.getId())) {
+                boolean missingXml = requirements.xml().required(selection.type())
+                        && !xmlByPage.containsKey(page.getId());
+                boolean missingScopedXml = selection.type() != ActionTarget.PAGE
+                        && (!xmlByPage.containsKey(page.getId()) || xmlByPage.get(page.getId()).getSchema() != XmlSchema.PAGE_XML);
+                skipped.add(new ActionDto.SkippedImpactPage(page.getId(), page.getName(), missingScopedXml
+                        ? "Required PAGE XML for the selected target is missing" : missingXml
+                        ? "Required XML input is missing" : "Required image input or selected image variant is missing"));
+                continue;
+            }
+            List<ActionDto.AnnotationLevel> levels = List.of();
+            ActionDto.WarningPrecision precision = ActionDto.WarningPrecision.DECLARED;
+            boolean affected = false;
+            PageXml xml = xmlByPage.get(page.getId());
+            if (definition.isOutputsXml() && xml != null) {
+                List<ActionDto.AnnotationLevel> declared = declarations.get(selection.type());
+                if (declared == null) {
+                    precision = ActionDto.WarningPrecision.UNKNOWN;
+                    affected = true;
+                } else if (!declared.isEmpty()) {
+                    try {
+                        PageDto annotation = annotationProcessingService.parseXmlToAnnotation(xml.getId());
+                        levels = ActionAnnotationImpact.affectedLevels(annotation, selection.type(), targets.get(page.getId()), declared);
+                        affected = !levels.isEmpty();
+                    } catch (IOException | RuntimeException e) {
+                        precision = ActionDto.WarningPrecision.UNKNOWN;
+                        affected = true;
+                        log.debug("Could not inspect annotations for Action impact on page {}", page.getId(), e);
+                    }
+                }
+            }
+            impacts.add(new ActionDto.ImpactPage(page.getId(), page.getName(), targets.get(page.getId()), levels, precision, affected));
+        }
+        return new ActionDto.RunImpactResponse(selection.type(), impacts, skipped);
+    }
+
     public ActionDto.StartRunResponse startRun(String workspaceId,
                                                String projectId,
                                                ActionDto.StartRunRequest request,
@@ -914,6 +1015,12 @@ public class ActionRunService {
                                                boolean enqueueIfBusy,
                                                String userId,
                                                String publicApiBaseUrl) {
+        return retryRun(workspaceId, projectId, runId, enqueueIfBusy, userId, publicApiBaseUrl, null);
+    }
+
+    public ActionDto.StartRunResponse retryRun(String workspaceId, String projectId, String runId,
+                                               boolean enqueueIfBusy, String userId, String publicApiBaseUrl,
+                                               ActionDto.RetryRunRequest request) {
         Project project = requireProject(workspaceId, projectId);
         String definitionId = runRepository.findProcessorDefinitionIdById(runId)
                 .orElseThrow(() -> new IllegalArgumentException("Action run not found"));
@@ -933,11 +1040,19 @@ public class ActionRunService {
         project = requireProjectForUpdate(workspaceId, projectId);
         ActionDto.TargetSelection targetSelection = payloadService.readTargetSelection(sourceRun);
         requireTargetSupported(definition, targetSelection.type());
-        List<Page> pages = resolveRunPagesForUpdate(projectId, payloadService.readPageIds(sourceRun));
+        List<String> sourcePageIds = payloadService.readPageIds(sourceRun);
+        Set<String> excluded = new LinkedHashSet<>(request == null ? List.of() : safeList(request.excludedPageIds()));
+        if (!sourcePageIds.containsAll(excluded)) {
+            throw new IllegalArgumentException("Excluded pages must belong to the source run");
+        }
+        List<String> retainedPageIds = sourcePageIds.stream().filter(id -> !excluded.contains(id)).toList();
+        if (retainedPageIds.isEmpty()) throw new IllegalArgumentException("No pages selected for retry");
+        List<Page> pages = resolveRunPagesForUpdate(projectId, retainedPageIds);
         Map<String, Object> parameters = payloadService.readObjectMap(sourceRun.getParametersJson());
         definitionService.validateAllowedParameterValues(definition, parameters);
         pages = processorPages(pages, definition, parameters, targetSelection.type());
         targetSelection = restrictTargetSelection(targetSelection, pages);
+        parameters = restrictImageVariantParameters(parameters, pages);
         ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, projectId);
         boolean dispatchImmediately = concurrency.available();
         if (!dispatchImmediately && !enqueueIfBusy) {
@@ -3116,6 +3231,11 @@ public class ActionRunService {
     }
 
     private ActionDto.TargetSelection normalizeTargetSelection(ActionDto.StartRunRequest request, String projectId) {
+        return normalizeTargetSelection(request, projectId, false);
+    }
+
+    private ActionDto.TargetSelection normalizeTargetSelection(ActionDto.StartRunRequest request, String projectId,
+                                                               boolean allowUnreadableXml) {
         ActionDto.TargetSelection provided = request.targetSelection();
         if (provided == null) {
             List<Page> pages = resolveRunPages(projectId, request.pageIds());
@@ -3149,29 +3269,40 @@ public class ActionRunService {
                         safeList(page.textLineIds()).stream().filter(id -> id != null && !id.isBlank()).distinct().toList()
                 ))
                 .toList();
-        validateTargetSelection(projectId, type, normalizedPages);
+        validateTargetSelection(projectId, type, normalizedPages, allowUnreadableXml);
         return new ActionDto.TargetSelection(type, normalizedPages);
     }
 
-    private void validateTargetSelection(String projectId, ActionTarget type, List<ActionDto.TargetSelectionPage> pages) {
+    private void validateTargetSelection(String projectId, ActionTarget type, List<ActionDto.TargetSelectionPage> pages,
+                                         boolean allowUnreadableXml) {
         if (type == ActionTarget.PAGE) {
             return;
         }
         for (ActionDto.TargetSelectionPage page : pages) {
+            if (type == ActionTarget.REGION && safeList(page.regionIds()).isEmpty()) {
+                throw new IllegalArgumentException("Region-targeted Actions require at least one region id");
+            }
+            if (type == ActionTarget.TEXT_LINE && safeList(page.textLineIds()).isEmpty()) {
+                throw new IllegalArgumentException("Textline-targeted Actions require at least one textline id");
+            }
+            if (allowUnreadableXml && pageXmlRepository.findByPage_Id(page.pageId())
+                    .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML).isEmpty()) {
+                continue; // The impact response lists this page as skipped.
+            }
             PageXml xml = primaryPageXml(page.pageId());
             PageDto pageDto;
             try {
                 pageDto = annotationProcessingService.parseXmlToAnnotation(xml.getId());
-            } catch (IOException e) {
-                throw new IllegalArgumentException("Could not read PAGE XML for target selection");
+            } catch (IOException | RuntimeException e) {
+                // A preview must report unknown risk when XML cannot be inspected. Starting
+                // still requires valid IDs in readable XML and retains the strict validation.
+                if (allowUnreadableXml) continue;
+                throw new IllegalArgumentException("Could not read PAGE XML for target selection", e);
             }
             Set<String> regionIds = new LinkedHashSet<>();
             Set<String> textLineIds = new LinkedHashSet<>();
             resultPageMergeService.collectTargetIds(pageDto.regions(), regionIds, textLineIds);
             if (type == ActionTarget.REGION) {
-                if (safeList(page.regionIds()).isEmpty()) {
-                    throw new IllegalArgumentException("Region-targeted Actions require at least one region id");
-                }
                 for (String regionId : page.regionIds()) {
                     if (!regionIds.contains(regionId)) {
                         throw new IllegalArgumentException("Region does not exist on selected page: " + regionId);
@@ -3179,9 +3310,6 @@ public class ActionRunService {
                 }
             }
             if (type == ActionTarget.TEXT_LINE) {
-                if (safeList(page.textLineIds()).isEmpty()) {
-                    throw new IllegalArgumentException("Textline-targeted Actions require at least one textline id");
-                }
                 for (String textLineId : page.textLineIds()) {
                     if (!textLineIds.contains(textLineId)) {
                         throw new IllegalArgumentException("TextLine does not exist on selected page: " + textLineId);
@@ -3319,6 +3447,19 @@ public class ActionRunService {
                 new ActionDto.InputRequirement(requirements.images().levelFor(target), List.of()),
                 new ActionDto.InputRequirement(requirements.xml().levelFor(target), List.of())
         );
+    }
+
+    private Map<String, Object> restrictImageVariantParameters(Map<String, Object> parameters, List<Page> pages) {
+        ActionDto.ImageVariantSelection images = payloadService.readImageVariantSelection(parameters);
+        if (images == null || images.pageVariants() == null) return parameters;
+        Set<String> included = pages.stream().map(Page::getId).collect(Collectors.toSet());
+        Map<String, String> variants = images.pageVariants().entrySet().stream()
+                .filter(entry -> included.contains(entry.getKey()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<String, Object> result = new LinkedHashMap<>(parameters);
+        result.put(ActionRunPayloadService.IMAGE_VARIANT_SELECTION_PARAMETER_KEY,
+                new ActionDto.ImageVariantSelection(images.mode(), images.variant(), variants, images.fallbackImage()));
+        return result;
     }
 
     private ActionDto.TargetSelection restrictTargetSelection(ActionDto.TargetSelection targetSelection,

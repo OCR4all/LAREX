@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { extractApiErrorDetails } from '@/utils/api-error'
+import { annotationLevelLabels, retainedImpactPages, reviewedActionConfiguration } from '@/utils/action-impact'
 import { actionInputLevelForTarget } from '@/utils/action-input-requirements'
 import {
   actionParameterChoices,
@@ -9,6 +10,8 @@ import {
 } from '@/utils/action-parameter-values'
 import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
 import type {
+  ActionRunImpact,
+  ActionRunConfiguration,
   ActionParameterDefinition,
   ActionRun,
   ActionRunDetail,
@@ -84,6 +87,40 @@ const loadingRunDetailIds = ref<string[]>([])
 const runDetails = ref<Record<string, ActionRunDetail>>({})
 const runHistoryPage = ref(1)
 const runHistoryItemsPerPage = ref(5)
+
+type ReviewedSubmission = { configuration: ActionRunConfiguration } | { retryRunId: string, excludedPageIds: string[] }
+const impact = ref<ActionRunImpact | null>(null)
+const impactLoading = ref(false)
+const impactError = ref<string | null>(null)
+const reviewSearch = ref('')
+const reviewPanel = ref<HTMLElement | null>(null)
+const excludedPageIds = ref<string[]>([])
+const reviewConfiguration = ref<ActionRunConfiguration | null>(null)
+const reviewRetryRunId = ref<string | null>(null)
+let impactGeneration = 0
+const affectedPages = computed(() => impact.value?.pages.filter(page => page.affected) ?? [])
+const visibleAffectedPages = computed(() => affectedPages.value.filter(page =>
+  (page.name || page.pageId).toLocaleLowerCase().includes(reviewSearch.value.toLocaleLowerCase())
+))
+const includedImpactPages = computed(() => impact.value ? retainedImpactPages(impact.value, excludedPageIds.value) : [])
+const unaffectedPageCount = computed(() => impact.value?.pages.filter(page => !page.affected).length ?? 0)
+
+function resetReview() {
+  impactGeneration++
+  impact.value = null
+  impactError.value = null
+  impactLoading.value = false
+  excludedPageIds.value = []
+  reviewSearch.value = ''
+  reviewConfiguration.value = null
+  reviewRetryRunId.value = null
+}
+
+function setPageIncluded(pageId: string, included: boolean) {
+  excludedPageIds.value = included
+    ? excludedPageIds.value.filter(id => id !== pageId)
+    : [...new Set([...excludedPageIds.value, pageId])]
+}
 
 const selectedPageIds = computed(() => props.pageIds ?? [])
 const targetType = computed<ActionTarget>(() => props.targetSelection?.type ?? 'PAGE')
@@ -315,6 +352,11 @@ const canStart = computed(() =>
   && parameterValuesReady.value
   && (scope.value === 'all' || selectedPageIds.value.length > 0)
 )
+
+watch([
+  selectedProcessorId, scope, parameterValues, submittedImageVariantSelection,
+  () => props.targetSelection, () => props.pageIds, () => props.pages
+], resetReview, { deep: true, flush: 'sync' })
 
 onMounted(async () => {
   await Promise.all([loadProcessors(), loadRuns()])
@@ -567,61 +609,94 @@ function runSummaryText(run: ActionRun) {
   return `${run.pageIds.length} pages · ${run.statusMessage || run.processorKey}`
 }
 
-async function submitRun(options: { enqueueIfBusy?: boolean } = {}) {
-  if (!selectedProcessor.value || !canStart.value) return null
-  starting.value = true
+function currentRunConfiguration(): ActionRunConfiguration {
+  return JSON.parse(JSON.stringify({
+    processorDefinitionId: selectedProcessor.value!.processor.id,
+    pageIds: submittedPageIds.value,
+    targetSelection: submittedTargetSelection.value,
+    imageVariantSelection: submittedImageVariantSelection.value,
+    parameters: { ...parameterValues }
+  }))
+}
+
+async function reviewRun(retryRunId: string | null = null) {
+  if (impactLoading.value || starting.value || (!retryRunId && !canStart.value)) return
+  resetReview()
+  reviewRetryRunId.value = retryRunId
+  const configuration = retryRunId ? null : currentRunConfiguration()
+  reviewConfiguration.value = configuration
+  const generation = impactGeneration
+  impactLoading.value = true
   try {
-    const result = await $fetch<StartActionRunResponse>(`/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs`, {
-      method: 'POST',
-      body: {
-        processorDefinitionId: selectedProcessor.value.processor.id,
-        pageIds: submittedPageIds.value,
-        targetSelection: submittedTargetSelection.value,
-        imageVariantSelection: submittedImageVariantSelection.value,
-        parameters: { ...parameterValues },
-        enqueueIfBusy: options.enqueueIfBusy ?? false
+    const preview = await $fetch<ActionRunImpact>(
+      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs${retryRunId ? `/${retryRunId}` : ''}/impact`,
+      { method: 'POST', ...(configuration ? { body: configuration } : {}) }
+    )
+    if (generation !== impactGeneration) return
+    if (!preview.pages.length) throw new Error('No pages satisfy this Action’s required inputs.')
+    impact.value = preview
+    if (!preview.pages.some(page => page.affected)) {
+      await confirmReviewedRun()
+    } else {
+      await nextTick()
+      reviewPanel.value?.focus()
+    }
+  } catch (error: unknown) {
+    if (generation === impactGeneration) {
+      impactError.value = extractApiErrorDetails(error, 'Could not inspect the selected pages. Try again.').message
+    }
+  } finally {
+    if (generation === impactGeneration) impactLoading.value = false
+  }
+}
+
+async function confirmReviewedRun() {
+  if (!impact.value || !includedImpactPages.value.length || starting.value) return
+  const submission: ReviewedSubmission = reviewRetryRunId.value
+    ? { retryRunId: reviewRetryRunId.value, excludedPageIds: [...excludedPageIds.value, ...impact.value.skippedPages.map(page => page.pageId)] }
+    : { configuration: reviewedActionConfiguration(reviewConfiguration.value!, impact.value, excludedPageIds.value) }
+  await submitReviewedRun(submission)
+}
+
+async function submitReviewedRun(submission: ReviewedSubmission, enqueueIfBusy = false) {
+  if (starting.value) return
+  starting.value = true
+  const isRetry = 'retryRunId' in submission
+  retryingRunId.value = isRetry ? submission.retryRunId : null
+  try {
+    const result = await $fetch<StartActionRunResponse>(
+      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs${isRetry ? `/${submission.retryRunId}/retry` : ''}`,
+      {
+        method: 'POST',
+        ...(isRetry
+          ? { query: { enqueueIfBusy }, body: { excludedPageIds: submission.excludedPageIds } }
+          : { body: { ...submission.configuration, enqueueIfBusy } })
       }
-    })
+    )
     actionRunsStore.upsertRun(result.run, props.projectName || props.projectId)
     changed.value = true
     close()
-    return result
   } catch (error: unknown) {
     const { details, isConcurrencyError } = concurrencyErrorDetails(error)
-    if (!options.enqueueIfBusy && isConcurrencyError) {
+    if (!enqueueIfBusy && isConcurrencyError) {
       toast.add({
-        title: 'Action is already running',
-        description: details.message,
-        color: 'warning',
-        icon: 'i-lucide-clock-3',
+        title: 'Action is already running', description: details.message, color: 'warning', icon: 'i-lucide-clock-3',
         actions: [
-          {
-            label: 'Schedule',
-            color: 'warning',
-            variant: 'solid',
-            onClick: () => {
-              void submitRun({ enqueueIfBusy: true })
-            }
-          },
-          {
-            label: 'Later',
-            color: 'neutral',
-            variant: 'outline',
-            onClick: () => {}
-          }
+          { label: 'Schedule', color: 'warning', variant: 'solid', onClick: () => { void submitReviewedRun(submission, true) } },
+          { label: 'Later', color: 'neutral', variant: 'outline', onClick: () => {} }
         ]
       })
-      return null
+      return
     }
-    toast.add({ title: 'Run failed', description: details.message, color: 'error' })
-    return null
+    toast.add({ title: isRetry ? 'Retry failed' : 'Run failed', description: details.message, color: 'error' })
   } finally {
     starting.value = false
+    retryingRunId.value = null
   }
 }
 
 async function startRun() {
-  await submitRun()
+  await reviewRun()
 }
 
 async function cancelRun(run: ActionRun) {
@@ -643,52 +718,8 @@ async function cancelRun(run: ActionRun) {
   }
 }
 
-async function retryRun(run: ActionRun, options: { enqueueIfBusy?: boolean } = {}) {
-  retryingRunId.value = run.id
-  try {
-    const result = await $fetch<StartActionRunResponse>(
-      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs/${run.id}/retry`,
-      {
-        method: 'POST',
-        query: {
-          enqueueIfBusy: options.enqueueIfBusy ?? false
-        }
-      }
-    )
-    actionRunsStore.upsertRun(result.run, props.projectName || props.projectId)
-    changed.value = true
-    await loadRuns()
-  } catch (error: unknown) {
-    const { details, isConcurrencyError } = concurrencyErrorDetails(error)
-    if (!options.enqueueIfBusy && isConcurrencyError) {
-      toast.add({
-        title: 'Action is already running',
-        description: details.message,
-        color: 'warning',
-        icon: 'i-lucide-clock-3',
-        actions: [
-          {
-            label: 'Schedule',
-            color: 'warning',
-            variant: 'solid',
-            onClick: () => {
-              void retryRun(run, { enqueueIfBusy: true })
-            }
-          },
-          {
-            label: 'Later',
-            color: 'neutral',
-            variant: 'outline',
-            onClick: () => {}
-          }
-        ]
-      })
-      return
-    }
-    toast.add({ title: 'Retry failed', description: details.message, color: 'error' })
-  } finally {
-    retryingRunId.value = null
-  }
+async function retryRun(run: ActionRun) {
+  await reviewRun(run.id)
 }
 
 async function toggleRunExpanded(run: ActionRun) {
@@ -801,6 +832,7 @@ function formatRunDetailLogs(run: ActionRun) {
 }
 
 function close() {
+  resetReview()
   emit('close', changed.value)
 }
 </script>
@@ -812,11 +844,94 @@ function close() {
     :close="{ onClick: close }"
   >
     <template #header>
-      <UiSlideoverHeader title="Run Action" icon="i-lucide-play" />
+      <UiSlideoverHeader :title="impact ? 'Review affected pages' : 'Run Action'" icon="i-lucide-play" />
     </template>
 
     <template #body>
-      <div class="space-y-5">
+      <div
+        v-if="impact"
+        ref="reviewPanel"
+        tabindex="-1"
+        role="region"
+        aria-label="Review affected pages"
+        class="space-y-4"
+      >
+        <UAlert
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          title="Existing annotations may be replaced"
+          description="Review the pages below. Uncheck a page to remove it from this Action run. Listed levels describe potential replacement or deletion."
+        />
+        <p role="status" class="text-sm text-muted">
+          {{ includedImpactPages.length }} included · {{ excludedPageIds.length }} excluded · {{ unaffectedPageCount }} unaffected pages included automatically
+        </p>
+        <UInput
+          v-model="reviewSearch"
+          icon="i-lucide-search"
+          placeholder="Find affected pages…"
+          aria-label="Find affected pages"
+          class="w-full"
+        />
+        <div class="flex flex-wrap gap-2">
+          <UButton color="neutral" variant="outline" @click="excludedPageIds = affectedPages.map(page => page.pageId)">
+            Exclude all affected pages
+          </UButton>
+          <UButton color="neutral" variant="outline" @click="excludedPageIds = []">
+            Include all affected pages
+          </UButton>
+        </div>
+        <ul class="divide-y divide-default rounded-sm border border-default">
+          <li v-for="page in visibleAffectedPages" :key="page.pageId" class="space-y-2 p-3">
+            <UCheckbox
+              :model-value="!excludedPageIds.includes(page.pageId)"
+              :label="page.name || page.pageId"
+              :aria-label="`Include ${page.name || page.pageId} in Action processing`"
+              @update:model-value="setPageIncluded(page.pageId, $event === true)"
+            />
+            <p v-if="page.warningPrecision === 'UNKNOWN'" class="pl-6 text-sm text-muted">
+              Existing annotations may be replaced.
+            </p>
+            <div v-else class="flex flex-wrap gap-1 pl-6">
+              <UBadge
+                v-for="level in page.affectedLevels"
+                :key="level"
+                color="warning"
+                variant="soft"
+              >
+                {{ annotationLevelLabels[level] }}
+              </UBadge>
+            </div>
+          </li>
+        </ul>
+        <p v-if="!visibleAffectedPages.length" class="text-sm text-muted">
+          No affected pages match your search.
+        </p>
+        <div v-if="impact.skippedPages.length" class="space-y-1 text-sm text-muted">
+          <p>{{ impact.skippedPages.length }} pages will be skipped:</p>
+          <p v-for="page in impact.skippedPages" :key="page.pageId">
+            {{ page.name || page.pageId }}: {{ page.reason }}
+          </p>
+        </div>
+      </div>
+      <div v-else class="space-y-5">
+        <UAlert
+          v-if="impactError"
+          color="error"
+          title="Page review failed"
+          :description="impactError"
+        >
+          <template #actions>
+            <UButton
+              color="neutral"
+              variant="outline"
+              :loading="impactLoading"
+              @click="reviewRun(reviewRetryRunId)"
+            >
+              Try again
+            </UButton>
+          </template>
+        </UAlert>
         <div class="space-y-4">
           <UAlert
             color="neutral"
@@ -1224,14 +1339,33 @@ function close() {
     </template>
 
     <template #footer>
-      <div class="flex justify-end gap-2">
+      <div class="flex flex-wrap justify-end gap-2">
         <UButton color="neutral" variant="ghost" @click="close">
           Close
         </UButton>
         <UButton
+          v-if="impact"
+          color="neutral"
+          variant="outline"
+          :disabled="starting"
+          @click="resetReview"
+        >
+          Back
+        </UButton>
+        <UButton
+          v-if="impact"
           icon="i-lucide-play"
           :loading="starting"
-          :disabled="!canStart"
+          :disabled="includedImpactPages.length === 0 || starting"
+          @click="confirmReviewedRun"
+        >
+          {{ reviewRetryRunId ? 'Retry' : 'Start' }} Action on {{ includedImpactPages.length }} pages
+        </UButton>
+        <UButton
+          v-else
+          icon="i-lucide-play"
+          :loading="starting || impactLoading"
+          :disabled="!canStart || impactLoading"
           @click="startRun"
         >
           Start Action

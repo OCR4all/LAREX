@@ -62,7 +62,11 @@ public record ActionDefinitionDocument(
     public record Outputs(OutputTarget xml, ImageOutputTarget images, FileOutputTarget files) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record OutputTarget(Boolean enabled, String mode) {}
+    public record OutputTarget(Boolean enabled, String mode, Map<String, List<String>> overwrites) {
+        public OutputTarget(Boolean enabled, String mode) {
+            this(enabled, mode, null);
+        }
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record ImageOutputTarget(Boolean enabled, String variant, String mode) {}

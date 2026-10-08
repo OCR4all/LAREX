@@ -294,6 +294,21 @@ public class ActionProjectController {
         return ResponseEntity.ok(actionRunService.getWorkspaceRunDetail(workspaceId, runId, userId));
     }
 
+    @PostMapping("/projects/{projectId}/runs/impact")
+    public ResponseEntity<ActionDto.RunImpactResponse> previewRunImpact(
+            @PathVariable String workspaceId, @PathVariable String projectId,
+            @Valid @RequestBody ActionDto.StartRunRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.previewRunImpact(workspaceId, projectId, request, userId));
+    }
+
+    @PostMapping("/projects/{projectId}/runs/{runId}/impact")
+    public ResponseEntity<ActionDto.RunImpactResponse> previewRetryImpact(
+            @PathVariable String workspaceId, @PathVariable String projectId, @PathVariable String runId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.previewRetryImpact(workspaceId, projectId, runId, userId));
+    }
+
     @PostMapping("/projects/{projectId}/runs/{runId}/retry")
     public ResponseEntity<ActionDto.StartRunResponse> retryRun(
             @PathVariable String workspaceId,
@@ -301,14 +316,16 @@ public class ActionProjectController {
             @PathVariable String runId,
             @RequestParam(defaultValue = "false") boolean enqueueIfBusy,
             @AuthenticationPrincipal(expression = "subject") String userId,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest,
+            @RequestBody(required = false) ActionDto.RetryRunRequest request) {
         return ResponseEntity.ok(actionRunService.retryRun(
                 workspaceId,
                 projectId,
                 runId,
                 enqueueIfBusy,
                 userId,
-                publicBaseUrlService.publicApiBaseUrl(httpRequest)
+                publicBaseUrlService.publicApiBaseUrl(httpRequest),
+                request
         ));
     }
 

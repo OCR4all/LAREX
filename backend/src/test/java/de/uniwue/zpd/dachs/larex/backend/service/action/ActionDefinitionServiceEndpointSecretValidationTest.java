@@ -142,6 +142,41 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
                 .isInstanceOf(ActionDefinitionService.ValidationException.class);
     }
 
+    @Test
+    void parsesOverwriteDeclarationsAndDistinguishesMissingFromEmpty() {
+        configureSecret();
+        var missing = service.parseAndValidate(validExternalYaml(), null).preview();
+        assertThat(missing.overwrites()).isEmpty();
+        var empty = service.parseAndValidate(withOverwrites("PAGE: []"), null).preview();
+        assertThat(empty.overwrites()).containsKey(ActionProcessorDefinition.ActionTarget.PAGE);
+        assertThat(empty.overwrites().get(ActionProcessorDefinition.ActionTarget.PAGE)).isEmpty();
+        var declared = service.parseAndValidate(withOverwrites("PAGE: [REGIONS, TEXT, REGIONS]"), null).preview();
+        assertThat(declared.overwrites().get(ActionProcessorDefinition.ActionTarget.PAGE))
+                .containsExactly(ActionDto.AnnotationLevel.REGIONS, ActionDto.AnnotationLevel.TEXT);
+    }
+
+    @Test
+    void rejectsInvalidOverwriteDeclarations() {
+        configureSecret();
+        for (String invalid : java.util.List.of("PAGE: [METADATA]", "REGION: [TEXT]", "UNKNOWN: []", "PAGE: null")) {
+            assertThatThrownBy(() -> service.parseAndValidate(withOverwrites(invalid), null))
+                    .isInstanceOf(ActionDefinitionService.ValidationException.class);
+        }
+        assertThatThrownBy(() -> service.parseAndValidate(withOverwrites("PAGE: []")
+                .replace("enabled: true", "enabled: false"), null))
+                .isInstanceOf(ActionDefinitionService.ValidationException.class);
+    }
+
+    private void configureSecret() {
+        when(endpointAuthService.normalizeAuthType(new de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument.EndpointAuth("hmac", "processor-v1")))
+                .thenCallRealMethod();
+        when(endpointAuthService.hasSecret("processor-v1")).thenReturn(true);
+    }
+
+    private String withOverwrites(String declaration) {
+        return validExternalYaml().replace("    enabled: true\n", "    enabled: true\n    overwrites:\n      " + declaration + "\n");
+    }
+
     private String validExternalYaml() {
         return """
                 version: 1

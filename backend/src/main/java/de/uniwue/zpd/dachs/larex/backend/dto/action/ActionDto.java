@@ -17,6 +17,23 @@ import java.util.Map;
 
 public class ActionDto {
 
+    public enum AnnotationLevel {
+        REGIONS, TEXT_LINES, BASELINES, TEXT, WORDS, GLYPHS, READING_ORDER
+    }
+
+    public enum WarningPrecision { DECLARED, UNKNOWN }
+
+    public record ImpactPage(String pageId, String name, TargetSelectionPage targetSelection,
+                             List<AnnotationLevel> affectedLevels, WarningPrecision warningPrecision,
+                             boolean affected) {}
+
+    public record SkippedImpactPage(String pageId, String name, String reason) {}
+
+    public record RunImpactResponse(ActionTarget target, List<ImpactPage> pages,
+                                    List<SkippedImpactPage> skippedPages) {}
+
+    public record RetryRunRequest(List<String> excludedPageIds) {}
+
     public enum InputLevel {
         NONE,
         OPTIONAL,
@@ -96,7 +113,8 @@ public class ActionDto {
             boolean outputsFiles,
             TrainingSplitRequirements trainingSplits,
             EvaluationDefinition evaluation,
-            Map<String, ActionDefinitionDocument.Parameter> parameters
+            Map<String, ActionDefinitionDocument.Parameter> parameters,
+            Map<ActionTarget, List<AnnotationLevel>> overwrites
     ) {}
 
     public record DefinitionRequest(
@@ -129,7 +147,8 @@ public class ActionDto {
             LocalDateTime updated,
             TrainingSplitRequirements trainingSplits,
             EvaluationDefinition evaluation,
-            Map<String, ActionDefinitionDocument.Parameter> parameters
+            Map<String, ActionDefinitionDocument.Parameter> parameters,
+            Map<ActionTarget, List<AnnotationLevel>> overwrites
     ) {}
 
     public record WorkspaceAvailabilityRequest(

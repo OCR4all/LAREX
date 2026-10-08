@@ -3,6 +3,9 @@ export type ActionLockMode = 'NONE' | 'PAGES' | 'PROJECT'
 export type ActionKind = 'PROCESSING' | 'TRAINING' | 'EVALUATION'
 export type ActionCategory = 'WORKFLOW' | 'OCR_HTR' | 'LAYOUT' | 'POSTPROCESSING'
 export type ActionTarget = 'PAGE' | 'REGION' | 'TEXT_LINE'
+export type AnnotationLevel = 'REGIONS' | 'TEXT_LINES' | 'BASELINES' | 'TEXT' | 'WORDS' | 'GLYPHS' | 'READING_ORDER'
+export type ActionOverwriteDeclarations = Partial<Record<ActionTarget, AnnotationLevel[]>>
+
 export type ActionInputLevel = 'NONE' | 'OPTIONAL' | 'REQUIRED'
 export type ActionRunStatus = 'QUEUED' | 'PENDING' | 'DISPATCHING' | 'RUNNING' | 'IMPORTING_RESULTS' | 'COMPLETED' | 'FAILED' | 'CANCEL_REQUESTED' | 'CANCELLED'
 
@@ -62,6 +65,7 @@ export interface ActionDefinitionPreview {
   outputsImages: boolean
   outputsXml: boolean
   outputsFiles: boolean
+  overwrites: ActionOverwriteDeclarations
   trainingSplits: ActionTrainingSplitRequirements | null
   evaluation?: ActionEvaluationDefinition | null
   parameters: Record<string, ActionParameterDefinition>
@@ -119,6 +123,7 @@ export interface ActionDefinition {
   outputsImages: boolean
   outputsXml: boolean
   outputsFiles: boolean
+  overwrites: ActionOverwriteDeclarations
   enabled: boolean
   global: boolean
   created: string
@@ -431,3 +436,26 @@ parameters:
     min: 0
     max: 1
 `
+
+export interface ActionRunConfiguration {
+  processorDefinitionId: string
+  pageIds: string[]
+  targetSelection: ActionTargetSelection | null
+  imageVariantSelection: ActionImageVariantSelection | null
+  parameters: Record<string, ActionParameterValue | '' | undefined>
+}
+
+export interface ActionImpactPage {
+  pageId: string
+  name: string
+  targetSelection: ActionTargetSelectionPage
+  affectedLevels: AnnotationLevel[]
+  warningPrecision: 'DECLARED' | 'UNKNOWN'
+  affected: boolean
+}
+
+export interface ActionRunImpact {
+  target: ActionTarget
+  pages: ActionImpactPage[]
+  skippedPages: Array<{ pageId: string, name: string, reason: string }>
+}

@@ -7,7 +7,7 @@ const processor: ActionDefinitionResponse = {
   yaml: '', endpointUrl: '', endpointTimeoutSeconds: 30, kind: 'PROCESSING', executeRole: 'CURATOR',
   lockMode: 'NONE', category: 'WORKFLOW', targets: ['PAGE'],
   inputs: { images: { level: 'NONE', requiredForTargets: [] }, xml: { level: 'NONE', requiredForTargets: [] } },
-  acceptsImages: false, acceptsXml: false, outputsImages: false, outputsXml: false, outputsFiles: false,
+  acceptsImages: false, acceptsXml: false, outputsImages: false, outputsXml: false, outputsFiles: false, overwrites: {},
   enabled: true, global: true, created: '', updated: '', trainingSplits: null, parameters: {}
 }
 function assignment(projectId: string | null, enabled = true): ActionAssignmentResponse {

@@ -426,6 +426,7 @@ public class ActionDefinitionService {
         boolean outputsFiles = document.outputs() != null
                 && document.outputs().files() != null
                 && Boolean.TRUE.equals(document.outputs().files().enabled());
+        validateOverwriteDeclarations(document, targets, diagnostics);
         validateOutput(document.outputs() == null ? null : document.outputs().xml(), "outputs.xml", outputsXml, diagnostics);
         validateImageOutput(document.outputs() == null ? null : document.outputs().images(), "outputs.images", outputsImages, diagnostics);
         ActionDto.TrainingSplitRequirements trainingSplits = parseTrainingSplitRequirements(
@@ -498,7 +499,8 @@ public class ActionDefinitionService {
                     outputsFiles,
                     trainingSplits,
                     evaluation,
-                    document.parameters() == null ? Map.of() : document.parameters()
+                    document.parameters() == null ? Map.of() : document.parameters(),
+                    normalizedOverwriteDeclarations(document)
             );
             return new ParsedDefinition(document, parsedJson, preview);
         } catch (JacksonException e) {
@@ -513,6 +515,50 @@ public class ActionDefinitionService {
         } catch (JacksonException e) {
             throw new IllegalStateException("Stored Action definition is invalid", e);
         }
+    }
+
+    public Map<ActionTarget, List<ActionDto.AnnotationLevel>> readOverwriteDeclarations(ActionProcessorDefinition definition) {
+        return normalizedOverwriteDeclarations(readParsedDocument(definition));
+    }
+
+    private Map<ActionTarget, List<ActionDto.AnnotationLevel>> normalizedOverwriteDeclarations(ActionDefinitionDocument document) {
+        Map<ActionTarget, List<ActionDto.AnnotationLevel>> result = new java.util.LinkedHashMap<>();
+        var xml = document.outputs() == null ? null : document.outputs().xml();
+        if (xml != null && xml.overwrites() != null) {
+            xml.overwrites().forEach((target, levels) -> result.put(ActionTarget.valueOf(target),
+                    levels.stream().map(ActionDto.AnnotationLevel::valueOf).distinct().toList()));
+        }
+        return result;
+    }
+
+    private void validateOverwriteDeclarations(ActionDefinitionDocument document, List<ActionTarget> targets,
+                                                List<ActionDto.ValidationDiagnostic> diagnostics) {
+        var xml = document.outputs() == null ? null : document.outputs().xml();
+        if (xml == null || xml.overwrites() == null) return;
+        if (!Boolean.TRUE.equals(xml.enabled())) {
+            diagnostics.add(error("outputs.xml.overwrites", "Overwrite declarations require enabled XML output"));
+        }
+        xml.overwrites().forEach((target, levels) -> {
+            String path = "outputs.xml.overwrites." + target;
+            try {
+                if (!targets.contains(ActionTarget.valueOf(target))) {
+                    diagnostics.add(error(path, "Overwrite target must be supported by the Action"));
+                }
+            } catch (IllegalArgumentException | NullPointerException e) {
+                diagnostics.add(error(path, "Unknown overwrite target"));
+            }
+            if (levels == null) {
+                diagnostics.add(error(path, "Overwrite levels must be a list; use [] to declare no overwrite"));
+                return;
+            }
+            for (String level : levels) {
+                try {
+                    ActionDto.AnnotationLevel.valueOf(level);
+                } catch (IllegalArgumentException | NullPointerException e) {
+                    diagnostics.add(error(path, "Unknown annotation level: " + level));
+                }
+            }
+        });
     }
 
     public ActionDto.InputRequirements readInputRequirements(ActionProcessorDefinition definition) {
@@ -566,7 +612,8 @@ public class ActionDefinitionService {
                 parseEvaluationDefinition(definition.getActionKind(), document.evaluation(), new ArrayList<>()),
                 document.parameters() == null
                         ? Map.of()
-                        : document.parameters()
+                        : document.parameters(),
+                normalizedOverwriteDeclarations(document)
         );
     }
 
