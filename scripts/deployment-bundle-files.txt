@@ -17,6 +17,10 @@ deployment/nginx/templates/larex-proxy.conf.template
 deployment/nginx/templates/larex-proxy.external-keycloak.conf.template
 config/keycloak/larex.bootstrap.realm.json
 config/keycloak/theme.jar
+config/keycloak/theme.jar.sha256
+config/keycloak/theme.json
+deployment/KEYCLOAK-THEME.md
+scripts/verify-keycloak-theme.sh
 scripts/bootstrap-env-secrets.sh
 scripts/larex-backup.sh
 scripts/larex-instance-backup.sh

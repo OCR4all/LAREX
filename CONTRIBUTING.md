@@ -2,7 +2,7 @@
 
 ## Development setup
 
-1. Install prerequisites: Docker Desktop, Java 21, Node.js 20+, pnpm 10+, and [Task](https://taskfile.dev/).
+1. Install prerequisites: Docker Desktop, Java 21, Node.js 22.18+, pnpm 11+, and [Task](https://taskfile.dev/).
 2. Install dependencies:
    - `task install`
 3. Start local services:

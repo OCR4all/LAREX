@@ -27,7 +27,7 @@ tasks:
     desc: Build theme and copy to config/keycloak/theme.jar
     cmds:
       - task: build:theme
-      - 'cp dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar ../config/keycloak/theme.jar'
+      - 'node --experimental-strip-types ../scripts/package-keycloak-theme.mts dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar ../config/keycloak $(cat ../VERSION)'
       - 'echo "Theme deployed to config/keycloak/theme.jar"'
 
   storybook:

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.0-SNAPSHOT",
+  "theme": "keycloakify-larex",
+  "types": [
+    "login",
+    "email"
+  ],
+  "keycloakVersion": "26.7.4",
+  "sha256": "6962c07ef4a0afdf89144edb635d0da729612fb84f218a46a68e909cbdbfabc1",
+  "source": {
+    "repository": "ocr4all/larex",
+    "commit": null
+  },
+  "provenance": "local-unattested"
+}

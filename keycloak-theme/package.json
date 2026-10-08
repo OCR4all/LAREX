@@ -12,6 +12,7 @@
     "postinstall": "keycloakify sync-extensions",
     "dev": "vite",
     "build": "tsc && vite build",
+    "typecheck:scripts": "tsc --project ../scripts/tsconfig.json",
     "build-keycloak-theme": "npm run build && keycloakify build",
     "storybook": "storybook dev -p 6006",
     "format": "prettier . --write"
@@ -70,6 +71,6 @@
     "vite": "^5.0.8"
   },
   "engines": {
-    "node": "^18.0.0 || >=20.0.0"
+    "node": ">=22.18.0"
   }
 }

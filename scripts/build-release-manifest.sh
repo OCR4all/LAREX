@@ -58,6 +58,17 @@ ACTUAL_SHA256="$(sha256_file "$ARCHIVE_PATH")"
 [[ "$RECORDED_SHA256" == "$ACTUAL_SHA256" ]] \
   || fail "Deployment bundle checksum does not match: $ARCHIVE"
 
+THEME_ARCHIVE="larex-keycloak-theme-$VERSION.jar"
+[[ -f "$OUTPUT_DIR/$THEME_ARCHIVE" && -f "$OUTPUT_DIR/$THEME_ARCHIVE.sha256" ]] \
+  || fail "Standalone theme or checksum is missing"
+read -r RECORDED_THEME_SHA256 RECORDED_THEME < "$OUTPUT_DIR/$THEME_ARCHIVE.sha256"
+THEME_SHA256="$(sha256_file "$OUTPUT_DIR/$THEME_ARCHIVE")"
+[[ "$RECORDED_THEME_SHA256" == "$THEME_SHA256" && "$RECORDED_THEME" == "$THEME_ARCHIVE" ]] \
+  || fail "Standalone theme checksum mismatch"
+BUNDLED_THEME_SHA256="$(unzip -p "$ARCHIVE_PATH" "larex-deployment-$VERSION/config/keycloak/theme.jar" | \
+  { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi; } | awk '{print $1}')"
+[[ "$BUNDLED_THEME_SHA256" == "$THEME_SHA256" ]] || fail "Standalone and bundled themes differ"
+
 TEMP_MANIFEST="$(mktemp "$OUTPUT_DIR/.larex-release-manifest.XXXXXX")"
 trap 'rm -f "$TEMP_MANIFEST"' EXIT
 
@@ -67,6 +78,8 @@ jq -n \
   --arg commit "$COMMIT" \
   --arg archive "$ARCHIVE" \
   --arg archiveSha256 "$ACTUAL_SHA256" \
+  --arg theme "$THEME_ARCHIVE" \
+  --arg themeSha256 "$THEME_SHA256" \
   --arg backend "ghcr.io/ocr4all/larex/backend@$BACKEND_DIGEST" \
   --arg frontend "ghcr.io/ocr4all/larex/frontend@$FRONTEND_DIGEST" \
   --arg docs "ghcr.io/ocr4all/larex/docs@$DOCS_DIGEST" \
@@ -81,6 +94,7 @@ jq -n \
       file: $archive,
       sha256: $archiveSha256
     },
+    keycloakTheme: { file: $theme, sha256: $themeSha256, provenance: "github-artifact-attestation" },
     images: {
       backend: $backend,
       frontend: $frontend,

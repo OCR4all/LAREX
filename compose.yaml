@@ -62,7 +62,7 @@ services:
       retries: 5
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.7.2
+    image: quay.io/keycloak/keycloak:26.7.4
     command: start-dev --import-realm
     environment:
       KC_DB: postgres

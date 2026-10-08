@@ -35,6 +35,14 @@ and documentation image digests. Release images include SPDX SBOM and maximum-mo
 provenance attestations and are signed keylessly with Sigstore by the release
 workflow.
 
+## Keycloak theme
+
+Both bundled and external Keycloak use the separately shipped theme JAR without
+replacing the official Keycloak image. Before installation, run
+`bash scripts/verify-keycloak-theme.sh` to verify GitHub release provenance.
+See [KEYCLOAK-THEME.md](KEYCLOAK-THEME.md) for checksums, standalone downloads,
+external container mounts, theme selection, and upgrades.
+
 ## Start the recommended deployment
 
 Review `deployment/env/.env.prod.example`, then generate local secrets:

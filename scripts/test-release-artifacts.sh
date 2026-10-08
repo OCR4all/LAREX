@@ -87,6 +87,27 @@ jq -e \
     and (.images.docs | startswith("ghcr.io/ocr4all/larex/docs@sha256:"))' \
   "$TEST_ROOT/larex-release-$VERSION.json" >/dev/null
 
+THEME_PATH="$TEST_ROOT/larex-keycloak-theme-$VERSION.jar"
+THEME_SHA256="$(sha256_file "$THEME_PATH")"
+jq -e --arg digest "$THEME_SHA256" \
+  '.keycloakTheme.sha256 == $digest and .keycloakTheme.provenance == "github-artifact-attestation"' \
+  "$TEST_ROOT/larex-release-$VERSION.json" >/dev/null
+[[ "$(sha256_file "$BUNDLE_ROOT/config/keycloak/theme.jar")" == "$THEME_SHA256" ]] \
+  || fail "Standalone and bundled theme differ"
+printf 'tampered\n' >> "$THEME_PATH"
+if bash "$ROOT_DIR/scripts/build-release-manifest.sh" \
+  "$VERSION" "$TEST_ROOT" ocr4all/larex "$COMMIT" "$DIGEST" "$DIGEST" "$DIGEST" >/dev/null 2>&1; then
+  fail "Release manifest accepted a tampered theme"
+fi
+# Even a recalculated checksum must not allow a different standalone theme.
+printf '%s  %s\n' "$(sha256_file "$THEME_PATH")" "$(basename "$THEME_PATH")" > "$THEME_PATH.sha256"
+if bash "$ROOT_DIR/scripts/build-release-manifest.sh" \
+  "$VERSION" "$TEST_ROOT" ocr4all/larex "$COMMIT" "$DIGEST" "$DIGEST" "$DIGEST" >/dev/null 2>&1; then
+  fail "Release manifest accepted differing standalone and bundled themes"
+fi
+cp "$BUNDLE_ROOT/config/keycloak/theme.jar" "$THEME_PATH"
+printf '%s  %s\n' "$THEME_SHA256" "$(basename "$THEME_PATH")" > "$THEME_PATH.sha256"
+
 printf 'tampered\n' >> "$ARCHIVE_PATH"
 if bash "$ROOT_DIR/scripts/build-release-manifest.sh" \
   "$VERSION" \

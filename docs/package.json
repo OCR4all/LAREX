@@ -1,8 +1,11 @@
 {
   "name": "docs",
   "packageManager": "pnpm@11.6.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
   "scripts": {
-    "prepare:installer-assets": "node ../scripts/stage-docs-installer-assets.mjs",
+    "prepare:installer-assets": "node --experimental-strip-types ../scripts/stage-docs-installer-assets.mts",
     "predev": "pnpm prepare:installer-assets",
     "dev": "nuxt dev",
     "prebuild": "pnpm prepare:installer-assets",

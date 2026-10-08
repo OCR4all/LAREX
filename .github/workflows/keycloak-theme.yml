@@ -1,0 +1,51 @@
+name: Build Keycloak Theme
+
+on:
+  workflow_call:
+    inputs:
+      artifact-name:
+        type: string
+        default: keycloak-theme
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          version: 11.1.2
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: keycloak-theme/pnpm-lock.yaml
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Build from locked dependencies
+        working-directory: keycloak-theme
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run typecheck:scripts
+          pnpm run build-keycloak-theme
+      - name: Audit and package theme
+        run: |
+          node --experimental-strip-types scripts/package-keycloak-theme.mts \
+            keycloak-theme/dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar \
+            config/keycloak "$(cat VERSION)" "$GITHUB_SHA"
+          node --experimental-strip-types --test scripts/test-keycloak-theme.mjs
+      - name: Verify official Keycloak loads the mounted theme
+        run: bash scripts/test-keycloak-theme-container.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          if-no-files-found: error
+          path: |
+            config/keycloak/theme.jar
+            config/keycloak/theme.jar.sha256
+            config/keycloak/theme.json

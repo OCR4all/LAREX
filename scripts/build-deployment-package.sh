@@ -68,6 +68,14 @@ done < "$FILE_LIST"
 
 [[ ${#BUNDLE_FILES[@]} -gt 0 ]] || fail "Deployment bundle manifest is empty"
 
+THEME_SHA256="$(sha256_file "$BUNDLE_ROOT/config/keycloak/theme.jar")"
+read -r RECORDED_THEME_SHA256 THEME_FILENAME < "$BUNDLE_ROOT/config/keycloak/theme.jar.sha256"
+[[ "$RECORDED_THEME_SHA256" == "$THEME_SHA256" && "$THEME_FILENAME" == theme.jar ]] \
+  || fail "Theme checksum mismatch; rebuild the theme package"
+THEME_ARCHIVE="larex-keycloak-theme-$VERSION.jar"
+cp "$BUNDLE_ROOT/config/keycloak/theme.jar" "$OUTPUT_DIR/$THEME_ARCHIVE"
+printf '%s  %s\n' "$THEME_SHA256" "$THEME_ARCHIVE" > "$OUTPUT_DIR/$THEME_ARCHIVE.sha256"
+
 printf '%s\n' "$VERSION" > "$BUNDLE_ROOT/VERSION"
 
 CHECKSUM_MANIFEST="$BUNDLE_ROOT/SHA256SUMS"

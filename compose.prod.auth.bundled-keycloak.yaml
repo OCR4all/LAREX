@@ -28,7 +28,7 @@ services:
         max-file: "3"
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.7.2
+    image: quay.io/keycloak/keycloak:26.7.4
     restart: unless-stopped
     command: start --import-realm
     ports:
@@ -70,7 +70,13 @@ services:
     volumes:
       - keycloak_data:/opt/keycloak/data
       - ./config/keycloak/larex.bootstrap.realm.json:/opt/keycloak/data/import/larex.bootstrap.realm.json:ro,Z
-      - ./config/keycloak/theme.jar:/opt/keycloak/providers/larex_theme.jar:ro,Z
+      - type: bind
+        source: ./config/keycloak/theme.jar
+        target: /opt/keycloak/providers/larex_theme.jar
+        read_only: true
+        bind:
+          create_host_path: false
+          selinux: Z
     networks:
       - backend
     depends_on:

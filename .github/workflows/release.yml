@@ -51,10 +51,16 @@ jobs:
     if: ${{ !inputs.skip_tests }}
     uses: ./.github/workflows/ci.yml
 
+  keycloak-theme:
+    needs: version
+    uses: ./.github/workflows/keycloak-theme.yml
+    with:
+      artifact-name: release-keycloak-theme
+
   build-and-push:
     name: Build and Push Docker Images
-    needs: [version, test]
-    if: ${{ always() && (needs.test.result == 'success' || inputs.skip_tests) }}
+    needs: [version, test, keycloak-theme]
+    if: ${{ always() && needs.version.result == 'success' && needs.keycloak-theme.result == 'success' && (needs.test.result == 'success' || inputs.skip_tests) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -144,6 +150,12 @@ jobs:
           build-args: |
             VERSION=${{ needs.version.outputs.version }}
             NODE_MAX_OLD_SPACE_SIZE=${{ env.NODE_MAX_OLD_SPACE_SIZE }}
+
+      - name: Download freshly built release theme
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-keycloak-theme
+          path: config/keycloak
 
       - name: Build and push docs image
         id: build-docs
@@ -235,7 +247,7 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [version, build-and-push]
+    needs: [version, build-and-push, keycloak-theme]
     runs-on: ubuntu-latest
     permissions:
       attestations: write
@@ -245,6 +257,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Download freshly built release theme
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-keycloak-theme
+          path: config/keycloak
+
+      - name: Check theme source identity
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          jq -e --arg version "$RELEASE_VERSION" --arg commit "$GITHUB_SHA" \
+            '.version == $version and .source.commit == $commit' config/keycloak/theme.json
 
       - name: Build administrator deployment bundle
         run: bash ./scripts/build-deployment-package.sh "${{ needs.version.outputs.version }}" dist
@@ -271,6 +296,7 @@ jobs:
           subject-path: |
             dist/larex-deployment-${{ needs.version.outputs.version }}.zip
             dist/larex-release-${{ needs.version.outputs.version }}.json
+            dist/larex-keycloak-theme-${{ needs.version.outputs.version }}.jar
 
       - name: Create Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
@@ -281,9 +307,11 @@ jobs:
           draft: false
           prerelease: false
           files: |
+            dist/larex-keycloak-theme-${{ needs.version.outputs.version }}.jar.sha256
             dist/larex-deployment-${{ needs.version.outputs.version }}.zip
             dist/larex-deployment-${{ needs.version.outputs.version }}.zip.sha256
             dist/larex-release-${{ needs.version.outputs.version }}.json
+            dist/larex-keycloak-theme-${{ needs.version.outputs.version }}.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

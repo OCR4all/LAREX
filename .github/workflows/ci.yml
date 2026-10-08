@@ -130,39 +130,10 @@ jobs:
 
   keycloak-theme:
     name: Keycloak Theme Build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 11.1.2
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: keycloak-theme/pnpm-lock.yaml
-
-      - name: Install dependencies
-        working-directory: keycloak-theme
-        run: pnpm install --frozen-lockfile
-
-      - name: Build theme
-        working-directory: keycloak-theme
-        run: pnpm run build-keycloak-theme
-
-      - name: Upload theme artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: keycloak-theme
-          path: keycloak-theme/dist_keycloak/
+    uses: ./.github/workflows/keycloak-theme.yml
 
   docs:
+    needs: keycloak-theme
     name: Docs Build
     runs-on: ubuntu-latest
 
@@ -185,6 +156,12 @@ jobs:
       - name: Install dependencies
         working-directory: docs
         run: pnpm install --frozen-lockfile
+
+      - name: Download freshly built theme
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: keycloak-theme
+          path: config/keycloak
 
       - name: Build docs
         working-directory: docs
@@ -328,6 +305,7 @@ jobs:
           fi
 
   docker-build:
+    needs: keycloak-theme
     name: Docker Build Test
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
@@ -360,6 +338,12 @@ jobs:
             NODE_MAX_OLD_SPACE_SIZE=${{ env.NODE_MAX_OLD_SPACE_SIZE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Download freshly built theme
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: keycloak-theme
+          path: config/keycloak
 
       - name: Build docs image
         uses: docker/build-push-action@v7
