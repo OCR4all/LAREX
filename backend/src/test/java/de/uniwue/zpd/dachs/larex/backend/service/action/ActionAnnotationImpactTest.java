@@ -22,7 +22,7 @@ class ActionAnnotationImpactTest {
                  {"id":"other-line","textContentVariants":[{"plainText":"other text"}]}],
                "nestedRegions":[{"id":"nested","textContentVariants":[{"unicode":"nested text"}]}]},
               {"id":"unselected","textLines":[{"id":"unselected-line","textContentVariants":[{"unicode":"unrelated"}]}]}],
-             "readingOrder":{"root":{"id":"order","ordered":true,"members":[]}}}
+             "readingOrder":{"root":{"id":"order","ordered":true,"members":[{"type":"regionRef","regionRef":"selected","index":0}]}}}
             """, PageDto.class);
 
     @Test
@@ -74,6 +74,31 @@ class ActionAnnotationImpactTest {
         assertThat(ActionAnnotationImpact.affectedLevels(mapper.readValue("{\"imageWidth\":100,\"imageHeight\":100}", PageDto.class),
                 ActionTarget.PAGE, selection(), List.of(REGIONS, READING_ORDER))).isEmpty();
         assertThat(levels(ActionTarget.PAGE, List.of())).isEmpty();
+    }
+
+    @Test
+    void emptyReadingOrderGroupsAreNotAffected() {
+        for (String root : List.of(
+                "null",
+                "{\"id\":\"order\",\"ordered\":true}",
+                "{\"id\":\"order\",\"ordered\":true,\"members\":[]}",
+                "{\"ordered\":false,\"members\":[{\"type\":\"nestedGroup\",\"group\":{\"ordered\":true,\"members\":[]}}]}")) {
+            PageDto page = mapper.readValue("{\"imageWidth\":100,\"imageHeight\":100,\"readingOrder\":{\"root\":" + root + "}}", PageDto.class);
+            assertThat(ActionAnnotationImpact.affectedLevels(page, ActionTarget.PAGE, selection(), List.of(READING_ORDER)))
+                    .as("reading order root %s", root)
+                    .isEmpty();
+        }
+    }
+
+    @Test
+    void readingOrderReferencesInNestedGroupsAreAffected() {
+        PageDto page = mapper.readValue("""
+                {"imageWidth":100,"imageHeight":100,"readingOrder":{"root":{"ordered":false,"members":[
+                  {"type":"nestedGroup","group":{"ordered":true,"members":[
+                    {"type":"regionRef","regionRef":"selected","index":0}]}}]}}}
+                """, PageDto.class);
+        assertThat(ActionAnnotationImpact.affectedLevels(page, ActionTarget.PAGE, selection(), List.of(READING_ORDER)))
+                .containsExactly(READING_ORDER);
     }
 
     private List<ActionDto.AnnotationLevel> levels(ActionTarget target, List<ActionDto.AnnotationLevel> declarations) {

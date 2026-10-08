@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.AnnotationLevel;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.TargetSelectionPage;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.readingorder.ReadingOrderDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
@@ -22,7 +23,7 @@ public final class ActionAnnotationImpact {
         Set<AnnotationLevel> present = EnumSet.noneOf(AnnotationLevel.class);
         if (target == ActionTarget.PAGE) {
             collectRegions(page.regions(), present);
-            if (page.readingOrder() != null && page.readingOrder().root() != null) {
+            if (page.readingOrder() != null && hasReadingOrderReferences(page.readingOrder().root())) {
                 present.add(AnnotationLevel.READING_ORDER);
             }
         } else {
@@ -49,6 +50,19 @@ public final class ActionAnnotationImpact {
         }
         if (levels.contains(AnnotationLevel.GLYPHS)) levels.add(AnnotationLevel.TEXT);
         return levels;
+    }
+
+    private static boolean hasReadingOrderReferences(ReadingOrderDto.GroupDto group) {
+        if (group == null) return false;
+        for (var member : safe(group.members())) {
+            if (member instanceof ReadingOrderDto.RegionRefDto reference && nonempty(reference.regionRef())) {
+                return true;
+            }
+            if (member instanceof ReadingOrderDto.NestedGroupDto nested && hasReadingOrderReferences(nested.group())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void collectSelected(List<RegionDto> regions, ActionTarget target,
