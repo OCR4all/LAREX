@@ -288,14 +288,19 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
         </div>
       </div>
       <div class="flex items-center gap-1">
-        <UBadge
-          v-if="activeJobs.length > 0"
-          color="primary"
-          size="xs"
-          variant="soft"
+        <span
+          role="img"
+          :aria-label="realtimeStatus.label"
+          :title="realtimeStatus.label"
+          class="inline-flex shrink-0 items-center"
         >
-          {{ activeJobs.length }}
-        </UBadge>
+          <UIcon
+            :name="realtimeStatus.icon"
+            :class="realtimeStatus.color"
+            class="size-3.5"
+            aria-hidden="true"
+          />
+        </span>
         <UButton
           v-if="showMinimize"
           :icon="minimized ? 'i-lucide-chevron-up' : 'i-lucide-minus'"
@@ -341,10 +346,6 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
     </div>
 
     <div v-else :class="[compact ? 'max-h-[min(60vh,24rem)]' : 'max-h-110', 'overflow-y-auto']">
-      <div class="flex items-center gap-2 border-b border-default px-4 py-2 text-xs text-muted">
-        <UIcon :name="realtimeStatus.icon" :class="realtimeStatus.color" class="size-3.5" />
-        <span>{{ realtimeStatus.label }}</span>
-      </div>
       <div v-if="issues.length === 0 && jobs.length === 0" class="px-4 py-6 text-center text-sm text-muted">
         All clear
       </div>
