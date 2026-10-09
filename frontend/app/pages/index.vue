@@ -37,7 +37,13 @@ import { createSkeletonPageData, type PageResponse } from '@/services/editor/pro
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { naturalSortBy } from '@/utils/natural-sort'
-import { buildBatchProjectExportFileName } from '@/utils/download-file-names'
+import {
+  buildBatchProjectExportFileName,
+  buildDownloadFileName,
+  buildProjectBasicExportFileName,
+  buildProjectPackageFileName
+} from '@/utils/download-file-names'
+import { formatProjectExportExtension } from '@/utils/project-export'
 import type { Page } from '@/types/project-page'
 import { getDirectoryProjectName, getProjectNameError, isProjectImageOrXml } from '@/utils/directory-project-upload'
 import { getDroppedDirectoryFiles } from '@/utils/file-drop'
@@ -860,9 +866,13 @@ type BatchExportJob = {
 async function exportSelectedProjects(mode: BatchExportMode) {
   if (!selectedWorkspace.value || !canExportSelectedProjects.value) return
 
+  const projectsToExport = [...selectedProjects.value]
+  const singleProject = projectsToExport.length === 1 ? projectsToExport[0] : undefined
+  const workspaceId = selectedWorkspace.value
+
   let imageVariantPages: Page[] = []
   try {
-    imageVariantPages = (await Promise.all(selectedProjects.value.map(project =>
+    imageVariantPages = (await Promise.all(projectsToExport.map(project =>
       $fetch<Page[]>(`/api/projects/${project.id}/pages`)
     ))).flat()
   } catch (error) {
@@ -875,13 +885,14 @@ async function exportSelectedProjects(mode: BatchExportMode) {
   }
 
   const exportOptions = await requestExportOptions(mode, {
-    suggestedFileName: buildBatchProjectExportFileName(),
+    suggestedBaseName: singleProject?.name,
+    suggestedFileName: singleProject ? undefined : buildBatchProjectExportFileName(),
     prepareDownload: backgroundDownloads.prepareDownload,
     imageVariantPages
   })
   if (!exportOptions || (mode === 'project' && !exportOptions.format)) return
 
-  const projectCount = selectedProjects.value.length
+  const projectCount = projectsToExport.length
   const modeLabel = mode === 'basic'
     ? 'project export'
     : mode === 'project'
@@ -891,17 +902,53 @@ async function exportSelectedProjects(mode: BatchExportMode) {
   isBatchExporting.value = true
   try {
     await backgroundDownloads.runBackgroundJob({
-      title: `Exporting ${projectCount} projects`,
-      subtitle: modeLabel,
-      statusLabel: 'Generating archive',
+      title: singleProject ? `Exporting ${modeLabel}` : `Exporting ${projectCount} projects`,
+      subtitle: singleProject?.name ?? modeLabel,
+      statusLabel: singleProject ? 'Generating' : 'Generating archive',
       completedLabel: 'Exported',
       icon: mode === 'package' ? 'i-lucide-package' : 'i-lucide-file-archive',
       task: async (job) => {
-        const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/projects/batch-export-jobs`, {
+        if (singleProject) {
+          const endpoint = mode === 'basic' ? 'export-basic' : mode === 'package' ? 'export-package' : 'export'
+          const payload = mode === 'project'
+            ? {
+                pageIds: null,
+                format: exportOptions.format,
+                includePageDelimiters: exportOptions.includePageDelimiters,
+                textLevel: exportOptions.textLevel,
+                textVariantIndex: exportOptions.textVariantIndex,
+                pdfProfile: exportOptions.pdfProfile,
+                teiProfile: exportOptions.teiProfile,
+                spreadsheetProfiles: exportOptions.spreadsheetProfiles,
+                docxOptions: exportOptions.docxOptions,
+                imageVariantSelection: exportOptions.imageVariantSelection
+              }
+            : {
+                pageIds: null,
+                targetPageXmlVersion: exportOptions.targetPageXmlVersion,
+                embeddedOutputs: exportOptions.embeddedOutputs,
+                ...(mode === 'package' ? { includeXmlHistory: exportOptions.includeXmlHistory } : {})
+              }
+          const fallbackName = mode === 'basic'
+            ? buildProjectBasicExportFileName(singleProject.name)
+            : mode === 'package'
+              ? buildProjectPackageFileName(singleProject.name)
+              : buildDownloadFileName(singleProject.name, `.${formatProjectExportExtension(exportOptions.format!)}`, 'project')
+          const response = await fetch(`/api/workspaces/${workspaceId}/projects/${singleProject.id}/${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          })
+          if (!response.ok) throw new Error(`Export failed (${response.status})`)
+          await backgroundDownloads.downloadBlobResponse(response, fallbackName, job, exportOptions.downloadTarget)
+          return
+        }
+
+        const response = await fetch(`/api/workspaces/${workspaceId}/projects/batch-export-jobs`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            projectIds: selectedProjects.value.map(project => project.id),
+            projectIds: projectsToExport.map(project => project.id),
             mode: mode === 'basic' ? 'BASIC' : mode === 'project' ? 'CONVERTED' : 'PACKAGE',
             targetPageXmlVersion: exportOptions.targetPageXmlVersion,
             embeddedOutputs: exportOptions.embeddedOutputs,
@@ -928,7 +975,7 @@ async function exportSelectedProjects(mode: BatchExportMode) {
           })
           await new Promise(resolve => setTimeout(resolve, 2000))
           exportJob = await $fetch<BatchExportJob>(
-            `/api/workspaces/${selectedWorkspace.value}/projects/batch-export-jobs/${exportJob.id}`
+            `/api/workspaces/${workspaceId}/projects/batch-export-jobs/${exportJob.id}`
           )
         }
 
@@ -936,7 +983,7 @@ async function exportSelectedProjects(mode: BatchExportMode) {
           throw new Error(exportJob.errorMessage || `Batch export ${exportJob.status.toLowerCase()}`)
         }
 
-        const downloadUrl = `/api/workspaces/${selectedWorkspace.value}/projects/batch-export-jobs/${exportJob.id}/download`
+        const downloadUrl = `/api/workspaces/${workspaceId}/projects/batch-export-jobs/${exportJob.id}/download`
         if (exportOptions.downloadTarget?.kind === 'file-system') {
           const downloadResponse = await fetch(downloadUrl)
           if (!downloadResponse.ok) throw new Error(`Batch export download failed (${downloadResponse.status})`)
@@ -958,14 +1005,14 @@ async function exportSelectedProjects(mode: BatchExportMode) {
     })
 
     toast.add({
-      title: 'Projects exported',
-      description: `${projectCount} project${projectCount === 1 ? '' : 's'} were added to one archive.`,
+      title: singleProject ? 'Project exported' : 'Projects exported',
+      description: singleProject ? undefined : `${projectCount} projects were added to one archive.`,
       color: 'success',
       icon: 'i-lucide-download'
     })
   } catch (error) {
     toast.add({
-      title: 'Batch export failed',
+      title: singleProject ? 'Export failed' : 'Batch export failed',
       description: extractApiErrorMessage(error, 'Could not export the selected projects.'),
       color: 'error'
     })
