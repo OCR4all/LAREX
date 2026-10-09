@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import * as z from 'zod'
+import type { SortingState } from '@tanstack/vue-table'
 import type { DropdownMenuItem, FormSubmitEvent, TableColumn } from '@nuxt/ui'
 import { LazyUiConfirmSlideover } from '#components'
 import type {
@@ -77,6 +78,12 @@ const page = ref(1)
 const itemsPerPage = ref(25)
 const itemsPerPageOptions = [10, 25, 50, 100].map(value => ({ label: `${value} per page`, value }))
 const statusFilter = ref<AdminUserStatusFilter>('ALL')
+const lastLoginBeforeDate = ref('')
+const sorting = ref<SortingState>([])
+const userSort = computed(() => {
+  const lastLoginSort = sorting.value.find(column => column.id === 'lastLoginAt')
+  return lastLoginSort ? lastLoginSort.desc ? 'LAST_LOGIN_DESC' : 'LAST_LOGIN_ASC' : 'CREATED_DESC'
+})
 const searchInput = ref('')
 const debouncedSearch = ref('')
 const isInviteSlideoverOpen = ref(false)
@@ -122,11 +129,16 @@ const usersQuery = computed(() => {
     page: page.value - 1,
     size: itemsPerPage.value,
     status: statusFilter.value,
-    includeServiceAccounts: false
+    includeServiceAccounts: false,
+    sort: userSort.value
   }
 
   if (debouncedSearch.value) {
     query.search = debouncedSearch.value
+  }
+
+  if (lastLoginBeforeDate.value) {
+    query.lastLoginBefore = new Date(`${lastLoginBeforeDate.value}T00:00:00`).toISOString()
   }
 
   return query
@@ -138,7 +150,9 @@ const usersKey = computed(() => globalKey(
   page.value,
   itemsPerPage.value,
   statusFilter.value,
-  debouncedSearch.value || 'none'
+  debouncedSearch.value || 'none',
+  userSort.value,
+  lastLoginBeforeDate.value || 'none'
 ))
 
 const { data: usersPage, refresh, pending } = await useFetch<AdminUserPage>('/api/admin/users', {
@@ -175,6 +189,13 @@ const activeUserFilters = computed(() => {
       clear: () => { statusFilter.value = 'ALL' }
     })
   }
+  if (lastLoginBeforeDate.value) {
+    filters.push({
+      key: 'lastLoginBefore',
+      label: `Logged in before: ${lastLoginBeforeDate.value}`,
+      clear: () => { lastLoginBeforeDate.value = '' }
+    })
+  }
   return filters
 })
 
@@ -183,7 +204,7 @@ watch(searchInput, useDebounceFn((value: string) => {
   page.value = 1
 }, 300))
 
-watch(statusFilter, () => {
+watch([statusFilter, lastLoginBeforeDate, userSort], () => {
   page.value = 1
 })
 
@@ -307,6 +328,21 @@ const columns = computed<TableColumn<AdminUser>[]>(() => [
     accessorKey: 'createdTimestamp',
     header: 'Created',
     cell: ({ row }) => formatDate(row.original.createdTimestamp)
+  },
+  {
+    accessorKey: 'lastLoginAt',
+    header: ({ column }) => {
+      const sorted = column.getIsSorted()
+      return h(UButton, {
+        'color': 'neutral',
+        'variant': 'ghost',
+        'label': 'Last login',
+        'icon': sorted ? sorted === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow' : 'i-lucide-arrow-up-down',
+        'aria-label': sorted === 'asc' ? 'Last login, oldest first. Sort newest first' : 'Last login. Sort oldest first',
+        'onClick': () => column.toggleSorting(sorted === 'asc')
+      })
+    },
+    cell: ({ row }) => row.original.serviceAccount ? 'N/A' : row.original.lastLoginAt ? formatDate(row.original.lastLoginAt) : 'Unknown'
   },
   {
     id: 'actions',
@@ -470,6 +506,7 @@ function clearFilters() {
   searchInput.value = ''
   debouncedSearch.value = ''
   statusFilter.value = 'ALL'
+  lastLoginBeforeDate.value = ''
   page.value = 1
 }
 
@@ -771,6 +808,14 @@ async function submitGlobalRoleAction() {
             value-key="value"
             class="w-full sm:w-48"
           />
+          <UFormField label="Logged in before">
+            <UInput
+              v-model="lastLoginBeforeDate"
+              type="date"
+              aria-label="Logged in before"
+              title="Show recorded logins before this date (local time). Unknown logins are excluded."
+            />
+          </UFormField>
           <AppTableClearFiltersButton
             :active="activeUserFilters.length > 0"
             @clear="clearFilters"
@@ -828,7 +873,9 @@ async function submitGlobalRoleAction() {
       <div>
         <UContextMenu :items="contextMenuItems as any">
           <AppTable
+            v-model:sorting="sorting"
             table-id="admin-users"
+            :sorting-options="{ manualSorting: true, enableMultiSort: false }"
             :data="users"
             :columns="columns"
             :loading="pending"

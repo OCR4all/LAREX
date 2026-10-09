@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.user;
 
+import de.uniwue.zpd.dachs.larex.backend.entity.UserLogin;
+import de.uniwue.zpd.dachs.larex.backend.repository.user.UserLoginRepository;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.AuthProvisioningProperties;
@@ -15,6 +17,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserIdentitySource;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserOnboardingState;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserSort;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserProfileDto;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
@@ -24,6 +27,7 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -59,6 +63,7 @@ public class UserService {
     private final AuthProvisioningProperties authProvisioningProperties;
     private final ObjectMapper objectMapper;
     private final ProfileImageService profileImageService;
+    private final UserLoginRepository userLoginRepository;
 
     public UserService(
             Keycloak keycloakAdmin,
@@ -66,7 +71,8 @@ public class UserService {
             AdminUserAuditService adminUserAuditService,
             AuthProvisioningProperties authProvisioningProperties,
             ObjectMapper objectMapper,
-            ProfileImageService profileImageService) {
+            ProfileImageService profileImageService,
+            UserLoginRepository userLoginRepository) {
         KeycloakAdminProperties.ActionEmail actionEmail = keycloakAdminProperties.actionEmail();
 
         this.keycloakAdmin = keycloakAdmin;
@@ -78,12 +84,17 @@ public class UserService {
         this.authProvisioningProperties = authProvisioningProperties;
         this.objectMapper = objectMapper;
         this.profileImageService = profileImageService;
+        this.userLoginRepository = userLoginRepository;
     }
 
     private enum AdminMutationAction {
         ENABLE,
         DISABLE,
         RESEND_SETUP
+    }
+
+    public void recordLogin(String userId) {
+        userLoginRepository.recordLogin(userId, Instant.now());
     }
 
     public List<UserDto> getAllUsers() {
@@ -96,15 +107,28 @@ public class UserService {
                 .toList();
     }
 
-    public AdminUserPageDto getUserPageForAdmin(int page, int size, String search, boolean includeServiceAccounts, AdminUserStatusFilter status) {
+    public AdminUserPageDto getUserPageForAdmin(int page, int size, String search, boolean includeServiceAccounts, AdminUserStatusFilter status, AdminUserSort sort, Instant lastLoginBefore) {
         List<UserRepresentation> users = keycloakAdmin.realm(realm).users().list();
         String normalizedSearch = normalizeOptional(search);
+        Map<String, Instant> lastLogins = userLoginRepository.findAllById(
+                users.stream().map(UserRepresentation::getId).toList()).stream()
+                .collect(Collectors.toMap(UserLogin::getUserId, UserLogin::getLastLoginAt));
         Map<String, String> avatars = getAvatarUrls(users);
+
+        Comparator<UserRepresentation> comparator = switch (sort) {
+            case CREATED_DESC -> this::compareByCreatedTimestampDesc;
+            case LAST_LOGIN_ASC -> Comparator.comparing(
+                    user -> lastLogins.get(user.getId()), Comparator.nullsLast(Comparator.naturalOrder()));
+            case LAST_LOGIN_DESC -> Comparator.comparing(
+                    user -> lastLogins.get(user.getId()), Comparator.nullsLast(Comparator.reverseOrder()));
+        };
 
         List<AdminUserDto> filteredUsers = users.stream()
                 .filter(user -> includeServiceAccounts || !isServiceAccount(user))
-                .sorted(this::compareByCreatedTimestampDesc)
-                .map(user -> mapToAdminUserDto(user, avatars.get(user.getId())))
+                .filter(user -> lastLoginBefore == null || (lastLogins.containsKey(user.getId())
+                        && lastLogins.get(user.getId()).isBefore(lastLoginBefore)))
+                .sorted(comparator.thenComparing(UserRepresentation::getId))
+                .map(user -> mapToAdminUserDto(user, avatars.get(user.getId()), lastLogins.get(user.getId())))
                 .filter(user -> matchesSearch(user, normalizedSearch))
                 .filter(user -> matchesStatus(user, status))
                 .toList();
@@ -852,10 +876,11 @@ public class UserService {
     }
 
     private AdminUserDto mapToAdminUserDto(UserRepresentation user) {
-        return mapToAdminUserDto(user, profileImageService.getAvatarUrl(user.getId()).orElse(null));
+        return mapToAdminUserDto(user, profileImageService.getAvatarUrl(user.getId()).orElse(null),
+                userLoginRepository.findById(user.getId()).map(UserLogin::getLastLoginAt).orElse(null));
     }
 
-    private AdminUserDto mapToAdminUserDto(UserRepresentation user, String avatar) {
+    private AdminUserDto mapToAdminUserDto(UserRepresentation user, String avatar, Instant lastLoginAt) {
         boolean serviceAccount = isServiceAccount(user);
         AdminUserIdentitySource identitySource = deriveIdentitySource(user);
         boolean externallyManaged = identitySource != AdminUserIdentitySource.LOCAL;
@@ -876,7 +901,8 @@ public class UserService {
                 onboardingState,
                 user.getCreatedTimestamp() != null
                         ? Instant.ofEpochMilli(user.getCreatedTimestamp()).toString()
-                        : null
+                        : null,
+                lastLoginAt != null ? lastLoginAt.toString() : null
         );
     }
 

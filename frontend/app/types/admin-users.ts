@@ -24,6 +24,7 @@ export interface AdminUser {
   identitySource: AdminUserIdentitySource
   onboardingState: AdminUserOnboardingState
   createdTimestamp?: string | null
+  lastLoginAt?: string | null
 }
 
 export interface AdminUserPage {

@@ -9,6 +9,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditEventDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserSort;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminWorkspaceDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
@@ -18,6 +19,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.workspace.TeamWorkspaceRepos
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import java.util.ArrayList;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -102,8 +104,8 @@ public class AdminService {
         return result;
     }
 
-    public AdminUserPageDto getUserPageForAdmin(int page, int size, String search, boolean includeServiceAccounts, AdminUserStatusFilter status) {
-        return userService.getUserPageForAdmin(page, size, search, includeServiceAccounts, status);
+    public AdminUserPageDto getUserPageForAdmin(int page, int size, String search, boolean includeServiceAccounts, AdminUserStatusFilter status, AdminUserSort sort, Instant lastLoginBefore) {
+        return userService.getUserPageForAdmin(page, size, search, includeServiceAccounts, status, sort, lastLoginBefore);
     }
 
     public AdminUserDto getUserForAdmin(String userId) {

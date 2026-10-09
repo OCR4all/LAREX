@@ -1,10 +1,12 @@
 package de.uniwue.zpd.dachs.larex.backend;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
+import de.uniwue.zpd.dachs.larex.backend.repository.user.UserLoginRepository;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserIdentitySource;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserOnboardingState;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserSort;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifSettingsDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AvatarSettingsDto;
@@ -31,6 +33,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.time.LocalDateTime;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -66,6 +70,27 @@ class AdminControllerSecurityTest {
 
     @MockitoBean
     private ActionOutputService actionOutputService;
+
+    @Autowired
+    private UserLoginRepository userLoginRepository;
+
+    @Test
+    void login_requiresAuthentication() throws Exception {
+        mockMvc.perform(post("/profile/login"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void login_recordsOnlyTheAuthenticatedUser() throws Exception {
+        mockMvc.perform(post("/profile/login")
+                        .with(jwt()
+                                .jwt(jwt -> jwt.subject("login-authenticated-user")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":\"other-user\",\"lastLoginAt\":\"2099-01-01T00:00:00Z\"}"))
+                .andExpect(status().isNoContent());
+        assertTrue(userLoginRepository.findById("login-authenticated-user").isPresent());
+        assertTrue(userLoginRepository.findById("other-user").isEmpty());
+    }
 
     @Test
     void outputs_requiresAuthentication() throws Exception {
@@ -447,8 +472,23 @@ class AdminControllerSecurityTest {
 
     @Test
     @WithMockUser(roles = "GLOBAL_ADMIN")
+    void getUsers_forwardsLastLoginFiltersAndRejectsInvalidParameters() throws Exception {
+        mockMvc.perform(get("/admin/users")
+                        .param("sort", "LAST_LOGIN_ASC")
+                        .param("lastLoginBefore", "2026-10-01T00:00:00Z"))
+                .andExpect(status().isOk());
+        verify(adminService).getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL,
+                AdminUserSort.LAST_LOGIN_ASC, java.time.Instant.parse("2026-10-01T00:00:00Z"));
+        mockMvc.perform(get("/admin/users").param("lastLoginBefore", "invalid"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/admin/users").param("sort", "invalid"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
     void getUsers_returnsPagedPayloadWithCapabilities() throws Exception {
-        when(adminService.getUserPageForAdmin(eq(0), eq(25), any(), anyBoolean(), eq(AdminUserStatusFilter.ALL)))
+        when(adminService.getUserPageForAdmin(eq(0), eq(25), any(), anyBoolean(), eq(AdminUserStatusFilter.ALL), eq(AdminUserSort.CREATED_DESC), any()))
                 .thenReturn(new AdminUserPageDto(
                         List.of(adminUser("user-1", true, false, false, AdminUserIdentitySource.LOCAL, AdminUserOnboardingState.PENDING_SETUP)),
                         0,
@@ -574,6 +614,7 @@ class AdminControllerSecurityTest {
                 externallyManaged,
                 identitySource,
                 onboardingState,
+                null,
                 null
         );
     }

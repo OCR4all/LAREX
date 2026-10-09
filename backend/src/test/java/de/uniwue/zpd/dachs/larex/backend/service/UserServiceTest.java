@@ -11,11 +11,13 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserIdentitySource;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserOnboardingState;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserSort;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserManagementException;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminUserAuditService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.ProfileImageService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
+import de.uniwue.zpd.dachs.larex.backend.repository.user.UserLoginRepository;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,12 +39,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
+import java.time.Instant;
+import de.uniwue.zpd.dachs.larex.backend.entity.UserLogin;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -90,6 +95,9 @@ class UserServiceTest {
     @Mock
     private ProfileImageService profileImageService;
 
+    @Mock
+    private UserLoginRepository userLoginRepository;
+
     private UserService userService;
 
     @BeforeEach
@@ -101,6 +109,58 @@ class UserServiceTest {
         lenient().when(userResource.roles()).thenReturn(roleMappingResource);
         lenient().when(roleMappingResource.realmLevel()).thenReturn(realmRoleScopeResource);
         lenient().when(rolesResource.get(anyString())).thenReturn(roleResource);
+    }
+
+    @Test
+    void adminUsersExposeLastLoginWithoutRecordingActivity() {
+        UserRepresentation alice = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
+        UserRepresentation bob = localUser("user-2", "bob", "bob@example.org", true, true, List.of());
+        UserLogin login = org.mockito.Mockito.mock(UserLogin.class);
+        when(login.getUserId()).thenReturn("user-1");
+        when(login.getLastLoginAt()).thenReturn(Instant.parse("2026-10-01T10:00:00Z"));
+        when(usersResource.list()).thenReturn(List.of(alice, bob));
+        when(userLoginRepository.findAllById(List.of("user-1", "user-2"))).thenReturn(List.of(login));
+
+        var users = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null).items();
+        assertEquals("2026-10-01T10:00:00Z", users.stream().filter(user -> user.id().equals("user-1")).findFirst().orElseThrow().lastLoginAt());
+        assertNull(users.stream().filter(user -> user.id().equals("user-2")).findFirst().orElseThrow().lastLoginAt());
+
+        when(usersResource.get("user-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(alice);
+        when(userLoginRepository.findById("user-1")).thenReturn(Optional.of(login));
+        assertEquals("2026-10-01T10:00:00Z", userService.getUserForAdmin("user-1").lastLoginAt());
+        verify(userLoginRepository, never()).recordLogin(anyString(), any());
+    }
+
+    @Test
+    void lastLoginSortingAndCutoffApplyBeforePagination() {
+        Instant cutoff = Instant.parse("2026-10-01T00:00:00Z");
+        var old = localUser("old", "old", "old@example.org", true, true, List.of());
+        var boundary = localUser("boundary", "boundary", "boundary@example.org", true, true, List.of());
+        var recent = localUser("recent", "recent", "recent@example.org", true, true, List.of());
+        var unknown = localUser("unknown", "unknown", "unknown@example.org", true, true, List.of());
+        when(usersResource.list()).thenReturn(List.of(unknown, recent, old, boundary));
+        var logins = java.util.Map.of("old", cutoff.minusSeconds(1), "boundary", cutoff, "recent", cutoff.plusSeconds(1))
+                .entrySet().stream().map(entry -> {
+                    UserLogin login = org.mockito.Mockito.mock(UserLogin.class);
+                    when(login.getUserId()).thenReturn(entry.getKey());
+                    when(login.getLastLoginAt()).thenReturn(entry.getValue());
+                    return login;
+                }).toList();
+        when(userLoginRepository.findAllById(anyList())).thenReturn(logins);
+
+        var ascending = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL, AdminUserSort.LAST_LOGIN_ASC, null);
+        assertEquals(List.of("old", "boundary", "recent", "unknown"), ascending.items().stream().map(user -> user.id()).toList());
+        var descending = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL, AdminUserSort.LAST_LOGIN_DESC, null);
+        assertEquals(List.of("recent", "boundary", "old", "unknown"), descending.items().stream().map(user -> user.id()).toList());
+        var secondPage = userService.getUserPageForAdmin(1, 1, null, false, AdminUserStatusFilter.ALL, AdminUserSort.LAST_LOGIN_ASC, null);
+        assertEquals("boundary", secondPage.items().getFirst().id());
+        var filtered = userService.getUserPageForAdmin(0, 1, null, false, AdminUserStatusFilter.ALL, AdminUserSort.LAST_LOGIN_ASC, cutoff);
+        assertEquals(1, filtered.totalElements());
+        assertEquals(1, filtered.totalPages());
+        assertEquals("old", filtered.items().getFirst().id());
+        var combined = userService.getUserPageForAdmin(0, 25, "recent", false, AdminUserStatusFilter.ALL, AdminUserSort.LAST_LOGIN_ASC, cutoff);
+        assertEquals(0, combined.totalElements());
     }
 
     @Test
@@ -406,8 +466,8 @@ class UserServiceTest {
 
         when(usersResource.list()).thenReturn(List.of(human, ldapUser, byClientId));
 
-        AdminUserPageDto visibleByDefault = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL);
-        AdminUserPageDto includeAll = userService.getUserPageForAdmin(0, 25, null, true, AdminUserStatusFilter.ALL);
+        AdminUserPageDto visibleByDefault = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null);
+        AdminUserPageDto includeAll = userService.getUserPageForAdmin(0, 25, null, true, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null);
 
         assertEquals(2, visibleByDefault.items().size());
         assertEquals("ldap-user", visibleByDefault.items().getFirst().username());
@@ -433,7 +493,7 @@ class UserServiceTest {
 
         when(usersResource.list()).thenReturn(List.of(service, ldap, disabled, pending, active));
 
-        AdminUserPageDto page = userService.getUserPageForAdmin(0, 25, null, true, AdminUserStatusFilter.ALL);
+        AdminUserPageDto page = userService.getUserPageForAdmin(0, 25, null, true, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null);
 
         assertEquals(List.of(
                 AdminUserOnboardingState.ACTIVE,
@@ -458,7 +518,7 @@ class UserServiceTest {
         UserRepresentation localUser = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
         when(usersResource.list()).thenReturn(List.of(localUser));
 
-        AdminUserPageDto page = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL);
+        AdminUserPageDto page = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null);
 
         assertFalse(page.creationAllowed());
         assertFalse(page.setupEmailAllowed());
@@ -817,7 +877,8 @@ class UserServiceTest {
                 adminUserAuditService,
                 properties,
                 JsonMapper.builder().findAndAddModules().build(),
-                profileImageService
+                profileImageService,
+                userLoginRepository
         );
     }
 

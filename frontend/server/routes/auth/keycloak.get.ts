@@ -12,6 +12,16 @@ const keycloakHandler = defineOAuthKeycloakEventHandler({
         accessTokenExpires: Date.now() + tokens.expires_in * 1000
       }
     })
+    try {
+      await $fetch(`${useRuntimeConfig(event).apiBaseInternal}/profile/login`, {
+        method: 'POST',
+        timeout: 5000,
+        headers: { Authorization: `Bearer ${tokens.access_token}` }
+      })
+    } catch {
+      // Account maintenance metadata must not prevent a successful sign-in.
+      console.warn('[auth] Failed to record last login')
+    }
     return sendRedirect(event, consumeAuthRedirect(event))
   },
   onError(event, error) {

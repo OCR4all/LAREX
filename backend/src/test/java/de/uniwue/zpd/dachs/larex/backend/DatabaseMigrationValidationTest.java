@@ -1,6 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend;
 
 import org.junit.jupiter.api.Test;
+import java.time.Instant;
+import de.uniwue.zpd.dachs.larex.backend.repository.user.UserLoginRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -14,6 +16,20 @@ class DatabaseMigrationValidationTest {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private UserLoginRepository userLoginRepository;
+
+    @Test
+    void lastLoginRetainsOnlyTheLatestTimestamp() {
+        Instant first = Instant.parse("2026-10-01T10:00:00Z");
+        Instant latest = first.plusSeconds(3600);
+        userLoginRepository.recordLogin("login-test-user", first);
+        userLoginRepository.recordLogin("login-test-user", latest);
+        userLoginRepository.recordLogin("login-test-user", first);
+        assertEquals(latest, userLoginRepository.findById("login-test-user").orElseThrow().getLastLoginAt());
+        assertEquals(1, userLoginRepository.findAllById(java.util.List.of("login-test-user")).size());
+    }
 
 	@Test
 	void flywayMigrationsMatchJpaMappings() {

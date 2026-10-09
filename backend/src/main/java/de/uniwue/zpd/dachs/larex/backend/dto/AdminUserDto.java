@@ -13,5 +13,6 @@ public record AdminUserDto(
     boolean externallyManaged,
     AdminUserIdentitySource identitySource,
     AdminUserOnboardingState onboardingState,
-    String createdTimestamp
+    String createdTimestamp,
+    String lastLoginAt
 ) {}

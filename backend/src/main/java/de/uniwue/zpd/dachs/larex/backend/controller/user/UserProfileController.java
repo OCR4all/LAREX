@@ -48,6 +48,13 @@ public class UserProfileController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/login")
+    public ResponseEntity<Void> recordLogin(
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        userService.recordLogin(userId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping
     public ResponseEntity<UserProfileDto> updateCurrentUserProfile(
             @Valid @RequestBody UserProfileDto.UpdateRequest updateRequest,

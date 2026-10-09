@@ -11,6 +11,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminWorkspaceDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserSort;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import jakarta.validation.constraints.Max;
@@ -23,8 +24,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -82,8 +85,11 @@ public class AdminController {
             @RequestParam(value = "size", defaultValue = "25") @Min(1) @Max(100) int size,
             @RequestParam(value = "search", required = false) @Size(max = 100) String search,
             @RequestParam(value = "status", defaultValue = "ALL") AdminUserStatusFilter status,
-            @RequestParam(value = "includeServiceAccounts", defaultValue = "false") boolean includeServiceAccounts) {
-        return ResponseEntity.ok(adminService.getUserPageForAdmin(page, size, search, includeServiceAccounts, status));
+            @RequestParam(value = "includeServiceAccounts", defaultValue = "false") boolean includeServiceAccounts,
+            @RequestParam(value = "sort", defaultValue = "CREATED_DESC") AdminUserSort sort,
+            @RequestParam(value = "lastLoginBefore", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant lastLoginBefore) {
+        return ResponseEntity.ok(adminService.getUserPageForAdmin(page, size, search, includeServiceAccounts, status, sort, lastLoginBefore));
     }
 
     @GetMapping("/users/{userId}")

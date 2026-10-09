@@ -288,6 +288,15 @@ function handleGlobalCuratorUpdate(enabled: boolean) {
                   {{ formatDetailDate(user.createdTimestamp) }}
                 </div>
               </div>
+              <div class="flex flex-col gap-2 rounded-lg bg-elevated/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex items-center gap-3 text-muted">
+                  <UIcon name="i-lucide-log-in" class="size-4 shrink-0" />
+                  <span class="text-sm">Last login</span>
+                </div>
+                <div class="text-sm font-medium text-highlighted sm:text-right">
+                  {{ user.serviceAccount ? 'N/A' : user.lastLoginAt ? formatDetailDate(user.lastLoginAt) : 'Unknown' }}
+                </div>
+              </div>
             </div>
           </UiSlideoverSection>
 
