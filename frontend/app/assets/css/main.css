@@ -12,7 +12,6 @@
   --ui-secondary: var(--ui-color-secondary-700);
   --ui-success: var(--ui-color-success-700);
   --ui-info: var(--ui-color-info-700);
-  --ui-warning: var(--ui-color-warning-700);
   --ui-error: var(--ui-color-error-700);
 }
 
@@ -21,7 +20,6 @@
   --ui-secondary: var(--ui-color-secondary-400);
   --ui-success: var(--ui-color-success-400);
   --ui-info: var(--ui-color-info-400);
-  --ui-warning: var(--ui-color-warning-400);
   --ui-error: var(--ui-color-error-400);
 }
 

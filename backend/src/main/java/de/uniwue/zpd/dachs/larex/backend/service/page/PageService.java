@@ -174,6 +174,11 @@ public class PageService {
         return pageRepository.findByProjectId(projectId, pageable);
     }
 
+    /** Scalar query deliberately bypasses managed entities when checking stale lease contexts. */
+    public boolean pageBelongsToProject(String pageId, String projectId) {
+        return pageRepository.existsByIdAndProjectId(pageId, projectId);
+    }
+
     public Optional<Page> getPageById(String pageId, String userId) {
         Optional<Page> pageOpt = pageRepository.findById(pageId);
         if (pageOpt.isPresent()) {

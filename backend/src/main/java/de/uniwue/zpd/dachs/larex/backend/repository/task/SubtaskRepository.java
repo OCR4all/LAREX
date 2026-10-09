@@ -14,6 +14,8 @@ import java.util.List;
 @Repository
 public interface SubtaskRepository extends JpaRepository<Subtask, String> {
 
+    void deleteByPageIdIn(Collection<String> pageIds);
+
     List<Subtask> findByTaskIdOrderBySortOrderAsc(String taskId);
 
     List<Subtask> findByTaskIdAndIdIn(String taskId, Collection<String> subtaskIds);

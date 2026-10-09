@@ -11,6 +11,11 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import java.util.List;
+import de.uniwue.zpd.dachs.larex.backend.dto.AnnotationCollaborationDto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -47,6 +52,57 @@ class AnnotationLeaseServiceAccessTest {
                 userService,
                 notificationService
         );
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "leaseTtlMs", 45_000L);
+    }
+
+    @AfterEach
+    void completeReservationTransaction() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            for (var synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+                synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+            }
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void reservationBlocksEveryAcquisitionPathAndIsReleasedOnRollback() {
+        var context = editorContext("page-1");
+        when(pageService.pageBelongsToProject("page-1", "project-1")).thenReturn(true);
+        TransactionSynchronizationManager.initSynchronization();
+        service.reservePagesForMove(List.of("page-1"));
+        assertThrows(AnnotationLeaseLockedException.class, () -> service.joinLease(context, "editor"));
+        assertThrows(AnnotationLeaseLockedException.class, () -> service.heartbeat(context, "editor"));
+        assertThrows(AnnotationLeaseLockedException.class, () -> service.requestTakeoverAction(context, true, "editor"));
+        assertThrows(AnnotationLeaseLockedException.class, () -> service.assertWriteAccess(context, "user-1"));
+        completeReservationTransaction();
+        assertEquals("user-1", service.joinLease(context, "editor").editor().user().id());
+    }
+
+    @Test
+    void failedReservationDoesNotReserveAnyOtherPage() {
+        var active = editorContext("page-1");
+        var other = editorContext("page-2");
+        when(pageService.pageBelongsToProject("page-1", "project-1")).thenReturn(true);
+        when(pageService.pageBelongsToProject("page-2", "project-1")).thenReturn(true);
+        service.joinLease(active, "active");
+        TransactionSynchronizationManager.initSynchronization();
+        assertThrows(AnnotationLeaseLockedException.class, () -> service.reservePagesForMove(List.of("page-2", "page-1")));
+        assertEquals("user-1", service.joinLease(other, "other").editor().user().id());
+    }
+
+    @Test
+    void staleContextsCannotAcquireOrSaveAfterOwnershipChanges() {
+        var context = editorContext("page-1");
+        when(pageService.pageBelongsToProject("page-1", "project-1")).thenReturn(false);
+        assertThrows(AnnotationLeaseLockedException.class, () -> service.joinLease(context, "editor"));
+        assertThrows(AnnotationLeaseLockedException.class, () -> service.assertWriteAccess(context, "user-1"));
+    }
+
+    private AnnotationLeaseService.RoomAccessContext editorContext(String pageId) {
+        return new AnnotationLeaseService.RoomAccessContext("workspace-1", "project-1", pageId, "xml-" + pageId,
+                "project-1:" + pageId, "Project", "Page", true, true,
+                new AnnotationCollaborationDto.UserSummary("user-1", "user", "User", null), new PageXml());
     }
 
     @Test

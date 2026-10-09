@@ -9,9 +9,31 @@ export default defineAppConfig({
       secondary: 'copper',
       success: 'leaf',
       info: 'river',
-      warning: 'ochre',
+      warning: 'yellow',
       error: 'brick',
       neutral: 'smoke'
+    },
+    // Keep warning accents yellow while giving warning text a readable foreground in both themes.
+    alert: {
+      compoundVariants: [{
+        color: 'warning',
+        variant: ['soft', 'subtle'],
+        class: { title: 'text-highlighted', description: 'text-toned opacity-100' }
+      }]
+    },
+    badge: {
+      compoundVariants: [{
+        color: 'warning',
+        variant: ['soft', 'subtle'],
+        class: 'text-toned'
+      }]
+    },
+    button: {
+      compoundVariants: [{
+        color: 'warning',
+        variant: 'solid',
+        class: 'text-neutral-950'
+      }]
     },
     slideover: {
       slots: {

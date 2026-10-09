@@ -35,6 +35,8 @@ public interface PageRepository extends JpaRepository<Page, String> {
 
     Optional<Page> findByIdAndProjectId(String pageId, String projectId);
 
+    boolean existsByIdAndProjectId(String pageId, String projectId);
+
     @Query("SELECT p.lockedByActionRunId FROM Page p WHERE p.id = :pageId AND p.project.id = :projectId")
     Optional<String> findActionLockOwner(@Param("projectId") String projectId, @Param("pageId") String pageId);
 

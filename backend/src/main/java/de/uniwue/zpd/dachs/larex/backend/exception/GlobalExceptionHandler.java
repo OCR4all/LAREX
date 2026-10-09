@@ -215,6 +215,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorResponse);
     }
 
+    @ExceptionHandler(PageMoveConflictException.class)
+    public ResponseEntity<ErrorResponseDto> handlePageMoveConflictException(
+            PageMoveConflictException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDto(
+                HttpStatus.CONFLICT.value(), "Page Move Conflict", ex.getMessage(),
+                request.getRequestURI(), "PAGE_MOVE_CONFLICT"));
+    }
+
     @ExceptionHandler(ProjectNameConflictException.class)
     public ResponseEntity<ErrorResponseDto> handleProjectNameConflictException(
             ProjectNameConflictException ex, HttpServletRequest request) {

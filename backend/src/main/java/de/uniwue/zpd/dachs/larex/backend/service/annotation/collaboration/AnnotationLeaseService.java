@@ -11,6 +11,9 @@ import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +24,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class AnnotationLeaseService {
@@ -32,6 +37,9 @@ public class AnnotationLeaseService {
     private final UserService userService;
     private final NotificationService notificationService;
     private final Map<String, LeaseRecord> leases = new ConcurrentHashMap<>();
+
+    // Protected by the same monitor as lease acquisition; reservations live until commit/rollback.
+    private final Set<String> movingPages = new HashSet<>();
 
     @Value("${larex.collaboration.lease-ttl-ms:45000}")
     private long leaseTtlMs;
@@ -120,26 +128,62 @@ public class AnnotationLeaseService {
 
     public void assertNoOtherActiveEditor(String pageId, String allowedUserId) {
         List<NotificationIntent> notifications = new ArrayList<>();
-        AnnotationLeaseLockedException lockedException = null;
+        AnnotationLeaseLockedException lockedException;
         synchronized (leases) {
-            for (Map.Entry<String, LeaseRecord> entry : leases.entrySet()) {
-                LeaseRecord record = getActiveRecord(entry.getKey(), notifications);
-                if (record == null || !pageId.equals(record.pageId) || record.owner == null || record.owner.user == null) {
-                    continue;
-                }
-                if (allowedUserId == null || !allowedUserId.equals(record.owner.user.id())) {
-                    lockedException = new AnnotationLeaseLockedException(
-                            displayName(record.owner.user) + " is currently editing this page.",
-                            record.owner.user,
-                            "lease-held-by-other-user"
-                    );
-                    break;
-                }
-            }
+            assertNotMoving(pageId);
+            lockedException = activeEditorException(Set.of(pageId), allowedUserId, notifications);
         }
         dispatchNotifications(notifications);
-        if (lockedException != null) {
-            throw lockedException;
+        if (lockedException != null) throw lockedException;
+    }
+
+    private AnnotationLeaseLockedException activeEditorException(Set<String> pageIds, String allowedUserId,
+                                                                 List<NotificationIntent> notifications) {
+        for (Map.Entry<String, LeaseRecord> entry : leases.entrySet()) {
+            if (entry.getValue().pageId == null || !pageIds.contains(entry.getValue().pageId)) continue;
+            LeaseRecord record = getActiveRecord(entry.getKey(), notifications);
+            if (record != null && record.owner != null && record.owner.user != null
+                    && (allowedUserId == null || !allowedUserId.equals(record.owner.user.id()))) {
+                return new AnnotationLeaseLockedException(displayName(record.owner.user) + " is currently editing this page.",
+                        record.owner.user, "lease-held-by-other-user");
+            }
+        }
+        return null;
+    }
+
+    /** Atomically exclude editors for a database transaction, without holding a monitor during I/O. */
+    public void reservePagesForMove(Collection<String> pageIds) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            throw new IllegalStateException("Page moves require an active transaction.");
+        }
+        Set<String> reserved = Set.copyOf(pageIds);
+        List<NotificationIntent> notifications = new ArrayList<>();
+        try {
+            synchronized (leases) {
+                reserved.forEach(this::assertNotMoving);
+                AnnotationLeaseLockedException activeEditor = activeEditorException(reserved, null, notifications);
+                if (activeEditor != null) throw activeEditor;
+                movingPages.addAll(reserved);
+                // Ownerless rooms can still have viewers/pending transfers. They must rejoin after moving.
+                leases.values().removeIf(record -> record.pageId != null && reserved.contains(record.pageId));
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        synchronized (leases) {
+                            movingPages.removeAll(reserved);
+                        }
+                    }
+                });
+            }
+        } finally {
+            dispatchNotifications(notifications);
+        }
+    }
+
+    private void assertNotMoving(String pageId) {
+        if (movingPages.contains(pageId)) {
+            throw new AnnotationLeaseLockedException("This page is being moved. Please try again shortly.",
+                    null, "page-moving");
         }
     }
 
@@ -147,6 +191,7 @@ public class AnnotationLeaseService {
         List<NotificationIntent> notifications = new ArrayList<>();
         AnnotationCollaborationDto.LeaseState leaseState;
         synchronized (leases) {
+            assertCurrentContext(context);
             LeaseRecord record = getActiveRecord(context.roomKey(), notifications);
             refreshRecordMetadata(record, context);
             leaseState = toLeaseState(record);
@@ -159,6 +204,7 @@ public class AnnotationLeaseService {
         List<NotificationIntent> notifications = new ArrayList<>();
         AnnotationCollaborationDto.LeaseState leaseState;
         synchronized (leases) {
+            assertCurrentContext(context);
             LeaseRecord record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
             expireIfNeeded(context.roomKey(), record, notifications);
@@ -182,6 +228,7 @@ public class AnnotationLeaseService {
         List<NotificationIntent> notifications = new ArrayList<>();
         AnnotationCollaborationDto.LeaseState leaseState;
         synchronized (leases) {
+            assertCurrentContext(context);
             LeaseRecord record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
             expireIfNeeded(context.roomKey(), record, notifications);
@@ -215,6 +262,7 @@ public class AnnotationLeaseService {
         List<NotificationIntent> notifications = new ArrayList<>();
         AnnotationCollaborationDto.LeaseActionResult result;
         synchronized (leases) {
+            assertCurrentContext(context);
             LeaseRecord record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
             expireIfNeeded(context.roomKey(), record, notifications);
@@ -333,6 +381,7 @@ public class AnnotationLeaseService {
         List<NotificationIntent> notifications = new ArrayList<>();
         AnnotationCollaborationDto.LeaseActionResult result;
         synchronized (leases) {
+            assertCurrentContext(context);
             LeaseRecord record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
             expireIfNeeded(context.roomKey(), record, notifications);
@@ -421,6 +470,7 @@ public class AnnotationLeaseService {
         List<NotificationIntent> notifications = new ArrayList<>();
         AnnotationCollaborationDto.LeaseState leaseState;
         synchronized (leases) {
+            assertCurrentContext(context);
             LeaseRecord record = getActiveRecord(context.roomKey(), notifications);
             refreshRecordMetadata(record, context);
             if (record == null) {
@@ -470,6 +520,7 @@ public class AnnotationLeaseService {
         AnnotationLeaseLockedException lockedException = null;
         boolean writable = false;
         synchronized (leases) {
+            assertCurrentContext(context);
             LeaseRecord record = getActiveRecord(context.roomKey(), notifications);
             if (record == null || record.owner == null || isOwner(record, userId)) {
                 writable = true;
@@ -589,6 +640,15 @@ public class AnnotationLeaseService {
         }
         if (record.owner == null && record.pendingTakeover == null) {
           leases.remove(roomKey, record);
+        }
+    }
+
+    private void assertCurrentContext(RoomAccessContext context) {
+        assertNotMoving(context.pageId());
+        // Dataset copies have independent XML and no PageXml entity; their ownership is unchanged.
+        if (context.pageXml() != null && !pageService.pageBelongsToProject(context.pageId(), context.projectId())) {
+            throw new AnnotationLeaseLockedException("This page has moved or was replaced. Reload the project.",
+                    null, "page-moved");
         }
     }
 

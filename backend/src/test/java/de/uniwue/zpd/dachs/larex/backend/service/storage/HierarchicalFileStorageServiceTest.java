@@ -44,6 +44,23 @@ class HierarchicalFileStorageServiceTest {
     }
 
     @Test
+    void failedMetadataWriteRemovesCopiedFileAndPreservesSource() throws Exception {
+        Path source = tempDir.resolve("input.xml");
+        java.nio.file.Files.writeString(source, "<PcGts/>");
+        when(storedFileRepository.save(org.mockito.ArgumentMatchers.any(StoredFile.class)))
+                .thenThrow(new IllegalStateException("metadata failure"));
+
+        assertThrows(IllegalStateException.class, () -> service.storeFromPath(
+                source, "page.xml", "application/xml", "workspace", "project",
+                StoredFile.StoredFileType.XML, "user", false));
+
+        try (var files = java.nio.file.Files.walk(tempDir)) {
+            assertEquals(List.of(source), files.filter(java.nio.file.Files::isRegularFile).toList());
+        }
+        assertEquals("<PcGts/>", java.nio.file.Files.readString(source));
+    }
+
+    @Test
     void resolvesAbsolutePathInsideUploadRoot() {
         Path expected = tempDir.resolve("ws/workspace/pr/project/img/file.png").normalize();
 

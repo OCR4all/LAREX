@@ -16,6 +16,7 @@ import {
   LazyProjectSlideoverExportTarget,
   LazyProjectSlideoverIiifImport,
   LazyProjectSlideoverBulkDeletePages,
+  LazyProjectSlideoverMovePages,
   LazyProjectSlideoverXmlEditor,
   LazyUiConfirmSlideover,
   LazyUiDeleteSlideover,
@@ -743,6 +744,7 @@ const projectShareSlideover = overlay.create(LazyShareSlideover)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 const addToDatasetSlideover = overlay.create(LazyProjectSlideoverAddToDataset)
 const bulkDeletePagesSlideover = overlay.create(LazyProjectSlideoverBulkDeletePages)
+const movePagesSlideover = overlay.create(LazyProjectSlideoverMovePages)
 const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover)
 const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
 const iiifImportSlideover = overlay.create(LazyProjectSlideoverIiifImport)
@@ -1195,6 +1197,30 @@ async function openAddToDatasetSlideover() {
   if (!result) return
 
   clearSelection()
+}
+
+async function openMovePagesSlideover() {
+  const workspaceId = selectedWorkspace.value
+  if (!workspaceId || !project.value || !canManageProjects.value || !hasSelection.value || project.value.locked) return
+  const instance = movePagesSlideover.open({
+    workspaceId,
+    projectId,
+    projectName: project.value.name,
+    pageIds: Array.from(selectedPageIds.value)
+  })
+  const result = await instance.result as import('@/types/page-move').PageMoveResult | null
+  if (!result) return
+  selectedPageIds.value = new Set(result.items.filter(item => item.outcome === 'SKIP').map(item => item.pageId))
+  await Promise.allSettled([
+    refreshProjectPagesData(),
+    refreshNuxtData(wsKey(workspaceId, 'projects', result.destinationProjectId)),
+    refreshNuxtData(wsKey(workspaceId, 'projects', result.destinationProjectId, 'pages')),
+    refreshNuxtData(wsKey(workspaceId, 'projects', result.destinationProjectId, 'status')),
+    refreshNuxtData(wsKey(workspaceId, 'projects', result.destinationProjectId, 'subtask-summary')),
+    refreshNuxtData(subtaskSummaryKey.value),
+    refreshNuxtData(openSubtasksKey.value),
+    refreshNuxtData(wsKey(workspaceId, 'projects', result.destinationProjectId, 'open-subtasks'))
+  ])
 }
 
 async function openBulkDeleteSlideover() {
@@ -2869,6 +2895,19 @@ useHead({
                 @click="openActionRunSlideover('selection')"
               >
                 <span class="hidden sm:inline">Run Action</span>
+              </UButton>
+              <UButton
+                v-if="canManageProjects"
+                icon="i-lucide-folder-input"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
+                :disabled="!hasSelection || project?.locked"
+                aria-label="Move selected pages to another project"
+                @click="openMovePagesSlideover"
+              >
+                <span class="hidden sm:inline">Move pages</span>
               </UButton>
               <UDropdownMenu :items="selectionMoreActionItems" :content="{ align: 'end' }">
                 <UButton

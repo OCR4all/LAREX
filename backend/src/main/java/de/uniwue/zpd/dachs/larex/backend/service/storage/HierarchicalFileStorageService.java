@@ -157,25 +157,37 @@ public class HierarchicalFileStorageService {
         String storagePath = buildStoragePath(workspaceId, projectId, fileType, storageUuid, extension);
         Path absolutePath = resolveUploadPath(storagePath);
 
-        Files.createDirectories(absolutePath.getParent());
-        if (moveSource) {
-            Files.move(normalizedSource, absolutePath, StandardCopyOption.REPLACE_EXISTING);
-        } else {
-            Files.copy(normalizedSource, absolutePath, StandardCopyOption.REPLACE_EXISTING);
-        }
+        try {
+            Files.createDirectories(absolutePath.getParent());
+            if (moveSource) {
+                Files.move(normalizedSource, absolutePath, StandardCopyOption.REPLACE_EXISTING);
+            } else {
+                Files.copy(normalizedSource, absolutePath, StandardCopyOption.REPLACE_EXISTING);
+            }
 
-        return persistStoredFile(
-                storageUuid,
-                workspaceId,
-                projectId,
-                fileType,
-                storagePath,
-                sanitizedOriginalName,
-                mimeType,
-                extension,
-                createdBy,
-                absolutePath
-        );
+            return persistStoredFile(
+                    storageUuid,
+                    workspaceId,
+                    projectId,
+                    fileType,
+                    storagePath,
+                    sanitizedOriginalName,
+                    mimeType,
+                    extension,
+                    createdBy,
+                    absolutePath
+            );
+        } catch (IOException | RuntimeException exception) {
+            // A failed copy or metadata write must not leave an untracked destination file.
+            if (!moveSource) {
+                try {
+                    Files.deleteIfExists(absolutePath);
+                } catch (IOException cleanupException) {
+                    exception.addSuppressed(cleanupException);
+                }
+            }
+            throw exception;
+        }
     }
 
     @Transactional
