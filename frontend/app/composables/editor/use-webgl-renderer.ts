@@ -1929,12 +1929,42 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   function updateTexture(img: HTMLImageElement): void {
     if (!gl || !imageTexture) return
 
-    imageSize.value.width = img.width
-    imageSize.value.height = img.height
+    const width = img.naturalWidth
+    const height = img.naturalHeight
+    const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number
+    let source: TexImageSource = img
+    let resizedCanvas: HTMLCanvasElement | null = null
 
-    gl.bindTexture(gl.TEXTURE_2D, imageTexture)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+    try {
+      // Large scans can exceed the GPU's per-dimension texture limit. Resize
+      // only the display raster; page coordinates retain the original size.
+      // We should look into introducing image pyramids (lipvips) in the future
+      if (width > maxTextureSize || height > maxTextureSize) {
+        const scale = maxTextureSize / Math.max(width, height)
+        resizedCanvas = document.createElement('canvas')
+        resizedCanvas.width = Math.max(1, Math.floor(width * scale))
+        resizedCanvas.height = Math.max(1, Math.floor(height * scale))
+        const context = resizedCanvas.getContext('2d')
+        if (!context) throw new Error('Unable to resize raster image for WebGL')
+        context.imageSmoothingEnabled = true
+        context.imageSmoothingQuality = 'high'
+        context.drawImage(img, 0, 0, resizedCanvas.width, resizedCanvas.height)
+        source = resizedCanvas
+      }
+
+      gl.bindTexture(gl.TEXTURE_2D, imageTexture)
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
+
+      imageSize.value.width = width
+      imageSize.value.height = height
+    } finally {
+      // Release the temporary CPU-side bitmap after the GPU upload.
+      if (resizedCanvas) {
+        resizedCanvas.width = 0
+        resizedCanvas.height = 0
+      }
+    }
   }
 
   async function loadAndRender(src: string): Promise<void> {
