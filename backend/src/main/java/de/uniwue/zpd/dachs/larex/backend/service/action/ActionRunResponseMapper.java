@@ -95,6 +95,7 @@ public class ActionRunResponseMapper {
         List<String> pageIds = payloadService.readPageIds(run);
         return new ActionDto.RunResponse(
                 run.getId(),
+                run.getCreatedByUserId(),
                 definition.getId(),
                 definition.getProcessorKey(),
                 definition.getName(),

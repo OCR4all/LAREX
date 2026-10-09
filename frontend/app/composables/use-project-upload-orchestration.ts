@@ -50,6 +50,7 @@ type UploadSessionFileResponse = {
 
 type UploadSessionDetailResponse = {
   id: string
+  createdByUserId?: string | null
   projectId: string
   workspaceId: string
   status: UploadSessionStatus
@@ -470,7 +471,8 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
         detail.projectId,
         options.projectName.value || 'Project Upload',
         detail.workspaceId || (options.workspaceId.value as string),
-        mappedFiles
+        mappedFiles,
+        { createdByUserId: detail.createdByUserId, locallyScheduled: false }
       )
     }
 
@@ -479,6 +481,7 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       && currentUploadSessionId.value === detail.id
 
     uploadStore.updateUploadProgress(detail.id, {
+      createdByUserId: detail.createdByUserId,
       status: detail.status,
       totalFiles: detail.totalFiles,
       processedFiles: detail.processedFiles,

@@ -22,6 +22,7 @@ export interface UploadFile {
 
 export interface UploadSession {
   id: string
+  createdByUserId?: string | null
   projectId: string
   workspaceId: string
   status: 'PENDING' | 'UPLOADING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'

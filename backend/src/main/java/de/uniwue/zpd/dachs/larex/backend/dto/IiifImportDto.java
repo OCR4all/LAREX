@@ -111,6 +111,7 @@ public class IiifImportDto {
 
     public record JobResponse(
             String id,
+            String createdByUserId,
             String projectId,
             String projectName,
             String workspaceId,

@@ -545,6 +545,7 @@ class ActionRunServiceTest {
                 "http://app:8080/api/v1"
         );
 
+        assertThat(response.run().createdByUserId()).isEqualTo(OWNER_ID);
         assertThat(response.run().pageIds()).containsExactly(includedPage.getId());
         assertThat(response.run().targetSelection().pages())
                 .extracting(ActionDto.TargetSelectionPage::pageId)
@@ -599,6 +600,7 @@ class ActionRunServiceTest {
                 CURATOR_ID,
                 "http://app:8080/api/v1");
 
+        assertThat(response.run().createdByUserId()).isEqualTo(CURATOR_ID);
         assertThat(response.run().kind()).isEqualTo(ActionRun.Kind.TRAINING);
         assertThat(response.run().projectId()).isNull();
         assertThat(response.run().datasetId()).isEqualTo(dataset.getId());

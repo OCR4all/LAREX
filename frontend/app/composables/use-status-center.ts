@@ -1,5 +1,7 @@
 import {
   buildStatusJobs,
+  getJobKey,
+  isOwnStatusJob,
   shouldAutoOpenStatusPopover
 } from '@/utils/status-center'
 
@@ -39,6 +41,7 @@ function stopPolling() {
 }
 
 export function useStatusCenter() {
+  const { user } = useUserSession()
   const uploadStore = useUploadStore()
   const actionRunsStore = useActionRunsStore()
   const backgroundJobsStore = useBackgroundJobsStore()
@@ -48,6 +51,7 @@ export function useStatusCenter() {
   const { issues, hasIssues } = useStatusIssues()
   const isOverlayOpen = useState('app.statusCenter.overlayOpen', () => false)
   const isOverlayMinimized = useState('app.statusCenter.overlayMinimized', () => false)
+  const jobScope = useState<'mine' | 'all'>('app.statusCenter.jobScope', () => 'mine')
   const overlayAnchorId = useState<string | null>('app.statusCenter.overlayAnchorId', () => null)
 
   const jobs = computed(() => buildStatusJobs(
@@ -56,6 +60,9 @@ export function useStatusCenter() {
     backgroundJobsStore.jobsArray,
     iiifImportJobsStore.jobsArray
   ))
+  const ownJobs = computed(() => jobs.value.filter(job => isOwnStatusJob(job, user.value?.id)))
+  const filteredJobs = computed(() => jobScope.value === 'mine' ? ownJobs.value : jobs.value)
+  const ownActiveJobKeys = computed(() => ownJobs.value.filter(job => job.active).map(getJobKey))
   const activeJobs = computed(() => jobs.value.filter(job => job.active))
   const terminalJobs = computed(() => jobs.value.filter(job => job.terminal))
   const hasActiveJobs = computed(() => activeJobs.value.length > 0)
@@ -112,8 +119,10 @@ export function useStatusCenter() {
     }
   })
 
-  watch(() => activeJobs.value.length, (count, previousCount) => {
-    if (shouldAutoOpenStatusPopover(previousCount ?? 0, count)) {
+  watch(ownActiveJobKeys, (keys, previousKeys) => {
+    const previous = new Set(previousKeys)
+    if (keys.some(key => !previous.has(key))) {
+      jobScope.value = 'mine'
       isOverlayOpen.value = true
       isOverlayMinimized.value = false
     }
@@ -157,6 +166,9 @@ export function useStatusCenter() {
     isOverlayMinimized,
     overlayAnchorId,
     jobs,
+    ownJobs,
+    filteredJobs,
+    jobScope,
     activeJobs,
     terminalJobs,
     issues,

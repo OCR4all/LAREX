@@ -586,6 +586,7 @@ public class ChunkedUploadService {
 
         return new UploadSessionDto.SessionResponse(
                 session.getId(),
+                session.getUserId(),
                 session.getProjectId(),
                 session.getWorkspaceId(),
                 session.getStatus(),

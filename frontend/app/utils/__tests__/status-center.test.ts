@@ -3,7 +3,7 @@ import type { ActiveUpload } from '@/stores/upload.store'
 import type { TrackedActionRun } from '@/stores/action-runs.store'
 import type { BackgroundJob } from '@/stores/background-jobs.store'
 import type { IiifImportJob } from '@/types/iiif-import'
-import { buildStatusJobs, shouldAutoOpenStatusPopover } from '../status-center'
+import { buildStatusJobs, isOwnStatusJob, shouldAutoOpenStatusPopover } from '../status-center'
 
 function createUpload(overrides: Partial<ActiveUpload> = {}): ActiveUpload {
   return {
@@ -218,6 +218,25 @@ describe('status-center utils', () => {
     expect(jobs[0]?.terminal).toBe(true)
     expect(jobs[0]?.statusLabel).toBe('Completed')
     expect(jobs[0]?.color).toBe('success')
+  })
+
+  it('identifies ownership across uploads, action runs, IIIF imports, and local tasks', () => {
+    const jobs = buildStatusJobs(
+      [createUpload({ createdByUserId: 'me' }), createUpload({ sessionId: 'other-upload', createdByUserId: 'other' })],
+      [createRun({ createdByUserId: 'me' }), createRun({ id: 'other-run', createdByUserId: 'other' })],
+      [createBackgroundJob()],
+      [createIiifImport({ createdByUserId: 'me' }), createIiifImport({ id: 'other-import', createdByUserId: 'other' })]
+    )
+    expect(jobs.filter(job => isOwnStatusJob(job, 'me')).map(job => job.id).sort()).toEqual([
+      'background-1', 'iiif-1', 'run-1', 'upload-1'
+    ])
+    expect(jobs.filter(job => isOwnStatusJob(job, undefined)).map(job => job.id)).toEqual(['background-1'])
+  })
+
+  it('includes locally scheduled uploads before the server assigns their creator', () => {
+    const jobs = buildStatusJobs([createUpload({ locallyScheduled: true })], [])
+    expect(isOwnStatusJob(jobs[0]!, 'me')).toBe(true)
+    expect(isOwnStatusJob(buildStatusJobs([createUpload()], [])[0]!, 'me')).toBe(false)
   })
 
   it('auto-opens only when active job count increases', () => {

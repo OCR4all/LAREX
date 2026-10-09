@@ -408,6 +408,7 @@ class IiifImportServiceTest {
         );
 
         assertEquals("job-1", response.id());
+        assertEquals(USER_ID, response.createdByUserId());
         assertEquals("PENDING", response.status());
         assertEquals(1, response.queuePosition());
         assertEquals(2L * UNKNOWN_IMAGE_SIZE_ESTIMATE_BYTES, response.estimatedStorageBytes());

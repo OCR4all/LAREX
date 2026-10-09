@@ -27,6 +27,7 @@ export interface IiifImportItemResult {
 
 export interface IiifImportJob {
   id: string
+  createdByUserId?: string | null
   projectId: string
   projectName: string
   workspaceId: string

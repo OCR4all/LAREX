@@ -1687,6 +1687,7 @@ public class IiifImportService {
 
         return new IiifImportDto.JobResponse(
                 job.getId(),
+                job.getCreatedByUserId(),
                 job.getProjectId(),
                 projectName,
                 job.getWorkspaceId(),

@@ -41,14 +41,22 @@ const {
 
 const {
   jobs,
+  ownJobs,
+  filteredJobs,
+  jobScope,
   activeJobs,
-  terminalJobs,
   activeCountLabel,
   completedCountLabel,
   issueCountLabel,
   headerTitle,
   overallProgress
 } = useStatusCenter()
+
+const filteredTerminalJobs = computed(() => filteredJobs.value.filter(job => job.terminal))
+const scopeTabs = computed(() => [
+  { label: `My jobs (${ownJobs.value.length})`, value: 'mine' },
+  { label: `All visible jobs (${jobs.value.length})`, value: 'all' }
+])
 
 const collapsedJobKeys = ref<Set<string>>(new Set())
 const dismissingJobKeys = ref<Set<string>>(new Set())
@@ -217,10 +225,7 @@ async function clearCompletedJobs() {
   if (clearingCompletedJobs.value) return
   clearingCompletedJobs.value = true
   try {
-    uploadStore.clearCompletedUploads()
-    await actionRunsStore.dismissCompletedRuns()
-    backgroundJobsStore.clearCompletedJobs()
-    await iiifImportJobsStore.dismissCompletedJobs()
+    await Promise.all(filteredTerminalJobs.value.map(dismissJob))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not persist all dismissals.'
     toast.add({
@@ -345,215 +350,225 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
       />
     </div>
 
-    <div v-else :class="[compact ? 'max-h-[min(60vh,24rem)]' : 'max-h-110', 'overflow-y-auto']">
-      <div v-if="issues.length === 0 && jobs.length === 0" class="px-4 py-6 text-center text-sm text-muted">
-        All clear
-      </div>
-
-      <div v-else class="divide-y divide-default">
-        <div
-          v-for="issue in issues"
-          :key="issue.id"
-          class="px-4 py-3"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex min-w-0 items-start gap-2">
-              <UIcon
-                :name="issueSeverityMeta[issue.severity]?.icon || fallbackIssueSeverityMeta.icon"
-                :class="issue.severity === 'error' ? 'text-error' : issue.severity === 'warning' ? 'text-warning' : 'text-muted'"
-                class="mt-0.5 size-4 shrink-0"
-              />
-              <div class="min-w-0">
-                <p class="truncate text-sm font-medium">
-                  {{ issue.title }}
-                </p>
-                <p class="mt-1 text-xs text-muted">
-                  {{ issue.message }}
-                </p>
-                <p class="mt-1 text-[11px] uppercase tracking-wide text-muted">
-                  {{ issue.source.replace(/-/g, ' ') }}
-                </p>
-              </div>
-            </div>
-            <UBadge
-              :color="issueSeverityMeta[issue.severity]?.color || fallbackIssueSeverityMeta.color"
-              size="xs"
-              variant="soft"
-            >
-              {{ issue.severity }}
-            </UBadge>
-          </div>
-
-          <div class="mt-2 flex items-center gap-2 pl-6">
-            <UButton
-              v-if="issue.retryLabel"
-              variant="ghost"
-              size="xs"
-              icon="i-lucide-rotate-cw"
-              :loading="isRetrying(issue.id)"
-              @click="() => { void retryIssue(issue.id) }"
-            >
-              {{ issue.retryLabel }}
-            </UButton>
-            <UButton
-              variant="ghost"
-              size="xs"
-              icon="i-lucide-x"
-              @click="resolveIssue(issue.id)"
-            >
-              Dismiss
-            </UButton>
-          </div>
+    <template v-else>
+      <UTabs
+        v-model="jobScope"
+        :items="scopeTabs"
+        variant="link"
+        :content="false"
+        class="px-3 pt-2"
+        size="sm"
+      />
+      <div :class="[compact ? 'max-h-[min(60vh,24rem)]' : 'max-h-110', 'overflow-y-auto']">
+        <div v-if="issues.length === 0 && filteredJobs.length === 0" class="px-4 py-6 text-center text-sm text-muted">
+          No jobs to show
         </div>
 
-        <div
-          v-for="job in jobs"
-          :key="`${job.kind}:${job.id}`"
-          class="px-4 py-3"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex min-w-0 items-start gap-1">
+        <div v-else class="divide-y divide-default">
+          <div
+            v-for="issue in issues"
+            :key="issue.id"
+            class="px-4 py-3"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 items-start gap-2">
+                <UIcon
+                  :name="issueSeverityMeta[issue.severity]?.icon || fallbackIssueSeverityMeta.icon"
+                  :class="issue.severity === 'error' ? 'text-error' : issue.severity === 'warning' ? 'text-warning' : 'text-muted'"
+                  class="mt-0.5 size-4 shrink-0"
+                />
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-medium">
+                    {{ issue.title }}
+                  </p>
+                  <p class="mt-1 text-xs text-muted">
+                    {{ issue.message }}
+                  </p>
+                  <p class="mt-1 text-[11px] uppercase tracking-wide text-muted">
+                    {{ issue.source.replace(/-/g, ' ') }}
+                  </p>
+                </div>
+              </div>
+              <UBadge
+                :color="issueSeverityMeta[issue.severity]?.color || fallbackIssueSeverityMeta.color"
+                size="xs"
+                variant="soft"
+              >
+                {{ issue.severity }}
+              </UBadge>
+            </div>
+
+            <div class="mt-2 flex items-center gap-2 pl-6">
               <UButton
-                :icon="isJobCollapsed(job) ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down'"
+                v-if="issue.retryLabel"
                 variant="ghost"
                 size="xs"
-                class="-ml-1 mt-0.5 shrink-0"
-                :aria-label="isJobCollapsed(job) ? 'Expand job' : 'Collapse job'"
-                @click="toggleJobCollapsed(job)"
-              />
-              <UIcon :name="job.icon" class="mt-0.5 size-4 shrink-0 text-muted" />
-              <div class="min-w-0">
-                <UChatShimmer
-                  v-if="shouldUseJobShimmer(job)"
-                  :text="job.title"
-                  class="max-w-full text-sm font-medium"
-                />
-                <p v-else class="truncate text-sm font-medium">
-                  {{ job.title }}
-                </p>
-              </div>
+                icon="i-lucide-rotate-cw"
+                :loading="isRetrying(issue.id)"
+                @click="() => { void retryIssue(issue.id) }"
+              >
+                {{ issue.retryLabel }}
+              </UButton>
+              <UButton
+                variant="ghost"
+                size="xs"
+                icon="i-lucide-x"
+                @click="resolveIssue(issue.id)"
+              >
+                Dismiss
+              </UButton>
             </div>
-            <UBadge :color="job.color" size="xs" variant="soft">
-              {{ job.statusLabel }}
-            </UBadge>
           </div>
 
-          <Transition
-            enter-active-class="transition-all duration-150 ease-out"
-            enter-from-class="max-h-0 opacity-0"
-            enter-to-class="max-h-80 opacity-100"
-            leave-active-class="transition-all duration-150 ease-in"
-            leave-from-class="max-h-80 opacity-100"
-            leave-to-class="max-h-0 opacity-0"
+          <div
+            v-for="job in filteredJobs"
+            :key="`${job.kind}:${job.id}`"
+            class="px-4 py-3"
           >
-            <div v-if="!isJobCollapsed(job)" class="overflow-hidden pl-9">
-              <div class="mb-2 mt-2">
-                <div class="mb-1 flex items-center justify-between gap-2 text-xs text-muted">
-                  <span v-if="job.kind !== 'upload'" class="truncate">
-                    <template v-if="job.kind === 'action'">
-                      {{ actionStatusDetail(job) }}
-                    </template>
-                    <template v-else-if="job.kind === 'background'">
-                      {{ backgroundJobDetail(job) }}
-                    </template>
-                    <template v-else-if="job.kind === 'iiif'">
-                      {{ iiifJobDetail(job) }}
-                    </template>
-                  </span>
-                  <span class="shrink-0">{{ job.progressLabel }}</span>
-                </div>
-                <UProgress
-                  :model-value="job.progress"
-                  :color="job.color"
-                  size="sm"
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 items-start gap-1">
+                <UButton
+                  :icon="isJobCollapsed(job) ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down'"
+                  variant="ghost"
+                  size="xs"
+                  class="-ml-1 mt-0.5 shrink-0"
+                  :aria-label="isJobCollapsed(job) ? 'Expand job' : 'Collapse job'"
+                  @click="toggleJobCollapsed(job)"
                 />
+                <UIcon :name="job.icon" class="mt-0.5 size-4 shrink-0 text-muted" />
+                <div class="min-w-0">
+                  <UChatShimmer
+                    v-if="shouldUseJobShimmer(job)"
+                    :text="job.title"
+                    class="max-w-full text-sm font-medium"
+                  />
+                  <p v-else class="truncate text-sm font-medium">
+                    {{ job.title }}
+                  </p>
+                </div>
               </div>
+              <UBadge :color="job.color" size="xs" variant="soft">
+                {{ job.statusLabel }}
+              </UBadge>
+            </div>
 
-              <p v-if="job.kind === 'upload' && job.upload.error" class="mt-1 text-xs text-error">
-                {{ job.upload.error }}
-              </p>
-              <p v-if="job.kind === 'action' && job.run.errorMessage" class="mt-1 text-xs text-error">
-                {{ job.run.errorMessage }}
-              </p>
-              <p v-if="job.kind === 'background' && job.backgroundJob.error" class="mt-1 text-xs text-error">
-                {{ job.backgroundJob.error }}
-              </p>
-              <p v-if="job.kind === 'iiif' && job.iiifJob.errorMessage" class="mt-1 text-xs text-error">
-                {{ job.iiifJob.errorMessage }}
-              </p>
+            <Transition
+              enter-active-class="transition-all duration-150 ease-out"
+              enter-from-class="max-h-0 opacity-0"
+              enter-to-class="max-h-80 opacity-100"
+              leave-active-class="transition-all duration-150 ease-in"
+              leave-from-class="max-h-80 opacity-100"
+              leave-to-class="max-h-0 opacity-0"
+            >
+              <div v-if="!isJobCollapsed(job)" class="overflow-hidden pl-9">
+                <div class="mb-2 mt-2">
+                  <div class="mb-1 flex items-center justify-between gap-2 text-xs text-muted">
+                    <span v-if="job.kind !== 'upload'" class="truncate">
+                      <template v-if="job.kind === 'action'">
+                        {{ actionStatusDetail(job) }}
+                      </template>
+                      <template v-else-if="job.kind === 'background'">
+                        {{ backgroundJobDetail(job) }}
+                      </template>
+                      <template v-else-if="job.kind === 'iiif'">
+                        {{ iiifJobDetail(job) }}
+                      </template>
+                    </span>
+                    <span class="shrink-0">{{ job.progressLabel }}</span>
+                  </div>
+                  <UProgress
+                    :model-value="job.progress"
+                    :color="job.color"
+                    size="sm"
+                  />
+                </div>
 
-              <UCollapsible v-if="job.kind === 'upload' && job.upload.files.length > 0" class="mt-2">
-                <template #trigger="{ open }">
+                <p v-if="job.kind === 'upload' && job.upload.error" class="mt-1 text-xs text-error">
+                  {{ job.upload.error }}
+                </p>
+                <p v-if="job.kind === 'action' && job.run.errorMessage" class="mt-1 text-xs text-error">
+                  {{ job.run.errorMessage }}
+                </p>
+                <p v-if="job.kind === 'background' && job.backgroundJob.error" class="mt-1 text-xs text-error">
+                  {{ job.backgroundJob.error }}
+                </p>
+                <p v-if="job.kind === 'iiif' && job.iiifJob.errorMessage" class="mt-1 text-xs text-error">
+                  {{ job.iiifJob.errorMessage }}
+                </p>
+
+                <UCollapsible v-if="job.kind === 'upload' && job.upload.files.length > 0" class="mt-2">
+                  <template #trigger="{ open }">
+                    <UButton
+                      variant="ghost"
+                      size="xs"
+                      class="w-full justify-between"
+                      :trailing-icon="open ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                    >
+                      <span class="text-xs">Files</span>
+                    </UButton>
+                  </template>
+
+                  <div class="mt-2 max-h-32 space-y-1 overflow-y-auto">
+                    <div
+                      v-for="file in job.upload.files.slice(0, 20)"
+                      :key="file.id || file.fileName"
+                      class="flex items-center gap-2 rounded-sm p-1 text-xs hover:bg-elevated"
+                    >
+                      <UIcon
+                        :name="fileStatusIcons[file.status] || 'i-lucide-file'"
+                        :class="file.status === 'completed' ? 'text-success' : file.status === 'failed' ? 'text-error' : 'text-muted'"
+                        class="size-3.5 shrink-0"
+                      />
+                      <span class="min-w-0 flex-1 truncate">{{ file.fileName }}</span>
+                      <span class="shrink-0 text-muted">{{ formatBytes(file.fileSize) }}</span>
+                    </div>
+                    <div v-if="job.upload.totalFiles > job.upload.files.length" class="p-1 text-xs text-muted">
+                      ... and {{ job.upload.totalFiles - job.upload.files.length }} more files
+                    </div>
+                  </div>
+                </UCollapsible>
+
+                <div class="mt-2 flex items-center gap-2">
                   <UButton
+                    v-if="canCancelJob(job)"
                     variant="ghost"
                     size="xs"
-                    class="w-full justify-between"
-                    :trailing-icon="open ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                    icon="i-lucide-ban"
+                    :loading="isCancellingJob(job)"
+                    @click="cancelJob(job)"
                   >
-                    <span class="text-xs">Files</span>
+                    {{ job.kind === 'action' && job.run.status === 'CANCEL_REQUESTED' ? 'Force cancel' : 'Cancel' }}
                   </UButton>
-                </template>
-
-                <div class="mt-2 max-h-32 space-y-1 overflow-y-auto">
-                  <div
-                    v-for="file in job.upload.files.slice(0, 20)"
-                    :key="file.id || file.fileName"
-                    class="flex items-center gap-2 rounded-sm p-1 text-xs hover:bg-elevated"
+                  <UButton
+                    v-if="canRetryJob(job)"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-lucide-rotate-cw"
+                    :loading="isRetryingJob(job)"
+                    @click="retryJob(job)"
                   >
-                    <UIcon
-                      :name="fileStatusIcons[file.status] || 'i-lucide-file'"
-                      :class="file.status === 'completed' ? 'text-success' : file.status === 'failed' ? 'text-error' : 'text-muted'"
-                      class="size-3.5 shrink-0"
-                    />
-                    <span class="min-w-0 flex-1 truncate">{{ file.fileName }}</span>
-                    <span class="shrink-0 text-muted">{{ formatBytes(file.fileSize) }}</span>
-                  </div>
-                  <div v-if="job.upload.totalFiles > job.upload.files.length" class="p-1 text-xs text-muted">
-                    ... and {{ job.upload.totalFiles - job.upload.files.length }} more files
-                  </div>
+                    Retry
+                  </UButton>
+                  <UButton
+                    v-if="job.terminal"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-lucide-trash-2"
+                    :loading="isDismissingJob(job)"
+                    @click="dismissJob(job)"
+                  >
+                    Dismiss
+                  </UButton>
                 </div>
-              </UCollapsible>
-
-              <div class="mt-2 flex items-center gap-2">
-                <UButton
-                  v-if="canCancelJob(job)"
-                  variant="ghost"
-                  size="xs"
-                  icon="i-lucide-ban"
-                  :loading="isCancellingJob(job)"
-                  @click="cancelJob(job)"
-                >
-                  {{ job.kind === 'action' && job.run.status === 'CANCEL_REQUESTED' ? 'Force cancel' : 'Cancel' }}
-                </UButton>
-                <UButton
-                  v-if="canRetryJob(job)"
-                  variant="ghost"
-                  size="xs"
-                  icon="i-lucide-rotate-cw"
-                  :loading="isRetryingJob(job)"
-                  @click="retryJob(job)"
-                >
-                  Retry
-                </UButton>
-                <UButton
-                  v-if="job.terminal"
-                  variant="ghost"
-                  size="xs"
-                  icon="i-lucide-trash-2"
-                  :loading="isDismissingJob(job)"
-                  @click="dismissJob(job)"
-                >
-                  Dismiss
-                </UButton>
               </div>
-            </div>
-          </Transition>
+            </Transition>
+          </div>
         </div>
       </div>
-    </div>
+    </template>
 
     <div
-      v-if="!minimized && terminalJobs.length > 0"
+      v-if="!minimized && filteredTerminalJobs.length > 0"
       class="border-t border-default px-4 py-2"
     >
       <UButton

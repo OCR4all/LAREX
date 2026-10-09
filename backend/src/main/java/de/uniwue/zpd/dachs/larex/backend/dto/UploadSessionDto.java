@@ -35,6 +35,7 @@ public class UploadSessionDto {
 
     public record SessionResponse(
             String id,
+            String createdByUserId,
             String projectId,
             String workspaceId,
             UploadSessionStatus status,

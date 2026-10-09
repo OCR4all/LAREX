@@ -168,6 +168,7 @@ export interface ExecutableActionProcessor {
 
 export interface ActionRun {
   id: string
+  createdByUserId?: string | null
   processorDefinitionId: string
   processorKey: string
   processorName: string

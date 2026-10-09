@@ -194,6 +194,16 @@ export function getJobKey(job: StatusJob): string {
   return `${job.kind}:${job.id}`
 }
 
+export function isOwnStatusJob(job: StatusJob, userId: string | null | undefined): boolean {
+  // Background tasks and locally scheduled uploads originate in this browser.
+  if (job.kind === 'background') return true
+  if (job.kind === 'upload' && job.upload.locallyScheduled) return true
+  const creatorId = job.kind === 'upload'
+    ? job.upload.createdByUserId
+    : job.kind === 'action' ? job.run.createdByUserId : job.iiifJob.createdByUserId
+  return !!userId && creatorId === userId
+}
+
 export function getJobTimestamp(job: StatusJob): number {
   if (job.kind === 'upload') return Date.parse(job.upload.created)
   if (job.kind === 'action') return Date.parse(job.run.created)

@@ -280,6 +280,7 @@ public class ActionDto {
 
     public record RunResponse(
             String id,
+            String createdByUserId,
             String processorDefinitionId,
             String processorKey,
             String processorName,

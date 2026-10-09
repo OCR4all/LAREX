@@ -24,6 +24,8 @@ interface UploadUiFileBase {
 export type UploadUiFile = UploadUiFileBase
 
 export interface ActiveUpload {
+  createdByUserId?: string | null
+  locallyScheduled?: boolean
   sessionId: string
   projectId: string
   projectName: string
@@ -52,7 +54,7 @@ function isActiveStatus(status: ActiveUpload['status']): boolean {
   return status === 'PENDING' || status === 'UPLOADING' || status === 'PROCESSING'
 }
 
-type RegisterUploadOptions = Partial<Pick<ActiveUpload, 'status' | 'processedFiles' | 'failedFiles' | 'progressPercent' | 'processingCompletedItems' | 'processingTotalItems' | 'processingProgressPercent' | 'processingCurrentFileName' | 'created' | 'error' | 'cancelable'>>
+type RegisterUploadOptions = Partial<Pick<ActiveUpload, 'createdByUserId' | 'locallyScheduled' | 'status' | 'processedFiles' | 'failedFiles' | 'progressPercent' | 'processingCompletedItems' | 'processingTotalItems' | 'processingProgressPercent' | 'processingCurrentFileName' | 'created' | 'error' | 'cancelable'>>
 
 export const useUploadStore = defineStore('upload', () => {
   const activeUploads = shallowRef<Map<string, ActiveUpload>>(new Map())
@@ -145,6 +147,8 @@ export const useUploadStore = defineStore('upload', () => {
 
     activeUploads.value.set(sessionId, {
       sessionId,
+      createdByUserId: options.createdByUserId,
+      locallyScheduled: options.locallyScheduled ?? true,
       projectId,
       projectName,
       workspaceId,
