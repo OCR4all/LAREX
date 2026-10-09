@@ -242,207 +242,216 @@ function saveScope() {
   <div class="min-w-0">
     <UPageCard
       v-if="canManage"
-      title="Actions"
-      :ui="{ container: 'min-w-0 lg:grid-cols-[minmax(0,1fr)]' }"
+      :ui="{ container: 'min-w-0 gap-y-6 lg:grid-cols-[minmax(0,1fr)]', body: 'w-full' }"
       class="min-w-0"
-      description="Manage which Actions are enabled and where they can run."
       variant="subtle"
     >
-      <div class="flex flex-wrap items-end gap-3">
-        <UFormField label="Search Actions" class="flex-1 min-w-48">
-          <UInput
-            v-model="search"
-            icon="i-lucide-search"
-            placeholder="Name, key, or description…"
-            class="w-full"
-          />
-        </UFormField>
-        <UFormField label="Filter by project" class="min-w-48">
-          <USelectMenu
-            v-model="projectFilter"
-            :items="filterOptions"
-            value-key="value"
+      <template #body>
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 class="text-base font-semibold text-highlighted">
+              Actions
+            </h2>
+            <p class="mt-1 text-[15px] text-toned">
+              Manage which Actions are enabled and where they can run.
+            </p>
+          </div>
+          <UButton
+            label="Add Actions"
+            icon="i-lucide-plus"
             :disabled="loading || !!loadError"
-            class="w-full"
+            @click="openAdd"
           />
-        </UFormField>
-        <UButton
-          label="Add Actions"
-          icon="i-lucide-plus"
-          :disabled="loading || !!loadError"
-          @click="openAdd"
-        />
-      </div>
-      <p class="text-sm text-muted">
-        Project filters include Actions enabled for the entire workspace. Filtering does not change activation scope.
-      </p>
-      <UAlert
-        v-if="loadError"
-        title="Could not load Actions"
-        :description="loadError"
-        color="error"
-      >
-        <template #actions>
-          <UButton
-            label="Retry"
-            color="error"
-            variant="outline"
-            @click="loadActions"
-          />
-        </template>
-      </UAlert>
-      <div
-        v-else-if="loading && !rows.length"
-        role="status"
-        aria-label="Loading Actions"
-        class="space-y-3"
-      >
-        <USkeleton class="h-10 w-full" />
-        <USkeleton class="h-20 w-full" />
-        <USkeleton class="h-20 w-full" />
-        <span class="sr-only">Loading Actions…</span>
-      </div>
-      <div v-else-if="!loading && !rows.length" class="py-8 text-center text-muted">
-        No Actions are configured. Add an Action to enable it for the entire workspace.
-      </div>
-      <div v-else-if="!loading && !filteredRows.length" class="py-8 text-center text-muted">
-        No Actions match your filters.
-        <UButton label="Clear filters" variant="link" @click="search = ''; projectFilter = 'ALL'" />
-      </div>
-      <AppTable
-        v-else
-        v-model:expanded="expanded"
-        table-id="workspace-action-settings"
-        :data="filteredRows"
-        :columns="columns"
-        :loading="loading"
-        :get-row-id="(row: WorkspaceActionRow) => row.id"
-        :ui="{ base: 'table-auto border-separate border-spacing-0', thead: '[&>tr]:bg-default [&>tr]:after:content-none', td: 'align-top border-b border-default' }"
-        class="w-full min-w-0"
-      >
-        <template #details-cell="{ row }">
-          <UButton
-            :icon="row.getIsExpanded() ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
-            :aria-label="`${row.getIsExpanded() ? 'Hide' : 'Show'} details for ${row.original.processor.name}`"
-            color="neutral"
-            variant="ghost"
-            @click="row.toggleExpanded()"
-          />
-        </template>
-        <template #action-cell="{ row }">
-          <div class="min-w-56 max-w-xl whitespace-normal break-words">
-            <p class="font-medium">
-              {{ row.original.processor.name }}
+        </div>
+      </template>
+      <section aria-label="Configured Actions" class="min-w-0 rounded-lg border border-default bg-default">
+        <div class="flex flex-wrap items-end gap-3 border-b border-default p-4">
+          <UFormField label="Search configured Actions" class="flex-1 min-w-48">
+            <UInput
+              v-model="search"
+              icon="i-lucide-search"
+              placeholder="Name, key, or description…"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="Filter by project" class="w-full sm:w-56">
+            <USelectMenu
+              v-model="projectFilter"
+              :items="filterOptions"
+              value-key="value"
+              :disabled="loading || !!loadError"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
+        <UAlert
+          v-if="loadError"
+          title="Could not load Actions"
+          :description="loadError"
+          color="error"
+        >
+          <template #actions>
+            <UButton
+              label="Retry"
+              color="error"
+              variant="outline"
+              @click="loadActions"
+            />
+          </template>
+        </UAlert>
+        <div
+          v-else-if="loading && !rows.length"
+          role="status"
+          aria-label="Loading Actions"
+          class="space-y-3 p-4"
+        >
+          <USkeleton class="h-10 w-full" />
+          <USkeleton class="h-20 w-full" />
+          <USkeleton class="h-20 w-full" />
+          <span class="sr-only">Loading Actions…</span>
+        </div>
+        <div v-else-if="!loading && !rows.length" class="px-4 py-8 text-center text-muted">
+          No Actions are configured. Add an Action to enable it for the entire workspace.
+        </div>
+        <div v-else-if="!loading && !filteredRows.length" class="px-4 py-8 text-center text-muted">
+          No Actions match your filters.
+          <UButton label="Clear filters" variant="link" @click="search = ''; projectFilter = 'ALL'" />
+        </div>
+        <AppTable
+          v-else
+          v-model:expanded="expanded"
+          table-id="workspace-action-settings"
+          :data="filteredRows"
+          :columns="columns"
+          :loading="loading"
+          :get-row-id="(row: WorkspaceActionRow) => row.id"
+          :ui="{ base: 'table-auto border-separate border-spacing-0', thead: '[&>tr]:bg-default [&>tr]:after:content-none', th: 'py-3 border-b border-default', td: 'align-top border-b border-default' }"
+          class="w-full min-w-0"
+        >
+          <template #details-cell="{ row }">
+            <UButton
+              :icon="row.getIsExpanded() ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+              :aria-label="`${row.getIsExpanded() ? 'Hide' : 'Show'} details for ${row.original.processor.name}`"
+              color="neutral"
+              variant="ghost"
+              @click="row.toggleExpanded()"
+            />
+          </template>
+          <template #action-cell="{ row }">
+            <div class="min-w-56 max-w-xl whitespace-normal break-words">
+              <p class="font-medium">
+                {{ row.original.processor.name }}
+              </p>
+              <p class="text-sm text-muted mt-1">
+                {{ row.original.processor.description || 'No description provided.' }}
+              </p>
+            </div>
+          </template>
+          <template #kind-cell="{ row }">
+            <span class="capitalize">{{ row.original.processor.kind.toLowerCase() }}</span>
+          </template>
+          <template #availability-cell="{ row }">
+            <UBadge color="neutral" variant="soft">
+              {{ row.original.processor.global ? 'Global' : 'Workspace' }}
+            </UBadge>
+          </template>
+          <template #scope-cell="{ row }">
+            <p class="min-w-36 max-w-64 whitespace-normal break-words">
+              {{ scopeLabel(row.original) }}
             </p>
-            <p class="text-sm text-muted mt-1">
-              {{ row.original.processor.description || 'No description provided.' }}
-            </p>
-          </div>
-        </template>
-        <template #kind-cell="{ row }">
-          <span class="capitalize">{{ row.original.processor.kind.toLowerCase() }}</span>
-        </template>
-        <template #availability-cell="{ row }">
-          <UBadge color="neutral" variant="soft">
-            {{ row.original.processor.global ? 'Global' : 'Workspace' }}
-          </UBadge>
-        </template>
-        <template #scope-cell="{ row }">
-          <p class="min-w-36 max-w-64 whitespace-normal break-words">
-            {{ scopeLabel(row.original) }}
-          </p>
-        </template>
-        <template #status-cell="{ row }">
-          <UBadge :color="row.original.enabled ? 'success' : 'neutral'" variant="soft">
-            {{ row.original.enabled ? 'Enabled' : 'Disabled' }}
-          </UBadge>
-        </template>
-        <template #controls-cell="{ row }">
-          <div class="flex items-center justify-end gap-1">
-            <UTooltip text="Edit scope">
-              <UButton
-                icon="i-lucide-pencil"
-                :aria-label="`Edit scope for ${row.original.processor.name}`"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                :disabled="pendingIds.includes(row.original.id)"
-                @click="openScope(row.original)"
-              />
-            </UTooltip>
-            <UTooltip :text="row.original.enabled ? 'Disable Action' : 'Enable Action'">
-              <UButton
-                :icon="row.original.enabled ? 'i-lucide-circle-pause' : 'i-lucide-circle-play'"
-                :aria-label="`${row.original.enabled ? 'Disable' : 'Enable'} ${row.original.processor.name}`"
-                :color="row.original.enabled ? 'neutral' : 'primary'"
-                variant="ghost"
-                size="sm"
-                :loading="pendingIds.includes(row.original.id) && !removingIds.includes(row.original.id)"
-                @click="updateActivation(row.original, { scope: row.original.scope, projectIds: row.original.projectIds, enabled: !row.original.enabled })"
-              />
-            </UTooltip>
-            <UTooltip text="Remove Action from workspace">
-              <UButton
-                icon="i-lucide-trash-2"
-                :aria-label="`Remove ${row.original.processor.name} from workspace`"
-                color="error"
-                variant="ghost"
-                size="sm"
-                :disabled="pendingIds.includes(row.original.id)"
-                :loading="removingIds.includes(row.original.id)"
-                @click="removeAction(row.original)"
-              />
-            </UTooltip>
-          </div>
-        </template>
-        <template #expanded="{ row }">
-          <dl class="grid gap-6 rounded-lg border border-default bg-default p-4 sm:grid-cols-3 sm:p-5 whitespace-normal">
-            <div class="flex min-w-0 items-start gap-3">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated">
-                <UIcon name="i-lucide-code" class="size-4 text-muted" />
-              </div>
-              <div class="min-w-0 space-y-2">
-                <dt class="text-xs font-medium text-muted opacity-70">
-                  Action key
-                </dt>
-                <dd>
-                  <code class="break-all text-sm font-medium">{{ row.original.processor.processorKey }}</code>
-                </dd>
-              </div>
+          </template>
+          <template #status-cell="{ row }">
+            <UBadge :color="row.original.enabled ? 'success' : 'neutral'" variant="soft">
+              {{ row.original.enabled ? 'Enabled' : 'Disabled' }}
+            </UBadge>
+          </template>
+          <template #controls-cell="{ row }">
+            <div class="flex items-center justify-end gap-1">
+              <UTooltip text="Edit scope">
+                <UButton
+                  icon="i-lucide-pencil"
+                  :aria-label="`Edit scope for ${row.original.processor.name}`"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  :disabled="pendingIds.includes(row.original.id)"
+                  @click="openScope(row.original)"
+                />
+              </UTooltip>
+              <UTooltip :text="row.original.enabled ? 'Disable Action' : 'Enable Action'">
+                <UButton
+                  :icon="row.original.enabled ? 'i-lucide-circle-pause' : 'i-lucide-circle-play'"
+                  :aria-label="`${row.original.enabled ? 'Disable' : 'Enable'} ${row.original.processor.name}`"
+                  :color="row.original.enabled ? 'neutral' : 'primary'"
+                  variant="ghost"
+                  size="sm"
+                  :loading="pendingIds.includes(row.original.id) && !removingIds.includes(row.original.id)"
+                  @click="updateActivation(row.original, { scope: row.original.scope, projectIds: row.original.projectIds, enabled: !row.original.enabled })"
+                />
+              </UTooltip>
+              <UTooltip text="Remove Action from workspace">
+                <UButton
+                  icon="i-lucide-trash-2"
+                  :aria-label="`Remove ${row.original.processor.name} from workspace`"
+                  color="error"
+                  variant="ghost"
+                  size="sm"
+                  :disabled="pendingIds.includes(row.original.id)"
+                  :loading="removingIds.includes(row.original.id)"
+                  @click="removeAction(row.original)"
+                />
+              </UTooltip>
             </div>
-            <div class="flex min-w-0 items-start gap-3">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated">
-                <UIcon name="i-lucide-shield-user" class="size-4 text-muted" />
+          </template>
+          <template #expanded="{ row }">
+            <dl class="grid gap-6 rounded-lg border border-default bg-default p-4 sm:grid-cols-3 sm:p-5 whitespace-normal">
+              <div class="flex min-w-0 items-start gap-3">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated">
+                  <UIcon name="i-lucide-code" class="size-4 text-muted" />
+                </div>
+                <div class="min-w-0 space-y-2">
+                  <dt class="text-xs font-medium text-muted opacity-70">
+                    Action key
+                  </dt>
+                  <dd>
+                    <code class="break-all text-sm font-medium">{{ row.original.processor.processorKey }}</code>
+                  </dd>
+                </div>
               </div>
-              <div class="min-w-0 space-y-2">
-                <dt class="text-xs font-medium text-muted opacity-70">
-                  Execution role
-                </dt>
-                <dd>
-                  <UBadge color="neutral" variant="soft">
-                    {{ row.original.processor.executeRole === 'CURATOR' ? 'Curator' : 'Editor' }}
-                  </UBadge>
-                </dd>
+              <div class="flex min-w-0 items-start gap-3">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated">
+                  <UIcon name="i-lucide-shield-user" class="size-4 text-muted" />
+                </div>
+                <div class="min-w-0 space-y-2">
+                  <dt class="text-xs font-medium text-muted opacity-70">
+                    Execution role
+                  </dt>
+                  <dd>
+                    <UBadge color="neutral" variant="soft">
+                      {{ row.original.processor.executeRole === 'CURATOR' ? 'Curator' : 'Editor' }}
+                    </UBadge>
+                  </dd>
+                </div>
               </div>
-            </div>
-            <div class="flex min-w-0 items-start gap-3">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated">
-                <UIcon :name="row.original.processor.lockMode === 'NONE' ? 'i-lucide-lock-open' : 'i-lucide-lock'" class="size-4 text-muted" />
+              <div class="flex min-w-0 items-start gap-3">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-elevated">
+                  <UIcon :name="row.original.processor.lockMode === 'NONE' ? 'i-lucide-lock-open' : 'i-lucide-lock'" class="size-4 text-muted" />
+                </div>
+                <div class="min-w-0 space-y-2">
+                  <dt class="text-xs font-medium text-muted opacity-70">
+                    Locking
+                  </dt>
+                  <dd>
+                    <UBadge color="neutral" variant="soft">
+                      {{ row.original.processor.lockMode === 'NONE' ? 'No locking' : row.original.processor.lockMode === 'PAGES' ? 'Pages' : 'Project' }}
+                    </UBadge>
+                  </dd>
+                </div>
               </div>
-              <div class="min-w-0 space-y-2">
-                <dt class="text-xs font-medium text-muted opacity-70">
-                  Locking
-                </dt>
-                <dd>
-                  <UBadge color="neutral" variant="soft">
-                    {{ row.original.processor.lockMode === 'NONE' ? 'No locking' : row.original.processor.lockMode === 'PAGES' ? 'Pages' : 'Project' }}
-                  </UBadge>
-                </dd>
-              </div>
-            </div>
-          </dl>
-        </template>
-      </AppTable>
+            </dl>
+          </template>
+        </AppTable>
+      </section>
     </UPageCard>
     <UAlert
       v-else
