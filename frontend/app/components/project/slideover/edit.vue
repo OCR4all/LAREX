@@ -474,15 +474,15 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           }"
         >
           <template #leading="{ item }">
-            <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
+            <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented shadow-xs ring ring-inset ring-white/10 dark:shadow-black/40 dark:ring-white/20">
               <UIcon :name="item.icon" class="size-4 text-muted" />
             </div>
           </template>
 
           <template #default="{ item }">
             <span class="block min-w-0 text-start">
-              <span class="block font-semibold text-highlighted">{{ item.label }}</span>
-              <span class="mt-0.5 block truncate text-xs font-normal text-muted">{{ item.description }}</span>
+              <span class="block leading-4.5 font-semibold text-highlighted">{{ item.label }}</span>
+              <span class="block text-xs leading-4.5 font-normal text-muted">{{ item.description }}</span>
             </span>
           </template>
 

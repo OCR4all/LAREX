@@ -84,7 +84,7 @@ const backgroundColor = computed(() => {
   if (props.variant === 'monochrome') {
     return 'currentColor'
   }
-  return '#1678E4FF'
+  return 'var(--color-brand-blue)'
 })
 
 const textColor = computed(() => {

@@ -4,6 +4,7 @@
 
 @theme {
   --font-sans: 'Geist', sans-serif;
+  --color-brand-blue: #1678e4;
 }
 
 :root {

@@ -504,14 +504,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         <UCard variant="subtle">
           <template #header>
             <div class="flex items-start gap-3">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented shadow-xs ring ring-inset ring-white/10 dark:shadow-black/40 dark:ring-white/20">
                 <UIcon name="i-lucide-file-plus-2" class="size-4 text-muted" />
               </div>
               <div class="min-w-0">
-                <h3 class="text-sm font-semibold text-highlighted">
+                <h3 class="text-sm leading-4.5 font-semibold text-highlighted">
                   General
                 </h3>
-                <p class="mt-1 text-sm text-muted">
+                <p class="text-sm leading-4.5 text-muted">
                   The name, description, and tags shown throughout the workspace.
                 </p>
               </div>
@@ -536,17 +536,17 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         <UCard variant="subtle">
           <template #header>
             <div class="flex items-start gap-3">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented shadow-xs ring ring-inset ring-white/10 dark:shadow-black/40 dark:ring-white/20">
                 <UIcon name="i-lucide-sliders-horizontal" class="size-4 text-muted" />
               </div>
               <div class="min-w-0">
-                <div class="flex items-center gap-1">
-                  <h3 class="text-sm font-semibold text-highlighted">
+                <div class="flex items-center gap-1 [&_button]:size-4.5 [&_button]:p-0">
+                  <h3 class="text-sm leading-4.5 font-semibold text-highlighted">
                     Project Defaults
                   </h3>
                   <ProjectWorkspaceDefaultsInfo context="create" />
                 </div>
-                <p class="mt-1 text-sm text-muted">
+                <p class="text-sm leading-4.5 text-muted">
                   Choose the resources and tools editors use when working in this project.
                 </p>
               </div>
@@ -672,7 +672,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           }"
         >
           <template #leading>
-            <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
+            <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented shadow-xs ring ring-inset ring-white/10 dark:shadow-black/40 dark:ring-white/20">
               <UIcon name="i-lucide-text" class="size-4 text-muted" />
             </div>
           </template>
@@ -744,14 +744,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         <UCard variant="subtle" :ui="{ body: 'p-4 sm:p-4' }">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex min-w-0 items-start gap-3">
-              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented shadow-xs ring ring-inset ring-white/10 dark:shadow-black/40 dark:ring-white/20">
                 <UIcon name="i-lucide-settings-2" class="size-4 text-muted" />
               </div>
               <div class="min-w-0">
-                <p class="text-sm font-medium text-highlighted">
+                <p class="text-sm leading-4.5 font-medium text-highlighted">
                   Editor Tool Overrides
                 </p>
-                <p class="mt-0.5 text-sm text-muted">
+                <p class="text-sm leading-4.5 text-muted">
                   {{ enabledEditorOverrideCount }} of 7 overrides enabled
                 </p>
               </div>

@@ -1,3 +1,8 @@
+// Add a little elevation to outlined fields without changing flat/embedded variants.
+const outlinedFieldVariants = {
+  outline: 'shadow-2xs ring-neutral-300 hover:not-disabled:ring-neutral-400 dark:ring-neutral-700 dark:hover:not-disabled:ring-neutral-600 dark:shadow-black/40 dark:inset-shadow-xs dark:inset-shadow-white/10 disabled:shadow-none dark:disabled:inset-shadow-none'
+}
+
 export default defineAppConfig({
   icon: {
     mode: 'css',
@@ -30,6 +35,9 @@ export default defineAppConfig({
     },
     button: {
       compoundVariants: [{
+        variant: ['solid', 'outline', 'soft', 'subtle'],
+        class: 'shadow-xs inset-shadow-xs inset-shadow-white/10 dark:shadow-black/40 dark:inset-shadow-white/20 disabled:shadow-none disabled:inset-shadow-none aria-disabled:shadow-none aria-disabled:inset-shadow-none'
+      }, {
         color: 'warning',
         variant: 'solid',
         class: 'text-neutral-950'
@@ -53,6 +61,37 @@ export default defineAppConfig({
         modal: 'z-[80]'
       }
     },
+    dashboardSearchButton: {
+      variants: {
+        collapsed: {
+          false: {
+            base: 'bg-default shadow-2xs ring-neutral-300 hover:ring-neutral-400 dark:ring-neutral-700 dark:hover:ring-neutral-600 dark:shadow-black/40 dark:inset-shadow-xs dark:inset-shadow-white/10'
+          }
+        }
+      }
+    },
+    navigationMenu: {
+      compoundVariants: [{
+        orientation: 'vertical',
+        color: 'primary',
+        variant: 'pill',
+        active: true,
+        class: {
+          link: 'text-white before:bg-brand-blue before:shadow-xs before:ring before:ring-inset before:ring-white/10 dark:before:ring-white/20 dark:before:shadow-black/40 hover:text-white hover:before:bg-brand-blue data-[state=open]:text-white',
+          linkLeadingIcon: 'text-white group-hover:text-white group-data-[state=open]:text-white',
+          linkTrailingIcon: 'text-white'
+        }
+      }, {
+        orientation: 'vertical',
+        variant: 'pill',
+        active: false,
+        class: {
+          link: 'text-default hover:before:bg-brand-blue/12 dark:hover:before:bg-brand-blue/20',
+          linkLeadingIcon: 'text-toned',
+          linkTrailingIcon: 'text-toned'
+        }
+      }]
+    },
     dropdownMenu: {
       slots: {
         content: 'z-[90]'
@@ -72,11 +111,17 @@ export default defineAppConfig({
     input: {
       slots: {
         root: 'w-full'
+      },
+      variants: {
+        variant: outlinedFieldVariants
       }
     },
     inputTags: {
       slots: {
         root: 'w-full'
+      },
+      variants: {
+        variant: outlinedFieldVariants
       }
     },
     // Select content is portaled to the document body, outside slideover and modal stacking contexts.
@@ -84,17 +129,26 @@ export default defineAppConfig({
       slots: {
         base: 'w-full',
         content: 'z-[90]'
+      },
+      variants: {
+        variant: outlinedFieldVariants
       }
     },
     selectMenu: {
       slots: {
         base: 'w-full',
         content: 'z-[90]'
+      },
+      variants: {
+        variant: outlinedFieldVariants
       }
     },
     textarea: {
       slots: {
         root: 'w-full'
+      },
+      variants: {
+        variant: outlinedFieldVariants
       }
     },
     error: {

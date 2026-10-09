@@ -11,7 +11,7 @@ const resolvedDescription = computed(() => props.description || 'Review details 
 
 <template>
   <div class="flex min-w-0 items-start gap-3 pr-8">
-    <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-navy-600">
+    <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-navy-600 shadow-xs ring ring-inset ring-white/10 dark:shadow-black/40 dark:ring-white/20">
       <UIcon
         :name="icon"
         :class="['size-4 text-white', iconClass]"

@@ -1456,6 +1456,7 @@ async function handleLegacyOcr4allImport(event: Event) {
                 color="neutral"
                 variant="outline"
                 icon="i-lucide-chevron-down"
+                aria-label="Project actions"
               />
             </UDropdownMenu>
           </UFieldGroup>
