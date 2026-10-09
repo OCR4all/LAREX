@@ -2,7 +2,7 @@ version: 1
 id: kraken-segmentation
 name: Kraken Segmentation
 description: Runs Kraken OCR baseline segmentation and incrementally imports PAGE XML.
-category: LAYOUT
+tags: [layout, segmentation]
 targets:
   - PAGE
   - REGION

@@ -1842,7 +1842,7 @@ class ActionRunServiceTest {
                 processorKey,
                 "test",
                 null,
-                "WORKFLOW",
+                List.of(),
                 List.of("PAGE"),
                 new ActionDefinitionDocument.Endpoint("https://processor.example/dispatch", 30, null, null, null),
                 new ActionDefinitionDocument.Access("CURATOR"),

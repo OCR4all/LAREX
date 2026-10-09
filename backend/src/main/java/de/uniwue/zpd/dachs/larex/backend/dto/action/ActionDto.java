@@ -2,7 +2,6 @@ package de.uniwue.zpd.dachs.larex.backend.dto.action;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
-import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionCategory;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionKind;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Status;
@@ -103,7 +102,7 @@ public class ActionDto {
             ActionKind kind,
             ExecuteRole executeRole,
             LockMode lockMode,
-            ActionCategory category,
+            List<String> tags,
             List<ActionTarget> targets,
             InputRequirements inputs,
             boolean acceptsImages,
@@ -133,7 +132,7 @@ public class ActionDto {
             ActionKind kind,
             ExecuteRole executeRole,
             LockMode lockMode,
-            ActionCategory category,
+            List<String> tags,
             List<ActionTarget> targets,
             InputRequirements inputs,
             boolean acceptsImages,

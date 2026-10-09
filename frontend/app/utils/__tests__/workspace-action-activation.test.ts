@@ -5,7 +5,7 @@ import { filterWorkspaceActions, groupWorkspaceActions, unconfiguredActions } fr
 const processor: ActionDefinitionResponse = {
   id: 'action', name: 'Copy pages', processorKey: 'copy', description: 'Preserve full images and XML',
   yaml: '', endpointUrl: '', endpointTimeoutSeconds: 30, kind: 'PROCESSING', executeRole: 'CURATOR',
-  lockMode: 'NONE', category: 'WORKFLOW', targets: ['PAGE'],
+  lockMode: 'NONE', tags: [], targets: ['PAGE'],
   inputs: { images: { level: 'NONE', requiredForTargets: [] }, xml: { level: 'NONE', requiredForTargets: [] } },
   acceptsImages: false, acceptsXml: false, outputsImages: false, outputsXml: false, outputsFiles: false, overwrites: {},
   enabled: true, global: true, created: '', updated: '', trainingSplits: null, parameters: {}

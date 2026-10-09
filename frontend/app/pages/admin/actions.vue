@@ -300,7 +300,7 @@ function createNewDefinition() {
     kind: 'PROCESSING',
     executeRole: 'CURATOR',
     lockMode: 'PAGES',
-    category: 'WORKFLOW',
+    tags: [],
     targets: ['PAGE'],
     inputs: {
       images: { level: 'REQUIRED', requiredForTargets: [] },
@@ -336,7 +336,7 @@ function buildDraftActionYaml(processorKey: string) {
 id: ${processorKey}
 name: ${processorKey}
 description: Describe what ${processorKey} does.
-category: WORKFLOW
+tags: []
 targets:
   - PAGE
 

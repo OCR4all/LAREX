@@ -7,7 +7,7 @@ defineProps<{
 </script>
 
 <template>
-  <UCard variant="subtle">
+  <UCard variant="subtle" class="bg-elevated/20 dark:bg-elevated/50">
     <template #header>
       <div class="flex items-start gap-3">
         <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented">

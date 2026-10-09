@@ -5,7 +5,7 @@ import type { ActionAssignmentResponse, ActionDefinitionResponse } from '@/types
 function definition(id: string, global = false, kind: ActionDefinitionResponse['kind'] = 'PROCESSING'): ActionDefinitionResponse {
   return {
     id, processorKey: id, name: id, description: null, yaml: '', endpointUrl: '', endpointTimeoutSeconds: 30,
-    kind, executeRole: 'CURATOR', lockMode: 'NONE', category: 'WORKFLOW', targets: ['PAGE'],
+    kind, executeRole: 'CURATOR', lockMode: 'NONE', tags: [], targets: ['PAGE'],
     inputs: { images: { level: 'NONE', requiredForTargets: [] }, xml: { level: 'NONE', requiredForTargets: [] } },
     acceptsImages: false, acceptsXml: false, outputsImages: false, outputsXml: false, outputsFiles: false, overwrites: {},
     enabled: true, global, created: '', updated: '', trainingSplits: null, parameters: {}

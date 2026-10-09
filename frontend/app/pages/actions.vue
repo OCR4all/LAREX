@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { ActionCategory, ActionDefinitionResponse, ActionKind, ActionTarget } from '@/types/action'
+import type { ActionDefinitionResponse, ActionKind, ActionTarget } from '@/types/action'
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 
@@ -50,20 +50,10 @@ const processors = computed(() => [
 const loading = computed(() => processingRequest.pending.value || trainingRequest.pending.value || evaluationRequest.pending.value)
 const error = computed(() => processingRequest.error.value || trainingRequest.error.value || evaluationRequest.error.value)
 
-const categoryMeta: Record<ActionCategory, { label: string }> = {
-  WORKFLOW: { label: 'Workflow' },
-  OCR_HTR: { label: 'OCR / HTR' },
-  LAYOUT: { label: 'Layout' },
-  POSTPROCESSING: { label: 'Post-processing' }
-}
 const actionKindMeta: Record<ActionKind, { label: string, icon: string }> = {
   PROCESSING: { label: 'Processing', icon: 'i-lucide-play' },
   TRAINING: { label: 'Training', icon: 'i-lucide-brain-circuit' },
   EVALUATION: { label: 'Evaluation', icon: 'i-lucide-chart-no-axes-combined' }
-}
-
-function categoryDetails(category: ActionCategory) {
-  return categoryMeta[category] ?? { label: category }
 }
 
 function actionKindDetails(kind?: ActionKind) {
@@ -93,7 +83,7 @@ const columns: TableColumn<ActionDefinitionResponse>[] = [
   { accessorKey: 'name', header: 'Action' },
   { accessorKey: 'description', header: 'Description' },
   { accessorKey: 'kind', header: 'Kind' },
-  { accessorKey: 'category', header: 'Category' },
+  { accessorKey: 'tags', header: 'Tags' },
   { id: 'scope', header: 'Scope' },
   { accessorKey: 'targets', header: 'Targets' },
   { id: 'inputs', header: 'Inputs' },
@@ -102,15 +92,14 @@ const columns: TableColumn<ActionDefinitionResponse>[] = [
 
 const searchFilter = ref('')
 const selectedKinds = ref<ActionKind[]>([])
-const selectedCategories = ref<ActionCategory[]>([])
+const selectedTags = ref<string[]>([])
 const selectedTargets = ref<ActionTarget[]>([])
 const selectedInputs = ref<string[]>([])
 const selectedOutputs = ref<string[]>([])
 
-const categoryOptions = Object.entries(categoryMeta).map(([value, meta]) => ({
-  label: meta.label,
-  value: value as ActionCategory
-}))
+const tagOptions = computed(() => [...new Set(processors.value.flatMap(processor => processor.tags))]
+  .sort((left, right) => left.localeCompare(right))
+  .map(value => ({ label: value, value })))
 const actionKindOptions = Object.entries(actionKindMeta).map(([value, meta]) => ({
   label: meta.label,
   value: value as ActionKind
@@ -150,7 +139,7 @@ const filteredProcessors = computed(() => {
     if (needle && ![processor.name, processor.processorKey, processor.description]
       .some(value => value?.toLowerCase().includes(needle))) return false
     if (selectedKinds.value.length > 0 && !selectedKinds.value.includes(processor.kind ?? 'PROCESSING')) return false
-    if (selectedCategories.value.length > 0 && !selectedCategories.value.includes(processor.category)) return false
+    if (selectedTags.value.length > 0 && !selectedTags.value.some(tag => processor.tags.includes(tag))) return false
     if (selectedTargets.value.length > 0 && !selectedTargets.value.some(target => processor.targets.includes(target))) return false
     if (selectedInputs.value.length > 0 && !selectedInputs.value.some(input => hasInput(processor, input))) return false
     if (selectedOutputs.value.length > 0 && !selectedOutputs.value.some(output => hasOutput(processor, output))) return false
@@ -161,7 +150,7 @@ const filteredProcessors = computed(() => {
 const hasActiveFilters = computed(() => Boolean(
   searchFilter.value.trim()
   || selectedKinds.value.length
-  || selectedCategories.value.length
+  || selectedTags.value.length
   || selectedTargets.value.length
   || selectedInputs.value.length
   || selectedOutputs.value.length
@@ -170,7 +159,7 @@ const hasActiveFilters = computed(() => Boolean(
 function clearFilters() {
   searchFilter.value = ''
   selectedKinds.value = []
-  selectedCategories.value = []
+  selectedTags.value = []
   selectedTargets.value = []
   selectedInputs.value = []
   selectedOutputs.value = []
@@ -220,11 +209,11 @@ function refreshProcessors() {
             class="w-full sm:w-40"
           />
           <USelectMenu
-            v-model="selectedCategories"
-            :items="categoryOptions"
+            v-model="selectedTags"
+            :items="tagOptions"
             value-key="value"
             multiple
-            placeholder="Category"
+            placeholder="Tags"
             class="w-full sm:w-44"
           />
           <USelectMenu
@@ -300,8 +289,18 @@ function refreshProcessors() {
             {{ actionKindDetails(row.original.kind).label }}
           </UBadge>
         </template>
-        <template #category-cell="{ row }">
-          {{ categoryDetails(row.original.category).label }}
+        <template #tags-cell="{ row }">
+          <div v-if="row.original.tags.length" class="flex flex-wrap gap-1">
+            <UBadge
+              v-for="tag in row.original.tags"
+              :key="tag"
+              color="neutral"
+              variant="subtle"
+            >
+              {{ tag }}
+            </UBadge>
+          </div>
+          <span v-else>—</span>
         </template>
         <template #scope-cell="{ row }">
           <UBadge :color="row.original.global ? 'primary' : 'neutral'" variant="subtle">

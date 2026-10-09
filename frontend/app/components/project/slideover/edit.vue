@@ -467,7 +467,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           type="multiple"
           class="space-y-4"
           :ui="{
-            item: 'rounded-lg border-b-0 bg-elevated/50 px-4 ring ring-default',
+            item: 'rounded-lg border-b-0 bg-elevated/20 px-4 ring ring-default dark:bg-elevated/50',
             trigger: 'py-4',
             label: 'min-w-0',
             body: 'pb-4'

@@ -51,6 +51,45 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
     }
 
     @Test
+    void normalizesTagsAndReturnsThemFromStoredDefinition() {
+        configureSecret();
+        var parsed = service.parseAndValidate(validExternalYaml().replace("tags: []", "tags: [' layout ', segmentation, layout, Layout]"), null);
+        assertThat(parsed.preview().tags()).containsExactly("layout", "segmentation", "Layout");
+        var definition = new ActionProcessorDefinition();
+        definition.setParsedJson(parsed.parsedJson());
+        assertThat(service.readParsedDocument(definition).tags()).containsExactly("layout", "segmentation", "Layout");
+        assertThat(service.toDefinitionResponse(definition).tags()).containsExactly("layout", "segmentation", "Layout");
+        assertThat(new ObjectMapper().readTree(parsed.parsedJson()).has("category")).isFalse();
+        assertThat(service.parseAndValidate(validExternalYaml().replace("tags: []", ""), null).preview().tags()).isEmpty();
+        assertThat(service.parseAndValidate(validExternalYaml(), null).preview().tags()).isEmpty();
+    }
+
+    @Test
+    void rejectsNonStringTagsAndRemovedCategory() {
+        configureSecret();
+        for (String invalid : java.util.List.of("layout", "null", "{}", "[null]", "[' ' ]", "[42]", "[true]", "[{label: layout}]", "[[layout]]")) {
+            assertThatThrownBy(() -> service.parseAndValidate(validExternalYaml().replace("tags: []", "tags: " + invalid), null))
+                    .as(invalid).isInstanceOf(ActionDefinitionService.ValidationException.class);
+        }
+        assertThatThrownBy(() -> service.parseAndValidate(validExternalYaml().replace("tags: []", "category: WORKFLOW"), null))
+                .isInstanceOf(ActionDefinitionService.ValidationException.class);
+    }
+
+    @Test
+    void migratedDefinitionsRemainReadableAndEditable() {
+        configureSecret();
+        String legacy = validExternalYaml().replace("tags: []", "category: WORKFLOW");
+        String migratedYaml = db.migration.V35__replace_action_categories_with_tags.migrateYaml(legacy);
+        var parsed = service.parseAndValidate(migratedYaml, null);
+        String legacyJson = new ObjectMapper().readTree(parsed.parsedJson()).toString().replace("\"tags\":[]", "\"category\":\"WORKFLOW\"");
+        var definition = new ActionProcessorDefinition();
+        definition.setParsedJson(db.migration.V35__replace_action_categories_with_tags.migrateJson(legacyJson));
+        assertThat(service.readParsedDocument(definition).tags()).isEmpty();
+        assertThat(service.toDefinitionResponse(definition).tags()).isEmpty();
+        assertThat(service.readParsedDocument(definition).endpoint()).isEqualTo(parsed.document().endpoint());
+    }
+
+    @Test
     void acceptsHmacDefinitionWhenSecretExists() {
         when(endpointAuthService.normalizeAuthType(new de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument.EndpointAuth("hmac", "processor-v1")))
                 .thenCallRealMethod();
@@ -250,7 +289,7 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
                 version: 1
                 id: external-processor
                 name: External Processor
-                category: WORKFLOW
+                tags: []
                 targets:
                   - PAGE
                 endpoint:
@@ -295,7 +334,7 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
                 id: external-processor
                 name: External Training
                 kind: TRAINING
-                category: LAYOUT
+                tags: [layout]
                 targets: [PAGE]
                 endpoint:
                   url: https://processor.example.org/dispatch

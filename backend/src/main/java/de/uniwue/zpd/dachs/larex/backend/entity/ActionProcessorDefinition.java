@@ -40,13 +40,6 @@ public class ActionProcessorDefinition {
         NONE
     }
 
-    public enum ActionCategory {
-        WORKFLOW,
-        OCR_HTR,
-        LAYOUT,
-        POSTPROCESSING
-    }
-
     public enum ActionTarget {
         PAGE,
         REGION,
@@ -89,10 +82,6 @@ public class ActionProcessorDefinition {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, name = "lock_mode", length = 32)
     private LockMode lockMode = LockMode.PAGES;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, name = "category", length = 32, columnDefinition = "varchar(32) default 'WORKFLOW'")
-    private ActionCategory category = ActionCategory.WORKFLOW;
 
     @Column(nullable = false, name = "target_types_json", columnDefinition = "TEXT")
     private String targetTypesJson = "[\"PAGE\"]";
@@ -218,14 +207,6 @@ public class ActionProcessorDefinition {
 
     public void setLockMode(LockMode lockMode) {
         this.lockMode = lockMode;
-    }
-
-    public ActionCategory getCategory() {
-        return category;
-    }
-
-    public void setCategory(ActionCategory category) {
-        this.category = category;
     }
 
     public String getTargetTypesJson() {

@@ -228,7 +228,7 @@ class ActionWorkspaceActivationIntegrationTest {
                 version: 1
                 id: %s
                 name: System processor
-                category: WORKFLOW
+                tags: []
                 targets: [PAGE]
                 endpoint:
                   url: http://localhost:8081/dispatch

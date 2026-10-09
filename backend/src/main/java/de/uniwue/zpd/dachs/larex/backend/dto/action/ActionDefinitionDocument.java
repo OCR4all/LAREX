@@ -13,7 +13,7 @@ public record ActionDefinitionDocument(
         String name,
         String description,
         String kind,
-        String category,
+        List<String> tags,
         List<String> targets,
         Endpoint endpoint,
         Access access,
@@ -26,12 +26,16 @@ public record ActionDefinitionDocument(
         Evaluation evaluation,
         Map<String, Parameter> parameters
 ) {
+    public ActionDefinitionDocument {
+        tags = tags == null ? List.of() : tags.stream().map(String::trim).distinct().toList();
+    }
+
     public ActionDefinitionDocument(Integer version, String id, String name, String description,
-                                    String kind, String category, List<String> targets, Endpoint endpoint,
+                                    String kind, List<String> tags, List<String> targets, Endpoint endpoint,
                                     Access access, Locking locking, Inputs inputs, Outputs outputs,
                                     Concurrency concurrency, Runtime runtime, Training training,
                                     Map<String, Parameter> parameters) {
-        this(version, id, name, description, kind, category, targets, endpoint, access, locking,
+        this(version, id, name, description, kind, tags, targets, endpoint, access, locking,
                 inputs, outputs, concurrency, runtime, training, null, parameters);
     }
     @JsonIgnoreProperties(ignoreUnknown = false)

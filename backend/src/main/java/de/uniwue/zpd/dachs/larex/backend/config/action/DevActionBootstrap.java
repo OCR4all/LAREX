@@ -63,7 +63,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                         replaceEndpoint(mockProcessor.getEndpointUrl(), "/evaluation/ocr/dispatch"),
                         replaceEndpoint(mockProcessor.getHealthUrl(), "/evaluation/ocr/health"),
                         replaceEndpoint(mockProcessor.getPreflightUrl(), "/evaluation/ocr/preflight"),
-                        "OCR_HTR"
+                        "ocr, htr"
                 )
         );
         upsertDevAction(
@@ -76,7 +76,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                         replaceEndpoint(mockProcessor.getEndpointUrl(), "/evaluation/layout/dispatch"),
                         replaceEndpoint(mockProcessor.getHealthUrl(), "/evaluation/layout/health"),
                         replaceEndpoint(mockProcessor.getPreflightUrl(), "/evaluation/layout/preflight"),
-                        "LAYOUT"
+                        "layout"
                 )
         );
 
@@ -147,7 +147,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 id: mock-image-copy
                 name: Mock Image and XML Copy
                 description: Development Action that copies selected page images and XML back into LAREX.
-                category: WORKFLOW
+                tags: []
                 targets:
                   - PAGE
                   - REGION
@@ -195,7 +195,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 id: kraken-segmentation
                 name: Kraken Segmentation
                 description: Runs Kraken OCR baseline segmentation and incrementally imports PAGE XML.
-                category: LAYOUT
+                tags: [layout, segmentation]
                 targets:
                   - PAGE
                   - REGION
@@ -242,7 +242,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 name: Mock Training
                 description: Development Action that validates frozen dataset inputs and simulates training.
                 kind: TRAINING
-                category: WORKFLOW
+                tags: [training]
                 targets:
                   - PAGE
 
@@ -294,7 +294,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 name: Kraken Layout Training
                 description: Trains a Kraken segmentation model from frozen dataset inputs.
                 kind: TRAINING
-                category: LAYOUT
+                tags: [layout, training]
                 targets:
                   - PAGE
 
@@ -344,14 +344,14 @@ public class DevActionBootstrap implements ApplicationRunner {
 
     private String mockEvaluationYaml(String id, String name, String profile,
                                       String endpointUrl, String healthUrl, String preflightUrl,
-                                      String category) {
+                                      String tags) {
         return """
                 version: 1
                 id: %s
                 name: %s
                 description: Development Action that validates frozen dataset inputs and returns a deterministic evaluation report.
                 kind: EVALUATION
-                category: %s
+                tags: [%s, evaluation]
 
                 endpoint:
                   url: %s
@@ -397,7 +397,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                     default: 0.95
                     min: 0
                     max: 1
-                """.formatted(id, name, category, endpointUrl, healthUrl, preflightUrl, profile);
+                """.formatted(id, name, tags, endpointUrl, healthUrl, preflightUrl, profile);
     }
 
     private String replaceEndpoint(String endpoint, String suffix) {

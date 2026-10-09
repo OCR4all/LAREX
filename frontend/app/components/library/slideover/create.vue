@@ -665,7 +665,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           v-model="openConfigurationPanels"
           :items="configurationPanelItems"
           type="multiple"
-          class="rounded-lg bg-elevated/50 px-4 ring ring-default"
+          class="rounded-lg bg-elevated/20 px-4 ring ring-default dark:bg-elevated/50"
           :ui="{
             trigger: 'py-4 font-semibold',
             body: 'pb-0'

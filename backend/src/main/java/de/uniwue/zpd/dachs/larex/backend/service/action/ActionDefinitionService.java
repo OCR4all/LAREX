@@ -12,7 +12,6 @@ import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.InputLevel;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorAssignment;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
-import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionCategory;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionKind;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
@@ -360,6 +359,21 @@ public class ActionDefinitionService {
 
         ActionDefinitionDocument document;
         try {
+            var tree = yamlMapper.readTree(yaml);
+            var tags = tree == null ? null : tree.get("tags");
+            if (tags != null) {
+                if (!tags.isArray()) {
+                    diagnostics.add(error("tags", "tags must be an array of strings"));
+                } else {
+                    for (int index = 0; index < tags.size(); index++) {
+                        var tag = tags.get(index);
+                        if (!tag.isString() || tag.asString().isBlank()) {
+                            diagnostics.add(error("tags[" + index + "]", "Each tag must be a non-blank string"));
+                        }
+                    }
+                }
+                if (!diagnostics.isEmpty()) throw new ValidationException(diagnostics);
+            }
             document = yamlMapper.readValue(yaml, ActionDefinitionDocument.class);
         } catch (DatabindException e) {
             diagnostics.add(mappingError(e));
@@ -404,11 +418,6 @@ public class ActionDefinitionService {
         LockMode lockMode = LockMode.PAGES;
         if (document.locking() != null && document.locking().mode() != null && !document.locking().mode().isBlank()) {
             lockMode = enumValue(LockMode.class, document.locking().mode(), "locking.mode", diagnostics, LockMode.PAGES);
-        }
-
-        ActionCategory category = ActionCategory.WORKFLOW;
-        if (document.category() != null && !document.category().isBlank()) {
-            category = enumValue(ActionCategory.class, document.category(), "category", diagnostics, ActionCategory.WORKFLOW);
         }
 
         List<ActionTarget> targets = parseTargets(document.targets(), diagnostics);
@@ -491,7 +500,7 @@ public class ActionDefinitionService {
                     actionKind,
                     executeRole,
                     lockMode,
-                    category,
+                    document.tags(),
                     targets,
                     inputRequirements,
                     acceptsImages,
@@ -600,7 +609,7 @@ public class ActionDefinitionService {
                 definition.getActionKind(),
                 definition.getExecuteRole(),
                 definition.getLockMode(),
-                definition.getCategory(),
+                document.tags(),
                 readTargetTypes(definition),
                 inputRequirements,
                 definition.isAcceptsImages(),
@@ -1061,7 +1070,6 @@ public class ActionDefinitionService {
         definition.setActionKind(preview.kind());
         definition.setExecuteRole(preview.executeRole());
         definition.setLockMode(preview.lockMode());
-        definition.setCategory(preview.category());
         definition.setTargetTypesJson(writeJson(preview.targets()));
         definition.setAcceptsImages(preview.acceptsImages());
         definition.setAcceptsXml(preview.acceptsXml());

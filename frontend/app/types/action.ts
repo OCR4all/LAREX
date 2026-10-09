@@ -1,7 +1,6 @@
 export type ActionExecuteRole = 'EDITOR' | 'CURATOR'
 export type ActionLockMode = 'NONE' | 'PAGES' | 'PROJECT'
 export type ActionKind = 'PROCESSING' | 'TRAINING' | 'EVALUATION'
-export type ActionCategory = 'WORKFLOW' | 'OCR_HTR' | 'LAYOUT' | 'POSTPROCESSING'
 export type ActionTarget = 'PAGE' | 'REGION' | 'TEXT_LINE'
 export type AnnotationLevel = 'REGIONS' | 'TEXT_LINES' | 'BASELINES' | 'TEXT' | 'WORDS' | 'GLYPHS' | 'READING_ORDER'
 export type ActionOverwriteDeclarations = Partial<Record<ActionTarget, AnnotationLevel[]>>
@@ -57,7 +56,7 @@ export interface ActionDefinitionPreview {
   kind?: ActionKind
   executeRole: ActionExecuteRole
   lockMode: ActionLockMode
-  category: ActionCategory
+  tags: string[]
   targets: ActionTarget[]
   inputs: ActionInputRequirements
   acceptsImages: boolean
@@ -115,7 +114,7 @@ export interface ActionDefinition {
   kind: ActionKind
   executeRole: ActionExecuteRole
   lockMode: ActionLockMode
-  category: ActionCategory
+  tags: string[]
   targets: ActionTarget[]
   inputs: ActionInputRequirements
   acceptsImages: boolean
@@ -387,7 +386,7 @@ export const DEFAULT_ACTION_YAML = `version: 1
 id: mock-image-copy
 name: Mock Image Copy
 description: Development processor that copies the first page image and XML back as Action outputs.
-category: WORKFLOW
+tags: []
 targets:
   - PAGE
 

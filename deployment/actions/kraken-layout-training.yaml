@@ -3,7 +3,7 @@ id: kraken-layout-training
 name: Kraken Layout Training
 description: Trains a Kraken segmentation model from frozen dataset inputs.
 kind: TRAINING
-category: LAYOUT
+tags: [layout, training]
 targets: [PAGE]
 endpoint:
   url: http://action-kraken-layout-training:9000/dispatch
