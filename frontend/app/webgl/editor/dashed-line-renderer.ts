@@ -26,7 +26,6 @@ interface CachedDashedGeometry {
   normalBuffer: WebGLBuffer
   uvBuffer: WebGLBuffer
   vertexCount: number
-  zoom: number
 }
 
 interface DashedLineUniforms {
@@ -103,7 +102,8 @@ export class DashedLineRenderer {
         );
 
         gl_Position = vec4(clip + clipOffset, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
-        v_uv = a_uv;
+        // Geometry stores world-space distance; zoom only changes uniforms.
+        v_uv = a_uv * u_zoom;
       }`
 
     const fsSource = `#version ${WEBGL_GLSL.VERSION} ${WEBGL_GLSL.ES_SUFFIX}
@@ -250,18 +250,13 @@ export class DashedLineRenderer {
   private getCachedGeometry(
     cacheKey: string,
     points: Point[],
-    isClosed: boolean,
-    zoom: number
+    isClosed: boolean
   ): CachedDashedGeometry | null {
     const key = `${cacheKey}:${isClosed ? 'closed' : 'open'}`
     const cached = this.geometryCache.get(key)
-    if (cached && cached.zoom === zoom) return cached
-    if (cached) {
-      this.deleteCachedGeometry(cached)
-      this.geometryCache.delete(key)
-    }
+    if (cached) return cached
 
-    const { positions, normals, uvs } = this.generateDashedLineVertices(points, isClosed, zoom)
+    const { positions, normals, uvs } = this.generateDashedLineVertices(points, isClosed)
     if (positions.length === 0) return null
 
     const vao = this.gl.createVertexArray()
@@ -320,8 +315,7 @@ export class DashedLineRenderer {
       positionBuffer,
       normalBuffer,
       uvBuffer,
-      vertexCount: positions.length / WEBGL_LINE_GEOMETRY.POSITION_COMPONENTS,
-      zoom
+      vertexCount: positions.length / WEBGL_LINE_GEOMETRY.POSITION_COMPONENTS
     }
     this.geometryCache.set(key, entry)
     return entry
@@ -331,10 +325,9 @@ export class DashedLineRenderer {
    * Generates vertices, normals, and UVs for dashed line rendering
    * @param points - Array of points with x, y properties
    * @param isClosed - Whether the line should be closed (polygon)
-   * @param zoom - Current zoom level for scaling dash length
    * @returns Object with positions, normals, and uvs arrays
    */
-  generateDashedLineVertices(points: Point[], isClosed = false, zoom = 1): DashedLineVertices {
+  generateDashedLineVertices(points: Point[], isClosed = false): DashedLineVertices {
     if (points.length < 2) {
       return { positions: [], normals: [], uvs: [] }
     }
@@ -358,7 +351,7 @@ export class DashedLineRenderer {
 
       const normal = normalize(-dy / len, dx / len)
 
-      const scaledLen = len * zoom * 500 // Scale factor to make dashes visible
+      const scaledLen = len * 500 // Scale factor to make dashes visible
 
       positions.push(p1.x, p1.y)
       normals.push(normal.x, normal.y)
@@ -390,7 +383,7 @@ export class DashedLineRenderer {
 
       if (len >= WEBGL_EPSILON.MIN_SEGMENT_LENGTH) {
         const normal = normalize(-dy / len, dx / len)
-        const scaledLen = len * zoom * 500
+        const scaledLen = len * 500
 
         positions.push(p1.x, p1.y)
         normals.push(normal.x, normal.y)
@@ -438,7 +431,7 @@ export class DashedLineRenderer {
     if (!this.initialized || points.length < 2 || !this.program) return
 
     const cachedGeometry = cacheKey
-      ? this.getCachedGeometry(cacheKey, points, isClosed, view.zoom)
+      ? this.getCachedGeometry(cacheKey, points, isClosed)
       : null
     if (cachedGeometry) {
       this.gl.useProgram(this.program)
@@ -449,7 +442,7 @@ export class DashedLineRenderer {
       return
     }
 
-    const { positions, normals, uvs } = this.generateDashedLineVertices(points, isClosed, view.zoom)
+    const { positions, normals, uvs } = this.generateDashedLineVertices(points, isClosed)
 
     if (positions.length === 0) return
 

@@ -19,9 +19,9 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { View, ImageSize, AspectRatioScale, Point, PcGts as DocumentModel } from '@/models/editor'
-import { RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, type RGBA } from '@/utils/editor/editor-constants'
+import { BASELINE_STYLE, RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, type RGBA } from '@/utils/editor/editor-constants'
 import { WEBGL_CORE, WEBGL_GEOMETRY } from '@/webgl/editor/webgl-constants'
-import type { RenderablePolygon, RenderablePolyline, WebGLRenderState, ViewMode } from '@/types/editor/rendering'
+import type { RenderablePolygon, WebGLRenderState, ViewMode } from '@/types/editor/rendering'
 import { createScopedLogger } from '@/services/editor/logger-service'
 
 const log = createScopedLogger('WebGLRenderer')
@@ -189,6 +189,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   }
 
   let polygonProgram: WebGLProgram | null = null
+  let baselineMarkerProgram: WebGLProgram | null = null
   let polygonVao: WebGLVertexArrayObject | null = null
   let polygonBuffer: WebGLBuffer | null = null
   let fillProgram: WebGLProgram | null = null
@@ -331,7 +332,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
     const polygonVsSource = `#version 300 es
-      in vec2 a_position;
+      layout(location = 0) in vec2 a_position;
       uniform vec2 u_scale; uniform vec2 u_offset; uniform float u_zoom; uniform vec2 u_rotation; uniform float u_canvasAspect;
       uniform float u_pointSize;
       void main() {
@@ -349,6 +350,14 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       void main() { outColor = u_color; }`
 
     polygonProgram = shaderManager.registerProgram('polygon', polygonVsSource, polygonFsSource)
+    baselineMarkerProgram = shaderManager.registerProgram('baseline-marker', polygonVsSource, `#version 300 es
+      precision mediump float;
+      uniform vec4 u_color;
+      out vec4 outColor;
+      void main() {
+        if (distance(gl_PointCoord, vec2(0.5)) > 0.5) discard;
+        outColor = u_color;
+      }`)
 
     const fillVsSource = `#version 300 es
       in vec2 a_position;
@@ -1294,24 +1303,69 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     gl.drawArrays(gl.POINTS, 0, pointCount)
   }
 
+  /** A narrow white halo keeps baselines readable over the scan without a dark outline. */
+  function drawBaselineStroke(
+    points: Point[], color: RGBA, selected: boolean,
+    aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale, view: View,
+    cacheKey?: string, width = getLineWidth()
+  ): void {
+    if (!gl) return
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    if (selected) {
+      drawThickLine(points, withAlpha(color, BASELINE_STYLE.SELECTION_HALO_ALPHA),
+        width + BASELINE_STYLE.SELECTION_HALO_EXTRA_WIDTH, false, aspectRatioScale, view, cacheKey)
+    }
+    // Halo and core share cached vertices; only color and screen-space width change.
+    drawThickLine(points, selected ? BASELINE_STYLE.WHITE : BASELINE_STYLE.HALO,
+      width + BASELINE_STYLE.HALO_EXTRA_WIDTH, false, aspectRatioScale, view, cacheKey)
+    drawThickLine(points, color, width, false, aspectRatioScale, view, cacheKey)
+    gl.disable(gl.BLEND)
+  }
+
+  /** Round, outlined handles distinguish an open baseline from a polygon. */
+  function drawBaselineMarkers(
+    points: Point[], color: RGBA, size: number,
+    aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale, view: View
+  ): void {
+    if (!gl || !baselineMarkerProgram || !polygonVao || !polygonBuffer || points.length === 0) return
+    const program = baselineMarkerProgram
+    const context = gl
+    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
+    gl.useProgram(program)
+    gl.bindVertexArray(polygonVao)
+    setUniform2f(program, 'u_scale', scale.scaleX, scale.scaleY)
+    setUniform2f(program, 'u_offset', view.offsetX, view.offsetY)
+    setUniform1f(program, 'u_zoom', view.zoom)
+    setProgramRotation(program, scale)
+    gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(points.flatMap(p => [p.x, p.y])), gl.DYNAMIC_DRAW)
+
+    const draw = (markerColor: RGBA, markerSize: number) => {
+      setUniform4f(program, 'u_color', ...markerColor)
+      setUniform1f(program, 'u_pointSize', markerSize)
+      context.drawArrays(context.POINTS, 0, points.length)
+    }
+    draw(BASELINE_STYLE.WHITE, size)
+    draw(color, size - BASELINE_STYLE.HANDLE_BORDER)
+    draw(BASELINE_STYLE.WHITE, BASELINE_STYLE.HANDLE_CENTER_SIZE)
+  }
+
   /**
    * Draw polylines
    */
   function drawPolylines(renderState: RenderState, aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale, view: View): void {
     if (!gl || !polygonProgram || !polygonVao || !polygonBuffer) return
 
-    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
-
     if (renderState.currentPolylinePoints && renderState.currentPolylinePoints.length > 0) {
-      const lineWidth = getLineWidth()
       let color: RGBA
       if (renderState.isInvalidPosition.value) {
         color = RENDER_COLORS.INVALID_RED
       } else {
-        color = RENDER_COLORS.ACTIVE_YELLOW_POLYLINE
+        color = RENDER_COLORS.ACTIVE_VIOLET_BASELINE
       }
 
-      drawThickLine(renderState.currentPolylinePoints, color, lineWidth, false, aspectRatioScale, view)
+      drawBaselineStroke(renderState.currentPolylinePoints, color, true, aspectRatioScale, view)
 
       if (
         renderState.polylinePreviewPoint
@@ -1324,24 +1378,13 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
           const previewLine = [lastPoint, { x: renderState.polylinePreviewPoint.x, y: renderState.polylinePreviewPoint.y }]
           const previewColor = renderState.isInvalidPosition.value
             ? RENDER_COLORS.POLYLINE_PREVIEW_INVALID_RED
-            : RENDER_COLORS.POLYLINE_PREVIEW_YELLOW
-          drawThickLine(previewLine, previewColor, lineWidth, false, aspectRatioScale, view)
+            : RENDER_COLORS.POLYLINE_PREVIEW_VIOLET
+          drawBaselineStroke(previewLine, previewColor, false, aspectRatioScale, view)
         }
       }
 
-      gl.useProgram(polygonProgram)
-      gl.bindVertexArray(polygonVao)
-      setUniform2f(polygonProgram, 'u_scale', scale.scaleX, scale.scaleY)
-      setUniform2f(polygonProgram, 'u_offset', view.offsetX, view.offsetY)
-      setUniform1f(polygonProgram, 'u_zoom', view.zoom)
-      setProgramRotation(polygonProgram, scale)
-      setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.POLYGON_POINT_SIZE)
-      setUniform4f(polygonProgram, 'u_color', color[0], color[1], color[2], color[3])
-
-      const currentPolylineData = new Float32Array(renderState.currentPolylinePoints.flatMap(p => [p.x, p.y]))
-      gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
-      gl.bufferData(gl.ARRAY_BUFFER, currentPolylineData, gl.DYNAMIC_DRAW)
-      gl.drawArrays(gl.POINTS, 0, renderState.currentPolylinePoints.length)
+      drawBaselineMarkers(renderState.currentPolylinePoints, color,
+        BASELINE_STYLE.HANDLE_SIZE, aspectRatioScale, view)
     }
 
     const frameContext = getRenderFrameContext(renderState)
@@ -1381,10 +1424,10 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
               renderState.confidenceHeatmap?.logScaleStrength ?? 8
             )
         color = scaledConfidence === undefined
-          ? RENDER_COLORS.ACTIVE_YELLOW_POLYLINE
+          ? RENDER_COLORS.ACTIVE_VIOLET_BASELINE
           : confidenceToHeatRgba(scaledConfidence, 0.9)
       } else {
-        color = RENDER_COLORS.ACTIVE_YELLOW_POLYLINE
+        color = RENDER_COLORS.ACTIVE_VIOLET_BASELINE
       }
 
       const diffColor = getDiffHighlightColor(renderState.diffHighlights?.[polyline.id], 1)
@@ -1392,135 +1435,32 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         color = diffColor
       }
 
+      const isSelected = index === renderState.selectedPolylineIndex.value || isMultiSelected
+      const isHovered = index === renderState.hoveredPolylineIndex.value && !isSelected
+      const isInvalidDrag = renderState.polylineDraggedNodeInfo?.isDragging
+        && renderState.polylineDraggedNodeInfo.polylineIndex === index
+        && renderState.isInvalidPosition.value
+      const markerColor = isInvalidDrag ? RENDER_COLORS.INVALID_RED : color
+      // Reuse the same cached geometry for casing and color passes.
       const cacheKey = index === renderState.selectedPolylineIndex.value || isMovingInvalid
         ? undefined
         : polyline.id
-      drawThickLine(
-        polyline.points,
-        color,
-        getLineWidth() * (diffColor ? 2.1 : 1),
-        false,
-        aspectRatioScale,
-        view,
-        cacheKey
-      )
+      const width = getLineWidth() * (diffColor ? 2.1 : 1)
+      drawBaselineStroke(polyline.points, markerColor, isSelected, aspectRatioScale, view,
+        cacheKey, isHovered ? Math.max(width, RENDER_THICKNESS.POLYLINE_HOVER) : width)
 
-      if (index === renderState.selectedPolylineIndex.value && gl && polygonProgram && polygonVao && polygonBuffer) {
-        gl.useProgram(polygonProgram)
-        gl.bindVertexArray(polygonVao)
-        setUniform2f(polygonProgram, 'u_scale', scale.scaleX, scale.scaleY)
-        setUniform2f(polygonProgram, 'u_offset', view.offsetX, view.offsetY)
-        setUniform1f(polygonProgram, 'u_zoom', view.zoom)
-        setProgramRotation(polygonProgram, scale)
-        setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.POLYGON_POINT_SIZE)
-
-        const polylineData = new Float32Array(polyline.points.flatMap((p: Point) => [p.x, p.y]))
-        gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, polylineData, gl.DYNAMIC_DRAW)
-
-        if (
-          renderState.polylineDraggedNodeInfo
-          && renderState.polylineDraggedNodeInfo.isDragging
-          && renderState.polylineDraggedNodeInfo.polylineIndex === index
-          && renderState.isInvalidPosition.value
-        ) {
-          setUniform4f(
-            polygonProgram,
-            'u_color',
-            RENDER_COLORS.INVALID_RED[0],
-            RENDER_COLORS.INVALID_RED[1],
-            RENDER_COLORS.INVALID_RED[2],
-            RENDER_COLORS.INVALID_RED[3]
-          )
-        } else {
-          setUniform4f(
-            polygonProgram,
-            'u_color',
-            RENDER_COLORS.SELECTED_BLUE[0],
-            RENDER_COLORS.SELECTED_BLUE[1],
-            RENDER_COLORS.SELECTED_BLUE[2],
-            RENDER_COLORS.SELECTED_BLUE[3]
-          )
-        }
-        gl.drawArrays(gl.POINTS, 0, polyline.points.length)
-
-        if (
-          renderState.hoveredNodeIndex
-          && renderState.hoveredNodeIndex.value >= 0
-          && renderState.hoveredNodeIndex.value < polyline.points.length
-        ) {
-          setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.DRAGGED_POINT_SIZE)
-
-          if (
-            renderState.polylineDraggedNodeInfo
-            && renderState.polylineDraggedNodeInfo.isDragging
-            && renderState.polylineDraggedNodeInfo.polylineIndex === index
-            && renderState.polylineDraggedNodeInfo.nodeIndex === renderState.hoveredNodeIndex.value
-            && renderState.isInvalidPosition.value
-          ) {
-            setUniform4f(
-              polygonProgram,
-              'u_color',
-              RENDER_COLORS.INVALID_RED[0],
-              RENDER_COLORS.INVALID_RED[1],
-              RENDER_COLORS.INVALID_RED[2],
-              RENDER_COLORS.INVALID_RED[3]
-            )
-          } else {
-            setUniform4f(
-              polygonProgram,
-              'u_color',
-              RENDER_COLORS.PREVIEW_PINK[0],
-              RENDER_COLORS.PREVIEW_PINK[1],
-              RENDER_COLORS.PREVIEW_PINK[2],
-              RENDER_COLORS.PREVIEW_PINK[3]
-            )
-          }
-
-          const hoveredPoint = polyline.points[renderState.hoveredNodeIndex.value]
-          if (hoveredPoint) {
-            const hoveredNodeData = new Float32Array([hoveredPoint.x, hoveredPoint.y])
-            gl.bufferData(gl.ARRAY_BUFFER, hoveredNodeData, gl.DYNAMIC_DRAW)
-            gl.drawArrays(gl.POINTS, 0, 1)
-          }
+      if (index === renderState.selectedPolylineIndex.value) {
+        drawBaselineMarkers(polyline.points, markerColor,
+          BASELINE_STYLE.HANDLE_SIZE, aspectRatioScale, view)
+        const hoveredNodeIndex = renderState.hoveredPolylineNodeIndex?.value ?? -1
+        const hoveredPoint = polyline.points[hoveredNodeIndex]
+        if (hoveredPoint) {
+          const hoverColor = isInvalidDrag ? RENDER_COLORS.INVALID_RED : RENDER_COLORS.PREVIEW_PINK
+          drawBaselineMarkers([hoveredPoint], hoverColor,
+            BASELINE_STYLE.HOVER_HANDLE_SIZE, aspectRatioScale, view)
         }
       }
     })
-  }
-
-  /**
-   * Draw hover polylines
-   */
-  function drawHoverPolylines(
-    polylines: RenderablePolyline[],
-    hoveredPolylineIndex: Ref<number>,
-    selectedPolylineIndex: Ref<number>,
-    aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
-    view: View,
-    hiddenPolylineIds?: Set<string>
-  ): void {
-    if (!gl) return
-
-    if (hoveredPolylineIndex.value >= 0 && hoveredPolylineIndex.value !== selectedPolylineIndex.value) {
-      const hoveredPoly = polylines[hoveredPolylineIndex.value]
-      if (!hoveredPoly) return
-
-      if (hiddenPolylineIds?.has(hoveredPoly.id)) return
-
-      gl.enable(gl.BLEND)
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-
-      drawThickLine(
-        hoveredPoly.points,
-        RENDER_COLORS.POLYLINE_HOVER_YELLOW,
-        RENDER_THICKNESS.POLYLINE_HOVER,
-        false,
-        aspectRatioScale,
-        view
-      )
-
-      gl.disable(gl.BLEND)
-    }
   }
 
   /**
@@ -1591,30 +1531,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   ): void {
     if (!gl || !polygonProgram || !polygonVao || !polygonBuffer || !polylinePreviewNodePosition) return
 
-    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
-
-    gl.useProgram(polygonProgram)
-    gl.bindVertexArray(polygonVao)
-    setUniform2f(polygonProgram, 'u_scale', scale.scaleX, scale.scaleY)
-    setUniform2f(polygonProgram, 'u_offset', view.offsetX, view.offsetY)
-    setUniform1f(polygonProgram, 'u_zoom', view.zoom)
-    setProgramRotation(polygonProgram, scale)
-    setUniform4f(
-      polygonProgram,
-      'u_color',
-      RENDER_COLORS.ACTIVE_YELLOW_POLYLINE[0],
-      RENDER_COLORS.ACTIVE_YELLOW_POLYLINE[1],
-      RENDER_COLORS.ACTIVE_YELLOW_POLYLINE[2],
-      RENDER_COLORS.ACTIVE_YELLOW_POLYLINE[3]
-    )
-    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.SELECTED_POINT_SIZE)
-
-    const previewData = new Float32Array([polylinePreviewNodePosition.x, polylinePreviewNodePosition.y])
-    gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, previewData, gl.DYNAMIC_DRAW)
-    gl.drawArrays(gl.POINTS, 0, 1)
-
-    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.PREVIEW_POINT_SIZE)
+    drawBaselineMarkers([polylinePreviewNodePosition], RENDER_COLORS.ACTIVE_VIOLET_BASELINE,
+      BASELINE_STYLE.HANDLE_SIZE, aspectRatioScale, view)
   }
 
   /**
@@ -1826,18 +1744,6 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     drawBufferPreview(renderState, aspectRatioScale, view, triangulatePolygon)
 
-    if (renderState.polylines) {
-      drawPolylines(renderState, aspectRatioScale, view)
-      drawHoverPolylines(
-        renderState.polylines,
-        renderState.hoveredPolylineIndex,
-        renderState.selectedPolylineIndex,
-        aspectRatioScale,
-        view,
-        renderFrameContext.hiddenPolylineIds
-      )
-    }
-
     drawHoverPolygons(
       renderState.polygons,
       renderState.hoveredPolygonIndex,
@@ -1908,6 +1814,10 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     }
 
     drawSelectedPolygonOutline(renderState, aspectRatioScale, view, triangulatePolygon)
+    // Keep baseline selection feedback above polygon fills and focus overlays.
+    if (renderState.polylines) {
+      drawPolylines(renderState, aspectRatioScale, view)
+    }
     drawPolygonNodes(renderState, aspectRatioScale, view)
     drawPreviewNodes(renderState.previewNodePosition, aspectRatioScale, view)
     drawPolylinePreviewNodes(renderState.polylinePreviewNodePosition, aspectRatioScale, view)
@@ -2094,6 +2004,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     uniformState = null
     imageProgram = null
     polygonProgram = null
+    baselineMarkerProgram = null
     fillProgram = null
     actionProcessingProgram = null
     labelConflictProgram = null

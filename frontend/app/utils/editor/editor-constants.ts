@@ -47,6 +47,19 @@ export const RASTER_IMAGE_SHADOW = {
 
 export type RGBA = readonly [number, number, number, number]
 
+/** Baselines use a white halo and round editing handles instead of polygon boundaries. */
+export const BASELINE_STYLE = {
+  HALO: [1, 1, 1, 0.6] as RGBA,
+  WHITE: [1, 1, 1, 1] as RGBA,
+  HALO_EXTRA_WIDTH: 4,
+  SELECTION_HALO_EXTRA_WIDTH: 18,
+  SELECTION_HALO_ALPHA: 0.24,
+  HANDLE_SIZE: 22,
+  HOVER_HANDLE_SIZE: 28,
+  HANDLE_BORDER: 4,
+  HANDLE_CENTER_SIZE: 8
+} as const
+
 /** Line width presets (in pixels) - similar to CSS font-weight */
 export const LINE_WIDTH_PRESETS = {
   thin: 2.0,
@@ -110,7 +123,7 @@ export const RENDER_COLORS = {
   LABEL_CONFLICT_RED: [0.95, 0.08, 0.12, 1.0] as RGBA,
   LABEL_CONFLICT_FILL: [0.95, 0.08, 0.12, 0.14] as RGBA,
   LABEL_CONFLICT_STRIPE: [1.0, 0.16, 0.2, 0.48] as RGBA,
-  ACTIVE_YELLOW_POLYLINE: [1.0, 0.8, 0.2, 1.0] as RGBA,
+  ACTIVE_VIOLET_BASELINE: [0.545, 0.361, 0.965, 1.0] as RGBA,
   ACTIVE_YELLOW_POLYGON: [1.0, 0.8, 0.1, 1.0] as RGBA,
   SELECTED_BLUE: [0.2, 0.6, 1.0, 1.0] as RGBA,
   PREVIEW_PINK: [1.0, 0.4, 0.8, 1.0] as RGBA,
@@ -119,9 +132,8 @@ export const RENDER_COLORS = {
   INVALID_FILL_RED: [1.0, 0.2, 0.2, 0.3] as RGBA,
 
   RECTANGLE_PREVIEW_YELLOW: [1.0, 0.8, 0.1, 0.8] as RGBA,
-  POLYLINE_HOVER_YELLOW: [1.0, 0.8, 0.2, 0.7] as RGBA,
   POLYLINE_PREVIEW_INVALID_RED: [1.0, 0.2, 0.2, 0.7] as RGBA,
-  POLYLINE_PREVIEW_YELLOW: [1.0, 0.8, 0.2, 0.7] as RGBA,
+  POLYLINE_PREVIEW_VIOLET: [0.545, 0.361, 0.965, 0.7] as RGBA,
   POLYGON_PREVIEW_INVALID_RED: [1.0, 0.2, 0.2, 0.8] as RGBA,
   POLYGON_PREVIEW_YELLOW: [1.0, 0.8, 0.1, 0.8] as RGBA,
 
