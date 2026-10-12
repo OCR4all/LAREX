@@ -8,7 +8,7 @@ import {
 import { visibilityService } from '@/services/editor/visibility-service'
 import { PolygonType, type View, type AspectRatioScale, type Point } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline, ViewMode } from '@/types/editor/rendering'
-import { TIMING, VIEW_PADDING, ZOOM } from '@/utils/editor/editor-constants'
+import { HIT_DETECTION, TIMING, VIEW_PADDING, ZOOM } from '@/utils/editor/editor-constants'
 import type { EditorStateActions } from './use-editor-state'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type {
@@ -449,11 +449,13 @@ export function useEditorInteractions(
 
       const point = getWorldCoordsFromEvent(e, canvas.value, view, aspectRatioScale.value)
 
-      const polylineEditingStarted = polylineEditing.handleMouseDown(point, selectedPolygonIndex, canvas.value)
-      if (polylineEditingStarted) return
-
+      // Handles on the selected polygon take priority over a child's baseline
+      // hit area. Polygon editing declines when a baseline is selected.
       const polygonEditingStarted = polygonEditing.handleMouseDown(point, selectedPolygonIndex, canvas.value)
       if (polygonEditingStarted) return
+
+      const polylineEditingStarted = polylineEditing.handleMouseDown(point, selectedPolygonIndex, canvas.value)
+      if (polylineEditingStarted) return
     }
   }
 
@@ -529,7 +531,7 @@ export function useEditorInteractions(
         point,
         selectedPolygonIndex.value,
         selectedPolylineIndex.value,
-        0.02,
+        HIT_DETECTION.BASELINE_SEGMENT_THRESHOLD / view.zoom,
         canvasControls.spatialIndex,
         normalizedViewMode,
         hiddenPolygonIdSet.value,
@@ -655,8 +657,15 @@ export function useEditorInteractions(
         stateActions?.setHoveredPolygonId(null)
         stateActions?.setHoveredPolylineId(null)
       } else {
-        polylineEditing.updateHoverStates(point, selectedPolygonIndex)
         polygonEditing.updateHoverStates(point, selectedPolygonIndex)
+        const isPolygonHandle = selectedPolygonIndex.value >= 0
+          && selectedPolylineIndex.value < 0
+          && (polygonEditing.hoveredNodeIndex.value >= 0 || polygonEditing.hoveredEdgeInfo.polygonIndex >= 0)
+        if (isPolygonHandle) {
+          polylineEditing.clearEditingState()
+        } else {
+          polylineEditing.updateHoverStates(point, selectedPolygonIndex)
+        }
 
         const isDragging = polylineEditing.isDragging() || polygonEditing.isDragging()
         const shouldPan = mouseInteraction.shouldStartPanning(e, isDragging)
@@ -723,7 +732,7 @@ export function useEditorInteractions(
           point,
           -1,
           -1,
-          0.02,
+          HIT_DETECTION.BASELINE_SEGMENT_THRESHOLD / view.zoom,
           undefined,
           normalizedViewMode
         )
@@ -848,7 +857,7 @@ export function useEditorInteractions(
         point,
         selectedPolygonIndex.value,
         selectedPolylineIndex.value,
-        0.02,
+        HIT_DETECTION.BASELINE_SEGMENT_THRESHOLD / view.zoom,
         undefined,
         normalizedViewMode,
         hiddenPolygonIdSet.value,
@@ -924,7 +933,7 @@ export function useEditorInteractions(
       point,
       selectedPolygonIndex.value,
       selectedPolylineIndex.value,
-      0.02,
+      HIT_DETECTION.BASELINE_SEGMENT_THRESHOLD / view.zoom,
       undefined,
       normalizedViewMode,
       hiddenPolygonIdSet.value,

@@ -82,6 +82,8 @@ export function usePolylineEditing(
    * Update hover states based on mouse position.
    */
   function updateHoverStates(point: Point, selectedPolygonIndex: Ref<number>): void {
+    const nodeThreshold = HIT_DETECTION.NODE_THRESHOLD / view.zoom
+    const edgeThreshold = HIT_DETECTION.EDGE_THRESHOLD / view.zoom
     const hiddenPolygonIdSet = hiddenPolygonIds ? new Set(hiddenPolygonIds.value) : undefined
     const hiddenPolylineIdSet = hiddenPolylineIds ? new Set(hiddenPolylineIds.value) : undefined
 
@@ -113,7 +115,7 @@ export function usePolylineEditing(
       point,
       selectedPolygonIndex.value,
       selectedPolylineIndex.value,
-      HIT_DETECTION.BASELINE_SEGMENT_THRESHOLD,
+      HIT_DETECTION.BASELINE_SEGMENT_THRESHOLD / view.zoom,
       spatialIndex,
       viewMode?.value,
       hiddenPolygonIdSet,
@@ -128,7 +130,7 @@ export function usePolylineEditing(
 
       points.forEach((node, nodeIndex) => {
         const distance = Math.sqrt((point.x - node.x) ** 2 + (point.y - node.y) ** 2)
-        if (distance < closestNodeDistance && distance < HIT_DETECTION.NODE_THRESHOLD) {
+        if (distance < closestNodeDistance && distance < nodeThreshold) {
           closestNodeDistance = distance
           closestNodeInfo = { polylineIndex, nodeIndex }
         }
@@ -141,7 +143,7 @@ export function usePolylineEditing(
           if (!p1 || !p2) continue
 
           const segmentResult = getDistanceToLineSegment(point, p1, p2)
-          if (segmentResult.distance < closestSegmentDistance && segmentResult.distance < HIT_DETECTION.EDGE_THRESHOLD) {
+          if (segmentResult.distance < closestSegmentDistance && segmentResult.distance < edgeThreshold) {
             closestSegmentDistance = segmentResult.distance
             closestSegmentInfo = {
               polylineIndex,
@@ -158,7 +160,7 @@ export function usePolylineEditing(
         if (!p1 || !p2) continue
 
         const segmentResult = getDistanceToLineSegment(point, p1, p2)
-        if (segmentResult.distance < closestPolylineDistance && segmentResult.distance < HIT_DETECTION.NODE_THRESHOLD) {
+        if (segmentResult.distance < closestPolylineDistance && segmentResult.distance < nodeThreshold) {
           closestPolylineDistance = segmentResult.distance
           closestPolylineInfo = { polylineIndex }
         }

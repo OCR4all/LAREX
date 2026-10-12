@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { reactive, ref } from 'vue'
+import { Commander } from '@/commands'
+import { usePolygonEditing } from '../use-polygon-editing'
+import { usePolylineEditing } from '../use-polyline-editing'
 
 class TestMouseEvent {
   button: number
@@ -65,6 +68,7 @@ async function createHarness(
     polygons?: Array<{ id: string, points: Array<{ x: number, y: number }>, parentId?: string, type?: string }>
     polylines?: Array<{ id: string, points: Array<{ x: number, y: number }>, parentId?: string, type?: string }>
     readOnly?: boolean
+    realEditing?: boolean
   } = {}
 ) {
   const useEditorInteractions = await loadUseEditorInteractions()
@@ -238,6 +242,18 @@ async function createHarness(
     showContextMenuForCanvas: vi.fn()
   }
 
+  if (options.realEditing) {
+    const commander = new Commander()
+    Object.assign(polygonEditing, usePolygonEditing(
+      polygons, view, aspectRatioScale, ref(false), undefined, ref(false), undefined,
+      selectedPolylineIndex, canvasControls.viewMode, commander, 'hit-priority-test', hiddenPolygonIds, hiddenPolylineIds
+    ))
+    Object.assign(polylineEditing, usePolylineEditing(
+      polylines, view, aspectRatioScale, ref(false), undefined, polygons, ref(false), undefined,
+      selectedPolygonIndex, selectedPolylineIndex, canvasControls.viewMode, commander, 'hit-priority-test', hiddenPolygonIds, hiddenPolylineIds
+    ))
+  }
+
   const stateActions = {
     clearSelectionSet: vi.fn(() => {
       selectedPolygonIds.value = []
@@ -291,6 +307,7 @@ async function createHarness(
   )
 
   return {
+    view,
     interactions,
     mouseInteraction,
     polygonDrawing,
@@ -312,6 +329,75 @@ async function createHarness(
 describe('useEditorInteractions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  const overlappingShapes = () => ({
+    realEditing: true,
+    polygons: [{ id: 'line', type: 'textline', points: [
+      { x: -0.5, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: -0.5 },
+      { x: 0, y: -0.5 }, { x: -0.5, y: -0.5 }
+    ] }],
+    polylines: [{ id: 'baseline:line', parentId: 'line', points: [
+      { x: -0.5, y: -0.499 }, { x: 0.5, y: -0.499 }
+    ] }]
+  })
+
+  it.each([['node', 100], ['edge', 125]] as const)('edits a selected polygon %s inside the baseline hit area', async (_target, clientX) => {
+    const harness = await createHarness('select', overlappingShapes())
+    harness.selectedPolygonIndex.value = 0
+    const pointer = eventStub({ clientX, clientY: 150, buttons: 0 })
+    harness.interactions.onMouseMove(pointer)
+    harness.interactions.onMouseDown(pointer)
+
+    expect(harness.polygonEditing.isDragging()).toBe(true)
+    expect(harness.polylineEditing.isDragging()).toBe(false)
+    expect(harness.selectedPolylineIndex.value).toBe(-1)
+    expect(harness.polylineEditing.hoveredPolylineIndex.value).toBe(-1)
+    harness.polygonEditing.cancelCurrentOperation()
+  })
+
+  it('keeps an already-selected baseline editable beside a polygon node', async () => {
+    const harness = await createHarness('select', overlappingShapes())
+    harness.selectedPolygonIndex.value = 0
+    harness.selectedPolylineIndex.value = 0
+    const pointer = eventStub({ clientX: 50, clientY: 149.9, buttons: 0 })
+    harness.interactions.onMouseMove(pointer)
+    harness.interactions.onMouseDown(pointer)
+
+    expect(harness.polylineEditing.isDragging()).toBe(true)
+    expect(harness.polygonEditing.isDragging()).toBe(false)
+    harness.polylineEditing.cancelCurrentOperation()
+  })
+
+  it('keeps baselines selectable away from polygon handles', async () => {
+    const shapes = overlappingShapes()
+    shapes.polylines[0]!.points = [{ x: -0.5, y: -0.3 }, { x: 0.5, y: -0.3 }]
+    const harness = await createHarness('select', shapes)
+    harness.selectedPolygonIndex.value = 0
+    const pointer = eventStub({ clientX: 100, clientY: 130, buttons: 0 })
+    harness.interactions.onMouseMove(pointer)
+    harness.interactions.onMouseDown(pointer)
+
+    expect(harness.selectedPolylineIndex.value).toBe(0)
+    expect(harness.polygonEditing.isDragging()).toBe(false)
+  })
+
+  it.each([1, 10])('keeps baseline screen hit tolerance constant at zoom %i', async (zoom) => {
+    const shapes = overlappingShapes()
+    shapes.polylines[0]!.points = [{ x: -0.5, y: 0 }, { x: 0.5, y: 0 }]
+    const harness = await createHarness('select', shapes)
+    harness.selectedPolygonIndex.value = 0
+    harness.view.zoom = zoom
+
+    // On this 200px canvas the baseline is at y=100, with a 0.5px hover
+    // tolerance. Zooming must not expand that tolerance over nearby polygons.
+    harness.interactions.onMouseMove(eventStub({ clientX: 100, clientY: 99, buttons: 0 }))
+    expect(harness.polylineEditing.hoveredPolylineIndex.value).toBe(-1)
+
+    const hit = eventStub({ clientX: 100, clientY: 99.75, buttons: 0 })
+    harness.interactions.onMouseMove(hit)
+    harness.interactions.onMouseDown(hit)
+    expect(harness.selectedPolylineIndex.value).toBe(0)
   })
 
   it.each([
