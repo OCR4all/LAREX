@@ -9,6 +9,7 @@ export type TableSortPreference = {
 type TableSortingPreferences = Record<string, TableSortPreference>
 
 export interface EditorPreferences {
+  autoOpenJobsPanel: boolean | null
   backgroundColor: string | null
   backgroundOpacity: number | null
   toolbarLayout: ToolbarLayout | null
@@ -56,6 +57,7 @@ interface EditorPreferencesState {
 }
 
 const DEFAULT_PREFERENCES: EditorPreferences = {
+  autoOpenJobsPanel: null,
   backgroundColor: null,
   backgroundOpacity: null,
   toolbarLayout: null,

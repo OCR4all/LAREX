@@ -40,6 +40,7 @@ const {
 } = useStatusIssues()
 
 const {
+  autoOpenJobsPanel,
   jobs,
   ownJobs,
   filteredJobs,
@@ -293,6 +294,17 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
         </div>
       </div>
       <div class="flex items-center gap-1">
+        <UTooltip :text="autoOpenJobsPanel ? 'Automatically open for new jobs: on' : 'Automatically open for new jobs: off'">
+          <UButton
+            :icon="autoOpenJobsPanel ? 'i-lucide-zap' : 'i-lucide-zap-off'"
+            :color="autoOpenJobsPanel ? 'primary' : 'neutral'"
+            variant="ghost"
+            size="xs"
+            aria-label="Automatically open jobs panel for new jobs"
+            :aria-pressed="autoOpenJobsPanel"
+            @click="autoOpenJobsPanel = !autoOpenJobsPanel"
+          />
+        </UTooltip>
         <span
           role="img"
           :aria-label="realtimeStatus.label"

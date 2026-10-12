@@ -61,6 +61,8 @@ public class EditorPreferenceService {
         if (dto.onboardingTourCompletion() != null) pref.setOnboardingTourCompletion(dto.onboardingTourCompletion());
         if (dto.onboardingToursOptedOut() != null) pref.setOnboardingToursOptedOut(dto.onboardingToursOptedOut());
 
+        if (dto.autoOpenJobsPanel() != null) pref.setAutoOpenJobsPanel(dto.autoOpenJobsPanel());
+
         return repository.save(pref);
     }
 }

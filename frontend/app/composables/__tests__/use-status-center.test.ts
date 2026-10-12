@@ -2,9 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, reactive, ref } from 'vue'
 import type { TrackedActionRun } from '@/stores/action-runs.store'
 import { useStatusCenter } from '../use-status-center'
+import { useEditorPreferences } from '../use-editor-preferences'
 
 function setup() {
   const runs = reactive<TrackedActionRun[]>([])
+  const request = vi.fn(async (_url: string, options?: { body: unknown }) => options?.body ?? { autoOpenJobsPanel: null })
+  vi.stubGlobal('$fetch', request)
+  vi.stubGlobal('useEditorPreferences', useEditorPreferences)
   const states = new Map<string, ReturnType<typeof ref>>()
   vi.stubGlobal('useState', (key: string, init: () => unknown) => {
     if (!states.has(key)) states.set(key, ref(init()))
@@ -22,7 +26,7 @@ function setup() {
   vi.stubGlobal('onBeforeUnmount', () => {})
   const scope = effectScope()
   const center = scope.run(useStatusCenter)!
-  return { runs, center, stop: () => scope.stop() }
+  return { runs, center, request, preferences: useEditorPreferences(), stop: () => scope.stop() }
 }
 
 function createRun(overrides: Partial<TrackedActionRun> = {}): TrackedActionRun {
@@ -62,6 +66,46 @@ function run(id: string, createdByUserId: string) {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('status center auto-open', () => {
+  it('loads the disabled preference and keeps new jobs from opening or expanding the panel', async () => {
+    const { runs, center, request, preferences, stop } = setup()
+    try {
+      request.mockResolvedValueOnce({ autoOpenJobsPanel: false })
+      await preferences.fetchPreferences()
+      center.isOverlayMinimized.value = true
+      runs.push(run('my-run', 'me'))
+      await nextTick()
+      expect(center.autoOpenJobsPanel.value).toBe(false)
+      expect(center.isOverlayOpen.value).toBe(false)
+      expect(center.isOverlayMinimized.value).toBe(true)
+      expect(center.activeJobs.value).toHaveLength(1)
+      center.openOverlay()
+      expect(center.isOverlayOpen.value).toBe(true)
+    } finally { stop() }
+  })
+
+  it('saves toggle changes immediately and resumes auto-opening when enabled', async () => {
+    const { runs, center, request, stop } = setup()
+    try {
+      center.autoOpenJobsPanel.value = false
+      await nextTick()
+      expect(request).toHaveBeenLastCalledWith('/api/editor/preferences', {
+        method: 'PUT', body: { autoOpenJobsPanel: false }
+      })
+      runs.push(run('first-run', 'me'))
+      await nextTick()
+      expect(center.isOverlayOpen.value).toBe(false)
+      center.autoOpenJobsPanel.value = true
+      await nextTick()
+      expect(request).toHaveBeenLastCalledWith('/api/editor/preferences', {
+        method: 'PUT', body: { autoOpenJobsPanel: true }
+      })
+      expect(center.isOverlayOpen.value).toBe(false)
+      runs.push(run('second-run', 'me'))
+      await nextTick()
+      expect(center.isOverlayOpen.value).toBe(true)
+    } finally { stop() }
+  })
+
   it('keeps other users’ jobs in the badge without opening the queue', async () => {
     const { runs, center, stop } = setup()
     try {

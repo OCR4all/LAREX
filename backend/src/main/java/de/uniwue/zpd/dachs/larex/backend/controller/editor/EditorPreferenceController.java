@@ -54,7 +54,8 @@ public class EditorPreferenceController {
             Integer onboardingDashboardTourVersion,
             Integer onboardingEditorTourVersion,
             JsonNode onboardingTourCompletion,
-            Boolean onboardingToursOptedOut
+            Boolean onboardingToursOptedOut,
+            Boolean autoOpenJobsPanel
     ) {
         public static EditorPreferenceDto from(EditorPreference pref) {
             return new EditorPreferenceDto(
@@ -93,7 +94,8 @@ public class EditorPreferenceController {
                     pref.getOnboardingDashboardTourVersion(),
                     pref.getOnboardingEditorTourVersion(),
                     pref.getOnboardingTourCompletion(),
-                    pref.getOnboardingToursOptedOut()
+                    pref.getOnboardingToursOptedOut(),
+                    pref.getAutoOpenJobsPanel()
             );
         }
     }

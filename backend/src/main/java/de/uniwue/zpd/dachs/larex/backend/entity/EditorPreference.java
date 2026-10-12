@@ -39,6 +39,9 @@ public class EditorPreference {
     @Column(name = "page_focus_mode")
     private Boolean pageFocusMode;
 
+    @Column(name = "auto_open_jobs_panel")
+    private Boolean autoOpenJobsPanel;
+
     // Sidebar states
     @Column(name = "left_collapsed")
     private Boolean leftCollapsed;
@@ -173,6 +176,9 @@ public class EditorPreference {
 
     public Boolean getPageFocusMode() { return pageFocusMode; }
     public void setPageFocusMode(Boolean pageFocusMode) { this.pageFocusMode = pageFocusMode; }
+
+    public Boolean getAutoOpenJobsPanel() { return autoOpenJobsPanel; }
+    public void setAutoOpenJobsPanel(Boolean autoOpenJobsPanel) { this.autoOpenJobsPanel = autoOpenJobsPanel; }
 
     public Boolean getLeftCollapsed() { return leftCollapsed; }
     public void setLeftCollapsed(Boolean leftCollapsed) { this.leftCollapsed = leftCollapsed; }

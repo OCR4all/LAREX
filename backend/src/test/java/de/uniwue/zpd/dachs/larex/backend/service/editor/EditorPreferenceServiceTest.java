@@ -146,6 +146,34 @@ class EditorPreferenceServiceTest {
     }
 
     @Test
+    void updatePersistsAndReturnsDisabledJobsPanelAutoOpenPreference() {
+        EditorPreference existing = new EditorPreference("user-1");
+        when(repository.findByUserId("user-1")).thenReturn(Optional.of(existing));
+        when(repository.save(any(EditorPreference.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        EditorPreferenceService service = new EditorPreferenceService(repository);
+        EditorPreferenceDto dto = objectMapper.readValue("{\"autoOpenJobsPanel\":false}", EditorPreferenceDto.class);
+
+        EditorPreference updated = service.update("user-1", dto);
+
+        assertEquals(Boolean.FALSE, updated.getAutoOpenJobsPanel());
+        assertEquals(Boolean.FALSE, EditorPreferenceDto.from(service.getOrCreate("user-1")).autoOpenJobsPanel());
+        verify(repository).save(existing);
+    }
+
+    @Test
+    void unrelatedUpdatesPreserveJobsPanelAutoOpenPreference() {
+        EditorPreference existing = new EditorPreference("user-1");
+        existing.setAutoOpenJobsPanel(false);
+        when(repository.findByUserId("user-1")).thenReturn(Optional.of(existing));
+        when(repository.save(any(EditorPreference.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        EditorPreferenceService service = new EditorPreferenceService(repository);
+
+        EditorPreference updated = service.update("user-1", preferenceDto("#fff", null, null, null, null, null, null, null));
+
+        assertEquals(Boolean.FALSE, updated.getAutoOpenJobsPanel());
+    }
+
+    @Test
     void getOrCreateCreatesPreferenceForMissingUser() {
         when(repository.findByUserId("missing")).thenReturn(Optional.empty());
         when(repository.save(any(EditorPreference.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -207,7 +235,8 @@ class EditorPreferenceServiceTest {
                 null,
                 null,
                 onboardingTourCompletion,
-                onboardingToursOptedOut
+                onboardingToursOptedOut,
+                null
         );
     }
 }

@@ -41,6 +41,13 @@ function stopPolling() {
 }
 
 export function useStatusCenter() {
+  const editorPreferences = useEditorPreferences()
+  const autoOpenJobsPanel = computed({
+    get: () => editorPreferences.preferences.value.autoOpenJobsPanel ?? true,
+    set: (value: boolean) => editorPreferences.updatePreference(
+      'autoOpenJobsPanel', value, { immediate: true }
+    )
+  })
   const { user } = useUserSession()
   const uploadStore = useUploadStore()
   const actionRunsStore = useActionRunsStore()
@@ -121,7 +128,7 @@ export function useStatusCenter() {
 
   watch(ownActiveJobKeys, (keys, previousKeys) => {
     const previous = new Set(previousKeys)
-    if (keys.some(key => !previous.has(key))) {
+    if (autoOpenJobsPanel.value && keys.some(key => !previous.has(key))) {
       jobScope.value = 'mine'
       isOverlayOpen.value = true
       isOverlayMinimized.value = false
@@ -162,6 +169,7 @@ export function useStatusCenter() {
   }
 
   return {
+    autoOpenJobsPanel,
     isOverlayOpen,
     isOverlayMinimized,
     overlayAnchorId,
