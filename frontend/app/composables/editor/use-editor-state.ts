@@ -1,5 +1,6 @@
 import type { SpatialIndexService } from '@/services/editor/spatial-index-service'
 import { reactive, ref, watch } from 'vue'
+import { watchShapes } from '@/utils/editor/watch-shapes'
 
 export interface EditorPolygon {
   id: string
@@ -114,73 +115,51 @@ export function useEditorState(spatialIndex: SpatialIndexService) {
   let polygonIndexSnapshots = new Map<string, SpatialShapeSnapshot>()
   let polylineIndexSnapshots = new Map<string, SpatialShapeSnapshot>()
 
-  watch(polygons, () => {
-    const nextSnapshots = new Map<string, SpatialShapeSnapshot>()
+  watchShapes(polygons, (polygon, index) => {
+    const previous = polygonIndexSnapshots.get(polygon.id)
+    const changed = !previous || previous.index !== index || coordinatesChanged(previous, polygon.points)
 
-    for (let index = 0; index < polygons.length; index++) {
-      const polygon = polygons[index]
-      if (!polygon) continue
-      const previous = polygonIndexSnapshots.get(polygon.id)
-      const changed = !previous || previous.index !== index || coordinatesChanged(previous, polygon.points)
-
-      if (!previous) {
-        if (spatialIndex.hasPolygon(polygon.id)) {
-          spatialIndex.updatePolygon(polygon, index)
-        } else {
-          spatialIndex.insertPolygon(polygon, index)
-        }
-      } else if (changed) {
+    if (!previous) {
+      if (spatialIndex.hasPolygon(polygon.id)) {
         spatialIndex.updatePolygon(polygon, index)
+      } else {
+        spatialIndex.insertPolygon(polygon, index)
       }
-
-      nextSnapshots.set(
-        polygon.id,
-        changed ? { index, coordinates: snapshotCoordinates(polygon.points) } : previous
-      )
+    } else if (changed) {
+      spatialIndex.updatePolygon(polygon, index)
     }
 
-    for (const polygonId of polygonIndexSnapshots.keys()) {
-      if (!nextSnapshots.has(polygonId)) {
-        spatialIndex.removePolygon(polygonId)
-      }
-    }
+    polygonIndexSnapshots.set(
+      polygon.id,
+      changed ? { index, coordinates: snapshotCoordinates(polygon.points) } : previous
+    )
+  }, (polygon) => {
+    spatialIndex.removePolygon(polygon.id)
+    polygonIndexSnapshots.delete(polygon.id)
+  })
 
-    polygonIndexSnapshots = nextSnapshots
-  }, { deep: true })
+  watchShapes(polylines, (polyline, index) => {
+    const previous = polylineIndexSnapshots.get(polyline.id)
+    const changed = !previous || previous.index !== index || coordinatesChanged(previous, polyline.points)
 
-  watch(polylines, () => {
-    const nextSnapshots = new Map<string, SpatialShapeSnapshot>()
-
-    for (let index = 0; index < polylines.length; index++) {
-      const polyline = polylines[index]
-      if (!polyline) continue
-      const previous = polylineIndexSnapshots.get(polyline.id)
-      const changed = !previous || previous.index !== index || coordinatesChanged(previous, polyline.points)
-
-      if (!previous) {
-        if (spatialIndex.hasPolyline(polyline.id)) {
-          spatialIndex.updatePolyline(polyline, index)
-        } else {
-          spatialIndex.insertPolyline(polyline, index)
-        }
-      } else if (changed) {
+    if (!previous) {
+      if (spatialIndex.hasPolyline(polyline.id)) {
         spatialIndex.updatePolyline(polyline, index)
+      } else {
+        spatialIndex.insertPolyline(polyline, index)
       }
-
-      nextSnapshots.set(
-        polyline.id,
-        changed ? { index, coordinates: snapshotCoordinates(polyline.points) } : previous
-      )
+    } else if (changed) {
+      spatialIndex.updatePolyline(polyline, index)
     }
 
-    for (const polylineId of polylineIndexSnapshots.keys()) {
-      if (!nextSnapshots.has(polylineId)) {
-        spatialIndex.removePolyline(polylineId)
-      }
-    }
-
-    polylineIndexSnapshots = nextSnapshots
-  }, { deep: true })
+    polylineIndexSnapshots.set(
+      polyline.id,
+      changed ? { index, coordinates: snapshotCoordinates(polyline.points) } : previous
+    )
+  }, (polyline) => {
+    spatialIndex.removePolyline(polyline.id)
+    polylineIndexSnapshots.delete(polyline.id)
+  })
 
   watch(() => polygons.map(polygon => polygon.id), (ids, previousIds) => {
     const selectedId = selectedPolygonIds.value.length === 1

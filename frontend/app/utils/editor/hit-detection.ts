@@ -295,27 +295,30 @@ export function isPointInTriangle(p: Point, a: Point, b: Point, c: Point): boole
   return alpha > epsilon && beta > epsilon && gamma > epsilon
 }
 
+/**
+ * Check the moved vertex's edges for crossings, allowing unrelated existing
+ * crossings in imported polygons to be repaired independently.
+ */
 export function wouldSelfIntersect(polygon: Point[], vertexIndex: number, newPosition: Point): boolean {
-  const testPolygon = [...polygon]
-  testPolygon[vertexIndex] = newPosition
+  const count = polygon.length
+  if (count < 4 || vertexIndex < 0 || vertexIndex >= count) return false
 
-  for (let i = 0; i < testPolygon.length; i++) {
-    const p1 = testPolygon[i]
-    const p2 = testPolygon[(i + 1) % testPolygon.length]
+  // Only the incoming and outgoing edges change when a vertex moves. The
+  // remaining edge pairs cannot acquire an intersection from this edit.
+  const previousIndex = (vertexIndex + count - 1) % count
+  for (const edgeIndex of [previousIndex, vertexIndex]) {
+    const nextIndex = (edgeIndex + 1) % count
+    const p1 = edgeIndex === vertexIndex ? newPosition : polygon[edgeIndex]
+    const p2 = nextIndex === vertexIndex ? newPosition : polygon[nextIndex]
     if (!p1 || !p2) continue
 
-    for (let j = i + 2; j < testPolygon.length; j++) {
-      if (j === (i + testPolygon.length - 1) % testPolygon.length) continue
-      if (i === 0 && j === testPolygon.length - 1) continue
-
-      const p3 = testPolygon[j]
-      const p4 = testPolygon[(j + 1) % testPolygon.length]
-
+    for (let j = 0; j < count; j++) {
+      const endIndex = (j + 1) % count
+      if (j === edgeIndex || j === nextIndex || endIndex === edgeIndex) continue
+      const p3 = polygon[j]
+      const p4 = polygon[endIndex]
       if (!p3 || !p4) continue
-
-      if (segmentsIntersect(p1, p2, p3, p4)) {
-        return true
-      }
+      if (segmentsIntersect(p1, p2, p3, p4)) return true
     }
   }
 

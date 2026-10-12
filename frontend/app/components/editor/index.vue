@@ -349,13 +349,15 @@ const {
   actions: stateActions
 } = editorState
 
+// The projection getters track document coordinates themselves. Watch the
+// returned arrays for membership without traversing all projected points again.
 watch(() => editorStore.regionsByCanvasId(props.canvasId), (newRegions) => {
   polygons.splice(0, polygons.length, ...(newRegions || []))
-}, { immediate: true, deep: true })
+}, { immediate: true, deep: 1 })
 
 watch(() => editorStore.baselinesByCanvasId(props.canvasId), (newBaselines) => {
   polylines.splice(0, polylines.length, ...(newBaselines || []))
-}, { immediate: true, deep: true })
+}, { immediate: true, deep: 1 })
 
 canvasControls.polygons = polygons
 canvasControls.polylines = polylines

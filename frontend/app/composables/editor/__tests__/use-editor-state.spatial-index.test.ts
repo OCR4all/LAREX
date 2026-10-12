@@ -4,6 +4,26 @@ import { createSpatialIndex } from '@/services/editor/spatial-index-service'
 import { useEditorState } from '../use-editor-state'
 
 describe('useEditorState spatial index synchronization', () => {
+  it.each(['polygons', 'polylines'] as const)('does not read unrelated %s when editing one shape', async (kind) => {
+    const spatialIndex = createSpatialIndex()
+    const state = useEditorState(spatialIndex)
+    let unrelatedReads = 0
+    state[kind].push(
+      { id: 'edited', points: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] },
+      { id: 'unchanged', points: Array.from({ length: 2000 }, (_, i) => ({
+        get x() {
+          unrelatedReads++
+          return i
+        }, y: i
+      })) }
+    )
+    await nextTick()
+    unrelatedReads = 0
+    state[kind][0]!.points[0]!.x = 0.5
+    await nextTick()
+    expect(unrelatedReads).toBe(0)
+  })
+
   it('updates only changed polygons while preserving array indices', async () => {
     const spatialIndex = createSpatialIndex()
     const rebuildSpy = vi.spyOn(spatialIndex, 'rebuildPolygonIndex')
@@ -75,6 +95,29 @@ describe('useEditorState spatial index synchronization', () => {
     expect(spatialIndex.queryPolylinesAtPoint({ x: 0.5, y: 0 })).toEqual([])
     expect(spatialIndex.queryPolylinesAtPoint({ x: 10.5, y: 10 })).toEqual([0])
     expect(rebuildSpy).not.toHaveBeenCalled()
+  })
+
+  it('preserves unchanged index entries when document projections are replaced', async () => {
+    const spatialIndex = createSpatialIndex()
+    const { polygons } = useEditorState(spatialIndex)
+    polygons.push(
+      { id: 'first', points: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }] },
+      { id: 'second', points: [{ x: 10, y: 10 }, { x: 11, y: 10 }, { x: 11, y: 11 }] }
+    )
+    await nextTick()
+    const update = vi.spyOn(spatialIndex, 'updatePolygon')
+    const remove = vi.spyOn(spatialIndex, 'removePolygon')
+    polygons.splice(0, polygons.length, ...polygons.map(polygon => ({
+      ...polygon,
+      points: polygon.points.map(point => ({ ...point }))
+    })))
+    await nextTick()
+    expect(update).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
+
+    polygons[1]!.points[0]!.x = 12
+    await nextTick()
+    expect(update).toHaveBeenCalledExactlyOnceWith(polygons[1], 1)
   })
 
   it('repopulates the index after a full editor-state reset', async () => {

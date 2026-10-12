@@ -15,6 +15,7 @@ import type { ReadingOrderRenderData } from '@/webgl/editor/reading-order-render
 import { RenderPriority, useRenderQueue, type RenderStats } from './use-render-queue'
 import { useEditorCustomCursor } from './use-editor-custom-cursor'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import { watchShapes } from '@/utils/editor/watch-shapes'
 
 export type TriangulateFunction = (points: Point[]) => number[]
 
@@ -216,9 +217,15 @@ export function useEditorRenderer(
    * Setup all watches for automatic re-rendering
    */
   function setupRenderWatches(): void {
+    const scheduleStateRender = () => {
+      if (enabled && !enabled.value) return
+      nextTick(() => scheduleRender(RenderPriority.NORMAL, 'reactive-state'))
+    }
+    watchShapes(polygons, scheduleStateRender, scheduleStateRender)
+    watchShapes(polylines, scheduleStateRender, scheduleStateRender)
+
+    // View/interaction changes must not deep-traverse the page's geometry.
     watch([
-      polygons,
-      polylines,
       () => polygonEditing.hoveredPolygonIndex,
       selectedPolygonIndex,
       selectedPolygonIds,
@@ -266,10 +273,7 @@ export function useEditorRenderer(
       () => editorUiStore.readingOrderVersion,
       () => editorUiStore.confidenceHeatmap
     ],
-    () => {
-      if (enabled && !enabled.value) return
-      nextTick(() => scheduleRender(RenderPriority.NORMAL, 'reactive-state'))
-    },
+    scheduleStateRender,
     { deep: true })
 
     watch(() => polygonEditing.hoveredPolygonIndex.value, (newIndex) => {
