@@ -218,15 +218,11 @@ function handleRowContextMenu(_event: Event, row: Row<CodecSummary>) {
   contextMenuCodec.value = row.original
 }
 
+const emptyStateRefresh = useEmptyStateRefresh(() => refreshNuxtData(codecsKey.value))
+
 const emptyStateActions = computed(() => {
   const actions: Array<Record<string, unknown>> = [
-    {
-      icon: 'i-lucide-refresh-cw',
-      label: 'Refresh',
-      color: 'neutral',
-      variant: 'subtle',
-      onClick: () => refreshNuxtData(codecsKey.value)
-    }
+    emptyStateRefresh.value
   ]
 
   if (canManageToolkit.value) {

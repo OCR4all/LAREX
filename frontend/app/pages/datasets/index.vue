@@ -222,15 +222,11 @@ const items = (row: DatasetSummary) => compactGroups([[
     : null
 ].filter(Boolean) as Array<Record<string, unknown>>])
 
+const emptyStateRefresh = useEmptyStateRefresh(() => refreshNuxtData(datasetsKey.value))
+
 const emptyStateActions = computed(() => {
   const actions: Array<Record<string, unknown>> = [
-    {
-      icon: 'i-lucide-refresh-cw',
-      label: 'Refresh',
-      color: 'neutral',
-      variant: 'subtle',
-      onClick: () => refreshNuxtData(datasetsKey.value)
-    }
+    emptyStateRefresh.value
   ]
 
   if (canManageDatasets.value) {

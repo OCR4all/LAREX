@@ -81,6 +81,8 @@ const projectSlideoverCreate = overlay.create(LazyLibrarySlideoverCreate)
 const directoryProjectNameSlideover = overlay.create(LazyLibrarySlideoverDirectoryProjectName)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 
+const emptyStateRefresh = useEmptyStateRefresh(() => refresh())
+
 const emptyActions = computed(() => {
   const actions: Array<{ icon: string, label: string, color?: string, variant: 'solid' | 'subtle', onClick: () => void }> = []
   if (canCreateProjects.value) {
@@ -91,13 +93,7 @@ const emptyActions = computed(() => {
       onClick: () => projectSlideoverCreate.open()
     })
   }
-  actions.push({
-    icon: 'i-lucide-refresh-cw',
-    label: 'Refresh',
-    color: 'neutral',
-    variant: 'subtle',
-    onClick: () => refresh()
-  })
+  actions.push(emptyStateRefresh.value)
   return actions
 })
 
@@ -1620,7 +1616,7 @@ async function handleLegacyOcr4allImport(event: Event) {
           </div>
         </div>
 
-        <div v-else-if="status === 'pending'" class="py-8 text-center">
+        <div v-else-if="status === 'pending' && !emptyStateRefresh.loading" class="py-8 text-center">
           <div class="flex items-center justify-center">
             <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
             <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading projects...</span>

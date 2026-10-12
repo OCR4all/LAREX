@@ -322,15 +322,11 @@ function handleRowContextMenu(_event: Event, row: Row<LabelSetRow>) {
   contextMenuLabelSet.value = row.original
 }
 
+const emptyStateRefresh = useEmptyStateRefresh(refreshLabelSets)
+
 const emptyStateActions = computed(() => {
   const actions: Array<Record<string, unknown>> = [
-    {
-      icon: 'i-lucide-refresh-cw',
-      label: 'Refresh',
-      color: 'neutral',
-      variant: 'subtle',
-      onClick: refreshLabelSets
-    }
+    emptyStateRefresh.value
   ]
 
   if (canManageToolkit.value) {

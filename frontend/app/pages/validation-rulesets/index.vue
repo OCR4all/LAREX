@@ -200,9 +200,11 @@ function handleRowContextMenu(_event: Event, row: Row<ValidationRulesetSummary>)
   contextMenuRuleset.value = row.original
 }
 
+const emptyStateRefresh = useEmptyStateRefresh(() => refreshNuxtData(rulesetsKey.value))
+
 const emptyStateActions = computed(() => {
   const actions: Array<Record<string, unknown>> = [
-    { icon: 'i-lucide-refresh-cw', label: 'Refresh', color: 'neutral', variant: 'subtle', onClick: () => refreshNuxtData(rulesetsKey.value) }
+    emptyStateRefresh.value
   ]
 
   if (canManageToolkit.value) {

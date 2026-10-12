@@ -200,9 +200,11 @@ function handleRowContextMenu(_event: Event, row: Row<NormalizationProfileSummar
   contextMenuProfile.value = row.original
 }
 
+const emptyStateRefresh = useEmptyStateRefresh(() => refreshNuxtData(profilesKey.value))
+
 const emptyStateActions = computed(() => {
   const actions: Array<Record<string, unknown>> = [
-    { icon: 'i-lucide-refresh-cw', label: 'Refresh', color: 'neutral', variant: 'subtle', onClick: () => refreshNuxtData(profilesKey.value) }
+    emptyStateRefresh.value
   ]
 
   if (canManageToolkit.value) {

@@ -257,15 +257,11 @@ function handleRowContextMenu(_event: Event, row: Row<TagSetRow>) {
   contextMenuTagSet.value = row.original
 }
 
+const emptyStateRefresh = useEmptyStateRefresh(() => refresh())
+
 const emptyStateActions = computed(() => {
   const actions: Array<Record<string, unknown>> = [
-    {
-      icon: 'i-lucide-refresh-cw',
-      label: 'Refresh',
-      color: 'neutral',
-      variant: 'subtle',
-      onClick: () => refresh()
-    }
+    emptyStateRefresh.value
   ]
 
   if (canManageToolkit.value) {

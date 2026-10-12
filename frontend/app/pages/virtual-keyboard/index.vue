@@ -237,15 +237,11 @@ function handleRowContextMenu(_event: Event, row: Row<KeyboardLayout>) {
   contextMenuKeyboard.value = row.original
 }
 
+const emptyStateRefresh = useEmptyStateRefresh(() => refreshNuxtData(keyboardsKey.value))
+
 const emptyStateActions = computed(() => {
   const actions: Array<Record<string, unknown>> = [
-    {
-      icon: 'i-lucide-refresh-cw',
-      label: 'Refresh',
-      color: 'neutral',
-      variant: 'subtle',
-      onClick: () => refreshNuxtData(keyboardsKey.value)
-    }
+    emptyStateRefresh.value
   ]
 
   if (canManageToolkit.value) {
