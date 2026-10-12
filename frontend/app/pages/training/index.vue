@@ -258,6 +258,8 @@ onBeforeUnmount(() => {
   if (refreshTimer) clearTimeout(refreshTimer)
   if (pollTimer) clearInterval(pollTimer)
 })
+
+const toolbarRefresh = useRefreshFeedback(() => loadRuns())
 </script>
 
 <template>
@@ -289,6 +291,7 @@ onBeforeUnmount(() => {
         <template #right>
           <AppTableColumnsDropdown table-id="training-runs" :columns="columns" />
           <UButton
+            v-bind="toolbarRefresh"
             color="neutral"
             variant="ghost"
             icon="i-lucide-refresh-cw"
@@ -296,8 +299,7 @@ onBeforeUnmount(() => {
             square
             aria-label="Refresh training runs"
             title="Refresh"
-            :loading="loading"
-            @click="loadRuns"
+            :loading="loading || toolbarRefresh.loading"
           />
         </template>
       </UDashboardToolbar>

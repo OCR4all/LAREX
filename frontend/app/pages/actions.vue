@@ -172,6 +172,8 @@ function refreshProcessors() {
     evaluationRequest.refresh()
   ])
 }
+
+const toolbarRefresh = useRefreshFeedback(() => refreshProcessors())
 </script>
 
 <template>
@@ -180,6 +182,7 @@ function refreshProcessors() {
       <UDashboardNavbar title="Actions">
         <template #right>
           <UButton
+            v-bind="toolbarRefresh"
             color="neutral"
             variant="ghost"
             icon="i-lucide-refresh-cw"
@@ -187,8 +190,7 @@ function refreshProcessors() {
             square
             aria-label="Refresh Actions"
             title="Refresh"
-            :loading="loading"
-            @click="refreshProcessors"
+            :loading="loading || toolbarRefresh.loading"
           />
         </template>
       </UDashboardNavbar>

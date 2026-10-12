@@ -340,6 +340,8 @@ const emptyStateActions = computed(() => {
 
   return actions
 })
+
+const toolbarRefresh = useRefreshFeedback(() => refreshLabelSets())
 </script>
 
 <template>
@@ -428,14 +430,14 @@ const emptyStateActions = computed(() => {
 
         <template #right>
           <UButton
+            v-bind="toolbarRefresh"
             icon="i-lucide-refresh-cw"
             color="neutral"
             variant="ghost"
             size="xs"
             square
             aria-label="Refresh label sets"
-            :loading="isRefreshing"
-            @click="refreshLabelSets"
+            :loading="isRefreshing || toolbarRefresh.loading"
           />
           <AppTableColumnsDropdown table-id="workspace-label-sets" :columns="columns" />
         </template>

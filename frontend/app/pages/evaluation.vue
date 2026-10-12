@@ -87,6 +87,8 @@ onMounted(() => {
   })
 })
 onBeforeUnmount(() => { unsubscribe?.(); if (timer) clearTimeout(timer) })
+
+const toolbarRefresh = useRefreshFeedback(() => loadRuns())
 </script>
 
 <template>
@@ -115,6 +117,7 @@ onBeforeUnmount(() => { unsubscribe?.(); if (timer) clearTimeout(timer) })
         </template>
         <template #right>
           <UButton
+            v-bind="toolbarRefresh"
             color="neutral"
             variant="ghost"
             icon="i-lucide-refresh-cw"
@@ -122,8 +125,7 @@ onBeforeUnmount(() => { unsubscribe?.(); if (timer) clearTimeout(timer) })
             square
             aria-label="Refresh evaluation runs"
             title="Refresh"
-            :loading="loading"
-            @click="loadRuns"
+            :loading="loading || toolbarRefresh.loading"
           />
         </template>
       </UDashboardToolbar>

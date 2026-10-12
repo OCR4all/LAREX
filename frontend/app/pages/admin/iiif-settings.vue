@@ -91,6 +91,8 @@ function formatUpdatedAt(value: string | null | undefined) {
     timeStyle: 'short'
   }).format(new Date(value))
 }
+
+const toolbarRefresh = useRefreshFeedback(() => refresh())
 </script>
 
 <template>
@@ -99,12 +101,12 @@ function formatUpdatedAt(value: string | null | undefined) {
       <UDashboardNavbar title="IIIF Settings">
         <template #right>
           <UButton
+            v-bind="toolbarRefresh"
             icon="i-lucide-refresh-cw"
             color="neutral"
             variant="ghost"
-            :loading="pending"
+            :loading="pending || toolbarRefresh.loading"
             aria-label="Refresh IIIF settings"
-            @click="refresh()"
           />
         </template>
       </UDashboardNavbar>

@@ -2461,6 +2461,8 @@ async function openXmlEditor(page: Page) {
 useHead({
   title: computed(() => project.value?.name ? `${project.value.name} - LAREX` : 'Project - LAREX')
 })
+
+const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true }))
 </script>
 
 <template>
@@ -2654,13 +2656,13 @@ useHead({
               :ui="{ base: 'animate-pulse' }"
             >
               <UButton
+                v-bind="toolbarRefresh"
                 icon="i-lucide-refresh-cw"
                 color="neutral"
                 variant="ghost"
                 size="sm"
-                :loading="isManualPagesRefresh"
+                :loading="isManualPagesRefresh || toolbarRefresh.loading"
                 aria-label="Refresh pages"
-                @click="refreshPagesData({ manual: true })"
               />
             </UChip>
           </UTooltip>

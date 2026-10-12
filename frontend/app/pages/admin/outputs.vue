@@ -396,6 +396,8 @@ async function refreshWithPageGuard() {
     await refresh()
   }
 }
+
+const toolbarRefresh = useRefreshFeedback(() => refresh())
 </script>
 
 <template>
@@ -436,13 +438,13 @@ async function refreshWithPageGuard() {
         </template>
         <template #right>
           <UButton
+            v-bind="toolbarRefresh"
             color="neutral"
             variant="ghost"
             icon="i-lucide-refresh-cw"
             label="Refresh"
-            :loading="pending"
+            :loading="pending || toolbarRefresh.loading"
             aria-label="Refresh outputs"
-            @click="refresh"
           />
         </template>
       </UDashboardToolbar>
