@@ -86,7 +86,7 @@ export default defineAppConfig({
         variant: 'pill',
         active: false,
         class: {
-          link: 'text-default hover:before:bg-brand-blue/12 dark:hover:before:bg-brand-blue/20',
+          link: 'text-default hover:before:bg-elevated',
           linkLeadingIcon: 'text-toned',
           linkTrailingIcon: 'text-toned'
         }
