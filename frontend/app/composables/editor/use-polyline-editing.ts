@@ -106,9 +106,6 @@ export function usePolylineEditing(
       closestPoint: null
     }
 
-    let closestPolylineDistance = Infinity
-    let closestPolylineInfo = { polylineIndex: -1 }
-
     const hoverablePolylineIndex = getHoverablePolylineAtPoint(
       polylines,
       polygons,
@@ -153,18 +150,6 @@ export function usePolylineEditing(
           }
         }
       }
-
-      for (let i = 0; i < points.length - 1; i++) {
-        const p1 = points[i]
-        const p2 = points[i + 1]
-        if (!p1 || !p2) continue
-
-        const segmentResult = getDistanceToLineSegment(point, p1, p2)
-        if (segmentResult.distance < closestPolylineDistance && segmentResult.distance < nodeThreshold) {
-          closestPolylineDistance = segmentResult.distance
-          closestPolylineInfo = { polylineIndex }
-        }
-      }
     })
 
     if (closestNodeInfo.polylineIndex >= 0) {
@@ -177,8 +162,10 @@ export function usePolylineEditing(
       hoveredSegmentInfo.closestPoint = closestSegmentInfo.closestPoint
       previewNodePosition.x = closestSegmentInfo.closestPoint.x
       previewNodePosition.y = closestSegmentInfo.closestPoint.y
-    } else if (closestPolylineInfo.polylineIndex >= 0) {
-      hoveredPolylineIndex.value = closestPolylineInfo.polylineIndex
+    } else if (hoverablePolylineIndex >= 0) {
+      // Selecting the stroke uses its wider hit area; node editing and
+      // insertion retain their narrower tolerances above.
+      hoveredPolylineIndex.value = hoverablePolylineIndex
     }
   }
 

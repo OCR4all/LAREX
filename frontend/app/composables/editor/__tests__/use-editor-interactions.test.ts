@@ -343,7 +343,13 @@ describe('useEditorInteractions', () => {
   })
 
   it.each([['node', 100], ['edge', 125]] as const)('edits a selected polygon %s inside the baseline hit area', async (_target, clientX) => {
-    const harness = await createHarness('select', overlappingShapes())
+    const shapes = overlappingShapes()
+    // Place the baseline inside the widened stroke hit area, beyond its
+    // narrower node tolerance, while the pointer targets the polygon bottom.
+    shapes.polylines[0]!.points.forEach((point) => {
+      point.y = -0.485
+    })
+    const harness = await createHarness('select', shapes)
     harness.selectedPolygonIndex.value = 0
     const pointer = eventStub({ clientX, clientY: 150, buttons: 0 })
     harness.interactions.onMouseMove(pointer)
@@ -382,22 +388,29 @@ describe('useEditorInteractions', () => {
     expect(harness.polygonEditing.isDragging()).toBe(false)
   })
 
-  it.each([1, 10])('keeps baseline screen hit tolerance constant at zoom %i', async (zoom) => {
+  it.each([
+    [1, false], [10, false], [1, true], [10, true]
+  ] as const)('keeps baseline screen hit tolerance constant at zoom %i (selected: %s)', async (zoom, selected) => {
     const shapes = overlappingShapes()
     shapes.polylines[0]!.points = [{ x: -0.5, y: 0 }, { x: 0.5, y: 0 }]
     const harness = await createHarness('select', shapes)
     harness.selectedPolygonIndex.value = 0
+    harness.selectedPolylineIndex.value = selected ? 0 : -1
     harness.view.zoom = zoom
 
-    // On this 200px canvas the baseline is at y=100, with a 0.5px hover
-    // tolerance. Zooming must not expand that tolerance over nearby polygons.
-    harness.interactions.onMouseMove(eventStub({ clientX: 100, clientY: 99, buttons: 0 }))
+    // On this 200px canvas the baseline is at y=100. Hover and selection
+    // share a 2px tolerance that stays constant while zooming.
+    harness.interactions.onMouseMove(eventStub({ clientX: 100, clientY: 97, buttons: 0 }))
     expect(harness.polylineEditing.hoveredPolylineIndex.value).toBe(-1)
 
-    const hit = eventStub({ clientX: 100, clientY: 99.75, buttons: 0 })
+    const hit = eventStub({ clientX: 100, clientY: 98.5, buttons: 0 })
     harness.interactions.onMouseMove(hit)
+    expect(harness.polylineEditing.hoveredPolylineIndex.value).toBe(0)
     harness.interactions.onMouseDown(hit)
+    harness.interactions.onMouseUp(hit)
     expect(harness.selectedPolylineIndex.value).toBe(0)
+    expect(harness.polylineEditing.isDragging()).toBe(false)
+    expect(shapes.polylines[0]!.points).toHaveLength(2)
   })
 
   it.each([
