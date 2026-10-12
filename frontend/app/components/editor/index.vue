@@ -1644,6 +1644,11 @@ function handleEditorMouseLeave() {
 }
 
 function handleEditorKeyDown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && contextMenuOpen.value) {
+    // Let the menu dismiss itself before its open-state watcher clears the items.
+    return
+  }
+
   if (isCanvasInteractionBlocked.value) return
   if (regionCommentOpen.value) {
     if (event.key === 'Escape') {
