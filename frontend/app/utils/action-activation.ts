@@ -6,7 +6,7 @@ export function actionActivationOptions(
   projectId: string | null
 ) {
   return definitions
-    .filter(definition => !projectId || (definition.kind ?? 'PROCESSING') === 'PROCESSING')
+    .filter(definition => !projectId || ['PROCESSING', 'INTEGRATION'].includes(definition.kind ?? 'PROCESSING'))
     .filter(definition => !assignments.some(assignment =>
       assignment.processor.id === definition.id && assignment.enabled
     ))

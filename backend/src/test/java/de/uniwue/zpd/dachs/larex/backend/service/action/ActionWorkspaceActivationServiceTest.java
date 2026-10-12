@@ -46,6 +46,19 @@ class ActionWorkspaceActivationServiceTest {
     }
 
     @Test
+    void integrationCanBeActivatedForProjectsButProjectActivationDoesNotEnableDatasets() {
+        definition.setGlobalAvailable(true);
+        definition.setActionKind(ActionProcessorDefinition.ActionKind.INTEGRATION);
+        service.requireAssignable(definition, "workspace", "project");
+        ActionProcessorAssignment assignment = new ActionProcessorAssignment();
+        assignment.setProcessorDefinition(definition);
+        assignment.setProjectId("project");
+        when(assignments.findExecutableAssignments("workspace", "project")).thenReturn(List.of(assignment));
+        assertThat(service.isActivated(definition, "workspace", "project")).isTrue();
+        assertThat(service.isActivated(definition, "workspace", null)).isFalse();
+    }
+
+    @Test
     void oldAssignmentCannotGrantEligibilityAfterScopeRevocation() {
         assertThat(service.isEligible(definition, "workspace")).isFalse();
         assertThat(service.isActivated(definition, "workspace", "project")).isFalse();

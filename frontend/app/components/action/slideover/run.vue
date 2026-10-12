@@ -115,7 +115,8 @@ const excludedPageIds = ref<string[]>([])
 const reviewConfiguration = ref<ActionRunConfiguration | null>(null)
 const reviewRetryRunId = ref<string | null>(null)
 let impactGeneration = 0
-const affectedPages = computed(() => impact.value?.pages.filter(page => page.affected) ?? [])
+const integrationReview = computed(() => selectedProcessor.value?.processor.kind === 'INTEGRATION')
+const affectedPages = computed(() => impact.value?.pages.filter(page => integrationReview.value || page.affected) ?? [])
 const visibleAffectedPages = computed(() => affectedPages.value.filter(page =>
   (page.name || page.pageId).toLocaleLowerCase().includes(reviewSearch.value.toLocaleLowerCase())
 ))
@@ -677,7 +678,7 @@ async function reviewRun(retryRunId: string | null = null) {
     if (generation !== impactGeneration) return
     if (!preview.pages.length) throw new Error('No pages satisfy this Action’s required inputs.')
     impact.value = preview
-    if (!preview.pages.some(page => page.affected)) {
+    if (!integrationReview.value && !preview.pages.some(page => page.affected)) {
       await confirmReviewedRun()
     } else {
       await nextTick()
@@ -804,7 +805,7 @@ function canCancelRun(run: ActionRun) {
 }
 
 function canRetryRun(run: ActionRun) {
-  return run.status === 'FAILED' || run.status === 'CANCELLED'
+  return run.kind !== 'INTEGRATION' && (run.status === 'FAILED' || run.status === 'CANCELLED')
 }
 
 function isRunExpanded(run: ActionRun) {
@@ -912,14 +913,14 @@ function close() {
         class="space-y-4"
       >
         <UAlert
-          color="warning"
+          :color="integrationReview ? 'info' : 'warning'"
           variant="subtle"
-          icon="i-lucide-triangle-alert"
-          title="Existing annotations may be replaced"
-          description="Review the pages below. Uncheck a page to remove it from this Action run. Listed levels describe potential replacement or deletion."
+          :icon="integrationReview ? 'i-lucide-plug' : 'i-lucide-triangle-alert'"
+          :title="integrationReview ? 'Freeze inputs for external work' : 'Existing annotations may be replaced'"
+          :description="integrationReview ? 'Selected saved files will be frozen when you start. Editing remains available. The Action returns status feedback.' : 'Review the pages below. Uncheck a page to remove it from this Action run. Listed levels describe potential replacement or deletion.'"
         />
         <p role="status" class="text-sm text-muted">
-          {{ includedImpactPages.length }} included · {{ excludedPageIds.length }} excluded · {{ unaffectedPageCount }} unaffected pages included automatically
+          {{ includedImpactPages.length }} included · {{ excludedPageIds.length }} excluded<span v-if="!integrationReview"> · {{ unaffectedPageCount }} unaffected pages included automatically</span>
         </p>
         <UInput
           v-model="reviewSearch"
@@ -930,10 +931,10 @@ function close() {
         />
         <div class="flex flex-wrap gap-2">
           <UButton color="neutral" variant="outline" @click="excludedPageIds = affectedPages.map(page => page.pageId)">
-            Exclude all affected pages
+            {{ integrationReview ? 'Exclude all pages' : 'Exclude all affected pages' }}
           </UButton>
           <UButton color="neutral" variant="outline" @click="excludedPageIds = []">
-            Include all affected pages
+            {{ integrationReview ? 'Include all pages' : 'Include all affected pages' }}
           </UButton>
         </div>
         <ul class="divide-y divide-default rounded-sm border border-default">
@@ -960,7 +961,7 @@ function close() {
           </li>
         </ul>
         <p v-if="!visibleAffectedPages.length" class="text-sm text-muted">
-          No affected pages match your search.
+          {{ integrationReview ? 'No pages match your search.' : 'No affected pages match your search.' }}
         </p>
         <div v-if="impact.skippedPages.length" class="space-y-1 text-sm text-muted">
           <p>{{ impact.skippedPages.length }} pages will be skipped:</p>
@@ -1093,6 +1094,13 @@ function close() {
           </div>
         </template>
         <template v-else-if="view === 'configure' && selectedProcessor">
+          <UAlert
+            v-if="integrationReview"
+            icon="i-lucide-plug"
+            color="info"
+            title="Integration Action"
+            description="Runs on frozen copies of saved files and returns status feedback. Editing remains available while it runs."
+          />
           <div class="flex flex-col items-start justify-between gap-3 sm:flex-row">
             <div class="min-w-0 space-y-1">
               <p class="text-xs font-medium text-muted">
@@ -1346,7 +1354,8 @@ function close() {
               >
                 <div class="flex items-center justify-between gap-3">
                   <button type="button" class="min-w-0 text-left" @click="toggleRunExpanded(run)">
-                    <p class="truncate text-sm font-medium">
+                    <p class="flex items-center gap-1 truncate text-sm font-medium">
+                      <UIcon v-if="run.kind === 'INTEGRATION'" name="i-lucide-plug" aria-label="Integration" />
                       {{ run.processorName }}
                     </p>
                     <p class="truncate text-xs text-muted">

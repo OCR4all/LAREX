@@ -26,7 +26,8 @@ public class ActionProcessorDefinition {
     public enum ActionKind {
         PROCESSING,
         TRAINING,
-        EVALUATION
+        EVALUATION,
+        INTEGRATION
     }
 
     public enum ExecuteRole {

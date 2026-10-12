@@ -10,6 +10,7 @@ const actionRunsStore = useActionRunsStore()
 const realtime = useRealtimeSocket()
 const UButtonComponent = resolveComponent('UButton')
 const UBadgeComponent = resolveComponent('UBadge')
+const UIconComponent = resolveComponent('UIcon')
 
 const selectedWorkspace = computed(() => workspaceStore.selectedWorkspaceId)
 const currentWorkspace = computed(() => workspaceStore.currentWorkspace)
@@ -111,7 +112,10 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
     header: 'Resource',
     cell: ({ row }) => h('div', { class: 'min-w-0' }, [
       h('div', { class: 'truncate font-medium' }, row.original.datasetLabel || row.original.projectLabel || 'Workspace'),
-      h('div', { class: 'truncate text-xs text-muted' }, row.original.processorName)
+      h('div', { class: 'flex items-center gap-1 truncate text-xs text-muted' }, [
+        ...(row.original.kind === 'INTEGRATION' ? [h(UIconComponent, { 'name': 'i-lucide-plug', 'aria-label': 'Integration', 'class': 'shrink-0' })] : []),
+        row.original.processorName
+      ])
     ])
   },
   {
@@ -132,7 +136,7 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
   {
     id: 'inputs',
     header: 'Inputs',
-    cell: ({ row }) => h('span', { class: 'tabular-nums text-sm' }, String(row.original.kind === 'TRAINING' || row.original.kind === 'EVALUATION' ? (row.original.inputCount ?? 0) : row.original.pageCount))
+    cell: ({ row }) => h('span', { class: 'tabular-nums text-sm' }, String(row.original.datasetId ? (row.original.inputCount ?? 0) : row.original.pageCount))
   },
   {
     accessorKey: 'updated',

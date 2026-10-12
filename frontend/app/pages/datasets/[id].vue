@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LazyDatasetSlideoverRelease, LazyDatasetSlideoverReleaseShare, LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover, USelect } from '#components'
+import { LazyActionSlideoverDatasetIntegration, LazyDatasetSlideoverRelease, LazyDatasetSlideoverReleaseShare, LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover, USelect } from '#components'
 import type { BreadcrumbItem, DropdownMenuItem, TableColumn, TabsItem } from '@nuxt/ui'
 import type {
   DatasetCreateOrUpdateRequest,
@@ -26,6 +26,7 @@ const { selectedWorkspace } = await useWorkspaceBootstrap()
 const createReleaseSlideover = overlay.create(LazyDatasetSlideoverRelease)
 const releaseShareSlideover = overlay.create(LazyDatasetSlideoverReleaseShare)
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
+const integrationSlideover = overlay.create(LazyActionSlideoverDatasetIntegration)
 
 const datasetId = route.params.id as string
 const datasetKey = computed(() => wsKey(selectedWorkspace.value as string, 'datasets', datasetId))
@@ -483,8 +484,22 @@ const contentTabItems = computed<TabsItem[]>(() => [
 
 const isBusy = computed(() => saving.value || validating.value || generating.value || exporting.value)
 
+async function openIntegrationAction(selected = false) {
+  if (!selectedWorkspace.value || !dataset.value) return
+  const instance = integrationSlideover.open({
+    workspaceId: selectedWorkspace.value,
+    datasetId,
+    datasetName: dataset.value.name,
+    itemIds: selected ? [...selectedItemIds.value] : []
+  })
+  await instance.result
+}
+
 const actionItems = computed<DropdownMenuItem[]>(() => {
-  const items: DropdownMenuItem[] = []
+  const items: DropdownMenuItem[] = [{
+    label: 'Run Action', icon: 'i-lucide-plug', disabled: isBusy.value,
+    onSelect: () => { void openIntegrationAction() }
+  }]
 
   if (datasetCapabilities.value.canEdit) {
     items.push({
@@ -1506,6 +1521,15 @@ useHead({
                       <span class="hidden sm:inline">Open Selected</span>
                     </UButton>
 
+                    <UButton
+                      icon="i-lucide-plug"
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      @click="openIntegrationAction(true)"
+                    >
+                      Run Action
+                    </UButton>
                     <UButton
                       icon="i-lucide-trash"
                       color="error"

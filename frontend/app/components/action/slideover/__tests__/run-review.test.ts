@@ -114,6 +114,19 @@ describe('Action run review flow', () => {
     vi.unstubAllGlobals()
   })
 
+  it('reviews Integration inputs without overwrite warnings and starts only after review', async () => {
+    setup.processors.value = [{ assignmentId: null, executable: true, blockedReason: null,
+      processor: { ...processor, kind: 'INTEGRATION', lockMode: 'NONE', outputsXml: false } }]
+    await Vue.nextTick()
+    fetch.mockResolvedValueOnce({ ...preview, pages: preview.pages.map(page => ({ ...page, affected: false, affectedLevels: [] })) })
+    await setup.startRun()
+    expect(setup.impact.value?.pages).toHaveLength(2)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    fetch.mockResolvedValueOnce({ run: { id: 'integration-run', kind: 'INTEGRATION' } })
+    await setup.confirmReviewedRun()
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
   it('always keeps the chooser open until an executable Action is explicitly chosen', async () => {
     setup.changeAction()
     setup.processors.value = [{ assignmentId: null, processor, executable: true, blockedReason: null }]

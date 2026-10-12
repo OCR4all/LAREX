@@ -983,8 +983,8 @@ function runPrimaryLabel(run: AdminActionRun) {
 
 function runSecondaryLabel(run: AdminActionRun) {
   const resource = run.datasetLabel || run.projectLabel || 'Workspace'
-  const count = run.kind === 'TRAINING' || run.kind === 'EVALUATION' ? (run.inputCount || 0) : run.pageCount
-  const unit = run.kind === 'TRAINING' || run.kind === 'EVALUATION' ? 'input' : 'page'
+  const count = run.datasetId ? (run.inputCount || 0) : run.pageCount
+  const unit = run.datasetId ? 'input' : 'page'
   const base = `${resource} · ${count} ${unit}${count === 1 ? '' : 's'}`
   if (run.status === 'QUEUED' && run.queuePosition) {
     return `${base} · Queue position ${run.queuePosition}`

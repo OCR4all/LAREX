@@ -272,7 +272,7 @@ async def test_sdk_routes_pull_frozen_inputs_and_complete(
         assert "evaluationReport" not in manifests[0]
 
 
-@pytest.mark.parametrize("prefix,processor_id,kind,profile", PROCESSORS)
+@pytest.mark.parametrize("prefix,processor_id,kind,profile", PROCESSORS + [("/integration", "mock-integration", "INTEGRATION", None)])
 @pytest.mark.asyncio
 async def test_sdk_preflight_advertises_dataset_capabilities(
     prefix: str,
@@ -326,3 +326,85 @@ async def test_existing_processing_routes_retain_capabilities(prefix: str) -> No
     assert response.status_code == 200
     assert response.json()["capabilities"]["incrementalPageResults"] is True
     assert response.json()["capabilities"]["customFileResults"] is True
+
+
+@pytest.mark.parametrize("scope", ["project", "region", "textline", "dataset"])
+@pytest.mark.parametrize("files", ["images", "xml", "both"])
+@pytest.mark.parametrize("scenario", ["success", "failed", "cancelled"])
+@pytest.mark.asyncio
+async def test_integration_signed_lifecycle(
+    monkeypatch: pytest.MonkeyPatch, scope: str, files: str, scenario: str
+) -> None:
+    from email import policy
+    from email.parser import BytesParser
+
+    inputs = training_input().model_dump(mode="json", by_alias=True)
+    inputs.update(
+        kind="INTEGRATION", processorKey="mock-integration",
+        projectId=None if scope == "dataset" else "project-1",
+        datasetId="dataset-1" if scope == "dataset" else None,
+        parameters={"delaySeconds": 0, "simulateFailure": scenario == "failed"},
+        inputRequirements={
+            "images": {"level": "OPTIONAL" if files != "xml" else "NONE"},
+            "xml": {"level": "OPTIONAL" if files != "images" else "NONE"},
+        },
+    )
+    if files == "images":
+        inputs["pages"][0]["xml"] = []
+    if files == "xml":
+        inputs["pages"][0]["images"] = []
+    if scope in {"region", "textline"}:
+        inputs["targetSelection"] = {
+            "type": "REGION" if scope == "region" else "TEXT_LINE",
+            "pages": [{"pageId": "item-1", "regionIds": ["r1"], "textLineIds": ["l1"]}],
+        }
+    manifests: list[dict[str, Any]] = []
+    heartbeats: list[dict[str, Any]] = []
+    downloads: list[str] = []
+
+    def server(request: httpx.Request) -> httpx.Response:
+        assert request.headers["authorization"] == "Bearer run-secret"
+        if request.url.path.endswith("/input"):
+            return httpx.Response(200, json=inputs)
+        if request.url.path.endswith("/heartbeat"):
+            heartbeats.append(json.loads(request.content))
+            return httpx.Response(200, json={"cancelRequested": scenario == "cancelled"})
+        if request.url.path in {"/image-1", "/xml-1"}:
+            downloads.append(request.url.path)
+            return httpx.Response(200, content=b"frozen input bytes")
+        if request.url.path.endswith("/results"):
+            message = BytesParser(policy=policy.default).parsebytes(
+                f"Content-Type: {request.headers['content-type']}\r\n\r\n".encode() + request.content
+            )
+            parts = list(message.iter_parts())
+            assert len(parts) == 1
+            manifests.append(json.loads(parts[0].get_content()))
+            return httpx.Response(200, json={"status": "COMPLETED"})
+        raise AssertionError(f"Unexpected callback: {request.url}")
+
+    original = ActionClient.from_dispatch
+    async with httpx.AsyncClient(transport=httpx.MockTransport(server)) as callbacks:
+        monkeypatch.setattr(ActionClient, "from_dispatch", classmethod(
+            lambda cls, payload, **kwargs: original(payload, client=callbacks)
+        ))
+        payload = {
+            "protocolVersion": 1, "runId": "run-1", "processorId": "mock-integration",
+            "workspaceId": "workspace-1", "kind": "INTEGRATION",
+            "projectId": inputs["projectId"], "datasetId": inputs["datasetId"],
+            "pageIds": [] if scope == "dataset" else ["item-1"],
+            "datasetItemIds": ["item-1"] if scope == "dataset" else [],
+            "secret": "run-secret", "pullUrl": "http://app:8080/input",
+            "heartbeatUrl": "http://app:8080/heartbeat", "resultUrl": "http://app:8080/results",
+        }
+        body, headers = signed_request(payload, "/integration/dispatch")
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://test") as client:
+            response = await client.post("/integration/dispatch", content=body, headers=headers)
+    assert response.status_code == 200
+    assert len(downloads) == (0 if scenario == "cancelled" else 2 if files == "both" else 1)
+    if scenario == "success":
+        assert len(manifests) == 1
+        assert manifests[0]["files"] == []
+        assert "1 input(s)" in manifests[0]["message"]
+    else:
+        assert not manifests
+        assert heartbeats[-1]["status"] == ("failed" if scenario == "failed" else "cancelled")

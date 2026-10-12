@@ -447,7 +447,14 @@ public class ActionDefinitionService {
         if (actionKind == ActionKind.PROCESSING && !outputsXml && !outputsImages && !outputsFiles) {
             diagnostics.add(error("outputs", "At least one output type must be enabled"));
         }
-        if (actionKind == ActionKind.TRAINING) {
+        if (actionKind == ActionKind.INTEGRATION) {
+            if (lockMode != LockMode.NONE) {
+                diagnostics.add(error("locking.mode", "Integration Actions must use locking.mode: NONE"));
+            }
+            if (document.outputs() != null) {
+                diagnostics.add(error("outputs", "Integration Actions cannot declare managed outputs or overwrites"));
+            }
+        } else if (actionKind == ActionKind.TRAINING) {
             if (lockMode != LockMode.NONE) {
                 diagnostics.add(error("locking.mode", "Training Actions must use locking.mode: NONE"));
             }
@@ -846,8 +853,8 @@ public class ActionDefinitionService {
             requestPayload.put("requestId", requestId);
             requestPayload.put("processorId", definition.getProcessorKey());
             requestPayload.put("capabilities", Map.of(
-                    "incrementalPageResults", true,
-                    "customFileResults", true,
+                    "incrementalPageResults", definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING,
+                    "customFileResults", definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING,
                     "parameterValueDiscovery", true,
                     "evaluationReports", definition.getActionKind() == ActionProcessorDefinition.ActionKind.EVALUATION
             ));

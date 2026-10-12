@@ -51,6 +51,33 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
     }
 
     @Test
+    void integrationAcceptsImageOnlyXmlOnlyAndOptionalInputsWithoutOutputs() {
+        configureSecret();
+        String base = integrationYaml();
+        assertThat(service.parseAndValidate(base, null).preview().kind())
+                .isEqualTo(ActionProcessorDefinition.ActionKind.INTEGRATION);
+        assertThat(service.parseAndValidate(base.replace("images: true", "images: false").replace("xml: false", "xml: true"), null).preview().outputsXml()).isFalse();
+        assertThat(service.parseAndValidate(base.replace("images: true", "images: {level: optional}").replace("xml: false", "xml: {level: optional}"), null).preview().lockMode())
+                .isEqualTo(ActionProcessorDefinition.LockMode.NONE);
+    }
+
+    @Test
+    void integrationRejectsLocksOutputsAndDatasetSpecificConfiguration() {
+        configureSecret();
+        for (String invalid : java.util.List.of(integrationYaml().replace("mode: NONE", "mode: PAGES"),
+                integrationYaml() + "outputs: {}\n", integrationYaml() + "training: {splits: {TRAIN: required}}\n",
+                integrationYaml() + "evaluation: {profile: example, profileVersion: 1}\n")) {
+            assertThatThrownBy(() -> service.parseAndValidate(invalid, null))
+                    .isInstanceOf(ActionDefinitionService.ValidationException.class);
+        }
+    }
+
+    private String integrationYaml() {
+        return validExternalYaml().substring(0, validExternalYaml().indexOf("outputs:"))
+                .replace("mode: PAGES", "mode: NONE").stripTrailing() + "\nkind: INTEGRATION\n";
+    }
+
+    @Test
     void normalizesTagsAndReturnsThemFromStoredDefinition() {
         configureSecret();
         var parsed = service.parseAndValidate(validExternalYaml().replace("tags: []", "tags: [' layout ', segmentation, layout, Layout]"), null);

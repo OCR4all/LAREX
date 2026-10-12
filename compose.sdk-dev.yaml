@@ -1,0 +1,7 @@
+# LAREX_ACTION_SDK_PATH must point to a checkout of larex-action-sdk.
+services:
+  mock-action-processor:
+    build:
+      dockerfile: Dockerfile.sdk-dev
+      additional_contexts:
+        action_sdk: ${LAREX_ACTION_SDK_PATH:?Set LAREX_ACTION_SDK_PATH to the SDK checkout}

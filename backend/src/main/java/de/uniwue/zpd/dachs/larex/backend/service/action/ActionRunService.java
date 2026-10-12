@@ -13,6 +13,8 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.Action
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionInputSnapshot;
+import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunPageResult;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunDismissal;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRunLogEvent;
@@ -415,7 +417,7 @@ public class ActionRunService {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         LinkedHashMap<String, ActionDto.ExecutableProcessorResponse> executable = new LinkedHashMap<>();
         assignmentRepository.findExecutableAssignments(workspaceId, projectId).stream()
-                .filter(assignment -> assignment.getProcessorDefinition().getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING)
+                .filter(assignment -> isProjectKind(assignment.getProcessorDefinition()))
                 .filter(assignment -> target == null || definitionService.readTargetTypes(assignment.getProcessorDefinition()).contains(target))
                 .filter(assignment -> activationService.isEligible(assignment.getProcessorDefinition(), workspaceId))
                 .sorted(Comparator.comparing((ActionProcessorAssignment assignment) -> projectId.equals(assignment.getProjectId()) ? 1 : 0)
@@ -484,8 +486,64 @@ public class ActionRunService {
     }
 
     @Transactional(readOnly = true)
+    public ActionDto.TrainingInputResponse listIntegrationInputs(String workspaceId, String datasetId, String userId) {
+        return trainingSnapshotService.listInputs(workspaceId, datasetId, userId);
+    }
+
+    @Transactional(readOnly = true)
     public ActionDto.TrainingInputResponse listEvaluationInputs(String workspaceId, String datasetId, String userId) {
         return trainingSnapshotService.listEvaluationInputs(workspaceId, datasetId, userId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ActionDto.StartRunResponse startIntegrationRun(String workspaceId,
+                                                       String datasetId,
+                                                       ActionDto.StartTrainingRunRequest request,
+                                                       String userId,
+                                                       String publicApiBaseUrl) throws IOException {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        Dataset dataset = datasetRepository.findByIdAndWorkspaceId(datasetId, workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("Dataset not found"));
+        definitionRepository.findByIdForUpdate(request.processorDefinitionId())
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        ActionProcessorDefinition definition = requireIntegrationDefinition(workspaceId, request.processorDefinitionId());
+        requireExecuteAccess(definition, workspaceId, userId);
+        ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, null);
+        boolean dispatchImmediately = concurrency.available();
+        if (!dispatchImmediately && !Boolean.TRUE.equals(request.enqueueIfBusy())) {
+            throw new ActionConcurrencyLimitException(concurrency.message());
+        }
+
+        ActionRun run = new ActionRun();
+        run.setKind(ActionRun.Kind.INTEGRATION);
+        run.setProcessorDefinition(definition);
+        run.setWorkspaceId(workspaceId);
+        run.setDatasetId(dataset.getId());
+        run.setDatasetLabel(dataset.getName());
+        run.setCreatedByUserId(userId);
+        run.setStatus(dispatchImmediately ? Status.PENDING : Status.QUEUED);
+        run.setStatusMessage(dispatchImmediately ? "Freezing integration inputs" : "Freezing integration inputs before queueing");
+        run.setLockMode(LockMode.NONE);
+        run.setPageIdsJson("[]");
+        run.setParametersJson(payloadService.writeJson(resolveRunParameters(definition, request.parameters(), null)));
+        run.setPublicApiBaseUrl(publicApiBaseUrl);
+        String rawSecret = issueRunSecret(run);
+        run = runRepository.save(run);
+
+        ActionDto.InputRequirements requirements = resolvedInputRequirements(definitionService.readInputRequirements(definition), ActionTarget.PAGE);
+        run.setInputRequirementsJson(payloadService.writeJson(requirements));
+        trainingSnapshotService.createDatasetIntegrationSnapshot(run, dataset, request, requirements);
+        run.setStatusMessage(dispatchImmediately ? "Created" : "Queued; waiting for an available slot");
+        ActionRun saved = runRepository.save(run);
+        actionAuditService.record("ACTION_INTEGRATION_RUN_START", "SUCCESS", userId, definition.getId(), saved.getId(),
+                workspaceId, null, Map.of("datasetId", datasetId, "inputCount", saved.getInputCount(), "queued", !dispatchImmediately));
+        publishActionRunUpdatedAfterCommit(saved);
+        if (dispatchImmediately) {
+            dispatchAfterCommit(saved.getId(), rawSecret, publicApiBaseUrl);
+        } else {
+            dispatchQueuedRunsAfterCommit();
+        }
+        return new ActionDto.StartRunResponse(responseMapper.toRunResponse(saved, null, userId));
     }
 
     public ActionDto.StartRunResponse startTrainingRun(String workspaceId,
@@ -607,6 +665,9 @@ public class ActionRunService {
                                                           String runId, String userId) {
         requireProject(workspaceId, projectId);
         ActionRun source = requireRun(workspaceId, projectId, runId);
+        if (source.getKind() == ActionRun.Kind.INTEGRATION) {
+            throw new IllegalArgumentException("Integration runs cannot be retried");
+        }
         if (source.getStatus() != Status.FAILED && source.getStatus() != Status.CANCELLED) {
             throw new IllegalStateException("Only failed or cancelled Action runs can be retried");
         }
@@ -626,8 +687,8 @@ public class ActionRunService {
         ActionProcessorDefinition definition = definitionRepository.findById(definitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         if (!definition.isEnabled()) throw new IllegalArgumentException("Action processor is disabled");
-        if (definition.getActionKind() != ActionProcessorDefinition.ActionKind.PROCESSING) {
-            throw new IllegalArgumentException("Only processing Actions have page overwrite previews");
+        if (!isProjectKind(definition)) {
+            throw new IllegalArgumentException("This Action cannot run on project pages");
         }
         requireAssigned(workspaceId, projectId, definitionId);
         requireExecuteAccess(definition, workspaceId, userId);
@@ -699,8 +760,8 @@ public class ActionRunService {
         if (!definition.isEnabled()) {
             throw new IllegalArgumentException("Action processor is disabled");
         }
-        if (definition.getActionKind() != ActionProcessorDefinition.ActionKind.PROCESSING) {
-            throw new IllegalArgumentException("Training Actions must be started from a dataset");
+        if (!isProjectKind(definition)) {
+            throw new IllegalArgumentException("This Action must be started from a dataset");
         }
         requireAssigned(workspaceId, projectId, definition.getId());
         requireExecuteAccess(definition, workspaceId, userId);
@@ -723,7 +784,7 @@ public class ActionRunService {
         if (!dispatchImmediately && !Boolean.TRUE.equals(request.enqueueIfBusy())) {
             throw new ActionConcurrencyLimitException(concurrency.message());
         }
-        if (dispatchImmediately) {
+        if (dispatchImmediately && definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING) {
             validateLocks(project, pages);
         }
         return createRun(
@@ -757,8 +818,8 @@ public class ActionRunService {
         if (!definition.isEnabled()) {
             throw new IllegalArgumentException("Action processor is disabled");
         }
-        if (definition.getActionKind() != ActionProcessorDefinition.ActionKind.PROCESSING) {
-            throw new IllegalArgumentException("Training Action parameters are discovered without a project");
+        if (!isProjectKind(definition)) {
+            throw new IllegalArgumentException("This Action requires dataset parameter discovery");
         }
         requireProject(workspaceId, projectId);
         requireAssigned(workspaceId, projectId, definitionId);
@@ -781,6 +842,7 @@ public class ActionRunService {
                                                  Map<String, ?> auditDetails,
                                                  boolean dispatchImmediately) {
         ActionRun run = new ActionRun();
+        run.setKind(ActionRun.Kind.valueOf(definition.getActionKind().name()));
         run.setProcessorDefinition(definition);
         run.setWorkspaceId(workspaceId);
         run.setProjectId(projectId);
@@ -794,9 +856,19 @@ public class ActionRunService {
         String rawSecret = issueRunSecret(run);
         run.setStatusMessage(initialStatusMessage);
         run = runRepository.save(run);
-        actionOutputService.createDraft(run, project);
+        if (run.getKind() == ActionRun.Kind.INTEGRATION) {
+            run.setInputRequirementsJson(payloadService.writeJson(resolvedInputRequirements(
+                    definitionService.readInputRequirements(definition), targetSelection.type())));
+            try {
+                trainingSnapshotService.createProjectIntegrationSnapshot(run, buildProjectMachineInput(run, publicApiBaseUrl).pages());
+            } catch (IOException error) {
+                throw new java.io.UncheckedIOException("Could not freeze Integration inputs", error);
+            }
+        } else {
+            actionOutputService.createDraft(run, project);
+        }
 
-        if (dispatchImmediately) {
+        if (dispatchImmediately && run.getKind() == ActionRun.Kind.PROCESSING) {
             applyLocks(project, pages, run);
         }
         ActionRun savedRun = runRepository.save(run);
@@ -1027,6 +1099,9 @@ public class ActionRunService {
         ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(definitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         ActionRun sourceRun = requireRun(workspaceId, projectId, runId);
+        if (sourceRun.getKind() == ActionRun.Kind.INTEGRATION) {
+            throw new IllegalArgumentException("Start a new Integration run to create a fresh snapshot");
+        }
         if (sourceRun.getStatus() != Status.FAILED && sourceRun.getStatus() != Status.CANCELLED) {
             throw new IllegalStateException("Only failed or cancelled Action runs can be retried");
         }
@@ -1264,6 +1339,9 @@ public class ActionRunService {
     public ActionDto.MachineInputResponse buildMachineInput(String runId, String authorizationHeader, String publicApiBaseUrl) {
         ActionRun run = authenticateRun(runId, authorizationHeader);
         ActionProcessorDefinition definition = run.getProcessorDefinition();
+        if (run.getKind() == ActionRun.Kind.INTEGRATION) {
+            return buildIntegrationMachineInput(run, publicApiBaseUrl);
+        }
         if (isDatasetAction(run)) {
             List<ActionDto.MachinePageInput> pages = trainingInputRepository.findByRunIdOrderByCreatedAsc(runId).stream()
                     .map(input -> new ActionDto.MachinePageInput(
@@ -1287,6 +1365,12 @@ public class ActionRunService {
                     new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of())),
                     null, new ActionDto.MachineCapabilities(false, false, run.getKind() == ActionRun.Kind.EVALUATION), run.isCancelRequested());
         }
+        return buildProjectMachineInput(run, publicApiBaseUrl);
+    }
+
+    private ActionDto.MachineInputResponse buildProjectMachineInput(ActionRun run, String publicApiBaseUrl) {
+        String runId = run.getId();
+        ActionProcessorDefinition definition = run.getProcessorDefinition();
         List<String> pageIds = payloadService.readPageIds(run);
         Map<String, Object> parameters = payloadService.readObjectMap(run.getParametersJson());
         ActionDto.ImageVariantSelection imageVariantSelection = payloadService.readImageVariantSelection(parameters);
@@ -1335,9 +1419,38 @@ public class ActionRunService {
         );
     }
 
+    private ActionDto.MachineInputResponse buildIntegrationMachineInput(ActionRun run, String baseUrl) {
+        Map<String, List<ActionInputSnapshot>> grouped = trainingSnapshotService.integrationInputs(run.getId()).stream()
+                .collect(Collectors.groupingBy(ActionInputSnapshot::getInputId, LinkedHashMap::new, Collectors.toList()));
+        List<ActionDto.MachinePageInput> pages = grouped.values().stream().map(files -> {
+            ActionInputSnapshot first = files.getFirst();
+            return new ActionDto.MachinePageInput(first.getInputId(), first.getPageName(), first.getSourcePageId(),
+                    first.getSplit() == null ? null : DatasetItem.Split.valueOf(first.getSplit()),
+                    integrationMachineFiles(files, "images", baseUrl, run.getId()),
+                    integrationMachineFiles(files, "xml", baseUrl, run.getId()));
+        }).toList();
+        return new ActionDto.MachineInputResponse(ACTION_PROTOCOL_VERSION, run.getId(), run.getProcessorDefinition().getProcessorKey(),
+                run.getKind(), run.getProjectId(), run.getDatasetId(),
+                payloadService.processorParameters(payloadService.readObjectMap(run.getParametersJson())), pages,
+                isDatasetAction(run) ? null : buildMachineTargetSelection(run, pages.stream().map(ActionDto.MachinePageInput::id).collect(Collectors.toSet())),
+                payloadService.readSnapshotInputRequirements(run),
+                null, new ActionDto.MachineCapabilities(false, false, false), run.isCancelRequested());
+    }
+
+    private List<ActionDto.MachinePageFile> integrationMachineFiles(List<ActionInputSnapshot> files, String type,
+                                                                   String baseUrl, String runId) {
+        return files.stream().filter(file -> type.equals(file.getFileType())).map(file -> new ActionDto.MachinePageFile(
+                file.getId(), file.getFileName(), file.getVariant(), file.getMimeType(), file.getFileSize(),
+                machineFileUrl(baseUrl, runId, type, file.getId()))).toList();
+    }
+
     @Transactional(readOnly = true)
     public MachineFile resolveMachineFile(String runId, String authorizationHeader, String type, String fileId) {
         ActionRun run = authenticateRun(runId, authorizationHeader);
+        if (run.getKind() == ActionRun.Kind.INTEGRATION) {
+            ActionInputSnapshot file = trainingSnapshotService.integrationFile(runId, type, fileId);
+            return new MachineFile(file.getSnapshotPath(), file.getFileName(), file.getMimeType());
+        }
         if (isDatasetAction(run)) {
             ActionTrainingInput input = trainingInputRepository.findById(fileId)
                     .filter(value -> value.getRun() != null && runId.equals(value.getRun().getId()))
@@ -1424,14 +1537,14 @@ public class ActionRunService {
             run.setCompletedAt(LocalDateTime.now());
             expireRunSecret(run);
             releaseLocks(run);
-            if (!isDatasetAction(run)) {
+            if (run.getKind() == ActionRun.Kind.PROCESSING) {
                 actionOutputService.discardDraft(run.getId());
             }
             actionAuditService.record("ACTION_RUN_HEARTBEAT_FAILED", "FAILURE", run.getCreatedByUserId(),
                     run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                     Map.of("error", limit(Objects.toString(redactProcessorSecrets(request.errorMessage()), ""), 1000)));
         }
-        if (isDatasetAction(run) && !terminalStatuses().contains(run.getStatus())) {
+        if ((isDatasetAction(run) || run.getKind() == ActionRun.Kind.INTEGRATION) && !terminalStatuses().contains(run.getStatus())) {
             run.setSecretExpiresAt(LocalDateTime.now().plusMinutes(definitionService.defaultTokenTtlMinutes()));
         }
         runRepository.save(run);
@@ -1473,12 +1586,15 @@ public class ActionRunService {
             throw new IllegalArgumentException("Unsupported Action result status: " + manifest.status());
         }
 
-        if (run.getKind() == ActionRun.Kind.TRAINING || run.getKind() == ActionRun.Kind.EVALUATION) {
+        if (run.getKind() != ActionRun.Kind.PROCESSING) {
+            if (run.getKind() == ActionRun.Kind.INTEGRATION && manifest.pageId() != null) {
+                throw new IllegalArgumentException("Integration completion applies to the whole run, not an individual page");
+            }
             if ("running".equals(resultStatus)) {
-                throw new IllegalArgumentException("Dataset Action progress must be reported through heartbeats");
+                throw new IllegalArgumentException("Status-only Action progress must be reported through heartbeats");
             }
             if (!resultFiles.isEmpty() || !resultPatches.isEmpty() || hasResultFileParts(files)) {
-                throw new IllegalArgumentException("Dataset Actions cannot upload result files");
+                throw new IllegalArgumentException("This Action kind cannot upload result files");
             }
             if (run.getKind() == ActionRun.Kind.EVALUATION) {
                 if ("completed".equals(resultStatus) && manifest.evaluationReport() == null) {
@@ -1489,7 +1605,7 @@ public class ActionRunService {
                     run.setResultSummaryJson(payloadService.writeJson(manifest.evaluationReport()));
                 }
             } else if (manifest.evaluationReport() != null) {
-                throw new IllegalArgumentException("Training Actions must not return evaluationReport");
+                throw new IllegalArgumentException("This Action kind must not return evaluationReport");
             }
             return finalizeResultRun(run, "failed".equals(resultStatus) ? Status.FAILED : Status.COMPLETED,
                     manifest.message(), 0);
@@ -1870,7 +1986,7 @@ public class ActionRunService {
         }
         run.setProgressPercent(status == Status.COMPLETED ? 100 : run.getProgressPercent());
         run.setCompletedAt(LocalDateTime.now());
-        if (!isDatasetAction(run)) {
+        if (run.getKind() == ActionRun.Kind.PROCESSING) {
             if (status == Status.COMPLETED) {
                 actionOutputService.finalizeDraft(run.getId(), run.getCompletedAt());
             } else {
@@ -2242,12 +2358,12 @@ public class ActionRunService {
                 return;
             }
 
-            Project project = isDatasetAction(run)
+            Project project = isDatasetAction(run) || run.getKind() == ActionRun.Kind.INTEGRATION
                     ? null : requireProjectForUpdate(run.getWorkspaceId(), run.getProjectId());
-            List<Page> pages = isDatasetAction(run)
+            List<Page> pages = isDatasetAction(run) || run.getKind() == ActionRun.Kind.INTEGRATION
                     ? List.of() : resolveRunPagesForUpdate(run.getProjectId(), payloadService.readPageIds(run));
             ConcurrencyDecision concurrency = evaluateConcurrency(definition, run.getWorkspaceId(), run.getProjectId());
-            if (!concurrency.available() || (!isDatasetAction(run) && hasBlockingLocks(project, pages))) {
+            if (!concurrency.available() || (run.getKind() == ActionRun.Kind.PROCESSING && hasBlockingLocks(project, pages))) {
                 return;
             }
             if (run.getPublicApiBaseUrl() == null || run.getPublicApiBaseUrl().isBlank()) {
@@ -2256,7 +2372,7 @@ public class ActionRunService {
                 run.setErrorMessage("Queued Action run is missing its public API base URL");
                 run.setCompletedAt(LocalDateTime.now());
                 expireRunSecret(run);
-                if (!isDatasetAction(run)) {
+                if (run.getKind() == ActionRun.Kind.PROCESSING) {
                     actionOutputService.discardDraft(run.getId());
                 }
                 releaseLocks(run);
@@ -2271,7 +2387,7 @@ public class ActionRunService {
             String rawSecret = issueRunSecret(run);
             run.setStatus(Status.PENDING);
             run.setStatusMessage("Created");
-            if (!isDatasetAction(run)) {
+            if (run.getKind() == ActionRun.Kind.PROCESSING) {
                 applyLocks(project, pages, run);
             }
             ActionRun savedRun = runRepository.saveAndFlush(run);
@@ -2295,7 +2411,7 @@ public class ActionRunService {
         run.setCompletedAt(LocalDateTime.now());
         expireRunSecret(run);
         releaseLocks(run);
-        if (!isDatasetAction(run)) {
+        if (run.getKind() == ActionRun.Kind.PROCESSING) {
             actionOutputService.discardDraft(run.getId());
         }
         runRepository.save(run);
@@ -2381,7 +2497,8 @@ public class ActionRunService {
         ActionDto.ImageVariantSelection imageVariantSelection = datasetAction ? null : payloadService.readImageVariantSelection(runParameters);
         ActionTarget target = datasetAction ? null : payloadService.readTargetSelection(run).type();
         ActionDto.InputRequirements inputRequirements = datasetAction ? null : definitionService.readInputRequirements(definition);
-        List<String> processorPageIds = datasetAction ? List.of() : processorPageIds(run, definition, imageVariantSelection, target);
+        List<String> processorPageIds = datasetAction ? List.of() : run.getKind() == ActionRun.Kind.INTEGRATION
+                ? payloadService.readPageIds(run) : processorPageIds(run, definition, imageVariantSelection, target);
         Set<String> processorPageIdSet = new LinkedHashSet<>(processorPageIds);
         if (attempt > 1 && run.getStatus() == Status.DISPATCHING) {
             run.setStatusMessage("Dispatching (attempt " + attempt + "/" + attempts + ")");
@@ -2398,18 +2515,21 @@ public class ActionRunService {
         payload.put("projectId", run.getProjectId());
         payload.put("datasetId", run.getDatasetId());
         payload.put("pageIds", processorPageIds);
-        payload.put("datasetItemIds", trainingInputRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
-                .map(ActionTrainingInput::getDatasetItemId).toList());
+        payload.put("datasetItemIds", run.getKind() == ActionRun.Kind.INTEGRATION
+                ? (datasetAction ? trainingSnapshotService.integrationInputs(run.getId()).stream().map(ActionInputSnapshot::getInputId).distinct().toList() : List.of())
+                : trainingInputRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream().map(ActionTrainingInput::getDatasetItemId).toList());
         payload.put("targetSelection", datasetAction ? null : buildMachineTargetSelection(run, processorPageIdSet));
         payload.put("parameters", payloadService.processorParameters(runParameters));
-        payload.put("inputRequirements", datasetAction ? Map.of(
+        payload.put("inputRequirements", run.getKind() == ActionRun.Kind.INTEGRATION
+                ? payloadService.readSnapshotInputRequirements(run)
+                : datasetAction ? Map.of(
                 "images", Map.of("level", "REQUIRED", "requiredForTargets", List.of()),
                 "xml", Map.of("level", "REQUIRED", "requiredForTargets", List.of())
         ) : resolvedInputRequirements(inputRequirements, target));
         payload.put("imageVariantSelection", imageVariantSelection);
         payload.put("capabilities", Map.of(
-                "incrementalPageResults", !datasetAction,
-                "customFileResults", !datasetAction,
+                "incrementalPageResults", run.getKind() == ActionRun.Kind.PROCESSING,
+                "customFileResults", run.getKind() == ActionRun.Kind.PROCESSING,
                 "evaluationReports", run.getKind() == ActionRun.Kind.EVALUATION));
         payload.put("secret", rawSecret);
         payload.put("pullUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/input");
@@ -2494,7 +2614,7 @@ public class ActionRunService {
         run.setCompletedAt(LocalDateTime.now());
         expireRunSecret(run);
         releaseLocks(run);
-        if (!isDatasetAction(run)) {
+        if (run.getKind() == ActionRun.Kind.PROCESSING) {
             actionOutputService.discardDraft(run.getId());
         }
         runRepository.save(run);
@@ -2544,7 +2664,7 @@ public class ActionRunService {
     }
 
     private void releaseLocks(ActionRun run) {
-        if (isDatasetAction(run)) {
+        if (isDatasetAction(run) || run.getKind() == ActionRun.Kind.INTEGRATION) {
             trainingSnapshotService.cleanupSnapshot(run);
             return;
         }
@@ -2735,8 +2855,50 @@ public class ActionRunService {
         return definition;
     }
 
+    private boolean isProjectKind(ActionProcessorDefinition definition) {
+        return definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING
+                || definition.getActionKind() == ActionProcessorDefinition.ActionKind.INTEGRATION;
+    }
+
+    private ActionProcessorDefinition requireIntegrationDefinition(String workspaceId, String definitionId) {
+        ActionProcessorDefinition definition = definitionRepository.findById(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (!definition.isEnabled() || definition.getActionKind() != ActionProcessorDefinition.ActionKind.INTEGRATION) {
+            throw new IllegalArgumentException("Integration Action processor not found");
+        }
+        requireTargetSupported(definition, ActionTarget.PAGE);
+        activationService.requireActivated(definition, workspaceId, null);
+        return definition;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.DefinitionResponse> listIntegrationProcessors(String workspaceId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        return activationService.listActivatedDefinitions(workspaceId, null).stream()
+                .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.INTEGRATION)
+                .filter(definition -> definitionService.readTargetTypes(definition).contains(ActionTarget.PAGE))
+                .filter(definition -> canExecute(definition, workspaceId, userId))
+                .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
+                .map(definitionService::toDefinitionResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.ParameterValuesResponse discoverIntegrationParameterValues(String workspaceId, String definitionId, String userId) {
+        ActionProcessorDefinition definition = requireIntegrationDefinition(workspaceId, definitionId);
+        requireExecuteAccess(definition, workspaceId, userId);
+        return definitionService.discoverParameterValues(definition);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.RunResponse> listIntegrationRuns(String workspaceId, String datasetId, String userId, int limit) {
+        trainingSnapshotService.listInputs(workspaceId, datasetId, userId);
+        return runRepository.findByWorkspaceIdAndDatasetIdAndKindOrderByCreatedDesc(
+                workspaceId, datasetId, ActionRun.Kind.INTEGRATION, PageRequest.of(0, runHistoryLimit(limit))).stream()
+                .map(run -> responseMapper.toRunResponse(run, null, userId)).toList();
+    }
+
     private boolean isDatasetAction(ActionRun run) {
-        return run.getKind() == ActionRun.Kind.TRAINING || run.getKind() == ActionRun.Kind.EVALUATION;
+        return run.getDatasetId() != null;
     }
 
     private Project requireProject(String workspaceId, String projectId) {
@@ -2814,7 +2976,7 @@ public class ActionRunService {
         run.setCompletedAt(LocalDateTime.now());
         expireRunSecret(run);
         releaseLocks(run);
-        if (!isDatasetAction(run)) {
+        if (run.getKind() == ActionRun.Kind.PROCESSING) {
             actionOutputService.discardDraft(run.getId());
         }
         runRepository.save(run);
@@ -2970,7 +3132,7 @@ public class ActionRunService {
                                                                        String userId) {
         boolean executable = true;
         String blockedReason = null;
-        if (project.isLocked()) {
+        if (project.isLocked() && definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING) {
             executable = false;
             blockedReason = project.getLockedReason() == null ? "Project is locked" : project.getLockedReason();
         } else if (definition.getExecuteRole() == ExecuteRole.CURATOR && !workspaceAccessService.canManageProjects(workspaceId, userId)) {
@@ -3223,7 +3385,7 @@ public class ActionRunService {
         run.setStatus(Status.CANCELLED);
         run.setStatusMessage(statusMessage == null || statusMessage.isBlank() ? "Cancelled" : statusMessage);
         run.setCompletedAt(LocalDateTime.now());
-        if (!isDatasetAction(run)) {
+        if (run.getKind() == ActionRun.Kind.PROCESSING) {
             actionOutputService.discardDraft(run.getId());
         }
         expireRunSecret(run);
@@ -3419,13 +3581,15 @@ public class ActionRunService {
                                           ActionDto.ImageVariantSelection imageVariantSelection) {
         ActionDto.InputRequirements requirements = definitionService.readInputRequirements(definition);
         boolean acceptsImages = requirements.images().accepts(target);
+        boolean integration = definition.getActionKind() == ActionProcessorDefinition.ActionKind.INTEGRATION;
         boolean checksImages = requirements.images().required(target)
                 || acceptsImages && imageVariantSelection != null;
-        Map<String, List<PageImage>> imagesByPage = checksImages
+        boolean loadImages = checksImages || integration && acceptsImages;
+        Map<String, List<PageImage>> imagesByPage = loadImages
                 ? pageImageRepository.findByPageIdIn(pageIds).stream()
                         .collect(Collectors.groupingBy(image -> image.getPage().getId()))
                 : Map.of();
-        Set<String> pagesWithXml = requirements.xml().required(target)
+        Set<String> pagesWithXml = requirements.xml().required(target) || integration && requirements.xml().accepts(target)
                 ? pageXmlRepository.findByPage_IdIn(pageIds).stream()
                         .map(xml -> xml.getPage().getId())
                         .collect(Collectors.toSet())
@@ -3438,6 +3602,8 @@ public class ActionRunService {
                         imageVariantSelection
                 ).isEmpty())
                 .filter(pageId -> !requirements.xml().required(target) || pagesWithXml.contains(pageId))
+                .filter(pageId -> !integration || pagesWithXml.contains(pageId)
+                        || acceptsImages && !selectImagesForPage(pageId, imagesByPage.getOrDefault(pageId, List.of()), imageVariantSelection).isEmpty())
                 .toList();
     }
 

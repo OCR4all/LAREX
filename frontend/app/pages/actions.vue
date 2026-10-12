@@ -53,7 +53,8 @@ const error = computed(() => processingRequest.error.value || trainingRequest.er
 const actionKindMeta: Record<ActionKind, { label: string, icon: string }> = {
   PROCESSING: { label: 'Processing', icon: 'i-lucide-play' },
   TRAINING: { label: 'Training', icon: 'i-lucide-brain-circuit' },
-  EVALUATION: { label: 'Evaluation', icon: 'i-lucide-chart-no-axes-combined' }
+  EVALUATION: { label: 'Evaluation', icon: 'i-lucide-chart-no-axes-combined' },
+  INTEGRATION: { label: 'Integration', icon: 'i-lucide-plug' }
 }
 
 function actionKindDetails(kind?: ActionKind) {

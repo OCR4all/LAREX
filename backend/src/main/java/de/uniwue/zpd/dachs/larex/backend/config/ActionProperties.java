@@ -221,6 +221,7 @@ public class ActionProperties {
     public static class Dev {
         private DevProcessor mockProcessor = mockProcessorDefaults();
         private DevProcessor mockTrainingProcessor = mockTrainingProcessorDefaults();
+        private DevProcessor mockIntegrationProcessor = mockIntegrationProcessorDefaults();
         private DevProcessor krakenProcessor = krakenProcessorDefaults();
         private DevProcessor krakenTrainingProcessor = krakenTrainingProcessorDefaults();
 
@@ -230,6 +231,17 @@ public class ActionProperties {
 
         public void setMockProcessor(DevProcessor mockProcessor) {
             this.mockProcessor = mockProcessor == null ? mockProcessorDefaults() : mockProcessor;
+        }
+
+        public DevProcessor getMockIntegrationProcessor() { return mockIntegrationProcessor; }
+
+        public void setMockIntegrationProcessor(DevProcessor processor) {
+            this.mockIntegrationProcessor = processor == null ? mockIntegrationProcessorDefaults() : processor;
+        }
+
+        private static DevProcessor mockIntegrationProcessorDefaults() {
+            return new DevProcessor(true, "http://mock-action-processor:9000/integration/dispatch",
+                    "http://mock-action-processor:9000/integration/health", "http://mock-action-processor:9000/integration/preflight");
         }
 
         public DevProcessor getMockTrainingProcessor() {

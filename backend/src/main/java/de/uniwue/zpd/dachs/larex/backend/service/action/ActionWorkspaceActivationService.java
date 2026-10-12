@@ -36,7 +36,8 @@ public class ActionWorkspaceActivationService {
         if (!isEligible(definition, workspaceId)) {
             throw new SecurityException("Action is not available to this workspace");
         }
-        if (projectId != null && definition.getActionKind() != ActionProcessorDefinition.ActionKind.PROCESSING) {
+        if (projectId != null && definition.getActionKind() != ActionProcessorDefinition.ActionKind.PROCESSING
+                && definition.getActionKind() != ActionProcessorDefinition.ActionKind.INTEGRATION) {
             throw new IllegalArgumentException("Training and evaluation Actions must be enabled for the workspace");
         }
     }

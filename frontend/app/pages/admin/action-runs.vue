@@ -17,6 +17,7 @@ type AdminWorkspace = {
 const route = useRoute()
 const toast = useToast()
 const UBadgeComponent = resolveComponent('UBadge')
+const UIconComponent = resolveComponent('UIcon')
 const UButtonComponent = resolveComponent('UButton')
 const UDropdownMenuComponent = resolveComponent('UDropdownMenu')
 
@@ -163,7 +164,10 @@ const columns = computed<TableColumn<AdminActionRun>[]>(() => [
     id: 'action',
     header: 'Action',
     cell: ({ row }) => h('div', { class: 'min-w-0' }, [
-      h('div', { class: 'truncate font-medium' }, row.original.processorName),
+      h('div', { class: 'flex items-center gap-1 truncate font-medium' }, [
+        ...(row.original.kind === 'INTEGRATION' ? [h(UIconComponent, { 'name': 'i-lucide-plug', 'aria-label': 'Integration', 'class': 'shrink-0' })] : []),
+        row.original.processorName
+      ]),
       h('div', { class: 'truncate text-xs text-muted' }, row.original.processorKey)
     ])
   },

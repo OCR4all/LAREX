@@ -558,8 +558,8 @@ function saveScope() {
             :description="editError"
             color="error"
           />
-          <URadioGroup v-model="editScope" :items="scopeOptions" :disabled="editRow.processor.kind !== 'PROCESSING' || pendingIds.includes(editRow.id)" />
-          <p v-if="editRow.processor.kind !== 'PROCESSING'" class="text-sm text-muted">
+          <URadioGroup v-model="editScope" :items="scopeOptions" :disabled="!['PROCESSING', 'INTEGRATION'].includes(editRow.processor.kind) || pendingIds.includes(editRow.id)" />
+          <p v-if="!['PROCESSING', 'INTEGRATION'].includes(editRow.processor.kind)" class="text-sm text-muted">
             Training and evaluation Actions must be enabled for the entire workspace.
           </p>
           <UFormField v-if="editScope === 'PROJECTS'" label="Projects" required>

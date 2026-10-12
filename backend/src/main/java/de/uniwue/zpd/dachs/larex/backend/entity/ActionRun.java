@@ -31,7 +31,8 @@ public class ActionRun {
     public enum Kind {
         PROCESSING,
         TRAINING,
-        EVALUATION
+        EVALUATION,
+        INTEGRATION
     }
 
     public enum Status {
@@ -82,6 +83,12 @@ public class ActionRun {
 
     @Column(name = "snapshot_cleaned_at")
     private LocalDateTime snapshotCleanedAt;
+
+    @Column(name = "input_requirements_json", columnDefinition = "TEXT")
+    private String inputRequirementsJson;
+
+    public String getInputRequirementsJson() { return inputRequirementsJson; }
+    public void setInputRequirementsJson(String value) { this.inputRequirementsJson = value; }
 
     @Column(name = "dataset_input_fingerprint", length = 64)
     private String datasetInputFingerprint;

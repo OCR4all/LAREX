@@ -80,6 +80,10 @@ public class DevActionBootstrap implements ApplicationRunner {
                 )
         );
 
+        DevProcessor integration = actionProperties.getDev().getMockIntegrationProcessor();
+        upsertDevAction("mock-integration", integration.isEnabled(), mockIntegrationYaml(
+                integration.getEndpointUrl(), integration.getHealthUrl(), integration.getPreflightUrl()));
+
         DevProcessor mockTrainingProcessor = actionProperties.getDev().getMockTrainingProcessor();
         upsertDevAction(
                 MOCK_TRAINING_PROCESSOR_KEY,
@@ -232,6 +236,47 @@ public class DevActionBootstrap implements ApplicationRunner {
                 concurrency:
                   maxActiveRuns: 1
                   scope: PROJECT
+                """.formatted(endpointUrl, healthUrl, preflightUrl);
+    }
+
+    private String mockIntegrationYaml(String endpointUrl, String healthUrl, String preflightUrl) {
+        return """
+                version: 1
+                id: mock-integration
+                name: Mock Integration
+                description: Downloads frozen inputs and simulates external work with status feedback.
+                kind: INTEGRATION
+                tags: [integration, export]
+                targets: [PAGE, REGION, TEXT_LINE]
+                endpoint:
+                  url: %s
+                  healthUrl: %s
+                  preflightUrl: %s
+                  auth:
+                    type: hmac
+                    secretRef: mock-processor-v1
+                access:
+                  execute: CURATOR
+                locking:
+                  mode: NONE
+                inputs:
+                  images:
+                    level: optional
+                  xml:
+                    level: optional
+                    requiredForTargets: [REGION, TEXT_LINE]
+                concurrency:
+                  maxActiveRuns: 2
+                  scope: WORKSPACE
+                parameters:
+                  delaySeconds:
+                    type: number
+                    default: 5
+                    min: 0
+                    max: 30
+                  simulateFailure:
+                    type: boolean
+                    default: false
                 """.formatted(endpointUrl, healthUrl, preflightUrl);
     }
 

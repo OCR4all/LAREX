@@ -3,6 +3,8 @@ package de.uniwue.zpd.dachs.larex.backend.service.action;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.InputLevel;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionInputSnapshot;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionInputSnapshotRepository;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionTrainingInput;
 import de.uniwue.zpd.dachs.larex.backend.entity.Dataset;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
@@ -22,6 +24,8 @@ import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,6 +49,7 @@ import java.util.Set;
 @Transactional
 public class ActionTrainingSnapshotService {
 
+    private final ActionInputSnapshotRepository snapshotRepository;
     private final DatasetRepository datasetRepository;
     private final DatasetItemRepository datasetItemRepository;
     private final PageRepository pageRepository;
@@ -65,7 +70,9 @@ public class ActionTrainingSnapshotService {
                                          WorkspaceAccessService workspaceAccessService,
                                          UploadPathService uploadPathService,
                                          WorkspaceQuotaGuardService workspaceQuotaGuardService,
-                                         WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
+                                         WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
+                                         ActionInputSnapshotRepository snapshotRepository) {
+        this.snapshotRepository = snapshotRepository;
         this.datasetRepository = datasetRepository;
         this.datasetItemRepository = datasetItemRepository;
         this.pageRepository = pageRepository;
@@ -177,13 +184,158 @@ public class ActionTrainingSnapshotService {
     }
 
     public void cleanupSnapshot(ActionRun run) {
-        if (!isDatasetAction(run) || run.getSnapshotCleanedAt() != null) {
+        if ((!isDatasetAction(run) && run.getKind() != ActionRun.Kind.INTEGRATION) || run.getSnapshotCleanedAt() != null) {
             return;
         }
         deleteTree(snapshotRoot(run));
         run.setSnapshotCleanedAt(LocalDateTime.now());
         workspaceQuotaRefreshService.scheduleUsageRefresh(run.getWorkspaceId());
     }
+
+    @Transactional(readOnly = true)
+    public List<ActionInputSnapshot> integrationInputs(String runId) {
+        return snapshotRepository.findByRunIdOrderByPositionAsc(runId);
+    }
+
+    @Transactional(readOnly = true)
+    public ActionInputSnapshot integrationFile(String runId, String type, String fileId) {
+        return snapshotRepository.findById(fileId)
+                .filter(file -> runId.equals(file.getRun().getId()) && type.equals(file.getFileType()))
+                .orElseThrow(() -> new IllegalArgumentException("Snapshot file is outside this run scope"));
+    }
+
+    public void createProjectIntegrationSnapshot(ActionRun run, List<ActionDto.MachinePageInput> pages) throws IOException {
+        List<IntegrationMaterial> materials = new ArrayList<>();
+        for (ActionDto.MachinePageInput page : pages) {
+            List<ResolvedFile> images = page.images().stream().map(file -> resolved(pageImageRepository.findById(file.id())
+                    .orElseThrow(() -> new IllegalArgumentException("Image is no longer available")))).toList();
+            ResolvedFile xml = page.xml().isEmpty() ? null : resolved(pageXmlRepository.findById(page.xml().getFirst().id())
+                    .orElseThrow(() -> new IllegalArgumentException("XML is no longer available")));
+            materials.add(new IntegrationMaterial(page.id(), page.name(), page.sourcePageId(), null, images, xml));
+        }
+        freezeIntegration(run, materials);
+    }
+
+    public void createDatasetIntegrationSnapshot(ActionRun run, Dataset dataset,
+                                                  ActionDto.StartTrainingRunRequest request,
+                                                  ActionDto.InputRequirements requirements) throws IOException {
+        ActionDto.TrainingSplitRequirements splits = new ActionDto.TrainingSplitRequirements(
+                InputLevel.OPTIONAL, InputLevel.OPTIONAL, InputLevel.OPTIONAL);
+        List<DatasetItem> items = selectItems(datasetItemRepository.findByDatasetIdOrderByCreatedAsc(dataset.getId()),
+                request.selection(), splits);
+        List<IntegrationMaterial> materials = new ArrayList<>();
+        boolean explicit = request.selection() != null && "SELECTED".equalsIgnoreCase(request.selection().mode());
+        for (DatasetItem item : items) {
+            if (item.getStatus() != DatasetItem.Status.READY) {
+                throw new IllegalArgumentException("Dataset item is not ready: " + item.getSourcePageName());
+            }
+            List<ResolvedFile> images = new ArrayList<>();
+            ResolvedFile xml = null;
+            if (item.getMode() == DatasetItem.Mode.COPY) {
+                for (DatasetItemCopyFile file : item.getCopyFiles()) {
+                    if (file.getKind() == DatasetItemCopyFile.Kind.IMAGE && item.getSelectedSourceImageIds().contains(file.getSourceFileId())) {
+                        images.add(resolved(file));
+                    } else if (file.getKind() == DatasetItemCopyFile.Kind.XML && Objects.equals(item.getSelectedSourceXmlId(), file.getSourceFileId())) {
+                        xml = resolved(file);
+                    }
+                }
+            } else {
+                Page page = pageRepository.findById(item.getSourcePageId()).orElseThrow(() -> new IllegalArgumentException("Source page is missing"));
+                if (page.getProject() == null || page.getProject().getLibrary() == null
+                        || !run.getWorkspaceId().equals(page.getProject().getLibrary().getWorkspaceId())) {
+                    throw new SecurityException("Source page is outside the dataset workspace");
+                }
+                images.addAll(pageImageRepository.findByPageId(page.getId()).stream()
+                        .filter(file -> item.getSelectedSourceImageIds().contains(file.getId())).map(this::resolved).toList());
+                if (item.getSelectedSourceXmlId() != null) {
+                    xml = pageXmlRepository.findById(item.getSelectedSourceXmlId())
+                            .filter(file -> file.getPage() != null && page.getId().equals(file.getPage().getId()))
+                            .map(this::resolved).orElse(null);
+                }
+            }
+            images = images.stream().filter(file -> Files.isRegularFile(file.path())).toList();
+            if (xml != null && !Files.isRegularFile(xml.path())) xml = null;
+            if (!requirements.images().accepts(de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget.PAGE)) {
+                images = List.of();
+            } else if (!images.isEmpty() || request.imageSelection() != null
+                    && request.imageSelection().itemImageIds() != null && request.imageSelection().itemImageIds().containsKey(item.getId())) {
+                images = List.of(selectImage(item, images, request.imageSelection()));
+            }
+            if (!requirements.xml().accepts(de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget.PAGE)) xml = null;
+            boolean compatible = !(requirements.images().required(de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget.PAGE) && images.isEmpty())
+                    && !(requirements.xml().required(de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget.PAGE) && xml == null)
+                    && (!images.isEmpty() || xml != null);
+            if (!compatible) {
+                if (explicit) throw new IllegalArgumentException("Dataset item does not satisfy required inputs: " + item.getSourcePageName());
+                continue;
+            }
+            materials.add(new IntegrationMaterial(item.getId(), item.getSourcePageName(), item.getSourcePageId(), item.getAssignedSplit(), images, xml));
+        }
+        freezeIntegration(run, materials);
+    }
+
+    private void freezeIntegration(ActionRun run, List<IntegrationMaterial> materials) throws IOException {
+        if (materials.isEmpty()) throw new IllegalArgumentException("No inputs satisfy the Action requirements");
+        long bytes = 0;
+        for (IntegrationMaterial material : materials) {
+            if (material.images().isEmpty() && material.xml() == null) throw new IllegalArgumentException("Each input needs at least one file");
+            for (ResolvedFile file : material.images()) bytes += Files.size(file.path());
+            if (material.xml() != null) bytes += Files.size(material.xml().path());
+        }
+        String workspaceId = run.getWorkspaceId();
+        long reserved = workspaceQuotaGuardService.reserveBytesOrThrow(workspaceId, bytes, "action-integration-snapshot");
+        Path root = snapshotRoot(run);
+        try {
+            Files.createDirectories(root);
+            List<ActionInputSnapshot> rows = new ArrayList<>();
+            for (IntegrationMaterial material : materials) {
+                for (ResolvedFile image : material.images()) rows.add(freezeFile(run, root, material, image, "images", rows.size()));
+                if (material.xml() != null) rows.add(freezeFile(run, root, material, material.xml(), "xml", rows.size()));
+            }
+            snapshotRepository.saveAll(rows);
+            run.setInputCount(materials.size());
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reserved);
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCompletion(int status) {
+                        if (status != STATUS_COMMITTED) {
+                            deleteTree(root);
+                            workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
+                        }
+                    }
+                });
+            }
+        } catch (IOException | RuntimeException error) {
+            deleteTree(root);
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reserved);
+            throw error;
+        }
+    }
+
+    private ActionInputSnapshot freezeFile(ActionRun run, Path root, IntegrationMaterial material,
+                                           ResolvedFile file, String type, int position) throws IOException {
+        Path target = root.resolve(position + "-" + safeFileName(file.fileName()));
+        Files.copy(file.path(), target, StandardCopyOption.REPLACE_EXISTING);
+        ActionInputSnapshot row = new ActionInputSnapshot();
+        row.setRun(run);
+        row.setInputId(material.id());
+        row.setPageName(material.name());
+        row.setSourcePageId(material.sourcePageId());
+        row.setSplit(material.split() == null ? null : material.split().name());
+        row.setFileType(type);
+        row.setSourceFileId(file.id());
+        row.setFileName(file.fileName());
+        row.setVariant(file.variant());
+        row.setMimeType(Objects.toString(file.mimeType(), "application/octet-stream"));
+        row.setFileSize(Files.size(target));
+        row.setChecksumSha256(sha256(target));
+        row.setSnapshotPath(relativePath(target));
+        row.setPosition(position);
+        return row;
+    }
+
+    private record IntegrationMaterial(String id, String name, String sourcePageId, DatasetItem.Split split,
+                                       List<ResolvedFile> images, ResolvedFile xml) {}
 
     private List<DatasetItem> selectItems(List<DatasetItem> allItems,
                                           ActionDto.TrainingSelection selection,
@@ -233,6 +385,9 @@ public class ActionTrainingSnapshotService {
     }
 
     private InputLevel splitLevel(DatasetItem.Split split, ActionDto.TrainingSplitRequirements requirements) {
+        if (split == null) return requirements.train() == InputLevel.OPTIONAL
+                && requirements.val() == InputLevel.OPTIONAL && requirements.test() == InputLevel.OPTIONAL
+                ? InputLevel.OPTIONAL : InputLevel.NONE;
         return switch (split) {
             case TRAIN -> requirements.train();
             case VAL -> requirements.val();
@@ -343,7 +498,7 @@ public class ActionTrainingSnapshotService {
                 || !workspaceId.equals(page.getProject().getLibrary().getWorkspaceId())) {
             throw new IllegalArgumentException("Source page is unavailable");
         }
-        boolean xmlAvailable = pageXmlRepository.findById(item.getSelectedSourceXmlId())
+        boolean xmlAvailable = item.getSelectedSourceXmlId() != null && pageXmlRepository.findById(item.getSelectedSourceXmlId())
                 .filter(xml -> Files.isRegularFile(uploadPathService.resolve(xml.getFilePath())))
                 .isPresent();
         Set<String> selectedImageIds = new LinkedHashSet<>(item.getSelectedSourceImageIds());
@@ -376,7 +531,8 @@ public class ActionTrainingSnapshotService {
     }
 
     private Path snapshotRoot(ActionRun run) {
-        String scope = run.getKind() == ActionRun.Kind.EVALUATION ? "evaluation" : "training";
+        String scope = run.getKind() == ActionRun.Kind.INTEGRATION ? "integration"
+                : run.getKind() == ActionRun.Kind.EVALUATION ? "evaluation" : "training";
         return uploadPathService.resolve("actions", scope, safeSegment(run.getId()));
     }
 

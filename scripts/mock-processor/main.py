@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 from xml.etree import ElementTree
 
@@ -18,6 +19,7 @@ from larex_actions import (
 from larex_actions.fastapi import create_larex_action_app
 
 PROCESSING_PROCESSOR_ID = os.getenv("LAREX_PROCESSOR_ID", "mock-image-copy")
+INTEGRATION_PROCESSOR_ID = os.getenv("LAREX_INTEGRATION_PROCESSOR_ID", "mock-integration")
 TRAINING_PROCESSOR_ID = os.getenv("LAREX_TRAINING_PROCESSOR_ID", "mock-training")
 OCR_EVALUATION_PROCESSOR_ID = os.getenv(
     "LAREX_OCR_EVALUATION_PROCESSOR_ID", "mock-ocr-evaluation"
@@ -94,6 +96,50 @@ async def process_run(ctx: ActionContext) -> None:
             await ctx.submit_page_results(page.id, results, f"Copied {page.name}")
 
     await ctx.complete(message=result_message(image_count, xml_count, file_count))
+
+
+async def integration_run(ctx: ActionContext) -> None:
+    """Exercise external-work callbacks without producing LAREX artifacts."""
+    action_input = await ctx.pull_input()
+    if action_input.kind != "INTEGRATION":
+        raise ValueError("Mock integration requires INTEGRATION input")
+    delay = action_input.parameters.get("delaySeconds", 5)
+    if isinstance(delay, bool) or not isinstance(delay, (int, float)):
+        raise ValueError("delaySeconds must be a number")
+    if not math.isfinite(delay) or not 0 <= delay <= 30:
+        raise ValueError("delaySeconds must be between 0 and 30")
+    fail = action_input.parameters.get("simulateFailure", False)
+    if not isinstance(fail, bool):
+        raise ValueError("simulateFailure must be a boolean")
+    image_count = xml_count = 0
+    for index, page in enumerate(action_input.pages):
+        await ctx.check_cancelled()
+        for file in page.images:
+            if not await ctx.download_bytes(file):
+                raise ValueError(f"Empty image input for {page.name}")
+            image_count += 1
+        for file in page.xml:
+            if not await ctx.download_bytes(file):
+                raise ValueError(f"Empty XML input for {page.name}")
+            xml_count += 1
+        await ctx.heartbeat(
+            5 + int(45 * (index + 1) / len(action_input.pages)),
+            f"Received {index + 1}/{len(action_input.pages)} frozen inputs",
+            raise_on_cancel=True,
+        )
+    ticks = max(1, math.ceil(delay))
+    for index in range(ticks):
+        await ctx.check_cancelled()
+        await ctx.heartbeat(
+            50 + int(45 * (index + 1) / ticks), "Simulating external work", raise_on_cancel=True
+        )
+        await asyncio.sleep(delay / ticks)
+    if fail:
+        raise RuntimeError("Simulated integration failure")
+    await ctx.complete(message=(
+        f"Mock integration completed: {len(action_input.pages)} input(s), "
+        f"{image_count} image(s), {xml_count} XML file(s)."
+    ))
 
 
 async def train_run(ctx: ActionContext) -> None:
@@ -466,5 +512,16 @@ app.mount(
         handler=evaluate_layout_run,
         route_prefixes=("",),
         processor_capabilities={"evaluationReports": True},
+    ),
+)
+
+app.mount(
+    "/integration",
+    create_larex_action_app(
+        processor_id=INTEGRATION_PROCESSOR_ID,
+        dispatch_secret_env=DISPATCH_SECRET_ENV,
+        handler=integration_run,
+        route_prefixes=("",),
+        processor_capabilities={"incrementalPageResults": False, "customFileResults": False},
     ),
 )

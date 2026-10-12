@@ -88,6 +88,7 @@ import java.util.function.Consumer;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anySet;
@@ -489,6 +490,83 @@ class ActionRunServiceTest {
                                   ActionDto.StartRunRequest request) {}
 
     @Test
+    void projectIntegrationFreezesInputsWithoutChangingExistingLocks() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        Page includedPage = new Page("0015", null, project);
+        includedPage.setId("page-1");
+        Page skippedPage = new Page("0016", null, project);
+        skippedPage.setId("page-2");
+        PageImage selectedImage = new PageImage(
+                "0015.png", "images/0015.png", "image/png", 10L, "action-copy", "0015", includedPage);
+        selectedImage.setId("image-1");
+        ActionProcessorDefinition definition = definition("processor-image-scope");
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        ActionProcessorAssignment activation = new ActionProcessorAssignment();
+        activation.setProcessorDefinition(definition);
+        activation.setWorkspaceId(WORKSPACE_ID);
+        when(assignmentRepository.findExecutableAssignments(eq(WORKSPACE_ID), any()))
+                .thenReturn(List.of(activation));
+        definition.setAcceptsImages(true);
+        definition.setActionKind(ActionProcessorDefinition.ActionKind.INTEGRATION);
+        definition.setLockMode(LockMode.NONE);
+        project.setLocked(true);
+        includedPage.setLocked(true);
+        includedPage.setLockedByActionRunId("another-run");
+
+        when(definitionRepository.findByIdForUpdate(definition.getId())).thenReturn(Optional.of(definition));
+        when(definitionRepository.findById(definition.getId())).thenReturn(Optional.of(definition));
+        when(projectRepository.findByIdAndLibraryWorkspaceIdForUpdate(project.getId(), WORKSPACE_ID))
+                .thenReturn(Optional.of(project));
+        when(pageRepository.findByIdInAndProjectId(anyList(), eq(project.getId())))
+                .thenReturn(List.of(includedPage, skippedPage));
+        when(pageRepository.findByIdInAndProjectIdForUpdate(anyList(), eq(project.getId())))
+                .thenReturn(List.of(includedPage, skippedPage));
+        when(pageImageRepository.findByPageIdIn(anyList())).thenReturn(List.of(selectedImage));
+        when(definitionService.readTargetTypes(definition)).thenReturn(List.of(ActionTarget.PAGE));
+        when(definitionService.readParsedDocument(definition))
+                .thenReturn(parsedDefinition(definition.getProcessorKey(), "PROJECT", true));
+        when(definitionService.defaultTokenTtlMinutes()).thenReturn(30);
+        when(workspaceAccessService.canManageProjects(WORKSPACE_ID, OWNER_ID)).thenReturn(true);
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> {
+            ActionRun saved = invocation.getArgument(0);
+            if (saved.getId() == null) {
+                saved.setId("run-1");
+            }
+            return saved;
+        });
+
+        ActionDto.StartRunResponse response = service.startRun(
+                WORKSPACE_ID,
+                project.getId(),
+                new ActionDto.StartRunRequest(
+                        definition.getId(),
+                        List.of(includedPage.getId(), skippedPage.getId()),
+                        Map.of(),
+                        null,
+                        new ActionDto.ImageVariantSelection("GLOBAL", "action-copy", Map.of(), false),
+                        false
+                ),
+                OWNER_ID,
+                "http://app:8080/api/v1"
+        );
+
+        assertThat(response.run().createdByUserId()).isEqualTo(OWNER_ID);
+        assertThat(response.run().pageIds()).containsExactly(includedPage.getId());
+        assertThat(response.run().targetSelection().pages())
+                .extracting(ActionDto.TargetSelectionPage::pageId)
+                .containsExactly(includedPage.getId());
+        assertThat(response.run().kind()).isEqualTo(ActionRun.Kind.INTEGRATION);
+        verify(trainingSnapshotService).createProjectIntegrationSnapshot(any(ActionRun.class), argThat(inputs ->
+                inputs.size() == 1 && inputs.getFirst().images().getFirst().id().equals("image-1")));
+        verifyNoInteractions(actionOutputService);
+        verify(pageRepository, never()).saveAll(any());
+        assertThat(includedPage.getLockedByActionRunId()).isEqualTo("another-run");
+        assertThat(includedPage.isLocked()).isTrue();
+        assertThat(skippedPage.isLocked()).isFalse();
+    }
+
+    @Test
     void startRunRestrictsScopeToPagesWithSelectedImageVariant() {
         Project project = project("project-1", WORKSPACE_ID, "Project A");
         Page includedPage = new Page("0015", null, project);
@@ -552,6 +630,64 @@ class ActionRunServiceTest {
                 .containsExactly(includedPage.getId());
         assertThat(includedPage.isLocked()).isTrue();
         assertThat(skippedPage.isLocked()).isFalse();
+    }
+
+    @Test
+    void startIntegrationRunCreatesDatasetSnapshotWithoutDraftOrLocks() throws Exception {
+        Dataset dataset = new Dataset();
+        dataset.setId("dataset-1");
+        dataset.setWorkspaceId(WORKSPACE_ID);
+        dataset.setName("Layout training data");
+        ActionProcessorDefinition definition = definition("kraken-layout-training");
+        definition.setEnabled(true);
+        definition.setGlobalAvailable(true);
+        ActionProcessorAssignment activation = new ActionProcessorAssignment();
+        activation.setProcessorDefinition(definition);
+        activation.setWorkspaceId(WORKSPACE_ID);
+        when(assignmentRepository.findExecutableAssignments(eq(WORKSPACE_ID), any()))
+                .thenReturn(List.of(activation));
+        definition.setActionKind(ActionProcessorDefinition.ActionKind.INTEGRATION);
+        when(definitionRepository.findByIdForUpdate(definition.getId())).thenReturn(Optional.of(definition));
+        definition.setLockMode(LockMode.NONE);
+
+        when(datasetRepository.findByIdAndWorkspaceId(dataset.getId(), WORKSPACE_ID)).thenReturn(Optional.of(dataset));
+        when(definitionRepository.findById(definition.getId())).thenReturn(Optional.of(definition));
+        when(workspaceAccessService.canManageProjects(WORKSPACE_ID, CURATOR_ID)).thenReturn(true);
+        when(definitionService.readParsedDocument(definition))
+                .thenReturn(parsedDefinition(definition.getProcessorKey(), "WORKSPACE", false));
+        when(definitionService.readTargetTypes(definition)).thenReturn(List.of(ActionTarget.PAGE));
+        when(definitionService.readInputRequirements(definition)).thenReturn(new ActionDto.InputRequirements(
+                new ActionDto.InputRequirement(ActionDto.InputLevel.NONE, List.of()),
+                new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of())));
+        when(definitionService.defaultTokenTtlMinutes()).thenReturn(30);
+        org.mockito.Mockito.doAnswer(call -> { ((ActionRun) call.getArgument(0)).setInputCount(3); return null; })
+                .when(trainingSnapshotService).createDatasetIntegrationSnapshot(any(), eq(dataset), any(), any());
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> {
+            ActionRun saved = invocation.getArgument(0);
+            if (saved.getId() == null) saved.setId("training-run-1");
+            return saved;
+        });
+
+        ActionDto.StartRunResponse response = service.startIntegrationRun(
+                WORKSPACE_ID,
+                dataset.getId(),
+                new ActionDto.StartTrainingRunRequest(
+                        definition.getId(),
+                        new ActionDto.TrainingSelection("ALL", List.of()),
+                        new ActionDto.TrainingImageSelection("original", Map.of()),
+                        Map.of(),
+                        false),
+                CURATOR_ID,
+                "http://app:8080/api/v1");
+
+        assertThat(response.run().createdByUserId()).isEqualTo(CURATOR_ID);
+        assertThat(response.run().kind()).isEqualTo(ActionRun.Kind.INTEGRATION);
+        assertThat(response.run().projectId()).isNull();
+        assertThat(response.run().datasetId()).isEqualTo(dataset.getId());
+        assertThat(response.run().inputCount()).isEqualTo(3);
+        assertThat(response.run().lockMode()).isEqualTo(LockMode.NONE);
+        verify(actionOutputService, never()).createDraft(any(), any());
+        verify(pageRepository, never()).saveAll(any());
     }
 
     @Test
@@ -1225,6 +1361,107 @@ class ActionRunServiceTest {
 
         assertThat(response.status()).isEqualTo(ActionRun.Status.COMPLETED);
         assertThat(response.progressPercent()).isEqualTo(100);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void integrationCompletesWithFeedbackAndNoDraftOrLocks(boolean datasetScope) throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("integration");
+        definition.setActionKind(ActionProcessorDefinition.ActionKind.INTEGRATION);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.NONE, List.of("page-1"));
+        run.setKind(ActionRun.Kind.INTEGRATION);
+        if (datasetScope) { run.setProjectId(null); run.setDatasetId("dataset-1"); }
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        ActionDto.RunResponse response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", "Exported to external API", null, List.of(), List.of()), new LinkedMultiValueMap<>());
+        assertThat(response.status()).isEqualTo(ActionRun.Status.COMPLETED);
+        assertThat(response.statusMessage()).isEqualTo("Exported to external API");
+        assertThat(response.progressPercent()).isEqualTo(100);
+        verify(trainingSnapshotService).cleanupSnapshot(run);
+        verifyNoInteractions(actionOutputService);
+        verify(pageRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void integrationInputUsesOnlyFrozenMetadataEvenWhenDefinitionChanges() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("integration");
+        definition.setAcceptsXml(false);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.NONE, List.of("page-1"));
+        run.setKind(ActionRun.Kind.INTEGRATION);
+        run.setInputRequirementsJson("{\"images\":{\"level\":\"NONE\",\"requiredForTargets\":[]},\"xml\":{\"level\":\"REQUIRED\",\"requiredForTargets\":[]}}");
+        var file = new de.uniwue.zpd.dachs.larex.backend.entity.ActionInputSnapshot();
+        ReflectionTestUtils.setField(file, "id", "snapshot-1");
+        file.setRun(run); file.setInputId("page-1"); file.setSourcePageId("page-1"); file.setPageName("Original name");
+        file.setFileType("xml"); file.setFileName("page.xml"); file.setSnapshotPath("actions/integration/run/page.xml");
+        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(trainingSnapshotService.integrationInputs(run.getId())).thenReturn(List.of(file));
+        var input = service.buildMachineInput(run.getId(), "Bearer " + RUN_SECRET, "http://app");
+        assertThat(input.kind()).isEqualTo(ActionRun.Kind.INTEGRATION);
+        assertThat(input.pages().getFirst().name()).isEqualTo("Original name");
+        assertThat(input.pages().getFirst().xml().getFirst().downloadUrl()).contains("/files/xml/snapshot-1");
+        assertThat(input.inputRequirements().xml().level()).isEqualTo(ActionDto.InputLevel.REQUIRED);
+        assertThat(input.capabilities()).isEqualTo(new ActionDto.MachineCapabilities(false, false, false));
+        verifyNoInteractions(pageImageRepository, pageXmlRepository);
+    }
+
+    @Test
+    void integrationRejectsUploadsReportsAndIncrementalResults() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("integration");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.NONE, List.of("page-1"));
+        run.setKind(ActionRun.Kind.INTEGRATION);
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile> files = new LinkedMultiValueMap<>();
+        files.add("file", new MockMultipartFile("file", new byte[]{1}));
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(), List.of()), files))
+                .hasMessageContaining("cannot upload result files");
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "running", null, null, List.of(), List.of()), new LinkedMultiValueMap<>()))
+                .hasMessageContaining("heartbeats");
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(), List.of(), Map.of("title", "Report")), new LinkedMultiValueMap<>()))
+                .hasMessageContaining("must not return evaluationReport");
+    }
+
+    @Test
+    void integrationFailureReturnsFeedbackAndCleansSnapshot() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionRun run = run(definition("integration"), project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.NONE, List.of("page-1"));
+        run.setKind(ActionRun.Kind.INTEGRATION);
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        ActionDto.RunResponse response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "failed", "External API rejected the request", null, List.of(), List.of()), new LinkedMultiValueMap<>());
+        assertThat(response.status()).isEqualTo(ActionRun.Status.FAILED);
+        assertThat(response.errorMessage()).isEqualTo("External API rejected the request");
+        verify(trainingSnapshotService).cleanupSnapshot(run);
+        verifyNoInteractions(actionOutputService);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = ActionRun.Status.class,
+            names = {"DISPATCHING", "RUNNING", "CANCEL_REQUESTED"})
+    void integrationWatchdogCleansSnapshotsOnEveryTimeout(ActionRun.Status status) {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionRun run = run(definition("integration"), project, OWNER_ID, status, LockMode.NONE, List.of("page-1"));
+        run.setKind(ActionRun.Kind.INTEGRATION);
+        if (status == ActionRun.Status.DISPATCHING) {
+            when(runRepository.findByStatusInAndUpdatedBefore(anyCollection(), any())).thenReturn(List.of(run));
+        } else if (status == ActionRun.Status.RUNNING) {
+            when(runRepository.findByStatusInAndLastHeartbeatAtBefore(anyCollection(), any())).thenReturn(List.of(run));
+        } else {
+            when(runRepository.findByStatusInAndCancelRequestedAtBefore(anyCollection(), any())).thenReturn(List.of(run));
+        }
+        service.reconcileStaleRuns();
+        assertThat(run.getStatus()).isEqualTo(status == ActionRun.Status.CANCEL_REQUESTED
+                ? ActionRun.Status.CANCELLED : ActionRun.Status.FAILED);
+        verify(trainingSnapshotService).cleanupSnapshot(run);
+        verifyNoInteractions(actionOutputService);
+        verify(pageRepository, never()).saveAll(any());
     }
 
     @Test

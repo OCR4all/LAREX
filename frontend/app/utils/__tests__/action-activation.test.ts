@@ -31,9 +31,9 @@ describe('manual Action activation options', () => {
   })
 
   it('offers dataset Actions only for workspace-wide activation', () => {
-    const definitions = [definition('processing'), definition('training', true, 'TRAINING'), definition('evaluation', false, 'EVALUATION')]
+    const definitions = [definition('processing'), definition('training', true, 'TRAINING'), definition('evaluation', false, 'EVALUATION'), definition('integration', true, 'INTEGRATION')]
     expect(actionActivationOptions(definitions, [], null).map(option => option.value))
-      .toEqual(['processing', 'training', 'evaluation'])
-    expect(actionActivationOptions(definitions, [], 'project').map(option => option.value)).toEqual(['processing'])
+      .toEqual(['processing', 'training', 'evaluation', 'integration'])
+    expect(actionActivationOptions(definitions, [], 'project').map(option => option.value)).toEqual(['processing', 'integration'])
   })
 })

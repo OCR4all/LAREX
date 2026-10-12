@@ -1,6 +1,6 @@
 export type ActionExecuteRole = 'EDITOR' | 'CURATOR'
 export type ActionLockMode = 'NONE' | 'PAGES' | 'PROJECT'
-export type ActionKind = 'PROCESSING' | 'TRAINING' | 'EVALUATION'
+export type ActionKind = 'PROCESSING' | 'TRAINING' | 'EVALUATION' | 'INTEGRATION'
 export type ActionTarget = 'PAGE' | 'REGION' | 'TEXT_LINE'
 export type AnnotationLevel = 'REGIONS' | 'TEXT_LINES' | 'BASELINES' | 'TEXT' | 'WORDS' | 'GLYPHS' | 'READING_ORDER'
 export type ActionOverwriteDeclarations = Partial<Record<ActionTarget, AnnotationLevel[]>>
@@ -231,6 +231,13 @@ export interface TrainingInputResponse {
   datasetId: string
   datasetName: string
   items: TrainingInputItem[]
+}
+
+export type IntegrationInputItem = Omit<TrainingInputItem, 'split'> & { split: TrainingInputItem['split'] | null }
+export interface IntegrationInputResponse {
+  datasetId: string
+  datasetName: string
+  items: IntegrationInputItem[]
 }
 
 export interface StartActionRunResponse {

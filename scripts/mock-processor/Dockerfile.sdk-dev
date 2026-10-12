@@ -1,0 +1,10 @@
+FROM python:3.13-slim
+COPY --from=ghcr.io/astral-sh/uv:0.9.17 /uv /uvx /bin/
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY --from=action_sdk pyproject.toml README.md LICENSE /sdk/
+COPY --from=action_sdk src /sdk/src
+RUN uv pip install --system --no-cache "/sdk[fastapi]" "uvicorn[standard]==0.38.0"
+COPY main.py .
+EXPOSE 9000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000"]

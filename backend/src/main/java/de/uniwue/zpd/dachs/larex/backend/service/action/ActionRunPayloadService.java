@@ -92,6 +92,14 @@ public class ActionRunPayloadService {
         );
     }
 
+    public ActionDto.InputRequirements readSnapshotInputRequirements(ActionRun run) {
+        try {
+            return objectMapper.readValue(run.getInputRequirementsJson(), ActionDto.InputRequirements.class);
+        } catch (JacksonException | IllegalArgumentException error) {
+            throw new IllegalStateException("Integration snapshot input requirements are missing", error);
+        }
+    }
+
     public String writeJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);

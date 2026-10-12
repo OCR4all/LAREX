@@ -93,6 +93,49 @@ public class ActionProjectController {
         return ResponseEntity.ok(actionRunService.listExecutableProcessors(workspaceId, projectId, userId, target));
     }
 
+    @GetMapping("/integration/processors")
+    public ResponseEntity<List<ActionDto.DefinitionResponse>> listIntegrationProcessors(
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listIntegrationProcessors(workspaceId, userId));
+    }
+
+    @GetMapping("/integration/processors/{definitionId}/parameter-values")
+    public ResponseEntity<ActionDto.ParameterValuesResponse> discoverIntegrationParameterValues(
+            @PathVariable String workspaceId,
+            @PathVariable String definitionId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.discoverIntegrationParameterValues(workspaceId, definitionId, userId));
+    }
+
+    @GetMapping("/integration/datasets/{datasetId}/inputs")
+    public ResponseEntity<ActionDto.TrainingInputResponse> listIntegrationInputs(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listIntegrationInputs(workspaceId, datasetId, userId));
+    }
+
+    @PostMapping("/integration/datasets/{datasetId}/runs")
+    public ResponseEntity<ActionDto.StartRunResponse> startIntegrationRun(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @Valid @RequestBody ActionDto.StartTrainingRunRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId,
+            HttpServletRequest httpRequest) throws java.io.IOException {
+        return ResponseEntity.ok(actionRunService.startIntegrationRun(
+                workspaceId, datasetId, request, userId, publicBaseUrlService.publicApiBaseUrl(httpRequest)));
+    }
+
+    @GetMapping("/integration/datasets/{datasetId}/runs")
+    public ResponseEntity<List<ActionDto.RunResponse>> listIntegrationRuns(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @RequestParam(defaultValue = "200") int limit,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listIntegrationRuns(workspaceId, datasetId, userId, limit));
+    }
+
     @GetMapping("/training/processors")
     public ResponseEntity<List<ActionDto.DefinitionResponse>> listTrainingProcessors(
             @PathVariable String workspaceId,

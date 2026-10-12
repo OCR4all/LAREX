@@ -165,6 +165,7 @@ services:
       LAREX_DISPATCH_HMAC_SECRET: ${LAREX_ACTION_ENDPOINT_SECRET_MOCK_PROCESSOR_V1:-dev-mock-action-secret-change-me}
       LAREX_PROCESSOR_ID: mock-image-copy
       LAREX_TRAINING_PROCESSOR_ID: mock-training
+      LAREX_INTEGRATION_PROCESSOR_ID: mock-integration
       LAREX_OCR_EVALUATION_PROCESSOR_ID: mock-ocr-evaluation
       LAREX_LAYOUT_EVALUATION_PROCESSOR_ID: mock-layout-evaluation
       LAREX_OUTPUT_IMAGE_VARIANT: action-copy
