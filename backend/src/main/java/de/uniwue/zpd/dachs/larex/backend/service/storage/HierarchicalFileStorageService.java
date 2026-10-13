@@ -104,6 +104,14 @@ public class HierarchicalFileStorageService {
             StoredFileType fileType,
             String createdBy
     ) throws IOException {
+        return storeMultipartFile(file, workspaceId, projectId, null, fileType, createdBy);
+    }
+
+    @Transactional
+    public StoredFileDescriptor storeMultipartFile(MultipartFile file, String workspaceId, String projectId,
+                                                   String datasetId, StoredFileType fileType, String createdBy) throws IOException {
+        if ((projectId == null) == (datasetId == null)) throw new IllegalArgumentException("Exactly one storage owner is required");
+        if (datasetId != null && fileType != StoredFileType.OUTPUT) throw new IllegalArgumentException("Dataset storage accepts only output files");
         String sanitizedOriginalName = sanitizeOriginalFilename(file.getOriginalFilename());
         String mimeType = resolveMimeType(fileType, file.getContentType(), sanitizedOriginalName, null);
         String extension = fileType == StoredFileType.OUTPUT
@@ -111,24 +119,32 @@ public class HierarchicalFileStorageService {
                 : resolveExtension(fileType, mimeType);
 
         String storageUuid = generateStorageUuid();
-        String storagePath = buildStoragePath(workspaceId, projectId, fileType, storageUuid, extension);
+        String storagePath = datasetId == null ? buildStoragePath(workspaceId, projectId, fileType, storageUuid, extension)
+                : String.join("/", "ws", normalizeSegment(workspaceId), "ds", normalizeSegment(datasetId),
+                        fileType.getFolderName(), storageUuid.substring(0, 2), storageUuid.substring(2, 4), storageUuid + "." + extension);
         Path absolutePath = resolveUploadPath(storagePath);
 
-        Files.createDirectories(absolutePath.getParent());
-        file.transferTo(absolutePath.toFile());
+        try {
+            Files.createDirectories(absolutePath.getParent());
+            file.transferTo(absolutePath.toFile());
 
-        return persistStoredFile(
-                storageUuid,
-                workspaceId,
-                projectId,
-                fileType,
-                storagePath,
-                sanitizedOriginalName,
-                mimeType,
-                extension,
-                createdBy,
-                absolutePath
-        );
+            return persistStoredFile(
+                    storageUuid,
+                    workspaceId,
+                    projectId,
+                    datasetId,
+                    fileType,
+                    storagePath,
+                    sanitizedOriginalName,
+                    mimeType,
+                    extension,
+                    createdBy,
+                    absolutePath
+            );
+        } catch (IOException | RuntimeException error) {
+            try { Files.deleteIfExists(absolutePath); } catch (IOException cleanupError) { error.addSuppressed(cleanupError); }
+            throw error;
+        }
     }
 
     @Transactional
@@ -169,6 +185,7 @@ public class HierarchicalFileStorageService {
                     storageUuid,
                     workspaceId,
                     projectId,
+                    null,
                     fileType,
                     storagePath,
                     sanitizedOriginalName,
@@ -226,6 +243,7 @@ public class HierarchicalFileStorageService {
                 storageUuid,
                 workspaceId,
                 projectId,
+                null,
                 StoredFileType.IMG,
                 storagePath,
                 sanitizedOriginalName,
@@ -503,6 +521,7 @@ public class HierarchicalFileStorageService {
             String storageUuid,
             String workspaceId,
             String projectId,
+            String datasetId,
             StoredFileType fileType,
             String storagePath,
             String sanitizedOriginalName,
@@ -518,6 +537,7 @@ public class HierarchicalFileStorageService {
         storedFile.setUuid(storageUuid);
         storedFile.setWorkspaceId(workspaceId);
         storedFile.setProjectId(projectId);
+        storedFile.setDatasetId(datasetId);
         storedFile.setFileType(fileType);
         storedFile.setStoragePath(storagePath);
         storedFile.setOriginalFilename(sanitizedOriginalName);

@@ -1477,6 +1477,136 @@ class ActionRunServiceTest {
                         "http://app/public/actions/runs/" + run.getId() + "/files/images/scan");
     }
 
+    private ActionRun fileEvaluationRun() {
+        ActionRun run = run(definition("evaluation-files"), project("project", WORKSPACE_ID, "Project"),
+                OWNER_ID, ActionRun.Status.RUNNING, LockMode.NONE, List.of());
+        run.setKind(ActionRun.Kind.EVALUATION);
+        run.setProjectId(null);
+        run.setDatasetId("dataset");
+        run.setEvaluationOutputMode(ActionDto.EvaluationOutputMode.FILES);
+        return run;
+    }
+
+    @Test
+    void fileEvaluationUsesSnapshottedModeInMachineInput() {
+        ActionRun run = fileEvaluationRun();
+        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        var input = service.buildMachineInput(run.getId(), "Bearer " + RUN_SECRET, "http://app");
+        assertThat(input.evaluationOutputMode()).isEqualTo(ActionDto.EvaluationOutputMode.FILES);
+        assertThat(input.capabilities().customFileResults()).isTrue();
+        assertThat(input.capabilities().evaluationReports()).isFalse();
+    }
+
+    @Test
+    void fileEvaluationStoresMultipleOpaqueFilesAndTerminalReplayDoesNotDuplicateThem() throws Exception {
+        ActionRun run = fileEvaluationRun();
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(run)).thenReturn(run);
+        var first = new ActionDto.ResultFile("csv", null, "file", null, "metrics.csv");
+        var second = new ActionDto.ResultFile("pdf", null, "file", null, "report.pdf");
+        var files = new LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile>();
+        files.add("csv", new MockMultipartFile("csv", "metrics.csv", "text/csv", "score,1".getBytes()));
+        files.add("pdf", new MockMultipartFile("pdf", "report.pdf", "application/pdf", new byte[]{1, 2}));
+        files.add("manifest", new MockMultipartFile("manifest", "manifest.json", "application/json", "{}".getBytes()));
+        when(actionOutputService.storeResultFile(eq(run), any(), any())).thenReturn(Map.of("type", "file"));
+        var manifest = new ActionDto.ResultManifest(1, "completed", "Done", null, List.of(first, second), List.of());
+        assertThat(service.receiveResults(run.getId(), "Bearer " + RUN_SECRET, manifest, files).status())
+                .isEqualTo(ActionRun.Status.COMPLETED);
+        service.receiveResults(run.getId(), "Bearer " + RUN_SECRET, manifest, files);
+        verify(actionOutputService, times(2)).storeResultFile(eq(run), any(), any());
+        verify(actionOutputService).finalizeDraft(eq(run.getId()), any());
+        verify(pageRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void fileEvaluationRejectsInvalidUploadsBeforeStoringAnything() throws Exception {
+        ActionRun run = fileEvaluationRun();
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        var file = new ActionDto.ResultFile("file", null, "file", null, "results.bin");
+        var parts = new LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile>();
+        parts.add("file", new MockMultipartFile("file", new byte[]{1}));
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(), List.of()), parts))
+                .hasMessageContaining("at least one file");
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(file), List.of(), Map.of("title", "Report")), parts))
+                .hasMessageContaining("must not return evaluationReport");
+        var pageFile = new ActionDto.ResultFile("file", "page", "file", null, "results.bin");
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(pageFile), List.of()), parts))
+                .hasMessageContaining("run-level");
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(file), List.of()), new LinkedMultiValueMap<>()))
+                .isInstanceOf(IllegalArgumentException.class);
+        parts.add("extra", new MockMultipartFile("extra", new byte[]{2}));
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(file), List.of()), parts))
+                .hasMessageContaining("Unexpected");
+        parts.remove("extra"); parts.add("file", new MockMultipartFile("file", new byte[]{2}));
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(file), List.of()), parts))
+                .hasMessageContaining("duplicate");
+        verifyNoInteractions(actionOutputService);
+    }
+
+    @Test
+    void failedFileEvaluationNeedsNoFilesAndDiscardsDraft() throws Exception {
+        ActionRun run = fileEvaluationRun();
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(run)).thenReturn(run);
+        var result = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "failed", "Failed", null, List.of(), List.of()), new LinkedMultiValueMap<>());
+        assertThat(result.status()).isEqualTo(ActionRun.Status.FAILED);
+        verify(actionOutputService).discardDraft(run.getId());
+    }
+
+    @Test
+    void fileEvaluationsEnforceUploadLimitsBeforeStoring() {
+        ActionRun run = fileEvaluationRun();
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        var file = new ActionDto.ResultFile("file", null, "file", null, "report.bin");
+        var parts = new LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile>();
+        parts.add("file", new MockMultipartFile("file", new byte[]{1, 2}));
+        var manifest = new ActionDto.ResultManifest(1, "completed", null, null, List.of(file), List.of());
+        actionProperties.getResults().setMaxFileBytes(1);
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET, manifest, parts))
+                .hasMessageContaining("size limit");
+        actionProperties.getResults().setMaxFileBytes(10);
+        actionProperties.getResults().setMaxTotalBytes(1);
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET, manifest, parts))
+                .hasMessageContaining("total size limit");
+        actionProperties.getResults().setMaxTotalBytes(10);
+        actionProperties.getResults().setMaxFiles(0);
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET, manifest, parts))
+                .hasMessageContaining("Too many");
+        verifyNoInteractions(actionOutputService);
+    }
+
+    @Test
+    void cancelledFileEvaluationDiscardsDraftAndRejectsLateUploads() throws Exception {
+        ActionRun run = fileEvaluationRun();
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.HeartbeatRequest(50, "Cancelled", null, null, "cancelled", null));
+        verify(actionOutputService).discardDraft(run.getId());
+        assertThat(run.getStatus()).isEqualTo(ActionRun.Status.CANCELLED);
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(), List.of()), new LinkedMultiValueMap<>()))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    void fileEvaluationHasNoBaselinesAndCannotBeCompared() {
+        ActionRun run = fileEvaluationRun();
+        run.setStatus(ActionRun.Status.COMPLETED);
+        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        assertThat(service.listEvaluationBaselines(WORKSPACE_ID, run.getId(), OWNER_ID)).isEmpty();
+        assertThatThrownBy(() -> service.compareEvaluationRuns(WORKSPACE_ID, run.getId(), run.getId(), OWNER_ID))
+                .hasMessageContaining("not strictly compatible");
+        assertThatThrownBy(() -> service.getEvaluationReport(WORKSPACE_ID, run.getId(), OWNER_ID))
+                .hasMessageContaining("does not contain");
+    }
+
     @Test
     void integrationInputUsesOnlyFrozenMetadataEvenWhenDefinitionChanges() {
         Project project = project("project-1", WORKSPACE_ID, "Project A");

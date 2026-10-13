@@ -53,8 +53,14 @@ public class StoredFile {
     @Column(nullable = false, name = "workspace_id")
     private String workspaceId;
 
-    @Column(nullable = false, name = "project_id")
+    @Column(name = "project_id")
     private String projectId;
+
+    @Column(name = "dataset_id")
+    private String datasetId;
+
+    public String getDatasetId() { return datasetId; }
+    public void setDatasetId(String datasetId) { this.datasetId = datasetId; }
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, name = "file_type", length = 16)

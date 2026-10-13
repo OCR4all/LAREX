@@ -1,6 +1,7 @@
 <!-- eslint-disable @stylistic/max-statements-per-line -->
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
+import type { ActionOutputFile } from '@/types/action-output'
 import type { ActionRun, ActionRunDetail, EvaluationMetric, EvaluationReport } from '@/types/action'
 
 await useWorkspaceBootstrap()
@@ -22,7 +23,35 @@ const sampleSearch = ref('')
 const samplePage = ref(1)
 const samplePageSize = 25
 
-const report = computed<EvaluationReport | null>(() => (detail.value?.evaluationReport || detail.value?.resultSummary || null) as EvaluationReport | null)
+const fileMode = computed(() => detail.value?.evaluationOutputMode === 'FILES')
+const output = computed(() => detail.value?.evaluationOutput)
+const report = computed<EvaluationReport | null>(() => fileMode.value ? null : (detail.value?.evaluationReport || detail.value?.resultSummary || null) as EvaluationReport | null)
+const backgroundDownloads = useBackgroundDownloads()
+async function downloadFile(file: ActionOutputFile) {
+  const currentOutput = output.value
+  const currentRun = detail.value?.run
+  const currentWorkspaceId = workspaceId.value
+  if (!currentOutput || !currentRun?.datasetId || !currentWorkspaceId) return
+  const url = `/api/workspaces/${currentWorkspaceId}/datasets/${currentRun.datasetId}/outputs/${currentOutput.id}/files/${file.id}/download`
+  const target = await backgroundDownloads.prepareDownload(file.fileName)
+  if (!target) return
+  try {
+    await backgroundDownloads.runBackgroundJob({
+      title: 'Downloading evaluation result', subtitle: file.fileName, statusLabel: 'Downloading',
+      completedLabel: 'Downloaded', icon: 'i-lucide-download',
+      task: async (job) => {
+        const response = await fetch(url)
+        if (!response.ok) throw new Error(`Download failed (${response.status})`)
+        await backgroundDownloads.downloadBlobResponse(response, file.fileName, job, target)
+      }
+    })
+  } catch (error: unknown) {
+    toast.add({ title: 'Download failed', description: extractApiErrorMessage(error, 'Could not download evaluation result'), color: 'error' })
+  }
+}
+function fileSize(bytes: number) {
+  return bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 const baselineOptions = computed(() => baselines.value.map(run => ({ label: `${run.processorName} · ${new Date(run.created).toLocaleString()}`, value: run.id })))
 const reportTables = computed(() => report.value?.tables || [])
 const filteredSamples = computed(() => {
@@ -92,8 +121,8 @@ async function load() {
   loading.value = true
   try {
     detail.value = await $fetch<ActionRunDetail>(`/api/workspaces/${workspaceId.value}/actions/runs/${runId.value}`)
-    baselines.value = await $fetch<ActionRun[]>(`/api/workspaces/${workspaceId.value}/actions/evaluation/runs/${runId.value}/baselines`)
-  } catch (error: unknown) { toast.add({ title: 'Could not load evaluation report', description: error instanceof Error ? error.message : undefined, color: 'error' }) } finally { loading.value = false }
+    baselines.value = fileMode.value ? [] : await $fetch<ActionRun[]>(`/api/workspaces/${workspaceId.value}/actions/evaluation/runs/${runId.value}/baselines`)
+  } catch (error: unknown) { toast.add({ title: 'Could not load evaluation results', description: error instanceof Error ? error.message : undefined, color: 'error' }) } finally { loading.value = false }
 }
 async function compare() {
   if (!baselineId.value) { comparison.value = null; return }
@@ -106,7 +135,7 @@ watch([workspaceId, runId], load, { immediate: true })
 <template>
   <UDashboardPanel id="evaluation-detail">
     <template #header>
-      <UDashboardNavbar :title="detail?.run.processorName || 'Evaluation report'">
+      <UDashboardNavbar :title="detail?.run.processorName || 'Evaluation results'">
         <template #right>
           <UButton
             to="/evaluation"
@@ -128,8 +157,8 @@ watch([workspaceId, runId], load, { immediate: true })
             <p class="text-sm text-muted">
               {{ detail.run.datasetLabel || 'Dataset' }} · {{ detail.run.status }}
             </p><h1 class="text-2xl font-semibold">
-              {{ report?.title || 'Evaluation report' }}
-            </h1><p class="font-mono text-xs text-muted">
+              {{ report?.title || (fileMode ? 'Evaluation files' : 'Evaluation report') }}
+            </h1><p v-if="report" class="font-mono text-xs text-muted">
               {{ report?.profile }} v{{ report?.profileVersion }}
             </p>
           </div><div v-if="baselines.length" class="flex items-center gap-2">
@@ -154,8 +183,44 @@ watch([workspaceId, runId], load, { immediate: true })
             </li>
           </ul>
         </UAlert>
+        <UCard v-if="fileMode && output" variant="outline">
+          <template #header>
+            <h2 class="font-semibold">
+              Download evaluation results
+            </h2>
+            <p class="text-xs text-muted">
+              {{ output.expiresAt ? `Available until ${new Date(output.expiresAt).toLocaleString()}` : 'Kept indefinitely' }}
+            </p>
+          </template>
+          <ul class="divide-y divide-default">
+            <li v-for="file in output.files" :key="file.id" class="flex items-center justify-between gap-4 py-3">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium">
+                  {{ file.fileName }}
+                </p>
+                <p class="text-xs text-muted">
+                  {{ fileSize(file.sizeBytes) }} · {{ file.mimeType }}
+                </p>
+              </div>
+              <UButton
+                icon="i-lucide-download"
+                color="neutral"
+                variant="outline"
+                @click="downloadFile(file)"
+              >
+                Download
+              </UButton>
+            </li>
+          </ul>
+        </UCard>
         <UEmpty
-          v-if="!report"
+          v-else-if="fileMode"
+          icon="i-lucide-file-warning"
+          title="Evaluation files unavailable"
+          :description="detail.run.completedAt ? 'The files have expired, were removed, or this run returned no files.' : 'Files will be available after the evaluation completes.'"
+        />
+        <UEmpty
+          v-else-if="!report"
           icon="i-lucide-file-warning"
           title="No evaluation report"
           description="This run did not return a completed report."

@@ -39,8 +39,15 @@ public class ActionOutput {
     private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id", nullable = false)
+    @JoinColumn(name = "project_id")
     private Project project;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dataset_id")
+    private Dataset dataset;
+
+    public Dataset getDataset() { return dataset; }
+    public void setDataset(Dataset dataset) { this.dataset = dataset; }
 
     @Column(name = "workspace_id", nullable = false)
     private String workspaceId;

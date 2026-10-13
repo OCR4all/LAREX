@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.dataset;
 
+import de.uniwue.zpd.dachs.larex.backend.service.action.ActionOutputService;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -69,6 +70,7 @@ public class DatasetService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
+    private final ActionOutputService actionOutputService;
     private final DatasetRepository datasetRepository;
     private final DatasetItemRepository datasetItemRepository;
     private final DatasetItemCopyFileRepository datasetItemCopyFileRepository;
@@ -91,7 +93,8 @@ public class DatasetService {
     @Value("${larex.dataset-releases.share-public-base-url}")
     private String datasetReleaseSharePublicBaseUrl;
 
-    public DatasetService(DatasetRepository datasetRepository,
+    public DatasetService(ActionOutputService actionOutputService,
+                          DatasetRepository datasetRepository,
                           DatasetItemRepository datasetItemRepository,
                           DatasetItemCopyFileRepository datasetItemCopyFileRepository,
                           DatasetReleaseRepository datasetReleaseRepository,
@@ -106,6 +109,7 @@ public class DatasetService {
                           DatasetSplitService datasetSplitService,
                           DatasetPackageArchiveService datasetPackageArchiveService,
                           ObjectMapper objectMapper) {
+        this.actionOutputService = actionOutputService;
         this.datasetRepository = datasetRepository;
         this.datasetItemRepository = datasetItemRepository;
         this.datasetItemCopyFileRepository = datasetItemCopyFileRepository;
@@ -240,6 +244,7 @@ public class DatasetService {
     public void deleteDataset(String workspaceId, String datasetId, String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
         Dataset dataset = requireDataset(workspaceId, datasetId);
+        actionOutputService.deleteDatasetOutputs(datasetId);
         deleteDatasetFiles(dataset);
         datasetRepository.delete(dataset);
         workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
@@ -443,7 +448,8 @@ public class DatasetService {
                     request.trainPercentage() != null ? request.trainPercentage() : dataset.getTrainPercentage(),
                     request.valPercentage() != null ? request.valPercentage() : dataset.getValPercentage(),
                     request.testPercentage() != null ? request.testPercentage() : dataset.getTestPercentage(),
-                    request.stratifyTagIds() != null ? request.stratifyTagIds() : dataset.getStratifyTagIds()
+                    request.stratifyTagIds() != null ? request.stratifyTagIds() : dataset.getStratifyTagIds(),
+                    dataset.getOutputRetentionDays()
             );
             applyDatasetConfiguration(dataset, configRequest);
             datasetRepository.save(dataset);
@@ -1368,6 +1374,7 @@ public class DatasetService {
                 datasetReleaseRepository.findByDatasetIdOrderByVersionNumberDesc(dataset.getId()).stream()
                         .map(this::toReleaseSummaryResponse)
                         .toList(),
+                dataset.getOutputRetentionDays(),
                 capabilities
         );
     }
@@ -1499,6 +1506,7 @@ public class DatasetService {
         dataset.setName(request.name().trim());
         dataset.setDescription(request.description());
         dataset.setTags(normalizeStrings(request.tags()));
+        dataset.setOutputRetentionDays(request.outputRetentionDays());
         dataset.setSplitTemplate(request.splitTemplate() == null ? Dataset.SplitTemplate.TRAIN_VAL_TEST : request.splitTemplate());
         dataset.setSplitAlgorithm(request.splitAlgorithm() == null ? Dataset.SplitAlgorithm.RANDOM_SEEDED : request.splitAlgorithm());
         dataset.setSplitSeed(request.splitSeed() == null ? 42L : request.splitSeed());

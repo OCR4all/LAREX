@@ -60,6 +60,99 @@ class ActionOutputServiceAdminTest {
     @InjectMocks
     private ActionOutputService outputService;
 
+    private ActionOutput datasetOutput() {
+        ActionOutput output = output("workspace-1", 10, null);
+        output.setProject(null);
+        var dataset = new de.uniwue.zpd.dachs.larex.backend.entity.Dataset();
+        ReflectionTestUtils.setField(dataset, "id", "dataset-1");
+        dataset.setName("Dataset");
+        output.setDataset(dataset);
+        return output;
+    }
+
+    @Test
+    void datasetDownloadsEnforceWorkspaceDatasetFileAndExpiry() throws Exception {
+        var output = datasetOutput();
+        when(outputRepository.findById("output-1")).thenReturn(Optional.of(output));
+        assertThrows(de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException.class,
+                () -> outputService.prepareDatasetFileDownload("other", "dataset-1", "output-1", "file", "user"));
+        assertThrows(de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException.class,
+                () -> outputService.prepareDatasetFileDownload("workspace-1", "other", "output-1", "file", "user"));
+        assertThrows(de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException.class,
+                () -> outputService.prepareDatasetFileDownload("workspace-1", "dataset-1", "output-1", "missing", "user"));
+        output.setExpiresAt(LocalDateTime.now().minusDays(1));
+        assertThrows(de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException.class,
+                () -> outputService.prepareDatasetFileDownload("workspace-1", "dataset-1", "output-1", "file", "user"));
+        verifyNoInteractions(fileStorageService);
+    }
+
+    @Test
+    void datasetDownloadReturnsActualContentAndOriginalMetadata(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+        var output = datasetOutput();
+        var path = directory.resolve("result.bin");
+        java.nio.file.Files.write(path, new byte[]{0, 1, 2});
+        var storedFile = new de.uniwue.zpd.dachs.larex.backend.entity.StoredFile();
+        storedFile.setStoragePath("ws/workspace-1/ds/dataset-1/out/result.bin");
+        var file = new de.uniwue.zpd.dachs.larex.backend.entity.ActionOutputFile();
+        ReflectionTestUtils.setField(file, "id", "file-1");
+        file.setStoredFile(storedFile); file.setFileName("résultat.bin"); file.setMimeType("application/octet-stream"); file.setChecksumSha256("checksum");
+        output.getFiles().add(file);
+        when(outputRepository.findById("output-1")).thenReturn(Optional.of(output));
+        when(uploadPathService.resolve(storedFile.getStoragePath())).thenReturn(path);
+        var download = outputService.prepareDatasetFileDownload("workspace-1", "dataset-1", "output-1", "file-1", "user");
+        assertEquals("résultat.bin", download.fileName());
+        assertEquals(3, download.contentLength());
+        org.assertj.core.api.Assertions.assertThat(java.nio.file.Files.readAllBytes(download.absolutePath())).containsExactly(0, 1, 2);
+        verify(workspaceAccessService).requireWorkspaceAccess("workspace-1", "user");
+    }
+
+    @Test
+    void datasetDeletionUsesManagedFileCleanup() {
+        var output = datasetOutput();
+        when(outputRepository.findByDatasetId("dataset-1")).thenReturn(List.of(output));
+        outputService.deleteDatasetOutputs("dataset-1");
+        verify(outputRepository).delete(output);
+        verify(fileStorageService).deleteStoredFiles(List.of());
+    }
+
+    @Test
+    void datasetOutputsAppearInAdminListWithoutProject() {
+        var output = datasetOutput();
+        when(outputRepository.findByStatus(eq(ActionOutput.Status.READY), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(output)));
+        var response = outputService.listAdminOutputs(1, 25, "created", "desc").outputs().getFirst();
+        assertEquals("dataset-1", response.datasetId());
+        assertEquals("Dataset", response.datasetName());
+        org.assertj.core.api.Assertions.assertThat(response.projectId()).isNull();
+    }
+
+    @Test
+    void datasetRetentionIsSnapshottedAndExpiresFromCompletion() {
+        var dataset = new de.uniwue.zpd.dachs.larex.backend.entity.Dataset();
+        ReflectionTestUtils.setField(dataset, "id", "dataset-1");
+        dataset.setOutputRetentionDays(7);
+        var run = new de.uniwue.zpd.dachs.larex.backend.entity.ActionRun();
+        ReflectionTestUtils.setField(run, "id", "run-1");
+        run.setKind(de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Kind.EVALUATION);
+        run.setEvaluationOutputMode(de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.EvaluationOutputMode.FILES);
+        run.setWorkspaceId("workspace-1"); run.setCreatedByUserId("user");
+        var definition = new de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition();
+        definition.setId("definition"); definition.setName("Evaluation"); definition.setProcessorKey("evaluation");
+        run.setProcessorDefinition(definition);
+        outputService.createEvaluationDraft(run, dataset);
+        var captor = ArgumentCaptor.forClass(ActionOutput.class);
+        verify(outputRepository).saveAndFlush(captor.capture());
+        var draft = captor.getValue();
+        dataset.setOutputRetentionDays(30);
+        draft.setFileCount(1);
+        when(outputRepository.findBySourceRunId("run-1")).thenReturn(Optional.of(draft));
+        var completedAt = LocalDateTime.of(2026, 10, 13, 12, 0);
+        outputService.finalizeDraft("run-1", completedAt);
+        assertEquals(7, draft.getRetentionDays());
+        assertEquals(completedAt.plusDays(7), draft.getExpiresAt());
+        assertEquals(ActionOutput.Status.READY, draft.getStatus());
+    }
+
     @Test
     void listAdminOutputsUsesAllowListedSortAndPagination() {
         ActionOutput output = output("workspace-1", 2048, null);

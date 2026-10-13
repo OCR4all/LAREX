@@ -619,6 +619,7 @@ public class ActionRunService {
         }
         ActionRun run = new ActionRun();
         run.setKind(ActionRun.Kind.EVALUATION);
+        run.setEvaluationOutputMode(definitionService.readEvaluationDefinition(definition).outputMode());
         run.setProcessorDefinition(definition);
         run.setWorkspaceId(workspaceId);
         run.setDatasetId(dataset.getId());
@@ -634,6 +635,7 @@ public class ActionRunService {
                 definitionService.readInputRequirements(definition), ActionTarget.PAGE)));
         String rawSecret = issueRunSecret(run);
         run = runRepository.save(run);
+        actionOutputService.createEvaluationDraft(run, dataset);
         ActionTrainingSnapshotService.SnapshotResult snapshot = trainingSnapshotService.createEvaluationSnapshot(
                 workspaceId, dataset, run, request, definitionService.readEvaluationDefinition(definition).splits(),
                 definitionService.readInputRequirements(definition).images());
@@ -950,7 +952,7 @@ public class ActionRunService {
     public List<ActionDto.RunResponse> listEvaluationBaselines(String workspaceId, String runId, String userId) {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         ActionRun current = requireWorkspaceRun(workspaceId, runId);
-        if (current.getKind() != ActionRun.Kind.EVALUATION || current.getStatus() != Status.COMPLETED) {
+        if (current.getKind() != ActionRun.Kind.EVALUATION || current.isFileEvaluation() || current.getStatus() != Status.COMPLETED) {
             return List.of();
         }
         List<ActionRun> candidates = runRepository.findByWorkspaceIdAndDatasetIdAndKindOrderByCreatedDesc(
@@ -959,6 +961,7 @@ public class ActionRunService {
         return candidates.stream()
                 .filter(run -> run.getKind() == ActionRun.Kind.EVALUATION)
                 .filter(run -> run.getStatus() == Status.COMPLETED)
+                .filter(run -> !run.isFileEvaluation())
                 .filter(run -> !run.getId().equals(current.getId()))
                 .filter(run -> Objects.equals(run.getDatasetInputFingerprint(), current.getDatasetInputFingerprint()))
                 .filter(run -> compatibleEvaluationProfiles(current, run))
@@ -970,8 +973,8 @@ public class ActionRunService {
     public Object getEvaluationReport(String workspaceId, String runId, String userId) {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         ActionRun run = requireWorkspaceRun(workspaceId, runId);
-        if (run.getKind() != ActionRun.Kind.EVALUATION) {
-            throw new IllegalArgumentException("Action run is not an evaluation");
+        if (run.getKind() != ActionRun.Kind.EVALUATION || run.isFileEvaluation()) {
+            throw new IllegalArgumentException("Action run does not contain an evaluation report");
         }
         return payloadService.readObjectMap(run.getResultSummaryJson());
     }
@@ -982,7 +985,8 @@ public class ActionRunService {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         ActionRun current = requireWorkspaceRun(workspaceId, runId);
         ActionRun baseline = requireWorkspaceRun(workspaceId, baselineRunId);
-        if (current.getKind() != ActionRun.Kind.EVALUATION || baseline.getKind() != ActionRun.Kind.EVALUATION
+        if (current.isFileEvaluation() || baseline.isFileEvaluation()
+                || current.getKind() != ActionRun.Kind.EVALUATION || baseline.getKind() != ActionRun.Kind.EVALUATION
                 || current.getStatus() != Status.COMPLETED || baseline.getStatus() != Status.COMPLETED
                 || !Objects.equals(current.getDatasetId(), baseline.getDatasetId())
                 || !Objects.equals(current.getDatasetInputFingerprint(), baseline.getDatasetInputFingerprint())
@@ -1084,7 +1088,10 @@ public class ActionRunService {
         if (!workspaceId.equals(run.getWorkspaceId())) {
             throw new IllegalArgumentException("Action run not found");
         }
-        return responseMapper.toRunDetailResponse(run, resolveProjectLabel(run.getProjectId()), userId);
+        ActionDto.RunDetailResponse detail = responseMapper.toRunDetailResponse(run, resolveProjectLabel(run.getProjectId()), userId);
+        if (!run.isFileEvaluation()) return detail;
+        return new ActionDto.RunDetailResponse(detail.run(), detail.logText(), detail.logEvents(), detail.resultSummary(),
+                detail.durationSeconds(), null, run.getEvaluationOutputMode(), actionOutputService.evaluationOutput(run.getId()));
     }
 
     public ActionDto.StartRunResponse retryRun(String workspaceId,
@@ -1366,7 +1373,9 @@ public class ActionRunService {
                     ACTION_PROTOCOL_VERSION, run.getId(), definition.getProcessorKey(), run.getKind(), null,
                     run.getDatasetId(), payloadService.processorParameters(payloadService.readObjectMap(run.getParametersJson())),
                     pages, null, datasetInputRequirements(run),
-                    null, new ActionDto.MachineCapabilities(false, false, run.getKind() == ActionRun.Kind.EVALUATION), run.isCancelRequested());
+                    null, new ActionDto.MachineCapabilities(false, run.isFileEvaluation(),
+                            run.getKind() == ActionRun.Kind.EVALUATION && !run.isFileEvaluation()), run.isCancelRequested(),
+                    run.getKind() == ActionRun.Kind.EVALUATION ? run.getEvaluationOutputMode() : null);
         }
         return buildProjectMachineInput(run, publicApiBaseUrl);
     }
@@ -1540,7 +1549,7 @@ public class ActionRunService {
             run.setCompletedAt(LocalDateTime.now());
             expireRunSecret(run);
             releaseLocks(run);
-            if (run.getKind() == ActionRun.Kind.PROCESSING) {
+            if (run.getKind() == ActionRun.Kind.PROCESSING || run.isFileEvaluation()) {
                 actionOutputService.discardDraft(run.getId());
             }
             actionAuditService.record("ACTION_RUN_HEARTBEAT_FAILED", "FAILURE", run.getCreatedByUserId(),
@@ -1596,6 +1605,9 @@ public class ActionRunService {
             if ("running".equals(resultStatus)) {
                 throw new IllegalArgumentException("Status-only Action progress must be reported through heartbeats");
             }
+            if (run.isFileEvaluation()) {
+                return receiveEvaluationFiles(run, manifest, resultFiles, files, resultStatus);
+            }
             if (!resultFiles.isEmpty() || !resultPatches.isEmpty() || hasResultFileParts(files)) {
                 throw new IllegalArgumentException("This Action kind cannot upload result files");
             }
@@ -1635,6 +1647,42 @@ public class ActionRunService {
         }
 
         return receiveLegacyBulkResults(run, manifest, resultFiles, files, pageIdSet, resultStatus);
+    }
+
+    private ActionDto.RunResponse receiveEvaluationFiles(ActionRun run, ActionDto.ResultManifest manifest,
+            List<ActionDto.ResultFile> resultFiles, MultiValueMap<String, MultipartFile> files, String resultStatus) throws IOException {
+        if (manifest.pageId() != null) throw new IllegalArgumentException("Evaluation files apply to the whole run");
+        if (manifest.evaluationReport() != null) throw new IllegalArgumentException("File evaluations must not return evaluationReport");
+        if ("completed".equals(resultStatus) && resultFiles.isEmpty()) throw new IllegalArgumentException("Completed file evaluations must return at least one file");
+        for (ActionDto.ResultFile file : resultFiles) {
+            if (!Set.of("file", "files").contains(normalize(file.type())) || file.pageId() != null || file.variant() != null
+                    || "manifest".equals(file.fieldName())) {
+                throw new IllegalArgumentException("Evaluation files must be run-level file outputs without pageId or variant");
+            }
+        }
+        validateResultManifest(resultFiles, files);
+        Set<String> expectedParts = resultFiles.stream().map(ActionDto.ResultFile::fieldName).collect(Collectors.toSet());
+        if (files != null && files.entrySet().stream().anyMatch(entry -> !"manifest".equals(entry.getKey())
+                && (!expectedParts.contains(entry.getKey()) || entry.getValue().size() != 1))) {
+            throw new IllegalArgumentException("Unexpected or duplicate evaluation result file part");
+        }
+        if ("failed".equals(resultStatus)) return finalizeResultRun(run, Status.FAILED, manifest.message(), 0);
+        long reservedBytes = 0L;
+        try {
+            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(run.getWorkspaceId(),
+                    resultUploadBytes(resultFiles, files), "larex-evaluation-result");
+            List<Map<String, Object>> stored = new ArrayList<>();
+            for (ActionDto.ResultFile resultFile : resultFiles) {
+                stored.add(actionOutputService.storeResultFile(run, resultFile, resolveMultipart(files, resultFile.fieldName())));
+            }
+            run.setResultSummaryJson(payloadService.writeJson(stored));
+            return finalizeResultRun(run, Status.COMPLETED, manifest.message(), stored.size());
+        } catch (IOException | RuntimeException error) {
+            scheduleResultImportFailureAfterRollback(run.getId(), describeException(error));
+            throw error;
+        } finally {
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(run.getWorkspaceId(), reservedBytes);
+        }
     }
 
     private boolean hasResultFileParts(MultiValueMap<String, MultipartFile> files) {
@@ -1989,7 +2037,7 @@ public class ActionRunService {
         }
         run.setProgressPercent(status == Status.COMPLETED ? 100 : run.getProgressPercent());
         run.setCompletedAt(LocalDateTime.now());
-        if (run.getKind() == ActionRun.Kind.PROCESSING) {
+        if (run.getKind() == ActionRun.Kind.PROCESSING || run.isFileEvaluation()) {
             if (status == Status.COMPLETED) {
                 actionOutputService.finalizeDraft(run.getId(), run.getCompletedAt());
             } else {
@@ -2375,7 +2423,7 @@ public class ActionRunService {
                 run.setErrorMessage("Queued Action run is missing its public API base URL");
                 run.setCompletedAt(LocalDateTime.now());
                 expireRunSecret(run);
-                if (run.getKind() == ActionRun.Kind.PROCESSING) {
+                if (run.getKind() == ActionRun.Kind.PROCESSING || run.isFileEvaluation()) {
                     actionOutputService.discardDraft(run.getId());
                 }
                 releaseLocks(run);
@@ -2414,7 +2462,7 @@ public class ActionRunService {
         run.setCompletedAt(LocalDateTime.now());
         expireRunSecret(run);
         releaseLocks(run);
-        if (run.getKind() == ActionRun.Kind.PROCESSING) {
+        if (run.getKind() == ActionRun.Kind.PROCESSING || run.isFileEvaluation()) {
             actionOutputService.discardDraft(run.getId());
         }
         runRepository.save(run);
@@ -2529,8 +2577,9 @@ public class ActionRunService {
         payload.put("imageVariantSelection", imageVariantSelection);
         payload.put("capabilities", Map.of(
                 "incrementalPageResults", run.getKind() == ActionRun.Kind.PROCESSING,
-                "customFileResults", run.getKind() == ActionRun.Kind.PROCESSING,
-                "evaluationReports", run.getKind() == ActionRun.Kind.EVALUATION));
+                "customFileResults", run.getKind() == ActionRun.Kind.PROCESSING || run.isFileEvaluation(),
+                "evaluationReports", run.getKind() == ActionRun.Kind.EVALUATION && !run.isFileEvaluation()));
+        if (run.getKind() == ActionRun.Kind.EVALUATION) payload.put("evaluationOutputMode", run.getEvaluationOutputMode());
         payload.put("secret", rawSecret);
         payload.put("pullUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/input");
         payload.put("heartbeatUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/heartbeat");
@@ -2614,7 +2663,7 @@ public class ActionRunService {
         run.setCompletedAt(LocalDateTime.now());
         expireRunSecret(run);
         releaseLocks(run);
-        if (run.getKind() == ActionRun.Kind.PROCESSING) {
+        if (run.getKind() == ActionRun.Kind.PROCESSING || run.isFileEvaluation()) {
             actionOutputService.discardDraft(run.getId());
         }
         runRepository.save(run);
@@ -2976,7 +3025,7 @@ public class ActionRunService {
         run.setCompletedAt(LocalDateTime.now());
         expireRunSecret(run);
         releaseLocks(run);
-        if (run.getKind() == ActionRun.Kind.PROCESSING) {
+        if (run.getKind() == ActionRun.Kind.PROCESSING || run.isFileEvaluation()) {
             actionOutputService.discardDraft(run.getId());
         }
         runRepository.save(run);
@@ -3399,7 +3448,7 @@ public class ActionRunService {
         run.setStatus(Status.CANCELLED);
         run.setStatusMessage(statusMessage == null || statusMessage.isBlank() ? "Cancelled" : statusMessage);
         run.setCompletedAt(LocalDateTime.now());
-        if (run.getKind() == ActionRun.Kind.PROCESSING) {
+        if (run.getKind() == ActionRun.Kind.PROCESSING || run.isFileEvaluation()) {
             actionOutputService.discardDraft(run.getId());
         }
         expireRunSecret(run);

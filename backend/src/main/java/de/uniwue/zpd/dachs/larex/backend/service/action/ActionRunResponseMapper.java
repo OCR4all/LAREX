@@ -156,9 +156,11 @@ public class ActionRunResponseMapper {
                 logEvents,
                 readResultSummary(run.getResultSummaryJson()),
                 durationSeconds(run),
-                run.getKind() == ActionRun.Kind.EVALUATION
+                run.getKind() == ActionRun.Kind.EVALUATION && !run.isFileEvaluation()
                         ? readResultSummary(run.getResultSummaryJson())
-                        : null
+                        : null,
+                run.getKind() == ActionRun.Kind.EVALUATION ? run.getEvaluationOutputMode() : null,
+                null
         );
     }
 
@@ -200,7 +202,7 @@ public class ActionRunResponseMapper {
                 run.getUpdated(),
                 run.getCompletedAt(),
                 durationSeconds(run),
-                run.getKind() == ActionRun.Kind.EVALUATION
+                run.getKind() == ActionRun.Kind.EVALUATION && !run.isFileEvaluation()
                         ? readResultSummary(run.getResultSummaryJson())
                         : null
         );

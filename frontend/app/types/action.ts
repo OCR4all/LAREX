@@ -1,3 +1,5 @@
+import type { ActionOutput } from './action-output'
+
 export type ActionExecuteRole = 'EDITOR' | 'CURATOR'
 export type ActionLockMode = 'NONE' | 'PAGES' | 'PROJECT'
 export type ActionKind = 'PROCESSING' | 'TRAINING' | 'EVALUATION' | 'INTEGRATION'
@@ -208,6 +210,7 @@ export interface ActionTrainingSplitRequirements {
 }
 
 export interface ActionEvaluationDefinition {
+  outputMode?: 'REPORT' | 'FILES'
   profile: string
   profileVersion: number
   splits: ActionTrainingSplitRequirements
@@ -248,6 +251,8 @@ export interface StartActionRunResponse {
 }
 
 export interface ActionRunDetail {
+  evaluationOutputMode?: 'REPORT' | 'FILES' | null
+  evaluationOutput?: ActionOutput | null
   run: ActionRun
   logText: string | null
   logEvents: ActionRunLogEvent[]

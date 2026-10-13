@@ -54,8 +54,8 @@ class ActionDefinitionServicePreflightTest {
         httpClient = mock(HttpClient.class);
         httpResponse = mock(HttpResponse.class);
 
-        when(globalAdminService.isGlobalAdmin()).thenReturn(true);
-        when(endpointAuthService.buildDispatchHeaders(
+        org.mockito.Mockito.lenient().when(globalAdminService.isGlobalAdmin()).thenReturn(true);
+        org.mockito.Mockito.lenient().when(endpointAuthService.buildDispatchHeaders(
                 any(), eq("processor-v1"), anyString(), any(), anyString(), anyString()
         )).thenAnswer(invocation -> {
             signedRequestId.set(invocation.getArgument(2));
@@ -64,7 +64,7 @@ class ActionDefinitionServicePreflightTest {
                     HEADER_SIGNATURE, "v1=test-signature"
             );
         });
-        doReturn(httpResponse).when(httpClient).send(any(HttpRequest.class), any());
+        org.mockito.Mockito.lenient().doReturn(httpResponse).when(httpClient).send(any(HttpRequest.class), any());
 
         definition = new ActionProcessorDefinition();
         definition.setId("definition-1");
@@ -85,7 +85,7 @@ class ActionDefinitionServicePreflightTest {
                   }
                 }
                 """);
-        when(definitionRepository.findById("definition-1")).thenReturn(Optional.of(definition));
+        org.mockito.Mockito.lenient().when(definitionRepository.findById("definition-1")).thenReturn(Optional.of(definition));
 
         service = new ActionDefinitionService(
                 definitionRepository,
@@ -168,6 +168,56 @@ class ActionDefinitionServicePreflightTest {
         assertThat(result.message()).isEqualTo(
                 "Authenticated preflight returned HTTP 401: signature mismatch"
         );
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void fileEvaluationRequiresCustomFileCapabilityWithoutReportCapability(boolean supported) {
+        definition.setActionKind(ActionProcessorDefinition.ActionKind.EVALUATION);
+        definition.setOutputsFiles(false);
+        definition.setParsedJson(definition.getParsedJson().replace("\"version\": 1,", "\"version\": 1, \"evaluation\": {\"outputMode\":\"FILES\",\"splits\":{\"TEST\":\"required\"}},"));
+        when(httpResponse.statusCode()).thenReturn(200);
+        when(httpResponse.body()).thenAnswer(ignored -> successfulResponse("processor-v1", supported));
+        var result = service.testEndpoint("definition-1");
+        assertThat(result.ok()).isEqualTo(supported);
+        if (!supported) assertThat(result.message()).contains("customFileResults");
+    }
+
+    @Test
+    void yamlSupportsFileModeWithoutProfileAndDefaultsExistingReports() {
+        when(endpointAuthService.normalizeAuthType(any())).thenReturn("hmac");
+        when(endpointAuthService.hasSecret("processor-v1")).thenReturn(true);
+        String yaml = """
+                version: 1
+                id: evaluation-example
+                name: Evaluation
+                kind: EVALUATION
+                endpoint:
+                  url: http://processor.localhost/dispatch
+                  preflightUrl: http://processor.localhost/preflight
+                  auth:
+                    type: hmac
+                    secretRef: processor-v1
+                targets: [PAGE]
+                locking:
+                  mode: NONE
+                inputs:
+                  images: {level: required}
+                  xml: {level: required}
+                evaluation:
+                  outputMode: FILES
+                  splits: {TEST: required}
+                """;
+        var files = service.validateYaml(yaml, null);
+        assertThat(files.diagnostics()).isEmpty();
+        assertThat(files.valid()).isTrue();
+        assertThat(files.preview().evaluation().outputMode()).isEqualTo(ActionDto.EvaluationOutputMode.FILES);
+        var reports = service.validateYaml(yaml.replace("outputMode: FILES", "profile: example.metrics"), null);
+        assertThat(reports.valid()).isTrue();
+        assertThat(reports.preview().evaluation().outputMode()).isEqualTo(ActionDto.EvaluationOutputMode.REPORT);
+        var invalid = service.validateYaml(yaml.replace("FILES", "OTHER"), null);
+        assertThat(invalid.valid()).isFalse();
+        assertThat(invalid.diagnostics()).anyMatch(diagnostic -> diagnostic.path().equals("evaluation.outputMode"));
     }
 
     private String successfulResponse(String processorId, boolean customFileResults) {

@@ -18,7 +18,9 @@ const schema = z.object({
   splitTemplate: z.enum(['TRAIN_VAL', 'TRAIN_VAL_TEST']),
   splitAlgorithm: z.enum(['RANDOM_SEEDED', 'GROUP_BY_SOURCE_PROJECT', 'MULTILABEL_STRATIFIED_BY_TAGS']),
   splitSeed: z.number().int().min(0),
-  stratifyTagIds: z.array(z.string()).optional()
+  stratifyTagIds: z.array(z.string()).optional(),
+  retainOutputsForever: z.boolean(),
+  outputRetentionDays: z.coerce.number().int().positive()
 })
 
 type Schema = z.output<typeof schema>
@@ -31,7 +33,9 @@ const state = reactive<Schema>({
   splitTemplate: 'TRAIN_VAL_TEST',
   splitAlgorithm: 'RANDOM_SEEDED',
   splitSeed: 42,
-  stratifyTagIds: []
+  stratifyTagIds: [],
+  retainOutputsForever: true,
+  outputRetentionDays: 30
 })
 
 const splitTemplateOptions: Array<{ label: string, value: Schema['splitTemplate'] }> = [
@@ -127,7 +131,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     trainPercentage: trainPercentage.value,
     valPercentage: valPercentage.value,
     testPercentage: testPercentage.value,
-    stratifyTagIds: event.data.stratifyTagIds ?? []
+    stratifyTagIds: event.data.stratifyTagIds ?? [],
+    outputRetentionDays: event.data.retainOutputsForever ? null : event.data.outputRetentionDays
   }
 
   try {
@@ -190,6 +195,18 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 v-model="state.description"
                 :rows="3"
                 placeholder="What does this dataset contain and what is it for?"
+              />
+            </UFormField>
+
+            <UFormField label="Evaluation file retention" name="outputRetentionDays" help="Days after completion before automatic deletion. Applies to new runs.">
+              <UCheckbox v-model="state.retainOutputsForever" label="Keep files indefinitely" />
+              <UInput
+                v-if="!state.retainOutputsForever"
+                v-model="state.outputRetentionDays"
+                type="number"
+                :min="1"
+                :step="1"
+                class="mt-2"
               />
             </UFormField>
 

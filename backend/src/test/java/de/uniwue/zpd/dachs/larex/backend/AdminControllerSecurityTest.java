@@ -114,7 +114,7 @@ class AdminControllerSecurityTest {
         when(actionOutputService.listAdminOutputs(1, 25, "created", "desc"))
                 .thenReturn(new ActionOutputDto.AdminOutputPageResponse(
                         List.of(new ActionOutputDto.AdminOutputResponse(
-                                "output-1", "workspace-1", "project-1", "Project", "run-1", "definition-1",
+                                "output-1", "workspace-1", "project-1", "Project", null, null, "run-1", "definition-1",
                                 "processor", "Processor", "user-1", 2, 2048, null, null,
                                 LocalDateTime.of(2026, 7, 18, 12, 0), LocalDateTime.of(2026, 7, 18, 12, 0),
                                 LocalDateTime.of(2026, 7, 18, 12, 0)
@@ -127,7 +127,7 @@ class AdminControllerSecurityTest {
                 .thenReturn(new StorageCleanupDto.CleanupResponse(0, 0, 0, "0 B", List.of()));
         when(actionOutputService.listAdminOutputsOlderThan(30))
                 .thenReturn(List.of(new ActionOutputDto.AdminOutputResponse(
-                        "output-1", "workspace-1", "project-1", "Project", "run-1", "definition-1",
+                        "output-1", "workspace-1", "project-1", "Project", null, null, "run-1", "definition-1",
                         "processor", "Processor", "user-1", 2, 2048, null, null,
                         LocalDateTime.of(2026, 7, 18, 12, 0), LocalDateTime.of(2026, 7, 18, 12, 0),
                         LocalDateTime.of(2026, 7, 18, 12, 0)

@@ -90,7 +90,7 @@ public record ActionDefinitionDocument(
     public record TrainingSplits(String TRAIN, String VAL, String TEST) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record Evaluation(String profile, Integer profileVersion, TrainingSplits splits) {}
+    public record Evaluation(String profile, Integer profileVersion, TrainingSplits splits, String outputMode) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record Parameter(String type,

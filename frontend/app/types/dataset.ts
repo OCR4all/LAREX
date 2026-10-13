@@ -58,6 +58,7 @@ export interface DatasetItem {
 }
 
 export interface DatasetDetail extends DatasetSummary {
+  outputRetentionDays?: number | null
   splitTemplate: DatasetSplitTemplate
   splitAlgorithm: DatasetSplitAlgorithm
   splitSeed: number
@@ -71,6 +72,7 @@ export interface DatasetDetail extends DatasetSummary {
 }
 
 export interface DatasetCreateOrUpdateRequest {
+  outputRetentionDays?: number | null
   name: string
   description?: string | null
   tags: string[]

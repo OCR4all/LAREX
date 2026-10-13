@@ -71,6 +71,8 @@ const splitSelectionOptions: Array<{ label: string, value: DatasetItemSplit }> =
   { label: 'Test', value: 'TEST' }
 ]
 
+const formOutputRetentionDays = ref(30)
+const formRetainOutputsForever = ref(true)
 const formName = ref('')
 const formDescription = ref('')
 const formTags = ref<string[]>([])
@@ -86,6 +88,8 @@ watch(dataset, (value) => {
   if (!value) return
 
   syncingForm.value = true
+  formOutputRetentionDays.value = value.outputRetentionDays ?? 30
+  formRetainOutputsForever.value = value.outputRetentionDays == null
   formName.value = value.name
   formDescription.value = value.description || ''
   formTags.value = [...(value.tags || [])]
@@ -802,13 +806,18 @@ function createPayload(): DatasetCreateOrUpdateRequest {
     trainPercentage: trainPercentage.value,
     valPercentage: valPercentage.value,
     testPercentage: testPercentage.value,
-    stratifyTagIds: formStratifyTags.value
+    stratifyTagIds: formStratifyTags.value,
+    outputRetentionDays: formRetainOutputsForever.value ? null : Number(formOutputRetentionDays.value)
   }
 }
 
 async function saveDataset() {
   if (!selectedWorkspace.value || !dataset.value) return
 
+  if (!formRetainOutputsForever.value && (!Number.isInteger(Number(formOutputRetentionDays.value)) || Number(formOutputRetentionDays.value) <= 0)) {
+    toast.add({ title: 'Output retention must be a positive number of days', color: 'error' })
+    return
+  }
   saving.value = true
   try {
     await $fetch(`/api/workspaces/${selectedWorkspace.value}/datasets/${dataset.value.id}`, {
@@ -1289,6 +1298,22 @@ useHead({
                 placeholder="e.g. handwriting, layout, german"
                 :disabled="!datasetCapabilities.canEdit"
               />
+            </UFormField>
+
+            <UFormField label="Evaluation file retention" help="Applies to new runs. Existing outputs keep their retention period.">
+              <UCheckbox v-model="formRetainOutputsForever" label="Keep files indefinitely" :disabled="!datasetCapabilities.canEdit" />
+              <UInput
+                v-if="!formRetainOutputsForever"
+                v-model="formOutputRetentionDays"
+                type="number"
+                :min="1"
+                :step="1"
+                :disabled="!datasetCapabilities.canEdit"
+                class="mt-2"
+              />
+              <p v-if="!formRetainOutputsForever" class="mt-1 text-xs text-muted">
+                Days after completion before automatic deletion
+              </p>
             </UFormField>
 
             <h2 class="border-t border-default pt-6 text-sm font-semibold">

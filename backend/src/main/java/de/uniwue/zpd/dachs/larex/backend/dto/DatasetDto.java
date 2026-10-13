@@ -29,8 +29,16 @@ public class DatasetDto {
             Integer trainPercentage,
             Integer valPercentage,
             Integer testPercentage,
-            List<String> stratifyTagIds
-    ) {}
+            List<String> stratifyTagIds,
+            @jakarta.validation.constraints.Positive Integer outputRetentionDays
+    ) {
+        public CreateOrUpdateRequest(String name, String description, List<String> tags,
+                Dataset.SplitTemplate splitTemplate, Dataset.SplitAlgorithm splitAlgorithm, Long splitSeed,
+                Integer trainPercentage, Integer valPercentage, Integer testPercentage, List<String> stratifyTagIds) {
+            this(name, description, tags, splitTemplate, splitAlgorithm, splitSeed, trainPercentage,
+                    valPercentage, testPercentage, stratifyTagIds, null);
+        }
+    }
 
     public record AddItemsRequest(
             @NotEmpty(message = "At least one item is required")
@@ -126,6 +134,7 @@ public class DatasetDto {
             StatsResponse stats,
             List<ItemResponse> items,
             List<ReleaseSummaryResponse> releases,
+            Integer outputRetentionDays,
             AuthorizationCapabilitiesDto.DatasetCapabilities capabilities
     ) {}
 

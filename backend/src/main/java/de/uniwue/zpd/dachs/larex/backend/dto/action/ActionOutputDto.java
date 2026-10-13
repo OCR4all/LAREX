@@ -51,6 +51,8 @@ public final class ActionOutputDto {
             String workspaceId,
             String projectId,
             String projectName,
+            String datasetId,
+            String datasetName,
             String sourceRunId,
             String processorDefinitionId,
             String processorKey,

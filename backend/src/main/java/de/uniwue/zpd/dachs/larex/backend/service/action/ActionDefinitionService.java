@@ -466,7 +466,7 @@ public class ActionDefinitionService {
                 diagnostics.add(error("locking.mode", "Evaluation Actions must use locking.mode: NONE"));
             }
             if (outputsXml || outputsImages || outputsFiles) {
-                diagnostics.add(error("outputs", "Evaluation Actions cannot declare LAREX-managed outputs"));
+                diagnostics.add(error("outputs", "Evaluation Actions use evaluation.outputMode instead of outputs"));
             }
             if (!inputRequirements.images().required(ActionTarget.PAGE)
                     || !inputRequirements.xml().required(ActionTarget.PAGE)) {
@@ -854,9 +854,9 @@ public class ActionDefinitionService {
             requestPayload.put("processorId", definition.getProcessorKey());
             requestPayload.put("capabilities", Map.of(
                     "incrementalPageResults", definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING,
-                    "customFileResults", definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING,
+                    "customFileResults", definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING || isFileEvaluation(definition),
                     "parameterValueDiscovery", true,
-                    "evaluationReports", definition.getActionKind() == ActionProcessorDefinition.ActionKind.EVALUATION
+                    "evaluationReports", definition.getActionKind() == ActionProcessorDefinition.ActionKind.EVALUATION && !isFileEvaluation(definition)
             ));
             String body = jsonMapper.writeValueAsString(requestPayload);
             Map<String, String> authHeaders = endpointAuthService.buildDispatchHeaders(
@@ -996,8 +996,12 @@ public class ActionDefinitionService {
             return "Processor does not advertise required capability parameterValueDiscovery";
         }
         if (definition.getActionKind() == ActionProcessorDefinition.ActionKind.EVALUATION
+                && !isFileEvaluation(definition)
                 && !Boolean.TRUE.equals(response.capabilities().get("evaluationReports"))) {
             return "Processor does not advertise required capability evaluationReports";
+        }
+        if (isFileEvaluation(definition) && !Boolean.TRUE.equals(response.capabilities().get("customFileResults"))) {
+            return "Processor does not advertise required capability customFileResults";
         }
         return null;
     }
@@ -1096,6 +1100,11 @@ public class ActionDefinitionService {
         return requirements;
     }
 
+    public boolean isFileEvaluation(ActionProcessorDefinition definition) {
+        return definition.getActionKind() == ActionKind.EVALUATION
+                && readEvaluationDefinition(definition).outputMode() == ActionDto.EvaluationOutputMode.FILES;
+    }
+
     public ActionDto.EvaluationDefinition readEvaluationDefinition(ActionProcessorDefinition definition) {
         List<ActionDto.ValidationDiagnostic> diagnostics = new ArrayList<>();
         ActionDto.EvaluationDefinition evaluation = parseEvaluationDefinition(
@@ -1145,7 +1154,11 @@ public class ActionDefinitionService {
             return new ActionDto.EvaluationDefinition("", 1,
                     new ActionDto.TrainingSplitRequirements(InputLevel.NONE, InputLevel.NONE, InputLevel.NONE));
         }
-        String profile = requireText(evaluation.profile(), "evaluation.profile", diagnostics);
+        ActionDto.EvaluationOutputMode outputMode = enumValue(ActionDto.EvaluationOutputMode.class,
+                evaluation.outputMode() == null ? "REPORT" : evaluation.outputMode(), "evaluation.outputMode",
+                diagnostics, ActionDto.EvaluationOutputMode.REPORT);
+        String profile = outputMode == ActionDto.EvaluationOutputMode.REPORT
+                ? requireText(evaluation.profile(), "evaluation.profile", diagnostics) : evaluation.profile();
         int profileVersion = evaluation.profileVersion() == null ? 1 : evaluation.profileVersion();
         if (profileVersion < 1) {
             diagnostics.add(error("evaluation.profileVersion", "profileVersion must be positive"));
@@ -1162,7 +1175,7 @@ public class ActionDefinitionService {
             diagnostics.add(error("evaluation.splits", "At least one split must be accepted"));
         }
         return new ActionDto.EvaluationDefinition(profile == null ? "" : profile, profileVersion,
-                new ActionDto.TrainingSplitRequirements(train, val, test));
+                new ActionDto.TrainingSplitRequirements(train, val, test), outputMode);
     }
 
     private InputLevel splitLevel(String raw,

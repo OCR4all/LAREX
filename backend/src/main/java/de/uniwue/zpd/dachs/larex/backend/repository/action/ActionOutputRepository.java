@@ -15,35 +15,40 @@ import java.util.Optional;
 
 @Repository
 public interface ActionOutputRepository extends JpaRepository<ActionOutput, String> {
-    @EntityGraph(attributePaths = {"files", "files.storedFile", "project"})
+    @EntityGraph(attributePaths = {"files", "files.storedFile", "dataset"})
+    List<ActionOutput> findByDatasetId(String datasetId);
+
+    @EntityGraph(attributePaths = {"files", "files.storedFile", "project", "dataset"})
     List<ActionOutput> findByProjectIdAndStatusOrderByCompletedAtDesc(String projectId, ActionOutput.Status status);
 
-    @EntityGraph(attributePaths = {"files", "files.storedFile", "project"})
+    @EntityGraph(attributePaths = {"files", "files.storedFile", "project", "dataset"})
     Optional<ActionOutput> findByIdAndProjectId(String id, String projectId);
 
-    @EntityGraph(attributePaths = {"files", "files.storedFile", "project"})
+    @EntityGraph(attributePaths = {"files", "files.storedFile", "project", "dataset"})
     Optional<ActionOutput> findBySourceRunId(String sourceRunId);
 
-    @EntityGraph(attributePaths = {"files", "files.storedFile", "project"})
+    @EntityGraph(attributePaths = {"files", "files.storedFile", "project", "dataset"})
     Optional<ActionOutput> findBySharePublicId(String sharePublicId);
 
-    @EntityGraph(attributePaths = {"files", "files.storedFile", "project"})
+    @EntityGraph(attributePaths = {"files", "files.storedFile", "project", "dataset"})
     List<ActionOutput> findByStatusAndExpiresAtBefore(ActionOutput.Status status, LocalDateTime cutoff);
 
-    @EntityGraph(attributePaths = {"files", "files.storedFile", "project"})
+    @EntityGraph(attributePaths = {"files", "files.storedFile", "project", "dataset"})
     List<ActionOutput> findByStatus(ActionOutput.Status status);
 
-    @EntityGraph(attributePaths = {"project"})
+    @EntityGraph(attributePaths = {"project", "dataset"})
     Page<ActionOutput> findByStatus(ActionOutput.Status status, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"project"})
+    @EntityGraph(attributePaths = {"project", "dataset"})
     @Query("""
             select o from ActionOutput o
-            join o.project p
+            left join o.project p
+            left join o.dataset d
             where o.status = :status
               and (
                   lower(o.workspaceId) like lower(concat('%', :search, '%'))
                   or lower(p.name) like lower(concat('%', :search, '%'))
+                  or lower(d.name) like lower(concat('%', :search, '%'))
                   or lower(o.processorName) like lower(concat('%', :search, '%'))
                   or lower(o.processorKey) like lower(concat('%', :search, '%'))
                   or lower(o.sourceRunId) like lower(concat('%', :search, '%'))
@@ -55,9 +60,9 @@ public interface ActionOutputRepository extends JpaRepository<ActionOutput, Stri
             Pageable pageable
     );
 
-    @EntityGraph(attributePaths = {"files", "files.storedFile", "project"})
+    @EntityGraph(attributePaths = {"files", "files.storedFile", "project", "dataset"})
     Optional<ActionOutput> findByIdAndStatus(String id, ActionOutput.Status status);
 
-    @EntityGraph(attributePaths = {"project"})
+    @EntityGraph(attributePaths = {"project", "dataset"})
     List<ActionOutput> findByStatusAndCreatedBefore(ActionOutput.Status status, LocalDateTime cutoff);
 }

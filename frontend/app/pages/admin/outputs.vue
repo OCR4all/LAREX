@@ -12,8 +12,10 @@ type SortDirection = 'asc' | 'desc'
 interface AdminOutput {
   id: string
   workspaceId: string
-  projectId: string
-  projectName: string
+  projectId: string | null
+  projectName: string | null
+  datasetId: string | null
+  datasetName: string | null
   sourceRunId: string
   processorDefinitionId: string
   processorKey: string
@@ -193,10 +195,10 @@ const columns = computed<TableColumn<AdminOutput>[]>(() => [
   },
   {
     id: 'location',
-    header: 'Workspace / Project',
+    header: 'Workspace / Project or dataset',
     cell: ({ row }) => h('div', { class: 'min-w-52' }, [
       h('p', { class: 'truncate font-medium', title: workspaceLabel(row.original) }, workspaceLabel(row.original)),
-      h('p', { class: 'truncate text-xs text-muted', title: row.original.projectName }, row.original.projectName)
+      h('p', { class: 'truncate text-xs text-muted', title: (row.original.projectName || row.original.datasetName || '—') }, (row.original.projectName || row.original.datasetName || '—'))
     ])
   },
   {
@@ -340,7 +342,7 @@ async function bulkDeleteCleanupOutputs() {
     ],
     items: selectedCleanupOutputs.value.map(output => ({
       id: output.id,
-      label: `${output.processorName} · ${output.projectName}`
+      label: `${output.processorName} · ${output.projectName || output.datasetName || '—'}`
     }))
   })
   if (!await confirmation.result) return
@@ -420,7 +422,7 @@ const toolbarRefresh = useRefreshFeedback(() => refresh())
           <UInput
             v-model="searchInput"
             icon="i-lucide-search"
-            placeholder="Search outputs, workspaces, projects, or Actions..."
+            placeholder="Search outputs, workspaces, projects, datasets, or Actions..."
             aria-label="Search outputs"
             class="w-full sm:w-96"
           >
@@ -601,7 +603,7 @@ const toolbarRefresh = useRefreshFeedback(() => refresh())
               <div class="min-w-0 flex-1">
                 <p class="truncate font-medium">{{ output.processorName }}</p>
                 <p class="truncate text-sm text-muted">
-                  {{ workspaceLabel(output) }} · {{ output.projectName }}
+                  {{ workspaceLabel(output) }} · {{ output.projectName || output.datasetName || '—' }}
                 </p>
               </div>
               <div class="shrink-0 text-right text-sm">

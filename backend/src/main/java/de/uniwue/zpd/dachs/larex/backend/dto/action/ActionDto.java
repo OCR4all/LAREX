@@ -88,11 +88,18 @@ public class ActionDto {
             InputLevel test
     ) {}
 
+    public enum EvaluationOutputMode { REPORT, FILES }
+
     public record EvaluationDefinition(
             String profile,
             int profileVersion,
-            TrainingSplitRequirements splits
-    ) {}
+            TrainingSplitRequirements splits,
+            EvaluationOutputMode outputMode
+    ) {
+        public EvaluationDefinition(String profile, int profileVersion, TrainingSplitRequirements splits) {
+            this(profile, profileVersion, splits, EvaluationOutputMode.REPORT);
+        }
+    }
 
     public record ValidationDiagnostic(
             String severity,
@@ -345,7 +352,9 @@ public class ActionDto {
             List<ActionRunLogEventResponse> logEvents,
             Object resultSummary,
             Long durationSeconds,
-            Object evaluationReport
+            Object evaluationReport,
+            EvaluationOutputMode evaluationOutputMode,
+            ActionOutputDto.OutputResponse evaluationOutput
     ) {}
 
     public record EvaluationMetricComparison(
@@ -504,8 +513,17 @@ public class ActionDto {
             InputRequirements inputRequirements,
             ImageVariantSelection imageVariantSelection,
             MachineCapabilities capabilities,
-            boolean cancelRequested
-    ) {}
+            boolean cancelRequested,
+            EvaluationOutputMode evaluationOutputMode
+    ) {
+        public MachineInputResponse(int protocolVersion, String runId, String processorKey, Kind kind,
+                String projectId, String datasetId, Map<String, Object> parameters, List<MachinePageInput> pages,
+                MachineTargetSelection targetSelection, InputRequirements inputRequirements,
+                ImageVariantSelection imageVariantSelection, MachineCapabilities capabilities, boolean cancelRequested) {
+            this(protocolVersion, runId, processorKey, kind, projectId, datasetId, parameters, pages,
+                    targetSelection, inputRequirements, imageVariantSelection, capabilities, cancelRequested, null);
+        }
+    }
 
     public record MachineCapabilities(
             boolean incrementalPageResults,

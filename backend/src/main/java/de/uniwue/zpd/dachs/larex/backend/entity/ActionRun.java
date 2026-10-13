@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.entity;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.EvaluationOutputMode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -159,6 +160,15 @@ public class ActionRun {
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    @Column(name = "evaluation_output_mode", nullable = false, length = 16)
+    @Enumerated(EnumType.STRING)
+    private EvaluationOutputMode evaluationOutputMode =
+            EvaluationOutputMode.REPORT;
+
+    public EvaluationOutputMode getEvaluationOutputMode() { return evaluationOutputMode; }
+    public void setEvaluationOutputMode(EvaluationOutputMode mode) { this.evaluationOutputMode = mode; }
+    public boolean isFileEvaluation() { return kind == Kind.EVALUATION && evaluationOutputMode == EvaluationOutputMode.FILES; }
 
     public String getId() {
         return id;

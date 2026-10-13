@@ -44,6 +44,30 @@ class HierarchicalFileStorageServiceTest {
     }
 
     @Test
+    void datasetFilesUseDatasetPathsAndRetainOpaqueContent() throws Exception {
+        var file = new org.springframework.mock.web.MockMultipartFile("result", "metrics.csv", "text/csv", "metric,value".getBytes());
+        var descriptor = service.storeMultipartFile(file, "workspace", null, "dataset", StoredFile.StoredFileType.OUTPUT, "user");
+        assertEquals("metric,value", java.nio.file.Files.readString(service.resolveUploadPath(descriptor.storagePath())));
+        org.assertj.core.api.Assertions.assertThat(descriptor.storagePath()).startsWith("ws/workspace/ds/dataset/out/");
+        var captor = org.mockito.ArgumentCaptor.forClass(StoredFile.class);
+        verify(storedFileRepository).save(captor.capture());
+        assertEquals("dataset", captor.getValue().getDatasetId());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().getProjectId()).isNull();
+        assertEquals("text/csv", descriptor.mimeType());
+    }
+
+    @Test
+    void failedDatasetMetadataWriteRemovesPhysicalUpload() throws Exception {
+        when(storedFileRepository.save(org.mockito.ArgumentMatchers.any(StoredFile.class)))
+                .thenThrow(new IllegalStateException("metadata failure"));
+        var file = new org.springframework.mock.web.MockMultipartFile("result", "result.bin", "application/octet-stream", new byte[]{1});
+        assertThrows(IllegalStateException.class, () -> service.storeMultipartFile(file, "workspace", null, "dataset", StoredFile.StoredFileType.OUTPUT, "user"));
+        try (var files = java.nio.file.Files.walk(tempDir)) {
+            assertEquals(0, files.filter(java.nio.file.Files::isRegularFile).count());
+        }
+    }
+
+    @Test
     void failedMetadataWriteRemovesCopiedFileAndPreservesSource() throws Exception {
         Path source = tempDir.resolve("input.xml");
         java.nio.file.Files.writeString(source, "<PcGts/>");

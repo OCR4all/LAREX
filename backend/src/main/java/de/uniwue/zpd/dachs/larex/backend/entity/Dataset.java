@@ -128,6 +128,15 @@ public class Dataset {
     @OneToMany(mappedBy = "dataset", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<DatasetRelease> releases = new ArrayList<>();
 
+    @Column(name = "output_retention_days")
+    private Integer outputRetentionDays;
+
+    public Integer getOutputRetentionDays() { return outputRetentionDays; }
+    public void setOutputRetentionDays(Integer days) {
+        if (days != null && days <= 0) throw new IllegalArgumentException("Output retention days must be positive");
+        this.outputRetentionDays = days;
+    }
+
     public String getId() {
         return id;
     }

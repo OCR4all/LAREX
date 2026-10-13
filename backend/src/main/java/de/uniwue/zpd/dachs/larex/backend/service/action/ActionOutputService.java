@@ -7,6 +7,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionOutput;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionOutputFile;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.entity.Dataset;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionOutputFileRepository;
@@ -105,6 +106,55 @@ public class ActionOutputService {
         outputRepository.save(output);
     }
 
+    @Transactional
+    public void createEvaluationDraft(ActionRun run, Dataset dataset) {
+        if (!run.isFileEvaluation() || outputRepository.findBySourceRunId(run.getId()).isPresent()) return;
+        ActionOutput output = new ActionOutput();
+        output.setDataset(dataset);
+        output.setWorkspaceId(run.getWorkspaceId());
+        output.setSourceRunId(run.getId());
+        output.setProcessorDefinitionId(run.getProcessorDefinition().getId());
+        output.setProcessorKey(run.getProcessorDefinition().getProcessorKey());
+        output.setProcessorName(run.getProcessorDefinition().getName());
+        output.setCreatedByUserId(run.getCreatedByUserId());
+        output.setRetentionDays(dataset.getOutputRetentionDays());
+        outputRepository.saveAndFlush(output);
+    }
+
+    @Transactional(readOnly = true)
+    public ActionOutputDto.OutputResponse evaluationOutput(String runId) {
+        return outputRepository.findBySourceRunId(runId)
+                .filter(output -> output.getDataset() != null && isAvailable(output))
+                .map(this::toResponse).orElse(null);
+    }
+
+    @Transactional
+    public void deleteDatasetOutputs(String datasetId) {
+        for (ActionOutput output : outputRepository.findByDatasetId(datasetId)) {
+            if (!deleteOutputFilesAndRecord(output)) throw new IllegalStateException("Could not delete dataset output files");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public FileDownload prepareDatasetFileDownload(String workspaceId, String datasetId, String outputId,
+                                                   String fileId, String userId) throws IOException {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        ActionOutput output = outputRepository.findById(outputId)
+                .filter(candidate -> candidate.getWorkspaceId().equals(workspaceId)
+                        && candidate.getDataset() != null && candidate.getDataset().getId().equals(datasetId)
+                        && isAvailable(candidate))
+                .orElseThrow(() -> new ResourceNotFoundException("Evaluation output", outputId));
+        ActionOutputFile file = output.getFiles().stream().filter(candidate -> candidate.getId().equals(fileId))
+                .findFirst().orElseThrow(() -> new ResourceNotFoundException("Action output file", fileId));
+        Path path = resolveExisting(file.getStoredFile().getStoragePath());
+        return new FileDownload(file.getFileName(), file.getMimeType(), Files.size(path), file.getChecksumSha256(), path);
+    }
+
+    private boolean isAvailable(ActionOutput output) {
+        return output.getStatus() == ActionOutput.Status.READY
+                && (output.getExpiresAt() == null || output.getExpiresAt().isAfter(LocalDateTime.now()));
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Map<String, Object> storeResultFile(ActionRun run,
                                                 ActionDto.ResultFile resultFile,
@@ -117,13 +167,11 @@ public class ActionOutputService {
         String fileName = fileStorageService.sanitizeOriginalFilename(
                 firstNonBlank(resultFile.fileName(), file.getOriginalFilename(), "output.bin")
         );
-        HierarchicalFileStorageService.StoredFileDescriptor descriptor = fileStorageService.storeMultipartFile(
-                new NamedMultipartFile(file, fileName),
-                run.getWorkspaceId(),
-                run.getProjectId(),
-                StoredFile.StoredFileType.OUTPUT,
-                run.getCreatedByUserId()
-        );
+        HierarchicalFileStorageService.StoredFileDescriptor descriptor = run.isFileEvaluation()
+                ? fileStorageService.storeMultipartFile(new NamedMultipartFile(file, fileName),
+                    run.getWorkspaceId(), null, run.getDatasetId(), StoredFile.StoredFileType.OUTPUT, run.getCreatedByUserId())
+                : fileStorageService.storeMultipartFile(new NamedMultipartFile(file, fileName),
+                    run.getWorkspaceId(), run.getProjectId(), StoredFile.StoredFileType.OUTPUT, run.getCreatedByUserId());
         StoredFile storedFile = storedFileRepository.findById(descriptor.uuid())
                 .orElseThrow(() -> new IllegalStateException("Stored output file metadata not found"));
 
@@ -464,7 +512,11 @@ public class ActionOutputService {
 
     private ActionOutputDto.AdminOutputResponse toAdminResponse(ActionOutput output) {
         return new ActionOutputDto.AdminOutputResponse(
-                output.getId(), output.getWorkspaceId(), output.getProject().getId(), output.getProject().getName(),
+                output.getId(), output.getWorkspaceId(),
+                output.getProject() == null ? null : output.getProject().getId(),
+                output.getProject() == null ? null : output.getProject().getName(),
+                output.getDataset() == null ? null : output.getDataset().getId(),
+                output.getDataset() == null ? null : output.getDataset().getName(),
                 output.getSourceRunId(), output.getProcessorDefinitionId(), output.getProcessorKey(),
                 output.getProcessorName(), output.getCreatedByUserId(), output.getFileCount(), output.getTotalSizeBytes(),
                 output.getRetentionDays(), output.getExpiresAt(), output.getCompletedAt(), output.getCreated(), output.getUpdated()
