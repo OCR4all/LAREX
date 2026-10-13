@@ -19,7 +19,7 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { View, ImageSize, AspectRatioScale, Point, PcGts as DocumentModel } from '@/models/editor'
-import { BASELINE_STYLE, RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, type RGBA } from '@/utils/editor/editor-constants'
+import { BASELINE_STYLE, RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, VERTEX_SIZE_PRESETS, type RGBA } from '@/utils/editor/editor-constants'
 import { WEBGL_CORE, WEBGL_GEOMETRY } from '@/webgl/editor/webgl-constants'
 import type { RenderablePolygon, WebGLRenderState, ViewMode } from '@/types/editor/rendering'
 import { createScopedLogger } from '@/services/editor/logger-service'
@@ -122,6 +122,11 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     const editorUiStore = useEditorUiStore()
     const preset = editorUiStore.globalSettings.defaultLineWidth
     return LINE_WIDTH_PRESETS[preset] ?? LINE_WIDTH_PRESETS.normal
+  }
+
+  function getVertexSizeMultiplier(): number {
+    const preset = useEditorUiStore().globalSettings.defaultVertexSize
+    return VERTEX_SIZE_PRESETS[preset] ?? VERTEX_SIZE_PRESETS.normal
   }
 
   function createRenderFrameContext(renderState: RenderState): RenderFrameContext {
@@ -1253,7 +1258,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         renderState.hoveredNodeIndex.value,
         renderState.draggedNodeInfo,
         renderState.isInvalidPosition.value,
-        nodeColor
+        nodeColor,
+        getVertexSizeMultiplier()
       )
     }
 
@@ -1262,7 +1268,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         renderState.currentPolygonPoints,
         renderState.isInvalidPosition.value,
         scale,
-        view
+        view,
+        getVertexSizeMultiplier()
       )
     }
 
@@ -1295,7 +1302,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     setUniform2f(polygonProgram, 'u_offset', view.offsetX, view.offsetY)
     setUniform1f(polygonProgram, 'u_zoom', view.zoom)
     setProgramRotation(polygonProgram, scale)
-    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.POLYGON_POINT_SIZE)
+    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.POLYGON_POINT_SIZE * getVertexSizeMultiplier())
     setUniform4f(polygonProgram, 'u_color', color[0], color[1], color[2], color[3])
 
     gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
@@ -1343,7 +1350,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     const draw = (markerColor: RGBA, markerSize: number) => {
       setUniform4f(program, 'u_color', ...markerColor)
-      setUniform1f(program, 'u_pointSize', markerSize)
+      setUniform1f(program, 'u_pointSize', markerSize * getVertexSizeMultiplier())
       context.drawArrays(context.POINTS, 0, points.length)
     }
     draw(BASELINE_STYLE.WHITE, size)
@@ -1511,14 +1518,14 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       RENDER_COLORS.PREVIEW_PINK[2],
       RENDER_COLORS.PREVIEW_PINK[3]
     )
-    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.SELECTED_POINT_SIZE)
+    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.SELECTED_POINT_SIZE * getVertexSizeMultiplier())
 
     const previewData = new Float32Array([previewNodePosition.x, previewNodePosition.y])
     gl.bindBuffer(gl.ARRAY_BUFFER, polygonBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, previewData, gl.DYNAMIC_DRAW)
     gl.drawArrays(gl.POINTS, 0, 1)
 
-    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.PREVIEW_POINT_SIZE)
+    setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.PREVIEW_POINT_SIZE * getVertexSizeMultiplier())
   }
 
   /**
@@ -1694,7 +1701,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       setUniform2f(polygonProgram, 'u_offset', view.offsetX, view.offsetY)
       setUniform1f(polygonProgram, 'u_zoom', view.zoom)
       setProgramRotation(polygonProgram, scale)
-      setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.POLYGON_POINT_SIZE)
+      setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.POLYGON_POINT_SIZE * getVertexSizeMultiplier())
       setUniform4f(polygonProgram, 'u_color', outlineColor[0], outlineColor[1], outlineColor[2], outlineColor[3])
 
       const pointsData = new Float32Array(points.flatMap(p => [p.x, p.y]))

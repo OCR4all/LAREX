@@ -49,7 +49,8 @@ export class PolygonRenderer {
     hoveredNodeIndex: number,
     draggedNodeInfo: any,
     isInvalidPosition: boolean,
-    nodeColor?: readonly number[] // Optional custom color for nodes
+    nodeColor?: readonly number[], // Optional custom color for nodes
+    vertexSizeMultiplier = 1
   ): void {
     if (selectedIndex < 0 || selectedIndex >= polygons.length) return
 
@@ -75,7 +76,7 @@ export class PolygonRenderer {
     this.setTransformUniforms(scale, view)
     this.uniformState.uniform1f(
       this.uniformState.getLocation(this.program, 'u_pointSize'),
-      RENDER_SIZES.POLYGON_POINT_SIZE
+      RENDER_SIZES.POLYGON_POINT_SIZE * vertexSizeMultiplier
     )
 
     const color: [number, number, number, number] = (draggedNodeInfo.isDragging && isInvalidPosition)
@@ -92,7 +93,7 @@ export class PolygonRenderer {
     if (hoveredNodeIndex >= 0 && hoveredNodeIndex < pointCount) {
       this.uniformState.uniform1f(
         this.uniformState.getLocation(this.program, 'u_pointSize'),
-        RENDER_SIZES.DRAGGED_POINT_SIZE
+        RENDER_SIZES.DRAGGED_POINT_SIZE * vertexSizeMultiplier
       )
 
       let hoverColor: [number, number, number, number]
@@ -137,7 +138,8 @@ export class PolygonRenderer {
     currentPoints: any[],
     isInvalidPosition: boolean,
     scale?: any,
-    view?: any
+    view?: any,
+    vertexSizeMultiplier = 1
   ): void {
     if (currentPoints.length === 0) return
 
@@ -165,7 +167,7 @@ export class PolygonRenderer {
 
     this.uniformState.uniform1f(
       this.uniformState.getLocation(this.program, 'u_pointSize'),
-      RENDER_SIZES.POLYGON_POINT_SIZE
+      RENDER_SIZES.POLYGON_POINT_SIZE * vertexSizeMultiplier
     )
 
     const color: [number, number, number, number] = isInvalidPosition

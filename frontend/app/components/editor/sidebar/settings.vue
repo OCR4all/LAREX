@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
-import type { LineWidthPreset } from '@/stores/editor/types'
+import type { LineWidthPreset, VertexSizePreset } from '@/stores/editor/types'
 
 const editorUiStore = useEditorUiStore()
 
@@ -17,6 +17,14 @@ const lineWidthOptions = [
   { label: 'Bold', value: 'bold' },
   { label: 'Extra Bold', value: 'extraBold' }
 ]
+
+const vertexSizeOptions = [
+  { label: 'Tiny', value: 'tiny' },
+  { label: 'Small', value: 'small' },
+  { label: 'Normal', value: 'normal' },
+  { label: 'Large', value: 'large' },
+  { label: 'Extra Large', value: 'extraLarge' }
+] satisfies { label: string, value: VertexSizePreset }[]
 
 function toggleSetting(toggleFn: () => void) {
   toggleFn()
@@ -36,6 +44,11 @@ function onLineWidthChange(value: string) {
   const presets: LineWidthPreset[] = ['thin', 'light', 'normal', 'medium', 'bold', 'extraBold']
   if (!presets.includes(value as LineWidthPreset)) return
   editorUiStore.setDefaultLineWidth(value as LineWidthPreset)
+}
+
+function onVertexSizeChange(value: string) {
+  const option = vertexSizeOptions.find(option => option.value === value)
+  if (option) editorUiStore.setDefaultVertexSize(option.value)
 }
 
 function clearBackgroundSaveTimer() {
@@ -141,6 +154,17 @@ onBeforeUnmount(() => {
         :items="lineWidthOptions"
         class="w-32"
         @update:model-value="onLineWidthChange"
+      />
+    </div>
+
+    <div class="flex items-center justify-between">
+      <label for="editor-vertex-size" class="text-sm">Vertex Size</label>
+      <USelect
+        id="editor-vertex-size"
+        :model-value="editorUiStore.globalSettings.defaultVertexSize"
+        :items="vertexSizeOptions"
+        class="w-32"
+        @update:model-value="onVertexSizeChange"
       />
     </div>
 

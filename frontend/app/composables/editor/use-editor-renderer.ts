@@ -271,6 +271,7 @@ export function useEditorRenderer(
       relationData,
       showRelationsOverlay,
       () => editorUiStore.readingOrderVersion,
+      () => editorUiStore.globalSettings.defaultVertexSize,
       () => editorUiStore.confidenceHeatmap
     ],
     scheduleStateRender,

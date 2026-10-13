@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 
 const mocks = vi.hoisted(() => ({
   updatePreference: vi.fn(),
+  fetchedVertexSize: null as string | null,
   fetchedToolbarCompact: null as boolean | null,
   fetchedPageFocusMode: null as boolean | null,
   fetchedOpenRegionTypeMenuOnCreate: null as boolean | null,
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/composables/use-editor-preferences', () => ({
   useEditorPreferences: () => ({
     fetchPreferences: vi.fn(async () => ({
+      defaultVertexSize: mocks.fetchedVertexSize,
       toolbarCompact: mocks.fetchedToolbarCompact,
       pageFocusMode: mocks.fetchedPageFocusMode,
       openRegionTypeMenuOnCreate: mocks.fetchedOpenRegionTypeMenuOnCreate,
@@ -32,6 +34,7 @@ async function createStore() {
 
 describe('editor.ui.store preferences', () => {
   beforeEach(() => {
+    mocks.fetchedVertexSize = null
     mocks.fetchedToolbarCompact = null
     mocks.fetchedPageFocusMode = null
     mocks.fetchedOpenRegionTypeMenuOnCreate = null
@@ -46,6 +49,7 @@ describe('editor.ui.store preferences', () => {
     await store.loadPreferences()
 
     const defaults = [
+      ['defaultVertexSize', store.globalSettings.defaultVertexSize, 'normal'],
       ['toolbarCompact', store.toolbarCompact, true],
       ['pageFocusMode', store.pageFocusMode, true],
       ['openRegionTypeMenuOnCreate', store.globalSettings.openRegionTypeMenuOnCreate, true],
@@ -54,6 +58,25 @@ describe('editor.ui.store preferences', () => {
     for (const [name, actual, expected] of defaults) {
       expect(actual, name).toBe(expected)
     }
+  })
+
+  it('loads and persists the vertex size independently of line width', async () => {
+    mocks.fetchedVertexSize = 'small'
+    const store = await createStore()
+    await store.loadPreferences()
+    expect(store.globalSettings.defaultVertexSize).toBe('small')
+
+    store.setDefaultVertexSize('large')
+    expect(store.globalSettings.defaultVertexSize).toBe('large')
+    expect(store.globalSettings.defaultLineWidth).toBe('normal')
+    expect(mocks.updatePreference).toHaveBeenCalledWith('defaultVertexSize', 'large')
+  })
+
+  it('keeps the original vertex size for an unknown saved preset', async () => {
+    mocks.fetchedVertexSize = 'unknown'
+    const store = await createStore()
+    await store.loadPreferences()
+    expect(store.globalSettings.defaultVertexSize).toBe('normal')
   })
 
   it('loads all explicit preference values', async () => {

@@ -10,6 +10,7 @@ import type {
   RelationsEditorState,
   VirtualKeyboardMode,
   LineWidthPreset,
+  VertexSizePreset,
   TextItemLayout,
   TextModeSubmode,
   ConfidenceHeatmapMode,
@@ -17,6 +18,7 @@ import type {
 } from './types'
 import { useEditorPreferences } from '@/composables/use-editor-preferences'
 import { createEmptyRelationDraft } from '@/utils/editor/relations'
+import { VERTEX_SIZE_PRESETS } from '@/utils/editor/editor-constants'
 
 export const useEditorUiStore = defineStore('editor-ui', () => {
   const editorPreferences = useEditorPreferences()
@@ -40,7 +42,8 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     openRegionTypeMenuOnCreate: true,
     cutMinAreaThreshold: 0.0001,
     moveWithChildren: true,
-    defaultLineWidth: 'normal'
+    defaultLineWidth: 'normal',
+    defaultVertexSize: 'normal'
   })
 
   const leftCollapsed = ref(false)
@@ -156,6 +159,9 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.moveWithChildren !== null) globalSettings.value.moveWithChildren = prefs.moveWithChildren
     if (prefs.cutMinAreaThreshold !== null) globalSettings.value.cutMinAreaThreshold = prefs.cutMinAreaThreshold
     if (prefs.defaultLineWidth) globalSettings.value.defaultLineWidth = prefs.defaultLineWidth as LineWidthPreset
+    if (prefs.defaultVertexSize && Object.hasOwn(VERTEX_SIZE_PRESETS, prefs.defaultVertexSize)) {
+      globalSettings.value.defaultVertexSize = prefs.defaultVertexSize as VertexSizePreset
+    }
     if (prefs.virtualKeyboardMode !== null) {
       const normalizedVirtualKeyboardMode = coerceVirtualKeyboardMode(prefs.virtualKeyboardMode)
       virtualKeyboardMode.value = normalizedVirtualKeyboardMode
@@ -334,6 +340,11 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   function setDefaultLineWidth(preset: LineWidthPreset) {
     globalSettings.value.defaultLineWidth = preset
     editorPreferences.updatePreference('defaultLineWidth', preset)
+  }
+
+  function setDefaultVertexSize(preset: VertexSizePreset) {
+    globalSettings.value.defaultVertexSize = preset
+    editorPreferences.updatePreference('defaultVertexSize', preset)
   }
 
   function setReadingOrderOverlayVisible(visible: boolean) {
@@ -726,6 +737,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     toggleOpenRegionTypeMenuOnCreate,
     toggleMoveWithChildren,
     setDefaultLineWidth,
+    setDefaultVertexSize,
     setReadingOrderOverlayVisible,
     setHighlightUnknownDictionaryTokens,
     toggleReadingOrderOverlay,

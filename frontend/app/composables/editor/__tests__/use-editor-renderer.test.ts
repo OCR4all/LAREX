@@ -9,7 +9,10 @@ vi.mock('../use-render-queue', () => ({
   useRenderQueue: () => ({ scheduleRender, stats: ref(null) })
 }))
 vi.mock('../use-editor-custom-cursor', () => ({ useEditorCustomCursor: () => ({ activeCursor: ref(null) }) }))
-vi.mock('@/stores/editor/editor.ui.store', () => ({ useEditorUiStore: () => ({}) }))
+const editorSettings = reactive({ defaultVertexSize: 'normal' })
+vi.mock('@/stores/editor/editor.ui.store', () => ({
+  useEditorUiStore: () => ({ globalSettings: editorSettings })
+}))
 
 function createHarness() {
   let coordinateReads = 0
@@ -70,6 +73,19 @@ describe('editor render invalidation', () => {
         await nextTick()
         await nextTick()
       }
+      expect(scheduleRender).toHaveBeenCalled()
+      expect(harness.coordinateReads()).toBe(0)
+    } finally {
+      harness.scope.stop()
+    }
+  })
+
+  it('redraws immediately when the vertex size changes without traversing geometry', async () => {
+    const harness = createHarness()
+    try {
+      editorSettings.defaultVertexSize = 'small'
+      await nextTick()
+      await nextTick()
       expect(scheduleRender).toHaveBeenCalled()
       expect(harness.coordinateReads()).toBe(0)
     } finally {

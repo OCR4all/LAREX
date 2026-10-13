@@ -174,6 +174,21 @@ class EditorPreferenceServiceTest {
     }
 
     @Test
+    void updatePersistsAndReturnsVertexSizeAndPreservesItForUnrelatedUpdates() {
+        EditorPreference existing = new EditorPreference("user-1");
+        when(repository.findByUserId("user-1")).thenReturn(Optional.of(existing));
+        when(repository.save(any(EditorPreference.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        EditorPreferenceService service = new EditorPreferenceService(repository);
+        EditorPreferenceDto dto = objectMapper.readValue("{\"defaultVertexSize\":\"small\"}", EditorPreferenceDto.class);
+
+        service.update("user-1", dto);
+        assertEquals("small", EditorPreferenceDto.from(service.getOrCreate("user-1")).defaultVertexSize());
+
+        EditorPreference updated = service.update("user-1", preferenceDto("#fff", null, null, null, null, null, null, null));
+        assertEquals("small", updated.getDefaultVertexSize());
+    }
+
+    @Test
     void getOrCreateCreatesPreferenceForMissingUser() {
         when(repository.findByUserId("missing")).thenReturn(Optional.empty());
         when(repository.save(any(EditorPreference.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -215,6 +230,7 @@ class EditorPreferenceServiceTest {
                 showPolygonLabelFill,
                 null,
                 openRegionTypeMenuOnCreate,
+                null,
                 null,
                 null,
                 null,

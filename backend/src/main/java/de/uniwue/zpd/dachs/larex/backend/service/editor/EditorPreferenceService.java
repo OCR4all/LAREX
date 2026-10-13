@@ -42,6 +42,7 @@ public class EditorPreferenceService {
         if (dto.moveWithChildren() != null) pref.setMoveWithChildren(dto.moveWithChildren());
         if (dto.cutMinAreaThreshold() != null) pref.setCutMinAreaThreshold(dto.cutMinAreaThreshold());
         if (dto.defaultLineWidth() != null) pref.setDefaultLineWidth(dto.defaultLineWidth());
+        if (dto.defaultVertexSize() != null) pref.setDefaultVertexSize(dto.defaultVertexSize());
         if (dto.textViewFontSize() != null) pref.setTextViewFontSize(dto.textViewFontSize());
         if (dto.textViewPadding() != null) pref.setTextViewPadding(dto.textViewPadding());
         if (dto.textViewCutoutHeight() != null) pref.setTextViewCutoutHeight(dto.textViewCutoutHeight());

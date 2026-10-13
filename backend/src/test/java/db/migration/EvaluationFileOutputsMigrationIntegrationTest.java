@@ -23,7 +23,7 @@ class EvaluationFileOutputsMigrationIntegrationTest {
                 statement.execute("INSERT INTO action_outputs VALUES ('existing-output', 'project', 'READY')");
                 statement.execute("INSERT INTO stored_files VALUES ('existing-file', 'project', 'OUTPUT', 'READY')");
                 Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-                        .baselineOnMigrate(true).baselineVersion("40").load().migrate();
+                        .baselineOnMigrate(true).baselineVersion("40").target("41").load().migrate();
                 try (var rows = statement.executeQuery("SELECT evaluation_output_mode FROM action_runs WHERE id = 'existing-run'")) {
                     assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isEqualTo("REPORT");
                 }

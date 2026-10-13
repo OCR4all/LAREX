@@ -28,6 +28,7 @@ export interface EditorPreferences {
   moveWithChildren: boolean | null
   cutMinAreaThreshold: number | null
   defaultLineWidth: string | null
+  defaultVertexSize: string | null
   virtualKeyboardMode: VirtualKeyboardMode | null
   selectedVirtualKeyboardId: string | null
   textViewFontSize: number | null
@@ -76,6 +77,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   moveWithChildren: null,
   cutMinAreaThreshold: null,
   defaultLineWidth: null,
+  defaultVertexSize: null,
   virtualKeyboardMode: null,
   selectedVirtualKeyboardId: null,
   textViewFontSize: null,

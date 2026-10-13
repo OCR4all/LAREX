@@ -70,6 +70,15 @@ export const LINE_WIDTH_PRESETS = {
   extraBold: 10.0
 } as const
 
+/** Multipliers for vertex handles, preserving their relative sizes and zoom behavior. */
+export const VERTEX_SIZE_PRESETS = {
+  tiny: 0.5,
+  small: 0.75,
+  normal: 1,
+  large: 1.25,
+  extraLarge: 1.5
+} as const
+
 /** Line thickness values (in pixels) used by WebGL line rendering */
 export const RENDER_THICKNESS = {
   /** Standard polygon outline thickness */

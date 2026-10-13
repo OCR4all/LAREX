@@ -3,6 +3,7 @@ import type { RelationDraftState } from '@/utils/editor/relations'
 export type UiMode = 'layout' | 'text'
 export type LayoutViewMode = 'default' | 'textline' | 'baseline'
 export type LineWidthPreset = 'thin' | 'light' | 'normal' | 'medium' | 'bold' | 'extraBold'
+export type VertexSizePreset = 'tiny' | 'small' | 'normal' | 'large' | 'extraLarge'
 export type UiModeScope = 'global' | 'per-canvas'
 export type ToolbarLayout = 'floating' | 'docked-top' | 'docked-bottom' | 'docked-left' | 'docked-right'
 export type VirtualKeyboardMode = 'off' | 'floating'
@@ -119,6 +120,8 @@ export interface GlobalSettings {
   moveWithChildren: boolean
   /** Default line width preset for polygon and polyline outlines */
   defaultLineWidth: LineWidthPreset
+  /** Vertex size multiplier preset; normal preserves the original handle sizes. */
+  defaultVertexSize: VertexSizePreset
 }
 
 export interface ReadingOrderOverlaySettings {

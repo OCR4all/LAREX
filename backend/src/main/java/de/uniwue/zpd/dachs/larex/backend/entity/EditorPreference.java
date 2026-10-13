@@ -83,6 +83,9 @@ public class EditorPreference {
     @Column(name = "default_line_width")
     private String defaultLineWidth;
 
+    @Column(name = "default_vertex_size")
+    private String defaultVertexSize;
+
     @Column(name = "text_view_font_size")
     private Integer textViewFontSize;
 
@@ -215,6 +218,9 @@ public class EditorPreference {
 
     public Double getCutMinAreaThreshold() { return cutMinAreaThreshold; }
     public void setCutMinAreaThreshold(Double cutMinAreaThreshold) { this.cutMinAreaThreshold = cutMinAreaThreshold; }
+
+    public String getDefaultVertexSize() { return defaultVertexSize; }
+    public void setDefaultVertexSize(String defaultVertexSize) { this.defaultVertexSize = defaultVertexSize; }
 
     public String getDefaultLineWidth() { return defaultLineWidth; }
     public void setDefaultLineWidth(String defaultLineWidth) { this.defaultLineWidth = defaultLineWidth; }

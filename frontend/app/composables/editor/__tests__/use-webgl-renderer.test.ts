@@ -6,8 +6,11 @@ import { SelectionOverlayRenderer } from '@/webgl/editor/selection-overlay'
 import { RENDER_COLORS } from '@/utils/editor/editor-constants'
 import type { WebGLRenderState } from '@/types/editor/rendering'
 
+const editorSettings = vi.hoisted(() => ({
+  defaultLineWidth: 'normal', defaultVertexSize: undefined as string | undefined, showPolygonLabelFill: false
+}))
 vi.mock('@/stores/editor/editor.ui.store', () => ({
-  useEditorUiStore: () => ({ globalSettings: { defaultLineWidth: 'normal', showPolygonLabelFill: false } })
+  useEditorUiStore: () => ({ globalSettings: editorSettings })
 }))
 vi.mock('@/stores/editor/editor.store', () => ({ useEditorStore: () => ({}) }))
 vi.mock('@/session/editor/editor-session', () => ({ getEditorSession: vi.fn() }))
@@ -33,7 +36,8 @@ function setupImageUpload(width: number, height: number, maxTextureSize = 4096) 
         if (key === key.toUpperCase()) target[key] = Object.keys(target).length
         else if (key === 'getParameter') target[key] = () => maxTextureSize
         else if (key === 'getExtension') target[key] = () => null
-        else if (key.startsWith('create') || key === 'getUniformLocation') target[key] = () => ({})
+        else if (key === 'getUniformLocation') target[key] = (_program: unknown, name: string) => ({ name })
+        else if (key.startsWith('create')) target[key] = () => ({})
         else if (key === 'getShaderParameter' || key === 'getProgramParameter') target[key] = () => true
         else target[key] = vi.fn(() => 0)
       }
@@ -70,6 +74,7 @@ function setupImageUpload(width: number, height: number, maxTextureSize = 4096) 
 }
 
 afterEach(() => {
+  editorSettings.defaultVertexSize = undefined
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
@@ -93,6 +98,46 @@ function baselineRenderState(): WebGLRenderState {
     previewPoint: { x: null, y: null }, isInvalidPosition: ref(false)
   }
 }
+
+describe('vertex size rendering', () => {
+  const scale = { scaleX: 1, scaleY: 1 }
+  const view = { zoom: 1, offsetX: 0, offsetY: 0 }
+  const pointSizes = (gl: WebGL2RenderingContext) => vi.mocked(gl.uniform1f).mock.calls
+    .filter(([location]) => (location as unknown as { name: string }).name === 'u_pointSize')
+    .map(([, size]) => size)
+
+  it.each([
+    [undefined, 1], ['normal', 1], ['tiny', 0.5], ['small', 0.75], ['large', 1.25], ['extraLarge', 1.5]
+  ] as const)('uses %s vertex sizes for polygon editing and drawing', (preset, multiplier) => {
+    editorSettings.defaultVertexSize = preset
+    const { renderer, gl } = setupImageUpload(1000, 800)
+    const state = baselineRenderState()
+    state.selectedPolylineIndex.value = -1
+    state.hoveredNodeIndex.value = 1
+    state.currentPolygonPoints = [{ x: 0, y: 0 }]
+    state.previewNodePosition = { x: 0.2, y: 0.1 }
+    state.rectanglePreviewPoints = state.polygons[0]!.points
+    renderer.renderFrame(state, scale, view, () => [0, 1, 2, 0, 2, 3])
+
+    expect(pointSizes(gl)).toEqual(expect.arrayContaining([20, 30, 25, 10].map(size => size * multiplier)))
+    renderer.cleanup()
+  })
+
+  it('scales every layer of baseline handles and keeps their size when zooming', () => {
+    editorSettings.defaultVertexSize = 'small'
+    const { renderer, gl } = setupImageUpload(1000, 800)
+    const state = baselineRenderState()
+    state.hoveredPolylineNodeIndex!.value = 1
+    renderer.renderFrame(state, scale, view, () => [0, 1, 2, 0, 2, 3])
+    const sizes = pointSizes(gl)
+    expect(sizes).toEqual(expect.arrayContaining([22, 18, 8, 28, 24].map(size => size * 0.75)))
+
+    vi.mocked(gl.uniform1f).mockClear()
+    renderer.renderFrame(state, scale, { ...view, zoom: 4 }, () => [0, 1, 2, 0, 2, 3])
+    expect(pointSizes(gl)).toEqual(sizes)
+    renderer.cleanup()
+  })
+})
 
 describe('baseline rendering', () => {
   const scale = { scaleX: 1, scaleY: 1 }
