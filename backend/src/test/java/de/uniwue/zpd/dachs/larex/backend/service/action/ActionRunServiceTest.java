@@ -1660,6 +1660,44 @@ class ActionRunServiceTest {
     }
 
     @Test
+    void workspaceRunDetailsExposeLogsToWorkspaceMembersIncludingForWorkspaceLevelRuns() {
+        Project project = project("project-logs", WORKSPACE_ID, "Project");
+        ActionRun run = run(definition("logs"), project, OWNER_ID, ActionRun.Status.COMPLETED,
+                LockMode.PAGES, List.of());
+        run.setProjectId(null);
+        run.setLogText("Legacy processor output");
+        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+
+        ActionDto.RunDetailResponse detail = service.getWorkspaceRunDetail(WORKSPACE_ID, run.getId(), CURATOR_ID);
+
+        assertThat(detail.logText()).isEqualTo("Legacy processor output");
+        assertThat(detail.run().id()).isEqualTo(run.getId());
+        verify(workspaceAccessService).requireWorkspaceAccess(WORKSPACE_ID, CURATOR_ID);
+    }
+
+    @Test
+    void workspaceRunLogsRejectRunsFromAnotherWorkspace() {
+        Project project = project("project-logs", OTHER_WORKSPACE_ID, "Project");
+        ActionRun run = run(definition("other-logs"), project, OWNER_ID, ActionRun.Status.COMPLETED,
+                LockMode.PAGES, List.of());
+        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+
+        assertThatThrownBy(() -> service.getWorkspaceRunDetail(WORKSPACE_ID, run.getId(), CURATOR_ID))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Action run not found");
+        verifyNoInteractions(logEventRepository);
+    }
+
+    @Test
+    void workspaceRunLogsRequireWorkspaceAccessBeforeReadingRunOrLogs() {
+        doThrow(new SecurityException("Forbidden")).when(workspaceAccessService)
+                .requireWorkspaceAccess(WORKSPACE_ID, CURATOR_ID);
+
+        assertThatThrownBy(() -> service.getWorkspaceRunDetail(WORKSPACE_ID, "run", CURATOR_ID))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(runRepository, logEventRepository);
+    }
+
+    @Test
     void workspaceRunListingBatchesQueuePositionLookupsPerDefinition() {
         Project projectOne = project("project-1", WORKSPACE_ID, "Project A");
         Project projectTwo = project("project-2", WORKSPACE_ID, "Project B");

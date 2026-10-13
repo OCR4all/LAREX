@@ -19,14 +19,15 @@ function setup() {
   vi.stubGlobal('useActionRunsStore', () => ({ runsArray: runs }))
   vi.stubGlobal('useBackgroundJobsStore', () => ({ jobsArray: [] }))
   vi.stubGlobal('useIiifImportJobsStore', () => ({ jobsArray: [] }))
-  vi.stubGlobal('useWorkspaceStore', () => ({}))
+  const workspace = reactive({ selectedWorkspaceId: 'ws-1' })
+  vi.stubGlobal('useWorkspaceStore', () => workspace)
   vi.stubGlobal('useRealtimeSocket', () => ({}))
   vi.stubGlobal('useStatusIssues', () => ({ issues: ref([]), hasIssues: ref(false) }))
   vi.stubGlobal('onMounted', () => {})
   vi.stubGlobal('onBeforeUnmount', () => {})
   const scope = effectScope()
   const center = scope.run(useStatusCenter)!
-  return { runs, center, request, preferences: useEditorPreferences(), stop: () => scope.stop() }
+  return { runs, center, workspace, request, preferences: useEditorPreferences(), stop: () => scope.stop() }
 }
 
 function createRun(overrides: Partial<TrackedActionRun> = {}): TrackedActionRun {
@@ -66,6 +67,36 @@ function run(id: string, createdByUserId: string) {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('status center auto-open', () => {
+  it('combines workspace and creator filters and follows the current workspace', () => {
+    const { runs, center, workspace, stop } = setup()
+    try {
+      runs.push(run('mine-here', 'me'), run('other-here', 'other'),
+        createRun({ id: 'mine-elsewhere', createdByUserId: 'me', workspaceId: 'ws-2' }))
+      center.currentWorkspaceOnly.value = true
+      expect(center.filteredJobs.value.map(job => job.id)).toEqual(['mine-here'])
+      center.jobScope.value = 'all'
+      expect(center.filteredJobs.value.map(job => job.id)).toEqual(['mine-here', 'other-here'])
+      expect(center.scopedOwnJobs.value).toHaveLength(1)
+      expect(center.activeJobs.value).toHaveLength(3)
+      workspace.selectedWorkspaceId = 'ws-2'
+      expect(center.filteredJobs.value.map(job => job.id)).toEqual(['mine-elsewhere'])
+      center.currentWorkspaceOnly.value = false
+      expect(center.filteredJobs.value).toHaveLength(3)
+    } finally { stop() }
+  })
+
+  it('reveals a new own job from another workspace when auto-opening', async () => {
+    const { runs, center, stop } = setup()
+    try {
+      center.currentWorkspaceOnly.value = true
+      runs.push(createRun({ createdByUserId: 'me', workspaceId: 'ws-2' }))
+      await nextTick()
+      expect(center.isOverlayOpen.value).toBe(true)
+      expect(center.currentWorkspaceOnly.value).toBe(false)
+      expect(center.filteredJobs.value).toHaveLength(1)
+    } finally { stop() }
+  })
+
   it('loads the disabled preference and keeps new jobs from opening or expanding the panel', async () => {
     const { runs, center, request, preferences, stop } = setup()
     try {

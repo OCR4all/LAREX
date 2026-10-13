@@ -8,6 +8,7 @@ export type BackgroundJobControls = {
 }
 
 type RunBackgroundJobOptions<T> = {
+  workspaceId?: string | null
   title: string
   subtitle?: string
   statusLabel?: string
@@ -37,13 +38,16 @@ export type PreparedDownloadTarget = {
 
 export function useBackgroundDownloads() {
   const backgroundJobsStore = useBackgroundJobsStore()
+  const workspaceStore = useWorkspaceStore()
 
   async function prepareDownload(suggestedName: string): Promise<PreparedDownloadTarget | null> {
     return prepareDownloadTarget(suggestedName)
   }
 
   async function runBackgroundJob<T>(options: RunBackgroundJobOptions<T>): Promise<T> {
+    const workspaceId = options.workspaceId === undefined ? workspaceStore.selectedWorkspaceId : options.workspaceId
     const jobId = backgroundJobsStore.startJob({
+      workspaceId,
       title: options.title,
       subtitle: options.subtitle,
       statusLabel: options.statusLabel ?? 'Working',
@@ -56,7 +60,7 @@ export function useBackgroundDownloads() {
     if (options.retryable !== false) {
       backgroundJobsStore.setRetryHandler(jobId, async () => {
         backgroundJobsStore.removeJob(jobId)
-        await runBackgroundJob(options)
+        await runBackgroundJob({ ...options, workspaceId })
       })
     }
 

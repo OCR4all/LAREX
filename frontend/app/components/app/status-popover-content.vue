@@ -1,6 +1,12 @@
 <script setup lang="ts">
+import type { DropdownMenuItem } from '@nuxt/ui'
+import ActionRunLogsModal from '@/components/action/run-logs-modal.vue'
+import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 import {
+  getJobCreatorId,
   getJobKey,
+  getJobWorkspaceId,
+  isOwnStatusJob,
   isActiveAction,
   isActiveIiifImport,
   isActiveUpload,
@@ -30,6 +36,11 @@ const actionRunsStore = useActionRunsStore()
 const backgroundJobsStore = useBackgroundJobsStore()
 const iiifImportJobsStore = useIiifImportJobsStore()
 const toast = useToast()
+const workspaceStore = useWorkspaceStore()
+const { user } = useUserSession()
+const overlay = useOverlay()
+const creatorLabels = useState<Record<string, string>>('app.statusCenter.creatorLabels', () => ({}))
+const resolvingCreatorIds = new Set<string>()
 const realtime = useRealtimeSocket()
 const UChatShimmer = resolveComponent('UChatShimmer')
 const {
@@ -42,7 +53,9 @@ const {
 const {
   autoOpenJobsPanel,
   jobs,
-  ownJobs,
+  scopedJobs,
+  scopedOwnJobs,
+  currentWorkspaceOnly,
   filteredJobs,
   jobScope,
   activeJobs,
@@ -55,11 +68,67 @@ const {
 
 const filteredTerminalJobs = computed(() => filteredJobs.value.filter(job => job.terminal))
 const scopeTabs = computed(() => [
-  { label: `My jobs (${ownJobs.value.length})`, value: 'mine' },
-  { label: `All visible jobs (${jobs.value.length})`, value: 'all' }
+  { label: `My jobs (${scopedOwnJobs.value.length})`, value: 'mine' },
+  { label: `All visible jobs (${scopedJobs.value.length})`, value: 'all' }
+])
+const settingsItems = computed<DropdownMenuItem[]>(() => [
+  {
+    label: 'Auto-show new jobs',
+    type: 'checkbox',
+    checked: autoOpenJobsPanel.value,
+    onUpdateChecked: (checked: boolean) => { autoOpenJobsPanel.value = checked },
+    onSelect: (event: Event) => event.preventDefault()
+  },
+  {
+    label: 'Current workspace only',
+    type: 'checkbox',
+    checked: currentWorkspaceOnly.value,
+    disabled: !workspaceStore.currentWorkspace,
+    onUpdateChecked: (checked: boolean) => { currentWorkspaceOnly.value = checked },
+    onSelect: (event: Event) => event.preventDefault()
+  }
 ])
 
-const collapsedJobKeys = ref<Set<string>>(new Set())
+watch(jobs, async (currentJobs) => {
+  const ids = [...new Set(currentJobs.map(getJobCreatorId))].filter((id): id is string =>
+    !!id && id !== user.value?.id && !(id in creatorLabels.value) && !resolvingCreatorIds.has(id)
+  )
+  ids.forEach(id => resolvingCreatorIds.add(id))
+  try {
+    for (let start = 0; start < ids.length; start += 100) {
+      const batch = ids.slice(start, start + 100)
+      const labels = await $fetch<Record<string, string>>('/api/users/labels', { query: { ids: batch.join(',') } })
+      creatorLabels.value = { ...creatorLabels.value, ...Object.fromEntries(batch.map(id => [id, labels[id] || id])) }
+    }
+  } catch {
+    // The creator ID remains available if the user directory cannot be reached.
+  } finally {
+    ids.forEach(id => resolvingCreatorIds.delete(id))
+  }
+}, { immediate: true })
+
+function jobContext(job: StatusJob): string {
+  const creatorId = getJobCreatorId(job)
+  const creator = isOwnStatusJob(job, user.value?.id) ? 'You' : creatorId ? creatorLabels.value[creatorId] || creatorId : 'Unknown user'
+  const workspaceId = getJobWorkspaceId(job)
+  const workspace = workspaceStore.workspaces.find(value => value.id === workspaceId)
+    || (workspaceStore.currentWorkspace?.id === workspaceId ? workspaceStore.currentWorkspace : null)
+  const workspaceLabel = workspace
+    ? getWorkspaceDisplayName({ name: workspace.name, isPersonal: workspace.isPersonal, ownerUsername: workspace.ownerUsername })
+    : workspaceId ? 'Workspace unavailable' : 'Local job'
+  return `${creator} · ${workspaceLabel}`
+}
+
+function openJobLogs(job: Extract<StatusJob, { kind: 'action' }>) {
+  void overlay.create(ActionRunLogsModal, { destroyOnClose: true }).open({
+    workspaceId: job.run.workspaceId,
+    runId: job.id,
+    title: `${job.title} logs`,
+    description: `${jobContext(job)} · ${job.subtitle}`
+  })
+}
+
+const jobCollapseOverrides = ref<Map<string, boolean>>(new Map())
 const dismissingJobKeys = ref<Set<string>>(new Set())
 const clearingCompletedJobs = ref(false)
 
@@ -93,7 +162,7 @@ const fallbackIssueSeverityMeta = issueSeverityMeta.warning!
 
 watch(jobs, (currentJobs) => {
   const currentKeys = new Set(currentJobs.map(getJobKey))
-  collapsedJobKeys.value = new Set(Array.from(collapsedJobKeys.value).filter(key => currentKeys.has(key)))
+  jobCollapseOverrides.value = new Map(Array.from(jobCollapseOverrides.value).filter(([key]) => currentKeys.has(key)))
 })
 
 function formatBytes(bytes: number): string {
@@ -123,18 +192,14 @@ function isCancellingJob(job: StatusJob): boolean {
 }
 
 function isJobCollapsed(job: StatusJob): boolean {
-  return collapsedJobKeys.value.has(getJobKey(job))
+  return jobCollapseOverrides.value.get(getJobKey(job)) ?? !job.active
 }
 
 function toggleJobCollapsed(job: StatusJob) {
   const key = getJobKey(job)
-  const next = new Set(collapsedJobKeys.value)
-  if (next.has(key)) {
-    next.delete(key)
-  } else {
-    next.add(key)
-  }
-  collapsedJobKeys.value = next
+  const next = new Map(jobCollapseOverrides.value)
+  next.set(key, !isJobCollapsed(job))
+  jobCollapseOverrides.value = next
 }
 
 function isDismissingJob(job: StatusJob): boolean {
@@ -294,17 +359,6 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
         </div>
       </div>
       <div class="flex items-center gap-1">
-        <UTooltip :text="autoOpenJobsPanel ? 'Automatically open for new jobs: on' : 'Automatically open for new jobs: off'">
-          <UButton
-            :icon="autoOpenJobsPanel ? 'i-lucide-zap' : 'i-lucide-zap-off'"
-            :color="autoOpenJobsPanel ? 'primary' : 'neutral'"
-            variant="ghost"
-            size="xs"
-            aria-label="Automatically open jobs panel for new jobs"
-            :aria-pressed="autoOpenJobsPanel"
-            @click="autoOpenJobsPanel = !autoOpenJobsPanel"
-          />
-        </UTooltip>
         <span
           role="img"
           :aria-label="realtimeStatus.label"
@@ -318,6 +372,15 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
             aria-hidden="true"
           />
         </span>
+        <UDropdownMenu :items="settingsItems" :content="{ align: 'end' }">
+          <UButton
+            icon="i-lucide-ellipsis-vertical"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            aria-label="Job panel settings"
+          />
+        </UDropdownMenu>
         <UButton
           v-if="showMinimize"
           :icon="minimized ? 'i-lucide-chevron-up' : 'i-lucide-minus'"
@@ -457,6 +520,9 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
                   <p v-else class="truncate text-sm font-medium">
                     {{ job.title }}
                   </p>
+                  <p class="mt-0.5 truncate text-xs text-muted" :title="jobContext(job)">
+                    {{ jobContext(job) }}
+                  </p>
                 </div>
               </div>
               <UBadge :color="job.color" size="xs" variant="soft">
@@ -541,6 +607,16 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
                 </UCollapsible>
 
                 <div class="mt-2 flex items-center gap-2">
+                  <UButton
+                    v-if="job.kind === 'action'"
+                    variant="ghost"
+                    color="neutral"
+                    size="xs"
+                    icon="i-lucide-scroll-text"
+                    @click="openJobLogs(job)"
+                  >
+                    Logs
+                  </UButton>
                   <UButton
                     v-if="canCancelJob(job)"
                     variant="ghost"

@@ -4,6 +4,7 @@ export type BackgroundJobStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
 
 export interface BackgroundJob {
   id: string
+  workspaceId?: string | null
   title: string
   subtitle: string
   status: BackgroundJobStatus
@@ -18,6 +19,7 @@ export interface BackgroundJob {
 }
 
 type StartBackgroundJobOptions = {
+  workspaceId?: string | null
   title: string
   subtitle?: string
   statusLabel?: string
@@ -57,6 +59,7 @@ export const useBackgroundJobsStore = defineStore('background-jobs', () => {
     const id = createJobId()
     jobsById.value.set(id, {
       id,
+      workspaceId: options.workspaceId,
       title: options.title,
       subtitle: options.subtitle ?? 'Preparing',
       status: 'RUNNING',

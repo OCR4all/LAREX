@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/users")
@@ -24,6 +26,17 @@ public class UserController {
     public ResponseEntity<List<UserDto>> getAllUsers() {
         List<UserDto> users = userService.getAllUsers();
         return ResponseEntity.ok(users);
+    }
+
+    /** Resolve only the public labels needed to identify job creators. */
+    @GetMapping("/labels")
+    public ResponseEntity<Map<String, String>> getUserLabels(@RequestParam("ids") List<String> ids) {
+        if (ids.size() > 100) {
+            throw new IllegalArgumentException("At most 100 user IDs may be resolved at once");
+        }
+        return ResponseEntity.ok(userService.getUsersByIds(ids.stream().distinct().toList()).values().stream()
+                .filter(user -> user.username() != null)
+                .collect(Collectors.toMap(UserDto::id, UserDto::username)));
     }
 
     /**

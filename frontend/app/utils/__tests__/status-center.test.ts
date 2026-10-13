@@ -3,7 +3,7 @@ import type { ActiveUpload } from '@/stores/upload.store'
 import type { TrackedActionRun } from '@/stores/action-runs.store'
 import type { BackgroundJob } from '@/stores/background-jobs.store'
 import type { IiifImportJob } from '@/types/iiif-import'
-import { buildStatusJobs, isOwnStatusJob, shouldAutoOpenStatusPopover } from '../status-center'
+import { buildStatusJobs, getJobCreatorId, getJobWorkspaceId, isOwnStatusJob, shouldAutoOpenStatusPopover } from '../status-center'
 
 function createUpload(overrides: Partial<ActiveUpload> = {}): ActiveUpload {
   return {
@@ -111,6 +111,21 @@ function createIiifImport(overrides: Partial<IiifImportJob> = {}): IiifImportJob
 }
 
 describe('status-center utils', () => {
+  it('retains workspace and creator context across all job types', () => {
+    const jobs = buildStatusJobs(
+      [createUpload({ workspaceId: 'upload-ws', createdByUserId: 'uploader' })],
+      [createRun({ workspaceId: 'action-ws', createdByUserId: 'runner' })],
+      [createBackgroundJob({ workspaceId: 'download-ws' })],
+      [createIiifImport({ workspaceId: 'iiif-ws', createdByUserId: 'importer' })]
+    )
+    expect(Object.fromEntries(jobs.map(job => [job.kind, [getJobCreatorId(job), getJobWorkspaceId(job)]]))).toEqual({
+      upload: ['uploader', 'upload-ws'],
+      action: ['runner', 'action-ws'],
+      background: [null, 'download-ws'],
+      iiif: ['importer', 'iiif-ws']
+    })
+  })
+
   it('combines uploads and action runs into jobs', () => {
     const jobs = buildStatusJobs([createUpload()], [createRun()])
 

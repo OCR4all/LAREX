@@ -1,6 +1,7 @@
 import {
   buildStatusJobs,
   getJobKey,
+  getJobWorkspaceId,
   isOwnStatusJob,
   shouldAutoOpenStatusPopover
 } from '@/utils/status-center'
@@ -59,6 +60,7 @@ export function useStatusCenter() {
   const isOverlayOpen = useState('app.statusCenter.overlayOpen', () => false)
   const isOverlayMinimized = useState('app.statusCenter.overlayMinimized', () => false)
   const jobScope = useState<'mine' | 'all'>('app.statusCenter.jobScope', () => 'mine')
+  const currentWorkspaceOnly = useState('app.statusCenter.currentWorkspaceOnly', () => false)
   const overlayAnchorId = useState<string | null>('app.statusCenter.overlayAnchorId', () => null)
 
   const jobs = computed(() => buildStatusJobs(
@@ -68,7 +70,11 @@ export function useStatusCenter() {
     iiifImportJobsStore.jobsArray
   ))
   const ownJobs = computed(() => jobs.value.filter(job => isOwnStatusJob(job, user.value?.id)))
-  const filteredJobs = computed(() => jobScope.value === 'mine' ? ownJobs.value : jobs.value)
+  const scopedJobs = computed(() => currentWorkspaceOnly.value && workspaceStore.selectedWorkspaceId
+    ? jobs.value.filter(job => getJobWorkspaceId(job) === workspaceStore.selectedWorkspaceId)
+    : jobs.value)
+  const scopedOwnJobs = computed(() => scopedJobs.value.filter(job => isOwnStatusJob(job, user.value?.id)))
+  const filteredJobs = computed(() => jobScope.value === 'mine' ? scopedOwnJobs.value : scopedJobs.value)
   const ownActiveJobKeys = computed(() => ownJobs.value.filter(job => job.active).map(getJobKey))
   const activeJobs = computed(() => jobs.value.filter(job => job.active))
   const terminalJobs = computed(() => jobs.value.filter(job => job.terminal))
@@ -130,6 +136,11 @@ export function useStatusCenter() {
     const previous = new Set(previousKeys)
     if (autoOpenJobsPanel.value && keys.some(key => !previous.has(key))) {
       jobScope.value = 'mine'
+      // Ensure newly started jobs remain visible even after switching workspaces.
+      if (ownJobs.value.some(job => keys.includes(getJobKey(job)) && !previous.has(getJobKey(job))
+        && getJobWorkspaceId(job) !== workspaceStore.selectedWorkspaceId)) {
+        currentWorkspaceOnly.value = false
+      }
       isOverlayOpen.value = true
       isOverlayMinimized.value = false
     }
@@ -175,6 +186,9 @@ export function useStatusCenter() {
     overlayAnchorId,
     jobs,
     ownJobs,
+    scopedJobs,
+    scopedOwnJobs,
+    currentWorkspaceOnly,
     filteredJobs,
     jobScope,
     activeJobs,

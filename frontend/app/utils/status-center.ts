@@ -194,6 +194,20 @@ export function getJobKey(job: StatusJob): string {
   return `${job.kind}:${job.id}`
 }
 
+export function getJobWorkspaceId(job: StatusJob): string | null {
+  if (job.kind === 'background') return job.backgroundJob.workspaceId ?? null
+  if (job.kind === 'upload') return job.upload.workspaceId
+  if (job.kind === 'action') return job.run.workspaceId
+  return job.iiifJob.workspaceId
+}
+
+export function getJobCreatorId(job: StatusJob): string | null {
+  if (job.kind === 'background') return null
+  if (job.kind === 'upload') return job.upload.createdByUserId ?? null
+  if (job.kind === 'action') return job.run.createdByUserId ?? null
+  return job.iiifJob.createdByUserId ?? null
+}
+
 export function isOwnStatusJob(job: StatusJob, userId: string | null | undefined): boolean {
   // Background tasks and locally scheduled uploads originate in this browser.
   if (job.kind === 'background') return true
