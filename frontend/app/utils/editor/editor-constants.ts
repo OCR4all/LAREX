@@ -24,6 +24,9 @@ export const RENDER_SIZES = {
   /** Default point/node size for polygons */
   POLYGON_POINT_SIZE: 20.0,
 
+  /** Square handle border at the default point size; scales with the handle. */
+  POLYGON_POINT_BORDER: 3.0,
+
   /** Point size for selected polygon nodes */
   SELECTED_POINT_SIZE: 25.0,
 

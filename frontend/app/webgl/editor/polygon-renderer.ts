@@ -1,6 +1,6 @@
 import type { ResourcePool } from './resource-pool'
 import { UniformStateCache } from './uniform-state-cache'
-import { RENDER_COLORS, RENDER_COLOR_TUNING, RENDER_SIZES } from '@/utils/editor/editor-constants'
+import { RENDER_COLORS, RENDER_SIZES } from '@/utils/editor/editor-constants'
 
 export class PolygonRenderer {
   private gl: WebGL2RenderingContext
@@ -94,25 +94,6 @@ export class PolygonRenderer {
       this.uniformState.uniform1f(
         this.uniformState.getLocation(this.program, 'u_pointSize'),
         RENDER_SIZES.DRAGGED_POINT_SIZE * vertexSizeMultiplier
-      )
-
-      let hoverColor: [number, number, number, number]
-      if (draggedNodeInfo.isDragging && draggedNodeInfo.nodeIndex === hoveredNodeIndex && isInvalidPosition) {
-        hoverColor = RENDER_COLORS.INVALID_RED as [number, number, number, number]
-      } else if (nodeColor && nodeColor.length >= 4) {
-        hoverColor = [
-          Math.min((nodeColor[0] || RENDER_COLOR_TUNING.CHANNEL_MAX) * RENDER_COLOR_TUNING.HOVER_BRIGHTEN_MULTIPLIER, RENDER_COLOR_TUNING.CHANNEL_MAX),
-          Math.min((nodeColor[1] || RENDER_COLOR_TUNING.CHANNEL_MAX) * RENDER_COLOR_TUNING.HOVER_BRIGHTEN_MULTIPLIER, RENDER_COLOR_TUNING.CHANNEL_MAX),
-          Math.min((nodeColor[2] || RENDER_COLOR_TUNING.CHANNEL_MAX) * RENDER_COLOR_TUNING.HOVER_BRIGHTEN_MULTIPLIER, RENDER_COLOR_TUNING.CHANNEL_MAX),
-          RENDER_COLOR_TUNING.CHANNEL_MAX
-        ]
-      } else {
-        hoverColor = RENDER_COLORS.PREVIEW_PINK as [number, number, number, number]
-      }
-
-      this.uniformState.uniform4f(
-        this.uniformState.getLocation(this.program, 'u_color'),
-        hoverColor[0], hoverColor[1], hoverColor[2], hoverColor[3]
       )
 
       const hoveredNodeData = this.pool.getFloat32Array('hovered-node', 2)

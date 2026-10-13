@@ -351,8 +351,15 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         gl_PointSize = u_pointSize;
       }`
     const polygonFsSource = `#version 300 es
-      precision mediump float; uniform vec4 u_color; out vec4 outColor;
-      void main() { outColor = u_color; }`
+      precision mediump float;
+      uniform vec4 u_color;
+      out vec4 outColor;
+      void main() {
+        vec2 edgeDistance = min(gl_PointCoord, vec2(1.0) - gl_PointCoord);
+        float border = ${RENDER_SIZES.POLYGON_POINT_BORDER / RENDER_SIZES.POLYGON_POINT_SIZE};
+        bool inside = min(edgeDistance.x, edgeDistance.y) >= border;
+        outColor = inside ? vec4(1.0) : u_color;
+      }`
 
     polygonProgram = shaderManager.registerProgram('polygon', polygonVsSource, polygonFsSource)
     baselineMarkerProgram = shaderManager.registerProgram('baseline-marker', polygonVsSource, `#version 300 es
@@ -1284,7 +1291,9 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   function drawRectanglePreviewNodes(renderState: RenderState, scale: AspectRatioScale, view: View): void {
     if (!gl || !polygonProgram || !polygonVao || !polygonBuffer || !resourcePool || !renderState.rectanglePreviewPoints) return
 
-    const color = RENDER_COLORS.RECTANGLE_PREVIEW_YELLOW
+    const color = renderState.isInvalidPosition.value
+      ? RENDER_COLORS.POLYGON_PREVIEW_INVALID_RED
+      : RENDER_COLORS.RECTANGLE_PREVIEW_YELLOW
     const pointCount = renderState.rectanglePreviewPoints.length
 
     const nodeData = resourcePool.getFloat32Array('rect-preview', pointCount * 2)
@@ -1498,11 +1507,18 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   /**
    * Draw preview nodes
    */
-  function drawPreviewNodes(previewNodePosition: Point | null, aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale, view: View): void {
+  function drawPreviewNodes(renderState: RenderState, aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale, view: View): void {
     if (!gl || !polygonProgram || !polygonVao || !polygonBuffer) return
+    const previewNodePosition = renderState.previewNodePosition
     if (!previewNodePosition) return
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
+    const selectedPolygon = renderState.polygons[renderState.selectedPolygonIndex.value]
+    const color = renderState.isInvalidPosition.value
+      ? RENDER_COLORS.INVALID_RED
+      : selectedPolygon
+        ? getResolvedPolygonStyle(selectedPolygon).nodeColor
+        : RENDER_COLORS.SELECTED_BLUE
 
     gl.useProgram(polygonProgram)
     gl.bindVertexArray(polygonVao)
@@ -1513,10 +1529,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     setUniform4f(
       polygonProgram,
       'u_color',
-      RENDER_COLORS.PREVIEW_PINK[0],
-      RENDER_COLORS.PREVIEW_PINK[1],
-      RENDER_COLORS.PREVIEW_PINK[2],
-      RENDER_COLORS.PREVIEW_PINK[3]
+      color[0], color[1], color[2], color[3]
     )
     setUniform1f(polygonProgram, 'u_pointSize', RENDER_SIZES.SELECTED_POINT_SIZE * getVertexSizeMultiplier())
 
@@ -1826,7 +1839,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       drawPolylines(renderState, aspectRatioScale, view)
     }
     drawPolygonNodes(renderState, aspectRatioScale, view)
-    drawPreviewNodes(renderState.previewNodePosition, aspectRatioScale, view)
+    drawPreviewNodes(renderState, aspectRatioScale, view)
     drawPolylinePreviewNodes(renderState.polylinePreviewNodePosition, aspectRatioScale, view)
   }
 
