@@ -109,10 +109,10 @@ async def test_training_validates_frozen_pairs_and_completes(
     assert any(message == "Mock training 1/1" for _, message in context.heartbeats)
 
 
-def test_sdk_rejects_items_without_exact_image_xml_pair() -> None:
+def test_sdk_rejects_items_without_xml() -> None:
     data = training_input().model_dump(by_alias=True)
     data["pages"][0]["xml"] = []
-    with pytest.raises(ValueError, match="exactly one image and one XML"):
+    with pytest.raises(ValueError, match="one XML"):
         ActionInput.model_validate(data)
 
 

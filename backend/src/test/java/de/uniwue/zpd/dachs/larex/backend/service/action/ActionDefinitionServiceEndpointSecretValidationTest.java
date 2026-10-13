@@ -147,6 +147,27 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
     }
 
     @Test
+    void multipleImageCapabilityDefaultsToFalseAndRequiresBooleanOptIn() {
+        configureSecret();
+        assertThat(service.parseAndValidate(validExternalYaml(), null).preview().inputs().images().multiple()).isFalse();
+        assertThat(service.parseAndValidate(targetAwareExternalYaml(), null).preview().inputs().images().multiple()).isFalse();
+        assertThat(service.parseAndValidate(validExternalYaml().replace("images: true", "images: required"), null)
+                .preview().inputs().images().multiple()).isFalse();
+        String multiple = targetAwareExternalYaml().replace("inputs:\n  images:\n", "inputs:\n  images:\n    multiple: true\n");
+        var parsed = service.parseAndValidate(multiple, null);
+        assertThat(parsed.preview().inputs().images().multiple()).isTrue();
+        var definition = new ActionProcessorDefinition(); definition.setParsedJson(parsed.parsedJson());
+        definition.setTargetTypesJson("[\"PAGE\",\"REGION\"]");
+        assertThat(service.readInputRequirements(definition).images().multiple()).isTrue();
+        for (String invalid : java.util.List.of("'true'", "2", "null", "[]")) {
+            assertThatThrownBy(() -> service.parseAndValidate(multiple.replace("multiple: true", "multiple: " + invalid), null))
+                    .isInstanceOf(ActionDefinitionService.ValidationException.class);
+        }
+        assertThatThrownBy(() -> service.parseAndValidate(targetAwareExternalYaml().replace("    level: optional\n", "    level: optional\n    multiple: true\n"), null))
+                .isInstanceOf(ActionDefinitionService.ValidationException.class);
+    }
+
+    @Test
     void rejectsInputRequirementForUnsupportedTarget() {
         when(endpointAuthService.normalizeAuthType(new de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument.EndpointAuth("hmac", "processor-v1")))
                 .thenCallRealMethod();

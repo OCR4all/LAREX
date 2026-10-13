@@ -404,12 +404,72 @@ class ActionRunServiceTest {
     }
 
     @Test
+    void selectsAllRequestedVariantsAndFallsBackOnlyWhenNoneMatch() {
+        PageImage original = new PageImage("original.png", "original.png", "image/png", 10L, "original", "test", null);
+        PageImage scan = new PageImage("scan.png", "scan.png", "image/png", 10L, "scan", "test", null);
+        PageImage other = new PageImage("other.png", "other.png", "image/png", 10L, "other", "test", null);
+        List<PageImage> images = List.of(original, scan, other);
+        for (String mode : List.of("GLOBAL", "PER_PAGE")) {
+            var selection = new ActionDto.ImageVariantSelection(mode, null, null, true,
+                    List.of("original", "scan", "missing"), Map.of("page", List.of("original", "scan", "missing")));
+            ActionDto.ImageVariantSelection normalizedSelection = ReflectionTestUtils.invokeMethod(
+                    service, "normalizeImageVariantSelection", selection);
+            var reader = new ActionRunPayloadService(objectMapper);
+            var stored = reader.readImageVariantSelection(reader.readObjectMap(toJson(Map.of(
+                    ActionRunPayloadService.IMAGE_VARIANT_SELECTION_PARAMETER_KEY, normalizedSelection))));
+            List<PageImage> selected = ReflectionTestUtils.invokeMethod(
+                    service, "selectImagesForPage", "page", images, stored, new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), true));
+            assertThat(selected).containsExactly(original, scan);
+        }
+        var legacy = new ActionDto.ImageVariantSelection("GLOBAL", " scan ", Map.of(), false);
+        ActionDto.ImageVariantSelection normalized = ReflectionTestUtils.invokeMethod(service, "normalizeImageVariantSelection", legacy);
+        var payloadReader = new ActionRunPayloadService(objectMapper);
+        var restored = payloadReader.readImageVariantSelection(payloadReader.readObjectMap(toJson(Map.of(
+                ActionRunPayloadService.IMAGE_VARIANT_SELECTION_PARAMETER_KEY, normalized))));
+        List<PageImage> legacySelected = ReflectionTestUtils.invokeMethod(service, "selectImagesForPage", "page", images, restored, new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of()));
+        assertThat(legacySelected).containsExactly(scan);
+        var missing = new ActionDto.ImageVariantSelection("GLOBAL", null, null, false, List.of("missing"), null);
+        List<PageImage> selected = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "selectImagesForPage", "page", images, missing, new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of()));
+        assertThat(selected).isEmpty();
+        var fallback = new ActionDto.ImageVariantSelection("GLOBAL", null, null, true, List.of("missing"), null);
+        selected = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "selectImagesForPage", "page", images, fallback, new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of()));
+        assertThat(selected).containsExactly(original);
+    }
+
+    @Test
+    void singleImageActionsRejectMultipleSelectionsAndDefaultToOneImage() {
+        PageImage original = new PageImage("original.png", "original.png", "image/png", 10L, "original", "test", null);
+        PageImage scan = new PageImage("scan.png", "scan.png", "image/png", 10L, "scan", "test", null);
+        var single = new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of());
+        List<PageImage> defaults = ReflectionTestUtils.invokeMethod(service, "selectImagesForPage", "page", List.of(scan, original), null, single);
+        assertThat(defaults).containsExactly(original);
+        for (String mode : List.of("GLOBAL", "PER_PAGE")) {
+            var selection = new ActionDto.ImageVariantSelection(mode, null, null, false,
+                    List.of("original", "scan"), Map.of("page", List.of("original", "scan")));
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "selectImagesForPage", "page", List.of(original, scan), selection, single))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("does not accept multiple image variants");
+        }
+        ImpactFixture fixture = prepareImpact();
+        fixture.definition().setAcceptsImages(true);
+        var selection = new ActionDto.ImageVariantSelection("GLOBAL", null, null, false, List.of("original", "scan"), null);
+        var request = new ActionDto.StartRunRequest(fixture.definition().getId(), List.of("page-1"), Map.of(), null, selection, false);
+        assertThatThrownBy(() -> service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), request, OWNER_ID))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("does not accept multiple image variants");
+    }
+
+    @Test
     void retryImpactAndExclusionsPreserveRetainedScope() {
         ImpactFixture fixture = prepareImpact();
         ActionRun source = prepareRetry(fixture);
         fixture.definition().setAcceptsImages(true);
+        when(definitionService.readInputRequirements(fixture.definition())).thenReturn(new ActionDto.InputRequirements(
+                new ActionDto.InputRequirement(ActionDto.InputLevel.OPTIONAL, List.of(), true),
+                new ActionDto.InputRequirement(ActionDto.InputLevel.OPTIONAL, List.of())));
         source.setParametersJson(toJson(Map.of(ActionRunPayloadService.IMAGE_VARIANT_SELECTION_PARAMETER_KEY,
-                new ActionDto.ImageVariantSelection("PER_PAGE", null, Map.of("page-1", "chosen", "page-2", "chosen"), false))));
+                new ActionDto.ImageVariantSelection("PER_PAGE", null, Map.of("page-1", "chosen", "page-2", "chosen"), false,
+                        null, Map.of("page-1", List.of("chosen", "scan"), "page-2", List.of("chosen", "scan"))))));
         when(pageImageRepository.findByPageIdIn(anyList())).thenReturn(fixture.pages().stream()
                 .map(page -> new PageImage(page.getName() + ".png", "test.png", "image/png", 10L, "chosen", "test", page)).toList());
         var preview = service.previewRetryImpact(WORKSPACE_ID, fixture.project().getId(), source.getId(), OWNER_ID);
@@ -426,6 +486,8 @@ class ActionRunServiceTest {
         var payloadReader = new ActionRunPayloadService(objectMapper);
         assertThat(payloadReader.readImageVariantSelection(payloadReader.readObjectMap(saved.getValue().getParametersJson())).pageVariants())
                 .containsOnly(Map.entry("page-2", "chosen"));
+        assertThat(payloadReader.readImageVariantSelection(payloadReader.readObjectMap(saved.getValue().getParametersJson())).pageVariantLists())
+                .containsOnly(Map.entry("page-2", List.of("chosen", "scan")));
     }
 
     @Test
@@ -716,7 +778,7 @@ class ActionRunServiceTest {
         when(definitionService.readTrainingSplitRequirements(definition)).thenReturn(
                 new ActionDto.TrainingSplitRequirements(ActionDto.InputLevel.REQUIRED, ActionDto.InputLevel.OPTIONAL, ActionDto.InputLevel.NONE));
         when(definitionService.defaultTokenTtlMinutes()).thenReturn(30);
-        when(trainingSnapshotService.createSnapshot(eq(WORKSPACE_ID), eq(dataset), any(ActionRun.class), any(), any()))
+        when(trainingSnapshotService.createSnapshot(eq(WORKSPACE_ID), eq(dataset), any(ActionRun.class), any(), any(), any()))
                 .thenReturn(new ActionTrainingSnapshotService.SnapshotResult(3, Map.of("TRAIN", 2L, "VAL", 1L)));
         when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> {
             ActionRun saved = invocation.getArgument(0);
@@ -1382,6 +1444,37 @@ class ActionRunServiceTest {
         verify(trainingSnapshotService).cleanupSnapshot(run);
         verifyNoInteractions(actionOutputService);
         verify(pageRepository, never()).saveAll(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = ActionRun.Kind.class, names = {"TRAINING", "EVALUATION"})
+    void datasetMachineInputGroupsMultipleImagesUnderOneItem(ActionRun.Kind kind) {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("training");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.NONE, List.of());
+        run.setKind(kind); run.setProjectId(null); run.setDatasetId("dataset");
+        run.setInputRequirementsJson("{\"images\":{\"level\":\"REQUIRED\",\"multiple\":true},\"xml\":{\"level\":\"REQUIRED\"}}");
+        List<de.uniwue.zpd.dachs.larex.backend.entity.ActionTrainingInput> inputs = new ArrayList<>();
+        for (String variant : List.of("original", "scan")) {
+            var input = new de.uniwue.zpd.dachs.larex.backend.entity.ActionTrainingInput();
+            ReflectionTestUtils.setField(input, "id", variant);
+            input.setDatasetItemId("item"); input.setSourcePageId("page"); input.setPageName("Page");
+            input.setSplit(de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem.Split.TRAIN);
+            input.setImageVariant(variant); input.setImageFileName(variant + ".png"); input.setXmlFileName("page.xml");
+            inputs.add(input);
+        }
+        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(trainingInputRepository.findByRunIdOrderByCreatedAsc(run.getId())).thenReturn(inputs);
+        var payload = service.buildMachineInput(run.getId(), "Bearer " + RUN_SECRET, "http://app");
+        assertThat(payload.pages()).hasSize(1);
+        var page = payload.pages().getFirst();
+        assertThat(page.id()).isEqualTo("item");
+        assertThat(page.images()).extracting(ActionDto.MachinePageFile::variant).containsExactly("original", "scan");
+        assertThat(page.xml()).hasSize(1);
+        assertThat(payload.inputRequirements().images().multiple()).isTrue();
+        assertThat(page.images()).extracting(ActionDto.MachinePageFile::downloadUrl)
+                .containsExactly("http://app/public/actions/runs/" + run.getId() + "/files/images/original",
+                        "http://app/public/actions/runs/" + run.getId() + "/files/images/scan");
     }
 
     @Test

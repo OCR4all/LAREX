@@ -11,6 +11,7 @@ export type ActionRunStatus = 'QUEUED' | 'PENDING' | 'DISPATCHING' | 'RUNNING' |
 export interface ActionInputRequirement {
   level: ActionInputLevel
   requiredForTargets: ActionTarget[]
+  multiple?: boolean
 }
 
 export interface ActionInputRequirements {
@@ -35,6 +36,8 @@ export interface ActionImageVariantSelection {
   mode: ActionImageVariantSelectionMode
   variant?: string | null
   pageVariants?: Record<string, string>
+  variants?: string[]
+  pageVariantLists?: Record<string, string[]>
   fallbackImage: boolean
 }
 

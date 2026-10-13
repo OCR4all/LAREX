@@ -1,5 +1,6 @@
 <!-- eslint-disable @stylistic/max-statements-per-line -->
 <script setup lang="ts">
+import { actionImageSelectionValues } from '@/utils/action-input-requirements'
 import type { ActionDefinitionResponse, ActionEvaluationDefinition, ActionParameterChoice, ActionParameterValue, StartActionRunResponse, TrainingInputItem, TrainingInputResponse } from '@/types/action'
 import type { DatasetSummary } from '@/types/dataset'
 
@@ -11,8 +12,8 @@ const selectedDatasetId = ref<string>()
 const selectedProcessorId = ref<string>()
 const selectionMode = ref<'ALL' | 'SELECTED'>('ALL')
 const selectedItemIds = ref<Set<string>>(new Set())
-const globalVariant = ref<string>()
-const itemImageIds = ref<Record<string, string>>({})
+const globalVariants = ref<string[]>([])
+const itemImageIdLists = ref<Record<string, string[]>>({})
 const parameters = ref<Record<string, ActionParameterValue>>({})
 const parameterChoices = ref<Record<string, ActionParameterChoice[]>>({})
 const inputs = ref<TrainingInputResponse | null>(null)
@@ -29,6 +30,15 @@ watch(datasets, (value) => { if (!selectedDatasetId.value || !value.some(item =>
 watch(processors, (value) => { if (!selectedProcessorId.value || !value.some(item => item.id === selectedProcessorId.value)) selectedProcessorId.value = value[0]?.id }, { immediate: true })
 
 const selectedProcessor = computed(() => processors.value.find(item => item.id === selectedProcessorId.value))
+const multipleImages = computed(() => selectedProcessor.value?.inputs.images.multiple === true)
+watch(multipleImages, (multiple) => {
+  if (multiple) return
+  globalVariants.value = globalVariants.value.slice(0, 1)
+  for (const key of Object.keys(itemImageIdLists.value)) {
+    itemImageIdLists.value[key] = itemImageIdLists.value[key]?.slice(0, 1) ?? []
+  }
+}, { immediate: true })
+
 const evaluation = computed<ActionEvaluationDefinition | null>(() => selectedProcessor.value?.evaluation ?? null)
 const splitRequirements = computed(() => evaluation.value?.splits)
 const filteredDatasets = computed(() => datasets.value.filter(dataset => `${dataset.name} ${dataset.description || ''}`.toLowerCase().includes(datasetSearch.value.trim().toLowerCase())))
@@ -39,9 +49,9 @@ const splitCounts = computed(() => activeItems.value.reduce<Record<string, numbe
 const variantOptions = computed(() => [...new Set(compatibleItems.value.flatMap(item => item.images.map(image => image.variant).filter((value): value is string => Boolean(value))))].map(value => ({ label: value, value })))
 const requiredSplitsPresent = computed(() => ['TRAIN', 'VAL', 'TEST'].every(split => splitLevelFor(split as 'TRAIN' | 'VAL' | 'TEST') !== 'REQUIRED' || (splitCounts.value[split] || 0) > 0))
 const imageSelectionReady = computed(() => activeItems.value.every((item) => {
-  const override = itemImageIds.value[item.itemId]
-  if (override) return item.images.some(image => image.id === override)
-  if (globalVariant.value) return item.images.some(image => image.variant === globalVariant.value)
+  const override = itemImageIdLists.value[item.itemId]
+  if (override?.length) return override.every(id => item.images.some(image => image.id === id))
+  if (globalVariants.value.length) return item.images.some(image => globalVariants.value.includes(image.variant ?? ''))
   return item.images.length === 1
 }))
 const requiredParametersPresent = computed(() => Object.entries(selectedProcessor.value?.parameters || {}).every(([key, definition]) => !definition.required || (parameters.value[key] !== undefined && String(parameters.value[key]).trim().length > 0)))
@@ -56,7 +66,7 @@ async function loadInputs() {
   loadingInputs.value = true
   try { inputs.value = await $fetch<TrainingInputResponse>(`/api/workspaces/${workspaceId.value}/actions/evaluation/datasets/${selectedDatasetId.value}/inputs`) } catch { inputs.value = null } finally { loadingInputs.value = false }
 }
-watch([workspaceId, selectedDatasetId], () => { selectedItemIds.value = new Set(); itemImageIds.value = {}; globalVariant.value = undefined; void loadInputs() }, { immediate: true })
+watch([workspaceId, selectedDatasetId], () => { selectedItemIds.value = new Set(); itemImageIdLists.value = {}; globalVariants.value = []; void loadInputs() }, { immediate: true })
 watch(selectedProcessor, async (processor) => {
   parameters.value = {}; parameterChoices.value = {}
   if (!processor) return
@@ -76,7 +86,7 @@ async function startEvaluation() {
   if (!canStart.value) return
   startPending.value = true
   try {
-    const response = await $fetch<StartActionRunResponse>(`/api/workspaces/${workspaceId.value}/actions/evaluation/datasets/${selectedDatasetId.value}/runs`, { method: 'POST', body: { processorDefinitionId: selectedProcessorId.value, selection: selectionMode.value === 'ALL' ? { mode: 'ALL' } : { mode: 'SELECTED', itemIds: [...selectedItemIds.value] }, imageSelection: { globalVariant: globalVariant.value || null, itemImageIds: itemImageIds.value }, parameters: parameters.value, enqueueIfBusy: true } })
+    const response = await $fetch<StartActionRunResponse>(`/api/workspaces/${workspaceId.value}/actions/evaluation/datasets/${selectedDatasetId.value}/runs`, { method: 'POST', body: { processorDefinitionId: selectedProcessorId.value, selection: selectionMode.value === 'ALL' ? { mode: 'ALL' } : { mode: 'SELECTED', itemIds: [...selectedItemIds.value] }, imageSelection: { globalVariants: globalVariants.value, itemImageIdLists: itemImageIdLists.value }, parameters: parameters.value, enqueueIfBusy: true } })
     toast.add({ title: response.run.status === 'QUEUED' ? 'Evaluation queued' : 'Evaluation started', color: 'success' }); await navigateTo('/evaluation')
   } catch (error: unknown) { toast.add({ title: 'Could not start evaluation', description: error instanceof Error ? error.message : undefined, color: 'error' }) } finally { startPending.value = false }
 }
@@ -206,9 +216,11 @@ async function startEvaluation() {
                   </p>
                 </div><USelect
                   v-if="compatibleItems.includes(item) && item.images.length > 1"
-                  v-model="itemImageIds[item.itemId]"
+                  :model-value="multipleImages ? itemImageIdLists[item.itemId] : itemImageIdLists[item.itemId]?.[0]"
+                  :multiple="multipleImages"
                   :items="item.images.map(image => ({ label: image.variant || image.fileName, value: image.id }))"
                   class="w-44"
+                  @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event)"
                 />
               </div>
             </div>
@@ -222,12 +234,14 @@ async function startEvaluation() {
           </template><div class="space-y-5">
             <UFormField label="Evaluation Action" required>
               <USelect v-model="selectedProcessorId" :items="processorOptions" class="w-full" />
-            </UFormField><UFormField label="Global image variant">
+            </UFormField><UFormField label="Global image variants">
               <USelect
-                v-model="globalVariant"
+                :model-value="multipleImages ? globalVariants : globalVariants[0]"
+                :multiple="multipleImages"
                 :items="variantOptions"
-                placeholder="Sole available image or choose variant"
+                placeholder="Sole available image or choose variants"
                 class="w-full"
+                @update:model-value="globalVariants = actionImageSelectionValues($event)"
               />
             </UFormField><div class="grid gap-4 md:grid-cols-2">
               <UFormField

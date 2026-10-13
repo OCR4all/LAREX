@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ActionDefinition, ActionParameterChoice, ActionParameterDefinition, ActionParameterValue, ActionRun, ActionRunDetail, IntegrationInputItem, IntegrationInputResponse, StartActionRunResponse } from '@/types/action'
 import { actionParameterChoices, actionParameterDefaultValue, coerceActionParameterInput, hasAllowedActionParameterValue } from '@/utils/action-parameter-values'
-import { actionInputLevelForTarget } from '@/utils/action-input-requirements'
+import { actionImageSelectionValues, actionInputLevelForTarget } from '@/utils/action-input-requirements'
 import { extractApiErrorDetails } from '@/utils/api-error'
 
 const props = defineProps<{ workspaceId: string, datasetId: string, datasetName: string, itemIds?: string[] }>()
@@ -13,8 +13,8 @@ const selectedProcessorId = ref('')
 const selectionMode = ref<'ALL' | 'SELECTED'>(props.itemIds?.length ? 'SELECTED' : 'ALL')
 const parameters = ref<Record<string, ActionParameterValue>>({})
 const discovered = ref<Record<string, ActionParameterChoice[]>>({})
-const globalVariant = ref<string>()
-const itemImageIds = ref<Record<string, string>>({})
+const globalVariants = ref<string[]>([])
+const itemImageIdLists = ref<Record<string, string[]>>({})
 const loading = ref(true)
 const starting = ref(false)
 const discovering = ref(false)
@@ -27,6 +27,15 @@ const expandedRunId = ref<string | null>(null)
 const history = ref<ActionRun[]>([])
 const baseUrl = computed(() => `/api/workspaces/${props.workspaceId}/actions/integration`)
 const processor = computed(() => processors.value.find(item => item.id === selectedProcessorId.value))
+const multipleImages = computed(() => processor.value?.inputs.images.multiple === true)
+watch(multipleImages, (multiple) => {
+  if (multiple) return
+  globalVariants.value = globalVariants.value.slice(0, 1)
+  for (const key of Object.keys(itemImageIdLists.value)) {
+    itemImageIdLists.value[key] = itemImageIdLists.value[key]?.slice(0, 1) ?? []
+  }
+}, { immediate: true })
+
 const processorOptions = computed(() => processors.value.map(item => ({ label: item.name, value: item.id })))
 const selectedIds = computed(() => new Set(props.itemIds ?? []))
 const acceptsImages = computed(() => processor.value && actionInputLevelForTarget(processor.value.inputs.images, 'PAGE') !== 'NONE')
@@ -41,16 +50,16 @@ const skippedCount = computed(() => scopedItems.value.length - compatibleItems.v
 const variantOptions = computed(() => [...new Set(compatibleItems.value.flatMap(item => item.images.flatMap(image => image.variant ? [image.variant] : [])))].sort())
 const runs = computed(() => history.value.map(run => store.runsById.get(run.id) ?? run))
 
-function resolvedImage(item: IntegrationInputItem) {
-  const override = itemImageIds.value[item.itemId]
-  if (override) return item.images.find(image => image.id === override)
-  if (globalVariant.value) return item.images.find(image => image.variant === globalVariant.value)
-  return item.images.length === 1 ? item.images[0] : undefined
+function resolvedImages(item: IntegrationInputItem) {
+  const override = itemImageIdLists.value[item.itemId]
+  if (override?.length) return item.images.filter(image => override.includes(image.id))
+  if (globalVariants.value.length) return item.images.filter(image => globalVariants.value.includes(image.variant ?? ''))
+  return item.images.length === 1 ? item.images : []
 }
 
 const canStart = computed(() => Boolean(processor.value) && !loading.value && !starting.value && !discovering.value && !discoveryError.value
   && compatibleItems.value.length > 0 && (selectionMode.value === 'ALL' || skippedCount.value === 0)
-  && (!acceptsImages.value || compatibleItems.value.every(item => !item.images.length || resolvedImage(item)))
+  && (!acceptsImages.value || compatibleItems.value.every(item => !item.images.length || resolvedImages(item).length > 0))
   && Object.entries(processor.value?.parameters ?? {}).every(([key, definition]) => {
     const value = parameters.value[key]
     return (!definition.required || (value !== undefined && value !== '')) && hasAllowedActionParameterValue(definition, value, discovered.value)
@@ -121,7 +130,7 @@ async function start() {
       body: {
         processorDefinitionId: processor.value.id,
         selection: { mode: selectionMode.value, itemIds: selectionMode.value === 'SELECTED' ? props.itemIds : [] },
-        imageSelection: acceptsImages.value ? { globalVariant: globalVariant.value, itemImageIds: itemImageIds.value } : null,
+        imageSelection: acceptsImages.value ? { globalVariants: globalVariants.value, itemImageIdLists: itemImageIdLists.value } : null,
         parameters: parameters.value,
         enqueueIfBusy: enqueueIfBusy.value
       }
@@ -215,20 +224,22 @@ onMounted(load)
             description="Adjust the dataset selection or choose an Action matching the available files."
           />
           <template v-if="acceptsImages">
-            <UFormField label="Image variant">
+            <UFormField label="Image variants">
               <div class="flex gap-2">
                 <USelect
-                  v-model="globalVariant"
+                  :model-value="multipleImages ? globalVariants : globalVariants[0]"
+                  :multiple="multipleImages"
                   :items="variantOptions"
                   placeholder="Choose per item below"
                   class="w-full"
                   :disabled="starting"
+                  @update:model-value="globalVariants = actionImageSelectionValues($event)"
                 />
                 <UButton
-                  v-if="globalVariant"
+                  v-if="globalVariants.length"
                   color="neutral"
                   variant="ghost"
-                  @click="globalVariant = undefined"
+                  @click="globalVariants = []"
                 >
                   Clear
                 </UButton>
@@ -239,14 +250,16 @@ onMounted(load)
                 v-for="item in compatibleItems.filter(item => item.images.length > 0)"
                 :key="item.itemId"
                 :label="item.pageName"
-                :error="!resolvedImage(item) ? 'Choose an image for this item' : undefined"
+                :error="!resolvedImages(item).length ? 'Choose images for this item' : undefined"
               >
                 <USelect
-                  v-model="itemImageIds[item.itemId]"
+                  :model-value="multipleImages ? itemImageIdLists[item.itemId] : itemImageIdLists[item.itemId]?.[0]"
+                  :multiple="multipleImages"
                   :items="item.images.map(image => ({ label: `${image.variant || 'Image'} · ${image.fileName}`, value: image.id }))"
-                  :placeholder="resolvedImage(item)?.fileName || 'Choose image'"
+                  :placeholder="resolvedImages(item).map(image => image.fileName).join(', ') || 'Choose images'"
                   class="w-full"
                   :disabled="starting"
+                  @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event)"
                 />
               </UFormField>
             </div>

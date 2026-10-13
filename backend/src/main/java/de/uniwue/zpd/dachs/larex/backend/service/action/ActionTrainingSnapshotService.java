@@ -104,18 +104,20 @@ public class ActionTrainingSnapshotService {
                                                     Dataset dataset,
                                                     ActionRun run,
                                                     ActionDto.StartEvaluationRunRequest request,
-                                                    ActionDto.TrainingSplitRequirements requirements) throws IOException {
+                                                    ActionDto.TrainingSplitRequirements requirements,
+                                                    ActionDto.InputRequirement imageRequirement) throws IOException {
         return createSnapshot(workspaceId, dataset, run,
                 new ActionDto.StartTrainingRunRequest(
                         request.processorDefinitionId(), request.selection(), request.imageSelection(),
-                        request.parameters(), request.enqueueIfBusy()), requirements);
+                        request.parameters(), request.enqueueIfBusy()), requirements, imageRequirement);
     }
 
     public SnapshotResult createSnapshot(String workspaceId,
                                          Dataset dataset,
                                          ActionRun run,
                                          ActionDto.StartTrainingRunRequest request,
-                                         ActionDto.TrainingSplitRequirements requirements) throws IOException {
+                                         ActionDto.TrainingSplitRequirements requirements,
+                                         ActionDto.InputRequirement imageRequirement) throws IOException {
         List<DatasetItem> allItems = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(dataset.getId());
         List<DatasetItem> selectedItems = selectItems(allItems, request.selection(), requirements);
         if (selectedItems.isEmpty()) {
@@ -127,7 +129,7 @@ public class ActionTrainingSnapshotService {
             if (item.getStatus() != DatasetItem.Status.READY) {
                 throw new IllegalArgumentException("Dataset item is not ready: " + item.getSourcePageName());
             }
-            materials.add(resolveMaterial(workspaceId, item, request.imageSelection()));
+            materials.addAll(resolveMaterials(workspaceId, item, request.imageSelection(), imageRequirement));
         }
         requireSplits(materials, requirements);
 
@@ -138,7 +140,7 @@ public class ActionTrainingSnapshotService {
             Files.createDirectories(runRoot);
             List<ActionTrainingInput> saved = new ArrayList<>();
             for (ResolvedMaterial material : materials) {
-                Path itemRoot = runRoot.resolve(safeSegment(material.item().getId()));
+                Path itemRoot = runRoot.resolve(safeSegment(material.item().getId())).resolve(safeSegment(material.image().id()));
                 Files.createDirectories(itemRoot);
                 Path imageTarget = itemRoot.resolve("image-" + safeFileName(material.image().fileName()));
                 Path xmlTarget = itemRoot.resolve("annotation-" + safeFileName(material.xml().fileName()));
@@ -170,7 +172,7 @@ public class ActionTrainingSnapshotService {
             workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
             String fingerprint = fingerprint(dataset.getId(), saved);
             run.setDatasetInputFingerprint(fingerprint);
-            return new SnapshotResult(saved.size(), splitCounts(saved));
+            return new SnapshotResult((int) saved.stream().map(ActionTrainingInput::getDatasetItemId).distinct().count(), splitCounts(saved));
         } catch (IOException | RuntimeException error) {
             deleteTree(runRoot);
             workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
@@ -257,9 +259,8 @@ public class ActionTrainingSnapshotService {
             if (xml != null && !Files.isRegularFile(xml.path())) xml = null;
             if (!requirements.images().accepts(de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget.PAGE)) {
                 images = List.of();
-            } else if (!images.isEmpty() || request.imageSelection() != null
-                    && request.imageSelection().itemImageIds() != null && request.imageSelection().itemImageIds().containsKey(item.getId())) {
-                images = List.of(selectImage(item, images, request.imageSelection()));
+            } else if (!images.isEmpty() || hasImageOverride(item, request.imageSelection())) {
+                images = selectImages(item, images, request.imageSelection(), requirements.images());
             }
             if (!requirements.xml().accepts(de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget.PAGE)) xml = null;
             boolean compatible = !(requirements.images().required(de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget.PAGE) && images.isEmpty())
@@ -395,9 +396,10 @@ public class ActionTrainingSnapshotService {
         };
     }
 
-    private ResolvedMaterial resolveMaterial(String workspaceId,
-                                             DatasetItem item,
-                                             ActionDto.TrainingImageSelection selection) {
+    private List<ResolvedMaterial> resolveMaterials(String workspaceId,
+                                                    DatasetItem item,
+                                                    ActionDto.TrainingImageSelection selection,
+                                                    ActionDto.InputRequirement imageRequirement) {
         List<ResolvedFile> images;
         ResolvedFile xml;
         if (item.getMode() == DatasetItem.Mode.COPY) {
@@ -435,35 +437,59 @@ public class ActionTrainingSnapshotService {
         if (!Files.isRegularFile(xml.path())) {
             throw new IllegalArgumentException("Selected XML file is missing for " + item.getSourcePageName());
         }
-        ResolvedFile image = selectImage(item, images, selection);
-        if (!Files.isRegularFile(image.path())) {
-            throw new IllegalArgumentException("Selected image file is missing for " + item.getSourcePageName());
+        List<ResolvedFile> selected = selectImages(item, images, selection, imageRequirement);
+        for (ResolvedFile image : selected) {
+            if (!Files.isRegularFile(image.path())) {
+                throw new IllegalArgumentException("Selected image file is missing for " + item.getSourcePageName());
+            }
         }
-        return new ResolvedMaterial(item, image, xml);
+        ResolvedFile selectedXml = xml;
+        return selected.stream().map(image -> new ResolvedMaterial(item, image, selectedXml)).toList();
     }
 
-    private ResolvedFile selectImage(DatasetItem item,
-                                     List<ResolvedFile> images,
-                                     ActionDto.TrainingImageSelection selection) {
+    private boolean hasImageOverride(DatasetItem item, ActionDto.TrainingImageSelection selection) {
+        return selection != null && (selection.itemImageIds() != null && selection.itemImageIds().containsKey(item.getId())
+                || selection.itemImageIdLists() != null && selection.itemImageIdLists().containsKey(item.getId()));
+    }
+
+    private List<ResolvedFile> selectImages(DatasetItem item,
+                                          List<ResolvedFile> images,
+                                          ActionDto.TrainingImageSelection selection,
+                                          ActionDto.InputRequirement imageRequirement) {
         if (images.isEmpty()) {
             throw new IllegalArgumentException("No selected image is available for " + item.getSourcePageName());
         }
-        Map<String, String> overrides = selection == null || selection.itemImageIds() == null
-                ? Map.of() : selection.itemImageIds();
-        String override = overrides.get(item.getId());
-        if (override != null && !override.isBlank()) {
-            return images.stream().filter(image -> override.equals(image.id())).findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Image override is not part of dataset item " + item.getSourcePageName()));
+        List<String> overrides = selection == null || selection.itemImageIdLists() == null
+                ? null : selection.itemImageIdLists().get(item.getId());
+        if (overrides == null && selection != null && selection.itemImageIds() != null) {
+            String legacy = selection.itemImageIds().get(item.getId());
+            if (legacy != null && !legacy.isBlank()) overrides = List.of(legacy);
         }
-        String globalVariant = selection == null ? null : selection.globalVariant();
-        if (globalVariant != null && !globalVariant.isBlank()) {
-            return images.stream().filter(image -> globalVariant.trim().equals(image.variant())).findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Image variant " + globalVariant + " is missing for " + item.getSourcePageName()));
+        if (overrides != null && !overrides.isEmpty()) {
+            imageRequirement.validateImageCount(overrides.stream().distinct().count());
+            List<String> wanted = overrides;
+            List<ResolvedFile> selected = images.stream().filter(image -> wanted.contains(image.id())).toList();
+            if (selected.stream().map(ResolvedFile::id).distinct().count() != wanted.stream().distinct().count()) {
+                throw new IllegalArgumentException("Image override is not part of dataset item " + item.getSourcePageName());
+            }
+            return selected;
         }
-        if (images.size() == 1) {
-            return images.getFirst();
+        List<String> variants = selection == null ? null : selection.globalVariants();
+        if (variants == null && selection != null && selection.globalVariant() != null && !selection.globalVariant().isBlank()) {
+            variants = List.of(selection.globalVariant().trim());
         }
-        throw new IllegalArgumentException("Choose an image variant for " + item.getSourcePageName());
+        if (variants != null && !variants.isEmpty()) {
+            imageRequirement.validateImageCount(variants.stream().distinct().count());
+            List<String> wanted = variants;
+            List<ResolvedFile> selected = images.stream().filter(image -> wanted.contains(image.variant())).toList();
+            if (selected.isEmpty()) {
+                throw new IllegalArgumentException("Selected image variants are missing for " + item.getSourcePageName());
+            }
+            imageRequirement.validateImageCount(selected.size());
+            return selected;
+        }
+        if (images.size() == 1) return images;
+        throw new IllegalArgumentException("Choose image variants for " + item.getSourcePageName());
     }
 
     private ActionDto.TrainingInputItem overviewItem(String workspaceId, DatasetItem item) {
@@ -570,7 +596,9 @@ public class ActionTrainingSnapshotService {
 
     private Map<String, Long> splitCounts(List<ActionTrainingInput> inputs) {
         Map<String, Long> result = new LinkedHashMap<>();
-        inputs.forEach(input -> result.merge(input.getSplit().name(), 1L, Long::sum));
+        Map<String, ActionTrainingInput> items = new LinkedHashMap<>();
+        inputs.forEach(input -> items.putIfAbsent(input.getDatasetItemId(), input));
+        items.values().forEach(input -> result.merge(input.getSplit().name(), 1L, Long::sum));
         return result;
     }
 

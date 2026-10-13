@@ -29,7 +29,9 @@ interface ReviewSetup {
   canStart: Vue.ComputedRef<boolean>
   scope: Vue.Ref<'all' | 'selection'>
   targetSummary: Vue.ComputedRef<string>
-  selectedImageVariant: Vue.Ref<string>
+  multipleImages: Vue.ComputedRef<boolean>
+  selectedImageVariants: Vue.Ref<string[]>
+  pageImageVariants: Record<string, string[]>
   imageVariantMode: Vue.Ref<'global' | 'perPage'>
   fallbackImage: Vue.Ref<boolean>
   scopeWarnings: Vue.ComputedRef<Array<{ title: string }>>
@@ -206,9 +208,45 @@ describe('Action run review flow', () => {
     expect(scopedSetup.targetSummary.value).toBe('All pages (3)')
     expect(scopedSetup.scopedPages.value).toHaveLength(3)
     expect(scopedSetup.imageWarnings.value).toHaveLength(2)
-    expect(scopedSetup.imageWarnings.value[1]?.title).toContain('variant is missing')
+    expect(scopedSetup.imageWarnings.value[1]?.title).toContain('none of the selected image variants')
     scopedSetup.fallbackImage.value = true
     expect(scopedSetup.imageWarnings.value[1]?.title).toContain('fallback image')
+  })
+
+  it('submits multiple variants globally and per page and accepts any matching selected variant', async () => {
+    const variants = ['original', 'scan', 'unused'].map(variant => ({ id: variant, variant, fileName: `${variant}.png` }))
+    const multi = scope.run(() => exportsObject.default!.setup({
+      workspaceId: 'workspace', projectId: 'project', pageIds: ['page'],
+      pages: [{ id: 'page', name: 'Page', imageCount: 3, xmlFileCount: 1, imageVariants: variants }]
+    }, { expose: () => {}, emit }))!
+    multi.processors.value = [{ assignmentId: null, executable: true, blockedReason: null, processor: {
+      ...processor, inputs: { images: { level: 'REQUIRED', requiredForTargets: [], multiple: true }, xml: { level: 'NONE', requiredForTargets: [] } }
+    } }]
+    multi.selectAction(multi.processors.value[0]!)
+    await Vue.nextTick()
+    expect(multi.multipleImages.value).toBe(true)
+    multi.selectedImageVariants.value = ['original', 'scan', 'missing']
+    expect(multi.imageWarnings.value).toEqual([])
+    fetch.mockResolvedValueOnce(preview)
+    await multi.startRun()
+    expect(fetch.mock.calls[0]![1].body.imageVariantSelection).toEqual({
+      mode: 'GLOBAL', variants: ['original', 'scan', 'missing'], fallbackImage: false
+    })
+    multi.imageVariantMode.value = 'perPage'
+    multi.pageImageVariants.page = ['original', 'scan']
+    fetch.mockResolvedValueOnce(preview)
+    await multi.startRun()
+    expect(fetch.mock.calls[1]![1].body.imageVariantSelection).toEqual({
+      mode: 'PER_PAGE', pageVariantLists: { page: ['original', 'scan'] }, fallbackImage: false
+    })
+    multi.processors.value = [{ ...multi.processors.value[0]!, processor: {
+      ...multi.processors.value[0]!.processor,
+      inputs: { images: { level: 'REQUIRED', requiredForTargets: [] }, xml: { level: 'NONE', requiredForTargets: [] } }
+    } }]
+    await Vue.nextTick()
+    expect(multi.multipleImages.value).toBe(false)
+    expect(multi.selectedImageVariants.value).toEqual(['original'])
+    expect(multi.pageImageVariants.page).toEqual(['original'])
   })
 
   it('preserves the fixed editor target without relying on separate pageIds', async () => {

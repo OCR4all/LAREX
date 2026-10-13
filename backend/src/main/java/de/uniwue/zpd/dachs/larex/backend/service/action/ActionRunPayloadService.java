@@ -96,7 +96,7 @@ public class ActionRunPayloadService {
         try {
             return objectMapper.readValue(run.getInputRequirementsJson(), ActionDto.InputRequirements.class);
         } catch (JacksonException | IllegalArgumentException error) {
-            throw new IllegalStateException("Integration snapshot input requirements are missing", error);
+            throw new IllegalStateException("Action snapshot input requirements are missing", error);
         }
     }
 

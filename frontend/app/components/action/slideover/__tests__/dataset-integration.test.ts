@@ -22,11 +22,13 @@ interface Setup {
   load: () => Promise<void>
   start: () => Promise<void>
   canStart: Vue.ComputedRef<boolean>
+  multipleImages: Vue.ComputedRef<boolean>
+  globalVariants: Vue.Ref<string[]>
   selectionMode: Vue.Ref<'ALL' | 'SELECTED'>
   compatibleItems: Vue.ComputedRef<IntegrationInputItem[]>
   skippedCount: Vue.ComputedRef<number>
   parameters: Vue.Ref<Record<string, string | number | boolean>>
-  itemImageIds: Vue.Ref<Record<string, string>>
+  itemImageIdLists: Vue.Ref<Record<string, string[]>>
   history: Vue.Ref<ActionRun[]>
   changed: Vue.Ref<boolean>
   discoveryError: Vue.Ref<string | null>
@@ -117,19 +119,36 @@ describe('Dataset Integration run flow', () => {
   })
 
   it('requires image selection when multiple variants are available', async () => {
-    activeDefinition = { ...definition, inputs: { images: { level: 'REQUIRED', requiredForTargets: [] }, xml: { level: 'NONE', requiredForTargets: [] } } }
+    activeDefinition = { ...definition, inputs: { images: { level: 'REQUIRED', requiredForTargets: [], multiple: true }, xml: { level: 'NONE', requiredForTargets: [] } } }
     inputs = [{ ...item, xmlAvailable: false, images: [
       { id: 'image-a', fileName: 'a.png', variant: 'a' }, { id: 'image-b', fileName: 'b.png', variant: 'b' }
     ] }]
     await setup.load()
     await Vue.nextTick()
     expect(setup.canStart.value).toBe(false)
-    setup.itemImageIds.value.item = 'image-b'
+    expect(setup.multipleImages.value).toBe(true)
+    setup.itemImageIdLists.value.item = ['image-a', 'image-b']
     expect(setup.canStart.value).toBe(true)
     await setup.start()
     expect(fetch).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ body: expect.objectContaining({
-      imageSelection: { globalVariant: undefined, itemImageIds: { item: 'image-b' } }
+      imageSelection: { globalVariants: [], itemImageIdLists: { item: ['image-a', 'image-b'] } }
     }) }))
+  })
+
+  it('defaults to single-image mode and trims selections when opting out', async () => {
+    await setup.load()
+    expect(setup.multipleImages.value).toBe(false)
+    activeDefinition = { ...definition, inputs: { images: { level: 'REQUIRED', requiredForTargets: [], multiple: true }, xml: { level: 'NONE', requiredForTargets: [] } } }
+    await setup.load()
+    await Vue.nextTick()
+    setup.globalVariants.value = ['a', 'b']
+    setup.itemImageIdLists.value.item = ['image-a', 'image-b']
+    activeDefinition = { ...activeDefinition, inputs: { ...activeDefinition.inputs, images: { level: 'REQUIRED', requiredForTargets: [] } } }
+    await setup.load()
+    await Vue.nextTick()
+    expect(setup.multipleImages.value).toBe(false)
+    expect(setup.globalVariants.value).toEqual(['a'])
+    expect(setup.itemImageIdLists.value.item).toEqual(['image-a'])
   })
 
   it('blocks submission if dynamic parameter discovery fails', async () => {

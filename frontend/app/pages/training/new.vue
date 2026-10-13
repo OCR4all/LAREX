@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { actionImageSelectionValues } from '@/utils/action-input-requirements'
 import type {
   ActionDefinitionResponse,
   ActionParameterChoice,
@@ -18,8 +19,8 @@ const selectedDatasetId = ref<string>()
 const selectedProcessorId = ref<string>()
 const selectionMode = ref<'ALL' | 'SELECTED'>('ALL')
 const selectedItemIds = ref<Set<string>>(new Set())
-const globalVariant = ref<string>()
-const itemImageIds = ref<Record<string, string>>({})
+const globalVariants = ref<string[]>([])
+const itemImageIdLists = ref<Record<string, string[]>>({})
 const parameters = ref<Record<string, ActionParameterValue>>({})
 const parameterChoices = ref<Record<string, ActionParameterChoice[]>>({})
 const starting = ref(false)
@@ -99,6 +100,15 @@ async function refreshDatasetDetail() {
 }
 
 const selectedProcessor = computed(() => processors.value.find(item => item.id === selectedProcessorId.value))
+const multipleImages = computed(() => selectedProcessor.value?.inputs.images.multiple === true)
+watch(multipleImages, (multiple) => {
+  if (multiple) return
+  globalVariants.value = globalVariants.value.slice(0, 1)
+  for (const key of Object.keys(itemImageIdLists.value)) {
+    itemImageIdLists.value[key] = itemImageIdLists.value[key]?.slice(0, 1) ?? []
+  }
+}, { immediate: true })
+
 const splitRequirements = computed(() => selectedProcessor.value?.trainingSplits)
 const processorOptions = computed(() => processors.value.map(item => ({ label: item.name, value: item.id })))
 const steps = [
@@ -156,11 +166,11 @@ const variantOptions = computed(() => [...new Set(compatibleItems.value.flatMap(
   item.images.map(image => image.variant).filter((variant): variant is string => Boolean(variant))
 ))].sort().map(variant => ({ label: variant, value: variant })))
 
-function resolvedImage(item: TrainingInputItem) {
-  const override = itemImageIds.value[item.itemId]
-  if (override) return item.images.find(image => image.id === override)
-  if (globalVariant.value) return item.images.find(image => image.variant === globalVariant.value)
-  return item.images.length === 1 ? item.images[0] : undefined
+function resolvedImages(item: TrainingInputItem) {
+  const override = itemImageIdLists.value[item.itemId]
+  if (override?.length) return item.images.filter(image => override.includes(image.id))
+  if (globalVariants.value.length) return item.images.filter(image => globalVariants.value.includes(image.variant ?? ''))
+  return item.images.length === 1 ? item.images : []
 }
 
 const requiredSplitsPresent = computed(() => {
@@ -178,7 +188,7 @@ const inputsReady = computed(() => Boolean(
   && (selectionMode.value !== 'ALL' || allModeIncompleteItems.value.length === 0)
   && requiredSplitsPresent.value
 ))
-const imageSelectionReady = computed(() => activeItems.value.every(resolvedImage))
+const imageSelectionReady = computed(() => activeItems.value.every(item => resolvedImages(item).length > 0))
 const canStart = computed(() => inputsReady.value && imageSelectionReady.value && requiredParametersPresent.value)
 
 watch(datasets, (items) => {
@@ -194,8 +204,8 @@ watch(processors, (items) => {
 }, { immediate: true })
 watch([workspaceId, selectedDatasetId], async ([, id]) => {
   selectedItemIds.value = new Set()
-  itemImageIds.value = {}
-  globalVariant.value = undefined
+  itemImageIdLists.value = {}
+  globalVariants.value = []
   itemSearch.value = ''
   splitFilter.value = 'ALL'
   showOnlyReady.value = false
@@ -259,7 +269,7 @@ async function startTraining() {
           selection: selectionMode.value === 'ALL'
             ? { mode: 'ALL' }
             : { mode: 'SELECTED', itemIds: [...selectedItemIds.value] },
-          imageSelection: { globalVariant: globalVariant.value || null, itemImageIds: itemImageIds.value },
+          imageSelection: { globalVariants: globalVariants.value, itemImageIdLists: itemImageIdLists.value },
           parameters: parameters.value,
           enqueueIfBusy: true
         }
@@ -473,13 +483,15 @@ async function startTraining() {
               </div>
               <UInput v-model="itemSearch" icon="i-lucide-search" placeholder="Filter pages…" />
               <USelect v-model="splitFilter" :items="[{ label: 'All splits', value: 'ALL' }, { label: 'Train', value: 'TRAIN' }, { label: 'Validation', value: 'VAL' }, { label: 'Test', value: 'TEST' }]" />
-              <UFormField label="Global image variant" hint="Per-item choices below override this value.">
+              <UFormField label="Global image variants" hint="Per-item choices below override this value.">
                 <USelectMenu
-                  v-model="globalVariant"
+                  :model-value="multipleImages ? globalVariants : globalVariants[0]"
+                  :multiple="multipleImages"
                   :items="variantOptions"
                   value-key="value"
-                  placeholder="Use sole image or choose variant"
+                  placeholder="Use sole image or choose variants"
                   class="w-full"
+                  @update:model-value="globalVariants = actionImageSelectionValues($event)"
                 />
               </UFormField>
               <UCheckbox v-model="showOnlyReady" label="Only show ready items" />
@@ -566,10 +578,12 @@ async function startTraining() {
                   </div>
                   <USelect
                     v-if="compatibleItems.includes(item) && item.images.length"
-                    v-model="itemImageIds[item.itemId]"
+                    :model-value="multipleImages ? itemImageIdLists[item.itemId] : itemImageIdLists[item.itemId]?.[0]"
+                    :multiple="multipleImages"
                     :items="item.images.map(image => ({ label: image.variant || image.fileName, value: image.id }))"
-                    placeholder="Override image"
+                    placeholder="Override images"
                     class="w-44"
+                    @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event)"
                   />
                 </div>
                 <UEmpty
@@ -661,10 +675,10 @@ async function startTraining() {
                 {{ selectedProcessor?.name || '—' }}
               </p>
               <p class="mt-3 text-xs uppercase tracking-wide text-muted">
-                Image variant
+                Image variants
               </p>
               <p class="mt-1">
-                {{ globalVariant || 'Per-item / sole available image' }}
+                {{ globalVariants.join(', ') || 'Per-item / sole available image' }}
               </p>
             </div>
             <div class="rounded-lg border border-default p-4">

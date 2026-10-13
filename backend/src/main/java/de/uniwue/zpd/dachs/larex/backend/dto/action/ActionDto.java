@@ -41,8 +41,23 @@ public class ActionDto {
 
     public record InputRequirement(
             InputLevel level,
-            List<ActionTarget> requiredForTargets
+            List<ActionTarget> requiredForTargets,
+            Boolean multiple
     ) {
+        public InputRequirement {
+            multiple = Boolean.TRUE.equals(multiple);
+        }
+
+        public InputRequirement(InputLevel level, List<ActionTarget> requiredForTargets) {
+            this(level, requiredForTargets, false);
+        }
+
+        public void validateImageCount(long count) {
+            if (!multiple && count > 1) {
+                throw new IllegalArgumentException("This Action does not accept multiple image variants per page or dataset item");
+            }
+        }
+
         public InputLevel levelFor(ActionTarget target) {
             return requiredForTargets != null && requiredForTargets.contains(target)
                     ? InputLevel.REQUIRED
@@ -202,12 +217,19 @@ public class ActionDto {
             Boolean enqueueIfBusy
     ) {}
 
+    // Singular fields remain readable for existing clients and persisted runs.
     public record ImageVariantSelection(
             String mode,
             String variant,
             Map<String, String> pageVariants,
-            Boolean fallbackImage
-    ) {}
+            Boolean fallbackImage,
+            List<String> variants,
+            Map<String, List<String>> pageVariantLists
+    ) {
+        public ImageVariantSelection(String mode, String variant, Map<String, String> pageVariants, Boolean fallbackImage) {
+            this(mode, variant, pageVariants, fallbackImage, null, null);
+        }
+    }
 
     public record TargetSelection(
             ActionTarget type,
@@ -246,10 +268,17 @@ public class ActionDto {
             List<String> itemIds
     ) {}
 
+    // The list fields take precedence over the legacy single-image selections.
     public record TrainingImageSelection(
             String globalVariant,
-            Map<String, String> itemImageIds
-    ) {}
+            Map<String, String> itemImageIds,
+            List<String> globalVariants,
+            Map<String, List<String>> itemImageIdLists
+    ) {
+        public TrainingImageSelection(String globalVariant, Map<String, String> itemImageIds) {
+            this(globalVariant, itemImageIds, null, null);
+        }
+    }
 
     public record TrainingInputResponse(
             String datasetId,

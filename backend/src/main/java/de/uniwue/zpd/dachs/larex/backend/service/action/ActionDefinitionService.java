@@ -63,7 +63,7 @@ public class ActionDefinitionService {
     private static final int MAX_PARAMETER_VALUE_RESPONSE_BYTES = 1_048_576;
     private static final TypeReference<List<ActionTarget>> ACTION_TARGET_LIST = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {};
-    private static final Set<String> INPUT_REQUIREMENT_FIELDS = Set.of("level", "requiredForTargets");
+    private static final Set<String> INPUT_REQUIREMENT_FIELDS = Set.of("level", "requiredForTargets", "multiple");
 
     private final ActionProcessorDefinitionRepository definitionRepository;
     private final ActionProcessorWorkspaceAvailabilityRepository availabilityRepository;
@@ -470,7 +470,7 @@ public class ActionDefinitionService {
             }
             if (!inputRequirements.images().required(ActionTarget.PAGE)
                     || !inputRequirements.xml().required(ActionTarget.PAGE)) {
-                diagnostics.add(error("inputs", "Evaluation Actions require one image and one XML input"));
+                diagnostics.add(error("inputs", "Evaluation Actions require image and XML inputs"));
             }
         } else if (lockMode == LockMode.NONE) {
             diagnostics.add(error("locking.mode", "Processing Actions must lock pages or the project"));
@@ -1275,7 +1275,17 @@ public class ActionDefinitionService {
                 supportedTargets,
                 diagnostics
         );
-        return new ActionDto.InputRequirement(level, requiredForTargets);
+        boolean multiple = false;
+        if (rawMap.containsKey("multiple")) {
+            if (!"inputs.images".equals(path)) {
+                diagnostics.add(error(path + ".multiple", "multiple is only supported for image inputs"));
+            } else if (rawMap.get("multiple") instanceof Boolean value) {
+                multiple = value;
+            } else {
+                diagnostics.add(error(path + ".multiple", "multiple must be a boolean"));
+            }
+        }
+        return new ActionDto.InputRequirement(level, requiredForTargets, multiple);
     }
 
     private InputLevel parseInputLevel(String rawLevel,

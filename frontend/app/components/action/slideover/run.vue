@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { extractApiErrorDetails } from '@/utils/api-error'
 import { annotationLevelLabels, retainedImpactPages, reviewedActionConfiguration } from '@/utils/action-impact'
-import { actionInputLevelForTarget } from '@/utils/action-input-requirements'
+import { actionImageSelectionValues, actionInputLevelForTarget } from '@/utils/action-input-requirements'
 import {
   actionParameterChoices,
   actionParameterDefaultValue,
@@ -90,9 +90,9 @@ const actionTableColumns = [
   { id: 'actions', header: '', enableHiding: false, meta: { class: { th: 'w-12', td: 'w-12' } } }
 ]
 const imageVariantMode = ref<'global' | 'perPage'>('global')
-const selectedImageVariant = ref('')
+const selectedImageVariants = ref<string[]>([])
 const fallbackImage = ref(false)
-const pageImageVariants = reactive<Record<string, string>>({})
+const pageImageVariants = reactive<Record<string, string[]>>({})
 const loading = ref(false)
 const starting = ref(false)
 const cancellingRunId = ref<string | null>(null)
@@ -216,6 +216,15 @@ function selectedInputLevel(type: 'images' | 'xml'): ActionInputLevel {
 const selectedImageInputLevel = computed(() => selectedInputLevel('images'))
 const selectedXmlInputLevel = computed(() => selectedInputLevel('xml'))
 const selectedProcessorAcceptsImages = computed(() => selectedImageInputLevel.value !== 'NONE')
+const multipleImages = computed(() => selectedProcessor.value?.processor?.inputs.images.multiple === true)
+watch(multipleImages, (multiple) => {
+  if (multiple) return
+  selectedImageVariants.value = selectedImageVariants.value.slice(0, 1)
+  for (const key of Object.keys(pageImageVariants)) {
+    pageImageVariants[key] = pageImageVariants[key]?.slice(0, 1) ?? []
+  }
+}, { immediate: true })
+
 const selectedProcessorRequiresImages = computed(() => selectedImageInputLevel.value === 'REQUIRED')
 const selectedProcessorRequiresXml = computed(() => selectedXmlInputLevel.value === 'REQUIRED')
 const compatibilityWarnings = computed(() => {
@@ -238,10 +247,10 @@ const compatibilityWarnings = computed(() => {
         input: 'images',
         title: fallbackImage.value
           ? `${pagesMissingSelectedVariant.value.length} page${pagesMissingSelectedVariant.value.length === 1 ? '' : 's'} will use a fallback image.`
-          : `${pagesMissingSelectedVariant.value.length} page${pagesMissingSelectedVariant.value.length === 1 ? '' : 's'} will be skipped because the selected image variant is missing.`,
+          : `${pagesMissingSelectedVariant.value.length} page${pagesMissingSelectedVariant.value.length === 1 ? '' : 's'} will be skipped because none of the selected image variants are available.`,
         description: fallbackImage.value
           ? 'LAREX will use the first available image on those pages.'
-          : 'Choose another variant or enable fallback to include those pages.'
+          : 'Choose other variants or enable fallback to include those pages.'
       })
     }
   }
@@ -325,31 +334,31 @@ const pagesMissingSelectedVariant = computed(() => {
   return scopedPages.value.filter((page) => {
     if (page.imageCount <= 0) return false
     const available = imageVariantByPageId.value[page.id] ?? new Set<string>()
-    const wanted = imageVariantMode.value === 'global' ? selectedImageVariant.value : pageImageVariants[page.id]
-    return typeof wanted === 'string' && wanted.length > 0 && !available.has(wanted)
+    const wanted = imageVariantMode.value === 'global' ? selectedImageVariants.value : pageImageVariants[page.id]
+    return Boolean(wanted?.length) && !wanted?.some(variant => available.has(variant))
   })
 })
 const submittedImageVariantSelection = computed<ActionImageVariantSelection | null>(() => {
   if (!selectedProcessorAcceptsImages.value || imageVariantOptions.value.length === 0) return null
   if (imageVariantMode.value === 'global') {
-    if (!selectedImageVariant.value) return null
+    if (!selectedImageVariants.value.length) return null
     return {
       mode: 'GLOBAL',
-      variant: selectedImageVariant.value,
+      variants: [...selectedImageVariants.value],
       fallbackImage: fallbackImage.value
     }
   }
-  const pageVariants: Record<string, string> = {}
+  const pageVariantLists: Record<string, string[]> = {}
   for (const page of scopedPages.value) {
     const variant = pageImageVariants[page.id]
-    if (variant) {
-      pageVariants[page.id] = variant
+    if (variant?.length) {
+      pageVariantLists[page.id] = [...variant]
     }
   }
-  if (Object.keys(pageVariants).length === 0) return null
+  if (Object.keys(pageVariantLists).length === 0) return null
   return {
     mode: 'PER_PAGE',
-    pageVariants,
+    pageVariantLists,
     fallbackImage: fallbackImage.value
   }
 })
@@ -359,8 +368,8 @@ const incompatibleScopedPages = computed(() => scopedPages.value.filter((page) =
   if (!selectedProcessorAcceptsImages.value) return false
 
   const available = imageVariantByPageId.value[page.id] ?? new Set<string>()
-  const wanted = imageVariantMode.value === 'global' ? selectedImageVariant.value : pageImageVariants[page.id]
-  if (!wanted || available.has(wanted)) return false
+  const wanted = imageVariantMode.value === 'global' ? selectedImageVariants.value : pageImageVariants[page.id]
+  if (!wanted?.length || wanted.some(variant => available.has(variant))) return false
   return !fallbackImage.value || page.imageCount <= 0
 }))
 const hasCompatiblePages = computed(() =>
@@ -447,14 +456,13 @@ function reconcileSelectedProcessor() {
 function reconcileImageVariantSelection() {
   const options = imageVariantOptions.value
   if (options.length === 0) {
-    selectedImageVariant.value = ''
+    selectedImageVariants.value = []
     Object.keys(pageImageVariants).forEach(key => Reflect.deleteProperty(pageImageVariants, key))
     return
   }
 
-  if (!options.some(item => item.value === selectedImageVariant.value)) {
-    selectedImageVariant.value = options[0]?.value ?? ''
-  }
+  const retained = selectedImageVariants.value.filter(variant => options.some(item => item.value === variant))
+  selectedImageVariants.value = retained.length ? retained : [options[0]!.value]
 
   const scopedPageIds = new Set(scopedPages.value.map(page => page.id))
   Object.keys(pageImageVariants).forEach((pageId) => {
@@ -466,12 +474,9 @@ function reconcileImageVariantSelection() {
   for (const page of scopedPages.value) {
     const available = Array.from(imageVariantByPageId.value[page.id] ?? [])
     if (available.length === 0) continue
-    const current = pageImageVariants[page.id]
-    if (!current || !available.includes(current)) {
-      pageImageVariants[page.id] = available.includes(selectedImageVariant.value)
-        ? selectedImageVariant.value
-        : (available[0] ?? selectedImageVariant.value)
-    }
+    const current = (pageImageVariants[page.id] ?? []).filter(variant => available.includes(variant))
+    const defaults = selectedImageVariants.value.filter(variant => available.includes(variant))
+    pageImageVariants[page.id] = current.length ? current : defaults.length ? defaults : [available[0]!]
   }
 }
 
@@ -1167,13 +1172,15 @@ function close() {
                   Image inputs will be used as currently stored.
                 </p>
                 <template v-else>
-                  <UFormField label="Image variant" :description="imageVariantMode === 'perPage' ? 'Using a separate variant for each page.' : undefined">
+                  <UFormField label="Image variants" :description="imageVariantMode === 'perPage' ? 'Using separate variants for each page.' : undefined">
                     <USelectMenu
-                      v-model="selectedImageVariant"
+                      :model-value="multipleImages ? selectedImageVariants : selectedImageVariants[0]"
+                      :multiple="multipleImages"
                       :items="imageVariantOptions"
                       value-key="value"
                       :disabled="navigationBusy || imageVariantMode === 'perPage'"
                       class="w-full"
+                      @update:model-value="selectedImageVariants = actionImageSelectionValues($event)"
                     />
                   </UFormField>
                   <USwitch v-model="fallbackImage" label="Use another image if unavailable" :disabled="navigationBusy" />
@@ -1203,12 +1210,14 @@ function close() {
                           </div>
                           <USelectMenu
                             v-if="imageVariantOptionsForPage(page).length > 0"
-                            v-model="pageImageVariants[page.id]"
+                            :model-value="multipleImages ? pageImageVariants[page.id] : pageImageVariants[page.id]?.[0]"
+                            :multiple="multipleImages"
                             :items="imageVariantOptionsForPage(page)"
                             value-key="value"
                             searchable
                             searchable-placeholder="Filter variants..."
                             :disabled="navigationBusy"
+                            @update:model-value="pageImageVariants[page.id] = actionImageSelectionValues($event)"
                           />
                           <UBadge v-else color="warning" variant="soft">
                             No images

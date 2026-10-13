@@ -31,6 +31,7 @@ class ActionIntegrationSnapshotServiceTest {
     WorkspaceQuotaGuardService quota = mock(WorkspaceQuotaGuardService.class);
     WorkspaceQuotaRefreshService refresh = mock(WorkspaceQuotaRefreshService.class);
     List<ActionInputSnapshot> saved = new ArrayList<>();
+    ActionTrainingInputRepository trainingInputs = mock(ActionTrainingInputRepository.class);
     ActionTrainingSnapshotService service;
     ActionRun run;
 
@@ -38,7 +39,7 @@ class ActionIntegrationSnapshotServiceTest {
         UploadDirectoryProperties properties = new UploadDirectoryProperties();
         properties.setRootDirectory(root);
         service = new ActionTrainingSnapshotService(mock(DatasetRepository.class), items, pages,
-                images, xmls, mock(ActionTrainingInputRepository.class), mock(WorkspaceAccessService.class),
+                images, xmls, trainingInputs, mock(WorkspaceAccessService.class),
                 new UploadPathService(properties), quota, refresh, snapshots);
         run = new ActionRun(); run.setId("integration-run"); run.setWorkspaceId("workspace");
         run.setProjectId("project"); run.setKind(ActionRun.Kind.INTEGRATION);
@@ -80,6 +81,63 @@ class ActionIntegrationSnapshotServiceTest {
         assertThat(saved).hasSize(types.equals("both") ? 2 : 1);
         assertThat(saved).allMatch(file -> "item".equals(file.getInputId()) && file.getSplit() == null);
         assertThat(run.getInputCount()).isEqualTo(1);
+    }
+
+    @Test void freezesMultipleDatasetVariantsForEveryDatasetActionKind() throws Exception {
+        run.setProjectId(null); run.setDatasetId("dataset");
+        Dataset dataset = new Dataset(); dataset.setId("dataset");
+        DatasetItem item = new DatasetItem(); item.setId("item"); item.setSourcePageId("page");
+        item.setSourcePageName("Page"); item.setMode(DatasetItem.Mode.COPY); item.setStatus(DatasetItem.Status.READY);
+        item.setAssignedSplit(DatasetItem.Split.TRAIN); item.setSelectedSourceXmlId("xml");
+        item.setSelectedSourceImageIds(List.of("original", "scan", "other"));
+        List<DatasetItemCopyFile> files = new ArrayList<>();
+        files.add(copyFile(DatasetItemCopyFile.Kind.XML, "xml", "source.xml"));
+        for (String variant : item.getSelectedSourceImageIds()) {
+            Files.writeString(root.resolve(variant + ".png"), variant);
+            var image = copyFile(DatasetItemCopyFile.Kind.IMAGE, variant, variant + ".png");
+            image.setVariant(variant); files.add(image);
+        }
+        item.setCopyFiles(files);
+        when(items.findByDatasetIdOrderByCreatedAsc("dataset")).thenReturn(List.of(item));
+        var splits = new ActionDto.TrainingSplitRequirements(ActionDto.InputLevel.REQUIRED,
+                ActionDto.InputLevel.NONE, ActionDto.InputLevel.NONE);
+        for (boolean perItem : List.of(false, true)) {
+            var selection = new ActionDto.TrainingImageSelection(null, null,
+                    List.of("original", "scan"), perItem ? Map.of("item", List.of("original", "scan")) : Map.of());
+            var request = new ActionDto.StartTrainingRunRequest("definition",
+                    new ActionDto.TrainingSelection("ALL", List.of()), selection, Map.of(), true);
+            var single = new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of());
+            assertThatThrownBy(() -> service.createSnapshot("workspace", dataset, run, request, splits, single))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("does not accept multiple image variants");
+            assertThatThrownBy(() -> service.createEvaluationSnapshot("workspace", dataset, run,
+                    new ActionDto.StartEvaluationRunRequest("definition", request.selection(), selection, Map.of(), true), splits, single))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("does not accept multiple image variants");
+            assertThatThrownBy(() -> service.createDatasetIntegrationSnapshot(run, dataset, request,
+                    new ActionDto.InputRequirements(single, single)))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("does not accept multiple image variants");
+            run.setKind(ActionRun.Kind.INTEGRATION); saved.clear();
+            service.createDatasetIntegrationSnapshot(run, dataset, request, new ActionDto.InputRequirements(
+                    new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), true),
+                    new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of())));
+            assertThat(saved).filteredOn(file -> "images".equals(file.getFileType()))
+                    .extracting(ActionInputSnapshot::getVariant).containsExactly("original", "scan");
+            for (ActionRun.Kind kind : List.of(ActionRun.Kind.TRAINING, ActionRun.Kind.EVALUATION)) {
+                run.setKind(kind);
+                ActionTrainingSnapshotService.SnapshotResult result = kind == ActionRun.Kind.TRAINING
+                        ? service.createSnapshot("workspace", dataset, run, request, splits, new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), true))
+                        : service.createEvaluationSnapshot("workspace", dataset, run,
+                        new ActionDto.StartEvaluationRunRequest("definition", request.selection(), selection, Map.of(), true), splits, new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), true));
+                assertThat(result.inputCount()).isEqualTo(1);
+                assertThat(result.splitCounts()).containsOnly(entry("TRAIN", 1L));
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                org.mockito.ArgumentCaptor<List<ActionTrainingInput>> captured = org.mockito.ArgumentCaptor.forClass((Class) List.class);
+                verify(trainingInputs, atLeastOnce()).saveAll(captured.capture());
+                List<ActionTrainingInput> frozen = captured.getValue();
+                assertThat(frozen).extracting(ActionTrainingInput::getImageVariant).containsExactly("original", "scan");
+                assertThat(frozen).allSatisfy(input ->
+                        assertThat(Files.readString(root.resolve(input.getImageSnapshotPath()))).isEqualTo(input.getImageVariant()));
+            }
+        }
     }
 
     @Test void freezesLinkedDatasetFilesBeforeSourceEdits() throws Exception {
