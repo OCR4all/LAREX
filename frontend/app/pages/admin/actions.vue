@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { yaml } from '@codemirror/lang-yaml'
@@ -946,19 +947,16 @@ function isAuditEventExpanded(eventId: string) {
 }
 
 function isTerminalRun(status: AdminActionRun['status']) {
-  return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+  return isTerminalActionRun(status)
 }
 
 function statusColor(status: AdminActionRun['status']): 'success' | 'error' | 'neutral' | 'warning' | 'primary' {
-  if (status === 'COMPLETED') return 'success'
-  if (status === 'FAILED') return 'error'
-  if (status === 'CANCELLED') return 'neutral'
-  if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'warning'
-  return 'primary'
+  return status === 'CANCELLED' ? 'neutral' : actionRunStatusColor(status)
 }
 
 function statusIcon(status: AdminActionRun['status']) {
   if (status === 'COMPLETED') return 'i-lucide-check-circle'
+  if (status === 'COMPLETED_WITH_ISSUES') return 'i-lucide-triangle-alert'
   if (status === 'FAILED') return 'i-lucide-x-circle'
   if (status === 'CANCELLED') return 'i-lucide-circle-slash'
   if (status === 'QUEUED') return 'i-lucide-list-ordered'
@@ -968,6 +966,7 @@ function statusIcon(status: AdminActionRun['status']) {
 
 function runStatusTextClass(status: AdminActionRun['status']) {
   if (status === 'COMPLETED') return 'text-success'
+  if (status === 'COMPLETED_WITH_ISSUES') return 'text-warning'
   if (status === 'FAILED') return 'text-error'
   if (status === 'CANCELLED') return 'text-muted'
   if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'text-warning'
@@ -978,7 +977,7 @@ function runPrimaryLabel(run: AdminActionRun) {
   if (run.status === 'QUEUED' && run.queuePosition) {
     return `Queued · position ${run.queuePosition}`
   }
-  return run.statusMessage || run.status
+  return run.statusMessage || actionRunStatusLabel(run.status)
 }
 
 function runSecondaryLabel(run: AdminActionRun) {
@@ -1021,18 +1020,21 @@ function formatAuditAction(action: string) {
 function auditOutcomeColor(outcome: string): 'success' | 'error' | 'neutral' | 'warning' | 'primary' {
   if (outcome === 'SUCCESS') return 'success'
   if (outcome === 'FAILURE') return 'error'
+  if (outcome === 'WARNING') return 'warning'
   return 'neutral'
 }
 
 function auditOutcomeIcon(outcome: string) {
   if (outcome === 'SUCCESS') return 'i-lucide-shield-check'
   if (outcome === 'FAILURE') return 'i-lucide-shield-alert'
+  if (outcome === 'WARNING') return 'i-lucide-triangle-alert'
   return 'i-lucide-shield'
 }
 
 function auditOutcomeTextClass(outcome: string) {
   if (outcome === 'SUCCESS') return 'text-success'
   if (outcome === 'FAILURE') return 'text-error'
+  if (outcome === 'WARNING') return 'text-warning'
   return 'text-muted'
 }
 

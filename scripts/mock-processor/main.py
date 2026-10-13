@@ -15,6 +15,9 @@ from larex_actions import (
     EvaluationTable,
     EvaluationTableColumn,
     EvaluationTableRow,
+    PageOutcome,
+    PageResultRejected,
+    RunReportsUnsupported,
 )
 from larex_actions.fastapi import create_larex_action_app
 
@@ -55,7 +58,19 @@ async def process_run(ctx: ActionContext) -> None:
     image_count = 0
     xml_count = 0
     file_count = 0
-    for page in action_input.pages:
+    failed_count = 0
+    fail_every = action_input.parameters.get("failEveryNthPage", 0)
+    if isinstance(fail_every, bool) or not isinstance(fail_every, (int, float)) or fail_every < 0 or int(fail_every) != fail_every:
+        raise ValueError("failEveryNthPage must be a nonnegative integer")
+    if fail_every and not action_input.capabilities.run_reports:
+        raise RunReportsUnsupported("Simulated page failures require runReports support")
+    for index, page in enumerate(action_input.pages, start=1):
+        if fail_every and index % int(fail_every) == 0:
+            await ctx.submit_page_results(page.id, outcome=PageOutcome(
+                pageId=page.id, status="FAILED", message="Simulated recoverable page failure"
+            ))
+            failed_count += 1
+            continue
         async with ctx.step(f"Copying {page.name}"):
             await ctx.check_cancelled()
             results = ctx.result_builder()
@@ -93,9 +108,15 @@ async def process_run(ctx: ActionContext) -> None:
                 )
                 file_count += 1
 
-            await ctx.submit_page_results(page.id, results, f"Copied {page.name}")
+            try:
+                await ctx.submit_page_results(page.id, results, f"Copied {page.name}")
+            except PageResultRejected:
+                failed_count += 1
 
-    await ctx.complete(message=result_message(image_count, xml_count, file_count))
+    message = result_message(image_count, xml_count, file_count)
+    if failed_count:
+        message += f" {failed_count} page(s) failed."
+    await ctx.complete(message=message)
 
 
 async def integration_run(ctx: ActionContext) -> None:

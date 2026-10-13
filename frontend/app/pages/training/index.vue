@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import type { TableColumn } from '@nuxt/ui'
 import type { ActionRun, ActionRunStatus } from '@/types/action'
 
@@ -14,6 +15,8 @@ const UTooltipComponent = resolveComponent('UTooltip')
 
 const workspaceId = computed(() => workspaceStore.selectedWorkspaceId)
 const runs = ref<ActionRun[]>([])
+const reportRun = ref<ActionRun | null>(null)
+const reportOpen = ref(false)
 const loading = ref(false)
 const searchInput = ref('')
 const statusFilter = ref<'ALL' | ActionRunStatus>('ALL')
@@ -33,6 +36,7 @@ const statusOptions = [
   { label: 'Importing results', value: 'IMPORTING_RESULTS' as const },
   { label: 'Cancel requested', value: 'CANCEL_REQUESTED' as const },
   { label: 'Completed', value: 'COMPLETED' as const },
+  { label: 'Completed with issues', value: 'COMPLETED_WITH_ISSUES' as const },
   { label: 'Failed', value: 'FAILED' as const },
   { label: 'Cancelled', value: 'CANCELLED' as const }
 ]
@@ -114,7 +118,7 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
         'modelValue': run.progressPercent,
         'max': 100,
         'size': 'xs',
-        'color': run.status === 'COMPLETED' ? 'success' : 'primary',
+        'color': actionRunStatusColor(run.status),
         'class': 'w-20',
         'aria-label': `Progress: ${progressLabel}`
       }))
@@ -128,6 +132,19 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
     id: 'duration',
     header: 'Duration',
     cell: ({ row }) => h('span', { class: 'text-sm text-muted' }, formatDurationFromRun(row.original))
+  },
+  {
+    id: 'report',
+    header: '',
+    cell: ({ row }) => h(UButtonComponent, {
+      'color': 'neutral', 'variant': 'ghost', 'size': 'xs', 'icon': 'i-lucide-clipboard-list',
+      'aria-label': 'Show run report',
+      'onClick': (event: MouseEvent) => {
+        event.stopPropagation()
+        reportRun.value = row.original
+        reportOpen.value = true
+      }
+    })
   },
   {
     id: 'actions',
@@ -197,7 +214,7 @@ function runSortRank(run: ActionRun) {
 }
 
 function isTerminalRun(status: ActionRunStatus) {
-  return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+  return isTerminalActionRun(status)
 }
 
 function isActiveRun(status: ActionRunStatus) {
@@ -205,7 +222,7 @@ function isActiveRun(status: ActionRunStatus) {
 }
 
 function formatStatus(status: ActionRunStatus) {
-  return status.replaceAll('_', ' ')
+  return actionRunStatusLabel(status)
 }
 
 function statusLabel(run: ActionRun) {
@@ -213,11 +230,7 @@ function statusLabel(run: ActionRun) {
 }
 
 function statusColor(status: ActionRunStatus): 'success' | 'error' | 'neutral' | 'warning' | 'primary' {
-  if (status === 'COMPLETED') return 'success'
-  if (status === 'FAILED') return 'error'
-  if (status === 'CANCELLED') return 'neutral'
-  if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'warning'
-  return 'primary'
+  return status === 'CANCELLED' ? 'neutral' : actionRunStatusColor(status)
 }
 
 function formatDuration(seconds: number | null | undefined) {
@@ -356,4 +369,5 @@ const toolbarRefresh = useRefreshFeedback(() => loadRuns())
       </div>
     </template>
   </UDashboardPanel>
+  <ActionReportModal v-if="reportRun" v-model:open="reportOpen" :run="reportRun" />
 </template>

@@ -107,7 +107,7 @@ export default defineEventHandler(async (event) => {
 
   const eventType = body?.event?.type
   const eventPayload = body?.event?.payload
-  if (eventType === 'ACTION_RUN_UPDATED' || eventType === 'ACTION_PAGE_RESULT_IMPORTED') {
+  if (eventType === 'ACTION_RUN_UPDATED' || eventType === 'ACTION_PAGE_RESULT_IMPORTED' || eventType === 'ACTION_PAGE_SETTLED') {
     if (!eventPayload || typeof eventPayload !== 'object') {
       throw createError({ statusCode: 400, statusMessage: 'Invalid action event bridge payload' })
     }

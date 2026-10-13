@@ -187,6 +187,12 @@ public class DevActionBootstrap implements ApplicationRunner {
                   files:
                     enabled: true
 
+                parameters:
+                  failEveryNthPage:
+                    type: number
+                    default: 0
+                    description: Simulate a recoverable failure for every Nth page; 0 disables failures.
+
                 concurrency:
                   maxActiveRuns: 2
                   scope: PROJECT

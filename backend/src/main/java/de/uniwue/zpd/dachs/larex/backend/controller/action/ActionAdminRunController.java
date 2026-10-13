@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionRunService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,6 +19,11 @@ public class ActionAdminRunController {
 
     public ActionAdminRunController(ActionRunService actionRunService) {
         this.actionRunService = actionRunService;
+    }
+
+    @GetMapping("/{runId}/report")
+    public ResponseEntity<ActionDto.RunReport> getRunReport(@PathVariable String runId) {
+        return ResponseEntity.ok(actionRunService.getAdminRunReport(runId));
     }
 
     @GetMapping

@@ -28,6 +28,9 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.exception.ActionConcurrencyLimitException;
+import de.uniwue.zpd.dachs.larex.backend.exception.ActionPageResultRejectedException;
+import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.PageOutcome;
+import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.PageOutcomeStatus;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
@@ -156,6 +159,7 @@ public class ActionRunService {
     private final ActionAuditService actionAuditService;
     private final ActionProperties actionProperties;
     private final ActionRunPayloadService payloadService;
+    private final ActionRunReportService reportService;
     private final ActionRunResponseMapper responseMapper;
     private final ActionResultPageMergeService resultPageMergeService;
     private final ActionRealtimePublisher realtimePublisher;
@@ -205,6 +209,7 @@ public class ActionRunService {
                             ActionAuditService actionAuditService,
                             ActionProperties actionProperties,
                             ActionRunPayloadService payloadService,
+                            ActionRunReportService reportService,
                             ActionRunResponseMapper responseMapper,
                             ActionResultPageMergeService resultPageMergeService,
                             ActionRealtimePublisher realtimePublisher,
@@ -250,6 +255,7 @@ public class ActionRunService {
         this.actionAuditService = actionAuditService;
         this.actionProperties = actionProperties;
         this.payloadService = payloadService;
+        this.reportService = reportService;
         this.responseMapper = responseMapper;
         this.resultPageMergeService = resultPageMergeService;
         this.realtimePublisher = realtimePublisher;
@@ -676,16 +682,19 @@ public class ActionRunService {
         if (source.getKind() == ActionRun.Kind.INTEGRATION) {
             throw new IllegalArgumentException("Integration runs cannot be retried");
         }
-        if (source.getStatus() != Status.FAILED && source.getStatus() != Status.CANCELLED) {
-            throw new IllegalStateException("Only failed or cancelled Action runs can be retried");
+        if (source.getStatus() != Status.FAILED && source.getStatus() != Status.CANCELLED && source.getStatus() != Status.COMPLETED_WITH_ISSUES) {
+            throw new IllegalStateException("Only failed, cancelled, or completed-with-issues Action runs can be retried");
         }
         ActionProcessorDefinition definition = requireImpactDefinition(workspaceId, projectId,
                 source.getProcessorDefinition().getId(), userId);
-        ActionDto.TargetSelection selection = payloadService.readTargetSelection(source);
+        List<String> retryPageIds = reportService.retryablePageIds(source);
+        if (retryPageIds.isEmpty()) throw new IllegalArgumentException("No failed or unfinished pages to retry");
+        List<Page> retryPages = resolveRunPages(projectId, retryPageIds);
+        ActionDto.TargetSelection selection = restrictTargetSelection(payloadService.readTargetSelection(source), retryPages);
         requireTargetSupported(definition, selection.type());
         Map<String, Object> parameters = payloadService.readObjectMap(source.getParametersJson());
         definitionService.validateAllowedParameterValues(definition, parameters);
-        List<Page> pages = resolveRunPages(projectId, payloadService.readPageIds(source));
+        List<Page> pages = retryPages;
         validateTargetSelection(projectId, selection.type(), selection.pages(), true);
         return buildRunImpact(definition, selection, pages, parameters);
     }
@@ -910,7 +919,7 @@ public class ActionRunService {
                 workspaceId, projectId, PageRequest.of(0, runHistoryLimit(limit)));
         Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
         Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
-        Map<String, List<String>> completedPageIds = responseMapper.completedPageIdsByRunId(runs);
+        Map<String, ActionRunResponseMapper.PageProgress> completedPageIds = responseMapper.completedPageIdsByRunId(runs);
         return runs.stream()
                 .filter(run -> !dismissedRunIds.contains(run.getId()))
                 .map(run -> responseMapper.toRunResponse(run, project.getName(), userId, queuePositions, completedPageIds))
@@ -952,7 +961,7 @@ public class ActionRunService {
     public List<ActionDto.RunResponse> listEvaluationBaselines(String workspaceId, String runId, String userId) {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         ActionRun current = requireWorkspaceRun(workspaceId, runId);
-        if (current.getKind() != ActionRun.Kind.EVALUATION || current.isFileEvaluation() || current.getStatus() != Status.COMPLETED) {
+        if (current.getKind() != ActionRun.Kind.EVALUATION || current.isFileEvaluation() || !current.getStatus().isCompleted()) {
             return List.of();
         }
         List<ActionRun> candidates = runRepository.findByWorkspaceIdAndDatasetIdAndKindOrderByCreatedDesc(
@@ -960,7 +969,7 @@ public class ActionRunService {
         Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(candidates);
         return candidates.stream()
                 .filter(run -> run.getKind() == ActionRun.Kind.EVALUATION)
-                .filter(run -> run.getStatus() == Status.COMPLETED)
+                .filter(run -> run.getStatus().isCompleted())
                 .filter(run -> !run.isFileEvaluation())
                 .filter(run -> !run.getId().equals(current.getId()))
                 .filter(run -> Objects.equals(run.getDatasetInputFingerprint(), current.getDatasetInputFingerprint()))
@@ -987,7 +996,7 @@ public class ActionRunService {
         ActionRun baseline = requireWorkspaceRun(workspaceId, baselineRunId);
         if (current.isFileEvaluation() || baseline.isFileEvaluation()
                 || current.getKind() != ActionRun.Kind.EVALUATION || baseline.getKind() != ActionRun.Kind.EVALUATION
-                || current.getStatus() != Status.COMPLETED || baseline.getStatus() != Status.COMPLETED
+                || !current.getStatus().isCompleted() || !baseline.getStatus().isCompleted()
                 || !Objects.equals(current.getDatasetId(), baseline.getDatasetId())
                 || !Objects.equals(current.getDatasetInputFingerprint(), baseline.getDatasetInputFingerprint())
                 || !compatibleEvaluationProfiles(current, baseline)) {
@@ -1059,7 +1068,7 @@ public class ActionRunService {
         Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
         Map<String, String> projectLabels = projectLabelsById(workspaceId);
         Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
-        Map<String, List<String>> completedPageIds = responseMapper.completedPageIdsByRunId(runs);
+        Map<String, ActionRunResponseMapper.PageProgress> completedPageIds = responseMapper.completedPageIdsByRunId(runs);
         return runs.stream()
                 .filter(run -> !dismissedRunIds.contains(run.getId()))
                 .map(run -> responseMapper.toRunResponse(
@@ -1091,7 +1100,8 @@ public class ActionRunService {
         ActionDto.RunDetailResponse detail = responseMapper.toRunDetailResponse(run, resolveProjectLabel(run.getProjectId()), userId);
         if (!run.isFileEvaluation()) return detail;
         return new ActionDto.RunDetailResponse(detail.run(), detail.logText(), detail.logEvents(), detail.resultSummary(),
-                detail.durationSeconds(), null, run.getEvaluationOutputMode(), actionOutputService.evaluationOutput(run.getId()));
+                detail.durationSeconds(), null, detail.runReport(), run.getEvaluationOutputMode(),
+                actionOutputService.evaluationOutput(run.getId()));
     }
 
     public ActionDto.StartRunResponse retryRun(String workspaceId,
@@ -1115,8 +1125,8 @@ public class ActionRunService {
         if (sourceRun.getKind() == ActionRun.Kind.INTEGRATION) {
             throw new IllegalArgumentException("Start a new Integration run to create a fresh snapshot");
         }
-        if (sourceRun.getStatus() != Status.FAILED && sourceRun.getStatus() != Status.CANCELLED) {
-            throw new IllegalStateException("Only failed or cancelled Action runs can be retried");
+        if (sourceRun.getStatus() != Status.FAILED && sourceRun.getStatus() != Status.CANCELLED && sourceRun.getStatus() != Status.COMPLETED_WITH_ISSUES) {
+            throw new IllegalStateException("Only failed, cancelled, or completed-with-issues Action runs can be retried");
         }
 
         if (!definition.isEnabled()) {
@@ -1133,7 +1143,7 @@ public class ActionRunService {
         if (!sourcePageIds.containsAll(excluded)) {
             throw new IllegalArgumentException("Excluded pages must belong to the source run");
         }
-        List<String> retainedPageIds = sourcePageIds.stream().filter(id -> !excluded.contains(id)).toList();
+        List<String> retainedPageIds = reportService.retryablePageIds(sourceRun).stream().filter(id -> !excluded.contains(id)).toList();
         if (retainedPageIds.isEmpty()) throw new IllegalArgumentException("No pages selected for retry");
         List<Page> pages = resolveRunPagesForUpdate(projectId, retainedPageIds);
         Map<String, Object> parameters = payloadService.readObjectMap(sourceRun.getParametersJson());
@@ -1202,6 +1212,14 @@ public class ActionRunService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public ActionDto.RunReport getAdminRunReport(String runId) {
+        requireGlobalAdmin();
+        ActionRun run = runRepository.findWithProcessorDefinitionById(runId)
+                .orElseThrow(() -> new IllegalArgumentException("Action run not found"));
+        return reportService.report(run, true);
+    }
+
     public ActionDto.BulkCancelRunsResponse cancelActiveAdminRuns(String definitionId, String userId) {
         requireGlobalAdmin();
         requireDefinition(definitionId);
@@ -1241,7 +1259,7 @@ public class ActionRunService {
         List<ActionRun> historyRuns = runRepository.findByWorkspaceIdAndProjectIdAndStatusIn(
                 workspaceId,
                 projectId,
-                List.of(Status.COMPLETED, Status.FAILED)
+                List.of(Status.COMPLETED, Status.COMPLETED_WITH_ISSUES, Status.FAILED)
         );
         deleteRunsWithLogs(historyRuns);
         actionAuditService.record("ACTION_RUN_HISTORY_CLEAR", "SUCCESS", userId, null, null,
@@ -1508,7 +1526,7 @@ public class ActionRunService {
 
     public ActionDto.HeartbeatResponse heartbeat(String runId, String authorizationHeader, ActionDto.HeartbeatRequest request) {
         ActionRun run = authenticateRunForUpdate(runId, authorizationHeader);
-        if (run.getStatus() == Status.COMPLETED || run.getStatus() == Status.FAILED || run.getStatus() == Status.CANCELLED) {
+        if (run.getStatus().isTerminal()) {
             return new ActionDto.HeartbeatResponse(run.isCancelRequested());
         }
         if (run.getStatus() != Status.CANCEL_REQUESTED
@@ -1517,6 +1535,10 @@ public class ActionRunService {
             run.setStatus(Status.RUNNING);
         }
         run.setLastHeartbeatAt(LocalDateTime.now());
+        if (request.runReport() != null) {
+            reportService.setIssues(run, reportService.validateReport(run, request.runReport(), true));
+            reportService.refresh(run);
+        }
         if (request.progressPercent() != null) {
             run.setProgressPercent(Math.max(
                     Math.min(run.getProgressPercent(), 99),
@@ -1567,13 +1589,13 @@ public class ActionRunService {
         return new ActionDto.HeartbeatResponse(run.isCancelRequested());
     }
 
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, noRollbackFor = ActionPageResultRejectedException.class)
     public ActionDto.RunResponse receiveResults(String runId,
                                                 String authorizationHeader,
                                                 ActionDto.ResultManifest manifest,
                                                 MultiValueMap<String, MultipartFile> files) throws IOException {
         ActionRun run = authenticateResultRunForUpdate(runId, authorizationHeader);
-        if (run.getStatus() == Status.COMPLETED || run.getStatus() == Status.FAILED) {
+        if (run.getStatus().isTerminal() && run.getStatus() != Status.CANCELLED) {
             metrics.recordTerminalResultReplay();
             return responseMapper.toRunResponse(run);
         }
@@ -1598,9 +1620,19 @@ public class ActionRunService {
             throw new IllegalArgumentException("Unsupported Action result status: " + manifest.status());
         }
 
+        if (manifest.pageOutcome() != null && !"running".equals(resultStatus)) {
+            throw new IllegalArgumentException("pageOutcome is only allowed with incremental page results");
+        }
+        if (manifest.runReport() != null && "running".equals(resultStatus)) {
+            throw new IllegalArgumentException("runReport is only allowed with terminal results");
+        }
+        boolean incremental = pageResultRepository.existsByRunId(run.getId());
+        ActionDto.RunReport report = reportService.validateReport(run, manifest.runReport(), incremental);
+        reportService.setIssues(run, report);
+
         if (run.getKind() != ActionRun.Kind.PROCESSING) {
-            if (run.getKind() == ActionRun.Kind.INTEGRATION && manifest.pageId() != null) {
-                throw new IllegalArgumentException("Integration completion applies to the whole run, not an individual page");
+            if (manifest.pageOutcome() != null || manifest.pageId() != null) {
+                throw new IllegalArgumentException("Only processing Actions accept page outcomes");
             }
             if ("running".equals(resultStatus)) {
                 throw new IllegalArgumentException("Status-only Action progress must be reported through heartbeats");
@@ -1626,11 +1658,14 @@ public class ActionRunService {
                     manifest.message(), 0);
         }
 
+        if (manifest.evaluationReport() != null) {
+            throw new IllegalArgumentException("Processing Actions must not return evaluationReport");
+        }
         if ("running".equals(resultStatus)) {
             return receiveIncrementalPageResult(run, manifest, resultFiles, files, pageIdSet);
         }
 
-        boolean hasIncrementalResults = pageResultRepository.existsByRunId(run.getId());
+        boolean hasIncrementalResults = incremental;
         if (hasIncrementalResults) {
             if (!resultFiles.isEmpty()) {
                 throw new IllegalStateException("Bulk result files cannot be uploaded after incremental page results");
@@ -1646,12 +1681,11 @@ public class ActionRunService {
             return finalizeResultRun(run, Status.COMPLETED, manifest.message(), 0);
         }
 
-        return receiveLegacyBulkResults(run, manifest, resultFiles, files, pageIdSet, resultStatus);
+        return receiveLegacyBulkResults(run, manifest, resultFiles, files, pageIdSet, resultStatus, report);
     }
 
     private ActionDto.RunResponse receiveEvaluationFiles(ActionRun run, ActionDto.ResultManifest manifest,
             List<ActionDto.ResultFile> resultFiles, MultiValueMap<String, MultipartFile> files, String resultStatus) throws IOException {
-        if (manifest.pageId() != null) throw new IllegalArgumentException("Evaluation files apply to the whole run");
         if (manifest.evaluationReport() != null) throw new IllegalArgumentException("File evaluations must not return evaluationReport");
         if ("completed".equals(resultStatus) && resultFiles.isEmpty()) throw new IllegalArgumentException("Completed file evaluations must return at least one file");
         for (ActionDto.ResultFile file : resultFiles) {
@@ -1895,15 +1929,33 @@ public class ActionRunService {
         if (!pageIds.contains(pageId)) {
             throw new SecurityException("Result page is outside this run scope");
         }
-        if (pageResultRepository.findByRunIdAndPageId(run.getId(), pageId).isPresent()) {
+        Optional<ActionRunPageResult> previous = pageResultRepository.findByRunIdAndPageId(run.getId(), pageId);
+        if (previous.isPresent()) {
             metrics.recordDuplicatePageSubmission();
+            if (previous.get().isValidationRejected()) {
+                throw new ActionPageResultRejectedException(pageId, reportService.outcome(previous.get()).message());
+            }
             return responseMapper.toRunResponse(run);
         }
         if (resultFiles.stream().anyMatch(file -> !pageId.equals(file.pageId()))) {
             throw new IllegalArgumentException("Every incremental result file must match manifest pageId");
         }
+        PageOutcome outcome = reportService.validateOutcome(manifest.pageOutcome(), pageId);
+        if (outcome.status() != PageOutcomeStatus.SUCCEEDED && !resultFiles.isEmpty()) {
+            throw new IllegalArgumentException("Failed and skipped page results cannot contain files");
+        }
 
         validateResultManifest(resultFiles, files);
+        validateResultAuthorization(run, resultFiles, pageIds);
+        PreparedResults prepared;
+        try {
+            prepared = prepareResultFiles(run, resultFiles, files);
+        } catch (InvalidPageOutput error) {
+            String reason = limit(redactProcessorSecrets(error.getMessage()), 4000);
+            reportService.record(run, new PageOutcome(pageId, null, PageOutcomeStatus.FAILED, reason, List.of()), List.of(), true);
+            updatePageSettlement(run, pageId, reason);
+            throw new ActionPageResultRejectedException(pageId, reason);
+        }
         run.setStatus(Status.IMPORTING_RESULTS);
         run.setStatusMessage("Importing page result");
         runRepository.saveAndFlush(run);
@@ -1915,18 +1967,15 @@ public class ActionRunService {
                     resultUploadBytes(resultFiles, files),
                     "larex-action-result"
             );
-            ImportResult imported = importResultFiles(run, resultFiles, files, pageIds);
-            ActionRunPageResult pageResult = new ActionRunPageResult();
-            pageResult.setRun(run);
-            pageResult.setPageId(pageId);
-            pageResult.setResultSummaryJson(payloadService.writeJson(imported.stored()));
-            pageResultRepository.saveAndFlush(pageResult);
+            ImportResult imported = importResultFiles(run, resultFiles, files, pageIds, prepared);
+            reportService.record(run, outcome, imported.stored());
 
             List<Map<String, Object>> aggregate = new ArrayList<>(payloadService.readObjectList(run.getResultSummaryJson()));
             aggregate.addAll(imported.stored());
             long completedPages = pageResultRepository.countByRunId(run.getId());
             int pageProgress = Math.min(99, (int) Math.floor((completedPages * 100.0) / pageIds.size()));
             run.setResultSummaryJson(payloadService.writeJson(aggregate));
+            reportService.refresh(run);
             run.setStatus(Status.RUNNING);
             run.setStatusMessage(limit(redactProcessorSecrets(
                     manifest.message() == null || manifest.message().isBlank()
@@ -1939,7 +1988,11 @@ public class ActionRunService {
             actionAuditService.record("ACTION_RUN_PAGE_RESULT_IMPORTED", "SUCCESS",
                     run.getCreatedByUserId(), run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                     Map.of("pageId", pageId, "resultCount", imported.stored().size()));
-            publishActionPageResultAfterCommit(savedRun, pageId, imported.resultTypes());
+            if (outcome.status() == PageOutcomeStatus.SUCCEEDED) {
+                publishActionPageResultAfterCommit(savedRun, pageId, imported.resultTypes());
+            } else {
+                realtimePublisher.publishPageSettled(savedRun, pageId);
+            }
             metrics.recordPageImport(importStartedNanos, resultFiles.size());
             return responseMapper.toRunResponse(savedRun);
         } catch (IOException | RuntimeException e) {
@@ -1950,37 +2003,153 @@ public class ActionRunService {
         }
     }
 
+    private void updatePageSettlement(ActionRun run, String pageId, String message) {
+        reportService.refresh(run);
+        long settled = pageResultRepository.countByRunId(run.getId());
+        int total = payloadService.readPageIds(run).size();
+        run.setProgressPercent(Math.max(Math.min(run.getProgressPercent(), 99), (int) Math.min(99, settled * 100 / Math.max(1, total))));
+        run.setStatus(Status.RUNNING);
+        run.setStatusMessage(message);
+        releasePageLock(run, pageId);
+        runRepository.saveAndFlush(run);
+        realtimePublisher.publishPageSettled(run, pageId);
+    }
+
     private ActionDto.RunResponse receiveLegacyBulkResults(ActionRun run,
                                                            ActionDto.ResultManifest manifest,
                                                            List<ActionDto.ResultFile> resultFiles,
                                                            MultiValueMap<String, MultipartFile> files,
                                                            Set<String> pageIds,
-                                                           String resultStatus) throws IOException {
+                                                           String resultStatus,
+                                                           ActionDto.RunReport report) throws IOException {
         validateResultManifest(resultFiles, files);
+        validateResultAuthorization(run, resultFiles, pageIds);
+        Map<String, PageOutcome> outcomes = new LinkedHashMap<>();
+        if (report != null) report.pageOutcomes().forEach(outcome -> outcomes.put(outcome.pageId(), outcome));
+        for (ActionDto.ResultFile file : resultFiles) {
+            if (file.pageId() != null) {
+                PageOutcome outcome = outcomes.get(file.pageId());
+                if (outcome != null && outcome.status() != PageOutcomeStatus.SUCCEEDED) {
+                    throw new IllegalArgumentException("Failed and skipped pages cannot return files");
+                }
+            }
+        }
+        Map<String, List<ActionDto.ResultFile>> groups = new LinkedHashMap<>();
+        resultFiles.forEach(file -> groups.computeIfAbsent(file.pageId(), ignored -> new ArrayList<>()).add(file));
+        outcomes.keySet().forEach(id -> groups.computeIfAbsent(id, ignored -> new ArrayList<>()));
+        // Prepare every group before storing anything. Only explicit content errors are recoverable.
+        Map<String, PreparedResults> prepared = new LinkedHashMap<>();
+        Map<String, String> rejected = new LinkedHashMap<>();
+        for (var group : groups.entrySet()) {
+            try {
+                prepared.put(group.getKey(), prepareResultFiles(run, group.getValue(), files));
+            } catch (InvalidPageOutput error) {
+                if (group.getKey() == null) throw new IllegalArgumentException(error.getMessage());
+                String reason = limit(redactProcessorSecrets(error.getMessage()), 4000);
+                rejected.put(group.getKey(), reason);
+                outcomes.put(group.getKey(), new PageOutcome(group.getKey(), null, PageOutcomeStatus.FAILED, reason, List.of()));
+            }
+        }
         run.setStatus(Status.IMPORTING_RESULTS);
         run.setStatusMessage("Importing results");
         runRepository.saveAndFlush(run);
         long reservedBytes = 0L;
         try {
             reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
-                    run.getWorkspaceId(), resultUploadBytes(resultFiles, files), "larex-action-result");
-            ImportResult imported = importResultFiles(run, resultFiles, files, pageIds);
-            run.setResultSummaryJson(payloadService.writeJson(imported.stored()));
-            schedulePageReindexAfterCommit(run.getProjectId(), imported.xmlPageIds());
+                    run.getWorkspaceId(), resultUploadBytes(resultFiles.stream()
+                            .filter(file -> !rejected.containsKey(file.pageId())).toList(), files), "larex-action-result");
+            List<Map<String, Object>> stored = new ArrayList<>();
+            Set<String> xmlPageIds = new LinkedHashSet<>();
+            for (var group : groups.entrySet()) {
+                String id = group.getKey();
+                ImportResult imported = rejected.containsKey(id)
+                        ? new ImportResult(List.of(), Set.of(), Set.of())
+                        : importResultFiles(run, group.getValue(), files, pageIds, prepared.get(id));
+                stored.addAll(imported.stored());
+                xmlPageIds.addAll(imported.xmlPageIds());
+                if (id != null) {
+                    PageOutcome outcome = outcomes.getOrDefault(id, reportService.validateOutcome(null, id));
+                    reportService.record(run, outcome, imported.stored(), rejected.containsKey(id));
+                }
+            }
+            run.setResultSummaryJson(payloadService.writeJson(stored));
+            schedulePageReindexAfterCommit(run.getProjectId(), xmlPageIds);
             return finalizeResultRun(run, "failed".equals(resultStatus) ? Status.FAILED : Status.COMPLETED,
-                    manifest.message(), imported.stored().size());
-        } catch (IOException | RuntimeException e) {
-            scheduleResultImportFailureAfterRollback(run.getId(), describeException(e));
-            throw e;
+                    manifest.message(), stored.size());
+        } catch (IOException | RuntimeException error) {
+            scheduleResultImportFailureAfterRollback(run.getId(), describeException(error));
+            throw error;
         } finally {
             workspaceQuotaGuardService.syncUsageAndReleaseReservation(run.getWorkspaceId(), reservedBytes);
         }
     }
 
+    private void validateResultAuthorization(ActionRun run, List<ActionDto.ResultFile> files, Set<String> pageIds) {
+        for (ActionDto.ResultFile file : files) {
+            String type = normalize(file.type());
+            switch (type) {
+                case "xml" -> {
+                    requireResultPageInScope(file.pageId(), pageIds);
+                    if (!run.getProcessorDefinition().isOutputsXml()) throw new SecurityException("XML outputs are not declared for this processor");
+                }
+                case "image", "images" -> {
+                    requireResultPageInScope(file.pageId(), pageIds);
+                    if (!run.getProcessorDefinition().isOutputsImages()) throw new SecurityException("Image outputs are not declared for this processor");
+                }
+                case "file", "files" -> {
+                    if (!run.getProcessorDefinition().isOutputsFiles()) throw new SecurityException("File outputs are not declared for this processor");
+                    if (file.pageId() != null) requireResultPageInScope(file.pageId(), pageIds);
+                }
+                default -> throw new IllegalArgumentException("Unsupported result type: " + file.type());
+            }
+        }
+    }
+
+    private PreparedResults prepareResultFiles(ActionRun run, List<ActionDto.ResultFile> results,
+                                               MultiValueMap<String, MultipartFile> files) throws IOException {
+        Map<String, String> versions = new LinkedHashMap<>();
+        Map<String, PageDto> scoped = new LinkedHashMap<>();
+        for (ActionDto.ResultFile result : results) {
+            MultipartFile file = resolveMultipart(files, result.fieldName());
+            String type = normalize(result.type());
+            if ("xml".equals(type)) {
+                var validation = pageXmlValidationService.validatePageXml(file.getResource());
+                if (!validation.valid()) {
+                    if (validation.errors().stream().anyMatch(error -> Set.of("XML_READ_ERROR", "XSD_NOT_AVAILABLE").contains(error.code()))) {
+                        throw new IOException("PAGE XML validation infrastructure unavailable");
+                    }
+                    String details = validation.errors().stream().limit(3)
+                            .map(error -> "line " + error.line() + ": " + error.message()).collect(Collectors.joining("; "));
+                    throw new InvalidPageOutput("Result XML is invalid" + (details.isBlank() ? "" : ": " + details));
+                }
+                versions.put(result.fieldName(), validation.pageVersion());
+                if (payloadService.readTargetSelection(run).type() != ActionTarget.PAGE) {
+                    scoped.put(result.fieldName(), prepareScopedXmlResult(run, result, file));
+                }
+            } else if ("image".equals(type) || "images".equals(type)) {
+                if (file.getContentType() == null || !file.getContentType().startsWith("image/")) {
+                    throw new InvalidPageOutput("Image result has an invalid content type");
+                }
+                try (var stream = file.getInputStream()) {
+                    if (ImageIO.read(stream) == null) throw new InvalidPageOutput("Image result could not be decoded");
+                } catch (javax.imageio.IIOException error) {
+                    throw new InvalidPageOutput("Image result could not be decoded");
+                }
+            }
+        }
+        return new PreparedResults(versions, scoped);
+    }
+
+    private record PreparedResults(Map<String, String> xmlVersions, Map<String, PageDto> scopedXml) {}
+
+    private static class InvalidPageOutput extends RuntimeException {
+        InvalidPageOutput(String message) { super(message); }
+    }
+
     private ImportResult importResultFiles(ActionRun run,
                                            List<ActionDto.ResultFile> resultFiles,
                                            MultiValueMap<String, MultipartFile> files,
-                                           Set<String> pageIds) throws IOException {
+                                           Set<String> pageIds, PreparedResults prepared) throws IOException {
         ActionProcessorDefinition definition = run.getProcessorDefinition();
         List<Map<String, Object>> stored = new ArrayList<>();
         Set<String> xmlPageIds = new LinkedHashSet<>();
@@ -1993,7 +2162,7 @@ public class ActionRunService {
                 if (!definition.isOutputsXml()) {
                     throw new SecurityException("XML outputs are not declared for this processor");
                 }
-                stored.add(storeXmlResult(run, resultFile, file));
+                stored.add(storeXmlResult(run, resultFile, file, prepared.xmlVersions().get(resultFile.fieldName()), prepared.scopedXml().get(resultFile.fieldName())));
                 xmlPageIds.add(resultFile.pageId());
                 resultTypes.add("xml");
             } else if ("image".equals(type) || "images".equals(type)) {
@@ -2026,7 +2195,10 @@ public class ActionRunService {
     }
 
     private ActionDto.RunResponse finalizeResultRun(ActionRun run, Status status, String message, int resultCount) {
+        boolean processingFinished = status == Status.COMPLETED;
+        if (processingFinished) status = reportService.completionStatus(run);
         run.setStatus(status);
+        if (run.getRunReportJson() != null || pageResultRepository.existsByRunId(run.getId())) reportService.refresh(run);
         String safeMessage = limit(redactProcessorSecrets(message), 2000);
         run.setStatusMessage(safeMessage);
         if (status == Status.FAILED) {
@@ -2035,10 +2207,10 @@ public class ActionRunService {
                     4000
             ));
         }
-        run.setProgressPercent(status == Status.COMPLETED ? 100 : run.getProgressPercent());
+        run.setProgressPercent(processingFinished ? 100 : run.getProgressPercent());
         run.setCompletedAt(LocalDateTime.now());
         if (run.getKind() == ActionRun.Kind.PROCESSING || run.isFileEvaluation()) {
-            if (status == Status.COMPLETED) {
+            if (status.isCompleted()) {
                 actionOutputService.finalizeDraft(run.getId(), run.getCompletedAt());
             } else {
                 actionOutputService.discardDraft(run.getId());
@@ -2047,8 +2219,8 @@ public class ActionRunService {
         expireRunSecret(run);
         releaseLocks(run);
         ActionRun savedRun = runRepository.save(run);
-        actionAuditService.record(status == Status.COMPLETED ? "ACTION_RUN_COMPLETE" : "ACTION_RUN_RESULT_FAILED",
-                status == Status.COMPLETED ? "SUCCESS" : "FAILURE",
+        actionAuditService.record(status.isCompleted() ? "ACTION_RUN_COMPLETE" : "ACTION_RUN_RESULT_FAILED",
+                status == Status.COMPLETED_WITH_ISSUES ? "WARNING" : status.isCompleted() ? "SUCCESS" : "FAILURE",
                 run.getCreatedByUserId(), run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                 Map.of("resultCount", resultCount));
         publishActionRunUpdatedAfterCommit(savedRun);
@@ -2056,15 +2228,14 @@ public class ActionRunService {
         return responseMapper.toRunResponse(savedRun);
     }
 
-    private Map<String, Object> storeXmlResult(ActionRun run, ActionDto.ResultFile resultFile, MultipartFile file) throws IOException {
-        validateResultFileSize(file);
-        var validation = pageXmlValidationService.validatePageXml(file.getResource());
-        if (!validation.valid()) {
-            throw new IllegalArgumentException("Result XML is invalid");
-        }
+    private Map<String, Object> storeXmlResult(ActionRun run, ActionDto.ResultFile resultFile, MultipartFile file,
+                                                String pageVersion, PageDto scopedXml) throws IOException {
         ActionDto.TargetSelection targetSelection = payloadService.readTargetSelection(run);
         if (targetSelection.type() != ActionTarget.PAGE) {
-            return storeScopedXmlResult(run, resultFile, file);
+            PageXml existingXml = primaryPageXml(resultFile.pageId());
+            annotationProcessingService.saveAnnotationToXml(existingXml.getId(), scopedXml, run.getCreatedByUserId());
+            workspaceQuotaRefreshService.scheduleUsageRefresh(run.getWorkspaceId());
+            return Map.of("type", "xml", "scope", targetSelection.type().name(), "pageId", resultFile.pageId(), "fileId", existingXml.getId());
         }
         Page page = pageRepository.findByIdAndProjectId(resultFile.pageId(), run.getProjectId())
                 .orElseThrow(() -> new IllegalArgumentException("Page not found"));
@@ -2084,7 +2255,7 @@ public class ActionRunService {
                     "original",
                     baseName,
                     XmlSchema.PAGE_XML,
-                    validation.pageVersion(),
+                    pageVersion,
                     page
             );
         } else {
@@ -2098,7 +2269,7 @@ public class ActionRunService {
             pageXml.setVariant("original");
             pageXml.setBaseName(baseName);
             pageXml.setSchema(XmlSchema.PAGE_XML);
-            pageXml.setSchemaVersion(validation.pageVersion());
+            pageXml.setSchemaVersion(pageVersion);
             pageXml.setPage(page);
             annotationReadCache.evict(pageXml.getId());
             deleteStoredFilesAfterCommit(List.of(previousPath));
@@ -2110,7 +2281,7 @@ public class ActionRunService {
         return Map.of("type", "xml", "pageId", page.getId(), "fileId", pageXml.getId(), "variant", pageXml.getVariant());
     }
 
-    private Map<String, Object> storeScopedXmlResult(ActionRun run, ActionDto.ResultFile resultFile, MultipartFile file) throws IOException {
+    private PageDto prepareScopedXmlResult(ActionRun run, ActionDto.ResultFile resultFile, MultipartFile file) throws IOException {
         ActionDto.TargetSelection targetSelection = payloadService.readTargetSelection(run);
         PageXml existingXml = primaryPageXml(resultFile.pageId());
         PageDto existing = annotationProcessingService.parseXmlToAnnotation(existingXml.getId());
@@ -2124,7 +2295,9 @@ public class ActionRunService {
             if (selectedRegionIds.isEmpty()) {
                 throw new SecurityException("Scoped XML result has no selected region target scope");
             }
-            merged = resultPageMergeService.replaceTargetRegions(existing, incoming, selectedRegionIds);
+            try {
+                merged = resultPageMergeService.replaceTargetRegions(existing, incoming, selectedRegionIds);
+            } catch (IllegalArgumentException error) { throw new InvalidPageOutput(error.getMessage()); }
         } else if (targetSelection.type() == ActionTarget.TEXT_LINE) {
             Set<String> selectedTextLineIds = targetSelection.pages().stream()
                     .filter(page -> resultFile.pageId().equals(page.pageId()))
@@ -2133,18 +2306,13 @@ public class ActionRunService {
             if (selectedTextLineIds.isEmpty()) {
                 throw new SecurityException("Scoped XML result has no selected textline target scope");
             }
-            merged = resultPageMergeService.replaceTargetTextLines(existing, incoming, selectedTextLineIds);
+            try {
+                merged = resultPageMergeService.replaceTargetTextLines(existing, incoming, selectedTextLineIds);
+            } catch (IllegalArgumentException error) { throw new InvalidPageOutput(error.getMessage()); }
         } else {
             merged = incoming;
         }
-        annotationProcessingService.saveAnnotationToXml(existingXml.getId(), merged, run.getCreatedByUserId());
-        workspaceQuotaRefreshService.scheduleUsageRefresh(run.getWorkspaceId());
-        return Map.of(
-                "type", "xml",
-                "scope", targetSelection.type().name(),
-                "pageId", resultFile.pageId(),
-                "fileId", existingXml.getId()
-        );
+        return merged;
     }
 
     private void schedulePageReindexAfterCommit(String projectId, Set<String> pageIds) {
@@ -2276,7 +2444,7 @@ public class ActionRunService {
     private void persistResultImportFailure(String runId, String failureMessage) {
         try {
             ActionRun run = runRepository.findWithProcessorDefinitionById(runId).orElse(null);
-            if (run == null || run.getStatus() == Status.FAILED || run.getStatus() == Status.COMPLETED) {
+            if (run == null || run.getStatus().isTerminal()) {
                 return;
             }
             run.setStatus(Status.FAILED);
@@ -2299,13 +2467,6 @@ public class ActionRunService {
     }
 
     private Map<String, Object> storeImageResult(ActionRun run, ActionDto.ResultFile resultFile, MultipartFile file) throws IOException {
-        validateResultFileSize(file);
-        if (file.getContentType() == null || !file.getContentType().startsWith("image/")) {
-            throw new IllegalArgumentException("Image result has an invalid content type");
-        }
-        if (ImageIO.read(file.getInputStream()) == null) {
-            throw new IllegalArgumentException("Image result could not be decoded");
-        }
         Page page = pageRepository.findByIdAndProjectId(resultFile.pageId(), run.getProjectId())
                 .orElseThrow(() -> new IllegalArgumentException("Page not found"));
         String variant = normalizeVariant(resultFile.variant(), "action");
@@ -2528,11 +2689,9 @@ public class ActionRunService {
             }
             return lockedRun;
         });
-        if (run == null || run.getStatus() == Status.FAILED || run.getStatus() == Status.COMPLETED) {
-            return;
-        }
-        if (run.getStatus() == Status.CANCELLED) {
-            dispatchQueuedRunsAsync();
+        if (run == null) return;
+        if (run.getStatus().isTerminal()) {
+            if (run.getStatus() == Status.CANCELLED) dispatchQueuedRunsAsync();
             return;
         }
         if (run.isCancelRequested() || run.getStatus() == Status.CANCEL_REQUESTED) {
@@ -2578,7 +2737,8 @@ public class ActionRunService {
         payload.put("capabilities", Map.of(
                 "incrementalPageResults", run.getKind() == ActionRun.Kind.PROCESSING,
                 "customFileResults", run.getKind() == ActionRun.Kind.PROCESSING || run.isFileEvaluation(),
-                "evaluationReports", run.getKind() == ActionRun.Kind.EVALUATION && !run.isFileEvaluation()));
+                "evaluationReports", run.getKind() == ActionRun.Kind.EVALUATION && !run.isFileEvaluation(),
+                "runReports", true));
         if (run.getKind() == ActionRun.Kind.EVALUATION) payload.put("evaluationOutputMode", run.getEvaluationOutputMode());
         payload.put("secret", rawSecret);
         payload.put("pullUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/input");
@@ -2618,8 +2778,8 @@ public class ActionRunService {
         }
 
         run = runRepository.findById(runId).orElseThrow();
-        if (run.getStatus() == Status.CANCELLED) {
-            dispatchQueuedRunsAsync();
+        if (run.getStatus().isTerminal()) {
+            if (run.getStatus() == Status.CANCELLED) dispatchQueuedRunsAsync();
             return;
         }
         if (run.isCancelRequested() || run.getStatus() == Status.CANCEL_REQUESTED) {
@@ -2647,7 +2807,7 @@ public class ActionRunService {
         if (run == null) {
             return;
         }
-        if (run.getStatus() == Status.CANCELLED) {
+        if (run.getStatus().isTerminal()) {
             return;
         }
         if (run.isCancelRequested() || run.getStatus() == Status.CANCEL_REQUESTED) {
@@ -3016,7 +3176,7 @@ public class ActionRunService {
     }
 
     private void failRunFromWatchdog(ActionRun run, String message) {
-        if (run.getStatus() == Status.COMPLETED || run.getStatus() == Status.FAILED || run.getStatus() == Status.CANCELLED) {
+        if (run.getStatus().isTerminal()) {
             return;
         }
         run.setStatus(Status.FAILED);
@@ -3332,7 +3492,7 @@ public class ActionRunService {
     }
 
     private List<Status> terminalStatuses() {
-        return List.of(Status.COMPLETED, Status.FAILED, Status.CANCELLED);
+        return Status.terminalStatuses();
     }
 
     private List<Status> activeStatuses() {
@@ -3928,7 +4088,7 @@ public class ActionRunService {
         return List.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR").contains(normalized) ? normalized : "INFO";
     }
 
-    private String redactProcessorSecrets(String value) {
+    static String redactProcessorSecrets(String value) {
         if (value == null) {
             return null;
         }

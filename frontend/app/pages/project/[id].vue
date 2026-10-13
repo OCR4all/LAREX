@@ -885,7 +885,7 @@ watch(() => actionRunsStore.terminalEvents.at(-1)?.sequence, () => {
 
   lastHandledActionTerminalSequence = Math.max(...events.map(event => event.sequence))
   void refreshProjectPagesData()
-  if (events.some(event => event.run.status === 'COMPLETED')) void refreshOutputs()
+  if (events.some(event => event.run.status === 'COMPLETED' || event.run.status === 'COMPLETED_WITH_ISSUES')) void refreshOutputs()
 }, { immediate: true })
 
 const { openActionRunSlideover } = useProjectActions({

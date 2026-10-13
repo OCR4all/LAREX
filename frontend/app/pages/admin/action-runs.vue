@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import type { TableColumn } from '@nuxt/ui'
-import type { AdminActionRun, ActionRunStatus } from '@/types/action'
+import type { AdminActionRun, ActionRunStatus, ActionRunReport as RunReport } from '@/types/action'
 import { extractApiErrorMessage } from '@/utils/api-error'
 import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 
@@ -32,6 +33,9 @@ const cancellingRunIds = ref<Set<string>>(new Set())
 const runs = ref<AdminActionRun[]>([])
 const selectedRun = ref<AdminActionRun | null>(null)
 const isLogsModalOpen = ref(false)
+const selectedReport = ref<RunReport | null>(null)
+const reportLoading = ref(false)
+const isReportModalOpen = ref(false)
 const adminRunsKey = globalKey('admin', 'action-runs', 'all')
 
 const { data: workspaces } = await useFetch<AdminWorkspace[]>('/api/admin/workspaces', {
@@ -52,6 +56,7 @@ const statusOptions = [
   { label: 'Importing Results', value: 'IMPORTING_RESULTS' as const },
   { label: 'Cancel Requested', value: 'CANCEL_REQUESTED' as const },
   { label: 'Completed', value: 'COMPLETED' as const },
+  { label: 'Completed with issues', value: 'COMPLETED_WITH_ISSUES' as const },
   { label: 'Failed', value: 'FAILED' as const },
   { label: 'Cancelled', value: 'CANCELLED' as const }
 ]
@@ -223,6 +228,11 @@ const columns = computed<TableColumn<AdminActionRun>[]>(() => [
       h(UDropdownMenuComponent, {
         items: [
           {
+            label: 'Run report',
+            icon: 'i-lucide-clipboard-list',
+            onSelect: () => openRunReport(row.original)
+          },
+          {
             label: 'Logs',
             icon: 'i-lucide-scroll-text',
             onSelect: () => openRunLogs(row.original)
@@ -311,6 +321,20 @@ function workspaceLabel(run: AdminActionRun) {
   return workspaceLabelById.value.get(run.workspaceId) || run.workspaceLabel || run.workspaceId
 }
 
+async function openRunReport(run: AdminActionRun) {
+  selectedRun.value = run
+  selectedReport.value = null
+  isReportModalOpen.value = true
+  reportLoading.value = true
+  try {
+    selectedReport.value = await $fetch<RunReport>(`/api/admin/actions/runs/${run.id}/report`)
+  } catch (error: unknown) {
+    toast.add({ title: 'Could not load run report', description: extractApiErrorMessage(error, 'Could not load run report'), color: 'error' })
+  } finally {
+    reportLoading.value = false
+  }
+}
+
 function openRunLogs(run: AdminActionRun) {
   selectedRun.value = run
   isLogsModalOpen.value = true
@@ -349,7 +373,7 @@ function runSortRank(run: AdminActionRun) {
 }
 
 function isTerminalRun(status: AdminActionRun['status']) {
-  return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+  return isTerminalActionRun(status)
 }
 
 function isActiveRun(status: AdminActionRun['status']) {
@@ -357,7 +381,7 @@ function isActiveRun(status: AdminActionRun['status']) {
 }
 
 function formatStatus(status: AdminActionRun['status']) {
-  return status.replaceAll('_', ' ')
+  return actionRunStatusLabel(status)
 }
 
 function statusBadgeLabel(run: AdminActionRun) {
@@ -367,11 +391,7 @@ function statusBadgeLabel(run: AdminActionRun) {
 }
 
 function statusColor(status: AdminActionRun['status']): 'success' | 'error' | 'neutral' | 'warning' | 'primary' {
-  if (status === 'COMPLETED') return 'success'
-  if (status === 'FAILED') return 'error'
-  if (status === 'CANCELLED') return 'neutral'
-  if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'warning'
-  return 'primary'
+  return status === 'CANCELLED' ? 'neutral' : actionRunStatusColor(status)
 }
 
 function canCancelRun(run: AdminActionRun) {
@@ -505,6 +525,12 @@ function setCancellingRun(runId: string, value: boolean) {
     </template>
   </UDashboardPanel>
 
+  <UModal v-model:open="isReportModalOpen" title="Run report" :ui="{ content: 'sm:max-w-4xl' }">
+    <template #body>
+      <USkeleton v-if="reportLoading" class="h-48 w-full" />
+      <ActionRunReport v-else-if="selectedReport && selectedRun" :report="selectedReport" :run-id="selectedRun.id" />
+    </template>
+  </UModal>
   <UModal
     v-model:open="isLogsModalOpen"
     :title="selectedRun ? `${selectedRun.processorName} logs` : 'Action run logs'"

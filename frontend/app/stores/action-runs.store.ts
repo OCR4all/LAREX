@@ -1,3 +1,4 @@
+import { isTerminalActionRun } from '@/utils/action-run-status'
 import { defineStore } from 'pinia'
 import type { ActionRun, ActionRunDetail } from '@/types/action'
 
@@ -30,7 +31,7 @@ type ActionRealtimePayload = {
 }
 
 function isTerminalStatus(status: ActionRunStatus): boolean {
-  return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+  return isTerminalActionRun(status)
 }
 
 function isActiveStatus(status: ActionRunStatus): boolean {
@@ -210,7 +211,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     realtimeInitialized = true
     const realtime = useRealtimeSocket()
     realtime.subscribe((message) => {
-      if (message.type !== 'ACTION_RUN_UPDATED' && message.type !== 'ACTION_PAGE_RESULT_IMPORTED') return
+      if (message.type !== 'ACTION_RUN_UPDATED' && message.type !== 'ACTION_PAGE_RESULT_IMPORTED' && message.type !== 'ACTION_PAGE_SETTLED') return
       const payload = (message.payload ?? {}) as ActionRealtimePayload
       scheduleRealtimeRefresh(payload)
       if (
@@ -391,7 +392,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   function isActionRunPageActive(runId: string, pageId: string): boolean {
     const run = runsById.value.get(runId)
     if (!run || !isLockingStatus(run.status) || !run.pageIds.includes(pageId)) return false
-    return !(run.completedPageIds ?? []).includes(pageId)
+    return !(run.settledPageIds ?? run.completedPageIds ?? []).includes(pageId)
       && !emittedPageResultKeys.has(`${runId}:${pageId}`)
   }
 

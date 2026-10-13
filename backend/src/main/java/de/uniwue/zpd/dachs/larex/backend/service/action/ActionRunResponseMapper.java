@@ -40,6 +40,7 @@ public class ActionRunResponseMapper {
     private final GlobalAdminService globalAdminService;
     private final ActionDefinitionService definitionService;
     private final ActionRunPayloadService payloadService;
+    private final ActionRunReportService reportService;
     private final ObjectMapper objectMapper;
 
     public ActionRunResponseMapper(ActionRunRepository runRepository,
@@ -50,6 +51,7 @@ public class ActionRunResponseMapper {
                                    GlobalAdminService globalAdminService,
                                    ActionDefinitionService definitionService,
                                    ActionRunPayloadService payloadService,
+                                   ActionRunReportService reportService,
                                    ObjectMapper objectMapper) {
         this.runRepository = runRepository;
         this.logEventRepository = logEventRepository;
@@ -59,6 +61,7 @@ public class ActionRunResponseMapper {
         this.globalAdminService = globalAdminService;
         this.definitionService = definitionService;
         this.payloadService = payloadService;
+        this.reportService = reportService;
         this.objectMapper = objectMapper;
     }
 
@@ -76,11 +79,8 @@ public class ActionRunResponseMapper {
             String userId,
             Map<String, Integer> queuePositions
     ) {
-        Map<String, List<String>> completedPageIds = Map.of(
-                run.getId(), pageResultRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
-                        .map(result -> result.getPageId())
-                        .toList()
-        );
+        Map<String, PageProgress> completedPageIds = Map.of(run.getId(),
+                pageProgress(pageResultRepository.findByRunIdOrderByCreatedAsc(run.getId())));
         return toRunResponse(run, projectLabel, userId, queuePositions, completedPageIds);
     }
 
@@ -89,7 +89,7 @@ public class ActionRunResponseMapper {
             String projectLabel,
             String userId,
             Map<String, Integer> queuePositions,
-            Map<String, List<String>> completedPageIdsByRunId
+            Map<String, PageProgress> completedPageIdsByRunId
     ) {
         ActionProcessorDefinition definition = run.getProcessorDefinition();
         List<String> pageIds = payloadService.readPageIds(run);
@@ -109,7 +109,7 @@ public class ActionRunResponseMapper {
                 splitCounts(run),
                 pageIds.size(),
                 pageIds,
-                completedPageIdsByRunId.getOrDefault(run.getId(), List.of()),
+                completedPageIdsByRunId.getOrDefault(run.getId(), PageProgress.EMPTY).completed(),
                 payloadService.readTargetSelection(run),
                 run.getStatus(),
                 run.getLockMode(),
@@ -122,7 +122,10 @@ public class ActionRunResponseMapper {
                 run.getLastHeartbeatAt(),
                 run.getCreated(),
                 run.getUpdated(),
-                run.getCompletedAt()
+                run.getCompletedAt(),
+                completedPageIdsByRunId.getOrDefault(run.getId(), PageProgress.EMPTY).settled(),
+                reportService.summary(run),
+                retryableCount(run, completedPageIdsByRunId.getOrDefault(run.getId(), PageProgress.EMPTY))
         );
     }
 
@@ -137,15 +140,28 @@ public class ActionRunResponseMapper {
         return counts;
     }
 
-    public Map<String, List<String>> completedPageIdsByRunId(List<ActionRun> runs) {
-        if (runs == null || runs.isEmpty()) {
-            return Map.of();
-        }
-        Map<String, List<String>> result = new LinkedHashMap<>();
-        pageResultRepository.findByRunIdInOrderByCreatedAsc(runs.stream().map(ActionRun::getId).toList())
-                .forEach(pageResult -> result.computeIfAbsent(pageResult.getRun().getId(), ignored -> new ArrayList<>())
-                        .add(pageResult.getPageId()));
-        return result;
+    public record PageProgress(List<String> completed, List<String> settled) {
+        static final PageProgress EMPTY = new PageProgress(List.of(), List.of());
+    }
+
+    private PageProgress pageProgress(List<de.uniwue.zpd.dachs.larex.backend.entity.ActionRunPageResult> results) {
+        return new PageProgress(results.stream().filter(result -> {
+            var status = reportService.outcome(result).status();
+            return status == ActionDto.PageOutcomeStatus.SUCCEEDED || status == ActionDto.PageOutcomeStatus.UNKNOWN;
+        }).map(result -> result.getPageId()).toList(), results.stream().map(result -> result.getPageId()).toList());
+    }
+
+    private int retryableCount(ActionRun run, PageProgress progress) {
+        var counts = reportService.summary(run);
+        return payloadService.readPageIds(run).size() - progress.settled().size()
+                + (counts == null ? 0 : counts.failed());
+    }
+
+    public Map<String, PageProgress> completedPageIdsByRunId(List<ActionRun> runs) {
+        if (runs == null || runs.isEmpty()) return Map.of();
+        return pageResultRepository.findByRunIdInOrderByCreatedAsc(runs.stream().map(ActionRun::getId).toList()).stream()
+                .collect(Collectors.groupingBy(result -> result.getRun().getId(),
+                        Collectors.collectingAndThen(Collectors.toList(), this::pageProgress)));
     }
 
     public ActionDto.RunDetailResponse toRunDetailResponse(ActionRun run, String projectLabel, String userId) {
@@ -159,6 +175,7 @@ public class ActionRunResponseMapper {
                 run.getKind() == ActionRun.Kind.EVALUATION && !run.isFileEvaluation()
                         ? readResultSummary(run.getResultSummaryJson())
                         : null,
+                reportService.report(run, true),
                 run.getKind() == ActionRun.Kind.EVALUATION ? run.getEvaluationOutputMode() : null,
                 null
         );
@@ -204,7 +221,8 @@ public class ActionRunResponseMapper {
                 durationSeconds(run),
                 run.getKind() == ActionRun.Kind.EVALUATION && !run.isFileEvaluation()
                         ? readResultSummary(run.getResultSummaryJson())
-                        : null
+                        : null,
+                reportService.summary(run)
         );
     }
 

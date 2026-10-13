@@ -1,3 +1,4 @@
+import { isTerminalActionRun, actionRunStatusColor } from '@/utils/action-run-status'
 import type { ActiveUpload } from '@/stores/upload.store'
 import type { TrackedActionRun } from '@/stores/action-runs.store'
 import type { BackgroundJob } from '@/stores/background-jobs.store'
@@ -83,6 +84,7 @@ const actionStatusLabels: Record<string, string> = {
   RUNNING: 'Running',
   IMPORTING_RESULTS: 'Importing',
   COMPLETED: 'Completed',
+  COMPLETED_WITH_ISSUES: 'Completed with issues',
   FAILED: 'Failed',
   CANCEL_REQUESTED: 'Cancelling',
   CANCELLED: 'Cancelled'
@@ -106,7 +108,7 @@ export function isActiveAction(status: TrackedActionRun['status']): boolean {
 }
 
 export function isTerminalAction(status: TrackedActionRun['status']): boolean {
-  return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+  return isTerminalActionRun(status)
 }
 
 export function isActiveBackgroundJob(status: BackgroundJob['status']): boolean {
@@ -132,10 +134,7 @@ export function getUploadStatusColor(status: ActiveUpload['status']): JobStatusC
 }
 
 export function getActionStatusColor(status: TrackedActionRun['status']): JobStatusColor {
-  if (status === 'COMPLETED') return 'success'
-  if (status === 'FAILED' || status === 'CANCELLED') return 'error'
-  if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'warning'
-  return 'primary'
+  return actionRunStatusColor(status)
 }
 
 export function getBackgroundJobStatusColor(status: BackgroundJob['status']): JobStatusColor {

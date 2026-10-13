@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { actionRunStatusLabel, actionRunStatusColor, canRetryActionRun, actionRunCountsLabel } from '@/utils/action-run-status'
 import { extractApiErrorDetails } from '@/utils/api-error'
 import { annotationLevelLabels, retainedImpactPages, reviewedActionConfiguration } from '@/utils/action-impact'
 import { actionImageSelectionValues, actionInputLevelForTarget } from '@/utils/action-input-requirements'
@@ -397,7 +398,7 @@ const parameterValuesReady = computed(() =>
   )
 )
 
-const clearableHistoryRuns = computed(() => runs.value.filter(run => run.status === 'COMPLETED' || run.status === 'FAILED'))
+const clearableHistoryRuns = computed(() => runs.value.filter(run => run.status === 'COMPLETED' || run.status === 'COMPLETED_WITH_ISSUES' || run.status === 'FAILED'))
 const paginatedRuns = computed(() => {
   const start = (runHistoryPage.value - 1) * runHistoryItemsPerPage.value
   return runs.value.slice(start, start + runHistoryItemsPerPage.value)
@@ -803,10 +804,7 @@ async function loadRunDetail(runId: string) {
 }
 
 function statusColor(status: ActionRun['status']) {
-  if (status === 'COMPLETED') return 'success'
-  if (status === 'FAILED' || status === 'CANCELLED') return 'error'
-  if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'warning'
-  return 'primary'
+  return actionRunStatusColor(status)
 }
 
 function isActiveRun(run: ActionRun) {
@@ -818,7 +816,7 @@ function canCancelRun(run: ActionRun) {
 }
 
 function canRetryRun(run: ActionRun) {
-  return run.kind !== 'INTEGRATION' && (run.status === 'FAILED' || run.status === 'CANCELLED')
+  return canRetryActionRun(run)
 }
 
 function isRunExpanded(run: ActionRun) {
@@ -1391,7 +1389,7 @@ function close() {
                   </button>
                   <div class="flex items-center gap-2">
                     <UBadge size="sm" variant="soft" :color="statusColor(run.status)">
-                      {{ run.status }}
+                      {{ actionRunStatusLabel(run.status) }}
                     </UBadge>
                     <UButton
                       v-if="canRetryRun(run)"
@@ -1426,6 +1424,9 @@ function close() {
                     />
                   </div>
                 </div>
+                <p v-if="run.reportCounts" class="text-xs text-muted">
+                  {{ actionRunCountsLabel(run.reportCounts) }}
+                </p>
                 <UProgress :model-value="run.progressPercent" />
                 <p v-if="run.errorMessage" class="text-xs text-error">
                   {{ run.errorMessage }}
@@ -1456,6 +1457,7 @@ function close() {
                         {{ formatRunDetailDuration(run) }}
                       </dd>
                     </dl>
+                    <ActionRunReport v-if="runDetails[run.id]?.runReport" :report="runDetails[run.id]!.runReport!" :run-id="run.id" />
                     <div>
                       <p class="mb-1 text-xs font-medium text-muted">
                         Result Summary

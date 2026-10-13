@@ -58,7 +58,7 @@ public class NotificationBridgeClient {
             logger.debug("Notification bridge disabled because URL or secret is missing");
             return;
         }
-        if (!"ACTION_RUN_UPDATED".equals(type) && !"ACTION_PAGE_RESULT_IMPORTED".equals(type)) {
+        if (!"ACTION_RUN_UPDATED".equals(type) && !"ACTION_PAGE_RESULT_IMPORTED".equals(type) && !"ACTION_PAGE_SETTLED".equals(type)) {
             throw new IllegalArgumentException("Unsupported Action realtime event type: " + type);
         }
         pushPayload(new ActionEventBridgePayload(new BridgeEvent(type, eventPayload), source), source);

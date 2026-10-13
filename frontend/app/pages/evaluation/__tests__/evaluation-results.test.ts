@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { compileScript, parse } from 'vue/compiler-sfc'
 import { ModuleKind, transpileModule } from 'typescript'
 import * as Vue from 'vue'
+import * as actionRunStatus from '@/utils/action-run-status'
 import type { ActionRunDetail, EvaluationReport } from '@/types/action'
 import type { ActionOutputFile } from '@/types/action-output'
 
@@ -22,6 +23,7 @@ interface Setup {
 const exportsObject: { default?: { setup: (props: unknown, context: unknown) => Promise<Setup> } } = {}
 new Function('require', 'exports', compiled)((name: string) => {
   if (name === 'vue') return { ...Vue, withAsyncContext: (fn: () => unknown) => [fn(), () => {}] }
+  if (name === '@/utils/action-run-status') return actionRunStatus
   throw new Error(`Unexpected import ${name}`)
 }, exportsObject)
 

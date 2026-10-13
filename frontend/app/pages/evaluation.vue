@@ -1,6 +1,7 @@
 <!-- The compact render callbacks below intentionally keep table cell definitions together. -->
 <!-- eslint-disable @stylistic/max-statements-per-line -->
 <script setup lang="ts">
+import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import type { TableColumn } from '@nuxt/ui'
 import type { ActionRun, ActionRunStatus } from '@/types/action'
 
@@ -21,7 +22,7 @@ let timer: ReturnType<typeof setTimeout> | null = null
 
 const statusOptions = [
   { label: 'All statuses', value: 'ALL' as const },
-  ...(['QUEUED', 'PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED', 'COMPLETED', 'FAILED', 'CANCELLED'] as ActionRunStatus[]).map(value => ({ label: value.replaceAll('_', ' '), value }))
+  ...(['QUEUED', 'PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED', 'COMPLETED', 'COMPLETED_WITH_ISSUES', 'FAILED', 'CANCELLED'] as ActionRunStatus[]).map(value => ({ label: actionRunStatusLabel(value), value }))
 ]
 const filtered = computed(() => {
   const needle = search.value.trim().toLowerCase()
@@ -41,14 +42,14 @@ const UProgressComponent = resolveComponent('UProgress')
 const columns = computed<TableColumn<ActionRun>[]>(() => [
   { id: 'dataset', header: 'Dataset', cell: ({ row }) => h('span', { class: 'truncate font-medium' }, row.original.datasetLabel || 'Dataset') },
   { id: 'action', header: 'Action', cell: ({ row }) => h('span', { class: 'truncate' }, row.original.processorName) },
-  { id: 'status', header: 'Status', cell: ({ row }) => h(UBadgeComponent, { size: 'sm', variant: 'soft', color: statusColor(row.original.status) }, () => row.original.status.replaceAll('_', ' ')) },
+  { id: 'status', header: 'Status', cell: ({ row }) => h(UBadgeComponent, { size: 'sm', variant: 'soft', color: statusColor(row.original.status) }, () => actionRunStatusLabel(row.original.status)) },
   { id: 'inputs', header: 'Inputs', cell: ({ row }) => h('span', { class: 'tabular-nums' }, String(row.original.inputCount ?? 0)) },
   { id: 'train', header: 'Train', cell: ({ row }) => h('span', { class: 'tabular-nums' }, String(row.original.splitCounts?.TRAIN ?? 0)) },
   { id: 'val', header: 'Val', cell: ({ row }) => h('span', { class: 'tabular-nums' }, String(row.original.splitCounts?.VAL ?? 0)) },
   { id: 'test', header: 'Test', cell: ({ row }) => h('span', { class: 'tabular-nums' }, String(row.original.splitCounts?.TEST ?? 0)) },
-  { id: 'progress', header: 'Progress', cell: ({ row }) => h(UProgressComponent, { modelValue: row.original.progressPercent, max: 100, size: 'xs', color: row.original.status === 'COMPLETED' ? 'success' : 'primary', class: 'w-20' }) },
+  { id: 'progress', header: 'Progress', cell: ({ row }) => h(UProgressComponent, { modelValue: row.original.progressPercent, max: 100, size: 'xs', color: actionRunStatusColor(row.original.status), class: 'w-20' }) },
   { accessorKey: 'updated', header: 'Updated' },
-  { id: 'actions', header: '', cell: ({ row }) => row.original.canCancel && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(row.original.status) ? h(UButtonComponent, { 'color': 'warning', 'variant': 'ghost', 'size': 'xs', 'icon': 'i-lucide-ban', 'loading': cancelling.value === row.original.id, 'aria-label': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel evaluation' : 'Cancel evaluation', 'title': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel evaluation' : 'Cancel evaluation', 'onClick': (event: MouseEvent) => { event.stopPropagation(); void cancelRun(row.original) } }) : null }
+  { id: 'actions', header: '', cell: ({ row }) => row.original.canCancel && !isTerminalActionRun(row.original.status) ? h(UButtonComponent, { 'color': 'warning', 'variant': 'ghost', 'size': 'xs', 'icon': 'i-lucide-ban', 'loading': cancelling.value === row.original.id, 'aria-label': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel evaluation' : 'Cancel evaluation', 'title': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel evaluation' : 'Cancel evaluation', 'onClick': (event: MouseEvent) => { event.stopPropagation(); void cancelRun(row.original) } }) : null }
 ])
 
 async function loadRuns() {
@@ -71,11 +72,7 @@ async function cancelRun(run: ActionRun) {
   } finally { cancelling.value = null }
 }
 function statusColor(value: ActionRunStatus): 'success' | 'error' | 'neutral' | 'warning' | 'primary' {
-  if (value === 'COMPLETED') return 'success'
-  if (value === 'FAILED') return 'error'
-  if (value === 'CANCELLED') return 'neutral'
-  if (value === 'QUEUED' || value === 'CANCEL_REQUESTED') return 'warning'
-  return 'primary'
+  return value === 'CANCELLED' ? 'neutral' : actionRunStatusColor(value)
 }
 watch(workspaceId, () => { void loadRuns() }, { immediate: true })
 onMounted(() => {

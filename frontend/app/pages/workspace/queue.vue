@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import type { TableColumn } from '@nuxt/ui'
 import type { ActionRun, ActionRunStatus, ClearActionRunsResponse } from '@/types/action'
 
@@ -16,6 +17,8 @@ const selectedWorkspace = computed(() => workspaceStore.selectedWorkspaceId)
 const currentWorkspace = computed(() => workspaceStore.currentWorkspace)
 
 const runs = ref<ActionRun[]>([])
+const reportRun = ref<ActionRun | null>(null)
+const reportOpen = ref(false)
 const clearingFinished = ref(false)
 const cancellingRunId = ref<string | null>(null)
 const searchInput = ref('')
@@ -40,6 +43,7 @@ const statusOptions = [
   { label: 'Importing Results', value: 'IMPORTING_RESULTS' as const },
   { label: 'Cancel Requested', value: 'CANCEL_REQUESTED' as const },
   { label: 'Completed', value: 'COMPLETED' as const },
+  { label: 'Completed with issues', value: 'COMPLETED_WITH_ISSUES' as const },
   { label: 'Failed', value: 'FAILED' as const },
   { label: 'Cancelled', value: 'CANCELLED' as const }
 ]
@@ -148,6 +152,19 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
     cell: ({ row }) => h('span', { class: 'text-sm text-muted' }, formatDurationFromRun(row.original))
   },
   {
+    id: 'report',
+    header: '',
+    cell: ({ row }) => h(UButtonComponent, {
+      'color': 'neutral', 'variant': 'ghost', 'size': 'xs', 'icon': 'i-lucide-clipboard-list',
+      'aria-label': 'Show run report',
+      'onClick': (event: MouseEvent) => {
+        event.stopPropagation()
+        reportRun.value = row.original
+        reportOpen.value = true
+      }
+    })
+  },
+  {
     id: 'actions',
     header: '',
     cell: ({ row }) => h('div', { class: 'flex items-center justify-end gap-2' }, [
@@ -190,7 +207,7 @@ watch(workspaceRunsData, (value) => {
 
 onMounted(() => {
   realtimeUnsubscribe = realtime.subscribe((message) => {
-    if (message.type !== 'ACTION_RUN_UPDATED' && message.type !== 'ACTION_PAGE_RESULT_IMPORTED') return
+    if (message.type !== 'ACTION_RUN_UPDATED' && message.type !== 'ACTION_PAGE_RESULT_IMPORTED' && message.type !== 'ACTION_PAGE_SETTLED') return
     const workspaceId = (message.payload as { workspaceId?: unknown } | null)?.workspaceId
     if (workspaceId !== selectedWorkspace.value || realtimeRefreshTimer) return
     realtimeRefreshTimer = setTimeout(() => {
@@ -315,7 +332,7 @@ function runSortRank(run: ActionRun) {
 }
 
 function isTerminalRun(status: ActionRun['status']) {
-  return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+  return isTerminalActionRun(status)
 }
 
 function isActiveRun(status: ActionRun['status']) {
@@ -323,7 +340,7 @@ function isActiveRun(status: ActionRun['status']) {
 }
 
 function formatStatus(status: ActionRun['status']) {
-  return status.replaceAll('_', ' ')
+  return actionRunStatusLabel(status)
 }
 
 function statusBadgeLabel(run: ActionRun) {
@@ -333,11 +350,7 @@ function statusBadgeLabel(run: ActionRun) {
 }
 
 function statusColor(status: ActionRun['status']): 'success' | 'error' | 'neutral' | 'warning' | 'primary' {
-  if (status === 'COMPLETED') return 'success'
-  if (status === 'FAILED') return 'error'
-  if (status === 'CANCELLED') return 'neutral'
-  if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'warning'
-  return 'primary'
+  return status === 'CANCELLED' ? 'neutral' : actionRunStatusColor(status)
 }
 
 function formatDuration(seconds: number | null | undefined) {
@@ -467,4 +480,5 @@ function formatDurationFromRun(run: ActionRun) {
       </div>
     </template>
   </UDashboardPanel>
+  <ActionReportModal v-if="reportRun" v-model:open="reportOpen" :run="reportRun" />
 </template>

@@ -212,6 +212,7 @@ class ActionRunServiceTest {
         when(transactionTemplate.getTransactionManager()).thenReturn(transactionManager);
         when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
         ActionRunPayloadService payloadService = new ActionRunPayloadService(objectMapper);
+        ActionRunReportService reportService = new ActionRunReportService(pageResultRepository, pageRepository, payloadService, objectMapper);
         ActionRunResponseMapper responseMapper = new ActionRunResponseMapper(
                 runRepository,
                 logEventRepository,
@@ -221,6 +222,7 @@ class ActionRunServiceTest {
                 globalAdminService,
                 definitionService,
                 payloadService,
+                reportService,
                 objectMapper
         );
         ActionResultPageMergeService resultPageMergeService = new ActionResultPageMergeService();
@@ -262,6 +264,7 @@ class ActionRunServiceTest {
                 actionAuditService,
                 actionProperties,
                 payloadService,
+                reportService,
                 responseMapper,
                 resultPageMergeService,
                 realtimePublisher,
@@ -488,6 +491,25 @@ class ActionRunServiceTest {
                 .containsOnly(Map.entry("page-2", "chosen"));
         assertThat(payloadReader.readImageVariantSelection(payloadReader.readObjectMap(saved.getValue().getParametersJson())).pageVariantLists())
                 .containsOnly(Map.entry("page-2", List.of("chosen", "scan")));
+    }
+
+    @Test
+    void completedWithIssuesRetryPreviewAndExecutionExcludeSuccessfulPages() {
+        ImpactFixture fixture = prepareImpact();
+        ActionRun source = prepareRetry(fixture);
+        source.setStatus(ActionRun.Status.COMPLETED_WITH_ISSUES);
+        ActionRunPageResult success = new ActionRunPageResult();
+        success.setPageId("page-1");
+        success.setOutcomeJson(toJson(new ActionDto.PageOutcome("page-1", null,
+                ActionDto.PageOutcomeStatus.SUCCEEDED, null, null)));
+        when(pageResultRepository.findByRunIdOrderByCreatedAsc(source.getId())).thenReturn(List.of(success));
+        var preview = service.previewRetryImpact(WORKSPACE_ID, fixture.project().getId(), source.getId(), OWNER_ID);
+        assertThat(preview.pages()).extracting(ActionDto.ImpactPage::pageId).containsExactly("page-2");
+        var response = service.retryRun(WORKSPACE_ID, fixture.project().getId(), source.getId(), false,
+                OWNER_ID, "http://app/api");
+        assertThat(response.run().pageIds()).containsExactly("page-2");
+        assertThat(fixture.pages().getFirst().isLocked()).isFalse();
+        assertThat(fixture.pages().get(1).isLocked()).isTrue();
     }
 
     @Test
@@ -1366,6 +1388,173 @@ class ActionRunServiceTest {
         verify(pageImageRepository).save(any(PageImage.class));
         verify(pageFilterIndexService).indexPageFromXml(page);
         verify(transactionManager).commit(transactionStatus);
+    }
+
+    private List<ActionRunPageResult> recordPageResults(ActionRun run) {
+        List<ActionRunPageResult> results = new ArrayList<>();
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.saveAndFlush(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pageResultRepository.findByRunIdOrderByCreatedAsc(run.getId())).thenAnswer(ignored -> List.copyOf(results));
+        when(pageResultRepository.findByRunIdAndPageId(eq(run.getId()), anyString())).thenAnswer(invocation ->
+                results.stream().filter(result -> result.getPageId().equals(invocation.getArgument(1))).findFirst());
+        when(pageResultRepository.saveAndFlush(any(ActionRunPageResult.class))).thenAnswer(invocation -> {
+            results.add(invocation.getArgument(0));
+            return invocation.getArgument(0);
+        });
+        when(pageResultRepository.countByRunId(run.getId())).thenAnswer(ignored -> (long) results.size());
+        when(pageResultRepository.existsByRunId(run.getId())).thenAnswer(ignored -> !results.isEmpty());
+        return results;
+    }
+
+    @Test
+    void mixedIncrementalOutcomesFinalizeOutputsAndRemainTerminal() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("mixed");
+        definition.setOutputsFiles(true);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("p1", "p2"));
+        recordPageResults(run);
+        service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "running", null, "p1", List.of(), List.of()), new LinkedMultiValueMap<>());
+        service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "running", null, "p2", List.of(), List.of(), null,
+                        new ActionDto.PageOutcome("p2", null, ActionDto.PageOutcomeStatus.FAILED, "Invalid input", null), null),
+                new LinkedMultiValueMap<>());
+        ActionDto.RunResponse response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(), List.of()), new LinkedMultiValueMap<>());
+        assertThat(response.status()).isEqualTo(ActionRun.Status.COMPLETED_WITH_ISSUES);
+        assertThat(response.reportCounts()).isEqualTo(new ActionDto.ReportCounts(2, 1, 1, 0, 0, 0));
+        assertThat(response.completedPageIds()).containsExactly("p1");
+        assertThat(response.settledPageIds()).containsExactly("p1", "p2");
+        assertThat(response.retryablePageCount()).isEqualTo(1);
+        assertThat(response.progressPercent()).isEqualTo(100);
+        verify(actionOutputService).finalizeDraft(eq(run.getId()), any());
+        verify(actionOutputService, never()).discardDraft(anyString());
+        assertThatThrownBy(() -> service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.HeartbeatRequest(10, "late", null, null, "failed", "late")))
+                .isInstanceOf(SecurityException.class);
+        assertThat(run.getStatus()).isEqualTo(ActionRun.Status.COMPLETED_WITH_ISSUES);
+    }
+
+    @Test
+    void invalidPageOutputIsSettledWithoutStoringAnyFilesAndReplaysRejection() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("invalid-output");
+        definition.setOutputsXml(true);
+        definition.setOutputsFiles(true);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("p1", "p2"));
+        Page page = page("p1", project, run);
+        recordPageResults(run);
+        when(pageRepository.findByIdAndProjectId("p1", project.getId())).thenReturn(Optional.of(page));
+        when(pageXmlValidationService.validatePageXml(any(org.springframework.core.io.Resource.class))).thenReturn(
+                new PageXmlTextDto.XmlValidationResult(false, List.of(), null, null));
+        var files = new LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile>();
+        files.add("file", new MockMultipartFile("file", "before.txt", "text/plain", new byte[]{1}));
+        files.add("xml", new MockMultipartFile("xml", "bad.xml", "application/xml", new byte[]{1}));
+        var manifest = new ActionDto.ResultManifest(1, "running", null, "p1", List.of(
+                new ActionDto.ResultFile("file", "p1", "file", null, "before.txt"),
+                new ActionDto.ResultFile("xml", "p1", "xml", null, "bad.xml")), List.of());
+        for (int attempt = 0; attempt < 2; attempt++) {
+            assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET, manifest, files))
+                    .isInstanceOf(de.uniwue.zpd.dachs.larex.backend.exception.ActionPageResultRejectedException.class);
+        }
+        assertThat(run.getStatus()).isEqualTo(ActionRun.Status.RUNNING);
+        assertThat(page.isLocked()).isFalse();
+        assertThat(objectMapper.readTree(run.getRunReportJson()).get("counts").get("failed").asInt()).isEqualTo(1);
+        verify(pageResultRepository, times(1)).saveAndFlush(any());
+        verifyNoInteractions(actionOutputService, fileStorageService);
+        verify(realtimePublisher).publishPageSettled(run, "p1");
+        verify(realtimePublisher, never()).publishPageResult(any(), any(), any());
+    }
+
+    @Test
+    void bulkReportWithFailedAndSkippedPagesDerivesCountsAndKeepsSuccessfulResults() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("bulk-report");
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("p1", "p2", "p3"));
+        recordPageResults(run);
+        var report = new ActionDto.RunReport(1, List.of(
+                new ActionDto.PageOutcome("p1", null, ActionDto.PageOutcomeStatus.SUCCEEDED, null, null),
+                new ActionDto.PageOutcome("p2", null, ActionDto.PageOutcomeStatus.FAILED, "Invalid input", null),
+                new ActionDto.PageOutcome("p3", null, ActionDto.PageOutcomeStatus.SKIPPED, "No eligible content", null)), List.of(), null);
+        var response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(), List.of(), null, null, report),
+                new LinkedMultiValueMap<>());
+        assertThat(response.status()).isEqualTo(ActionRun.Status.COMPLETED_WITH_ISSUES);
+        assertThat(response.reportCounts()).isEqualTo(new ActionDto.ReportCounts(3, 1, 1, 1, 0, 0));
+        assertThat(response.retryablePageCount()).isEqualTo(1);
+    }
+
+    @Test
+    void allFailedPagesFinishAtFullProgressButDiscardOutputDraft() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionRun run = run(definition("all-failed"), project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("p1"));
+        recordPageResults(run);
+        service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "running", null, "p1", List.of(), List.of(), null,
+                        new ActionDto.PageOutcome("p1", null, ActionDto.PageOutcomeStatus.FAILED, "Invalid input", null), null),
+                new LinkedMultiValueMap<>());
+        var response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(), List.of()), new LinkedMultiValueMap<>());
+        assertThat(response.status()).isEqualTo(ActionRun.Status.FAILED);
+        assertThat(response.progressPercent()).isEqualTo(100);
+        verify(actionOutputService).discardDraft(run.getId());
+    }
+
+    @Test
+    void bulkInvalidPageDoesNotStoreItsOtherFilesOrUndoAnotherPage() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("bulk-invalid");
+        definition.setOutputsXml(true);
+        definition.setOutputsFiles(true);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("p1", "p2"));
+        recordPageResults(run);
+        when(pageXmlValidationService.validatePageXml(any(org.springframework.core.io.Resource.class))).thenReturn(
+                new PageXmlTextDto.XmlValidationResult(false, List.of(), null, null));
+        var badFile = new ActionDto.ResultFile("bad-file", "p1", "file", null, "bad.txt");
+        var badXml = new ActionDto.ResultFile("bad-xml", "p1", "xml", null, "bad.xml");
+        var goodFile = new ActionDto.ResultFile("good-file", "p2", "file", null, "good.txt");
+        var files = new LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile>();
+        files.add("bad-file", new MockMultipartFile("bad-file", "bad.txt", "text/plain", new byte[]{1}));
+        files.add("bad-xml", new MockMultipartFile("bad-xml", "bad.xml", "application/xml", new byte[]{1}));
+        files.add("good-file", new MockMultipartFile("good-file", "good.txt", "text/plain", new byte[]{3, 4}));
+        when(actionOutputService.storeResultFile(eq(run), eq(goodFile), any())).thenReturn(Map.of("fileName", "good.txt"));
+        var response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", null, null, List.of(badFile, badXml, goodFile), List.of()), files);
+        assertThat(response.status()).isEqualTo(ActionRun.Status.COMPLETED_WITH_ISSUES);
+        assertThat(response.reportCounts()).isEqualTo(new ActionDto.ReportCounts(2, 1, 1, 0, 0, 0));
+        assertThat(run.getResultSummaryJson()).contains("good.txt").doesNotContain("bad.txt");
+        verify(actionOutputService, never()).storeResultFile(eq(run), eq(badFile), any());
+        verify(workspaceQuotaGuardService).reserveBytesOrThrow(WORKSPACE_ID, 2L, "larex-action-result");
+        verifyNoInteractions(fileStorageService);
+    }
+
+    @Test
+    void scopedOutputMissingSelectedRegionIsRecoverableBeforeAnnotationWrite() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("scoped-invalid");
+        definition.setOutputsXml(true);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("p1"));
+        run.setTargetSelectionJson(toJson(new ActionDto.TargetSelection(ActionTarget.REGION,
+                List.of(new ActionDto.TargetSelectionPage("p1", List.of("r42"), List.of())))));
+        recordPageResults(run);
+        PageXml existing = mock(PageXml.class);
+        when(existing.getId()).thenReturn("existing");
+        when(existing.getSchema()).thenReturn(XmlSchema.PAGE_XML);
+        when(pageXmlRepository.findByPage_Id("p1")).thenReturn(Optional.of(existing));
+        var empty = objectMapper.readValue("{\"imageWidth\":100,\"imageHeight\":100,\"regions\":[]}", de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto.class);
+        when(annotationProcessingService.parseXmlToAnnotation("existing")).thenReturn(empty);
+        when(pageXmlToAnnotationParser.parse(any(java.nio.file.Path.class), eq(existing))).thenReturn(empty);
+        when(pageXmlValidationService.validatePageXml(any(org.springframework.core.io.Resource.class))).thenReturn(
+                new PageXmlTextDto.XmlValidationResult(true, List.of(), "2019-07-15", "urn:page"));
+        var files = new LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile>();
+        files.add("xml", new MockMultipartFile("xml", "page.xml", "application/xml", "<PcGts/>".getBytes(StandardCharsets.UTF_8)));
+        var manifest = new ActionDto.ResultManifest(1, "running", null, "p1",
+                List.of(new ActionDto.ResultFile("xml", "p1", "xml", null, "page.xml")), List.of());
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET, manifest, files))
+                .isInstanceOf(de.uniwue.zpd.dachs.larex.backend.exception.ActionPageResultRejectedException.class)
+                .hasMessageContaining("r42");
+        verify(annotationProcessingService, never()).saveAnnotationToXml(any(), any(), any());
     }
 
     @Test

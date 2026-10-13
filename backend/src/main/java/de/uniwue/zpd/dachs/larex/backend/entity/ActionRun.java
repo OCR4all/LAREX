@@ -43,9 +43,22 @@ public class ActionRun {
         RUNNING,
         IMPORTING_RESULTS,
         COMPLETED,
+        COMPLETED_WITH_ISSUES,
         FAILED,
         CANCEL_REQUESTED,
-        CANCELLED
+        CANCELLED;
+
+        public boolean isCompleted() {
+            return this == COMPLETED || this == COMPLETED_WITH_ISSUES;
+        }
+
+        public boolean isTerminal() {
+            return isCompleted() || this == FAILED || this == CANCELLED;
+        }
+
+        public static java.util.List<Status> terminalStatuses() {
+            return java.util.List.of(COMPLETED, COMPLETED_WITH_ISSUES, FAILED, CANCELLED);
+        }
     }
 
     @Id
@@ -140,6 +153,12 @@ public class ActionRun {
 
     @Column(name = "result_summary_json", columnDefinition = "TEXT")
     private String resultSummaryJson;
+
+    @Column(name = "run_report_json", columnDefinition = "TEXT")
+    private String runReportJson;
+
+    public String getRunReportJson() { return runReportJson; }
+    public void setRunReportJson(String value) { runReportJson = value; }
 
     @Column(name = "log_text", columnDefinition = "TEXT")
     private String logText;

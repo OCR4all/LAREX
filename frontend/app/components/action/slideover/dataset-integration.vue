@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import type { ActionDefinition, ActionParameterChoice, ActionParameterDefinition, ActionParameterValue, ActionRun, ActionRunDetail, IntegrationInputItem, IntegrationInputResponse, StartActionRunResponse } from '@/types/action'
 import { actionParameterChoices, actionParameterDefaultValue, coerceActionParameterInput, hasAllowedActionParameterValue } from '@/utils/action-parameter-values'
 import { actionImageSelectionValues, actionInputLevelForTarget } from '@/utils/action-input-requirements'
@@ -327,8 +328,8 @@ onMounted(load)
           <div v-for="run in runs" :key="run.id" class="space-y-2 rounded border border-default p-3">
             <div class="flex items-center justify-between gap-2">
               <span class="flex items-center gap-1 font-medium"><UIcon name="i-lucide-plug" aria-label="Integration" />{{ run.processorName }}</span>
-              <UBadge color="neutral">
-                {{ run.status }} · {{ run.progressPercent }}%
+              <UBadge :color="actionRunStatusColor(run.status)">
+                {{ actionRunStatusLabel(run.status) }} · {{ run.progressPercent }}%
               </UBadge>
             </div>
             <p class="text-sm">
@@ -347,7 +348,7 @@ onMounted(load)
                 Details
               </UButton>
               <UButton
-                v-if="run.canCancel && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(run.status)"
+                v-if="run.canCancel && !isTerminalActionRun(run.status)"
                 size="xs"
                 color="error"
                 variant="ghost"
@@ -357,6 +358,7 @@ onMounted(load)
                 {{ run.status === 'CANCEL_REQUESTED' ? 'Force cancel' : 'Cancel' }}
               </UButton>
             </div>
+            <ActionRunReport v-if="expandedRunId === run.id && details[run.id]?.runReport" :report="details[run.id]!.runReport!" :run-id="run.id" />
             <pre v-if="expandedRunId === run.id" class="max-h-48 overflow-auto whitespace-pre-wrap text-xs">{{ details[run.id]?.logText || 'No log messages.' }}</pre>
           </div>
         </div>

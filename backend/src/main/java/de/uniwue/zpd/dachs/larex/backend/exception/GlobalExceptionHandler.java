@@ -39,6 +39,14 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ActionPageResultRejectedException.class)
+    public ResponseEntity<ErrorResponseDto> handleActionPageResultRejected(
+            ActionPageResultRejectedException error, HttpServletRequest request) {
+        return ResponseEntity.unprocessableContent().body(new ErrorResponseDto(
+                422, "Page result rejected", error.getMessage(), request.getRequestURI(),
+                List.of(error.getPageId()), "ACTION_PAGE_RESULT_REJECTED"));
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     private final ErrorEventService errorEventService;
     private final ErrorEventContextResolver errorEventContextResolver;

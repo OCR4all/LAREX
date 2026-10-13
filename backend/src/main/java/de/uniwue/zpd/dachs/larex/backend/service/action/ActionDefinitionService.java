@@ -1063,7 +1063,7 @@ public class ActionDefinitionService {
     }
 
     private List<ActionRun.Status> terminalStatuses() {
-        return List.of(ActionRun.Status.COMPLETED, ActionRun.Status.FAILED, ActionRun.Status.CANCELLED);
+        return ActionRun.Status.terminalStatuses();
     }
 
     private void applyParsedDefinition(ActionProcessorDefinition definition,

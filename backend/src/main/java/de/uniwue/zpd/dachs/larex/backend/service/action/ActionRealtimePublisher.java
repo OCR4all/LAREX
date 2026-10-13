@@ -46,6 +46,11 @@ public class ActionRealtimePublisher {
         publishRunUpdated(run);
     }
 
+    public void publishPageSettled(ActionRun run, String pageId) {
+        publishAfterCommit("ACTION_PAGE_SETTLED", run, Map.of("pageId", pageId));
+        publishRunUpdated(run);
+    }
+
     private void publishAfterCommit(String type, ActionRun run, Map<String, Object> details) {
         String runId = run.getId();
         Map<String, Object> payload = new LinkedHashMap<>();

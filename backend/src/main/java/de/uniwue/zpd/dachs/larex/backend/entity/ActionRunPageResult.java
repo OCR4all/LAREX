@@ -40,6 +40,19 @@ public class ActionRunPageResult {
     @Column(name = "result_summary_json", columnDefinition = "TEXT")
     private String resultSummaryJson;
 
+    // Null on historical acknowledgements: their outcome cannot be reconstructed.
+    @Column(name = "outcome_json", columnDefinition = "TEXT")
+    private String outcomeJson;
+
+    @Column(name = "validation_rejected", nullable = false)
+    private boolean validationRejected;
+
+    public boolean isValidationRejected() { return validationRejected; }
+    public void setValidationRejected(boolean value) { validationRejected = value; }
+
+    public String getOutcomeJson() { return outcomeJson; }
+    public void setOutcomeJson(String value) { outcomeJson = value; }
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime created;

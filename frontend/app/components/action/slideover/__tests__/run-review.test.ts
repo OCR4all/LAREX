@@ -1,3 +1,4 @@
+import * as actionRunStatus from '@/utils/action-run-status'
 import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { compileScript, parse } from 'vue/compiler-sfc'
@@ -17,6 +18,7 @@ const compiled = transpileModule(compileScript(descriptor, { id: 'run-review-tes
 }).outputText
 const dependencies: Record<string, unknown> = {
   'vue': Vue,
+  '@/utils/action-run-status': actionRunStatus,
   '@/utils/api-error': apiError,
   '@/utils/action-impact': impactHelpers,
   '@/utils/action-input-requirements': inputRequirements,

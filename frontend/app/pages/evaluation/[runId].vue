@@ -1,5 +1,6 @@
 <!-- eslint-disable @stylistic/max-statements-per-line -->
 <script setup lang="ts">
+import { actionRunStatusLabel } from '@/utils/action-run-status'
 import type { TableColumn } from '@nuxt/ui'
 import type { ActionOutputFile } from '@/types/action-output'
 import type { ActionRun, ActionRunDetail, EvaluationMetric, EvaluationReport } from '@/types/action'
@@ -155,7 +156,7 @@ watch([workspaceId, runId], load, { immediate: true })
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p class="text-sm text-muted">
-              {{ detail.run.datasetLabel || 'Dataset' }} · {{ detail.run.status }}
+              {{ detail.run.datasetLabel || 'Dataset' }} · {{ actionRunStatusLabel(detail.run.status) }}
             </p><h1 class="text-2xl font-semibold">
               {{ report?.title || (fileMode ? 'Evaluation files' : 'Evaluation report') }}
             </h1><p v-if="report" class="font-mono text-xs text-muted">
@@ -171,6 +172,7 @@ watch([workspaceId, runId], load, { immediate: true })
             /><UIcon v-if="compareLoading" name="i-lucide-loader-circle" class="size-4 animate-spin" />
           </div>
         </div>
+        <ActionRunReport v-if="detail.runReport" :report="detail.runReport" :run-id="runId" />
         <UAlert
           v-if="report?.warnings?.length"
           color="warning"

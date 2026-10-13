@@ -343,7 +343,10 @@ public class ActionDto {
             LocalDateTime lastHeartbeatAt,
             LocalDateTime created,
             LocalDateTime updated,
-            LocalDateTime completedAt
+            LocalDateTime completedAt,
+            List<String> settledPageIds,
+            ReportCounts reportCounts,
+            int retryablePageCount
     ) {}
 
     public record RunDetailResponse(
@@ -353,6 +356,7 @@ public class ActionDto {
             Object resultSummary,
             Long durationSeconds,
             Object evaluationReport,
+            RunReport runReport,
             EvaluationOutputMode evaluationOutputMode,
             ActionOutputDto.OutputResponse evaluationOutput
     ) {}
@@ -407,7 +411,8 @@ public class ActionDto {
             LocalDateTime updated,
             LocalDateTime completedAt,
             Long durationSeconds,
-            Object evaluationReport
+            Object evaluationReport,
+            ReportCounts reportCounts
     ) {}
 
     public record ClearRunsResponse(
@@ -528,8 +533,13 @@ public class ActionDto {
     public record MachineCapabilities(
             boolean incrementalPageResults,
             boolean customFileResults,
-            boolean evaluationReports
-    ) {}
+            boolean evaluationReports,
+            boolean runReports
+    ) {
+        public MachineCapabilities(boolean incrementalPageResults, boolean customFileResults, boolean evaluationReports) {
+            this(incrementalPageResults, customFileResults, evaluationReports, true);
+        }
+    }
 
     public record HeartbeatRequest(
             Integer progressPercent,
@@ -537,8 +547,14 @@ public class ActionDto {
             String log,
             String logLevel,
             String status,
-            String errorMessage
-    ) {}
+            String errorMessage,
+            RunReport runReport
+    ) {
+        public HeartbeatRequest(Integer progressPercent, String statusMessage, String log, String logLevel,
+                                String status, String errorMessage) {
+            this(progressPercent, statusMessage, log, logLevel, status, errorMessage, null);
+        }
+    }
 
     public record HeartbeatResponse(
             boolean cancelRequested
@@ -551,11 +567,40 @@ public class ActionDto {
             String pageId,
             List<ResultFile> files,
             List<ResultPatch> patches,
-            Object evaluationReport
+            Object evaluationReport,
+            PageOutcome pageOutcome,
+            RunReport runReport
     ) {
+        public ResultManifest(Integer protocolVersion, String status, String message, String pageId,
+                              List<ResultFile> files, List<ResultPatch> patches, Object evaluationReport) {
+            this(protocolVersion, status, message, pageId, files, patches, evaluationReport, null, null);
+        }
+
         public ResultManifest(Integer protocolVersion, String status, String message, String pageId,
                               List<ResultFile> files, List<ResultPatch> patches) {
             this(protocolVersion, status, message, pageId, files, patches, null);
+        }
+    }
+
+    public enum PageOutcomeStatus { SUCCEEDED, FAILED, SKIPPED, UNFINISHED, UNKNOWN }
+
+    public record PageOutcome(String pageId, String pageName, PageOutcomeStatus status,
+                              String message, List<String> warnings) {
+        public PageOutcome {
+            warnings = warnings == null ? List.of() : List.copyOf(warnings);
+        }
+    }
+
+    public record RunIssue(String severity, String message) {}
+
+    public record ReportCounts(int total, int succeeded, int failed, int skipped, int unfinished, int unknown) {}
+
+    public record RunReport(Integer schemaVersion, List<PageOutcome> pageOutcomes,
+                            List<RunIssue> issues, ReportCounts counts) {
+        public RunReport {
+            schemaVersion = schemaVersion == null ? 1 : schemaVersion;
+            pageOutcomes = pageOutcomes == null ? List.of() : List.copyOf(pageOutcomes);
+            issues = issues == null ? List.of() : List.copyOf(issues);
         }
     }
 

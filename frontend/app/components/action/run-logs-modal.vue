@@ -47,10 +47,10 @@ const logs = computed(() => {
       <p v-else-if="pending && !data" role="status" class="text-sm text-muted">
         Loading logs…
       </p>
-      <pre
-        v-else
-        class="max-h-[65vh] overflow-auto whitespace-pre-wrap break-words rounded-sm bg-elevated p-4 text-xs"
-      >{{ logs }}</pre>
+      <div v-else class="space-y-4">
+        <ActionRunReport v-if="data?.runReport" :report="data.runReport" :run-id="runId" />
+        <pre class="max-h-[65vh] overflow-auto whitespace-pre-wrap break-words rounded-sm bg-elevated p-4 text-xs">{{ logs }}</pre>
+      </div>
     </template>
     <template #footer>
       <UButton

@@ -68,6 +68,16 @@ describe('action-runs.store', () => {
     expect(store.isProjectActionRunning('project-1')).toBe(true)
   })
 
+  it('unlocks a failed page without emitting an imported-content event', async () => {
+    const store = await createStore(vi.fn())
+    store.upsertRun(createRun())
+    store.upsertRun(createRun({ settledPageIds: ['page-1'], completedPageIds: [], progressPercent: 50 }))
+    expect(store.pageResultEvents).toHaveLength(0)
+    expect(store.isPageActionRunning('project-1', 'page-1')).toBe(false)
+    expect(store.isPageActionRunning('project-1', 'page-2')).toBe(true)
+    expect(store.getPageActionLockReason('project-1', 'page-1')).toBeNull()
+  })
+
   it('retains project-wide locking after a page result', async () => {
     const store = await createStore(vi.fn())
     store.upsertRun(createRun({ lockMode: 'PROJECT', completedPageIds: ['page-1'] }))
@@ -75,7 +85,7 @@ describe('action-runs.store', () => {
     expect(store.getPageActionLockReason('project-1', 'page-1')).toContain('Processor')
   })
 
-  it.each(['COMPLETED', 'FAILED', 'CANCELLED'] as const)(
+  it.each(['COMPLETED', 'COMPLETED_WITH_ISSUES', 'FAILED', 'CANCELLED'] as const)(
     'emits a terminal reconciliation event when a run becomes %s',
     async (status) => {
       const store = await createStore(vi.fn())

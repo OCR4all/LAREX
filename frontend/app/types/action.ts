@@ -8,7 +8,7 @@ export type AnnotationLevel = 'REGIONS' | 'TEXT_LINES' | 'BASELINES' | 'TEXT' | 
 export type ActionOverwriteDeclarations = Partial<Record<ActionTarget, AnnotationLevel[]>>
 
 export type ActionInputLevel = 'NONE' | 'OPTIONAL' | 'REQUIRED'
-export type ActionRunStatus = 'QUEUED' | 'PENDING' | 'DISPATCHING' | 'RUNNING' | 'IMPORTING_RESULTS' | 'COMPLETED' | 'FAILED' | 'CANCEL_REQUESTED' | 'CANCELLED'
+export type ActionRunStatus = 'QUEUED' | 'PENDING' | 'DISPATCHING' | 'RUNNING' | 'IMPORTING_RESULTS' | 'COMPLETED' | 'COMPLETED_WITH_ISSUES' | 'FAILED' | 'CANCEL_REQUESTED' | 'CANCELLED'
 
 export interface ActionInputRequirement {
   level: ActionInputLevel
@@ -188,6 +188,9 @@ export interface ActionRun {
   pageCount: number
   pageIds: string[]
   completedPageIds: string[]
+  settledPageIds?: string[]
+  reportCounts?: ActionRunReportCounts | null
+  retryablePageCount?: number
   targetSelection: ActionTargetSelection | null
   status: ActionRunStatus
   lockMode: ActionLockMode
@@ -259,6 +262,7 @@ export interface ActionRunDetail {
   resultSummary: unknown
   evaluationReport?: EvaluationReport | null
   durationSeconds: number | null
+  runReport?: ActionRunReport | null
 }
 
 export type EvaluationMetricFormat = 'NUMBER' | 'INTEGER' | 'PERCENT'
@@ -311,6 +315,7 @@ export interface EvaluationReport {
 }
 
 export interface AdminActionRun {
+  reportCounts?: ActionRunReportCounts | null
   id: string
   processorDefinitionId: string
   processorKey: string
@@ -471,4 +476,28 @@ export interface ActionRunImpact {
   target: ActionTarget
   pages: ActionImpactPage[]
   skippedPages: Array<{ pageId: string, name: string, reason: string }>
+}
+
+export interface ActionPageOutcome {
+  pageId: string
+  pageName: string | null
+  status: 'SUCCEEDED' | 'FAILED' | 'SKIPPED' | 'UNFINISHED' | 'UNKNOWN'
+  message: string | null
+  warnings: string[]
+}
+
+export interface ActionRunReportCounts {
+  total: number
+  succeeded: number
+  failed: number
+  skipped: number
+  unfinished: number
+  unknown: number
+}
+
+export interface ActionRunReport {
+  schemaVersion: 1
+  pageOutcomes: ActionPageOutcome[]
+  issues: { severity: 'WARNING' | 'ERROR', message: string }[]
+  counts: ActionRunReportCounts
 }

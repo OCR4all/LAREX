@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { actionRunCountsLabel } from '@/utils/action-run-status'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import ActionRunLogsModal from '@/components/action/run-logs-modal.vue'
 import { getWorkspaceDisplayName } from '@/utils/workspace-display'
@@ -561,6 +562,9 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
                   />
                 </div>
 
+                <p v-if="job.kind === 'action' && job.run.reportCounts" class="mt-1 text-xs text-muted">
+                  {{ actionRunCountsLabel(job.run.reportCounts) }}
+                </p>
                 <p v-if="job.kind === 'upload' && job.upload.error" class="mt-1 text-xs text-error">
                   {{ job.upload.error }}
                 </p>
