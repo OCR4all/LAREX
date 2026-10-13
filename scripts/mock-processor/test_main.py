@@ -90,6 +90,49 @@ def training_input(**overrides: Any) -> ActionInput:
 
 
 @pytest.mark.asyncio
+async def test_processing_failure_submits_page_id_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ProcessingContext(FakeContext):
+        def __init__(self, action_input: ActionInput) -> None:
+            super().__init__(action_input)
+            self.failures: list[tuple[str, str | None, str | None]] = []
+
+        async def submit_page_results(
+            self,
+            page_id: str,
+            results: Any = None,
+            message: str | None = None,
+            *,
+            page_status: str | None = None,
+            reason: str | None = None,
+            warnings: list[str] | None = None,
+        ) -> None:
+            assert results is None
+            self.failures.append((page_id, page_status, reason))
+
+    monkeypatch.setattr(main, "HEARTBEAT_COUNT", 0)
+    context = ProcessingContext(ActionInput.model_validate({
+        "protocolVersion": 1,
+        "runId": "run-1",
+        "processorKey": "mock-image-copy",
+        "projectId": "project-1",
+        "parameters": {"failEveryNthPage": 1},
+        "capabilities": {"runReports": True},
+        "pages": [{"id": "page-1", "name": "Page 1"}, {"id": "page-2", "name": "Page 2"}],
+    }))
+
+    await main.process_run(context)  # type: ignore[arg-type]
+
+    assert context.failures == [
+        ("page-1", "FAILED", "Simulated recoverable page failure"),
+        ("page-2", "FAILED", "Simulated recoverable page failure"),
+    ]
+    assert context.completed_message is not None
+    assert "2 page(s) failed" in context.completed_message
+
+
+@pytest.mark.asyncio
 async def test_training_validates_frozen_pairs_and_completes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

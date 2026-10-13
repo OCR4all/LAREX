@@ -15,7 +15,6 @@ from larex_actions import (
     EvaluationTable,
     EvaluationTableColumn,
     EvaluationTableRow,
-    PageOutcome,
     PageResultRejected,
     RunReportsUnsupported,
 )
@@ -66,9 +65,9 @@ async def process_run(ctx: ActionContext) -> None:
         raise RunReportsUnsupported("Simulated page failures require runReports support")
     for index, page in enumerate(action_input.pages, start=1):
         if fail_every and index % int(fail_every) == 0:
-            await ctx.submit_page_results(page.id, outcome=PageOutcome(
-                pageId=page.id, status="FAILED", message="Simulated recoverable page failure"
-            ))
+            await ctx.submit_page_results(
+                page.id, page_status="FAILED", reason="Simulated recoverable page failure"
+            )
             failed_count += 1
             continue
         async with ctx.step(f"Copying {page.name}"):
