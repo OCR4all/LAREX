@@ -1106,6 +1106,14 @@ function close() {
         </template>
         <template v-else-if="view === 'configure' && selectedProcessor">
           <UAlert
+            v-if="selectedProcessor.processor.info?.trim()"
+            color="info"
+            variant="subtle"
+            icon="i-lucide-info"
+            :description="selectedProcessor.processor.info ?? undefined"
+            :ui="{ description: 'whitespace-pre-wrap' }"
+          />
+          <UAlert
             v-if="integrationReview"
             icon="i-lucide-plug"
             color="info"

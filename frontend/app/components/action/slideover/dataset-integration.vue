@@ -212,6 +212,14 @@ onMounted(load)
           <p v-if="processor?.description" class="text-sm text-muted">
             {{ processor.description }}
           </p>
+          <UAlert
+            v-if="processor?.info?.trim()"
+            color="info"
+            variant="subtle"
+            icon="i-lucide-info"
+            :description="processor?.info ?? undefined"
+            :ui="{ description: 'whitespace-pre-wrap' }"
+          />
           <UFormField label="Inputs">
             <URadioGroup v-model="selectionMode" :items="[{ label: 'All compatible items', value: 'ALL' }, { label: `Selected items (${itemIds?.length ?? 0})`, value: 'SELECTED', disabled: !itemIds?.length }]" :disabled="starting" />
           </UFormField>

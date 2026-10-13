@@ -12,6 +12,7 @@ public record ActionDefinitionDocument(
         String id,
         String name,
         String description,
+        String info,
         String kind,
         List<String> tags,
         List<String> targets,
@@ -35,7 +36,7 @@ public record ActionDefinitionDocument(
                                     Access access, Locking locking, Inputs inputs, Outputs outputs,
                                     Concurrency concurrency, Runtime runtime, Training training,
                                     Map<String, Parameter> parameters) {
-        this(version, id, name, description, kind, tags, targets, endpoint, access, locking,
+        this(version, id, name, description, null, kind, tags, targets, endpoint, access, locking,
                 inputs, outputs, concurrency, runtime, training, null, parameters);
     }
     @JsonIgnoreProperties(ignoreUnknown = false)

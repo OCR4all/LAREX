@@ -234,7 +234,16 @@ async function startEvaluation() {
           </template><div class="space-y-5">
             <UFormField label="Evaluation Action" required>
               <USelect v-model="selectedProcessorId" :items="processorOptions" class="w-full" />
-            </UFormField><UFormField label="Global image variants">
+            </UFormField>
+            <UAlert
+              v-if="selectedProcessor?.info?.trim()"
+              color="info"
+              variant="subtle"
+              icon="i-lucide-info"
+              :description="selectedProcessor?.info ?? undefined"
+              :ui="{ description: 'whitespace-pre-wrap' }"
+            />
+            <UFormField label="Global image variants">
               <USelect
                 :model-value="multipleImages ? globalVariants : globalVariants[0]"
                 :multiple="multipleImages"

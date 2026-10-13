@@ -56,6 +56,7 @@ export interface ActionDefinitionPreview {
   processorKey: string
   name: string
   description: string | null
+  info?: string | null
   endpointUrl: string
   endpointTimeoutSeconds: number
   kind?: ActionKind
@@ -113,6 +114,7 @@ export interface ActionDefinition {
   processorKey: string
   name: string
   description: string | null
+  info?: string | null
   yaml: string
   endpointUrl: string
   endpointTimeoutSeconds: number

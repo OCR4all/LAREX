@@ -304,6 +304,14 @@ async function startTraining() {
     <template #body>
       <div class="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <UStepper v-model="currentStep" :items="steps" class="w-full" />
+        <UAlert
+          v-if="selectedProcessor?.info?.trim()"
+          color="info"
+          variant="subtle"
+          icon="i-lucide-info"
+          :description="selectedProcessor?.info ?? undefined"
+          :ui="{ description: 'whitespace-pre-wrap' }"
+        />
 
         <UCard v-if="currentStep === 0">
           <template #header>

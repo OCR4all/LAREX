@@ -78,6 +78,35 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
     }
 
     @Test
+    void exposesMultilineInfoFromYamlAndStoredDefinitions() {
+        configureSecret();
+        String info = "Only use binarized and grayscale images.\nSelect the matching image variant.";
+        var parsed = service.parseAndValidate(validExternalYaml()
+                + "info: |\n  Only use binarized and grayscale images.\n  Select the matching image variant.\n", null);
+        assertThat(parsed.preview().info()).isEqualTo(info);
+        var definition = new ActionProcessorDefinition();
+        definition.setParsedJson(parsed.parsedJson());
+        assertThat(service.readParsedDocument(definition).info()).isEqualTo(info + "\n");
+        assertThat(service.toDefinitionResponse(definition).info()).isEqualTo(info);
+    }
+
+    @Test
+    void omittedAndBlankInfoAreOptional() {
+        configureSecret();
+        for (String suffix : java.util.List.of("", "info: null\n", "info: '   '\n")) {
+            var parsed = service.parseAndValidate(validExternalYaml() + suffix, null);
+            assertThat(parsed.preview().info()).isNull();
+            var definition = new ActionProcessorDefinition();
+            definition.setParsedJson(parsed.parsedJson());
+            assertThat(service.toDefinitionResponse(definition).info()).isNull();
+        }
+        var definition = new ActionProcessorDefinition();
+        definition.setParsedJson(service.parseAndValidate(validExternalYaml(), null).parsedJson()
+                .replace("\"info\":null,", ""));
+        assertThat(service.toDefinitionResponse(definition).info()).isNull();
+    }
+
+    @Test
     void normalizesTagsAndReturnsThemFromStoredDefinition() {
         configureSecret();
         var parsed = service.parseAndValidate(validExternalYaml().replace("tags: []", "tags: [' layout ', segmentation, layout, Layout]"), null);
