@@ -249,6 +249,44 @@ describe('Action run review flow', () => {
     expect(multi.pageImageVariants.page).toEqual(['original'])
   })
 
+  it('blocks empty required variants globally or on any page, including with fallback enabled', async () => {
+    const required = scope.run(() => exportsObject.default!.setup({
+      workspaceId: 'workspace', projectId: 'project',
+      pages: ['first', 'second'].map(id => ({
+        id, name: id, imageCount: 1, xmlFileCount: 1,
+        imageVariants: [{ id: `${id}-image`, variant: 'original', fileName: `${id}.png` }]
+      }))
+    }, { expose: () => {}, emit }))!
+    required.processors.value = [{ assignmentId: null, executable: true, blockedReason: null, processor: {
+      ...processor, inputs: { images: { level: 'REQUIRED', requiredForTargets: [], multiple: true }, xml: { level: 'NONE', requiredForTargets: [] } }
+    } }]
+    required.selectAction(required.processors.value[0]!)
+    await Vue.nextTick()
+    expect(required.canStart.value).toBe(true)
+    required.selectedImageVariants.value = []
+    required.fallbackImage.value = true
+    expect(required.canStart.value).toBe(false)
+    await required.startRun()
+    expect(fetch).not.toHaveBeenCalled()
+    required.selectedImageVariants.value = ['original']
+    expect(required.canStart.value).toBe(true)
+    required.imageVariantMode.value = 'perPage'
+    required.pageImageVariants.first = []
+    expect(required.canStart.value).toBe(false)
+    await required.startRun()
+    expect(fetch).not.toHaveBeenCalled()
+    required.pageImageVariants.first = ['original']
+    expect(required.canStart.value).toBe(true)
+    required.imageVariantMode.value = 'global'
+    required.processors.value = [{ ...required.processors.value[0]!, processor: {
+      ...required.processors.value[0]!.processor,
+      inputs: { images: { level: 'OPTIONAL', requiredForTargets: [], multiple: true }, xml: { level: 'NONE', requiredForTargets: [] } }
+    } }]
+    await Vue.nextTick()
+    required.selectedImageVariants.value = []
+    expect(required.canStart.value).toBe(true)
+  })
+
   it('preserves the fixed editor target without relying on separate pageIds', async () => {
     const editorSetup = scope.run(() => exportsObject.default!.setup({
       workspaceId: 'workspace', projectId: 'project',

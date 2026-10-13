@@ -233,10 +233,10 @@ onMounted(load)
                   placeholder="Choose per item below"
                   class="w-full"
                   :disabled="starting"
-                  @update:model-value="globalVariants = actionImageSelectionValues($event)"
+                  @update:model-value="globalVariants = actionImageSelectionValues($event, globalVariants, requiredImages)"
                 />
                 <UButton
-                  v-if="globalVariants.length"
+                  v-if="globalVariants.length && !requiredImages"
                   color="neutral"
                   variant="ghost"
                   @click="globalVariants = []"
@@ -259,7 +259,7 @@ onMounted(load)
                   :placeholder="resolvedImages(item).map(image => image.fileName).join(', ') || 'Choose images'"
                   class="w-full"
                   :disabled="starting"
-                  @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event)"
+                  @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event, itemImageIdLists[item.itemId], requiredImages)"
                 />
               </UFormField>
             </div>

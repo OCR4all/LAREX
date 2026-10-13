@@ -491,7 +491,7 @@ async function startTraining() {
                   value-key="value"
                   placeholder="Use sole image or choose variants"
                   class="w-full"
-                  @update:model-value="globalVariants = actionImageSelectionValues($event)"
+                  @update:model-value="globalVariants = actionImageSelectionValues($event, globalVariants, true)"
                 />
               </UFormField>
               <UCheckbox v-model="showOnlyReady" label="Only show ready items" />
@@ -583,7 +583,7 @@ async function startTraining() {
                     :items="item.images.map(image => ({ label: image.variant || image.fileName, value: image.id }))"
                     placeholder="Override images"
                     class="w-44"
-                    @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event)"
+                    @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event, itemImageIdLists[item.itemId], true)"
                   />
                 </div>
                 <UEmpty
@@ -756,7 +756,7 @@ async function startTraining() {
             v-if="currentStep < steps.length - 1"
             icon="i-lucide-arrow-right"
             trailing
-            :disabled="(currentStep === 0 && (!selectedDatasetId || !selectedProcessorId)) || (currentStep === 1 && !inputsReady) || (currentStep === 2 && !canStart)"
+            :disabled="(currentStep === 0 && (!selectedDatasetId || !selectedProcessorId)) || (currentStep === 1 && (!inputsReady || !imageSelectionReady)) || (currentStep === 2 && !canStart)"
             @click="currentStep++"
           >
             Continue

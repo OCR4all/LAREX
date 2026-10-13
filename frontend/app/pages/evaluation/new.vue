@@ -220,7 +220,7 @@ async function startEvaluation() {
                   :multiple="multipleImages"
                   :items="item.images.map(image => ({ label: image.variant || image.fileName, value: image.id }))"
                   class="w-44"
-                  @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event)"
+                  @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event, itemImageIdLists[item.itemId], true)"
                 />
               </div>
             </div>
@@ -241,7 +241,7 @@ async function startEvaluation() {
                 :items="variantOptions"
                 placeholder="Sole available image or choose variants"
                 class="w-full"
-                @update:model-value="globalVariants = actionImageSelectionValues($event)"
+                @update:model-value="globalVariants = actionImageSelectionValues($event, globalVariants, true)"
               />
             </UFormField><div class="grid gap-4 md:grid-cols-2">
               <UFormField

@@ -329,6 +329,13 @@ const imageVariantByPageId = computed(() => {
   }
   return result
 })
+const imageSelectionReady = computed(() => {
+  if (!selectedProcessorRequiresImages.value || imageVariantOptions.value.length === 0) return true
+  if (imageVariantMode.value === 'global') return selectedImageVariants.value.length > 0
+  return scopedPages.value.every(page =>
+    imageVariantOptionsForPage(page).length === 0 || (pageImageVariants[page.id]?.length ?? 0) > 0
+  )
+})
 const pagesMissingSelectedVariant = computed(() => {
   if (!selectedProcessorAcceptsImages.value) return []
   return scopedPages.value.filter((page) => {
@@ -400,6 +407,7 @@ const canStart = computed(() =>
   && Boolean(selectedProcessor.value?.executable)
   && !starting.value
   && hasCompatiblePages.value
+  && imageSelectionReady.value
   && parameterValuesReady.value
   && (props.targetSelection ? selectedPageIds.value.length > 0 : scope.value === 'all' || selectedPageIds.value.length > 0)
 )
@@ -1172,7 +1180,12 @@ function close() {
                   Image inputs will be used as currently stored.
                 </p>
                 <template v-else>
-                  <UFormField label="Image variants" :description="imageVariantMode === 'perPage' ? 'Using separate variants for each page.' : undefined">
+                  <UFormField
+                    label="Image variants"
+                    :required="selectedProcessorRequiresImages"
+                    :description="imageVariantMode === 'perPage' ? 'Using separate variants for each page.' : selectedProcessorRequiresImages ? 'At least one image variant must remain selected.' : undefined"
+                    :error="!imageSelectionReady && imageVariantMode === 'global' ? 'Select at least one image variant.' : undefined"
+                  >
                     <USelectMenu
                       :model-value="multipleImages ? selectedImageVariants : selectedImageVariants[0]"
                       :multiple="multipleImages"
@@ -1180,7 +1193,7 @@ function close() {
                       value-key="value"
                       :disabled="navigationBusy || imageVariantMode === 'perPage'"
                       class="w-full"
-                      @update:model-value="selectedImageVariants = actionImageSelectionValues($event)"
+                      @update:model-value="selectedImageVariants = actionImageSelectionValues($event, selectedImageVariants, selectedProcessorRequiresImages)"
                     />
                   </UFormField>
                   <USwitch v-model="fallbackImage" label="Use another image if unavailable" :disabled="navigationBusy" />
@@ -1208,17 +1221,22 @@ function close() {
                               {{ imageVariantOptionsForPage(page).length }} variant{{ imageVariantOptionsForPage(page).length === 1 ? '' : 's' }}
                             </p>
                           </div>
-                          <USelectMenu
+                          <UFormField
                             v-if="imageVariantOptionsForPage(page).length > 0"
-                            :model-value="multipleImages ? pageImageVariants[page.id] : pageImageVariants[page.id]?.[0]"
-                            :multiple="multipleImages"
-                            :items="imageVariantOptionsForPage(page)"
-                            value-key="value"
-                            searchable
-                            searchable-placeholder="Filter variants..."
-                            :disabled="navigationBusy"
-                            @update:model-value="pageImageVariants[page.id] = actionImageSelectionValues($event)"
-                          />
+                            :error="selectedProcessorRequiresImages && !pageImageVariants[page.id]?.length ? 'Select at least one image variant.' : undefined"
+                          >
+                            <USelectMenu
+                              :model-value="multipleImages ? pageImageVariants[page.id] : pageImageVariants[page.id]?.[0]"
+                              :multiple="multipleImages"
+                              :items="imageVariantOptionsForPage(page)"
+                              value-key="value"
+                              class="w-full"
+                              searchable
+                              searchable-placeholder="Filter variants..."
+                              :disabled="navigationBusy"
+                              @update:model-value="pageImageVariants[page.id] = actionImageSelectionValues($event, pageImageVariants[page.id], selectedProcessorRequiresImages)"
+                            />
+                          </UFormField>
                           <UBadge v-else color="warning" variant="soft">
                             No images
                           </UBadge>
