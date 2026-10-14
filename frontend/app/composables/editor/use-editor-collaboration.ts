@@ -1,4 +1,5 @@
 import { getEditorSession, type EditorSession } from '@/session/editor/editor-session'
+import { compareLeaseEpochs } from '@/utils/collaboration-lease'
 import { collectPolygonsFromPcGts, collectPolylinesFromPcGts } from '@/stores/editor/editor.collectors.store'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import type { AnnotationApiContext } from '@/stores/editor/types'
@@ -472,7 +473,7 @@ export function useEditorCollaboration() {
     const previousRoom = rooms.value[roomKey] ?? null
     const previousEditor = previousRoom?.lease.editor ?? null
     const previousTakeover = previousRoom?.lease.pendingTakeover ?? null
-    if (previousRoom && lease.leaseEpoch < previousRoom.lease.leaseEpoch) {
+    if (previousRoom && compareLeaseEpochs(lease.leaseEpoch, previousRoom.lease.leaseEpoch) < 0) {
       return
     }
 
@@ -905,7 +906,7 @@ export function useEditorCollaboration() {
     const previousEditor = previousRoom?.lease.editor ?? null
     const previousTakeover = previousRoom?.lease.pendingTakeover ?? null
     const leaseIsCurrent = !previousRoom
-      || payload.lease.leaseEpoch >= previousRoom.lease.leaseEpoch
+      || compareLeaseEpochs(payload.lease.leaseEpoch, previousRoom.lease.leaseEpoch) >= 0
 
     rooms.value = updateRoomState(rooms.value, payload.roomKey, room => ({
       ...room,

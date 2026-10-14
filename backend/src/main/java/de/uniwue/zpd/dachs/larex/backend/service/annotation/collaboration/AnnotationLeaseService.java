@@ -36,7 +36,11 @@ public class AnnotationLeaseService {
     private final AuthorizationPolicyService authorizationPolicyService;
     private final UserService userService;
     private final NotificationService notificationService;
+    private final AnnotationLeaseEpochSource epochSource;
     private final Map<String, LeaseRecord> leases = new ConcurrentHashMap<>();
+
+    // Protected by the leases monitor. Preserve an authoritative watermark for empty rooms.
+    private long leaseEpoch;
 
     // Protected by the same monitor as lease acquisition; reservations live until commit/rollback.
     private final Set<String> movingPages = new HashSet<>();
@@ -47,11 +51,14 @@ public class AnnotationLeaseService {
     public AnnotationLeaseService(PageService pageService,
                                   AuthorizationPolicyService authorizationPolicyService,
                                   UserService userService,
-                                  NotificationService notificationService) {
+                                  NotificationService notificationService,
+                                  AnnotationLeaseEpochSource epochSource) {
         this.pageService = pageService;
         this.authorizationPolicyService = authorizationPolicyService;
         this.userService = userService;
         this.notificationService = notificationService;
+        this.epochSource = epochSource;
+        this.leaseEpoch = epochSource.nextEpoch();
     }
 
     public RoomAccessContext resolveRoomAccess(String projectId, String pageId, String xmlId, String userId) {
@@ -337,13 +344,13 @@ public class AnnotationLeaseService {
                 );
             } else {
                 touchParticipant(record, context.user(), instanceId);
+                record.epoch = advanceEpoch();
                 record.pendingTakeover = new PendingTakeoverRecord(
                         context.user(),
                         Instant.now().toString(),
                         false,
                         instanceId
                 );
-                record.epoch++;
                 if (record.owner != null
                         && record.owner.user != null
                         && !record.owner.user.id().equals(context.user().id())) {
@@ -403,10 +410,11 @@ public class AnnotationLeaseService {
             } else {
                 PendingTakeoverRecord pending = record.pendingTakeover;
                 AnnotationCollaborationDto.UserSummary previousEditor = record.owner == null ? null : record.owner.user;
-                record.pendingTakeover = null;
-                record.epoch++;
-
                 boolean accepted = "accept".equalsIgnoreCase(decision);
+                if (!accepted || pending.requester == null) {
+                    record.epoch = advanceEpoch();
+                    record.pendingTakeover = null;
+                }
 
                 if (!accepted) {
                     if (pending.requester != null && !pending.requester.id().equals(context.user().id())) {
@@ -573,7 +581,11 @@ public class AnnotationLeaseService {
     }
 
     private LeaseRecord getOrCreateRecord(String roomKey) {
-        return leases.computeIfAbsent(roomKey, ignored -> new LeaseRecord());
+        return leases.computeIfAbsent(roomKey, ignored -> {
+            LeaseRecord record = new LeaseRecord();
+            record.epoch = leaseEpoch;
+            return record;
+        });
     }
 
     private LeaseRecord getActiveRecord(String roomKey, List<NotificationIntent> notifications) {
@@ -664,6 +676,7 @@ public class AnnotationLeaseService {
     }
 
     private void assignOwner(LeaseRecord record, AnnotationCollaborationDto.UserSummary user, String instanceId) {
+        record.epoch = advanceEpoch();
         record.owner = new LeaseOwnerRecord(user, Instant.now().toString());
         record.pendingTakeover = null;
         record.activeInstances.clear();
@@ -679,7 +692,6 @@ public class AnnotationLeaseService {
         if (record.expiresAt == null) {
             record.expiresAt = Instant.now().plus(Duration.ofMillis(leaseTtlMs));
         }
-        record.epoch++;
     }
 
     private boolean transferOwnershipAfterOwnerDeparture(LeaseRecord record, String departingUserId) {
@@ -689,9 +701,9 @@ public class AnnotationLeaseService {
             return true;
         }
 
+        record.epoch = advanceEpoch();
         record.owner = null;
         record.pendingTakeover = null;
-        record.epoch++;
         return false;
     }
 
@@ -759,8 +771,8 @@ public class AnnotationLeaseService {
         if (findPreferredParticipantForUser(record, record.pendingTakeover.requester.id()) != null) {
             return;
         }
+        record.epoch = advanceEpoch();
         record.pendingTakeover = null;
-        record.epoch++;
     }
 
     private ParticipantInstanceRecord findPreferredParticipant(LeaseRecord record, String excludedUserId) {
@@ -840,8 +852,13 @@ public class AnnotationLeaseService {
         }
     }
 
+    private long advanceEpoch() {
+        leaseEpoch = epochSource.nextEpoch();
+        return leaseEpoch;
+    }
+
     private AnnotationCollaborationDto.LeaseState emptyLeaseState() {
-        return new AnnotationCollaborationDto.LeaseState(null, null, 0, null);
+        return new AnnotationCollaborationDto.LeaseState(null, null, leaseEpoch, null);
     }
 
     private AnnotationCollaborationDto.LeaseActionResult actionResult(

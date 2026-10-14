@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.exception.AnnotationLeaseLockedException;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseEpochSource;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
@@ -20,6 +21,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import java.util.Optional;
 
@@ -29,6 +33,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 class AnnotationLeaseServiceAccessTest {
@@ -41,16 +47,24 @@ class AnnotationLeaseServiceAccessTest {
     private UserService userService;
     @Mock
     private NotificationService notificationService;
+    @Mock
+    private JdbcTemplate jdbcTemplate;
+    @Mock
+    private PlatformTransactionManager transactionManager;
 
     private AnnotationLeaseService service;
 
     @BeforeEach
     void setUp() {
+        when(transactionManager.getTransaction(org.mockito.ArgumentMatchers.any())).thenReturn(new SimpleTransactionStatus());
+        var epochs = new java.util.concurrent.atomic.AtomicLong();
+        when(jdbcTemplate.queryForObject(anyString(), eq(Long.class))).thenAnswer(invocation -> epochs.incrementAndGet());
         service = new AnnotationLeaseService(
                 pageService,
                 authorizationPolicyService,
                 userService,
-                notificationService
+                notificationService,
+                new AnnotationLeaseEpochSource(jdbcTemplate, transactionManager)
         );
         org.springframework.test.util.ReflectionTestUtils.setField(service, "leaseTtlMs", 45_000L);
     }

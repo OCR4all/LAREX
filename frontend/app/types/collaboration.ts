@@ -79,7 +79,8 @@ export interface CollaborationRoomIdentity {
 export interface CollaborationLeaseState {
   editor: CollaborationLeaseOwner | null
   pendingTakeover: CollaborationTakeoverRequest | null
-  leaseEpoch: number
+  /** Decimal sequence value; kept as a string to preserve PostgreSQL BIGINT precision. */
+  leaseEpoch: string
   expiresAt?: string | null
 }
 

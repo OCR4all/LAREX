@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -46,7 +47,7 @@ public class AnnotationCollaborationDto {
     public record LeaseState(
             LeaseOwner editor,
             TakeoverRequest pendingTakeover,
-            long leaseEpoch,
+            @JsonFormat(shape = JsonFormat.Shape.STRING) long leaseEpoch,
             String expiresAt
     ) {}
 

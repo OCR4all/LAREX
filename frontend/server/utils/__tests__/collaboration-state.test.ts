@@ -34,7 +34,7 @@ function token(roomKey: string, canEdit = true): CollaborationRoomTokenPayload {
   }
 }
 
-function lease(editorId: string, leaseEpoch: number, expiresAt = '2099-01-01T00:00:00Z'): CollaborationLeaseState {
+function lease(editorId: string, leaseEpoch: string, expiresAt = '2099-01-01T00:00:00Z'): CollaborationLeaseState {
   return {
     editor: {
       user: {
@@ -58,6 +58,28 @@ afterEach(() => {
 })
 
 describe('collaboration state renewal protocol', () => {
+  it('compares decimal-string epochs numerically across digit boundaries', () => {
+    const { peer, send } = createPeer('peer-decimal-epochs')
+    const roomKey = 'project-decimal:page:xml'
+    collaborationState.joinRoom(peer, token(roomKey))
+    collaborationState.syncLeaseState(roomKey, lease('previous-editor', '9'))
+    send.mockClear()
+    collaborationState.syncLeaseState(roomKey, lease('new-editor', '10'))
+    expect(send).toHaveBeenCalled()
+    expect(collaborationState.getProjectPageSummaries('project-decimal')[0]?.editor?.user.id).toBe('new-editor')
+  })
+
+  it('rejects delayed epochs beyond JavaScript number precision', () => {
+    const { peer, send } = createPeer('peer-large-epochs')
+    const roomKey = 'project-large:page:xml'
+    collaborationState.joinRoom(peer, token(roomKey))
+    collaborationState.syncLeaseState(roomKey, lease('new-editor', '9007199254740993'))
+    send.mockClear()
+    collaborationState.syncLeaseState(roomKey, lease('previous-editor', '9007199254740992'))
+    expect(send).not.toHaveBeenCalled()
+    expect(collaborationState.getProjectPageSummaries('project-large')[0]?.editor?.user.id).toBe('new-editor')
+  })
+
   it('returns renewal targets only for editable rooms joined by the peer', () => {
     const { peer } = createPeer('peer-renewal')
     collaborationState.joinRoom(peer, token('project-1:page-1:xml-1'))
@@ -103,10 +125,10 @@ describe('collaboration state renewal protocol', () => {
     const roomKey = 'project-3:page-3:xml-3'
     collaborationState.joinRoom(peer, token(roomKey))
 
-    collaborationState.syncLeaseState(roomKey, lease('new-editor', 4), 'force-takeover')
+    collaborationState.syncLeaseState(roomKey, lease('new-editor', '4'), 'force-takeover')
     send.mockClear()
 
-    collaborationState.syncLeaseState(roomKey, lease('previous-editor', 3), 'lease-heartbeat')
+    collaborationState.syncLeaseState(roomKey, lease('previous-editor', '3'), 'lease-heartbeat')
 
     expect(send).not.toHaveBeenCalled()
   })
@@ -117,13 +139,13 @@ describe('collaboration state renewal protocol', () => {
     const roomKey = 'project-4:page-4:xml-4'
     collaborationState.joinRoom(peer, token(roomKey))
 
-    collaborationState.syncLeaseState(roomKey, lease('editor', 5), 'lease-claimed')
+    collaborationState.syncLeaseState(roomKey, lease('editor', '5'), 'lease-claimed')
     send.mockClear()
     globalBroadcast.mockClear()
 
     collaborationState.syncLeaseState(
       roomKey,
-      lease('editor', 5, '2099-01-01T00:00:10Z'),
+      lease('editor', '5', '2099-01-01T00:00:10Z'),
       'lease-heartbeat'
     )
 
@@ -138,7 +160,7 @@ describe('collaboration state renewal protocol', () => {
               id: 'editor'
             }
           },
-          leaseEpoch: 5,
+          leaseEpoch: '5',
           expiresAt: '2099-01-01T00:00:10Z'
         }
       }
@@ -151,18 +173,18 @@ describe('collaboration state renewal protocol', () => {
     const roomKey = 'project-5:page-5:xml-5'
     collaborationState.joinRoom(peer, token(roomKey))
 
-    collaborationState.syncLeaseState(roomKey, lease('editor', 5), 'lease-claimed')
+    collaborationState.syncLeaseState(roomKey, lease('editor', '5'), 'lease-claimed')
     send.mockClear()
     globalBroadcast.mockClear()
 
-    collaborationState.syncLeaseState(roomKey, lease('editor', 5), 'lease-heartbeat')
+    collaborationState.syncLeaseState(roomKey, lease('editor', '5'), 'lease-heartbeat')
 
     expect(send).not.toHaveBeenCalled()
     expect(globalBroadcast).not.toHaveBeenCalled()
 
     collaborationState.syncLeaseState(
       roomKey,
-      lease('editor', 5, '2099-01-01T00:00:10Z'),
+      lease('editor', '5', '2099-01-01T00:00:10Z'),
       'lease-heartbeat'
     )
 
@@ -172,7 +194,7 @@ describe('collaboration state renewal protocol', () => {
 
     collaborationState.syncLeaseState(
       roomKey,
-      lease('editor', 6, '2099-01-01T00:00:10Z'),
+      lease('editor', '6', '2099-01-01T00:00:10Z'),
       'lease-heartbeat'
     )
 
@@ -181,7 +203,7 @@ describe('collaboration state renewal protocol', () => {
     send.mockClear()
 
     collaborationState.syncLeaseState(roomKey, {
-      ...lease('editor', 6, '2099-01-01T00:00:10Z'),
+      ...lease('editor', '6', '2099-01-01T00:00:10Z'),
       pendingTakeover: {
         requester: {
           id: 'requester',
@@ -205,7 +227,7 @@ describe('collaboration state renewal protocol', () => {
     const { peer } = createPeer('peer-presence-heartbeat')
     const roomKey = 'project-6:page-6:xml-6'
     collaborationState.joinRoom(peer, token(roomKey))
-    collaborationState.syncLeaseState(roomKey, lease('user-1', 1), 'lease-claimed')
+    collaborationState.syncLeaseState(roomKey, lease('user-1', '1'), 'lease-claimed')
     globalBroadcast.mockClear()
 
     collaborationState.updatePresence(peer.id, roomKey, {
