@@ -4192,24 +4192,21 @@ watch(() => props.src, (newSrc) => {
             stroke-opacity="0.45"
             fill="none"
           />
-          <rect
+          <foreignObject
             x="10"
             y="-18"
-            width="88"
+            width="1"
             height="18"
-            rx="4"
-            :fill="cursor.color"
-            fill-opacity="0.9"
-          />
-          <text
-            x="16"
-            y="-5"
-            fill="#ffffff"
-            font-size="11"
-            font-weight="600"
+            overflow="visible"
           >
-            {{ cursor.label }}
-          </text>
+            <div
+              xmlns="http://www.w3.org/1999/xhtml"
+              class="remote-cursor-label"
+              :style="{ backgroundColor: `color-mix(in srgb, ${cursor.color} 90%, transparent)` }"
+            >
+              {{ cursor.label }}
+            </div>
+          </foreignObject>
         </g>
 
         <circle
@@ -4312,6 +4309,17 @@ watch(() => props.src, (newSrc) => {
 .remote-cursor-overlay {
   transition: transform 180ms linear;
   will-change: transform;
+}
+
+.remote-cursor-label {
+  width: max-content;
+  padding: 0 6px;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
 }
 
 .remote-click-pulse {
