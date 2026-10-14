@@ -225,7 +225,7 @@ describe('Shortcut controls', () => {
     }).outputText)(() => Vue, renderExports)
     const app = Vue.createApp({ ...component, render: renderExports.render } as Vue.Component, { open: true })
     const allSlots = Vue.defineComponent({
-      setup: (_, { slots }) => () => Vue.h('div', Object.values(slots).flatMap(slot => slot?.()))
+      setup: (_, { slots }) => () => Vue.h('div', Object.values(slots).flatMap(slot => slot?.({})))
     })
     app.component('UModal', allSlots)
     app.component('UCard', allSlots)
@@ -238,7 +238,7 @@ describe('Shortcut controls', () => {
       setup: () => () => Vue.h('input')
     }))
     app.component('UButton', Vue.defineComponent({
-      props: ['label'], setup: (props, { slots }) => () => Vue.h('button', {}, props.label ?? slots.default?.())
+      props: ['label'], setup: (props, { slots }) => () => Vue.h('button', {}, props.label ?? slots.default?.({}))
     }))
     app.component('UDropdownMenu', Vue.defineComponent({
       props: ['items'],
