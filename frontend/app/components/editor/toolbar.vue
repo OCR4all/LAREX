@@ -1024,11 +1024,6 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
   ],
   [
     {
-      label: 'Shortcut Settings',
-      icon: 'i-lucide-sliders-horizontal',
-      onSelect: () => uiStore.openShortcutSettings()
-    },
-    {
       label: 'Keyboard Shortcuts',
       icon: 'i-lucide-circle-help',
       onSelect: () => uiStore.toggleShortcutsHelp()
