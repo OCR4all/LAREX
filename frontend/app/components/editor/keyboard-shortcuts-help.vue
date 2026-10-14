@@ -213,11 +213,11 @@ function handleCustomize() {
                     <div
                       v-for="(combo, comboIndex) in shortcut.combos"
                       :key="`${shortcut.id}-${comboIndex}`"
-                      class="flex items-center gap-1.5 rounded-md border border-default bg-elevated px-2 py-1"
+                      class="flex items-center gap-1.5"
                     >
                       <template v-for="(kbd, index) in combo.kbds" :key="`${shortcut.id}-${comboIndex}-${kbd}-${index}`">
                         <span v-if="index > 0" class="text-[11px] text-muted">+</span>
-                        <UKbd :value="kbd" size="sm" variant="subtle" />
+                        <UKbd :value="kbd" size="lg" variant="subtle" />
                       </template>
                     </div>
                   </div>
@@ -249,10 +249,10 @@ function handleCustomize() {
           <div class="flex flex-col gap-2 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-2">
               <span>Open this dialog with</span>
-              <div class="flex items-center gap-1 rounded-md border border-default bg-elevated px-2 py-1">
-                <UKbd value="shift" size="sm" variant="subtle" />
+              <div class="flex items-center gap-1">
+                <UKbd value="shift" size="lg" variant="subtle" />
                 <span class="text-[11px] text-muted">+</span>
-                <UKbd value="/" size="sm" variant="subtle" />
+                <UKbd value="/" size="lg" variant="subtle" />
               </div>
             </div>
 
