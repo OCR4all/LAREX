@@ -213,6 +213,15 @@ export const BACKGROUND_ELEMENT = {
  * Zoom constraints
  */
 export const ZOOM = {
+  /** Exponential zoom per wheel pixel: approximately 10% per 100 pixels. */
+  WHEEL_SENSITIVITY: 0.001,
+
+  /** Browsers report trackpad pinch gestures as Ctrl+wheel with smaller deltas. */
+  PINCH_SENSITIVITY: 0.01,
+
+  /** Normalize wheel events reported in lines to approximate CSS pixels. */
+  WHEEL_LINE_HEIGHT: 16,
+
   /** Minimum zoom level */
   MIN: 0.1,
 

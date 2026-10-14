@@ -200,6 +200,14 @@ export function useMouseInteraction() {
       return
     }
 
+    // Preserve fine trackpad deltas and normalize mouse wheels that use lines
+    // or pages. Exponential scaling makes a gesture independent of event count.
+    const deltaUnit = e.deltaMode === 1
+      ? ZOOM.WHEEL_LINE_HEIGHT
+      : e.deltaMode === 2 ? canvas.clientHeight : 1
+    const delta = e.deltaY * deltaUnit
+    if (!Number.isFinite(delta) || delta === 0 || canvas.clientWidth <= 0 || canvas.clientHeight <= 0) return
+
     actionState.action = 'scrolling'
     updatePosition(e.clientX, e.clientY)
 
@@ -208,7 +216,8 @@ export function useMouseInteraction() {
     const mouseY = -(((e.clientY - rect.top) / canvas.clientHeight) * 2 - 1)
     const scale = aspectRatioScale
 
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1
+    const sensitivity = e.ctrlKey ? ZOOM.PINCH_SENSITIVITY : ZOOM.WHEEL_SENSITIVITY
+    const zoomFactor = Math.exp(-delta * sensitivity)
     const newZoom = Math.min(Math.max(view.zoom * zoomFactor, ZOOM.MIN), ZOOM.MAX)
     const effectiveZoomFactor = newZoom / view.zoom
 
@@ -238,8 +247,10 @@ export function useMouseInteraction() {
     if (!panState.isDragging) {
       actionState.isDragging = true
       panState.isDragging = true
-      panState.lastX = e.clientX
-      panState.lastY = e.clientY
+      // The threshold decides whether this is a drag; it must not swallow the
+      // movement between pointer-down and the first panning event.
+      panState.lastX = actionState.startPosition?.x ?? e.clientX
+      panState.lastY = actionState.startPosition?.y ?? e.clientY
       actionState.action = 'panning'
     }
   }

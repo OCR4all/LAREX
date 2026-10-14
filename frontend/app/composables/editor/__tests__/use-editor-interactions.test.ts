@@ -552,6 +552,20 @@ describe('useEditorInteractions', () => {
     )
   })
 
+  it('skips shape hover detection while a pan owns the gesture', async () => {
+    const harness = await createHarness('select')
+    harness.interactions.onMouseDown(eventStub({ clientX: 10, clientY: 10 }))
+    harness.interactions.onMouseMove(eventStub({ clientX: 40, clientY: 40 }))
+    harness.polygonEditing.updateHoverStates.mockClear()
+    harness.polylineEditing.updateHoverStates.mockClear()
+
+    harness.interactions.onMouseMove(eventStub({ clientX: 60, clientY: 60 }))
+
+    expect(harness.mouseInteraction.updatePanning).toHaveBeenCalledTimes(2)
+    expect(harness.polygonEditing.updateHoverStates).not.toHaveBeenCalled()
+    expect(harness.polylineEditing.updateHoverStates).not.toHaveBeenCalled()
+  })
+
   it('shows polygon hover feedback on read-only canvases without invoking edit hover handlers', async () => {
     const harness = await createHarness('select', {
       readOnly: true,

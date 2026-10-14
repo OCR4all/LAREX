@@ -568,12 +568,17 @@ export function useEditorInteractions(
       return
     }
 
+    // Once a pan owns the gesture, avoid shape hit testing on every move.
+    if (mouseInteraction.isPanning()) {
+      mouseInteraction.updatePanning(e, canvas.value, aspectRatioScale.value)
+      clearElementHover()
+      return
+    }
+
     const shiftPanIntentInDrawingMode = e.shiftKey
       && isShiftPanDrawingModeActive()
       && mouseInteraction.actionState.startPosition !== null
-    const keepShiftPanDragging = isShiftPanDrawingModeActive() && mouseInteraction.isPanning()
-
-    if (shiftPanIntentInDrawingMode || keepShiftPanDragging) {
+    if (shiftPanIntentInDrawingMode) {
       const isDragging = polylineEditing.isDragging() || polygonEditing.isDragging()
       const shouldPan = e.shiftKey && mouseInteraction.shouldStartPanning(e, isDragging)
 
