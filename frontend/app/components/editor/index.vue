@@ -4259,6 +4259,7 @@ watch(() => props.src, (newSrc) => {
         v-if="editorCommands.pendingBufferPolygon.value"
         ref="bufferSlideoverRef"
         :polygon="editorCommands.pendingBufferPolygon.value"
+        :image-size="webglRenderer.imageSize.value"
         :polygons="polygons"
         :constrain-to-image="constrainToImage"
         :constrain-to-parent="constrainToParent"

@@ -1,13 +1,15 @@
 import type { Command, CommandContext } from './types'
 import { PcGts } from '@/models/editor'
 import { Polygon } from '@/models/editor/geometry'
+import { bufferPolygonInPixels } from '@/utils/editor/buffer-polygon'
+import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import { findRegionRecursive, findTextLineRecursive, rebuildSpatialIndexFromPcGts } from '@/utils/editor/pcgts-editor-primitives'
 
 export interface BufferPolygonCommandData {
   elementId: string
   elementType: 'region' | 'textline'
-  distance: number // positive = expand, negative = shrink
+  distance: number // image pixels; positive = expand, negative = shrink
 }
 
 export class BufferPolygonCommand implements Command {
@@ -26,7 +28,10 @@ export class BufferPolygonCommand implements Command {
     if (!coords) return
 
     this.originalPoints = [...coords.points]
-    const buffered = new Polygon(coords.points).buffer(this.data.distance)
+    const buffered = bufferPolygonInPixels(new Polygon(coords.points), this.data.distance, {
+      width: pcGts.page.imageWidth,
+      height: pcGts.page.imageHeight
+    })
     coords.points = buffered.points
 
     this.finalize(ctx!, pcGts)
@@ -58,5 +63,6 @@ export class BufferPolygonCommand implements Command {
     ctx.session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(ctx.session)
     visibilityService.clearCache()
+    invalidatePolygonGeometry(ctx.canvasId, this.data.elementId)
   }
 }

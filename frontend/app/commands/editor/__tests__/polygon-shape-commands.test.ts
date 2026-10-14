@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
+import { Polygon } from '@/models/editor/geometry'
+import { bufferPolygonInPixels } from '@/utils/editor/buffer-polygon'
+import { BufferPolygonCommand } from '../buffer-polygon-command'
 import { ConvexHullCommand } from '../convex-hull-command'
 import { FitToBoundingBoxCommand } from '../fit-to-bounding-box-command'
 import {
@@ -40,6 +43,30 @@ function setup() {
 describe('polygon shape commands', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('applies the pixel-distance preview and invalidates geometry on apply and undo', () => {
+    const points = [{ x: -0.5, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: -0.5 }, { x: -0.5, y: -0.5 }]
+    const region = createTestTextRegion({ id: 'region-1', points })
+    const document = createTestDocument({ regions: [region] })
+    const { session, getDocument } = createMockSession(document)
+    const ctx = createTestContext(session)
+    const original = new Polygon(region.coords.points.map(([x, y]) => [x, y]))
+    const preview = bufferPolygonInPixels(original, 10, { width: 2000, height: 3000 })
+    const command = new BufferPolygonCommand({ elementId: region.id, elementType: 'region', distance: 10 })
+
+    command.execute(ctx)
+
+    const applied = findRegionById(getDocument()!.page.regions, region.id)!.coords
+    expect(applied.points).toEqual(preview.points)
+    expect(applied.getArea()).toBeGreaterThan(original.getArea())
+    expect(applied.points.every(([x, y]) => Math.abs(x) < 1 && Math.abs(y) < 1)).toBe(true)
+    expect(invalidatePolygonGeometry).toHaveBeenLastCalledWith(ctx.canvasId, region.id)
+
+    command.undo(ctx)
+
+    expect(findRegionById(getDocument()!.page.regions, region.id)!.coords.points).toEqual(original.points)
+    expect(invalidatePolygonGeometry).toHaveBeenCalledTimes(2)
   })
 
   it('invalidates rendered geometry after fitting a polygon to its bounding box and undoing', () => {

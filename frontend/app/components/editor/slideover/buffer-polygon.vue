@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Polygon } from '@/models/editor/geometry'
+import type { ImageSize, Point } from '@/models/editor'
+import { bufferPolygonInPixels, getBufferDistanceRange, isBufferedPolygonValid } from '@/utils/editor/buffer-polygon'
 import type { RenderablePolygon } from '@/types/editor/rendering'
 import { isPointInPolygon } from '@/utils/editor/hit-detection'
 import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
@@ -13,6 +15,7 @@ useBlockEditorCanvasInteractions()
 const props = defineProps<{
   polygon: RenderablePolygon
   polygons: RenderablePolygon[]
+  imageSize: ImageSize
   constrainToImage: boolean
   constrainToParent: boolean
 }>()
@@ -23,45 +26,53 @@ const formId = useId()
 const distance = ref(0)
 const validationError = ref<string | null>(null)
 
+const original = computed(() => new Polygon(props.polygon.points.map(p => [p.x, p.y])))
+const parent = computed(() => props.constrainToParent && props.polygon.parentId
+  ? props.polygons.find(p => p.id === props.polygon.parentId)
+  : undefined)
+const children = computed(() => props.polygon.type === 'region'
+  ? props.polygons.filter(p => p.parentId === props.polygon.id)
+  : [])
+
 const previewPoints = computed(() => {
   if (distance.value === 0) return null
-  const original = new Polygon(props.polygon.points.map(p => [p.x, p.y] as [number, number]))
-  const buffered = original.buffer(distance.value)
+  const buffered = bufferPolygonInPixels(original.value, distance.value, props.imageSize)
   return buffered.points.map(([x, y]) => ({ x, y }))
 })
 
 defineExpose({ previewPoints })
 
-watch([distance, previewPoints], () => {
-  validationError.value = null
-  if (distance.value === 0 || !previewPoints.value) return
-
-  const points = previewPoints.value
-
-  if (props.constrainToImage) {
-    if (points.some(p => p.x < -1 || p.x > 1 || p.y < -1 || p.y > 1)) {
-      validationError.value = 'Shape exceeds image boundaries'
-      return
-    }
+function getConstraintError(points: Point[], bufferDistance: number): string | null {
+  if (props.constrainToImage && points.some(p => p.x < -1 || p.x > 1 || p.y < -1 || p.y > 1)) {
+    return 'Shape exceeds image boundaries'
   }
 
-  if (props.constrainToParent && props.polygon.parentId) {
-    const parent = props.polygons.find(p => p.id === props.polygon.parentId)
-    if (parent && points.some(p => !isPointInPolygon(p, parent.points))) {
-      validationError.value = 'Shape exceeds parent region boundaries'
-      return
-    }
+  if (parent.value && points.some(p => !isPointInPolygon(p, parent.value!.points))) {
+    return 'Shape exceeds parent region boundaries'
   }
 
-  if (distance.value < 0 && props.polygon.type === 'region') {
-    const children = props.polygons.filter(p => p.parentId === props.polygon.id)
-    for (const child of children) {
+  if (bufferDistance < 0) {
+    for (const child of children.value) {
       if (child.points.some(p => !isPointInPolygon(p, points))) {
-        validationError.value = `Child "${child.label}" would be outside`
-        return
+        return `Child "${child.label}" would be outside`
       }
     }
   }
+  return null
+}
+
+function getValidationError(points: Point[], bufferDistance: number): string | null {
+  return getConstraintError(points, bufferDistance)
+    ?? (isBufferedPolygonValid(props.polygon.points, points) ? null : 'Shape would collapse or intersect itself')
+}
+
+const distanceRange = computed(() => getBufferDistanceRange(
+  original.value, props.imageSize,
+  (points, bufferDistance) => getConstraintError(points, bufferDistance) === null
+))
+
+watch(() => getValidationError(previewPoints.value ?? props.polygon.points, distance.value), (error) => {
+  validationError.value = distance.value === 0 ? null : error
 }, { immediate: true })
 
 const canSave = computed(() => distance.value !== 0 && !validationError.value)
@@ -84,23 +95,26 @@ const cancel = () => emit('close', null)
 
     <template #body>
       <UForm :id="formId" class="flex flex-col gap-4" @submit="save">
-        <UFormField label="Distance">
+        <UFormField label="Distance (pixels)">
           <UInput
             v-model.number="distance"
             type="number"
-            :min="-100"
-            :max="100"
+            :min="distanceRange.min"
+            :max="distanceRange.max"
           />
           <input
             v-model.number="distance"
             type="range"
-            :min="-50"
-            :max="50"
+            :min="distanceRange.min"
+            :max="distanceRange.max"
+            :step="1"
+            :disabled="distanceRange.min === distanceRange.max"
+            aria-label="Expand or shrink distance in pixels"
             class="w-full mt-2"
           >
           <div class="flex justify-between text-xs text-neutral-500 mt-1">
-            <span>Shrink</span>
-            <span>Expand</span>
+            <span>Shrink {{ Math.abs(distanceRange.min) }} px</span>
+            <span>Grow {{ distanceRange.max }} px</span>
           </div>
         </UFormField>
 
