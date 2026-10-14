@@ -3052,9 +3052,7 @@ const {
 
       <EditorKeyboardShortcutsHelp
         v-model:open="editorUiStore.shortcutsHelpOpen"
-        @customize="editorUiStore.openShortcutSettings()"
       />
-      <EditorShortcutSettingsModal v-model:open="editorUiStore.shortcutSettingsOpen" />
     </main>
 
     <div
