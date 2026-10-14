@@ -222,7 +222,7 @@ watchEffect((onCleanup) => {
 </script>
 
 <template>
-  <UModal v-model:open="isOpen" :ui="{ content: 'sm:max-w-6xl' }">
+  <UModal v-model:open="isOpen" :ui="{ overlay: 'z-[80]', content: 'z-[80] sm:max-w-6xl' }">
     <template #content>
       <UCard class="max-h-[88vh] overflow-hidden">
         <template #header>

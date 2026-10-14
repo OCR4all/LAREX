@@ -98,7 +98,6 @@ const visibleShortcutCount = computed(() =>
 )
 
 function handleCustomize() {
-  isOpen.value = false
   emit('customize')
 }
 </script>
