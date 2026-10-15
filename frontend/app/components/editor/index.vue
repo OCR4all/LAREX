@@ -9,6 +9,7 @@ import { getPagePanelId, parseCanvasId } from '@/stores/editor/editor.keys'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { useEditorCanvasCollaborationDisplay } from '@/composables/editor/use-editor-canvas-collaboration-display'
 import { useEditorFollowMode } from '@/composables/editor/use-editor-follow-mode'
+import { useEditorSelectionSync } from '@/composables/editor/use-editor-selection-sync'
 import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorDocumentStore } from '@/stores/editor/editor.document.store'
@@ -1407,17 +1408,17 @@ function leaveFollowForLocalStateChange() {
   editorFollow.handleLocalInteraction()
 }
 
-watch(
-  () => [
+useEditorSelectionSync({
+  canvasSelection: () => [selectedRegionId.value, selectedBaselineId.value],
+  localSelection: () => [getLocalSingleSelectedPolygonId(), getLocalSingleSelectedPolylineId()],
+  context: () => [
     canShowCanvasContent.value,
     pageId.value,
-    selectedRegionId.value,
-    selectedBaselineId.value,
     regionIdSignature.value,
     baselineIdSignature.value
-  ] as const,
-  ([ready, _pageId, regionId, baselineId]) => {
-    if (!ready) return
+  ],
+  applyCanvasSelection: ([regionId, baselineId]) => {
+    if (!canShowCanvasContent.value) return
 
     if (regionId) {
       if (!regionIdSet.value.has(regionId)) {
@@ -1448,12 +1449,7 @@ watch(
       }
     }
   },
-  { flush: 'sync' }
-)
-
-watch(
-  () => [getLocalSingleSelectedPolygonId(), getLocalSingleSelectedPolylineId()] as const,
-  ([polygonId, polylineId]) => {
+  publishLocalSelection: ([polygonId, polylineId]) => {
     if (polygonId) {
       syncCanvasSelection(polygonId, null)
       return
@@ -1463,9 +1459,8 @@ watch(
       return
     }
     syncCanvasSelection(null, null)
-  },
-  { immediate: true }
-)
+  }
+})
 
 watch(
   () => [view.zoom, view.offsetX, view.offsetY] as const,

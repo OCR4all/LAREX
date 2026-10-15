@@ -267,10 +267,26 @@ async function createHarness(
       selectedPolygonIds.value = []
       selectedPolylineIds.value = ids
     }),
-    addPolygonSelection: vi.fn(),
-    addPolylineSelection: vi.fn(),
-    togglePolygonSelection: vi.fn(),
-    togglePolylineSelection: vi.fn(),
+    addPolygonSelection: vi.fn((ids: string[]) => {
+      selectedPolylineIds.value = []
+      selectedPolygonIds.value = Array.from(new Set([...selectedPolygonIds.value, ...ids]))
+    }),
+    addPolylineSelection: vi.fn((ids: string[]) => {
+      selectedPolygonIds.value = []
+      selectedPolylineIds.value = Array.from(new Set([...selectedPolylineIds.value, ...ids]))
+    }),
+    togglePolygonSelection: vi.fn((id: string) => {
+      selectedPolylineIds.value = []
+      selectedPolygonIds.value = selectedPolygonIds.value.includes(id)
+        ? selectedPolygonIds.value.filter(selectedId => selectedId !== id)
+        : [...selectedPolygonIds.value, id]
+    }),
+    togglePolylineSelection: vi.fn((id: string) => {
+      selectedPolygonIds.value = []
+      selectedPolylineIds.value = selectedPolylineIds.value.includes(id)
+        ? selectedPolylineIds.value.filter(selectedId => selectedId !== id)
+        : [...selectedPolylineIds.value, id]
+    }),
     setHoveredPolygonId: vi.fn(),
     setHoveredPolylineId: vi.fn()
   }
@@ -322,13 +338,118 @@ async function createHarness(
     selectedPolygonIndex,
     selectedPolylineIndex,
     selectedPolygonIds,
-    selectedPolylineIds
+    selectedPolylineIds,
+    hiddenPolygonIds,
+    hiddenPolylineIds
   }
 }
 
 describe('useEditorInteractions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  const siblingPolygons = (type = 'region', parentId?: string) => [
+    { id: 'a', type, parentId, points: [
+      { x: -0.8, y: -0.4 }, { x: -0.2, y: -0.4 }, { x: -0.2, y: 0.4 }, { x: -0.8, y: 0.4 }
+    ] },
+    { id: 'b', type, parentId, points: [
+      { x: 0.2, y: -0.4 }, { x: 0.8, y: -0.4 }, { x: 0.8, y: 0.4 }, { x: 0.2, y: 0.4 }
+    ] }
+  ]
+
+  function click(harness: Awaited<ReturnType<typeof createHarness>>, clientX: number, shiftKey = false) {
+    const pointer = eventStub({ clientX, clientY: 100, shiftKey })
+    harness.interactions.onMouseDown(pointer)
+    harness.interactions.onMouseUp(pointer)
+  }
+
+  it.each(['default', 'textline'])('adds and removes polygons with Shift-click in %s view', async (viewMode) => {
+    const harness = await createHarness('select', {
+      realEditing: true,
+      polygons: siblingPolygons(viewMode === 'textline' ? 'textline' : 'region')
+    })
+    harness.canvasControls.viewMode.value = viewMode
+
+    click(harness, 50)
+    expect(harness.selectedPolygonIds.value).toEqual(['a'])
+    click(harness, 150, true)
+    expect(harness.selectedPolygonIds.value).toEqual(['a', 'b'])
+    click(harness, 150, true)
+    expect(harness.selectedPolygonIds.value).toEqual(['a'])
+    click(harness, 50, true)
+    expect(harness.selectedPolygonIds.value).toEqual([])
+    expect(harness.selectedPolygonIndex.value).toBe(-1)
+    expect(harness.interactions.isMarqueeSelecting.value).toBe(false)
+  })
+
+  it('adds sibling textlines after drilling into a region', async () => {
+    const harness = await createHarness('select', {
+      realEditing: true,
+      polygons: [
+        { id: 'parent', type: 'region', points: [
+          { x: -0.9, y: -0.9 }, { x: 0.9, y: -0.9 }, { x: 0.9, y: 0.9 }, { x: -0.9, y: 0.9 }
+        ] },
+        ...siblingPolygons('textline', 'parent')
+      ]
+    })
+    click(harness, 50)
+    click(harness, 50)
+    expect(harness.selectedPolygonIds.value).toEqual(['a'])
+    click(harness, 150, true)
+    expect(harness.selectedPolygonIds.value).toEqual(['a', 'b'])
+    click(harness, 50, true)
+    expect(harness.selectedPolygonIds.value).toEqual(['b'])
+    expect(harness.selectedPolygonIndex.value).toBe(0)
+  })
+
+  it('starts a selection with Shift-click and preserves it on empty or hidden polygons', async () => {
+    const harness = await createHarness('select', { polygons: siblingPolygons() })
+    click(harness, 50, true)
+    expect(harness.selectedPolygonIds.value).toEqual(['a'])
+    click(harness, 100, true)
+    expect(harness.selectedPolygonIds.value).toEqual(['a'])
+    harness.hiddenPolygonIds.value = ['b']
+    click(harness, 150, true)
+    expect(harness.selectedPolygonIds.value).toEqual(['a'])
+  })
+
+  it('toggles baselines with Shift-click while respecting hidden baselines', async () => {
+    const harness = await createHarness('select', {
+      realEditing: true,
+      polylines: [
+        { id: 'baseline:a', points: [{ x: -0.8, y: 0 }, { x: -0.2, y: 0 }] },
+        { id: 'baseline:b', points: [{ x: 0.2, y: 0 }, { x: 0.8, y: 0 }] }
+      ]
+    })
+    harness.canvasControls.viewMode.value = 'baseline'
+    harness.interactions.onMouseMove(eventStub({ clientX: 50, clientY: 100, buttons: 0 }))
+    click(harness, 50)
+    expect(harness.selectedPolylineIds.value).toEqual(['baseline:a'])
+    click(harness, 150, true)
+    expect(harness.selectedPolylineIds.value).toEqual(['baseline:a', 'baseline:b'])
+    click(harness, 100, true)
+    expect(harness.selectedPolylineIds.value).toEqual(['baseline:a', 'baseline:b'])
+    click(harness, 150, true)
+    expect(harness.selectedPolylineIds.value).toEqual(['baseline:a'])
+    harness.hiddenPolylineIds.value = ['baseline:b']
+    click(harness, 150, true)
+    expect(harness.selectedPolylineIds.value).toEqual(['baseline:a'])
+    click(harness, 50, true)
+    expect(harness.selectedPolylineIds.value).toEqual([])
+    expect(harness.selectedPolylineIndex.value).toBe(-1)
+  })
+
+  it('keeps Shift-drag marquee selection additive after Shift-click', async () => {
+    const harness = await createHarness('select', { polygons: siblingPolygons() })
+    click(harness, 50, true)
+    harness.interactions.onMouseDown(eventStub({ shiftKey: true, clientX: 110, clientY: 50 }))
+    harness.interactions.onMouseMove(eventStub({ shiftKey: true, clientX: 190, clientY: 150 }))
+    harness.interactions.onMouseUp(eventStub({ shiftKey: true, clientX: 190, clientY: 150 }))
+
+    expect(harness.selectedPolygonIds.value).toEqual(['a', 'b'])
+    expect(harness.stateActions.addPolygonSelection).toHaveBeenCalledWith(['b'])
+    expect(harness.interactions.isMarqueeSelecting.value).toBe(false)
   })
 
   const overlappingShapes = () => ({

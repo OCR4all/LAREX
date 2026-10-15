@@ -261,6 +261,29 @@ export function useEditorInteractions(
     }
   }
 
+  function getShiftClickedPolygonIndex(point: Point, viewMode: ViewMode | undefined): number {
+    // Keep child selection available when drilled into a region, and also
+    // allow the active element and its siblings to be toggled.
+    const activePolygon = polygons[selectedPolygonIndex.value]
+    const parentIndex = activePolygon?.parentId
+      ? polygons.findIndex(polygon => polygon.id === activePolygon.parentId)
+      : -1
+    const selectionContexts = new Set([selectedPolygonIndex.value, parentIndex])
+
+    for (const contextIndex of selectionContexts) {
+      const clickedIndex = getVisiblePolygonAtPoint(
+        polygons,
+        point,
+        contextIndex,
+        canvasControls.spatialIndex,
+        viewMode,
+        hiddenPolygonIdSet.value
+      )
+      if (clickedIndex >= 0) return clickedIndex
+    }
+    return -1
+  }
+
   function replaceSelectionFromCurrentIndices(viewMode: ViewMode | undefined): void {
     if (isBaselineMode(viewMode)) {
       if (selectedPolylineIndex.value >= 0) {
@@ -738,30 +761,34 @@ export function useEditorInteractions(
           -1,
           -1,
           HIT_DETECTION.BASELINE_SEGMENT_THRESHOLD / view.zoom,
-          undefined,
-          normalizedViewMode
+          canvasControls.spatialIndex,
+          normalizedViewMode,
+          hiddenPolygonIdSet.value,
+          hiddenPolylineIdSet.value
         )
 
         if (clickedPolylineIndex >= 0) {
           const clicked = polylines[clickedPolylineIndex]
-          if (clicked?.id) togglePolylineIdInSelection(clicked.id)
-        } else {
-          clearSelectionSetOnly()
+          if (clicked?.id) {
+            togglePolylineIdInSelection(clicked.id)
+            if (clickedPolylineIndex === selectedPolylineIndex.value
+              && !selectedPolylineIds.value.includes(clicked.id)) {
+              selectedPolylineIndex.value = -1
+            }
+          }
         }
       } else {
-        const clickedPolygonIndex = getVisiblePolygonAtPoint(
-          polygons,
-          point,
-          selectedPolygonIndex.value,
-          undefined,
-          normalizedViewMode
-        )
+        const clickedPolygonIndex = getShiftClickedPolygonIndex(point, normalizedViewMode)
 
         if (clickedPolygonIndex >= 0) {
           const clicked = polygons[clickedPolygonIndex]
-          if (clicked?.id) togglePolygonIdInSelection(clicked.id)
-        } else {
-          clearSelectionSetOnly()
+          if (clicked?.id) {
+            togglePolygonIdInSelection(clicked.id)
+            if (clickedPolygonIndex === selectedPolygonIndex.value
+              && !selectedPolygonIds.value.includes(clicked.id)) {
+              selectParentPolygon(clicked.parentId)
+            }
+          }
         }
       }
 
