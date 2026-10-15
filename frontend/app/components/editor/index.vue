@@ -3933,7 +3933,7 @@ watch(() => props.src, (newSrc) => {
         <UButton
           color="neutral"
           variant="outline"
-          class="absolute top-2.5 left-2.5 z-[950] h-auto rounded border-neutral-700/50 bg-neutral-900/90 px-2.5 py-1.5 text-neutral-200 shadow-sm backdrop-blur-sm hover:bg-neutral-900 active:bg-neutral-900"
+          class="absolute top-2.5 left-2.5 z-[950] h-auto rounded bg-default/90 px-2.5 py-1.5 text-default shadow-sm backdrop-blur-sm hover:bg-muted active:bg-accented"
         >
           <div class="flex items-center gap-2 min-w-0">
             <div class="flex items-center -space-x-1">
@@ -3947,40 +3947,40 @@ watch(() => props.src, (newSrc) => {
                   :src="avatarSrc(participant.user)"
                   :alt="participant.user.displayName"
                   size="xs"
-                  ring="0 0 0 2px var(--color-neutral-300)"
+                  ring="0 0 0 2px var(--ui-bg)"
                   class="h-5 w-5 text-[9px] font-medium"
                   :style="collaborationAvatarStyle(participant.user.id)"
                 />
                 <span
-                  class="absolute -bottom-0.5 -left-0.5 h-2 w-2 rounded-full border border-neutral-950"
-                  :class="participant.role === 'editing' ? 'bg-primary-500' : 'bg-emerald-500'"
+                  class="absolute -bottom-0.5 -left-0.5 h-2 w-2 rounded-full border border-default"
+                  :class="participant.role === 'editing' ? 'bg-info' : 'bg-success'"
                 />
               </div>
             </div>
 
-            <span class="text-[11px] font-medium text-neutral-200 truncate">
+            <span class="text-[11px] font-medium text-default truncate">
               {{ collaborationSummaryLabel }}
             </span>
 
             <Icon
               :name="collaboratorsPopoverOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-              class="h-3 w-3 shrink-0 text-neutral-500"
+              class="h-3 w-3 shrink-0 text-toned"
             />
           </div>
         </UButton>
 
         <template #content>
-          <div class="w-60 rounded border border-neutral-700/60 bg-neutral-900/95 text-neutral-100 shadow-lg backdrop-blur-sm">
+          <div class="w-60 rounded border border-default bg-default/95 text-default shadow-lg backdrop-blur-sm">
             <div class="flex items-center gap-2 px-2.5 py-2">
-              <Icon name="i-lucide-users" class="h-3.5 w-3.5 text-neutral-300" />
+              <Icon name="i-lucide-users" class="h-3.5 w-3.5 text-toned" />
               <span class="text-xs font-medium">Active collaborators</span>
             </div>
 
-            <div class="border-t border-neutral-700/60" />
+            <div class="border-t border-default" />
 
             <div class="space-y-3 p-2.5">
               <div v-if="editingParticipants.length > 0" class="space-y-2">
-                <div class="text-[10px] font-medium uppercase tracking-[0.18em] text-neutral-500">
+                <div class="text-[10px] font-medium uppercase tracking-[0.18em] text-toned">
                   Editing
                 </div>
 
@@ -3999,14 +3999,14 @@ watch(() => props.src, (newSrc) => {
                         class="h-6 w-6 border text-[9px] font-medium"
                         :style="collaborationAvatarStyle(participant.user.id)"
                       />
-                      <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-950 bg-primary-500" />
+                      <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-default bg-info" />
                     </div>
 
                     <div class="min-w-0">
-                      <div class="truncate text-xs font-medium text-neutral-100">
+                      <div class="truncate text-xs font-medium text-default">
                         {{ participant.user.displayName }}
                       </div>
-                      <div class="flex items-center gap-1 text-[11px] text-neutral-400">
+                      <div class="flex items-center gap-1 text-[11px] text-toned">
                         <Icon :name="participant.presence?.active ? 'i-lucide-pencil-line' : 'i-lucide-pause'" class="h-3 w-3" />
                         <span class="truncate">{{ collaboratorActivityLabel(participant) }}</span>
                       </div>
@@ -4017,7 +4017,8 @@ watch(() => props.src, (newSrc) => {
                     v-if="collaboratorStatus(participant)"
                     :color="collaboratorStatus(participant)!.color"
                     variant="subtle"
-                    size="xs"
+                    size="sm"
+                    class="shrink-0"
                   >
                     {{ collaboratorStatus(participant)!.label }}
                   </UBadge>
@@ -4025,7 +4026,7 @@ watch(() => props.src, (newSrc) => {
               </div>
 
               <div v-if="viewingParticipants.length > 0" class="space-y-2">
-                <div class="text-[10px] font-medium uppercase tracking-[0.18em] text-neutral-500">
+                <div class="text-[10px] font-medium uppercase tracking-[0.18em] text-toned">
                   Viewing
                 </div>
 
@@ -4043,14 +4044,14 @@ watch(() => props.src, (newSrc) => {
                       class="h-6 w-6 border text-[9px] font-medium"
                       :style="collaborationAvatarStyle(participant.user.id)"
                     />
-                    <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-950 bg-emerald-500" />
+                    <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-default bg-success" />
                   </div>
 
                   <div class="min-w-0">
-                    <div class="truncate text-xs font-medium text-neutral-100">
+                    <div class="truncate text-xs font-medium text-default">
                       {{ participant.user.displayName }}
                     </div>
-                    <div class="flex items-center gap-1 text-[11px] text-neutral-400">
+                    <div class="flex items-center gap-1 text-[11px] text-toned">
                       <Icon name="i-lucide-eye" class="h-3 w-3" />
                       <span class="truncate">{{ collaboratorActivityLabel(participant) }}</span>
                     </div>

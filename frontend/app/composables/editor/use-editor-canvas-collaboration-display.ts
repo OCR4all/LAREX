@@ -88,11 +88,11 @@ export function useEditorCanvasCollaborationDisplay(options: EditorCanvasCollabo
     return `Viewing${modeLabel}`
   }
 
-  function collaboratorStatus(participant: CollaborationDisplayParticipant): { label: string, color: 'primary' | 'neutral' } | null {
+  function collaboratorStatus(participant: CollaborationDisplayParticipant): { label: string, color: 'success' | 'neutral' } | null {
     if (participant.role !== 'editing') return null
 
     return participant.presence?.active
-      ? { label: 'Live', color: 'primary' }
+      ? { label: 'Live', color: 'success' }
       : { label: 'Idle', color: 'neutral' }
   }
 
