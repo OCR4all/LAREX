@@ -28,6 +28,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.exception.ActionConcurrencyLimitException;
+import de.uniwue.zpd.dachs.larex.backend.exception.ActionScopeLockedException;
 import de.uniwue.zpd.dachs.larex.backend.exception.ActionPageResultRejectedException;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.PageOutcome;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.PageOutcomeStatus;
@@ -731,6 +732,10 @@ public class ActionRunService {
         List<ActionDto.ImpactPage> impacts = new ArrayList<>();
         List<ActionDto.SkippedImpactPage> skipped = new ArrayList<>();
         for (Page page : pages) {
+            if (definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING && page.isEffectivelyLocked()) {
+                skipped.add(new ActionDto.SkippedImpactPage(page.getId(), page.getName(), actionPageLockReason(page)));
+                continue;
+            }
             if (!eligible.contains(page.getId())) {
                 boolean missingXml = requirements.xml().required(selection.type())
                         && !xmlByPage.containsKey(page.getId());
@@ -2938,13 +2943,22 @@ public class ActionRunService {
 
     private void validateLocks(Project project, List<Page> pages) {
         if (project.isLocked()) {
-            throw new IllegalStateException(project.getLockedReason() == null ? "Project is locked" : project.getLockedReason());
+            String reason = project.getLockedReason();
+            throw new ActionScopeLockedException("Cannot start this Action because the project is locked. "
+                    + (reason == null || reason.isBlank() ? "" : "Reason: " + reason + ". ")
+                    + "Unlock the project before trying again.");
         }
         for (Page page : pages) {
             if (page.isEffectivelyLocked()) {
-                throw new IllegalStateException("Page is locked: " + page.getName());
+                throw new ActionScopeLockedException("Cannot start this Action on \"" + page.getName() + "\": "
+                        + actionPageLockReason(page) + ". Review the pages again to skip locked pages.");
             }
         }
+    }
+
+    private String actionPageLockReason(Page page) {
+        String reason = page.getEffectiveLockedReason();
+        return "Page is locked" + (reason == null || reason.isBlank() ? "" : ": " + reason);
     }
 
     private boolean hasBlockingLocks(Project project, List<Page> pages) {

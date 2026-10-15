@@ -186,6 +186,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorResponse);
     }
 
+    @ExceptionHandler(ActionScopeLockedException.class)
+    public ResponseEntity<ErrorResponseDto> handleActionScopeLockedException(
+            ActionScopeLockedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.LOCKED).body(new ErrorResponseDto(
+                HttpStatus.LOCKED.value(),
+                "Action scope is locked",
+                ex.getMessage(),
+                request.getRequestURI(),
+                "ACTION_SCOPE_LOCKED"
+        ));
+    }
+
     @ExceptionHandler(ActionConcurrencyLimitException.class)
     public ResponseEntity<ErrorResponseDto> handleActionConcurrencyLimitException(
             ActionConcurrencyLimitException ex, HttpServletRequest request) {

@@ -22,6 +22,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
+import de.uniwue.zpd.dachs.larex.backend.exception.ActionScopeLockedException;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
@@ -540,6 +541,104 @@ class ActionRunServiceTest {
             return saved;
         });
         return source;
+    }
+
+    @Test
+    void impactPreviewSkipsLockedPages() throws Exception {
+        ImpactFixture fixture = prepareImpact();
+        fixture.pages().getFirst().setLocked(true);
+        fixture.pages().getFirst().setLockedReason("Under review");
+
+        var preview = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID);
+
+        assertThat(preview.pages()).extracting(ActionDto.ImpactPage::pageId).containsExactly("page-2");
+        assertThat(preview.skippedPages()).singleElement().satisfies(page -> {
+            assertThat(page.pageId()).isEqualTo("page-1");
+            assertThat(page.reason()).containsIgnoringCase("locked").contains("Under review");
+        });
+        verify(annotationProcessingService, never()).parseXmlToAnnotation(anyString());
+        verify(runRepository, never()).save(any());
+    }
+
+    @Test
+    void impactPreviewSkipsDonePagesAndProjectLocks() {
+        ImpactFixture fixture = prepareImpact();
+        fixture.pages().getFirst().setWorkflowState(Page.WorkflowState.DONE);
+
+        var preview = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID);
+        assertThat(preview.pages()).extracting(ActionDto.ImpactPage::pageId).containsExactly("page-2");
+        assertThat(preview.skippedPages()).singleElement().satisfies(page ->
+                assertThat(page.reason()).contains("locked", "Done"));
+
+        fixture.project().setLocked(true);
+        fixture.project().setLockedReason("Maintenance");
+        preview = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID);
+        assertThat(preview.pages()).isEmpty();
+        assertThat(preview.skippedPages()).hasSize(2).allSatisfy(page ->
+                assertThat(page.reason()).contains("locked", "Maintenance"));
+    }
+
+    @Test
+    void integrationPreviewKeepsLockedPagesBecauseItDoesNotModifyThem() {
+        ImpactFixture fixture = prepareImpact();
+        fixture.definition().setActionKind(ActionProcessorDefinition.ActionKind.INTEGRATION);
+        fixture.definition().setOutputsXml(false);
+        fixture.definition().setAcceptsXml(true);
+        fixture.project().setLocked(true);
+
+        var preview = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID);
+
+        assertThat(preview.pages()).extracting(ActionDto.ImpactPage::pageId).containsExactly("page-1");
+        assertThat(preview.skippedPages()).singleElement().satisfies(page -> {
+            assertThat(page.pageId()).isEqualTo("page-2");
+            assertThat(page.reason()).doesNotContain("locked");
+        });
+    }
+
+    @Test
+    void startRejectsAPageLockedAfterReviewWithoutCreatingARun() {
+        ImpactFixture fixture = prepareImpact();
+        prepareRetry(fixture);
+        assertThat(service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID).pages()).hasSize(2);
+        fixture.pages().getFirst().setLocked(true);
+        fixture.pages().getFirst().setLockedReason("Under review");
+
+        assertThatThrownBy(() -> service.startRun(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID, "http://app/api"))
+                .isInstanceOf(ActionScopeLockedException.class)
+                .hasMessageContaining("First")
+                .hasMessageContaining("Under review")
+                .hasMessageContaining("Review the pages again");
+        verify(runRepository, never()).save(any());
+    }
+
+    @Test
+    void startRejectsAProjectLockedAfterReviewWithoutCreatingARun() {
+        ImpactFixture fixture = prepareImpact();
+        prepareRetry(fixture);
+        fixture.project().setLocked(true);
+        fixture.project().setLockedReason("Maintenance");
+
+        assertThatThrownBy(() -> service.startRun(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID, "http://app/api"))
+                .isInstanceOf(ActionScopeLockedException.class)
+                .hasMessageContaining("project is locked")
+                .hasMessageContaining("Maintenance");
+        verify(runRepository, never()).save(any());
+    }
+
+    @Test
+    void retryReviewSkipsLockedPagesAndRetriesOnlyTheRemainingPages() {
+        ImpactFixture fixture = prepareImpact();
+        ActionRun source = prepareRetry(fixture);
+        fixture.pages().getFirst().setLocked(true);
+        fixture.pages().getFirst().setLockedReason("Under review");
+
+        var preview = service.previewRetryImpact(WORKSPACE_ID, fixture.project().getId(), source.getId(), OWNER_ID);
+        assertThat(preview.pages()).extracting(ActionDto.ImpactPage::pageId).containsExactly("page-2");
+        assertThat(preview.skippedPages()).extracting(ActionDto.SkippedImpactPage::pageId).containsExactly("page-1");
+        var response = service.retryRun(WORKSPACE_ID, fixture.project().getId(), source.getId(), false, OWNER_ID,
+                "http://app/api", new ActionDto.RetryRunRequest(List.of("page-1")));
+        assertThat(response.run().pageIds()).containsExactly("page-2");
+        assertThat(fixture.pages().getFirst().isLocked()).isTrue();
     }
 
     private ImpactFixture prepareImpact() {

@@ -59,6 +59,7 @@ interface ReviewSetup {
   impact: Vue.Ref<ActionRunImpact | null>
   impactLoading: Vue.Ref<boolean>
   impactError: Vue.Ref<string | null>
+  impactErrorReasons: Vue.Ref<string[]>
   excludedPageIds: Vue.Ref<string[]>
   includedImpactPages: Vue.ComputedRef<unknown[]>
   startRun: () => Promise<void>
@@ -434,6 +435,53 @@ describe('Action run review flow', () => {
     setup.setPageIncluded('safe', false)
     await setup.confirmReviewedRun()
     expect(setup.includedImpactPages.value).toHaveLength(0)
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('skips locked pages when starting without overwrite risk', async () => {
+    fetch.mockResolvedValueOnce({
+      ...preview,
+      pages: [preview.pages[1]],
+      skippedPages: [{ pageId: 'affected', name: 'Affected', reason: 'Page is locked: Under review' }]
+    }).mockResolvedValueOnce({ run: { id: 'run' } })
+
+    await setup.startRun()
+
+    expect(fetch.mock.calls[1]![1].body.pageIds).toEqual(['safe'])
+    expect(fetch.mock.calls[1]![1].body.targetSelection.pages.map((page: { pageId: string }) => page.pageId)).toEqual(['safe'])
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: '1 page skipped', description: expect.stringContaining('locked') }))
+  })
+
+  it('explains when every selected page is locked and does not submit a run', async () => {
+    fetch.mockResolvedValueOnce({
+      ...preview,
+      pages: [],
+      skippedPages: preview.pages.map(page => ({ pageId: page.pageId, name: page.name, reason: 'Page is locked: Under review' }))
+    })
+
+    await setup.startRun()
+
+    expect(setup.impactError.value).toBe('No eligible pages remain for this Action.')
+    expect(setup.impactErrorReasons.value).toEqual(['Page is locked: Under review'])
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['API', 'Nuxt proxy'])('explains a lock acquired after review through the %s and requires a fresh review', async (transport) => {
+    const message = 'Cannot start this Action on "Affected": Page is locked: Under review. Review the pages again to skip locked pages.'
+    const payload = { status: 423, code: 'ACTION_SCOPE_LOCKED', message }
+    const error = transport === 'API'
+      ? { data: payload }
+      : { statusCode: 423, data: { statusCode: 423, statusMessage: message, message, data: payload } }
+    fetch.mockResolvedValueOnce(preview).mockRejectedValueOnce(error)
+
+    await setup.startRun()
+    await setup.confirmReviewedRun()
+
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Action blocked by a lock', description: message }))
+    expect(setup.impact.value).toBeNull()
+    expect(setup.impactError.value).toBe(message)
+    expect(emit).not.toHaveBeenCalledWith('close', true)
+    await setup.confirmReviewedRun()
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 

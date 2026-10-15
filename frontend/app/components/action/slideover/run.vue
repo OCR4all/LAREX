@@ -106,10 +106,13 @@ const runDetails = ref<Record<string, ActionRunDetail>>({})
 const runHistoryPage = ref(1)
 const runHistoryItemsPerPage = ref(5)
 
-type ReviewedSubmission = { configuration: ActionRunConfiguration } | { retryRunId: string, excludedPageIds: string[] }
+type ReviewedSubmission = ({ configuration: ActionRunConfiguration } | { retryRunId: string, excludedPageIds: string[] }) & {
+  skippedPages: ActionRunImpact['skippedPages']
+}
 const impact = ref<ActionRunImpact | null>(null)
 const impactLoading = ref(false)
 const impactError = ref<string | null>(null)
+const impactErrorReasons = ref<string[]>([])
 const reviewSearch = ref('')
 const reviewPanel = ref<HTMLElement | null>(null)
 const excludedPageIds = ref<string[]>([])
@@ -128,6 +131,7 @@ function resetReview() {
   impactGeneration++
   impact.value = null
   impactError.value = null
+  impactErrorReasons.value = []
   impactLoading.value = false
   excludedPageIds.value = []
   reviewSearch.value = ''
@@ -690,7 +694,13 @@ async function reviewRun(retryRunId: string | null = null) {
       { method: 'POST', ...(configuration ? { body: configuration } : {}) }
     )
     if (generation !== impactGeneration) return
-    if (!preview.pages.length) throw new Error('No pages satisfy this Action’s required inputs.')
+    if (!preview.pages.length) {
+      impactErrorReasons.value = [...new Set(preview.skippedPages.map(page => page.reason))].slice(0, 3)
+      impactError.value = impactErrorReasons.value.length
+        ? 'No eligible pages remain for this Action.'
+        : 'No pages satisfy this Action’s required inputs.'
+      return
+    }
     impact.value = preview
     if (!integrationReview.value && !preview.pages.some(page => page.affected)) {
       await confirmReviewedRun()
@@ -709,9 +719,10 @@ async function reviewRun(retryRunId: string | null = null) {
 
 async function confirmReviewedRun() {
   if (!impact.value || !includedImpactPages.value.length || starting.value) return
+  const skippedPages = [...impact.value.skippedPages]
   const submission: ReviewedSubmission = reviewRetryRunId.value
-    ? { retryRunId: reviewRetryRunId.value, excludedPageIds: [...excludedPageIds.value, ...impact.value.skippedPages.map(page => page.pageId)] }
-    : { configuration: reviewedActionConfiguration(reviewConfiguration.value!, impact.value, excludedPageIds.value) }
+    ? { retryRunId: reviewRetryRunId.value, excludedPageIds: [...excludedPageIds.value, ...skippedPages.map(page => page.pageId)], skippedPages }
+    : { configuration: reviewedActionConfiguration(reviewConfiguration.value!, impact.value, excludedPageIds.value), skippedPages }
   await submitReviewedRun(submission)
 }
 
@@ -731,10 +742,24 @@ async function submitReviewedRun(submission: ReviewedSubmission, enqueueIfBusy =
       }
     )
     actionRunsStore.upsertRun(result.run, props.projectName || props.projectId)
+    if (submission.skippedPages.length) {
+      toast.add({
+        title: `${submission.skippedPages.length} page${submission.skippedPages.length === 1 ? '' : 's'} skipped`,
+        description: submission.skippedPages.slice(0, 3).map(page => `${page.name || page.pageId}: ${page.reason}`).join('\n'),
+        color: 'warning',
+        icon: 'i-lucide-skip-forward'
+      })
+    }
     changed.value = true
     close()
   } catch (error: unknown) {
     const { details, isConcurrencyError } = concurrencyErrorDetails(error)
+    if (details.code === 'ACTION_SCOPE_LOCKED' || details.status === 423) {
+      impact.value = null
+      impactError.value = details.message
+      toast.add({ title: 'Action blocked by a lock', description: details.message, color: 'warning', icon: 'i-lucide-lock' })
+      return
+    }
     if (!enqueueIfBusy && isConcurrencyError) {
       toast.add({
         title: 'Action is already running', description: details.message, color: 'warning', icon: 'i-lucide-clock-3',
@@ -977,7 +1002,7 @@ function close() {
         <div v-if="impact.skippedPages.length" class="space-y-1 text-sm text-muted">
           <p>{{ impact.skippedPages.length }} pages will be skipped:</p>
           <p v-for="page in impact.skippedPages" :key="page.pageId">
-            {{ page.name || page.pageId }}: {{ page.reason }}
+            {{ page.name || page.pageId }}: <strong class="font-semibold">{{ page.reason }}</strong>
           </p>
         </div>
       </div>
@@ -986,8 +1011,15 @@ function close() {
           v-if="impactError"
           color="error"
           title="Page review failed"
-          :description="impactError"
         >
+          <template #description>
+            <p>{{ impactError }}</p>
+            <ul v-if="impactErrorReasons.length" class="mt-2 list-disc space-y-1 pl-5">
+              <li v-for="reason in impactErrorReasons" :key="reason">
+                <strong class="font-semibold">{{ reason }}</strong>
+              </li>
+            </ul>
+          </template>
           <template #actions>
             <UButton
               color="neutral"
