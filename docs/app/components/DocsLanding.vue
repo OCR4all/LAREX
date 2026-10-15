@@ -63,7 +63,7 @@ const featureLinks = [
 
 <template>
   <div class="pb-18">
-    <section class="relative mt-6 min-h-[26rem] overflow-hidden rounded-lg border border-white/20 shadow-2xl shadow-smoke-950/20 lg:min-h-[30rem]">
+    <section class="relative mt-6 min-h-[26rem] overflow-hidden rounded-lg shadow-2xl shadow-smoke-950/20 lg:min-h-[30rem]">
       <DocsHeroDither />
 
       <div class="relative flex min-h-[26rem] items-center lg:min-h-[30rem]">
