@@ -189,6 +189,24 @@ class EditorPreferenceServiceTest {
     }
 
     @Test
+    void updatePersistsAndReturnsTablePageSizesAndPreservesThemForUnrelatedUpdates() {
+        EditorPreference existing = new EditorPreference("user-1");
+        when(repository.findByUserId("user-1")).thenReturn(Optional.of(existing));
+        when(repository.save(any(EditorPreference.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        EditorPreferenceService service = new EditorPreferenceService(repository);
+        EditorPreferenceDto dto = objectMapper.readValue(
+                "{\"tablePageSizes\":{\"project-pages-v2\":50,\"workspace-datasets\":25}}",
+                EditorPreferenceDto.class
+        );
+
+        service.update("user-1", dto);
+        assertEquals(dto.tablePageSizes(), EditorPreferenceDto.from(service.getOrCreate("user-1")).tablePageSizes());
+
+        EditorPreference updated = service.update("user-1", preferenceDto("#fff", null, null, null, null, null, null, null));
+        assertEquals(dto.tablePageSizes(), updated.getTablePageSizes());
+    }
+
+    @Test
     void getOrCreateCreatesPreferenceForMissingUser() {
         when(repository.findByUserId("missing")).thenReturn(Optional.empty());
         when(repository.save(any(EditorPreference.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -201,6 +219,7 @@ class EditorPreferenceServiceTest {
         assertNull(created.getShortcutBindings());
         assertNull(created.getTableColumnVisibility());
         assertNull(created.getTableSorting());
+        assertNull(created.getTablePageSizes());
         verify(repository).save(any(EditorPreference.class));
     }
 
@@ -248,6 +267,7 @@ class EditorPreferenceServiceTest {
                 shortcutBindings,
                 null,
                 tableSorting,
+                null,
                 null,
                 null,
                 onboardingTourCompletion,

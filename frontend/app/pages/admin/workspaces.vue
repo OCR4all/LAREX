@@ -64,7 +64,7 @@ const hidePersonalWorkspaces = computed({
 })
 
 const page = ref(1)
-const itemsPerPage = ref(25)
+const itemsPerPage = usePersistentTablePageSize('admin-workspaces', 25)
 const itemsPerPageOptions = [10, 25, 50, 100].map(value => ({ label: `${value} per page`, value }))
 const totalItems = computed(() => filteredAndSortedData.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))

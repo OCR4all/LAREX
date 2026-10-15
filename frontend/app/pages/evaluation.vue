@@ -15,7 +15,7 @@ const loading = ref(false)
 const search = ref('')
 const status = ref<'ALL' | ActionRunStatus>('ALL')
 const page = ref(1)
-const pageSize = ref(25)
+const pageSize = usePersistentTablePageSize('workspace-evaluation-runs', 25)
 const cancelling = ref<string | null>(null)
 let unsubscribe: (() => void) | null = null
 let timer: ReturnType<typeof setTimeout> | null = null

@@ -77,7 +77,7 @@ const typeFilter = ref<string | undefined>(undefined)
 const searchQuery = ref('')
 
 const page = ref(1)
-const itemsPerPage = ref(25)
+const itemsPerPage = usePersistentTablePageSize('admin-storage-orphaned', 25)
 const itemsPerPageOptions = [10, 25, 50, 100].map(value => ({ label: `${value} per page`, value }))
 
 const typeOptions = [

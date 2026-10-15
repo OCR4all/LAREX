@@ -115,7 +115,7 @@ const { sort, globalFilter, columnFilters, filteredAndSortedData, activeFilters,
 )
 
 const page = ref(1)
-const itemsPerPage = ref(25)
+const itemsPerPage = usePersistentTablePageSize('admin-quotas', 25)
 const totalItems = computed(() => filteredAndSortedData.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)

@@ -22,7 +22,7 @@ const searchInput = ref('')
 const statusFilter = ref<'ALL' | ActionRunStatus>('ALL')
 const cancellingRunId = ref<string | null>(null)
 const page = ref(1)
-const itemsPerPage = ref(25)
+const itemsPerPage = usePersistentTablePageSize('workspace-training-runs', 25)
 let realtimeUnsubscribe: (() => void) | null = null
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 let pollTimer: ReturnType<typeof setInterval> | null = null

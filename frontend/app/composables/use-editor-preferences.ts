@@ -49,6 +49,7 @@ export interface EditorPreferences {
   onboardingToursOptedOut: boolean | null
   tableColumnVisibility: TableColumnVisibilityPreferences | null
   tableSorting: TableSortingPreferences | null
+  tablePageSizes: Record<string, number> | null
 }
 
 interface EditorPreferencesState {
@@ -97,7 +98,8 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   onboardingTourCompletion: null,
   onboardingToursOptedOut: null,
   tableColumnVisibility: null,
-  tableSorting: null
+  tableSorting: null,
+  tablePageSizes: null
 }
 
 const SAVE_DEBOUNCE_MS = 1200

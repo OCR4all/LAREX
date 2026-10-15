@@ -71,7 +71,7 @@ export function useResourceListPage<T extends object>(options: ResourceListPageO
   })
 
   const page = ref(1)
-  const itemsPerPageRef = ref(10)
+  const itemsPerPageRef = usePersistentTablePageSize(options.tableId)
 
   const totalItems = computed(() => filters.filteredAndSortedData.value.length)
   const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))

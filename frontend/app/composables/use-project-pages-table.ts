@@ -145,7 +145,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
   }
 
   const page = ref(1)
-  const itemsPerPageRef = ref(10)
+  const itemsPerPageRef = usePersistentTablePageSize(PROJECT_PAGES_TABLE_ID)
   const totalItems = computed(() => filteredPages.value.length)
   const totalPagesCount = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))
   const itemsPerPage = useItemsPerPageModel(page, itemsPerPageRef, totalItems)

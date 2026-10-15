@@ -131,6 +131,10 @@ public class EditorPreference {
     @Column(name = "table_sorting", columnDefinition = "jsonb")
     private JsonNode tableSorting;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "table_page_sizes", columnDefinition = "jsonb")
+    private JsonNode tablePageSizes;
+
     @Column(name = "onboarding_dashboard_tour_version")
     private Integer onboardingDashboardTourVersion;
 
@@ -263,6 +267,9 @@ public class EditorPreference {
 
     public JsonNode getTableColumnVisibility() { return tableColumnVisibility; }
     public void setTableColumnVisibility(JsonNode tableColumnVisibility) { this.tableColumnVisibility = tableColumnVisibility; }
+
+    public JsonNode getTablePageSizes() { return tablePageSizes; }
+    public void setTablePageSizes(JsonNode tablePageSizes) { this.tablePageSizes = tablePageSizes; }
 
     public JsonNode getTableSorting() { return tableSorting; }
     public void setTableSorting(JsonNode tableSorting) { this.tableSorting = tableSorting; }

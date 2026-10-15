@@ -75,7 +75,7 @@ const statusOptions: { label: string, value: AdminUserStatusFilter }[] = [
 ]
 
 const page = ref(1)
-const itemsPerPage = ref(25)
+const itemsPerPage = usePersistentTablePageSize('admin-users', 25)
 const itemsPerPageOptions = [10, 25, 50, 100].map(value => ({ label: `${value} per page`, value }))
 const statusFilter = ref<AdminUserStatusFilter>('ALL')
 const lastLoginBeforeDate = ref('')

@@ -10,7 +10,7 @@ const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 
 const page = ref(1)
-const itemsPerPage = ref(25)
+const itemsPerPage = usePersistentTablePageSize('admin-errors', 25)
 const dayWindow = ref(7)
 const statusFilter = ref<'ALL' | '403' | '409' | '500' | '507'>('ALL')
 const userFilter = ref('all')

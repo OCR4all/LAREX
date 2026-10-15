@@ -63,7 +63,7 @@ const toast = useToast()
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 
 const page = ref(1)
-const itemsPerPage = ref(25)
+const itemsPerPage = usePersistentTablePageSize('admin-outputs', 25)
 const sort = ref<{ column: SortColumn, direction: SortDirection }>({ column: 'created', direction: 'desc' })
 const searchInput = ref('')
 const debouncedSearch = ref('')

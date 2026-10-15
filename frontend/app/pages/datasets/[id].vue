@@ -356,7 +356,7 @@ const statusFilterOptions = computed(() =>
 )
 
 const page = ref(1)
-const itemsPerPageRef = ref(10)
+const itemsPerPageRef = usePersistentTablePageSize('dataset-items')
 
 const totalItems = computed(() => filteredAndSortedData.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))

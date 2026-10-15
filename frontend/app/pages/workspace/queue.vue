@@ -25,7 +25,7 @@ const searchInput = ref('')
 const debouncedSearch = ref('')
 const statusFilter = ref<'ALL' | ActionRunStatus>('ALL')
 const page = ref(1)
-const itemsPerPage = ref(25)
+const itemsPerPage = usePersistentTablePageSize('workspace-action-runs', 25)
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, computed(() => filteredRuns.value.length))
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let realtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null

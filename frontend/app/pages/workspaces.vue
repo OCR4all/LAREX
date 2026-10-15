@@ -58,7 +58,7 @@ const {
 } = useTableFilters(rows, { column: 'name', direction: 'asc' }, 'workspaces-list')
 
 const page = ref(1)
-const itemsPerPageRef = ref(10)
+const itemsPerPageRef = usePersistentTablePageSize('workspaces-list')
 
 const totalItems = computed(() => filteredAndSortedData.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))
