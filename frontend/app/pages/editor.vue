@@ -51,9 +51,11 @@ import { useProjectDockviewRegistry } from '@/composables/editor/use-project-doc
 import { useProjectTabCloseState } from '@/composables/editor/use-project-tab-close-state'
 import { useEditorCommandCenter } from '@/composables/editor/use-editor-command-center'
 import type { OpenProjectPagesSelection } from '@/components/editor/modal/open-project-pages.vue'
-import type { Page, PageWorkflowState } from '@/types/project-page'
+import type { Page, PageWorkflowState, ProjectData } from '@/types/project-page'
+import { PAGE_WORKFLOW_STATES, PAGE_WORKFLOW_STATE_META } from '@/utils/page-workflow-state'
 
 import EditorEmpty from '@/components/editor/empty.vue'
+import PageWorkflowStateDropdown from '@/components/page/workflow-state-dropdown.vue'
 import { useEditorIndexStatusPolling } from '@/composables/editor/use-editor-index-status-polling'
 import { useEditorMetadataApply } from '@/composables/editor/use-editor-metadata-apply'
 import { useEditorSidebarState } from '@/composables/editor/use-editor-sidebar-state'
@@ -146,11 +148,7 @@ const logoMenuItems: DropdownMenuItem[][] = [[
 
 const pageNameFilter = ref('')
 const pageSortMode = ref<PageSortMode>(DEFAULT_PAGE_SORT_MODE)
-const editorWorkflowStateOptions: Array<{ label: string, value: PageWorkflowState, icon: string }> = [
-  { label: 'Open', value: 'OPEN', icon: 'i-lucide-circle' },
-  { label: 'In progress', value: 'IN_PROGRESS', icon: 'i-lucide-loader-circle' },
-  { label: 'Done', value: 'DONE', icon: 'i-lucide-circle-check' }
-]
+const editorWorkflowStateOptions = PAGE_WORKFLOW_STATES.map(value => ({ value, ...PAGE_WORKFLOW_STATE_META[value] }))
 
 const editorStore = useEditorStore()
 const actionRunsStore = useActionRunsStore()
@@ -1319,7 +1317,7 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
         icon: option.icon,
         type: 'checkbox' as const,
         checked: activeWorkflowState.value === option.value,
-        disabled: !canChangeActiveWorkflowState.value || activeWorkflowState.value === option.value,
+        disabled: !canChangeActiveWorkflowState.value || activeWorkflowStateUpdating.value || activeWorkflowState.value === option.value,
         onSelect: () => {
           void updateActiveWorkflowState(option.value)
         }
@@ -1662,12 +1660,24 @@ const activeCanvasIsComparison = computed(() => {
   const canvasId = activeCanvasId.value
   return canvasId ? Boolean(editorStore.canvases[canvasId]?.comparison) : false
 })
+const activePageMetadata = computed(() => {
+  const canvas = activeCanvasId.value ? editorStore.canvases[activeCanvasId.value] : undefined
+  return canvas?.pageId && canvas.projectId ? editorStore.getPage(canvas.pageId, canvas.projectId) : undefined
+})
+
+function onPageTagsSaved(projectId: string, page: Page) {
+  editorStore.patchProjectPageSummaries(projectId, [{ ...page, thumbnailUrl: page.thumbnailUrl ?? undefined }])
+}
+
+const projectWorkflowAccessById = ref<Record<string, boolean>>({})
+const updatingWorkflowPageIds = ref<Set<string>>(new Set())
+const activeWorkflowStateUpdating = computed(() => !!activePageId.value && updatingWorkflowPageIds.value.has(activePageId.value))
 const activeWorkflowState = computed<PageWorkflowState>(() => {
   if (!activePageId.value || !currentProjectId.value) return 'OPEN'
   return editorStore.getPage(activePageId.value, currentProjectId.value)?.workflowState ?? 'OPEN'
 })
 const canChangeActiveWorkflowState = computed(() => {
-  if (!activePageId.value || !currentProjectId.value || activeCanvasIsComparison.value) return false
+  if (!activePageId.value || !currentProjectId.value || activeCanvasIsComparison.value || !projectWorkflowAccessById.value[currentProjectId.value]) return false
   const page = editorStore.getPage(activePageId.value, currentProjectId.value)
   const workflowOnlyLock = page?.workflowState === 'DONE' && page.lockedReason === 'Page workflow state is Done'
   return Boolean(selectedWorkspace.value && activeAnnotationMode.value === 'PROJECT' && (!page?.locked || workflowOnlyLock))
@@ -1676,24 +1686,26 @@ const canChangeActiveWorkflowState = computed(() => {
 async function updateActiveWorkflowState(workflowState: PageWorkflowState) {
   const projectId = currentProjectId.value
   const pageId = activePageId.value
-  if (!projectId || !pageId || workflowState === activeWorkflowState.value || !canChangeActiveWorkflowState.value) return
+  const canvasId = activeCanvasId.value
+  const workspaceId = selectedWorkspace.value
+  if (!projectId || !pageId || !workspaceId || workflowState === activeWorkflowState.value || !canChangeActiveWorkflowState.value || updatingWorkflowPageIds.value.has(pageId)) return
 
-  if (workflowState === 'DONE') {
-    const saved = await handleSaveDocument()
-    if (!saved) return
-  }
-
+  updatingWorkflowPageIds.value = new Set([...updatingWorkflowPageIds.value, pageId])
   try {
+    if (workflowState === 'DONE') {
+      const saved = await handleSaveDocument()
+      if (!saved) return
+    }
+
     const updated = await $fetch<PageResponse>(`/api/projects/${projectId}/pages/${pageId}/workflow-state`, {
       method: 'PUT',
       body: { workflowState }
     })
     editorStore.patchProjectPageSummaries(projectId, [updated])
 
-    const projectPagesCacheKey = wsKey(selectedWorkspace.value as string, 'projects', projectId, 'pages')
+    const projectPagesCacheKey = wsKey(workspaceId, 'projects', projectId, 'pages')
     clearNuxtData(projectPagesCacheKey)
 
-    const canvasId = activeCanvasId.value
     if (canvasId) {
       if (workflowState === 'DONE') {
         await collaboration.releaseCanvasLease(canvasId)
@@ -1705,8 +1717,8 @@ async function updateActiveWorkflowState(workflowState: PageWorkflowState) {
     }
 
     await Promise.all([
-      refreshNuxtData(wsKey(selectedWorkspace.value as string, 'projects', projectId)),
-      refreshNuxtData(wsKey(selectedWorkspace.value as string, 'projects', 'list'))
+      refreshNuxtData(wsKey(workspaceId, 'projects', projectId)),
+      refreshNuxtData(wsKey(workspaceId, 'projects', 'list'))
     ])
     const label = workflowState === 'IN_PROGRESS' ? 'In progress' : workflowState === 'DONE' ? 'Done' : 'Open'
     toast.add({ title: `Page marked ${label}`, color: 'success' })
@@ -1716,6 +1728,8 @@ async function updateActiveWorkflowState(workflowState: PageWorkflowState) {
       description: extractApiErrorMessage(error, 'Could not update the page workflow state.'),
       color: 'error'
     })
+  } finally {
+    updatingWorkflowPageIds.value = new Set([...updatingWorkflowPageIds.value].filter(id => id !== pageId))
   }
 }
 const collapsedImagePopoverDismissKey = ref(0)
@@ -2186,7 +2200,10 @@ const loadProjectLabelSet = async (projectId?: string | null, force = false) => 
       allowValidationRulesetOverride?: boolean
       defaultGtIndex?: number | null
       defaultRecognitionIndices?: number[] | null
+      capabilities?: ProjectData['capabilities']
+      locked?: boolean
     }>(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}`)
+    projectWorkflowAccessById.value[projectId] = project.capabilities?.canChangePageState === true && !project.locked
     editorStore.setProjectToolkitSettings({
       codecId: project.codecId ?? null,
       labelSetId: project.labelSetId ?? null,
@@ -3007,7 +3024,27 @@ const {
         :can-force-unlock="canForceUnlockActivePage"
         :annotation-mode="activeAnnotationMode"
         @force-unlock="forceUnlockActivePage"
-      />
+      >
+        <template #page-metadata>
+          <EditorPageTags
+            v-if="activePageMetadata && selectedWorkspace"
+            :key="`${activePageMetadata.projectId}:${activePageMetadata.id}`"
+            :page="activePageMetadata"
+            :workspace-id="selectedWorkspace"
+            :tag-set-id="editorStore.projectToolkitSettings.tagSetId"
+            :can-edit="canEditPageTags && !isActivePageLocked && !activeCanvasIsComparison"
+            @saved="onPageTagsSaved"
+          />
+          <PageWorkflowStateDropdown
+            v-if="activePageMetadata"
+            :model-value="activeWorkflowState"
+            :can-change="canChangeActiveWorkflowState"
+            :updating="activeWorkflowStateUpdating"
+            side="top"
+            @update:model-value="updateActiveWorkflowState"
+          />
+        </template>
+      </EditorEntityStatusBar>
 
       <EditorFocusedWorkTracker
         v-if="sessionStore.focusedWork"

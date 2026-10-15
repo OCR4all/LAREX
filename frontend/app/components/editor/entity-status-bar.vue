@@ -214,10 +214,7 @@ const pageLockLabel = computed(() => {
     <div class="flex items-center justify-between h-full w-full px-3 gap-4 min-w-0">
       <div
         v-if="displayEntity"
-        :class="[
-          'flex flex-1 items-center h-full gap-3 transition-colors duration-150 min-w-0',
-          isHovered ? 'bg-neutral-100/60 dark:bg-neutral-800/60' : 'bg-transparent'
-        ]"
+        class="flex flex-1 items-center h-full gap-3 min-w-0 overflow-hidden"
       >
         <div class="flex items-center gap-2 min-w-0">
           <UTooltip :delay-duration="300" :content="{ side: 'top' }" :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }">
@@ -267,7 +264,7 @@ const pageLockLabel = computed(() => {
         </span>
       </div>
 
-      <div v-else-if="pageSummary" class="flex items-center h-full gap-3 min-w-0">
+      <div v-else-if="pageSummary" class="flex flex-1 items-center h-full gap-3 min-w-0 overflow-hidden">
         <div class="flex items-center gap-1.5 min-w-0">
           <Icon name="lucide:list-ordered" class="w-3.5 h-3.5 text-neutral-500" />
           <span class="text-xs text-neutral-500 dark:text-neutral-400 truncate">
@@ -301,7 +298,7 @@ const pageLockLabel = computed(() => {
         </div>
       </div>
 
-      <div v-else class="flex items-center h-full min-w-0">
+      <div v-else class="flex flex-1 items-center h-full min-w-0">
         <span class="text-xs text-neutral-400 dark:text-neutral-600">Hover or select a region to inspect</span>
       </div>
 
@@ -322,6 +319,8 @@ const pageLockLabel = computed(() => {
           </UBadge>
         </UTooltip>
       </div>
+
+      <slot name="page-metadata" />
 
       <div v-if="pageLockLabel" class="flex items-center shrink-0 min-w-0 justify-end">
         <UTooltip

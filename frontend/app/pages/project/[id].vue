@@ -37,6 +37,8 @@ import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse }
 import type { ApplySourcesResponse, NormalizePreview, NormalizeSourcesResponse, NormalizationProfile, NormalizationProjectScope, NormalizeTarget } from '@/types/normalization-profile'
 import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/types/validation-ruleset'
 import UiColorTag from '@/components/ui/color-tag.vue'
+import PageWorkflowStateDropdown from '@/components/page/workflow-state-dropdown.vue'
+import { PAGE_WORKFLOW_STATES as pageWorkflowStates, PAGE_WORKFLOW_STATE_META as workflowStateMeta } from '@/utils/page-workflow-state'
 import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowState, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
 import type { UploadFile, UploadSession } from '@/composables/use-chunked-upload'
 import { isProjectImageOrXml } from '@/utils/directory-project-upload'
@@ -250,12 +252,6 @@ const {
   getErrorMessage
 })
 
-const workflowStateMeta: Record<PageWorkflowState, { label: string, color: 'neutral' | 'info' | 'success', icon: string }> = {
-  OPEN: { label: 'Open', color: 'neutral', icon: 'i-lucide-circle' },
-  IN_PROGRESS: { label: 'In progress', color: 'info', icon: 'i-lucide-loader-circle' },
-  DONE: { label: 'Done', color: 'success', icon: 'i-lucide-circle-check' }
-}
-const pageWorkflowStates: PageWorkflowState[] = ['OPEN', 'IN_PROGRESS', 'DONE']
 const updatingPageWorkflowStateIds = ref<Set<string>>(new Set())
 
 function setPageWorkflowStateUpdating(pageId: string, updating: boolean) {
@@ -300,18 +296,6 @@ async function updatePageWorkflowState(page: Page, workflowState: PageWorkflowSt
   } finally {
     setPageWorkflowStateUpdating(page.id, false)
   }
-}
-
-function getPageWorkflowStateItems(page: Page): DropdownMenuItem[] {
-  const updating = updatingPageWorkflowStateIds.value.has(page.id)
-  return pageWorkflowStates.map(workflowState => ({
-    label: workflowStateMeta[workflowState].label,
-    icon: workflowStateMeta[workflowState].icon,
-    type: 'checkbox',
-    checked: page.workflowState === workflowState,
-    disabled: updating || page.workflowState === workflowState,
-    onSelect: () => { void updatePageWorkflowState(page, workflowState) }
-  }))
 }
 
 async function bulkUpdatePageWorkflowState(workflowState: PageWorkflowState) {
@@ -2115,39 +2099,14 @@ const pageColumns = [
     header: 'State',
     cell: ({ row }: { row: { original: Page } }) => {
       const page = row.original
-      const meta = workflowStateMeta[page.workflowState]
       const updating = updatingPageWorkflowStateIds.value.has(page.id)
 
-      if (!canChangePageState.value || project.value?.locked) {
-        return h(UBadge, {
-          color: meta.color,
-          variant: 'subtle',
-          size: 'sm',
-          icon: meta.icon
-        }, () => meta.label)
-      }
-
-      return h(UDropdownMenu, {
-        content: { align: 'start' },
-        items: getPageWorkflowStateItems(page)
-      }, () => h('button', {
-        'type': 'button',
-        'disabled': updating,
-        'class': 'group rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait',
-        'aria-label': `Change page state. Current state: ${meta.label}`,
-        'title': 'Change page state',
-        'onClick': (event: MouseEvent) => event.stopPropagation()
-      }, [
-        h(UBadge, {
-          color: meta.color,
-          variant: 'subtle',
-          size: 'sm',
-          icon: updating ? 'i-lucide-loader-circle' : meta.icon,
-          trailingIcon: 'i-lucide-chevron-down',
-          class: 'cursor-pointer select-none transition-opacity group-hover:opacity-80',
-          ui: updating ? { leadingIcon: 'animate-spin' } : undefined
-        }, () => meta.label)
-      ]))
+      return h(PageWorkflowStateDropdown, {
+        'modelValue': page.workflowState,
+        'canChange': canChangePageState.value && !project.value?.locked,
+        updating,
+        'onUpdate:modelValue': (state: PageWorkflowState) => { void updatePageWorkflowState(page, state) }
+      })
     }
   },
   {
