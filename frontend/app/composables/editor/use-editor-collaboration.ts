@@ -1,5 +1,5 @@
 import { getEditorSession, type EditorSession } from '@/session/editor/editor-session'
-import { compareLeaseEpochs } from '@/utils/collaboration-lease'
+import { isStaleLeaseState } from '@/utils/collaboration-lease'
 import { collectPolygonsFromPcGts, collectPolylinesFromPcGts } from '@/stores/editor/editor.collectors.store'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import type { AnnotationApiContext } from '@/stores/editor/types'
@@ -49,6 +49,21 @@ const roomLeaderInstances = new Map<string, string | null>()
 const leaseWarningTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 const leaseWarningShownForExpiry = new Map<string, string>()
 const pendingInitialXmlCreations = new Map<string, Promise<string | null>>()
+const roomMembershipOperations = new Map<string, Promise<void>>()
+const canvasMembershipLifetimes = new Map<string, object>()
+
+/** Finish a room's join/leave side effects before a newer membership can use it. */
+async function serializeRoomMembership<T>(roomKey: string, operation: () => Promise<T>): Promise<T> {
+  const previous = roomMembershipOperations.get(roomKey) ?? Promise.resolve()
+  const result = previous.then(operation)
+  const settled = result.then(() => {}, () => {})
+  roomMembershipOperations.set(roomKey, settled)
+  try {
+    return await result
+  } finally {
+    if (roomMembershipOperations.get(roomKey) === settled) roomMembershipOperations.delete(roomKey)
+  }
+}
 
 const INSTANCE_ALIVE_INTERVAL_MS = 5000
 const INSTANCE_STALE_AFTER_MS = 15000
@@ -473,7 +488,7 @@ export function useEditorCollaboration() {
     const previousRoom = rooms.value[roomKey] ?? null
     const previousEditor = previousRoom?.lease.editor ?? null
     const previousTakeover = previousRoom?.lease.pendingTakeover ?? null
-    if (previousRoom && compareLeaseEpochs(lease.leaseEpoch, previousRoom.lease.leaseEpoch) < 0) {
+    if (previousRoom && isStaleLeaseState(lease, previousRoom.lease)) {
       return
     }
 
@@ -619,6 +634,10 @@ export function useEditorCollaboration() {
       return
     }
 
+    return serializeRoomMembership(roomKey, () => postLeaseRelease(roomKey, url))
+  }
+
+  async function postLeaseRelease(roomKey: string, url: string) {
     try {
       const response = await $fetch<CollaborationLeaseResponse>(url, {
         method: 'POST',
@@ -906,7 +925,7 @@ export function useEditorCollaboration() {
     const previousEditor = previousRoom?.lease.editor ?? null
     const previousTakeover = previousRoom?.lease.pendingTakeover ?? null
     const leaseIsCurrent = !previousRoom
-      || compareLeaseEpochs(payload.lease.leaseEpoch, previousRoom.lease.leaseEpoch) >= 0
+      || !isStaleLeaseState(payload.lease, previousRoom.lease)
 
     rooms.value = updateRoomState(rooms.value, payload.roomKey, room => ({
       ...room,
@@ -1162,81 +1181,100 @@ export function useEditorCollaboration() {
     pageId: string,
     xmlId: string,
     canvasId: string,
-    annotationContext: AnnotationApiContext
+    annotationContext: AnnotationApiContext,
+    signal?: AbortSignal
   ): Promise<CollaborationRoomSession | null> => {
-    if (import.meta.server) return null
+    if (import.meta.server || signal?.aborted) return null
+    const lifetime = canvasMembershipLifetimes.get(canvasId) ?? {}
+    canvasMembershipLifetimes.set(canvasId, lifetime)
+    const cancelled = () => signal?.aborted || canvasMembershipLifetimes.get(canvasId) !== lifetime
 
     const context = annotationContext?.basePath
       ? annotationContext
       : defaultAnnotationContext(projectId, pageId)
 
     const bootstrap = await $fetch<CollaborationRoomBootstrap>(
-      `${context.basePath}/${xmlId}/collaboration/token`
+      `${context.basePath}/${xmlId}/collaboration/token`,
+      { signal }
     )
-    const lease = await $fetch<CollaborationLeaseResponse>(
-      `${context.basePath}/${xmlId}/collaboration/lease/join`,
-      {
-        method: 'POST',
-        body: { instanceId: ensureInstanceId() }
+    if (cancelled()) return null
+    return serializeRoomMembership(bootstrap.roomKey, async () => {
+      if (cancelled()) return null
+      const lease = await $fetch<CollaborationLeaseResponse>(
+        `${context.basePath}/${xmlId}/collaboration/lease/join`,
+        {
+          method: 'POST',
+          body: { instanceId: ensureInstanceId() }
+        }
+      )
+      if (cancelled()) {
+        // A POST can have acquired ownership before its response arrives. Complete
+        // cleanup before a reopened canvas joins with this same browser instance.
+        if (!roomCanvasIds.get(bootstrap.roomKey)?.size) {
+          await postLeaseRelease(bootstrap.roomKey, `${context.basePath}/${xmlId}/collaboration/lease/release`)
+        }
+        return null
       }
-    )
 
-    connect()
+      connect()
 
-    const nextRooms = cloneRooms(rooms.value)
-    nextRooms[bootstrap.roomKey] = {
-      identity: {
-        roomKey: bootstrap.roomKey,
-        workspaceId: bootstrap.workspaceId,
-        projectId: bootstrap.projectId,
-        pageId: bootstrap.pageId,
-        xmlId: bootstrap.xmlId,
-        annotationBasePath: context.basePath,
-        annotationMode: context.mode,
-        createAllowed: context.createAllowed,
-        token: bootstrap.token,
-        canEdit: bootstrap.canEdit,
-        canForceTakeover: bootstrap.canForceTakeover,
-        user: bootstrap.user
-      },
-      lease: {
-        ...lease.lease,
-        expiresAt: lease.lease.expiresAt ?? null
-      },
-      presence: {
-        members: nextRooms[bootstrap.roomKey]?.presence.members ?? []
-      },
-      viewerSync: {
-        persistedRevision: bootstrap.persistedRevision,
-        latestPersistedRevision: null,
-        resyncRequired: false,
-        snapshotReady: false
+      const nextRooms = cloneRooms(rooms.value)
+      const currentLease = nextRooms[bootstrap.roomKey]?.lease
+      const joinedLease = currentLease && isStaleLeaseState(lease.lease, currentLease) ? currentLease : lease.lease
+      nextRooms[bootstrap.roomKey] = {
+        identity: {
+          roomKey: bootstrap.roomKey,
+          workspaceId: bootstrap.workspaceId,
+          projectId: bootstrap.projectId,
+          pageId: bootstrap.pageId,
+          xmlId: bootstrap.xmlId,
+          annotationBasePath: context.basePath,
+          annotationMode: context.mode,
+          createAllowed: context.createAllowed,
+          token: bootstrap.token,
+          canEdit: bootstrap.canEdit,
+          canForceTakeover: bootstrap.canForceTakeover,
+          user: bootstrap.user
+        },
+        lease: {
+          ...joinedLease,
+          expiresAt: joinedLease.expiresAt ?? null
+        },
+        presence: {
+          members: nextRooms[bootstrap.roomKey]?.presence.members ?? []
+        },
+        viewerSync: {
+          persistedRevision: bootstrap.persistedRevision,
+          latestPersistedRevision: null,
+          resyncRequired: false,
+          snapshotReady: false
+        }
       }
-    }
-    rooms.value = nextRooms
-    reconcileRoomHeartbeat(bootstrap.roomKey)
-    syncLeaseExpiryWarning(bootstrap.roomKey)
+      rooms.value = nextRooms
+      reconcileRoomHeartbeat(bootstrap.roomKey)
+      syncLeaseExpiryWarning(bootstrap.roomKey)
 
-    canvasRooms.value = {
-      ...canvasRooms.value,
-      [canvasId]: bootstrap.roomKey
-    }
+      canvasRooms.value = {
+        ...canvasRooms.value,
+        [canvasId]: bootstrap.roomKey
+      }
 
-    const currentCanvasIds = roomCanvasIds.get(bootstrap.roomKey) ?? new Set<string>()
-    currentCanvasIds.add(canvasId)
-    roomCanvasIds.set(bootstrap.roomKey, currentCanvasIds)
+      const currentCanvasIds = roomCanvasIds.get(bootstrap.roomKey) ?? new Set<string>()
+      currentCanvasIds.add(canvasId)
+      roomCanvasIds.set(bootstrap.roomKey, currentCanvasIds)
 
-    sendMessage('JOIN_ROOM', { token: bootstrap.token })
-    startRevisionPolling(nextRooms[bootstrap.roomKey]!)
+      sendMessage('JOIN_ROOM', { token: bootstrap.token })
+      startRevisionPolling(nextRooms[bootstrap.roomKey]!)
 
-    const snapshot = roomSnapshots.get(bootstrap.roomKey)
-    if (hasSnapshotAnnotationPayload(snapshot)) {
-      applyRoomSnapshotToBoundCanvases(bootstrap.roomKey)
-    } else {
-      trySeedRoomFromCanvas(canvasId)
-    }
+      const snapshot = roomSnapshots.get(bootstrap.roomKey)
+      if (hasSnapshotAnnotationPayload(snapshot)) {
+        applyRoomSnapshotToBoundCanvases(bootstrap.roomKey)
+      } else {
+        trySeedRoomFromCanvas(canvasId)
+      }
 
-    return nextRooms[bootstrap.roomKey]!
+      return nextRooms[bootstrap.roomKey]!
+    })
   }
 
   const ensureInitialPageXmlForCanvas = async (canvasId: string): Promise<string | null> => {
@@ -1318,7 +1356,8 @@ export function useEditorCollaboration() {
     return creation
   }
 
-  const ensureCanvasRoom = async (canvasId: string): Promise<CollaborationRoomSession | null> => {
+  const ensureCanvasRoom = async (canvasId: string, signal?: AbortSignal): Promise<CollaborationRoomSession | null> => {
+    if (signal?.aborted) return null
     const canvas = editorStore.getCanvas(canvasId)
     if (!canvas?.projectId || !canvas.pageId || canvas.isLoadingAnnotations) {
       return null
@@ -1328,22 +1367,23 @@ export function useEditorCollaboration() {
       return null
     }
 
+    const lifetime = canvasMembershipLifetimes.get(canvasId) ?? {}
+    canvasMembershipLifetimes.set(canvasId, lifetime)
     const xmlId = canvas.xmlFileId ?? await ensureInitialPageXmlForCanvas(canvasId)
-    if (!xmlId) {
+    if (!xmlId || signal?.aborted || canvasMembershipLifetimes.get(canvasId) !== lifetime) {
       return null
     }
 
-    return ensureRoom(canvas.projectId, canvas.pageId, xmlId, canvasId, annotationContext)
+    return ensureRoom(canvas.projectId, canvas.pageId, xmlId, canvasId, annotationContext, signal)
   }
 
   const leaveCanvasRoom = (canvasId: string) => {
+    canvasMembershipLifetimes.delete(canvasId)
     const roomKey = canvasRooms.value[canvasId]
     if (!roomKey) {
       detachCanvasSession(canvasId)
       return
     }
-
-    sendMessage('LEAVE_ROOM', { roomKey })
 
     detachCanvasSession(canvasId)
 
@@ -1358,6 +1398,7 @@ export function useEditorCollaboration() {
 
     const stillJoined = Object.values(nextCanvasRooms).some(value => value === roomKey)
     if (!stillJoined) {
+      sendMessage('LEAVE_ROOM', { roomKey })
       void releaseLeaseForRoom(roomKey)
       const { [roomKey]: _removedRoom, ...nextRooms } = cloneRooms(rooms.value)
       rooms.value = nextRooms

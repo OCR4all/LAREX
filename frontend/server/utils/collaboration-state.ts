@@ -2,7 +2,7 @@ import type { Peer } from 'crossws'
 import { websocketUtils } from './websocket'
 import type { CollaborationLeaseState, CollaborationPageSummary } from '../../app/types/collaboration'
 import type { CollaborationRoomTokenPayload } from './collaboration-token'
-import { compareLeaseEpochs } from '../../app/utils/collaboration-lease'
+import { isStaleLeaseState } from '../../app/utils/collaboration-lease'
 
 type CollaborationUser = {
   id: string
@@ -441,7 +441,7 @@ export const collaborationState = {
     const room = existingRoom ?? getOrCreateRoom(roomKey)
     const currentEpoch = room.lease.leaseEpoch
     const incomingEpoch = lease.leaseEpoch
-    if (compareLeaseEpochs(incomingEpoch, currentEpoch) < 0) {
+    if (isStaleLeaseState(lease, room.lease)) {
       return
     }
 

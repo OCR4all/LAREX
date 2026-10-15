@@ -49,7 +49,7 @@ onMounted(async () => {
 
 <template>
   <div v-if="canvasId" class="h-full w-full">
-    <EditorCollaborationHost :canvas-id="canvasId" />
+    <EditorCollaborationHost :key="canvasId" :canvas-id="canvasId" />
 
     <EditorTextFullView
       v-if="isTextFullMode && !!src"

@@ -58,6 +58,25 @@ afterEach(() => {
 })
 
 describe('collaboration state renewal protocol', () => {
+  it('does not shorten a renewed lease when an older heartbeat arrives in the same epoch', () => {
+    const { peer, send } = createPeer('peer-delayed-heartbeat')
+    const roomKey = 'project-heartbeat:page:xml'
+    collaborationState.joinRoom(peer, token(roomKey))
+    collaborationState.syncLeaseState(roomKey, lease('curator', '5', '2026-10-14T12:01:21Z'))
+    send.mockClear()
+    collaborationState.syncLeaseState(roomKey, lease('curator', '5', '2026-10-14T12:00:45Z'))
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('accepts a newer owner even when its expiry is earlier than the previous deadline', () => {
+    const { peer } = createPeer('peer-new-owner-deadline')
+    const roomKey = 'project-new-owner:page:xml'
+    collaborationState.joinRoom(peer, token(roomKey))
+    collaborationState.syncLeaseState(roomKey, lease('previous-editor', '5', '2026-10-14T12:01:21Z'))
+    collaborationState.syncLeaseState(roomKey, lease('curator', '6', '2026-10-14T12:00:45Z'))
+    expect(collaborationState.getProjectPageSummaries('project-new-owner')[0]?.editor?.user.id).toBe('curator')
+  })
+
   it('compares decimal-string epochs numerically across digit boundaries', () => {
     const { peer, send } = createPeer('peer-decimal-epochs')
     const roomKey = 'project-decimal:page:xml'

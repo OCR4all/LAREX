@@ -1,6 +1,10 @@
-/** Compare decimal lease versions without converting them to floating-point numbers. */
-export function compareLeaseEpochs(left: string, right: string): number {
-  const leftEpoch = BigInt(left)
-  const rightEpoch = BigInt(right)
-  return leftEpoch < rightEpoch ? -1 : leftEpoch > rightEpoch ? 1 : 0
+import type { CollaborationLeaseState } from '@/types/collaboration'
+
+/** Heartbeats extend a lease without changing its ownership epoch. */
+export function isStaleLeaseState(incoming: CollaborationLeaseState, current: CollaborationLeaseState): boolean {
+  const incomingEpoch = BigInt(incoming.leaseEpoch)
+  const currentEpoch = BigInt(current.leaseEpoch)
+  if (incomingEpoch !== currentEpoch) return incomingEpoch < currentEpoch
+  return Boolean(incoming.expiresAt && current.expiresAt
+    && Date.parse(incoming.expiresAt) < Date.parse(current.expiresAt))
 }

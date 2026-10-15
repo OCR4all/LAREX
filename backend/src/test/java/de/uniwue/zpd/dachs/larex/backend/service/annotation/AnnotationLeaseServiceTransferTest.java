@@ -9,6 +9,8 @@ import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicySer
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,6 +19,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -30,6 +34,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import org.springframework.dao.DataAccessResourceFailureException;
 
 @ExtendWith(MockitoExtension.class)
@@ -220,6 +226,54 @@ class AnnotationLeaseServiceTransferTest {
         AnnotationCollaborationDto.LeaseState afterManagerHeartbeat =
                 service.heartbeat(manager, "manager-instance");
         assertEditor(afterManagerHeartbeat, "manager");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void takeoverWithThreeUsersDoesNotInheritThePreviousOwnersNineSeconds(boolean force) {
+        Instant start = Instant.parse("2026-10-14T12:00:00Z");
+        var now = new AtomicReference<>(start);
+        try (var time = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
+            time.when(Instant::now).thenAnswer(invocation -> now.get());
+            var previousEditor = context("previous-editor", false);
+            var viewer = context("viewer", false);
+            var curator = context("curator", true);
+            var original = service.joinLease(previousEditor, "previous-instance");
+            service.joinLease(viewer, "viewer-instance");
+            service.joinLease(curator, "curator-instance");
+            assertEquals(start.plusSeconds(45).toString(), original.expiresAt());
+
+            now.set(start.plusSeconds(36)); // The old lease has nine seconds left.
+            AnnotationCollaborationDto.LeaseState forced;
+            if (force) {
+                forced = service.requestTakeoverAction(curator, true, "curator-instance").lease();
+            } else {
+                service.requestTakeoverAction(curator, false, "curator-instance");
+                forced = service.respondToTakeover(previousEditor, "accept", "save");
+            }
+            assertEditor(forced, "curator");
+            assertEquals(start.plusSeconds(81).toString(), forced.expiresAt());
+
+            // Other users renewing cannot shorten the curator's new 45-second lease.
+            service.heartbeat(previousEditor, "previous-instance");
+            service.heartbeat(viewer, "viewer-instance");
+            now.set(start.plusSeconds(46)); // Past the previous owner's deadline.
+            service.pruneExpiredLeases();
+            var retained = service.getLeaseState(curator);
+            assertEditor(retained, "curator");
+            assertEquals(forced.expiresAt(), retained.expiresAt());
+
+            var renewed = service.heartbeat(curator, "curator-instance");
+            assertEquals(start.plusSeconds(91).toString(), renewed.expiresAt());
+
+            // A real timeout still transfers ownership if the curator stops renewing.
+            now.set(start.plusSeconds(90));
+            service.heartbeat(previousEditor, "previous-instance");
+            service.heartbeat(viewer, "viewer-instance");
+            now.set(start.plusSeconds(92));
+            service.pruneExpiredLeases();
+            assertEditor(service.getLeaseState(previousEditor), "previous-editor");
+        }
     }
 
     @Test
