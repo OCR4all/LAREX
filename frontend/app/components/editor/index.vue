@@ -1392,6 +1392,15 @@ const editorFollow = useEditorFollowMode({
   applyEditorState: applyEditorCanvasState
 })
 const viewerNavigationMode = editorFollow.mode
+const viewerNavigationTabs = computed(() => [
+  { label: 'Explore', icon: 'i-lucide-mouse-pointer-2', value: 'explore' },
+  { label: 'Follow editor', icon: 'i-lucide-navigation', value: 'follow', disabled: !canFollowEditor.value }
+])
+
+function handleViewerNavigationChange(value: string | number) {
+  if (value === 'explore') editorFollow.explore()
+  else if (value === 'follow') editorFollow.follow()
+}
 
 function leaveFollowForLocalStateChange() {
   if (suppressViewerNavigationExit.value) return
@@ -3301,71 +3310,48 @@ watch(() => props.src, (newSrc) => {
 
       <div
         v-else-if="pageLockReason && !pageLockActionName"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pl-2 pr-2 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
+        class="editor-read-only-pill"
       >
-        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
-          <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-            <Icon name="i-lucide-lock" class="h-3 w-3" />
-          </div>
-          <p class="truncate text-[13px] text-highlighted">
-            Read-only
-          </p>
+        <div class="editor-read-only-status">
+          <Icon name="i-lucide-lock" class="size-3.5 shrink-0" />
+          <span>Read-only</span>
         </div>
-        <span class="truncate pr-2 text-xs text-toned">{{ pageLockDescription }}</span>
+        <span class="editor-read-only-helper">{{ pageLockDescription }}</span>
       </div>
 
       <div
         v-else-if="!isActionResultTransitionVisible && !pageLockReason && !isCanvasEditable && canvasEditor"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pl-2 pr-2 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
+        class="editor-read-only-pill"
       >
-        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
-          <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
-            <Icon name="i-lucide-lock" class="h-3 w-3" />
-          </div>
-          <span class="font-medium">Read-only</span>
+        <div class="editor-read-only-status">
+          <Icon name="i-lucide-lock" class="size-3.5 shrink-0" />
+          <span>Read-only</span>
         </div>
-        <span class="min-w-0 truncate text-xs text-toned">
+        <span class="editor-read-only-helper">
           {{ canvasEditor.user.displayName }} currently holds the edit lock.
         </span>
 
-        <div class="flex shrink-0 items-center gap-1.5">
-          <div class="flex items-center rounded-lg border border-default/70 bg-default/60 p-0.5">
-            <UButton
-              size="xs"
-              color="neutral"
-              :variant="viewerNavigationMode === 'explore' ? 'soft' : 'ghost'"
-              :class="[
-                'h-6 px-1.5 text-[11px]',
-                viewerNavigationMode !== 'explore'
-                  && 'text-toned hover:bg-muted active:bg-muted'
-              ]"
-              icon="i-lucide-mouse-pointer-2"
-              label="Explore"
-              @click="editorFollow.explore"
-            />
-            <UButton
-              size="xs"
-              color="neutral"
-              :variant="viewerNavigationMode === 'follow' ? 'soft' : 'ghost'"
-              :class="[
-                'h-6 px-1.5 text-[11px]',
-                viewerNavigationMode !== 'follow'
-                  && 'text-toned hover:bg-muted active:bg-muted'
-              ]"
-              icon="i-lucide-navigation"
-              label="Follow editor"
-              :disabled="!canFollowEditor"
-              @click="editorFollow.follow"
-            />
-          </div>
+        <UTabs
+          :model-value="viewerNavigationMode"
+          :items="viewerNavigationTabs"
+          :content="false"
+          color="neutral"
+          variant="pill"
+          size="xs"
+          class="editor-read-only-tabs"
+          :ui="{ leadingIcon: 'size-3.5 shrink-0' }"
+          @update:model-value="handleViewerNavigationChange"
+        />
+        <div v-if="canRequestTakeover || canForceTakeover" class="editor-read-only-actions">
           <UButton
             v-if="canRequestTakeover"
             size="xs"
             color="neutral"
-            variant="soft"
-            class="h-6 px-2 text-[11px]"
+            variant="ghost"
+            class="editor-read-only-button"
+            :ui="{ leadingIcon: 'size-3.5 shrink-0' }"
             icon="i-lucide-pencil-line"
-            label="Request Edit"
+            label="Request edit"
             :loading="isTakeoverActionPending"
             :disabled="isTakeoverActionPending"
             @click="handleRequestTakeover(false)"
@@ -3374,10 +3360,11 @@ watch(() => props.src, (newSrc) => {
             v-if="canForceTakeover"
             size="xs"
             color="neutral"
+            variant="ghost"
+            class="editor-read-only-button"
+            :ui="{ leadingIcon: 'size-3.5 shrink-0 text-error' }"
             icon="i-lucide-octagon-alert"
-            variant="outline"
-            class="h-6 px-2 text-[11px]"
-            label="Force Takeover"
+            label="Force takeover"
             :loading="isTakeoverActionPending"
             :disabled="isTakeoverActionPending"
             @click="handleRequestTakeover(true)"
@@ -3387,13 +3374,13 @@ watch(() => props.src, (newSrc) => {
 
       <div
         v-else-if="!isActionResultTransitionVisible && !pageLockReason && !isCanvasEditable"
-        class="pointer-events-auto flex max-w-full items-center gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 px-2 py-1 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
+        class="editor-read-only-pill"
       >
-        <div class="flex shrink-0 items-center gap-1.5 rounded-full border border-default bg-default px-1.5 py-0.5">
-          <Icon name="i-lucide-lock" class="h-3.5 w-3.5 text-amber-400" />
-          <span class="font-medium">Read-only</span>
+        <div class="editor-read-only-status">
+          <Icon name="i-lucide-lock" class="size-3.5 shrink-0" />
+          <span>Read-only</span>
         </div>
-        <span class="min-w-0 truncate text-xs text-toned">Editing is disabled for this page.</span>
+        <span class="editor-read-only-helper">Editing is disabled for this page.</span>
       </div>
 
       <div
@@ -4277,6 +4264,165 @@ watch(() => props.src, (newSrc) => {
 </template>
 
 <style scoped>
+/* One inset system keeps the single-row capsule and its controls concentric. */
+.editor-read-only-pill {
+  --pill-padding: 4px;
+  --pill-gap: 4px;
+  --pill-border: 1px;
+  --pill-control-height: 32px;
+  --pill-control-radius: calc(var(--pill-control-height) / 2);
+  --pill-radius: calc(var(--pill-control-radius) + var(--pill-padding) + var(--pill-border));
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pill-gap);
+  max-width: 100%;
+  padding: var(--pill-padding);
+  border: var(--pill-border) solid var(--ui-border-accented);
+  border-radius: var(--pill-radius);
+  background: var(--ui-bg-muted);
+  color: var(--ui-text);
+  box-shadow: 0 3px 12px rgb(0 0 0 / 10%);
+  pointer-events: auto;
+}
+
+.editor-read-only-status,
+.editor-read-only-button {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  height: var(--pill-control-height);
+  border: var(--pill-border) solid var(--ui-border-accented);
+  border-radius: var(--pill-control-radius);
+}
+
+.editor-read-only-status,
+.editor-read-only-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pill-gap);
+  padding: 0 10px;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.editor-read-only-status {
+  color: var(--ui-text-highlighted);
+  font-weight: 600;
+}
+
+.editor-read-only-helper {
+  min-width: 0;
+  padding-inline: var(--pill-padding);
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.editor-read-only-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--pill-gap);
+  max-width: 100%;
+}
+
+.editor-read-only-tabs {
+  flex-shrink: 0;
+  height: var(--pill-control-height);
+  gap: 0;
+}
+
+.editor-read-only-tabs :deep([data-slot="list"]) {
+  box-sizing: border-box;
+  align-items: center;
+  gap: var(--pill-gap);
+  height: 100%;
+  padding: var(--pill-padding);
+  border: var(--pill-border) solid var(--ui-border-accented);
+  border-radius: var(--pill-control-radius);
+  background: var(--dv-tabs-and-actions-container-background-color, var(--ui-bg));
+}
+
+.editor-read-only-tabs :deep([data-slot="indicator"]) {
+  inset-block: var(--pill-padding);
+  border: var(--pill-border) solid var(--dv-selected-tab-border, var(--ui-border-accented));
+  border-radius: calc(var(--pill-control-radius) - var(--pill-padding) - var(--pill-border));
+  background: var(--dv-activegroup-visiblepanel-tab-background-color, var(--ui-bg-elevated));
+  box-shadow: none;
+  transition-duration: 140ms;
+}
+
+.editor-read-only-tabs :deep([data-slot="trigger"]) {
+  flex: 0 0 auto;
+  justify-content: center;
+  gap: var(--pill-gap);
+  height: 100%;
+  padding: 0 10px;
+  border-radius: calc(var(--pill-control-radius) - var(--pill-padding) - var(--pill-border));
+  color: var(--dv-activegroup-hiddenpanel-tab-color, var(--ui-text-muted));
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.editor-read-only-tabs :deep([data-slot="trigger"][data-state="active"]) {
+  color: var(--dv-activegroup-visiblepanel-tab-color, var(--ui-text-highlighted));
+}
+
+.editor-read-only-button {
+  box-shadow: none;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.editor-read-only-button:focus-visible,
+.editor-read-only-tabs :deep([data-slot="trigger"]:focus-visible) {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+
+.editor-read-only-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .editor-read-only-button:hover:not(:disabled) {
+    border-color: var(--ui-text-dimmed);
+    background: var(--ui-bg-elevated);
+    color: var(--ui-text-highlighted);
+  }
+
+  .editor-read-only-tabs :deep([data-slot="trigger"][data-state="inactive"]:hover:not(:disabled)) {
+    background: var(--dv-tab-hover-background, var(--ui-bg-elevated));
+    color: var(--ui-text-highlighted);
+  }
+
+  .editor-read-only-tabs :deep([data-slot="trigger"][data-state="active"]:hover:not(:disabled)) {
+    background: var(--dv-active-tab-hover-background, var(--ui-bg-accented));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor-read-only-button,
+  .editor-read-only-tabs :deep([data-slot="trigger"]),
+  .editor-read-only-tabs :deep([data-slot="indicator"]) {
+    transition: none;
+  }
+
+  .editor-read-only-button:active:not(:disabled) {
+    transform: none;
+  }
+}
+
 .editor-checkerboard {
   background-image: linear-gradient(45deg, #808080 25%, transparent 25%),
     linear-gradient(-45deg, #808080 25%, transparent 25%),
