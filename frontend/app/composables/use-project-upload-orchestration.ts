@@ -260,17 +260,10 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
   const realtime = useRealtimeSocket()
 
   const isManualPagesRefresh = ref(false)
-  const hasLoadedPagesOnce = ref(false)
   const changedUploadPageIds = ref<Set<string>>(new Set())
   const hasUnrefreshedUploadChanges = ref(false)
   const unrefreshedUploadPageCount = computed(() => changedUploadPageIds.value.size)
-  const showPagesLoadingSpinner = computed(() => isManualPagesRefresh.value || (!hasLoadedPagesOnce.value && options.pagesPending.value))
-
-  watch([options.pages, options.pagesError], ([nextPages, nextError]) => {
-    if (nextPages !== null || nextError) {
-      hasLoadedPagesOnce.value = true
-    }
-  }, { immediate: true })
+  const showPagesLoadingSpinner = computed(() => options.pagesPending.value && options.pages.value == null)
 
   const currentUploadSessionId = ref<string | null>(null)
   const tempUploadSessionId = ref<string | null>(null)

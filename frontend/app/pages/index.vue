@@ -177,7 +177,6 @@ const {
   {
     key: projectsKey,
     watch: [selectedWorkspace],
-    default: () => [],
     immediate: !!selectedWorkspace.value
   }
 )
@@ -214,7 +213,7 @@ const {
   totalPages,
   paginatedData
 } = useResourceListPage({
-  data,
+  data: computed(() => data.value ?? []),
   defaultSort: { column: 'created', direction: 'desc' },
   tableId: 'dashboard-projects-v2',
   getTags: (project) => {
@@ -1616,7 +1615,7 @@ async function handleLegacyOcr4allImport(event: Event) {
           </div>
         </div>
 
-        <div v-else-if="status === 'pending' && !emptyStateRefresh.loading" class="py-8 text-center">
+        <div v-else-if="status === 'pending' && !data && !emptyStateRefresh.loading" class="py-8 text-center">
           <div class="flex items-center justify-center">
             <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
             <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading projects...</span>

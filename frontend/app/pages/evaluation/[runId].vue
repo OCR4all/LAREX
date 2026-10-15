@@ -130,7 +130,10 @@ async function compare() {
   compareLoading.value = true
   try { comparison.value = await $fetch(`/api/workspaces/${workspaceId.value}/actions/evaluation/runs/${runId.value}/compare`, { query: { baselineRunId: baselineId.value } }) as typeof comparison.value } catch (error: unknown) { toast.add({ title: 'Could not compare evaluations', description: error instanceof Error ? error.message : undefined, color: 'error' }) } finally { compareLoading.value = false }
 }
-watch([workspaceId, runId], load, { immediate: true })
+watch([workspaceId, runId], () => {
+  detail.value = null
+  void load()
+}, { immediate: true })
 </script>
 
 <template>
@@ -150,7 +153,7 @@ watch([workspaceId, runId], load, { immediate: true })
       </UDashboardNavbar>
     </template>
     <template #body>
-      <div v-if="loading" class="mx-auto w-full max-w-7xl space-y-4 p-6">
+      <div v-if="loading && !detail" class="mx-auto w-full max-w-7xl space-y-4 p-6">
         <USkeleton class="h-24 w-full" /><USkeleton class="h-64 w-full" />
       </div><UEmpty v-else-if="!detail" icon="i-lucide-circle-alert" title="Evaluation not found" /><div v-else class="mx-auto flex w-full max-w-7xl flex-col gap-6 p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">

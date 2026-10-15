@@ -64,7 +64,6 @@ const { data: projects, status: projectsStatus } = await useFetch<Project[]>(
 const { data: pages, status: pagesStatus } = await useFetch<Page[]>(
   () => selectedProjectId.value ? `/api/projects/${selectedProjectId.value}/pages` : '',
   {
-    default: () => [],
     immediate: false,
     watch: [selectedProjectId]
   }
@@ -261,7 +260,7 @@ const columns: TableColumn<Page>[] = [
               <AppTableClearFiltersButton :active="Boolean(searchQuery || pageTagFilter.length)" @clear="clearPageFilters" />
             </div>
 
-            <div v-if="pagesStatus === 'pending'" class="flex items-center justify-center py-8">
+            <div v-if="pagesStatus === 'pending' && !pages" class="flex items-center justify-center py-8">
               <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
             </div>
             <div v-else-if="availablePages.length === 0" class="text-center py-6 text-muted">

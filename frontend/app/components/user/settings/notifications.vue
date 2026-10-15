@@ -196,7 +196,7 @@ const notificationColumns: TableColumn<NotificationTypeInfo>[] = [
         class="mb-4"
       />
 
-      <UPageCard v-if="isLoading" variant="subtle">
+      <UPageCard v-if="isLoading && types.length === 0" variant="subtle">
         <div class="flex items-center justify-center py-8">
           <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
         </div>

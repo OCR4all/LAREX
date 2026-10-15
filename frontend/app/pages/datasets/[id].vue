@@ -1248,7 +1248,7 @@ useHead({
     </template>
 
     <template #body>
-      <div v-if="pending" class="flex items-center justify-center py-16">
+      <div v-if="pending && !dataset" class="flex items-center justify-center py-16">
         <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-muted" />
       </div>
 

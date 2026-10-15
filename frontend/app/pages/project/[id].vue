@@ -2738,7 +2738,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
         />
       </div>
 
-      <div v-else-if="projectPending" class="flex items-center justify-center py-8">
+      <div v-else-if="projectPending && !project" class="flex items-center justify-center py-8">
         <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
         <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading project...</span>
       </div>
