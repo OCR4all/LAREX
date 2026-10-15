@@ -1,13 +1,6 @@
 import { backendFetch } from '#server/utils/backendFetch'
-import { collaborationState, type CollaborationLeaseRenewalTarget } from '#server/utils/collaboration-state'
-import type { CollaborationLeaseState } from '~/types/collaboration'
-
-type LeaseRenewalResponse = {
-  renewals: Array<{
-    roomKey: string
-    lease: CollaborationLeaseState
-  }>
-}
+import { collaborationState } from '#server/utils/collaboration-state'
+import type { CollaborationLeaseRenewalResponse, CollaborationLeaseRenewalTarget } from '~/types/collaboration'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event).catch(() => null) as {
@@ -28,7 +21,7 @@ export default defineEventHandler(async (event) => {
     })
   })
 
-  const data = await response.json().catch(() => null) as LeaseRenewalResponse | null
+  const data = await response.json().catch(() => null) as CollaborationLeaseRenewalResponse | null
   if (!response.ok || !data) {
     throw createError({ statusCode: response.status, statusMessage: response.statusText })
   }

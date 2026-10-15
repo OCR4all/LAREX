@@ -1,17 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
-
-export type CollaborationAnnotationRoute
-  = | {
-    scope: 'PROJECT'
-    projectId: string
-    pageId: string
-  }
-  | {
-    scope: 'DATASET'
-    workspaceId: string
-    datasetId: string
-    itemId: string
-  }
+import type { CollaborationAnnotationRoute } from '../../app/types/collaboration'
 
 export interface CollaborationRoomTokenPayload {
   sub: string

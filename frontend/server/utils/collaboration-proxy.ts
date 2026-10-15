@@ -54,7 +54,7 @@ export async function proxyCollaborationBootstrap(
 ): Promise<CollaborationRoomBootstrap> {
   const response = await backendFetch(event, `${target.basePath}/bootstrap`)
   const bootstrap = await response.json().catch(() => null) as
-    | Omit<CollaborationRoomBootstrap, 'token'>
+    | Omit<CollaborationRoomBootstrap, 'token' | 'annotationRoute'>
     | null
 
   if (!response.ok || !bootstrap) {
@@ -81,6 +81,7 @@ export async function proxyCollaborationBootstrap(
 
   return {
     ...bootstrap,
+    annotationRoute: target.annotationRoute,
     token: signCollaborationRoomToken(tokenPayload, runtimeConfig.collaborationSecret)
   }
 }

@@ -241,12 +241,17 @@ public class AnnotationLeaseService {
             expireIfNeeded(context.roomKey(), record, notifications);
             record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
-            touchParticipant(record, context.user(), instanceId);
+            // Renewal never creates membership. A request that arrives after
+            // this instance left must not reopen or become a ghost participant.
+            ParticipantInstanceRecord participant = record.participantInstances.get(instanceId);
+            if (participant != null && participant.user.id().equals(context.user().id())) {
+                touchParticipant(record, context.user(), instanceId);
 
-            if (isOwner(record, context.user().id())) {
-                touchInstance(record, instanceId);
-            } else if (record.owner == null && context.canEdit() && isPreferredParticipant(record, context.user().id(), instanceId)) {
-                assignOwner(record, context.user(), instanceId);
+                if (isOwner(record, context.user().id())) {
+                    touchInstance(record, instanceId);
+                } else if (record.owner == null && context.canEdit() && isPreferredParticipant(record, context.user().id(), instanceId)) {
+                    assignOwner(record, context.user(), instanceId);
+                }
             }
 
             leaseState = toLeaseState(record);

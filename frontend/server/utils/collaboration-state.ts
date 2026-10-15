@@ -54,10 +54,6 @@ type GenericMessage = {
   payload: Record<string, unknown>
 }
 
-export type CollaborationLeaseRenewalTarget = CollaborationRoomTokenPayload['annotationRoute'] & {
-  xmlId: string
-}
-
 const rooms = new Map<string, RoomRecord>()
 const peers = new Map<string, Peer>()
 const peerRooms = new Map<string, Set<string>>()
@@ -415,25 +411,6 @@ export const collaborationState = {
         }
       })
     }
-  },
-
-  getLeaseRenewalTargets(peerId: string, requestedRoomKeys: string[]): CollaborationLeaseRenewalTarget[] {
-    const joinedRoomKeys = peerRooms.get(peerId)
-    if (!joinedRoomKeys) return []
-
-    const targets: CollaborationLeaseRenewalTarget[] = []
-    for (const roomKey of [...new Set(requestedRoomKeys)].slice(0, 100)) {
-      if (!joinedRoomKeys.has(roomKey)) continue
-
-      const member = rooms.get(roomKey)?.members.get(peerId)
-      if (!member?.token.canEdit) continue
-
-      targets.push({
-        ...member.token.annotationRoute,
-        xmlId: member.token.xmlId
-      })
-    }
-    return targets
   },
 
   syncLeaseState(roomKey: string, lease: CollaborationLeaseState, reason = 'lease-updated') {

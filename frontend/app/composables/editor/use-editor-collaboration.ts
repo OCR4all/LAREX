@@ -16,6 +16,7 @@ import type {
   CollaborationLeaseActionResponse,
   CollaborationLeaseState,
   CollaborationLeaseResponse,
+  CollaborationLeaseRenewalResponse,
   CollaborationLeaseOwner,
   CollaborationPresence,
   CollaborationPresenceMessage,
@@ -42,6 +43,7 @@ const canvasSyncSuspended = new Set<string>()
 const canvasPendingSync = new Set<string>()
 const lastPresencePayloads = new Map<string, string>()
 let leaseHeartbeatTimer: ReturnType<typeof setInterval> | null = null
+let leaseRenewalInFlight = false
 const roomBroadcastChannels = new Map<string, BroadcastChannel>()
 const roomBroadcastIntervals = new Map<string, ReturnType<typeof setInterval>>()
 const roomKnownInstances = new Map<string, Map<string, number>>()
@@ -51,6 +53,7 @@ const leaseWarningShownForExpiry = new Map<string, string>()
 const pendingInitialXmlCreations = new Map<string, Promise<string | null>>()
 const roomMembershipOperations = new Map<string, Promise<void>>()
 const canvasMembershipLifetimes = new Map<string, object>()
+const pendingRoomRejoins = new Set<string>()
 
 /** Finish a room's join/leave side effects before a newer membership can use it. */
 async function serializeRoomMembership<T>(roomKey: string, operation: () => Promise<T>): Promise<T> {
@@ -517,26 +520,73 @@ export function useEditorCollaboration() {
     syncLeaseExpiryWarning(roomKey)
   }
 
-  const renewableRoomKeys = (): string[] => {
+  const renewableRooms = (): CollaborationRoomSession[] => {
     return Object.values(rooms.value)
       .filter(room => room.identity.canEdit && (
         room.lease.editor?.user.id === currentUserId.value
         || isLocalRoomLeader(room.identity.roomKey)
       ))
-      .map(room => room.identity.roomKey)
   }
 
-  const renewLeases = () => {
-    const roomKeys = renewableRoomKeys()
-    if (roomKeys.length === 0 || realtime.connectionStatus.value !== 'connected') return
-
-    realtime.send({
-      type: 'LEASE_RENEW',
-      payload: {
-        roomKeys,
-        instanceId: ensureInstanceId()
+  const renewLeaseBatch = async (batch: CollaborationRoomSession[]) => {
+    const memberships = new Map(batch.map(room => [room.identity.roomKey, roomCanvasIds.get(room.identity.roomKey)]))
+    try {
+      // Browser HTTP responses persist refreshed authentication cookies. A
+      // websocket's handshake cookie cannot change during its connection.
+      const response = await $fetch<CollaborationLeaseRenewalResponse>('/api/collaboration/leases/renew', {
+        method: 'POST',
+        timeout: 15_000,
+        retry: false,
+        body: {
+          instanceId: ensureInstanceId(),
+          targets: batch.map(room => ({
+            ...room.identity.annotationRoute,
+            xmlId: room.identity.xmlId
+          }))
+        }
+      })
+      for (const result of response.renewals) {
+        // The last canvas leaving discards this membership set. Do not apply
+        // a response to a room that closed or reopened during its request.
+        if (!rooms.value[result.roomKey] || !memberships.has(result.roomKey)
+          || roomCanvasIds.get(result.roomKey) !== memberships.get(result.roomKey)) continue
+        applyLeaseState(result.roomKey, result.lease)
+        if (rooms.value[result.roomKey]?.lease.editor === null) rejoinOwnerlessRoom(result.roomKey)
       }
-    })
+    } catch (error) {
+      const failure = error as { statusCode?: number, status?: number } | null
+      console.warn('[editor-collaboration] Lease renewal failed', {
+        status: failure?.statusCode ?? failure?.status ?? null,
+        roomCount: batch.length,
+        connectionStatus: realtime.connectionStatus.value
+      })
+    }
+  }
+
+  const rejoinOwnerlessRoom = (roomKey: string) => {
+    if (pendingRoomRejoins.has(roomKey) || !rooms.value[roomKey]?.identity.canEdit) return
+    const canvasId = Object.entries(canvasRooms.value).find(([, key]) => key === roomKey)?.[0]
+    if (!canvasId) return
+    pendingRoomRejoins.add(roomKey)
+    void ensureCanvasRoom(canvasId).catch(() => {
+      console.warn('[editor-collaboration] Failed to rejoin an ownerless room')
+    }).finally(() => pendingRoomRejoins.delete(roomKey))
+  }
+
+  const renewLeases = async () => {
+    const renewable = renewableRooms()
+    if (renewable.length === 0 || leaseRenewalInFlight || !loggedIn.value) return
+
+    leaseRenewalInFlight = true
+    try {
+      const batches: Promise<void>[] = []
+      for (let offset = 0; offset < renewable.length; offset += 100) {
+        batches.push(renewLeaseBatch(renewable.slice(offset, offset + 100)))
+      }
+      await Promise.all(batches)
+    } finally {
+      leaseRenewalInFlight = false
+    }
   }
 
   const stopLeaseHeartbeatTimer = () => {
@@ -546,7 +596,7 @@ export function useEditorCollaboration() {
   }
 
   const reconcileLeaseHeartbeatTimer = (renewImmediately = false) => {
-    if (renewableRoomKeys().length === 0) {
+    if (renewableRooms().length === 0) {
       stopLeaseHeartbeatTimer()
       return
     }
@@ -1141,10 +1191,6 @@ export function useEditorCollaboration() {
             case 'CONNECTED':
             case 'AUTH_ACK':
             case 'PONG':
-            case 'COLLAB_LEASE_RENEWED':
-              break
-            case 'COLLAB_LEASE_RENEWAL_FAILED':
-              console.warn('[editor-collaboration] WebSocket lease renewal failed')
               break
             case 'COLLAB_ERROR': {
               const payload = message.payload as Record<string, unknown> | undefined
@@ -1228,6 +1274,7 @@ export function useEditorCollaboration() {
           projectId: bootstrap.projectId,
           pageId: bootstrap.pageId,
           xmlId: bootstrap.xmlId,
+          annotationRoute: bootstrap.annotationRoute,
           annotationBasePath: context.basePath,
           annotationMode: context.mode,
           createAllowed: context.createAllowed,

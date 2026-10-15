@@ -42,7 +42,7 @@ class AnnotationLeaseEpochSourceIntegrationTest {
             var empty = restarted.getLeaseState(context);
             assertNull(empty.editor());
             assertTrue(empty.leaseEpoch() > remembered.leaseEpoch());
-            var renewed = restarted.heartbeat(context, "instance");
+            var renewed = restarted.joinLease(context, "instance");
             assertEquals("owner", renewed.editor().user().id());
             assertTrue(renewed.leaseEpoch() > empty.leaseEpoch());
 
@@ -70,7 +70,7 @@ class AnnotationLeaseEpochSourceIntegrationTest {
             assertEquals(1L,
                     afterRestart.queryForObject("SELECT increment_by FROM pg_sequences WHERE sequencename = 'annotation_lease_epochs'", Long.class));
             afterRestart.execute("ALTER SEQUENCE annotation_lease_epochs RESTART WITH 9007199254740992");
-            var beyondJavaScriptPrecision = service(afterRestart).heartbeat(context, "instance");
+            var beyondJavaScriptPrecision = service(afterRestart).joinLease(context, "instance");
             var json = tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(beyondJavaScriptPrecision);
             assertTrue(json.contains("\"leaseEpoch\":\"9007199254740993\""));
         }

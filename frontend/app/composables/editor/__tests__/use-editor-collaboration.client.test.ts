@@ -47,6 +47,7 @@ it.each([
     identity: {
       roomKey, workspaceId: 'workspace-1', projectId: 'project-reconnect',
       pageId: 'page-1', xmlId: 'xml-1', token: 'test-token',
+      annotationRoute: { scope: 'PROJECT', projectId: 'project-reconnect', pageId: 'page-1' },
       canEdit: true, canForceTakeover: false, user
     },
     lease: ownedLease,
@@ -74,14 +75,8 @@ it.each([
       if (message.type === 'COLLAB_ROOM_STATE') handleMessage(message)
     }
   } as unknown as Peer
-  const send = vi.fn((message: { type: string, payload?: { roomKeys?: string[] } }) => {
+  const send = vi.fn((message: { type: string }) => {
     if (message.type === 'JOIN_ROOM') collaborationState.joinRoom(peer, token)
-    if (message.type === 'LEASE_RENEW') {
-      renewals.push(renew({ body: {
-        instanceId: 'instance-1',
-        targets: collaborationState.getLeaseRenewalTargets(peer.id, message.payload?.roomKeys ?? [])
-      } }))
-    }
     return true
   })
   vi.stubGlobal('useState', (key: string, init: () => unknown) => {
@@ -94,7 +89,16 @@ it.each([
     subscribe: (callback: typeof handleMessage) => { handleMessage = callback }
   }))
   vi.stubGlobal('useThrottleFn', (callback: unknown) => callback)
-  vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({ roomKey, lease: releasedLease, persistedRevision: 'revision-1' }))
+  vi.stubGlobal('$fetch', vi.fn(async (path: string, options?: { body?: unknown }) => {
+    if (path === '/api/collaboration/leases/renew') {
+      const request = renew({ body: options?.body })
+      renewals.push(request)
+      return request
+    }
+    if (path.endsWith('/token')) return { ...room.identity, persistedRevision: 'revision-1', lease: backendLease }
+    if (path.endsWith('/lease/join')) return { roomKey, lease: backendLease }
+    return { roomKey, lease: releasedLease, persistedRevision: 'revision-1' }
+  }))
   editorStore.getCanvas.mockReturnValue({ projectId: 'project-reconnect', pageId: 'page-1', xmlFileId: 'xml-1' })
   editorStore.getPage.mockReturnValue({ locked: false, workflowState: 'IN_PROGRESS' })
 

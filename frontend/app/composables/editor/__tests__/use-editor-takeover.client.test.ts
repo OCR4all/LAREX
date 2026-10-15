@@ -85,15 +85,19 @@ it.each([true, false])('keeps takeover ownership through a slow reload and renew
       const peer = peers[2]!
       if (message.type === 'JOIN_ROOM') collaborationState.joinRoom(peer, token(curator))
       if (message.type === 'LEAVE_ROOM') collaborationState.leaveRoom(peer.id, roomKey)
-      if (message.type === 'LEASE_RENEW') renew()
       return true
     }
   }))
   const fetch = vi.fn(async (path: string, options?: { body?: { force?: boolean } }) => {
     if (path.endsWith('/token')) {
       return { roomKey, workspaceId: 'workspace', projectId: 'takeover-project', pageId: 'page', xmlId: 'xml',
+        annotationRoute: { scope: 'PROJECT', projectId: 'takeover-project', pageId: 'page' },
         token: 'token', user: curator, canEdit: true, canForceTakeover: true, persistedRevision: 'revision', lease: copyLease()
       } satisfies CollaborationRoomBootstrap
+    }
+    if (path === '/api/collaboration/leases/renew') {
+      renew()
+      return { renewals: [{ roomKey, lease: copyLease() }] }
     }
     if (path.endsWith('/lease/join')) {
       renew()
@@ -234,6 +238,7 @@ it.each([
     }
     if (path.endsWith('/token')) {
       return { roomKey, workspaceId: 'workspace', projectId: 'closing-project', pageId: 'page', xmlId: 'xml',
+        annotationRoute: { scope: 'PROJECT', projectId: 'closing-project', pageId: 'page' },
         token: 'token', user, canEdit: true, canForceTakeover: true, persistedRevision: 'revision', lease: lease()
       } satisfies CollaborationRoomBootstrap
     }
@@ -247,6 +252,7 @@ it.each([
       await firstReleaseResponse
       owned = false
     }
+    if (path === '/api/collaboration/leases/renew') return { renewals: [{ roomKey, lease: lease() }] }
     return { roomKey, lease: lease(), persistedRevision: 'revision' }
   }))
   const scope = effectScope()

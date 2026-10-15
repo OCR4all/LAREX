@@ -85,10 +85,42 @@ class AnnotationLeaseServiceTransferTest {
         assertTrue(empty.leaseEpoch() >= released.leaseEpoch(),
                 "Cleanup must not make an authoritative empty lease look stale");
 
-        AnnotationCollaborationDto.LeaseState renewed = service.heartbeat(owner, "owner-instance");
+        AnnotationCollaborationDto.LeaseState renewed = service.joinLease(owner, "owner-instance");
         assertEditor(renewed, "owner");
         assertTrue(renewed.leaseEpoch() > empty.leaseEpoch(),
                 "An editor remembering the released lease must accept the reacquired lease");
+    }
+
+    @Test
+    void aDelayedHeartbeatDoesNotReopenAReleasedOrPrunedMembership() {
+        var owner = context("owner", false);
+        service.joinLease(owner, "owner-instance");
+        service.releaseLease(owner, "owner-instance");
+        assertNull(service.heartbeat(owner, "owner-instance").editor());
+        service.pruneExpiredLeases();
+        assertNull(service.heartbeat(owner, "owner-instance").editor());
+        assertEditor(service.joinLease(owner, "owner-instance"), "owner");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void aDelayedHeartbeatCannotRestoreADepartedOwnerTabOrViewer(boolean sameOwner) {
+        var owner = context("owner", false);
+        var departing = sameOwner ? owner : context("viewer", false);
+        service.joinLease(owner, "remaining-instance");
+        service.joinLease(departing, "departing-instance");
+        service.releaseLease(departing, "departing-instance");
+        service.heartbeat(departing, "departing-instance");
+        assertNull(service.releaseLease(owner, "remaining-instance").editor());
+    }
+
+    @Test
+    void aHeartbeatCannotCreateMembershipUnderAnotherUsersInstanceId() {
+        var owner = context("owner", false);
+        var viewer = context("viewer", false);
+        service.joinLease(owner, "owner-instance");
+        service.heartbeat(viewer, "owner-instance");
+        assertNull(service.releaseLease(owner, "owner-instance").editor());
     }
 
     @Test
@@ -125,7 +157,7 @@ class AnnotationLeaseServiceTransferTest {
         assertNull(joined.editor());
         assertTrue(joined.leaseEpoch() >= released.leaseEpoch());
 
-        AnnotationCollaborationDto.LeaseState renewed = service.heartbeat(owner, "owner-instance");
+        AnnotationCollaborationDto.LeaseState renewed = service.joinLease(owner, "owner-instance");
         assertEditor(renewed, "owner");
         assertTrue(renewed.leaseEpoch() > joined.leaseEpoch());
     }
@@ -144,7 +176,7 @@ class AnnotationLeaseServiceTransferTest {
         assertTrue(empty.leaseEpoch() > remembered.leaseEpoch(),
                 "A frontend surviving a backend restart must accept its authoritative empty lease");
 
-        AnnotationCollaborationDto.LeaseState renewed = restarted.heartbeat(owner, "owner-instance");
+        AnnotationCollaborationDto.LeaseState renewed = restarted.joinLease(owner, "owner-instance");
         assertEditor(renewed, "owner");
         assertTrue(renewed.leaseEpoch() > empty.leaseEpoch());
     }
@@ -267,6 +299,9 @@ class AnnotationLeaseServiceTransferTest {
             assertEquals(start.plusSeconds(91).toString(), renewed.expiresAt());
 
             // A real timeout still transfers ownership if the curator stops renewing.
+            now.set(start.plusSeconds(70));
+            service.heartbeat(previousEditor, "previous-instance");
+            service.heartbeat(viewer, "viewer-instance");
             now.set(start.plusSeconds(90));
             service.heartbeat(previousEditor, "previous-instance");
             service.heartbeat(viewer, "viewer-instance");

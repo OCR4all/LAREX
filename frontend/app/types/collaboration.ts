@@ -5,6 +5,16 @@ export interface CollaborationUserIdentity {
   avatar?: string | null
 }
 
+export type CollaborationAnnotationRoute
+  = | { scope: 'PROJECT', projectId: string, pageId: string }
+    | { scope: 'DATASET', workspaceId: string, datasetId: string, itemId: string }
+
+export type CollaborationLeaseRenewalTarget = CollaborationAnnotationRoute & { xmlId: string }
+
+export interface CollaborationLeaseRenewalResponse {
+  renewals: CollaborationLeaseResponse[]
+}
+
 export interface CollaborationViewport {
   zoom: number
   offsetX: number
@@ -67,6 +77,7 @@ export interface CollaborationRoomIdentity {
   projectId: string
   pageId: string
   xmlId: string
+  annotationRoute: CollaborationAnnotationRoute
   annotationBasePath?: string
   annotationMode?: string
   createAllowed?: boolean
@@ -122,6 +133,7 @@ export interface CollaborationRoomBootstrap {
   projectId: string
   pageId: string
   xmlId: string
+  annotationRoute: CollaborationAnnotationRoute
   persistedRevision: string
   canEdit: boolean
   canForceTakeover: boolean

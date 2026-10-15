@@ -7,8 +7,6 @@ import {
 import { isExpectedDisconnectError } from '#server/utils/disconnect-error'
 import type { Peer } from 'crossws'
 
-const leaseRenewalsInFlight = new Set<string>()
-
 async function resolveSessionUserId(peer: Peer): Promise<string | null> {
   const cookie = peer.request?.headers?.get('cookie')
   if (!cookie) return null
@@ -43,68 +41,6 @@ function sendJson(peer: Peer, data: unknown) {
       return
     }
     console.warn(`Failed to send WebSocket message to peer ${peerId}:`, error)
-  }
-}
-
-async function renewLeases(peer: Peer, payload: unknown) {
-  if (leaseRenewalsInFlight.has(peer.id)) return
-
-  const renewal = payload as { roomKeys?: unknown, instanceId?: unknown } | null
-  const roomKeys = Array.isArray(renewal?.roomKeys)
-    ? renewal.roomKeys.filter((value): value is string => typeof value === 'string' && Boolean(value)).slice(0, 100)
-    : []
-  const instanceId = typeof renewal?.instanceId === 'string' ? renewal.instanceId.trim() : ''
-  if (roomKeys.length === 0 || !instanceId) {
-    sendJson(peer, {
-      type: 'COLLAB_LEASE_RENEWAL_FAILED',
-      payload: { message: 'Invalid lease renewal payload' }
-    })
-    return
-  }
-
-  const targets = collaborationState.getLeaseRenewalTargets(peer.id, roomKeys)
-  if (targets.length === 0) return
-
-  const cookie = peer.request?.headers?.get('cookie')
-  if (!cookie) {
-    sendJson(peer, {
-      type: 'COLLAB_LEASE_RENEWAL_FAILED',
-      payload: { message: 'Missing authenticated session' }
-    })
-    return
-  }
-
-  leaseRenewalsInFlight.add(peer.id)
-  try {
-    const response = await useNitroApp().localFetch('/api/collaboration/leases/renew', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        cookie
-      },
-      body: JSON.stringify({ instanceId, targets })
-    })
-
-    if (!response.ok) {
-      throw new Error(`Lease renewal failed with status ${response.status}`)
-    }
-
-    const data = await response.json() as { renewals?: Array<{ roomKey?: string }> }
-    sendJson(peer, {
-      type: 'COLLAB_LEASE_RENEWED',
-      payload: {
-        roomKeys: (data.renewals ?? []).map(item => item.roomKey).filter(Boolean),
-        renewedAt: new Date().toISOString()
-      }
-    })
-  } catch (error) {
-    console.warn(`Failed to renew collaboration leases for peer ${peer.id}:`, error)
-    sendJson(peer, {
-      type: 'COLLAB_LEASE_RENEWAL_FAILED',
-      payload: { message: 'Lease renewal failed' }
-    })
-  } finally {
-    leaseRenewalsInFlight.delete(peer.id)
   }
 }
 
@@ -216,10 +152,6 @@ export default defineWebSocketHandler({
           return
         }
 
-        case 'LEASE_RENEW':
-          void renewLeases(peer, data.payload)
-          return
-
         default:
           console.log(`Unknown message type: ${data.type}`)
       }
@@ -235,7 +167,6 @@ export default defineWebSocketHandler({
     console.log(`WebSocket disconnected: ${peerId}`)
     websocketUtils.unregisterPeer(peerId)
     collaborationState.unregisterPeer(peerId)
-    leaseRenewalsInFlight.delete(peerId)
   },
 
   error(peer, error) {
