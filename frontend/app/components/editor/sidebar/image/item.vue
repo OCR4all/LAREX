@@ -359,7 +359,7 @@ async function handleCopyPageId() {
           </UPopover>
         </div>
 
-        <div class="mt-1 flex min-w-0 items-center gap-2 overflow-hidden text-[10px] text-neutral-600 dark:text-neutral-400">
+        <div class="mt-1 flex min-w-0 items-center gap-2 text-[10px] text-neutral-600 dark:text-neutral-400">
           <span class="inline-flex shrink-0 items-center gap-1">
             <Icon :name="workflowStateBadge.icon" class="size-3" />
             {{ workflowStateBadge.label }}
