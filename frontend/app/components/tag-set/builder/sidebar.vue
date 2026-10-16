@@ -1,4 +1,8 @@
 <script setup lang="ts">
+const { isReadOnly = false } = defineProps<{
+  isReadOnly?: boolean
+}>()
+
 const emit = defineEmits<{
   create: [parentId?: string]
   select: [tagId: string]
@@ -7,19 +11,77 @@ const emit = defineEmits<{
 }>()
 
 const {
+  meta,
   tags,
   searchQuery,
   filteredTags,
-  createTag,
   expandAll,
   collapseAll
 } = useTagSetBuilder()
+
+const openMetadataPanels = ref<string[]>([])
+const metadataPanelItems = [{
+  label: 'Tag set details',
+  icon: 'i-lucide-settings-2',
+  slot: 'metadata',
+  value: 'metadata'
+}]
+
+const descriptionModel = computed({
+  get: () => meta.description ?? '',
+  set: (value: string) => {
+    meta.description = value
+  }
+})
 </script>
 
 <template>
-  <aside data-tour="tag-builder-sidebar" class="w-80 bg-neutral-50/30 dark:bg-neutral-800/50 border-r border-neutral-200 dark:border-neutral-700 flex flex-col shrink-0">
-    <div class="p-4 border-b border-neutral-200/50 dark:border-neutral-700/50">
-      <div class="flex items-center gap-2 mb-3">
+  <aside data-tour="tag-builder-sidebar" class="flex w-80 shrink-0 flex-col border-r border-default bg-muted/20">
+    <div class="space-y-2 border-b border-default p-3">
+      <UAccordion
+        v-model="openMetadataPanels"
+        :items="metadataPanelItems"
+        type="multiple"
+        :ui="{
+          item: 'border-b-0',
+          trigger: 'px-1 py-2',
+          body: 'px-1 pb-1'
+        }"
+      >
+        <template #metadata>
+          <div class="space-y-3">
+            <UFormField label="Name" required>
+              <UInput
+                v-model="meta.name"
+                placeholder="e.g. Document Types"
+                :disabled="isReadOnly"
+                size="sm"
+              />
+            </UFormField>
+
+            <UFormField label="Description">
+              <UTextarea
+                v-model="descriptionModel"
+                placeholder="Describe this tag set and its purpose..."
+                :rows="2"
+                :disabled="isReadOnly"
+                size="sm"
+              />
+            </UFormField>
+
+            <UFormField label="Tags">
+              <UInputTags
+                v-model="meta.tags"
+                placeholder="Add tags..."
+                :disabled="isReadOnly"
+                size="sm"
+              />
+            </UFormField>
+          </div>
+        </template>
+      </UAccordion>
+      <USeparator />
+      <div class="flex items-center gap-2">
         <UInput
           v-model="searchQuery"
           placeholder="Search tags..."
@@ -42,11 +104,12 @@ const {
 
       <div class="flex items-center justify-between">
         <UButton
+          v-if="!isReadOnly"
           label="Add Tag"
           icon="i-lucide-plus"
           size="xs"
           variant="soft"
-          @click="() => { createTag() }"
+          @click="emit('create')"
         />
 
         <div class="flex items-center gap-1">
@@ -70,11 +133,11 @@ const {
       </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto p-2">
+    <div class="min-h-0 flex-1 overflow-y-auto p-2">
       <div v-if="filteredTags.length === 0" class="text-center text-sm text-neutral-500 py-8">
         <UIcon name="i-lucide-folder-open" class="w-8 h-8 mx-auto mb-2 opacity-50" />
         <p>No tags yet</p>
-        <p class="text-xs">
+        <p v-if="!isReadOnly" class="text-xs">
           Click "Add Tag" to create one
         </p>
       </div>
@@ -91,7 +154,7 @@ const {
       />
     </div>
 
-    <div class="p-4 border-t border-neutral-200/50 dark:border-neutral-700/50 text-xs text-neutral-500">
+    <div class="border-t border-default p-4 text-xs text-muted">
       {{ tags.length }} root tag{{ tags.length !== 1 ? 's' : '' }}
     </div>
   </aside>

@@ -50,7 +50,7 @@ const descendantCount = computed(() => {
 </script>
 
 <template>
-  <div class="w-full lg:w-96 bg-neutral-50 dark:bg-neutral-950 border-l border-neutral-200 dark:border-neutral-800 p-6 flex flex-col relative">
+  <div class="w-full shrink-0 bg-neutral-50 dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800 p-6 flex flex-col relative 2xl:w-96 2xl:overflow-y-auto 2xl:border-t-0 2xl:border-l 2xl:pb-28">
     <div class="absolute top-2 left-4 text-xs font-bold text-neutral-500 tracking-widest">
       Preview
     </div>

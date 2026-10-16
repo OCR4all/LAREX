@@ -351,7 +351,7 @@ const tours: OnboardingTourDefinition[] = [
         element: '[data-tour="tag-builder-header"]',
         popover: {
           title: 'Builder Actions',
-          description: 'Save, import or export, optimize colors, and manage metadata.',
+          description: 'Save, import or export, and optimize colors.',
           side: 'bottom',
           align: 'start'
         }
@@ -360,7 +360,7 @@ const tours: OnboardingTourDefinition[] = [
         element: '[data-tour="tag-builder-sidebar"]',
         popover: {
           title: 'Tag Tree',
-          description: 'Create nested tags and organize the hierarchy.',
+          description: 'Edit the tag set name, description, and tags under Tag set details. Create nested tags and organize the hierarchy below.',
           side: 'right',
           align: 'start'
         }

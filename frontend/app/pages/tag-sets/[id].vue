@@ -4,7 +4,6 @@ import type { TagSet, TagSetCreateOrUpdateRequest } from '@/types/tag-set'
 import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import {
   LazyShareSlideover,
-  LazyTagSetBuilderSlideoverMetadata,
   LazyUiDeleteSlideover,
   LazyUiConfirmSlideover
 } from '#components'
@@ -17,7 +16,6 @@ const overlay = useOverlay()
 const backgroundDownloads = useBackgroundDownloads()
 const { allow } = useActionVisibility()
 
-const metadataSlideover = overlay.create(LazyTagSetBuilderSlideoverMetadata)
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 const shareSlideover = overlay.create(LazyShareSlideover)
@@ -95,6 +93,16 @@ const tagSetCapabilities = computed(() => ({
 const canEditTagSet = computed(() => isNew || allow(tagSetCapabilities.value.canEdit))
 const canShareTagSet = computed(() => !isNew && allow(tagSetCapabilities.value.canShare))
 const canDeleteTagSet = computed(() => !isNew && allow(tagSetCapabilities.value.canDelete))
+
+const handleCreateTag = (parentId?: string) => {
+  if (!canEditTagSet.value) return
+  createTag(parentId)
+}
+
+const handleDuplicateTag = (tagId: string) => {
+  if (!canEditTagSet.value) return
+  duplicateTag(tagId)
+}
 
 const stripUiFields = (tagList: typeof tags.value): TagSetCreateOrUpdateRequest['tags'] => {
   return tagList.map(tag => ({
@@ -346,11 +354,6 @@ const handleDeleteTag = async (tagId: string) => {
     toast.add({ title: 'Tag deleted', color: 'success' })
   }
 }
-
-const openSettings = () => {
-  if (!canEditTagSet.value) return
-  metadataSlideover.open({ onSave: handleSave })
-}
 </script>
 
 <template>
@@ -373,21 +376,21 @@ const openSettings = () => {
         @save="handleSave"
         @share="handleShareTagSet"
         @optimize="handleOptimize"
-        @open-settings="openSettings"
       />
     </template>
 
     <template #body>
       <div class="h-full flex overflow-hidden">
         <TagSetBuilderSidebar
-          @create="() => { if (canEditTagSet) createTag() }"
+          :is-read-only="!canEditTagSet"
+          @create="handleCreateTag"
           @select="selectTag"
           @delete="(tagId) => { if (canEditTagSet) handleDeleteTag(tagId) }"
-          @duplicate="(tagId) => { if (canEditTagSet) duplicateTag(tagId) }"
+          @duplicate="handleDuplicateTag"
         />
 
-        <section class="flex-1 bg-neutral-50/70 dark:bg-neutral-900 flex flex-col relative">
-          <div v-if="activeTag" class="flex-1 flex flex-col lg:flex-row h-full">
+        <section class="min-h-0 min-w-0 flex-1 bg-neutral-50/70 dark:bg-neutral-900 flex flex-col relative">
+          <div v-if="activeTag" class="min-h-0 flex-1 flex flex-col overflow-y-auto pb-28 2xl:flex-row 2xl:overflow-hidden 2xl:pb-0">
             <TagSetBuilderEditor />
             <TagSetBuilderPreview />
           </div>
@@ -424,6 +427,42 @@ const openSettings = () => {
           </div>
         </section>
       </div>
+
+      <UiFloatingSelectionMenu
+        :selected-count="activeTag ? 1 : 0"
+        label="tag selected"
+        @clear="activeTag = null"
+      >
+        <template v-if="activeTag && canEditTagSet">
+          <UButton
+            label="Add Child"
+            icon="i-lucide-plus"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            aria-label="Add child to selected tag"
+            @click="handleCreateTag(activeTag.id)"
+          />
+          <UButton
+            label="Duplicate"
+            icon="i-lucide-copy"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            aria-label="Duplicate selected tag"
+            @click="handleDuplicateTag(activeTag.id)"
+          />
+          <UButton
+            label="Delete"
+            icon="i-lucide-trash"
+            color="error"
+            variant="ghost"
+            size="sm"
+            aria-label="Delete selected tag"
+            @click="handleDeleteTag(activeTag.id)"
+          />
+        </template>
+      </UiFloatingSelectionMenu>
 
       <input
         ref="fileInput"

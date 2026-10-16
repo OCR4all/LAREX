@@ -11,7 +11,7 @@ const hasErrors = computed(() => activeTag.value?.errors && activeTag.value.erro
 </script>
 
 <template>
-  <div data-tour="tag-builder-editor" class="flex-1 p-8 overflow-y-auto custom-scroll">
+  <div data-tour="tag-builder-editor" class="flex-none p-8 custom-scroll 2xl:min-h-0 2xl:min-w-0 2xl:flex-1 2xl:overflow-y-auto 2xl:pb-28">
     <div v-if="activeTag" class="max-w-2xl mx-auto space-y-8">
       <div v-if="hasErrors" class="bg-error/10 border border-error/30 rounded-sm p-4">
         <div class="flex items-start gap-3">

@@ -17,7 +17,6 @@ const emit = defineEmits<{
   save: []
   share: []
   optimize: []
-  openSettings: []
 }>()
 
 const { meta, totalErrors } = useTagSetBuilder()
@@ -54,14 +53,6 @@ const dropdownItems = computed(() => {
           />
 
           <UFieldGroup>
-            <UButton
-              icon="i-lucide-settings"
-              color="neutral"
-              variant="outline"
-              :disabled="props.isReadOnly"
-              @click="emit('openSettings')"
-            />
-
             <UButton
               label="Save"
               color="neutral"
