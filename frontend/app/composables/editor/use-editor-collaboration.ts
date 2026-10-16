@@ -1043,11 +1043,15 @@ export function useEditorCollaboration() {
       const canvas = editorStore.canvases?.[canvasId]
       if (!canvas?.projectId || !canvas.pageId) return
 
+      // Lease transfers and revision changes must reload persisted XML, not the
+      // document cached before another collaborator saved it.
+      editorStore.invalidateAnnotationCache(canvas.pageId, canvas.projectId)
       await editorStore.loadPageIntoCanvas(
         canvasId,
         canvas.projectId,
         canvas.pageId,
-        canvas.imageVariantId ?? undefined
+        canvas.imageVariantId ?? undefined,
+        { awaitAnnotations: true }
       )
     }))
   }
@@ -1625,13 +1629,22 @@ export function useEditorCollaboration() {
 
   const requestTakeover = async (
     canvasId: string,
-    force = false
+    force = false,
+    handoffMode: 'save' | 'discard' = 'discard'
   ): Promise<CollaborationLeaseActionOutcome | null> => {
     const roomKey = getRoomKeyForCanvas(canvasId)
     const room = roomKey ? rooms.value[roomKey] : null
     if (!roomKey || !room) return null
 
     try {
+      const document = getEditorSession(canvasId)?.document.value
+      if (handoffMode === 'save' && (!force || !document || !room.viewerSync.snapshotReady || room.viewerSync.resyncRequired)) {
+        return null
+      }
+      const savePayload = handoffMode === 'save' && document
+        ? { annotations: convertPcGtsToPageDto(document), expectedLeaseEpoch: room.lease.leaseEpoch }
+        : {}
+
       // A takeover can be initiated before the initial WebSocket room join has
       // been acknowledged. Rejoining here guarantees that subsequent batched
       // renewals can resolve this room for the instance receiving the lease.
@@ -1643,7 +1656,8 @@ export function useEditorCollaboration() {
           method: 'POST',
           body: {
             force,
-            instanceId: ensureInstanceId()
+            instanceId: ensureInstanceId(),
+            ...savePayload
           }
         }
       )

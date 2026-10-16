@@ -3,19 +3,15 @@ import {
   proxyCollaborationLease
 } from '#server/utils/collaboration-proxy'
 import type { CollaborationLeaseActionResponse } from '~/types/collaboration'
+import { parseTakeoverRequestBody } from '#server/utils/collaboration-lease-action'
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event).catch(() => null) as { force?: boolean, instanceId?: string } | null
-  const force = body?.force === true
-  const instanceId = body?.instanceId?.trim()
-  if (!instanceId) {
-    throw createError({ statusCode: 400, statusMessage: 'Missing collaboration instance ID' })
-  }
+  const body = parseTakeoverRequestBody(await readBody(event).catch(() => null))
   return proxyCollaborationLease<CollaborationLeaseActionResponse>(
     event,
     datasetCollaborationTarget(event),
     'request',
-    { force, instanceId },
-    force ? 'force-takeover' : 'takeover-requested'
+    body,
+    body.force ? 'force-takeover' : 'takeover-requested'
   )
 })

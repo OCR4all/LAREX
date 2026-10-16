@@ -1,7 +1,9 @@
 package de.uniwue.zpd.dachs.larex.backend.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -107,8 +109,15 @@ public class AnnotationCollaborationDto {
 
     public record TakeoverRequestPayload(
             boolean force,
-            @NotBlank String instanceId
-    ) {}
+            @NotBlank String instanceId,
+            PageDto annotations,
+            Long expectedLeaseEpoch
+    ) {
+        @AssertTrue(message = "Saving before takeover requires force and expectedLeaseEpoch")
+        public boolean isSaveBeforeTakeoverValid() {
+            return annotations == null || (force && expectedLeaseEpoch != null);
+        }
+    }
 
     public record TakeoverResponsePayload(
             @NotBlank

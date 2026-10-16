@@ -8,6 +8,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationServic
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -258,6 +259,33 @@ public class AnnotationLeaseService {
         }
         dispatchNotifications(notifications);
         return leaseState;
+    }
+
+    @FunctionalInterface
+    public interface TakeoverSave {
+        void save() throws IOException;
+    }
+
+    /** Save while ownership is stable, and transfer only after persistence succeeds. */
+    public AnnotationCollaborationDto.LeaseActionResult saveAndForceTakeover(RoomAccessContext context,
+                                                                            String instanceId,
+                                                                            long expectedLeaseEpoch,
+                                                                            TakeoverSave save) throws IOException {
+        synchronized (leases) {
+            AnnotationCollaborationDto.LeaseState lease = getLeaseState(context);
+            if (!context.canEdit() || !context.canForceTakeover()) {
+                return new AnnotationCollaborationDto.LeaseActionResult(lease,
+                        AnnotationCollaborationDto.LeaseActionOutcome.FORBIDDEN,
+                        "You do not have permission to save and force an edit takeover.");
+            }
+            if (lease.leaseEpoch() != expectedLeaseEpoch) {
+                return new AnnotationCollaborationDto.LeaseActionResult(lease,
+                        AnnotationCollaborationDto.LeaseActionOutcome.CONFLICT,
+                        "Edit access changed. Review the current annotations and try again.");
+            }
+            save.save();
+            return requestTakeoverAction(context, true, instanceId);
+        }
     }
 
     public AnnotationCollaborationDto.LeaseState requestTakeover(RoomAccessContext context, boolean force) {

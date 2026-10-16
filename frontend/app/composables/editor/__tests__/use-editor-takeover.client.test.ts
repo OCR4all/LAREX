@@ -4,14 +4,16 @@ import type { Peer } from 'crossws'
 import type { CollaborationLeaseState, CollaborationRoomBootstrap, CollaborationUserIdentity } from '@/types/collaboration'
 import type { CollaborationRoomTokenPayload } from '#server/utils/collaboration-token'
 import { collaborationState } from '#server/utils/collaboration-state'
-import { clearAllEditorSessions, ensureEditorSession } from '@/session/editor/editor-session'
-import { convertPageDtoToPcGts } from '@/services/editor/page-conversion.service'
+import { clearAllEditorSessions, ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
+import { convertPageDtoToPcGts, convertPcGtsToPageDto } from '@/services/editor/page-conversion.service'
+import { snapshotFromPageDto } from '@/utils/editor/collaboration-page-doc'
+import type { PageDto } from '@/types/page-dto'
 import { useEditorCanvasCollaboration } from '../use-editor-canvas-collaboration'
 import { useEditorCollaboration } from '../use-editor-collaboration'
 
 const store = vi.hoisted(() => ({
   canvases: {} as Record<string, { projectId: string, pageId: string, xmlFileId: string | null, isLoadingAnnotations: boolean }>,
-  getCanvas: vi.fn(), getPage: vi.fn(), loadPageIntoCanvas: vi.fn(), resetCanvasHistoryBaseline: vi.fn()
+  getCanvas: vi.fn(), getPage: vi.fn(), loadPageIntoCanvas: vi.fn(), resetCanvasHistoryBaseline: vi.fn(), invalidateAnnotationCache: vi.fn()
 }))
 vi.mock('@/stores/editor/editor.store', () => ({ useEditorStore: () => store }))
 
@@ -20,10 +22,16 @@ afterEach(() => {
   vi.clearAllTimers()
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   vi.clearAllMocks()
 })
 
-it.each([true, false])('keeps takeover ownership through a slow reload and renewal (forced=%s)', async (force) => {
+it.each([
+  { force: true, handoffMode: 'save' as const },
+  { force: true, handoffMode: 'save' as const, saveFailure: true },
+  { force: true, handoffMode: 'discard' as const },
+  { force: false, handoffMode: 'discard' as const }
+])('keeps annotations and ownership through a slow reload (forced=$force, mode=$handoffMode, saveFailure=$saveFailure)', async ({ force, handoffMode, saveFailure = false }) => {
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-10-14T12:00:36Z'))
   vi.stubGlobal('window', { sessionStorage: { getItem: () => 'curator-instance' }, addEventListener: vi.fn() })
@@ -47,9 +55,11 @@ it.each([true, false])('keeps takeover ownership through a slow reload and renew
   } })
   store.getCanvas.mockImplementation((id: string) => store.canvases[id])
   store.getPage.mockReturnValue({ locked: false, workflowState: 'IN_PROGRESS' })
+  let persistedPage: PageDto = { imageWidth: 100, imageHeight: 100, custom: 'persisted annotations' }
   store.loadPageIntoCanvas.mockImplementation(async () => {
     store.canvases[canvasId]!.isLoadingAnnotations = true
     await new Promise(resolve => setTimeout(resolve, 9000))
+    getEditorSession(canvasId)!.document.value = convertPageDtoToPcGts(persistedPage)
     store.canvases[canvasId]!.isLoadingAnnotations = false
   })
   let epoch = 2n
@@ -88,7 +98,7 @@ it.each([true, false])('keeps takeover ownership through a slow reload and renew
       return true
     }
   }))
-  const fetch = vi.fn(async (path: string, options?: { body?: { force?: boolean } }) => {
+  const fetch = vi.fn(async (path: string, options?: { body?: { force?: boolean, annotations?: PageDto } }) => {
     if (path.endsWith('/token')) {
       return { roomKey, workspaceId: 'workspace', projectId: 'takeover-project', pageId: 'page', xmlId: 'xml',
         annotationRoute: { scope: 'PROJECT', projectId: 'takeover-project', pageId: 'page' },
@@ -104,6 +114,8 @@ it.each([true, false])('keeps takeover ownership through a slow reload and renew
       return { roomKey, lease: copyLease() }
     }
     if (path.endsWith('/lease/request')) {
+      if (saveFailure && options?.body?.annotations) throw new Error('Save failed')
+      if (options?.body?.annotations) persistedPage = structuredClone(options.body.annotations)
       if (options?.body?.force) grant()
       else {
         lease.pendingTakeover = { requester: curator, requestedAt: new Date().toISOString(), force: false }
@@ -137,7 +149,27 @@ it.each([true, false])('keeps takeover ownership through a slow reload and renew
     expect(collaboration.getCanvasCollaborators(canvasId)).toHaveLength(2)
     expect(collaboration.canEditCanvas(canvasId)).toBe(false)
 
-    const outcome = await collaboration.requestTakeover(canvasId, force)
+    collaborationState.applySnapshotUpdate(peers[0]!.id, roomKey, snapshotFromPageDto({
+      imageWidth: 100, imageHeight: 100, custom: 'unsaved live annotations',
+      regions: [{ id: 'unsaved-region', kind: 'TextRegion', coords: { points: [[0, 0], [50, 0], [50, 50], [0, 50]] } }]
+    }))
+    expect(convertPcGtsToPageDto(getEditorSession(canvasId)!.document.value!).custom).toBe('unsaved live annotations')
+    if (saveFailure) vi.spyOn(console, 'error').mockImplementation(() => {})
+    const outcome = await collaboration.requestTakeover(canvasId, force, handoffMode)
+    const request = fetch.mock.calls.find(([path]) => path.endsWith('/lease/request'))?.[1]?.body
+    if (handoffMode === 'save') {
+      expect(request).toMatchObject({ force: true, expectedLeaseEpoch: '2', annotations: { custom: 'unsaved live annotations' } })
+    } else {
+      expect(request).not.toHaveProperty('annotations')
+    }
+    if (saveFailure) {
+      expect(outcome).toBeNull()
+      expect(collaboration.getCanvasEditor(canvasId)?.user.id).toBe(previous.id)
+      expect(store.loadPageIntoCanvas).not.toHaveBeenCalled()
+      expect(convertPcGtsToPageDto(getEditorSession(canvasId)!.document.value!).custom).toBe('unsaved live annotations')
+      expect(persistedPage.custom).toBe('persisted annotations')
+      return
+    }
     if (!force) {
       expect(outcome).toBe('PENDING')
       grant()
@@ -160,6 +192,8 @@ it.each([true, false])('keeps takeover ownership through a slow reload and renew
     await collaboration.requestTakeover(canvasId, false)
     expect(collaboration.getCanvasSecondsUntilExpiry(canvasId)).toBe(45)
     await vi.advanceTimersByTimeAsync(60_000)
+    expect(convertPcGtsToPageDto(getEditorSession(canvasId)!.document.value!).custom)
+      .toBe(handoffMode === 'save' ? 'unsaved live annotations' : 'persisted annotations')
     expect(collaboration.canEditCanvas(canvasId)).toBe(true)
     expect(collaboration.getCanvasEditor(canvasId)?.user.id).toBe(curator.id)
     expect(fetch.mock.calls.some(([path]) => path.endsWith('/lease/release'))).toBe(false)

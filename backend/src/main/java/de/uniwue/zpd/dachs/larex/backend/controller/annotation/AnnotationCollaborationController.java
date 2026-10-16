@@ -1,7 +1,9 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.annotation;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.AnnotationCollaborationDto;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
+import java.io.IOException;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,9 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AnnotationCollaborationController {
 
     private final AnnotationLeaseService annotationLeaseService;
+    private final AnnotationProcessingService annotationProcessingService;
 
-    public AnnotationCollaborationController(AnnotationLeaseService annotationLeaseService) {
+    public AnnotationCollaborationController(AnnotationLeaseService annotationLeaseService,
+                                             AnnotationProcessingService annotationProcessingService) {
         this.annotationLeaseService = annotationLeaseService;
+        this.annotationProcessingService = annotationProcessingService;
     }
 
     @GetMapping("/bootstrap")
@@ -101,11 +106,14 @@ public class AnnotationCollaborationController {
             @PathVariable String pageId,
             @PathVariable String xmlId,
             @Valid @RequestBody AnnotationCollaborationDto.TakeoverRequestPayload payload,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
 
         AnnotationLeaseService.RoomAccessContext context = annotationLeaseService.resolveRoomAccess(projectId, pageId, xmlId, userId);
         AnnotationCollaborationDto.LeaseActionResult result =
-                annotationLeaseService.requestTakeoverAction(context, payload.force(), payload.instanceId());
+                payload.annotations() == null
+                        ? annotationLeaseService.requestTakeoverAction(context, payload.force(), payload.instanceId())
+                        : annotationLeaseService.saveAndForceTakeover(context, payload.instanceId(), payload.expectedLeaseEpoch(),
+                                () -> annotationProcessingService.saveAnnotationToXml(xmlId, payload.annotations(), userId));
         return ResponseEntity.ok(new AnnotationCollaborationDto.LeaseActionResponse(
                 context.roomKey(),
                 result.lease(),

@@ -21,6 +21,8 @@ import org.springframework.transaction.support.SimpleTransactionStatus;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.time.Instant;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -468,6 +470,72 @@ class AnnotationLeaseServiceTransferTest {
                 "second-requester",
                 secondRequest.lease().pendingTakeover().requester().id()
         );
+    }
+
+    @Test
+    void forceTakeoverSavesBeforeChangingOwner() throws IOException {
+        var owner = context("owner", false);
+        var manager = context("manager", true);
+        var initial = service.joinLease(owner, "owner-instance");
+        AtomicBoolean saved = new AtomicBoolean();
+
+        var result = service.saveAndForceTakeover(manager, "manager-instance", initial.leaseEpoch(), () -> {
+            assertEditor(service.getLeaseState(owner), "owner");
+            saved.set(true);
+        });
+
+        assertTrue(saved.get());
+        assertEquals(AnnotationCollaborationDto.LeaseActionOutcome.GRANTED, result.outcome());
+        assertEditor(result.lease(), "manager");
+        assertTrue(result.lease().leaseEpoch() > initial.leaseEpoch());
+    }
+
+    @Test
+    void failedForceSaveKeepsOwnerAndPendingRequest() {
+        var owner = context("owner", false);
+        var manager = context("manager", true);
+        service.joinLease(owner, "owner-instance");
+        var pending = service.requestTakeoverAction(context("requester", false), false, "requester-instance");
+        clearInvocations(notificationService);
+
+        assertThrows(IOException.class, () -> service.saveAndForceTakeover(manager, "manager-instance",
+                pending.lease().leaseEpoch(), () -> { throw new IOException("Save failed"); }));
+
+        var unchanged = service.getLeaseState(owner);
+        assertEditor(unchanged, "owner");
+        assertEquals(pending.lease().leaseEpoch(), unchanged.leaseEpoch());
+        assertEquals("requester", unchanged.pendingTakeover().requester().id());
+        verifyNoInteractions(notificationService);
+    }
+
+    @Test
+    void forceSaveRequiresTakeoverPermission() throws IOException {
+        var owner = context("owner", false);
+        var initial = service.joinLease(owner, "owner-instance");
+        AtomicBoolean saved = new AtomicBoolean();
+
+        var result = service.saveAndForceTakeover(context("viewer", false), "viewer-instance",
+                initial.leaseEpoch(), () -> saved.set(true));
+
+        assertFalse(saved.get());
+        assertEquals(AnnotationCollaborationDto.LeaseActionOutcome.FORBIDDEN, result.outcome());
+        assertEditor(result.lease(), "owner");
+    }
+
+    @Test
+    void staleForceSaveCannotOverwriteAnnotationsAfterAnotherTakeover() throws IOException {
+        var owner = context("owner", false);
+        var manager = context("manager", true);
+        var initial = service.joinLease(owner, "owner-instance");
+        service.requestTakeoverAction(context("other-manager", true), true, "other-instance");
+        AtomicBoolean saved = new AtomicBoolean();
+
+        var result = service.saveAndForceTakeover(manager, "manager-instance", initial.leaseEpoch(),
+                () -> saved.set(true));
+
+        assertFalse(saved.get());
+        assertEquals(AnnotationCollaborationDto.LeaseActionOutcome.CONFLICT, result.outcome());
+        assertEditor(result.lease(), "other-manager");
     }
 
     private AnnotationLeaseService.RoomAccessContext context(String userId, boolean canForceTakeover) {

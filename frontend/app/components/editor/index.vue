@@ -213,6 +213,14 @@ const collaborationClick = ref<{ id: string, x: number, y: number } | null>(null
 let collaborationClickSequence = 0
 let collaborationClickClearTimer: ReturnType<typeof setTimeout> | null = null
 const isTakeoverActionPending = ref(false)
+const forceTakeoverModalOpen = ref(false)
+const canSaveBeforeTakeover = computed(() =>
+  canForceTakeover.value
+  && Boolean(session.document.value)
+  && collaboration.isCollaborativeCanvas(props.canvasId)
+  && !isCollaborationResyncRequired.value
+  && !canvasState.value?.isLoadingAnnotations
+)
 const collaboratorsPopoverOpen = ref(false)
 const {
   collaborationVisibleParticipants,
@@ -3008,19 +3016,21 @@ const remoteClickOverlays = computed(() => {
   }]
 })
 
-async function handleRequestTakeover(force = false) {
+async function handleRequestTakeover(force = false, handoffMode: 'save' | 'discard' = 'discard') {
   if (isTakeoverActionPending.value) return
   isTakeoverActionPending.value = true
 
-  const outcome = await collaboration.requestTakeover(props.canvasId, force)
+  const outcome = await collaboration.requestTakeover(props.canvasId, force, handoffMode)
     .finally(() => {
       isTakeoverActionPending.value = false
     })
 
   if (!outcome) {
     toast.add({
-      title: 'Request failed',
-      description: 'Could not send the edit transfer request.',
+      title: handoffMode === 'save' ? 'Save and takeover failed' : 'Request failed',
+      description: handoffMode === 'save'
+        ? 'The annotations could not be saved, so the edit lock was not transferred. Please try again.'
+        : 'Could not send the edit transfer request.',
       color: 'error'
     })
     return
@@ -3028,19 +3038,20 @@ async function handleRequestTakeover(force = false) {
 
   if (outcome === 'FORBIDDEN' || outcome === 'CONFLICT') {
     toast.add({
-      title: outcome === 'FORBIDDEN' ? 'Request not permitted' : 'Request already pending',
+      title: outcome === 'FORBIDDEN' ? 'Request not permitted' : 'Edit request conflict',
       description: outcome === 'FORBIDDEN'
         ? 'You do not have permission to take over editing this page.'
-        : 'Another collaborator already has a pending edit request.',
+        : 'Edit access changed or another request is pending. Review the current annotations and try again.',
       color: outcome === 'FORBIDDEN' ? 'error' : 'warning'
     })
     return
   }
 
+  forceTakeoverModalOpen.value = false
   toast.add({
     title: outcome === 'GRANTED' ? 'Edit lock acquired' : 'Edit request sent',
     description: outcome === 'GRANTED'
-      ? 'You can now edit this page.'
+      ? handoffMode === 'save' ? 'The current annotations were saved. You can now edit this page.' : 'You can now edit this page.'
       : 'The current editor has been notified.',
     color: outcome === 'GRANTED' ? 'success' : (force ? 'warning' : 'info')
   })
@@ -3261,6 +3272,50 @@ watch(() => props.src, (newSrc) => {
 
 <template>
   <div class="relative w-full h-full flex flex-col min-h-0">
+    <UModal
+      v-model:open="forceTakeoverModalOpen"
+      title="Force takeover"
+      description="Choose what happens to the current annotations before taking edit access."
+      :dismissible="!isTakeoverActionPending"
+      :close="!isTakeoverActionPending"
+    >
+      <template #body>
+        <p class="text-sm text-toned">
+          Save the current live annotations before taking over, or discard unsaved changes and reload the last saved version.
+        </p>
+        <p v-if="!canSaveBeforeTakeover" class="mt-3 text-sm text-warning">
+          Saving is unavailable until the current live annotations are synchronized. Close this dialog and resync the page if needed.
+        </p>
+      </template>
+      <template #footer>
+        <div class="flex w-full flex-wrap justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            :disabled="isTakeoverActionPending"
+            @click="forceTakeoverModalOpen = false"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            color="error"
+            variant="outline"
+            :disabled="isTakeoverActionPending || !canForceTakeover"
+            @click="handleRequestTakeover(true, 'discard')"
+          >
+            Discard and take over
+          </UButton>
+          <UButton
+            icon="i-lucide-save"
+            :loading="isTakeoverActionPending"
+            :disabled="isTakeoverActionPending || !canSaveBeforeTakeover"
+            @click="handleRequestTakeover(true, 'save')"
+          >
+            Save and take over
+          </UButton>
+        </div>
+      </template>
+    </UModal>
     <div
       class="pointer-events-none absolute left-1/2 top-3 z-[950] flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col items-center gap-2"
       role="status"
@@ -3362,7 +3417,7 @@ watch(() => props.src, (newSrc) => {
             label="Force takeover"
             :loading="isTakeoverActionPending"
             :disabled="isTakeoverActionPending"
-            @click="handleRequestTakeover(true)"
+            @click="forceTakeoverModalOpen = true"
           />
         </div>
       </div>
