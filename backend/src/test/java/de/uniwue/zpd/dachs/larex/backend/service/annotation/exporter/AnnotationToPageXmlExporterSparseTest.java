@@ -11,14 +11,50 @@ import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToPageXmlExporter;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.DtoToPage4jMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EmptySource;
+import org.junit.jupiter.params.provider.NullSource;
 
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AnnotationToPageXmlExporterSparseTest {
+
+    @ParameterizedTest
+    @NullSource
+    @EmptySource
+    void export_doesNotInventTextEquivForNewRegionAndLine(List<TextContentVariantDto> variants) throws Exception {
+        AnnotationToPageXmlExporter exporter = new AnnotationToPageXmlExporter(new DtoToPage4jMapper());
+        RegionDto region = textRegionWithLines(List.of(textLine(variants)), null, variants);
+
+        String xml = exporter.export(createPageDto(region), null);
+
+        assertTrue(xml.contains("<TextRegion"));
+        assertTrue(xml.contains("<TextLine"));
+        assertFalse(xml.contains("<TextEquiv"), xml);
+    }
+
+    @Test
+    void export_preservesExplicitEmptyUnindexedAndIndexedVariants() throws Exception {
+        AnnotationToPageXmlExporter exporter = new AnnotationToPageXmlExporter(new DtoToPage4jMapper());
+        List<TextContentVariantDto> variants = List.of(
+            new TextContentVariantDto(""),
+            new TextContentVariantDto("", null, 0),
+            new TextContentVariantDto("", null, 1)
+        );
+        RegionDto region = textRegionWithLines(List.of(textLine(variants)), null, variants);
+
+        String xml = exporter.export(createPageDto(region), null);
+
+        assertEquals(6, xml.split("<TextEquiv", -1).length - 1, xml);
+        assertEquals(2, xml.split("index=\"0\"", -1).length - 1, xml);
+        assertEquals(2, xml.split("index=\"1\"", -1).length - 1, xml);
+        assertEquals(6, xml.split("<Unicode", -1).length - 1, xml);
+    }
 
     @Test
     void export_doesNotWriteDefaultTextStyleOrDefaultRegionAttributes() throws Exception {
@@ -204,12 +240,20 @@ class AnnotationToPageXmlExporterSparseTest {
     }
 
     private RegionDto textRegionWithLines(List<TextLineDto> textLines, String primaryLanguage) {
+        return textRegionWithLines(textLines, primaryLanguage, null);
+    }
+
+    private RegionDto textRegionWithLines(
+        List<TextLineDto> textLines,
+        String primaryLanguage,
+        List<TextContentVariantDto> variants
+    ) {
         return new RegionDto(
             "r1",
             RegionKind.TextRegion,
             rectangle(),
             textLines,
-            null,
+            variants,
             "paragraph",
             null,
             null,
@@ -283,6 +327,14 @@ class AnnotationToPageXmlExporterSparseTest {
             new PointDto(0.5, 0.5),
             new PointDto(-0.5, 0.5)
         ), null);
+    }
+
+    private TextLineDto textLine(List<TextContentVariantDto> variants) {
+        return new TextLineDto(
+            "tl1", rectangle(), null, variants, null,
+            null, null, null, null, null, null, null, null, null,
+            null, null, null, null, null, null, null, null, null
+        );
     }
 
     private PolygonDto baseline() {

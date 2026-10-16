@@ -60,6 +60,29 @@ function createBaseDto(): PageDto {
 }
 
 describe('page-conversion.service sparse mapping', () => {
+  it.each([undefined, []])('keeps absent or empty variant lists without adding default text (%j)', (variants) => {
+    const dto = createBaseDto()
+    dto.regions![0]!.textContentVariants = variants
+    dto.regions![0]!.textLines![0]!.textContentVariants = variants
+
+    const roundTrip = convertPcGtsToPageDto(convertPageDtoToPcGts(dto))
+
+    expect(roundTrip.regions?.[0]?.textContentVariants).toEqual(variants)
+    expect(roundTrip.regions?.[0]?.textLines?.[0]?.textContentVariants).toEqual(variants)
+  })
+
+  it('preserves explicitly empty unindexed and indexed text variants', () => {
+    const dto = createBaseDto()
+    const variants = [{ unicode: '' }, { unicode: '', index: 0 }, { unicode: '', index: 1 }]
+    dto.regions![0]!.textContentVariants = variants
+    dto.regions![0]!.textLines![0]!.textContentVariants = variants
+
+    const roundTrip = convertPcGtsToPageDto(convertPageDtoToPcGts(dto))
+
+    expect(roundTrip.regions?.[0]?.textContentVariants).toEqual(variants)
+    expect(roundTrip.regions?.[0]?.textLines?.[0]?.textContentVariants).toEqual(variants)
+  })
+
   it('does not inject default metadata values when DTO metadata is missing', () => {
     const dto = createBaseDto()
     dto.metadata = undefined

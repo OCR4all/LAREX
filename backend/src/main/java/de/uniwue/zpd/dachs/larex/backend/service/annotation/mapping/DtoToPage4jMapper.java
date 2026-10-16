@@ -517,37 +517,15 @@ final class DtoToPage4jMappingSession {
             return;
         }
 
-        TextContentVariantDto first = variants.get(0);
-        if (hasText(first.unicode())) {
-            textObj.setText(first.unicode());
-        }
-        if (hasText(first.plainText())) {
-            textObj.setPlainText(first.plainText());
-        }
-        if (first.confidence() != null) {
-            textObj.setConfidence(first.confidence());
-        }
-        if (hasText(first.dataType())) {
-            textObj.setDataType(first.dataType());
-        }
-        if (hasText(first.dataTypeDetails())) {
-            textObj.setDataTypeDetails(first.dataTypeDetails());
-        }
-        if (hasText(first.comments())) {
-            textObj.setComments(first.comments());
-        }
-        setTextContentIndex(textObj.getTextContentVariant(0), first.index());
-
-        for (int i = 1; i < variants.size(); i++) {
-            TextContentVariantDto v = variants.get(i);
-            TextContent tc = textObj.addTextContentVariant();
-            if (hasText(v.unicode())) tc.setText(v.unicode());
-            if (hasText(v.plainText())) tc.setPlainText(v.plainText());
-            if (v.confidence() != null) tc.setConfidence(v.confidence());
-            if (hasText(v.dataType())) tc.setDataType(v.dataType());
-            if (hasText(v.dataTypeDetails())) tc.setDataTypeDetails(v.dataTypeDetails());
-            if (hasText(v.comments())) tc.setComments(v.comments());
-            setTextContentIndex(tc, v.index());
+        for (TextContentVariantDto variant : variants) {
+            TextContent textContent = textObj.addTextContentVariant();
+            if (variant.unicode() != null) textContent.setText(variant.unicode());
+            if (variant.plainText() != null) textContent.setPlainText(variant.plainText());
+            if (variant.confidence() != null) textContent.setConfidence(variant.confidence());
+            if (hasText(variant.dataType())) textContent.setDataType(variant.dataType());
+            if (hasText(variant.dataTypeDetails())) textContent.setDataTypeDetails(variant.dataTypeDetails());
+            if (hasText(variant.comments())) textContent.setComments(variant.comments());
+            setTextContentIndex(textContent, variant.index());
         }
     }
 
