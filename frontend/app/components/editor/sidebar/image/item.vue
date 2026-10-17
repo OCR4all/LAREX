@@ -278,11 +278,11 @@ async function handleCopyPageId() {
     <div
       :class="[
         'group relative overflow-hidden rounded-xl border cursor-pointer bg-white shadow-sm dark:bg-neutral-950',
-        'transition-[border-color,box-shadow,transform] duration-200 ease-out',
+        'transition-[border-color,box-shadow] duration-200 ease-out',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50',
         isSelected
           ? 'border-primary-500 ring-2 ring-primary-500/20 shadow-lg shadow-primary-950/20'
-          : 'border-neutral-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-lg hover:shadow-neutral-300/30 dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:shadow-black/20'
+          : 'border-neutral-200 hover:border-neutral-300 hover:shadow-lg hover:shadow-neutral-300/30 dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:shadow-black/20'
       ]"
       role="button"
       tabindex="0"
@@ -300,7 +300,7 @@ async function handleCopyPageId() {
           v-if="hasPreviewImage"
           :src="previewImageSrc"
           :alt="`Page ${pageLabel}`"
-          class="absolute inset-0 h-full w-full object-cover transition-opacity duration-200"
+          class="absolute inset-0 h-full w-full object-cover transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:pointer-fine:group-hover:scale-[1.02]"
           :class="previewImageLoaded ? 'opacity-100' : 'opacity-0'"
           loading="eager"
           decoding="async"
