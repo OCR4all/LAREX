@@ -162,6 +162,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
 <template>
   <UiResponsiveSlideover
+    header-accent
     :close="{ onClick: () => emit('close', null) }"
   >
     <template #header>

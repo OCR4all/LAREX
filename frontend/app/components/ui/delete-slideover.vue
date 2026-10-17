@@ -66,12 +66,12 @@ const targetItems = computed<DeleteSlideoverItem[]>(() => {
     :close="{ onClick: () => emit('close', false) }"
   >
     <template #header>
-      <div class="flex min-w-0 items-center gap-2 pr-8">
-        <UIcon name="i-lucide-trash" class="size-5 shrink-0 text-error" />
-        <h2 class="text-highlighted font-semibold">
-          {{ computedTitle }}
-        </h2>
-      </div>
+      <UiSlideoverHeader
+        :title="computedTitle"
+        icon="i-lucide-trash"
+        tone="error"
+        description="This action cannot be undone."
+      />
     </template>
 
     <template #body>

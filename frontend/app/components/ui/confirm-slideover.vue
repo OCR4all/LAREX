@@ -36,7 +36,7 @@ useBlockEditorCanvasInteractions()
       <UiSlideoverHeader
         :title="title"
         :icon="confirmIcon || 'i-lucide-circle-help'"
-        :icon-class="confirmColor === 'error' ? 'text-error' : confirmColor === 'warning' ? 'text-warning' : undefined"
+        :tone="confirmColor === 'error' ? 'error' : confirmColor === 'warning' ? 'warning' : 'default'"
       />
     </template>
 

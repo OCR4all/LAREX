@@ -919,17 +919,24 @@ function close() {
 <template>
   <UiResponsiveSlideover
     side="right"
+    :header-accent="view !== 'history' || !!impact"
     :ui="{ content: 'max-w-3xl xl:max-w-4xl' }"
     :close="{ onClick: close }"
   >
     <template #header>
-      <div ref="viewHeader" class="flex w-full flex-wrap items-start justify-between gap-3 [&_h2]:outline-none">
-        <UiSlideoverHeader :title="viewTitle" :description="impact ? 'Review pages before starting the Action.' : viewDescription" :icon="view === 'history' && !impact ? 'i-lucide-history' : 'i-lucide-play'" />
+      <div ref="viewHeader" class="flex w-full min-w-0 flex-wrap items-start justify-between gap-3 pr-8 [&_h2]:outline-none">
+        <UiSlideoverHeader
+          class="basis-full pr-0 sm:basis-auto"
+          :title="viewTitle"
+          :description="impact ? 'Review pages before starting the Action.' : viewDescription"
+          :icon="view === 'history' && !impact ? 'i-lucide-history' : 'i-lucide-play'"
+        />
         <UButton
           v-if="!impact && view !== 'history'"
           color="neutral"
           variant="ghost"
           size="sm"
+          class="ml-13 sm:ml-0"
           icon="i-lucide-history"
           :disabled="navigationBusy"
           @click="openHistory"

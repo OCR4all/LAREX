@@ -57,6 +57,13 @@ async function submit() {
     :dismissible="!moving"
     :close="moving ? false : { onClick: () => emit('close', null) }"
   >
+    <template #header>
+      <UiSlideoverHeader
+        title="Move pages"
+        icon="i-lucide-folder-input"
+        :description="`Move ${pageIds.length} selected ${pageIds.length === 1 ? 'page' : 'pages'} from ${projectName} to another project in this workspace.`"
+      />
+    </template>
     <template #body>
       <div class="space-y-5">
         <UAlert v-if="projectsError" color="error" title="Could not load destination projects">

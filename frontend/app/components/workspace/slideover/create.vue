@@ -195,12 +195,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
 <template>
   <UiResponsiveSlideover
+    header-accent
     :close="{ onClick: () => emit('close', false) }"
   >
     <template #header>
       <UiSlideoverHeader
         title="Create Workspace"
-        icon="i-bxs-layer-plus"
+        icon="i-lucide-layers-2"
         description="Set up a workspace and optionally invite its first members."
       />
     </template>

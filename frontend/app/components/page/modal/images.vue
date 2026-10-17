@@ -469,44 +469,45 @@ onUnmounted(() => {
     }"
   >
     <template #header>
-      <div class="flex items-center justify-between w-full gap-4">
-        <div class="flex items-center gap-2 min-w-0 flex-1">
-          <UIcon name="i-lucide-images" class="size-5 shrink-0 text-muted" />
-          <UButton
-            v-if="hasMultiplePages"
-            icon="i-lucide-chevron-left"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click.stop="goToPreviousPage"
-          />
-          <div class="flex items-center gap-2 min-w-0 flex-1">
-            <span class="text-lg font-semibold shrink-0">Images for</span>
+      <UiSlideoverHeader
+        :title="`Images for ${currentPage?.name || 'page'}`"
+        icon="i-lucide-images"
+        description="Browse this page's images and variants."
+      >
+        <template v-if="hasMultiplePages" #description>
+          <div class="flex flex-wrap items-center gap-2 pt-1">
+            <UButton
+              icon="i-lucide-chevron-left"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              aria-label="Previous page"
+              @click.stop="goToPreviousPage"
+            />
             <USelectMenu
-              v-if="hasMultiplePages"
               :model-value="currentPageId"
               :items="pageOptions"
               value-key="value"
               searchable
               searchable-placeholder="Search pages..."
-              class="w-48"
+              aria-label="Choose page"
+              class="w-40 min-w-0 max-w-full sm:w-48"
               @update:model-value="goToPage"
             />
-            <span v-else class="text-lg font-semibold truncate">{{ currentPage?.name }}</span>
+            <UButton
+              icon="i-lucide-chevron-right"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              aria-label="Next page"
+              @click.stop="goToNextPage"
+            />
+            <span class="text-sm text-muted">
+              {{ currentPageIndex + 1 }} / {{ sortedPages.length }}
+            </span>
           </div>
-          <UButton
-            v-if="hasMultiplePages"
-            icon="i-lucide-chevron-right"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click.stop="goToNextPage"
-          />
-        </div>
-        <span v-if="hasMultiplePages" class="text-sm text-muted shrink-0">
-          {{ currentPageIndex + 1 }} / {{ sortedPages.length }}
-        </span>
-      </div>
+        </template>
+      </UiSlideoverHeader>
     </template>
 
     <template #body>

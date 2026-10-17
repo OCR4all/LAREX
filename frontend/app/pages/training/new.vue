@@ -313,8 +313,9 @@ async function startTraining() {
           :ui="{ description: 'whitespace-pre-wrap' }"
         />
 
-        <UCard v-if="currentStep === 0">
+        <UCard v-if="currentStep === 0" :ui="{ header: 'relative isolate overflow-hidden' }">
           <template #header>
+            <UiDitherWaves />
             <div class="flex items-center justify-between gap-3">
               <div>
                 <h2 class="font-semibold">
@@ -456,8 +457,9 @@ async function startTraining() {
           </div>
         </UCard>
 
-        <UCard v-else-if="currentStep === 1">
+        <UCard v-else-if="currentStep === 1" :ui="{ header: 'relative isolate overflow-hidden' }">
           <template #header>
+            <UiDitherWaves />
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 class="font-semibold">
@@ -618,8 +620,9 @@ async function startTraining() {
           </div>
         </UCard>
 
-        <UCard v-else-if="currentStep === 2">
+        <UCard v-else-if="currentStep === 2" :ui="{ header: 'relative isolate overflow-hidden' }">
           <template #header>
+            <UiDitherWaves />
             <h2 class="font-semibold">
               Configure training parameters
             </h2>
@@ -659,8 +662,9 @@ async function startTraining() {
           </div>
         </UCard>
 
-        <UCard v-else>
+        <UCard v-else :ui="{ header: 'relative isolate overflow-hidden' }">
           <template #header>
+            <UiDitherWaves />
             <h2 class="font-semibold">
               Review training
             </h2>

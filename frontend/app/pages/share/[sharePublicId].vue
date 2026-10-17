@@ -68,6 +68,13 @@ async function startDownload() {
     <div class="mx-auto w-full max-w-md space-y-4">
       <UCard>
         <template #header>
+          <div class="relative isolate -mx-4 -mt-4 mb-4 flex h-16 items-center overflow-hidden px-4 sm:-mx-6 sm:px-6">
+            <UiDitherWaves variant="banner" />
+            <div class="flex items-center gap-2.5">
+              <UiLogo :size="28" />
+              <span class="text-sm font-medium text-highlighted">LAREX</span>
+            </div>
+          </div>
           <div class="space-y-1">
             <h1 class="text-lg font-semibold">
               Download Shared Release

@@ -78,17 +78,12 @@ async function confirmBulkDelete() {
     :close="{ onClick: () => emit('close', null) }"
   >
     <template #header>
-      <div class="flex min-w-0 items-start gap-2 pr-8">
-        <UIcon name="i-lucide-trash-2" class="mt-0.5 size-5 shrink-0 text-error" />
-        <div class="min-w-0">
-          <h2 class="text-highlighted font-semibold">
-            Delete Pages
-          </h2>
-          <p class="mt-1 text-muted text-sm">
-            This action cannot be undone.
-          </p>
-        </div>
-      </div>
+      <UiSlideoverHeader
+        title="Delete Pages"
+        icon="i-lucide-trash-2"
+        tone="error"
+        description="This action cannot be undone."
+      />
     </template>
 
     <template #body>

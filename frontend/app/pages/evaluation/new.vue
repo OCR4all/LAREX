@@ -111,8 +111,9 @@ async function startEvaluation() {
     <template #body>
       <div class="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <UStepper v-model="currentStep" :items="steps" />
-        <UCard v-if="currentStep === 0">
+        <UCard v-if="currentStep === 0" :ui="{ header: 'relative isolate overflow-hidden' }">
           <template #header>
+            <UiDitherWaves />
             <h2 class="font-semibold">
               Choose a dataset
             </h2><p class="text-sm text-muted">
@@ -167,8 +168,9 @@ async function startEvaluation() {
             </div>
           </div>
         </UCard>
-        <UCard v-else-if="currentStep === 1">
+        <UCard v-else-if="currentStep === 1" :ui="{ header: 'relative isolate overflow-hidden' }">
           <template #header>
+            <UiDitherWaves />
             <div class="flex items-center justify-between">
               <div>
                 <h2 class="font-semibold">
@@ -226,8 +228,9 @@ async function startEvaluation() {
             </div>
           </div>
         </UCard>
-        <UCard v-else-if="currentStep === 2">
+        <UCard v-else-if="currentStep === 2" :ui="{ header: 'relative isolate overflow-hidden' }">
           <template #header>
+            <UiDitherWaves />
             <h2 class="font-semibold">
               Choose model and parameters
             </h2>
@@ -271,8 +274,9 @@ async function startEvaluation() {
             </div>
           </div>
         </UCard>
-        <UCard v-else>
+        <UCard v-else :ui="{ header: 'relative isolate overflow-hidden' }">
           <template #header>
+            <UiDitherWaves />
             <h2 class="font-semibold">
               Review evaluation
             </h2>

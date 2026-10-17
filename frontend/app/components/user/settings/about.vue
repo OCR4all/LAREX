@@ -4,6 +4,13 @@ const { appVersion } = useRuntimeConfig().public
 
 <template>
   <div class="space-y-6">
+    <div class="relative isolate flex h-24 items-center overflow-hidden rounded-lg bg-elevated/50 px-5">
+      <UiDitherWaves variant="banner" />
+      <div class="flex items-center gap-3">
+        <UiLogo :size="36" />
+        <span class="text-lg font-semibold tracking-tight text-highlighted">LAREX</span>
+      </div>
+    </div>
     <div>
       <h2 class="text-lg font-semibold text-highlighted">
         About

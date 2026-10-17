@@ -98,9 +98,9 @@ function submit() {
 </script>
 
 <template>
-  <UiResponsiveSlideover :close="{ onClick: () => emit('close', null) }">
+  <UiResponsiveSlideover header-accent :close="{ onClick: () => emit('close', null) }">
     <template #header>
-      <UiSlideoverHeader title="Review Project Package" icon="i-lucide-package-search" />
+      <UiSlideoverHeader title="Review Project Package" icon="i-lucide-package-search" description="Review the package contents before importing." />
     </template>
 
     <template #body>

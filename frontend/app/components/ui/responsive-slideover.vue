@@ -9,10 +9,12 @@ defineOptions({
 const props = withDefaults(defineProps<{
   side?: SlideoverProps['side']
   inset?: SlideoverProps['inset']
+  headerAccent?: boolean
   ui?: SlideoverProps['ui']
 }>(), {
   side: 'right',
-  inset: true
+  inset: true,
+  headerAccent: false
 })
 
 const isDesktop = useMediaQuery('(min-width: 1280px)')
@@ -51,6 +53,7 @@ const slots = useSlots()
       v-for="(_, name) in slots"
       #[name]="slotProps"
     >
+      <UiDitherWaves v-if="name === 'header' && props.headerAccent" :key="name" />
       <slot
         :name="name"
         v-bind="slotProps ?? {}"

@@ -350,6 +350,7 @@ async function closeWithResult() {
 
 <template>
   <UiResponsiveSlideover
+    header-accent
     side="right"
     :close="{ onClick: () => emit('close', null) }"
   >

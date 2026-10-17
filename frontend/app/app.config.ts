@@ -47,6 +47,7 @@ export default defineAppConfig({
       slots: {
         overlay: 'z-[60]',
         content: 'z-[60]',
+        header: 'relative isolate overflow-hidden',
         footer: 'justify-end'
       }
     },

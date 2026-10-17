@@ -617,12 +617,13 @@ function submitCurrentStep() {
 
 <template>
   <UiResponsiveSlideover
+    header-accent
     side="right"
     :ui="{ content: 'w-full max-w-[96vw] sm:max-w-[92vw] xl:max-w-[1120px] flex flex-col' }"
     :close="{ onClick: () => close(shouldRefreshProjectPages()) }"
   >
     <template #header>
-      <UiSlideoverHeader title="Import IIIF" icon="i-lucide-image-plus" />
+      <UiSlideoverHeader title="Import IIIF" icon="i-lucide-image-plus" description="Preview and import pages from an IIIF source." />
     </template>
 
     <template #body>

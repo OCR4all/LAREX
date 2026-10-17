@@ -173,13 +173,21 @@ onMounted(load)
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
+    header-accent
     :title="`Run Action · ${datasetName}`"
     description="Integration Actions for dataset inputs"
     :close="{ onClick: () => emit('close', changed) }"
     :dismissible="!starting"
     :ui="{ content: 'max-w-2xl' }"
   >
+    <template #header>
+      <UiSlideoverHeader
+        :title="`Run Action · ${datasetName}`"
+        icon="i-lucide-play"
+        description="Integration Actions for dataset inputs."
+      />
+    </template>
     <template #body>
       <div class="space-y-6">
         <UAlert
@@ -392,5 +400,5 @@ onMounted(load)
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

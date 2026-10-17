@@ -74,10 +74,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
 <template>
   <UiResponsiveSlideover
+    header-accent
     :close="{ onClick: () => emit('close', null) }"
   >
     <template #header>
-      <UiSlideoverHeader title="Create Release" icon="i-lucide-plus" />
+      <UiSlideoverHeader title="Create Release" icon="i-lucide-package" description="Package a frozen snapshot of this dataset." />
     </template>
 
     <template #body>
