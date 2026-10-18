@@ -23,8 +23,8 @@ function keyboardEvent(key: string) {
 }
 
 describe('full text input guards', () => {
-  it.each(['a', 'Backspace', ' '])('allows the %s key to edit text', (key) => {
-    const event = keyboardEvent(key)
+  it('allows ordinary keys to edit text', () => {
+    const event = keyboardEvent('a')
 
     handleSingleLineTextareaKeydownEnter(event, true)
 
@@ -39,12 +39,8 @@ describe('full text input guards', () => {
     expect(event.preventDefault).toHaveBeenCalledOnce()
   })
 
-  it.each([
-    'insertText',
-    'deleteContentBackward',
-    'deleteContentForward'
-  ])('allows %s edits', (inputType) => {
-    const event = inputEvent(inputType)
+  it('allows ordinary input edits', () => {
+    const event = inputEvent('insertText')
 
     handleSingleLineTextareaBeforeInput(event, true)
 

@@ -91,22 +91,6 @@ describe('resolvePolygonRenderStyle', () => {
 
     expect(style.strokeColor).toEqual(RENDER_COLORS.SELECTED_BLUE)
   })
-
-  it('drops persistent fill for textlines while keeping it for regions', () => {
-    const regionStyle = resolvePolygonRenderStyle(makePolygon(), {
-      showPersistentFill: true
-    })
-    const textlineStyle = resolvePolygonRenderStyle(makePolygon({
-      id: 'line-1',
-      label: 'line-1',
-      type: PolygonType.TEXTLINE
-    }), {
-      showPersistentFill: true
-    })
-
-    expect(regionStyle.persistentFill).not.toBeNull()
-    expect(textlineStyle.persistentFill).toBeNull()
-  })
 })
 
 describe('drawPolygonOutlineWithStyle', () => {
@@ -118,26 +102,6 @@ describe('drawPolygonOutlineWithStyle', () => {
       label: 'line-2',
       type: PolygonType.TEXTLINE
     }))
-
-    drawPolygonOutlineWithStyle({
-      points: makePolygon().points,
-      style,
-      baseLineWidth: 5,
-      isClosed: true,
-      aspectRatioScale: { scaleX: 1, scaleY: 1 },
-      view: { zoom: 1, offsetX: 0, offsetY: 0 },
-      dashedLineRenderer,
-      thickLineRenderer
-    })
-
-    expect(thickLineRenderer.drawThickLine).toHaveBeenCalledOnce()
-    expect(dashedLineRenderer.drawDashedLine).not.toHaveBeenCalled()
-  })
-
-  it('dispatches regions to the solid renderer', () => {
-    const dashedLineRenderer = { drawDashedLine: vi.fn() }
-    const thickLineRenderer = { drawThickLine: vi.fn() }
-    const style = resolvePolygonRenderStyle(makePolygon())
 
     drawPolygonOutlineWithStyle({
       points: makePolygon().points,

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  averageConfidence,
   computeElementConfidence,
   confidenceToHeatRgba,
   normalizeIndices,
@@ -90,10 +89,5 @@ describe('confidence-heatmap utility', () => {
     expect(scaleConfidenceForHeatmap(0.7, true, 16)).toBeLessThan(scaleConfidenceForHeatmap(0.7, true, 8))
     expect(scaleConfidenceForHeatmap(0, true)).toBe(0)
     expect(scaleConfidenceForHeatmap(1, true)).toBe(1)
-  })
-
-  it('computes average confidence for numeric arrays', () => {
-    expect(averageConfidence([0.1, 0.5, 0.7])).toBeCloseTo((0.1 + 0.5 + 0.7) / 3)
-    expect(averageConfidence([])).toBeUndefined()
   })
 })

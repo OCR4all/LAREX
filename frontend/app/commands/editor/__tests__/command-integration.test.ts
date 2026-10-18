@@ -80,8 +80,10 @@ describe('Commander integration', () => {
     expect(commander.canUndo()).toBe(false)
     expect(commander.canRedo()).toBe(false)
 
-    commander.execute(createRegionCommand(), ctx)
+    const result = commander.execute(createRegionCommand({ label: 'TestRegion' }), ctx)
+    expect(result.id).toBeDefined()
     expect(getDocument()?.page.regions).toHaveLength(1)
+    expect(getDocument()?.page.regions[0]?.kind).toBe('TextRegion')
     expect(commander.getState().totalCount).toBe(1)
     expect(commander.canUndo()).toBe(true)
     expect(commander.canRedo()).toBe(false)
@@ -134,15 +136,6 @@ describe('CreatePolygonCommand integration', () => {
   beforeEach(() => {
     commander = new Commander()
     vi.clearAllMocks()
-  })
-
-  it('creates a root text region', () => {
-    const { session, getDocument } = createMockSession()
-    const result = commander.execute(createRegionCommand({ label: 'TestRegion' }), createTestContext(session))
-
-    expect(result.id).toBeDefined()
-    expect(getDocument()?.page.regions).toHaveLength(1)
-    expect(getDocument()?.page.regions[0]?.kind).toBe('TextRegion')
   })
 
   it('creates a region using the supplied label mapping', () => {

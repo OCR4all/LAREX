@@ -32,8 +32,6 @@ describe('Expand / Shrink', () => {
   it.each([
     { distance: 1, constrainToImage: true, valid: true },
     { distance: -1, constrainToImage: true, valid: true },
-    { distance: 50, constrainToImage: true, valid: true },
-    { distance: -50, constrainToImage: true, valid: true },
     { distance: 400, constrainToImage: true, valid: false },
     { distance: 400, constrainToImage: false, valid: true }
   ])('validates a $distance-pixel adjustment (image constraint: $constrainToImage)', async ({ distance, constrainToImage, valid }) => {

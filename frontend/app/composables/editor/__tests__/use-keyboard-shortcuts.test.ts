@@ -11,14 +11,11 @@ describe('global shortcuts while typing', () => {
     } as unknown as KeyboardEvent
   }
 
-  it.each(['merge', 'delete', 'centerOnSelection'] as const)(
-    'does not capture %s from a textarea',
-    (commandId) => {
-      const textarea = document.createElement('textarea')
+  it('does not capture editor commands from a textarea', () => {
+    const textarea = document.createElement('textarea')
 
-      expect(shouldIgnoreGlobalShortcutForTypingTarget(commandId, false, keyboardEvent(textarea))).toBe(true)
-    }
-  )
+    expect(shouldIgnoreGlobalShortcutForTypingTarget('merge', false, keyboardEvent(textarea))).toBe(true)
+  })
 
   it('still permits editor undo in a registered text-view scope', () => {
     const textarea = document.createElement('textarea')

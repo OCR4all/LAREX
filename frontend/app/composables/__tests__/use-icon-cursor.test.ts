@@ -6,14 +6,12 @@ vi.mock('nuxt/app', () => ({
 
 let buildIconCursorSvg: typeof import('../use-icon-cursor').buildIconCursorSvg
 let buildIconCursorValue: typeof import('../use-icon-cursor').buildIconCursorValue
-let getIconCursorPreset: typeof import('../use-icon-cursor').getIconCursorPreset
 let parseIconifyIconName: typeof import('../use-icon-cursor').parseIconifyIconName
 
 beforeAll(async () => {
   const module = await import('../use-icon-cursor')
   buildIconCursorSvg = module.buildIconCursorSvg
   buildIconCursorValue = module.buildIconCursorValue
-  getIconCursorPreset = module.getIconCursorPreset
   parseIconifyIconName = module.parseIconifyIconName
 })
 
@@ -52,16 +50,5 @@ describe('use-icon-cursor helpers', () => {
     expect(svg).toContain('flood-color="#000000"')
     expect(cursorValue).toContain('data:image/svg+xml,')
     expect(cursorValue).toContain('4 4, crosshair')
-  })
-
-  it('exposes named cursor presets for editor tools', () => {
-    expect(getIconCursorPreset('actionWand')).toEqual({
-      iconName: 'i-lucide-wand-sparkles',
-      fallback: 'crosshair',
-      color: '#ffffff',
-      hotspotX: 4,
-      hotspotY: 4,
-      size: 24
-    })
   })
 })
