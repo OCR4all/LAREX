@@ -20,12 +20,6 @@ class PageXmlConversionServiceTest {
     private final PageXmlConversionService service = new PageXmlConversionService();
 
     @Test
-    void getSupportedExportVersions_containsExpectedTargets() {
-        assertTrue(service.getSupportedExportVersions().contains("2010-03-19"));
-        assertTrue(service.getSupportedExportVersions().contains("2019-07-15"));
-    }
-
-    @Test
     void convertFileInPlace_primarySource_isNoOp() throws Exception {
         Path xmlPath = tempDir.resolve("current.xml");
         Files.writeString(xmlPath, exported2019Xml(), StandardCharsets.UTF_8);

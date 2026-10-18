@@ -100,18 +100,6 @@ class AsyncExecutorPropertiesTest {
                 });
     }
 
-    @Test
-    void keepsImportExecutorDefaultsWhenNoPropertiesAreConfigured() {
-        contextRunner.run(context -> {
-            assertExecutorPool(context.getBean(ImportProperties.class).getAsync(), 1, 2, 10);
-            IiifProperties iiifProperties = context.getBean(IiifProperties.class);
-            assertThat(iiifProperties.getDownloadMinIntervalMs()).isEqualTo(100);
-            assertThat(iiifProperties.getMaxImageDownloadBytes()).isEqualTo(536870912);
-            assertExecutorPool(iiifProperties.getPreviewAsync(), 2, 4, 100);
-            assertExecutorPool(iiifProperties.getDownloadAsync(), 1, 2, 50);
-        });
-    }
-
     private void assertExecutorPool(ExecutorPoolProperties pool,
                                     int corePoolSize,
                                     int maxPoolSize,

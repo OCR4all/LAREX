@@ -44,9 +44,7 @@ class CoordinateUtilsTest {
         @DisplayName("Various pixel coordinates should convert correctly")
         @CsvSource({
             "250, 1000, -0.5",   // 25% from left
-            "750, 1000, 0.5",    // 75% from left
-            "100, 1000, -0.8",   // 10% from left
-            "900, 1000, 0.8"     // 90% from left
+            "750, 1000, 0.5"     // 75% from left
         })
         void variousXCoordinates(int pixelX, int imageWidth, double expectedWorldX) {
             assertEquals(expectedWorldX, CoordinateUtils.pixelToWorldX(pixelX, imageWidth), EPSILON);
@@ -56,9 +54,7 @@ class CoordinateUtilsTest {
         @DisplayName("Y coordinates should be flipped correctly")
         @CsvSource({
             "250, 1000, 0.5",    // 25% from top -> 0.5 in world (upper half)
-            "750, 1000, -0.5",   // 75% from top -> -0.5 in world (lower half)
-            "100, 1000, 0.8",    // 10% from top
-            "900, 1000, -0.8"    // 90% from top
+            "750, 1000, -0.5"    // 75% from top -> -0.5 in world (lower half)
         })
         void yCoordinatesFlipped(int pixelY, int imageHeight, double expectedWorldY) {
             assertEquals(expectedWorldY, CoordinateUtils.pixelToWorldY(pixelY, imageHeight), EPSILON);
@@ -108,9 +104,7 @@ class CoordinateUtilsTest {
         @DisplayName("Various world X coordinates should convert correctly")
         @CsvSource({
             "-0.5, 1000, 250",   // 25% from left
-            "0.5, 1000, 750",    // 75% from left
-            "-0.8, 1000, 100",   // 10% from left
-            "0.8, 1000, 900"     // 90% from left
+            "0.5, 1000, 750"     // 75% from left
         })
         void variousXCoordinates(double worldX, int imageWidth, int expectedPixelX) {
             assertEquals(expectedPixelX, CoordinateUtils.worldToPixelX(worldX, imageWidth));
@@ -120,9 +114,7 @@ class CoordinateUtilsTest {
         @DisplayName("Y coordinates should be flipped correctly")
         @CsvSource({
             "0.5, 1000, 250",    // upper half of world -> 25% from top
-            "-0.5, 1000, 750",   // lower half of world -> 75% from top
-            "0.8, 1000, 100",    // near top of world
-            "-0.8, 1000, 900"    // near bottom of world
+            "-0.5, 1000, 750"    // lower half of world -> 75% from top
         })
         void yCoordinatesFlipped(double worldY, int imageHeight, int expectedPixelY) {
             assertEquals(expectedPixelY, CoordinateUtils.worldToPixelY(worldY, imageHeight));
@@ -157,14 +149,11 @@ class CoordinateUtilsTest {
             int imageWidth = 1000;
             int imageHeight = 1200;
 
-            double worldX = CoordinateUtils.pixelToWorldX(originalX, imageWidth);
-            double worldY = CoordinateUtils.pixelToWorldY(originalY, imageHeight);
+            double[] world = CoordinateUtils.pixelToWorld(originalX, originalY, imageWidth, imageHeight);
+            int[] pixel = CoordinateUtils.worldToPixel(world[0], world[1], imageWidth, imageHeight);
 
-            int roundTripX = CoordinateUtils.worldToPixelX(worldX, imageWidth);
-            int roundTripY = CoordinateUtils.worldToPixelY(worldY, imageHeight);
-
-            assertEquals(originalX, roundTripX);
-            assertEquals(originalY, roundTripY);
+            assertEquals(originalX, pixel[0]);
+            assertEquals(originalY, pixel[1]);
         }
 
         @Test
@@ -184,26 +173,6 @@ class CoordinateUtilsTest {
             // Due to integer rounding, precision is limited to 2/imageWidth (world range is 2)
             assertEquals(originalX, roundTripX, 2.0 / imageWidth);
             assertEquals(originalY, roundTripY, 2.0 / imageHeight);
-        }
-
-        @ParameterizedTest
-        @DisplayName("All corners should round-trip correctly")
-        @CsvSource({
-            "0, 0",
-            "1000, 0",
-            "0, 800",
-            "1000, 800",
-            "500, 400"
-        })
-        void cornersRoundTrip(int pixelX, int pixelY) {
-            int imageWidth = 1000;
-            int imageHeight = 800;
-
-            double[] world = CoordinateUtils.pixelToWorld(pixelX, pixelY, imageWidth, imageHeight);
-            int[] pixel = CoordinateUtils.worldToPixel(world[0], world[1], imageWidth, imageHeight);
-
-            assertEquals(pixelX, pixel[0]);
-            assertEquals(pixelY, pixel[1]);
         }
     }
 

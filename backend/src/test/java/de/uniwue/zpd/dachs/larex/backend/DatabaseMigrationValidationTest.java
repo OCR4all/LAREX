@@ -32,10 +32,6 @@ class DatabaseMigrationValidationTest {
     }
 
 	@Test
-	void flywayMigrationsMatchJpaMappings() {
-	}
-
-	@Test
 	void pageXmlsEnforceOneHeadPerPage() {
 		Integer matchingConstraints = jdbcTemplate.queryForObject("""
 				SELECT count(*)

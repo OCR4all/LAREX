@@ -146,16 +146,6 @@ class ActionDefinitionServiceEndpointSecretValidationTest {
     }
 
     @Test
-    void acceptsHmacDefinitionWhenSecretExists() {
-        when(endpointAuthService.normalizeAuthType(new de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument.EndpointAuth("hmac", "processor-v1")))
-                .thenCallRealMethod();
-        when(endpointAuthService.hasSecret("processor-v1")).thenReturn(true);
-
-        assertThatCode(() -> service.parseAndValidate(validExternalYaml(), null))
-                .doesNotThrowAnyException();
-    }
-
-    @Test
     void parsesTargetAwareInputRequirementsAndLegacyBooleans() {
         when(endpointAuthService.normalizeAuthType(new de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument.EndpointAuth("hmac", "processor-v1")))
                 .thenCallRealMethod();

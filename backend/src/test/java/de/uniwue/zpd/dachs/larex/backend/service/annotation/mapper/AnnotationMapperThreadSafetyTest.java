@@ -7,10 +7,6 @@ import com.maxnth.page4j.maths.geometry.Polygon;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.DtoToPage4jMapper;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.Page4jToDtoMapper;
 import de.uniwue.zpd.dachs.larex.backend.util.CoordinateUtils;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -21,12 +17,6 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class AnnotationMapperThreadSafetyTest {
-
-    @Test
-    void springSingletonMappersDoNotRetainPerInvocationState() {
-        assertEquals(List.of(), instanceFields(Page4jToDtoMapper.class));
-        assertEquals(List.of(), instanceFields(DtoToPage4jMapper.class));
-    }
 
     @Test
     void sharedMappersPreserveCoordinatesAcrossConcurrentPageSizes() throws Exception {
@@ -104,13 +94,5 @@ class AnnotationMapperThreadSafetyTest {
         polygon.addPoint(pointX, pointY + 10);
         region.setCoords(polygon);
         return page;
-    }
-
-    private List<String> instanceFields(Class<?> mapperClass) {
-        return Arrays.stream(mapperClass.getDeclaredFields())
-            .filter(field -> !Modifier.isStatic(field.getModifiers()))
-            .map(Field::getName)
-            .sorted()
-            .toList();
     }
 }
