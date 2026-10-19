@@ -211,7 +211,8 @@ const {
   itemsPerPage,
   totalItems,
   totalPages,
-  paginatedData
+  paginatedData,
+  infiniteScroll
 } = useResourceListPage({
   data: computed(() => data.value ?? []),
   defaultSort: { column: 'created', direction: 'desc' },
@@ -1652,6 +1653,7 @@ async function handleLegacyOcr4allImport(event: Event) {
               <AppTable
                 table-id="dashboard-projects-v2"
                 :data="paginatedData"
+                :infinite-scroll="infiniteScroll"
                 :columns="columns"
                 :default-visible-column-ids="DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS"
                 class="flex-1"
@@ -1660,7 +1662,7 @@ async function handleLegacyOcr4allImport(event: Event) {
               />
             </UContextMenu>
 
-            <div v-if="totalItems > 0" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+            <div v-if="totalItems > 0" class="hidden sm:flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
               <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
                 <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} projects</span>
               </div>

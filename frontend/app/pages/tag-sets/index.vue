@@ -51,7 +51,8 @@ const {
   itemsPerPage,
   totalItems,
   totalPages,
-  paginatedData
+  paginatedData,
+  infiniteScroll
 } = useResourceListPage({
   data: rows,
   defaultSort: { column: 'name', direction: 'asc' },
@@ -381,6 +382,7 @@ const emptyStateActions = computed(() => {
           <AppTable
             table-id="workspace-tag-sets"
             :data="paginatedData"
+            :infinite-scroll="infiniteScroll"
             :columns="columns"
             class="flex-1"
             @contextmenu="handleRowContextMenu"
@@ -404,7 +406,7 @@ const emptyStateActions = computed(() => {
           </UButton>
         </UiFloatingSelectionMenu>
 
-        <div v-if="totalItems > 0" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+        <div v-if="totalItems > 0" class="hidden sm:flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
             <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} tag sets</span>
           </div>

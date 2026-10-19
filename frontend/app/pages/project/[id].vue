@@ -229,6 +229,7 @@ const {
   totalItems,
   totalPagesCount,
   paginatedPages,
+  infiniteScroll,
   visibleProjectPageRows,
   projectPagesTableRef,
   isPageOrderingMode,
@@ -2787,6 +2788,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
                   :table-id="PROJECT_PAGES_TABLE_ID"
                   :columns="pageColumns"
                   :data="visibleProjectPageRows"
+                  :infinite-scroll="infiniteScroll"
                   :default-visible-column-ids="DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS"
                   :loading="isManualPagesRefresh"
                   :ui="projectPageTableUi"
@@ -2795,7 +2797,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
                 />
               </UContextMenu>
 
-              <div v-if="totalItems > 0" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+              <div v-if="totalItems > 0" class="hidden sm:flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
                 <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
                   <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} pages</span>
                 </div>

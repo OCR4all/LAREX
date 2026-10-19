@@ -63,10 +63,7 @@ const itemsPerPageRef = usePersistentTablePageSize('workspaces-list')
 const totalItems = computed(() => filteredAndSortedData.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))
 const itemsPerPage = useItemsPerPageModel(page, itemsPerPageRef, totalItems)
-const paginatedData = computed(() => {
-  const start = (page.value - 1) * itemsPerPageRef.value
-  return filteredAndSortedData.value.slice(start, start + itemsPerPageRef.value)
-})
+const { rows: paginatedData, infiniteScroll } = useTablePagination(filteredAndSortedData, page, itemsPerPageRef)
 
 const selectedWorkspaceIds = ref<Set<string>>(new Set())
 const selectedWorkspaces = computed(() => rows.value.filter(workspace => selectedWorkspaceIds.value.has(workspace.id)))
@@ -367,6 +364,7 @@ async function leaveWorkspace(ws: WorkspaceRow) {
           <AppTable
             table-id="workspaces-list"
             :data="paginatedData"
+            :infinite-scroll="infiniteScroll"
             :columns="columns"
             class="flex-1"
             @contextmenu="handleRowContextMenu"
@@ -390,7 +388,7 @@ async function leaveWorkspace(ws: WorkspaceRow) {
           </UButton>
         </UiFloatingSelectionMenu>
 
-        <div v-if="totalItems > 0" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+        <div v-if="totalItems > 0" class="hidden sm:flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <span class="text-sm text-neutral-600 dark:text-neutral-400">
             Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} workspaces
           </span>

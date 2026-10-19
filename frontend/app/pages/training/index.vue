@@ -54,7 +54,7 @@ const filteredRuns = computed(() => {
 })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredRuns.value.length / itemsPerPage.value)))
-const paginatedRuns = computed(() => filteredRuns.value.slice((page.value - 1) * itemsPerPage.value, page.value * itemsPerPage.value))
+const { rows: paginatedRuns, infiniteScroll } = useTablePagination(filteredRuns, page, itemsPerPage)
 const showingFrom = computed(() => filteredRuns.value.length ? (page.value - 1) * itemsPerPage.value + 1 : 0)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, filteredRuns.value.length))
 
@@ -344,10 +344,11 @@ const toolbarRefresh = useRefreshFeedback(() => loadRuns())
           table-id="training-runs"
           :columns="columns"
           :data="paginatedRuns"
+          :infinite-scroll="infiniteScroll"
           :default-visible-column-ids="['dataset', 'action', 'status', 'message', 'inputs', 'train', 'val', 'test', 'progress', 'updated', 'duration', 'actions']"
           class="flex-1 px-4 pb-4"
         />
-        <div v-if="filteredRuns.length" class="flex items-center justify-between border-t border-default px-4 py-4">
+        <div v-if="filteredRuns.length" class="hidden sm:flex items-center justify-between border-t border-default px-4 py-4">
           <div class="text-sm text-muted">
             Showing {{ showingFrom }} to {{ showingTo }} of {{ filteredRuns.length }} runs
           </div>

@@ -361,10 +361,7 @@ const itemsPerPageRef = usePersistentTablePageSize('dataset-items')
 const totalItems = computed(() => filteredAndSortedData.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))
 const itemsPerPage = useItemsPerPageModel(page, itemsPerPageRef, totalItems)
-const paginatedRows = computed(() => {
-  const start = (page.value - 1) * itemsPerPageRef.value
-  return filteredAndSortedData.value.slice(start, start + itemsPerPageRef.value)
-})
+const { rows: paginatedRows, infiniteScroll } = useTablePagination(filteredAndSortedData, page, itemsPerPageRef)
 
 const selectedItemIds = ref<Set<string>>(new Set())
 const selectedItems = computed(() => tableRows.value.filter(row => selectedItemIds.value.has(row.id)))
@@ -1517,6 +1514,7 @@ useHead({
                   <AppTable
                     table-id="dataset-items"
                     :data="paginatedRows"
+                    :infinite-scroll="infiniteScroll"
                     :columns="itemColumns"
                     class="flex-1"
                     :ui="{
@@ -1568,7 +1566,7 @@ useHead({
                     </UButton>
                   </UiFloatingSelectionMenu>
 
-                  <div v-if="totalItems > 0" class="flex items-center justify-between border-t border-default pt-4">
+                  <div v-if="totalItems > 0" class="hidden sm:flex items-center justify-between border-t border-default pt-4">
                     <div class="text-sm text-muted">
                       Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} items
                     </div>

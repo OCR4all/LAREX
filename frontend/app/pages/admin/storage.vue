@@ -127,9 +127,18 @@ const { data: orphanedFiles, refresh: refreshOrphaned, pending: orphanedPending 
   })
 })
 
-const currentPageFiles = computed(() => orphanedFiles.value?.files ?? [])
 const totalItems = computed(() => orphanedFiles.value?.totalCount ?? 0)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
+const { rows: currentPageFiles, infiniteScroll } = useServerTablePagination(
+  () => orphanedFiles.value?.files ?? [],
+  totalItems,
+  page,
+  orphanedPending,
+  orphanedQuery,
+  async nextPage => (await $fetch<OrphanedFilesResponse>('/api/admin/storage/orphaned', {
+    query: { ...orphanedQuery.value, page: nextPage }
+  })).files
+)
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const filteredTotalSize = computed(() => orphanedFiles.value?.totalSizeBytes ?? 0)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
@@ -632,6 +641,7 @@ async function refreshAll() {
               table-id="admin-storage-orphaned-files"
               :columns="columns"
               :data="currentPageFiles"
+              :infinite-scroll="infiniteScroll"
               :loading="orphanedPending"
               :ui="datatableUi"
               @contextmenu="handleRowContextMenu"
@@ -656,7 +666,7 @@ async function refreshAll() {
           </UButton>
         </UiFloatingSelectionMenu>
 
-        <div v-if="totalItems > 0" class="mt-4 flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
+        <div v-if="totalItems > 0" class="mt-4 hidden sm:flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
           <div class="text-sm text-muted">
             Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} files
           </div>

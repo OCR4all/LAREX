@@ -1,5 +1,6 @@
+import { useTablePagination } from '@/composables/use-table-pagination'
 import { readFileSync } from 'node:fs'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { compileScript, parse } from 'vue/compiler-sfc'
 import { ModuleKind, transpileModule } from 'typescript'
 import * as Vue from 'vue'
@@ -26,6 +27,9 @@ new Function('require', 'exports', compiled)((id: string) => {
 }, exportsObject)
 
 describe('Run report', () => {
+  beforeEach(() => vi.stubGlobal('useTablePagination', useTablePagination))
+  afterEach(() => vi.unstubAllGlobals())
+
   it('downloads the complete report rather than only the filtered page', async () => {
     const report: ActionRunReport = {
       schemaVersion: 1, counts: { total: 0, succeeded: 0, failed: 0, skipped: 0, unfinished: 0, unknown: 0 },

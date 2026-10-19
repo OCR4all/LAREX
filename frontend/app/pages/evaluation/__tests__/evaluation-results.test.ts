@@ -1,3 +1,4 @@
+import { useTablePagination } from '@/composables/use-table-pagination'
 import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { compileScript, parse } from 'vue/compiler-sfc'
@@ -39,6 +40,7 @@ describe('Evaluation result downloads', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks()
+    vi.stubGlobal('useTablePagination', useTablePagination)
     vi.stubGlobal('watch', vi.fn())
     vi.stubGlobal('useWorkspaceBootstrap', async () => {})
     vi.stubGlobal('useWorkspaceStore', () => ({ selectedWorkspaceId: 'workspace' }))

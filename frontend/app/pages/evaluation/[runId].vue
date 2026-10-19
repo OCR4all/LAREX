@@ -62,10 +62,7 @@ const filteredSamples = computed(() => {
   return samples.filter(sample => [sample.id, sample.inputId, sample.targetId, sample.label, sample.status, ...Object.values(sample.fields).map(String)]
     .some(value => value?.toLowerCase().includes(needle)))
 })
-const pagedSamples = computed(() => filteredSamples.value.slice(
-  (samplePage.value - 1) * samplePageSize,
-  samplePage.value * samplePageSize
-))
+const { rows: pagedSamples, infiniteScroll: sampleInfiniteScroll } = useTablePagination(filteredSamples, samplePage, samplePageSize)
 const filteredRows = (table: EvaluationReport['tables'][number]) => {
   const needle = (tableSearch.value[table.key] || '').toLowerCase().trim()
   if (!needle) return table.rows
@@ -265,10 +262,11 @@ watch([workspaceId, runId], () => {
                 :table-id="`evaluation-${table.key}`"
                 :columns="reportTableColumns(table)"
                 :data="reportTableRows(table)"
+                :mobile-data="filteredRows(table).map(row => rowValues(row))"
                 class="text-sm"
               />
             </div>
-            <div v-if="filteredRows(table).length > tablePageSize" class="flex items-center justify-between border-t border-default px-3 py-2">
+            <div v-if="filteredRows(table).length > tablePageSize" class="hidden sm:flex items-center justify-between border-t border-default px-3 py-2">
               <span class="text-xs text-muted">Showing {{ Math.min(((tablePages[table.key] || 1) - 1) * tablePageSize + 1, filteredRows(table).length) }}–{{ Math.min((tablePages[table.key] || 1) * tablePageSize, filteredRows(table).length) }}</span>
               <UPagination
                 :page="tablePages[table.key] || 1"
@@ -297,6 +295,7 @@ watch([workspaceId, runId], () => {
                 table-id="evaluation-samples"
                 :columns="sampleColumns"
                 :data="pagedSampleRows"
+                :infinite-scroll="sampleInfiniteScroll"
                 class="text-sm"
               >
                 <template #fields-cell="{ row }">
@@ -314,7 +313,7 @@ watch([workspaceId, runId], () => {
                 </template>
               </AppTable>
             </div>
-            <div v-if="filteredSamples.length > samplePageSize" class="flex items-center justify-between border-t border-default px-3 py-2">
+            <div v-if="filteredSamples.length > samplePageSize" class="hidden sm:flex items-center justify-between border-t border-default px-3 py-2">
               <span class="text-xs text-muted">Showing {{ Math.min((samplePage - 1) * samplePageSize + 1, filteredSamples.length) }}–{{ Math.min(samplePage * samplePageSize, filteredSamples.length) }}</span>
               <UPagination
                 v-model:page="samplePage"

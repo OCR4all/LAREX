@@ -101,9 +101,18 @@ const { data: workspaces } = await useFetch<AdminWorkspace[]>('/api/admin/worksp
   default: () => []
 })
 
-const outputs = computed(() => outputPage.value?.outputs ?? [])
 const totalItems = computed(() => outputPage.value?.totalElements ?? 0)
 const totalPages = computed(() => Math.max(1, outputPage.value?.totalPages ?? 1))
+const { rows: outputs, infiniteScroll } = useServerTablePagination(
+  () => outputPage.value?.outputs ?? [],
+  totalItems,
+  page,
+  pending,
+  query,
+  async nextPage => (await $fetch<AdminOutputPage>('/api/admin/outputs', {
+    query: { ...query.value, page: nextPage }
+  })).outputs
+)
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
@@ -479,12 +488,13 @@ const toolbarRefresh = useRefreshFeedback(() => refresh())
         <AppTable
           table-id="admin-outputs"
           :data="outputs"
+          :infinite-scroll="infiniteScroll"
           :columns="columns"
           :loading="pending"
           class="px-4 pb-4"
         />
 
-        <div class="flex flex-col gap-4 border-t border-default px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="hidden sm:flex flex-col gap-4 border-t border-default px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div class="text-sm text-muted">
             Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} outputs
           </div>

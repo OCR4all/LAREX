@@ -3,6 +3,7 @@ import type { TableColumn } from '@nuxt/ui'
 import type { StyleValue } from 'vue'
 import AppDateTime from '@/components/app/date-time.vue'
 import type { DateTimeInput } from '@/composables/use-local-date-time'
+import type { TableInfiniteScroll } from '@/composables/use-table-pagination'
 import {
   filterVisibleTableColumns,
   getTableColumnId,
@@ -24,6 +25,8 @@ const props = withDefaults(defineProps<{
   tableId: string
   columns?: unknown[]
   data?: unknown[]
+  mobileData?: unknown[]
+  infiniteScroll?: TableInfiniteScroll
   dateColumnIds?: string[]
   defaultVisibleColumnIds?: string[]
 }>(), {
@@ -35,6 +38,11 @@ defineSlots<Record<string, (props?: any) => any>>()
 
 const attrs = useAttrs()
 const slots = useSlots()
+const localPage = ref(1)
+const { rows: localRows, infiniteScroll: localInfiniteScroll } = useTablePagination(() => props.mobileData ?? [], localPage, 25)
+const scrollState = computed(() => props.infiniteScroll ?? (props.mobileData ? localInfiniteScroll : undefined))
+const tableData = computed(() => props.mobileData && localInfiniteScroll.enabled ? localRows.value : props.data)
+const forwardedSlots = computed(() => Object.keys(slots).filter(name => name !== 'body-bottom'))
 
 const rootRef = ref<HTMLElement | null>(null)
 const tableRef = ref<{ $el?: HTMLElement | null, tableApi?: unknown } | null>(null)
@@ -163,16 +171,24 @@ const tableColumns = computed(() => {
       ref="tableRef"
       sticky
       :columns="tableColumns"
-      :data="props.data"
+      :data="tableData"
       :ui="tableUi"
       v-bind="tableAttrs"
     >
       <template
-        v-for="(_, slotName) in slots"
+        v-for="slotName in forwardedSlots"
         :key="slotName"
         #[slotName]="slotProps"
       >
         <slot :name="slotName" v-bind="slotProps ?? {}" />
+      </template>
+      <template #body-bottom>
+        <slot name="body-bottom" />
+        <tr v-if="scrollState?.enabled">
+          <td :colspan="Math.max(1, tableColumns?.length ?? 1)">
+            <AppTableLoadMore :state="scrollState" />
+          </td>
+        </tr>
       </template>
     </UTable>
   </div>

@@ -162,11 +162,20 @@ const { data: usersPage, refresh, pending } = await useFetch<AdminUserPage>('/ap
   default: defaultUsersPage
 })
 
-const users = computed(() => usersPage.value?.items ?? [])
 const creationAllowed = computed(() => usersPage.value?.creationAllowed ?? true)
 const setupEmailAllowed = computed(() => usersPage.value?.setupEmailAllowed ?? true)
 const totalItems = computed(() => usersPage.value?.totalElements ?? 0)
 const totalPages = computed(() => Math.max(1, usersPage.value?.totalPages ?? 1))
+const { rows: users, infiniteScroll } = useServerTablePagination(
+  () => usersPage.value?.items ?? [],
+  totalItems,
+  page,
+  pending,
+  usersQuery,
+  async nextPage => (await $fetch<AdminUserPage>('/api/admin/users', {
+    query: { ...usersQuery.value, page: nextPage - 1 }
+  })).items
+)
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const visibleActiveCount = computed(() => users.value.filter(user => user.onboardingState === 'ACTIVE').length)
 const visiblePendingCount = computed(() => users.value.filter(user => user.onboardingState === 'PENDING_SETUP').length)
@@ -877,6 +886,7 @@ async function submitGlobalRoleAction() {
             table-id="admin-users"
             :sorting-options="{ manualSorting: true, enableMultiSort: false }"
             :data="users"
+            :infinite-scroll="infiniteScroll"
             :columns="columns"
             :loading="pending"
             :ui="datatableUi"
@@ -884,7 +894,7 @@ async function submitGlobalRoleAction() {
           />
         </UContextMenu>
 
-        <div class="mt-4 flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="mt-4 hidden sm:flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
           <div class="text-sm text-muted">
             Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} users
           </div>

@@ -18,7 +18,7 @@ const filteredPages = computed(() => {
   return props.report.pageOutcomes.filter(item => (outcome.value === 'ALL' || item.status === outcome.value)
     && (!query || [item.pageName, item.pageId, item.message, ...item.warnings].some(value => value?.toLowerCase().includes(query))))
 })
-const visiblePages = computed(() => filteredPages.value.slice((page.value - 1) * pageSize, page.value * pageSize))
+const { rows: visiblePages, infiniteScroll } = useTablePagination(filteredPages, page, pageSize)
 watch([search, outcome, () => props.report], () => {
   page.value = 1
 })
@@ -124,12 +124,18 @@ function download() {
                 No matching pages.
               </td>
             </tr>
+            <tr v-if="infiniteScroll.enabled">
+              <td colspan="3">
+                <AppTableLoadMore :state="infiniteScroll" />
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
       <UPagination
         v-if="filteredPages.length > pageSize"
         v-model:page="page"
+        class="hidden sm:flex"
         :total="filteredPages.length"
         :items-per-page="pageSize"
         size="sm"

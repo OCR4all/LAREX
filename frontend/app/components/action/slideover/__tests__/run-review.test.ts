@@ -1,3 +1,4 @@
+import { useTablePagination } from '@/composables/use-table-pagination'
 import * as actionRunStatus from '@/utils/action-run-status'
 import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -100,6 +101,7 @@ describe('Action run review flow', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubGlobal('useTablePagination', useTablePagination)
     vi.stubGlobal('$fetch', fetch)
     vi.stubGlobal('useToast', () => ({ add: addToast }))
     vi.stubGlobal('useActionRunsStore', () => ({ runsArray: [], upsertRun: vi.fn() }))

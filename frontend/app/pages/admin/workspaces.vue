@@ -71,10 +71,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / items
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
-const paginatedRows = computed(() => {
-  const start = (page.value - 1) * itemsPerPage.value
-  return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
-})
+const { rows: paginatedRows, infiniteScroll } = useTablePagination(filteredAndSortedData, page, itemsPerPage)
 
 watch([globalFilter, columnFilters], () => {
   page.value = 1
@@ -275,6 +272,7 @@ function clearFilters() {
           <AppTable
             table-id="admin-workspaces"
             :data="paginatedRows"
+            :infinite-scroll="infiniteScroll"
             :columns="columns"
             :loading="pending"
             :ui="datatableUi"
@@ -282,7 +280,7 @@ function clearFilters() {
           />
         </UContextMenu>
 
-        <div class="mt-4 flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="mt-4 hidden sm:flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
           <div class="text-sm text-muted">
             Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} workspaces
           </div>

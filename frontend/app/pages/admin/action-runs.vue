@@ -151,10 +151,7 @@ const filteredRuns = computed(() => runs.value
 const totalItems = computed(() => filteredRuns.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
-const paginatedRuns = computed(() => {
-  const start = (page.value - 1) * itemsPerPage.value
-  return filteredRuns.value.slice(start, start + itemsPerPage.value)
-})
+const { rows: paginatedRuns, infiniteScroll } = useTablePagination(filteredRuns, page, itemsPerPage)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
 
@@ -496,12 +493,13 @@ function setCancellingRun(runId: string, value: boolean) {
             v-else
             table-id="admin-action-runs"
             :data="paginatedRuns"
+            :infinite-scroll="infiniteScroll"
             :columns="columns"
             :default-visible-column-ids="['action', 'target', 'status', 'pageCount', 'updated', 'actions']"
             class="flex-1 px-4 pb-4"
           />
 
-          <div v-if="filteredRuns.length > 0" class="flex items-center justify-between border-t border-default px-4 py-4">
+          <div v-if="filteredRuns.length > 0" class="hidden sm:flex items-center justify-between border-t border-default px-4 py-4">
             <div class="text-sm text-muted">
               Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} runs
             </div>

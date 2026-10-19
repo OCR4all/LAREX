@@ -149,10 +149,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
   const totalItems = computed(() => filteredPages.value.length)
   const totalPagesCount = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))
   const itemsPerPage = useItemsPerPageModel(page, itemsPerPageRef, totalItems)
-  const paginatedPages = computed(() => {
-    const start = (page.value - 1) * itemsPerPageRef.value
-    return filteredPages.value.slice(start, start + itemsPerPageRef.value)
-  })
+  const { rows: paginatedPages, infiniteScroll } = useTablePagination(filteredPages, page, itemsPerPageRef)
 
   watch([globalFilter, columnFilters, annotationStatusFilter, workflowStateFilter], () => {
     page.value = 1
@@ -209,11 +206,14 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
   const pageTableSortable = useSortable(projectPageTableBody, visibleProjectPageRows, {
     animation: 150,
     handle: '.project-page-order-handle',
+    draggable: 'tr[data-slot=tr]',
     watchElement: true,
     disabled: true,
     onUpdate: (event) => {
-      if (typeof event.oldIndex !== 'number' || typeof event.newIndex !== 'number') return
-      moveArrayElement(visibleProjectPageRows, event.oldIndex, event.newIndex, event)
+      const oldIndex = event.oldDraggableIndex
+      const newIndex = event.newDraggableIndex
+      if (typeof oldIndex !== 'number' || typeof newIndex !== 'number') return
+      moveArrayElement(visibleProjectPageRows, oldIndex, newIndex, event)
       void nextTick(() => saveProjectPageOrderFromVisibleRows())
     }
   })
@@ -288,7 +288,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
       return
     }
 
-    const start = (page.value - 1) * itemsPerPageRef.value
+    const start = infiniteScroll.enabled ? 0 : (page.value - 1) * itemsPerPageRef.value
     const orderedPages = [
       ...currentPages.slice(0, start),
       ...visibleIds.map(pageId => currentPages.find(page => page.id === pageId)).filter((page): page is Page => Boolean(page)),
@@ -412,6 +412,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     totalItems,
     totalPagesCount,
     paginatedPages,
+    infiniteScroll,
     visibleProjectPageRows,
     projectPagesTableRef,
     isPageOrderingMode,

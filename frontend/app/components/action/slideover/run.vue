@@ -159,7 +159,7 @@ const filteredActionProcessors = computed(() => {
     && (!selectedActionTags.value.length || selectedActionTags.value.some(tag => item.processor.tags.includes(tag)))
   ).toSorted((left, right) => (actionNameDescending.value ? -1 : 1) * left.processor.name.localeCompare(right.processor.name))
 })
-const visibleActionProcessors = computed(() => filteredActionProcessors.value.slice((actionTablePage.value - 1) * 10, actionTablePage.value * 10))
+const { rows: visibleActionProcessors, infiniteScroll } = useTablePagination(filteredActionProcessors, actionTablePage, 10)
 const hasActionFilters = computed(() => Boolean(actionSearch.value.trim() || selectedActionTags.value.length))
 const actionTableEmptyMessage = computed(() => {
   if (!processors.value.length) return 'No Actions are assigned to this project or workspace.'
@@ -403,10 +403,7 @@ const parameterValuesReady = computed(() =>
 )
 
 const clearableHistoryRuns = computed(() => runs.value.filter(run => run.status === 'COMPLETED' || run.status === 'COMPLETED_WITH_ISSUES' || run.status === 'FAILED'))
-const paginatedRuns = computed(() => {
-  const start = (runHistoryPage.value - 1) * runHistoryItemsPerPage.value
-  return runs.value.slice(start, start + runHistoryItemsPerPage.value)
-})
+const { rows: paginatedRuns, infiniteScroll: runHistoryInfiniteScroll } = useTablePagination(runs, runHistoryPage, runHistoryItemsPerPage)
 const canStart = computed(() =>
   view.value === 'configure'
   && Boolean(selectedProcessor.value?.executable)
@@ -1063,6 +1060,7 @@ function close() {
               table-id="run-action-processors"
               :columns="actionTableColumns"
               :data="visibleActionProcessors"
+              :infinite-scroll="infiniteScroll"
               :loading="loading"
               :get-row-id="(item: ExecutableActionProcessorResponse) => item.processor.id"
               :ui="{ base: 'w-full min-w-[36rem] table-fixed border-separate border-spacing-0', td: 'border-b border-default whitespace-normal align-top' }"
@@ -1131,6 +1129,7 @@ function close() {
             <UPagination
               v-if="filteredActionProcessors.length > 10"
               v-model:page="actionTablePage"
+              class="hidden sm:flex"
               :total="filteredActionProcessors.length"
               :items-per-page="10"
             />
@@ -1522,7 +1521,8 @@ function close() {
               </div>
             </div>
 
-            <div v-if="runs.length > runHistoryItemsPerPage" class="flex justify-end pt-1">
+            <AppTableLoadMore :state="runHistoryInfiniteScroll" />
+            <div v-if="runs.length > runHistoryItemsPerPage" class="hidden justify-end pt-1 sm:flex">
               <UPagination
                 v-model:page="runHistoryPage"
                 :total="runs.length"

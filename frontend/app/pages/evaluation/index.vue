@@ -32,7 +32,7 @@ const filtered = computed(() => {
   }).sort((a, b) => Date.parse(b.updated) - Date.parse(a.updated))
 })
 const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))
-const paginated = computed(() => filtered.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
+const { rows: paginated, infiniteScroll } = useTablePagination(filtered, page, pageSize)
 watch([search, status], () => { page.value = 1 })
 watch(totalPages, (value) => { if (page.value > value) page.value = value })
 
@@ -153,10 +153,11 @@ const toolbarRefresh = useRefreshFeedback(() => loadRuns())
           table-id="evaluation-runs"
           :columns="columns"
           :data="paginated"
+          :infinite-scroll="infiniteScroll"
           :default-visible-column-ids="['dataset', 'action', 'status', 'inputs', 'train', 'val', 'test', 'progress', 'updated', 'actions']"
           class="flex-1 px-4 pb-4"
           @select="(row: any) => navigateTo(`/evaluation/${row.original.id}`)"
-        /><div v-if="filtered.length" class="flex items-center justify-between border-t border-default px-4 py-4">
+        /><div v-if="filtered.length" class="hidden sm:flex items-center justify-between border-t border-default px-4 py-4">
           <span class="text-sm text-muted">{{ filtered.length }} runs</span><div class="flex items-center gap-4">
             <USelect
               v-model="pageSize"

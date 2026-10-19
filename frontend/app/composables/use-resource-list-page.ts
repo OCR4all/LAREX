@@ -76,13 +76,9 @@ export function useResourceListPage<T extends object>(options: ResourceListPageO
   const totalItems = computed(() => filters.filteredAndSortedData.value.length)
   const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))
   const itemsPerPage = useItemsPerPageModel(page, itemsPerPageRef, totalItems)
-  const paginatedData = computed(() => {
-    const start = (page.value - 1) * itemsPerPageRef.value
-    const end = start + itemsPerPageRef.value
-    return filters.filteredAndSortedData.value.slice(start, end)
-  })
+  const { rows: paginatedData, infiniteScroll } = useTablePagination(filters.filteredAndSortedData, page, itemsPerPageRef)
 
-  watch([filters.globalFilter, filters.columnFilters], () => {
+  watch([filters.globalFilter, filters.columnFilters, filters.sort], () => {
     page.value = 1
   }, { deep: true })
 
@@ -101,6 +97,7 @@ export function useResourceListPage<T extends object>(options: ResourceListPageO
     itemsPerPage,
     totalItems,
     totalPages,
-    paginatedData
+    paginatedData,
+    infiniteScroll
   }
 }

@@ -148,9 +148,18 @@ const { data: detailData, pending: detailPending, refresh: refreshDetail } = awa
   }
 )
 
-const rows = computed(() => errorsPage.value.items || [])
 const totalItems = computed(() => errorsPage.value.totalElements || 0)
 const totalPages = computed(() => Math.max(1, errorsPage.value.totalPages || 1))
+const { rows, infiniteScroll } = useServerTablePagination(
+  () => errorsPage.value?.items ?? [],
+  totalItems,
+  page,
+  pending,
+  query,
+  async nextPage => (await $fetch<AdminErrorEventPage>('/api/admin/errors', {
+    query: { ...query.value, page: nextPage - 1 }
+  })).items
+)
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
@@ -412,13 +421,14 @@ function clearFilters() {
           <AppTable
             table-id="admin-errors"
             :data="rows"
+            :infinite-scroll="infiniteScroll"
             :columns="columns"
             :loading="pending"
             :ui="datatableUi"
           />
         </div>
 
-        <div class="flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="hidden sm:flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
           <div class="text-sm text-muted">
             Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} error events
           </div>
