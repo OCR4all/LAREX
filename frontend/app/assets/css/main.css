@@ -4,7 +4,7 @@
 
 @theme {
   --font-sans: 'Geist', sans-serif;
-  --color-brand-blue: #1678e4;
+  --color-brand-blue: #304ffa;
 }
 
 :root {
@@ -44,17 +44,17 @@
   --font-sans: 'Geist', sans-serif;
   --font-junicode: 'Junicode', serif;
 
-  --color-navy-50: oklch(0.965 0.016 274.87);
-  --color-navy-100: oklch(0.932 0.031 269.84);
-  --color-navy-200: oklch(0.863 0.065 268.79);
-  --color-navy-300: oklch(0.786 0.104 265.98);
-  --color-navy-400: oklch(0.718 0.143 262.61);
-  --color-navy-500: oklch(0.651 0.183 257.46);
-  --color-navy-600: oklch(0.581 0.184 255.48);
-  --color-navy-700: oklch(0.503 0.159 255.41);
-  --color-navy-800: oklch(0.434 0.138 255.46);
-  --color-navy-900: oklch(0.365 0.115 255.33);
-  --color-navy-950: oklch(0.251 0.08 255.53);
+  --color-navy-50: #eff2ff;
+  --color-navy-100: #e0e6ff;
+  --color-navy-200: #c6cfff;
+  --color-navy-300: #a3b2ff;
+  --color-navy-400: #7b91ff;
+  --color-navy-500: #526fff;
+  --color-navy-600: #304ffa;
+  --color-navy-700: #233bd6;
+  --color-navy-800: #2333ad;
+  --color-navy-900: #223088;
+  --color-navy-950: #151b4f;
 
   --color-copper-50: #fff0ed;
   --color-copper-100: #ffdbd1;

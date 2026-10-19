@@ -53,7 +53,7 @@
         }
 
         .email-body a {
-            color: #1678e4;
+            color: #304ffa;
         }
 
         .email-body strong,
@@ -96,7 +96,7 @@
                                 role="presentation"
                                 width="100%"
                                 bgcolor="#ffffff"
-                                style="width:100%; background-color:#ffffff; border:1px solid #e0e0e0; border-top:4px solid #1678e4; border-radius:6px;"
+                                style="width:100%; background-color:#ffffff; border:1px solid #e0e0e0; border-top:4px solid #304ffa; border-radius:6px;"
                             >
                                 <tr>
                                     <td class="email-card-body" style="padding:32px 32px 24px;">

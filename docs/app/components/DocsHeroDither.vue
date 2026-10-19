@@ -156,8 +156,8 @@ onMounted(() => {
     gl!.viewport(0, 0, element!.width, element!.height)
     gl!.uniform2f(resolution, element!.width, element!.height)
     gl!.uniform1f(time, reducedMotion.matches ? 0 : (now - startedAt) / 1000)
-    gl!.uniform3fv(waveColor, dark ? [0.08, 0.3, 0.7] : [0.35, 0.55, 1])
-    gl!.uniform3fv(backgroundColor, dark ? [0.04, 0.06, 0.1] : [0.95, 0.97, 1])
+    gl!.uniform3fv(waveColor, dark ? [0.14, 0.2, 0.68] : [0.3, 0.4, 0.98])
+    gl!.uniform3fv(backgroundColor, dark ? [0.04, 0.05, 0.12] : [0.94, 0.95, 1])
     gl!.drawArrays(gl!.TRIANGLES, 0, 6)
   }
 

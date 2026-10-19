@@ -72,8 +72,8 @@ export default function Template(props: TemplateProps<KcContext, I18n>) {
       <aside className="relative hidden min-h-svh w-1/2 overflow-hidden bg-navy-50 md:flex md:flex-col">
         <div className="absolute inset-0">
           <Dither
-            waveColor={isDark ? [0.08, 0.3, 0.7] : [0.35, 0.55, 1]}
-            backgroundColor={isDark ? [0.04, 0.06, 0.1] : [0.95, 0.97, 1]}
+            waveColor={isDark ? [0.14, 0.2, 0.68] : [0.3, 0.4, 0.98]}
+            backgroundColor={isDark ? [0.04, 0.05, 0.12] : [0.94, 0.95, 1]}
             waveSpeed={0.035}
             waveFrequency={2.6}
             waveAmplitude={0.34}

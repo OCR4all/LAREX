@@ -53,7 +53,7 @@ const letterPath = computed(() => {
   return 'm 840.6445,600.41017 q 90.8203,0 360.3516,0 0,448.24223 0,1798.82813 -90.8203,0 -360.3516,0 0,-448.2422 0,-1798.82813 z m 360.3516,1798.82813 q 331.0547,0 1318.3594,0 0,90.8203 0,360.3516 -246.0938,0 -987.3047,0 -84.961,0 -331.0547,0 0,-90.8204 0,-360.3516 z'
 })
 
-const backgroundColor = computed(() => props.variant === 'monochrome' ? 'currentColor' : '#1678E4FF')
+const backgroundColor = computed(() => props.variant === 'monochrome' ? 'currentColor' : 'var(--color-brand-blue)')
 
 const textColor = computed(() => {
   switch (props.variant) {

@@ -12,17 +12,17 @@
   --radius-xl: calc(var(--radius) + 4px);
 
   /* Navy color palette (primary) */
-  --navy-50: #F0F3FFFF;
-  --navy-100: #E0E8FEFF;
-  --navy-200: #C0D1FEFF;
-  --navy-300: #9AB8FDFF;
-  --navy-400: #73A2FDFF;
-  --navy-500: #3D8DFCFF;
-  --navy-600: #1678e4;
-  --navy-700: #1062BCFF;
-  --navy-800: #0A4F9AFF;
-  --navy-900: #063D79FF;
-  --navy-950: #022147FF;
+  --navy-50: #eff2ff;
+  --navy-100: #e0e6ff;
+  --navy-200: #c6cfff;
+  --navy-300: #a3b2ff;
+  --navy-400: #7b91ff;
+  --navy-500: #526fff;
+  --navy-600: #304ffa;
+  --navy-700: #233bd6;
+  --navy-800: #2333ad;
+  --navy-900: #223088;
+  --navy-950: #151b4f;
 
   /* Smoke color palette (neutral/background) */
   --smoke-50: #f2f2f2;
@@ -74,17 +74,17 @@
   --radius: 0.5rem;
 
   /* Navy color palette (primary) */
-  --navy-50: #F0F3FFFF;
-  --navy-100: #E0E8FEFF;
-  --navy-200: #C0D1FEFF;
-  --navy-300: #9AB8FDFF;
-  --navy-400: #73A2FDFF;
-  --navy-500: #3D8DFCFF;
-  --navy-600: #1678e4;
-  --navy-700: #1062BCFF;
-  --navy-800: #0A4F9AFF;
-  --navy-900: #063D79FF;
-  --navy-950: #022147FF;
+  --navy-50: #eff2ff;
+  --navy-100: #e0e6ff;
+  --navy-200: #c6cfff;
+  --navy-300: #a3b2ff;
+  --navy-400: #7b91ff;
+  --navy-500: #526fff;
+  --navy-600: #304ffa;
+  --navy-700: #233bd6;
+  --navy-800: #2333ad;
+  --navy-900: #223088;
+  --navy-950: #151b4f;
 
   /* Smoke color palette (neutral/background) */
   --smoke-50: #f2f2f2;

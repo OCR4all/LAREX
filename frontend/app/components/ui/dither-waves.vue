@@ -1,5 +1,5 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   variant?: 'accent' | 'banner' | 'background'
 }>(), {
   variant: 'accent'
@@ -166,8 +166,10 @@ onMounted(() => {
     gl!.viewport(0, 0, element!.width, element!.height)
     gl!.uniform2f(resolution, element!.width, element!.height)
     gl!.uniform1f(time, elapsed / 1000)
-    gl!.uniform3fv(waveColor, dark ? [0.08, 0.3, 0.7] : [0.35, 0.55, 1])
-    gl!.uniform3fv(backgroundColor, dark ? [0.04, 0.06, 0.1] : [0.95, 0.97, 1])
+    // Accent headers need brighter waves before the shader darkens and quantizes them.
+    const darkWave = props.variant === 'accent' ? [0.32, 0.43, 0.98] : [0.14, 0.2, 0.68]
+    gl!.uniform3fv(waveColor, dark ? darkWave : [0.3, 0.4, 0.98])
+    gl!.uniform3fv(backgroundColor, dark ? [0.04, 0.05, 0.12] : [0.94, 0.95, 1])
     gl!.drawArrays(gl!.TRIANGLES, 0, 6)
     ready.value = true
   }
@@ -260,6 +262,10 @@ onBeforeUnmount(() => dispose?.())
 .dither-waves--accent {
   left: 55%;
   mask-image: linear-gradient(to right, transparent, black);
+}
+
+.dark .dither-waves--accent {
+  opacity: 0.45;
 }
 
 .dither-waves--banner {
