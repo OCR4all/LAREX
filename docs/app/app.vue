@@ -7,7 +7,11 @@ const { data: navigation } = await useAsyncData('content-navigation', () => {
 })
 
 const { data: files } = useLazyAsyncData('content-search', () => {
-  return queryCollectionSearchSections('content')
+  return queryCollectionSearchSections('content', {
+    minHeading: 'h2',
+    maxHeading: 'h3',
+    ignoredTags: ['style', 'script']
+  })
 }, {
   server: false
 })
@@ -22,9 +26,12 @@ const { data: files } = useLazyAsyncData('content-search', () => {
         v-model:search-term="searchTerm"
         :files="files || []"
         :navigation="navigation || []"
+        title="Search documentation"
+        description="Find guides, workflows, and reference sections."
         placeholder="Search documentation..."
+        :color-mode="false"
         shortcut="meta_k"
-        :fuse="{ resultLimit: 32 }"
+        :fuse="{ resultLimit: 16 }"
       />
     </ClientOnly>
   </UApp>

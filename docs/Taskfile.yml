@@ -21,8 +21,13 @@ tasks:
     cmds:
       - pnpm preview
 
+  check:
+    desc: Check content metadata, links, anchors, and navigation
+    cmds:
+      - pnpm check
+
   test:
-    desc: Verify docs build
+    desc: Check content and verify docs build
     cmds:
       - pnpm build
 

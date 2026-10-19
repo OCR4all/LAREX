@@ -2,64 +2,29 @@
 import DocsHeroHeadline from './DocsHeroHeadline.vue'
 
 const primaryLinks = [
-  {
-    label: 'Start reading',
-    to: '/getting-started/introduction',
-    icon: 'i-lucide-arrow-right'
-  },
-  {
-    label: 'Open user guide',
-    to: '/user-guide/workspace-library',
-    icon: 'i-lucide-book-open'
-  }
+  { label: 'Annotate your first page', to: '/getting-started/first-project', icon: 'i-lucide-arrow-right' },
+  { label: 'Install LAREX', to: '/getting-started/installation', icon: 'i-lucide-download' }
 ]
 
 const audienceCards = [
-  {
-    title: 'Set up LAREX',
-    description: 'Install the stack, understand the services, and run a local development environment.',
-    icon: 'i-lucide-terminal',
-    to: '/getting-started/introduction'
-  },
-  {
-    title: 'Operate deployments',
-    description: 'Configure production, Docker services, environment variables, and release checks.',
-    icon: 'i-lucide-server',
-    to: '/deployment/production-deploy'
-  },
-  {
-    title: 'Annotate documents',
-    description: 'Work with projects, pages, editor panels, annotation tools, tags, labels, and dictionaries.',
-    icon: 'i-lucide-pen-tool',
-    to: '/user-guide/projects'
-  }
+  { title: 'Annotate and review', description: 'Import a document, correct layout and transcription, and save work you can reuse.', icon: 'i-lucide-pen-tool', to: '/user-guide/overview' },
+  { title: 'Coordinate a team', description: 'Set workspace conventions, distribute page Tasks, and curate datasets and releases.', icon: 'i-lucide-users', to: '/user-guide/tasks' },
+  { title: 'Run an instance', description: 'Install and operate LAREX, manage accounts and storage, and configure processors.', icon: 'i-lucide-server', to: '/deployment/production-deploy' },
+  { title: 'Develop and extend', description: 'Run the development stack, find commands, or build an Action processor with the SDK.', icon: 'i-lucide-code-2', to: '/development/docker-setup' }
 ]
 
 const featureLinks = [
-  {
-    label: 'Development',
-    description: 'Local setup, commands, architecture, and database workflows.',
-    icon: 'i-lucide-code-2',
-    to: '/development/local-setup'
-  },
-  {
-    label: 'Troubleshooting',
-    description: 'Common issues across local development and production.',
-    icon: 'i-lucide-wrench',
-    to: '/troubleshooting/common-issues'
-  },
-  {
-    label: 'Keyboard shortcuts',
-    description: 'Current editor shortcuts for faster layout and text work.',
-    icon: 'i-lucide-command',
-    to: '/user-guide/keyboard-shortcuts'
-  },
-  {
-    label: 'Workspace search',
-    description: 'Search transcription text across projects and pages.',
-    icon: 'i-lucide-search',
-    to: '/user-guide/workspace-search'
-  }
+  { label: 'Run Actions', description: 'Process documents and inspect results.', icon: 'i-lucide-plug', to: '/user-guide/larex-actions' },
+  { label: 'Build a dataset', description: 'Choose files, splits, and frozen releases.', icon: 'i-lucide-database', to: '/user-guide/datasets' },
+  { label: 'Find a feature', description: 'Follow the user guide by workflow.', icon: 'i-lucide-book-open', to: '/user-guide/overview' },
+  { label: 'Get unstuck', description: 'Resolve imports, locks, saves, and search.', icon: 'i-lucide-life-buoy', to: '/user-guide/troubleshooting' }
+]
+
+const workflow = [
+  { title: 'Organize and import', to: '/user-guide/projects', description: 'Choose a workspace, create a project, and add your material.' },
+  { title: 'Annotate and correct', to: '/user-guide/text-review', description: 'Review layout and text against the page image.' },
+  { title: 'Review together', to: '/user-guide/tasks', description: 'Complete page Tasks and keep track of team progress.' },
+  { title: 'Export and reuse', to: '/user-guide/exports-and-sharing', description: 'Deliver an export or freeze a release for downstream work.' }
 ]
 </script>
 
@@ -88,8 +53,8 @@ const featureLinks = [
                 :icon="link.icon"
                 size="lg"
                 color="neutral"
-                :variant="link.to.includes('getting-started') ? 'solid' : 'outline'"
-                :class="link.to.includes('getting-started')
+                :variant="link.to.endsWith('first-project') ? 'solid' : 'outline'"
+                :class="link.to.endsWith('first-project')
                   ? 'bg-white text-smoke-950 hover:bg-smoke-100'
                   : 'border-white/35 bg-white/10 text-white ring-white/35 hover:bg-white/18'"
               />
@@ -102,14 +67,14 @@ const featureLinks = [
     <section class="mx-auto max-w-7xl px-0 py-16 sm:py-20">
       <div class="mb-8 max-w-2xl">
         <h2 class="text-3xl font-semibold text-highlighted sm:text-4xl">
-          Move through the docs by task.
+          Start with the work you need to do.
         </h2>
         <p class="mt-3 text-muted">
-          The guides are organized around setup, operation, and annotation work, with direct routes into the pages people reach for most often.
+          Joining an existing instance? Go straight to the user guide. Installing for a team or contributing code? Follow the operator or developer path.
         </p>
       </div>
 
-      <div class="mb-4 grid gap-4 lg:grid-cols-3">
+      <div class="mb-4 grid gap-4 sm:grid-cols-2">
         <UPageCard
           v-for="card in audienceCards"
           :key="card.to"
@@ -134,24 +99,16 @@ const featureLinks = [
       </div>
     </section>
 
-    <section class="mx-auto max-w-7xl border-y border-default py-12">
-      <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-        <div>
-          <h2 class="text-2xl font-semibold text-highlighted">
-            Documentation status
-          </h2>
-          <p class="mt-3 max-w-3xl text-muted">
-            This documentation set is being migrated from Docus and some pages still need human review. The content structure is preserved while the shell moves to plain Nuxt Content.
-          </p>
-        </div>
-        <UButton
-          to="/troubleshooting/common-issues"
-          label="Find known issues"
-          icon="i-lucide-circle-help"
-          color="neutral"
-          variant="outline"
-        />
-      </div>
+    <section class="mx-auto max-w-7xl border-y border-default py-12" aria-labelledby="workflow-heading">
+      <h2 id="workflow-heading" class="text-2xl font-semibold text-highlighted">Follow a document through LAREX</h2>
+      <p class="mt-3 max-w-3xl text-muted">Each guide picks up where the previous stage leaves off. Learn the <NuxtLink to="/getting-started/concepts" class="underline underline-offset-4">core concepts</NuxtLink> if the workspace, file variants, or releases are unfamiliar.</p>
+      <ol class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <li v-for="(step, index) in workflow" :key="step.to">
+          <span class="text-sm font-medium text-muted">{{ index + 1 }} / {{ workflow.length }}</span>
+          <h3 class="mt-2 font-semibold text-highlighted"><NuxtLink :to="step.to" class="underline decoration-muted underline-offset-4 hover:decoration-current">{{ step.title }}</NuxtLink></h3>
+          <p class="mt-2 text-sm leading-6 text-muted">{{ step.description }}</p>
+        </li>
+      </ol>
     </section>
   </div>
 </template>

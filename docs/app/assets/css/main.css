@@ -61,3 +61,19 @@ body {
 .docs-content :where(pre) {
   overflow-x: auto;
 }
+
+.docs-content :where(p, li, td) a {
+  text-decoration-line: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-color: var(--ui-border-accented);
+}
+
+.docs-content :where(p, li, td) a:hover {
+  text-decoration-color: currentColor;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

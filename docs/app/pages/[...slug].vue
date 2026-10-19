@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ContentNavigationItem } from '@nuxt/content'
 const route = useRoute()
 
 const contentPath = () => {
@@ -13,6 +14,22 @@ const contentPath = () => {
 const { data: navigation } = await useAsyncData('content-navigation', () => {
   return queryCollectionNavigation('content', ['navigation'])
 })
+
+const breadcrumbs = computed(() => {
+  function findTrail(items: ContentNavigationItem[]): ContentNavigationItem[] {
+    for (const item of items) {
+      if (item.path === contentPath()) return [item]
+      const trail = findTrail(item.children || [])
+      if (trail.length) return [item, ...trail]
+    }
+    return []
+  }
+  return findTrail(navigation.value || [])
+})
+
+const editUrl = computed(() => page.value?.stem
+  ? `https://github.com/OCR4all/larex/edit/main/docs/content/${page.value.stem}.md`
+  : undefined)
 
 const isLanding = computed(() => contentPath() === '/')
 
@@ -60,7 +77,32 @@ useSeoMeta({
   <DocsShell :navigation="navigation || []" :toc-links="tocLinks" :landing="isLanding">
     <DocsLanding v-if="isLanding" />
     <article v-else class="docs-content max-w-4xl">
+      <nav aria-label="Breadcrumb" class="mb-6 text-sm text-muted">
+        <ol class="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <li><NuxtLink to="/" class="hover:text-highlighted">Docs</NuxtLink></li>
+          <li v-for="(crumb, index) in breadcrumbs" :key="crumb.path" class="flex items-center gap-2">
+            <span aria-hidden="true">/</span>
+            <span v-if="index === breadcrumbs.length - 1" aria-current="page">{{ crumb.title }}</span>
+            <span v-else-if="crumb.page === false">{{ crumb.title }}</span>
+            <NuxtLink v-else :to="crumb.path" class="hover:text-highlighted">{{ crumb.title }}</NuxtLink>
+          </li>
+        </ol>
+      </nav>
+      <nav v-if="tocLinks.length" aria-label="On this page" class="mb-6 rounded border border-default px-4 py-3 xl:hidden">
+        <details>
+          <summary class="cursor-pointer text-sm font-medium">On this page</summary>
+          <ul class="mt-3 space-y-2 text-sm text-muted">
+            <li v-for="link in tocLinks" :key="link.id">
+              <NuxtLink :to="`#${link.id}`" class="hover:text-highlighted">{{ link.text }}</NuxtLink>
+            </li>
+          </ul>
+        </details>
+      </nav>
       <ContentRenderer v-if="page" :value="page" />
+      <footer class="mt-10 flex flex-wrap gap-x-6 gap-y-2 border-t border-default pt-5 text-sm text-muted">
+        <a v-if="editUrl" :href="editUrl" target="_blank" rel="noopener noreferrer" class="underline underline-offset-4 hover:text-highlighted">Edit this page on GitHub</a>
+        <a href="https://github.com/OCR4all/larex/issues/new" target="_blank" rel="noopener noreferrer" class="underline underline-offset-4 hover:text-highlighted">Report a documentation issue</a>
+      </footer>
       <template v-if="hasSurround">
         <USeparator class="my-10" />
         <UContentSurround :surround="(surround as any)" />

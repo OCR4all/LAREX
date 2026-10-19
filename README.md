@@ -10,11 +10,11 @@
 ## Get started
 
 - **Deploy:** create a versioned deployment bundle with the [installation wizard](https://docs.larex.kallimachos.de/getting-started/installation).
-- **Annotate:** follow the [user guide](docs/content/5.user-guide/1.workspace-library.md).
-- **Automate:** run [LAREX Actions](docs/content/6.actions/1.overview.md) for processing, integration, [training](docs/content/6.actions/9.training.md), and [evaluation](docs/content/6.actions/10.evaluation.md).
+- **Annotate:** start with [your first project](docs/content/01.getting-started/02.first-project.md), then follow the [user guide](docs/content/02.user-guide/01.overview.md).
+- **Automate:** run [LAREX Actions](docs/content/03.actions/01.overview.md) for processing, integration, [training](docs/content/03.actions/09.training.md), and [evaluation](docs/content/03.actions/10.evaluation.md).
 
 > [!IMPORTANT]
-> Pre-1.0 databases must be recreated for 1.0. See the [compatibility policy](docs/content/1.getting-started/2.installation.md#database-compatibility).
+> Pre-1.0 databases must be recreated for 1.0. See the [compatibility policy](docs/content/01.getting-started/04.installation.md#database-compatibility).
 
 ## Develop
 
@@ -26,7 +26,7 @@ cd larex
 docker compose up -d
 ```
 
-Open [larex.localhost](http://larex.localhost). See the [development guide](docs/content/2.development/2.docker-setup.md), [command reference](docs/content/2.development/3.command-reference.md), and [contributing guidelines](CONTRIBUTING.md).
+Open [larex.localhost](http://larex.localhost). See the [development guide](docs/content/05.development/02.docker-setup.md), [command reference](docs/content/05.development/03.command-reference.md), and [contributing guidelines](CONTRIBUTING.md).
 
 ## License
 

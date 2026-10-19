@@ -26,10 +26,12 @@ const closeMobileNavOnLink = (event: MouseEvent) => {
 
 <template>
   <div class="min-h-screen bg-default">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-default focus:px-4 focus:py-2">Skip to content</a>
     <header class="sticky top-0 z-40 border-b border-muted bg-default/90 backdrop-blur">
       <UContainer class="flex h-14 items-center justify-between gap-4">
         <NuxtLink to="/" class="flex min-w-0 items-center gap-2" aria-label="LAREX documentation home">
           <AppHeaderLogo size="30" />
+          <span class="text-sm font-semibold text-highlighted">LAREX <span class="font-normal text-muted">Docs</span></span>
         </NuxtLink>
 
         <div class="flex items-center gap-2">
@@ -68,11 +70,11 @@ const closeMobileNavOnLink = (event: MouseEvent) => {
     >
       <aside v-if="!landing" class="hidden lg:block">
         <nav class="sticky top-22 max-h-[calc(100vh-7rem)] overflow-y-auto pr-3" aria-label="Documentation navigation">
-          <UContentNavigation :navigation="navigation" highlight color="neutral" />
+          <UContentNavigation :navigation="navigation" :default-open="true" highlight color="neutral" />
         </nav>
       </aside>
 
-      <main class="min-w-0">
+      <main id="main-content" tabindex="-1" class="min-w-0">
         <slot />
       </main>
 
@@ -92,6 +94,7 @@ const closeMobileNavOnLink = (event: MouseEvent) => {
         <nav aria-label="Documentation navigation">
           <UContentNavigation
             :navigation="navigation"
+            :default-open="true"
             highlight
             color="neutral"
             @click="closeMobileNavOnLink"
