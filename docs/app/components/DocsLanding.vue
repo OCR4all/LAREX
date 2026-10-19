@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import DocsHeroHeadline from './DocsHeroHeadline.vue'
+
 const primaryLinks = [
   {
     label: 'Start reading',
@@ -70,13 +72,11 @@ const featureLinks = [
         <div class="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 sm:py-12 lg:px-10">
           <div class="max-w-6xl">
             <UBadge color="neutral" variant="soft" class="mb-6 bg-white/12 text-white ring-white/25 backdrop-blur">
-              LAREX documentation
+              Documentation
             </UBadge>
-            <h1 class="max-w-5xl text-4xl font-bold text-balance text-white sm:text-5xl lg:text-6xl">
-              Document annotation, data management, and processor execution in <span class="font-black">LAREX</span>
-            </h1>
+            <DocsHeroHeadline />
             <p class="mt-6 max-w-4xl text-lg leading-8 text-smoke-100 sm:text-xl">
-              Practical guides for installing, developing, deploying, and using LAREX across layout analysis, transcription workflows, LAREX Actions, and processor-backed project operations.
+              LAREX is a self-hostable, open-source web application for scanned documents. Organize collections, annotate layouts, run OCR, review transcriptions together, and build training datasets in your browser.
             </p>
 
             <div class="mt-9 flex flex-wrap items-center gap-3">

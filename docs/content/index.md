@@ -1,6 +1,6 @@
 ---
 title: LAREX Documentation
-description: Guides and references for LAREX users, administrators, developers, and Action processor authors.
+description: LAREX is a self-hostable, open-source web application for organizing scanned documents, annotating layouts, running OCR, reviewing transcriptions, and curating datasets.
 navigation:
   icon: i-lucide-book-open
 seo:
