@@ -153,7 +153,7 @@ it('clears stale rows while a different project is loading and can revisit a pro
   await settle()
   expect(state.availablePages.value).toHaveLength(2)
 
-  let finish!: (pages: { id: string, name: string, tags: string[] }[]) => void
+  let finish!: (pages: Awaited<ReturnType<typeof fetch>>) => void
   fetch.mockImplementationOnce(() => new Promise((resolve) => {
     finish = resolve
   }))
