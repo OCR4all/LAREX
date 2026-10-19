@@ -41,7 +41,6 @@ export function useEditorCanvasCollaboration(canvasId: string) {
         if (!projectId || !pageId) return
         let attached = false
         const stopLoadingWatch = watch(loading, (isLoading, _previousLoading, onRefresh) => {
-
           if (isLoading || attached) return
           const controller = new AbortController()
           onRefresh(() => controller.abort())
