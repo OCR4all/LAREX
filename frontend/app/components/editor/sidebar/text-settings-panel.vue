@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TextItemLayout } from '@/stores/editor/types'
+import CanvasCommentsSetting from './canvas-comments-setting.vue'
 
 const padding = defineModel<number>('padding', { default: 10 })
 const fontSize = defineModel<number>('fontSize', { default: 18 })
@@ -10,8 +11,10 @@ const focusMode = defineModel<boolean>('focusMode', { default: false })
 
 const props = withDefaults(defineProps<{
   fullTextMode?: boolean
+  canvasMode?: boolean
 }>(), {
-  fullTextMode: false
+  fullTextMode: false,
+  canvasMode: false
 })
 
 const layoutTabItems = [
@@ -22,6 +25,7 @@ const layoutTabItems = [
 
 <template>
   <div class="p-4 flex flex-col gap-4">
+    <CanvasCommentsSetting v-if="props.canvasMode" />
     <div v-if="!props.fullTextMode">
       <div class="flex justify-between items-center mb-2">
         <span class="text-sm font-medium">Cutout Padding</span>

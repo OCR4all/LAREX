@@ -11,7 +11,7 @@ import {
   resolveRegionLabelDisplayName
 } from '@/utils/editor/page-label-mapping'
 import type { RegionKind } from '@/models/editor/region'
-import { DeletePolygonCommand, ReorderTextLinesCommand } from '@/commands'
+import { DeletePolygonCommand, ReorderTextLinesCommand, UpdateTextlineCommentCommand } from '@/commands'
 import { useTextViewShortcutScope } from '@/composables/editor/use-keyboard-shortcuts'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { createScopedLogger } from '@/services/editor/logger-service'
@@ -31,6 +31,7 @@ import {
   getMinVariantConfidence
 } from './variant-filtering'
 import { createTextlineVariantsUpdateCommand } from '../shared/textline-variant-update'
+import { serializeFullTextComment } from '../shared/full-text-comments'
 import {
   getVisibleTextContentVariantTextareas,
   focusNextSameIndex,
@@ -509,10 +510,15 @@ function handleUpdateTextlineComment(textlineId: string, comment: string): void 
   const hit = findTextLineRecursive(pcGts.page.regions, textlineId)
   if (!hit) return
 
-  const normalizedComment = comment.trim()
-  hit.textLine.comments = normalizedComment.length > 0 ? normalizedComment : undefined
-  pcGts.metadata?.touch?.()
-  triggerRef(session.document)
+  const nextComment = serializeFullTextComment(comment)
+  if (hit.textLine.comments === nextComment) return
+  const runtime = getTextViewRuntimeControls(canvasId, editorStore)
+  if (!runtime?.commander) return
+
+  runtime.commander.execute(
+    new UpdateTextlineCommentCommand({ textlineId, comment: nextComment }),
+    createTextViewCommandContext(canvasId)
+  )
 }
 
 function canMoveTextline(regionId: string, textlineId: string, direction: -1 | 1): boolean {

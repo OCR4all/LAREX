@@ -191,7 +191,6 @@ const pendingCommit = ref<{ textlineId: string, text: string } | null>(null)
 const editingTextlineId = ref<string | null>(null)
 const hoveredTextlineId = ref<string | null>(null)
 const commentEditorTextlineId = ref<string | null>(null)
-const commentDraft = ref('')
 const dictionaryWordPopover = ref<{
   textlineId: string
   segment: FullTextDictionarySegment
@@ -255,14 +254,12 @@ function handleCommentPopoverUpdate(textlineId: string, open: boolean): void {
   if (open) {
     flushPendingCommit()
     selectTextline(textlineId)
-    commentDraft.value = fullTextLineById.value.get(textlineId)?.comments ?? ''
     commentEditorTextlineId.value = textlineId
     return
   }
 
   if (commentEditorTextlineId.value === textlineId) {
     commentEditorTextlineId.value = null
-    commentDraft.value = ''
   }
 }
 
@@ -281,25 +278,6 @@ function updateTextlineComment(textlineId: string, comment: string): void {
     new UpdateTextlineCommentCommand({ textlineId, comment: nextComment }),
     createTextViewCommandContext(canvasId)
   )
-}
-
-function saveCommentEdit(): void {
-  const textlineId = commentEditorTextlineId.value
-  if (!textlineId || !isEditable.value) return
-  updateTextlineComment(textlineId, commentDraft.value)
-  commentEditorTextlineId.value = null
-  commentDraft.value = ''
-}
-
-function cancelCommentEdit(): void {
-  commentEditorTextlineId.value = null
-  commentDraft.value = ''
-}
-
-function handleCommentKeydown(event: KeyboardEvent): void {
-  if (event.key !== 'Enter' || (!event.metaKey && !event.ctrlKey)) return
-  event.preventDefault()
-  saveCommentEdit()
 }
 
 type FullTextCodecCharacterMeta = {
@@ -965,49 +943,39 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
-      <div v-else class="min-h-0 flex-1 overflow-y-auto p-2">
+      <div v-else class="grid min-h-0 flex-1 content-start grid-cols-[auto_minmax(0,1fr)] gap-x-1 overflow-y-auto p-2">
         <div
           v-for="line in fullTextLines"
           :key="line.id"
           :data-textline-id="line.id"
-          class="group relative flex min-w-0 cursor-text items-start rounded-md px-2 py-0.5 transition-colors"
+          class="group relative col-span-2 grid min-w-0 cursor-text grid-cols-subgrid items-start rounded-md px-2 py-0.5 transition-colors"
           :class="selectedTextlineId === line.id
             ? 'bg-primary/10 ring-1 ring-inset ring-primary/20'
-            : 'hover:bg-muted/45'"
+            : hasTextlineComment(line.id) ? 'bg-info/5 hover:bg-info/10' : 'hover:bg-muted/45'"
           @click="handleRowClick(line.id)"
           @mouseenter="handleRowMouseEnter(line.id)"
           @mouseleave="handleRowMouseLeave(line.id)"
         >
-          <div class="flex w-5 shrink-0 self-stretch items-center justify-center">
-            <UPopover
+          <div class="flex shrink-0 self-stretch items-start justify-center pt-1.5">
+            <EditorTextSharedCommentPopover
+              :textline-id="line.id"
+              :comment="line.comments"
+              :read-only="!isEditable"
               :open="commentEditorTextlineId === line.id"
-              :content="{ side: 'left', align: 'start', sideOffset: 8 }"
+              icon-only
+              empty-icon="i-lucide-ellipsis"
               @update:open="(open: boolean) => handleLineDetailsPopoverOpen(line.id, open)"
+              @save="updateTextlineComment(line.id, $event)"
             >
-              <button
-                type="button"
-                class="flex size-5 items-center justify-center rounded-sm text-muted transition-[color,background-color,opacity] hover:bg-muted hover:text-default focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary data-[state=open]:opacity-100"
-                :class="hasTextlineComment(line.id)
-                  ? 'opacity-70 group-hover:opacity-100'
-                  : 'opacity-0 group-hover:opacity-100'"
-                :aria-label="`Open line details for ${line.id}`"
-                @click.stop
-              >
-                <Icon
-                  :name="hasTextlineComment(line.id) ? 'i-lucide-message-square' : 'i-lucide-ellipsis'"
-                  class="size-3.5"
-                />
-              </button>
-
-              <template #content>
-                <div class="max-h-[min(75vh,36rem)] w-80 max-w-[calc(100vw-2rem)] space-y-4 overflow-y-auto p-3" @click.stop>
+              <template #details>
+                <div class="space-y-4">
                   <div class="flex items-center justify-between gap-2">
                     <div>
                       <p class="text-sm font-medium text-highlighted">
                         Line details
                       </p>
                       <p class="text-xs text-muted">
-                        Comment and transcription checks
+                        Transcription checks
                       </p>
                     </div>
                     <UBadge color="neutral" variant="soft" size="xs">
@@ -1025,43 +993,6 @@ onBeforeUnmount(() => {
                       the first text edit creates GT.
                     </span>
                   </div>
-
-                  <section v-if="hasTextlineComment(line.id) || isEditable" class="space-y-2">
-                    <p class="flex items-center gap-1.5 text-xs font-medium text-highlighted">
-                      <Icon name="i-lucide-message-square" class="size-3.5 text-muted" />
-                      Comment
-                    </p>
-                    <UTextarea
-                      v-model="commentDraft"
-                      :rows="2"
-                      autoresize
-                      placeholder="Enter comment..."
-                      :disabled="!isEditable"
-                      aria-label="Text-line comment"
-                      @keydown="handleCommentKeydown"
-                    />
-                    <div class="flex items-center justify-end gap-2">
-                      <UButton
-                        type="button"
-                        color="neutral"
-                        variant="ghost"
-                        size="xs"
-                        @click.stop="cancelCommentEdit"
-                      >
-                        {{ isEditable ? 'Cancel' : 'Close' }}
-                      </UButton>
-                      <UButton
-                        v-if="isEditable"
-                        type="button"
-                        color="primary"
-                        size="xs"
-                        icon="i-lucide-save"
-                        @click.stop="saveCommentEdit"
-                      >
-                        Save
-                      </UButton>
-                    </div>
-                  </section>
 
                   <USeparator v-if="hasTextlineChecks(line.id)" />
 
@@ -1223,7 +1154,7 @@ onBeforeUnmount(() => {
                   </section>
                 </div>
               </template>
-            </UPopover>
+            </EditorTextSharedCommentPopover>
           </div>
 
           <div class="min-w-0 flex-1">

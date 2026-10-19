@@ -37,8 +37,9 @@ function worldToScreen(point: Point): { x: number, y: number } {
         top: `${worldToScreen(label.position).y}px`
       }"
     >
-      <span class="inline-flex max-w-[240px] items-center rounded-sm bg-black/70 px-1 py-0.5 text-[10px] font-medium text-white shadow-sm">
-        {{ label.text }}
+      <span class="inline-flex max-w-[240px] items-start gap-1 rounded-sm bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white shadow-sm">
+        <Icon name="i-lucide-message-square" class="mt-px size-3 shrink-0" aria-hidden="true" />
+        <span class="min-w-0">{{ label.text }}</span>
       </span>
     </div>
   </div>

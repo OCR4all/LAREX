@@ -231,14 +231,6 @@ const normalizedTextHighlightQuery = computed(() => props.textHighlightQuery?.tr
 const normalizedComment = computed(() => (props.textline.comments ?? '').trim())
 const hasElementComment = computed(() => normalizedComment.value.length > 0)
 const editableTextContentVariants = computed(() => props.textline.allTextContentVariants ?? props.textline.textContentVariants)
-const commentEditorOpen = ref(false)
-const commentDraft = ref(props.textline.comments ?? '')
-
-watch(() => props.textline.comments, (nextComment) => {
-  if (!commentEditorOpen.value) {
-    commentDraft.value = nextComment ?? ''
-  }
-}, { immediate: true })
 
 function variantRole(index: number | undefined): 'gt' | 'recognition' | 'nonAssigned' {
   if (typeof index === 'number' && index === props.gtIndex) return 'gt'
@@ -301,13 +293,6 @@ const focusMoreActionItems = computed(() => {
     onSelect: () => { addTextContentVariant() }
   })
 
-  items.push({
-    label: hasElementComment.value ? 'Edit Comment' : 'Add Comment',
-    icon: 'i-lucide-message-square',
-    disabled: !canMutateAnnotation.value,
-    onSelect: () => { promptCommentEditFromFocusActions() }
-  })
-
   if (props.showDeleteButton) {
     items.push({
       label: 'Delete textline',
@@ -330,30 +315,6 @@ function createGtFromRecognition() {
     sourceRecognitionIndex: source.index,
     sourceRecognitionText: source.text
   })
-}
-
-function openCommentEditor() {
-  if (!canMutateAnnotation.value) return
-  commentDraft.value = props.textline.comments ?? ''
-  commentEditorOpen.value = true
-}
-
-function cancelCommentEdit() {
-  commentDraft.value = props.textline.comments ?? ''
-  commentEditorOpen.value = false
-}
-
-function saveCommentEdit() {
-  if (!canMutateAnnotation.value) return
-  emit('updateElementComment', props.textline.id, commentDraft.value)
-  commentEditorOpen.value = false
-}
-
-function promptCommentEditFromFocusActions() {
-  if (!canMutateAnnotation.value || !import.meta.client) return
-  const next = window.prompt('Edit metadata comment', props.textline.comments ?? '')
-  if (next === null) return
-  emit('updateElementComment', props.textline.id, next)
 }
 
 function handleTextareaKeydownEnter(event: KeyboardEvent, variantIndex: number | undefined) {
@@ -1068,6 +1029,7 @@ onBeforeUnmount(() => {
       :style="textViewFontVars"
       class="@container group relative rounded-md border transition-all duration-150"
       :class="[
+        hasElementComment ? 'bg-info/5' : '',
         props.focusMode ? 'border-transparent shadow-none' : '',
         props.isSelected ? 'border-navy-500 ring-1 ring-primary/12' : 'border-neutral-200 dark:border-neutral-800 hover:border-default/22'
       ]"
@@ -1102,12 +1064,26 @@ onBeforeUnmount(() => {
               isVertical ? 'w-full' : '@max-4xl:w-full flex-1'
             ]"
           >
-            <div v-if="!props.focusMode" class="flex flex-wrap items-center justify-between gap-2">
-              <UBadge variant="subtle" color="neutral" class="font-mono">
-                <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
-                {{ props.textline.label ?? props.textline.id }}
-              </UBadge>
-              <div v-if="isVertical" class="ml-auto flex flex-wrap items-center justify-end gap-1">
+            <div v-if="!props.focusMode || hasElementComment" class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex min-w-0 flex-wrap items-center gap-2">
+                <UBadge
+                  v-if="!props.focusMode"
+                  variant="subtle"
+                  color="neutral"
+                  class="font-mono"
+                >
+                  <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
+                  {{ props.textline.label ?? props.textline.id }}
+                </UBadge>
+                <EditorTextSharedCommentPopover
+                  v-if="hasElementComment"
+                  :textline-id="props.textline.id"
+                  :comment="props.textline.comments"
+                  :read-only="props.readOnly"
+                  @save="emit('updateElementComment', props.textline.id, $event)"
+                />
+              </div>
+              <div v-if="isVertical && !props.focusMode" class="ml-auto flex flex-wrap items-center justify-end gap-1">
                 <template v-if="props.showReorderButtons">
                   <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                     <UButton
@@ -1154,51 +1130,14 @@ onBeforeUnmount(() => {
                     Add
                   </UButton>
                 </UTooltip>
-                <UPopover
-                  v-model:open="commentEditorOpen"
-                  :content="{ side: 'top', align: 'end', sideOffset: 6 }"
-                >
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="xs"
-                    icon="i-lucide-message-square"
-                    :disabled="!canMutateAnnotation"
-                    @click.stop="openCommentEditor"
-                  />
-                  <template #content>
-                    <div class="w-80 p-3 flex flex-col gap-2" @click.stop>
-                      <div class="textline-ui-xs font-medium text-muted">
-                        {{ hasElementComment ? 'Edit metadata comment' : 'Add metadata comment' }}
-                      </div>
-                      <UTextarea
-                        v-model="commentDraft"
-                        :rows="4"
-                        autoresize
-                        placeholder="Enter comment..."
-                        :disabled="!canMutateAnnotation"
-                      />
-                      <div class="flex items-center justify-end gap-2">
-                        <UButton
-                          color="neutral"
-                          variant="ghost"
-                          size="xs"
-                          @click.stop="cancelCommentEdit"
-                        >
-                          Cancel
-                        </UButton>
-                        <UButton
-                          color="primary"
-                          size="xs"
-                          :disabled="!canMutateAnnotation"
-                          @click.stop="saveCommentEdit"
-                        >
-                          Save
-                        </UButton>
-                      </div>
-                    </div>
-                  </template>
-                </UPopover>
+                <EditorTextSharedCommentPopover
+                  v-if="!hasElementComment"
+                  :textline-id="props.textline.id"
+                  :comment="props.textline.comments"
+                  :read-only="props.readOnly"
+                  icon-only
+                  @save="emit('updateElementComment', props.textline.id, $event)"
+                />
                 <UTooltip v-if="props.showDeleteButton" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                   <UButton
                     color="error"
@@ -1285,6 +1224,14 @@ onBeforeUnmount(() => {
                     Create GT
                   </UButton>
                 </UTooltip>
+                <EditorTextSharedCommentPopover
+                  v-if="!hasElementComment"
+                  :textline-id="props.textline.id"
+                  :comment="props.textline.comments"
+                  :read-only="props.readOnly"
+                  icon-only
+                  @save="emit('updateElementComment', props.textline.id, $event)"
+                />
                 <UDropdownMenu :items="focusMoreActionItems" :content="{ align: 'end' }">
                   <UButton
                     color="neutral"
@@ -1389,54 +1336,14 @@ onBeforeUnmount(() => {
                   Add
                 </UButton>
               </UTooltip>
-              <UPopover
-                v-if="!isVertical && !props.focusMode"
-                v-model:open="commentEditorOpen"
-                :content="{ side: 'top', align: 'end', sideOffset: 6 }"
-              >
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  icon="i-lucide-message-square"
-                  :disabled="!canMutateAnnotation"
-                  :title="hasElementComment ? 'Edit Comment' : 'Add Comment'"
-                  :aria-label="hasElementComment ? 'Edit Comment' : 'Add Comment'"
-                  @click.stop="openCommentEditor"
-                />
-                <template #content>
-                  <div class="w-80 p-3 flex flex-col gap-2" @click.stop>
-                    <div class="textline-ui-xs font-medium text-muted">
-                      {{ hasElementComment ? 'Edit metadata comment' : 'Add metadata comment' }}
-                    </div>
-                    <UTextarea
-                      v-model="commentDraft"
-                      :rows="4"
-                      autoresize
-                      placeholder="Enter comment..."
-                      :disabled="!canMutateAnnotation"
-                    />
-                    <div class="flex items-center justify-end gap-2">
-                      <UButton
-                        color="neutral"
-                        variant="ghost"
-                        size="xs"
-                        @click.stop="cancelCommentEdit"
-                      >
-                        Cancel
-                      </UButton>
-                      <UButton
-                        color="primary"
-                        size="xs"
-                        :disabled="!canMutateAnnotation"
-                        @click.stop="saveCommentEdit"
-                      >
-                        Save
-                      </UButton>
-                    </div>
-                  </div>
-                </template>
-              </UPopover>
+              <EditorTextSharedCommentPopover
+                v-if="!hasElementComment && (!isVertical || props.focusMode)"
+                :textline-id="props.textline.id"
+                :comment="props.textline.comments"
+                :read-only="props.readOnly"
+                icon-only
+                @save="emit('updateElementComment', props.textline.id, $event)"
+              />
             </div>
 
             <UAlert
@@ -1445,6 +1352,7 @@ onBeforeUnmount(() => {
               variant="subtle"
               title="Comment"
               :description="normalizedComment"
+              :ui="{ description: 'whitespace-pre-wrap break-words' }"
               icon="i-lucide-message-square-quote"
             />
 

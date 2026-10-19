@@ -329,6 +329,7 @@ onBeforeUnmount(() => {
                 v-model:auto-select-first-line="autoSelectFirstLineModel"
                 v-model:focus-mode="focusModeModel"
                 :full-text-mode="isFullTextMode"
+                :canvas-mode="uiStore.textModeSubmode === 'visual' || isFullTextMode"
               />
             </template>
             <template v-else-if="item.slot === 'virtualKeyboard'">
@@ -400,6 +401,7 @@ onBeforeUnmount(() => {
             v-model:auto-select-first-line="autoSelectFirstLineModel"
             v-model:focus-mode="focusModeModel"
             :full-text-mode="isFullTextMode"
+            :canvas-mode="uiStore.textModeSubmode === 'visual' || isFullTextMode"
           />
         </div>
       </template>

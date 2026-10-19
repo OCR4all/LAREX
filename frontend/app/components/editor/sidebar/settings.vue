@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type { LineWidthPreset, VertexSizePreset } from '@/stores/editor/types'
+import CanvasCommentsSetting from './canvas-comments-setting.vue'
 
 const editorUiStore = useEditorUiStore()
 
@@ -87,13 +88,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="p-3 space-y-3">
     <div class="space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-sm">Comments Overlay</span>
-        <USwitch
-          :model-value="editorUiStore.commentsOverlay.visible"
-          @update:model-value="toggleSetting(() => editorUiStore.toggleCommentsOverlay())"
-        />
-      </div>
+      <CanvasCommentsSetting />
       <div class="flex items-center justify-between">
         <span class="text-sm">Image Bounds</span>
         <USwitch

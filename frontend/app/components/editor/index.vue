@@ -21,7 +21,7 @@ import { getEditorSession, useEditorSession, usePageVisibilityState } from '@/se
 import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
 import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import { useEditorCanvasInteractionBlocker } from '@/composables/editor/use-canvas-interaction-blocker'
-import { CreateRelationCommand, UpdateRelationCommand, UpdateRegionCommentCommand } from '@/commands'
+import { CreateRelationCommand, UpdateRelationCommand, UpdateRegionCommentCommand, UpdateTextlineCommentCommand } from '@/commands'
 import { PolygonType, type RegionKind, type Relation, type TextContentVariantData } from '@/models/editor'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import type { ActionProcessingRenderTarget, CommentOverlayLabel, ElementOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
@@ -44,6 +44,7 @@ import { ensureGtVariantAtIndex, normalizeEditableTextVariants, setGtVariantUnic
 import { computeCanvasTextCorrectionPlacement } from '@/utils/editor/canvas-text-correction-placement'
 import { ZOOM } from '@/utils/editor/editor-constants'
 import { createTextlineVariantsUpdateCommand } from '@/components/editor/text/shared/textline-variant-update'
+import { serializeFullTextComment } from '@/components/editor/text/shared/full-text-comments'
 import {
   handleSingleLineTextareaBeforeInput,
   handleSingleLineTextareaDrop,
@@ -2356,6 +2357,18 @@ const selectedTextlineComment = computed(() => {
   return typeof comment === 'string' ? comment.trim() : ''
 })
 
+function updateSelectedTextlineComment(comment: string): void {
+  const polygon = selectedTextlinePolygon.value
+  if (!polygon || !isCanvasWritable.value) return
+  flushPendingCorrectionCommit()
+  const nextComment = serializeFullTextComment(comment)
+  if (polygon.comments === nextComment) return
+  canvasControls.commander.execute(
+    new UpdateTextlineCommentCommand({ textlineId: polygon.id, comment: nextComment }),
+    getCommandContext()
+  )
+}
+
 const selectedTextlineRecognitionVariants = computed<OverlayRecognitionVariant[]>(() => {
   const polygon = selectedTextlinePolygon.value
   if (!polygon) return []
@@ -3649,8 +3662,8 @@ watch(() => props.src, (newSrc) => {
         @click.stop
         @keydown.capture="handleCorrectionOverlayKeydown"
       >
-        <div class="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
-          <div class="flex items-center gap-2">
+        <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
             <button
               type="button"
               class="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted transition hover:bg-muted/60 hover:text-default cursor-move"
@@ -3723,6 +3736,16 @@ watch(() => props.src, (newSrc) => {
             </div>
           </div>
           <div class="flex items-center gap-2 min-w-0">
+            <EditorTextSharedCommentPopover
+              v-if="selectedTextlinePolygon"
+              :key="selectedTextlinePolygon.id"
+              :textline-id="selectedTextlinePolygon.id"
+              :comment="selectedTextlinePolygon.comments"
+              :read-only="!isCanvasWritable"
+              icon-only
+              @update:open="(open: boolean) => { if (open) flushPendingCorrectionCommit() }"
+              @save="updateSelectedTextlineComment"
+            />
             <UButton
               size="xs"
               variant="ghost"
