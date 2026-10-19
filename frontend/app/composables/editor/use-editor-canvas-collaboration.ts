@@ -39,13 +39,18 @@ export function useEditorCanvasCollaboration(canvasId: string) {
       ],
       ([projectId, pageId], _previous, onLeave) => {
         if (!projectId || !pageId) return
+        let attached = false
         const stopLoadingWatch = watch(loading, (isLoading, _previousLoading, onRefresh) => {
-          if (isLoading) return
+
+          if (isLoading || attached) return
           const controller = new AbortController()
           onRefresh(() => controller.abort())
           void collaboration.ensureCanvasRoom(canvasId, controller.signal)
             .then((room) => {
-              if (room && !controller.signal.aborted) collaboration.attachCanvasSession(canvasId, session)
+              if (room && !controller.signal.aborted) {
+                collaboration.attachCanvasSession(canvasId, session)
+                attached = true
+              }
             })
             .catch((error) => {
               if (!controller.signal.aborted) console.error('[editor-collaboration] Failed to join room:', error)

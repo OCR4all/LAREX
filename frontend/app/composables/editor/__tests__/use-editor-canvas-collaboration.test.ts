@@ -35,6 +35,8 @@ describe('canvas collaboration membership', () => {
     dependencies.store.canvases.canvas!.isLoadingAnnotations = false
     await nextTick()
     expect(dependencies.leaveCanvasRoom).not.toHaveBeenCalled()
+    expect(dependencies.ensureCanvasRoom).toHaveBeenCalledOnce()
+    expect(dependencies.attachCanvasSession).toHaveBeenCalledOnce()
   })
 
   it('releases ownership when the editor closes', async () => {
