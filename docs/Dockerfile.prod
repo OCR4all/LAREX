@@ -9,12 +9,8 @@ COPY docs/package.json docs/pnpm-lock.yaml docs/pnpm-workspace.yaml docs/.npmrc 
 
 RUN pnpm install --frozen-lockfile
 
-COPY docs/ ./
-COPY VERSION LICENSE /workspace/
-COPY compose.prod*.yaml compose.actions.yaml /workspace/
-COPY config/keycloak/ /workspace/config/keycloak/
-COPY deployment/ /workspace/deployment/
-COPY scripts/ /workspace/scripts/
+# Content validation follows README and audit links into the repository sources.
+COPY . /workspace/
 
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm build
 
