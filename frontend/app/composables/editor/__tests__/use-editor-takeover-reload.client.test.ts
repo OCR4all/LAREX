@@ -95,7 +95,7 @@ it.each(['PROJECT', 'DATASET'] as const)('keeps force-saved live annotations thr
     const session = getEditorSession(canvasId)!
     collaboration.attachCanvasSession(canvasId, session)
     collaboration.connect()
-    handleMessage({ type: 'COLLAB_SNAPSHOT_UPDATE', payload: { roomKey, snapshot: snapshotFromPageDto(live) } })
+    handleMessage({ type: 'COLLAB_SNAPSHOT_UPDATE', payload: { roomKey, snapshot: snapshotFromPageDto(live), persistedRevision: 'old-revision', leaseEpoch: '2' } })
     expect(convertPcGtsToPageDto(session.document.value!).custom).toBe(live.custom)
 
     delayReload = true

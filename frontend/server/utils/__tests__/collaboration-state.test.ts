@@ -58,6 +58,65 @@ afterEach(() => {
 })
 
 describe('collaboration state renewal protocol', () => {
+  it('only replays snapshots for the persisted revision in the joining token', () => {
+    const roomKey = 'snapshot-revision:page:xml'
+    const { peer } = createPeer('snapshot-editor')
+    collaborationState.joinRoom(peer, token(roomKey))
+    collaborationState.syncLeaseState(roomKey, lease('user-1', '2'))
+    collaborationState.applySnapshotUpdate(peer.id, roomKey, { custom: 'old XML' }, 'revision-1', '2')
+    const viewer = createPeer('snapshot-viewer')
+    collaborationState.joinRoom(viewer.peer, { ...token(roomKey), persistedRevision: 'revision-2' })
+    expect(viewer.send.mock.calls.map(([raw]) => JSON.parse(raw as string))).toContainEqual({
+      type: 'COLLAB_SNAPSHOT_SYNC',
+      payload: { roomKey, snapshot: null, persistedRevision: 'revision-2', leaseEpoch: '2' }
+    })
+  })
+
+  it('rejects delayed snapshots from an older lease even when the same user owns both leases', () => {
+    const roomKey = 'snapshot-lease:page:xml'
+    const { peer } = createPeer('snapshot-lease-editor')
+    collaborationState.joinRoom(peer, token(roomKey))
+    collaborationState.syncLeaseState(roomKey, lease('user-1', '3'))
+    collaborationState.applySnapshotUpdate(peer.id, roomKey, { custom: 'current' }, 'revision-1', '3')
+    collaborationState.applySnapshotUpdate(peer.id, roomKey, { custom: 'stale' }, 'revision-1', '2')
+    const viewer = createPeer('snapshot-lease-viewer')
+    collaborationState.joinRoom(viewer.peer, token(roomKey))
+    expect(viewer.send.mock.calls.map(([raw]) => JSON.parse(raw as string))).toContainEqual({
+      type: 'COLLAB_SNAPSHOT_SYNC',
+      payload: { roomKey, snapshot: { custom: 'current' }, persistedRevision: 'revision-1', leaseEpoch: '3' }
+    })
+  })
+
+  it('broadcasts snapshots with the persisted revision and lease they belong to', () => {
+    const roomKey = 'snapshot-broadcast:page:xml'
+    const { peer } = createPeer('snapshot-broadcast-editor')
+    const viewer = createPeer('snapshot-broadcast-viewer')
+    collaborationState.joinRoom(peer, token(roomKey))
+    collaborationState.joinRoom(viewer.peer, token(roomKey, false))
+    collaborationState.syncLeaseState(roomKey, lease('user-1', '2'))
+    viewer.send.mockClear()
+    collaborationState.applySnapshotUpdate(peer.id, roomKey, { custom: 'live edits' }, 'revision-1', '2')
+    expect(JSON.parse(viewer.send.mock.calls[0]![0] as string)).toEqual({
+      type: 'COLLAB_SNAPSHOT_UPDATE',
+      payload: { roomKey, snapshot: { custom: 'live edits' }, persistedRevision: 'revision-1', leaseEpoch: '2' }
+    })
+  })
+
+  it('does not cache a delayed snapshot from a superseded persisted revision', () => {
+    const roomKey = 'snapshot-delayed-revision:page:xml'
+    const { peer } = createPeer('snapshot-delayed-editor')
+    collaborationState.joinRoom(peer, token(roomKey))
+    collaborationState.syncLeaseState(roomKey, lease('user-1', '2'))
+    collaborationState.applySnapshotUpdate(peer.id, roomKey, { custom: 'new XML' }, 'revision-2', '2')
+    collaborationState.applySnapshotUpdate(peer.id, roomKey, { custom: 'old XML' }, 'revision-1', '2')
+    const viewer = createPeer('snapshot-delayed-viewer')
+    collaborationState.joinRoom(viewer.peer, { ...token(roomKey), persistedRevision: 'revision-2' })
+    expect(viewer.send.mock.calls.map(([raw]) => JSON.parse(raw as string))).toContainEqual({
+      type: 'COLLAB_SNAPSHOT_SYNC',
+      payload: { roomKey, snapshot: { custom: 'new XML' }, persistedRevision: 'revision-2', leaseEpoch: '2' }
+    })
+  })
+
   it('does not shorten a renewed lease when an older heartbeat arrives in the same epoch', () => {
     const { peer, send } = createPeer('peer-delayed-heartbeat')
     const roomKey = 'project-heartbeat:page:xml'

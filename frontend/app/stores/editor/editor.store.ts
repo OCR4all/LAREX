@@ -205,7 +205,12 @@ export const useEditorStore = defineStore('editor', () => {
       .map(([id, canvas]) => ({ id, canvas }))
   })
 
-  const annotationCache = new LRUCache<string, PageDto>(50)
+  const annotationCache = new LRUCache<string, { pageDto: PageDto, persistedRevision?: string }>(50)
+  type CanvasLoad = { canvas: CanvasState, signal?: AbortSignal }
+  const canvasLoads = new Map<string, CanvasLoad>()
+  function isCurrentCanvasLoad(canvasId: string, load: CanvasLoad): boolean {
+    return canvasLoads.get(canvasId) === load && canvases.value[canvasId] === load.canvas && !load.signal?.aborted
+  }
 
   const pendingPrefetches = ref<Set<string>>(new Set())
   const prefetchTimeoutByProjectId = new Map<string, ReturnType<typeof setTimeout>>()
@@ -461,6 +466,7 @@ export const useEditorStore = defineStore('editor', () => {
    * Unregister a canvas instance
    */
   function unregisterCanvas(id: string) {
+    canvasLoads.delete(id)
     delete canvases.value[id]
     uiStore.removeCanvasUiMode(id)
     destroyEditorSession(id)
@@ -477,6 +483,7 @@ export const useEditorStore = defineStore('editor', () => {
 
   function resetEditorState(): void {
     clearAnnotationCache()
+    canvasLoads.clear()
     adjacentPrefetchPageScopeByProjectId.clear()
 
     for (const canvasId of Object.keys(canvases.value)) {
@@ -914,7 +921,7 @@ export const useEditorStore = defineStore('editor', () => {
     projectId: string,
     pageId: string,
     variantId?: string,
-    options?: { awaitAnnotations?: boolean }
+    options?: { awaitAnnotations?: boolean, reload?: boolean, refreshPageData?: boolean, signal?: AbortSignal }
   ): Promise<string | null> {
     let page = documentStore.getPage(pageId, projectId)
     if (!page) {
@@ -932,22 +939,33 @@ export const useEditorStore = defineStore('editor', () => {
       return null
     }
 
-    if (!documentStore.isPageLoaded(pageId, projectId)) {
-      canvas.isLoadingAnnotations = true
+    const load: CanvasLoad = { canvas, signal: options?.signal }
+    canvasLoads.set(canvasId, load)
+    canvas.isLoadingAnnotations = true
+    const previousVariant = page.imageVariants.find(variant => variant.id === (variantId ?? canvas.imageVariantId))
+    const variantKey = previousVariant?.type ?? previousVariant?.label
+
+    if (options?.reload) invalidateAnnotationCache(pageId, projectId)
+    if (!documentStore.isPageLoaded(pageId, projectId) || options?.refreshPageData) {
       try {
         const enrichedData = await loadSinglePageData(projectId, page)
+        if (!isCurrentCanvasLoad(canvasId, load)) return null
         documentStore.enrichPage(pageId, { ...enrichedData, projectId, projectName: page.projectName }, projectId)
         page = documentStore.getPage(pageId, projectId)!
-      } catch (err) {
-        log.error(`Failed to enrich page ${pageId} on demand:`, err)
-      } finally {
-        canvas.isLoadingAnnotations = false
+      } catch (error) {
+        if (isCurrentCanvasLoad(canvasId, load)) canvas.isLoadingAnnotations = false
+        throw error
       }
+    }
+    if (!isCurrentCanvasLoad(canvasId, load)) return null
+    if (options?.refreshPageData && variantKey) {
+      variantId = page.imageVariants.find(variant => (variant.type ?? variant.label) === variantKey)?.id
     }
 
     const variant = documentStore.resolveVariantForPage(page, variantId)
     if (!variant) {
       log.error(`No image variant found for page ${pageId}`)
+      canvas.isLoadingAnnotations = false
       return null
     }
     const metadataImageFilename = resolveMetadataImageFilename(variant)
@@ -971,25 +989,29 @@ export const useEditorStore = defineStore('editor', () => {
       creator: authenticatedUsername(),
       pcGtsId: `pcgts-${pageId}`
     })
-    setCanvasDocument(canvasId, emptyPcGts)
+    if (!options?.reload) setCanvasDocument(canvasId, emptyPcGts)
 
     canvas.selectedRegionId = null
     canvas.selectedBaselineId = null
 
-    if (page.xmlFiles && page.xmlFiles.length > 0) {
+    if (page.xmlFiles?.some(xml => xml.schema === 'PAGE_XML')) {
       const annotationsPromise = loadAnnotationsForCanvas(
         canvasId,
         projectId,
         pageId,
         page.xmlFiles,
         metadataImageFilename,
-        canvas.annotationContext ?? undefined
+        canvas.annotationContext ?? undefined,
+        load,
+        options?.reload
       )
-      if (options?.awaitAnnotations) {
-        await annotationsPromise
-      }
+      if (options?.awaitAnnotations && !await annotationsPromise) return null
     } else {
       log.debug(`No XML files available for page ${pageId}, using empty document`)
+      setCanvasDocument(canvasId, emptyPcGts)
+      canvas.xmlFileId = undefined
+      canvas.persistedRevision = null
+      canvas.isLoadingAnnotations = false
     }
 
     return variant.url
@@ -1005,13 +1027,16 @@ export const useEditorStore = defineStore('editor', () => {
     projectId: string,
     pageId: string,
     xmlFiles: { id: string, fileName: string, schema: string }[],
-    imageFilename?: string,
-    annotationContext?: AnnotationApiContext
-  ): Promise<void> {
+    imageFilename: string | undefined,
+    annotationContext: AnnotationApiContext | undefined,
+    load: CanvasLoad,
+    reload = false
+  ): Promise<boolean> {
     const pageXmlFile = xmlFiles.find(xml => xml.schema === 'PAGE_XML')
     if (!pageXmlFile) {
       log.debug(`No PAGE XML file found for page ${pageId}, using empty document`)
-      return
+      if (isCurrentCanvasLoad(canvasId, load)) load.canvas.isLoadingAnnotations = false
+      return false
     }
 
     const context = normalizeAnnotationContext(annotationContext, projectId, pageId)
@@ -1025,22 +1050,26 @@ export const useEditorStore = defineStore('editor', () => {
     }
 
     try {
-      let pageDto: PageDto
-
-      if (annotationCache.has(cacheKey)) {
-        log.debug(`Using cached annotations for page ${pageId}`)
-        pageDto = annotationCache.get(cacheKey)!
-      } else {
-        log.debug(`Fetching annotations from ${pageXmlFile.fileName} (id: ${pageXmlFile.id}) for page ${pageId}`)
-
-        pageDto = await $fetch<PageDto>(
-          annotationResourcePath(context, pageXmlFile.id)
-        )
-
-        annotationCache.set(cacheKey, pageDto)
-
-        log.debug(`Cached annotations for page ${pageId}`)
+      const path = annotationResourcePath(context, pageXmlFile.id)
+      let cached = reload ? undefined : annotationCache.get(cacheKey)
+      if (!cached) {
+        // A revision belongs to the fetched XML only if it stayed unchanged
+        // throughout the read. Never label an older response with a newer revision.
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const before = reload ? await $fetch<{ persistedRevision: string }>(`${path}/collaboration/revision`, { signal: load.signal }) : undefined
+          const pageDto = await $fetch<PageDto>(path, { signal: load.signal })
+          const after = reload ? await $fetch<{ persistedRevision: string }>(`${path}/collaboration/revision`, { signal: load.signal }) : undefined
+          if (!isCurrentCanvasLoad(canvasId, load)) return false
+          if (before?.persistedRevision !== after?.persistedRevision) continue
+          cached = { pageDto, persistedRevision: after?.persistedRevision }
+          break
+        }
+        if (!cached) throw new Error('Annotations changed repeatedly while reloading. Please try again.')
+        if (!isCurrentCanvasLoad(canvasId, load)) return false
+        annotationCache.set(cacheKey, cached)
       }
+      if (!isCurrentCanvasLoad(canvasId, load)) return false
+      const { pageDto, persistedRevision } = cached
 
       const pcGts = convertPageDtoToPcGts(pageDto)
 
@@ -1055,13 +1084,19 @@ export const useEditorStore = defineStore('editor', () => {
 
       if (canvas) {
         canvas.xmlFileId = pageXmlFile.id
+        canvas.persistedRevision = persistedRevision ?? null
       }
 
       scheduleAdjacentAnnotationPrefetch(projectId, pageId)
+      return true
     } catch (error) {
-      log.error(`Failed to load annotations for page ${pageId}:`, error)
+      if (isCurrentCanvasLoad(canvasId, load)) {
+        log.error(`Failed to load annotations for page ${pageId}:`, error)
+        if (reload) throw error
+      }
+      return false
     } finally {
-      if (canvas) {
+      if (canvas && isCurrentCanvasLoad(canvasId, load)) {
         canvas.isLoadingAnnotations = false
       }
     }
@@ -1261,7 +1296,8 @@ export const useEditorStore = defineStore('editor', () => {
               annotationResourcePath(context, pageXmlId),
               { signal: controller.signal }
             )
-            annotationCache.set(cacheKey, pageDto)
+            if (!isPrefetchGenerationCurrent(projectId, generation) || controller.signal.aborted) return
+            annotationCache.set(cacheKey, { pageDto })
             log.debug(`Prefetched annotations for page ${page.id}`)
           } catch (error) {
             if (!isAbortError(error)) {
@@ -1308,6 +1344,11 @@ export const useEditorStore = defineStore('editor', () => {
    * Invalidate a specific page's annotations from the cache
    */
   function invalidateAnnotationCache(pageId: string, projectId?: string): void {
+    for (const id of projectId ? [projectId] : [...prefetchBatchByProjectId.keys()]) {
+      clearPrefetchTimeout(id)
+      cancelPrefetchBatch(id)
+      getNextPrefetchGeneration(id)
+    }
     const prefix = projectId ? `${projectId}:${pageId}:` : `:${pageId}:`
     const deleted = annotationCache.deleteWhere((key) => {
       if (projectId) return key.startsWith(prefix)
@@ -1419,7 +1460,7 @@ export const useEditorStore = defineStore('editor', () => {
       invalidateAnnotationCache(pageId, projectId)
 
       const cacheKey = buildAnnotationCacheKey(projectId, pageId, context, xmlFileId)
-      annotationCache.set(cacheKey, pageDto)
+      annotationCache.set(cacheKey, { pageDto, persistedRevision })
       resetCanvasHistoryBaseline(targetCanvasId)
 
       if (import.meta.client) {

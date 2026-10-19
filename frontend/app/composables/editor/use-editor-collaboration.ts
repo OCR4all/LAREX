@@ -31,8 +31,14 @@ import type {
 type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
 
 const revisionAuditTimers = new Map<string, ReturnType<typeof setInterval>>()
-const roomSnapshots = new Map<string, CollaborationPageSnapshot>()
-const roomSnapshotVersions = new Map<string, number>()
+const roomSnapshots = new Map<string, {
+  snapshot: CollaborationPageSnapshot
+  persistedRevision: string
+  leaseEpoch: string
+  version: number
+}>()
+const roomRetiredRevisions = new Map<string, Set<string>>()
+const canvasReloads = new Map<string, AbortController>()
 const roomCanvasIds = new Map<string, Set<string>>()
 const canvasSessions = new Map<string, EditorSession>()
 const canvasWatchStops = new Map<string, () => void>()
@@ -798,7 +804,7 @@ export function useEditorCollaboration() {
       const revision = await $fetch<CollaborationRevisionResponse>(revisionPathForRoom(currentRoom))
       const nextRooms = cloneRooms(rooms.value)
       const targetRoom = nextRooms[roomKey]
-      if (!targetRoom) return
+      if (!targetRoom || roomRetiredRevisions.get(roomKey)?.has(revision.persistedRevision)) return
 
       if (revision.persistedRevision !== targetRoom.viewerSync.persistedRevision) {
         targetRoom.viewerSync.latestPersistedRevision = revision.persistedRevision
@@ -823,12 +829,16 @@ export function useEditorCollaboration() {
   }
 
   const applyRoomSnapshotToBoundCanvases = (roomKey: string) => {
-    const snapshot = roomSnapshots.get(roomKey)
-    const version = roomSnapshotVersions.get(roomKey)
+    const cached = roomSnapshots.get(roomKey)
+    const snapshot = cached?.snapshot
+    const version = cached?.version
     const canvasIds = roomCanvasIds.get(roomKey)
+    const room = rooms.value[roomKey]
+    if (!room || cached?.persistedRevision !== room.viewerSync.persistedRevision || cached.leaseEpoch !== room.lease.leaseEpoch) return
     if (!snapshot || version == null || !canvasIds || canvasIds.size === 0) return
 
     for (const canvasId of canvasIds) {
+      if (canvasReloads.has(canvasId) || editorStore.canvases?.[canvasId]?.isLoadingAnnotations) continue
       if (canvasSnapshotVersions.get(canvasId) === version) continue
 
       const session = canvasSessions.get(canvasId)
@@ -845,9 +855,12 @@ export function useEditorCollaboration() {
   }
 
   const storeRoomSnapshot = (roomKey: string, snapshot: CollaborationPageSnapshot, sourceCanvasId?: string) => {
-    roomSnapshots.set(roomKey, snapshot)
-    const nextVersion = (roomSnapshotVersions.get(roomKey) ?? 0) + 1
-    roomSnapshotVersions.set(roomKey, nextVersion)
+    const room = rooms.value[roomKey]
+    if (!room) return
+    const nextVersion = (roomSnapshots.get(roomKey)?.version ?? 0) + 1
+    roomSnapshots.set(roomKey, {
+      snapshot, persistedRevision: room.viewerSync.persistedRevision, leaseEpoch: room.lease.leaseEpoch, version: nextVersion
+    })
     if (sourceCanvasId) {
       canvasSnapshotVersions.set(sourceCanvasId, nextVersion)
     }
@@ -861,25 +874,27 @@ export function useEditorCollaboration() {
 
     const session = canvasSessions.get(canvasId)
     const canvas = editorStore.canvases?.[canvasId]
-    if (!session?.document.value || !canvas?.xmlFileId || canvas.isLoadingAnnotations) return false
+    if (!session?.document.value || !canvas?.xmlFileId || canvas.isLoadingAnnotations || canvasReloads.has(canvasId)) return false
 
-    const existingSnapshot = roomSnapshots.get(roomKey)
+    const existingSnapshot = roomSnapshots.get(roomKey)?.snapshot
     if (hasSnapshotAnnotationPayload(existingSnapshot)) return false
 
     const nextSnapshot = snapshotFromPageDto(convertPcGtsToPageDto(session.document.value))
     storeRoomSnapshot(roomKey, nextSnapshot, canvasId)
     sendMessage('SNAPSHOT_UPDATE', {
       roomKey,
-      snapshot: nextSnapshot
+      snapshot: nextSnapshot,
+      persistedRevision: room.viewerSync.persistedRevision,
+      leaseEpoch: room.lease.leaseEpoch
     })
     return true
   }
 
-  const flushCanvasToRoom = (canvasId: string) => {
+  const flushCanvasToRoom = (canvasId: string, includeWithoutViewers = false) => {
     const roomKey = getRoomKeyForCanvas(canvasId)
     const session = canvasSessions.get(canvasId)
     const room = roomKey ? rooms.value[roomKey] : null
-    if (!roomKey || !session?.document.value || canvasRemoteApply.has(canvasId) || !room?.viewerSync.snapshotReady) {
+    if (!roomKey || !session?.document.value || canvasRemoteApply.has(canvasId) || canvasReloads.has(canvasId) || editorStore.canvases?.[canvasId]?.isLoadingAnnotations || !room?.viewerSync.snapshotReady) {
       return
     }
 
@@ -887,7 +902,7 @@ export function useEditorCollaboration() {
       canvasPendingSync.delete(canvasId)
       return
     }
-    if (!roomHasOtherViewers(roomKey)) {
+    if (!includeWithoutViewers && !roomHasOtherViewers(roomKey)) {
       canvasPendingSync.delete(canvasId)
       return
     }
@@ -901,7 +916,9 @@ export function useEditorCollaboration() {
     storeRoomSnapshot(roomKey, nextSnapshot, canvasId)
     sendMessage('SNAPSHOT_UPDATE', {
       roomKey,
-      snapshot: nextSnapshot
+      snapshot: nextSnapshot,
+      persistedRevision: room.viewerSync.persistedRevision,
+      leaseEpoch: room.lease.leaseEpoch
     })
   }
 
@@ -937,7 +954,7 @@ export function useEditorCollaboration() {
     canvasWatchStops.set(canvasId, stop)
 
     if (roomKey) {
-      const snapshot = roomSnapshots.get(roomKey)
+      const snapshot = roomSnapshots.get(roomKey)?.snapshot
       if (hasSnapshotAnnotationPayload(snapshot)) {
         applyRoomSnapshotToBoundCanvases(roomKey)
       } else {
@@ -1030,33 +1047,48 @@ export function useEditorCollaboration() {
     })
   }
 
-  const reloadBoundCanvasesForRoom = async (roomKey: string) => {
-    const canvasIds = Array.from(roomCanvasIds.get(roomKey) ?? [])
-    if (canvasIds.length === 0) return
-
-    roomSnapshots.delete(roomKey)
-    roomSnapshotVersions.delete(roomKey)
-
-    await Promise.all(canvasIds.map(async (canvasId) => {
-      canvasSnapshotVersions.delete(canvasId)
-
-      const canvas = editorStore.canvases?.[canvasId]
-      if (!canvas?.projectId || !canvas.pageId) return
-
-      // Lease transfers and revision changes must reload persisted XML, not the
-      // document cached before another collaborator saved it.
-      editorStore.invalidateAnnotationCache(canvas.pageId, canvas.projectId)
-      await editorStore.loadPageIntoCanvas(
-        canvasId,
-        canvas.projectId,
-        canvas.pageId,
-        canvas.imageVariantId ?? undefined,
-        { awaitAnnotations: true }
+  /** Replace persisted content through one path, retaining membership and rejecting superseded reads. */
+  const reloadCanvasDocument = async (canvasId: string, options: { refreshPageData?: boolean } = {}): Promise<boolean> => {
+    const canvas = editorStore.canvases?.[canvasId]
+    if (!canvas?.projectId || !canvas.pageId || canvas.comparison) return false
+    canvasReloads.get(canvasId)?.abort()
+    const controller = new AbortController()
+    canvasReloads.set(canvasId, controller)
+    const roomKey = getRoomKeyForCanvas(canvasId)
+    if (roomKey) {
+      roomSnapshots.delete(roomKey)
+      for (const id of roomCanvasIds.get(roomKey) ?? []) canvasSnapshotVersions.delete(id)
+    }
+    let succeeded = false
+    try {
+      const loaded = await editorStore.loadPageIntoCanvas(
+        canvasId, canvas.projectId, canvas.pageId, canvas.imageVariantId ?? undefined,
+        { awaitAnnotations: true, reload: true, refreshPageData: options.refreshPageData, signal: controller.signal }
       )
-    }))
+      if (!loaded || editorStore.canvases[canvasId] !== canvas) return false
+      if (!controller.signal.aborted && roomKey && getRoomKeyForCanvas(canvasId) === roomKey && canvas.persistedRevision) {
+        acceptPersistedRevisionForRoom(roomKey, canvas.persistedRevision)
+      }
+      succeeded = true
+      return true
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        console.error('[editor-collaboration] Failed to reload persisted annotations:', error)
+        toast?.add({ title: 'Could not reload page', description: 'Your current annotations were kept. Try reloading again.', color: 'error' })
+      }
+      return false
+    } finally {
+      if (canvasReloads.get(canvasId) === controller) {
+        canvasReloads.delete(canvasId)
+        if (succeeded && !controller.signal.aborted) flushCanvasToRoom(canvasId, true)
+      }
+    }
   }
 
-  const handleSnapshotUpdate = (roomKey: string, rawSnapshot: unknown) => {
+  const handleSnapshotUpdate = (roomKey: string, rawSnapshot: unknown, persistedRevision: unknown, leaseEpoch: unknown) => {
+    const room = rooms.value[roomKey]
+    if (!room || persistedRevision !== room.viewerSync.persistedRevision || leaseEpoch !== room.lease.leaseEpoch) return
+    if (Array.from(roomCanvasIds.get(roomKey) ?? []).some(id => canvasReloads.has(id))) return
     if (!rawSnapshot || typeof rawSnapshot !== 'object') return
 
     const snapshot = rawSnapshot as CollaborationPageSnapshot
@@ -1069,7 +1101,7 @@ export function useEditorCollaboration() {
     }))
 
     if (!hasSnapshotAnnotationPayload(snapshot)) {
-      if (hasSnapshotAnnotationPayload(roomSnapshots.get(roomKey))) {
+      if (hasSnapshotAnnotationPayload(roomSnapshots.get(roomKey)?.snapshot)) {
         return
       }
 
@@ -1092,12 +1124,19 @@ export function useEditorCollaboration() {
   const acceptPersistedRevisionForRoom = (roomKey: string, persistedRevision: string) => {
     const nextRooms = cloneRooms(rooms.value)
     const targetRoom = nextRooms[roomKey]
-    if (!targetRoom) return
+    if (!targetRoom || roomRetiredRevisions.get(roomKey)?.has(persistedRevision)) return false
+
+    if (targetRoom.viewerSync.persistedRevision !== persistedRevision) {
+      const retired = roomRetiredRevisions.get(roomKey) ?? new Set<string>()
+      retired.add(targetRoom.viewerSync.persistedRevision)
+      roomRetiredRevisions.set(roomKey, retired)
+    }
 
     targetRoom.viewerSync.persistedRevision = persistedRevision
     targetRoom.viewerSync.latestPersistedRevision = persistedRevision
     targetRoom.viewerSync.resyncRequired = false
     rooms.value = nextRooms
+    return true
   }
 
   const handleRevisionChanged = (payload: {
@@ -1107,10 +1146,10 @@ export function useEditorCollaboration() {
     reloadRequired?: boolean
   }) => {
     const room = rooms.value[payload.roomKey]
-    if (!room || !payload.persistedRevision) return
+    if (!room || !payload.persistedRevision || roomRetiredRevisions.get(payload.roomKey)?.has(payload.persistedRevision)) return
 
     if (payload.reloadRequired) {
-      void handleReloadRequired(payload.roomKey, payload.persistedRevision)
+      void handleReloadRequired(payload.roomKey)
       return
     }
 
@@ -1120,24 +1159,20 @@ export function useEditorCollaboration() {
 
     targetRoom.viewerSync.latestPersistedRevision = payload.persistedRevision
     if (payload.sourceUserId === currentUserId.value) {
-      targetRoom.viewerSync.persistedRevision = payload.persistedRevision
-      targetRoom.viewerSync.resyncRequired = false
+      acceptPersistedRevisionForRoom(payload.roomKey, payload.persistedRevision)
+      for (const canvasId of roomCanvasIds.get(payload.roomKey) ?? []) flushCanvasToRoom(canvasId, true)
+      return
     } else if (payload.persistedRevision !== targetRoom.viewerSync.persistedRevision) {
       targetRoom.viewerSync.resyncRequired = true
     }
     rooms.value = nextRooms
   }
 
-  const handleReloadRequired = async (roomKey: string, pushedRevision?: string) => {
+  const handleReloadRequired = async (roomKey: string) => {
     const room = rooms.value[roomKey]
     if (!room) return
 
-    await reloadBoundCanvasesForRoom(roomKey)
-
-    const persistedRevision = pushedRevision ?? (await $fetch<CollaborationRevisionResponse>(
-      revisionPathForRoom(room)
-    )).persistedRevision
-    acceptPersistedRevisionForRoom(roomKey, persistedRevision)
+    await Promise.all(Array.from(roomCanvasIds.get(roomKey) ?? [], canvasId => reloadCanvasDocument(canvasId)))
   }
 
   function rejoinOpenRooms() {
@@ -1164,7 +1199,7 @@ export function useEditorCollaboration() {
               const roomKey = typeof payload?.roomKey === 'string' ? payload.roomKey : null
               const snapshot = payload?.snapshot
               if (roomKey) {
-                handleSnapshotUpdate(roomKey, snapshot ?? createEmptySnapshot())
+                handleSnapshotUpdate(roomKey, snapshot ?? createEmptySnapshot(), payload?.persistedRevision, payload?.leaseEpoch)
               }
               break
             }
@@ -1294,7 +1329,7 @@ export function useEditorCollaboration() {
         presence: {
           members: nextRooms[bootstrap.roomKey]?.presence.members ?? []
         },
-        viewerSync: {
+        viewerSync: nextRooms[bootstrap.roomKey]?.viewerSync ?? {
           persistedRevision: bootstrap.persistedRevision,
           latestPersistedRevision: null,
           resyncRequired: false,
@@ -1317,7 +1352,7 @@ export function useEditorCollaboration() {
       sendMessage('JOIN_ROOM', { token: bootstrap.token })
       startRevisionPolling(nextRooms[bootstrap.roomKey]!)
 
-      const snapshot = roomSnapshots.get(bootstrap.roomKey)
+      const snapshot = roomSnapshots.get(bootstrap.roomKey)?.snapshot
       if (hasSnapshotAnnotationPayload(snapshot)) {
         applyRoomSnapshotToBoundCanvases(bootstrap.roomKey)
       } else {
@@ -1432,10 +1467,14 @@ export function useEditorCollaboration() {
     canvasMembershipLifetimes.delete(canvasId)
     const roomKey = canvasRooms.value[canvasId]
     if (!roomKey) {
+      canvasReloads.get(canvasId)?.abort()
+      canvasReloads.delete(canvasId)
       detachCanvasSession(canvasId)
       return
     }
 
+    canvasReloads.get(canvasId)?.abort()
+    canvasReloads.delete(canvasId)
     detachCanvasSession(canvasId)
 
     const currentCanvasIds = roomCanvasIds.get(roomKey)
@@ -1459,7 +1498,7 @@ export function useEditorCollaboration() {
       teardownRoomBroadcastChannel(roomKey, false)
       leaseWarningShownForExpiry.delete(roomKey)
       roomSnapshots.delete(roomKey)
-      roomSnapshotVersions.delete(roomKey)
+      roomRetiredRevisions.delete(roomKey)
       roomCanvasIds.delete(roomKey)
       setLocallyExpired(roomKey, false)
       reconcileLeaseHeartbeatTimer()
@@ -1503,18 +1542,10 @@ export function useEditorCollaboration() {
     const persistedRevision = pushedRevision ?? (await $fetch<CollaborationRevisionResponse>(
       revisionPathForRoom(room)
     )).persistedRevision
-    acceptPersistedRevisionForRoom(roomKey, persistedRevision)
-  }
-
-  const reloadRoomForCanvas = async (canvasId: string) => {
-    const roomKey = canvasRooms.value[canvasId]
-    if (!roomKey) return null
-    const room = roomKey ? rooms.value[roomKey] : null
-    if (!room) return null
-
-    await reloadBoundCanvasesForRoom(roomKey)
-    await acceptCurrentRevisionForCanvas(canvasId)
-    return room
+    if (!acceptPersistedRevisionForRoom(roomKey, persistedRevision)) return
+    const canvas = editorStore.canvases?.[canvasId]
+    if (canvas) canvas.persistedRevision = persistedRevision
+    flushCanvasToRoom(canvasId, true)
   }
 
   const getCanvasCollaborators = (canvasId: string): CollaborationRoomMember[] => {
@@ -1712,7 +1743,7 @@ export function useEditorCollaboration() {
     setCanvasSyncSuspended,
     updatePresence,
     acceptCurrentRevisionForCanvas,
-    reloadRoomForCanvas,
+    reloadCanvasDocument,
     getRoomForCanvas,
     getCanvasCollaborators,
     getPageCollaborators,

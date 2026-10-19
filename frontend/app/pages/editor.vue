@@ -749,8 +749,7 @@ async function openVersionHistory() {
   })
   const result = await instance.result
   if (result === 'restored') {
-    editorStore.invalidateAnnotationCache(canvas.pageId, canvas.projectId)
-    await editorStore.loadPageIntoCanvas(canvasId, canvas.projectId, canvas.pageId)
+    await collaboration.reloadCanvasDocument(canvasId)
   } else if (result && typeof result === 'object' && result.action === 'compare') {
     await openVersionComparison(canvasId, result.version, annotationContext.basePath)
   }
@@ -841,8 +840,7 @@ async function openVersionComparison(canvasId: string, version: PageXmlVersion, 
     editorStore.unregisterCanvas(versionCanvasId)
     editorStore.setActiveCanvas(canvasId)
     if (result === 'restored') {
-      editorStore.invalidateAnnotationCache(canvas.pageId, canvas.projectId)
-      await editorStore.loadPageIntoCanvas(canvasId, canvas.projectId, canvas.pageId)
+      await collaboration.reloadCanvasDocument(canvasId)
     }
   } catch (error: unknown) {
     toast.add({
@@ -889,8 +887,7 @@ async function openXmlEditor() {
 
   const result = await instance.result
   if (result === 'saved') {
-    editorStore.invalidateAnnotationCache(canvas.pageId, canvas.projectId)
-    await editorStore.loadPageIntoCanvas(canvasId, canvas.projectId, canvas.pageId)
+    await collaboration.reloadCanvasDocument(canvasId)
   }
 }
 
@@ -996,13 +993,7 @@ async function openActionRunForEditorTarget(payload: { targetSelection: ActionTa
   })
   const changed = await instance.result
   if (changed) {
-    for (const pageId of pageIds) {
-      editorStore.invalidateAnnotationCache(pageId, currentProjectId.value)
-      const canvasId = getCanvasId(currentProjectId.value, pageId)
-      if (editorStore.canvases[canvasId]) {
-        await editorStore.loadPageIntoCanvas(canvasId, currentProjectId.value, pageId)
-      }
-    }
+    await refreshActionRunPageSummaries(currentProjectId.value, pageIds)
   }
 }
 
@@ -1080,25 +1071,8 @@ async function reloadPageTouchedByActionResult(event: ActionPageResultEvent) {
   canvas.actionResultTransitionSequence = event.sequence
   canvas.actionResultTransitionRunId = event.runId
   try {
-    const previousPage = editorStore.getPage(event.pageId, event.projectId)
-    const previousVariant = previousPage?.imageVariants?.find(variant => variant.id === canvas.imageVariantId)
-    const logicalVariantKey = previousVariant?.type ?? previousVariant?.label ?? null
-
     await refreshActionRunPageSummaries(event.projectId, [event.pageId])
-    await editorStore.refreshPageData(event.projectId, event.pageId)
-    const refreshedPage = editorStore.getPage(event.pageId, event.projectId)
-    const refreshedVariantId = logicalVariantKey
-      ? refreshedPage?.imageVariants?.find(variant => (variant.type ?? variant.label) === logicalVariantKey)?.id
-      : undefined
-
-    editorStore.invalidateAnnotationCache(event.pageId, event.projectId)
-    await editorStore.loadPageIntoCanvas(
-      canvasId,
-      event.projectId,
-      event.pageId,
-      refreshedVariantId,
-      { awaitAnnotations: true }
-    )
+    if (!await collaboration.reloadCanvasDocument(canvasId, { refreshPageData: true })) return
     if (event.resultTypes.length === 0 || event.resultTypes.includes('xml')) {
       scheduleActionRunIndexStatusRefresh(event.projectId, [event.pageId])
     }
@@ -1243,8 +1217,7 @@ async function forceUnlockEditorPage(projectId: string, pageId: string) {
     await reconcileActionRunTerminalLocks(projectId)
     const canvasId = getCanvasId(projectId, pageId)
     if (editorStore.canvases[canvasId] && !editorStore.canvases[canvasId].hasUnsavedChanges) {
-      editorStore.invalidateAnnotationCache(pageId, projectId)
-      await editorStore.loadPageIntoCanvas(canvasId, projectId, pageId)
+      await collaboration.reloadCanvasDocument(canvasId, { refreshPageData: true })
     }
     toast.add({ title: 'Action pages unlocked', color: 'success' })
   } catch (error: unknown) {

@@ -12,7 +12,7 @@ import { useEditorCanvasCollaboration } from '../use-editor-canvas-collaboration
 import { useEditorCollaboration } from '../use-editor-collaboration'
 
 const store = vi.hoisted(() => ({
-  canvases: {} as Record<string, { projectId: string, pageId: string, xmlFileId: string | null, isLoadingAnnotations: boolean }>,
+  canvases: {} as Record<string, { projectId: string, pageId: string, xmlFileId: string | null, isLoadingAnnotations: boolean, persistedRevision?: string }>,
   getCanvas: vi.fn(), getPage: vi.fn(), loadPageIntoCanvas: vi.fn(), resetCanvasHistoryBaseline: vi.fn(), invalidateAnnotationCache: vi.fn()
 }))
 vi.mock('@/stores/editor/editor.store', () => ({ useEditorStore: () => store }))
@@ -61,6 +61,8 @@ it.each([
     await new Promise(resolve => setTimeout(resolve, 9000))
     getEditorSession(canvasId)!.document.value = convertPageDtoToPcGts(persistedPage)
     store.canvases[canvasId]!.isLoadingAnnotations = false
+    store.canvases[canvasId]!.persistedRevision = 'revision'
+    return '/image'
   })
   let epoch = 2n
   let lease: CollaborationLeaseState = {
@@ -152,7 +154,7 @@ it.each([
     collaborationState.applySnapshotUpdate(peers[0]!.id, roomKey, snapshotFromPageDto({
       imageWidth: 100, imageHeight: 100, custom: 'unsaved live annotations',
       regions: [{ id: 'unsaved-region', kind: 'TextRegion', coords: { points: [[0, 0], [50, 0], [50, 50], [0, 50]] } }]
-    }))
+    }), 'revision', lease.leaseEpoch)
     expect(convertPcGtsToPageDto(getEditorSession(canvasId)!.document.value!).custom).toBe('unsaved live annotations')
     if (saveFailure) vi.spyOn(console, 'error').mockImplementation(() => {})
     const outcome = await collaboration.requestTakeover(canvasId, force, handoffMode)

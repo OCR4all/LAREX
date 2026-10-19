@@ -3089,12 +3089,7 @@ async function handleRespondToTakeover(decision: 'accept' | 'decline', handoffMo
           return
         }
       } else if (canvas.projectId && canvas.pageId) {
-        const reloaded = await editorStore.loadPageIntoCanvas(
-          props.canvasId,
-          canvas.projectId,
-          canvas.pageId,
-          canvas.imageVariantId ?? undefined
-        )
+        const reloaded = await collaboration.reloadCanvasDocument(props.canvasId)
         if (!reloaded) {
           toast.add({
             title: 'Transfer cancelled',
@@ -3131,7 +3126,7 @@ async function handleRespondToTakeover(decision: 'accept' | 'decline', handoffMo
 }
 
 async function handleResyncRoom() {
-  await collaboration.reloadRoomForCanvas(props.canvasId)
+  await collaboration.reloadCanvasDocument(props.canvasId)
   emitPresence()
 }
 

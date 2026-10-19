@@ -22,6 +22,8 @@ type RoomMember = {
 type RoomRecord = {
   members: Map<string, RoomMember>
   lease: CollaborationLeaseState
+  persistedRevision?: string
+  retiredRevisions: Set<string>
 }
 
 type RoomStateMessage = {
@@ -57,7 +59,7 @@ type GenericMessage = {
 const rooms = new Map<string, RoomRecord>()
 const peers = new Map<string, Peer>()
 const peerRooms = new Map<string, Set<string>>()
-const roomSnapshots = new Map<string, unknown>()
+const roomSnapshots = new Map<string, { snapshot: unknown, persistedRevision: string, leaseEpoch: string }>()
 
 function send(peer: Peer, message: RoomStateMessage | PresenceMessage | GenericMessage) {
   try {
@@ -83,6 +85,15 @@ function emptyLeaseState(): CollaborationLeaseState {
     leaseEpoch: '0',
     expiresAt: null
   }
+}
+
+function acceptRoomRevision(room: RoomRecord, persistedRevision: string): boolean {
+  if (room.retiredRevisions.has(persistedRevision)) return false
+  if (room.persistedRevision && room.persistedRevision !== persistedRevision) {
+    room.retiredRevisions.add(room.persistedRevision)
+  }
+  room.persistedRevision = persistedRevision
+  return true
 }
 
 function sameLeaseOwner(
@@ -124,7 +135,8 @@ function getOrCreateRoom(roomKey: string): RoomRecord {
 
   room = {
     members: new Map<string, RoomMember>(),
-    lease: emptyLeaseState()
+    lease: emptyLeaseState(),
+    retiredRevisions: new Set()
   }
   rooms.set(roomKey, room)
   return room
@@ -290,6 +302,7 @@ export const collaborationState = {
     peers.set(peer.id, peer)
 
     const room = getOrCreateRoom(token.roomKey)
+    room.persistedRevision ??= token.persistedRevision
     const now = new Date().toISOString()
     room.members.set(peer.id, {
       peerId: peer.id,
@@ -319,11 +332,17 @@ export const collaborationState = {
       }
     })
 
+    const cachedSnapshot = roomSnapshots.get(token.roomKey)
     send(peer, {
       type: 'COLLAB_SNAPSHOT_SYNC',
       payload: {
         roomKey: token.roomKey,
-        snapshot: roomSnapshots.get(token.roomKey) ?? null
+        snapshot: cachedSnapshot?.persistedRevision === token.persistedRevision
+          && cachedSnapshot.leaseEpoch === room.lease.leaseEpoch
+          ? cachedSnapshot.snapshot
+          : null,
+        persistedRevision: token.persistedRevision,
+        leaseEpoch: room.lease.leaseEpoch
       }
     })
 
@@ -391,13 +410,15 @@ export const collaborationState = {
     broadcastPageSummary(member.token.projectId, member.token.pageId)
   },
 
-  applySnapshotUpdate(peerId: string, roomKey: string, snapshot: unknown) {
+  applySnapshotUpdate(peerId: string, roomKey: string, snapshot: unknown, persistedRevision: string, leaseEpoch: string) {
     const room = rooms.get(roomKey)
     const member = room?.members.get(peerId)
     if (!room || !member) return
     if (room.lease.editor?.user.id !== member.token.sub) return
+    if (!persistedRevision || leaseEpoch !== room.lease.leaseEpoch) return
+    if (!acceptRoomRevision(room, persistedRevision)) return
 
-    roomSnapshots.set(roomKey, snapshot)
+    roomSnapshots.set(roomKey, { snapshot, persistedRevision, leaseEpoch })
 
     for (const memberPeerId of room.members.keys()) {
       if (memberPeerId === peerId) continue
@@ -407,7 +428,9 @@ export const collaborationState = {
         type: 'COLLAB_SNAPSHOT_UPDATE',
         payload: {
           roomKey,
-          snapshot
+          snapshot,
+          persistedRevision,
+          leaseEpoch
         }
       })
     }
@@ -488,8 +511,9 @@ export const collaborationState = {
   ) {
     const room = rooms.get(roomKey)
     if (!room) return
+    if (!acceptRoomRevision(room, persistedRevision)) return
 
-    if (options?.reloadRequired) {
+    if (options?.reloadRequired || roomSnapshots.get(roomKey)?.persistedRevision !== persistedRevision) {
       roomSnapshots.delete(roomKey)
     }
 

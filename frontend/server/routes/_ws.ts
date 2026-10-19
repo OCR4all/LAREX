@@ -146,9 +146,11 @@ export default defineWebSocketHandler({
         case 'SNAPSHOT_UPDATE': {
           const roomKey = typeof data.payload?.roomKey === 'string' ? data.payload.roomKey : null
           const snapshot = data.payload?.snapshot
-          if (!roomKey || !snapshot) return
+          const persistedRevision = data.payload?.persistedRevision
+          const leaseEpoch = data.payload?.leaseEpoch
+          if (!roomKey || !snapshot || typeof persistedRevision !== 'string' || typeof leaseEpoch !== 'string') return
 
-          collaborationState.applySnapshotUpdate(peer.id, roomKey, snapshot)
+          collaborationState.applySnapshotUpdate(peer.id, roomKey, snapshot, persistedRevision, leaseEpoch)
           return
         }
 
