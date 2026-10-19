@@ -61,13 +61,20 @@ const { data: projects, status: projectsStatus } = await useFetch<Project[]>(
   }
 )
 
-const { data: pages, status: pagesStatus } = await useFetch<Page[]>(
+const { data: pages, status: pagesStatus, execute: fetchPages, clear: clearPages } = await useFetch<Page[]>(
   () => selectedProjectId.value ? `/api/projects/${selectedProjectId.value}/pages` : '',
   {
     immediate: false,
-    watch: [selectedProjectId]
+    watch: false
   }
 )
+
+// Deferred fetches need an explicit first execution; changing the URL alone
+// does not start an idle useFetch request in Nuxt 4.
+watch(selectedProjectId, (projectId) => {
+  clearPages()
+  if (projectId) void fetchPages()
+})
 
 const projectTags = computed(() => {
   const tagCounts = new Map<string, { label: string, count: number }>()
