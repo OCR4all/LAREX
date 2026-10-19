@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
@@ -195,7 +196,9 @@ public class WorkspaceDto {
             String name,
             @Size(max = 1000, message = "Description must not exceed 1000 characters")
             String description,
-            List<InviteRequest> initialInvites
+            List<InviteRequest> initialInvites,
+            @PositiveOrZero(message = "Quota limit must not be negative")
+            Long quotaLimitBytes
     ) {}
 
     public record UpdateRequest(

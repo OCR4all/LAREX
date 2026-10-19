@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.workspace;
 
+import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.WorkspaceDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.WorkspaceMemberDto;
@@ -31,17 +32,23 @@ public class WorkspaceService {
     private final WorkspaceQueryService workspaceQueryService;
     private final WorkspaceAccessService workspaceAccessService;
     private final WorkspaceProjectDefaultsService workspaceProjectDefaultsService;
+    private final WorkspaceStorageQuotaService workspaceStorageQuotaService;
+    private final GlobalAdminService globalAdminService;
 
     public WorkspaceService(PersonalWorkspaceService personalWorkspaceService,
                            TeamWorkspaceService teamWorkspaceService,
                            WorkspaceQueryService workspaceQueryService,
                            WorkspaceAccessService workspaceAccessService,
-                           WorkspaceProjectDefaultsService workspaceProjectDefaultsService) {
+                           WorkspaceProjectDefaultsService workspaceProjectDefaultsService,
+                           WorkspaceStorageQuotaService workspaceStorageQuotaService,
+                           GlobalAdminService globalAdminService) {
         this.personalWorkspaceService = personalWorkspaceService;
         this.teamWorkspaceService = teamWorkspaceService;
         this.workspaceQueryService = workspaceQueryService;
         this.workspaceAccessService = workspaceAccessService;
         this.workspaceProjectDefaultsService = workspaceProjectDefaultsService;
+        this.workspaceStorageQuotaService = workspaceStorageQuotaService;
+        this.globalAdminService = globalAdminService;
     }
 
     /**
@@ -57,9 +64,24 @@ public class WorkspaceService {
     /**
      * Create team workspace
      */
-    public TeamWorkspace createTeamWorkspace(String name, String description, String userId) {
+    public TeamWorkspace createTeamWorkspace(String name, String description, Long quotaLimitBytes, String userId) {
         workspaceAccessService.requireCreateWorkspaceAccess(userId);
-        return teamWorkspaceService.createTeamWorkspace(name, description, userId);
+        if (quotaLimitBytes != null) {
+            if (!globalAdminService.isGlobalAdmin()) {
+                throw new SecurityException("Setting an initial storage quota requires GLOBAL_ADMIN.");
+            }
+            if (quotaLimitBytes < 0) {
+                throw new IllegalArgumentException("Quota limit must not be negative");
+            }
+        }
+
+        TeamWorkspace workspace = teamWorkspaceService.createTeamWorkspace(name, description, userId);
+        if (quotaLimitBytes == null) {
+            workspaceStorageQuotaService.getOrCreateQuota(workspace.getId());
+        } else {
+            workspaceStorageQuotaService.updateQuotaLimit(workspace.getId(), quotaLimitBytes, true);
+        }
+        return workspace;
     }
 
     /**

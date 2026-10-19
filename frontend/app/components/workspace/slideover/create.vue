@@ -20,13 +20,22 @@ interface InvitedUser {
 const emit = defineEmits<{ close: [boolean] }>()
 
 const workspaceStore = useWorkspaceStore()
+const { user: currentUser } = useUserSession()
+const canSetQuota = computed(() => currentUser.value?.roles?.includes('GLOBAL_ADMIN') ?? false)
+const GB = 1024 * 1024 * 1024
+const quotaPresets = [1, 5, 10, 25, 50, 100]
 
 const schema = z.object({
   name: z.preprocess(
     value => typeof value === 'string' ? value : '',
     z.string().trim().min(1, { error: 'Workspace name is required' }).max(100, { error: 'Name is too long' })
   ),
-  description: z.string().optional()
+  description: z.string().optional(),
+  quotaInGB: z.preprocess(
+    value => value === '' || value == null ? undefined : value,
+    z.number().min(0, { error: 'Quota must not be negative' })
+      .max(Number.MAX_SAFE_INTEGER / GB, { error: 'Quota is too large' }).optional()
+  )
 })
 
 type Schema = z.output<typeof schema>
@@ -152,7 +161,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
   try {
     const body = {
-      ...event.data,
+      name: event.data.name,
+      description: event.data.description,
+      quotaLimitBytes: canSetQuota.value && event.data.quotaInGB !== undefined
+        ? Math.round(event.data.quotaInGB * GB)
+        : undefined,
       initialInvites: invitedUsers.value.map(u => ({
         userId: u.userId,
         role: u.role
@@ -228,6 +241,43 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               <UInput v-model="state.description" />
             </UFormField>
           </div>
+        </UiSlideoverSection>
+
+        <UiSlideoverSection
+          v-if="canSetQuota"
+          title="Initial Storage Quota"
+          description="Set a custom storage limit or leave it blank to use the instance default."
+          icon="i-lucide-hard-drive"
+        >
+          <UFormField label="Quota Limit (GB)" name="quotaInGB">
+            <div class="space-y-3">
+              <div class="flex flex-wrap gap-2">
+                <UButton
+                  v-for="gb in quotaPresets"
+                  :key="gb"
+                  type="button"
+                  size="sm"
+                  :variant="state.quotaInGB === gb ? 'solid' : 'outline'"
+                  :color="state.quotaInGB === gb ? 'primary' : 'neutral'"
+                  @click="state.quotaInGB = gb"
+                >
+                  {{ gb }} GB
+                </UButton>
+              </div>
+              <UInput
+                v-model.number="state.quotaInGB"
+                type="number"
+                :min="0"
+                :step="0.1"
+                placeholder="Instance default"
+                class="w-full"
+              >
+                <template #trailing>
+                  <span class="text-sm text-muted">GB</span>
+                </template>
+              </UInput>
+            </div>
+          </UFormField>
         </UiSlideoverSection>
 
         <UiSlideoverSection

@@ -96,6 +96,7 @@ public class WorkspaceController {
         TeamWorkspace teamWorkspace = workspaceService.createTeamWorkspace(
                 request.name(),
                 request.description(),
+                request.quotaLimitBytes(),
                 userId
         );
 
