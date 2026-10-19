@@ -187,12 +187,6 @@ const handleImageUpload = async (event: Event) => {
     } catch (error) {
       console.warn('Failed to refresh session data:', error)
     }
-
-    toast.add({
-      title: 'Image uploaded',
-      description: 'Your profile image has been updated',
-      color: 'success'
-    })
   } catch (error: unknown) {
     console.error('Failed to upload image:', error)
     toast.add({
@@ -226,12 +220,6 @@ const removeImage = async () => {
     } catch (error) {
       console.warn('Failed to refresh session data:', error)
     }
-
-    toast.add({
-      title: 'Image removed',
-      description: 'Your profile image has been removed',
-      color: 'success'
-    })
   } catch (error: unknown) {
     console.error('Failed to remove image:', error)
     toast.add({

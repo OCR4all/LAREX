@@ -31,7 +31,7 @@ if (loggedIn.value) {
 
 const color = computed(() => colorMode.value === 'dark' ? '#1b1718' : 'white')
 
-const toaster = { expand: false, position: 'top-center' as const }
+const toaster = { expand: false, position: 'bottom-right' as const }
 
 useHead({
   meta: [

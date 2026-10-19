@@ -317,7 +317,6 @@ const handleOptimize = async () => {
 
   if (confirmed) {
     optimizeColors()
-    toast.add({ title: 'Colors optimized', color: 'success' })
   }
 }
 
@@ -351,7 +350,6 @@ const handleDeleteTag = async (tagId: string) => {
 
   if (confirmed) {
     deleteTag(tagId)
-    toast.add({ title: 'Tag deleted', color: 'success' })
   }
 }
 </script>

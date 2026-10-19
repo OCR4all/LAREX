@@ -286,7 +286,6 @@ async function updatePageWorkflowState(page: Page, workflowState: PageWorkflowSt
     })
     mergeUpdatedPages([updated])
     await Promise.all([refreshProject(), refreshNuxtData(projectsListKey.value)])
-    toast.add({ title: `Page “${page.name}” marked ${workflowStateMeta[workflowState].label}`, color: 'success' })
   } catch (error) {
     toast.add({
       title: 'Failed to update page state',
@@ -307,7 +306,6 @@ async function bulkUpdatePageWorkflowState(workflowState: PageWorkflowState) {
     })
     mergeUpdatedPages(updated)
     await Promise.all([refreshProject(), refreshNuxtData(projectsListKey.value)])
-    toast.add({ title: `${updated.length} page${updated.length === 1 ? '' : 's'} marked ${workflowStateMeta[workflowState].label}`, color: 'success' })
   } catch (error) {
     toast.add({
       title: 'Failed to update selected pages',
@@ -472,12 +470,6 @@ async function toggleStar() {
     project.value.isStarred = response.starred
 
     await refreshNuxtData(starredProjectsKey.value)
-
-    toast.add({
-      title: response.message,
-      color: response.starred ? 'success' : 'info',
-      icon: response.starred ? 'i-lucide-star' : 'i-lucide-star-off'
-    })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : ''
     toast.add({

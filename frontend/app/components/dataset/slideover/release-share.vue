@@ -95,7 +95,6 @@ async function updateShareExpiry() {
       }
     )
     changed.value = true
-    toast.add({ title: 'Expiry updated', color: 'success' })
   } catch (error: unknown) {
     toast.add({
       title: 'Expiry update failed',
@@ -120,7 +119,6 @@ async function revokeShare() {
     )
     recentShare.value = null
     changed.value = true
-    toast.add({ title: 'Share revoked', color: 'success' })
   } catch (error: unknown) {
     toast.add({
       title: 'Revoke failed',

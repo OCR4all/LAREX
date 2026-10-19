@@ -274,7 +274,6 @@ async function persistDueDate(dueDate: string | null) {
     task.value = updated
     dueDateEditorOpen.value = false
     await refreshAfterInlineTaskUpdate()
-    toast.add({ title: dueDate ? 'Due date updated' : 'Due date removed', color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Failed to update due date', description: err?.data?.message, color: 'error' })
   } finally {
@@ -304,7 +303,6 @@ async function saveAssignees() {
     assigneeEditorOpen.value = false
     await refreshSubtasks()
     await refreshAfterInlineTaskUpdate()
-    toast.add({ title: 'Assignees updated', color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Failed to update assignees', description: err?.data?.message, color: 'error' })
   } finally {
@@ -335,7 +333,6 @@ async function createReminder() {
     })
     reminderTimeInput.value = ''
     await refreshTaskCaches(taskId.value, workspaceId.value)
-    toast.add({ title: 'Reminder added', color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Failed to add reminder', description: err?.data?.message, color: 'error' })
   } finally {
@@ -348,7 +345,6 @@ async function deleteReminder(reminderId: string) {
   try {
     await $fetch(`/api/tasks/${taskId.value}/reminders/${reminderId}`, { method: 'DELETE' })
     await refreshTaskCaches(taskId.value, workspaceId.value)
-    toast.add({ title: 'Reminder removed', color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Failed to remove reminder', description: err?.data?.message, color: 'error' })
   }
@@ -375,7 +371,6 @@ async function updateStatus(newStatus: TaskStatus) {
     await refreshTaskCaches(taskId.value, workspaceId.value)
     await refreshLinkedProjectCaches()
     await refreshActivity()
-    toast.add({ title: 'Status updated', color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Failed to update status', description: err?.data?.message, color: 'error' })
   } finally {

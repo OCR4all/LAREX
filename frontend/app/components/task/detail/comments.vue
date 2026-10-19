@@ -31,7 +31,6 @@ async function submitComment() {
     })
     newComment.value = ''
     emit('refresh')
-    toast.add({ title: 'Comment added', color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Failed to add comment', description: err?.data?.message, color: 'error' })
   } finally {
@@ -61,7 +60,6 @@ async function saveEdit(commentId: string) {
     editingCommentId.value = null
     editContent.value = ''
     emit('refresh')
-    toast.add({ title: 'Comment updated', color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Failed to update comment', description: err?.data?.message, color: 'error' })
   } finally {
@@ -75,7 +73,6 @@ async function deleteComment(commentId: string) {
       method: 'DELETE'
     })
     emit('refresh')
-    toast.add({ title: 'Comment deleted', color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Failed to delete comment', description: err?.data?.message, color: 'error' })
   }

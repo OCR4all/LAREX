@@ -307,7 +307,6 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
         body: createPageSortOrderRequest(orderedPages)
       })
       options.pages.value = updatedPages
-      toast.add({ title: 'Page order saved', color: 'success', icon: 'i-lucide-check' })
     } catch (error) {
       visibleProjectPageRows.value = [...paginatedPages.value]
       toast.add({

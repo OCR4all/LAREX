@@ -56,7 +56,6 @@ async function updateExpiry() {
   try {
     state.value = await $fetch(`/api/workspaces/${selectedWorkspace.value}/projects/${props.projectId}/outputs/${props.output.id}/share`, { method: 'PATCH', body: payload() })
     changed.value = true
-    toast.add({ title: 'Expiry updated', color: 'success' })
   } catch (error: unknown) {
     toast.add({ title: 'Update failed', description: extractApiErrorMessage(error, 'Failed to update share expiry'), color: 'error' })
   } finally { saving.value = false }
@@ -68,7 +67,6 @@ async function revoke() {
     state.value = await $fetch(`/api/workspaces/${selectedWorkspace.value}/projects/${props.projectId}/outputs/${props.output.id}/share`, { method: 'DELETE' })
     recentShare.value = null
     changed.value = true
-    toast.add({ title: 'Share revoked', color: 'success' })
   } catch (error: unknown) {
     toast.add({ title: 'Revoke failed', description: extractApiErrorMessage(error, 'Failed to revoke output share'), color: 'error' })
   } finally { revoking.value = false }

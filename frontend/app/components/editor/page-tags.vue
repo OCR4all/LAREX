@@ -11,7 +11,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ saved: [projectId: string, page: Page] }>()
-const toast = useToast()
 const open = ref(false)
 const draft = ref<string[]>([])
 const tagNodes = ref<TagNode[]>([])
@@ -97,7 +96,6 @@ async function save() {
     emit('saved', props.page.projectId, page)
     clearNuxtData(wsKey(props.workspaceId, 'projects', props.page.projectId, 'pages'))
     open.value = false
-    toast.add({ title: 'Page tags updated', color: 'success', icon: 'i-lucide-check' })
   } catch (error) {
     saveError.value = extractApiErrorMessage(error, 'Could not save the page tags.')
   } finally {

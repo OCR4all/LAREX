@@ -34,12 +34,6 @@ async function updateMemberRole(member: WorkspaceMember, newRole: 'CURATOR' | 'E
       body: { role: newRole }
     })
     await refreshWorkspaceMembership(props.workspaceId)
-
-    toast.add({
-      title: 'Role updated',
-      description: `${member.displayName || member.username} is now ${ROLE_LABELS[newRole].toLowerCase()}`,
-      color: 'success'
-    })
   } catch (err: unknown) {
     toast.add({
       title: 'Failed to update role',
@@ -69,12 +63,6 @@ async function confirmRemoveMember(member: WorkspaceMember) {
       method: 'DELETE'
     })
     await refreshWorkspaceMembership(props.workspaceId)
-
-    toast.add({
-      title: 'Member removed',
-      description: `${member.displayName || member.username} has been removed from the workspace`,
-      color: 'success'
-    })
   } catch (err: unknown) {
     toast.add({
       title: 'Failed to remove member',

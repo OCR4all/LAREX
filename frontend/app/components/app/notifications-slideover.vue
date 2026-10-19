@@ -252,7 +252,6 @@ async function handleNotificationClick(notification: Notification) {
 
 async function handleArchiveAllRead() {
   await archiveAllRead()
-  toast.add({ title: 'Read notifications archived', color: 'neutral' })
 }
 </script>
 

@@ -35,7 +35,6 @@ const props = defineProps<Props>()
 
 const editorUiStore = useEditorUiStore()
 const editorStore = useEditorStore()
-const toast = useToast()
 
 const currentDocument = computed(() => props.document ?? null)
 const relations = computed(() => currentDocument.value?.page?.relations ?? props.page?.relations ?? [])
@@ -72,10 +71,6 @@ function getCommandContext(): CommandContext | undefined {
   if (!canvasId) return undefined
   const session = getEditorSession(canvasId)
   return session ? { canvasId, session } : undefined
-}
-
-function showSuccessToast(title: string) {
-  toast.add({ title, color: 'success', icon: 'i-lucide-check' })
 }
 
 function setSelectedRelation(relationId: string | null) {
@@ -123,7 +118,6 @@ function createRelationFromDraft(): void {
   editorUiStore.setSelectedRelationId(result.id)
   editorUiStore.resetRelationDraft()
   editorUiStore.cancelRelationPicking()
-  showSuccessToast('Relation created')
 }
 
 function saveSelectedRelation(): void {
@@ -143,7 +137,6 @@ function saveSelectedRelation(): void {
 
   if (result?.id) {
     editorUiStore.setSelectedRelationId(result.id)
-    showSuccessToast('Relation updated')
   }
 }
 
@@ -164,7 +157,6 @@ function deleteSelectedRelation(): void {
     editorUiStore.setSelectedRelationId(nextRelation?.id ?? null)
   }
   editorUiStore.cancelRelationPicking()
-  showSuccessToast('Relation deleted')
 }
 
 function startCreatePicking(): void {

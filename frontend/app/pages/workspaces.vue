@@ -210,7 +210,6 @@ function getActions(ws: WorkspaceRow): DropdownMenuItem[][] {
       disabled: workspaceStore.selectedWorkspaceId === ws.id,
       onSelect: () => {
         workspaceStore.selectWorkspace(ws.id)
-        toast.add({ title: 'Workspace selected', description: ws.name, color: 'success' })
       }
     }
   ]]

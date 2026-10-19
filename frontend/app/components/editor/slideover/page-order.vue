@@ -54,7 +54,6 @@ async function saveOrder() {
       method: 'PUT',
       body: createPageSortOrderRequest(orderedPages.value)
     })
-    toast.add({ title: 'Page order saved', color: 'success', icon: 'i-lucide-check' })
     emit('close', response)
   } catch (error: unknown) {
     toast.add({

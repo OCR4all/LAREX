@@ -1693,8 +1693,6 @@ async function updateActiveWorkflowState(workflowState: PageWorkflowState) {
       refreshNuxtData(wsKey(workspaceId, 'projects', projectId)),
       refreshNuxtData(wsKey(workspaceId, 'projects', 'list'))
     ])
-    const label = workflowState === 'IN_PROGRESS' ? 'In progress' : workflowState === 'DONE' ? 'Done' : 'Open'
-    toast.add({ title: `Page marked ${label}`, color: 'success' })
   } catch (error) {
     toast.add({
       title: 'Failed to update page state',
