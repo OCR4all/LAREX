@@ -1,3 +1,4 @@
+import type { PresenceFilter } from '@/utils/editor/textline-filtering'
 import type { PageData } from './types'
 
 interface ProjectSessionState {
@@ -18,7 +19,7 @@ export interface EditorTextViewSettings {
   selectedIndices: number[]
   filterUnindexed: boolean
   showNonAssignedIndices: boolean
-  onlyMissingGt: boolean
+  gtFilter: PresenceFilter
 }
 
 interface MultiProjectEditorSessionState {
@@ -66,7 +67,7 @@ function createDefaultTextViewSettings(): EditorTextViewSettings {
     selectedIndices: [],
     filterUnindexed: false,
     showNonAssignedIndices: false,
-    onlyMissingGt: false
+    gtFilter: 'all'
   }
 }
 
@@ -169,7 +170,9 @@ function normalizeTextViewSettings(value: unknown): EditorTextViewSettings {
     selectedIndices,
     filterUnindexed: Boolean(candidate.filterUnindexed ?? defaults.filterUnindexed),
     showNonAssignedIndices: Boolean(candidate.showNonAssignedIndices ?? defaults.showNonAssignedIndices),
-    onlyMissingGt: Boolean(candidate.onlyMissingGt ?? candidate.onlyMissingGtLines ?? defaults.onlyMissingGt)
+    gtFilter: candidate.gtFilter === 'all' || candidate.gtFilter === 'with' || candidate.gtFilter === 'without'
+      ? candidate.gtFilter
+      : (candidate.onlyMissingGt ?? candidate.onlyMissingGtLines) ? 'without' : defaults.gtFilter
   }
 }
 

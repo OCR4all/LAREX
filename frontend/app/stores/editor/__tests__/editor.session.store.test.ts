@@ -64,7 +64,7 @@ const DEFAULT_TEXT_VIEW_SETTINGS = {
   selectedIndices: [],
   filterUnindexed: false,
   showNonAssignedIndices: false,
-  onlyMissingGt: false
+  gtFilter: 'all'
 }
 
 function expectTextViewSettings(
@@ -265,8 +265,20 @@ describe('editor.session.store', () => {
     expect(loaded).toBe(true)
     expectTextViewSettings(store, {
       gtIndex: 4,
-      onlyMissingGt: true
+      gtFilter: 'without'
     })
+  })
+
+  it.each(['all', 'with', 'without'] as const)('persists the %s GT filter', async (gtFilter) => {
+    const store = await createStore()
+    store.initWorkspaceSession('workspace-1')
+    store.addOpenedProject('project-a')
+    store.updateTextViewSettings(current => ({ ...current, gtFilter }))
+
+    setActivePinia(createPinia())
+    const reloadedStore = await createStore()
+    expect(reloadedStore.loadPersistedSession()).toBe(true)
+    expectTextViewSettings(reloadedStore, { gtFilter })
   })
 
   it('migrates legacy region text mode to textline mode', async () => {
@@ -276,7 +288,7 @@ describe('editor.session.store', () => {
     store.updateTextViewSettings(current => ({
       ...current,
       mode: 'textline',
-      onlyMissingGt: true
+      gtFilter: 'without'
     }))
 
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -303,7 +315,7 @@ describe('editor.session.store', () => {
     expect(loaded).toBe(true)
     expectTextViewSettings(reloadedStore, {
       gtIndex: undefined,
-      onlyMissingGt: true
+      gtFilter: 'without'
     })
   })
 })

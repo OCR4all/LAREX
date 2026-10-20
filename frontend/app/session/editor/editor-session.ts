@@ -1,3 +1,4 @@
+import type { PresenceFilter } from '@/utils/editor/textline-filtering'
 import { createSpatialIndex, type SpatialIndexService } from '@/services/editor/spatial-index-service'
 import type { PcGts } from '@/models/editor'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
@@ -34,7 +35,7 @@ export type TextViewSettings = {
   selectedIndices: number[]
   filterUnindexed: boolean
   showNonAssignedIndices: boolean
-  onlyMissingGt: boolean
+  gtFilter: PresenceFilter
   padding: number
 }
 
@@ -138,7 +139,7 @@ function createServerPlaceholderSession(canvasId: string): EditorSession {
     selectedIndices: [],
     filterUnindexed: false,
     showNonAssignedIndices: false,
-    onlyMissingGt: false,
+    gtFilter: 'all',
     padding: 10
   })
 
@@ -175,7 +176,7 @@ export function ensureEditorSession(canvasId: string, initial?: { document?: PcG
     selectedIndices: [],
     filterUnindexed: false,
     showNonAssignedIndices: false,
-    onlyMissingGt: false,
+    gtFilter: 'all',
     padding: 10
   })
 

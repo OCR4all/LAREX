@@ -5,6 +5,8 @@ import { PolygonType } from '@/models/editor'
 import type { TextContentVariantData } from '@/models/editor'
 import type { Point } from '@/models/editor/types'
 import { worldToImage } from '@/utils/editor/coordinates'
+import { matchesTextlineFilters } from '@/utils/editor/textline-filtering'
+import type { PresenceFilter } from '@/utils/editor/textline-filtering'
 import { getRegionColor } from '@/utils/editor/region-colors'
 import {
   findRegionLabelDefinitionForRegion,
@@ -24,11 +26,14 @@ import { findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { collectRegionIdsInReadingOrder } from '@/utils/editor/textline-navigation'
 import { tokenizeForDictionary } from '../shared/text-highlighting'
 import { computeTextLineReadingDirectionMap } from './reading-direction'
+import FilterOptions from './filter-options.vue'
+import VariantFilters from './variant-filters.vue'
 import {
   compareConfidenceLowFirst,
   createVariantFilterState,
   filterTextContentVariants,
-  getMinVariantConfidence
+  getMinVariantConfidence,
+  hasConfidenceFilter
 } from './variant-filtering'
 import { createTextlineVariantsUpdateCommand } from '../shared/textline-variant-update'
 import { serializeFullTextComment } from '../shared/full-text-comments'
@@ -85,7 +90,9 @@ const searchQuery = computed({
   }
 })
 const sortOrder = ref<'asc' | 'desc' | 'confidence'>('asc')
-const filterMode = ref<'all' | 'empty' | 'withComments' | 'lowConfidence' | 'matchingFilter' | 'dictionaryMismatch' | 'diffMismatch'>('all')
+const additionalFilters = ref<Array<'empty' | 'matchingFilter' | 'dictionaryMismatch'>>([])
+const commentsFilter = ref<PresenceFilter>('all')
+const diffFilter = ref<PresenceFilter>('all')
 
 const collapsedRegionIds = ref<Set<string>>(new Set())
 const orderOverrideByRegion = ref<Record<string, string[]>>({})
@@ -104,7 +111,7 @@ const isCanvasEditable = computed(() => {
 const reorderEnabled = computed(() => {
   return isCanvasEditable.value
     && sortOrder.value === 'asc'
-    && filterMode.value === 'all'
+    && !hasActiveLocalFilters.value
     && searchQuery.value.trim().length === 0
 })
 
@@ -208,7 +215,33 @@ const selectedIndicesModel = computed({
   }
 })
 
-const filterUnindexedModel = computed(() => textViewSettings.value.filterUnindexed)
+const filterUnindexedModel = computed({
+  get: () => textViewSettings.value.filterUnindexed,
+  set: (next: boolean) => {
+    sessionStore.updateTextViewSettings(current => ({ ...current, filterUnindexed: Boolean(next) }))
+  }
+})
+
+const availableIndices = computed(() => {
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
+  const indices = new Set<number>()
+  for (const polygon of runtime?.polygons ?? []) {
+    if (polygon.type !== PolygonType.TEXTLINE) continue
+    for (const variant of polygon.textContentVariants ?? []) {
+      if (typeof variant.index === 'number' && Number.isFinite(variant.index) && variant.index >= 0) {
+        indices.add(variant.index)
+      }
+    }
+  }
+  return [...indices].sort((a, b) => a - b)
+})
+
+const hasUnindexed = computed(() => {
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
+  return (runtime?.polygons ?? []).some(polygon => polygon.type === PolygonType.TEXTLINE
+    && (polygon.textContentVariants ?? []).some(variant => typeof variant.index !== 'number'
+      || !Number.isFinite(variant.index) || variant.index < 0))
+})
 
 const showNonAssignedIndicesModel = computed({
   get: () => textViewSettings.value.showNonAssignedIndices,
@@ -220,12 +253,12 @@ const showNonAssignedIndicesModel = computed({
   }
 })
 
-const onlyMissingGtModel = computed({
-  get: () => textViewSettings.value.onlyMissingGt,
-  set: (next: boolean) => {
+const gtFilterModel = computed({
+  get: () => textViewSettings.value.gtFilter,
+  set: (next: PresenceFilter) => {
     sessionStore.updateTextViewSettings(current => ({
       ...current,
-      onlyMissingGt: Boolean(next)
+      gtFilter: next
     }))
   }
 })
@@ -377,8 +410,8 @@ const currentPageId = computed(() => {
   return editorStore.canvases[canvasId]?.pageId ?? null
 })
 
-watch([filterMode, currentPageId, filterTextContent], async ([mode, pageId, textContentFilter]) => {
-  if (mode !== 'matchingFilter' || !pageId || !textContentFilter?.trim()) {
+watch([() => additionalFilters.value.includes('matchingFilter'), currentPageId, filterTextContent], async ([matchingFilter, pageId, textContentFilter]) => {
+  if (!matchingFilter || !pageId || !textContentFilter?.trim()) {
     matchingTextLineIds.value = new Set()
     return
   }
@@ -935,11 +968,6 @@ function textlineHasDictionaryMismatch(textline: { textContentVariants: Array<{ 
   return hasLoadedResult ? false : false
 }
 
-function textlineHasDiffMismatch(textline: { textContentVariants: Array<{ index?: number, text: string }> }): boolean {
-  const gtText = textline.textContentVariants.find(variant => variantRole(variant.index) === 'gt')?.text ?? ''
-  return textline.textContentVariants.some(variant => variantRole(variant.index) !== 'gt' && variant.text !== gtText)
-}
-
 const selectedTextlineIdFromSharedSelection = computed(() => {
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const polygonSelection = runtime?.selectedPolygonId?.value ?? null
@@ -967,23 +995,19 @@ const totalTextlineCount = computed(() => {
 
 const displayTextlines = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  let items = [...textlines.value]
+  let items = textlines.value.filter(line => matchesTextlineFilters(line, {
+    gt: gtFilterModel.value,
+    comments: commentsFilter.value,
+    diff: diffFilter.value
+  }, gtIndexModel.value))
 
-  if (onlyMissingGtModel.value) {
-    items = items.filter(tl => !tl.hasGtVariant)
-  }
-
-  if (filterMode.value === 'empty') {
+  if (additionalFilters.value.includes('empty')) {
     items = items.filter(tl => !tl.hasAnyText)
-  } else if (filterMode.value === 'withComments') {
-    items = items.filter(tl => (tl.comments ?? '').trim().length > 0)
-  } else if (filterMode.value === 'lowConfidence') {
-    items = items.filter(tl => typeof tl.lineConfidence === 'number' && tl.lineConfidence < 0.8)
-  } else if (filterMode.value === 'dictionaryMismatch') {
+  }
+  if (additionalFilters.value.includes('dictionaryMismatch')) {
     items = items.filter(textlineHasDictionaryMismatch)
-  } else if (filterMode.value === 'diffMismatch') {
-    items = items.filter(textlineHasDiffMismatch)
-  } else if (filterMode.value === 'matchingFilter') {
+  }
+  if (additionalFilters.value.includes('matchingFilter')) {
     if (matchingTextLineIds.value.size > 0) {
       items = items.filter(tl => matchingTextLineIds.value.has(tl.id))
     } else if (!isLoadingMatchingTextLines.value) {
@@ -1130,82 +1154,43 @@ const sortMenuItems = computed(() => [
   ]
 ])
 
-const filterMenuItems = computed(() => {
-  const items = [
-    [
-      {
-        label: 'Show all',
-        icon: 'i-lucide-list',
-        active: filterMode.value === 'all',
-        activeColor: 'primary',
-        activeVariant: 'solid',
-        onSelect: () => { filterMode.value = 'all' }
-      },
-      {
-        label: 'Empty transcriptions',
-        icon: 'i-lucide-type',
-        active: filterMode.value === 'empty',
-        activeColor: 'primary',
-        activeVariant: 'solid',
-        onSelect: () => { filterMode.value = 'empty' }
-      },
-      {
-        label: 'Low confidence',
-        icon: 'i-lucide-triangle-alert',
-        active: filterMode.value === 'lowConfidence',
-        activeColor: 'primary',
-        activeVariant: 'solid',
-        onSelect: () => { filterMode.value = 'lowConfidence' }
-      },
-      {
-        label: 'With comments',
-        icon: 'i-lucide-message-square-text',
-        active: filterMode.value === 'withComments',
-        activeColor: 'primary',
-        activeVariant: 'solid',
-        onSelect: () => { filterMode.value = 'withComments' }
-      },
-      {
-        label: 'Dictionary mismatches',
-        icon: 'i-lucide-book-x',
-        active: filterMode.value === 'dictionaryMismatch',
-        activeColor: 'primary',
-        activeVariant: 'solid',
-        disabled: !hasProjectDictionary.value,
-        onSelect: () => { filterMode.value = 'dictionaryMismatch' }
-      },
-      {
-        label: 'Diff mismatches',
-        icon: 'i-lucide-git-compare',
-        active: filterMode.value === 'diffMismatch',
-        activeColor: 'primary',
-        activeVariant: 'solid',
-        onSelect: () => { filterMode.value = 'diffMismatch' }
-      },
-      {
-        label: 'Only lines without GT',
-        icon: 'i-lucide-leaf',
-        active: onlyMissingGtModel.value,
-        activeColor: 'primary',
-        activeVariant: 'solid',
-        onSelect: () => { onlyMissingGtModel.value = !onlyMissingGtModel.value }
-      }
-    ]
-  ]
+const gtFilterItems = [
+  { label: 'All', value: 'all' },
+  { label: 'With GT', value: 'with' },
+  { label: 'Without GT', value: 'without' }
+]
+const commentsFilterItems = [
+  { label: 'All', value: 'all' },
+  { label: 'With', value: 'with' },
+  { label: 'Without', value: 'without' }
+]
+const diffFilterItems = [
+  { label: 'All', value: 'all' },
+  { label: 'Mismatches', value: 'with' },
+  { label: 'No mismatches', value: 'without' }
+]
+const additionalFilterItems = computed(() => [
+  { label: 'Empty transcriptions', icon: 'i-lucide-type', value: 'empty' },
+  { label: 'Dictionary mismatches', icon: 'i-lucide-book-x', value: 'dictionaryMismatch', disabled: !hasProjectDictionary.value },
+  ...(hasTextContentFilter.value
+    ? [{
+        label: `Matching "${filterTextContent.value?.substring(0, 20)}${(filterTextContent.value?.length ?? 0) > 20 ? '…' : ''}"`,
+        icon: 'i-lucide-list-filter',
+        value: 'matchingFilter'
+      }]
+    : [])
+])
 
-  if (hasTextContentFilter.value && items[0]) {
-    items[0].push({
-      label: `Matching "${filterTextContent.value?.substring(0, 20)}${(filterTextContent.value?.length ?? 0) > 20 ? '…' : ''}"`,
-      icon: 'i-lucide-filter',
-      active: filterMode.value === 'matchingFilter',
-      activeColor: 'primary',
-      activeVariant: 'solid',
-      onSelect: () => { filterMode.value = 'matchingFilter' }
-    })
-  }
-
-  return items
-})
+function resetLineFilters(): void {
+  gtFilterModel.value = 'all'
+  commentsFilter.value = 'all'
+  confidenceRangeModel.value = [0, 1]
+  selectedIndicesModel.value = []
+  filterUnindexedModel.value = false
+  showNonAssignedIndicesModel.value = false
+  diffFilter.value = 'all'
+  additionalFilters.value = []
+}
 
 const currentSortLabel = computed(() => {
   switch (sortOrder.value) {
@@ -1223,9 +1208,16 @@ const hasCollapsedRegions = computed(() => {
   return regionMeta.value.some(region => collapsedRegionIds.value.has(region.id))
 })
 
-const hasActiveLocalFilters = computed(() => {
-  return filterMode.value !== 'all' || onlyMissingGtModel.value
-})
+const activeLocalFilterCount = computed(() => [
+  gtFilterModel.value !== 'all',
+  commentsFilter.value !== 'all',
+  diffFilter.value !== 'all',
+  hasConfidenceFilter(confidenceRangeModel.value),
+  selectedIndicesModel.value.length > 0 || filterUnindexedModel.value,
+  showNonAssignedIndicesModel.value
+].filter(Boolean).length + additionalFilters.value.length)
+
+const hasActiveLocalFilters = computed(() => activeLocalFilterCount.value > 0)
 
 const sectionMenuItems = computed(() => {
   const items = [[
@@ -1298,16 +1290,88 @@ const sectionMenuItems = computed(() => {
             />
           </UDropdownMenu>
 
-          <UDropdownMenu :items="filterMenuItems" :content="{ align: 'end' }">
+          <UPopover :content="{ align: 'end' }">
             <UButton
-              color="neutral"
+              :color="hasActiveLocalFilters ? 'primary' : 'neutral'"
               :variant="hasActiveLocalFilters ? 'soft' : 'ghost'"
               size="sm"
               icon="i-lucide-filter"
-              :title="hasActiveLocalFilters ? 'Filters active' : 'Filter textlines'"
-              :aria-label="hasActiveLocalFilters ? 'Filters active' : 'Filter textlines'"
-            />
-          </UDropdownMenu>
+              data-tour="editor-textline-list-filters"
+              :title="hasActiveLocalFilters ? `Filter textlines (${activeLocalFilterCount} active)` : 'Filter textlines'"
+              :aria-label="hasActiveLocalFilters ? `Filter textlines (${activeLocalFilterCount} active)` : 'Filter textlines'"
+            >
+              <template v-if="hasActiveLocalFilters" #trailing>
+                <UBadge size="xs" color="primary" variant="solid">
+                  {{ activeLocalFilterCount }}
+                </UBadge>
+              </template>
+            </UButton>
+            <template #content>
+              <div class="max-h-[min(82vh,760px)] w-88 max-w-[calc(100vw-2rem)] overflow-y-auto">
+                <div class="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-default bg-default p-3">
+                  <h3 class="text-sm font-semibold">
+                    Filter textlines
+                  </h3>
+                  <UButton
+                    label="Reset"
+                    icon="i-lucide-filter-x"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    :disabled="!hasActiveLocalFilters"
+                    @click="resetLineFilters"
+                  />
+                </div>
+                <div class="space-y-4 p-3">
+                  <FilterOptions
+                    v-model="gtFilterModel"
+                    label="Ground truth"
+                    icon="i-lucide-leaf"
+                    :items="gtFilterItems"
+                  />
+                  <FilterOptions
+                    v-model="commentsFilter"
+                    label="Comments"
+                    icon="i-lucide-message-square-text"
+                    :items="commentsFilterItems"
+                  />
+                  <FilterOptions
+                    v-model="diffFilter"
+                    label="Diff"
+                    icon="i-lucide-git-compare"
+                    :items="diffFilterItems"
+                  />
+                  <USeparator />
+                  <VariantFilters
+                    v-model:selected-indices="selectedIndicesModel"
+                    v-model:filter-unindexed="filterUnindexedModel"
+                    v-model:show-non-assigned-indices="showNonAssignedIndicesModel"
+                    v-model:confidence-range="confidenceRangeModel"
+                    :available-indices="availableIndices"
+                    :has-unindexed="hasUnindexed"
+                  />
+                  <USeparator />
+                  <UCheckboxGroup
+                    v-model="additionalFilters"
+                    legend="Additional filters"
+                    :items="additionalFilterItems"
+                    variant="table"
+                    indicator="end"
+                    size="sm"
+                    :ui="{ item: 'px-2.5 py-2', label: 'flex items-center gap-2' }"
+                  >
+                    <template #label="{ item }">
+                      <UIcon :name="item.icon" class="size-4 shrink-0" />
+                      {{ item.label }}
+                    </template>
+                  </UCheckboxGroup>
+                  <p class="text-xs text-muted">
+                    All selected filters are combined.
+                  </p>
+                </div>
+              </div>
+            </template>
+          </UPopover>
 
           <UDropdownMenu :items="sectionMenuItems" :content="{ align: 'end' }">
             <UButton

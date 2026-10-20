@@ -41,7 +41,28 @@ const confidenceRangeModel = computed<[number, number]>({
 </script>
 
 <template>
-  <div class="p-4 space-y-4">
+  <div class="space-y-4">
+    <div>
+      <div class="flex justify-between items-center mb-2">
+        <span class="flex items-center gap-2 text-sm font-medium">
+          <UIcon name="i-lucide-badge-percent" class="size-4 text-muted" />
+          Confidence
+        </span>
+        <span class="text-sm font-semibold text-primary">
+          {{ normalizedConfidenceRange[0].toFixed(2) }}–{{ normalizedConfidenceRange[1].toFixed(2) }}
+        </span>
+      </div>
+      <USlider
+        v-model="confidenceRangeModel"
+        :min="0"
+        :max="1"
+        :step="0.01"
+        aria-label="Confidence range"
+      />
+      <p class="text-xs text-muted mt-2">
+        Variants without confidence appear only with the full range.
+      </p>
+    </div>
     <div>
       <div class="flex justify-between items-center mb-2">
         <span class="text-sm font-medium">Filter Indices</span>
@@ -71,26 +92,6 @@ const confidenceRangeModel = computed<[number, number]>({
         </span>
       </div>
       <USwitch v-model="showNonAssignedIndices" />
-    </div>
-
-    <div>
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-sm font-medium">Confidence Range</span>
-        <span class="text-sm font-semibold text-primary">
-          {{ normalizedConfidenceRange[0].toFixed(2) }}–{{ normalizedConfidenceRange[1].toFixed(2) }}
-        </span>
-      </div>
-      <div class="flex flex-col gap-2">
-        <USlider
-          v-model="confidenceRangeModel"
-          :min="0"
-          :max="1"
-          :step="0.01"
-        />
-      </div>
-      <div class="text-xs text-muted mt-2">
-        Index and confidence filters are combined.
-      </div>
     </div>
   </div>
 </template>

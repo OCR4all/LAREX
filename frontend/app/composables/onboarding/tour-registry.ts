@@ -884,7 +884,7 @@ const tours: OnboardingTourDefinition[] = [
         }),
         popover: {
           title: 'Text Sidebar',
-          description: 'This sidebar contains text settings, diff options, and text filters.',
+          description: 'This sidebar contains text settings, dictionary and codec options, and text variants.',
           side: 'left',
           align: 'start',
           onNextClick: withNextAction(async () => {
@@ -904,11 +904,11 @@ const tours: OnboardingTourDefinition[] = [
         }
       },
       {
-        element: '[data-tour="editor-text-filter-panel"]',
+        element: '[data-tour="editor-textline-list-filters"]',
         popover: {
           title: 'Text Filters',
-          description: 'Filter text by index and confidence to focus review.',
-          side: 'left',
+          description: 'Open the list filters to narrow text by ground truth, comments, differences, index, and confidence.',
+          side: 'top',
           align: 'start'
         }
       },

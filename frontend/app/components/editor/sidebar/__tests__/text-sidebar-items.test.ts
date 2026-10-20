@@ -2,15 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { getTextSidebarItems } from '../text-sidebar-items'
 
 describe('getTextSidebarItems', () => {
-  it.each(['visual', 'expert'] as const)('keeps the complete Text sidebar in %s mode', (mode) => {
+  it.each(['visual', 'expert'] as const)('keeps settings in the %s sidebar while filters live in the list toolbar', (mode) => {
     expect(getTextSidebarItems(mode).map(item => item.slot)).toEqual([
       'metadata',
       'settings',
       'virtualKeyboard',
       'codec',
       'dictionary',
-      'diff',
-      'filter'
+      'diff'
     ])
   })
 

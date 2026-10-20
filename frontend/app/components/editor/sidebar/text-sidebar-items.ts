@@ -7,7 +7,6 @@ export type TextSidebarSlot
     | 'codec'
     | 'dictionary'
     | 'diff'
-    | 'filter'
 
 export type TextSidebarItem = {
   label: string
@@ -21,25 +20,13 @@ const TEXT_SIDEBAR_ITEMS: readonly TextSidebarItem[] = [
   { label: 'Virtual Keyboard', icon: 'i-lucide-keyboard', slot: 'virtualKeyboard' },
   { label: 'Codec', icon: 'i-lucide-badge-check', slot: 'codec' },
   { label: 'Dictionary', icon: 'i-lucide-book-copy', slot: 'dictionary' },
-  { label: 'Diff', icon: 'i-lucide-git-compare', slot: 'diff' },
-  { label: 'Filter', icon: 'i-lucide-filter', slot: 'filter' }
+  { label: 'Diff', icon: 'i-lucide-git-compare', slot: 'diff' }
 ]
-
-const FULL_TEXT_SIDEBAR_SLOTS = new Set<TextSidebarSlot>([
-  'metadata',
-  'settings',
-  'virtualKeyboard',
-  'codec',
-  'dictionary',
-  'diff'
-])
 
 export function getTextSidebarItems(mode: TextModeSubmode): TextSidebarItem[] {
   if (mode !== 'full') return [...TEXT_SIDEBAR_ITEMS]
 
-  return TEXT_SIDEBAR_ITEMS
-    .filter(item => FULL_TEXT_SIDEBAR_SLOTS.has(item.slot))
-    .map(item => item.slot === 'diff'
-      ? { ...item, label: 'Text Variants', icon: 'i-lucide-list-ordered' }
-      : { ...item })
+  return TEXT_SIDEBAR_ITEMS.map(item => item.slot === 'diff'
+    ? { ...item, label: 'Text Variants', icon: 'i-lucide-list-ordered' }
+    : { ...item })
 }

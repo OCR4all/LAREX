@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { getEditorSession } from '@/session/editor/editor-session'
 import EditorSidebarMetadata from '@/components/editor/sidebar/metadata.vue'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { PcGts } from '@/models/editor/document'
 import type { Page } from '@/models/editor/page'
 import type { Region } from '@/models/editor/region'
 import type { TextLine } from '@/models/editor/text'
-import { PolygonType } from '@/models/editor'
 import type { ProjectData } from '@/types/project-page'
-import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
+import type { RenderablePolyline } from '@/types/editor/rendering'
 import type { MetadataApplyPayload } from '@/types/editor/metadata'
 import { getTextSidebarItems, type TextSidebarSlot } from './text-sidebar-items'
 
@@ -33,9 +31,7 @@ const sessionStore = useEditorSessionStore()
 const workspaceStore = useWorkspaceStore()
 const activePopoverButtonClass = 'bg-navy-600 text-white hover:bg-navy-500 active:bg-navy-700 dark:bg-navy-500 dark:hover:bg-navy-400 dark:active:bg-navy-600'
 
-const effectiveCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
 const textViewSettings = computed(() => sessionStore.textViewSettings)
-const textElementType = computed(() => PolygonType.TEXTLINE)
 const isFullTextMode = computed(() => uiStore.textModeSubmode === 'full')
 
 const paddingModel = computed({
@@ -100,39 +96,6 @@ const defaultRecognitionIndicesModel = computed({
   }
 })
 
-const confidenceRangeModel = computed({
-  get: () => textViewSettings.value?.confidenceRange ?? [0, 1],
-  set: (next) => {
-    const min = Math.max(0, Math.min(1, Number(next?.[0] ?? 0)))
-    const max = Math.max(0, Math.min(1, Number(next?.[1] ?? 1)))
-    sessionStore.updateTextViewSettings(current => ({ ...current, confidenceRange: min <= max ? [min, max] : [max, min] }))
-  }
-})
-
-const selectedIndicesModel = computed({
-  get: () => textViewSettings.value?.selectedIndices ?? [],
-  set: (next) => {
-    const parsed = (Array.isArray(next) ? next : [])
-      .map(v => Number.parseInt(String(v), 10))
-      .filter(v => Number.isFinite(v) && v >= 0)
-    sessionStore.updateTextViewSettings(current => ({ ...current, selectedIndices: [...new Set(parsed)].sort((a, b) => a - b) }))
-  }
-})
-
-const filterUnindexedModel = computed({
-  get: () => textViewSettings.value?.filterUnindexed ?? false,
-  set: (next: boolean) => {
-    sessionStore.updateTextViewSettings(current => ({ ...current, filterUnindexed: Boolean(next) }))
-  }
-})
-
-const showNonAssignedIndicesModel = computed({
-  get: () => textViewSettings.value?.showNonAssignedIndices ?? false,
-  set: (next: boolean) => {
-    sessionStore.updateTextViewSettings(current => ({ ...current, showNonAssignedIndices: Boolean(next) }))
-  }
-})
-
 const activeProjectId = computed(() => sessionStore.projectId ?? null)
 const canEditProjectTextIndexDefaults = computed(() => workspaceStore.currentWorkspace?.capabilities?.canSetPresets ?? workspaceStore.isCurrentUserOwner)
 const isSavingTextIndexDefaults = ref(false)
@@ -185,45 +148,6 @@ async function saveProjectTextIndexDefaults(payload: { defaultGtIndex: number, d
     isSavingTextIndexDefaults.value = false
   }
 }
-
-function getRenderablePolygonsForCanvas(canvasId: string): RenderablePolygon[] {
-  const session = getEditorSession(canvasId)
-  const controls = session?.controls.value as { polygons?: RenderablePolygon[] } | null
-  return controls?.polygons ?? editorStore.regionsByCanvasId(canvasId)
-}
-
-const availableIndices = computed(() => {
-  const canvasId = effectiveCanvasId.value
-  if (!canvasId) return []
-  const regions = getRenderablePolygonsForCanvas(canvasId)
-  const indices = new Set<number>()
-
-  for (const r of regions) {
-    if (r.type !== textElementType.value) continue
-    for (const te of r.textContentVariants ?? []) {
-      if (typeof te.index === 'number' && Number.isFinite(te.index) && te.index >= 0) {
-        indices.add(te.index)
-      }
-    }
-  }
-  return [...indices].sort((a, b) => a - b)
-})
-
-const hasUnindexed = computed(() => {
-  const canvasId = effectiveCanvasId.value
-  if (!canvasId) return false
-  const regions = getRenderablePolygonsForCanvas(canvasId)
-
-  for (const r of regions) {
-    if (r.type !== textElementType.value) continue
-    for (const te of r.textContentVariants ?? []) {
-      if (typeof te.index !== 'number' || !Number.isFinite(te.index) || te.index < 0) {
-        return true
-      }
-    }
-  }
-  return false
-})
 
 const accordionItems = computed(() => getTextSidebarItems(uiStore.textModeSubmode))
 
@@ -356,16 +280,6 @@ onBeforeUnmount(() => {
                 @save-defaults="saveProjectTextIndexDefaults"
               />
             </template>
-            <template v-else-if="item.slot === 'filter'">
-              <EditorSidebarTextFilterPanel
-                v-model:selected-indices="selectedIndicesModel"
-                v-model:filter-unindexed="filterUnindexedModel"
-                v-model:show-non-assigned-indices="showNonAssignedIndicesModel"
-                v-model:confidence-range="confidenceRangeModel"
-                :available-indices="availableIndices"
-                :has-unindexed="hasUnindexed"
-              />
-            </template>
           </div>
         </template>
       </UPopover>
@@ -432,19 +346,6 @@ onBeforeUnmount(() => {
           :save-error="textIndexDefaultsSaveError"
           @save-defaults="saveProjectTextIndexDefaults"
         />
-      </template>
-
-      <template #filter>
-        <div data-tour="editor-text-filter-panel">
-          <EditorSidebarTextFilterPanel
-            v-model:selected-indices="selectedIndicesModel"
-            v-model:filter-unindexed="filterUnindexedModel"
-            v-model:show-non-assigned-indices="showNonAssignedIndicesModel"
-            v-model:confidence-range="confidenceRangeModel"
-            :available-indices="availableIndices"
-            :has-unindexed="hasUnindexed"
-          />
-        </div>
       </template>
     </UAccordion>
   </div>

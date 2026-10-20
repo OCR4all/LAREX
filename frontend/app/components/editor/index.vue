@@ -40,7 +40,7 @@ import {
   getAdjacentTextlineId
 } from '@/utils/editor/textline-navigation'
 import { findRegionLabelConflicts } from '@/utils/editor/region-label-conflicts'
-import { ensureGtVariantAtIndex, normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
+import { normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
 import { computeCanvasTextCorrectionPlacement } from '@/utils/editor/canvas-text-correction-placement'
 import { ZOOM } from '@/utils/editor/editor-constants'
 import { createTextlineVariantsUpdateCommand } from '@/components/editor/text/shared/textline-variant-update'
@@ -2706,21 +2706,6 @@ function createGtFromRecognition(): void {
   correctionInputValue.value = updated.variants[updated.gtPos]?.unicode ?? ''
 }
 
-function ensureSelectedTextlineGtVariant(): boolean {
-  const polygon = selectedTextlinePolygon.value
-  if (!polygon || !isCanvasWritable.value) return false
-
-  const ensured = ensureGtVariantAtIndex(
-    polygon.textContentVariants,
-    activeGtIndex.value
-  )
-  if (!ensured.created) return false
-
-  commitTextlineVariants(polygon.id, ensured.variants)
-  correctionInputValue.value = ensured.variants[ensured.gtPos]?.unicode ?? ''
-  return true
-}
-
 function normalizeSingleLineText(value: string): string {
   return value.replace(/[ \t]*\r?\n+[ \t]*/g, ' ')
 }
@@ -2867,9 +2852,8 @@ watch(
     const gtIndexChanged = gtIndex !== prevGtIndex
     if (!selectionChanged && !justEnabled && !gtIndexChanged) return
 
-    if (isCanvasWritable.value && (selectionChanged || justEnabled || gtIndexChanged)) {
-      ensureSelectedTextlineGtVariant()
-    }
+    // Selecting a line only loads its text. Input and Copy to GT create GT on demand.
+    correctionInputValue.value = selectedTextlineGtText.value
 
     if (selectionChanged || justEnabled) {
       const shouldUseDefaultFit = !correctionViewInitialized.value

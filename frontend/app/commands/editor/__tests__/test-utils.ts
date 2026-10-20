@@ -90,7 +90,7 @@ export function createMockSession(initialDocument?: PcGts): {
     selectedIndices: [] as number[],
     filterUnindexed: false,
     showNonAssignedIndices: false,
-    onlyMissingGt: false,
+    gtFilter: 'all' as const,
     padding: 10
   })
 
