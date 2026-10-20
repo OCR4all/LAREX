@@ -26,6 +26,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -161,9 +162,10 @@ public class AdminService {
             Integer status,
             String userId,
             String workspaceId,
-            String query
+            String query,
+            Sort.Direction sortDirection
     ) {
-        return errorEventService.getEvents(page, size, days, status, userId, workspaceId, query);
+        return errorEventService.getEvents(page, size, days, status, userId, workspaceId, query, sortDirection);
     }
 
     public AdminErrorEventDetailDto getErrorForAdmin(String errorId) {

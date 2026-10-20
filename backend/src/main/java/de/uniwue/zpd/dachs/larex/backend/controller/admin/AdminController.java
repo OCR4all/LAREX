@@ -18,6 +18,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -70,8 +71,9 @@ public class AdminController {
             @RequestParam(value = "status", required = false) Integer status,
             @RequestParam(value = "userId", required = false) @Size(max = 255) String userId,
             @RequestParam(value = "workspaceId", required = false) @Size(max = 255) String workspaceId,
-            @RequestParam(value = "query", required = false) @Size(max = 200) String query) {
-        return ResponseEntity.ok(adminService.getErrorsForAdmin(page, size, days, status, userId, workspaceId, query));
+            @RequestParam(value = "query", required = false) @Size(max = 200) String query,
+            @RequestParam(value = "sortDirection", defaultValue = "DESC") Sort.Direction sortDirection) {
+        return ResponseEntity.ok(adminService.getErrorsForAdmin(page, size, days, status, userId, workspaceId, query, sortDirection));
     }
 
     @GetMapping("/errors/{errorId}")

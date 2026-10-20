@@ -12,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.admin.ErrorEventRepository;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -70,9 +71,11 @@ public class ErrorEventService {
             Integer status,
             String userId,
             String workspaceId,
-            String query
+            String query,
+            Sort.Direction sortDirection
     ) {
-        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size));
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, size),
+                Sort.by(sortDirection, "created").and(Sort.by(sortDirection, "id")));
         LocalDateTime since = LocalDateTime.now().minusDays(Math.max(1, days));
         Specification<ErrorEvent> specification = createdSince(since);
         specification = append(specification, matchesStatus(status));

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
+import type { SortingState } from '@tanstack/vue-table'
 import type { AdminErrorEventDetail, AdminErrorEventPage, AdminErrorEventSummary, AdminErrorSummary } from '@/types/admin-errors'
 import type { AdminUserPage } from '@/types/admin-users'
 import { getWorkspaceDisplayName } from '@/utils/workspace-display'
@@ -11,6 +12,8 @@ const UButton = resolveComponent('UButton')
 
 const page = ref(1)
 const itemsPerPage = usePersistentTablePageSize('admin-errors', 25)
+const sorting = ref<SortingState>([{ id: 'created', desc: true }])
+const sortDirection = computed(() => sorting.value.find(column => column.id === 'created')?.desc === false ? 'ASC' : 'DESC')
 const dayWindow = ref(7)
 const statusFilter = ref<'ALL' | '403' | '409' | '500' | '507'>('ALL')
 const userFilter = ref('all')
@@ -35,7 +38,7 @@ watch(searchInput, useDebounceFn((value: string) => {
   page.value = 1
 }, 250))
 
-watch([dayWindow, statusFilter, userFilter, workspaceFilter], () => {
+watch([dayWindow, statusFilter, userFilter, workspaceFilter, sortDirection], () => {
   page.value = 1
 })
 
@@ -43,7 +46,8 @@ const query = computed(() => {
   const value: Record<string, string | number> = {
     page: page.value - 1,
     size: itemsPerPage.value,
-    days: dayWindow.value
+    days: dayWindow.value,
+    sortDirection: sortDirection.value
   }
 
   if (statusFilter.value !== 'ALL') {
@@ -71,7 +75,8 @@ const errorsKey = computed(() => globalKey(
   statusFilter.value,
   userFilter.value,
   workspaceFilter.value,
-  debouncedSearch.value || 'none'
+  debouncedSearch.value || 'none',
+  sortDirection.value
 ))
 
 const { data: summary24h } = await useFetch<AdminErrorSummary>('/api/admin/errors/summary', {
@@ -225,10 +230,28 @@ const workspaceOptions = computed(() => [
   }))
 ])
 
+const workspaceNames = computed(() => new Map(
+  (workspaces.value || []).map(workspace => [workspace.id, getWorkspaceDisplayName(workspace)])
+))
+
+function workspaceName(workspaceId?: string | null): string {
+  return workspaceId ? workspaceNames.value.get(workspaceId) || workspaceId : '-'
+}
+
 const columns = computed<TableColumn<AdminErrorEventSummary>[]>(() => [
   {
     accessorKey: 'created',
-    header: 'Created',
+    header: ({ column }) => {
+      const sorted = column.getIsSorted()
+      return h(UButton, {
+        'color': 'neutral',
+        'variant': 'ghost',
+        'label': 'Created',
+        'icon': sorted === 'asc' ? 'i-lucide-arrow-up-narrow-wide' : 'i-lucide-arrow-down-wide-narrow',
+        'aria-label': sorted === 'asc' ? 'Created, oldest first. Sort newest first' : 'Created, newest first. Sort oldest first',
+        'onClick': () => column.toggleSorting(sorted === 'asc')
+      })
+    },
     cell: ({ row }) => formatDate(row.original.created)
   },
   {
@@ -255,7 +278,7 @@ const columns = computed<TableColumn<AdminErrorEventSummary>[]>(() => [
   {
     accessorKey: 'workspaceId',
     header: 'Workspace',
-    cell: ({ row }) => row.original.workspaceId || '-'
+    cell: ({ row }) => workspaceName(row.original.workspaceId)
   },
   {
     accessorKey: 'actions',
@@ -419,7 +442,9 @@ function clearFilters() {
 
         <div>
           <AppTable
+            v-model:sorting="sorting"
             table-id="admin-errors"
+            :sorting-options="{ manualSorting: true, enableMultiSort: false }"
             :data="rows"
             :infinite-scroll="infiniteScroll"
             :columns="columns"
@@ -447,6 +472,7 @@ function clearFilters() {
         <LazyAdminSlideoverErrorDetails
           :open="isDetailsOpen"
           :error-event="detailData || null"
+          :workspace-name="workspaceName(detailData?.workspaceId)"
           :pending="detailPending"
           :error-message="detailErrorMessage"
           @close="closeDetails"

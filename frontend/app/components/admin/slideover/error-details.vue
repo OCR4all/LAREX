@@ -4,6 +4,7 @@ import type { AdminErrorEventDetail } from '@/types/admin-errors'
 interface Props {
   open: boolean
   errorEvent: AdminErrorEventDetail | null
+  workspaceName?: string
   pending: boolean
   errorMessage: string | null
 }
@@ -41,6 +42,18 @@ async function copyErrorId() {
   })
 }
 
+async function copyStackTrace() {
+  if (!props.errorEvent?.stackTrace) {
+    return
+  }
+
+  await copyTextToClipboard(props.errorEvent.stackTrace, {
+    successTitle: 'Stack trace copied',
+    failureTitle: 'Copy failed',
+    failureDescription: 'Unable to copy the stack trace to the clipboard.'
+  })
+}
+
 function handleOpenChange(open: boolean) {
   if (!open) {
     emit('close')
@@ -51,6 +64,7 @@ function handleOpenChange(open: boolean) {
 <template>
   <UiResponsiveSlideover
     :open="open"
+    :ui="{ content: 'max-w-none xl:max-w-5xl' }"
     :close="{ onClick: () => emit('close') }"
     @update:open="handleOpenChange"
   >
@@ -141,7 +155,7 @@ function handleOpenChange(open: boolean) {
                       Workspace:
                     </dt>
                     <dd class="inline">
-                      {{ errorEvent.workspaceId || '-' }}
+                      {{ workspaceName || errorEvent.workspaceId || '-' }}
                     </dd>
                   </div>
                   <div>
@@ -210,9 +224,20 @@ function handleOpenChange(open: boolean) {
               </div>
 
               <div v-if="errorEvent.stackTrace" class="space-y-2">
-                <h4 class="text-xs font-medium uppercase tracking-wide text-muted">
-                  Stack Trace
-                </h4>
+                <div class="flex items-center justify-between gap-2">
+                  <h4 class="text-xs font-medium uppercase tracking-wide text-muted">
+                    Stack Trace
+                  </h4>
+                  <UButton
+                    icon="i-lucide-copy"
+                    label="Copy"
+                    size="xs"
+                    variant="ghost"
+                    color="neutral"
+                    aria-label="Copy stack trace"
+                    @click="copyStackTrace"
+                  />
+                </div>
                 <pre class="max-h-96 overflow-auto rounded-lg bg-elevated/50 p-4 text-xs text-muted">{{ errorEvent.stackTrace }}</pre>
               </div>
             </div>

@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.admin.ErrorEventRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.ErrorEventService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.time.LocalDateTime;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.validation.annotation.Validated;
@@ -42,6 +44,9 @@ class ErrorEventIntegrationTest {
 
     @Autowired
     private ErrorEventService errorEventService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void setUp() {
@@ -134,6 +139,41 @@ class ErrorEventIntegrationTest {
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.items[0].workspaceId").value("ws-b"))
                 .andExpect(jsonPath("$.items[0].userId").value("user-b"));
+    }
+
+    @Test
+    @WithMockUser(username = "global-admin", roles = "GLOBAL_ADMIN")
+    void adminErrors_sortByCreatedAcrossPages() throws Exception {
+        LocalDateTime now = LocalDateTime.now();
+        String middleId = captureErrorAt("Middle error", now.minusHours(2));
+        String newestId = captureErrorAt("Newest error", now.minusHours(1));
+        String oldestId = captureErrorAt("Oldest error", now.minusHours(3));
+
+        mockMvc.perform(get("/admin/errors").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.items[0].id").value(newestId));
+
+        mockMvc.perform(get("/admin/errors").param("size", "1").param("sortDirection", "ASC"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(oldestId));
+
+        mockMvc.perform(get("/admin/errors").param("size", "1").param("page", "1").param("sortDirection", "ASC"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(middleId));
+
+        mockMvc.perform(get("/admin/errors").param("size", "1").param("page", "2").param("sortDirection", "DESC"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(oldestId));
+    }
+
+    private String captureErrorAt(String message, LocalDateTime created) {
+        String id = errorEventService.capture(new ErrorEventCaptureRequest(
+                500, null, "Internal Server Error", message, "/test", "GET",
+                null, null, null, null, null, null
+        ));
+        jdbcTemplate.update("update error_events set created = ? where id = ?", created, id);
+        return id;
     }
 
     @RestController
