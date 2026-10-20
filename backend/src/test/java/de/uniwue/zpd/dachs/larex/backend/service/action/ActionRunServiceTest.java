@@ -1033,7 +1033,7 @@ class ActionRunServiceTest {
 
         when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
         when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
-        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
         when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(pageRepository.findAllByIdIn(anyCollection())).thenReturn(List.of());
         when(workspaceAccessService.canManageProjects(WORKSPACE_ID, OWNER_ID)).thenReturn(false);
@@ -1057,7 +1057,7 @@ class ActionRunServiceTest {
         run.setCancelRequestedAt(requestedAt);
         when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
         when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
-        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
         when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, OWNER_ID)).thenReturn(true);
 
@@ -1181,7 +1181,7 @@ class ActionRunServiceTest {
         ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
 
         when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
-        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
         when(workspaceAccessService.canManageProjects(WORKSPACE_ID, OUTSIDER_ID)).thenReturn(false);
         when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, OUTSIDER_ID)).thenReturn(true);
         when(globalAdminService.isGlobalAdmin()).thenReturn(false);
@@ -1199,7 +1199,7 @@ class ActionRunServiceTest {
 
         when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
         when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));
-        when(runRepository.findWithProcessorDefinitionById(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
         when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(pageRepository.findAllByIdIn(anyCollection())).thenReturn(List.of());
         when(workspaceAccessService.canManageProjects(WORKSPACE_ID, CURATOR_ID)).thenReturn(true);
@@ -1219,7 +1219,7 @@ class ActionRunServiceTest {
 
         when(globalAdminService.isGlobalAdmin()).thenReturn(true);
         when(definitionRepository.findById(definition.getId())).thenReturn(Optional.of(definition));
-        when(runRepository.findByProcessorDefinitionIdAndStatusIn(eq(definition.getId()), anyCollection()))
+        when(runRepository.findByProcessorDefinitionIdAndStatusInForUpdate(eq(definition.getId()), anyCollection()))
                 .thenReturn(List.of(runningRun, queuedRun));
         when(projectRepository.findByIdAndLibraryWorkspaceId(project.getId(), WORKSPACE_ID)).thenReturn(Optional.of(project));
         when(projectRepository.findById(project.getId())).thenReturn(Optional.of(project));

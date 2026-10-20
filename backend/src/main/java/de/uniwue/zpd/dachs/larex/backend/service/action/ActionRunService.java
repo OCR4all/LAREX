@@ -1228,7 +1228,7 @@ public class ActionRunService {
     public ActionDto.BulkCancelRunsResponse cancelActiveAdminRuns(String definitionId, String userId) {
         requireGlobalAdmin();
         requireDefinition(definitionId);
-        List<ActionRun> runs = runRepository.findByProcessorDefinitionIdAndStatusIn(definitionId, cancelableStatuses());
+        List<ActionRun> runs = runRepository.findByProcessorDefinitionIdAndStatusInForUpdate(definitionId, cancelableStatuses());
         int cancelledCount = 0;
         for (ActionRun run : runs) {
             ActionRun result = cancelRunInternal(run, userId, "ACTION_RUN_ADMIN_CANCEL");
@@ -1316,14 +1316,15 @@ public class ActionRunService {
 
     public ActionDto.RunResponse cancelRun(String workspaceId, String projectId, String runId, String userId, boolean force) {
         requireProject(workspaceId, projectId);
-        ActionRun run = requireRun(workspaceId, projectId, runId, force);
+        // Cooperative cancellation must serialize with callbacks just like force cancellation.
+        ActionRun run = requireRun(workspaceId, projectId, runId, true);
         requireCancelAccess(workspaceId, run, userId);
         ActionRun saved = force ? forceCancelRunInternal(run, userId) : cancelRunInternal(run, userId, "ACTION_RUN_CANCEL");
         return responseMapper.toRunResponse(saved, resolveProjectLabel(saved.getProjectId()), userId);
     }
 
     public ActionDto.RunResponse cancelWorkspaceRun(String workspaceId, String runId, String userId, boolean force) {
-        ActionRun run = requireWorkspaceRun(workspaceId, runId, force);
+        ActionRun run = requireWorkspaceRun(workspaceId, runId, true);
         requireCancelAccess(workspaceId, run, userId);
         ActionRun saved = force ? forceCancelRunInternal(run, userId) : cancelRunInternal(run, userId, "ACTION_RUN_CANCEL");
         return responseMapper.toRunResponse(saved, resolveProjectLabel(saved.getProjectId()), userId);

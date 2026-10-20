@@ -98,6 +98,14 @@ public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
 
     List<ActionRun> findByProcessorDefinitionIdAndStatusIn(String processorDefinitionId, Collection<Status> statuses);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"processorDefinition"})
+    @Query("SELECT r FROM ActionRun r WHERE r.processorDefinition.id = :processorDefinitionId "
+            + "AND r.status IN :statuses ORDER BY r.id")
+    List<ActionRun> findByProcessorDefinitionIdAndStatusInForUpdate(
+            @Param("processorDefinitionId") String processorDefinitionId,
+            @Param("statuses") Collection<Status> statuses);
+
     long countByProcessorDefinitionIdAndStatusIn(String processorDefinitionId, Collection<Status> statuses);
 
     long countByProcessorDefinitionIdAndWorkspaceIdAndStatusIn(String processorDefinitionId, String workspaceId, Collection<Status> statuses);
