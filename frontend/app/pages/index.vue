@@ -23,7 +23,7 @@ import {
   UDropdownMenu,
   UIcon,
   UPopover,
-  UProgress
+  ProjectProgress
 } from '#components'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse } from '@/types/codec'
 import type {
@@ -470,10 +470,8 @@ const columns: TableColumn<ProjectListItem>[] = [
           class: 'w-40 cursor-help py-2 outline-none focus-visible:ring-2 focus-visible:ring-primary',
           tabindex: 0
         }, [
-          h(UProgress, {
+          h(ProjectProgress, {
             'modelValue': percentage,
-            'max': 100,
-            'color': percentage === 100 && total > 0 ? 'success' : 'primary',
             'size': 'sm',
             'aria-label': `${completed} of ${total} pages done (${percentage}% complete)`
           })

@@ -2446,9 +2446,8 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
                       <span class="text-muted">Progress</span>
                       <span>{{ project.completionPercentage }}%</span>
                     </div>
-                    <UProgress
+                    <ProjectProgress
                       :model-value="project.completionPercentage"
-                      :color="project.completionPercentage === 100 && project.pageCount > 0 ? 'success' : 'primary'"
                       size="xs"
                       :aria-label="`Project progress: ${project.completionPercentage}%`"
                     />
@@ -2484,9 +2483,8 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
               :text="`Project progress: ${project.completedPageCount}/${project.pageCount} done (${project.completionPercentage}%)`"
             >
               <div class="mr-1 hidden min-w-28 items-center gap-2 text-xs text-muted lg:flex">
-                <UProgress
+                <ProjectProgress
                   :model-value="project.completionPercentage"
-                  :color="project.completionPercentage === 100 && project.pageCount > 0 ? 'success' : 'primary'"
                   size="xs"
                   class="w-20"
                   :aria-label="`Project progress: ${project.completionPercentage}%`"
