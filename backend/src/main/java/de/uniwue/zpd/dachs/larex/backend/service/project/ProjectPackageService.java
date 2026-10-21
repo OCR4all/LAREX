@@ -48,6 +48,8 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardServ
 import de.uniwue.zpd.dachs.larex.backend.service.toolkit.ToolkitPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
+import org.springframework.core.io.FileSystemResource;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import java.io.IOException;
 import java.io.InputStream;
@@ -127,6 +129,7 @@ public class ProjectPackageService {
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final PageXmlConversionService pageXmlConversionService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
+    private final PageXmlValidationService pageXmlValidationService;
     private final DocumentExportService documentExportService;
     private final ObjectMapper objectMapper;
     private final Cache<String, PackagePreviewSession> importPreviewCache;
@@ -164,6 +167,7 @@ public class ProjectPackageService {
                                  WorkspaceQuotaGuardService workspaceQuotaGuardService,
                                  PageXmlConversionService pageXmlConversionService,
                                  PageXmlCanonicalizationService pageXmlCanonicalizationService,
+                                 PageXmlValidationService pageXmlValidationService,
                                  DocumentExportService documentExportService,
                                  ObjectMapper objectMapper,
                                  ProjectPackageProperties projectPackageProperties) {
@@ -191,6 +195,7 @@ public class ProjectPackageService {
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.pageXmlConversionService = pageXmlConversionService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
+        this.pageXmlValidationService = pageXmlValidationService;
         this.documentExportService = documentExportService;
         this.objectMapper = objectMapper;
         ProjectPackageProperties.Preview previewProperties = projectPackageProperties.getPreview();
@@ -917,7 +922,7 @@ public class ProjectPackageService {
         Map<String, ProjectPackageDto.PageDescriptor> pageDescriptors = new LinkedHashMap<>();
         List<String> pagePaths = new ArrayList<>();
         List<ProjectPackageArchiveService.BinaryEntry> binaryEntries = new ArrayList<>();
-        List<String> exportWarnings = new ArrayList<>();
+        List<String> exportWarnings = buildManifestWarnings(legacyTarget, targetPageXmlVersion, List.of());
         Set<String> usedPageDirectories = new HashSet<>();
         Map<String, PageXml> xmlHeadsByPageId = pageXmlHeadsByPageId(pages);
 
@@ -990,7 +995,7 @@ public class ProjectPackageService {
                     binaryEntries.add(new ProjectPackageArchiveService.BinaryEntry(
                             archivePath,
                             Files.size(source),
-                            out -> pageXmlConversionService.writeFileToVersion(source, targetPageXmlVersion, out)
+                            out -> writeExportXml(page, xml, source, targetPageXmlVersion, out, exportWarnings)
                     ));
                 } else {
                     binaryEntries.add(new ProjectPackageArchiveService.BinaryEntry(
@@ -1117,7 +1122,7 @@ public class ProjectPackageService {
                 ),
                 List.copyOf(pagePaths),
                 Map.copyOf(resourcePaths),
-                buildManifestWarnings(legacyTarget, targetPageXmlVersion, exportWarnings)
+                exportWarnings
         );
         return new ProjectPackageArchiveService.ExportPackage(
                 manifest,
@@ -1266,6 +1271,9 @@ public class ProjectPackageService {
             for (ProjectPackageDto.XmlFileDescriptor xmlDescriptor : safeList(descriptor.xml())) {
                 Path source = importedPage.resolve(importedPackage.root(), xmlDescriptor.path());
                 XmlSchema schema = detectXmlSchema(source);
+                if (schema == XmlSchema.PAGE_XML) {
+                    pageXmlValidationService.assertValidPageXml(new FileSystemResource(source));
+                }
                 var stored = hierarchicalFileStorageService.storeFromPath(
                         source,
                         xmlDescriptor.fileName(),
@@ -1801,7 +1809,7 @@ public class ProjectPackageService {
                     archiveIoService.writeStreamEntry(
                             zipOut,
                             prefixedArchivePath(entryPrefix, entryPath),
-                            entryOut -> pageXmlConversionService.writeFileToVersion(source, targetPageXmlVersion, entryOut)
+                            entryOut -> writeExportXml(page, xml, source, targetPageXmlVersion, entryOut, exportWarnings)
                     );
                 } else {
                     archiveIoService.writeFileEntry(zipOut, prefixedArchivePath(entryPrefix, entryPath), source);
@@ -1824,6 +1832,16 @@ public class ProjectPackageService {
                     entryOut -> entryOut.write(warningBytes)
             );
         }
+    }
+
+    private void writeExportXml(Page page,
+                                PageXml xml,
+                                Path source,
+                                String targetPageXmlVersion,
+                                OutputStream output,
+                                Collection<String> warnings) throws IOException {
+        pageXmlConversionService.writeFileToVersion(source, targetPageXmlVersion, output,
+                warning -> warnings.add("Page '" + page.getName() + "', XML '" + xml.getFileName() + "': " + warning));
     }
 
     private Path resolveExportFile(Page page,

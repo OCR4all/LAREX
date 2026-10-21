@@ -28,7 +28,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -38,9 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -174,7 +170,7 @@ class PageControllerExportTest {
     }
 
     @Test
-    void exportXml_streamsPageXmlThroughSpringMvc() throws Exception {
+    void exportXml_streamsBrokenPageXmlThroughSpringMvc() throws Exception {
         PageController controller = new PageController(
                 pageService,
                 subtaskService,
@@ -182,7 +178,7 @@ class PageControllerExportTest {
                 pageIndexStatusReadService,
                 tagLookupService,
                 pageXmlRawEditService,
-                pageXmlConversionService,
+                new PageXmlConversionService(),
                 documentExportService,
                 workspaceQuotaGuardService,
                 searchPreviewService,
@@ -203,11 +199,6 @@ class PageControllerExportTest {
         xml.setMimeType("application/xml");
         xml.setSchema(XmlSchema.PAGE_XML);
         when(pageService.getXmlById("xml-1", null)).thenReturn(xml);
-        when(pageXmlConversionService.normalizeTargetVersion("2019-07-15")).thenReturn("2019-07-15");
-        doAnswer(invocation -> {
-            invocation.<OutputStream>getArgument(2).write("<converted/>".getBytes(StandardCharsets.UTF_8));
-            return null;
-        }).when(pageXmlConversionService).writeFileToVersion(eq(xmlFile), eq("2019-07-15"), any());
 
         MockMvc mockMvc = standaloneSetup(controller).build();
         MvcResult asyncResult = mockMvc.perform(get("/projects/project-1/pages/xml/xml-1/export")
@@ -217,6 +208,8 @@ class PageControllerExportTest {
         MvcResult result = mockMvc.perform(asyncDispatch(asyncResult)).andReturn();
 
         assertEquals(200, result.getResponse().getStatus());
-        assertEquals("<converted/>", result.getResponse().getContentAsString());
+        assertEquals("<PcGts/>", result.getResponse().getContentAsString());
+        assertEquals("application/xml", result.getResponse().getContentType());
+        assertTrue(result.getResponse().getHeader("Content-Disposition").contains("sample.xml"));
     }
 }

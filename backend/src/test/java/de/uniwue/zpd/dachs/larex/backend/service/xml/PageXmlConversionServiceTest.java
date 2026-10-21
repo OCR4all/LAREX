@@ -2,15 +2,24 @@ package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 class PageXmlConversionServiceTest {
 
@@ -39,6 +48,60 @@ class PageXmlConversionServiceTest {
 
         byte[] bytes = service.convertFileToVersion(xmlPath, "2019-07-15");
         assertEquals(Files.readString(xmlPath), new String(bytes, StandardCharsets.UTF_8));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "<PcGts/>", "<PcGts><Page></PcGts>",
+            "<PcGts xmlns=\"http://schema.primaresearch.org/PAGE/gts/pagecontent/2099-01-01\"/>" })
+    void exportUnparseableXmlPreservesOriginalBytesAndReportsSkippedConversion(String xml) throws Exception {
+        Path source = tempDir.resolve("broken.xml");
+        byte[] original = xml.getBytes(StandardCharsets.UTF_8);
+        Files.write(source, original);
+        var warnings = new ArrayList<String>();
+        var output = new ByteArrayOutputStream();
+
+        service.writeFileToVersion(source, "2017-07-15", output, warnings::add);
+
+        assertArrayEquals(original, output.toByteArray());
+        assertArrayEquals(original, Files.readAllBytes(source));
+        assertEquals(1, warnings.size());
+        assertTrue(warnings.getFirst().contains("original PAGE XML without conversion to 2017-07-15"));
+        assertThrows(IOException.class, () -> service.convertFileInPlace(source, "2019-07-15"));
+    }
+
+    @Test
+    void failedDownloadDoesNotAppendOriginalXmlToPartialConvertedOutput() throws Exception {
+        Path source = tempDir.resolve("page.xml");
+        Files.writeString(source, exported2019Xml());
+        var warnings = new ArrayList<String>();
+        IOException disconnected = new IOException("Client disconnected");
+        var output = new OutputStream() {
+            @Override
+            public void write(int value) throws IOException {
+                throw disconnected;
+            }
+        };
+
+        assertSame(disconnected, assertThrows(IOException.class,
+                () -> service.writeFileToVersion(source, "2017-07-15", output, warnings::add)));
+        assertTrue(warnings.isEmpty());
+        try (var files = Files.list(tempDir)) {
+            assertEquals(java.util.List.of(source), files.toList());
+        }
+    }
+
+    @Test
+    void exportStillConvertsValidXmlToRequestedVersion() throws Exception {
+        Path source = tempDir.resolve("page.xml");
+        Files.writeString(source, exported2019Xml());
+        var output = new ByteArrayOutputStream();
+        var warnings = new ArrayList<String>();
+
+        service.writeFileToVersion(source, "2017-07-15", output, warnings::add);
+
+        assertTrue(output.toString(StandardCharsets.UTF_8).contains("pagecontent/2017-07-15"));
+        assertTrue(warnings.isEmpty());
+        assertEquals(exported2019Xml(), Files.readString(source));
     }
 
     @Test

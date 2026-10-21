@@ -7,6 +7,8 @@ import com.maxnth.page4j.io.FormatModel;
 import com.maxnth.page4j.io.UnsupportedFormatVersionException;
 import com.maxnth.page4j.io.xml.XmlFormatVersion;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -17,12 +19,15 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 public class PageXmlConversionService {
+
+    private static final Logger log = LoggerFactory.getLogger(PageXmlConversionService.class);
 
     public static final String PRIMARY_PAGE_VERSION = "2019-07-15";
     private static final XmlFormatVersion PRIMARY_FORMAT_VERSION = new XmlFormatVersion(PRIMARY_PAGE_VERSION);
@@ -101,22 +106,40 @@ public class PageXmlConversionService {
     }
 
     public void writeFileToVersion(Path xmlPath, String targetVersion, OutputStream outputStream) throws IOException {
+        writeFileToVersion(xmlPath, targetVersion, outputStream, warning -> {});
+    }
+
+    /** Export readable originals even when legacy data cannot be parsed or converted. */
+    public void writeFileToVersion(Path xmlPath,
+                                   String targetVersion,
+                                   OutputStream outputStream,
+                                   Consumer<String> onWarning) throws IOException {
         String normalizedTarget = normalizeTargetVersion(targetVersion);
-        Page page = readPage(xmlPath);
-        String sourceVersion = extractVersion(page.getFormatVersion() != null ? page.getFormatVersion().toString() : null);
-
-        if (normalizedTarget.equals(sourceVersion)) {
-            Files.copy(xmlPath, outputStream);
-            return;
-        }
-
-        convertPageToVersion(page, normalizedTarget);
-        Path tempPath = Files.createTempFile(xmlPath.getParent(), xmlPath.getFileName().toString(), ".tmp-export");
+        Path tempPath = null;
         try {
-            writePage(page, tempPath, normalizedTarget);
-            Files.copy(tempPath, outputStream);
+            Path exportPath = xmlPath;
+            try {
+                Page page = readPage(xmlPath);
+                String sourceVersion = extractVersion(page.getFormatVersion() != null ? page.getFormatVersion().toString() : null);
+                if (!normalizedTarget.equals(sourceVersion)) {
+                    convertPageToVersion(page, normalizedTarget);
+                    tempPath = Files.createTempFile(xmlPath.getParent(), xmlPath.getFileName().toString(), ".tmp-export");
+                    writePage(page, tempPath, normalizedTarget);
+                    exportPath = tempPath;
+                }
+            } catch (IOException error) {
+                String warning = "Exported original PAGE XML without conversion to " + normalizedTarget
+                        + " because it could not be parsed or converted. The original file may be invalid or use an unsupported schema.";
+                log.warn("{} File {}: {}", warning, xmlPath, error.getMessage());
+                onWarning.accept(warning);
+            }
+            // Conversion must finish before writing any bytes. Output failures must
+            // propagate rather than append original XML to a partial response.
+            Files.copy(exportPath, outputStream);
         } finally {
-            Files.deleteIfExists(tempPath);
+            if (tempPath != null) {
+                Files.deleteIfExists(tempPath);
+            }
         }
     }
 

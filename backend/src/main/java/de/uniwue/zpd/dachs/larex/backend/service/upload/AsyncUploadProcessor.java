@@ -18,6 +18,9 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
+import de.uniwue.zpd.dachs.larex.backend.exception.InvalidPageXmlException;
+import org.springframework.core.io.FileSystemResource;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -55,6 +58,7 @@ public class AsyncUploadProcessor {
     private final PageFilterIndexService pageFilterIndexService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
+    private final PageXmlValidationService pageXmlValidationService;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final UploadRealtimePublisher uploadRealtimePublisher;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
@@ -71,6 +75,7 @@ public class AsyncUploadProcessor {
                                 PageFilterIndexService pageFilterIndexService,
                                 HierarchicalFileStorageService hierarchicalFileStorageService,
                                 PageXmlCanonicalizationService pageXmlCanonicalizationService,
+                                PageXmlValidationService pageXmlValidationService,
                                 ApplicationEventPublisher applicationEventPublisher,
                                 UploadRealtimePublisher uploadRealtimePublisher,
                                 WorkspaceQuotaGuardService workspaceQuotaGuardService,
@@ -86,6 +91,7 @@ public class AsyncUploadProcessor {
         this.pageFilterIndexService = pageFilterIndexService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
+        this.pageXmlValidationService = pageXmlValidationService;
         this.applicationEventPublisher = applicationEventPublisher;
         this.uploadRealtimePublisher = uploadRealtimePublisher;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
@@ -331,6 +337,26 @@ public class AsyncUploadProcessor {
             return false;
         }
 
+        // Reject invalid XML before creating a page or replacing existing assets.
+        List<UploadSessionFile> acceptedFiles = new ArrayList<>();
+        for (UploadSessionFile file : files) {
+            if (isXmlFile(file)) {
+                try {
+                    pageXmlValidationService.assertValidPageXml(new FileSystemResource(file.getTempFilePath()));
+                } catch (InvalidPageXmlException error) {
+                    file.setStatus(UploadFileStatus.FAILED);
+                    file.setErrorMessage(error.getMessage());
+                    fileRepository.save(file);
+                    emitFileState(sessionId, file);
+                    continue;
+                }
+            }
+            acceptedFiles.add(file);
+        }
+        if (acceptedFiles.isEmpty()) {
+            return true;
+        }
+
         // Find or create page
         Page page = pagesByName.get(baseName);
         if (page == null) {
@@ -339,7 +365,7 @@ public class AsyncUploadProcessor {
             existingPageNames.add(baseName);
         }
 
-        for (UploadSessionFile sessionFile : files) {
+        for (UploadSessionFile sessionFile : acceptedFiles) {
             if (isSessionCancelled(sessionId)) {
                 return false;
             }

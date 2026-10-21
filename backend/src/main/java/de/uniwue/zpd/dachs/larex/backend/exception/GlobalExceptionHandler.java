@@ -9,6 +9,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AnnotationCollaborationDto;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.ErrorEventContextResolver;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.ErrorEventService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import java.io.PrintWriter;
@@ -18,6 +19,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -38,6 +41,17 @@ import java.util.stream.Collectors;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(InvalidPageXmlException.class)
+    public ResponseEntity<ErrorResponseDto> handleInvalidPageXml(
+            InvalidPageXmlException error, HttpServletRequest request) {
+        return ResponseEntity.unprocessableContent().body(new ErrorResponseDto(
+                422, "Invalid PAGE XML", error.getMessage(), request.getRequestURI(),
+                error.getValidation().errors().stream()
+                        .map(detail -> "Line " + detail.line() + ", column " + detail.column() + ": " + detail.message())
+                        .toList(),
+                "INVALID_PAGE_XML"));
+    }
 
     @ExceptionHandler(ActionPageResultRejectedException.class)
     public ResponseEntity<ErrorResponseDto> handleActionPageResultRejected(
@@ -471,7 +485,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> handleGenericException(
-            Exception ex, HttpServletRequest request) {
+            Exception ex, HttpServletRequest request, HttpServletResponse response) {
 
         // Log the full exception for debugging
         logger.error("Unexpected error at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
@@ -486,6 +500,14 @@ public class GlobalExceptionHandler {
                 null,
                 true
         );
+        if (response.isCommitted()) {
+            // A started download cannot be replaced with JSON. The original
+            // failure has been logged and captured above.
+            return null;
+        }
+        response.resetBuffer();
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, null);
+        response.setHeader(HttpHeaders.CONTENT_LENGTH, null);
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",
@@ -495,7 +517,9 @@ public class GlobalExceptionHandler {
                 errorId
         );
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(errorResponse);
     }
 
     /**

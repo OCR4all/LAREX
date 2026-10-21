@@ -772,6 +772,7 @@ export function useEditorCollaboration() {
   }
 
   const canEditCanvas = (canvasId: string): boolean => {
+    if (editorStore.getCanvas(canvasId)?.annotationLoadError) return false
     if (editorStore.getCanvas(canvasId)?.comparison?.readOnly) return false
     const room = getRoomForCanvas(canvasId)
     if (!room) return true
@@ -1373,7 +1374,7 @@ export function useEditorCollaboration() {
 
     const projectId = canvas.projectId
     const pageId = canvas.pageId
-    if (!projectId || !pageId || canvas.isLoadingAnnotations) {
+    if (!projectId || !pageId || canvas.isLoadingAnnotations || canvas.annotationLoadError) {
       return null
     }
     const annotationContext = resolveAnnotationContextForCanvas(canvasId)
@@ -1445,7 +1446,7 @@ export function useEditorCollaboration() {
   const ensureCanvasRoom = async (canvasId: string, signal?: AbortSignal): Promise<CollaborationRoomSession | null> => {
     if (signal?.aborted) return null
     const canvas = editorStore.getCanvas(canvasId)
-    if (!canvas?.projectId || !canvas.pageId || canvas.isLoadingAnnotations) {
+    if (!canvas?.projectId || !canvas.pageId || canvas.isLoadingAnnotations || canvas.annotationLoadError) {
       return null
     }
     const annotationContext = resolveAnnotationContextForCanvas(canvasId)

@@ -104,74 +104,50 @@ export function createSkeletonPageData(
 export async function loadSinglePageData(projectId: string, page: PageResponse | PageData): Promise<PageData> {
   const pageName = 'name' in page ? page.name : page.label
 
-  try {
-    const [images, xmlFiles] = await Promise.all([
-      $fetch<ImageResponse[]>(`/api/projects/${projectId}/pages/${page.id}/images`),
-      $fetch<XmlResponse[]>(`/api/projects/${projectId}/pages/${page.id}/xml`).catch((err) => {
-        console.error(`[project-loader] Failed to fetch XML files for page ${page.id}:`, err)
-        return [] as XmlResponse[]
-      })
-    ])
+  const [images, xmlFiles] = await Promise.all([
+    $fetch<ImageResponse[]>(`/api/projects/${projectId}/pages/${page.id}/images`),
+    $fetch<XmlResponse[]>(`/api/projects/${projectId}/pages/${page.id}/xml`)
+  ])
 
-    const firstImageWithThumbnail = images.find(img => img.thumbnailPath)
-    const fallbackImage = images[0]
-    const thumbnailSource = firstImageWithThumbnail ?? fallbackImage
-    const thumbnailUrl = thumbnailSource
-      ? `/api/projects/${projectId}/pages/images/${thumbnailSource.id}/thumbnail`
-      : undefined
+  const firstImageWithThumbnail = images.find(img => img.thumbnailPath)
+  const fallbackImage = images[0]
+  const thumbnailSource = firstImageWithThumbnail ?? fallbackImage
+  const thumbnailUrl = thumbnailSource
+    ? `/api/projects/${projectId}/pages/images/${thumbnailSource.id}/thumbnail`
+    : undefined
 
-    const imageVariants: ImageVariant[] = images.map(img => ({
-      id: img.id,
-      url: `/api/projects/${projectId}/pages/images/${img.id}/blob`,
-      fileName: img.fileName,
-      type: img.variant || undefined,
-      label: img.variant || img.fileName
-    }))
+  const imageVariants: ImageVariant[] = images.map(img => ({
+    id: img.id,
+    url: `/api/projects/${projectId}/pages/images/${img.id}/blob`,
+    fileName: img.fileName,
+    type: img.variant || undefined,
+    label: img.variant || img.fileName
+  }))
 
-    const mappedXmlFiles: XmlFile[] = xmlFiles.map(xml => ({
-      id: xml.id,
-      fileName: xml.fileName,
-      schema: xml.schema as XmlFile['schema'],
-      schemaVersion: xml.schemaVersion,
-      variant: xml.variant
-    }))
+  const mappedXmlFiles: XmlFile[] = xmlFiles.map(xml => ({
+    id: xml.id,
+    fileName: xml.fileName,
+    schema: xml.schema as XmlFile['schema'],
+    schemaVersion: xml.schemaVersion,
+    variant: xml.variant
+  }))
 
-    return {
-      id: page.id,
-      projectId,
-      label: pageName,
-      thumbnail: thumbnailUrl,
-      imageVariants,
-      xmlFiles: mappedXmlFiles,
-      tags: page.tags ?? [],
-      resolvedTags: page.resolvedTags ?? null,
-      sortOrder: page.sortOrder ?? null,
-      textConfidence: page.textConfidence ?? null,
-      locked: page.locked ?? false,
-      lockedReason: page.lockedReason ?? null,
-      workflowState: page.workflowState ?? 'OPEN',
-      indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
-      annotationContext: projectAnnotationContext(projectId, page.id)
-    }
-  } catch (error) {
-    console.error(`Failed to load data for page ${page.id}:`, error)
-    return {
-      id: page.id,
-      projectId,
-      label: pageName,
-      thumbnail: undefined,
-      imageVariants: [],
-      xmlFiles: [],
-      tags: page.tags ?? [],
-      resolvedTags: page.resolvedTags ?? null,
-      sortOrder: page.sortOrder ?? null,
-      textConfidence: page.textConfidence ?? null,
-      locked: page.locked ?? false,
-      lockedReason: page.lockedReason ?? null,
-      workflowState: page.workflowState ?? 'OPEN',
-      indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
-      annotationContext: projectAnnotationContext(projectId, page.id)
-    }
+  return {
+    id: page.id,
+    projectId,
+    label: pageName,
+    thumbnail: thumbnailUrl,
+    imageVariants,
+    xmlFiles: mappedXmlFiles,
+    tags: page.tags ?? [],
+    resolvedTags: page.resolvedTags ?? null,
+    sortOrder: page.sortOrder ?? null,
+    textConfidence: page.textConfidence ?? null,
+    locked: page.locked ?? false,
+    lockedReason: page.lockedReason ?? null,
+    workflowState: page.workflowState ?? 'OPEN',
+    indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
+    annotationContext: projectAnnotationContext(projectId, page.id)
   }
 }
 

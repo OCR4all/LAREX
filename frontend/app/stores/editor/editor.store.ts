@@ -19,6 +19,8 @@ import { convertPageDtoToPcGts, convertPcGtsToPageDto, type PageDto } from '@/se
 import { LRUCache } from '@/utils/lru-cache'
 import { loadSinglePageData } from '@/services/editor/project-loader'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
+import { extractApiErrorMessage } from '@/utils/api-error'
+import type { XmlValidationError } from '@/utils/xml-editor-diagnostics'
 
 const log = createScopedLogger('EditorStore')
 
@@ -942,6 +944,7 @@ export const useEditorStore = defineStore('editor', () => {
     const load: CanvasLoad = { canvas, signal: options?.signal }
     canvasLoads.set(canvasId, load)
     canvas.isLoadingAnnotations = true
+    canvas.annotationLoadError = null
     const previousVariant = page.imageVariants.find(variant => variant.id === (variantId ?? canvas.imageVariantId))
     const variantKey = previousVariant?.type ?? previousVariant?.label
 
@@ -953,8 +956,16 @@ export const useEditorStore = defineStore('editor', () => {
         documentStore.enrichPage(pageId, { ...enrichedData, projectId, projectName: page.projectName }, projectId)
         page = documentStore.getPage(pageId, projectId)!
       } catch (error) {
-        if (isCurrentCanvasLoad(canvasId, load)) canvas.isLoadingAnnotations = false
-        throw error
+        if (!isCurrentCanvasLoad(canvasId, load)) return null
+        canvas.projectId = projectId
+        canvas.pageId = pageId
+        canvas.annotationLoadError = {
+          xmlId: '', invalidXml: false, errors: [],
+          message: extractApiErrorMessage(error, 'Could not load the page files. Please try again.')
+        }
+        canvas.isLoadingAnnotations = false
+        if (options?.reload) throw error
+        return null
       }
     }
     if (!isCurrentCanvasLoad(canvasId, load)) return null
@@ -1092,6 +1103,28 @@ export const useEditorStore = defineStore('editor', () => {
     } catch (error) {
       if (isCurrentCanvasLoad(canvasId, load)) {
         log.error(`Failed to load annotations for page ${pageId}:`, error)
+        const failure = {
+          xmlId: pageXmlFile.id,
+          message: extractApiErrorMessage(error, 'The saved annotations could not be loaded. Please try again.'),
+          invalidXml: false,
+          errors: [] as XmlValidationError[]
+        }
+        // Read diagnostics only after a failed load; normal page navigation stays fast.
+        try {
+          const response = await $fetch<{ validation: { valid: boolean, errors: XmlValidationError[] } }>(
+            `${xmlBasePathFromAnnotationContext(context)}/${pageXmlFile.id}/text`,
+            { signal: load.signal }
+          )
+          if (response.validation?.valid === false) {
+            failure.invalidXml = true
+            failure.errors = response.validation.errors
+            failure.message = 'The saved PAGE XML is invalid. Fix the XML or discard it to start a fresh annotation.'
+          }
+        } catch {
+          // A failed diagnostic request must not hide the original load failure.
+        }
+        if (!isCurrentCanvasLoad(canvasId, load)) return false
+        load.canvas.annotationLoadError = failure
         if (reload) throw error
       }
       return false
@@ -1378,6 +1411,11 @@ export const useEditorStore = defineStore('editor', () => {
 
     if (canvas.comparison?.readOnly) {
       log.warn(`Canvas ${targetCanvasId} is a read-only comparison canvas and cannot be saved`)
+      return false
+    }
+
+    if (canvas.isLoadingAnnotations || canvas.annotationLoadError) {
+      log.warn(`Annotations for canvas ${targetCanvasId} must load successfully before saving`)
       return false
     }
 

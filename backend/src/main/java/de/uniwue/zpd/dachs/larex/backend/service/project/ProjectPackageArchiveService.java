@@ -60,11 +60,6 @@ public class ProjectPackageArchiveService {
     public void writeEntries(ZipOutputStream zipOut,
                              ExportPackage exportPackage,
                              String entryPrefix) throws IOException {
-        archiveIoService.writeJsonEntry(
-                zipOut,
-                prefixed(entryPrefix, "manifest.json"),
-                exportPackage.manifest()
-        );
         for (String descriptorPath : safeList(exportPackage.manifest().pages())) {
             ProjectPackageDto.PageDescriptor descriptor = exportPackage.pages().get(descriptorPath);
             if (descriptor == null) {
@@ -83,6 +78,12 @@ public class ProjectPackageArchiveService {
         for (BinaryEntry entry : exportPackage.binaryEntries()) {
             archiveIoService.writeStreamEntry(zipOut, prefixed(entryPrefix, entry.archivePath()), entry.writer()::write);
         }
+        // XML export can add recovery warnings while writing the binary entries.
+        archiveIoService.writeJsonEntry(
+                zipOut,
+                prefixed(entryPrefix, "manifest.json"),
+                exportPackage.manifest()
+        );
     }
 
     public ImportedPackage extractAndValidate(InputStream inputStream) throws IOException {

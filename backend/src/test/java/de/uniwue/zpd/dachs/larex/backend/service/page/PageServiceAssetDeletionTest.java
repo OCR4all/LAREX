@@ -1,6 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.page;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -11,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.exception.InvalidPageXmlException;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
@@ -30,6 +33,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshSe
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class PageServiceAssetDeletionTest {
@@ -83,11 +88,24 @@ class PageServiceAssetDeletionTest {
                 pageXmlVersionService,
                 hierarchicalFileStorageService,
                 pageXmlCanonicalizationService,
+                new PageXmlValidationService(),
                 workspaceQuotaRefreshService,
                 pageOrderService,
                 annotationReadCache,
                 pageFilterIndexService
         );
+    }
+
+    @Test
+    void directUploadRejectsInvalidXmlBeforeStoringIt() {
+        when(pageRepository.findById("page-1")).thenReturn(Optional.of(page("page-1")));
+        when(workspaceAccessService.hasWorkspaceAccess("workspace-1", "user-1")).thenReturn(true);
+        when(workspaceAccessService.canManageProjects("workspace-1", "user-1")).thenReturn(true);
+        MockMultipartFile file = new MockMultipartFile("file", "page.xml", "application/xml", "<invalid/>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        assertThrows(InvalidPageXmlException.class, () -> service.uploadXmlFile("page-1", file, "user-1"));
+
+        verifyNoInteractions(hierarchicalFileStorageService, pageXmlCanonicalizationService);
     }
 
     @Test

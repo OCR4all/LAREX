@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlTextDto;
+import de.uniwue.zpd.dachs.larex.backend.exception.InvalidPageXmlException;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
@@ -55,6 +56,13 @@ public class PageXmlValidationService {
 
     public Set<String> getSupportedVersions() {
         return supportedVersions;
+    }
+
+    public void assertValidPageXml(Resource xmlResource) {
+        PageXmlTextDto.XmlValidationResult validation = validatePageXml(xmlResource);
+        if (!validation.valid()) {
+            throw new InvalidPageXmlException(validation);
+        }
     }
 
     public PageXmlTextDto.XmlValidationResult validatePageXml(String xmlText) {

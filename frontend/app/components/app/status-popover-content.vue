@@ -14,6 +14,12 @@ import {
   type StatusJob
 } from '@/utils/status-center'
 
+function uploadErrorMessage(message: string): string {
+  return message.trimStart().startsWith('Invalid PAGE XML:')
+    ? 'Upload failed: invalid PAGE XML.'
+    : message
+}
+
 withDefaults(defineProps<{
   showClose?: boolean
   showMinimize?: boolean
@@ -566,7 +572,7 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
                   {{ actionRunCountsLabel(job.run.reportCounts) }}
                 </p>
                 <p v-if="job.kind === 'upload' && job.upload.error" class="mt-1 text-xs text-error">
-                  {{ job.upload.error }}
+                  {{ uploadErrorMessage(job.upload.error) }}
                 </p>
                 <p v-if="job.kind === 'action' && job.run.errorMessage" class="mt-1 text-xs text-error">
                   {{ job.run.errorMessage }}
@@ -601,7 +607,14 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
                         :class="file.status === 'completed' ? 'text-success' : file.status === 'failed' ? 'text-error' : 'text-muted'"
                         class="size-3.5 shrink-0"
                       />
-                      <span class="min-w-0 flex-1 truncate">{{ file.fileName }}</span>
+                      <div class="min-w-0 flex-1">
+                        <p class="truncate">
+                          {{ file.fileName }}
+                        </p>
+                        <p v-if="file.error" class="mt-1 break-words text-error">
+                          {{ uploadErrorMessage(file.error) }}
+                        </p>
+                      </div>
                       <span class="shrink-0 text-muted">{{ formatBytes(file.fileSize) }}</span>
                     </div>
                     <div v-if="job.upload.totalFiles > job.upload.files.length" class="p-1 text-xs text-muted">

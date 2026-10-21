@@ -1,4 +1,12 @@
 import type { RelationDraftState } from '@/utils/editor/relations'
+import type { XmlValidationError } from '@/utils/xml-editor-diagnostics'
+
+export interface AnnotationLoadError {
+  xmlId: string
+  message: string
+  invalidXml: boolean
+  errors: XmlValidationError[]
+}
 
 export type UiMode = 'layout' | 'text'
 export type LayoutViewMode = 'default' | 'textline' | 'baseline'
@@ -171,6 +179,8 @@ export interface CanvasState {
   imageSize?: { width: number, height: number }
   /** Whether annotations are currently being loaded for this canvas */
   isLoadingAnnotations?: boolean
+  /** Blocks editing and saving until the persisted annotations can be loaded. */
+  annotationLoadError?: AnnotationLoadError | null
   /** Result event currently replacing this canvas after an Action */
   actionResultTransitionSequence?: number | null
   actionResultTransitionRunId?: string | null

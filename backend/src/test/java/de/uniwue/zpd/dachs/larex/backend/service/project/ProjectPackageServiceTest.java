@@ -37,6 +37,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.toolkit.ToolkitPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
@@ -61,10 +62,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -130,8 +129,6 @@ class ProjectPackageServiceTest {
                         .toList());
     }
     @Mock
-    private PageXmlConversionService pageXmlConversionService;
-    @Mock
     private PageXmlCanonicalizationService pageXmlCanonicalizationService;
 
     @Test
@@ -167,8 +164,9 @@ class ProjectPackageServiceTest {
                 pageFilterIndexService,
                 storageTrackingService,
                 workspaceQuotaGuardService,
-                pageXmlConversionService,
+                new PageXmlConversionService(),
                 pageXmlCanonicalizationService,
+                new PageXmlValidationService(),
                 documentExportService,
                 objectMapper,
                 new ProjectPackageProperties()
@@ -207,14 +205,6 @@ class ProjectPackageServiceTest {
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/missing.png"))
                 .thenReturn(tempDir.resolve("uploads/missing.png"));
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.xml")).thenReturn(xmlPath);
-        when(pageXmlConversionService.normalizeTargetVersion(PageXmlConversionService.PRIMARY_PAGE_VERSION))
-                .thenReturn(PageXmlConversionService.PRIMARY_PAGE_VERSION);
-        when(pageXmlConversionService.isLegacyTargetVersion(PageXmlConversionService.PRIMARY_PAGE_VERSION))
-                .thenReturn(false);
-        doAnswer(invocation -> {
-            invocation.<java.io.OutputStream>getArgument(2).write("<PcGts/>".getBytes());
-            return null;
-        }).when(pageXmlConversionService).writeFileToVersion(eq(xmlPath), eq(PageXmlConversionService.PRIMARY_PAGE_VERSION), any());
         when(toolkitPackageService.buildProjectToolkitSnapshot("ws-1", null, null, null, null, null, null, null))
                 .thenReturn(new ToolkitPackageDto.ToolkitPackage(
                         new ToolkitPackageDto.PackageMeta("1.0", LocalDateTime.now(), "ws-1", "Workspace"),
@@ -278,6 +268,7 @@ class ProjectPackageServiceTest {
                 }
                 if (entry.getName().endsWith("/xml/page.xml")) {
                     foundReadableXml = true;
+                    assertEquals("<PcGts/>", new String(zipIn.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
                 }
             }
         }
@@ -292,6 +283,7 @@ class ProjectPackageServiceTest {
         assertTrue(foundReadableXml);
         assertTrue(foundEmbedded);
         assertTrue(manifestWarnings.stream().anyMatch(warning -> warning.contains("missing.png")));
+        assertTrue(manifestWarnings.stream().anyMatch(warning -> warning.contains("original PAGE XML")));
         assertEquals(1, exportedPage.images().size());
         assertEquals("images/page.png", exportedPage.images().getFirst().path());
         assertEquals("xml/page.xml", exportedPage.xml().getFirst().path());
@@ -331,8 +323,9 @@ class ProjectPackageServiceTest {
                 pageFilterIndexService,
                 storageTrackingService,
                 workspaceQuotaGuardService,
-                pageXmlConversionService,
+                new PageXmlConversionService(),
                 pageXmlCanonicalizationService,
+                new PageXmlValidationService(),
                 documentExportService,
                 objectMapper,
                 new ProjectPackageProperties()
@@ -378,12 +371,6 @@ class ProjectPackageServiceTest {
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/missing.png"))
                 .thenReturn(tempDir.resolve("uploads/missing.png"));
         when(hierarchicalFileStorageService.resolveUploadPath("uploads/page.xml")).thenReturn(xmlPath);
-        when(pageXmlConversionService.normalizeTargetVersion(PageXmlConversionService.PRIMARY_PAGE_VERSION))
-                .thenReturn(PageXmlConversionService.PRIMARY_PAGE_VERSION);
-        doAnswer(invocation -> {
-            invocation.<java.io.OutputStream>getArgument(2).write("<PcGts/>".getBytes());
-            return null;
-        }).when(pageXmlConversionService).writeFileToVersion(any(Path.class), eq(PageXmlConversionService.PRIMARY_PAGE_VERSION), any());
         Path embeddedPath = tempDir.resolve("project.txt");
         Files.writeString(embeddedPath, "embedded");
         when(documentExportService.exportEmbeddedProjectOutputs(eq(project), eq(List.of(page)), anyList()))
@@ -412,10 +399,14 @@ class ProjectPackageServiceTest {
 
         Set<String> entries = new HashSet<>();
         String exportWarnings = null;
+        String recoveredXml = null;
         try (ZipInputStream zipIn = new ZipInputStream(new java.io.ByteArrayInputStream(zipOut.toByteArray()))) {
             java.util.zip.ZipEntry entry;
             while ((entry = zipIn.getNextEntry()) != null) {
                 entries.add(entry.getName());
+                if ("page.xml".equals(entry.getName())) {
+                    recoveredXml = new String(zipIn.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                }
                 if ("_export-warnings.txt".equals(entry.getName())) {
                     exportWarnings = new String(zipIn.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
                 }
@@ -428,6 +419,9 @@ class ProjectPackageServiceTest {
         assertTrue(entries.contains("project.txt"));
         assertTrue(entries.contains("_export-warnings.txt"));
         assertTrue(exportWarnings.contains("missing.png"));
+        assertTrue(exportWarnings.contains("original PAGE XML"));
+        assertEquals("<PcGts/>", recoveredXml);
+        assertEquals("<PcGts/>", Files.readString(xmlPath));
         assertFalse(entries.contains("manifest.json"));
         assertFalse(entries.contains("mets.xml"));
         assertFalse(entries.stream().anyMatch(name -> name.contains("/") || name.contains("img-1") || name.contains("xml-1")));
@@ -465,8 +459,9 @@ class ProjectPackageServiceTest {
                 pageFilterIndexService,
                 storageTrackingService,
                 workspaceQuotaGuardService,
-                pageXmlConversionService,
+                new PageXmlConversionService(),
                 pageXmlCanonicalizationService,
+                new PageXmlValidationService(),
                 documentExportService,
                 objectMapper,
                 properties

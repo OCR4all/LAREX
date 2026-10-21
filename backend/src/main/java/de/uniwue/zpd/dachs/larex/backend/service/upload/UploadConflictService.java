@@ -15,6 +15,8 @@ import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepo
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
+import org.springframework.core.io.FileSystemResource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,6 +42,7 @@ public class UploadConflictService {
     private final PageFilterIndexService pageFilterIndexService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
+    private final PageXmlValidationService pageXmlValidationService;
 
     public UploadConflictService(PageRepository pageRepository,
                                   PageImageRepository pageImageRepository,
@@ -47,7 +50,8 @@ public class UploadConflictService {
                                   UploadSessionFileRepository uploadSessionFileRepository,
                                   PageFilterIndexService pageFilterIndexService,
                                   HierarchicalFileStorageService hierarchicalFileStorageService,
-                                  PageXmlCanonicalizationService pageXmlCanonicalizationService) {
+                                  PageXmlCanonicalizationService pageXmlCanonicalizationService,
+                                  PageXmlValidationService pageXmlValidationService) {
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
         this.pageXmlRepository = pageXmlRepository;
@@ -55,6 +59,7 @@ public class UploadConflictService {
         this.pageFilterIndexService = pageFilterIndexService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
+        this.pageXmlValidationService = pageXmlValidationService;
     }
 
     public List<UploadConflictDto.ConflictResponse> getProjectConflicts(String projectId, String userId) {
@@ -181,6 +186,7 @@ public class UploadConflictService {
                     pageImageRepository.save(newImage);
 
                 } else if ("XML_FILE_EXISTS".equals(file.getConflictType())) {
+                    pageXmlValidationService.assertValidPageXml(new FileSystemResource(tempFilePath));
                     pageXmlRepository.findByPage_Id(page.getId()).ifPresent(existingXml -> {
                         replacedStoragePaths.add(existingXml.getFilePath());
                         pageXmlRepository.delete(existingXml);

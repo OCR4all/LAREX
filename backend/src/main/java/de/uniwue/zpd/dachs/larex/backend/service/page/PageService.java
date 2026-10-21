@@ -26,6 +26,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshSe
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -65,6 +66,7 @@ public class PageService {
     private final PageXmlVersionService pageXmlVersionService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
+    private final PageXmlValidationService pageXmlValidationService;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     private final PageOrderService pageOrderService;
     private final AnnotationReadCache annotationReadCache;
@@ -87,6 +89,7 @@ public class PageService {
             PageXmlVersionService pageXmlVersionService,
             HierarchicalFileStorageService hierarchicalFileStorageService,
             PageXmlCanonicalizationService pageXmlCanonicalizationService,
+            PageXmlValidationService pageXmlValidationService,
             WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
             PageOrderService pageOrderService,
             AnnotationReadCache annotationReadCache,
@@ -108,6 +111,7 @@ public class PageService {
         this.pageXmlVersionService = pageXmlVersionService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
+        this.pageXmlValidationService = pageXmlValidationService;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
         this.pageOrderService = pageOrderService;
         this.annotationReadCache = annotationReadCache;
@@ -405,6 +409,8 @@ public class PageService {
             if (pageXmlRepository.existsByPage_Id(pageId)) {
                 return false;
             }
+
+            pageXmlValidationService.assertValidPageXml(xmlFile.getResource());
 
             String projectId = page.getProject().getId();
             var storedFile = hierarchicalFileStorageService.storeMultipartFile(
