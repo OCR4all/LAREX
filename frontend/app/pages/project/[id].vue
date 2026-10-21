@@ -2426,12 +2426,64 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
         </template>
 
         <template #right>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 [&>*]:shrink-0">
+            <UPopover v-if="project" :content="{ align: 'end' }" :ui="{ content: 'lg:hidden' }">
+              <UButton
+                icon="i-lucide-info"
+                color="neutral"
+                variant="ghost"
+                class="lg:hidden"
+                aria-label="Project information"
+              />
+
+              <template #content>
+                <div class="w-64 max-w-[calc(100vw-2rem)] space-y-3 p-4">
+                  <p class="text-sm font-semibold text-highlighted">
+                    Project information
+                  </p>
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between gap-3 text-sm">
+                      <span class="text-muted">Progress</span>
+                      <span>{{ project.completionPercentage }}%</span>
+                    </div>
+                    <UProgress
+                      :model-value="project.completionPercentage"
+                      :color="project.completionPercentage === 100 && project.pageCount > 0 ? 'success' : 'primary'"
+                      size="xs"
+                      :aria-label="`Project progress: ${project.completionPercentage}%`"
+                    />
+                    <p class="text-xs text-muted">
+                      {{ project.completedPageCount }}/{{ project.pageCount }} pages completed
+                    </p>
+                  </div>
+                  <div v-if="project.storageUsedFormatted" class="flex items-center justify-between gap-3 text-sm">
+                    <span class="flex items-center gap-1.5 text-muted">
+                      <UIcon name="i-lucide-hard-drive" class="size-4" />
+                      Storage
+                    </span>
+                    <span>{{ project.storageUsedFormatted }}</span>
+                  </div>
+                  <UButton
+                    :icon="project.isStarred ? 'i-prime-star-fill' : 'i-prime-star'"
+                    :label="project.isStarred ? 'Unstar project' : 'Star project'"
+                    :aria-pressed="project.isStarred"
+                    color="neutral"
+                    variant="ghost"
+                    class="gap-1.5 px-0"
+                    :ui="{ leadingIcon: 'size-4' }"
+                    :loading="isStarring"
+                    :class="project.isStarred ? 'text-warning' : 'text-primary'"
+                    @click="toggleStar"
+                  />
+                </div>
+              </template>
+            </UPopover>
+
             <UTooltip
               v-if="project"
               :text="`Project progress: ${project.completedPageCount}/${project.pageCount} done (${project.completionPercentage}%)`"
             >
-              <div class="mr-1 flex min-w-28 items-center gap-2 text-xs text-muted">
+              <div class="mr-1 hidden min-w-28 items-center gap-2 text-xs text-muted lg:flex">
                 <UProgress
                   :model-value="project.completionPercentage"
                   :color="project.completionPercentage === 100 && project.pageCount > 0 ? 'success' : 'primary'"
@@ -2443,7 +2495,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
               </div>
             </UTooltip>
 
-            <div v-if="project?.storageUsedFormatted" class="flex items-center gap-1 text-xs text-muted mr-2">
+            <div v-if="project?.storageUsedFormatted" class="hidden items-center gap-1 text-xs text-muted mr-2 lg:flex">
               <UIcon name="i-lucide-hard-drive" class="w-3 h-3" />
               <span>{{ project.storageUsedFormatted }}</span>
             </div>
@@ -2454,6 +2506,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
               color="neutral"
               variant="ghost"
               :loading="isStarring"
+              class="hidden lg:inline-flex"
               :class="project.isStarred ? 'text-yellow-500' : 'text-primary'"
               :aria-label="project.isStarred ? 'Unstar project' : 'Star project'"
               @click="toggleStar"

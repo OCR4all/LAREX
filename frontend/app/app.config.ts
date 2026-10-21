@@ -62,6 +62,19 @@ export default defineAppConfig({
         modal: 'z-[80]'
       }
     },
+    dashboardNavbar: {
+      slots: {
+        root: 'min-w-0 overflow-x-auto',
+        left: 'max-w-full shrink-0',
+        right: '[&>*]:shrink-0'
+      }
+    },
+    dashboardToolbar: {
+      slots: {
+        left: 'shrink-0 [&>*]:shrink-0',
+        right: 'shrink-0 [&>*]:shrink-0'
+      }
+    },
     dashboardSearchButton: {
       variants: {
         collapsed: {
