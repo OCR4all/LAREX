@@ -1,6 +1,6 @@
 FROM ghcr.io/pnpm/pnpm:11.1.1
 
-RUN pnpm runtime set node 22 -g
+RUN pnpm runtime set node 22.23.4 -g
 
 WORKDIR /app
 
