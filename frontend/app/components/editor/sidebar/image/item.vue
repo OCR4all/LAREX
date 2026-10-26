@@ -328,8 +328,7 @@ async function handleCopyPageId() {
             :open-delay="150"
             :close-delay="100"
             :content="{ side: 'right', align: 'end', sideOffset: 6 }"
-            :ui="{ content: `${tooltipUi.content} p-2 z-999` }"
-            :portal="false"
+            :ui="{ content: `${tooltipUi.content} p-2` }"
           >
             <template #default>
               <div class="flex shrink-0 items-center gap-1 rounded-md border border-neutral-200 bg-neutral-50 px-1.5 py-1 dark:border-neutral-800 dark:bg-neutral-900">
