@@ -2012,17 +2012,24 @@ const pageColumns = [
       const locked = lockReason !== null
 
       return h('div', { class: 'flex min-w-0 items-center gap-2' }, [
+        h('p', { class: 'min-w-0 truncate font-medium' }, row.original.name),
         locked
-          ? h(UIcon, {
-              name: 'i-lucide-lock',
-              class: 'size-4 shrink-0 text-warning',
-              title: lockReason
+          ? h(UPopover, { mode: 'hover', content: { side: 'top' } }, {
+              default: () => h('button', {
+                'type': 'button',
+                'class': 'inline-flex shrink-0 cursor-help rounded-sm text-warning focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+                'aria-label': `Page locked: ${lockReason}`,
+                'onClick': (event: MouseEvent) => event.stopPropagation()
+              }, [h(UIcon, { name: 'i-lucide-lock', class: 'size-4' })]),
+              content: () => h('div', { class: 'max-w-72 space-y-1 p-3' }, [
+                h('p', { class: 'text-xs font-medium text-highlighted' }, 'Page locked'),
+                h('p', { class: 'text-xs whitespace-pre-wrap break-words text-muted' }, lockReason)
+              ])
             })
           : null,
         actionRunsStore.isPageActionRunning(projectId, row.original.id)
           ? h(ActionActiveIndicator, { label: 'LAREX Action running on this page' })
           : null,
-        h('p', { class: 'min-w-0 truncate font-medium' }, row.original.name),
         canManageProjects.value && isActionLockedPage(row.original)
           ? h(UButton, {
               icon: 'i-lucide-lock-keyhole-open',
