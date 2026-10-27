@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ActionWorkflowRun } from '@/types/action-workflow'
 import type { ActionRun } from '@/types/action'
 
 function createRun(overrides: Partial<ActionRun> = {}): ActionRun {
@@ -30,6 +31,16 @@ function createRun(overrides: Partial<ActionRun> = {}): ActionRun {
   }
 }
 
+function createWorkflow(overrides: Partial<ActionWorkflowRun> = {}): ActionWorkflowRun {
+  return {
+    id: 'workflow-run', workflowId: 'workflow', workflowName: 'OCR workflow', workspaceId: 'workspace-1',
+    projectId: 'project-1', createdByUserId: 'me', stepNames: ['Layout', 'OCR'], status: 'RUNNING',
+    steps: [0, 1].map(() => ({ processorDefinitionId: 'processor-1', parameters: {}, imageVariantSelection: null })),
+    pageIds: ['page-1', 'page-2'], stepRunIds: ['run-1'], errorMessage: null, canCancel: true,
+    created: '2026-07-16T10:00:00.000Z', completedAt: null, ...overrides
+  }
+}
+
 async function createStore(
   fetchMock: ReturnType<typeof vi.fn>,
   subscribe = vi.fn(),
@@ -48,6 +59,49 @@ describe('action-runs.store', () => {
     vi.resetModules()
     vi.clearAllMocks()
     vi.useRealTimers()
+  })
+
+  it('keeps polling the workflow between completed child runs', async () => {
+    vi.useFakeTimers()
+    const workflow = createWorkflow()
+    const fetchMock = vi.fn(async (url: string) => url.endsWith('/workflow-runs') ? [workflow] : [])
+    const store = await createStore(fetchMock)
+    store.upsertWorkflowRun(workflow, 'Project One')
+    store.upsertRun(createRun({ status: 'COMPLETED', completedPageIds: ['page-1', 'page-2'] }))
+    store.initializeRealtime()
+    expect(store.hasActiveRuns).toBe(false)
+    expect(store.hasActiveWorkflows).toBe(true)
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(fetchMock).toHaveBeenCalledWith('/api/workspaces/workspace-1/actions/workflow-runs')
+    expect(fetchMock).toHaveBeenCalledWith('/api/workspaces/workspace-1/actions/projects/project-1/runs')
+  })
+
+  it('restores workflows before exposing their child runs and retains page locks', async () => {
+    const workflow = createWorkflow()
+    const fetchMock = vi.fn(async (url: string) => url.endsWith('/workflow-runs') ? [workflow] : [createRun()])
+    const store = await createStore(fetchMock)
+    await store.refreshWorkspaceRuns('workspace-1')
+    expect(store.workflowRunsArray[0]?.id).toBe(workflow.id)
+    expect(store.runsArray).toHaveLength(1)
+    expect(store.isPageActionRunning('project-1', 'page-1')).toBe(true)
+    expect(store.workflowRunsArray[0]?.projectName).toBe('Project One')
+  })
+
+  it('cancels the parent workflow and dismisses it with all child jobs', async () => {
+    const workflow = createWorkflow()
+    const fetchMock = vi.fn().mockResolvedValue({ ...workflow, status: 'CANCEL_REQUESTED' })
+    const store = await createStore(fetchMock)
+    store.upsertWorkflowRun(workflow, 'Project One')
+    await store.cancelWorkflowRun(store.workflowRunsArray[0]!)
+    expect(fetchMock).toHaveBeenCalledWith('/api/workspaces/workspace-1/actions/projects/project-1/workflow-runs/workflow-run/cancel', { method: 'POST' })
+    expect(store.workflowRunsArray[0]?.status).toBe('CANCEL_REQUESTED')
+    store.upsertRun(createRun({ status: 'CANCELLED' }))
+    store.upsertWorkflowRun({ ...workflow, status: 'CANCELLED', completedAt: '2026-07-16T10:01:00.000Z' })
+    await store.dismissWorkflowRun(store.workflowRunsArray[0]!)
+    expect(fetchMock).toHaveBeenCalledWith('/api/workspaces/workspace-1/actions/projects/project-1/workflow-runs/workflow-run/dismiss', { method: 'POST' })
+    expect(store.workflowRunsArray).toHaveLength(0)
+    expect(store.runsArray).toHaveLength(0)
+    expect(store.workflowRunsById.get(workflow.id)?.stepRunIds).toEqual(['run-1'])
   })
 
   it('emits polling fallback page events and removes completed page locks', async () => {
@@ -131,7 +185,7 @@ describe('action-runs.store', () => {
       listener = callback
       return () => undefined
     })
-    const fetchMock = vi.fn().mockResolvedValue({ run: createRun() })
+    const fetchMock = vi.fn(async (url: string) => url.endsWith('/workflow-runs') ? [] : { run: createRun() })
     const store = await createStore(fetchMock, subscribe)
     store.initializeRealtime()
 
@@ -140,7 +194,7 @@ describe('action-runs.store', () => {
     listener?.({ type: 'ACTION_RUN_UPDATED', payload })
     await vi.advanceTimersByTimeAsync(50)
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock).toHaveBeenCalledWith('/api/workspaces/workspace-1/actions/projects/project-1/runs/run-1')
   })
 
@@ -153,7 +207,7 @@ describe('action-runs.store', () => {
 
     await vi.advanceTimersByTimeAsync(2500)
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/workspaces/workspace-1/actions/projects/project-1/runs'
     )
@@ -167,7 +221,7 @@ describe('action-runs.store', () => {
     store.initializeRealtime()
 
     await vi.advanceTimersByTimeAsync(2500)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/workspaces/workspace-1/actions/projects/project-1/runs'
     )

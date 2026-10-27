@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ActiveUpload } from '@/stores/upload.store'
-import type { TrackedActionRun } from '@/stores/action-runs.store'
+import type { TrackedWorkflowRun, TrackedActionRun } from '@/stores/action-runs.store'
 import type { BackgroundJob } from '@/stores/background-jobs.store'
 import type { IiifImportJob } from '@/types/iiif-import'
 import { buildStatusJobs, getJobCreatorId, getJobWorkspaceId, isOwnStatusJob, shouldAutoOpenStatusPopover } from '../status-center'
@@ -259,5 +259,54 @@ describe('status-center utils', () => {
     expect(shouldAutoOpenStatusPopover(1, 2)).toBe(true)
     expect(shouldAutoOpenStatusPopover(2, 2)).toBe(false)
     expect(shouldAutoOpenStatusPopover(2, 1)).toBe(false)
+  })
+})
+
+describe('workflow jobs', () => {
+  const workflow: TrackedWorkflowRun = {
+    id: 'workflow-run', workflowId: 'workflow', workflowName: 'Page OCR', workspaceId: 'ws-1', projectId: 'project-1',
+    projectName: 'Action Project', createdByUserId: 'me', stepNames: ['Layout', 'OCR', 'Export'], status: 'RUNNING',
+    steps: [0, 1, 2].map(() => ({ processorDefinitionId: 'processor-1', parameters: {}, imageVariantSelection: null })),
+    pageIds: ['page-1'], stepRunIds: ['layout', 'ocr'], canCancel: true, errorMessage: null,
+    created: '2026-05-29T10:01:00.000Z', completedAt: null
+  }
+
+  it('shows one multi-step job and preserves unrelated Actions', () => {
+    const jobs = buildStatusJobs([], [
+      createRun({ id: 'layout', status: 'COMPLETED', progressPercent: 100 }),
+      createRun({ id: 'ocr', progressPercent: 50 }), createRun({ id: 'unrelated' })
+    ], [], [], [workflow])
+    expect(jobs).toHaveLength(2)
+    const job = jobs.find(job => job.kind === 'workflow')!
+    expect(job.title).toBe('Page OCR')
+    expect(job.progress).toBe(50)
+    expect(job.progressLabel).toBe('1 / 3 steps · 50%')
+    if (job.kind !== 'workflow') throw new Error('Expected workflow job')
+    expect(job.steps.map(step => step.status)).toEqual(['COMPLETED', 'RUNNING', 'WAITING'])
+    expect(isOwnStatusJob(job, 'me')).toBe(true)
+    expect(getJobWorkspaceId(job)).toBe('ws-1')
+  })
+
+  it('keeps a stable parent job between steps and after failure or completion', () => {
+    for (const status of ['RUNNING', 'FAILED', 'CANCELLED', 'COMPLETED'] as const) {
+      const [job] = buildStatusJobs([], [], [], [], [{ ...workflow, status }])
+      expect(job?.id).toBe('workflow-run')
+      expect(job?.terminal).toBe(status !== 'RUNNING')
+      if (status === 'COMPLETED') expect(job?.progress).toBe(100)
+      if (job?.kind === 'workflow' && status === 'FAILED') {
+        expect(job.steps.map(step => step.status)).toEqual(['COMPLETED', 'FAILED', 'NOT_RUN'])
+      }
+    }
+  })
+
+  it('uses the terminal workflow status when the final child update has not arrived yet', () => {
+    const [job] = buildStatusJobs([], [createRun({ id: 'ocr', status: 'RUNNING', progressPercent: 50 })], [], [], [{ ...workflow, status: 'CANCELLED' }])
+    if (job?.kind !== 'workflow') throw new Error('Expected workflow job')
+    expect(job.steps.map(step => step.status)).toEqual(['COMPLETED', 'CANCELLED', 'NOT_RUN'])
+    expect(job.progress).toBe(33)
+  })
+
+  it('does not resurface children of dismissed workflows as individual jobs', () => {
+    expect(buildStatusJobs([], [createRun({ id: 'layout' })], [], [], [], new Set(['layout']))).toEqual([])
   })
 })

@@ -1,6 +1,6 @@
 import { isTerminalActionRun, actionRunStatusColor } from '@/utils/action-run-status'
 import type { ActiveUpload } from '@/stores/upload.store'
-import type { TrackedActionRun } from '@/stores/action-runs.store'
+import type { TrackedWorkflowRun, TrackedActionRun } from '@/stores/action-runs.store'
 import type { BackgroundJob } from '@/stores/background-jobs.store'
 import type { IiifImportJob } from '@/types/iiif-import'
 
@@ -36,6 +36,22 @@ export type StatusJob
     active: boolean
     terminal: boolean
     run: TrackedActionRun
+  }
+  | {
+    kind: 'workflow'
+    id: string
+    title: string
+    subtitle: string
+    status: string
+    statusLabel: string
+    progress: number | null
+    progressLabel: string
+    color: JobStatusColor
+    icon: string
+    active: boolean
+    terminal: boolean
+    workflow: TrackedWorkflowRun
+    steps: { name: string, runId?: string, status: string, statusLabel: string }[]
   }
   | {
     kind: 'background'
@@ -196,6 +212,7 @@ export function getJobKey(job: StatusJob): string {
 export function getJobWorkspaceId(job: StatusJob): string | null {
   if (job.kind === 'background') return job.backgroundJob.workspaceId ?? null
   if (job.kind === 'upload') return job.upload.workspaceId
+  if (job.kind === 'workflow') return job.workflow.workspaceId
   if (job.kind === 'action') return job.run.workspaceId
   return job.iiifJob.workspaceId
 }
@@ -203,6 +220,7 @@ export function getJobWorkspaceId(job: StatusJob): string | null {
 export function getJobCreatorId(job: StatusJob): string | null {
   if (job.kind === 'background') return null
   if (job.kind === 'upload') return job.upload.createdByUserId ?? null
+  if (job.kind === 'workflow') return job.workflow.createdByUserId
   if (job.kind === 'action') return job.run.createdByUserId ?? null
   return job.iiifJob.createdByUserId ?? null
 }
@@ -211,14 +229,13 @@ export function isOwnStatusJob(job: StatusJob, userId: string | null | undefined
   // Background tasks and locally scheduled uploads originate in this browser.
   if (job.kind === 'background') return true
   if (job.kind === 'upload' && job.upload.locallyScheduled) return true
-  const creatorId = job.kind === 'upload'
-    ? job.upload.createdByUserId
-    : job.kind === 'action' ? job.run.createdByUserId : job.iiifJob.createdByUserId
+  const creatorId = getJobCreatorId(job)
   return !!userId && creatorId === userId
 }
 
 export function getJobTimestamp(job: StatusJob): number {
   if (job.kind === 'upload') return Date.parse(job.upload.created)
+  if (job.kind === 'workflow') return Date.parse(job.workflow.created)
   if (job.kind === 'action') return Date.parse(job.run.created)
   if (job.kind === 'background') return Date.parse(job.backgroundJob.created)
   return Date.parse(job.iiifJob.created)
@@ -228,7 +245,9 @@ export function buildStatusJobs(
   uploads: ActiveUpload[],
   runs: TrackedActionRun[],
   backgroundJobs: BackgroundJob[] = [],
-  iiifImports: IiifImportJob[] = []
+  iiifImports: IiifImportJob[] = [],
+  workflows: TrackedWorkflowRun[] = [],
+  workflowChildIds: Set<string> = new Set(workflows.flatMap(run => run.stepRunIds))
 ): StatusJob[] {
   const uploadJobs: StatusJob[] = uploads.map(upload => ({
     kind: 'upload',
@@ -246,7 +265,7 @@ export function buildStatusJobs(
     upload
   }))
 
-  const actionJobs: StatusJob[] = runs.map(run => ({
+  const actionJobs: StatusJob[] = runs.filter(run => !workflowChildIds.has(run.id)).map(run => ({
     kind: 'action',
     id: run.id,
     title: run.processorName,
@@ -263,6 +282,33 @@ export function buildStatusJobs(
     terminal: isTerminalAction(run.status),
     run
   }))
+
+  const children = new Map(runs.map(run => [run.id, run]))
+  const workflowJobs: StatusJob[] = workflows.map((workflow) => {
+    const active = workflow.status === 'RUNNING' || workflow.status === 'CANCEL_REQUESTED'
+    const steps = workflow.steps.map((step, index) => {
+      const runId = workflow.stepRunIds[index]
+      const child = runId ? children.get(runId) : undefined
+      const status = workflow.status === 'COMPLETED' || index < workflow.stepRunIds.length - 1
+        ? 'COMPLETED'
+        : !active && runId && (!child || isActiveAction(child.status))
+            ? workflow.status
+            : child?.status ?? (runId ? workflow.status : active ? 'WAITING' : 'NOT_RUN')
+      return { name: workflow.stepNames[index] || child?.processorName || `Step ${index + 1}`, runId, status,
+        statusLabel: actionStatusLabels[status] || (status === 'WAITING' ? 'Waiting' : status === 'NOT_RUN' ? 'Not run' : status) }
+    })
+    const completed = steps.filter(step => step.status === 'COMPLETED').length
+    const current = steps.find(step => step.runId && isActiveAction(step.status as TrackedActionRun['status']))
+    const currentProgress = current?.runId ? children.get(current.runId)?.progressPercent ?? 0 : 0
+    const progress = workflow.steps.length ? Math.round((completed * 100 + currentProgress) / workflow.steps.length) : 0
+    return {
+      kind: 'workflow', id: workflow.id, title: workflow.workflowName,
+      subtitle: `${workflow.projectName} · ${workflow.pageIds.length} page${workflow.pageIds.length === 1 ? '' : 's'}`,
+      status: workflow.status, statusLabel: actionStatusLabels[workflow.status] || workflow.status,
+      progress, progressLabel: `${completed} / ${steps.length} steps · ${progress}%`,
+      color: getActionStatusColor(workflow.status), icon: 'i-lucide-workflow', active, terminal: !active, workflow, steps
+    }
+  })
 
   const localJobs: StatusJob[] = backgroundJobs.map(job => ({
     kind: 'background',
@@ -296,7 +342,7 @@ export function buildStatusJobs(
     iiifJob: job
   }))
 
-  return [...uploadJobs, ...actionJobs, ...localJobs, ...iiifJobs].sort((left, right) => {
+  return [...uploadJobs, ...actionJobs, ...workflowJobs, ...localJobs, ...iiifJobs].sort((left, right) => {
     if (left.active !== right.active) return left.active ? -1 : 1
     return getJobTimestamp(right) - getJobTimestamp(left)
   })

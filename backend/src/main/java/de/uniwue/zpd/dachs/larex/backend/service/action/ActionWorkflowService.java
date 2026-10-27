@@ -36,13 +36,14 @@ public class ActionWorkflowService {
     private final ActionProcessorWorkspaceAvailabilityRepository availability;
     private final ActionProcessorAssignmentRepository assignments;
     private final ActionAuditService audit;
+    private final ActionRunDismissalRepository dismissals;
 
     public ActionWorkflowService(ActionWorkflowRepository workflows, ActionWorkflowRunRepository workflowRuns,
                                  ActionRunRepository runs, ActionProcessorDefinitionRepository processors,
                                  ProjectRepository projects, WorkspaceAccessService access, ActionRunService actions,
                                  ActionDefinitionService definitions, ActionRunPayloadService payload, ObjectMapper mapper,
                                  GlobalAdminService admin, ActionWorkspaceActivationService activation,
-                                 ActionProcessorWorkspaceAvailabilityRepository availability, ActionProcessorAssignmentRepository assignments, ActionAuditService audit) {
+                                 ActionProcessorWorkspaceAvailabilityRepository availability, ActionProcessorAssignmentRepository assignments, ActionAuditService audit, ActionRunDismissalRepository dismissals) {
         this.workflows = workflows;
         this.workflowRuns = workflowRuns;
         this.runs = runs;
@@ -58,6 +59,7 @@ public class ActionWorkflowService {
         this.availability = availability;
         this.assignments = assignments;
         this.audit = audit;
+        this.dismissals = dismissals;
     }
 
     @Transactional(readOnly = true)
@@ -82,6 +84,31 @@ public class ActionWorkflowService {
         else access.requireManageProjectsAccess(workspaceId, userId);
         var workflow = requireWorkflow(workspaceId, id);
         return definition(workflow);
+    }
+
+    @Transactional(readOnly = true)
+    public ActionWorkflowDto.TestResponse test(ActionWorkflowDto.TestRequest request) {
+        requireAdmin();
+        requireSteps(request.steps());
+        var checks = new ArrayList<ActionWorkflowDto.StepCheck>();
+        var endpoints = new HashMap<String, ActionDto.HealthCheckResponse>();
+        for (var step : request.steps()) {
+            String name = step.processorDefinitionId();
+            try {
+                var processor = requireProcessor(step.processorDefinitionId());
+                name = processor.getName();
+                if (!processor.isEnabled()) throw new IllegalArgumentException("Processor is disabled");
+                validateStepImageTypes(step);
+                actions.resolveRunParameters(processor, step.parameters(), step.imageVariantSelection(), step.imageTypes());
+                var endpoint = endpoints.computeIfAbsent(processor.getId(), definitions::testEndpoint);
+                checks.add(new ActionWorkflowDto.StepCheck(checks.size() + 1, processor.getId(), name,
+                        endpoint.ok(), endpoint.message(), endpoint));
+            } catch (RuntimeException exception) {
+                checks.add(new ActionWorkflowDto.StepCheck(checks.size() + 1, step.processorDefinitionId(), name,
+                        false, ActionRunService.redactProcessorSecrets(exception.getMessage()), null));
+            }
+        }
+        return new ActionWorkflowDto.TestResponse(checks.stream().allMatch(ActionWorkflowDto.StepCheck::ok), List.copyOf(checks));
     }
 
     public ActionWorkflowDto.Definition save(String workspaceId, String id, ActionWorkflowDto.SaveRequest request, String userId) {
@@ -250,6 +277,24 @@ public class ActionWorkflowService {
                 .stream().map(run -> response(run, userId)).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<ActionWorkflowDto.Run> listWorkspaceRuns(String workspaceId, String userId) {
+        access.requireWorkspaceAccess(workspaceId, userId);
+        var history = workflowRuns.findByWorkspaceIdOrderByCreatedDesc(workspaceId, PageRequest.of(0, 100));
+        var childIds = history.stream().flatMap(run -> ids(run.getStepRunIdsJson()).stream()).toList();
+        var dismissed = childIds.isEmpty() ? Set.<String>of() : dismissals.findRunIdsByUserIdAndRunIds(userId, childIds);
+        return history.stream().filter(run -> active(run) || !dismissed.containsAll(ids(run.getStepRunIdsJson())))
+                .map(run -> response(run, userId)).toList();
+    }
+
+    public void dismiss(String workspaceId, String projectId, String id, String userId) {
+        requireProject(workspaceId, projectId, userId);
+        var run = workflowRuns.findByIdForUpdate(id).orElseThrow(() -> new IllegalArgumentException("Workflow run not found"));
+        if (!workspaceId.equals(run.getWorkspaceId()) || !projectId.equals(run.getProjectId())) throw new IllegalArgumentException("Workflow run not found");
+        if (active(run)) throw new IllegalStateException("Only completed workflows can be dismissed");
+        for (var childId : ids(run.getStepRunIdsJson())) actions.dismissRun(workspaceId, projectId, childId, userId);
+    }
+
     public ActionWorkflowDto.Run cancel(String workspaceId, String projectId, String id, String userId) {
         requireProject(workspaceId, projectId, userId);
         var run = workflowRuns.findByIdForUpdate(id).orElseThrow(() -> new IllegalArgumentException("Workflow run not found"));
@@ -397,7 +442,9 @@ public class ActionWorkflowService {
     }
     private ActionWorkflowDto.Run response(ActionWorkflowRun run, String userId) {
         return new ActionWorkflowDto.Run(run.getId(), run.getWorkflowId(), run.getWorkflowName(), run.getStatus(), steps(run.getStepsJson()), ids(run.getPageIdsJson()), ids(run.getStepRunIdsJson()),
-                run.getErrorMessage(), active(run) && canCancel(run, userId), run.getCreated(), run.getCompletedAt());
+                run.getErrorMessage(), active(run) && canCancel(run, userId), run.getCreated(), run.getCompletedAt(), run.getWorkspaceId(), run.getProjectId(), run.getCreatedByUserId(),
+                steps(run.getStepsJson()).stream().map(step -> processors.findById(step.processorDefinitionId())
+                        .map(ActionProcessorDefinition::getName).orElse("Unavailable processor")).toList());
     }
     private boolean canCancel(ActionWorkflowRun run, String userId) {
         return userId.equals(run.getCreatedByUserId()) || access.canManageProjects(run.getWorkspaceId(), userId);

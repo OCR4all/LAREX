@@ -135,6 +135,13 @@ function openJobLogs(job: Extract<StatusJob, { kind: 'action' }>) {
   })
 }
 
+function openWorkflowStepLogs(job: Extract<StatusJob, { kind: 'workflow' }>, runId: string, name: string) {
+  void overlay.create(ActionRunLogsModal, { destroyOnClose: true }).open({
+    workspaceId: job.workflow.workspaceId, runId,
+    title: `${name} logs`, description: `${job.title} · ${jobContext(job)}`
+  })
+}
+
 const jobCollapseOverrides = ref<Map<string, boolean>>(new Map())
 const dismissingJobKeys = ref<Set<string>>(new Set())
 const clearingCompletedJobs = ref(false)
@@ -182,6 +189,7 @@ function formatBytes(bytes: number): string {
 
 function canCancelJob(job: StatusJob): boolean {
   if (job.kind === 'background') return false
+  if (job.kind === 'workflow') return job.workflow.canCancel && job.active && job.status !== 'CANCEL_REQUESTED'
   if (job.kind === 'upload') {
     return job.upload.cancelable !== false && isActiveUpload(job.upload.status)
   }
@@ -194,7 +202,7 @@ function canCancelJob(job: StatusJob): boolean {
 function isCancellingJob(job: StatusJob): boolean {
   if (job.kind === 'background') return false
   if (job.kind === 'upload') return uploadStore.isCancelling(job.id)
-  if (job.kind === 'action') return actionRunsStore.isCancelling(job.id)
+  if (job.kind === 'action' || job.kind === 'workflow') return actionRunsStore.isCancelling(job.id)
   return iiifImportJobsStore.isCancelling(job.id)
 }
 
@@ -237,6 +245,8 @@ async function cancelJob(job: StatusJob) {
   try {
     if (job.kind === 'upload') {
       await uploadSessionActions.cancelUploadBySessionId(job.id)
+    } else if (job.kind === 'workflow') {
+      await actionRunsStore.cancelWorkflowRun(job.workflow)
     } else if (job.kind === 'action') {
       await actionRunsStore.cancelRun(job.run)
     } else if (job.kind === 'iiif') {
@@ -259,6 +269,8 @@ async function dismissJob(job: StatusJob) {
   try {
     if (job.kind === 'upload') {
       uploadStore.removeUpload(job.id)
+    } else if (job.kind === 'workflow') {
+      await actionRunsStore.dismissWorkflowRun(job.workflow)
     } else if (job.kind === 'action') {
       await actionRunsStore.dismissRun(job.run)
     } else if (job.kind === 'background') {
@@ -328,7 +340,7 @@ function actionStatusDetail(job: Extract<StatusJob, { kind: 'action' }>) {
 }
 
 function shouldUseJobShimmer(job: StatusJob) {
-  return (job.kind === 'action' || job.kind === 'background' || job.kind === 'iiif') && job.active
+  return (job.kind === 'action' || job.kind === 'workflow' || job.kind === 'background' || job.kind === 'iiif') && job.active
 }
 
 function backgroundJobDetail(job: Extract<StatusJob, { kind: 'background' }>) {
@@ -552,6 +564,9 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
                       <template v-if="job.kind === 'action'">
                         {{ actionStatusDetail(job) }}
                       </template>
+                      <template v-else-if="job.kind === 'workflow'">
+                        {{ job.subtitle }}
+                      </template>
                       <template v-else-if="job.kind === 'background'">
                         {{ backgroundJobDetail(job) }}
                       </template>
@@ -583,6 +598,38 @@ function iiifJobDetail(job: Extract<StatusJob, { kind: 'iiif' }>) {
                 <p v-if="job.kind === 'iiif' && job.iiifJob.errorMessage" class="mt-1 text-xs text-error">
                   {{ job.iiifJob.errorMessage }}
                 </p>
+
+                <template v-if="job.kind === 'workflow'">
+                  <p v-if="job.workflow.errorMessage" class="mt-1 text-xs text-error">
+                    {{ job.workflow.errorMessage }}
+                  </p>
+                  <ol class="mt-2 max-h-48 space-y-2 overflow-y-auto" aria-label="Workflow steps">
+                    <li v-for="(step, index) in job.steps" :key="index" class="flex items-center gap-2 text-xs">
+                      <UIcon
+                        :name="step.status === 'COMPLETED' ? 'i-lucide-circle-check' : ['FAILED', 'CANCELLED', 'COMPLETED_WITH_ISSUES'].includes(step.status) ? 'i-lucide-circle-alert' : ['PENDING', 'QUEUED', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(step.status) ? 'i-lucide-loader-circle' : 'i-lucide-circle-dashed'"
+                        :class="step.status === 'COMPLETED' ? 'text-success' : ['FAILED', 'CANCELLED', 'COMPLETED_WITH_ISSUES'].includes(step.status) ? 'text-error' : ['PENDING', 'QUEUED', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(step.status) ? 'animate-spin motion-reduce:animate-none text-primary' : 'text-muted'"
+                        class="size-3.5 shrink-0"
+                      />
+                      <div class="min-w-0 flex-1">
+                        <p class="truncate">
+                          {{ index + 1 }}. {{ step.name }}
+                        </p>
+                        <p class="text-muted">
+                          {{ step.statusLabel }}
+                        </p>
+                      </div>
+                      <UButton
+                        v-if="step.runId"
+                        icon="i-lucide-scroll-text"
+                        :aria-label="`Logs for step ${index + 1}: ${step.name}`"
+                        color="neutral"
+                        variant="ghost"
+                        size="xs"
+                        @click="openWorkflowStepLogs(job, step.runId, step.name)"
+                      />
+                    </li>
+                  </ol>
+                </template>
 
                 <UCollapsible v-if="job.kind === 'upload' && job.upload.files.length > 0" class="mt-2">
                   <template #trigger="{ open }">

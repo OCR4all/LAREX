@@ -70,6 +70,29 @@ class ActionWorkflowIntegrationTest {
     }
 
     @Test
+    void workspaceJobsExposeWorkflowMetadataAndDismissAllStepsOnlyForTheCurrentUser() {
+        Fixture f = fixture(false);
+        var started = workflows.start(f.workspace, f.project, request(f), "owner", "http://backend/api/v1");
+        assertThat(started.workspaceId()).isEqualTo(f.workspace);
+        assertThat(started.projectId()).isEqualTo(f.project);
+        assertThat(started.createdByUserId()).isEqualTo("owner");
+        assertThat(started.stepNames()).hasSize(3).allMatch(name -> name.equals("Workflow test processor"));
+        assertThat(workflows.listWorkspaceRuns(f.workspace, "owner")).extracting(ActionWorkflowDto.Run::id).contains(started.id());
+        assertThat(workflows.listWorkspaceRuns("another-workspace", "owner")).isEmpty();
+        assertThatThrownBy(() -> workflows.dismiss(f.workspace, f.project, started.id(), "owner"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> workflows.dismiss("another-workspace", f.project, started.id(), "owner"))
+                .isInstanceOf(IllegalArgumentException.class);
+        setStatus(started.stepRunIds().getFirst(), ActionRun.Status.FAILED);
+        workflows.advance(started.id());
+        workflows.dismiss(f.workspace, f.project, started.id(), "owner");
+        assertThat(workflows.listWorkspaceRuns(f.workspace, "owner")).isEmpty();
+        assertThat(actions.listWorkspaceRuns(f.workspace, "owner")).isEmpty();
+        assertThat(workflows.listWorkspaceRuns(f.workspace, "another-user")).extracting(ActionWorkflowDto.Run::id).contains(started.id());
+        assertThat(workflows.listRuns(f.workspace, f.project, "owner")).extracting(ActionWorkflowDto.Run::id).contains(started.id());
+    }
+
+    @Test
     void developmentBootstrapPublishesTypedMocksWithValidInputsAndOverwriteDeclarations() {
         new DevActionBootstrap(definitions, processors, new ActionProperties()).run(null);
         var binary = processors.findByProcessorKey("mock-binarization").orElseThrow();

@@ -16,7 +16,7 @@ function setup() {
   })
   vi.stubGlobal('useUserSession', () => ({ user: ref({ id: 'me' }) }))
   vi.stubGlobal('useUploadStore', () => ({ uploadsArray: [] }))
-  vi.stubGlobal('useActionRunsStore', () => ({ runsArray: runs }))
+  vi.stubGlobal('useActionRunsStore', () => ({ runsArray: runs, workflowRunsArray: [], workflowRunsById: new Map() }))
   vi.stubGlobal('useBackgroundJobsStore', () => ({ jobsArray: [] }))
   vi.stubGlobal('useIiifImportJobsStore', () => ({ jobsArray: [] }))
   const workspace = reactive({ selectedWorkspaceId: 'ws-1' })

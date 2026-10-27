@@ -1,6 +1,11 @@
 import { isTerminalActionRun } from '@/utils/action-run-status'
 import { defineStore } from 'pinia'
 import type { ActionRun, ActionRunDetail } from '@/types/action'
+import type { ActionWorkflowRun } from '@/types/action-workflow'
+
+export interface TrackedWorkflowRun extends ActionWorkflowRun {
+  projectName: string
+}
 
 type ActionRunStatus = ActionRun['status']
 
@@ -53,6 +58,11 @@ function isLockingStatus(status: ActionRunStatus): boolean {
 
 export const useActionRunsStore = defineStore('action-runs', () => {
   const runsById = ref<Map<string, TrackedActionRun>>(new Map())
+  const workflowRunsById = ref<Map<string, TrackedWorkflowRun>>(new Map())
+  const dismissedWorkflowRunIds = ref<Set<string>>(new Set())
+  const workflowRunsArray = computed(() => Array.from(workflowRunsById.value.values())
+    .filter(run => !dismissedWorkflowRunIds.value.has(run.id)))
+  const hasActiveWorkflows = computed(() => workflowRunsArray.value.some(run => !run.completedAt))
   const terminalEvents = ref<ActionRunTerminalEvent[]>([])
   const pageResultEvents = ref<ActionPageResultEvent[]>([])
   const showProgressPanel = ref(false)
@@ -64,6 +74,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   let realtimeInitialized = false
   let fallbackPollingInitialized = false
   const emittedPageResultKeys = new Set<string>()
+  const workflowRefreshes = new Map<string, Promise<ActionWorkflowRun[]>>()
   const pendingRealtimeScopes = new Map<string, {
     workspaceId: string
     projectId?: string
@@ -129,6 +140,11 @@ export const useActionRunsStore = defineStore('action-runs', () => {
       next.status = existing.status
     }
     runsById.value.set(run.id, next)
+    for (const workflow of workflowRunsById.value.values()) {
+      if (workflow.projectId === run.projectId && workflow.projectName === workflow.projectId) {
+        workflowRunsById.value.set(workflow.id, { ...workflow, projectName: next.projectName })
+      }
+    }
     if (existing) {
       const previousCompletedPageIds = new Set(existing.completedPageIds ?? [])
       for (const pageId of next.completedPageIds ?? []) {
@@ -240,7 +256,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     fallbackPollingInitialized = true
     setInterval(() => {
       const pageVisible = typeof document === 'undefined' || document.visibilityState === 'visible'
-      if (pageVisible && hasActiveRuns.value) {
+      if (pageVisible && (hasActiveRuns.value || hasActiveWorkflows.value)) {
         void refreshActiveRuns()
       }
     }, 2500)
@@ -251,7 +267,10 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   }
 
   async function refreshProjectRuns(workspaceId: string, projectId: string, projectName?: string | null) {
-    const runs = await $fetch<ActionRun[]>(`/api/workspaces/${workspaceId}/actions/projects/${projectId}/runs`)
+    const [runs] = await Promise.all([
+      $fetch<ActionRun[]>(`/api/workspaces/${workspaceId}/actions/projects/${projectId}/runs`),
+      refreshWorkflowRuns(workspaceId).catch(() => [])
+    ])
     upsertRuns(runs, projectName)
     return runs
   }
@@ -265,12 +284,16 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     const detail = await $fetch<ActionRunDetail>(
       `/api/workspaces/${workspaceId}/actions/projects/${projectId}/runs/${runId}`
     )
+    await refreshWorkflowRuns(workspaceId).catch(() => [])
     upsertRun(detail.run, projectName)
     return detail.run
   }
 
   async function refreshWorkspaceRuns(workspaceId: string) {
-    const runs = await $fetch<ActionRun[]>(`/api/workspaces/${workspaceId}/actions/runs`)
+    const [runs] = await Promise.all([
+      $fetch<ActionRun[]>(`/api/workspaces/${workspaceId}/actions/runs`),
+      refreshWorkflowRuns(workspaceId).catch(() => [])
+    ])
     runs.forEach(run => upsertRun(run, run.datasetLabel || run.projectLabel))
     return runs
   }
@@ -278,14 +301,64 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   async function refreshActiveRuns() {
     const active = runsArray.value.filter(run => isActiveStatus(run.status))
     const trainingWorkspaceIds = new Set(active.filter(run => !run.projectId).map(run => run.workspaceId))
-    const scopes = new Map<string, TrackedActionRun>()
+    const scopes = new Map<string, { workspaceId: string, projectId: string | null, projectName: string }>()
     active.filter(run => run.projectId).forEach((run) => {
       scopes.set(`${run.workspaceId}:${run.projectId}`, run)
     })
+    // Keep polling between steps, when no child Action is active yet.
+    for (const workflow of workflowRunsArray.value.filter(run => !run.completedAt)) {
+      if (!scopes.has(`${workflow.workspaceId}:${workflow.projectId}`)) {
+        scopes.set(`${workflow.workspaceId}:${workflow.projectId}`, workflow)
+      }
+    }
     await Promise.allSettled([
       ...Array.from(scopes.values()).map(run => refreshProjectRuns(run.workspaceId, run.projectId as string, run.projectName)),
       ...Array.from(trainingWorkspaceIds).map(refreshWorkspaceRuns)
     ])
+  }
+
+  function upsertWorkflowRun(run: ActionWorkflowRun, projectName?: string | null) {
+    const existing = workflowRunsById.value.get(run.id)
+    if (existing?.completedAt && !run.completedAt) return
+    workflowRunsById.value.set(run.id, {
+      ...run, projectName: projectName || existing?.projectName || runsArray.value.find(child => child.projectId === run.projectId)?.projectName || run.projectId
+    })
+  }
+
+  async function refreshWorkflowRuns(workspaceId: string) {
+    const pending = workflowRefreshes.get(workspaceId)
+    if (pending) return pending
+    const request = $fetch<ActionWorkflowRun[]>(`/api/workspaces/${workspaceId}/actions/workflow-runs`).then((workflows) => {
+      const visibleIds = new Set(workflows.map(run => run.id))
+      const hidden = new Set(dismissedWorkflowRunIds.value)
+      for (const run of workflowRunsById.value.values()) {
+        if (run.workspaceId === workspaceId && run.completedAt && !visibleIds.has(run.id)) hidden.add(run.id)
+      }
+      dismissedWorkflowRunIds.value = hidden
+      for (const run of workflows) upsertWorkflowRun(run)
+      return workflows
+    }).finally(() => workflowRefreshes.delete(workspaceId))
+    workflowRefreshes.set(workspaceId, request)
+    return request
+  }
+
+  async function cancelWorkflowRun(run: TrackedWorkflowRun) {
+    setCancelling(run.id, true)
+    try {
+      const updated = await $fetch<ActionWorkflowRun>(
+        `/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/workflow-runs/${run.id}/cancel`,
+        { method: 'POST' }
+      )
+      upsertWorkflowRun(updated, run.projectName)
+    } finally {
+      setCancelling(run.id, false)
+    }
+  }
+
+  async function dismissWorkflowRun(run: TrackedWorkflowRun) {
+    await $fetch(`/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/workflow-runs/${run.id}/dismiss`, { method: 'POST' })
+    dismissedWorkflowRunIds.value = new Set([...dismissedWorkflowRunIds.value, run.id])
+    for (const id of run.stepRunIds) removeRun(id)
   }
 
   async function cancelRun(run: TrackedActionRun) {
@@ -406,6 +479,13 @@ export const useActionRunsStore = defineStore('action-runs', () => {
 
   return {
     runsById,
+    workflowRunsById,
+    workflowRunsArray,
+    hasActiveWorkflows,
+    upsertWorkflowRun,
+    refreshWorkflowRuns,
+    cancelWorkflowRun,
+    dismissWorkflowRun,
     terminalEvents,
     pageResultEvents,
     showProgressPanel,

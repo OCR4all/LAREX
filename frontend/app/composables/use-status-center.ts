@@ -67,7 +67,9 @@ export function useStatusCenter() {
     uploadStore.uploadsArray,
     actionRunsStore.runsArray,
     backgroundJobsStore.jobsArray,
-    iiifImportJobsStore.jobsArray
+    iiifImportJobsStore.jobsArray,
+    actionRunsStore.workflowRunsArray,
+    new Set(Array.from(actionRunsStore.workflowRunsById.values()).flatMap(run => run.stepRunIds))
   ))
   const ownJobs = computed(() => jobs.value.filter(job => isOwnStatusJob(job, user.value?.id)))
   const scopedJobs = computed(() => currentWorkspaceOnly.value && workspaceStore.selectedWorkspaceId
@@ -116,12 +118,14 @@ export function useStatusCenter() {
     }
     if (workspaceStore.selectedWorkspaceId) {
       void iiifImportJobsStore.refreshWorkspaceJobs(workspaceStore.selectedWorkspaceId)
+      void actionRunsStore.refreshWorkspaceRuns(workspaceStore.selectedWorkspaceId).catch(() => {})
     }
   })
 
   watch(() => workspaceStore.selectedWorkspaceId, (workspaceId) => {
     if (import.meta.client && workspaceId) {
       void iiifImportJobsStore.refreshWorkspaceJobs(workspaceId)
+      void actionRunsStore.refreshWorkspaceRuns(workspaceId).catch(() => {})
     }
   })
 

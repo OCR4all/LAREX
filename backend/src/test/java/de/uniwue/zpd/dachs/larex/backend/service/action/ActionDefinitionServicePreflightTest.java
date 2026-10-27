@@ -150,6 +150,7 @@ class ActionDefinitionServicePreflightTest {
         verify(httpClient).send(requestCaptor.capture(), any());
         HttpRequest request = requestCaptor.getValue();
         assertThat(request.method()).isEqualTo("POST");
+        assertThat(request.version()).contains(HttpClient.Version.HTTP_1_1);
         assertThat(request.uri().toString()).isEqualTo("http://processor.localhost/preflight");
         assertThat(request.headers().firstValue(HEADER_AUTH))
                 .contains("hmac-sha256;v=1");

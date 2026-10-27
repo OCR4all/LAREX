@@ -51,6 +51,7 @@ const preview: ActionRunImpact = {
 describe('Workflow run review', () => {
   const fetch = vi.fn()
   const emit = vi.fn()
+  const upsertWorkflowRun = vi.fn()
   let effects: Vue.EffectScope
   let runner: Runner
   let props: { processors: ExecutableActionProcessor[] }
@@ -58,7 +59,7 @@ describe('Workflow run review', () => {
     vi.clearAllMocks()
     vi.stubGlobal('$fetch', fetch)
     vi.stubGlobal('toRaw', Vue.toRaw)
-    vi.stubGlobal('useActionRunsStore', () => ({ refreshProjectRuns: vi.fn(), runsById: new Map() }))
+    vi.stubGlobal('useActionRunsStore', () => ({ upsertWorkflowRun, refreshProjectRuns: vi.fn().mockResolvedValue([]), runsById: new Map() }))
     vi.stubGlobal('onMounted', () => {})
     vi.stubGlobal('onBeforeUnmount', () => {})
     effects = Vue.effectScope()
@@ -94,6 +95,7 @@ describe('Workflow run review', () => {
     })
     expect(workflow.steps[1]!.parameters.threshold).toBe(0.8)
     expect(runner.impact.value).toBeNull()
+    expect(upsertWorkflowRun).toHaveBeenCalledWith({ id: 'run' }, 'project')
     expect(emit).toHaveBeenCalledWith('started')
   })
 

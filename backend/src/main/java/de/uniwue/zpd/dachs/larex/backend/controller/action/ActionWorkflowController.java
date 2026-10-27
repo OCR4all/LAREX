@@ -72,6 +72,15 @@ public class ActionWorkflowController {
     public List<ActionWorkflowDto.Run> runs(@PathVariable String workspaceId, @PathVariable String projectId, @AuthenticationPrincipal(expression = "subject") String userId) {
         return workflows.listRuns(workspaceId, projectId, userId);
     }
+    @GetMapping("/workflow-runs")
+    public List<ActionWorkflowDto.Run> workspaceRuns(@PathVariable String workspaceId, @AuthenticationPrincipal(expression = "subject") String userId) {
+        return workflows.listWorkspaceRuns(workspaceId, userId);
+    }
+    @PostMapping("/projects/{projectId}/workflow-runs/{id}/dismiss")
+    public ResponseEntity<Void> dismiss(@PathVariable String workspaceId, @PathVariable String projectId, @PathVariable String id, @AuthenticationPrincipal(expression = "subject") String userId) {
+        workflows.dismiss(workspaceId, projectId, id, userId);
+        return ResponseEntity.noContent().build();
+    }
     @PostMapping("/projects/{projectId}/workflow-runs/{id}/cancel")
     public ActionWorkflowDto.Run cancel(@PathVariable String workspaceId, @PathVariable String projectId, @PathVariable String id, @AuthenticationPrincipal(expression = "subject") String userId) {
         return workflows.cancel(workspaceId, projectId, id, userId);

@@ -4,8 +4,8 @@ import type { ActionWorkflow, ActionWorkflowRun } from '~/types/action-workflow'
 import { actionRunStatusLabel } from '~/utils/action-run-status'
 import { extractApiErrorDetails } from '~/utils/api-error'
 
-const props = defineProps<{ workflowId?: string, processors: ActionDefinition[] }>()
-const emit = defineEmits<{ saved: [workflow: ActionWorkflow], dirty: [value: boolean], busy: [value: boolean] }>()
+const props = defineProps<{ workflowId?: string, processors: ActionDefinition[], initialName?: string, initialDescription?: string, toolbarTarget?: string }>()
+const emit = defineEmits<{ saved: [workflow: ActionWorkflow], dirty: [value: boolean], busy: [value: boolean], metadata: [value: { name: string, description: string }] }>()
 const workflow = ref<ActionWorkflow | null>(null)
 const runs = ref<ActionWorkflowRun[]>([])
 const cancelling = ref('')
@@ -83,9 +83,13 @@ onBeforeUnmount(() => {
       v-if="!loading && (workflow || !workflowId)"
       :workflow="workflow"
       :processors="processors"
+      :initial-name="initialName"
+      :initial-description="initialDescription"
+      :toolbar-target="toolbarTarget"
       @saved="saved"
       @dirty="emit('dirty', $event)"
       @busy="emit('busy', $event)"
+      @metadata="emit('metadata', $event)"
     />
     <section v-if="workflow" class="space-y-3 rounded-lg border border-default bg-default p-4" aria-label="Workflow runs">
       <div class="flex justify-between gap-4">

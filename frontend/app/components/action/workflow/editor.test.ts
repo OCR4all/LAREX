@@ -6,7 +6,7 @@ import { compileScript, parse } from 'vue/compiler-sfc'
 import * as errors from '~/utils/api-error'
 import * as workflows from '~/utils/action-workflow'
 import type { ActionDefinition } from '~/types/action'
-import type { ActionWorkflow, ActionWorkflowStep } from '~/types/action-workflow'
+import type { ActionWorkflow, ActionWorkflowStep, ActionWorkflowTest } from '~/types/action-workflow'
 
 // Run the production components' state and drag handlers without a Nuxt server.
 function setupComponent<T>(file: string, dependencies: Record<string, unknown> = {}) {
@@ -30,6 +30,11 @@ interface Editor {
   undo: () => void
   redo: () => void
   save: () => Promise<void>
+  testWorkflow: () => Promise<void>
+  testing: Vue.Ref<boolean>
+  testResult: Vue.Ref<ActionWorkflowTest | null>
+  testError: Vue.Ref<string>
+  testChecks: Vue.Ref<{ state: string, processorDefinitionId: string }[]>
 }
 const setupEditor = setupComponent<Editor>('./editor.vue')
 const source = (id: string, name: string, parameters = {}): ActionDefinition => ({ id, name, description: 'Process page', tags: ['image'], enabled: true, targets: ['PAGE'], kind: 'PROCESSING', parameters }) as ActionDefinition
@@ -45,6 +50,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   scope.stop()
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 function editor(workflow?: ActionWorkflow) {
@@ -55,6 +61,84 @@ function editor(workflow?: ActionWorkflow) {
 }
 
 describe('Workflow editor', () => {
+  it('uses the temporary sidebar name as the initial workflow name and saves as a new workflow', async () => {
+    const emit = vi.fn()
+    const props = Vue.reactive({ processors: [binarize], initialName: 'workflow-crisp-folio', toolbarTarget: '#toolbar' })
+    const state = scope.run(() => setupEditor(props, { expose: () => {}, emit }))!
+    expect(state.name.value).toBe('workflow-crisp-folio')
+    state.insert('binary')
+    const fetch = vi.fn().mockResolvedValue({ id: 'saved', name: props.initialName, version: 0 })
+    vi.stubGlobal('$fetch', fetch)
+    await state.save()
+    expect(fetch).toHaveBeenCalledWith('/api/admin/actions/workflows', expect.objectContaining({ method: 'POST', body: expect.objectContaining({ name: props.initialName }) }))
+  })
+
+  it('checks unsaved steps in order, shows a spinner for at least 350ms, and invalidates old results', async () => {
+    vi.useFakeTimers()
+    const { state } = editor()
+    state.insert('binary')
+    state.insert('region')
+    await Vue.nextTick()
+    const check = { step: 1, processorDefinitionId: 'binary', processorName: 'Binarization', ok: true, message: 'Reachable', endpoint: null }
+    const fetch = vi.fn().mockResolvedValueOnce({ ok: true, steps: [check] }).mockResolvedValueOnce({ ok: true, steps: [{ ...check, processorDefinitionId: 'region' }] })
+    vi.stubGlobal('$fetch', fetch)
+    const running = state.testWorkflow()
+    await state.testWorkflow()
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch.mock.calls[0]).toMatchObject(['/api/admin/actions/workflows/test', { method: 'POST', body: { steps: [{ processorDefinitionId: 'binary' }] } }])
+    expect(state.testChecks.value.map(step => step.state)).toEqual(['CHECKING', 'PENDING'])
+    await vi.advanceTimersByTimeAsync(349)
+    expect(state.testChecks.value.map(step => step.state)).toEqual(['CHECKING', 'PENDING'])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(fetch.mock.calls[1]![1].body.steps[0].processorDefinitionId).toBe('region')
+    expect(state.testChecks.value.map(step => step.state)).toEqual(['PASSED', 'CHECKING'])
+    await vi.advanceTimersByTimeAsync(350)
+    await running
+    expect(state.testChecks.value.map(step => step.state)).toEqual(['PASSED', 'PASSED'])
+    expect(state.testResult.value?.ok).toBe(true)
+    state.update(0, { ...state.entries.value[0]!.step, parameters: { threshold: 100 } })
+    await Vue.nextTick()
+    expect(state.testResult.value).toBeNull()
+    expect(state.testChecks.value).toHaveLength(0)
+  })
+
+  it('does not display a stale result when the workflow changes during a test', async () => {
+    vi.useFakeTimers()
+    const { state } = editor()
+    state.insert('binary')
+    await Vue.nextTick()
+    let finish: (result: ActionWorkflowTest) => void = () => {}
+    vi.stubGlobal('$fetch', vi.fn(() => new Promise<ActionWorkflowTest>((resolve) => {
+      finish = resolve
+    })))
+    const running = state.testWorkflow()
+    state.insert('region')
+    await Vue.nextTick()
+    finish({ ok: true, steps: [{ step: 1, processorDefinitionId: 'binary', processorName: 'Binarization', ok: true, message: 'Reachable', endpoint: null }] })
+    await vi.advanceTimersByTimeAsync(350)
+    await running
+    expect(state.testResult.value).toBeNull()
+    expect(state.testing.value).toBe(false)
+  })
+
+  it('shows a failed step and continues checking the remaining steps', async () => {
+    vi.useFakeTimers()
+    const { state } = editor()
+    state.insert('binary')
+    state.insert('region')
+    await Vue.nextTick()
+    const check = { step: 1, processorDefinitionId: 'binary', processorName: 'Binarization', ok: false, message: 'Offline', endpoint: null }
+    const fetch = vi.fn().mockResolvedValueOnce({ ok: false, steps: [check] }).mockResolvedValueOnce({ ok: true, steps: [{ ...check, processorDefinitionId: 'region', ok: true, message: 'Reachable' }] })
+    vi.stubGlobal('$fetch', fetch)
+    const running = state.testWorkflow()
+    await vi.advanceTimersByTimeAsync(700)
+    await running
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(state.testChecks.value.map(step => step.state)).toEqual(['FAILED', 'PASSED'])
+    expect(state.testResult.value?.ok).toBe(false)
+  })
+
   it('filters processors and inserts independent defaults at the requested position', () => {
     const { state } = editor()
     state.query.value = 'binar image'

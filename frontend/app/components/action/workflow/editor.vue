@@ -1,17 +1,28 @@
 <script setup lang="ts">
 import type { ActionDefinition } from '~/types/action'
-import type { ActionWorkflow, ActionWorkflowStep } from '~/types/action-workflow'
+import type { ActionWorkflow, ActionWorkflowStep, ActionWorkflowTest } from '~/types/action-workflow'
 import { createWorkflowStep } from '~/utils/action-workflow'
 import { extractApiErrorDetails } from '~/utils/api-error'
 
-const props = defineProps<{ workflow?: ActionWorkflow | null, processors: ActionDefinition[], workspaceId?: string }>()
-const emit = defineEmits<{ saved: [workflow: ActionWorkflow], dirty: [value: boolean], busy: [value: boolean] }>()
+const props = defineProps<{ workflow?: ActionWorkflow | null, processors: ActionDefinition[], workspaceId?: string, initialName?: string, initialDescription?: string, toolbarTarget?: string }>()
+const emit = defineEmits<{ saved: [workflow: ActionWorkflow], dirty: [value: boolean], busy: [value: boolean], metadata: [value: { name: string, description: string }] }>()
 const name = ref('')
 const description = ref('')
 const entries = ref<{ id: string, step: ActionWorkflowStep }[]>([])
 const selected = ref(0)
 const query = ref('')
 const busy = ref(false)
+const testing = ref(false)
+const testResult = ref<ActionWorkflowTest | null>(null)
+const testError = ref('')
+const testOpen = ref(false)
+const testList = ref<HTMLElement | null>(null)
+type StepCheck = ActionWorkflowTest['steps'][number]
+const testChecks = ref<(StepCheck & { state: 'PENDING' | 'CHECKING' | 'PASSED' | 'FAILED' })[]>([])
+const completedSteps = computed(() => testChecks.value.filter(step => step.state === 'PASSED' || step.state === 'FAILED').length)
+const passedSteps = computed(() => testChecks.value.filter(step => step.state === 'PASSED').length)
+const testedStepCount = computed(() => testChecks.value.length || steps.value.length)
+let testGeneration = 0
 const error = ref('')
 const announcement = ref('')
 const baseline = ref('')
@@ -29,11 +40,18 @@ const snapshot = computed(() => JSON.stringify({ name: name.value, description: 
 const dirty = computed(() => snapshot.value !== baseline.value)
 const missing = computed(() => steps.value.some(step => !processors.value.some(processor => processor.id === step.processorDefinitionId)))
 watch(dirty, value => emit('dirty', value))
-watch(busy, value => emit('busy', value), { flush: 'sync' })
+watch(() => busy.value || testing.value, value => emit('busy', value), { flush: 'sync' })
+watch([name, description], () => emit('metadata', { name: name.value, description: description.value }))
+watch(() => JSON.stringify(steps.value), () => {
+  testGeneration++
+  testResult.value = null
+  testChecks.value = []
+  testError.value = ''
+})
 watch(() => props.workflow, (workflow) => {
   if (workflow && workflow.id === savedRevision?.id && workflow.version === savedRevision.version) return
-  name.value = workflow?.name ?? ''
-  description.value = workflow?.description ?? ''
+  name.value = workflow?.name ?? props.initialName ?? ''
+  description.value = workflow?.description ?? props.initialDescription ?? ''
   entries.value = (workflow?.steps ?? []).map(step => ({ id: `step-${nextId++}`, step: structuredClone(toRaw(step)) }))
   selected.value = 0
   error.value = ''
@@ -117,7 +135,7 @@ function drag(event: DragEvent, id: string) {
   event.dataTransfer.effectAllowed = 'copy'
 }
 async function save() {
-  if (busy.value || !name.value.trim() || !steps.value.length || missing.value || !dirty.value) return
+  if (busy.value || testing.value || !name.value.trim() || !steps.value.length || missing.value || !dirty.value) return
   busy.value = true
   error.value = ''
   try {
@@ -140,17 +158,73 @@ async function save() {
     busy.value = false
   }
 }
+async function testWorkflow() {
+  if (testing.value || busy.value || !steps.value.length || props.workspaceId) return
+  const snapshot: ActionWorkflowStep[] = JSON.parse(JSON.stringify(steps.value))
+  const generation = ++testGeneration
+  testing.value = true
+  testError.value = ''
+  testResult.value = null
+  testChecks.value = snapshot.map((step, index) => ({
+    step: index + 1,
+    processorDefinitionId: step.processorDefinitionId,
+    processorName: props.processors.find(processor => processor.id === step.processorDefinitionId)?.name ?? 'Unavailable processor',
+    ok: false, message: '', endpoint: null, state: 'PENDING'
+  }))
+  const results: StepCheck[] = []
+  try {
+    for (const [index, step] of snapshot.entries()) {
+      if (generation !== testGeneration) return
+      testChecks.value[index]!.state = 'CHECKING'
+      void nextTick(() => {
+        const list = testList.value
+        const active = list?.querySelector<HTMLElement>('[data-check-state="CHECKING"]')
+        if (!list || !active) return
+        const top = active.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop
+        if (top < list.scrollTop) list.scrollTop = top
+        else if (top + active.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = top + active.offsetHeight - list.clientHeight
+      })
+      // Keep fast checks visible long enough to show which processor is being tested.
+      const minimumDisplay = new Promise<void>(resolve => setTimeout(resolve, 350))
+      let check: StepCheck
+      try {
+        const result = await $fetch<ActionWorkflowTest>('/api/admin/actions/workflows/test', { method: 'POST', body: { steps: [step] } })
+        if (!result.steps[0]) throw new Error('The processor check returned no result.')
+        check = { ...result.steps[0], step: index + 1 }
+      } catch (cause) {
+        check = {
+          step: index + 1, processorDefinitionId: step.processorDefinitionId,
+          processorName: testChecks.value[index]?.processorName ?? 'Unavailable processor',
+          ok: false, endpoint: null,
+          message: extractApiErrorDetails(cause, 'Could not check this processor.').message
+        }
+      }
+      await minimumDisplay
+      if (generation !== testGeneration) return
+      results.push(check)
+      testChecks.value[index] = { ...check, state: check.ok ? 'PASSED' : 'FAILED' }
+    }
+    testResult.value = { ok: results.every(step => step.ok), steps: results }
+  } catch (cause) {
+    if (generation === testGeneration) testError.value = extractApiErrorDetails(cause, 'Could not test workflow.').message
+  } finally {
+    testing.value = false
+  }
+}
 function beforeUnload(event: BeforeUnloadEvent) {
   if (dirty.value) event.preventDefault()
 }
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
-onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
+onBeforeUnmount(() => {
+  testGeneration++
+  window.removeEventListener('beforeunload', beforeUnload)
+})
 defineExpose({ dirty, busy })
 </script>
 
 <template>
   <section
-    class="overflow-hidden rounded-xl border border-default bg-default"
+    class="overflow-hidden rounded-sm border border-default bg-default"
     aria-label="Workflow editor"
     @keydown="keyboard"
   >
@@ -177,36 +251,147 @@ defineExpose({ dirty, busy })
           size="sm"
         />
       </div>
-      <div class="flex items-center gap-3 pt-1">
-        <div class="flex gap-1">
+      <Teleport :to="toolbarTarget || 'body'" :disabled="!toolbarTarget">
+        <div class="flex items-center gap-2" :class="{ 'pt-1': !toolbarTarget }">
+          <div class="flex gap-1">
+            <UButton
+              icon="i-lucide-undo-2"
+              aria-label="Undo workflow change"
+              title="Undo (⌘/Ctrl Z)"
+              color="neutral"
+              variant="ghost"
+              :disabled="busy || !undoStack.length"
+              @click="undo"
+            />
+            <UButton
+              icon="i-lucide-redo-2"
+              aria-label="Redo workflow change"
+              title="Redo (⌘/Ctrl Shift Z)"
+              color="neutral"
+              variant="ghost"
+              :disabled="busy || !redoStack.length"
+              @click="redo"
+            />
+          </div>
+          <span class="text-xs text-muted" role="status">{{ busy ? 'Saving…' : dirty ? 'Unsaved changes' : workflow ? 'All changes saved' : 'New workflow' }}</span>
+          <UPopover
+            v-if="!workspaceId"
+            v-model:open="testOpen"
+            :content="{ align: 'end', side: 'bottom', sideOffset: 10 }"
+            :ui="{ content: 'rounded-[22px] bg-default p-1.5 shadow-xl ring-1 ring-default' }"
+          >
+            <UButton
+              label="Test workflow"
+              :icon="testing ? 'i-lucide-loader-circle' : 'i-lucide-heart-pulse'"
+              :ui="{ leadingIcon: testing ? 'animate-spin motion-reduce:animate-none' : '' }"
+              color="neutral"
+              variant="outline"
+              :disabled="busy || !steps.length"
+              @click="!testResult && testWorkflow()"
+            />
+            <template #content>
+              <section class="w-[420px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-default bg-default" aria-label="Workflow test results" aria-live="polite">
+                <div class="rounded-2xl border-b border-default bg-muted/50 p-1.5">
+                  <div class="flex items-start gap-3 p-3">
+                    <span class="flex size-11 shrink-0 items-center justify-center rounded-xl border border-default bg-default shadow-xs"><UIcon name="i-lucide-workflow" class="size-5 text-highlighted" /></span>
+                    <div class="min-w-0 flex-1 pt-0.5">
+                      <h3 class="text-sm font-semibold text-highlighted">
+                        Workflow check
+                      </h3>
+                      <p class="mt-1 truncate text-xs text-muted">
+                        {{ name || 'Untitled workflow' }}
+                      </p>
+                    </div>
+                    <UButton
+                      icon="i-lucide-x"
+                      aria-label="Close workflow report"
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      @click="testOpen = false"
+                    />
+                  </div>
+                  <div class="flex items-center gap-4 rounded-xl border border-default bg-default px-3 py-3 shadow-xs">
+                    <div class="min-w-0 flex-1 space-y-2">
+                      <div class="flex items-center justify-between gap-3 text-xs">
+                        <span class="font-medium text-highlighted">{{ testing ? 'Checking processors' : testError ? 'Check unavailable' : testResult?.ok ? 'Endpoints verified' : 'Review failed steps' }}</span>
+                        <span class="shrink-0 text-muted">{{ testing ? `${completedSteps} of ${testedStepCount}` : `${passedSteps} of ${testedStepCount}` }}</span>
+                      </div>
+                      <UProgress
+                        :model-value="testing ? completedSteps : passedSteps"
+                        :max="Math.max(1, testedStepCount)"
+                        size="sm"
+                        color="neutral"
+                        aria-label="Workflow checks completed"
+                      />
+                    </div>
+                    <UButton
+                      label="Run again"
+                      color="neutral"
+                      variant="outline"
+                      size="sm"
+                      :loading="testing"
+                      :disabled="busy || !steps.length"
+                      @click="testWorkflow"
+                    />
+                  </div>
+                </div>
+                <div class="flex items-center justify-between gap-3 border-b border-default px-4 py-3">
+                  <span class="text-sm text-muted">Status</span>
+                  <UBadge
+                    :color="testing ? 'warning' : testError ? 'error' : testResult?.ok ? 'success' : 'warning'"
+                    variant="subtle"
+                    class="rounded-full"
+                    :icon="testing ? 'i-lucide-loader-circle' : testResult?.ok ? 'i-lucide-circle-check' : 'i-lucide-circle-alert'"
+                  >
+                    {{ testing ? 'Checking' : testError ? 'Failed' : testResult?.ok ? 'Passed' : 'Needs attention' }}
+                  </UBadge>
+                </div>
+                <p v-if="testError" class="px-4 py-4 text-sm text-error">
+                  {{ testError }}
+                </p>
+                <div v-if="testChecks.length" ref="testList" class="max-h-[min(45vh,440px)] divide-y divide-default overflow-y-auto">
+                  <div
+                    v-for="step in testChecks"
+                    :key="step.step"
+                    :data-check-state="step.state"
+                    class="flex items-start gap-3 px-4 py-3"
+                  >
+                    <span class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-[11px] font-medium text-muted">{{ step.step }}</span>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-xs font-medium text-highlighted">
+                        {{ step.processorName }}
+                      </p>
+                      <p class="mt-1 text-xs leading-relaxed text-muted">
+                        {{ step.message || (step.state === 'CHECKING' ? 'Checking endpoint and configuration…' : 'Waiting to check') }}
+                      </p>
+                      <p v-if="step.endpoint" class="mt-1 text-[11px] tabular-nums text-dimmed">
+                        {{ step.endpoint.durationMillis }}ms
+                      </p>
+                    </div>
+                    <UIcon
+                      :name="step.state === 'CHECKING' ? 'i-lucide-loader-circle' : step.state === 'PENDING' ? 'i-lucide-circle-dashed' : step.ok ? 'i-lucide-circle-check' : 'i-lucide-circle-alert'"
+                      :aria-label="step.state === 'CHECKING' ? 'Checking' : step.state === 'PENDING' ? 'Pending' : step.ok ? 'Passed' : 'Failed'"
+                      class="mt-0.5 size-4 shrink-0"
+                      :class="step.state === 'CHECKING' ? 'animate-spin text-primary motion-reduce:animate-none' : step.state === 'PENDING' ? 'text-dimmed' : step.ok ? 'text-success' : 'text-warning'"
+                    />
+                  </div>
+                </div>
+                <p class="border-t border-default bg-muted/20 px-4 py-3 text-[11px] leading-relaxed text-muted">
+                  No pages are processed. Availability, permissions and page inputs are checked when running.
+                </p>
+              </section>
+            </template>
+          </UPopover>
           <UButton
-            icon="i-lucide-undo-2"
-            aria-label="Undo workflow change"
-            title="Undo (⌘/Ctrl Z)"
-            color="neutral"
-            variant="ghost"
-            :disabled="busy || !undoStack.length"
-            @click="undo"
-          />
-          <UButton
-            icon="i-lucide-redo-2"
-            aria-label="Redo workflow change"
-            title="Redo (⌘/Ctrl Shift Z)"
-            color="neutral"
-            variant="ghost"
-            :disabled="busy || !redoStack.length"
-            @click="redo"
+            :label="toolbarTarget ? 'Save' : 'Save workflow'"
+            icon="i-lucide-save"
+            :loading="busy"
+            :disabled="testing || !dirty || !name.trim() || !steps.length || missing"
+            @click="save"
           />
         </div>
-        <span class="text-xs text-muted" role="status">{{ busy ? 'Saving…' : dirty ? 'Unsaved changes' : workflow ? 'All changes saved' : 'New workflow' }}</span>
-        <UButton
-          label="Save workflow"
-          icon="i-lucide-save"
-          :loading="busy"
-          :disabled="!dirty || !name.trim() || !steps.length || missing"
-          @click="save"
-        />
-      </div>
+      </Teleport>
     </div>
     <UAlert
       v-if="error"

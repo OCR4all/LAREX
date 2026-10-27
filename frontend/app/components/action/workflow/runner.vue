@@ -3,7 +3,6 @@ import type { ActionRunImpact, ExecutableActionProcessor } from '~/types/action'
 import type { ActionWorkflow, ActionWorkflowRun, ActionWorkflowStep } from '~/types/action-workflow'
 import { extractApiErrorDetails } from '~/utils/api-error'
 import { annotationLevelLabels } from '~/utils/action-impact'
-import { actionRunStatusLabel } from '~/utils/action-run-status'
 
 const props = defineProps<{
   workspaceId: string
@@ -16,7 +15,6 @@ const props = defineProps<{
 const emit = defineEmits<{ started: [], busy: [value: boolean] }>()
 const store = useActionRunsStore()
 const workflows = ref<ActionWorkflow[]>([])
-const runs = ref<ActionWorkflowRun[]>([])
 const selectedId = ref('')
 const contextProcessors = ref<ExecutableActionProcessor[]>([])
 const loadingProcessors = ref(false)
@@ -28,12 +26,9 @@ const scope = ref<'selection' | 'all'>(props.pageIds.length ? 'selection' : 'all
 const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
-const historyError = ref('')
 const impact = ref<ActionRunImpact | null>(null)
 const excluded = ref<string[]>([])
 let generation = 0
-let polling = false
-let disposed = false
 const selected = computed(() => workflows.value.find(workflow => workflow.id === selectedId.value))
 const processorResponses = computed(() => [...new Map([...props.processors, ...contextProcessors.value].map(item => [item.processor.id, item])).values()])
 const processorDefinitions = computed(() => processorResponses.value.map(item => item.processor))
@@ -94,21 +89,6 @@ async function load() {
     if (request === generation) error.value = extractApiErrorDetails(cause, 'Could not load workflows.').message
   } finally { if (request === generation) loading.value = false }
 }
-async function refreshRuns() {
-  if (polling || disposed) return
-  polling = true
-  const request = generation
-  try {
-    const result = await $fetch<ActionWorkflowRun[]>(base.value)
-    if (request !== generation) return
-    runs.value = result
-    historyError.value = ''
-    // One batched request feeds the existing progress panel and page-result refresh machinery.
-    if (result.length) await store.refreshProjectRuns(props.workspaceId, props.projectId, props.projectName)
-  } catch (cause) {
-    if (request === generation) historyError.value = extractApiErrorDetails(cause, 'Could not refresh workflow runs.').message
-  } finally { polling = false }
-}
 async function review() {
   if (!selected.value || busy.value || !processorsReady.value || loadingProcessors.value || blocked.value.length) return
   busy.value = true
@@ -128,25 +108,13 @@ async function start() {
   busy.value = true
   error.value = ''
   try {
-    await $fetch<ActionWorkflowRun>(base.value, { method: 'POST', body: { ...body(), pageIds: included.value.map(page => page.pageId) } })
+    const run = await $fetch<ActionWorkflowRun>(base.value, { method: 'POST', body: { ...body(), pageIds: included.value.map(page => page.pageId) } })
+    store.upsertWorkflowRun(run, props.projectName || props.projectId)
     resetReview()
+    void store.refreshProjectRuns(props.workspaceId, props.projectId, props.projectName).catch(() => {})
     emit('started')
-    await refreshRuns()
   } catch (cause) {
     error.value = extractApiErrorDetails(cause, 'Could not start workflow.').message
-  } finally {
-    busy.value = false
-  }
-}
-async function cancel(run: ActionWorkflowRun) {
-  if (busy.value) return
-  busy.value = true
-  error.value = ''
-  try {
-    await $fetch(`${base.value}/${run.id}/cancel`, { method: 'POST' })
-    await refreshRuns()
-  } catch (cause) {
-    error.value = extractApiErrorDetails(cause, 'Could not cancel workflow.').message
   } finally {
     busy.value = false
   }
@@ -157,34 +125,10 @@ function updateStep(step: ActionWorkflowStep) {
 function include(pageId: string, value: boolean) {
   excluded.value = value ? excluded.value.filter(id => id !== pageId) : [...excluded.value, pageId]
 }
-function stepStatus(run: ActionWorkflowRun, index: number) {
-  if (run.status === 'COMPLETED' || index < run.stepRunIds.length - 1) return 'Completed'
-  const id = run.stepRunIds[index]
-  if (!id) return run.completedAt ? 'Not run' : 'Waiting'
-  const child = store.runsById.get(id)
-  if (child) return actionRunStatusLabel(child.status)
-  if (run.status === 'CANCELLED') return 'Cancelled'
-  if (run.status === 'FAILED') return 'Stopped'
-  return 'Loading…'
-}
-function progress(run: ActionWorkflowRun) {
-  if (run.status === 'COMPLETED') return run.steps.length
-  return Math.max(0, run.stepRunIds.length - 1) + (store.runsById.get(run.stepRunIds.at(-1) ?? '')?.status === 'COMPLETED' ? 1 : 0)
-}
-let timer: ReturnType<typeof setInterval> | undefined
-onMounted(async () => {
-  await load()
-  await refreshRuns()
-  if (disposed) return
-  timer = setInterval(() => {
-    if (!document.hidden) void refreshRuns()
-  }, 4000)
-})
+onMounted(load)
 onBeforeUnmount(() => {
-  disposed = true
   processorGeneration++
   generation++
-  clearInterval(timer)
   emit('busy', false)
 })
 </script>
@@ -256,12 +200,6 @@ onBeforeUnmount(() => {
           </p>
         </div>
       </div>
-      <UAlert
-        color="info"
-        variant="subtle"
-        title="Runs one step at a time"
-        description="Each step starts after the previous step’s results have been imported. Workflows stop on failure, cancellation, or completion with issues. Page locks apply to each individual step."
-      />
       <UButton
         v-if="!impact"
         label="Review workflow"
@@ -315,64 +253,5 @@ onBeforeUnmount(() => {
       :description="error"
       color="error"
     />
-    <section class="space-y-3 border-t border-default pt-5" aria-label="Workflow run history">
-      <div class="flex items-center justify-between gap-3">
-        <h3 class="font-semibold">
-          Workflow runs
-        </h3>
-        <UButton
-          label="Refresh"
-          icon="i-lucide-refresh-cw"
-          size="sm"
-          variant="ghost"
-          :disabled="busy"
-          @click="refreshRuns"
-        />
-      </div>
-      <UAlert
-        v-if="historyError"
-        title="History unavailable"
-        :description="historyError"
-        color="error"
-      />
-      <p v-if="!runs.length" class="text-sm text-muted">
-        No workflow runs yet.
-      </p>
-      <div v-for="run in runs.slice(0, 10)" :key="run.id" class="space-y-2 rounded-lg border border-default p-4">
-        <div class="flex items-center justify-between gap-3">
-          <p class="font-medium">
-            {{ run.workflowName }}
-          </p>
-          <UBadge :color="run.status === 'COMPLETED' ? 'success' : run.status === 'FAILED' ? 'error' : 'neutral'" variant="subtle">
-            {{ actionRunStatusLabel(run.status) }}
-          </UBadge>
-        </div>
-        <p class="text-sm text-muted">
-          {{ progress(run) }} / {{ run.steps.length }} steps completed · {{ run.pageIds.length }} pages
-        </p>
-        <ol class="space-y-1 text-xs text-muted">
-          <li v-for="(step, index) in run.steps" :key="index">
-            {{ index + 1 }}. {{ processorDefinitions.find(processor => processor.id === step.processorDefinitionId)?.name ?? 'Processor' }}
-            · {{ stepStatus(run, index) }}
-          </li>
-        </ol>
-        <p v-if="run.errorMessage" class="text-sm text-error">
-          {{ run.errorMessage }}
-        </p>
-        <UButton
-          v-if="run.canCancel"
-          label="Cancel workflow"
-          color="error"
-          variant="outline"
-          size="sm"
-          :loading="busy"
-          :disabled="run.status === 'CANCEL_REQUESTED'"
-          @click="cancel(run)"
-        />
-      </div>
-      <p v-if="runs.length" class="text-xs text-muted">
-        Individual step logs and reports are available in Action history.
-      </p>
-    </section>
   </div>
 </template>

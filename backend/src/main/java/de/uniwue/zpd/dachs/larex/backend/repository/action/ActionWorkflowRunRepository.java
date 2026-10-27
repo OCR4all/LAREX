@@ -10,6 +10,8 @@ import java.util.Optional;
 public interface ActionWorkflowRunRepository extends JpaRepository<ActionWorkflowRun, String> {
     List<ActionWorkflowRun> findByWorkspaceIdAndProjectIdOrderByCreatedDesc(String workspaceId, String projectId, Pageable pageable);
 
+    List<ActionWorkflowRun> findByWorkspaceIdOrderByCreatedDesc(String workspaceId, Pageable pageable);
+
     List<ActionWorkflowRun> findByWorkflowIdOrderByCreatedDesc(String workflowId, Pageable pageable);
 
     boolean existsByWorkflowIdAndStatusIn(String workflowId, List<String> statuses);

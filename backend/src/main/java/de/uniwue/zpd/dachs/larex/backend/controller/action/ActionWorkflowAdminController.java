@@ -36,6 +36,10 @@ public class ActionWorkflowAdminController {
                                                @AuthenticationPrincipal(expression = "subject") String userId) {
         return workflows.save(null, null, request, userId);
     }
+    @PostMapping("/test")
+    public ActionWorkflowDto.TestResponse test(@Valid @RequestBody ActionWorkflowDto.TestRequest request) {
+        return workflows.test(request);
+    }
     @PutMapping("/{id}")
     public ActionWorkflowDto.Definition update(@PathVariable String id, @Valid @RequestBody ActionWorkflowDto.SaveRequest request,
                                                @AuthenticationPrincipal(expression = "subject") String userId) {

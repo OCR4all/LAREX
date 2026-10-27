@@ -259,13 +259,6 @@ function saveScope() {
           </div>
           <div class="flex gap-2">
             <UButton
-              label="Build workflow"
-              icon="i-lucide-workflow"
-              variant="outline"
-              :disabled="loading || !!loadError"
-              @click="workflowBuilder?.create()"
-            />
-            <UButton
               label="Add Actions"
               icon="i-lucide-plus"
               :disabled="loading || !!loadError"

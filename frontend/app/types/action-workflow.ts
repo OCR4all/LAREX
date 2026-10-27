@@ -1,5 +1,5 @@
 import type { KnownImageType } from './image'
-import type { ActionImageVariantSelection, ActionParameterValue } from './action'
+import type { ActionHealthCheckResponse, ActionImageVariantSelection, ActionParameterValue } from './action'
 
 export interface ActionWorkflowStep {
   processorDefinitionId: string
@@ -19,10 +19,26 @@ export interface ActionWorkflow {
   global?: boolean
 }
 
+export interface ActionWorkflowTest {
+  ok: boolean
+  steps: {
+    step: number
+    processorDefinitionId: string
+    processorName: string
+    ok: boolean
+    message: string
+    endpoint: ActionHealthCheckResponse | null
+  }[]
+}
+
 export interface ActionWorkflowRun {
   id: string
   workflowId: string
   workflowName: string
+  workspaceId: string
+  projectId: string
+  createdByUserId: string
+  stepNames: string[]
   status: 'RUNNING' | 'CANCEL_REQUESTED' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
   steps: ActionWorkflowStep[]
   pageIds: string[]

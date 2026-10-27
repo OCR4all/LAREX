@@ -25,11 +25,19 @@ public final class ActionWorkflowDto {
     public record Definition(String id, String name, String description, boolean enabled,
                              List<Step> steps, Long version, String processorDefinitionId, boolean global) {}
 
+    public record TestRequest(@NotNull @Size(min = 1, max = 30) List<@NotNull @Valid Step> steps) {}
+
+    public record StepCheck(int step, String processorDefinitionId, String processorName,
+                            boolean ok, String message, ActionDto.HealthCheckResponse endpoint) {}
+
+    public record TestResponse(boolean ok, List<StepCheck> steps) {}
+
     // Overrides are positional: repeated occurrences of a processor have independent parameters.
     public record StartRequest(@NotBlank String workflowId, @NotNull Long version,
                                List<String> pageIds, @Size(min = 1, max = 30) List<@NotNull @Valid Step> steps) {}
 
     public record Run(String id, String workflowId, String workflowName, String status,
                       List<Step> steps, List<String> pageIds, List<String> stepRunIds,
-                      String errorMessage, boolean canCancel, LocalDateTime created, LocalDateTime completedAt) {}
+                      String errorMessage, boolean canCancel, LocalDateTime created, LocalDateTime completedAt,
+                      String workspaceId, String projectId, String createdByUserId, List<String> stepNames) {}
 }

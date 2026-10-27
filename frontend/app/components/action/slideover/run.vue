@@ -92,6 +92,7 @@ const actionTableColumns = [
   { id: 'name', header: 'Action', enableHiding: false, meta: { class: { th: 'w-44' } } },
   { id: 'description', header: 'Description', enableHiding: false },
   { id: 'tags', header: 'Tags', enableHiding: false, meta: { class: { th: 'w-36' } } },
+  { id: 'type', header: 'Type', enableHiding: false, meta: { class: { th: 'w-28' } } },
   { id: 'actions', header: '', enableHiding: false, meta: { class: { th: 'w-12', td: 'w-12' } } }
 ]
 const imageVariantMode = ref<'global' | 'perPage'>('global')
@@ -107,6 +108,7 @@ const changed = ref(false)
 const expandedRunIds = ref<string[]>([])
 const loadingRunDetailIds = ref<string[]>([])
 const runDetails = ref<Record<string, ActionRunDetail>>({})
+const historyType = ref('actions')
 const runHistoryPage = ref(1)
 const runHistoryItemsPerPage = ref(5)
 
@@ -290,7 +292,7 @@ const navigationBusy = computed(() => starting.value || impactLoading.value || w
 const viewTitle = computed(() => impact.value ? 'Review affected pages' : view.value === 'history' ? 'Project run history' : view.value === 'workflow' ? 'Run workflow' : 'Run Action')
 const viewDescription = computed(() => view.value === 'choose'
   ? `Choose an Action for ${targetSummary.value}.`
-  : view.value === 'history' ? 'Previous Action runs for this project.' : view.value === 'workflow' ? 'Run a saved sequence of Actions.' : 'Configure this Action and start the run.')
+  : view.value === 'history' ? 'Previous Action and workflow runs for this project.' : view.value === 'workflow' ? 'Run a saved sequence of Actions.' : 'Configure this Action and start the run.')
 const lockNote = computed(() => {
   if (selectedProcessor.value?.processor.lockMode === 'PROJECT') return 'Locks the full project while running.'
   if (selectedProcessor.value?.processor.lockMode === 'PAGES') return 'Locks these pages while running.'
@@ -304,6 +306,7 @@ function changeAction() {
 function openHistory() {
   if (navigationBusy.value || view.value === 'history') return
   historyReturnView.value = view.value
+  historyType.value = view.value === 'workflow' ? 'workflows' : 'actions'
   resetReview()
   view.value = 'history'
 }
@@ -538,10 +541,7 @@ async function loadProcessors() {
 
 async function loadRuns() {
   try {
-    runs.value = await $fetch<ActionRun[]>(
-      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs`
-    )
-    actionRunsStore.upsertRuns(runs.value, props.projectName || props.projectId)
+    runs.value = await actionRunsStore.refreshProjectRuns(props.workspaceId, props.projectId, props.projectName || props.projectId)
     for (const run of runs.value) {
       const detail = runDetails.value[run.id]
       if (detail) {
@@ -932,6 +932,11 @@ function formatRunDetailLogs(run: ActionRun) {
   return detail ? formatRunLogs(detail) : 'No logs recorded.'
 }
 
+function workflowStarted() {
+  changed.value = true
+  emit('close', true)
+}
+
 function close() {
   if (workflowBusy.value) return
   resetReview()
@@ -943,7 +948,7 @@ function close() {
   <UiResponsiveSlideover
     side="right"
     :header-accent="view !== 'history' || !!impact"
-    :ui="{ content: 'max-w-3xl xl:max-w-4xl' }"
+    :ui="{ content: 'max-w-none xl:max-w-6xl' }"
     :close="{ onClick: close }"
   >
     <template #header>
@@ -964,7 +969,7 @@ function close() {
           :disabled="navigationBusy"
           @click="openHistory"
         >
-          History ({{ runs.length }})
+          History
         </UButton>
       </div>
     </template>
@@ -1070,6 +1075,12 @@ function close() {
             :disabled="workflowBusy"
             @click="view = 'choose'"
           />
+          <UAlert
+            color="info"
+            variant="subtle"
+            title="Runs one step at a time"
+            description="Each step starts after the previous step’s results have been imported. Workflows stop on failure, cancellation, or completion with issues. Page locks apply to each individual step."
+          />
           <ActionWorkflowRunner
             :workspace-id="workspaceId"
             :project-id="projectId"
@@ -1078,19 +1089,10 @@ function close() {
             :processors="processors"
             :initial-workflow-id="selectedWorkflowId"
             @busy="workflowBusy = $event"
-            @started="changed = true; loadRuns()"
+            @started="workflowStarted"
           />
         </template>
         <template v-else-if="view === 'choose'">
-          <UButton
-            v-if="targetType === 'PAGE'"
-            label="Run a workflow"
-            icon="i-lucide-workflow"
-            color="neutral"
-            variant="outline"
-            class="mb-4"
-            @click="selectedWorkflowId = ''; view = 'workflow'"
-          />
           <div class="space-y-3">
             <div class="flex flex-wrap gap-2">
               <UInput
@@ -1118,7 +1120,7 @@ function close() {
               :infinite-scroll="infiniteScroll"
               :loading="loading"
               :get-row-id="(item: ExecutableActionProcessorResponse) => item.processor.id"
-              :ui="{ base: 'w-full min-w-[36rem] table-fixed border-separate border-spacing-0', td: 'border-b border-default whitespace-normal align-top' }"
+              :ui="{ base: 'w-full min-w-[44rem] table-fixed border-separate border-spacing-0', td: 'border-b border-default whitespace-normal align-top' }"
               :meta="{ class: { tr: (row: { original: ExecutableActionProcessorResponse }) => row.original.executable ? 'cursor-pointer hover:bg-accented/50! focus-visible:bg-accented/50' : 'cursor-not-allowed opacity-60' } }"
               @select="(_event: Event, row: { original: ExecutableActionProcessorResponse }) => selectAction(row.original)"
               @keydown.enter="activateActionRow"
@@ -1171,6 +1173,11 @@ function close() {
                   </UBadge>
                 </div>
                 <span v-else>—</span>
+              </template>
+              <template #type-cell="{ row }">
+                <UBadge color="neutral" variant="subtle">
+                  {{ row.original.processor.workflowId ? 'Workflow' : 'Action' }}
+                </UBadge>
               </template>
               <template #loading>
                 <p role="status" class="py-6 text-left text-muted">
@@ -1453,7 +1460,19 @@ function close() {
           >
             Back
           </UButton>
-          <div class="space-y-3">
+          <UTabs
+            v-model="historyType"
+            :items="[{ label: 'Actions', value: 'actions' }, { label: 'Workflows', value: 'workflows' }]"
+            :content="false"
+            color="neutral"
+          />
+          <ActionWorkflowRunHistory
+            v-if="historyType === 'workflows'"
+            :workspace-id="workspaceId"
+            :project-id="projectId"
+            :project-name="projectName"
+          />
+          <div v-else class="space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <p class="text-xs text-muted">
                 {{ runs.length }} run{{ runs.length === 1 ? '' : 's' }}

@@ -273,13 +273,7 @@ function replaceEditorContent(content: string) {
 }
 
 function createWorkflow() {
-  if (!canLeaveWorkflow()) return
-  newWorkflow.value = true
-  workflowDirty.value = false
-  selectedId.value = null
-  isRunsPanelVisible.value = false
-  editorView?.destroy()
-  editorView = null
+  createNewDefinition(true)
 }
 
 onBeforeRouteLeave(() => canLeaveWorkflow())
@@ -290,10 +284,19 @@ function canLeaveWorkflow() {
 }
 
 async function workflowSaved(workflow: ActionWorkflow) {
+  const draftId = isDraftSelected.value ? selectedId.value : null
   workflowDirty.value = false
   await refresh()
+  if (draftId && draftDefinition.value?.id === draftId) draftDefinition.value = null
   const definition = definitions.value.find(item => item.id === workflow.processorDefinitionId)
   if (definition) selectDefinition(definition)
+}
+
+function workflowMetadata(value: { name: string, description: string }) {
+  if (isDraftSelected.value && draftDefinition.value?.workflowId) {
+    draftDefinition.value.name = value.name
+    draftDefinition.value.description = value.description
+  }
 }
 
 function selectDefinition(definition: ActionDefinitionResponse) {
@@ -324,17 +327,18 @@ function syncDefinitionSelectionFromRoute(items: ActionDefinitionResponse[] = de
   return true
 }
 
-function createNewDefinition() {
+function createNewDefinition(asWorkflow = false) {
   if (!canLeaveWorkflow()) return
-  newWorkflow.value = false
+  newWorkflow.value = asWorkflow
   workflowDirty.value = false
   const processorKey = generateRandomActionSlug(definitions.value.map(definition => definition.processorKey))
   const yaml = buildDraftActionYaml(processorKey)
   const draft: ActionDefinition = {
     id: `draft:${processorKey}`,
     processorKey,
-    name: processorKey,
-    description: `Describe what ${processorKey} does.`,
+    workflowId: asWorkflow ? `draft-workflow:${processorKey}` : undefined,
+    name: asWorkflow ? `workflow-${processorKey}` : processorKey,
+    description: asWorkflow ? '' : `Describe what ${processorKey} does.`,
     yaml,
     endpointUrl: 'http://processor:9000/dispatch',
     endpointTimeoutSeconds: 30,
@@ -369,7 +373,13 @@ function createNewDefinition() {
   runs.value = []
   auditEvents.value = []
   expandedAuditEventIds.value = []
-  void nextTick(() => replaceEditorContent(yaml))
+  if (asWorkflow) {
+    isRunsPanelVisible.value = false
+    editorView?.destroy()
+    editorView = null
+  } else {
+    void nextTick(() => replaceEditorContent(yaml))
+  }
 }
 
 function buildDraftActionYaml(processorKey: string) {
@@ -578,9 +588,10 @@ async function deleteSelectedAction() {
   const definition = selectedDefinition.value
   if (!definition) return
   if (isDraftSelected.value) {
+    const kind = definition.workflowId ? 'Workflow' : 'Action'
     const instance = confirmSlideover.open({
-      title: 'Discard Draft Action?',
-      message: `Discard unsaved Action "${definition.name}"?`,
+      title: `Discard Draft ${kind}?`,
+      message: `Discard unsaved ${kind.toLowerCase()} "${definition.name}"?`,
       confirmLabel: 'Discard Draft',
       confirmColor: 'warning',
       confirmIcon: 'i-lucide-trash-2'
@@ -634,6 +645,8 @@ async function deleteSelectedAction() {
 }
 
 function discardDraft() {
+  workflowDirty.value = false
+  newWorkflow.value = false
   draftDefinition.value = null
   const firstDefinition = definitions.value[0]
   if (firstDefinition) {
@@ -1126,7 +1139,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
           >
             Build workflow
           </UButton>
-          <UButton icon="i-lucide-plus" @click="createNewDefinition">
+          <UButton icon="i-lucide-plus" @click="createNewDefinition()">
             New Action
           </UButton>
           <UButton
@@ -1167,6 +1180,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
             color="neutral"
             variant="outline"
             :icon="selectedPersistedDefinition.enabled ? 'i-lucide-circle-pause' : 'i-lucide-circle-play'"
+            :disabled="workflowBusy || saving"
             @click="toggleDefinition(selectedPersistedDefinition)"
           >
             {{ selectedPersistedDefinition.enabled ? 'Disable' : 'Enable' }}
@@ -1296,6 +1310,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
               </div>
             </template>
           </UPopover>
+          <div v-show="selectedDefinition?.workflowId" id="admin-workflow-toolbar" class="flex items-center gap-2" />
           <UButton
             v-if="!newWorkflow && !selectedDefinition?.workflowId"
             color="primary"
@@ -1312,7 +1327,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
             variant="outline"
             icon="i-lucide-trash-2"
             :loading="deleting"
-            :disabled="saving || validating"
+            :disabled="saving || validating || workflowBusy"
             @click="deleteSelectedAction"
           >
             {{ isDraftSelected ? 'Discard' : 'Delete' }}
@@ -1421,7 +1436,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
           <div class="flex items-center justify-between gap-3 border-b border-default px-4 py-3 lg:px-5">
             <div class="min-w-0">
               <h2 class="truncate text-base font-semibold">
-                {{ newWorkflow ? 'Build workflow' : selectedDefinition?.name || 'New Action' }}
+                {{ selectedDefinition?.name || 'New Action' }}
               </h2>
               <p class="text-sm text-muted">
                 {{ newWorkflow || selectedDefinition?.workflowId ? 'Combine processors in a linear sequence. Configure availability using the Action controls.' : selectedDefinition?.description || 'Generic YAML v1 Action definition' }}
@@ -1441,11 +1456,15 @@ function lineColumnToOffset(source: string, line: number, column: number) {
             <ActionWorkflowDefinition
               v-if="newWorkflow || selectedDefinition?.workflowId"
               :key="selectedDefinition?.workflowId ?? 'new-workflow'"
-              :workflow-id="selectedDefinition?.workflowId ?? undefined"
+              :workflow-id="isDraftSelected ? undefined : selectedDefinition?.workflowId ?? undefined"
               :processors="definitions"
+              :initial-name="isDraftSelected ? selectedDefinition?.name : undefined"
+              :initial-description="isDraftSelected ? selectedDefinition?.description ?? '' : undefined"
+              toolbar-target="#admin-workflow-toolbar"
               @saved="workflowSaved"
               @dirty="workflowDirty = $event"
               @busy="workflowBusy = $event"
+              @metadata="workflowMetadata"
             />
             <div v-else class="flex flex-col gap-4">
               <section class="overflow-hidden rounded-sm border border-default bg-default">

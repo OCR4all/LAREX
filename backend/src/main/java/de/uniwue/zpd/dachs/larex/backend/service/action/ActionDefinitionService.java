@@ -754,6 +754,8 @@ public class ActionDefinitionService {
                     body
             );
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(endpointUri)
+                    // ASGI processor servers may reject h2c upgrades before reading the signed body.
+                    .version(HttpClient.Version.HTTP_1_1)
                     .timeout(endpointTestTimeout(definition))
                     .header("Content-Type", "application/json")
                     .header("Accept", "application/json")
@@ -893,6 +895,7 @@ public class ActionDefinitionService {
                     body
             );
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(endpointUri)
+                    .version(HttpClient.Version.HTTP_1_1)
                     .timeout(endpointTestTimeout(definition))
                     .header("Content-Type", "application/json")
                     .header("Accept", "application/json")

@@ -72,6 +72,7 @@ interface ReviewSetup {
   confirmReviewedRun: () => Promise<void>
   resetReview: () => void
   close: () => void
+  workflowStarted: () => void
   setPageIncluded: (pageId: string, included: boolean) => void
 }
 const exportsObject: { default?: { setup: (props: unknown, context: unknown) => ReviewSetup } } = {}
@@ -248,6 +249,11 @@ describe('Action run review flow', () => {
     fetch.mockResolvedValueOnce({ run: { id: 'integration-run', kind: 'INTEGRATION' } })
     await setup.confirmReviewedRun()
     expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('closes the slideover and signals project changes after a workflow starts', () => {
+    setup.workflowStarted()
+    expect(emit).toHaveBeenCalledWith('close', true)
   })
 
   it('always keeps the chooser open until an executable Action is explicitly chosen', async () => {
