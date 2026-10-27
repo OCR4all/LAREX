@@ -36,6 +36,7 @@ dependencies {
     implementation("org.keycloak:keycloak-admin-client:26.0.12")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("net.coobird:thumbnailator:0.4.20")
+	implementation("com.twelvemonkeys.imageio:imageio-webp:3.13.1")
 	implementation("org.apache.pdfbox:pdfbox:3.0.3")
 	implementation("org.apache.pdfbox:xmpbox:3.0.3")
 	implementation("org.apache.poi:poi-ooxml:5.4.1")

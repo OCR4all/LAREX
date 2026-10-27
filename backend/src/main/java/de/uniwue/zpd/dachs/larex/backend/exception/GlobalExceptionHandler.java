@@ -42,6 +42,15 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(de.uniwue.zpd.dachs.larex.backend.service.image.ImagePresentationException.class)
+    public ResponseEntity<ErrorResponseDto> handleImagePresentation(
+            de.uniwue.zpd.dachs.larex.backend.service.image.ImagePresentationException error, HttpServletRequest request) {
+        var response = ResponseEntity.status(error.status()).header("Cache-Control", "no-store");
+        if (error.status() == 503 || error.status() == 504) response.header("Retry-After", "2");
+        return response.body(new ErrorResponseDto(error.status(), "Image display unavailable", error.getMessage(),
+                request.getRequestURI(), List.of(), "IMAGE_PRESENTATION_FAILED"));
+    }
+
     @ExceptionHandler(InvalidPageXmlException.class)
     public ResponseEntity<ErrorResponseDto> handleInvalidPageXml(
             InvalidPageXmlException error, HttpServletRequest request) {

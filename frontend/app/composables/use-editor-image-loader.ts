@@ -1,3 +1,4 @@
+import { loadEditorImage } from '@/services/editor/editor-image'
 import type { PageData } from '@/stores/editor/types'
 import { createScopedLogger } from '@/services/editor/logger-service'
 
@@ -12,15 +13,11 @@ const pendingImageIds = ref(new Set<string>())
 const MAX_CACHED_IMAGES = 100
 const imageAccessOrder: string[] = []
 let activePrefetchBatchId = 0
-const pendingImageLoads = new Map<string, Promise<void>>()
+let prefetchController = new AbortController()
+const pendingCounts = new Map<string, number>()
 
-function preloadImage(url: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => resolve()
-    img.onerror = reject
-    img.src = url
-  })
+function preloadImage(url: string, signal?: AbortSignal, size: 'thumbnail' | 'detail' = 'detail'): Promise<void> {
+  return loadEditorImage(url, { priority: 'prefetch', signal, size }).then(() => {})
 }
 
 /**
@@ -42,6 +39,8 @@ function trackImageAccess(variantId: string) {
 }
 
 function createPrefetchBatchId(): number {
+  prefetchController.abort()
+  prefetchController = new AbortController()
   activePrefetchBatchId += 1
   return activePrefetchBatchId
 }
@@ -50,20 +49,16 @@ function isActivePrefetchBatch(batchId: number): boolean {
   return activePrefetchBatchId === batchId
 }
 
-function ensureImagePrefetch(variantId: string, url: string): Promise<void> {
-  const pending = pendingImageLoads.get(variantId)
-  if (pending) return pending
-
+function ensureImagePrefetch(variantId: string, url: string, signal?: AbortSignal): Promise<void> {
+  pendingCounts.set(variantId, (pendingCounts.get(variantId) ?? 0) + 1)
   pendingImageIds.value.add(variantId)
-
-  const request = preloadImage(url)
-    .finally(() => {
-      pendingImageLoads.delete(variantId)
+  return preloadImage(url, signal).finally(() => {
+    const count = (pendingCounts.get(variantId) ?? 1) - 1
+    if (count === 0) {
+      pendingCounts.delete(variantId)
       pendingImageIds.value.delete(variantId)
-    })
-
-  pendingImageLoads.set(variantId, request)
-  return request
+    } else pendingCounts.set(variantId, count)
+  })
 }
 
 async function prefetchImage(variantId: string, url: string): Promise<void> {
@@ -73,7 +68,7 @@ async function prefetchImage(variantId: string, url: string): Promise<void> {
   }
 
   try {
-    await ensureImagePrefetch(variantId, url)
+    await ensureImagePrefetch(variantId, url, prefetchController.signal)
     loadedImages.value.add(variantId)
     trackImageAccess(variantId)
   } catch (error) {
@@ -88,7 +83,7 @@ async function loadThumbnails(pages: PageData[]) {
 
   const promises = pagesToLoad.map(async (page) => {
     try {
-      await preloadImage(page.thumbnail!)
+      await preloadImage(page.thumbnail!, undefined, 'thumbnail')
       loadedThumbnails.value.add(page.id)
     } catch (error) {
       console.warn(`Failed to load thumbnail for page ${page.id}:`, error)
@@ -103,14 +98,14 @@ async function loadThumbnails(pages: PageData[]) {
  * Prefetch images for pages bidirectionally.
  * @param currentPageId - The current page ID to prefetch around
  * @param pages - All pages in the editor
- * @param forwardCount - Number of pages to prefetch ahead (default: 5)
- * @param backwardCount - Number of pages to prefetch behind (default: 3)
+ * @param forwardCount - Number of pages to prefetch ahead (default: 1)
+ * @param backwardCount - Number of pages to prefetch behind (default: 0)
  */
 async function prefetchImagesBidirectional(
   currentPageId: string,
   pages: PageData[],
-  forwardCount: number = 5,
-  backwardCount: number = 3
+  forwardCount: number = 1,
+  backwardCount: number = 0
 ) {
   const batchId = createPrefetchBatchId()
   const currentIndex = pages.findIndex(p => p.id === currentPageId)
@@ -128,9 +123,8 @@ async function prefetchImagesBidirectional(
     if (idx >= 0) indicesToPrefetch.push(idx)
   }
 
-  const promises: Promise<void>[] = []
-
   for (const idx of indicesToPrefetch) {
+    if (!isActivePrefetchBatch(batchId)) break
     const page = pages[idx]
     if (!page) continue
 
@@ -138,22 +132,18 @@ async function prefetchImagesBidirectional(
     if (!variant) continue
 
     if (!loadedImages.value.has(variant.id)) {
-      promises.push(
-        ensureImagePrefetch(variant.id, variant.url)
-          .then(() => {
-            if (!isActivePrefetchBatch(batchId)) return
-            loadedImages.value.add(variant.id)
-            trackImageAccess(variant.id)
-          })
-          .catch(err => log.debug(`Failed to prefetch ${variant.id}:`, err))
-      )
+      await ensureImagePrefetch(variant.id, variant.url, prefetchController.signal)
+        .then(() => {
+          if (!isActivePrefetchBatch(batchId)) return
+          loadedImages.value.add(variant.id)
+          trackImageAccess(variant.id)
+        })
+        .catch(err => log.debug(`Failed to prefetch ${variant.id}:`, err))
     } else {
       if (!isActivePrefetchBatch(batchId)) continue
       trackImageAccess(variant.id)
     }
   }
-
-  await Promise.allSettled(promises)
 }
 
 function isThumbnailLoaded(pageId: string): boolean {
@@ -182,6 +172,7 @@ export function useEditorImageLoader() {
     loadThumbnails,
     prefetchImage,
     prefetchImagesBidirectional,
+    cancelPrefetch: () => { createPrefetchBatchId() },
     isThumbnailLoaded,
     isPreviewUrlLoaded,
     markPreviewUrlLoaded,

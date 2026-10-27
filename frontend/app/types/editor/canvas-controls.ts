@@ -36,6 +36,7 @@ export interface EditorCanvasControls {
   commander: Commander
   isCanvasEditable: ComputedRef<boolean>
   pageLockReason: ComputedRef<string | null>
+  imageLoadStatus?: Ref<'idle' | 'loading' | 'ready' | 'error'>
 
   drawingMode: { value: DrawingMode }
   selectedPolygonIndex: Ref<number>

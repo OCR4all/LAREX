@@ -1,3 +1,4 @@
+import { loadEditorImage } from '@/services/editor/editor-image'
 import type { PageDto } from '@/services/editor/page-conversion.service'
 import { createScopedLogger } from '@/services/editor/logger-service'
 
@@ -20,6 +21,8 @@ const state = ref<PrefetchState>({
  * Prefetches annotations and images for selected pages before navigating to the editor.
  */
 export function usePagePrefetch() {
+  let imageController = new AbortController()
+  onScopeDispose(() => imageController.abort())
   /**
    * Prefetch annotations for a list of pages.
    * This is called when the user selects pages or hovers on "Open in Editor".
@@ -67,9 +70,13 @@ export function usePagePrefetch() {
   async function prefetchImages(projectId: string, pageIds: string[]): Promise<void> {
     if (!projectId || pageIds.length === 0) return
 
+    imageController.abort()
+    imageController = new AbortController()
+    const signal = imageController.signal
     const pagesToPrefetch = pageIds.slice(0, 3)
 
     for (const pageId of pagesToPrefetch) {
+      if (signal.aborted) return
       if (state.value.prefetchedImages.has(pageId)) continue
 
       try {
@@ -80,9 +87,9 @@ export function usePagePrefetch() {
         const firstImage = images[0]
         if (!firstImage) continue
 
-        const imageUrl = `/api/projects/${projectId}/pages/images/${firstImage.id}/blob`
+        const imageUrl = `/api/projects/${projectId}/pages/images/${firstImage.id}/presentation?size=detail`
 
-        await preloadImage(imageUrl)
+        await preloadImage(imageUrl, signal)
         state.value.prefetchedImages.add(pageId)
         log.debug(`Prefetched image for page ${pageId}`)
       } catch (error) {
@@ -92,15 +99,10 @@ export function usePagePrefetch() {
   }
 
   /**
-   * Helper to preload an image using the browser's Image API
+   * Preload through the shared image scheduler and cache.
    */
-  function preloadImage(url: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => resolve()
-      img.onerror = reject
-      img.src = url
-    })
+  function preloadImage(url: string, signal?: AbortSignal): Promise<void> {
+    return loadEditorImage(url, { priority: 'prefetch', signal }).then(() => {})
   }
 
   /**
@@ -148,6 +150,7 @@ export function usePagePrefetch() {
    * Clear all prefetched data (e.g., when switching projects)
    */
   function clear(): void {
+    imageController.abort()
     state.value.prefetchedAnnotations.clear()
     state.value.pendingPrefetches.clear()
     state.value.prefetchedImages.clear()

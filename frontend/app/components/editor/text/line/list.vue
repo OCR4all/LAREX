@@ -1497,6 +1497,7 @@ const sectionMenuItems = computed(() => {
                   <EditorTextLineItem
                     :textline="textline"
                     :image-url="effectiveImageUrl"
+                    :original-image="Boolean(effectiveCanvasId && editorStore.canvases[effectiveCanvasId]?.originalImage)"
                     :padding="padding"
                     :font-size="fontSize"
                     :cutout-height="cutoutHeight"

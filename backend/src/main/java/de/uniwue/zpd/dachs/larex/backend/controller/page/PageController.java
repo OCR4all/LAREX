@@ -1070,32 +1070,10 @@ public class PageController {
             @PathVariable String imageId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
-        try {
-            PageImage image = pageService.getImageById(imageId, userId);
-
-            if (image == null) {
-                return ResponseEntity.notFound().build();
-            }
-
-            // Try to serve thumbnail, fallback to full image if not available
-            String pathToServe = image.getThumbnailPath() != null ? image.getThumbnailPath() : image.getFilePath();
-            Path filePath = Paths.get(uploadDir).resolve(pathToServe);
-
-            if (!Files.exists(filePath)) {
-                return ResponseEntity.notFound().build();
-            }
-
-            FileSystemResource resource = new FileSystemResource(filePath);
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(image.getMimeType()))
-                    .header("Cache-Control", "public, max-age=86400")
-                    .header("Content-Length", String.valueOf(resource.contentLength()))
-                    .body(resource);
-
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        return ResponseEntity.status(HttpStatus.TEMPORARY_REDIRECT)
+                .header("Cache-Control", "no-store")
+                .header("Location", "/api/v1/projects/" + projectId + "/pages/images/" + imageId + "/presentation?size=thumbnail")
+                .build();
     }
 
     @GetMapping("/{pageId}/text-preview")

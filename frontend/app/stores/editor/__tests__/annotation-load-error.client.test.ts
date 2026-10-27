@@ -3,7 +3,7 @@ import { createPinia, setActivePinia, storeToRefs } from 'pinia'
 import { ref } from 'vue'
 import { useEditorStore } from '../editor.store'
 import { useEditorDocumentStore } from '../editor.document.store'
-import { clearAllEditorSessions } from '@/session/editor/editor-session'
+import { clearAllEditorSessions, getEditorSession } from '@/session/editor/editor-session'
 
 function setupPage(markLoaded = true) {
   useEditorDocumentStore().setProjectPages('project', [{
@@ -103,4 +103,19 @@ it('ignores late validation errors from an older page load', async () => {
 
   expect(store.getCanvas('canvas')?.annotationLoadError).toBeNull()
   expect(store.getCanvas('canvas')?.isLoadingAnnotations).toBe(false)
+})
+
+it('keeps original dimensions on the canvas that finished loading, independently of the active canvas', () => {
+  const store = setupPage()
+  store.registerCanvas('background')
+  store.registerCanvas('active')
+  store.setActiveCanvas('active')
+  const before = getEditorSession('active')!.document.value!.page
+  const activeSize = { width: before.imageWidth, height: before.imageHeight }
+  store.setImageSize(19218, 12623, 'background')
+  expect(store.getCanvas('background')?.imageSize).toEqual({ width: 19218, height: 12623 })
+  expect(getEditorSession('background')!.document.value!.page.imageWidth).toBe(19218)
+  expect(getEditorSession('active')!.document.value!.page.imageWidth).toBe(activeSize.width)
+  expect(getEditorSession('active')!.document.value!.page.imageHeight).toBe(activeSize.height)
+  expect(store.getCanvas('background')?.hasUnsavedChanges).toBe(false)
 })

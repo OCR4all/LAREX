@@ -1,3 +1,5 @@
+import { reserveRasterMemory, releaseRasterMemory } from '@/services/editor/raster-memory'
+import { loadEditorImage, type EditorImageOptions } from '@/services/editor/editor-image'
 import { ThickLineRenderer } from '@/webgl/editor/thick-line-renderer'
 import { DashedLineRenderer } from '@/webgl/editor/dashed-line-renderer'
 import { SelectionOverlayRenderer } from '@/webgl/editor/selection-overlay'
@@ -62,7 +64,7 @@ export interface UseWebGLRendererReturn {
   ) => void
   stopRenderLoop: () => void
 
-  loadAndRender: (src: string) => Promise<void>
+  loadAndRender: (src: string, options?: EditorImageOptions) => Promise<void>
 
   invalidateGeometry: (polygonId: string) => void
   invalidateMultipleGeometry: (polygonIds: string[]) => void
@@ -103,6 +105,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   let imageTexture: WebGLTexture | null = null
   let imageVao: WebGLVertexArrayObject | null = null
   let imageLoadSequence = 0
+  let imageLoadController: AbortController | null = null
   const imageSize = ref<ImageSize>({ width: 1, height: 1 })
 
   function getActiveDocument(): DocumentModel | undefined {
@@ -1846,17 +1849,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   /**
    * Image loading functions
    */
-  async function loadImage(src: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => resolve(img)
-      img.onerror = err => reject(err)
-      img.src = src
-    })
-  }
-
-  function updateTexture(img: HTMLImageElement): void {
+  function updateTexture(img: HTMLImageElement, originalSize: ImageSize, original = false): void {
     if (!gl || !imageTexture) return
 
     const width = img.naturalWidth
@@ -1868,7 +1861,6 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     try {
       // Large scans can exceed the GPU's per-dimension texture limit. Resize
       // only the display raster; page coordinates retain the original size.
-      // We should look into introducing image pyramids (lipvips) in the future
       if (width > maxTextureSize || height > maxTextureSize) {
         const scale = maxTextureSize / Math.max(width, height)
         resizedCanvas = document.createElement('canvas')
@@ -1882,12 +1874,18 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         source = resizedCanvas
       }
 
-      gl.bindTexture(gl.TEXTURE_2D, imageTexture)
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
+      const rollback = reserveRasterMemory(gl, resizedCanvas?.width ?? width, resizedCanvas?.height ?? height, !original)
+      try {
+        gl.bindTexture(gl.TEXTURE_2D, imageTexture)
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
+        if (gl.getError() !== 0) throw new Error('The graphics device could not allocate the image. Close another image view and retry.')
+      } catch (error) {
+        rollback()
+        throw error
+      }
 
-      imageSize.value.width = width
-      imageSize.value.height = height
+      imageSize.value = { ...originalSize }
     } finally {
       // Release the temporary CPU-side bitmap after the GPU upload.
       if (resizedCanvas) {
@@ -1897,12 +1895,14 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     }
   }
 
-  async function loadAndRender(src: string): Promise<void> {
+  async function loadAndRender(src: string, options?: EditorImageOptions): Promise<void> {
     const sequence = imageLoadSequence + 1
     imageLoadSequence = sequence
-    const img = await loadImage(src)
+    imageLoadController?.abort()
+    imageLoadController = new AbortController()
+    const { image, originalSize } = await loadEditorImage(src, { ...options, signal: imageLoadController.signal })
     if (sequence !== imageLoadSequence) return
-    updateTexture(img)
+    updateTexture(image, originalSize, options?.original)
   }
 
   function renderFrame(
@@ -1967,6 +1967,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
    */
   function cleanup(): void {
     imageLoadSequence += 1
+    imageLoadController?.abort()
+    if (gl) releaseRasterMemory(gl)
     stopRenderLoop()
 
     fillRenderer?.cleanup()

@@ -69,6 +69,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@iconify-json/tabler": "^1.2.42",
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/schema": "4.5.2",
     "@types/earcut": "^3.0.0",

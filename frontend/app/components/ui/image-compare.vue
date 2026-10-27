@@ -17,7 +17,31 @@ const props = withDefaults(defineProps<Props>(), {
   initialPosition: 50
 })
 
-function handleImageLoad(_e: Event) {}
+type ImageSide = 'left' | 'right'
+const states = reactive<Record<ImageSide, 'loading' | 'loaded' | 'error'>>({ left: 'loading', right: 'loading' })
+const attempts = reactive({ left: 0, right: 0 })
+const hasError = computed(() => states.left === 'error' || states.right === 'error')
+const isReady = computed(() => states.left === 'loaded' && states.right === 'loaded')
+watch(() => props.leftImage, () => {
+  states.left = 'loading'
+  attempts.left = 0
+})
+watch(() => props.rightImage, () => {
+  states.right = 'loading'
+  attempts.right = 0
+})
+function imageSource(side: ImageSide) {
+  const src = side === 'left' ? props.leftImage : props.rightImage
+  return attempts[side] ? `${src}${src.includes('?') ? '&' : '?'}_retry=${attempts[side]}` : src
+}
+function retry() {
+  for (const side of ['left', 'right'] as const) {
+    if (states[side] === 'error') {
+      states[side] = 'loading'
+      attempts[side]++
+    }
+  }
+}
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const sliderPosition = ref(props.initialPosition)
@@ -39,6 +63,7 @@ watch(mouseX, (x) => {
 })
 
 const handlePointerDown = (e: PointerEvent) => {
+  if (!isReady.value) return
   isDragging.value = true
   const relativeX = e.clientX - containerLeft.value
   sliderPosition.value = Math.max(0, Math.min(100, (relativeX / containerWidth.value) * 100))
@@ -73,13 +98,35 @@ const sliderLeft = computed(() => `${sliderPosition.value}%`)
     @pointerdown="handlePointerDown"
     @keydown="handleKeyDown"
   >
+    <div
+      v-if="!isReady"
+      class="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-default/90 text-muted"
+      :role="hasError ? 'alert' : 'status'"
+      @pointerdown.stop
+    >
+      <template v-if="hasError">
+        <UIcon name="i-lucide-image-off" class="size-6" />
+        <p class="text-sm">
+          Comparison image could not be loaded.
+        </p>
+        <UButton size="sm" color="neutral" @click.stop="retry">
+          Retry failed images
+        </UButton>
+      </template>
+      <template v-else>
+        <UIcon name="i-lucide-loader" class="size-6 animate-spin" />
+        <span class="text-sm">Loading comparison images…</span>
+      </template>
+    </div>
     <div class="absolute inset-0 overflow-hidden">
       <img
-        :src="rightImage"
+        :key="`${rightImage}:${attempts.right}`"
+        :src="imageSource('right')"
         :alt="rightAlt"
         draggable="false"
         class="pointer-events-none absolute top-0 left-1/2 h-full w-auto max-w-none -translate-x-1/2"
-        @load="handleImageLoad"
+        @load="states.right = 'loaded'"
+        @error="states.right = 'error'"
       >
     </div>
 
@@ -88,11 +135,13 @@ const sliderLeft = computed(() => `${sliderPosition.value}%`)
       :style="{ clipPath }"
     >
       <img
-        :src="leftImage"
+        :key="`${leftImage}:${attempts.left}`"
+        :src="imageSource('left')"
         :alt="leftAlt"
         draggable="false"
         class="pointer-events-none absolute top-0 left-1/2 h-full w-auto max-w-none -translate-x-1/2"
-        @load="handleImageLoad"
+        @load="states.left = 'loaded'"
+        @error="states.left = 'error'"
       >
     </div>
 

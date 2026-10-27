@@ -10,6 +10,7 @@ import * as inputGuards from '../../shared/text-input-guards'
 import * as readingDirection from '../reading-direction'
 import * as variantRenderKey from '../variant-render-key'
 import * as cutoutSizing from '../cutout-sizing'
+import * as editorImage from '@/services/editor/editor-image'
 import source from '../item.vue?raw'
 import { commentPopoverComponent, registerCommentControls } from '../../../../../../test/support/comment-popover'
 
@@ -33,7 +34,8 @@ const dependencies: Record<string, unknown> = {
   '../shared/text-input-guards': inputGuards,
   './reading-direction': readingDirection,
   './variant-render-key': variantRenderKey,
-  './cutout-sizing': cutoutSizing
+  './cutout-sizing': cutoutSizing,
+  '@/services/editor/editor-image': editorImage
 }
 const componentExports: { default?: Vue.Component, render?: Vue.ComponentOptions['render'] } = {}
 const autoImports = {
@@ -60,13 +62,14 @@ afterEach(() => {
   apps.splice(0).forEach(app => app.unmount())
   document.body.innerHTML = ''
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 async function mountLine(layout: 'vertical' | 'horizontal', focusMode: boolean, readOnly = false) {
   // The annotation has no image geometry; let the real visibility callback run
   // without attempting to load an image or draw a canvas.
   vi.stubGlobal('IntersectionObserver', undefined)
-  const textline = Vue.reactive({ id: 'line-1', comments: 'Check this transcription', points: [], textContentVariants: [] })
+  const textline = Vue.reactive({ id: 'line-1', comments: 'Check this transcription', points: [] as Array<{ x: number, y: number }>, textContentVariants: [] })
   const props = Vue.reactive({ textline, imageUrl: '', padding: 0, layout, focusMode, readOnly, showComments: false })
   const component = { ...componentExports.default, render: componentExports.render } as Vue.Component
   const app = Vue.createApp({
@@ -132,5 +135,26 @@ describe('textline comment visibility', () => {
     await Vue.nextTick()
     expect(host.querySelector('aside')?.textContent).toBe('Check this transcription')
     expect(host.querySelector('[aria-label="Has comment"]')).not.toBeNull()
+  })
+})
+
+describe('textline presentation cutouts', () => {
+  it('draws a bottom-right crop from a reduced raster using original image coordinates', async () => {
+    const drawImage = vi.fn()
+    const context = { drawImage, setTransform: vi.fn(), clearRect: vi.fn() }
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
+    const image = document.createElement('img')
+    Object.defineProperties(image, { naturalWidth: { value: 3200 }, naturalHeight: { value: 2102 } })
+    vi.spyOn(editorImage, 'loadEditorImage').mockResolvedValue({ image, originalSize: { width: 19218, height: 12623 } })
+    const { props, textline } = await mountLine('vertical', false)
+    props.imageUrl = '/api/projects/p/pages/images/scan/presentation?size=detail'
+    textline.points = [{ x: 18000, y: 12000 }, { x: 19000, y: 12000 }, { x: 19000, y: 12200 }, { x: 18000, y: 12200 }]
+    await vi.waitFor(() => expect(drawImage).toHaveBeenCalled())
+    const call = drawImage.mock.calls.at(-1)!
+    expect(call[0]).toBe(image)
+    expect(call[1]).toBeCloseTo(18000 / 19218 * 3200)
+    expect(call[2]).toBeCloseTo(12000 / 12623 * 2102)
+    expect(call[3]).toBeCloseTo(1000 / 19218 * 3200)
+    expect(call[4]).toBeCloseTo(200 / 12623 * 2102)
   })
 })

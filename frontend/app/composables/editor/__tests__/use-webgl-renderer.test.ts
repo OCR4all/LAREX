@@ -282,4 +282,18 @@ describe('WebGL raster image upload', () => {
     expect(renderer.imageSize.value).toEqual({ width, height })
     renderer.cleanup()
   })
+
+  it('loads a bounded presentation while keeping source dimensions for annotation coordinates', async () => {
+    const { renderer, uploads } = setupImageUpload(3200, 2102)
+    const fetch = vi.fn().mockResolvedValue(new Response(new Blob(['jpeg']), {
+      headers: { 'X-Original-Width': '19218', 'X-Original-Height': '12623' }
+    }))
+    vi.stubGlobal('fetch', fetch)
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:presentation', revokeObjectURL: vi.fn() })
+    await renderer.loadAndRender('/api/projects/project/pages/images/large-scan/blob')
+    expect(renderer.imageSize.value).toEqual({ width: 19218, height: 12623 })
+    expect(uploads).toEqual([{ width: 3200, height: 2102 }])
+    expect(fetch).toHaveBeenCalledWith('/api/projects/project/pages/images/large-scan/presentation?size=detail', expect.anything())
+    renderer.cleanup()
+  })
 })

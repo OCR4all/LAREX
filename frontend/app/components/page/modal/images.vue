@@ -138,82 +138,142 @@ function enterSelectionMode() {
 
 const lightboxOpen = ref(false)
 const lightboxImageIndex = ref(0)
+const lightboxOriginal = ref(false)
+const lightboxImageState = ref<'loading' | 'loaded' | 'error'>('loading')
+const lightboxLoadAttempt = ref(0)
 const lightboxScale = ref(1)
 const lightboxPosition = ref({ x: 0, y: 0 })
 const isDragging = ref(false)
 const dragStart = ref({ x: 0, y: 0 })
+const lightboxViewport = ref<HTMLElement | null>(null)
+const lightboxImageElement = ref<HTMLImageElement | null>(null)
 
 const lightboxImage = computed(() => pageImages.value[lightboxImageIndex.value])
 
 function openLightbox(image: PageImage) {
   const index = pageImages.value.findIndex(img => img.id === image.id)
   lightboxImageIndex.value = index >= 0 ? index : 0
-  lightboxScale.value = 1
-  lightboxPosition.value = { x: 0, y: 0 }
+  resetLightboxImage()
   lightboxOpen.value = true
 }
 
 function closeLightbox() {
+  isDragging.value = false
   lightboxOpen.value = false
 }
 
 function lightboxNext() {
   if (pageImages.value.length === 0) return
   lightboxImageIndex.value = (lightboxImageIndex.value + 1) % pageImages.value.length
-  resetLightboxView()
+  resetLightboxImage()
 }
 
 function lightboxPrev() {
   if (pageImages.value.length === 0) return
   lightboxImageIndex.value = (lightboxImageIndex.value - 1 + pageImages.value.length) % pageImages.value.length
+  resetLightboxImage()
+}
+
+function resetLightboxImage() {
+  lightboxOriginal.value = false
+  lightboxImageState.value = 'loading'
   resetLightboxView()
 }
 
+function toggleLightboxResolution() {
+  lightboxOriginal.value = !lightboxOriginal.value
+  lightboxImageState.value = 'loading'
+  resetLightboxView()
+}
+
+function retryLightboxImage() {
+  lightboxImageState.value = 'loading'
+  lightboxLoadAttempt.value++
+}
+
 function resetLightboxView() {
+  isDragging.value = false
   lightboxScale.value = 1
   lightboxPosition.value = { x: 0, y: 0 }
 }
 
+function constrainLightboxPosition(position: { x: number, y: number }, scale: number) {
+  const viewport = lightboxViewport.value
+  const image = lightboxImageElement.value
+  if (!viewport || !image) return position
+  const maxX = Math.max(0, (image.clientWidth * scale - viewport.clientWidth) / 2)
+  const maxY = Math.max(0, (image.clientHeight * scale - viewport.clientHeight) / 2)
+  return {
+    x: Math.max(-maxX, Math.min(maxX, position.x)),
+    y: Math.max(-maxY, Math.min(maxY, position.y))
+  }
+}
+
+function setLightboxScale(scale: number, anchor = { x: 0, y: 0 }) {
+  const nextScale = Math.max(0.5, Math.min(scale, 5))
+  const ratio = nextScale / lightboxScale.value
+  // Keep the image point beneath the pointer stationary while zooming.
+  lightboxPosition.value = constrainLightboxPosition({
+    x: anchor.x - (anchor.x - lightboxPosition.value.x) * ratio,
+    y: anchor.y - (anchor.y - lightboxPosition.value.y) * ratio
+  }, nextScale)
+  lightboxScale.value = nextScale
+}
+
 function zoomIn() {
-  lightboxScale.value = Math.min(lightboxScale.value * 1.25, 5)
+  setLightboxScale(lightboxScale.value * 1.25)
 }
 
 function zoomOut() {
-  lightboxScale.value = Math.max(lightboxScale.value / 1.25, 0.5)
+  setLightboxScale(lightboxScale.value / 1.25)
 }
 
 function handleLightboxWheel(e: WheelEvent) {
   e.preventDefault()
-  if (e.deltaY < 0) {
-    zoomIn()
-  } else {
-    zoomOut()
-  }
+  const viewport = lightboxViewport.value
+  if (!viewport || e.deltaY === 0 || lightboxImageState.value !== 'loaded') return
+  const bounds = viewport.getBoundingClientRect()
+  const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewport.clientHeight : 1)
+  const factor = Math.exp(-Math.max(-100, Math.min(100, delta)) * 0.002)
+  setLightboxScale(lightboxScale.value * factor, {
+    x: e.clientX - bounds.left - bounds.width / 2,
+    y: e.clientY - bounds.top - bounds.height / 2
+  })
 }
 
-function handleLightboxMouseDown(e: MouseEvent) {
-  if (e.button !== 0) return
+function handleLightboxPointerDown(e: PointerEvent) {
+  if (e.button !== 0 || !e.isPrimary || lightboxImageState.value !== 'loaded') return
+  const viewport = lightboxViewport.value
+  if (!viewport) return
+  viewport.setPointerCapture(e.pointerId)
   isDragging.value = true
   dragStart.value = { x: e.clientX - lightboxPosition.value.x, y: e.clientY - lightboxPosition.value.y }
 }
 
-function handleLightboxMouseMove(e: MouseEvent) {
-  if (!isDragging.value) return
-  lightboxPosition.value = {
+function handleLightboxPointerMove(e: PointerEvent) {
+  if (!isDragging.value || !e.isPrimary) return
+  lightboxPosition.value = constrainLightboxPosition({
     x: e.clientX - dragStart.value.x,
     y: e.clientY - dragStart.value.y
-  }
+  }, lightboxScale.value)
 }
 
-function handleLightboxMouseUp() {
+function handleLightboxPointerUp() {
   isDragging.value = false
 }
 
 const leftImageId = ref<string | undefined>(undefined)
 const rightImageId = ref<string | undefined>(undefined)
 
-const getImageSrc = (imageId: string) =>
-  `/api/media/images/${imageId}?projectId=${props.projectId}`
+const getImageSrc = (imageId: string, size: 'overview' | 'detail' | 'original' = 'overview') =>
+  `/api/projects/${props.projectId}/pages/images/${imageId}/presentation?size=${size}`
+
+const lightboxSrc = computed(() => {
+  const image = lightboxImage.value
+  if (!image) return ''
+  const src = getImageSrc(image.id, lightboxOriginal.value ? 'original' : 'detail')
+  return lightboxLoadAttempt.value ? `${src}&_retry=${lightboxLoadAttempt.value}` : src
+})
 
 const flatImageList = computed(() =>
   pageImages.value.map(img => ({
@@ -223,11 +283,11 @@ const flatImageList = computed(() =>
 )
 
 const leftImageSrc = computed(() =>
-  leftImageId.value ? getImageSrc(leftImageId.value) : ''
+  leftImageId.value ? getImageSrc(leftImageId.value, 'detail') : ''
 )
 
 const rightImageSrc = computed(() =>
-  rightImageId.value ? getImageSrc(rightImageId.value) : ''
+  rightImageId.value ? getImageSrc(rightImageId.value, 'detail') : ''
 )
 
 function formatFileSize(bytes: number): string {
@@ -370,17 +430,22 @@ async function deleteImages(images: PageImage[]) {
   }
 }
 
+let pageImageRequestId = 0
+
 async function fetchPageImages() {
   const page = currentPage.value
   if (!page) return
 
+  const requestId = ++pageImageRequestId
   isLoading.value = true
+  closeLightbox()
   exitSelectionMode()
 
   try {
     const response = await $fetch<PageImage[]>(
       `/api/projects/${props.projectId}/pages/${page.id}/images`
     )
+    if (requestId !== pageImageRequestId) return
     pageImages.value = response
     imageStates.value = {}
     response.forEach((img) => {
@@ -398,6 +463,7 @@ async function fetchPageImages() {
       rightImageId.value = undefined
     }
   } catch (error: unknown) {
+    if (requestId !== pageImageRequestId) return
     const message = error instanceof Error ? error.message : 'An error occurred'
     toast.add({
       title: 'Failed to load images',
@@ -407,7 +473,7 @@ async function fetchPageImages() {
     })
     pageImages.value = []
   } finally {
-    isLoading.value = false
+    if (requestId === pageImageRequestId) isLoading.value = false
   }
 }
 
@@ -422,6 +488,8 @@ function handleKeyDown(e: KeyboardEvent) {
     } else if (e.key === 'ArrowRight') {
       e.preventDefault()
       lightboxNext()
+    } else if (lightboxImageState.value !== 'loaded') {
+      return
     } else if (e.key === '+' || e.key === '=') {
       e.preventDefault()
       zoomIn()
@@ -604,7 +672,7 @@ onUnmounted(() => {
             }"
             class="h-full min-h-0 max-h-full overflow-hidden"
           >
-            <article class="group relative h-fit max-h-full min-w-0 cursor-pointer self-center overflow-hidden bg-default">
+            <article class="group relative flex h-full max-h-full min-h-0 min-w-0 cursor-pointer flex-col self-center overflow-hidden rounded-2xl border border-default bg-elevated p-2 shadow-sm">
               <button
                 v-if="isSelectionMode"
                 type="button"
@@ -627,29 +695,32 @@ onUnmounted(() => {
               />
               <div
                 v-if="imageStates[image.id] === 'loading'"
-                class="absolute inset-0 z-20 flex items-center justify-center text-muted"
+                class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center text-muted"
               >
                 <UIcon name="i-lucide-loader" class="size-5 animate-spin" />
               </div>
               <div
                 v-if="imageStates[image.id] === 'error'"
-                class="absolute inset-0 z-20 flex flex-col items-center justify-center text-muted"
+                class="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center text-muted"
               >
                 <UIcon name="i-lucide-image-off" class="mb-2 size-7" />
                 <span class="text-xs">Failed to load</span>
               </div>
 
-              <img
-                v-show="imageStates[image.id] !== 'error'"
-                :src="getImageSrc(image.id)"
-                :alt="image.fileName"
-                class="block h-auto max-h-full w-full max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
-                loading="lazy"
-                @load="imageStates[image.id] = 'loaded'"
-                @error="imageStates[image.id] = 'error'"
-              >
+              <div class="relative min-h-0 flex-1 overflow-hidden rounded-xl">
+                <img
+                  v-show="imageStates[image.id] !== 'error'"
+                  :src="getImageSrc(image.id)"
+                  :alt="image.fileName"
+                  class="absolute inset-0 block h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+                  loading="lazy"
+                  decoding="async"
+                  @load="imageStates[image.id] = 'loaded'"
+                  @error="imageStates[image.id] = 'error'"
+                >
+              </div>
 
-              <div class="absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-black/85 via-black/45 to-transparent px-3 pb-3 pt-14 text-white">
+              <div class="absolute inset-x-2 bottom-2 z-20 rounded-b-xl bg-linear-to-t from-black/85 via-black/45 to-transparent px-3 pb-3 pt-14 text-white">
                 <div class="flex items-center justify-between gap-3">
                   <h5 class="truncate text-sm font-semibold">
                     {{ image.variant || 'Original' }}
@@ -733,7 +804,6 @@ onUnmounted(() => {
             v-if="lightboxOpen && lightboxImage"
             class="absolute inset-0 z-50 flex items-center justify-center bg-black/95"
             @click.self="closeLightbox"
-            @wheel.prevent="handleLightboxWheel"
           >
             <div class="absolute top-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-none">
               <div class="flex items-center gap-2 bg-black/50 backdrop-blur rounded-sm px-3 py-2 pointer-events-auto">
@@ -744,7 +814,18 @@ onUnmounted(() => {
                   {{ lightboxImageIndex + 1 }} / {{ pageImages.length }}
                 </UBadge>
               </div>
-              <div class="flex items-center gap-1 pointer-events-auto">
+              <div class="flex items-center gap-1 bg-black/50 backdrop-blur rounded-sm px-2 py-1 pointer-events-auto">
+                <button
+                  type="button"
+                  class="flex items-center gap-2 p-2 rounded-sm text-white hover:bg-white/20 transition-colors"
+                  :title="lightboxOriginal ? 'Current image: Full Resolution. Click to switch to Preview.' : `Current image: Preview. Click to load Full Resolution (${formatFileSize(lightboxImage.fileSize)}).`"
+                  :aria-label="`Image resolution: ${lightboxOriginal ? 'Full Resolution' : 'Preview'}`"
+                  :aria-pressed="lightboxOriginal"
+                  :class="{ 'bg-white/20': lightboxOriginal }"
+                  @click.stop="toggleLightboxResolution"
+                >
+                  <UIcon :name="lightboxOriginal ? 'i-lucide-hd' : 'i-tabler-badge-sd'" class="w-5 h-5" />
+                </button>
                 <button
                   v-if="canDeleteCurrentPageImages"
                   type="button"
@@ -757,6 +838,7 @@ onUnmounted(() => {
                 <button
                   type="button"
                   class="p-2 rounded-sm text-white hover:bg-white/20 transition-colors"
+                  :disabled="lightboxImageState !== 'loaded'"
                   title="Zoom out (-)"
                   @click.stop="zoomOut"
                 >
@@ -765,6 +847,7 @@ onUnmounted(() => {
                 <button
                   type="button"
                   class="p-2 rounded-sm text-white hover:bg-white/20 transition-colors"
+                  :disabled="lightboxImageState !== 'loaded'"
                   title="Zoom in (+)"
                   @click.stop="zoomIn"
                 >
@@ -773,6 +856,7 @@ onUnmounted(() => {
                 <button
                   type="button"
                   class="p-2 rounded-sm text-white hover:bg-white/20 transition-colors"
+                  :disabled="lightboxImageState !== 'loaded'"
                   title="Reset view (0)"
                   @click.stop="resetLightboxView"
                 >
@@ -800,7 +884,7 @@ onUnmounted(() => {
             <button
               v-if="pageImages.length > 1"
               type="button"
-              class="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-sm text-white hover:bg-white/20 transition-colors z-10"
+              class="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 backdrop-blur p-3 rounded-sm text-white hover:bg-black/70 transition-colors z-10"
               title="Previous image"
               @click.stop="lightboxPrev"
             >
@@ -809,7 +893,7 @@ onUnmounted(() => {
             <button
               v-if="pageImages.length > 1"
               type="button"
-              class="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-sm text-white hover:bg-white/20 transition-colors z-10"
+              class="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 backdrop-blur p-3 rounded-sm text-white hover:bg-black/70 transition-colors z-10"
               title="Next image"
               @click.stop="lightboxNext"
             >
@@ -817,26 +901,53 @@ onUnmounted(() => {
             </button>
 
             <div
-              class="absolute inset-0 flex items-center justify-center overflow-hidden"
+              ref="lightboxViewport"
+              class="absolute inset-0 flex touch-none items-center justify-center overflow-hidden p-12 sm:p-16"
               :class="{ 'cursor-grab': !isDragging, 'cursor-grabbing': isDragging }"
-              @mousedown.stop="handleLightboxMouseDown"
-              @mousemove="handleLightboxMouseMove"
-              @mouseup="handleLightboxMouseUp"
-              @mouseleave="handleLightboxMouseUp"
+              @wheel.prevent="handleLightboxWheel"
+              @pointerdown.stop="handleLightboxPointerDown"
+              @pointermove="handleLightboxPointerMove"
+              @pointerup="handleLightboxPointerUp"
+              @pointercancel="handleLightboxPointerUp"
+              @lostpointercapture="handleLightboxPointerUp"
             >
               <img
-                :src="getImageSrc(lightboxImage.id)"
+                v-show="lightboxImageState === 'loaded'"
+                ref="lightboxImageElement"
+                :key="`${lightboxSrc}:${lightboxLoadAttempt}`"
+                :src="lightboxSrc"
                 :alt="lightboxImage.fileName"
-                class="select-none"
+                class="min-h-0 min-w-0 shrink-0 select-none"
                 :style="{
-                  maxWidth: lightboxScale <= 1 ? '90vw' : 'none',
-                  maxHeight: lightboxScale <= 1 ? '85vh' : 'none',
+                  maxWidth: '100%',
+                  maxHeight: '100%',
                   objectFit: 'contain',
-                  transform: `scale(${lightboxScale}) translate(${lightboxPosition.x / lightboxScale}px, ${lightboxPosition.y / lightboxScale}px)`,
+                  transform: `translate(${lightboxPosition.x}px, ${lightboxPosition.y}px) scale(${lightboxScale})`,
                   transformOrigin: 'center center'
                 }"
                 draggable="false"
+                decoding="async"
+                @load="lightboxImageState = 'loaded'"
+                @error="lightboxImageState = 'error'"
               >
+              <div v-if="lightboxImageState === 'loading'" class="pointer-events-none absolute inset-0 flex items-center justify-center text-white" role="status">
+                <UIcon name="i-lucide-loader" class="size-7 animate-spin" />
+                <span class="sr-only">Loading image</span>
+              </div>
+              <div
+                v-else-if="lightboxImageState === 'error'"
+                class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white"
+                role="alert"
+                @pointerdown.stop
+              >
+                <UIcon name="i-lucide-image-off" class="size-7" />
+                <p class="text-sm">
+                  {{ lightboxOriginal ? 'Failed to load the full-resolution image. Please retry or use preview.' : 'Failed to load image. Please retry.' }}
+                </p>
+                <UButton color="neutral" variant="soft" @click.stop="retryLightboxImage">
+                  Retry
+                </UButton>
+              </div>
             </div>
 
             <div class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur rounded-sm px-3 py-2 pointer-events-none">

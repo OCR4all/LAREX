@@ -1,6 +1,7 @@
 # Repository-local data and generated assets
 /test_data/
 /page4j/
+/local/
 
 # IDE / editor settings
 .idea/

@@ -25,6 +25,7 @@ import {
 } from './reading-direction'
 import { getTextContentVariantRenderKey } from './variant-render-key'
 import { fitCutoutDimensions } from './cutout-sizing'
+import { editorRasterCrop, loadEditorImage } from '@/services/editor/editor-image'
 
 interface TextContentVariantData {
   pos: number
@@ -47,6 +48,7 @@ interface Props {
     recognitionCandidates?: Array<{ index?: number, text: string }>
   }
   imageUrl: string
+  originalImage?: boolean
   padding: number
   fontSize?: number
   cutoutHeight?: number
@@ -507,7 +509,10 @@ function getCutoutAvailableWidth(): number | null {
   return availableWidth > 0 ? availableWidth : null
 }
 
+let cutoutLoadController: AbortController | null = null
+
 const drawCutout = () => {
+  cutoutLoadController?.abort()
   if (!isVisible.value) return
 
   const canvas = canvasRef.value
@@ -549,49 +554,25 @@ const drawCutout = () => {
   isCutoutLoading.value = true
   cutoutLoadFailed.value = false
 
-  const img = new Image()
-  img.crossOrigin = 'anonymous'
-
-  img.onload = () => {
+  cutoutLoadController = new AbortController()
+  void loadEditorImage(props.imageUrl, { original: props.originalImage, signal: cutoutLoadController.signal }).then(({ image, originalSize }) => {
     if (requestId !== cutoutRequestId) return
-
-    const sourceX = Math.max(0, box.x)
-    const sourceY = Math.max(0, box.y)
-    const sourceXEnd = Math.min(img.naturalWidth, box.x + box.width)
-    const sourceYEnd = Math.min(img.naturalHeight, box.y + box.height)
-    const sourceWidth = Math.max(0, sourceXEnd - sourceX)
-    const sourceHeight = Math.max(0, sourceYEnd - sourceY)
-
-    if (sourceWidth <= 0 || sourceHeight <= 0) {
+    const crop = editorRasterCrop(box, originalSize, { width: image.naturalWidth, height: image.naturalHeight }, scale)
+    if (!crop) {
       isCutoutLoading.value = false
       cutoutLoadFailed.value = true
       return
     }
-
-    const destX = sourceX - box.x
-    const destY = sourceY - box.y
-
     ctx.clearRect(0, 0, displayWidth, displayHeight)
-    ctx.drawImage(
-      img,
-      sourceX, sourceY, sourceWidth, sourceHeight,
-      Math.round(destX * scale),
-      Math.round(destY * scale),
-      Math.round(sourceWidth * scale),
-      Math.round(sourceHeight * scale)
-    )
-
+    const [sx, sy, sw, sh, dx, dy, dw, dh] = crop
+    ctx.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh)
     isCutoutLoading.value = false
     cutoutLoadFailed.value = false
-  }
-
-  img.onerror = () => {
+  }).catch(() => {
     if (requestId !== cutoutRequestId) return
     isCutoutLoading.value = false
     cutoutLoadFailed.value = true
-  }
-
-  img.src = props.imageUrl
+  })
 }
 
 const addTextContentVariant = () => {
@@ -958,7 +939,7 @@ watch(() => props.textline.textContentVariants, (newEquivs) => {
 
 const pointsKey = computed(() => props.textline.points.map(p => `${p.x},${p.y}`).join(';'))
 
-watch([() => props.imageUrl, () => props.padding, () => props.cutoutHeight, () => props.textline.id, pointsKey, isVisible], () => {
+watch([() => props.imageUrl, () => props.originalImage, () => props.padding, () => props.cutoutHeight, () => props.textline.id, pointsKey, isVisible], () => {
   if (isVisible.value) {
     drawCutout()
   }
@@ -1007,6 +988,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cutoutRequestId++
+  cutoutLoadController?.abort()
   if (observer) {
     observer.disconnect()
     observer = null

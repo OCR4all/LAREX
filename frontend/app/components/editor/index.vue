@@ -145,7 +145,7 @@ const canvasReadinessLabel = computed(() => {
   if (isLoadingAnnotations.value) return 'Loading annotations...'
   return 'Preparing canvas...'
 })
-const canvasImageErrorDescription = 'The image request failed. Check the file and try again.'
+const canvasImageErrorDescription = ref('The image request failed. Check the file and try again.')
 
 const pageId = computed(() => {
   const fromStore = editorStore.canvases?.[props.canvasId]?.pageId
@@ -313,7 +313,7 @@ const webglRenderer = useWebglRenderer(canvas)
 const suppressCorrectionZoomPreferenceUpdate = ref(false)
 const correctionViewInitialized = ref(false)
 
-async function loadCanvasImage(src: string): Promise<void> {
+async function loadCanvasImage(src: string, refresh = false): Promise<void> {
   if (!src) {
     imageLoadStatus.value = 'idle'
     return
@@ -324,7 +324,7 @@ async function loadCanvasImage(src: string): Promise<void> {
   imageLoadStatus.value = 'loading'
 
   try {
-    await webglRenderer.loadAndRender(src)
+    await webglRenderer.loadAndRender(src, { original: canvasState.value?.originalImage === true, refresh })
     if (imageLoadRequestId.value !== requestId) return
 
     imageLoadStatus.value = 'ready'
@@ -336,12 +336,13 @@ async function loadCanvasImage(src: string): Promise<void> {
     if (imageLoadRequestId.value !== requestId) return
 
     imageLoadStatus.value = 'error'
+    canvasImageErrorDescription.value = error instanceof Error ? error.message : 'Unable to display image'
     console.error('Failed to load editor canvas image:', error)
   }
 }
 
 function retryCanvasImage() {
-  void loadCanvasImage(currentImageSrc.value)
+  void loadCanvasImage(currentImageSrc.value, true)
 }
 
 const editorState = useEditorState(session.spatialIndex)
@@ -1188,7 +1189,7 @@ if (import.meta.env.DEV) {
 
 watch(() => webglRenderer.imageSize.value, (newSize) => {
   if (newSize && newSize.width > 0 && newSize.height > 0) {
-    editorStore.setImageSize(newSize.width, newSize.height)
+    editorStore.setImageSize(newSize.width, newSize.height, props.canvasId)
   }
 }, { deep: true })
 
@@ -1485,6 +1486,8 @@ watch(
   () => [selectedRegionId.value, selectedBaselineId.value] as const,
   leaveFollowForLocalStateChange
 )
+
+canvasControls.imageLoadStatus = imageLoadStatus
 
 // Publish controls only after all runtime fields are attached.
 // `session.controls` is a shallowRef, so late property mutations would not be reactive for consumers.
@@ -3254,11 +3257,14 @@ onBeforeUnmount(() => {
   session.controls.value = null
 })
 
-watch(() => props.src, (newSrc) => {
-  if (newSrc) {
-    currentImageSrc.value = newSrc
-    void loadCanvasImage(newSrc)
+watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [oldSrc]) => {
+  if (!newSrc) return
+  currentImageSrc.value = newSrc
+  if (newSrc !== oldSrc && canvasState.value?.originalImage) {
+    canvasState.value.originalImage = false
+    return
   }
+  void loadCanvasImage(newSrc)
 })
 </script>
 

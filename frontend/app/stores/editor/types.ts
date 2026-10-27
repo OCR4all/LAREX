@@ -177,6 +177,8 @@ export interface CanvasState {
   hoveredBaselineId: string | null
   hoveredNodeIndex: number
   imageSize?: { width: number, height: number }
+  /** Explicit full-resolution display choice for this canvas. */
+  originalImage?: boolean
   /** Whether annotations are currently being loaded for this canvas */
   isLoadingAnnotations?: boolean
   /** Blocks editing and saving until the persisted annotations can be loaded. */

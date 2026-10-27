@@ -71,8 +71,8 @@ export function createSkeletonPageData(
   return pages.filter(canOpenPageInEditor).map(page => ({
     imageVariants: (page.imageVariants ?? []).map(img => ({
       id: img.id,
-      // Use thumbnail URLs for sidebar previews; full blob URLs are loaded when the page is opened.
-      url: options?.projectId ? `/api/projects/${options.projectId}/pages/images/${img.id}/thumbnail` : '',
+      // Bounded display images; the renderer retains original dimensions from response metadata.
+      url: options?.projectId ? `/api/projects/${options.projectId}/pages/images/${img.id}/presentation?size=detail` : '',
       fileName: img.fileName,
       type: img.variant || undefined,
       label: img.variant || img.fileName
@@ -113,12 +113,12 @@ export async function loadSinglePageData(projectId: string, page: PageResponse |
   const fallbackImage = images[0]
   const thumbnailSource = firstImageWithThumbnail ?? fallbackImage
   const thumbnailUrl = thumbnailSource
-    ? `/api/projects/${projectId}/pages/images/${thumbnailSource.id}/thumbnail`
+    ? `/api/projects/${projectId}/pages/images/${thumbnailSource.id}/presentation?size=thumbnail`
     : undefined
 
   const imageVariants: ImageVariant[] = images.map(img => ({
     id: img.id,
-    url: `/api/projects/${projectId}/pages/images/${img.id}/blob`,
+    url: `/api/projects/${projectId}/pages/images/${img.id}/presentation?size=detail`,
     fileName: img.fileName,
     type: img.variant || undefined,
     label: img.variant || img.fileName

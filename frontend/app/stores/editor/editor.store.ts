@@ -842,13 +842,13 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
-  function setImageSize(width: number, height: number) {
-    const canvas = activeCanvas.value
+  function setImageSize(width: number, height: number, canvasId = activeCanvasId.value) {
+    const canvas = canvasId ? canvases.value[canvasId] : undefined
     if (canvas) {
       canvas.imageSize = { width, height }
     }
 
-    const session = activeCanvasId.value ? getEditorSession(activeCanvasId.value) : undefined
+    const session = canvasId ? getEditorSession(canvasId) : undefined
     const pcGts = session?.document.value
     if (session && pcGts) {
       pcGts.page.imageWidth = width

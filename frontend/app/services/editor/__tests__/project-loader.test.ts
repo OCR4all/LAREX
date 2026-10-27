@@ -19,14 +19,14 @@ describe('project-loader skeleton variants', () => {
     expect(pages[0]?.imageVariants).toEqual([
       {
         id: 'img-1',
-        url: '/api/projects/proj-1/pages/images/img-1/thumbnail',
+        url: '/api/projects/proj-1/pages/images/img-1/presentation?size=detail',
         fileName: '0001.raw.jpg',
         type: 'raw.jpg',
         label: 'raw.jpg'
       },
       {
         id: 'img-2',
-        url: '/api/projects/proj-1/pages/images/img-2/thumbnail',
+        url: '/api/projects/proj-1/pages/images/img-2/presentation?size=detail',
         fileName: '0001.nrm.jpg',
         type: undefined,
         label: '0001.nrm.jpg'

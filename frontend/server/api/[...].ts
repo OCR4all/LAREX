@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const isBlobRequest = path.includes('/blob') || path.includes('/export') || path.includes('/download')
+    const isBlobRequest = path.includes('/blob') || path.includes('/export') || path.includes('/download') || path.endsWith('/presentation') || path.endsWith('/thumbnail')
 
     if (isBlobRequest) {
       const query = getQuery(event) as Record<string, string | string[] | undefined>
@@ -74,10 +74,11 @@ export default defineEventHandler(async (event) => {
       })
 
       if (!response.ok) {
-        throw createError({
-          statusCode: response.status,
-          statusMessage: response.statusText
-        })
+        const retryAfter = response.headers.get('retry-after')
+        if (retryAfter) setHeader(event, 'Retry-After', Number.parseInt(retryAfter, 10) || 2)
+        setHeader(event, 'Cache-Control', 'no-store')
+        const data = await response.json().catch(() => null) as { message?: string } | null
+        throw createError({ statusCode: response.status, statusMessage: data?.message || response.statusText })
       }
 
       const contentType = response.headers.get('content-type')
@@ -109,6 +110,10 @@ export default defineEventHandler(async (event) => {
       if (contentRange) setHeader(event, 'Content-Range', contentRange)
       if (acceptRanges) setHeader(event, 'Accept-Ranges', acceptRanges)
       if (etag) setHeader(event, 'ETag', etag)
+      for (const name of ['X-Original-Width', 'X-Original-Height']) {
+        const value = response.headers.get(name)
+        if (value) setHeader(event, name, value)
+      }
 
       // H3's Web Stream adapter does not wait for the Node response's drain
       // event. Large exports can therefore be buffered in the frontend process

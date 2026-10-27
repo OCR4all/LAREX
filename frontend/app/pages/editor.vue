@@ -154,6 +154,7 @@ const editorStore = useEditorStore()
 const actionRunsStore = useActionRunsStore()
 const editorUiStore = useEditorUiStore()
 const imageLoader = useEditorImageLoader()
+onBeforeUnmount(() => imageLoader.cancelPrefetch())
 const sessionStore = useEditorSessionStore()
 
 const {
@@ -270,7 +271,7 @@ watch(() => editorStore.currentPageId, (newPageId) => {
   const pages = editorStore.pages
   if (pages.length === 0) return
 
-  imageLoader.prefetchImagesBidirectional(newPageId, pages, 5, 5)
+  imageLoader.prefetchImagesBidirectional(newPageId, pages, 1, 0)
 })
 
 const overlay = useOverlay()

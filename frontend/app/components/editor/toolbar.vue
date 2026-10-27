@@ -740,6 +740,29 @@ const pageFocusModeLabel = computed(() => uiStore.pageFocusMode
   ? 'Disable Focus mode (one page per session)'
   : 'Enable Focus mode (one page per session)'
 )
+const imageResolutionCanvas = computed(() => {
+  const id = currentCanvasId.value
+  return id ? editorStore.canvases[id] : undefined
+})
+const isFullResolution = computed(() => imageResolutionCanvas.value?.originalImage === true)
+const imageResolutionLabel = computed(() => isFullResolution.value ? 'Full Resolution' : 'Preview')
+const imageResolutionLoading = computed(() => {
+  const status = currentCanvasState.value?.imageLoadStatus?.value
+  return status === 'idle' || status === 'loading'
+})
+const imageResolutionTooltip = computed(() => {
+  const mode = imageResolutionLabel.value
+  const target = isFullResolution.value ? 'Preview' : 'Full Resolution'
+  const status = currentCanvasState.value?.imageLoadStatus?.value
+  if (imageResolutionLoading.value) return `Loading ${mode}. Click to switch to ${target}.`
+  if (status === 'error') return `${mode} could not be loaded. Click to switch to ${target}.`
+  return `Current image: ${mode}. Click to switch to ${target}.`
+})
+function toggleImageResolution(): void {
+  const canvas = imageResolutionCanvas.value
+  if (canvas?.imageSrc) canvas.originalImage = !canvas.originalImage
+}
+
 const isTextCanvasMode = computed(() =>
   isTextUiMode.value && (uiStore.textModeSubmode === 'visual' || uiStore.textModeSubmode === 'full')
 )
@@ -1099,6 +1122,23 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             :loading="pageFocusModeBusy"
             :disabled="pageFocusModeBusy"
             @click="emit('requestPageFocusMode', !uiStore.pageFocusMode)"
+          />
+        </UTooltip>
+
+        <UTooltip :delay-duration="0" :text="imageResolutionTooltip">
+          <UButton
+            variant="ghost"
+            size="sm"
+            color="neutral"
+            :icon="imageResolutionLoading ? 'i-lucide-loader-circle' : isFullResolution ? 'i-lucide-hd' : 'i-tabler-badge-sd'"
+            :active="isFullResolution"
+            :aria-pressed="isFullResolution"
+            :aria-busy="imageResolutionLoading"
+            :aria-label="`Image resolution: ${imageResolutionLabel}`"
+            :class="activeModeClass(isFullResolution)"
+            :ui="{ leadingIcon: imageResolutionLoading ? 'animate-spin' : '' }"
+            :disabled="!imageResolutionCanvas?.imageSrc"
+            @click="toggleImageResolution"
           />
         </UTooltip>
 
