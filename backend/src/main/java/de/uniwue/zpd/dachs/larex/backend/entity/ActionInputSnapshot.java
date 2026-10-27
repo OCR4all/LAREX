@@ -8,6 +8,13 @@ import org.hibernate.annotations.OnDeleteAction;
 @Entity
 @Table(name = "action_input_snapshots")
 public class ActionInputSnapshot {
+    @Enumerated(EnumType.STRING)
+    @Column(name = "image_type", length = 16, updatable = false)
+    private ImageType imageType;
+
+    public ImageType getImageType() { return imageType; }
+    public void setImageType(ImageType imageType) { this.imageType = imageType; }
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;

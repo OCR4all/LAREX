@@ -73,7 +73,7 @@ class PageServiceAssetDeletionTest {
     void setUp() {
         service = new PageService(
                 pageRepository,
-                pageImageRepository,
+                pageImageRepository, org.mockito.Mockito.mock(de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService.class),
                 pageXmlRepository,
                 pageTextContentRepository,
                 pageLabelIndexRepository,

@@ -79,6 +79,42 @@ class PageControllerExportTest {
     Path tempDir;
 
     @Test
+    void pageListingUsesCachedTypesWithoutDetectingPendingImages() {
+        PageController controller = new PageController(pageService, subtaskService, pageFilterIndexService,
+                pageIndexStatusReadService, tagLookupService, pageXmlRawEditService, pageXmlConversionService,
+                documentExportService, workspaceQuotaGuardService, searchPreviewService, pageOrderService,
+                pageTextConfidenceStatsService, pageWorkflowService, archiveIoService);
+        var project = new Project(); project.setId("project");
+        var page = new Page("Page", null, project); page.setId("page");
+        var cached = new de.uniwue.zpd.dachs.larex.backend.entity.PageImage("cached.png", "cached.png", "image/png", 1L, "a-cached", "Page", page);
+        cached.setImageType(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.GRAYSCALE);
+        var pending = new de.uniwue.zpd.dachs.larex.backend.entity.PageImage("pending.png", "pending.png", "image/png", 1L, "z-pending", "Page", page);
+        page.setImages(new java.util.HashSet<>(java.util.List.of(cached, pending)));
+        when(pageService.getProjectPages("project", "user")).thenReturn(java.util.List.of(page));
+        var response = controller.getProjectPages("project", null, null, null, null, "projectOrder", "user");
+        org.mockito.Mockito.verify(pageService, org.mockito.Mockito.never()).imageType(org.mockito.ArgumentMatchers.any());
+        var result = (de.uniwue.zpd.dachs.larex.backend.dto.PageDto.Response) ((java.util.List<?>) response.getBody()).getFirst();
+        org.assertj.core.api.Assertions.assertThat(result.imageVariants())
+                .extracting(de.uniwue.zpd.dachs.larex.backend.dto.PageDto.ImageVariantPreview::imageType)
+                .containsExactly(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.GRAYSCALE, null);
+    }
+
+    @Test
+    void individualImageListingStillResolvesPendingTypes() {
+        PageController controller = new PageController(pageService, subtaskService, pageFilterIndexService,
+                pageIndexStatusReadService, tagLookupService, pageXmlRawEditService, pageXmlConversionService,
+                documentExportService, workspaceQuotaGuardService, searchPreviewService, pageOrderService,
+                pageTextConfidenceStatsService, pageWorkflowService, archiveIoService);
+        var image = new de.uniwue.zpd.dachs.larex.backend.entity.PageImage(); image.setId("image");
+        when(pageService.getPageImages("page", "user")).thenReturn(java.util.List.of(image));
+        when(pageService.imageType(image)).thenReturn(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY);
+        var response = controller.getPageImages("project", "page", "user");
+        org.assertj.core.api.Assertions.assertThat(response.getBody()).singleElement()
+                .extracting(de.uniwue.zpd.dachs.larex.backend.dto.PageDto.ImageResponse::imageType)
+                .isEqualTo(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY);
+    }
+
+    @Test
     void exportPage_returnsAttachmentHeadersAndBody() throws Exception {
         PageController controller = new PageController(
                 pageService,

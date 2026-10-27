@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
+import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.TokenStreamLocation;
 import tools.jackson.databind.DatabindException;
@@ -63,7 +64,7 @@ public class ActionDefinitionService {
     private static final int MAX_PARAMETER_VALUE_RESPONSE_BYTES = 1_048_576;
     private static final TypeReference<List<ActionTarget>> ACTION_TARGET_LIST = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {};
-    private static final Set<String> INPUT_REQUIREMENT_FIELDS = Set.of("level", "requiredForTargets", "multiple");
+    private static final Set<String> INPUT_REQUIREMENT_FIELDS = Set.of("level", "requiredForTargets", "multiple", "imageTypes");
 
     private final ActionProcessorDefinitionRepository definitionRepository;
     private final ActionProcessorWorkspaceAvailabilityRepository availabilityRepository;
@@ -185,6 +186,7 @@ public class ActionDefinitionService {
         requireGlobalAdmin();
         ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (definition.isWorkflow()) throw new IllegalArgumentException("Edit workflows using the workflow builder");
         ParsedDefinition parsed = parseAndValidate(request.yaml(), id);
         definitionRepository.findByProcessorKey(parsed.preview().processorKey())
                 .filter(existing -> !existing.getId().equals(id))
@@ -245,6 +247,7 @@ public class ActionDefinitionService {
         requireGlobalAdmin();
         ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (globalAvailable) requireWorkflowAvailability(definition, null);
         definition.setGlobalAvailable(globalAvailable);
         definition.setUpdatedByUserId(userId);
         ActionProcessorDefinition saved = definitionRepository.save(definition);
@@ -254,9 +257,26 @@ public class ActionDefinitionService {
         return toDefinitionResponse(saved);
     }
 
+    void requireWorkflowAvailability(ActionProcessorDefinition workflow, String workspaceId) {
+        if (!workflow.isWorkflow()) return;
+        List<de.uniwue.zpd.dachs.larex.backend.dto.action.ActionWorkflowDto.Step> steps = jsonMapper.readValue(
+                workflow.getWorkflow().getStepsJson(), new tools.jackson.core.type.TypeReference<>() {});
+        for (var step : steps) {
+            var processor = requireDefinition(step.processorDefinitionId());
+            if (processor.isWorkflow() || (workspaceId == null ? !processor.isGlobalAvailable() : !activationService.isEligible(processor, workspaceId)))
+                throw new IllegalArgumentException("Every workflow processor must be available in the selected scope");
+        }
+    }
+
     public void deleteDefinition(String id) {
         requireGlobalAdmin();
         ActionProcessorDefinition definition = requireDefinition(id);
+        if (definition.isWorkflow()) {
+            definition = definitionRepository.findByIdForUpdate(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Action definition not found"));
+            if (runRepository.hasActiveWorkflowRuns(definition.getWorkflowId()))
+                throw new IllegalStateException("Workflow has active runs and cannot be deleted");
+        }
         List<ActionRun> activeRuns = runRepository.findByProcessorDefinitionIdAndStatusIn(id, activeStatuses());
         if (!activeRuns.isEmpty()) {
             throw new IllegalStateException("Action has active runs and cannot be deleted");
@@ -307,6 +327,7 @@ public class ActionDefinitionService {
         requireGlobalAdmin();
         ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(definitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (!Boolean.FALSE.equals(request.enabled())) requireWorkflowAvailability(definition, request.workspaceId());
         ActionProcessorWorkspaceAvailability availability = availabilityRepository
                 .findByProcessorDefinitionIdAndWorkspaceId(definitionId, request.workspaceId())
                 .orElseGet(ActionProcessorWorkspaceAvailability::new);
@@ -635,7 +656,8 @@ public class ActionDefinitionService {
                 document.parameters() == null
                         ? Map.of()
                         : document.parameters(),
-                normalizedOverwriteDeclarations(document)
+                normalizedOverwriteDeclarations(document),
+                definition.getWorkflowId()
         );
     }
 
@@ -653,6 +675,7 @@ public class ActionDefinitionService {
     public ActionDto.HealthCheckResponse testEndpoint(String definitionId) {
         requireGlobalAdmin();
         ActionProcessorDefinition definition = requireDefinition(definitionId);
+        if (definition.isWorkflow()) throw new IllegalArgumentException("Workflows do not have processor endpoints");
         ActionDefinitionDocument document = readParsedDocument(definition);
         if (document.endpoint() != null
                 && document.endpoint().preflightUrl() != null
@@ -1300,7 +1323,33 @@ public class ActionDefinitionService {
                 diagnostics.add(error(path + ".multiple", "multiple must be a boolean"));
             }
         }
-        return new ActionDto.InputRequirement(level, requiredForTargets, multiple);
+        List<ImageType> imageTypes = List.of();
+        if (rawMap.containsKey("imageTypes")) {
+            if (!"inputs.images".equals(path)) {
+                diagnostics.add(error(path + ".imageTypes", "imageTypes is only supported for image inputs"));
+            } else {
+                Object rawTypes = rawMap.get("imageTypes");
+                if (!(rawTypes instanceof List<?> types) || types.isEmpty()) {
+                    diagnostics.add(error(path + ".imageTypes", "imageTypes must be a nonempty list of COLOR, GRAYSCALE, or BINARY"));
+                } else {
+                    var parsed = new java.util.LinkedHashSet<ImageType>();
+                    for (Object value : types) {
+                        try {
+                            var type = ImageType.valueOf(((String) value).trim().toUpperCase(Locale.ROOT));
+                            if (type == ImageType.UNKNOWN) throw new IllegalArgumentException();
+                            parsed.add(type);
+                        } catch (IllegalArgumentException | ClassCastException | NullPointerException error) {
+                            diagnostics.add(error(path + ".imageTypes", "imageTypes accepts only COLOR, GRAYSCALE, and BINARY"));
+                        }
+                    }
+                    imageTypes = List.copyOf(parsed);
+                }
+                if (level == InputLevel.NONE && requiredForTargets.isEmpty()) {
+                    diagnostics.add(error(path + ".imageTypes", "imageTypes requires enabled image input"));
+                }
+            }
+        }
+        return new ActionDto.InputRequirement(level, requiredForTargets, multiple, imageTypes);
     }
 
     private InputLevel parseInputLevel(String rawLevel,

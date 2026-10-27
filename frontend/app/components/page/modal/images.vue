@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
+import type { ImageType } from '@/types/image'
 import { LazyUiDeleteSlideover } from '#components'
 
 defineOptions({
@@ -22,6 +23,7 @@ interface Props {
 }
 
 type PageImage = {
+  imageType?: ImageType | null
   id: string
   fileName: string
   filePath: string
@@ -30,6 +32,17 @@ type PageImage = {
   variant: string
   baseName: string
   created: string
+}
+
+const imageTypeLabels: Record<ImageType, string> = {
+  COLOR: 'Color',
+  GRAYSCALE: 'Grayscale',
+  BINARY: 'Binary',
+  UNKNOWN: 'Unknown'
+}
+
+function imageTypeLabel(type: ImageType | null | undefined) {
+  return imageTypeLabels[type ?? 'UNKNOWN']
 }
 
 const props = defineProps<Props>()
@@ -722,9 +735,20 @@ onUnmounted(() => {
 
               <div class="absolute inset-x-2 bottom-2 z-20 rounded-b-xl bg-linear-to-t from-black/85 via-black/45 to-transparent px-3 pb-3 pt-14 text-white">
                 <div class="flex items-center justify-between gap-3">
-                  <h5 class="truncate text-sm font-semibold">
-                    {{ image.variant || 'Original' }}
-                  </h5>
+                  <div class="flex min-w-0 items-center gap-2">
+                    <h5 class="truncate text-sm font-semibold">
+                      {{ image.variant || 'Original' }}
+                    </h5>
+                    <UBadge
+                      size="xs"
+                      color="neutral"
+                      variant="soft"
+                      class="shrink-0 rounded-full bg-black/35 text-white backdrop-blur-sm"
+                      title="Detected image type"
+                    >
+                      {{ imageTypeLabel(image.imageType) }}
+                    </UBadge>
+                  </div>
                   <UBadge
                     size="xs"
                     color="neutral"
@@ -762,11 +786,33 @@ onUnmounted(() => {
         <div v-else-if="activeTab === 'compare' && pageImages.length >= 2" class="flex-1 flex flex-col min-h-0 p-4 gap-4">
           <div class="flex gap-4 items-center shrink-0">
             <div class="flex-1">
-              <label class="block text-sm font-medium mb-2">Left Image</label>
+              <div class="mb-2 flex items-center gap-2">
+                <label class="text-sm font-medium">Left Image</label>
+                <UBadge
+                  v-if="leftImageId"
+                  color="neutral"
+                  variant="soft"
+                  size="xs"
+                  title="Detected image type"
+                >
+                  {{ imageTypeLabel(pageImages.find(image => image.id === leftImageId)?.imageType) }}
+                </UBadge>
+              </div>
               <USelectMenu v-model="leftImageId" :items="flatImageList" value-key="value" />
             </div>
             <div class="flex-1">
-              <label class="block text-sm font-medium mb-2">Right Image</label>
+              <div class="mb-2 flex items-center gap-2">
+                <label class="text-sm font-medium">Right Image</label>
+                <UBadge
+                  v-if="rightImageId"
+                  color="neutral"
+                  variant="soft"
+                  size="xs"
+                  title="Detected image type"
+                >
+                  {{ imageTypeLabel(pageImages.find(image => image.id === rightImageId)?.imageType) }}
+                </UBadge>
+              </div>
               <USelectMenu v-model="rightImageId" :items="flatImageList" value-key="value" />
             </div>
           </div>
@@ -810,6 +856,15 @@ onUnmounted(() => {
                 <span class="text-white text-sm font-medium">
                   {{ lightboxImage.variant || 'Original' }} - {{ lightboxImage.baseName }}
                 </span>
+                <UBadge
+                  color="neutral"
+                  variant="soft"
+                  size="xs"
+                  class="shrink-0 bg-white/15 text-white"
+                  title="Detected image type"
+                >
+                  {{ imageTypeLabel(lightboxImage.imageType) }}
+                </UBadge>
                 <UBadge color="neutral" variant="soft" size="xs">
                   {{ lightboxImageIndex + 1 }} / {{ pageImages.length }}
                 </UBadge>

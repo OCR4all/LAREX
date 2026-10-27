@@ -269,6 +269,8 @@ public class AsyncIiifImportProcessor {
                 page.getName(),
                 page
         );
+
+        pageImage.setImageType(storedImage.imageType());
         pageImage = pageImageRepository.save(pageImage);
 
         String thumbnailPath = thumbnailService.generateThumbnail(storedImage.storagePath());

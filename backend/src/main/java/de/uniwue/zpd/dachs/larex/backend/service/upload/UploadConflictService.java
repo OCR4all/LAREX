@@ -153,13 +153,7 @@ public class UploadConflictService {
                     // Remove the old database rows now, but keep their bytes until this
                     // replacement transaction has committed successfully.
                     List<PageImage> existingImages = pageImageRepository.findByPageIdAndVariant(page.getId(), file.getVariant());
-                    for (PageImage existingImage : existingImages) {
-                        replacedStoragePaths.add(existingImage.getFilePath());
-                        if (existingImage.getThumbnailPath() != null) {
-                            replacedStoragePaths.add(existingImage.getThumbnailPath());
-                        }
-                        pageImageRepository.delete(existingImage);
-                    }
+
 
                     String createdBy = file.getSession() != null ? file.getSession().getUserId() : "system";
                     var storedImage = hierarchicalFileStorageService.storeFromPath(
@@ -173,6 +167,14 @@ public class UploadConflictService {
                             true
                     );
 
+                    for (PageImage existingImage : existingImages) {
+                        replacedStoragePaths.add(existingImage.getFilePath());
+                        if (existingImage.getThumbnailPath() != null) {
+                            replacedStoragePaths.add(existingImage.getThumbnailPath());
+                        }
+                        pageImageRepository.delete(existingImage);
+                    }
+
                     // Create new PageImage
                     PageImage newImage = new PageImage(
                             storedImage.originalFilename(),
@@ -183,6 +185,7 @@ public class UploadConflictService {
                             file.getBaseName(),
                             page
                     );
+                    newImage.setImageType(storedImage.imageType());
                     pageImageRepository.save(newImage);
 
                 } else if ("XML_FILE_EXISTS".equals(file.getConflictType())) {

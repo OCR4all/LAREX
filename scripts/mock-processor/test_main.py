@@ -451,3 +451,183 @@ async def test_integration_signed_lifecycle(
     else:
         assert not manifests
         assert heartbeats[-1]["status"] == ("failed" if scenario == "failed" else "cancelled")
+
+
+def sample_image() -> bytes:
+    from io import BytesIO
+    from PIL import Image
+
+    image = Image.new("L", (200, 300), 255)
+    image.putpixel((0, 0), 50)
+    image.putpixel((1, 0), 180)
+    output = BytesIO()
+    image.save(output, format="PNG")
+    return output.getvalue()
+
+
+def test_workflow_mock_chain_creates_region_baseline_and_recognition() -> None:
+    from io import BytesIO
+    from xml.etree import ElementTree as ET
+    from PIL import Image
+
+    binary = main.binarize(sample_image(), 128)
+    with Image.open(BytesIO(binary)) as image:
+        assert image.size == (200, 300)
+        assert image.getpixel((0, 0)) == 0
+        assert image.getpixel((1, 0)) == 255
+    region_xml = main.transform_xml("region", None, {}, image=binary, filename="binarized.png")
+    ns = {"p": main.PAGE_NS}
+    region = ET.fromstring(region_xml).find("p:Page/p:TextRegion", ns)
+    assert region is not None
+    assert region.find("p:Coords", ns).get("points") == "0,0 199,0 199,299 0,299"
+    line_xml = main.transform_xml("line", region_xml, {})
+    line = ET.fromstring(line_xml).find("p:Page/p:TextRegion/p:TextLine", ns)
+    assert line is not None
+    assert line.find("p:Baseline", ns) is not None
+    ocr_xml = main.transform_xml("ocr", line_xml, {"wordCount": 5, "seed": 11})
+    text = ET.fromstring(ocr_xml).find(".//p:Unicode", ns).text
+    assert len(text.split()) == 5
+    assert text == ET.fromstring(main.transform_xml("ocr", line_xml, {"wordCount": 5, "seed": 11})).find(".//p:Unicode", ns).text
+    # Re-running steps replaces their own output instead of duplicating IDs or text alternatives.
+    rerun = main.transform_xml("ocr", ocr_xml, {"wordCount": 3, "seed": 12})
+    assert len(ET.fromstring(rerun).findall(".//p:TextEquiv", ns)) == 1
+    assert len(ET.fromstring(rerun).find(".//p:Unicode", ns).text.split()) == 3
+    reset = ET.fromstring(main.transform_xml("region", rerun, {}))
+    assert len(reset.findall("p:Page/p:TextRegion", ns)) == 1
+    assert not reset.findall(".//p:TextLine", ns)
+
+
+def test_workflow_mocks_reject_missing_prerequisites_and_invalid_parameters() -> None:
+    region_xml = main.transform_xml("region", None, {}, image=sample_image())
+    empty_xml = region_xml.replace(b"TextRegion", b"ImageRegion")
+    with pytest.raises(ValueError, match="No text region"):
+        main.transform_xml("line", empty_xml, {})
+    with pytest.raises(ValueError, match="No text line"):
+        main.transform_xml("ocr", region_xml, {})
+    with pytest.raises(ValueError, match="contain a Page"):
+        main.transform_xml("region", b"<PcGts/>", {})
+    for invalid in (True, -1, 256, 0.5, float("nan"), "128"):
+        with pytest.raises(ValueError, match="threshold must be an integer"):
+            main.integer_parameter({"threshold": invalid}, "threshold", 128, 0, 255)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["binarize", "region", "line", "ocr"])
+async def test_workflow_mock_routes_publish_matching_processor_ids(operation: str) -> None:
+    processor_id = {
+        "binarize": "mock-binarization", "region": "mock-whole-page-region",
+        "line": "mock-single-text-line", "ocr": "mock-random-ocr",
+    }[operation]
+    path = f"/workflow/{operation}/preflight"
+    body, headers = signed_request({"protocolVersion": 1, "requestId": "workflow-test", "processorId": processor_id}, path)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://mock") as client:
+        assert (await client.get(f"/workflow/{operation}/health")).status_code == 200
+        response = await client.post(path, content=body, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["processorId"] == processor_id
+
+
+@pytest.mark.asyncio
+async def test_workflow_mocks_chain_through_signed_dispatch_and_incremental_result_uploads(monkeypatch: pytest.MonkeyPatch) -> None:
+    from email import policy
+    from email.parser import BytesParser
+    from xml.etree import ElementTree as ET
+
+    # Start with a color encoding even though its pixels look grayscale.
+    from io import BytesIO
+    from PIL import Image
+    output = BytesIO()
+    with Image.open(BytesIO(sample_image())) as source:
+        source.convert("RGB").save(output, format="PNG")
+    image = output.getvalue()
+    xml: bytes | None = None
+    operation = ""
+    run_id = ""
+    statuses: list[str] = []
+    uploaded_variants: list[str] = []
+    downloaded_images: list[str] = []
+    selected_images: list[str] = []
+
+    def server(request: httpx.Request) -> httpx.Response:
+        nonlocal image, xml
+        assert request.headers["authorization"] == "Bearer run-secret"
+        if request.url.path.endswith("/input"):
+            return httpx.Response(200, json={
+                "protocolVersion": 1, "runId": run_id, "processorKey": processor_id,
+                "projectId": "project-1", "parameters": {"threshold": 150, "wordCount": 6},
+                "capabilities": {"incrementalPageResults": True},
+                "inputRequirements": {
+                    "images": {"level": "REQUIRED", "imageTypes": ["COLOR", "GRAYSCALE"] if operation == "binarize" else ["BINARY"]},
+                    "xml": {"level": "REQUIRED" if operation in {"line", "ocr"} else "OPTIONAL" if operation == "region" else "NONE"},
+                },
+                "pages": [{"id": "page-1", "name": "Page 1",
+                           "images": [{"id": "image", "fileName": "page.png", "variant": "original" if operation == "binarize" else "binarized", "imageType": "COLOR" if operation == "binarize" else "BINARY", "downloadUrl": "http://app:8080/image"}],
+                           "xml": [{"id": "xml", "fileName": "page.xml", "downloadUrl": "http://app:8080/xml"}] if xml and operation != "binarize" else []}],
+            })
+        if request.url.path == "/image":
+            downloaded_images.append(operation)
+            return httpx.Response(200, content=image)
+        if request.url.path == "/xml":
+            return httpx.Response(200, content=xml)
+        if request.url.path.endswith("/heartbeat"):
+            return httpx.Response(200, json={"cancelRequested": False})
+        if request.url.path.endswith("/results"):
+            message = BytesParser(policy=policy.default).parsebytes(
+                f"Content-Type: {request.headers['content-type']}\r\n\r\n".encode() + request.content)
+            parts = {part.get_param("name", header="content-disposition"): part for part in message.iter_parts()}
+            manifest = json.loads(parts["manifest"].get_content())
+            statuses.append(manifest["status"])
+            if manifest.get("pageId"):
+                selected_images.append(manifest["message"])
+            for file in manifest.get("files", []):
+                content = parts[file["fieldName"]].get_payload(decode=True)
+                assert file["pageId"] == "page-1"
+                if file["type"] == "image":
+                    image = content
+                    uploaded_variants.append(file["variant"])
+                else:
+                    xml = content
+            return httpx.Response(200, json={"status": "RUNNING"})
+        raise AssertionError(f"Unexpected URL {request.url}")
+
+    original = ActionClient.from_dispatch
+    async with httpx.AsyncClient(transport=httpx.MockTransport(server)) as callbacks:
+        monkeypatch.setattr(ActionClient, "from_dispatch", classmethod(lambda cls, payload, **kwargs: original(payload, client=callbacks)))
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://mock") as client:
+            for index, (operation, processor_id) in enumerate((
+                ("binarize", "mock-binarization"), ("region", "mock-whole-page-region"),
+                ("line", "mock-single-text-line"), ("ocr", "mock-random-ocr"),
+            )):
+                run_id = f"workflow-step-{index}"
+                path = f"/workflow/{operation}/dispatch"
+                base = f"http://app:8080/api/v1/actions/runs/{run_id}"
+                body, headers = signed_request({
+                    "protocolVersion": 1, "runId": run_id, "processorId": processor_id,
+                    "workspaceId": "workspace-1", "projectId": "project-1", "pageIds": ["page-1"],
+                    "secret": "run-secret", "pullUrl": f"{base}/input", "heartbeatUrl": f"{base}/heartbeat", "resultUrl": f"{base}/results",
+                }, path)
+                response = await client.post(path, content=body, headers=headers)
+                assert response.status_code == 200
+                assert statuses[-1] == "completed", statuses
+    assert uploaded_variants == ["binarized"]
+    assert downloaded_images == ["binarize", "region", "line", "ocr"]
+    assert "original · COLOR" in selected_images[0]
+    assert all("binarized · BINARY" in message for message in selected_images[1:])
+    with Image.open(BytesIO(image)) as binary:
+        assert set(binary.convert("L").tobytes()) == {0, 255}
+    root = ET.fromstring(xml)
+    ns = {"p": main.PAGE_NS}
+    assert len(root.findall(".//p:TextRegion", ns)) == 1
+    assert len(root.findall(".//p:TextLine/p:Baseline", ns)) == 1
+    assert len(root.find(".//p:Unicode", ns).text.split()) == 6
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["binarize", "region", "line", "ocr"])
+async def test_workflow_mocks_require_selected_images(operation: str) -> None:
+    context = FakeContext(ActionInput.model_validate({
+        "protocolVersion": 1, "runId": "run-1", "processorKey": "mock",
+        "projectId": "project-1", "pages": [{"id": "page-1", "name": "Page 1"}],
+    }))
+    with pytest.raises(ValueError, match=f"Mock {operation} requires a page image"):
+        await main.workflow_mock_run(context, operation)  # type: ignore[arg-type]

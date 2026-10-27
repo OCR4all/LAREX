@@ -27,6 +27,7 @@ import { actionYamlIndentKeymap, actionYamlWhitespaceExtension } from '@/utils/a
 import { copyTextToClipboard } from '@/utils/clipboard'
 import { generateRandomActionSlug } from '@/utils/random-action-slug'
 import { getWorkspaceDisplayName } from '@/utils/workspace-display'
+import type { ActionWorkflow } from '~/types/action-workflow'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -59,6 +60,9 @@ const { data: endpointSecrets, pending: loadingEndpointSecrets, refresh: refresh
   default: () => []
 })
 
+const newWorkflow = ref(false)
+const workflowDirty = ref(false)
+const workflowBusy = ref(false)
 const selectedId = ref<string | null>(null)
 const draftDefinition = ref<ActionDefinitionResponse | null>(null)
 const editorHost = ref<HTMLElement | null>(null)
@@ -182,6 +186,7 @@ watch(() => colorMode.value, () => {
 })
 
 watch(definitions, (items) => {
+  if (newWorkflow.value) return
   if (syncDefinitionSelectionFromRoute(items)) {
     return
   }
@@ -267,7 +272,39 @@ function replaceEditorContent(content: string) {
   applyDiagnostics([])
 }
 
+function createWorkflow() {
+  if (!canLeaveWorkflow()) return
+  newWorkflow.value = true
+  workflowDirty.value = false
+  selectedId.value = null
+  isRunsPanelVisible.value = false
+  editorView?.destroy()
+  editorView = null
+}
+
+onBeforeRouteLeave(() => canLeaveWorkflow())
+
+function canLeaveWorkflow() {
+  if (workflowBusy.value) return false
+  return !workflowDirty.value || window.confirm('Discard unsaved workflow changes?')
+}
+
+async function workflowSaved(workflow: ActionWorkflow) {
+  workflowDirty.value = false
+  await refresh()
+  const definition = definitions.value.find(item => item.id === workflow.processorDefinitionId)
+  if (definition) selectDefinition(definition)
+}
+
 function selectDefinition(definition: ActionDefinitionResponse) {
+  if (!canLeaveWorkflow()) return
+  newWorkflow.value = false
+  workflowDirty.value = false
+  if (definition.workflowId || selectedDefinition.value?.workflowId) {
+    editorView?.destroy()
+    editorView = null
+  }
+  if (definition.workflowId) isRunsPanelVisible.value = false
   selectedId.value = definition.id
   initialYaml.value = definition.yaml
   validation.value = null
@@ -288,6 +325,9 @@ function syncDefinitionSelectionFromRoute(items: ActionDefinitionResponse[] = de
 }
 
 function createNewDefinition() {
+  if (!canLeaveWorkflow()) return
+  newWorkflow.value = false
+  workflowDirty.value = false
   const processorKey = generateRandomActionSlug(definitions.value.map(definition => definition.processorKey))
   const yaml = buildDraftActionYaml(processorKey)
   const draft: ActionDefinition = {
@@ -357,6 +397,9 @@ locking:
 inputs:
   images:
     level: required
+    # Optional: accept only these detected types (COLOR, GRAYSCALE, BINARY).
+    # Omit imageTypes to accept any type; variants are selected separately.
+    # imageTypes: [BINARY]
   xml:
     level: optional
 
@@ -1075,6 +1118,14 @@ function lineColumnToOffset(source: string, line: number, column: number) {
     <template #header>
       <UDashboardNavbar title="Actions" :ui="{ right: 'gap-2' }">
         <template #right>
+          <UButton
+            icon="i-lucide-workflow"
+            color="neutral"
+            variant="outline"
+            @click="createWorkflow"
+          >
+            Build workflow
+          </UButton>
           <UButton icon="i-lucide-plus" @click="createNewDefinition">
             New Action
           </UButton>
@@ -1121,7 +1172,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
             {{ selectedPersistedDefinition.enabled ? 'Disable' : 'Enable' }}
           </UButton>
           <UButton
-            v-if="selectedPersistedDefinition"
+            v-if="selectedPersistedDefinition && !selectedPersistedDefinition.workflowId"
             color="neutral"
             variant="outline"
             icon="i-lucide-heart-pulse"
@@ -1246,6 +1297,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
             </template>
           </UPopover>
           <UButton
+            v-if="!newWorkflow && !selectedDefinition?.workflowId"
             color="primary"
             icon="i-lucide-save"
             :loading="saving"
@@ -1267,7 +1319,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
           </UButton>
           <USeparator v-if="selectedPersistedDefinition" orientation="vertical" class="h-4" />
           <UButton
-            v-if="selectedPersistedDefinition"
+            v-if="selectedPersistedDefinition && !selectedPersistedDefinition.workflowId"
             color="neutral"
             :variant="isRunsPanelVisible ? 'soft' : 'ghost'"
             size="sm"
@@ -1340,10 +1392,10 @@ function lineColumnToOffset(source: string, line: number, column: number) {
               :class="definition.id === selectedId ? 'bg-elevated text-highlighted' : 'text-default'"
               @click="selectDefinition(definition)"
             >
-              <UIcon :name="definition.enabled ? 'i-lucide-circle-play' : 'i-lucide-circle-pause'" class="size-4 shrink-0 text-muted" />
+              <UIcon :name="definition.workflowId ? 'i-lucide-workflow' : definition.enabled ? 'i-lucide-circle-play' : 'i-lucide-circle-pause'" class="size-4 shrink-0 text-muted" />
               <span class="min-w-0 flex-1">
                 <span class="block truncate font-medium">{{ definition.name }}</span>
-                <span class="block truncate text-xs text-muted">{{ definition.processorKey }}</span>
+                <span class="block truncate text-xs text-muted">{{ definition.workflowId ? 'Workflow' : definition.processorKey }}</span>
               </span>
               <UBadge
                 v-if="definition.global"
@@ -1369,10 +1421,10 @@ function lineColumnToOffset(source: string, line: number, column: number) {
           <div class="flex items-center justify-between gap-3 border-b border-default px-4 py-3 lg:px-5">
             <div class="min-w-0">
               <h2 class="truncate text-base font-semibold">
-                {{ selectedDefinition?.name || 'New Action' }}
+                {{ newWorkflow ? 'Build workflow' : selectedDefinition?.name || 'New Action' }}
               </h2>
               <p class="text-sm text-muted">
-                {{ selectedDefinition?.description || 'Generic YAML v1 Action definition' }}
+                {{ newWorkflow || selectedDefinition?.workflowId ? 'Combine processors in a linear sequence. Configure availability using the Action controls.' : selectedDefinition?.description || 'Generic YAML v1 Action definition' }}
               </p>
             </div>
             <UAlert
@@ -1386,7 +1438,16 @@ function lineColumnToOffset(source: string, line: number, column: number) {
           </div>
 
           <div class="flex-1 min-h-0 overflow-y-auto p-4 lg:p-5">
-            <div class="flex flex-col gap-4">
+            <ActionWorkflowDefinition
+              v-if="newWorkflow || selectedDefinition?.workflowId"
+              :key="selectedDefinition?.workflowId ?? 'new-workflow'"
+              :workflow-id="selectedDefinition?.workflowId ?? undefined"
+              :processors="definitions"
+              @saved="workflowSaved"
+              @dirty="workflowDirty = $event"
+              @busy="workflowBusy = $event"
+            />
+            <div v-else class="flex flex-col gap-4">
               <section class="overflow-hidden rounded-sm border border-default bg-default">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-default px-3 py-2">
                   <div class="min-w-0">

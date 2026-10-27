@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
+import de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService;
+import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.InputLevel;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
@@ -49,6 +51,7 @@ import java.util.Set;
 @Transactional
 public class ActionTrainingSnapshotService {
 
+    private final ImageTypeService imageTypes;
     private final ActionInputSnapshotRepository snapshotRepository;
     private final DatasetRepository datasetRepository;
     private final DatasetItemRepository datasetItemRepository;
@@ -71,7 +74,8 @@ public class ActionTrainingSnapshotService {
                                          UploadPathService uploadPathService,
                                          WorkspaceQuotaGuardService workspaceQuotaGuardService,
                                          WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
-                                         ActionInputSnapshotRepository snapshotRepository) {
+                                         ActionInputSnapshotRepository snapshotRepository, ImageTypeService imageTypes) {
+        this.imageTypes = imageTypes;
         this.snapshotRepository = snapshotRepository;
         this.datasetRepository = datasetRepository;
         this.datasetItemRepository = datasetItemRepository;
@@ -156,6 +160,7 @@ public class ActionTrainingSnapshotService {
                 input.setImageFileId(material.image().id());
                 input.setImageFileName(material.image().fileName());
                 input.setImageVariant(material.image().variant());
+                input.setImageType(material.image().imageType());
                 input.setImageMimeType(material.image().mimeType());
                 input.setImageFileSize(Files.size(imageTarget));
                 input.setImageChecksumSha256(sha256(imageTarget));
@@ -259,6 +264,10 @@ public class ActionTrainingSnapshotService {
             if (xml != null && !Files.isRegularFile(xml.path())) xml = null;
             if (!requirements.images().accepts(de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget.PAGE)) {
                 images = List.of();
+            } else if (!requirements.images().imageTypes().isEmpty()
+                    && images.stream().noneMatch(image -> requirements.images().acceptsType(image.imageType()))
+                    && !hasImageSelection(item, request.imageSelection())) {
+                images = List.of();
             } else if (!images.isEmpty() || hasImageOverride(item, request.imageSelection())) {
                 images = selectImages(item, images, request.imageSelection(), requirements.images());
             }
@@ -327,6 +336,7 @@ public class ActionTrainingSnapshotService {
         row.setSourceFileId(file.id());
         row.setFileName(file.fileName());
         row.setVariant(file.variant());
+        row.setImageType(file.imageType());
         row.setMimeType(Objects.toString(file.mimeType(), "application/octet-stream"));
         row.setFileSize(Files.size(target));
         row.setChecksumSha256(sha256(target));
@@ -438,6 +448,10 @@ public class ActionTrainingSnapshotService {
             throw new IllegalArgumentException("Selected XML file is missing for " + item.getSourcePageName());
         }
         List<ResolvedFile> selected = selectImages(item, images, selection, imageRequirement);
+        if (selected.isEmpty()) {
+            throw new IllegalArgumentException("No compatible image for " + item.getSourcePageName()
+                    + "; accepted types: " + imageRequirement.imageTypes());
+        }
         for (ResolvedFile image : selected) {
             if (!Files.isRegularFile(image.path())) {
                 throw new IllegalArgumentException("Selected image file is missing for " + item.getSourcePageName());
@@ -445,6 +459,12 @@ public class ActionTrainingSnapshotService {
         }
         ResolvedFile selectedXml = xml;
         return selected.stream().map(image -> new ResolvedMaterial(item, image, selectedXml)).toList();
+    }
+
+    private boolean hasImageSelection(DatasetItem item, ActionDto.TrainingImageSelection selection) {
+        return hasImageOverride(item, selection) || selection != null
+                && ((selection.globalVariants() != null && !selection.globalVariants().isEmpty())
+                || (selection.globalVariant() != null && !selection.globalVariant().isBlank()));
     }
 
     private boolean hasImageOverride(DatasetItem item, ActionDto.TrainingImageSelection selection) {
@@ -472,8 +492,15 @@ public class ActionTrainingSnapshotService {
             if (selected.stream().map(ResolvedFile::id).distinct().count() != wanted.stream().distinct().count()) {
                 throw new IllegalArgumentException("Image override is not part of dataset item " + item.getSourcePageName());
             }
+            if (selected.stream().anyMatch(image -> !imageRequirement.acceptsType(image.imageType()))) {
+                throw new IllegalArgumentException("Selected image type is incompatible for " + item.getSourcePageName()
+                        + "; accepted types: " + imageRequirement.imageTypes());
+            }
             return selected;
         }
+        images = images.stream().filter(image -> imageRequirement.acceptsType(image.imageType()))
+                .sorted(Comparator.comparing((ResolvedFile image) -> Objects.toString(image.variant(), ""), String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(ResolvedFile::fileName, String.CASE_INSENSITIVE_ORDER).thenComparing(ResolvedFile::id)).toList();
         List<String> variants = selection == null ? null : selection.globalVariants();
         if (variants == null && selection != null && selection.globalVariant() != null && !selection.globalVariant().isBlank()) {
             variants = List.of(selection.globalVariant().trim());
@@ -487,6 +514,12 @@ public class ActionTrainingSnapshotService {
             }
             imageRequirement.validateImageCount(selected.size());
             return selected;
+        }
+        if (!imageRequirement.imageTypes().isEmpty()) {
+            if (images.isEmpty() && imageRequirement.required(de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget.PAGE)) {
+                throw new IllegalArgumentException("No compatible image for " + item.getSourcePageName() + "; accepted types: " + imageRequirement.imageTypes());
+            }
+            return imageRequirement.multiple() ? images : images.stream().limit(1).toList();
         }
         if (images.size() == 1) return images;
         throw new IllegalArgumentException("Choose image variants for " + item.getSourcePageName());
@@ -515,7 +548,7 @@ public class ActionTrainingSnapshotService {
                     .filter(file -> file.getKind() == DatasetItemCopyFile.Kind.IMAGE)
                     .filter(file -> item.getSelectedSourceImageIds().contains(file.getSourceFileId()))
                     .filter(file -> Files.isRegularFile(uploadPathService.resolve(file.getFilePath())))
-                    .map(file -> new ActionDto.TrainingImageChoice(file.getSourceFileId(), file.getFileName(), file.getVariant()))
+                    .map(file -> new ActionDto.TrainingImageChoice(file.getSourceFileId(), file.getFileName(), file.getVariant(), file.getImageType()))
                     .toList();
             return new ResolvedOverview(xmlAvailable, images);
         }
@@ -531,7 +564,7 @@ public class ActionTrainingSnapshotService {
         List<ActionDto.TrainingImageChoice> images = pageImageRepository.findByPageId(page.getId()).stream()
                 .filter(image -> selectedImageIds.contains(image.getId()))
                 .filter(image -> Files.isRegularFile(uploadPathService.resolve(image.getFilePath())))
-                .map(image -> new ActionDto.TrainingImageChoice(image.getId(), image.getFileName(), image.getVariant()))
+                .map(image -> new ActionDto.TrainingImageChoice(image.getId(), image.getFileName(), image.getVariant(), image.getImageType()))
                 .toList();
         return new ResolvedOverview(xmlAvailable, images);
     }
@@ -543,17 +576,17 @@ public class ActionTrainingSnapshotService {
 
     private ResolvedFile resolved(DatasetItemCopyFile file) {
         return new ResolvedFile(file.getSourceFileId(), file.getFileName(), file.getVariant(), file.getMimeType(),
-                file.getFileSize(), uploadPathService.resolve(file.getFilePath()));
+                file.getFileSize(), uploadPathService.resolve(file.getFilePath()), imageTypes.typeOf(file));
     }
 
     private ResolvedFile resolved(PageImage file) {
         return new ResolvedFile(file.getId(), file.getFileName(), file.getVariant(), file.getMimeType(),
-                file.getFileSize() == null ? 0L : file.getFileSize(), uploadPathService.resolve(file.getFilePath()));
+                file.getFileSize() == null ? 0L : file.getFileSize(), uploadPathService.resolve(file.getFilePath()), imageTypes.typeOf(file));
     }
 
     private ResolvedFile resolved(PageXml file) {
         return new ResolvedFile(file.getId(), file.getFileName(), file.getVariant(), file.getMimeType(),
-                file.getFileSize() == null ? 0L : file.getFileSize(), uploadPathService.resolve(file.getFilePath()));
+                file.getFileSize() == null ? 0L : file.getFileSize(), uploadPathService.resolve(file.getFilePath()), null);
     }
 
     private Path snapshotRoot(ActionRun run) {
@@ -642,6 +675,6 @@ public class ActionTrainingSnapshotService {
 
     public record SnapshotResult(int inputCount, Map<String, Long> splitCounts) {}
     private record ResolvedMaterial(DatasetItem item, ResolvedFile image, ResolvedFile xml) {}
-    private record ResolvedFile(String id, String fileName, String variant, String mimeType, long size, Path path) {}
+    private record ResolvedFile(String id, String fileName, String variant, String mimeType, long size, Path path, ImageType imageType) {}
     private record ResolvedOverview(boolean xmlAvailable, List<ActionDto.TrainingImageChoice> images) {}
 }

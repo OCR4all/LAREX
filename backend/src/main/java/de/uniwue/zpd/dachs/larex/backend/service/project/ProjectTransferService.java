@@ -549,6 +549,7 @@ public class ProjectTransferService {
                         sourceImage.getFileName(), storedImage.storagePath(), storedImage.mimeType(),
                         storedImage.sizeBytes(), sourceImage.getVariant(), sourceImage.getBaseName(), newPage
                 );
+                newImage.setImageType(storedImage.imageType());
                 if (sourceImage.getThumbnailPath() != null && !sourceImage.getThumbnailPath().isBlank()) {
                     var storedThumbnail = copyFile(
                             sourceImage.getThumbnailPath(),

@@ -27,6 +27,10 @@ const dependencies: Record<string, unknown> = {
   '@/composables/editor/use-canvas-interaction-blocker': { useBlockEditorCanvasInteractions: () => {} }
 }
 interface ReviewSetup {
+  automaticImages: Vue.Ref<boolean>
+  submittedImageVariantSelection: Vue.ComputedRef<unknown>
+  imageVariantOptions: Vue.ComputedRef<Array<{ label: string, value: string }>>
+  incompatibleScopedPages: Vue.ComputedRef<unknown[]>
   view: Vue.Ref<'choose' | 'configure' | 'history'>
   viewHeader: Vue.Ref<HTMLElement | null>
   canStart: Vue.ComputedRef<boolean>
@@ -119,6 +123,118 @@ describe('Action run review flow', () => {
   afterEach(() => {
     scope.stop()
     vi.unstubAllGlobals()
+  })
+
+  it('automatically selects compatible types across differently named variants and omits optional missing images', async () => {
+    const typedSetup = scope.run(() => exportsObject.default!.setup({
+      workspaceId: 'workspace', projectId: 'project',
+      pages: [
+        { id: 'one', name: 'One', imageCount: 2, xmlFileCount: 1, imageVariants: [
+          { id: 'color', fileName: 'color.png', variant: 'original', imageType: 'COLOR' },
+          { id: 'binary-one', fileName: 'binary.png', variant: 'processed', imageType: 'BINARY' }
+        ] },
+        { id: 'two', name: 'Two', imageCount: 1, xmlFileCount: 1, imageVariants: [
+          { id: 'binary-two', fileName: 'binary.png', variant: 'thresholded', imageType: 'BINARY' }
+        ] },
+        { id: 'three', name: 'Three', imageCount: 1, xmlFileCount: 1, imageVariants: [
+          { id: 'gray', fileName: 'gray.png', variant: 'original', imageType: 'GRAYSCALE' }
+        ] }
+      ]
+    }, { expose: () => {}, emit }))!
+    const typedProcessor = { ...processor, id: 'typed', acceptsImages: true, inputs: {
+      images: { level: 'OPTIONAL' as const, requiredForTargets: [], imageTypes: ['BINARY' as const] },
+      xml: { level: 'OPTIONAL' as const, requiredForTargets: [] }
+    } }
+    typedSetup.processors.value = [{ assignmentId: null, processor: typedProcessor, executable: true, blockedReason: null }]
+    typedSetup.selectAction(typedSetup.processors.value[0]!)
+    await Vue.nextTick()
+    expect(typedSetup.automaticImages.value).toBe(true)
+    expect(typedSetup.submittedImageVariantSelection.value).toBeNull()
+    expect(typedSetup.imageVariantOptions.value.map(option => option.value)).toEqual(['processed', 'thresholded'])
+    expect(typedSetup.incompatibleScopedPages.value).toHaveLength(0)
+    expect(typedSetup.imageWarnings.value).toHaveLength(0)
+    typedSetup.processors.value = [{ assignmentId: null, processor: { ...typedProcessor, inputs: {
+      ...typedProcessor.inputs, images: { ...typedProcessor.inputs.images, level: 'REQUIRED' }
+    } }, executable: true, blockedReason: null }]
+    await Vue.nextTick()
+    expect(typedSetup.incompatibleScopedPages.value).toHaveLength(1)
+    expect(typedSetup.imageWarnings.value[0]?.title).toContain('accepted type')
+  })
+
+  it('selects a confirmed required type by default and switches defaults when the Action changes', async () => {
+    const typedSetup = scope.run(() => exportsObject.default!.setup({
+      workspaceId: 'workspace', projectId: 'project', pages: [
+        { id: 'one', name: 'One', imageCount: 3, xmlFileCount: 1, imageVariants: [
+          { id: 'pending', fileName: 'scan.png', variant: 'a-pending', imageType: null },
+          { id: 'color', fileName: 'color.png', variant: 'original', imageType: 'COLOR' },
+          { id: 'binary', fileName: 'binary.png', variant: 'processed', imageType: 'BINARY' }
+        ] }
+      ]
+    }, { expose: () => {}, emit }))!
+    const typed = (id: string, type: 'BINARY' | 'COLOR') => ({ assignmentId: null, executable: true, blockedReason: null,
+      processor: { ...processor, id, acceptsImages: true, inputs: {
+        ...processor.inputs, images: { level: 'REQUIRED' as const, requiredForTargets: [], imageTypes: [type] }
+      } } })
+    typedSetup.processors.value = [typed('binary', 'BINARY'), typed('color', 'COLOR')]
+    typedSetup.selectAction(typedSetup.processors.value[0]!)
+    await Vue.nextTick()
+    expect(typedSetup.automaticImages.value).toBe(false)
+    expect(typedSetup.imageVariantOptions.value).toEqual([{ value: 'processed', label: 'processed · binary' }])
+    expect(typedSetup.selectedImageVariants.value).toEqual(['processed'])
+    expect(typedSetup.submittedImageVariantSelection.value).toEqual({ mode: 'GLOBAL', variants: ['processed'], fallbackImage: false })
+    typedSetup.selectAction(typedSetup.processors.value[1]!)
+    await Vue.nextTick()
+    expect(typedSetup.selectedImageVariants.value).toEqual(['original'])
+    expect(typedSetup.imageVariantOptions.value).toEqual([{ value: 'original', label: 'original · color' }])
+  })
+
+  it('defaults required types per page when matching images have different variant names', async () => {
+    const typedSetup = scope.run(() => exportsObject.default!.setup({
+      workspaceId: 'workspace', projectId: 'project', pages: [
+        { id: 'one', name: 'One', imageCount: 1, xmlFileCount: 1, imageVariants: [
+          { id: 'first', fileName: 'first.png', variant: 'ocropus', imageType: 'BINARY' }
+        ] },
+        { id: 'two', name: 'Two', imageCount: 1, xmlFileCount: 1, imageVariants: [
+          { id: 'second', fileName: 'second.png', variant: 'sbb', imageType: 'BINARY' }
+        ] },
+        { id: 'pending', name: 'Pending', imageCount: 1, xmlFileCount: 1, imageVariants: [
+          { id: 'third', fileName: 'third.png', variant: 'scan', imageType: null }
+        ] }
+      ]
+    }, { expose: () => {}, emit }))!
+    typedSetup.processors.value = [{ assignmentId: null, executable: true, blockedReason: null,
+      processor: { ...processor, id: 'binary', acceptsImages: true, inputs: {
+        ...processor.inputs, images: { level: 'REQUIRED', requiredForTargets: [], imageTypes: ['BINARY'] }
+      } } }]
+    typedSetup.selectAction(typedSetup.processors.value[0]!)
+    await Vue.nextTick()
+    expect(typedSetup.imageVariantMode.value).toBe('perPage')
+    expect(typedSetup.pageImageVariants).toEqual({ one: ['ocropus'], two: ['sbb'] })
+    expect(typedSetup.incompatibleScopedPages.value).toHaveLength(0)
+    expect(typedSetup.canStart.value).toBe(true)
+    expect(typedSetup.submittedImageVariantSelection.value).toEqual({ mode: 'PER_PAGE', pageVariantLists: { one: ['ocropus'], two: ['sbb'] }, fallbackImage: false })
+  })
+
+  it('allows pending image metadata to reach authoritative server review', async () => {
+    const pendingSetup = scope.run(() => exportsObject.default!.setup({
+      workspaceId: 'workspace', projectId: 'project',
+      pages: [{ id: 'pending', name: 'Pending', imageCount: 1, xmlFileCount: 1, imageVariants: [
+        { id: 'image', fileName: 'image.png', variant: 'scan', imageType: null }
+      ] }]
+    }, { expose: () => {}, emit }))!
+    pendingSetup.processors.value = [{ assignmentId: null, executable: true, blockedReason: null,
+      processor: { ...processor, id: 'binary', acceptsImages: true, inputs: {
+        ...processor.inputs, images: { level: 'REQUIRED', requiredForTargets: [], imageTypes: ['BINARY'] }
+      } } }]
+    pendingSetup.selectAction(pendingSetup.processors.value[0]!)
+    await Vue.nextTick()
+    expect(pendingSetup.canStart.value).toBe(true)
+    expect(pendingSetup.imageVariantOptions.value).toEqual([])
+    expect(pendingSetup.automaticImages.value).toBe(true)
+    fetch.mockResolvedValueOnce({ ...preview, pages: [], skippedPages: [{ pageId: 'pending', name: 'Pending', reason: 'Required BINARY image is missing' }] })
+    await pendingSetup.startRun()
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(String(fetch.mock.calls[0]?.[0])).toContain('/impact')
   })
 
   it('reviews Integration inputs without overwrite warnings and starts only after review', async () => {

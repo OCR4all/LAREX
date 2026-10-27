@@ -1,3 +1,4 @@
+import type { ImageType } from '@/types/image'
 import type { RelationDraftState } from '@/utils/editor/relations'
 import type { XmlValidationError } from '@/utils/xml-editor-diagnostics'
 
@@ -30,6 +31,7 @@ export interface ConfidenceHeatmapSettings {
 }
 
 export interface ImageVariant {
+  imageType?: ImageType | null
   id: string
   url: string
   fileName?: string

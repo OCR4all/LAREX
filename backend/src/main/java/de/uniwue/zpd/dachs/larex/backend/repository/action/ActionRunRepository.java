@@ -19,6 +19,10 @@ import java.time.LocalDateTime;
 @Repository
 public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
 
+    @Query("SELECT COUNT(r) > 0 FROM ActionWorkflowRun r WHERE r.workflowId = :workflowId AND r.status IN ('RUNNING', 'CANCEL_REQUESTED')")
+    boolean hasActiveWorkflowRuns(@Param("workflowId") String workflowId);
+
+
     @Query("SELECT r.processorDefinition.id FROM ActionRun r WHERE r.id = :id")
     Optional<String> findProcessorDefinitionIdById(@Param("id") String id);
 

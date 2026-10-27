@@ -4,7 +4,12 @@ import asyncio
 import json
 import math
 import os
+import random
+from datetime import UTC, datetime
+from io import BytesIO
 from xml.etree import ElementTree
+
+from PIL import Image
 
 from larex_actions import (
     ActionContext,
@@ -39,6 +44,144 @@ DEFAULT_EVALUATION_DELAY_SECONDS = float(
     os.getenv("LAREX_EVALUATION_DELAY_SECONDS", "5")
 )
 MAX_EVALUATION_DELAY_SECONDS = 30.0
+
+PAGE_NS = "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15"
+ElementTree.register_namespace("", PAGE_NS)
+
+
+def integer_parameter(parameters: dict, key: str, default: int, minimum: int, maximum: int) -> int:
+    value = parameters.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or int(value) != value or not minimum <= value <= maximum:
+        raise ValueError(f"{key} must be an integer between {minimum} and {maximum}")
+    return int(value)
+
+
+def binarize(content: bytes, threshold: int) -> bytes:
+    with Image.open(BytesIO(content)) as image:
+        binary = image.convert("L").point(lambda value: 255 if value >= threshold else 0, mode="1")
+        output = BytesIO()
+        binary.save(output, format="PNG")
+        return output.getvalue()
+
+
+def page_document(content: bytes | None, image: bytes | None = None, filename: str = "page.png") -> tuple[ElementTree.Element, ElementTree.Element, str]:
+    if content:
+        root = ElementTree.fromstring(content)
+        namespace = root.tag.split("}")[0][1:] if root.tag.startswith("{") else ""
+        prefix = f"{{{namespace}}}" if namespace else ""
+        page = root.find(f"{prefix}Page")
+        if page is None:
+            raise ValueError("PAGE XML must contain a Page element")
+        return root, page, prefix
+    if not image:
+        raise ValueError("An image is required to create PAGE XML")
+    with Image.open(BytesIO(image)) as source:
+        width, height = source.size
+    prefix = f"{{{PAGE_NS}}}"
+    root = ElementTree.Element(f"{prefix}PcGts")
+    metadata = ElementTree.SubElement(root, f"{prefix}Metadata")
+    for key, value in (("Creator", "LAREX mock processors"), ("Created", datetime.now(UTC).isoformat()), ("LastChange", datetime.now(UTC).isoformat())):
+        ElementTree.SubElement(metadata, f"{prefix}{key}").text = value
+    page = ElementTree.SubElement(root, f"{prefix}Page", imageFilename=filename, imageWidth=str(width), imageHeight=str(height))
+    return root, page, prefix
+
+
+def transform_xml(operation: str, content: bytes | None, parameters: dict, *, image: bytes | None = None, filename: str = "page.png") -> bytes:
+    root, page, ns = page_document(content, image, filename)
+    width, height = int(page.get("imageWidth", "0")), int(page.get("imageHeight", "0"))
+    if width < 2 or height < 2:
+        raise ValueError("PAGE XML must have image dimensions of at least 2 × 2")
+    if operation == "region":
+        for child in list(page):
+            if child.tag.endswith("Region") or child.tag == f"{ns}ReadingOrder":
+                page.remove(child)
+        region = ElementTree.SubElement(page, f"{ns}TextRegion", id="mock_region", type="paragraph")
+        ElementTree.SubElement(region, f"{ns}Coords", points=f"0,0 {width - 1},0 {width - 1},{height - 1} 0,{height - 1}")
+    elif operation == "line":
+        region = page.find(f"{ns}TextRegion")
+        if region is None:
+            raise ValueError("No text region found. Run Mock Whole-page Region first.")
+        coords = region.find(f"{ns}Coords")
+        if coords is None:
+            raise ValueError("The text region has no coordinates")
+        points = [tuple(map(int, point.split(","))) for point in coords.get("points", "").split()]
+        if len(points) < 3:
+            raise ValueError("The text region needs at least three coordinates")
+        left, right = min(x for x, _ in points), max(x for x, _ in points)
+        top, bottom = min(y for _, y in points), max(y for _, y in points)
+        if right <= left or bottom <= top:
+            raise ValueError("The text region must have a nonzero size")
+        for child in list(region):
+            if child.tag in (f"{ns}TextLine", f"{ns}TextEquiv"):
+                region.remove(child)
+        y = min(bottom - 1, top + (bottom - top) // 2)
+        line_bottom = min(bottom, y + max(1, (bottom - top) // 20))
+        ids = {element.get("id") for element in root.iter()}
+        line_id = "mock_line"
+        suffix = 1
+        while line_id in ids:
+            line_id = f"mock_line_{suffix}"
+            suffix += 1
+        line = ElementTree.SubElement(region, f"{ns}TextLine", id=line_id)
+        ElementTree.SubElement(line, f"{ns}Coords", points=f"{left},{y} {right},{y} {right},{line_bottom} {left},{line_bottom}")
+        ElementTree.SubElement(line, f"{ns}Baseline", points=f"{left},{line_bottom} {right},{line_bottom}")
+    elif operation == "ocr":
+        lines = page.findall(f".//{ns}TextLine")
+        if not lines:
+            raise ValueError("No text line found. Run Mock Single Text Line first.")
+        count = integer_parameter(parameters, "wordCount", 8, 1, 100)
+        rng = random.Random(integer_parameter(parameters, "seed", 42, 0, 2147483647))
+        words = "archive page history manuscript letter reading example document ink paper book text".split()
+        # Region-level transcriptions would otherwise disagree with the new line text.
+        for region in page.iter():
+            if region.tag.endswith("Region"):
+                for child in list(region):
+                    if child.tag == f"{ns}TextEquiv":
+                        region.remove(child)
+        for line in lines:
+            for child in list(line):
+                if child.tag in (f"{ns}TextEquiv", f"{ns}Word"):
+                    line.remove(child)
+            equiv = ElementTree.SubElement(line, f"{ns}TextEquiv", index="0", conf="0.5")
+            ElementTree.SubElement(equiv, f"{ns}Unicode").text = " ".join(rng.choices(words, k=count)).capitalize() + "."
+    else:
+        raise ValueError(f"Unknown mock operation: {operation}")
+    metadata = root.find(f"{ns}Metadata")
+    if metadata is not None:
+        changed = metadata.find(f"{ns}LastChange")
+        if changed is not None:
+            changed.text = datetime.now(UTC).isoformat()
+    return ElementTree.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+async def workflow_mock_run(ctx: ActionContext, operation: str) -> None:
+    action_input = await ctx.pull_input()
+    for index, page in enumerate(action_input.pages):
+        await ctx.check_cancelled()
+        if not page.images:
+            raise ValueError(f"Mock {operation} requires a page image")
+        selected_image = page.images[0]
+        image = await ctx.download_bytes(selected_image)
+        if not image:
+            raise ValueError(f"Empty image input for {page.name}")
+        results = ctx.result_builder()
+        if operation == "binarize":
+            threshold = integer_parameter(action_input.parameters, "threshold", 128, 0, 255)
+            results.add_image_bytes(page_id=page.id, content=binarize(image, threshold), file_name=f"{page.id}-binarized.png", variant="binarized", mime_type="image/png")
+        else:
+            xml = await ctx.download_bytes(page.xml[0]) if page.xml else None
+            content = transform_xml(operation, xml, action_input.parameters, image=image, filename=selected_image.file_name)
+            results.add_xml_bytes(page_id=page.id, content=content, file_name=f"{page.id}.xml")
+        image_type = getattr(selected_image, "image_type", None) or "type unknown"
+        await ctx.submit_page_results(page.id, results, f"Mock {operation}: {page.name} · {selected_image.variant or selected_image.file_name} · {image_type}")
+        await ctx.heartbeat(int(95 * (index + 1) / len(action_input.pages)), f"Processed {index + 1}/{len(action_input.pages)} pages", raise_on_cancel=True)
+    await ctx.complete(message=f"Mock {operation} completed for {len(action_input.pages)} page(s).")
+
+
+def workflow_mock_handler(operation: str):
+    async def handler(ctx: ActionContext) -> None:
+        await workflow_mock_run(ctx, operation)
+    return handler
 
 
 async def process_run(ctx: ActionContext) -> None:
@@ -501,6 +644,14 @@ app = create_larex_action_app(
     handler=process_run,
     route_prefixes=("", "/processing"),
 )
+for operation, processor_id in (("binarize", "mock-binarization"), ("region", "mock-whole-page-region"), ("line", "mock-single-text-line"), ("ocr", "mock-random-ocr")):
+    app.mount(f"/workflow/{operation}", create_larex_action_app(
+        processor_id=processor_id,
+        dispatch_secret_env=DISPATCH_SECRET_ENV,
+        handler=workflow_mock_handler(operation),
+        route_prefixes=("",),
+        processor_capabilities={"customFileResults": False},
+    ))
 app.mount(
     "/training",
     create_larex_action_app(

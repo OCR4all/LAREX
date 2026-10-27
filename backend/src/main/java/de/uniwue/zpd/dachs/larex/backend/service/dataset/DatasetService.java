@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.dataset;
 
+import de.uniwue.zpd.dachs.larex.backend.util.ImageTypeDetector;
+import de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionOutputService;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
@@ -70,6 +72,7 @@ public class DatasetService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
+    private final ImageTypeService imageTypes;
     private final ActionOutputService actionOutputService;
     private final DatasetRepository datasetRepository;
     private final DatasetItemRepository datasetItemRepository;
@@ -101,7 +104,7 @@ public class DatasetService {
                           ProjectRepository projectRepository,
                           PageRepository pageRepository,
                           PageXmlRepository pageXmlRepository,
-                          PageImageRepository pageImageRepository,
+                          PageImageRepository pageImageRepository, ImageTypeService imageTypes,
                           WorkspaceAccessService workspaceAccessService,
                           WorkspaceQuotaGuardService workspaceQuotaGuardService,
                           WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
@@ -118,6 +121,7 @@ public class DatasetService {
         this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.pageImageRepository = pageImageRepository;
+        this.imageTypes = imageTypes;
         this.workspaceAccessService = workspaceAccessService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
@@ -762,7 +766,8 @@ public class DatasetService {
                                 image.getFileName(),
                                 image.getVariant(),
                                 image.getVariant() == null || image.getVariant().isBlank() ? image.getFileName() : image.getVariant(),
-                                "/api/projects/" + sourcePage.getProject().getId() + "/pages/images/" + image.getId() + "/blob"
+                                "/api/projects/" + sourcePage.getProject().getId() + "/pages/images/" + image.getId() + "/blob",
+                                imageTypes.typeOf(image)
                         ))
                         .toList(),
                 List.of(new DatasetDto.EditorXmlFile(
@@ -858,7 +863,8 @@ public class DatasetService {
                                 image.getVariant(),
                                 image.getVariant() == null || image.getVariant().isBlank() ? image.getFileName() : image.getVariant(),
                                 "/api/workspaces/" + workspaceId + "/datasets/" + datasetId
-                                        + "/items/" + item.getId() + "/images/" + image.getId() + "/blob"
+                                        + "/items/" + item.getId() + "/images/" + image.getId() + "/blob",
+                                imageTypes.typeOf(image)
                         ))
                         .toList(),
                 List.of(new DatasetDto.EditorXmlFile(
@@ -1087,6 +1093,9 @@ public class DatasetService {
         String targetFileName = UUID.randomUUID().toString().replace("-", "") + (extension.isBlank() ? "" : "." + extension);
         Path targetPath = targetDir.resolve(targetFileName);
         Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+        if (copyFile.getKind() == DatasetItemCopyFile.Kind.IMAGE) {
+            copyFile.setImageType(ImageTypeDetector.detect(targetPath));
+        }
         copyFile.setFilePath(relativeToUploadRoot(targetPath));
         copyFile.setFileSize(Files.size(targetPath));
         copyFile.setChecksumSha256(computeSha256(targetPath));

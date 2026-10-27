@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.dto;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
+import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -39,11 +40,9 @@ public class PageDto {
 
     public record ResolvedTag(String id, String label, String color) {}
 
-    public record ImageVariantPreview(
-            String id,
-            String fileName,
-            String variant
-    ) {}
+    public record ImageVariantPreview(String id, String fileName, String variant, ImageType imageType) {
+        public ImageVariantPreview(String id, String fileName, String variant) { this(id, fileName, variant, null); }
+    }
 
     public record TextConfidenceStats(
             double min,
@@ -98,7 +97,8 @@ public class PageDto {
             String variant,
             String baseName,
             String thumbnailPath,
-            LocalDateTime created
+            LocalDateTime created,
+            ImageType imageType
     ) {}
 
     public record ImageDownloadRequest(

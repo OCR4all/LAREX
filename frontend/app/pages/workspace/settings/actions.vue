@@ -11,6 +11,7 @@ const selectedWorkspace = computed(() => workspaceStore.selectedWorkspaceId)
 const { capabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const canManage = computed(() => workspaceStore.currentWorkspace?.isPersonal === true || allow(capabilities.value.canManageProjects))
 
+const workflowBuilder = ref<{ create: () => void, editById: (id: string) => Promise<void>, canEdit: (id: string) => boolean } | null>(null)
 const definitions = ref<ActionDefinitionResponse[]>([])
 const assignments = ref<ActionAssignmentResponse[]>([])
 const projects = ref<Array<{ id: string, name: string }>>([])
@@ -256,14 +257,32 @@ function saveScope() {
               Manage which Actions are enabled and where they can run.
             </p>
           </div>
-          <UButton
-            label="Add Actions"
-            icon="i-lucide-plus"
-            :disabled="loading || !!loadError"
-            @click="openAdd"
-          />
+          <div class="flex gap-2">
+            <UButton
+              label="Build workflow"
+              icon="i-lucide-workflow"
+              variant="outline"
+              :disabled="loading || !!loadError"
+              @click="workflowBuilder?.create()"
+            />
+            <UButton
+              label="Add Actions"
+              icon="i-lucide-plus"
+              :disabled="loading || !!loadError"
+              @click="openAdd"
+            />
+          </div>
         </div>
       </template>
+      <ActionWorkflowManager
+        v-if="selectedWorkspace"
+        ref="workflowBuilder"
+        :key="selectedWorkspace"
+        :workspace-id="selectedWorkspace"
+        :processors="definitions"
+        embedded
+        @saved="loadActions"
+      />
       <section aria-label="Configured Actions" class="min-w-0 rounded-lg border border-default bg-default">
         <div class="flex flex-wrap items-end gap-3 border-b border-default p-4">
           <UFormField label="Search configured Actions" class="flex-1 min-w-48">
@@ -341,6 +360,13 @@ function saveScope() {
             <div class="min-w-56 max-w-xl whitespace-normal break-words">
               <p class="font-medium">
                 {{ row.original.processor.name }}
+                <UButton
+                  v-if="row.original.processor.workflowId && !row.original.processor.global && workflowBuilder?.canEdit(row.original.processor.workflowId)"
+                  label="Edit workflow"
+                  size="xs"
+                  variant="link"
+                  @click="workflowBuilder?.editById(row.original.processor.workflowId!)"
+                />
               </p>
               <p class="text-sm text-muted mt-1">
                 {{ row.original.processor.description || 'No description provided.' }}
@@ -348,7 +374,7 @@ function saveScope() {
             </div>
           </template>
           <template #kind-cell="{ row }">
-            <span class="capitalize">{{ row.original.processor.kind.toLowerCase() }}</span>
+            <span class="capitalize">{{ row.original.processor.workflowId ? 'Workflow' : row.original.processor.kind.toLowerCase() }}</span>
           </template>
           <template #availability-cell="{ row }">
             <UBadge color="neutral" variant="soft">
@@ -514,7 +540,7 @@ function saveScope() {
               </div>
             </template>
             <template #kind-cell="{ row }">
-              <span class="capitalize">{{ row.original.kind.toLowerCase() }}</span>
+              <span class="capitalize">{{ row.original.workflowId ? 'Workflow' : row.original.kind.toLowerCase() }}</span>
             </template>
             <template #availability-cell="{ row }">
               <UBadge color="neutral" variant="soft">

@@ -7,6 +7,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.Action
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Status;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Kind;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
+import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -42,10 +43,20 @@ public class ActionDto {
     public record InputRequirement(
             InputLevel level,
             List<ActionTarget> requiredForTargets,
-            Boolean multiple
+            Boolean multiple,
+            List<ImageType> imageTypes
     ) {
         public InputRequirement {
             multiple = Boolean.TRUE.equals(multiple);
+            imageTypes = imageTypes == null ? List.of() : List.copyOf(imageTypes);
+        }
+
+        public InputRequirement(InputLevel level, List<ActionTarget> requiredForTargets, Boolean multiple) {
+            this(level, requiredForTargets, multiple, List.of());
+        }
+
+        public boolean acceptsType(ImageType type) {
+            return imageTypes.isEmpty() || type != null && imageTypes.contains(type);
         }
 
         public InputRequirement(InputLevel level, List<ActionTarget> requiredForTargets) {
@@ -171,7 +182,8 @@ public class ActionDto {
             TrainingSplitRequirements trainingSplits,
             EvaluationDefinition evaluation,
             Map<String, ActionDefinitionDocument.Parameter> parameters,
-            Map<ActionTarget, List<AnnotationLevel>> overwrites
+            Map<ActionTarget, List<AnnotationLevel>> overwrites,
+            String workflowId
     ) {}
 
     public record WorkspaceAvailabilityRequest(
@@ -223,8 +235,14 @@ public class ActionDto {
             Map<String, Object> parameters,
             TargetSelection targetSelection,
             ImageVariantSelection imageVariantSelection,
-            Boolean enqueueIfBusy
-    ) {}
+            Boolean enqueueIfBusy,
+            List<ImageType> imageTypes
+    ) {
+        public StartRunRequest(String processorDefinitionId, List<String> pageIds, Map<String, Object> parameters,
+                               TargetSelection targetSelection, ImageVariantSelection imageVariantSelection, Boolean enqueueIfBusy) {
+            this(processorDefinitionId, pageIds, parameters, targetSelection, imageVariantSelection, enqueueIfBusy, null);
+        }
+    }
 
     // Singular fields remain readable for existing clients and persisted runs.
     public record ImageVariantSelection(
@@ -309,8 +327,11 @@ public class ActionDto {
     public record TrainingImageChoice(
             String id,
             String fileName,
-            String variant
-    ) {}
+            String variant,
+            ImageType imageType
+    ) {
+        public TrainingImageChoice(String id, String fileName, String variant) { this(id, fileName, variant, null); }
+    }
 
     public record ParameterValuesResponse(
             Map<String, List<ActionDefinitionDocument.ParameterChoice>> values
@@ -484,8 +505,13 @@ public class ActionDto {
             String variant,
             String mimeType,
             Long fileSize,
-            String downloadUrl
-    ) {}
+            String downloadUrl,
+            ImageType imageType
+    ) {
+        public MachinePageFile(String id, String fileName, String variant, String mimeType, Long fileSize, String downloadUrl) {
+            this(id, fileName, variant, mimeType, fileSize, downloadUrl, null);
+        }
+    }
 
     public record MachinePageInput(
             String id,

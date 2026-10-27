@@ -1,3 +1,4 @@
+import type { ImageType } from './image'
 import type { DatasetCapabilities } from './capabilities'
 
 export type DatasetSplitTemplate = 'TRAIN_VAL' | 'TRAIN_VAL_TEST'
@@ -155,6 +156,7 @@ export interface DatasetEditorAnnotationContext {
 }
 
 export interface DatasetEditorImageVariant {
+  imageType?: ImageType | null
   id: string
   fileName: string
   variant?: string | null

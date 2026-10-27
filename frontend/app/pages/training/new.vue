@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { actionImageSelectionValues } from '@/utils/action-input-requirements'
+import { actionImageSelectionValues, compatibleActionImages, actionImageVariantOptions, selectableActionImages, defaultActionImageVariants } from '@/utils/action-input-requirements'
 import type {
   ActionDefinitionResponse,
   ActionParameterChoice,
@@ -133,12 +133,15 @@ function splitLevel(item: TrainingInputItem) {
   return requirements[item.split.toLowerCase() as 'train' | 'val' | 'test']
 }
 
+function compatibleImages(item: TrainingInputItem) {
+  return compatibleActionImages(item.images, selectedProcessor.value?.inputs.images)
+}
 const compatibleItems = computed(() => (trainingInputs.value?.items ?? []).filter(item =>
-  splitLevel(item) !== 'NONE' && item.status === 'READY' && item.xmlAvailable && item.images.length > 0
+  splitLevel(item) !== 'NONE' && item.status === 'READY' && item.xmlAvailable && compatibleImages(item).length > 0
 ))
 const excludedItems = computed(() => (trainingInputs.value?.items ?? []).filter(item => !compatibleItems.value.includes(item)))
 const allModeIncompleteItems = computed(() => (trainingInputs.value?.items ?? []).filter(item =>
-  splitLevel(item) !== 'NONE' && item.status === 'READY' && (!item.xmlAvailable || item.images.length === 0)
+  splitLevel(item) !== 'NONE' && item.status === 'READY' && (!item.xmlAvailable || compatibleImages(item).length === 0)
 ))
 const activeItems = computed(() => selectionMode.value === 'ALL'
   ? compatibleItems.value
@@ -162,15 +165,47 @@ const selectedTagCounts = computed(() => {
   }
   return Object.entries(counts).sort((left, right) => right[1] - left[1])
 })
-const variantOptions = computed(() => [...new Set(compatibleItems.value.flatMap(item =>
-  item.images.map(image => image.variant).filter((variant): variant is string => Boolean(variant))
-))].sort().map(variant => ({ label: variant, value: variant })))
+function selectableImages(item: TrainingInputItem) {
+  return selectableActionImages(item.images, selectedProcessor.value?.inputs.images, true)
+}
+const variantOptions = computed(() => actionImageVariantOptions(activeItems.value.flatMap(selectableImages)))
+watch([selectedProcessor, activeItems], () => {
+  if (!selectedProcessor.value?.inputs.images.imageTypes?.length) return
+  const validVariants = new Set(variantOptions.value.map(option => option.value))
+  const retained = globalVariants.value.filter(variant => validVariants.has(variant))
+  globalVariants.value = retained.length ? retained : defaultActionImageVariants(activeItems.value.map(selectableImages), multipleImages.value)
+  for (const item of activeItems.value) {
+    const ids = new Set(selectableImages(item).map(image => image.id))
+    const retainedIds = (itemImageIdLists.value[item.itemId] ?? []).filter(id => ids.has(id))
+    if (retainedIds.length) itemImageIdLists.value[item.itemId] = retainedIds
+    else delete itemImageIdLists.value[item.itemId]
+  }
+})
+function selectedImageIds(item: TrainingInputItem) {
+  const selectableIds = new Set(selectableImages(item).map(image => image.id))
+  return resolvedImages(item).map(image => image.id).filter(id => selectableIds.has(id))
+}
+const submittedImageIdLists = computed(() => {
+  const selections = { ...itemImageIdLists.value }
+  if (selectedProcessor.value?.inputs.images.imageTypes?.length) {
+    for (const item of activeItems.value) {
+      const ids = selectedImageIds(item)
+      if (ids.length) selections[item.itemId] = ids
+    }
+  }
+  return selections
+})
 
 function resolvedImages(item: TrainingInputItem) {
   const override = itemImageIdLists.value[item.itemId]
-  if (override?.length) return item.images.filter(image => override.includes(image.id))
-  if (globalVariants.value.length) return item.images.filter(image => globalVariants.value.includes(image.variant ?? ''))
-  return item.images.length === 1 ? item.images : []
+  if (override?.length) return compatibleImages(item).filter(image => override.includes(image.id))
+  if (globalVariants.value.length) return compatibleImages(item).filter(image => globalVariants.value.includes(image.variant ?? ''))
+  if (selectedProcessor.value?.inputs.images.imageTypes?.length) {
+    const confirmed = selectableImages(item)
+    const images = confirmed.length ? confirmed : compatibleImages(item)
+    return multipleImages.value ? images : images.slice(0, 1)
+  }
+  return compatibleImages(item).length === 1 ? compatibleImages(item) : []
 }
 
 const requiredSplitsPresent = computed(() => {
@@ -252,7 +287,7 @@ function exclusionReason(item: TrainingInputItem) {
   if (splitLevel(item) === 'NONE') return `${item.split} is unsupported by this Action`
   if (item.status !== 'READY') return item.brokenReason || 'Dataset item is broken'
   if (!item.xmlAvailable) return 'PAGE XML is missing'
-  if (!item.images.length) return 'No selected image is available'
+  if (!compatibleImages(item).length) return 'No selected image is available'
   return 'Not compatible'
 }
 
@@ -269,7 +304,7 @@ async function startTraining() {
           selection: selectionMode.value === 'ALL'
             ? { mode: 'ALL' }
             : { mode: 'SELECTED', itemIds: [...selectedItemIds.value] },
-          imageSelection: { globalVariants: globalVariants.value, itemImageIdLists: itemImageIdLists.value },
+          imageSelection: { globalVariants: globalVariants.value, itemImageIdLists: submittedImageIdLists.value },
           parameters: parameters.value,
           enqueueIfBusy: true
         }
@@ -493,13 +528,14 @@ async function startTraining() {
               </div>
               <UInput v-model="itemSearch" icon="i-lucide-search" placeholder="Filter pages…" />
               <USelect v-model="splitFilter" :items="[{ label: 'All splits', value: 'ALL' }, { label: 'Train', value: 'TRAIN' }, { label: 'Validation', value: 'VAL' }, { label: 'Test', value: 'TEST' }]" />
-              <UFormField label="Global image variants" hint="Per-item choices below override this value.">
+              <UFormField label="Global image variants" hint="Per-item choices below override this value." :description="selectedProcessor?.inputs.images.imageTypes?.length ? `Accepted types: ${selectedProcessor.inputs.images.imageTypes.join(', ').toLowerCase()}. Pending types are checked before starting.` : undefined">
                 <USelectMenu
                   :model-value="multipleImages ? globalVariants : globalVariants[0]"
                   :multiple="multipleImages"
                   :items="variantOptions"
+                  :disabled="variantOptions.length === 0"
                   value-key="value"
-                  placeholder="Use sole image or choose variants"
+                  placeholder="Automatic selection per item"
                   class="w-full"
                   @update:model-value="globalVariants = actionImageSelectionValues($event, globalVariants, true)"
                 />
@@ -583,17 +619,17 @@ async function startTraining() {
                       {{ item.pageName }}
                     </div>
                     <div class="truncate text-xs text-muted">
-                      {{ compatibleItems.includes(item) ? `${item.images.length} image variant(s) · PAGE XML ready` : exclusionReason(item) }}
+                      {{ compatibleItems.includes(item) ? `${compatibleImages(item).length} image variant(s) · PAGE XML ready` : exclusionReason(item) }}
                     </div>
                   </div>
                   <USelect
-                    v-if="compatibleItems.includes(item) && item.images.length"
-                    :model-value="multipleImages ? itemImageIdLists[item.itemId] : itemImageIdLists[item.itemId]?.[0]"
+                    v-if="compatibleItems.includes(item) && selectableImages(item).length"
+                    :model-value="multipleImages ? selectedImageIds(item) : selectedImageIds(item)[0]"
                     :multiple="multipleImages"
-                    :items="item.images.map(image => ({ label: image.variant || image.fileName, value: image.id }))"
+                    :items="selectableImages(item).map(image => ({ label: `${image.variant || image.fileName} · ${image.imageType?.toLowerCase() || 'type pending'}`, value: image.id }))"
                     placeholder="Override images"
                     class="w-44"
-                    @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event, itemImageIdLists[item.itemId], true)"
+                    @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event, selectedImageIds(item), true)"
                   />
                 </div>
                 <UEmpty

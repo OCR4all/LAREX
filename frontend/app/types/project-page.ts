@@ -1,3 +1,5 @@
+import type { ImageType } from './image'
+
 export type ProjectData = {
   id: string
   name: string
@@ -101,6 +103,7 @@ export type Page = {
   projectOrderPosition?: number
   textConfidence?: TextConfidenceStats | null
   imageVariants?: Array<{
+    imageType?: ImageType | null
     id: string
     fileName: string
     variant?: string | null

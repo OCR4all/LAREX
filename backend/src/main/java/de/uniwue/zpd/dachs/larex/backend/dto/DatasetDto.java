@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.dto;
 
+import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
 import de.uniwue.zpd.dachs.larex.backend.entity.Dataset;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import jakarta.validation.Valid;
@@ -196,7 +197,8 @@ public class DatasetDto {
             String fileName,
             String variant,
             String label,
-            String url
+            String url,
+            ImageType imageType
     ) {}
 
     public record EditorXmlFile(

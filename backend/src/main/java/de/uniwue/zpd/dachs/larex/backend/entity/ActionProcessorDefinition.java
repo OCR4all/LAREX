@@ -1,6 +1,10 @@
 package de.uniwue.zpd.dachs.larex.backend.entity;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
@@ -121,6 +125,15 @@ public class ActionProcessorDefinition {
     @LastModifiedDate
     @Column(nullable = false)
     private LocalDateTime updated;
+
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    @JoinColumn(name = "workflow_id", unique = true)
+    private ActionWorkflow workflow;
+
+    public ActionWorkflow getWorkflow() { return workflow; }
+    public void setWorkflow(ActionWorkflow workflow) { this.workflow = workflow; }
+    public String getWorkflowId() { return workflow == null ? null : workflow.getId(); }
+    public boolean isWorkflow() { return workflow != null; }
 
     public String getId() {
         return id;

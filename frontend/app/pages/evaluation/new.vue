@@ -1,6 +1,6 @@
 <!-- eslint-disable @stylistic/max-statements-per-line -->
 <script setup lang="ts">
-import { actionImageSelectionValues } from '@/utils/action-input-requirements'
+import { actionImageSelectionValues, compatibleActionImages, actionImageVariantOptions, selectableActionImages, defaultActionImageVariants } from '@/utils/action-input-requirements'
 import type { ActionDefinitionResponse, ActionEvaluationDefinition, ActionParameterChoice, ActionParameterValue, StartActionRunResponse, TrainingInputItem, TrainingInputResponse } from '@/types/action'
 import type { DatasetSummary } from '@/types/dataset'
 
@@ -42,18 +42,57 @@ watch(multipleImages, (multiple) => {
 const evaluation = computed<ActionEvaluationDefinition | null>(() => selectedProcessor.value?.evaluation ?? null)
 const splitRequirements = computed(() => evaluation.value?.splits)
 const filteredDatasets = computed(() => datasets.value.filter(dataset => `${dataset.name} ${dataset.description || ''}`.toLowerCase().includes(datasetSearch.value.trim().toLowerCase())))
-const compatibleItems = computed(() => (inputs.value?.items || []).filter(item => splitLevel(item) !== 'NONE' && item.status === 'READY' && item.xmlAvailable && item.images.length > 0))
+function compatibleImages(item: TrainingInputItem) {
+  return compatibleActionImages(item.images, selectedProcessor.value?.inputs.images)
+}
+const compatibleItems = computed(() => (inputs.value?.items || []).filter(item => splitLevel(item) !== 'NONE' && item.status === 'READY' && item.xmlAvailable && compatibleImages(item).length > 0))
 const activeItems = computed(() => selectionMode.value === 'ALL' ? compatibleItems.value : compatibleItems.value.filter(item => selectedItemIds.value.has(item.itemId)))
 const filteredItems = computed(() => (inputs.value?.items || []).filter(item => (splitFilter.value === 'ALL' || item.split === splitFilter.value) && item.pageName.toLowerCase().includes(itemSearch.value.trim().toLowerCase())))
 const splitCounts = computed(() => activeItems.value.reduce<Record<string, number>>((result, item) => { result[item.split] = (result[item.split] || 0) + 1; return result }, {}))
-const variantOptions = computed(() => [...new Set(compatibleItems.value.flatMap(item => item.images.map(image => image.variant).filter((value): value is string => Boolean(value))))].map(value => ({ label: value, value })))
+function selectableImages(item: TrainingInputItem) {
+  return selectableActionImages(item.images, selectedProcessor.value?.inputs.images, true)
+}
+const variantOptions = computed(() => actionImageVariantOptions(activeItems.value.flatMap(selectableImages)))
+watch([selectedProcessor, activeItems], () => {
+  if (!selectedProcessor.value?.inputs.images.imageTypes?.length) return
+  const validVariants = new Set(variantOptions.value.map(option => option.value))
+  const retained = globalVariants.value.filter(variant => validVariants.has(variant))
+  globalVariants.value = retained.length ? retained : defaultActionImageVariants(activeItems.value.map(selectableImages), multipleImages.value)
+  for (const item of activeItems.value) {
+    const ids = new Set(selectableImages(item).map(image => image.id))
+    const retainedIds = (itemImageIdLists.value[item.itemId] ?? []).filter(id => ids.has(id))
+    if (retainedIds.length) itemImageIdLists.value[item.itemId] = retainedIds
+    else delete itemImageIdLists.value[item.itemId]
+  }
+})
+function selectedImageIds(item: TrainingInputItem) {
+  const selectableIds = new Set(selectableImages(item).map(image => image.id))
+  return resolvedImages(item).map(image => image.id).filter(id => selectableIds.has(id))
+}
+const submittedImageIdLists = computed(() => {
+  const selections = { ...itemImageIdLists.value }
+  if (selectedProcessor.value?.inputs.images.imageTypes?.length) {
+    for (const item of activeItems.value) {
+      const ids = selectedImageIds(item)
+      if (ids.length) selections[item.itemId] = ids
+    }
+  }
+  return selections
+})
+
 const requiredSplitsPresent = computed(() => ['TRAIN', 'VAL', 'TEST'].every(split => splitLevelFor(split as 'TRAIN' | 'VAL' | 'TEST') !== 'REQUIRED' || (splitCounts.value[split] || 0) > 0))
-const imageSelectionReady = computed(() => activeItems.value.every((item) => {
+function resolvedImages(item: TrainingInputItem) {
   const override = itemImageIdLists.value[item.itemId]
-  if (override?.length) return override.every(id => item.images.some(image => image.id === id))
-  if (globalVariants.value.length) return item.images.some(image => globalVariants.value.includes(image.variant ?? ''))
-  return item.images.length === 1
-}))
+  if (override?.length) return compatibleImages(item).filter(image => override.includes(image.id))
+  if (globalVariants.value.length) return compatibleImages(item).filter(image => globalVariants.value.includes(image.variant ?? ''))
+  if (selectedProcessor.value?.inputs.images.imageTypes?.length) {
+    const confirmed = selectableImages(item)
+    const images = confirmed.length ? confirmed : compatibleImages(item)
+    return multipleImages.value ? images : images.slice(0, 1)
+  }
+  return compatibleImages(item).length === 1 ? compatibleImages(item) : []
+}
+const imageSelectionReady = computed(() => activeItems.value.every(item => resolvedImages(item).length > 0))
 const requiredParametersPresent = computed(() => Object.entries(selectedProcessor.value?.parameters || {}).every(([key, definition]) => !definition.required || (parameters.value[key] !== undefined && String(parameters.value[key]).trim().length > 0)))
 const canStart = computed(() => Boolean(selectedDatasetId.value && selectedProcessorId.value && activeItems.value.length && requiredSplitsPresent.value && imageSelectionReady.value && requiredParametersPresent.value))
 const steps = [{ title: 'Dataset', description: 'Choose a dataset', icon: 'i-lucide-database' }, { title: 'Subset', description: 'Select pages and splits', icon: 'i-lucide-list-checks' }, { title: 'Action', description: 'Select model and parameters', icon: 'i-lucide-sliders-horizontal' }, { title: 'Review', description: 'Confirm and start', icon: 'i-lucide-rocket' }]
@@ -86,7 +125,7 @@ async function startEvaluation() {
   if (!canStart.value) return
   startPending.value = true
   try {
-    const response = await $fetch<StartActionRunResponse>(`/api/workspaces/${workspaceId.value}/actions/evaluation/datasets/${selectedDatasetId.value}/runs`, { method: 'POST', body: { processorDefinitionId: selectedProcessorId.value, selection: selectionMode.value === 'ALL' ? { mode: 'ALL' } : { mode: 'SELECTED', itemIds: [...selectedItemIds.value] }, imageSelection: { globalVariants: globalVariants.value, itemImageIdLists: itemImageIdLists.value }, parameters: parameters.value, enqueueIfBusy: true } })
+    const response = await $fetch<StartActionRunResponse>(`/api/workspaces/${workspaceId.value}/actions/evaluation/datasets/${selectedDatasetId.value}/runs`, { method: 'POST', body: { processorDefinitionId: selectedProcessorId.value, selection: selectionMode.value === 'ALL' ? { mode: 'ALL' } : { mode: 'SELECTED', itemIds: [...selectedItemIds.value] }, imageSelection: { globalVariants: globalVariants.value, itemImageIdLists: submittedImageIdLists.value }, parameters: parameters.value, enqueueIfBusy: true } })
     toast.add({ title: response.run.status === 'QUEUED' ? 'Evaluation queued' : 'Evaluation started', color: 'success' }); await navigateTo('/evaluation')
   } catch (error: unknown) { toast.add({ title: 'Could not start evaluation', description: error instanceof Error ? error.message : undefined, color: 'error' }) } finally { startPending.value = false }
 }
@@ -214,15 +253,15 @@ async function startEvaluation() {
                   <p class="truncate font-medium">
                     {{ item.pageName }}
                   </p><p class="truncate text-xs text-muted">
-                    {{ compatibleItems.includes(item) ? `${item.images.length} image variant(s) · XML ready` : (item.brokenReason || 'Unsupported or incomplete input') }}
+                    {{ compatibleItems.includes(item) ? `${compatibleImages(item).length} image variant(s) · XML ready` : (item.brokenReason || 'Unsupported or incomplete input') }}
                   </p>
                 </div><USelect
-                  v-if="compatibleItems.includes(item) && item.images.length > 1"
-                  :model-value="multipleImages ? itemImageIdLists[item.itemId] : itemImageIdLists[item.itemId]?.[0]"
+                  v-if="compatibleItems.includes(item) && selectableImages(item).length > 0"
+                  :model-value="multipleImages ? selectedImageIds(item) : selectedImageIds(item)[0]"
                   :multiple="multipleImages"
-                  :items="item.images.map(image => ({ label: image.variant || image.fileName, value: image.id }))"
+                  :items="selectableImages(item).map(image => ({ label: `${image.variant || image.fileName} · ${image.imageType?.toLowerCase() || 'type pending'}`, value: image.id }))"
                   class="w-44"
-                  @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event, itemImageIdLists[item.itemId], true)"
+                  @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event, selectedImageIds(item), true)"
                 />
               </div>
             </div>
@@ -246,12 +285,13 @@ async function startEvaluation() {
               :description="selectedProcessor?.info ?? undefined"
               :ui="{ description: 'whitespace-pre-wrap' }"
             />
-            <UFormField label="Global image variants">
+            <UFormField label="Global image variants" :description="selectedProcessor?.inputs.images.imageTypes?.length ? `Accepted types: ${selectedProcessor.inputs.images.imageTypes.join(', ').toLowerCase()}. Pending types are checked before starting.` : undefined">
               <USelect
                 :model-value="multipleImages ? globalVariants : globalVariants[0]"
                 :multiple="multipleImages"
                 :items="variantOptions"
-                placeholder="Sole available image or choose variants"
+                :disabled="variantOptions.length === 0"
+                placeholder="Automatic selection per item"
                 class="w-full"
                 @update:model-value="globalVariants = actionImageSelectionValues($event, globalVariants, true)"
               />

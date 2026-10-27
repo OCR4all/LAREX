@@ -63,9 +63,10 @@ public class DevActionBootstrap implements ApplicationRunner {
                         replaceEndpoint(mockProcessor.getEndpointUrl(), "/evaluation/ocr/dispatch"),
                         replaceEndpoint(mockProcessor.getHealthUrl(), "/evaluation/ocr/health"),
                         replaceEndpoint(mockProcessor.getPreflightUrl(), "/evaluation/ocr/preflight"),
-                        "ocr, htr"
+                        "ocr, htr", "[BINARY]"
                 )
         );
+        bootstrapWorkflowMocks(mockProcessor);
         upsertDevAction(
                 MOCK_LAYOUT_EVALUATION_PROCESSOR_KEY,
                 mockProcessor.isEnabled(),
@@ -76,7 +77,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                         replaceEndpoint(mockProcessor.getEndpointUrl(), "/evaluation/layout/dispatch"),
                         replaceEndpoint(mockProcessor.getHealthUrl(), "/evaluation/layout/health"),
                         replaceEndpoint(mockProcessor.getPreflightUrl(), "/evaluation/layout/preflight"),
-                        "layout"
+                        "layout", "[COLOR, GRAYSCALE]"
                 )
         );
 
@@ -199,6 +200,85 @@ public class DevActionBootstrap implements ApplicationRunner {
                 """.formatted(endpointUrl, healthUrl, preflightUrl);
     }
 
+    private void bootstrapWorkflowMocks(DevProcessor processor) {
+        upsertWorkflowMock(processor, "binarize", "mock-binarization", "Mock Binarization",
+                "Thresholds a color or grayscale image into the binary binarized variant.", "[COLOR, GRAYSCALE]", false, "[]", """
+                threshold:
+                  type: integer
+                  default: 128
+                  min: 0
+                  max: 255
+                  description: Grayscale threshold for black and white pixels.
+                """);
+        upsertWorkflowMock(processor, "region", "mock-whole-page-region", "Mock Whole-page Region",
+                "Requires a binary image. Replaces layout with one full-page text region and creates PAGE XML when missing.", "[BINARY]", false, "[REGIONS, READING_ORDER]", "{}");
+        upsertWorkflowMock(processor, "line", "mock-single-text-line", "Mock Single Text Line",
+                "Requires a binary image and an existing text region. Adds one text line and baseline.", "[BINARY]", true, "[TEXT_LINES, TEXT]", "{}");
+        upsertWorkflowMock(processor, "ocr", "mock-random-ocr", "Mock Random OCR",
+                "Requires a binary image and at least one text line. Writes sample words into existing text lines.", "[BINARY]", true, "[TEXT, WORDS]", """
+                wordCount:
+                  type: integer
+                  default: 8
+                  min: 1
+                  max: 100
+                  description: Number of sample words per text line.
+                seed:
+                  type: integer
+                  default: 42
+                  min: 0
+                  max: 2147483647
+                  description: Change the seed to generate different sample text.
+                """);
+    }
+
+    private void upsertWorkflowMock(DevProcessor processor, String operation, String key, String name,
+                                   String description, String imageTypes, boolean requiredXml,
+                                   String overwrites, String parameters) {
+        String prefix = "/workflow/" + operation;
+        String outputs = operation.equals("binarize")
+                ? "images:\n  enabled: true\n  variant: binarized\n"
+                : "xml:\n  enabled: true\n  overwrites:\n    PAGE: " + overwrites + "\n";
+        String yaml = """
+                version: 1
+                id: %s
+                name: %s
+                description: %s
+                tags: [mock, workflow]
+                targets: [PAGE]
+                endpoint:
+                  url: %s
+                  healthUrl: %s
+                  preflightUrl: %s
+                  timeoutSeconds: 30
+                  auth:
+                    type: hmac
+                    secretRef: mock-processor-v1
+                access:
+                  execute: CURATOR
+                locking:
+                  mode: PAGES
+                inputs:
+                  images:
+                    level: required
+                    imageTypes: %s
+                  xml:
+                    level: %s
+                outputs:
+                %s
+                parameters:
+                %s
+                concurrency:
+                  maxActiveRuns: 2
+                  scope: PROJECT
+                """.formatted(key, name, description,
+                replaceEndpoint(processor.getEndpointUrl(), prefix + "/dispatch"),
+                replaceEndpoint(processor.getHealthUrl(), prefix + "/health"),
+                replaceEndpoint(processor.getPreflightUrl(), prefix + "/preflight"),
+                imageTypes, requiredXml ? "required" : operation.equals("region") ? "optional" : "none",
+                outputs.indent(2).stripTrailing(), parameters.indent(2).stripTrailing());
+        upsertDevAction(key, processor.isEnabled(), yaml);
+    }
+
     private String krakenProcessorYaml(String endpointUrl, String healthUrl, String preflightUrl) {
         return """
                 version: 1
@@ -250,7 +330,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 version: 1
                 id: mock-integration
                 name: Mock Integration
-                description: Downloads frozen inputs and simulates external work with status feedback.
+                description: Requires grayscale images. Downloads frozen inputs and simulates external work with status feedback.
                 kind: INTEGRATION
                 tags: [integration, export]
                 targets: [PAGE, REGION, TEXT_LINE]
@@ -267,7 +347,8 @@ public class DevActionBootstrap implements ApplicationRunner {
                   mode: NONE
                 inputs:
                   images:
-                    level: optional
+                    level: required
+                    imageTypes: [GRAYSCALE]
                   xml:
                     level: optional
                     requiredForTargets: [REGION, TEXT_LINE]
@@ -291,7 +372,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 version: 1
                 id: mock-training
                 name: Mock Training
-                description: Development Action that validates frozen dataset inputs and simulates training.
+                description: Requires binary images and PAGE XML. Validates frozen dataset inputs and simulates training.
                 kind: TRAINING
                 tags: [training]
                 targets:
@@ -315,6 +396,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 inputs:
                   images:
                     level: required
+                    imageTypes: [BINARY]
                   xml:
                     level: required
 
@@ -395,12 +477,12 @@ public class DevActionBootstrap implements ApplicationRunner {
 
     private String mockEvaluationYaml(String id, String name, String profile,
                                       String endpointUrl, String healthUrl, String preflightUrl,
-                                      String tags) {
+                                      String tags, String imageTypes) {
         return """
                 version: 1
                 id: %s
                 name: %s
-                description: Development Action that validates frozen dataset inputs and returns a deterministic evaluation report.
+                description: Requires %s images and PAGE XML. Returns a deterministic evaluation report.
                 kind: EVALUATION
                 tags: [%s, evaluation]
 
@@ -422,6 +504,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 inputs:
                   images:
                     level: required
+                    imageTypes: %s
                   xml:
                     level: required
 
@@ -448,7 +531,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                     default: 0.95
                     min: 0
                     max: 1
-                """.formatted(id, name, tags, endpointUrl, healthUrl, preflightUrl, profile);
+                """.formatted(id, name, imageTypes, tags, endpointUrl, healthUrl, preflightUrl, imageTypes, profile);
     }
 
     private String replaceEndpoint(String endpoint, String suffix) {

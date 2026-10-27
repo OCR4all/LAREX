@@ -1,7 +1,9 @@
+import type { ImageType } from '@/types/image'
 import type { PageData, ImageVariant, XmlFile, ResolvedTag, PageIndexingStatus, TextConfidenceStats } from '@/stores/editor/types'
 import type { PageWorkflowState } from '@/types/project-page'
 
 export interface PageImageVariantPreviewResponse {
+  imageType?: ImageType | null
   id: string
   fileName: string
   variant?: string | null
@@ -43,6 +45,7 @@ function projectAnnotationContext(projectId: string, pageId: string) {
 }
 
 interface ImageResponse {
+  imageType?: ImageType | null
   id: string
   fileName: string
   filePath: string
@@ -75,6 +78,7 @@ export function createSkeletonPageData(
       url: options?.projectId ? `/api/projects/${options.projectId}/pages/images/${img.id}/presentation?size=detail` : '',
       fileName: img.fileName,
       type: img.variant || undefined,
+      imageType: img.imageType,
       label: img.variant || img.fileName
     })),
     id: page.id,
@@ -121,6 +125,7 @@ export async function loadSinglePageData(projectId: string, page: PageResponse |
     url: `/api/projects/${projectId}/pages/images/${img.id}/presentation?size=detail`,
     fileName: img.fileName,
     type: img.variant || undefined,
+    imageType: img.imageType,
     label: img.variant || img.fileName
   }))
 

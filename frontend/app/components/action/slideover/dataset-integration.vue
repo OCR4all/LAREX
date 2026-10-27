@@ -2,7 +2,7 @@
 import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import type { ActionDefinition, ActionParameterChoice, ActionParameterDefinition, ActionParameterValue, ActionRun, ActionRunDetail, IntegrationInputItem, IntegrationInputResponse, StartActionRunResponse } from '@/types/action'
 import { actionParameterChoices, actionParameterDefaultValue, coerceActionParameterInput, hasAllowedActionParameterValue } from '@/utils/action-parameter-values'
-import { actionImageSelectionValues, actionInputLevelForTarget } from '@/utils/action-input-requirements'
+import { actionImageSelectionValues, actionInputLevelForTarget, compatibleActionImages, actionImageVariantOptions, selectableActionImages, defaultActionImageVariants } from '@/utils/action-input-requirements'
 import { extractApiErrorDetails } from '@/utils/api-error'
 
 const props = defineProps<{ workspaceId: string, datasetId: string, datasetName: string, itemIds?: string[] }>()
@@ -44,23 +44,61 @@ const requiredImages = computed(() => processor.value && actionInputLevelForTarg
 const acceptsXml = computed(() => processor.value && actionInputLevelForTarget(processor.value.inputs.xml, 'PAGE') !== 'NONE')
 const requiredXml = computed(() => processor.value && actionInputLevelForTarget(processor.value.inputs.xml, 'PAGE') === 'REQUIRED')
 const scopedItems = computed(() => inputs.value.filter(item => selectionMode.value === 'ALL' || selectedIds.value.has(item.itemId)))
+function compatibleImages(item: IntegrationInputItem) {
+  return compatibleActionImages(item.images, processor.value?.inputs.images)
+}
 const compatibleItems = computed(() => scopedItems.value.filter(item => item.status === 'READY'
-  && (!requiredImages.value || item.images.length > 0) && (!requiredXml.value || item.xmlAvailable)
-  && ((acceptsImages.value && item.images.length > 0) || (acceptsXml.value && item.xmlAvailable))))
+  && (!requiredImages.value || compatibleImages(item).length > 0) && (!requiredXml.value || item.xmlAvailable)
+  && ((acceptsImages.value && compatibleImages(item).length > 0) || (acceptsXml.value && item.xmlAvailable))))
 const skippedCount = computed(() => scopedItems.value.length - compatibleItems.value.length)
-const variantOptions = computed(() => [...new Set(compatibleItems.value.flatMap(item => item.images.flatMap(image => image.variant ? [image.variant] : [])))].sort())
+function selectableImages(item: IntegrationInputItem) {
+  return selectableActionImages(item.images, processor.value?.inputs.images, requiredImages.value === true)
+}
+const variantOptions = computed(() => actionImageVariantOptions(compatibleItems.value.flatMap(selectableImages)))
+watch([processor, compatibleItems], () => {
+  if (!processor.value?.inputs.images.imageTypes?.length) return
+  const validVariants = new Set(variantOptions.value.map(option => option.value))
+  const retained = globalVariants.value.filter(variant => validVariants.has(variant))
+  globalVariants.value = retained.length ? retained : requiredImages.value ? defaultActionImageVariants(compatibleItems.value.map(selectableImages), multipleImages.value) : []
+  for (const item of compatibleItems.value) {
+    const ids = new Set(selectableImages(item).map(image => image.id))
+    const retainedIds = (itemImageIdLists.value[item.itemId] ?? []).filter(id => ids.has(id))
+    if (retainedIds.length) itemImageIdLists.value[item.itemId] = retainedIds
+    else delete itemImageIdLists.value[item.itemId]
+  }
+})
+function selectedImageIds(item: IntegrationInputItem) {
+  const selectableIds = new Set(selectableImages(item).map(image => image.id))
+  return resolvedImages(item).map(image => image.id).filter(id => selectableIds.has(id))
+}
+const submittedImageIdLists = computed(() => {
+  const selections = { ...itemImageIdLists.value }
+  if (requiredImages.value && processor.value?.inputs.images.imageTypes?.length) {
+    for (const item of compatibleItems.value) {
+      const ids = selectedImageIds(item)
+      if (ids.length) selections[item.itemId] = ids
+    }
+  }
+  return selections
+})
+
 const runs = computed(() => history.value.map(run => store.runsById.get(run.id) ?? run))
 
 function resolvedImages(item: IntegrationInputItem) {
   const override = itemImageIdLists.value[item.itemId]
-  if (override?.length) return item.images.filter(image => override.includes(image.id))
-  if (globalVariants.value.length) return item.images.filter(image => globalVariants.value.includes(image.variant ?? ''))
-  return item.images.length === 1 ? item.images : []
+  if (override?.length) return compatibleImages(item).filter(image => override.includes(image.id))
+  if (globalVariants.value.length) return compatibleImages(item).filter(image => globalVariants.value.includes(image.variant ?? ''))
+  if (processor.value?.inputs.images.imageTypes?.length) {
+    const confirmed = selectableImages(item)
+    const images = confirmed.length ? confirmed : compatibleImages(item)
+    return multipleImages.value ? images : images.slice(0, 1)
+  }
+  return compatibleImages(item).length === 1 ? compatibleImages(item) : []
 }
 
 const canStart = computed(() => Boolean(processor.value) && !loading.value && !starting.value && !discovering.value && !discoveryError.value
   && compatibleItems.value.length > 0 && (selectionMode.value === 'ALL' || skippedCount.value === 0)
-  && (!acceptsImages.value || compatibleItems.value.every(item => !item.images.length || resolvedImages(item).length > 0))
+  && (!acceptsImages.value || compatibleItems.value.every(item => !compatibleImages(item).length || resolvedImages(item).length > 0))
   && Object.entries(processor.value?.parameters ?? {}).every(([key, definition]) => {
     const value = parameters.value[key]
     return (!definition.required || (value !== undefined && value !== '')) && hasAllowedActionParameterValue(definition, value, discovered.value)
@@ -131,7 +169,7 @@ async function start() {
       body: {
         processorDefinitionId: processor.value.id,
         selection: { mode: selectionMode.value, itemIds: selectionMode.value === 'SELECTED' ? props.itemIds : [] },
-        imageSelection: acceptsImages.value ? { globalVariants: globalVariants.value, itemImageIdLists: itemImageIdLists.value } : null,
+        imageSelection: acceptsImages.value ? { globalVariants: globalVariants.value, itemImageIdLists: submittedImageIdLists.value } : null,
         parameters: parameters.value,
         enqueueIfBusy: enqueueIfBusy.value
       }
@@ -241,15 +279,16 @@ onMounted(load)
             description="Adjust the dataset selection or choose an Action matching the available files."
           />
           <template v-if="acceptsImages">
-            <UFormField label="Image variants">
+            <UFormField label="Image variants" :description="processor?.inputs.images.imageTypes?.length ? `Accepted types: ${processor.inputs.images.imageTypes.join(', ').toLowerCase()}. Pending types are checked before starting.` : undefined">
               <div class="flex gap-2">
                 <USelect
                   :model-value="multipleImages ? globalVariants : globalVariants[0]"
                   :multiple="multipleImages"
                   :items="variantOptions"
+                  value-key="value"
                   placeholder="Choose per item below"
                   class="w-full"
-                  :disabled="starting"
+                  :disabled="starting || variantOptions.length === 0"
                   @update:model-value="globalVariants = actionImageSelectionValues($event, globalVariants, requiredImages)"
                 />
                 <UButton
@@ -264,19 +303,19 @@ onMounted(load)
             </UFormField>
             <div class="max-h-60 space-y-3 overflow-y-auto">
               <UFormField
-                v-for="item in compatibleItems.filter(item => item.images.length > 0)"
+                v-for="item in compatibleItems.filter(item => compatibleImages(item).length > 0)"
                 :key="item.itemId"
                 :label="item.pageName"
                 :error="!resolvedImages(item).length ? 'Choose images for this item' : undefined"
               >
                 <USelect
-                  :model-value="multipleImages ? itemImageIdLists[item.itemId] : itemImageIdLists[item.itemId]?.[0]"
+                  :model-value="multipleImages ? selectedImageIds(item) : selectedImageIds(item)[0]"
                   :multiple="multipleImages"
-                  :items="item.images.map(image => ({ label: `${image.variant || 'Image'} · ${image.fileName}`, value: image.id }))"
-                  :placeholder="resolvedImages(item).map(image => image.fileName).join(', ') || 'Choose images'"
+                  :items="selectableImages(item).map(image => ({ label: `${image.variant || 'Image'} · ${image.imageType?.toLowerCase() || 'type pending'} · ${image.fileName}`, value: image.id }))"
+                  :placeholder="selectableImages(item).length ? 'Choose images' : 'Type pending — checked during review'"
                   class="w-full"
-                  :disabled="starting"
-                  @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event, itemImageIdLists[item.itemId], requiredImages)"
+                  :disabled="starting || selectableImages(item).length === 0"
+                  @update:model-value="itemImageIdLists[item.itemId] = actionImageSelectionValues($event, selectedImageIds(item), requiredImages)"
                 />
               </UFormField>
             </div>

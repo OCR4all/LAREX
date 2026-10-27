@@ -1256,7 +1256,7 @@ public class ProjectPackageService {
                         false
                 );
                 createdStoragePaths.add(stored.storagePath());
-                page.getImages().add(new PageImage(
+                PageImage importedImage = new PageImage(
                         imageDescriptor.fileName(),
                         stored.storagePath(),
                         stored.mimeType(),
@@ -1264,7 +1264,9 @@ public class ProjectPackageService {
                         imageDescriptor.variant(),
                         imageDescriptor.baseName(),
                         page
-                ));
+                );
+                importedImage.setImageType(stored.imageType());
+                page.getImages().add(importedImage);
                 imageCount++;
             }
 

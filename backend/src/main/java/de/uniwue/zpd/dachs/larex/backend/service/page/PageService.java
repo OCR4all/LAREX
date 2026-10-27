@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.page;
 
+import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
+import de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
@@ -50,6 +52,7 @@ public class PageService {
 
     private static final Logger log = LoggerFactory.getLogger(PageService.class);
 
+    private final ImageTypeService imageTypes;
     private final PageRepository pageRepository;
     private final PageImageRepository pageImageRepository;
     private final PageXmlRepository pageXmlRepository;
@@ -74,7 +77,7 @@ public class PageService {
 
     public PageService(
             PageRepository pageRepository,
-            PageImageRepository pageImageRepository,
+            PageImageRepository pageImageRepository, ImageTypeService imageTypes,
             PageXmlRepository pageXmlRepository,
             PageTextContentRepository pageTextContentRepository,
             PageLabelIndexRepository pageLabelIndexRepository,
@@ -97,6 +100,7 @@ public class PageService {
 
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
+        this.imageTypes = imageTypes;
         this.pageXmlRepository = pageXmlRepository;
         this.pageTextContentRepository = pageTextContentRepository;
         this.pageLabelIndexRepository = pageLabelIndexRepository;
@@ -490,6 +494,8 @@ public class PageService {
                             page
                     );
 
+                    pageImage.setImageType(storedFile.imageType());
+
                     pageImageRepository.save(pageImage);
 
                     // Generate thumbnail asynchronously
@@ -509,6 +515,8 @@ public class PageService {
         }
         return false;
     }
+
+    public ImageType imageType(PageImage image) { return imageTypes.typeOf(image); }
 
     public List<PageImage> getPageImages(String pageId, String userId) {
         Optional<Page> pageOpt = getPageById(pageId, userId);

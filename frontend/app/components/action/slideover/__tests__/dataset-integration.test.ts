@@ -25,6 +25,9 @@ interface Setup {
   start: () => Promise<void>
   canStart: Vue.ComputedRef<boolean>
   multipleImages: Vue.ComputedRef<boolean>
+  variantOptions: Vue.ComputedRef<Array<{ value: string, label: string }>>
+  selectableImages: (item: IntegrationInputItem) => IntegrationInputItem['images']
+  selectedImageIds: (item: IntegrationInputItem) => string[]
   globalVariants: Vue.Ref<string[]>
   selectionMode: Vue.Ref<'ALL' | 'SELECTED'>
   compatibleItems: Vue.ComputedRef<IntegrationInputItem[]>
@@ -135,6 +138,63 @@ describe('Dataset Integration run flow', () => {
     expect(fetch).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ body: expect.objectContaining({
       imageSelection: { globalVariants: [], itemImageIdLists: { item: ['image-a', 'image-b'] } }
     }) }))
+  })
+
+  it('filters required type choices and selects a matching default in the form and request', async () => {
+    activeDefinition = { ...definition, inputs: { ...definition.inputs, images: { level: 'REQUIRED', requiredForTargets: [], imageTypes: ['BINARY'] } } }
+    inputs = [{ ...item, images: [
+      { id: 'pending', fileName: 'scan.png', variant: 'a-pending', imageType: null },
+      { id: 'color', fileName: 'color.png', variant: 'original', imageType: 'COLOR' },
+      { id: 'binary', fileName: 'binary.png', variant: 'processed', imageType: 'BINARY' }
+    ] }]
+    await setup.load()
+    await Vue.nextTick()
+    expect(setup.variantOptions.value).toEqual([{ value: 'processed', label: 'processed · binary' }])
+    expect(setup.globalVariants.value).toEqual(['processed'])
+    expect(setup.selectedImageIds(setup.compatibleItems.value[0]!)).toEqual(['binary'])
+    expect(setup.selectableImages(setup.compatibleItems.value[0]!).map(image => image.id)).toEqual(['binary'])
+    expect(setup.canStart.value).toBe(true)
+    await setup.start()
+    expect(fetch).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ body: expect.objectContaining({
+      imageSelection: { globalVariants: ['processed'], itemImageIdLists: { item: ['binary'] } }
+    }) }))
+  })
+
+  it('shows per-item defaults for different variant names and defers pending types to the server', async () => {
+    activeDefinition = { ...definition, inputs: { ...definition.inputs, images: { level: 'REQUIRED', requiredForTargets: [], imageTypes: ['BINARY'] } } }
+    inputs = [
+      { ...item, images: [{ id: 'binary', fileName: 'binary.png', variant: 'ocropus', imageType: 'BINARY' }] },
+      { ...item, itemId: 'second', images: [{ id: 'second', fileName: 'sbb.png', variant: 'sbb', imageType: 'BINARY' }] },
+      { ...item, itemId: 'pending', images: [{ id: 'third', fileName: 'scan.png', variant: 'scan', imageType: null }] }
+    ]
+    await setup.load()
+    await Vue.nextTick()
+    expect(setup.globalVariants.value).toEqual([])
+    expect(setup.compatibleItems.value.map(item => setup.selectedImageIds(item))).toEqual([['binary'], ['second'], []])
+    expect(setup.variantOptions.value.map(option => option.value)).toEqual(['ocropus', 'sbb'])
+    expect(setup.canStart.value).toBe(true)
+    await setup.start()
+    expect(fetch).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ body: expect.objectContaining({
+      imageSelection: { globalVariants: [], itemImageIdLists: { item: ['binary'], second: ['second'] } }
+    }) }))
+  })
+
+  it('discards incompatible image overrides when changing the required type', async () => {
+    const images: IntegrationInputItem['images'] = [
+      { id: 'color', fileName: 'color.png', variant: 'original', imageType: 'COLOR' },
+      { id: 'binary', fileName: 'binary.png', variant: 'processed', imageType: 'BINARY' }
+    ]
+    activeDefinition = { ...definition, inputs: { ...definition.inputs, images: { level: 'REQUIRED', requiredForTargets: [], imageTypes: ['BINARY'] } } }
+    inputs = [{ ...item, images }]
+    await setup.load()
+    await Vue.nextTick()
+    setup.itemImageIdLists.value.item = ['binary']
+    activeDefinition = { ...activeDefinition, inputs: { ...activeDefinition.inputs, images: { level: 'REQUIRED', requiredForTargets: [], imageTypes: ['COLOR'] } } }
+    await setup.load()
+    await Vue.nextTick()
+    expect(setup.globalVariants.value).toEqual(['original'])
+    expect(setup.selectedImageIds(setup.compatibleItems.value[0]!)).toEqual(['color'])
+    expect(setup.canStart.value).toBe(true)
   })
 
   it('defaults to single-image mode and trims selections when opting out', async () => {

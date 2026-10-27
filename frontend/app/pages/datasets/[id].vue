@@ -1106,6 +1106,7 @@ async function openDatasetInEditor(itemIds?: string[]) {
             url: variant.url,
             fileName: variant.fileName,
             type: variant.variant || undefined,
+            imageType: variant.imageType,
             label: variant.label
           })),
           xmlFiles: (page.xmlFiles || []).map(xml => ({

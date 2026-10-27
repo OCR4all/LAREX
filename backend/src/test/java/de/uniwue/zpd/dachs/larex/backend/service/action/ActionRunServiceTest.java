@@ -227,6 +227,8 @@ class ActionRunServiceTest {
                 objectMapper
         );
         ActionResultPageMergeService resultPageMergeService = new ActionResultPageMergeService();
+        var imageTypeService = mock(de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService.class);
+        lenient().when(imageTypeService.typeOf(any(PageImage.class))).thenAnswer(call -> ((PageImage) call.getArgument(0)).getImageType());
         service = new ActionRunService(
                 definitionRepository,
                 assignmentRepository,
@@ -273,7 +275,8 @@ class ActionRunServiceTest {
                 trainingSnapshotService,
                 jobRealtimePublisher,
                 actionMetrics,
-                transactionTemplate
+                transactionTemplate,
+                imageTypeService
         );
         when(runDismissalRepository.findRunIdsByUserIdAndRunIds(anyString(), anyCollection())).thenReturn(Set.of());
         when(runRepository.findByStatusInAndLastHeartbeatAtBefore(anyCollection(), any())).thenReturn(List.of());
@@ -440,6 +443,44 @@ class ActionRunServiceTest {
         selected = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
                 service, "selectImagesForPage", "page", images, fallback, new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of()));
         assertThat(selected).containsExactly(original);
+    }
+
+    @Test
+    void filtersImageTypesBeforeVariantMatchingAndFallback() {
+        var color = new PageImage("color.png", "color.png", "image/png", 1L, "a-color", "page", null);
+        color.setImageType(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.COLOR);
+        var binary = new PageImage("binary.png", "binary.png", "image/png", 1L, "z-binary", "page", null);
+        binary.setImageType(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY);
+        var unknown = new PageImage("unknown.png", "unknown.png", "image/png", 1L, "unknown", "page", null);
+        unknown.setImageType(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.UNKNOWN);
+        var requirement = new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), false,
+                List.of(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY));
+        List<PageImage> automatic = ReflectionTestUtils.invokeMethod(service, "selectImagesForPage", "page", List.of(color, binary, unknown), null, requirement);
+        assertThat(automatic).containsExactly(binary);
+        var explicit = new ActionDto.ImageVariantSelection("GLOBAL", "a-color", null, false);
+        List<PageImage> rejected = ReflectionTestUtils.invokeMethod(service, "selectImagesForPage", "page", List.of(color, binary), explicit, requirement);
+        assertThat(rejected).isEmpty();
+        var fallback = new ActionDto.ImageVariantSelection("GLOBAL", "a-color", null, true);
+        List<PageImage> selected = ReflectionTestUtils.invokeMethod(service, "selectImagesForPage", "page", List.of(color, binary), fallback, requirement);
+        assertThat(selected).containsExactly(binary);
+        List<PageImage> unavailable = ReflectionTestUtils.invokeMethod(service, "selectImagesForPage", "page", List.of(color, unknown), fallback, requirement);
+        assertThat(unavailable).isEmpty();
+    }
+
+    @Test
+    void workflowTypesOnlyNarrowProcessorRulesAndPromoteOptionalImagesToRequired() {
+        var fixture = prepareImpact();
+        var binary = de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY;
+        var color = de.uniwue.zpd.dachs.larex.backend.entity.ImageType.COLOR;
+        when(definitionService.readInputRequirements(fixture.definition())).thenReturn(new ActionDto.InputRequirements(
+                new ActionDto.InputRequirement(ActionDto.InputLevel.OPTIONAL, List.of(), true, List.of(binary)),
+                new ActionDto.InputRequirement(ActionDto.InputLevel.OPTIONAL, List.of())));
+        var effective = service.resolveImageRequirement(fixture.definition(), List.of(binary));
+        assertThat(effective.required(ActionTarget.PAGE)).isTrue();
+        assertThat(effective.imageTypes()).containsExactly(binary);
+        assertThat(effective.multiple()).isTrue();
+        assertThatThrownBy(() -> service.resolveImageRequirement(fixture.definition(), List.of(color))).hasMessageContaining("subset");
+        assertThatThrownBy(() -> service.resolveImageRequirement(fixture.definition(), List.of())).hasMessageContaining("imageTypes");
     }
 
     @Test

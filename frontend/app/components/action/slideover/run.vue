@@ -2,7 +2,7 @@
 import { actionRunStatusLabel, actionRunStatusColor, canRetryActionRun, actionRunCountsLabel } from '@/utils/action-run-status'
 import { extractApiErrorDetails } from '@/utils/api-error'
 import { annotationLevelLabels, retainedImpactPages, reviewedActionConfiguration } from '@/utils/action-impact'
-import { actionImageSelectionValues, actionInputLevelForTarget } from '@/utils/action-input-requirements'
+import { actionImageSelectionValues, actionInputLevelForTarget, compatibleActionImages, actionImageVariantOptions, selectableActionImages, defaultActionImageVariants } from '@/utils/action-input-requirements'
 import {
   actionParameterChoices,
   actionParameterDefaultValue,
@@ -10,6 +10,7 @@ import {
   hasAllowedActionParameterValue
 } from '@/utils/action-parameter-values'
 import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
+import type { ImageType } from '@/types/image'
 import type {
   ActionRunImpact,
   ActionRunConfiguration,
@@ -31,6 +32,7 @@ import type {
 useBlockEditorCanvasInteractions()
 
 type ActionRunPageImageVariantSummary = {
+  imageType?: ImageType | null
   id: string
   fileName: string
   variant?: string | null
@@ -64,9 +66,11 @@ const actionRunsStore = useActionRunsStore()
 const processors = ref<ExecutableActionProcessorResponse[]>([])
 const runs = ref<ActionRun[]>([])
 const selectedProcessorId = ref('')
-type RunActionView = 'choose' | 'configure' | 'history'
+type RunActionView = 'choose' | 'configure' | 'history' | 'workflow'
+const workflowBusy = ref(false)
+const selectedWorkflowId = ref('')
 const view = ref<RunActionView>('choose')
-const historyReturnView = ref<'choose' | 'configure'>('choose')
+const historyReturnView = ref<'choose' | 'configure' | 'workflow'>('choose')
 const viewHeader = ref<HTMLElement | null>(null)
 const configurationSectionUi = {
   root: 'shadow-xs divide-default/60',
@@ -178,6 +182,11 @@ function activateActionRow(event: KeyboardEvent) {
 }
 function selectAction(item: ExecutableActionProcessorResponse) {
   if (!item.executable || navigationBusy.value) return
+  if (item.processor.workflowId) {
+    selectedWorkflowId.value = item.processor.workflowId
+    view.value = 'workflow'
+    return
+  }
   selectedProcessorId.value = item.processor.id
   view.value = 'configure'
 }
@@ -237,11 +246,11 @@ const compatibilityWarnings = computed(() => {
 
   const warnings: Array<{ input: 'images' | 'xml', title: string, description: string }> = []
   if (selectedProcessorAcceptsImages.value) {
-    const missingImages = scopedPages.value.filter(page => page.imageCount <= 0)
-    if (missingImages.length > 0 && (selectedProcessorRequiresImages.value || imageVariantOptions.value.length > 0)) {
+    const missingImages = scopedPages.value.filter(page => compatibleImageCount(page) <= 0)
+    if (missingImages.length > 0 && (selectedProcessorRequiresImages.value || (!automaticImages.value && imageVariantOptions.value.length > 0))) {
       warnings.push({
         input: 'images',
-        title: `${missingImages.length} page${missingImages.length === 1 ? '' : 's'} ${missingImages.length === 1 ? 'has' : 'have'} no images.`,
+        title: `${missingImages.length} page${missingImages.length === 1 ? '' : 's'} ${missingImages.length === 1 ? 'has' : 'have'} no images${selectedProcessor.value?.processor.inputs?.images.imageTypes?.length ? ' of an accepted type' : ''}.`,
         description: selectedProcessorRequiresImages.value
           ? 'Those pages will be skipped because this Action requires image input.'
           : 'Those pages will be skipped because no image is available for the selected variant input.'
@@ -254,7 +263,7 @@ const compatibilityWarnings = computed(() => {
           ? `${pagesMissingSelectedVariant.value.length} page${pagesMissingSelectedVariant.value.length === 1 ? '' : 's'} will use a fallback image.`
           : `${pagesMissingSelectedVariant.value.length} page${pagesMissingSelectedVariant.value.length === 1 ? '' : 's'} will be skipped because none of the selected image variants are available.`,
         description: fallbackImage.value
-          ? 'LAREX will use the first available image on those pages.'
+          ? 'LAREX will use the first compatible image on those pages.'
           : 'Choose other variants or enable fallback to include those pages.'
       })
     }
@@ -277,11 +286,11 @@ const targetSummary = computed(() => props.targetSelection
   : scopeSummary.value)
 const imageWarnings = computed(() => compatibilityWarnings.value.filter(warning => warning.input === 'images'))
 const scopeWarnings = computed(() => compatibilityWarnings.value.filter(warning => warning.input === 'xml'))
-const navigationBusy = computed(() => starting.value || impactLoading.value)
-const viewTitle = computed(() => impact.value ? 'Review affected pages' : view.value === 'history' ? 'Project run history' : 'Run Action')
+const navigationBusy = computed(() => starting.value || impactLoading.value || workflowBusy.value)
+const viewTitle = computed(() => impact.value ? 'Review affected pages' : view.value === 'history' ? 'Project run history' : view.value === 'workflow' ? 'Run workflow' : 'Run Action')
 const viewDescription = computed(() => view.value === 'choose'
   ? `Choose an Action for ${targetSummary.value}.`
-  : view.value === 'history' ? 'Previous Action runs for this project.' : 'Configure this Action and start the run.')
+  : view.value === 'history' ? 'Previous Action runs for this project.' : view.value === 'workflow' ? 'Run a saved sequence of Actions.' : 'Configure this Action and start the run.')
 const lockNote = computed(() => {
   if (selectedProcessor.value?.processor.lockMode === 'PROJECT') return 'Locks the full project while running.'
   if (selectedProcessor.value?.processor.lockMode === 'PAGES') return 'Locks these pages while running.'
@@ -309,49 +318,50 @@ watch([view, () => Boolean(impact.value)], async () => {
   heading?.setAttribute('tabindex', '-1')
   heading?.focus()
 })
+const automaticImages = ref(false)
+function compatiblePageImages(page: ActionRunPageSummary) {
+  return compatibleActionImages(page.imageVariants ?? [], selectedProcessor.value?.processor.inputs?.images)
+}
+function selectablePageImages(page: ActionRunPageSummary) {
+  return selectableActionImages(page.imageVariants ?? [], selectedProcessor.value?.processor.inputs?.images, selectedProcessorRequiresImages.value)
+}
+function compatibleImageCount(page: ActionRunPageSummary) {
+  return selectedProcessor.value?.processor.inputs?.images.imageTypes?.length
+    ? compatiblePageImages(page).length
+    : page.imageCount
+}
 const scopeItems = computed(() => [
   { label: `All pages (${props.pages?.length ?? 0})`, value: 'all', icon: 'i-lucide-files', disabled: navigationBusy.value },
   { label: `Selected pages (${selectedPageIds.value.length})`, value: 'selection', icon: 'i-lucide-check-square', disabled: navigationBusy.value || !hasSelection.value }
 ])
-const imageVariantOptions = computed(() => {
-  const variants = new Set<string>()
-  for (const page of scopedPages.value) {
-    for (const image of page.imageVariants ?? []) {
-      const variant = image.variant?.trim()
-      if (variant) variants.add(variant)
-    }
-  }
-  return Array.from(variants)
-    .sort((left, right) => left.localeCompare(right))
-    .map(variant => ({ label: variant, value: variant }))
-})
+const imageVariantOptions = computed(() => actionImageVariantOptions(scopedPages.value.flatMap(selectablePageImages)))
 const imageVariantByPageId = computed(() => {
   const result: Record<string, Set<string>> = {}
   for (const page of scopedPages.value) {
-    result[page.id] = new Set((page.imageVariants ?? [])
+    result[page.id] = new Set(compatiblePageImages(page)
       .map(image => image.variant?.trim())
       .filter((variant): variant is string => Boolean(variant)))
   }
   return result
 })
 const imageSelectionReady = computed(() => {
-  if (!selectedProcessorRequiresImages.value || imageVariantOptions.value.length === 0) return true
+  if (automaticImages.value || !selectedProcessorRequiresImages.value || imageVariantOptions.value.length === 0) return true
   if (imageVariantMode.value === 'global') return selectedImageVariants.value.length > 0
   return scopedPages.value.every(page =>
     imageVariantOptionsForPage(page).length === 0 || (pageImageVariants[page.id]?.length ?? 0) > 0
   )
 })
 const pagesMissingSelectedVariant = computed(() => {
-  if (!selectedProcessorAcceptsImages.value) return []
+  if (automaticImages.value || !selectedProcessorAcceptsImages.value) return []
   return scopedPages.value.filter((page) => {
-    if (page.imageCount <= 0) return false
+    if (compatibleImageCount(page) <= 0) return false
     const available = imageVariantByPageId.value[page.id] ?? new Set<string>()
     const wanted = imageVariantMode.value === 'global' ? selectedImageVariants.value : pageImageVariants[page.id]
     return Boolean(wanted?.length) && !wanted?.some(variant => available.has(variant))
   })
 })
 const submittedImageVariantSelection = computed<ActionImageVariantSelection | null>(() => {
-  if (!selectedProcessorAcceptsImages.value || imageVariantOptions.value.length === 0) return null
+  if (automaticImages.value || !selectedProcessorAcceptsImages.value || imageVariantOptions.value.length === 0) return null
   if (imageVariantMode.value === 'global') {
     if (!selectedImageVariants.value.length) return null
     return {
@@ -375,14 +385,14 @@ const submittedImageVariantSelection = computed<ActionImageVariantSelection | nu
   }
 })
 const incompatibleScopedPages = computed(() => scopedPages.value.filter((page) => {
-  if (selectedProcessorRequiresImages.value && page.imageCount <= 0) return true
+  if (selectedProcessorRequiresImages.value && compatibleImageCount(page) <= 0) return true
   if (selectedProcessorRequiresXml.value && page.xmlFileCount <= 0) return true
-  if (!selectedProcessorAcceptsImages.value) return false
+  if (automaticImages.value || !selectedProcessorAcceptsImages.value) return false
 
   const available = imageVariantByPageId.value[page.id] ?? new Set<string>()
   const wanted = imageVariantMode.value === 'global' ? selectedImageVariants.value : pageImageVariants[page.id]
   if (!wanted?.length || wanted.some(variant => available.has(variant))) return false
-  return !fallbackImage.value || page.imageCount <= 0
+  return !fallbackImage.value || compatibleImageCount(page) <= 0
 }))
 const hasCompatiblePages = computed(() =>
   scopedPages.value.length === 0 || incompatibleScopedPages.value.length < scopedPages.value.length
@@ -434,6 +444,15 @@ watch(() => actionRunsStore.runsArray, (trackedRuns) => {
 }, { deep: false })
 
 watch(selectedProcessorId, () => {
+  const typed = Boolean(selectedProcessor.value?.processor.inputs?.images.imageTypes?.length)
+  automaticImages.value = typed && (!selectedProcessorRequiresImages.value || !imageVariantOptions.value.length)
+  if (typed && selectedProcessorRequiresImages.value) {
+    selectedImageVariants.value = []
+    Object.keys(pageImageVariants).forEach(key => Reflect.deleteProperty(pageImageVariants, key))
+    const defaults = defaultActionImageVariants(scopedPages.value.map(selectablePageImages), multipleImages.value)
+    imageVariantMode.value = defaults.length ? 'global' : 'perPage'
+    selectedImageVariants.value = defaults
+  }
   resetParameters()
   void refreshParameterValues()
   reconcileImageVariantSelection()
@@ -472,7 +491,10 @@ function reconcileImageVariantSelection() {
   }
 
   const retained = selectedImageVariants.value.filter(variant => options.some(item => item.value === variant))
-  selectedImageVariants.value = retained.length ? retained : [options[0]!.value]
+  const defaults = multipleImages.value && selectedProcessor.value?.processor.inputs?.images.imageTypes?.length
+    ? options.map(option => option.value)
+    : [options[0]!.value]
+  selectedImageVariants.value = retained.length ? retained : defaults
 
   const scopedPageIds = new Set(scopedPages.value.map(page => page.id))
   Object.keys(pageImageVariants).forEach((pageId) => {
@@ -482,17 +504,20 @@ function reconcileImageVariantSelection() {
   })
 
   for (const page of scopedPages.value) {
-    const available = Array.from(imageVariantByPageId.value[page.id] ?? [])
-    if (available.length === 0) continue
+    const available = imageVariantOptionsForPage(page).map(option => option.value)
+    if (available.length === 0) {
+      Reflect.deleteProperty(pageImageVariants, page.id)
+      continue
+    }
     const current = (pageImageVariants[page.id] ?? []).filter(variant => available.includes(variant))
     const defaults = selectedImageVariants.value.filter(variant => available.includes(variant))
-    pageImageVariants[page.id] = current.length ? current : defaults.length ? defaults : [available[0]!]
+    const fallback = multipleImages.value && selectedProcessor.value?.processor.inputs?.images.imageTypes?.length ? available : [available[0]!]
+    pageImageVariants[page.id] = current.length ? current : defaults.length ? defaults : fallback
   }
 }
 
 function imageVariantOptionsForPage(page: ActionRunPageSummary) {
-  const variants = Array.from(imageVariantByPageId.value[page.id] ?? [])
-  return variants.map(variant => ({ label: variant, value: variant }))
+  return actionImageVariantOptions(selectablePageImages(page))
 }
 
 async function loadProcessors() {
@@ -908,6 +933,7 @@ function formatRunDetailLogs(run: ActionRun) {
 }
 
 function close() {
+  if (workflowBusy.value) return
   resetReview()
   emit('close', changed.value)
 }
@@ -1035,7 +1061,36 @@ function close() {
             </UButton>
           </template>
         </UAlert>
-        <template v-if="view === 'choose'">
+        <template v-if="view === 'workflow'">
+          <UButton
+            label="Back to Actions"
+            icon="i-lucide-arrow-left"
+            color="neutral"
+            variant="ghost"
+            :disabled="workflowBusy"
+            @click="view = 'choose'"
+          />
+          <ActionWorkflowRunner
+            :workspace-id="workspaceId"
+            :project-id="projectId"
+            :project-name="projectName"
+            :page-ids="selectedPageIds"
+            :processors="processors"
+            :initial-workflow-id="selectedWorkflowId"
+            @busy="workflowBusy = $event"
+            @started="changed = true; loadRuns()"
+          />
+        </template>
+        <template v-else-if="view === 'choose'">
+          <UButton
+            v-if="targetType === 'PAGE'"
+            label="Run a workflow"
+            icon="i-lucide-workflow"
+            color="neutral"
+            variant="outline"
+            class="mb-4"
+            @click="selectedWorkflowId = ''; view = 'workflow'"
+          />
           <div class="space-y-3">
             <div class="flex flex-wrap gap-2">
               <UInput
@@ -1220,8 +1275,17 @@ function close() {
               :ui="configurationSectionUi"
             >
               <div class="space-y-4">
+                <p v-if="selectedProcessor?.processor.inputs?.images.imageTypes?.length" class="text-sm text-muted">
+                  Accepted image types: {{ selectedProcessor.processor.inputs.images.imageTypes.join(', ').toLowerCase() }}
+                </p>
+                <USwitch
+                  v-if="selectedProcessor?.processor.inputs?.images.imageTypes?.length"
+                  v-model="automaticImages"
+                  label="Select compatible images automatically"
+                  :disabled="navigationBusy"
+                />
                 <p v-if="imageVariantOptions.length === 0" class="text-sm text-muted">
-                  Image inputs will be used as currently stored.
+                  {{ selectedProcessor?.processor.inputs?.images.imageTypes?.length ? scopedPages.some(page => compatiblePageImages(page).length > 0) ? 'Compatible images will be selected during review; pending types will be checked.' : 'No images match the accepted types.' : 'Image inputs will be used as currently stored.' }}
                 </p>
                 <template v-else>
                   <UFormField
@@ -1235,13 +1299,18 @@ function close() {
                       :multiple="multipleImages"
                       :items="imageVariantOptions"
                       value-key="value"
-                      :disabled="navigationBusy || imageVariantMode === 'perPage'"
+                      :disabled="navigationBusy || imageVariantMode === 'perPage' || automaticImages"
                       class="w-full"
                       @update:model-value="selectedImageVariants = actionImageSelectionValues($event, selectedImageVariants, selectedProcessorRequiresImages)"
                     />
                   </UFormField>
-                  <USwitch v-model="fallbackImage" label="Use another image if unavailable" :disabled="navigationBusy" />
-                  <UCollapsible :open="imageVariantMode === 'perPage'" :disabled="navigationBusy" @update:open="imageVariantMode = $event ? 'perPage' : 'global'">
+                  <USwitch v-model="fallbackImage" label="Use another compatible image if unavailable" :disabled="navigationBusy || automaticImages" />
+                  <UCollapsible
+                    v-if="!automaticImages"
+                    :open="imageVariantMode === 'perPage'"
+                    :disabled="navigationBusy"
+                    @update:open="imageVariantMode = $event ? 'perPage' : 'global'"
+                  >
                     <UButton
                       color="primary"
                       variant="link"
@@ -1282,7 +1351,7 @@ function close() {
                             />
                           </UFormField>
                           <UBadge v-else color="warning" variant="soft">
-                            No images
+                            {{ compatiblePageImages(page).length ? 'Automatic selection' : 'No matching images' }}
                           </UBadge>
                         </div>
                       </div>
@@ -1546,7 +1615,7 @@ function close() {
         <UButton
           color="neutral"
           variant="ghost"
-          :disabled="starting"
+          :disabled="navigationBusy"
           @click="close"
         >
           Close

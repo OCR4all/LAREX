@@ -1,3 +1,4 @@
+import type { ImageType, KnownImageType } from './image'
 import type { ActionOutput } from './action-output'
 
 export type ActionExecuteRole = 'EDITOR' | 'CURATOR'
@@ -14,6 +15,7 @@ export interface ActionInputRequirement {
   level: ActionInputLevel
   requiredForTargets: ActionTarget[]
   multiple?: boolean
+  imageTypes?: KnownImageType[]
 }
 
 export interface ActionInputRequirements {
@@ -110,6 +112,7 @@ export interface ActionParameterValuesResponse {
 }
 
 export interface ActionDefinition {
+  workflowId?: string | null
   id: string
   processorKey: string
   name: string
@@ -222,6 +225,7 @@ export interface ActionEvaluationDefinition {
 }
 
 export interface TrainingInputImage {
+  imageType?: ImageType | null
   id: string
   fileName: string
   variant: string | null

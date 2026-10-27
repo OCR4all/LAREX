@@ -16,6 +16,10 @@ import java.util.stream.Collectors;
 @Service
 public class ActionRunPayloadService {
 
+    static final String REQUIRE_ALL_PAGES_PARAMETER_KEY = "_larexRequireAllPages";
+
+    static final String IMAGE_REQUIREMENT_PARAMETER_KEY = "_larexImageRequirement";
+
     static final String IMAGE_VARIANT_SELECTION_PARAMETER_KEY = "_larexImageVariantSelection";
 
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
@@ -68,12 +72,19 @@ public class ActionRunPayloadService {
         return objectMapper.convertValue(value, IMAGE_VARIANT_SELECTION);
     }
 
+    public ActionDto.InputRequirement readImageRequirement(Map<String, Object> parameters) {
+        Object value = parameters.get(IMAGE_REQUIREMENT_PARAMETER_KEY);
+        return value == null ? null : objectMapper.convertValue(value, ActionDto.InputRequirement.class);
+    }
+
     public Map<String, Object> processorParameters(Map<String, Object> parameters) {
-        if (!parameters.containsKey(IMAGE_VARIANT_SELECTION_PARAMETER_KEY)) {
+        if (!parameters.containsKey(IMAGE_VARIANT_SELECTION_PARAMETER_KEY) && !parameters.containsKey(IMAGE_REQUIREMENT_PARAMETER_KEY) && !parameters.containsKey(REQUIRE_ALL_PAGES_PARAMETER_KEY)) {
             return parameters;
         }
         Map<String, Object> result = new LinkedHashMap<>(parameters);
         result.remove(IMAGE_VARIANT_SELECTION_PARAMETER_KEY);
+        result.remove(IMAGE_REQUIREMENT_PARAMETER_KEY);
+        result.remove(REQUIRE_ALL_PAGES_PARAMETER_KEY);
         return result;
     }
 

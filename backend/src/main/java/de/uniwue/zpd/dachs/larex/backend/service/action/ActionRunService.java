@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
+import de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService;
+import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
 import de.uniwue.zpd.dachs.larex.backend.config.ActionProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
@@ -123,6 +125,7 @@ public class ActionRunService {
     private static final Pattern ACTION_RUN_SECRET_PATTERN = Pattern.compile("lrx_act_[A-Za-z0-9_-]{20,}");
     private static final Pattern BEARER_TOKEN_PATTERN = Pattern.compile("(?i)\\bBearer\\s+[A-Za-z0-9._~+\\-/]+=*");
 
+    private final ImageTypeService imageTypes;
     private final ActionProcessorDefinitionRepository definitionRepository;
     private final ActionProcessorAssignmentRepository assignmentRepository;
     private final ActionWorkspaceActivationService activationService;
@@ -218,7 +221,8 @@ public class ActionRunService {
                             ActionTrainingSnapshotService trainingSnapshotService,
                             JobRealtimePublisher jobRealtimePublisher,
                             ActionMetrics metrics,
-                            TransactionTemplate transactionTemplate) {
+                            TransactionTemplate transactionTemplate, ImageTypeService imageTypes) {
+        this.imageTypes = imageTypes;
         this.definitionRepository = definitionRepository;
         this.assignmentRepository = assignmentRepository;
         this.availabilityRepository = availabilityRepository;
@@ -437,6 +441,37 @@ public class ActionRunService {
     }
 
     @Transactional(readOnly = true)
+    public ActionDto.ExecutableProcessorResponse workflowProcessor(String workspaceId, String projectId,
+                                                                    String workflowId, String definitionId, String userId) {
+        var definition = requireWorkflowProcessor(workspaceId, projectId, workflowId, definitionId, userId);
+        return toExecutableResponse(null, definition, workspaceId, requireProject(workspaceId, projectId), userId);
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.ParameterValuesResponse discoverWorkflowParameterValues(String workspaceId, String projectId,
+                                                                              String workflowId, String definitionId, String userId) {
+        return definitionService.discoverParameterValues(requireWorkflowProcessor(workspaceId, projectId, workflowId, definitionId, userId));
+    }
+
+    private ActionProcessorDefinition requireWorkflowProcessor(String workspaceId, String projectId, String workflowId,
+                                                                String definitionId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        requireProject(workspaceId, projectId);
+        var workflow = definitionRepository.findByWorkflow_Id(workflowId)
+                .orElseThrow(() -> new IllegalArgumentException("Workflow not found"));
+        activationService.requireActivated(workflow, workspaceId, projectId);
+        if (payloadService.readObjectList(workflow.getWorkflow().getStepsJson()).stream()
+                .noneMatch(step -> definitionId.equals(step.get("processorDefinitionId"))))
+            throw new SecurityException("Processor does not belong to this workflow");
+        var definition = requireDefinition(definitionId);
+        if (definition.isWorkflow() || definition.getActionKind() != ActionProcessorDefinition.ActionKind.PROCESSING)
+            throw new IllegalArgumentException("Invalid workflow processor");
+        activationService.requireAssignable(definition, workspaceId, projectId);
+        requireExecuteAccess(definition, workspaceId, userId);
+        return definition;
+    }
+
+    @Transactional(readOnly = true)
     public List<ActionDto.DefinitionResponse> listTrainingProcessors(String workspaceId, String userId) {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         return activationService.listActivatedDefinitions(workspaceId, null).stream()
@@ -463,6 +498,7 @@ public class ActionRunService {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         return activationService.listActivatedDefinitions(workspaceId, null).stream()
                 .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING)
+                .filter(definition -> !definition.isWorkflow())
                 .filter(definition -> canExecute(definition, workspaceId, userId))
                 .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(definitionService::toDefinitionResponse)
@@ -666,10 +702,23 @@ public class ActionRunService {
                                                         ActionDto.StartRunRequest request, String userId) {
         ActionProcessorDefinition definition = requireImpactDefinition(workspaceId, projectId,
                 request.processorDefinitionId(), userId);
+        return previewStepImpact(workspaceId, projectId, request, definition);
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.RunImpactResponse previewWorkflowStepImpact(String workspaceId, String projectId, String workflowId,
+                                                                  ActionDto.StartRunRequest request, String userId) {
+        var definition = requireWorkflowProcessor(workspaceId, projectId, workflowId, request.processorDefinitionId(), userId);
+        return previewStepImpact(workspaceId, projectId, request, definition);
+    }
+
+    private ActionDto.RunImpactResponse previewStepImpact(String workspaceId, String projectId,
+                                                           ActionDto.StartRunRequest request, ActionProcessorDefinition definition) {
         requireProject(workspaceId, projectId);
         ActionDto.TargetSelection selection = normalizeTargetSelection(request, projectId, true);
         requireTargetSupported(definition, selection.type());
-        Map<String, Object> parameters = resolveRunParameters(definition, request.parameters(), request.imageVariantSelection());
+        requireImageTypeInputEnabled(definition, selection.type(), request.imageTypes());
+        Map<String, Object> parameters = resolveRunParameters(definition, request.parameters(), request.imageVariantSelection(), request.imageTypes());
         List<Page> pages = resolveRunPages(projectId, selection.pages().stream()
                 .map(ActionDto.TargetSelectionPage::pageId).toList());
         return buildRunImpact(definition, selection, pages, parameters);
@@ -704,6 +753,7 @@ public class ActionRunService {
                                                                String definitionId, String userId) {
         ActionProcessorDefinition definition = definitionRepository.findById(definitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (definition.isWorkflow()) throw new IllegalArgumentException("Review workflows through the workflow run endpoint");
         if (!definition.isEnabled()) throw new IllegalArgumentException("Action processor is disabled");
         if (!isProjectKind(definition)) {
             throw new IllegalArgumentException("This Action cannot run on project pages");
@@ -717,7 +767,7 @@ public class ActionRunService {
                                                        ActionDto.TargetSelection selection, List<Page> pages,
                                                        Map<String, Object> parameters) {
         Set<String> eligible = new LinkedHashSet<>(eligibleProcessorPageIds(pages.stream().map(Page::getId).toList(),
-                definition, selection.type(), payloadService.readImageVariantSelection(parameters)));
+                definition, selection.type(), payloadService.readImageVariantSelection(parameters), effectiveInputRequirements(definition, parameters)));
         Map<String, PageXml> xmlByPage = pageXmlRepository.findByPage_IdIn(pages.stream().map(Page::getId).toList())
                 .stream().collect(Collectors.toMap(xml -> xml.getPage().getId(), xml -> xml));
         // Scoped import requires existing PAGE XML even when YAML makes XML input optional.
@@ -728,7 +778,7 @@ public class ActionRunService {
                 .collect(Collectors.toMap(ActionDto.TargetSelectionPage::pageId, page -> page));
         Map<ActionTarget, List<ActionDto.AnnotationLevel>> declarations = definition.isOutputsXml()
                 ? definitionService.readOverwriteDeclarations(definition) : Map.of();
-        ActionDto.InputRequirements requirements = definitionService.readInputRequirements(definition);
+        ActionDto.InputRequirements requirements = effectiveInputRequirements(definition, parameters);
         List<ActionDto.ImpactPage> impacts = new ArrayList<>();
         List<ActionDto.SkippedImpactPage> skipped = new ArrayList<>();
         for (Page page : pages) {
@@ -743,7 +793,7 @@ public class ActionRunService {
                         && (!xmlByPage.containsKey(page.getId()) || xmlByPage.get(page.getId()).getSchema() != XmlSchema.PAGE_XML);
                 skipped.add(new ActionDto.SkippedImpactPage(page.getId(), page.getName(), missingScopedXml
                         ? "Required PAGE XML for the selected target is missing" : missingXml
-                        ? "Required XML input is missing" : "Required image input or selected image variant is missing"));
+                        ? "Required XML input is missing" : "Required image input or selected image variant is missing" + (requirements.images().imageTypes().isEmpty() ? "" : "; accepted types: " + requirements.images().imageTypes())));
                 continue;
             }
             List<ActionDto.AnnotationLevel> levels = List.of();
@@ -777,28 +827,57 @@ public class ActionRunService {
                                                ActionDto.StartRunRequest request,
                                                String userId,
                                                String publicApiBaseUrl) {
+        return startRunInternal(workspaceId, projectId, request, userId, publicApiBaseUrl, false);
+    }
+
+    public ActionDto.StartRunResponse startWorkflowStep(de.uniwue.zpd.dachs.larex.backend.entity.ActionWorkflowRun workflowRun,
+                                                        ActionDto.StartRunRequest request) {
+        var workflow = definitionRepository.findByWorkflowIdForUpdate(workflowRun.getWorkflowId())
+                .orElseThrow(() -> new IllegalArgumentException("Workflow no longer exists"));
+        activationService.requireActivated(workflow, workflowRun.getWorkspaceId(), workflowRun.getProjectId());
+        boolean included = payloadService.readObjectList(workflowRun.getStepsJson()).stream()
+                .anyMatch(step -> request.processorDefinitionId().equals(step.get("processorDefinitionId")));
+        if (!"RUNNING".equals(workflowRun.getStatus()) || !included) throw new SecurityException("Invalid workflow step");
+        return startRunInternal(workflowRun.getWorkspaceId(), workflowRun.getProjectId(), request,
+                workflowRun.getCreatedByUserId(), workflowRun.getPublicApiBaseUrl(), true);
+    }
+
+    private ActionDto.StartRunResponse startRunInternal(String workspaceId, String projectId, ActionDto.StartRunRequest request,
+                                                         String userId, String publicApiBaseUrl, boolean workflowStep) {
         ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(request.processorDefinitionId())
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (definition.isWorkflow()) throw new IllegalArgumentException("Start workflows through the workflow run endpoint");
         if (!definition.isEnabled()) {
             throw new IllegalArgumentException("Action processor is disabled");
         }
         if (!isProjectKind(definition)) {
             throw new IllegalArgumentException("This Action must be started from a dataset");
         }
-        requireAssigned(workspaceId, projectId, definition.getId());
+        if (workflowStep) activationService.requireAssignable(definition, workspaceId, projectId);
+        else requireAssigned(workspaceId, projectId, definition.getId());
         requireExecuteAccess(definition, workspaceId, userId);
 
         Project project = requireProjectForUpdate(workspaceId, projectId);
         ActionDto.TargetSelection targetSelection = normalizeTargetSelection(request, projectId);
         requireTargetSupported(definition, targetSelection.type());
+        requireImageTypeInputEnabled(definition, targetSelection.type(), request.imageTypes());
         List<Page> pages = resolveRunPagesForUpdate(projectId, targetSelection.pages().stream()
                 .map(ActionDto.TargetSelectionPage::pageId)
                 .toList());
         Map<String, Object> parameters = resolveRunParameters(
                 definition,
                 request.parameters(),
-                request.imageVariantSelection()
+                request.imageVariantSelection(), request.imageTypes()
         );
+        if (workflowStep) {
+            parameters.put(ActionRunPayloadService.REQUIRE_ALL_PAGES_PARAMETER_KEY, true);
+            var eligible = eligibleProcessorPageIds(pages.stream().map(Page::getId).toList(), definition,
+                    targetSelection.type(), payloadService.readImageVariantSelection(parameters), effectiveInputRequirements(definition, parameters));
+            var missing = pages.stream().filter(page -> !eligible.contains(page.getId())).map(Page::getName).toList();
+            if (!missing.isEmpty()) throw new IllegalArgumentException("Workflow step " + definition.getName()
+                    + " requires image types " + effectiveInputRequirements(definition, parameters).images().imageTypes()
+                    + " and its declared inputs for every page; incompatible pages: " + missing);
+        }
         pages = processorPages(pages, definition, parameters, targetSelection.type());
         targetSelection = restrictTargetSelection(targetSelection, pages);
         ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, projectId);
@@ -874,13 +953,12 @@ public class ActionRunService {
         run.setPageIdsJson(payloadService.writeJson(pages.stream().map(Page::getId).toList()));
         run.setTargetSelectionJson(payloadService.writeJson(targetSelection));
         run.setParametersJson(payloadService.writeJson(parameters));
+        run.setInputRequirementsJson(payloadService.writeJson(resolvedInputRequirements(effectiveInputRequirements(definition, parameters), targetSelection.type())));
         run.setPublicApiBaseUrl(publicApiBaseUrl);
         String rawSecret = issueRunSecret(run);
         run.setStatusMessage(initialStatusMessage);
         run = runRepository.save(run);
         if (run.getKind() == ActionRun.Kind.INTEGRATION) {
-            run.setInputRequirementsJson(payloadService.writeJson(resolvedInputRequirements(
-                    definitionService.readInputRequirements(definition), targetSelection.type())));
             try {
                 trainingSnapshotService.createProjectIntegrationSnapshot(run, buildProjectMachineInput(run, publicApiBaseUrl).pages());
             } catch (IOException error) {
@@ -1388,7 +1466,7 @@ public class ActionRunService {
                         first.getDatasetItemId(), first.getPageName(), first.getSourcePageId(), first.getSplit(),
                         inputs.stream().map(input -> new ActionDto.MachinePageFile(
                                 input.getId(), input.getImageFileName(), input.getImageVariant(), input.getImageMimeType(),
-                                input.getImageFileSize(), machineFileUrl(publicApiBaseUrl, runId, "images", input.getId()))).toList(),
+                                input.getImageFileSize(), machineFileUrl(publicApiBaseUrl, runId, "images", input.getId()), imageTypes.typeOf(input))).toList(),
                         List.of(new ActionDto.MachinePageFile(
                                 first.getId(), first.getXmlFileName(), null, first.getXmlMimeType(),
                                 first.getXmlFileSize(), machineFileUrl(publicApiBaseUrl, runId, "xml", first.getId()))));
@@ -1411,7 +1489,7 @@ public class ActionRunService {
         Map<String, Object> parameters = payloadService.readObjectMap(run.getParametersJson());
         ActionDto.ImageVariantSelection imageVariantSelection = payloadService.readImageVariantSelection(parameters);
         ActionDto.TargetSelection targetSelection = payloadService.readTargetSelection(run);
-        ActionDto.InputRequirements inputRequirements = definitionService.readInputRequirements(definition);
+        ActionDto.InputRequirements inputRequirements = inputRequirementsForRun(run);
 
         Map<String, List<PageImage>> imagesByPage = inputRequirements.images().accepts(targetSelection.type())
                 ? pageImageRepository.findByPageIdIn(pageIds).stream().collect(Collectors.groupingBy(image -> image.getPage().getId()))
@@ -1437,6 +1515,12 @@ public class ActionRunService {
         Set<String> includedPageIds = pages.stream()
                 .map(ActionDto.MachinePageInput::id)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (Boolean.TRUE.equals(parameters.get(ActionRunPayloadService.REQUIRE_ALL_PAGES_PARAMETER_KEY))
+                && !includedPageIds.equals(new LinkedHashSet<>(pageIds))) {
+            var missing = pageIds.stream().filter(id -> !includedPageIds.contains(id)).toList();
+            throw new IllegalStateException("Workflow step " + definition.getName() + " requires image types "
+                    + inputRequirements.images().imageTypes() + " and other declared inputs for every page; missing pages: " + missing);
+        }
 
         return new ActionDto.MachineInputResponse(
                 ACTION_PROTOCOL_VERSION,
@@ -1477,7 +1561,7 @@ public class ActionRunService {
                                                                    String baseUrl, String runId) {
         return files.stream().filter(file -> type.equals(file.getFileType())).map(file -> new ActionDto.MachinePageFile(
                 file.getId(), file.getFileName(), file.getVariant(), file.getMimeType(), file.getFileSize(),
-                machineFileUrl(baseUrl, runId, type, file.getId()))).toList();
+                machineFileUrl(baseUrl, runId, type, file.getId()), imageTypes.typeOf(file))).toList();
     }
 
     @Transactional(readOnly = true)
@@ -1499,7 +1583,7 @@ public class ActionRunService {
         }
         List<String> pageIds = payloadService.readPageIds(run);
         ActionTarget target = payloadService.readTargetSelection(run).type();
-        ActionDto.InputRequirements inputRequirements = definitionService.readInputRequirements(run.getProcessorDefinition());
+        ActionDto.InputRequirements inputRequirements = inputRequirementsForRun(run);
         if ("images".equals(type)) {
             if (!inputRequirements.images().accepts(target)) {
                 throw new SecurityException("Image inputs are not allowed for this run");
@@ -1509,6 +1593,9 @@ public class ActionRunService {
             if (image.getPage() == null || !pageIds.contains(image.getPage().getId())) {
                 throw new SecurityException("Image is outside this run scope");
             }
+            var selected = selectImagesForPage(image.getPage().getId(), pageImageRepository.findByPageId(image.getPage().getId()),
+                    payloadService.readImageVariantSelection(payloadService.readObjectMap(run.getParametersJson())), inputRequirements.images());
+            if (selected.stream().noneMatch(file -> fileId.equals(file.getId()))) throw new SecurityException("Image is not selected or has an incompatible type");
             return new MachineFile(image.getFilePath(), image.getFileName(), image.getMimeType());
         }
         if ("xml".equals(type)) {
@@ -2477,6 +2564,8 @@ public class ActionRunService {
                 .orElseThrow(() -> new IllegalArgumentException("Page not found"));
         String variant = normalizeVariant(resultFile.variant(), "action");
         String originalName = chooseFileName(resultFile.fileName(), file.getOriginalFilename(), page.getName() + "-" + variant);
+        var storedFile = fileStorageService.storeMultipartFile(new RenamedMultipartFile(file, originalName, file.getContentType()),
+                run.getWorkspaceId(), run.getProjectId(), StoredFileType.IMG, run.getCreatedByUserId());
         List<PageImage> existing = pageImageRepository.findByPageIdAndVariant(page.getId(), variant);
         List<String> replacedStoragePaths = new ArrayList<>();
         for (PageImage image : existing) {
@@ -2488,8 +2577,6 @@ public class ActionRunService {
         }
         deleteStoredFilesAfterCommit(replacedStoragePaths);
 
-        var storedFile = fileStorageService.storeMultipartFile(new RenamedMultipartFile(file, originalName, file.getContentType()),
-                run.getWorkspaceId(), run.getProjectId(), StoredFileType.IMG, run.getCreatedByUserId());
         ImageFileUtils.ImageNameInfo nameInfo = ImageFileUtils.parseImageName(storedFile.originalFilename());
         PageImage pageImage = new PageImage(
                 storedFile.originalFilename(),
@@ -2500,6 +2587,7 @@ public class ActionRunService {
                 nameInfo.baseName(),
                 page
         );
+        pageImage.setImageType(storedFile.imageType());
         pageImage = pageImageRepository.save(pageImage);
         String thumbnailPath = thumbnailService.generateThumbnail(storedFile.storagePath());
         if (thumbnailPath != null) {
@@ -2712,9 +2800,16 @@ public class ActionRunService {
         boolean datasetAction = isDatasetAction(run);
         ActionDto.ImageVariantSelection imageVariantSelection = datasetAction ? null : payloadService.readImageVariantSelection(runParameters);
         ActionTarget target = datasetAction ? null : payloadService.readTargetSelection(run).type();
-        ActionDto.InputRequirements inputRequirements = datasetAction ? null : definitionService.readInputRequirements(definition);
+        ActionDto.InputRequirements inputRequirements = datasetAction ? null : inputRequirementsForRun(run);
         List<String> processorPageIds = datasetAction ? List.of() : run.getKind() == ActionRun.Kind.INTEGRATION
                 ? payloadService.readPageIds(run) : processorPageIds(run, definition, imageVariantSelection, target);
+        if (Boolean.TRUE.equals(runParameters.get(ActionRunPayloadService.REQUIRE_ALL_PAGES_PARAMETER_KEY))
+                && !new LinkedHashSet<>(processorPageIds).equals(new LinkedHashSet<>(payloadService.readPageIds(run)))) {
+            var missing = payloadService.readPageIds(run).stream().filter(id -> !processorPageIds.contains(id)).toList();
+            markDispatchFailed(runId, new IllegalStateException("Workflow step " + definition.getName()
+                    + " no longer has required image types " + inputRequirements.images().imageTypes() + " or other inputs for pages: " + missing));
+            return;
+        }
         Set<String> processorPageIdSet = new LinkedHashSet<>(processorPageIds);
         if (attempt > 1 && run.getStatus() == Status.DISPATCHING) {
             run.setStatusMessage("Dispatching (attempt " + attempt + "/" + attempts + ")");
@@ -3377,6 +3472,14 @@ public class ActionRunService {
     Map<String, Object> resolveRunParameters(ActionProcessorDefinition definition,
                                              Map<String, Object> requestedParameters,
                                              ActionDto.ImageVariantSelection imageVariantSelection) {
+        return resolveRunParameters(definition, requestedParameters, imageVariantSelection, null);
+    }
+
+    Map<String, Object> resolveRunParameters(ActionProcessorDefinition definition,
+                                             Map<String, Object> requestedParameters,
+                                             ActionDto.ImageVariantSelection imageVariantSelection,
+                                             List<ImageType> requestedTypes) {
+        ActionDto.InputRequirement imageRequirement = resolveImageRequirement(definition, requestedTypes);
         ActionDefinitionDocument document = definitionService.readParsedDocument(definition);
         Map<String, ActionDefinitionDocument.Parameter> definitions = document.parameters() == null ? Map.of() : document.parameters();
         Map<String, Object> resolved = new LinkedHashMap<>();
@@ -3412,6 +3515,9 @@ public class ActionRunService {
             }
         }
         definitionService.validateAllowedParameterValues(definition, resolved);
+        if (!imageRequirement.imageTypes().isEmpty()) {
+            resolved.put(ActionRunPayloadService.IMAGE_REQUIREMENT_PARAMETER_KEY, imageRequirement);
+        }
         return resolved;
     }
 
@@ -3785,11 +3891,38 @@ public class ActionRunService {
     }
 
     private ActionDto.InputRequirements datasetInputRequirements(ActionRun run) {
-        boolean multiple = run.getInputRequirementsJson() != null && !run.getInputRequirementsJson().isBlank()
-                && payloadService.readSnapshotInputRequirements(run).images().multiple();
+        var images = inputRequirementsForRun(run).images();
         return new ActionDto.InputRequirements(
-                new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), multiple),
+                new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), images.multiple(), images.imageTypes()),
                 new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of()));
+    }
+
+    private void requireImageTypeInputEnabled(ActionProcessorDefinition definition, ActionTarget target, List<ImageType> requestedTypes) {
+        if (requestedTypes != null && !definitionService.readInputRequirements(definition).images().accepts(target))
+            throw new IllegalArgumentException("imageTypes requires enabled image input for the selected target");
+    }
+
+    ActionDto.InputRequirement resolveImageRequirement(ActionProcessorDefinition definition, List<ImageType> requestedTypes) {
+        var images = definitionService.readInputRequirements(definition).images();
+        if (requestedTypes == null) return images;
+        if (requestedTypes.isEmpty() || requestedTypes.stream().anyMatch(Objects::isNull) || requestedTypes.contains(ImageType.UNKNOWN))
+            throw new IllegalArgumentException("imageTypes must contain COLOR, GRAYSCALE, or BINARY");
+        if (!images.acceptsAnyTarget()) throw new IllegalArgumentException("imageTypes requires enabled image input");
+        if (!images.imageTypes().isEmpty() && !images.imageTypes().containsAll(requestedTypes))
+            throw new IllegalArgumentException("Step imageTypes must be a subset of the processor's accepted image types");
+        return new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), images.multiple(), requestedTypes.stream().distinct().toList());
+    }
+
+    private ActionDto.InputRequirements effectiveInputRequirements(ActionProcessorDefinition definition, Map<String, Object> parameters) {
+        var requirements = definitionService.readInputRequirements(definition);
+        var images = payloadService.readImageRequirement(parameters);
+        return images == null ? requirements : new ActionDto.InputRequirements(images, requirements.xml());
+    }
+
+    private ActionDto.InputRequirements inputRequirementsForRun(ActionRun run) {
+        return run.getInputRequirementsJson() == null || run.getInputRequirementsJson().isBlank()
+                ? effectiveInputRequirements(run.getProcessorDefinition(), payloadService.readObjectMap(run.getParametersJson()))
+                : payloadService.readSnapshotInputRequirements(run);
     }
 
     private List<String> processorPageIds(ActionRun run,
@@ -3797,7 +3930,7 @@ public class ActionRunService {
                                           ActionDto.ImageVariantSelection imageVariantSelection,
                                           ActionTarget target) {
         List<String> pageIds = payloadService.readPageIds(run);
-        return eligibleProcessorPageIds(pageIds, definition, target, imageVariantSelection);
+        return eligibleProcessorPageIds(pageIds, definition, target, imageVariantSelection, inputRequirementsForRun(run));
     }
 
     private List<Page> processorPages(List<Page> pages,
@@ -3810,7 +3943,8 @@ public class ActionRunService {
                 pageIds,
                 definition,
                 target,
-                imageVariantSelection
+                imageVariantSelection,
+                effectiveInputRequirements(definition, parameters)
         ));
         List<Page> includedPages = pages.stream()
                 .filter(page -> includedPageIds.contains(page.getId()))
@@ -3825,7 +3959,12 @@ public class ActionRunService {
                                           ActionProcessorDefinition definition,
                                           ActionTarget target,
                                           ActionDto.ImageVariantSelection imageVariantSelection) {
-        ActionDto.InputRequirements requirements = definitionService.readInputRequirements(definition);
+        return eligibleProcessorPageIds(pageIds, definition, target, imageVariantSelection, definitionService.readInputRequirements(definition));
+    }
+
+    private List<String> eligibleProcessorPageIds(List<String> pageIds, ActionProcessorDefinition definition,
+                                                  ActionTarget target, ActionDto.ImageVariantSelection imageVariantSelection,
+                                                  ActionDto.InputRequirements requirements) {
         boolean acceptsImages = requirements.images().accepts(target);
         boolean integration = definition.getActionKind() == ActionProcessorDefinition.ActionKind.INTEGRATION;
         boolean checksImages = requirements.images().required(target)
@@ -3857,7 +3996,7 @@ public class ActionRunService {
     private ActionDto.InputRequirements resolvedInputRequirements(ActionDto.InputRequirements requirements,
                                                                   ActionTarget target) {
         return new ActionDto.InputRequirements(
-                new ActionDto.InputRequirement(requirements.images().levelFor(target), List.of(), requirements.images().multiple()),
+                new ActionDto.InputRequirement(requirements.images().levelFor(target), List.of(), requirements.images().multiple(), requirements.images().imageTypes()),
                 new ActionDto.InputRequirement(requirements.xml().levelFor(target), List.of())
         );
     }
@@ -3896,8 +4035,10 @@ public class ActionRunService {
                                                 ActionDto.ImageVariantSelection selection,
                                                 ActionDto.InputRequirement imageRequirement) {
         List<PageImage> sortedImages = images.stream()
+                .filter(image -> imageRequirement.imageTypes().isEmpty() || imageRequirement.acceptsType(imageTypes.typeOf(image)))
                 .sorted(Comparator.comparing(PageImage::getVariant, String.CASE_INSENSITIVE_ORDER)
-                        .thenComparing(PageImage::getFileName, String.CASE_INSENSITIVE_ORDER))
+                        .thenComparing(PageImage::getFileName, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(image -> Objects.toString(image.getId(), "")))
                 .toList();
         if (selection == null) {
             return imageRequirement.multiple() ? sortedImages : sortedImages.stream().limit(1).toList();
@@ -3945,7 +4086,8 @@ public class ActionRunService {
                 image.getVariant(),
                 image.getMimeType(),
                 image.getFileSize(),
-                publicApiBaseUrl + "/public/actions/runs/" + runId + "/files/images/" + image.getId()
+                publicApiBaseUrl + "/public/actions/runs/" + runId + "/files/images/" + image.getId(),
+                imageTypes.typeOf(image)
         );
     }
 

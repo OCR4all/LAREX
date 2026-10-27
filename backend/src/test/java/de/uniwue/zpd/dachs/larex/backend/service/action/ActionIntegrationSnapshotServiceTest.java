@@ -32,15 +32,19 @@ class ActionIntegrationSnapshotServiceTest {
     WorkspaceQuotaRefreshService refresh = mock(WorkspaceQuotaRefreshService.class);
     List<ActionInputSnapshot> saved = new ArrayList<>();
     ActionTrainingInputRepository trainingInputs = mock(ActionTrainingInputRepository.class);
+    DatasetRepository datasets = mock(DatasetRepository.class);
+    de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService metadata = mock(de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService.class);
     ActionTrainingSnapshotService service;
     ActionRun run;
 
     @BeforeEach void setup() throws Exception {
         UploadDirectoryProperties properties = new UploadDirectoryProperties();
         properties.setRootDirectory(root);
-        service = new ActionTrainingSnapshotService(mock(DatasetRepository.class), items, pages,
+        when(metadata.typeOf(any(PageImage.class))).thenAnswer(call -> ((PageImage) call.getArgument(0)).getImageType());
+        when(metadata.typeOf(any(DatasetItemCopyFile.class))).thenAnswer(call -> ((DatasetItemCopyFile) call.getArgument(0)).getImageType());
+        service = new ActionTrainingSnapshotService(datasets, items, pages,
                 images, xmls, trainingInputs, mock(WorkspaceAccessService.class),
-                new UploadPathService(properties), quota, refresh, snapshots);
+                new UploadPathService(properties), quota, refresh, snapshots, metadata);
         run = new ActionRun(); run.setId("integration-run"); run.setWorkspaceId("workspace");
         run.setProjectId("project"); run.setKind(ActionRun.Kind.INTEGRATION);
         Files.writeString(root.resolve("source.xml"), "original xml");
@@ -50,6 +54,32 @@ class ActionIntegrationSnapshotServiceTest {
         when(snapshots.saveAll(anyList())).thenAnswer(call -> {
             saved.addAll(call.getArgument(0)); return saved;
         });
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(DatasetItem.Mode.class)
+    void listsCachedDatasetTypesWithoutDecodingPendingImages(DatasetItem.Mode mode) throws Exception {
+        var dataset = new Dataset(); dataset.setId("dataset"); dataset.setName("Dataset");
+        when(datasets.findByIdAndWorkspaceId("dataset", "workspace")).thenReturn(Optional.of(dataset));
+        var item = new DatasetItem(); item.setId("item"); item.setSourcePageId("page"); item.setSourcePageName("Page");
+        item.setMode(mode); item.setStatus(DatasetItem.Status.READY); item.setSelectedSourceImageIds(List.of("image"));
+        Files.writeString(root.resolve("image.png"), "no decoding necessary for a listing");
+        if (mode == DatasetItem.Mode.COPY) {
+            item.setCopyFiles(List.of(copyFile(DatasetItemCopyFile.Kind.IMAGE, "image", "image.png")));
+        } else {
+            var page = new Page("Page", null, new Project("Project", null, new Library("workspace", "Library")));
+            page.setId("page");
+            when(pages.findById("page")).thenReturn(Optional.of(page));
+            var image = new PageImage("image.png", "image.png", "image/png", 1L, "scan", "Page", page); image.setId("image");
+            when(images.findByPageId("page")).thenReturn(List.of(image));
+        }
+        when(items.findByDatasetIdOrderByCreatedAsc("dataset")).thenReturn(List.of(item));
+        var result = service.listInputs("workspace", "dataset", "user");
+        assertThat(result.items()).singleElement().satisfies(listed -> {
+            assertThat(listed.status()).isEqualTo(DatasetItem.Status.READY);
+            assertThat(listed.images()).singleElement().satisfies(image -> assertThat(image.imageType()).isNull());
+        });
+        verifyNoInteractions(metadata);
     }
 
     List<ActionDto.MachinePageInput> xmlInput() {
@@ -138,6 +168,75 @@ class ActionIntegrationSnapshotServiceTest {
                         assertThat(Files.readString(root.resolve(input.getImageSnapshotPath()))).isEqualTo(input.getImageVariant()));
             }
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = ActionRun.Kind.class, names = {"TRAINING", "EVALUATION", "INTEGRATION"})
+    void selectsTypesAndFreezesTheirMetadataForCopiedAndLinkedDatasets(ActionRun.Kind kind) throws Exception {
+        var binaryType = de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY;
+        var colorType = de.uniwue.zpd.dachs.larex.backend.entity.ImageType.COLOR;
+        run.setProjectId(null); run.setDatasetId("dataset"); run.setKind(kind);
+        var dataset = new Dataset(); dataset.setId("dataset");
+        var item = new DatasetItem(); item.setId("item"); item.setSourcePageId("page"); item.setSourcePageName("Page");
+        item.setStatus(DatasetItem.Status.READY); item.setAssignedSplit(DatasetItem.Split.TRAIN);
+        item.setSelectedSourceXmlId("xml"); item.setSelectedSourceImageIds(List.of("color", "binary"));
+        Files.writeString(root.resolve("binary.png"), "binary bytes"); Files.writeString(root.resolve("color.png"), "color bytes");
+        var binary = copyFile(DatasetItemCopyFile.Kind.IMAGE, "binary", "binary.png"); binary.setImageType(binaryType); binary.setVariant("z-binary");
+        var color = copyFile(DatasetItemCopyFile.Kind.IMAGE, "color", "color.png"); color.setImageType(colorType); color.setVariant("a-color");
+        item.setCopyFiles(List.of(color, binary, copyFile(DatasetItemCopyFile.Kind.XML, "xml", "source.xml")));
+        var library = new Library("workspace", "Library"); var project = new Project("Project", "", library);
+        var page = new Page("Page", "", project); page.setId("page");
+        when(pages.findById("page")).thenReturn(Optional.of(page));
+        xmls.findById("xml").orElseThrow().setPage(page);
+        var linkedBinary = new PageImage("binary.png", "binary.png", "image/png", 12L, "z-binary", "Page", page);
+        linkedBinary.setId("binary"); linkedBinary.setImageType(binaryType);
+        var linkedColor = new PageImage("color.png", "color.png", "image/png", 12L, "a-color", "Page", page);
+        linkedColor.setId("color"); linkedColor.setImageType(colorType);
+        when(images.findByPageId("page")).thenReturn(List.of(linkedColor, linkedBinary));
+        when(items.findByDatasetIdOrderByCreatedAsc("dataset")).thenReturn(List.of(item));
+        var imageRequirement = new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), false, List.of(binaryType));
+        var requirements = new ActionDto.InputRequirements(imageRequirement, new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of()));
+        var splits = new ActionDto.TrainingSplitRequirements(ActionDto.InputLevel.REQUIRED, ActionDto.InputLevel.NONE, ActionDto.InputLevel.NONE);
+        var request = new ActionDto.StartTrainingRunRequest("definition", new ActionDto.TrainingSelection("ALL", List.of()), null, Map.of(), true);
+        for (var mode : List.of(DatasetItem.Mode.COPY, DatasetItem.Mode.LINK)) {
+            item.setMode(mode); saved.clear();
+            if (kind == ActionRun.Kind.INTEGRATION) {
+                service.createDatasetIntegrationSnapshot(run, dataset, request, requirements);
+                assertThat(saved).filteredOn(file -> "images".equals(file.getFileType())).singleElement()
+                        .satisfies(file -> { assertThat(file.getSourceFileId()).isEqualTo("binary"); assertThat(file.getImageType()).isEqualTo(binaryType); });
+            } else {
+                service.createSnapshot("workspace", dataset, run, request, splits, imageRequirement);
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                org.mockito.ArgumentCaptor<List<ActionTrainingInput>> captor = org.mockito.ArgumentCaptor.forClass((Class) List.class);
+                verify(trainingInputs, atLeastOnce()).saveAll(captor.capture());
+                assertThat(captor.getValue()).allSatisfy(input -> {
+                    assertThat(input.getImageFileId()).isEqualTo("binary"); assertThat(input.getImageType()).isEqualTo(binaryType);
+                });
+            }
+            var override = new ActionDto.TrainingImageSelection(null, Map.of("item", "color"));
+            var invalidRequest = new ActionDto.StartTrainingRunRequest("definition", request.selection(), override, Map.of(), true);
+            assertThatThrownBy(() -> service.createSnapshot("workspace", dataset, run, invalidRequest, splits, imageRequirement))
+                    .hasMessageContaining("incompatible");
+        }
+    }
+
+    @Test void trainingRejectsMissingCompatibleImagesEvenWhenProcessorImageInputIsOptional() throws Exception {
+        run.setKind(ActionRun.Kind.TRAINING); run.setProjectId(null); run.setDatasetId("dataset");
+        var dataset = new Dataset(); dataset.setId("dataset");
+        var item = new DatasetItem(); item.setId("item"); item.setSourcePageId("page"); item.setSourcePageName("Page");
+        item.setMode(DatasetItem.Mode.COPY); item.setStatus(DatasetItem.Status.READY); item.setAssignedSplit(DatasetItem.Split.TRAIN);
+        item.setSelectedSourceXmlId("xml"); item.setSelectedSourceImageIds(List.of("color"));
+        Files.writeString(root.resolve("color.png"), "color");
+        var color = copyFile(DatasetItemCopyFile.Kind.IMAGE, "color", "color.png");
+        color.setImageType(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.COLOR);
+        item.setCopyFiles(List.of(color, copyFile(DatasetItemCopyFile.Kind.XML, "xml", "source.xml")));
+        when(items.findByDatasetIdOrderByCreatedAsc("dataset")).thenReturn(List.of(item));
+        var splits = new ActionDto.TrainingSplitRequirements(ActionDto.InputLevel.OPTIONAL, ActionDto.InputLevel.NONE, ActionDto.InputLevel.NONE);
+        var requirement = new ActionDto.InputRequirement(ActionDto.InputLevel.OPTIONAL, List.of(), false,
+                List.of(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY));
+        var request = new ActionDto.StartTrainingRunRequest("definition", new ActionDto.TrainingSelection("ALL", List.of()), null, Map.of(), true);
+        assertThatThrownBy(() -> service.createSnapshot("workspace", dataset, run, request, splits, requirement))
+                .hasMessageContaining("No compatible image for Page");
     }
 
     @Test void freezesLinkedDatasetFilesBeforeSourceEdits() throws Exception {

@@ -105,6 +105,36 @@ class ActionDefinitionServicePreflightTest {
     }
 
     @Test
+    void parsesNormalizedImageTypesAndRejectsInvalidDeclarations() {
+        when(endpointAuthService.normalizeAuthType(any())).thenReturn("hmac");
+        var typed = new ActionProcessorDefinition();
+        typed.setParsedJson("{\"targets\":[\"PAGE\"],\"inputs\":{\"images\":{\"level\":\"required\",\"imageTypes\":[\" binary \",\"BINARY\",\"grayscale\"]}}}");
+        assertThat(service.readInputRequirements(typed).images().imageTypes()).containsExactly(
+                de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY,
+                de.uniwue.zpd.dachs.larex.backend.entity.ImageType.GRAYSCALE);
+        String yaml = """
+                version: 1
+                id: typed-processor
+                name: Typed processor
+                endpoint:
+                  url: http://processor.localhost/dispatch
+                  auth: {type: hmac, secretRef: processor-v1}
+                inputs:
+                  images: {level: required, imageTypes: %s}
+                outputs:
+                  images: {enabled: true, variant: binary}
+                """;
+        for (String invalid : java.util.List.of("[]", "[UNKNOWN]", "[sepia]", "binary", "[null]")) {
+            assertThat(service.validateYaml(yaml.formatted(invalid), null).diagnostics())
+                    .anyMatch(diagnostic -> diagnostic.path().equals("inputs.images.imageTypes"));
+        }
+        assertThat(service.validateYaml(yaml.formatted("[BINARY]").replace("level: required", "level: none"), null).diagnostics())
+                .anyMatch(diagnostic -> diagnostic.path().equals("inputs.images.imageTypes"));
+        assertThat(service.validateYaml(yaml.formatted("[BINARY]").replace("images: {level:", "xml: {level:"), null).diagnostics())
+                .anyMatch(diagnostic -> diagnostic.path().equals("inputs.xml.imageTypes"));
+    }
+
+    @Test
     void performsSignedPreflightAndValidatesProtocolIdentityAndCapabilities() throws Exception {
         when(httpResponse.statusCode()).thenReturn(200);
         when(httpResponse.body()).thenAnswer(ignored -> successfulResponse("processor-v1", true));

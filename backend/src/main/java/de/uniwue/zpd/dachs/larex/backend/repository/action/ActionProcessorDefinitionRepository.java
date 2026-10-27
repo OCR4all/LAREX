@@ -19,6 +19,12 @@ public interface ActionProcessorDefinitionRepository extends JpaRepository<Actio
     @Query("SELECT d FROM ActionProcessorDefinition d WHERE d.id = :id")
     Optional<ActionProcessorDefinition> findByIdForUpdate(@Param("id") String id);
 
+    Optional<ActionProcessorDefinition> findByWorkflow_Id(String workflowId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT d FROM ActionProcessorDefinition d WHERE d.workflow.id = :workflowId")
+    Optional<ActionProcessorDefinition> findByWorkflowIdForUpdate(@Param("workflowId") String workflowId);
+
     boolean existsByProcessorKey(String processorKey);
 
     List<ActionProcessorDefinition> findByEnabledTrueOrderByNameAsc();

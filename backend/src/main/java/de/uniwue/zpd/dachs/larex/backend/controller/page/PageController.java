@@ -844,7 +844,8 @@ public class PageController {
         return new PageDto.ImageVariantPreview(
                 image.getId(),
                 image.getFileName(),
-                image.getVariant()
+                image.getVariant(),
+                image.getImageType()
         );
     }
 
@@ -858,7 +859,8 @@ public class PageController {
                 image.getVariant(),
                 image.getBaseName(),
                 image.getThumbnailPath(),
-                image.getCreated()
+                image.getCreated(),
+                pageService.imageType(image)
         );
     }
 

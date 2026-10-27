@@ -434,15 +434,7 @@ public class AsyncUploadProcessor {
                 sessionFile.setConflictType("IMAGE_VARIANT_EXISTS");
                 Files.deleteIfExists(tempFilePath);
                 return;
-            } else if ("replace".equals(conflictResolution) || "replace_with_new".equals(conflictResolution)) {
-                // Delete existing image
-                PageImage existingImage = existingImages.get(0);
-                hierarchicalFileStorageService.deleteStoredFile(existingImage.getFilePath());
-                if (existingImage.getThumbnailPath() != null) {
-                    hierarchicalFileStorageService.deleteStoredFile(existingImage.getThumbnailPath());
-                }
-                pageImageRepository.delete(existingImage);
-            } else {
+            } else if (!"replace".equals(conflictResolution) && !"replace_with_new".equals(conflictResolution)) {
                 // Default: create conflict status
                 sessionFile.setStatus(UploadFileStatus.CONFLICT);
                 sessionFile.setConflictType("IMAGE_VARIANT_EXISTS");
@@ -461,6 +453,16 @@ public class AsyncUploadProcessor {
                 true
         );
 
+        if (!existingImages.isEmpty()) {
+            // Delete existing image
+            PageImage existingImage = existingImages.get(0);
+            hierarchicalFileStorageService.deleteStoredFile(existingImage.getFilePath());
+            if (existingImage.getThumbnailPath() != null) {
+                hierarchicalFileStorageService.deleteStoredFile(existingImage.getThumbnailPath());
+            }
+            pageImageRepository.delete(existingImage);
+        }
+
         // Create PageImage entity
         PageImage pageImage = new PageImage(
                 storedImage.originalFilename(),
@@ -471,6 +473,7 @@ public class AsyncUploadProcessor {
                 sessionFile.getBaseName(),
                 page
         );
+        pageImage.setImageType(storedImage.imageType());
 
         pageImage = pageImageRepository.save(pageImage);
 
@@ -610,6 +613,7 @@ public class AsyncUploadProcessor {
                             pageName,
                             page
                     );
+                    pageImage.setImageType(storedImage.imageType());
 
                     pageImage = pageImageRepository.save(pageImage);
                     uploadRealtimePublisher.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "pdf");

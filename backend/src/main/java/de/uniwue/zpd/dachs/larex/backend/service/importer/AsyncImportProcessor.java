@@ -254,18 +254,9 @@ public class AsyncImportProcessor {
                 List<PageImage> existingImages = pageImageRepository.findByPageIdAndVariant(
                         page.getId(), nameInfo.variant());
 
-                if (!existingImages.isEmpty()) {
-                    if (!overwriteExisting) {
-                        skipped++;
-                        continue;
-                    }
-                    // Delete existing
-                    PageImage existing = existingImages.get(0);
-                    hierarchicalFileStorageService.deleteStoredFile(existing.getFilePath());
-                    if (existing.getThumbnailPath() != null) {
-                        hierarchicalFileStorageService.deleteStoredFile(existing.getThumbnailPath());
-                    }
-                    pageImageRepository.delete(existing);
+                if (!existingImages.isEmpty() && !overwriteExisting) {
+                    skipped++;
+                    continue;
                 }
 
                 var storedImage = hierarchicalFileStorageService.storeFromPath(
@@ -279,6 +270,16 @@ public class AsyncImportProcessor {
                         false
                 );
 
+                if (!existingImages.isEmpty()) {
+                    // Delete existing
+                    PageImage existing = existingImages.get(0);
+                    hierarchicalFileStorageService.deleteStoredFile(existing.getFilePath());
+                    if (existing.getThumbnailPath() != null) {
+                        hierarchicalFileStorageService.deleteStoredFile(existing.getThumbnailPath());
+                    }
+                    pageImageRepository.delete(existing);
+                }
+
                 // Create PageImage entity
                 PageImage pageImage = new PageImage(
                         storedImage.originalFilename(),
@@ -289,6 +290,7 @@ public class AsyncImportProcessor {
                         nameInfo.baseName(),
                         page
                 );
+                pageImage.setImageType(storedImage.imageType());
                 pageImageRepository.save(pageImage);
                 processed++;
 

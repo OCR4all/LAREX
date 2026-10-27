@@ -7,6 +7,8 @@ import de.uniwue.zpd.dachs.larex.backend.repository.storage.StoredFileRepository
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadDirectoryPreflightService;
 import jakarta.annotation.PostConstruct;
 import java.awt.image.BufferedImage;
+import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
+import de.uniwue.zpd.dachs.larex.backend.util.ImageTypeDetector;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -558,7 +560,8 @@ public class HierarchicalFileStorageService {
                 storedFile.getExtension(),
                 storedFile.getSizeBytes(),
                 storedFile.getChecksumSha256(),
-                storedFile.getFileType()
+                storedFile.getFileType(),
+                fileType == StoredFileType.IMG ? ImageTypeDetector.detect(absolutePath) : null
         );
     }
 
@@ -821,7 +824,12 @@ public class HierarchicalFileStorageService {
             String extension,
             long sizeBytes,
             String checksumSha256,
-            StoredFileType fileType
+            StoredFileType fileType,
+            ImageType imageType
     ) {
+        public StoredFileDescriptor(String uuid, String storagePath, String originalFilename, String mimeType,
+                                    String extension, long sizeBytes, String checksumSha256, StoredFileType fileType) {
+            this(uuid, storagePath, originalFilename, mimeType, extension, sizeBytes, checksumSha256, fileType, null);
+        }
     }
 }

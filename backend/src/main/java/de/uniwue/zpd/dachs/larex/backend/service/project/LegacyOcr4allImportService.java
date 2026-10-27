@@ -290,6 +290,8 @@ public class LegacyOcr4allImportService {
                 importFile.pageBaseName(),
                 page
         );
+
+        pageImage.setImageType(storedImage.imageType());
         page.getImages().add(pageImage);
     }
 
