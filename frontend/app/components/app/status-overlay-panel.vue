@@ -15,12 +15,12 @@ const shouldShowFixedOverlay = computed(() => isMobile.value && isOverlayOpen.va
 
 <template>
   <Transition
-    enter-active-class="transform transition duration-300 ease-out"
-    enter-from-class="translate-y-3 opacity-0"
-    enter-to-class="translate-y-0 opacity-100"
-    leave-active-class="transform transition duration-200 ease-in"
-    leave-from-class="translate-y-0 opacity-100"
-    leave-to-class="translate-y-3 opacity-0"
+    enter-active-class="transition-[opacity,translate] duration-300 ease-out"
+    enter-from-class="motion-safe:translate-y-3 opacity-0"
+    enter-to-class="motion-safe:translate-y-0 opacity-100"
+    leave-active-class="transition-[opacity,translate] duration-150 ease-out"
+    leave-from-class="motion-safe:translate-y-0 opacity-100"
+    leave-to-class="motion-safe:-translate-y-3 opacity-0"
   >
     <div
       v-if="shouldShowFixedOverlay"

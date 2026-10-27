@@ -32,12 +32,12 @@ const formatTime = (date: Date) => {
 
 <template>
   <Transition
-    enter-active-class="transition-all duration-300 ease-out"
-    enter-from-class="transform -translate-y-full opacity-0"
-    enter-to-class="transform translate-y-0 opacity-100"
-    leave-active-class="transition-all duration-200 ease-in"
-    leave-from-class="transform translate-y-0 opacity-100"
-    leave-to-class="transform -translate-y-full opacity-0"
+    enter-active-class="transition-[opacity,translate] duration-300 ease-out"
+    enter-from-class="motion-safe:-translate-y-3 opacity-0"
+    enter-to-class="motion-safe:translate-y-0 opacity-100"
+    leave-active-class="transition-[opacity,translate] duration-150 ease-out"
+    leave-from-class="motion-safe:translate-y-0 opacity-100"
+    leave-to-class="motion-safe:-translate-y-3 opacity-0"
   >
     <div
       v-if="!isHealthy && loggedIn && isInitialized"

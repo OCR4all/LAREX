@@ -530,13 +530,13 @@ defineExpose({ visible })
         </div>
 
         <div
-          class="relative w-full transition-[height] duration-200 ease-out overflow-hidden rounded-b-[calc(var(--radius-sm)-1px)]"
+          class="relative w-full motion-safe:transition-[height] duration-200 ease-out overflow-hidden rounded-b-[calc(var(--radius-sm)-1px)]"
           :class="[palette.boardClass, palette.boardBorderClass]"
           :style="{ height: minimized ? cellSize + 'px' : (layout.rows * cellSize) + 'px', background: palette.boardStyle }"
         >
           <div
             ref="keyboardGridRef"
-            class="relative w-full transition-transform duration-200 ease-out"
+            class="relative w-full motion-safe:transition-transform duration-200 ease-out"
             :style="{
               height: (layout.rows * cellSize) + 'px',
               transform: minimized ? `translateY(-${rowIndex * cellSize}px)` : 'translateY(0)'
@@ -574,8 +574,8 @@ defineExpose({ visible })
               class="absolute flex flex-col z-20"
               :class="[
                 editMode
-                  ? (keyDrag.draggingId === item.id ? 'cursor-grabbing z-50 opacity-90' : 'cursor-grab transition-all duration-200')
-                  : 'cursor-pointer transition-transform active:scale-95'
+                  ? (keyDrag.draggingId === item.id ? 'cursor-grabbing z-50 opacity-90' : 'cursor-grab motion-safe:transition-[left,top] duration-150 ease-out')
+                  : 'cursor-pointer'
               ]"
               :style="{
                 left: ((keyDrag.draggingId === item.id ? keyDrag.currentX : item.x * cellSize)) + 'px',
@@ -608,10 +608,17 @@ defineExpose({ visible })
 
 <style scoped>
 .vk-enter-active, .vk-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 150ms ease-out;
 }
 .vk-enter-from, .vk-leave-to {
   opacity: 0;
-  transform: translateY(10px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .vk-enter-active, .vk-leave-active {
+    transition-property: opacity, transform;
+  }
+  .vk-enter-from, .vk-leave-to {
+    transform: translateY(10px);
+  }
 }
 </style>

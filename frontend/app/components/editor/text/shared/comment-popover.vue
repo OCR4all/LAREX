@@ -76,7 +76,7 @@ function handleKeydown(event: KeyboardEvent): void {
     </UTooltip>
 
     <template #content>
-      <div class="max-h-[min(75vh,36rem)] w-80 max-w-[calc(100vw-2rem)] space-y-3 overflow-y-auto p-3" @click.stop>
+      <div class="max-h-[min(75vh,36rem)] w-80 max-w-[calc(100vw-2rem)] space-y-3 overflow-y-auto overscroll-contain p-3" @click.stop>
         <div class="flex min-w-0 items-center justify-between gap-2">
           <p class="text-sm font-medium text-highlighted">
             {{ actionLabel }}

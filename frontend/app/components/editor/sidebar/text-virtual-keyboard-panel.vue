@@ -448,7 +448,7 @@ onBeforeUnmount(() => {
               <div
                 v-for="wrappedItem in row.items"
                 :key="wrappedItem.id"
-                class="absolute flex flex-col transition-transform active:scale-95 cursor-pointer"
+                class="absolute flex flex-col cursor-pointer"
                 :style="{
                   left: `${wrappedItem.x * cellSize}px`,
                   width: `${wrappedItem.w * cellSize}px`,

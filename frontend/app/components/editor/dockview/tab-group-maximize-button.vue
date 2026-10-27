@@ -125,9 +125,11 @@ onUnmounted(() => {
   background: transparent;
   cursor: pointer;
 }
-.header-button:hover {
-  background-color: var(--dv-icon-hover-background-color);
-  color: var(--dv-activegroup-visiblepanel-tab-color);
+@media (hover: hover) {
+  .header-button:hover {
+    background-color: var(--dv-icon-hover-background-color);
+    color: var(--dv-activegroup-visiblepanel-tab-color);
+  }
 }
 .header-button:focus-visible {
   outline: 2px solid var(--dv-paneview-active-outline-color);

@@ -170,22 +170,34 @@ watch(
   background: linear-gradient(to bottom right, rgba(255,255,255,0.1), rgba(0,0,0,0.05));
   border: 1px solid rgba(255,255,255,0.1);
   box-shadow: inset 0 1px 1px rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.2);
-  transition: all 0.05s ease-out;
-  transform: translateY(-1px);
+  transition: box-shadow 50ms ease-out, border-color 50ms ease-out;
+  -webkit-tap-highlight-color: transparent;
 }
 .keycap:active, .keycap.is-pressed, .keycap.is-echoing {
-  transform: scale(0.96);
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.15), 0 0 1px rgba(0,0,0,0.1);
   background: linear-gradient(to bottom right, rgba(0,0,0,0.05), rgba(255,255,255,0.05));
 }
 .keycap.shift-active {
   border-color: #818cf8;
   box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
-  transform: translateY(1px);
 }
 .keycap-surface {
   background: linear-gradient(to bottom right, rgba(0,0,0,0.02), rgba(0,0,0,0.08));
   border-radius: 0.3rem;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .keycap {
+    transform: translateY(-1px);
+    transition: scale 150ms ease-out, box-shadow 50ms ease-out, border-color 50ms ease-out;
+  }
+
+  .keycap:active, .keycap.is-pressed, .keycap.is-echoing {
+    scale: 0.96;
+  }
+
+  .keycap.shift-active {
+    transform: translateY(1px);
+  }
 }
 </style>

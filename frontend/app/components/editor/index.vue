@@ -4530,7 +4530,18 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
 .remote-click-pulse {
   transform-box: fill-box;
   transform-origin: center;
-  animation: remote-click-pulse 0.8s ease-out forwards;
+  animation: remote-click-fade 0.8s ease-out forwards;
+}
+
+@keyframes remote-click-fade {
+  from { opacity: 0.95; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .remote-click-pulse {
+    animation-name: remote-click-pulse;
+  }
 }
 
 @keyframes remote-click-pulse {

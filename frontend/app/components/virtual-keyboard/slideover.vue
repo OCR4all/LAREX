@@ -125,7 +125,7 @@ defineExpose({ open })
             />
           </div>
 
-          <div class="flex-1 overflow-auto p-6 flex justify-center bg-default">
+          <div class="flex-1 overflow-auto overscroll-contain p-6 flex justify-center bg-default">
             <div
               class="relative font-junicode rounded-sm p-3 shadow-[0_6px_20px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]"
               :class="[palette.boardClass]"
@@ -158,7 +158,7 @@ defineExpose({ open })
                 <div
                   v-for="item in layout.items"
                   :key="item.id"
-                  class="absolute flex flex-col z-20 transition-transform active:scale-95 cursor-pointer"
+                  class="absolute flex flex-col z-20 cursor-pointer"
                   :style="{
                     left: (item.x * cellSize) + 'px',
                     top: (item.y * cellSize) + 'px',
@@ -189,11 +189,23 @@ defineExpose({ open })
 <style scoped>
 .vk-slide-enter-active,
 .vk-slide-leave-active {
-  transition: transform 0.2s ease-out;
+  transition: opacity 150ms ease-out;
 }
 
 .vk-slide-enter-from,
 .vk-slide-leave-to {
-  transform: translateY(100%);
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .vk-slide-enter-active,
+  .vk-slide-leave-active {
+    transition: opacity 150ms ease-out, transform 200ms ease-out;
+  }
+
+  .vk-slide-enter-from,
+  .vk-slide-leave-to {
+    transform: translateY(100%);
+  }
 }
 </style>

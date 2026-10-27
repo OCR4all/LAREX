@@ -110,16 +110,20 @@
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
-:is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview > .dv-tabs-and-actions-container .dv-tab:hover {
-  background-color: var(--dv-tab-hover-background);
+@media (hover: hover) {
+  :is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview > .dv-tabs-and-actions-container .dv-tab:hover {
+    background-color: var(--dv-tab-hover-background);
+  }
 }
 
 :is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
   box-shadow: inset 0 0 0 1px var(--dv-selected-tab-border);
 }
 
-:is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab:hover {
-  background-color: var(--dv-active-tab-hover-background);
+@media (hover: hover) {
+  :is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab:hover {
+    background-color: var(--dv-active-tab-hover-background);
+  }
 }
 
 :is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview .dv-default-tab-content {
@@ -141,8 +145,14 @@
   transition: opacity 0.15s ease, background-color 0.15s ease;
 }
 
-:is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview .dv-tab:is(:hover, :focus-within) .dv-default-tab-action {
+:is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview .dv-tab:focus-within .dv-default-tab-action {
   opacity: 1;
+}
+
+@media (hover: hover) {
+  :is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview .dv-tab:hover .dv-default-tab-action {
+    opacity: 1;
+  }
 }
 
 :is(.dockview-theme-larex-light, .dockview-theme-larex-dark) .dv-groupview :is(.dv-tab, .dv-default-tab-action):focus-visible {
