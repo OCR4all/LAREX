@@ -236,6 +236,7 @@ describe('Workflow editor', () => {
 })
 
 interface Graph {
+  navigateStep: (index: number) => Promise<void>
   edges: Vue.ComputedRef<{ source: string, target: string, sourceHandle: string, targetHandle: string }[]>
   dropIndex: Vue.Ref<number | null>
   dragOver: (event: DragEvent) => void
@@ -243,17 +244,61 @@ interface Graph {
   nodeDragStop: (event: unknown) => Promise<void>
 }
 const fitWorkflow = vi.fn()
+const setWorkflowViewport = vi.fn()
+const flowNodes = Vue.ref<{ id: string, position: { x: number, y: number }, dimensions: { width: number, height: number } }[]>([])
 let initializeNodes: (() => void) | undefined
 const setupGraph = setupComponent<Graph>('./graph.client.vue', {
   '@vue-flow/core': {
     Position: {}, MarkerType: {},
-    useVueFlow: () => ({ getNodes: Vue.ref([]), onNodesInitialized: (callback: () => void) => { initializeNodes = callback }, screenToFlowCoordinate: ({ x, y }: { x: number, y: number }) => ({ x: (x - 100) / 2, y }), updateNode: vi.fn(), fitView: fitWorkflow })
+    useVueFlow: () => ({ getNodes: flowNodes, dimensions: Vue.ref({ width: 1104, height: 600 }), setViewport: setWorkflowViewport, onNodesInitialized: (callback: () => void) => { initializeNodes = callback }, screenToFlowCoordinate: ({ x, y }: { x: number, y: number }) => ({ x: (x - 100) / 2, y }), updateNode: vi.fn(), fitView: fitWorkflow })
   }
 })
 describe('Workflow canvas interactions', () => {
   beforeEach(() => {
     fitWorkflow.mockClear()
+    setWorkflowViewport.mockClear()
+    flowNodes.value = []
     initializeNodes = undefined
+  })
+
+  it('focuses the chosen node only on explicit step navigation using stable node IDs', async () => {
+    const props = Vue.reactive({ steps: [workflows.createWorkflowStep(binarize), workflows.createWorkflowStep(region)], processors: [binarize, region], selected: 0, inlineSettings: true, nodeKeys: ['first', 'second'] })
+    const emit = vi.fn()
+    const graph = scope.run(() => setupGraph(props, { expose: () => {}, emit }))!
+    await graph.navigateStep(1)
+    expect(emit).toHaveBeenCalledWith('select', 1)
+    expect(fitWorkflow).toHaveBeenCalledWith({ nodes: ['second'], padding: { top: '64px', right: '24px', bottom: '24px', left: '24px' }, maxZoom: 1, duration: 240 })
+    fitWorkflow.mockClear()
+    props.steps[1]!.parameters.threshold = 150
+    props.selected = 1
+    await Vue.nextTick()
+    expect(fitWorkflow).not.toHaveBeenCalled()
+    await graph.navigateStep(0)
+    expect(fitWorkflow).toHaveBeenCalledWith({ nodes: ['first'], padding: { top: '64px', right: '24px', bottom: '24px', left: '24px' }, maxZoom: 1, duration: 240 })
+  })
+
+  it('ignores navigation past either end or while disabled', async () => {
+    const props = Vue.reactive({ steps: [workflows.createWorkflowStep(binarize)], processors: [binarize], selected: 0, disabled: false })
+    const emit = vi.fn()
+    const graph = scope.run(() => setupGraph(props, { expose: () => {}, emit }))!
+    for (const index of [-1, 1, NaN, 0.5]) await graph.navigateStep(index)
+    props.disabled = true
+    await graph.navigateStep(0)
+    expect(emit).not.toHaveBeenCalled()
+    expect(fitWorkflow).not.toHaveBeenCalled()
+  })
+
+  it('starts inline run forms at a readable scale with room for subsequent steps and keeps that view on edits', async () => {
+    const props = Vue.reactive({ steps: [workflows.createWorkflowStep(binarize)], processors: [binarize], selected: 0, inlineSettings: true, projectId: 'project' })
+    flowNodes.value = [{ id: '0', position: { x: 60, y: 60 }, dimensions: { width: 352, height: 420 } }]
+    scope.run(() => setupGraph(props, { expose: () => {}, emit: vi.fn() }))
+    initializeNodes!()
+    expect(setWorkflowViewport).toHaveBeenCalledWith({ x: -36, y: 4, zoom: 1 })
+    expect(fitWorkflow).not.toHaveBeenCalled()
+    props.steps[0]!.parameters.threshold = 150
+    await Vue.nextTick()
+    initializeNodes!()
+    expect(setWorkflowViewport).toHaveBeenCalledTimes(1)
   })
 
   it('preserves the viewport after selection, parameter edits, additions and repeated node initialization', async () => {

@@ -16,6 +16,8 @@ const props = defineProps<{
   editable?: boolean
   inlineSettings?: boolean
   workspaceId?: string
+  projectId?: string
+  workflowId?: string
   disabled?: boolean
 }>()
 const emit = defineEmits<{
@@ -27,7 +29,7 @@ const emit = defineEmits<{
   update: [index: number, step: ActionWorkflowStep]
 }>()
 const flowId = useId()
-const { fitView, zoomIn, zoomOut, onNodesInitialized, screenToFlowCoordinate, getNodes, updateNode } = useVueFlow(flowId)
+const { fitView, zoomIn, zoomOut, onNodesInitialized, screenToFlowCoordinate, getNodes, updateNode, dimensions, setViewport } = useVueFlow(flowId)
 const widths = ref<Record<string, number>>({})
 const dropIndex = ref<number | null>(null)
 let viewportInitialized = false
@@ -48,6 +50,15 @@ watch(() => getNodes.value.map(node => [node.id, node.dimensions.width] as const
 function initializeViewport() {
   if (viewportInitialized || !props.steps.length) return
   viewportInitialized = true
+  if (props.inlineSettings && props.projectId) {
+    const node = getNodes.value.find(node => node.id === key(props.selected))
+    if (node?.dimensions.width && node.dimensions.height && dimensions.value.width && dimensions.value.height) {
+      // Start run forms at the leading edge so the next steps remain visible.
+      const zoom = Math.min(1, (dimensions.value.width - 48) / node.dimensions.width, (dimensions.value.height - 88) / node.dimensions.height)
+      void setViewport({ x: 24 - node.position.x * zoom, y: 64 - node.position.y * zoom, zoom })
+      return
+    }
+  }
   void fitView({
     nodes: props.inlineSettings
       ? [key(props.selected)]
@@ -58,6 +69,13 @@ function initializeViewport() {
   })
 }
 onNodesInitialized(initializeViewport)
+async function navigateStep(index: number) {
+  if (props.disabled || !Number.isInteger(index) || index < 0 || index >= props.steps.length) return
+  emit('select', index)
+  await nextTick()
+  const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  void fitView({ nodes: [key(index)], padding: { top: '64px', right: '24px', bottom: '24px', left: '24px' }, maxZoom: 1, duration: reducedMotion ? 0 : 240 })
+}
 const nodes = computed<FlowNode[]>(() => props.steps.map((step, index) => ({
   id: key(index),
   type: 'processor',
@@ -211,8 +229,10 @@ async function nodeDragStop({ node }: NodeDragEvent) {
                 :step="steps[data.index]!"
                 :processor="data.processor"
                 :workspace-id="workspaceId"
+                :project-id="projectId"
+                :workflow-id="workflowId"
                 :disabled="disabled"
-                compact
+                :compact="editable"
                 @update="emit('update', data.index, $event)"
               />
             </div>
@@ -259,16 +279,44 @@ async function nodeDragStop({ node }: NodeDragEvent) {
         </div>
       </template>
     </VueFlow>
-    <USelect
+    <div
       v-if="inlineSettings && steps.length"
-      :model-value="selected"
-      :items="steps.map((step, index) => ({ value: index, label: `${index + 1}. ${processors.find(item => item.id === step.processorDefinitionId)?.name ?? 'Unavailable processor'}` }))"
-      aria-label="Selected workflow step"
-      class="absolute top-4 right-4 w-56"
-      size="sm"
-      :disabled="disabled"
-      @update:model-value="emit('select', Number($event))"
-    />
+      role="group"
+      aria-label="Workflow step navigation"
+      class="absolute inset-x-4 top-4 flex justify-end gap-1.5"
+    >
+      <UButton
+        icon="i-lucide-chevron-left"
+        aria-label="Previous workflow step"
+        title="Previous workflow step"
+        color="neutral"
+        variant="outline"
+        size="sm"
+        class="shrink-0"
+        :disabled="disabled || selected <= 0"
+        @click="navigateStep(selected - 1)"
+      />
+      <USelect
+        :model-value="selected"
+        :items="steps.map((step, index) => ({ value: index, label: `${index + 1}. ${processors.find(item => item.id === step.processorDefinitionId)?.name ?? 'Unavailable processor'}` }))"
+        aria-label="Selected workflow step"
+        class="min-w-0 w-56"
+        size="sm"
+        :disabled="disabled"
+        @update:model-value="navigateStep(Number($event))"
+      />
+      <UButton
+        icon="i-lucide-chevron-right"
+        aria-label="Next workflow step"
+        title="Next workflow step"
+        color="neutral"
+        variant="outline"
+        size="sm"
+        class="shrink-0"
+        :disabled="disabled || selected >= steps.length - 1"
+        @click="navigateStep(selected + 1)"
+      />
+    </div>
     <div v-if="!steps.length" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center">
       <div class="flex size-16 items-center justify-center rounded-2xl border border-dashed border-primary/40 bg-primary/5 text-primary">
         <UIcon name="i-lucide-workflow" class="size-7" />

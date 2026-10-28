@@ -1074,20 +1074,37 @@ function close() {
           </template>
         </UAlert>
         <template v-if="view === 'workflow'">
-          <UButton
-            label="Back to Actions"
-            icon="i-lucide-arrow-left"
-            color="neutral"
-            variant="ghost"
-            :disabled="workflowBusy"
-            @click="view = 'choose'"
-          />
-          <UAlert
-            color="info"
-            variant="subtle"
-            title="Runs one step at a time"
-            description="Each step starts after the previous step’s results have been imported. Workflows stop on failure, cancellation, or completion with issues. Page locks apply to each individual step."
-          />
+          <div class="flex w-full items-center justify-between gap-3">
+            <UButton
+              label="Back to Actions"
+              icon="i-lucide-arrow-left"
+              color="neutral"
+              variant="ghost"
+              :disabled="workflowBusy"
+              @click="view = 'choose'"
+            />
+            <UPopover
+              :content="{ align: 'end', side: 'bottom', sideOffset: 8 }"
+              :ui="{ content: 'z-[70]' }"
+            >
+              <UButton
+                icon="i-lucide-info"
+                aria-label="How workflows run"
+                color="neutral"
+                variant="ghost"
+              />
+              <template #content>
+                <div class="w-80 max-w-[calc(100vw-2rem)] space-y-2 p-4">
+                  <p class="text-sm font-semibold text-highlighted">
+                    Runs one step at a time
+                  </p>
+                  <p class="text-sm text-muted">
+                    Each step starts after the previous step’s results have been imported. Workflows stop on failure, cancellation, or completion with issues. Page locks apply to each individual step.
+                  </p>
+                </div>
+              </template>
+            </UPopover>
+          </div>
           <ActionWorkflowRunner
             :workspace-id="workspaceId"
             :project-id="projectId"

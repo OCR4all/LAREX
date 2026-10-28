@@ -27,9 +27,19 @@ interface Runner {
   scope: Vue.Ref<'selection' | 'all'>
   impact: Vue.Ref<ActionRunImpact | null>
   error: Vue.Ref<string>
+  reviewError: Vue.Ref<string>
+  reviewOpen: Vue.Ref<boolean>
+  reviewSearch: Vue.Ref<string>
+  reviewTab: Vue.Ref<string>
+  reviewTotal: Vue.ComputedRef<number>
+  reviewProgress: Vue.ComputedRef<number>
+  reviewStatus: Vue.ComputedRef<string>
+  visibleReviewPages: Vue.ComputedRef<ActionRunImpact['pages']>
+  visibleSkippedPages: Vue.ComputedRef<ActionRunImpact['skippedPages']>
   review: () => Promise<void>
   start: () => Promise<void>
   include: (pageId: string, include: boolean) => void
+  updateStep: (index: number, step: ActionWorkflowStep) => void
 }
 const component: { default?: { setup: (props: unknown, context: unknown) => Runner } } = {}
 new Function('require', 'exports', compiled)((id: string) => dependencies[id], component)
@@ -81,11 +91,12 @@ describe('Workflow run review', () => {
   it('requires review and submits only retained pages with independent step overrides and a saved version', async () => {
     await runner.start()
     expect(fetch).not.toHaveBeenCalled()
-    runner.steps.value[1]!.parameters.threshold = 0.6
+    runner.updateStep(1, { ...runner.steps.value[1]!, parameters: { threshold: 0.6 } })
     await Vue.nextTick()
     fetch.mockResolvedValueOnce(structuredClone(preview))
     await runner.review()
     expect(fetch).toHaveBeenCalledTimes(1)
+    expect(runner.reviewOpen.value).toBe(true)
     runner.include('two', false)
     fetch.mockResolvedValueOnce({ id: 'run' }).mockResolvedValueOnce([])
     await runner.start()
@@ -99,9 +110,75 @@ describe('Workflow run review', () => {
     expect(emit).toHaveBeenCalledWith('started')
   })
 
+  it('summarizes included and skipped pages and filters each list without changing exclusions', async () => {
+    fetch.mockResolvedValueOnce({ ...structuredClone(preview), skippedPages: [{ pageId: 'three', name: 'Third page', reason: 'Missing color image' }] })
+    await runner.review()
+    expect(runner.reviewTotal.value).toBe(3)
+    expect(runner.reviewProgress.value).toBe(67)
+    expect(runner.reviewStatus.value).toBe('Pages skipped')
+    runner.include('two', false)
+    expect(runner.reviewProgress.value).toBe(33)
+    runner.reviewSearch.value = 'TWO'
+    expect(runner.visibleReviewPages.value.map(page => page.pageId)).toEqual(['two'])
+    runner.reviewSearch.value = 'COLOR'
+    expect(runner.visibleSkippedPages.value.map(page => page.pageId)).toEqual(['three'])
+    runner.reviewOpen.value = false
+    runner.reviewOpen.value = true
+    expect(runner.reviewProgress.value).toBe(33)
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps review failures in the popover and supports retrying before starting', async () => {
+    fetch.mockRejectedValueOnce(new Error('Endpoint unavailable'))
+    await runner.review()
+    expect(runner.reviewOpen.value).toBe(true)
+    expect(runner.reviewError.value).toBeTruthy()
+    expect(runner.reviewStatus.value).toBe('Needs attention')
+    expect(runner.error.value).toBe('')
+    fetch.mockResolvedValueOnce(structuredClone(preview))
+    await runner.review()
+    expect(runner.reviewError.value).toBe('')
+    expect(runner.reviewStatus.value).toBe('Ready')
+    expect(fetch.mock.calls.every(([, options]) => options.method === 'POST')).toBe(true)
+    expect(emit).not.toHaveBeenCalledWith('started')
+  })
+
+  it('refreshes stale eligibility after a rejected start and submits only the refreshed pages', async () => {
+    fetch.mockResolvedValueOnce(structuredClone(preview))
+    await runner.review()
+    fetch.mockRejectedValueOnce(new Error('Page eligibility changed. Review the workflow again.'))
+    await runner.start()
+    expect(runner.reviewError.value).toContain('eligibility changed')
+    fetch.mockResolvedValueOnce({ ...structuredClone(preview), pages: [preview.pages[0]], skippedPages: [{ pageId: 'two', name: 'two', reason: 'Missing image' }] })
+    await runner.review()
+    expect(runner.reviewError.value).toBe('')
+    expect(runner.impact.value?.pages.map(page => page.pageId)).toEqual(['one'])
+    fetch.mockResolvedValueOnce({ id: 'run' })
+    await runner.start()
+    expect(fetch.mock.calls.at(-1)![1].body.pageIds).toEqual(['one'])
+  })
+
+  it('preserves deliberate exclusions when reviewing the same pages again', async () => {
+    fetch.mockResolvedValueOnce(structuredClone(preview))
+    await runner.review()
+    runner.include('two', false)
+    let resolveReview!: (value: ActionRunImpact) => void
+    fetch.mockReturnValueOnce(new Promise<ActionRunImpact>((resolve) => {
+      resolveReview = resolve
+    }))
+    const refreshing = runner.review()
+    expect(runner.impact.value).toBeNull()
+    expect(runner.reviewStatus.value).toBe('Checking')
+    await runner.start()
+    expect(fetch).toHaveBeenCalledTimes(2)
+    resolveReview(structuredClone(preview))
+    await refreshing
+    expect(runner.reviewProgress.value).toBe(50)
+  })
+
   it('invalidates review after a parameter, image selection or page scope changes', async () => {
     for (const change of [
-      () => { runner.steps.value[0]!.parameters.threshold = 0.4 },
+      () => { runner.updateStep(0, { ...runner.steps.value[0]!, parameters: { threshold: 0.4 } }) },
       () => { runner.steps.value[1]!.imageVariantSelection = { mode: 'GLOBAL', variants: ['binarized'], fallbackImage: false } },
       () => { runner.scope.value = 'all' }
     ]) {
@@ -111,6 +188,7 @@ describe('Workflow run review', () => {
       change()
       await Vue.nextTick()
       expect(runner.impact.value).toBeNull()
+      expect(runner.reviewOpen.value).toBe(false)
     }
   })
 
@@ -136,7 +214,8 @@ describe('Workflow run review', () => {
     fetch.mockRejectedValueOnce(new Error('Unavailable'))
     await runner.start()
     expect(runner.impact.value).not.toBeNull()
-    expect(runner.error.value).toBeTruthy()
+    expect(runner.reviewError.value).toBeTruthy()
+    expect(runner.reviewOpen.value).toBe(true)
     expect(emit).not.toHaveBeenCalledWith('started')
   })
 })
