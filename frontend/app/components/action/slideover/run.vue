@@ -86,6 +86,11 @@ let parameterDiscoveryRequest = 0
 const scope = ref<'all' | 'selection'>(props.targetSelection || (props.pageIds?.length ?? 0) > 0 ? 'selection' : 'all')
 const actionSearch = ref('')
 const selectedActionTags = ref<string[]>([])
+const selectedActionTypes = ref<Array<'ACTION' | 'WORKFLOW'>>([])
+const actionTypeOptions = [
+  { label: 'Action', value: 'ACTION', icon: 'i-lucide-circle-play' },
+  { label: 'Workflow', value: 'WORKFLOW', icon: 'i-lucide-workflow' }
+]
 const actionTablePage = ref(1)
 const actionNameDescending = ref(false)
 const actionTableColumns = [
@@ -163,10 +168,11 @@ const filteredActionProcessors = computed(() => {
   return targetCompatibleProcessors.value.filter(item =>
     (!needle || [item.processor.name, item.processor.description].some(value => value?.toLocaleLowerCase().includes(needle)))
     && (!selectedActionTags.value.length || selectedActionTags.value.some(tag => item.processor.tags.includes(tag)))
+    && (!selectedActionTypes.value.length || selectedActionTypes.value.includes(item.processor.workflowId ? 'WORKFLOW' : 'ACTION'))
   ).toSorted((left, right) => (actionNameDescending.value ? -1 : 1) * left.processor.name.localeCompare(right.processor.name))
 })
 const { rows: visibleActionProcessors, infiniteScroll } = useTablePagination(filteredActionProcessors, actionTablePage, 10)
-const hasActionFilters = computed(() => Boolean(actionSearch.value.trim() || selectedActionTags.value.length))
+const hasActionFilters = computed(() => Boolean(actionSearch.value.trim() || selectedActionTags.value.length || selectedActionTypes.value.length))
 const actionTableEmptyMessage = computed(() => {
   if (!processors.value.length) return 'No Actions are assigned to this project or workspace.'
   if (!targetCompatibleProcessors.value.length) return 'No Actions support this target.'
@@ -175,6 +181,7 @@ const actionTableEmptyMessage = computed(() => {
 function clearActionFilters() {
   actionSearch.value = ''
   selectedActionTags.value = []
+  selectedActionTypes.value = []
 }
 // UTable makes rows focusable but only handles pointer selection.
 function activateActionRow(event: KeyboardEvent) {
@@ -192,7 +199,7 @@ function selectAction(item: ExecutableActionProcessorResponse) {
   selectedProcessorId.value = item.processor.id
   view.value = 'configure'
 }
-watch([actionSearch, selectedActionTags, actionNameDescending], () => {
+watch([actionSearch, selectedActionTags, selectedActionTypes, actionNameDescending], () => {
   actionTablePage.value = 1
 }, { deep: true })
 watch(filteredActionProcessors, () => {
@@ -1110,6 +1117,15 @@ function close() {
                 aria-label="Filter Actions by tags"
                 class="w-full sm:w-48"
               />
+              <USelectMenu
+                v-model="selectedActionTypes"
+                :items="actionTypeOptions"
+                value-key="value"
+                multiple
+                placeholder="Filter by type"
+                aria-label="Filter Actions by type"
+                class="w-full sm:w-48"
+              />
               <AppTableClearFiltersButton :active="hasActionFilters" @clear="clearActionFilters" />
             </div>
             <AppTable
@@ -1175,7 +1191,11 @@ function close() {
                 <span v-else>—</span>
               </template>
               <template #type-cell="{ row }">
-                <UBadge color="neutral" variant="subtle">
+                <UBadge
+                  :color="row.original.processor.workflowId ? 'secondary' : 'info'"
+                  :icon="row.original.processor.workflowId ? 'i-lucide-workflow' : 'i-lucide-circle-play'"
+                  variant="subtle"
+                >
                   {{ row.original.processor.workflowId ? 'Workflow' : 'Action' }}
                 </UBadge>
               </template>

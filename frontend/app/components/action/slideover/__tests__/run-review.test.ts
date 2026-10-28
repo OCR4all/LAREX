@@ -50,6 +50,8 @@ interface ReviewSetup {
   backFromHistory: () => void
   actionSearch: Vue.Ref<string>
   selectedActionTags: Vue.Ref<string[]>
+  selectedActionTypes: Vue.Ref<Array<'ACTION' | 'WORKFLOW'>>
+  hasActionFilters: Vue.ComputedRef<boolean>
   actionTablePage: Vue.Ref<number>
   actionNameDescending: Vue.Ref<boolean>
   selectedProcessorId: Vue.Ref<string>
@@ -491,6 +493,36 @@ describe('Action run review flow', () => {
     await Vue.nextTick()
     expect(setup.filteredActionProcessors.value).toHaveLength(2)
     expect(setup.actionTagOptions.value).toEqual(['export', 'layout', 'segmentation'])
+  })
+
+  it('combines type, tag, and search filters, resets pagination, and clears all filters', async () => {
+    setup.processors.value = Array.from({ length: 12 }, (_, index) => ({
+      assignmentId: null, executable: true, blockedReason: null,
+      processor: { ...processor, id: `p${index}`, name: `Action ${index}`, tags: ['layout'], workflowId: index % 2 ? 'workflow' : null }
+    }))
+    await Vue.nextTick()
+    setup.actionTablePage.value = 2
+    setup.selectedActionTypes.value = ['WORKFLOW']
+    await Vue.nextTick()
+    expect(setup.actionTablePage.value).toBe(1)
+    expect(setup.hasActionFilters.value).toBe(true)
+    expect(setup.filteredActionProcessors.value).toHaveLength(6)
+    expect(setup.filteredActionProcessors.value.every(item => item.processor.workflowId)).toBe(true)
+    setup.selectedActionTags.value = ['layout']
+    setup.actionSearch.value = 'Action 1'
+    await Vue.nextTick()
+    expect(setup.filteredActionProcessors.value.map(item => item.processor.id)).toEqual(['p1', 'p11'])
+    setup.selectedActionTypes.value = ['ACTION']
+    await Vue.nextTick()
+    expect(setup.filteredActionProcessors.value.map(item => item.processor.id)).toEqual(['p10'])
+    setup.selectedActionTypes.value = ['ACTION', 'WORKFLOW']
+    await Vue.nextTick()
+    expect(setup.filteredActionProcessors.value).toHaveLength(3)
+    setup.clearActionFilters()
+    await Vue.nextTick()
+    expect(setup.selectedActionTypes.value).toEqual([])
+    expect(setup.hasActionFilters.value).toBe(false)
+    expect(setup.filteredActionProcessors.value).toHaveLength(12)
   })
 
   it('shows blocked Actions but prevents selection and excludes incompatible targets', async () => {
