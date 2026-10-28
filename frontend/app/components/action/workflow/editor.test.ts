@@ -35,6 +35,8 @@ interface Editor {
   testResult: Vue.Ref<ActionWorkflowTest | null>
   testError: Vue.Ref<string>
   testChecks: Vue.Ref<{ state: string, processorDefinitionId: string }[]>
+  curatorSteps: Vue.ComputedRef<number[]>
+  workflowRole: Vue.ComputedRef<'EDITOR' | 'CURATOR' | null>
 }
 const setupEditor = setupComponent<Editor>('./editor.vue')
 const source = (id: string, name: string, parameters = {}): ActionDefinition => ({ id, name, description: 'Process page', tags: ['image'], enabled: true, targets: ['PAGE'], kind: 'PROCESSING', parameters }) as ActionDefinition
@@ -61,6 +63,24 @@ function editor(workflow?: ActionWorkflow) {
 }
 
 describe('Workflow editor', () => {
+  it('tracks which steps need a curator as steps are added, moved and removed', () => {
+    const props = Vue.reactive({ processors: [{ ...binarize, executeRole: 'EDITOR' }, { ...region, executeRole: 'CURATOR' }] })
+    const state = scope.run(() => setupEditor(props, { expose: () => {}, emit: vi.fn() }))!
+    expect(state.workflowRole.value).toBeNull()
+    state.insert('binary')
+    expect(state.workflowRole.value).toBe('EDITOR')
+    expect(state.curatorSteps.value).toEqual([])
+    state.insert('region')
+    state.insert('binary')
+    expect(state.workflowRole.value).toBe('CURATOR')
+    expect(state.curatorSteps.value).toEqual([2])
+    state.reorder(1, 0)
+    expect(state.curatorSteps.value).toEqual([1])
+    state.remove(0)
+    expect(state.workflowRole.value).toBe('EDITOR')
+    expect(state.curatorSteps.value).toEqual([])
+  })
+
   it('uses the temporary sidebar name as the initial workflow name and saves as a new workflow', async () => {
     const emit = vi.fn()
     const props = Vue.reactive({ processors: [binarize], initialName: 'workflow-crisp-folio', toolbarTarget: '#toolbar' })

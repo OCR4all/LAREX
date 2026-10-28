@@ -2,6 +2,7 @@
 import type { ActionDefinition } from '~/types/action'
 import type { ActionWorkflow } from '~/types/action-workflow'
 import { extractApiErrorDetails } from '~/utils/api-error'
+import { workflowExecuteRole } from '~/utils/action-workflow'
 
 const props = defineProps<{ workspaceId?: string, processors: ActionDefinition[], embedded?: boolean }>()
 const emit = defineEmits<{ saved: [workflow: ActionWorkflow] }>()
@@ -107,8 +108,10 @@ async function deleteWorkflow(id: string) {
       </p>
       <div v-for="workflow in workflows" :key="workflow.id" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default p-4">
         <div>
-          <p class="font-medium">
-            {{ workflow.name }} <UBadge v-if="!workflow.enabled" color="neutral" variant="subtle">
+          <p class="flex flex-wrap items-center gap-2 font-medium">
+            {{ workflow.name }}
+            <ActionExecuteRoleBadge :role="workflowExecuteRole(workflow.steps, processors)" />
+            <UBadge v-if="!workflow.enabled" color="neutral" variant="subtle">
               Disabled
             </UBadge>
           </p>

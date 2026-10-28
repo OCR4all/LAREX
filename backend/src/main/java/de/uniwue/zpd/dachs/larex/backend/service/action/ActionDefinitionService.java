@@ -268,6 +268,43 @@ public class ActionDefinitionService {
         }
     }
 
+    /**
+     * The role needed to execute a definition. A workflow runs every step as the user who started it, so it
+     * needs the strictest role among its <em>current</em> steps. This is derived on every read instead of
+     * trusting the stored column, which is only a snapshot from the last workflow save and goes stale when a
+     * step's Action changes its {@code access.execute}.
+     */
+    public ExecuteRole effectiveExecuteRole(ActionProcessorDefinition definition) {
+        if (!definition.isWorkflow()) return definition.getExecuteRole();
+        return workflowStepDefinitions(definition).stream()
+                .anyMatch(step -> step != null && step.getExecuteRole() == ExecuteRole.CURATOR)
+                ? ExecuteRole.CURATOR : ExecuteRole.EDITOR;
+    }
+
+    /** Human-readable labels such as {@code "step 2 (Layout analysis)"} for the curator-only steps of a workflow. */
+    public List<String> curatorOnlyStepLabels(ActionProcessorDefinition workflow) {
+        if (!workflow.isWorkflow()) return List.of();
+        List<ActionProcessorDefinition> steps = workflowStepDefinitions(workflow);
+        List<String> labels = new ArrayList<>();
+        for (int index = 0; index < steps.size(); index++) {
+            ActionProcessorDefinition step = steps.get(index);
+            if (step != null && step.getExecuteRole() == ExecuteRole.CURATOR) {
+                labels.add("step " + (index + 1) + " (" + step.getName() + ")");
+            }
+        }
+        return labels;
+    }
+
+    /** The definition behind each saved step, in step order. A processor that no longer exists is {@code null}. */
+    private List<ActionProcessorDefinition> workflowStepDefinitions(ActionProcessorDefinition workflow) {
+        List<de.uniwue.zpd.dachs.larex.backend.dto.action.ActionWorkflowDto.Step> steps = jsonMapper.readValue(
+                workflow.getWorkflow().getStepsJson(), new TypeReference<>() {});
+        Map<String, ActionProcessorDefinition> byId = new LinkedHashMap<>();
+        definitionRepository.findAllById(steps.stream().map(step -> step.processorDefinitionId()).distinct().toList())
+                .forEach(definition -> byId.put(definition.getId(), definition));
+        return steps.stream().map(step -> byId.get(step.processorDefinitionId())).toList();
+    }
+
     public void deleteDefinition(String id) {
         requireGlobalAdmin();
         ActionProcessorDefinition definition = requireDefinition(id);
@@ -639,7 +676,7 @@ public class ActionDefinitionService {
                 definition.getEndpointUrl(),
                 definition.getEndpointTimeoutSeconds(),
                 definition.getActionKind(),
-                definition.getExecuteRole(),
+                effectiveExecuteRole(definition),
                 definition.getLockMode(),
                 document.tags(),
                 readTargetTypes(definition),

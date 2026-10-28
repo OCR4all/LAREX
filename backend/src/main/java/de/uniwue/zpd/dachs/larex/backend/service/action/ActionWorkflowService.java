@@ -139,9 +139,8 @@ public class ActionWorkflowService {
         action.setName(workflow.getName());
         action.setDescription(workflow.getDescription());
         action.setEnabled(request.enabled());
-        action.setExecuteRole(request.steps().stream().map(step -> requireProcessor(step.processorDefinitionId()))
-                .anyMatch(processor -> processor.getExecuteRole() == ActionProcessorDefinition.ExecuteRole.CURATOR)
-                ? ActionProcessorDefinition.ExecuteRole.CURATOR : ActionProcessorDefinition.ExecuteRole.EDITOR);
+        // Only a snapshot: reads derive the role from the current steps (see effectiveExecuteRole).
+        action.setExecuteRole(definitions.effectiveExecuteRole(action));
         action.setUpdatedByUserId(userId);
         if (id == null) {
             action.setProcessorKey("workflow-" + workflow.getId());
@@ -363,6 +362,15 @@ public class ActionWorkflowService {
         if (stepIds.size() == steps.size()) { finish(run, "COMPLETED", null); return; }
         var pageIds = ids(run.getPageIdsJson());
         var step = steps.get(stepIds.size());
+        // Steps run as the user who started the workflow, so their role is checked again for every step: it may
+        // have been demoted, or the step's Action may have become curator-only, since the workflow started.
+        var processor = requireProcessor(step.processorDefinitionId());
+        if (!actions.canExecute(processor, run.getWorkspaceId(), run.getCreatedByUserId())) {
+            String role = processor.getExecuteRole() == ActionProcessorDefinition.ExecuteRole.CURATOR ? "curator access" : "workspace access";
+            finish(run, "FAILED", "Step " + (stepIds.size() + 1) + " (" + processor.getName() + ") requires " + role
+                    + ", which the user who started this workflow no longer has. No later steps were started.");
+            return;
+        }
         // startRun rechecks permission, activation, input availability and parameters for every step.
         var child = actions.startWorkflowStep(run, stepRequest(step, pageIds)).run();
         if (!new HashSet<>(child.pageIds()).equals(new HashSet<>(pageIds)))
@@ -392,7 +400,7 @@ public class ActionWorkflowService {
             if (!stored.get(i).processorDefinitionId().equals(step.processorDefinitionId())) throw new IllegalArgumentException("Workflow step overrides must preserve the saved sequence");
             var executable = available.stream().filter(item -> item.processor().id().equals(step.processorDefinitionId()))
                     .findFirst().orElseThrow(() -> new IllegalArgumentException("A workflow processor is not activated for this project"));
-            if (!executable.executable()) throw new SecurityException(executable.blockedReason());
+            if (!executable.executable()) throw new SecurityException("Step " + (i + 1) + " (" + executable.processor().name() + "): " + executable.blockedReason());
             var parameters = new LinkedHashMap<String, Object>();
             if (stored.get(i).parameters() != null) parameters.putAll(stored.get(i).parameters());
             if (step.parameters() != null) parameters.putAll(step.parameters());

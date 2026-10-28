@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.config.action.DevActionBootstrap;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionWorkflowDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.*;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.*;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -341,6 +342,89 @@ class ActionWorkflowIntegrationTest {
         scheduler.continueWorkflows();
         assertThat(run(started.id()).status()).isEqualTo("FAILED");
         assertThat(run(started.id()).stepRunIds()).hasSize(1);
+    }
+
+    @Test
+    void workflowNeedsTheStrictestRoleOfItsStepsAndNamesTheCuratorOnlyOnes() {
+        Fixture f = fixture(false);
+        setRole(f.first, ExecuteRole.EDITOR);
+        setRole(f.second, ExecuteRole.CURATOR);
+        when(access.canManageProjects(f.workspace, "editor")).thenReturn(false);
+        String action = f.workflow.processorDefinitionId();
+
+        assertThat(definitions.getDefinition(action).executeRole()).isEqualTo(ExecuteRole.CURATOR);
+        var listed = actions.listExecutableProcessors(f.workspace, f.project, "editor", null).stream()
+                .filter(item -> item.processor().id().equals(action)).findFirst().orElseThrow();
+        assertThat(listed.executable()).isFalse();
+        assertThat(listed.blockedReason()).isEqualTo("Curator access is required for step 2 (Workflow test processor)");
+
+        var stepProcessors = workflows.stepProcessors(f.workspace, f.project, f.workflow.id(), "editor");
+        assertThat(stepProcessors).extracting(item -> item.processor().id()).containsExactly(f.first, f.second);
+        assertThat(stepProcessors).extracting(ActionDto.ExecutableProcessorResponse::executable).containsExactly(true, false);
+        assertThat(stepProcessors.getLast().blockedReason()).isEqualTo("Curator access is required");
+
+        assertThatThrownBy(() -> workflows.preview(f.workspace, f.project, request(f), "editor"))
+                .isInstanceOf(SecurityException.class).hasMessageContaining("Step 2");
+        assertThatThrownBy(() -> workflows.start(f.workspace, f.project, request(f), "editor", "url"))
+                .isInstanceOf(SecurityException.class).hasMessageContaining("Step 2").hasMessageContaining("Curator access is required");
+        assertThat(runs.findByWorkspaceIdAndProjectIdOrderByCreatedDesc(f.workspace, f.project)).isEmpty();
+        assertThat(workflows.start(f.workspace, f.project, request(f), "owner", "url").stepRunIds()).hasSize(1);
+    }
+
+    @Test
+    void workflowRoleFollowsTheCurrentStepsEvenWhenTheSavedSnapshotIsStale() {
+        Fixture f = fixture(false);
+        setRole(f.first, ExecuteRole.EDITOR);
+        setRole(f.second, ExecuteRole.EDITOR);
+        var saved = workflows.save(f.workspace, f.workflow.id(), new ActionWorkflowDto.SaveRequest("Test workflow", "", true,
+                f.workflow.steps(), f.workflow.version()), "owner");
+        String action = saved.processorDefinitionId();
+        when(access.canManageProjects(f.workspace, "editor")).thenReturn(false);
+        var request = new ActionWorkflowDto.StartRequest(saved.id(), saved.version(), List.of(f.page), null);
+        assertThat(processors.findById(action).orElseThrow().getExecuteRole()).isEqualTo(ExecuteRole.EDITOR);
+        assertThat(definitions.getDefinition(action).executeRole()).isEqualTo(ExecuteRole.EDITOR);
+        assertThat(executable(f, action, "editor").executable()).isTrue();
+
+        // A step's Action becomes curator-only after the workflow was saved.
+        setRole(f.second, ExecuteRole.CURATOR);
+        assertThat(processors.findById(action).orElseThrow().getExecuteRole()).isEqualTo(ExecuteRole.EDITOR);
+        assertThat(definitions.getDefinition(action).executeRole()).isEqualTo(ExecuteRole.CURATOR);
+        assertThat(executable(f, action, "editor").executable()).isFalse();
+        assertThatThrownBy(() -> workflows.start(f.workspace, f.project, request, "editor", "url")).isInstanceOf(SecurityException.class);
+
+        // ...and relaxed again.
+        setRole(f.second, ExecuteRole.EDITOR);
+        assertThat(definitions.getDefinition(action).executeRole()).isEqualTo(ExecuteRole.EDITOR);
+        assertThat(executable(f, action, "editor").executable()).isTrue();
+        assertThat(workflows.start(f.workspace, f.project, request, "editor", "url").stepRunIds()).hasSize(1);
+    }
+
+    @Test
+    void laterStepFailsClearlyWhenTheStarterLostTheRoleItNeeds() throws Exception {
+        Fixture f = fixture(false);
+        setRole(f.first, ExecuteRole.EDITOR);
+        setRole(f.second, ExecuteRole.EDITOR);
+        var started = workflows.start(f.workspace, f.project, request(f), "owner", "url");
+        complete(started.stepRunIds().getFirst(), f.page);
+        // Step 2 became curator-only and the starter is no longer a curator.
+        setRole(f.second, ExecuteRole.CURATOR);
+        when(access.canManageProjects(f.workspace, "owner")).thenReturn(false);
+        workflows.advance(started.id());
+        var result = run(started.id());
+        assertThat(result.status()).isEqualTo("FAILED");
+        assertThat(result.stepRunIds()).hasSize(1);
+        assertThat(result.errorMessage()).contains("Step 2", "requires curator access", "No later steps were started");
+    }
+
+    private void setRole(String processorId, ExecuteRole role) {
+        var processor = processors.findById(processorId).orElseThrow();
+        processor.setExecuteRole(role);
+        processors.saveAndFlush(processor);
+    }
+
+    private ActionDto.ExecutableProcessorResponse executable(Fixture f, String actionId, String user) {
+        return actions.listExecutableProcessors(f.workspace, f.project, user, null).stream()
+                .filter(item -> item.processor().id().equals(actionId)).findFirst().orElseThrow();
     }
 
     @Test

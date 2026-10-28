@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { ActionDefinition } from '~/types/action'
 import type { ActionWorkflow, ActionWorkflowStep, ActionWorkflowTest } from '~/types/action-workflow'
-import { createWorkflowStep } from '~/utils/action-workflow'
+import { createWorkflowStep, describeWorkflowRole, workflowCuratorSteps, workflowExecuteRole } from '~/utils/action-workflow'
 import { extractApiErrorDetails } from '~/utils/api-error'
 
-const props = defineProps<{ workflow?: ActionWorkflow | null, processors: ActionDefinition[], workspaceId?: string, initialName?: string, initialDescription?: string, toolbarTarget?: string }>()
+const props = defineProps<{ workflow?: ActionWorkflow | null, processors: ActionDefinition[], workspaceId?: string, initialName?: string, initialDescription?: string, toolbarTarget?: string, metadataTarget?: string }>()
 const emit = defineEmits<{ saved: [workflow: ActionWorkflow], dirty: [value: boolean], busy: [value: boolean], metadata: [value: { name: string, description: string }] }>()
 const name = ref('')
 const description = ref('')
@@ -39,6 +39,10 @@ const steps = computed(() => entries.value.map(entry => entry.step))
 const snapshot = computed(() => JSON.stringify({ name: name.value, description: description.value, steps: steps.value }))
 const dirty = computed(() => snapshot.value !== baseline.value)
 const missing = computed(() => steps.value.some(step => !processors.value.some(processor => processor.id === step.processorDefinitionId)))
+// Steps run as whoever starts the workflow, so one curator-only step makes the whole workflow curator-only.
+const curatorSteps = computed(() => workflowCuratorSteps(steps.value, props.processors))
+const workflowRole = computed(() => workflowExecuteRole(steps.value, props.processors))
+const roleHint = computed(() => describeWorkflowRole(curatorSteps.value, steps.value.length))
 watch(dirty, value => emit('dirty', value))
 watch(() => busy.value || testing.value, value => emit('busy', value), { flush: 'sync' })
 watch([name, description], () => emit('metadata', { name: name.value, description: description.value }))
@@ -228,29 +232,44 @@ defineExpose({ dirty, busy })
     aria-label="Workflow editor"
     @keydown="keyboard"
   >
-    <div class="flex flex-wrap items-start gap-4 border-b border-default p-4">
-      <div class="min-w-48 flex-1 space-y-2">
-        <UInput
-          v-model="name"
-          aria-label="Workflow name"
-          placeholder="Name your workflow"
-          :maxlength="120"
-          :disabled="busy"
-          variant="soft"
-          class="w-full"
-          :ui="{ base: 'font-semibold' }"
-        />
-        <UInput
-          v-model="description"
-          aria-label="Workflow description"
-          placeholder="Add a description…"
-          :maxlength="4000"
-          :disabled="busy"
-          variant="none"
-          class="w-full"
-          size="sm"
-        />
-      </div>
+    <!-- The name and toolbar may be teleported into the host page's header; this bar is then empty. -->
+    <div v-show="!(metadataTarget && toolbarTarget)" class="flex flex-wrap items-start gap-4 border-b border-default p-4">
+      <Teleport :to="metadataTarget || 'body'" :disabled="!metadataTarget">
+        <div class="min-w-48 flex-1 space-y-2">
+          <div class="flex items-center gap-2">
+            <UInput
+              v-model="name"
+              aria-label="Workflow name"
+              placeholder="Name your workflow"
+              :maxlength="120"
+              :disabled="busy"
+              variant="soft"
+              class="min-w-0 flex-1"
+              :ui="{ base: 'font-semibold' }"
+            />
+            <UTooltip v-if="curatorSteps.length" :text="roleHint">
+              <span
+                tabindex="0"
+                role="img"
+                :aria-label="roleHint"
+                class="inline-flex shrink-0 rounded-sm text-warning focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                <UIcon name="i-lucide-shield-user" class="size-4" />
+              </span>
+            </UTooltip>
+          </div>
+          <UInput
+            v-model="description"
+            aria-label="Workflow description"
+            placeholder="Add a description…"
+            :maxlength="4000"
+            :disabled="busy"
+            variant="none"
+            class="w-full"
+            size="sm"
+          />
+        </div>
+      </Teleport>
       <Teleport :to="toolbarTarget || 'body'" :disabled="!toolbarTarget">
         <div class="flex items-center gap-2" :class="{ 'pt-1': !toolbarTarget }">
           <div class="flex gap-1">
@@ -443,6 +462,7 @@ defineExpose({ dirty, busy })
               <p class="text-xs font-semibold leading-5 text-highlighted">
                 {{ processor.name }}
               </p>
+              <ActionExecuteRoleBadge :role="processor.executeRole" size="xs" class="mt-1" />
               <p class="mt-1 line-clamp-3 text-[11px] leading-relaxed text-muted">
                 {{ processor.description || 'Page-processing Action' }}
               </p>
@@ -487,7 +507,10 @@ defineExpose({ dirty, busy })
       </div>
     </div>
     <div class="flex flex-wrap items-center justify-between gap-2 border-t border-default px-4 py-2.5 text-xs text-muted">
-      <span class="flex items-center gap-2"><UIcon name="i-lucide-git-commit-horizontal" class="size-4 text-primary" />{{ steps.length }} / 30 steps · Runs from left to right</span>
+      <span class="flex items-center gap-2">
+        <UIcon name="i-lucide-git-commit-horizontal" class="size-4 text-primary" />{{ steps.length }} / 30 steps · Runs from left to right
+        <ActionExecuteRoleBadge :role="workflowRole" size="xs" />
+      </span>
       <span>Drag headers to reorder · Scroll to zoom · Drag canvas to pan</span>
     </div>
     <p class="sr-only" aria-live="polite">

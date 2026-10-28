@@ -3,6 +3,7 @@ import type { ActionRunImpact, ExecutableActionProcessor } from '~/types/action'
 import type { ActionWorkflow, ActionWorkflowRun, ActionWorkflowStep } from '~/types/action-workflow'
 import { extractApiErrorDetails } from '~/utils/api-error'
 import { annotationLevelLabels } from '~/utils/action-impact'
+import { describeWorkflowRole, workflowCuratorSteps, workflowExecuteRole } from '~/utils/action-workflow'
 
 const props = defineProps<{
   workspaceId: string
@@ -45,6 +46,9 @@ const visibleReviewPages = computed(() => impact.value?.pages.filter(page =>
 const visibleSkippedPages = computed(() => impact.value?.skippedPages.filter(page =>
   [page.name, page.pageId, page.reason].some(value => value?.toLocaleLowerCase().includes(reviewSearch.value.trim().toLocaleLowerCase()))) ?? [])
 const reviewStatus = computed(() => busy.value ? impact.value ? 'Starting' : 'Checking' : reviewError.value ? 'Needs attention' : !included.value.length ? 'No pages selected' : impact.value?.skippedPages.length ? 'Pages skipped' : 'Ready')
+// Steps run as whoever starts the workflow, so one curator-only step makes the whole workflow curator-only.
+const curatorSteps = computed(() => workflowCuratorSteps(steps.value, processorDefinitions.value))
+const requiredRole = computed(() => workflowExecuteRole(steps.value, processorDefinitions.value))
 const base = computed(() => `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/workflow-runs`)
 const blocked = computed(() => steps.value.map((step, index) => {
   const processor = processorResponses.value.find(item => item.processor.id === step.processorDefinitionId)
@@ -168,6 +172,10 @@ onBeforeUnmount(() => {
         </h3>
         <p v-if="selected.description" class="text-sm text-muted">
           {{ selected.description }}
+        </p>
+        <p v-if="requiredRole" class="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted">
+          <ActionExecuteRoleBadge :role="requiredRole" />
+          <span>{{ describeWorkflowRole(curatorSteps, steps.length) }}</span>
         </p>
       </div>
       <UFormField label="Pages">

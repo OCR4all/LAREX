@@ -90,6 +90,7 @@ const selectedAvailabilityWorkspaceIds = ref<string[]>([])
 const workspaceAvailability = ref<ActionWorkspaceAvailability[]>([])
 const isRunsPanelVisible = ref(false)
 const isAuditPanelVisible = ref(false)
+const isWorkflowRunsPanelVisible = ref(false)
 const isSecretsPanelVisible = ref(false)
 const isEndpointSecretSlideoverOpen = ref(false)
 const runs = ref<AdminActionRun[]>([])
@@ -308,6 +309,7 @@ function selectDefinition(definition: ActionDefinitionResponse) {
     editorView = null
   }
   if (definition.workflowId) isRunsPanelVisible.value = false
+  else isWorkflowRunsPanelVisible.value = false
   selectedId.value = definition.id
   initialYaml.value = definition.yaml
   validation.value = null
@@ -329,6 +331,7 @@ function syncDefinitionSelectionFromRoute(items: ActionDefinitionResponse[] = de
 
 function createNewDefinition(asWorkflow = false) {
   if (!canLeaveWorkflow()) return
+  isWorkflowRunsPanelVisible.value = false
   newWorkflow.value = asWorkflow
   workflowDirty.value = false
   const processorKey = generateRandomActionSlug(definitions.value.map(definition => definition.processorKey))
@@ -667,6 +670,7 @@ function discardDraft() {
 async function toggleRunsPanel() {
   if (!selectedPersistedDefinition.value) return
   isAuditPanelVisible.value = false
+  isWorkflowRunsPanelVisible.value = false
   isSecretsPanelVisible.value = false
   isRunsPanelVisible.value = !isRunsPanelVisible.value
   if (isRunsPanelVisible.value) {
@@ -677,6 +681,7 @@ async function toggleRunsPanel() {
 async function toggleAuditPanel() {
   if (!selectedPersistedDefinition.value) return
   isRunsPanelVisible.value = false
+  isWorkflowRunsPanelVisible.value = false
   isSecretsPanelVisible.value = false
   isAuditPanelVisible.value = !isAuditPanelVisible.value
   if (isAuditPanelVisible.value) {
@@ -684,9 +689,19 @@ async function toggleAuditPanel() {
   }
 }
 
+// The panel loads its own runs, so opening it only needs to hide the other sidebars.
+function toggleWorkflowRunsPanel() {
+  if (!selectedPersistedDefinition.value?.workflowId) return
+  isRunsPanelVisible.value = false
+  isAuditPanelVisible.value = false
+  isSecretsPanelVisible.value = false
+  isWorkflowRunsPanelVisible.value = !isWorkflowRunsPanelVisible.value
+}
+
 function toggleSecretsPanel() {
   isRunsPanelVisible.value = false
   isAuditPanelVisible.value = false
+  isWorkflowRunsPanelVisible.value = false
   isSecretsPanelVisible.value = !isSecretsPanelVisible.value
 }
 
@@ -1356,6 +1371,17 @@ function lineColumnToOffset(source: string, line: number, column: number) {
             Audit
           </UButton>
           <UButton
+            v-if="selectedPersistedDefinition?.workflowId"
+            color="neutral"
+            :variant="isWorkflowRunsPanelVisible ? 'soft' : 'ghost'"
+            size="sm"
+            :icon="isWorkflowRunsPanelVisible ? 'i-lucide-panel-right-close' : 'i-lucide-panel-right-open'"
+            :aria-label="isWorkflowRunsPanelVisible ? 'Hide workflow runs sidebar' : 'Show workflow runs sidebar'"
+            @click="toggleWorkflowRunsPanel"
+          >
+            Runs
+          </UButton>
+          <UButton
             color="neutral"
             :variant="isSecretsPanelVisible ? 'soft' : 'ghost'"
             size="sm"
@@ -1434,12 +1460,14 @@ function lineColumnToOffset(source: string, line: number, column: number) {
 
         <section class="flex-1 bg-neutral-50/70 dark:bg-neutral-900 flex flex-col min-w-0 overflow-hidden">
           <div class="flex items-center justify-between gap-3 border-b border-default px-4 py-3 lg:px-5">
-            <div class="min-w-0">
+            <!-- The workflow editor teleports its editable name and description here instead of repeating them. -->
+            <div v-show="newWorkflow || selectedDefinition?.workflowId" id="admin-workflow-metadata" class="min-w-0 flex-1" />
+            <div v-if="!newWorkflow && !selectedDefinition?.workflowId" class="min-w-0">
               <h2 class="truncate text-base font-semibold">
                 {{ selectedDefinition?.name || 'New Action' }}
               </h2>
               <p class="text-sm text-muted">
-                {{ newWorkflow || selectedDefinition?.workflowId ? 'Combine processors in a linear sequence. Configure availability using the Action controls.' : selectedDefinition?.description || 'Generic YAML v1 Action definition' }}
+                {{ selectedDefinition?.description || 'Generic YAML v1 Action definition' }}
               </p>
             </div>
             <UAlert
@@ -1461,6 +1489,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
               :initial-name="isDraftSelected ? selectedDefinition?.name : undefined"
               :initial-description="isDraftSelected ? selectedDefinition?.description ?? '' : undefined"
               toolbar-target="#admin-workflow-toolbar"
+              metadata-target="#admin-workflow-metadata"
               @saved="workflowSaved"
               @dirty="workflowDirty = $event"
               @busy="workflowBusy = $event"
@@ -1696,6 +1725,14 @@ function lineColumnToOffset(source: string, line: number, column: number) {
               </div>
             </div>
           </aside>
+        </Transition>
+
+        <Transition name="action-sidebar">
+          <ActionWorkflowRunsPanel
+            v-if="isWorkflowRunsPanelVisible && selectedPersistedDefinition?.workflowId"
+            :workflow-id="selectedPersistedDefinition.workflowId"
+            @close="isWorkflowRunsPanelVisible = false"
+          />
         </Transition>
 
         <Transition name="action-sidebar">

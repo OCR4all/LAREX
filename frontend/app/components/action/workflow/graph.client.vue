@@ -76,15 +76,18 @@ async function navigateStep(index: number) {
   const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   void fitView({ nodes: [key(index)], padding: { top: '64px', right: '24px', bottom: '24px', left: '24px' }, maxZoom: 1, duration: reducedMotion ? 0 : 240 })
 }
-const nodes = computed<FlowNode[]>(() => props.steps.map((step, index) => ({
-  id: key(index),
-  type: 'processor',
-  position: positions.value[index]!,
-  dragHandle: '.workflow-node-header',
-  data: { index, processor: props.processors.find(item => item.id === step.processorDefinitionId) },
-  selected: props.selected === index,
-  ariaLabel: `Step ${index + 1}: ${props.processors.find(item => item.id === step.processorDefinitionId)?.name ?? 'Unavailable processor'}`
-})))
+const nodes = computed<FlowNode[]>(() => props.steps.map((step, index) => {
+  const processor = props.processors.find(item => item.id === step.processorDefinitionId)
+  return {
+    id: key(index),
+    type: 'processor',
+    position: positions.value[index]!,
+    dragHandle: '.workflow-node-header',
+    data: { index, processor },
+    selected: props.selected === index,
+    ariaLabel: `Step ${index + 1}: ${processor?.name ?? 'Unavailable processor'}${processor?.executeRole === 'CURATOR' ? ', curators only' : ''}`
+  }
+}))
 const edges = computed<Edge[]>(() => props.steps.slice(1).map((_, index) => ({
   id: `${key(index)}-${key(index + 1)}`,
   source: key(index),
@@ -204,15 +207,18 @@ async function nodeDragStop({ node }: NodeDragEvent) {
             <UiDitherWaves v-if="selected === data.index" />
             <UIcon v-if="editable" name="i-lucide-grip-vertical" class="size-4 shrink-0 text-muted" />
             <span class="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">{{ data.index + 1 }}</span>
-            <button
-              type="button"
-              class="min-w-0 flex-1 text-left text-sm font-semibold text-highlighted"
-              :disabled="disabled"
-              :aria-pressed="selected === data.index"
-              @click.stop="emit('select', data.index)"
-            >
-              {{ data.processor?.name ?? 'Unavailable processor' }}
-            </button>
+            <div class="min-w-0 flex-1 space-y-1">
+              <button
+                type="button"
+                class="block w-full text-left text-sm font-semibold text-highlighted"
+                :disabled="disabled"
+                :aria-pressed="selected === data.index"
+                @click.stop="emit('select', data.index)"
+              >
+                {{ data.processor?.name ?? 'Unavailable processor' }}
+              </button>
+              <ActionExecuteRoleBadge :role="data.processor?.executeRole" size="xs" />
+            </div>
           </div>
           <div class="px-4 py-3">
             <p class="text-xs leading-relaxed text-muted" :class="{ truncate: !inlineSettings }">

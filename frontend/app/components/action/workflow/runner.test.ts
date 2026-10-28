@@ -6,6 +6,7 @@ import { compileScript, parse } from 'vue/compiler-sfc'
 import * as errors from '~/utils/api-error'
 import * as impacts from '~/utils/action-impact'
 import * as statuses from '~/utils/action-run-status'
+import * as workflowUtils from '~/utils/action-workflow'
 import type { ActionRunImpact, ExecutableActionProcessor } from '~/types/action'
 import type { ActionWorkflow, ActionWorkflowStep } from '~/types/action-workflow'
 
@@ -18,7 +19,8 @@ const dependencies: Record<string, unknown> = {
   'vue': Vue,
   '~/utils/api-error': errors,
   '~/utils/action-impact': impacts,
-  '~/utils/action-run-status': statuses
+  '~/utils/action-run-status': statuses,
+  '~/utils/action-workflow': workflowUtils
 }
 interface Runner {
   workflows: Vue.Ref<ActionWorkflow[]>
@@ -34,6 +36,9 @@ interface Runner {
   reviewTotal: Vue.ComputedRef<number>
   reviewProgress: Vue.ComputedRef<number>
   reviewStatus: Vue.ComputedRef<string>
+  blocked: Vue.ComputedRef<string[]>
+  curatorSteps: Vue.ComputedRef<number[]>
+  requiredRole: Vue.ComputedRef<'EDITOR' | 'CURATOR' | null>
   visibleReviewPages: Vue.ComputedRef<ActionRunImpact['pages']>
   visibleSkippedPages: Vue.ComputedRef<ActionRunImpact['skippedPages']>
   review: () => Promise<void>
@@ -201,6 +206,28 @@ describe('Workflow run review', () => {
     await Vue.nextTick()
     await runner.review()
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('names the curator-only steps and withholds the review from editors who cannot run them', async () => {
+    const open = { assignmentId: null, processor: { id: 'open', executeRole: 'EDITOR', parameters: {} }, executable: true, blockedReason: null }
+    const restricted = { assignmentId: null, processor: { id: 'restricted', executeRole: 'CURATOR', parameters: {} }, executable: false, blockedReason: 'Curator access is required' }
+    props.processors = [open, restricted] as unknown as ExecutableActionProcessor[]
+    runner.steps.value = ['open', 'restricted', 'open', 'restricted'].map(id => ({ processorDefinitionId: id, parameters: {}, imageVariantSelection: null }))
+    await Vue.nextTick()
+    expect(runner.requiredRole.value).toBe('CURATOR')
+    expect(runner.curatorSteps.value).toEqual([2, 4])
+    expect(runner.blocked.value).toEqual(['Step 2: Curator access is required', 'Step 4: Curator access is required'])
+    await runner.review()
+    expect(fetch).not.toHaveBeenCalled()
+
+    // A curator may run the same workflow; the badge and note still say who it is for.
+    props.processors = [open, { ...restricted, executable: true, blockedReason: null }] as unknown as ExecutableActionProcessor[]
+    await Vue.nextTick()
+    expect(runner.requiredRole.value).toBe('CURATOR')
+    expect(runner.blocked.value).toEqual([])
+    fetch.mockResolvedValueOnce(structuredClone(preview))
+    await runner.review()
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 
   it('does not start when all reviewed pages were excluded and retains review after a rejected submission', async () => {

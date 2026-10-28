@@ -443,18 +443,20 @@ public class ActionRunService {
     @Transactional(readOnly = true)
     public ActionDto.ExecutableProcessorResponse workflowProcessor(String workspaceId, String projectId,
                                                                     String workflowId, String definitionId, String userId) {
-        var definition = requireWorkflowProcessor(workspaceId, projectId, workflowId, definitionId, userId);
+        // Report a missing role as a blocked step instead of failing, so callers can say which step needs whom.
+        // Starting the workflow still rejects blocked steps.
+        var definition = requireWorkflowProcessor(workspaceId, projectId, workflowId, definitionId, userId, false);
         return toExecutableResponse(null, definition, workspaceId, requireProject(workspaceId, projectId), userId);
     }
 
     @Transactional(readOnly = true)
     public ActionDto.ParameterValuesResponse discoverWorkflowParameterValues(String workspaceId, String projectId,
                                                                               String workflowId, String definitionId, String userId) {
-        return definitionService.discoverParameterValues(requireWorkflowProcessor(workspaceId, projectId, workflowId, definitionId, userId));
+        return definitionService.discoverParameterValues(requireWorkflowProcessor(workspaceId, projectId, workflowId, definitionId, userId, true));
     }
 
     private ActionProcessorDefinition requireWorkflowProcessor(String workspaceId, String projectId, String workflowId,
-                                                                String definitionId, String userId) {
+                                                                String definitionId, String userId, boolean enforceExecuteAccess) {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         requireProject(workspaceId, projectId);
         var workflow = definitionRepository.findByWorkflow_Id(workflowId)
@@ -467,7 +469,7 @@ public class ActionRunService {
         if (definition.isWorkflow() || definition.getActionKind() != ActionProcessorDefinition.ActionKind.PROCESSING)
             throw new IllegalArgumentException("Invalid workflow processor");
         activationService.requireAssignable(definition, workspaceId, projectId);
-        requireExecuteAccess(definition, workspaceId, userId);
+        if (enforceExecuteAccess) requireExecuteAccess(definition, workspaceId, userId);
         return definition;
     }
 
@@ -708,7 +710,7 @@ public class ActionRunService {
     @Transactional(readOnly = true)
     public ActionDto.RunImpactResponse previewWorkflowStepImpact(String workspaceId, String projectId, String workflowId,
                                                                   ActionDto.StartRunRequest request, String userId) {
-        var definition = requireWorkflowProcessor(workspaceId, projectId, workflowId, request.processorDefinitionId(), userId);
+        var definition = requireWorkflowProcessor(workspaceId, projectId, workflowId, request.processorDefinitionId(), userId, true);
         return previewStepImpact(workspaceId, projectId, request, definition);
     }
 
@@ -3155,10 +3157,20 @@ public class ActionRunService {
         }
     }
 
-    private boolean canExecute(ActionProcessorDefinition definition, String workspaceId, String userId) {
-        return definition.getExecuteRole() == ExecuteRole.EDITOR
+    /** Whether the user holds the role the definition needs. Workflows need the strictest role of their steps. */
+    boolean canExecute(ActionProcessorDefinition definition, String workspaceId, String userId) {
+        return requiredExecuteRole(definition) == ExecuteRole.EDITOR
                 ? workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)
                 : workspaceAccessService.canManageProjects(workspaceId, userId);
+    }
+
+    private ExecuteRole requiredExecuteRole(ActionProcessorDefinition definition) {
+        return definition.isWorkflow() ? definitionService.effectiveExecuteRole(definition) : definition.getExecuteRole();
+    }
+
+    private String curatorAccessRequiredReason(ActionProcessorDefinition definition) {
+        List<String> steps = definition.isWorkflow() ? definitionService.curatorOnlyStepLabels(definition) : List.of();
+        return steps.isEmpty() ? "Curator access is required" : "Curator access is required for " + String.join(", ", steps);
     }
 
     private ActionProcessorDefinition requireTrainingDefinition(String workspaceId, String definitionId) {
@@ -3460,13 +3472,14 @@ public class ActionRunService {
                                                                        String userId) {
         boolean executable = true;
         String blockedReason = null;
+        ExecuteRole requiredRole = requiredExecuteRole(definition);
         if (project.isLocked() && definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING) {
             executable = false;
             blockedReason = project.getLockedReason() == null ? "Project is locked" : project.getLockedReason();
-        } else if (definition.getExecuteRole() == ExecuteRole.CURATOR && !workspaceAccessService.canManageProjects(workspaceId, userId)) {
+        } else if (requiredRole == ExecuteRole.CURATOR && !workspaceAccessService.canManageProjects(workspaceId, userId)) {
             executable = false;
-            blockedReason = "Curator access is required";
-        } else if (definition.getExecuteRole() == ExecuteRole.EDITOR && !workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
+            blockedReason = curatorAccessRequiredReason(definition);
+        } else if (requiredRole == ExecuteRole.EDITOR && !workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
             executable = false;
             blockedReason = "Workspace access is required";
         }
