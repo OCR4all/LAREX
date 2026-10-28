@@ -265,7 +265,7 @@ export function buildStatusJobs(
     upload
   }))
 
-  const actionJobs: StatusJob[] = runs.filter(run => !workflowChildIds.has(run.id)).map(run => ({
+  const actionJobs: StatusJob[] = runs.filter(run => !run.workflowRunId && !workflowChildIds.has(run.id)).map(run => ({
     kind: 'action',
     id: run.id,
     title: run.processorName,

@@ -70,6 +70,61 @@ class ActionWorkflowIntegrationTest {
     }
 
     @Test
+    void historyCleanupRetainsChildrenNeededByActiveWorkflows() throws Exception {
+        Fixture f = fixture(false);
+        var started = workflows.start(f.workspace, f.project, request(f), "owner", "http://backend/api/v1");
+        String first = started.stepRunIds().getFirst();
+        complete(first, f.page);
+        assertThat(actions.clearProjectRunHistory(f.workspace, f.project, "owner").deletedCount()).isZero();
+        assertThat(runs.existsById(first)).isTrue();
+        workflows.advance(started.id());
+        assertThat(run(started.id()).stepRunIds()).hasSize(2);
+        assertThat(run(started.id()).status()).isEqualTo("RUNNING");
+    }
+
+    @Test
+    void completedWorkflowsRemainDismissibleAfterTheirChildHistoryWasCleared() {
+        Fixture f = fixture(false);
+        var started = workflows.start(f.workspace, f.project, request(f), "owner", "http://backend/api/v1");
+        setStatus(started.stepRunIds().getFirst(), ActionRun.Status.FAILED);
+        workflows.advance(started.id());
+        assertThat(actions.clearProjectRunHistory(f.workspace, f.project, "owner").deletedCount()).isEqualTo(1);
+        workflows.dismiss(f.workspace, f.project, started.id(), "owner");
+        workflows.dismiss(f.workspace, f.project, started.id(), "owner");
+        assertThat(workflows.listWorkspaceRuns(f.workspace, "owner")).isEmpty();
+        assertThat(workflows.listWorkspaceRuns(f.workspace, "another-user")).extracting(ActionWorkflowDto.Run::id).contains(started.id());
+    }
+
+    @Test
+    void activeWorkflowsRemainVisibleBeyondTheTerminalHistoryWindow() {
+        Fixture f = fixture(false);
+        var active = workflows.start(f.workspace, f.project, request(f), "owner", "http://backend/api/v1");
+        var source = workflowRuns.findById(active.id()).orElseThrow();
+        var terminal = new ArrayList<ActionWorkflowRun>();
+        for (int i = 0; i < 105; i++) {
+            var run = new ActionWorkflowRun();
+            run.setWorkspaceId(f.workspace);
+            run.setProjectId(f.project);
+            run.setWorkflowId(f.workflow.id());
+            run.setWorkflowName("Completed " + i);
+            run.setCreatedByUserId("owner");
+            run.setStepsJson(source.getStepsJson());
+            run.setPageIdsJson(source.getPageIdsJson());
+            run.setPublicApiBaseUrl("http://backend/api/v1");
+            run.setStatus("COMPLETED");
+            run.setCompletedAt(LocalDateTime.now());
+            terminal.add(run);
+        }
+        workflowRuns.saveAllAndFlush(terminal);
+        var workspace = workflows.listWorkspaceRuns(f.workspace, "owner");
+        assertThat(workspace).hasSize(101).extracting(ActionWorkflowDto.Run::id).contains(active.id());
+        assertThat(workflows.listRuns(f.workspace, f.project, "owner")).hasSize(101)
+                .extracting(ActionWorkflowDto.Run::id).contains(active.id());
+        var child = actions.listWorkspaceRuns(f.workspace, "owner").stream().filter(run -> active.stepRunIds().contains(run.id())).findFirst().orElseThrow();
+        assertThat(child.workflowRunId()).isEqualTo(active.id());
+    }
+
+    @Test
     void workspaceJobsExposeWorkflowMetadataAndDismissAllStepsOnlyForTheCurrentUser() {
         Fixture f = fixture(false);
         var started = workflows.start(f.workspace, f.project, request(f), "owner", "http://backend/api/v1");
@@ -87,7 +142,7 @@ class ActionWorkflowIntegrationTest {
         workflows.advance(started.id());
         workflows.dismiss(f.workspace, f.project, started.id(), "owner");
         assertThat(workflows.listWorkspaceRuns(f.workspace, "owner")).isEmpty();
-        assertThat(actions.listWorkspaceRuns(f.workspace, "owner")).isEmpty();
+        assertThat(actions.listWorkspaceRuns(f.workspace, "owner")).allMatch(child -> started.id().equals(child.workflowRunId()));
         assertThat(workflows.listWorkspaceRuns(f.workspace, "another-user")).extracting(ActionWorkflowDto.Run::id).contains(started.id());
         assertThat(workflows.listRuns(f.workspace, f.project, "owner")).extracting(ActionWorkflowDto.Run::id).contains(started.id());
     }

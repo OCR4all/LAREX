@@ -36,14 +36,14 @@ public class ActionWorkflowService {
     private final ActionProcessorWorkspaceAvailabilityRepository availability;
     private final ActionProcessorAssignmentRepository assignments;
     private final ActionAuditService audit;
-    private final ActionRunDismissalRepository dismissals;
+    private final ActionWorkflowRunDismissalRepository dismissals;
 
     public ActionWorkflowService(ActionWorkflowRepository workflows, ActionWorkflowRunRepository workflowRuns,
                                  ActionRunRepository runs, ActionProcessorDefinitionRepository processors,
                                  ProjectRepository projects, WorkspaceAccessService access, ActionRunService actions,
                                  ActionDefinitionService definitions, ActionRunPayloadService payload, ObjectMapper mapper,
                                  GlobalAdminService admin, ActionWorkspaceActivationService activation,
-                                 ActionProcessorWorkspaceAvailabilityRepository availability, ActionProcessorAssignmentRepository assignments, ActionAuditService audit, ActionRunDismissalRepository dismissals) {
+                                 ActionProcessorWorkspaceAvailabilityRepository availability, ActionProcessorAssignmentRepository assignments, ActionAuditService audit, ActionWorkflowRunDismissalRepository dismissals) {
         this.workflows = workflows;
         this.workflowRuns = workflowRuns;
         this.runs = runs;
@@ -273,18 +273,28 @@ public class ActionWorkflowService {
     @Transactional(readOnly = true)
     public List<ActionWorkflowDto.Run> listRuns(String workspaceId, String projectId, String userId) {
         requireProject(workspaceId, projectId, userId);
-        return workflowRuns.findByWorkspaceIdAndProjectIdOrderByCreatedDesc(workspaceId, projectId, PageRequest.of(0, 100))
-                .stream().map(run -> response(run, userId)).toList();
+        return visibleRunHistory(workspaceId, projectId).stream().map(run -> response(run, userId)).toList();
     }
 
     @Transactional(readOnly = true)
     public List<ActionWorkflowDto.Run> listWorkspaceRuns(String workspaceId, String userId) {
         access.requireWorkspaceAccess(workspaceId, userId);
-        var history = workflowRuns.findByWorkspaceIdOrderByCreatedDesc(workspaceId, PageRequest.of(0, 100));
-        var childIds = history.stream().flatMap(run -> ids(run.getStepRunIdsJson()).stream()).toList();
-        var dismissed = childIds.isEmpty() ? Set.<String>of() : dismissals.findRunIdsByUserIdAndRunIds(userId, childIds);
-        return history.stream().filter(run -> active(run) || !dismissed.containsAll(ids(run.getStepRunIdsJson())))
+        var history = visibleRunHistory(workspaceId, null);
+        var parentIds = history.stream().map(ActionWorkflowRun::getId).toList();
+        var dismissed = parentIds.isEmpty() ? Set.<String>of() : dismissals.findRunIdsByUserIdAndRunIds(userId, parentIds);
+        return history.stream().filter(run -> active(run) || !dismissed.contains(run.getId()))
                 .map(run -> response(run, userId)).toList();
+    }
+
+    private List<ActionWorkflowRun> visibleRunHistory(String workspaceId, String projectId) {
+        var activeStatuses = List.of("RUNNING", "CANCEL_REQUESTED");
+        var active = workflowRuns.findByWorkspaceIdAndStatusInOrderByCreatedDesc(workspaceId, activeStatuses).stream()
+                .filter(run -> projectId == null || projectId.equals(run.getProjectId()));
+        var terminal = projectId == null
+                ? workflowRuns.findByWorkspaceIdAndStatusNotInOrderByCreatedDesc(workspaceId, activeStatuses, PageRequest.of(0, 100))
+                : workflowRuns.findByWorkspaceIdAndProjectIdAndStatusNotInOrderByCreatedDesc(workspaceId, projectId, activeStatuses, PageRequest.of(0, 100));
+        return java.util.stream.Stream.concat(active, terminal.stream())
+                .sorted(Comparator.comparing(ActionWorkflowRun::getCreated).reversed()).toList();
     }
 
     public void dismiss(String workspaceId, String projectId, String id, String userId) {
@@ -292,7 +302,12 @@ public class ActionWorkflowService {
         var run = workflowRuns.findByIdForUpdate(id).orElseThrow(() -> new IllegalArgumentException("Workflow run not found"));
         if (!workspaceId.equals(run.getWorkspaceId()) || !projectId.equals(run.getProjectId())) throw new IllegalArgumentException("Workflow run not found");
         if (active(run)) throw new IllegalStateException("Only completed workflows can be dismissed");
-        for (var childId : ids(run.getStepRunIdsJson())) actions.dismissRun(workspaceId, projectId, childId, userId);
+        if (!dismissals.existsByRunIdAndUserId(run.getId(), userId)) {
+            var dismissal = new ActionWorkflowRunDismissal();
+            dismissal.setRun(run);
+            dismissal.setUserId(userId);
+            dismissals.save(dismissal);
+        }
     }
 
     public ActionWorkflowDto.Run cancel(String workspaceId, String projectId, String id, String userId) {

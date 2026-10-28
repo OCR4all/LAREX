@@ -125,7 +125,8 @@ public class ActionRunResponseMapper {
                 run.getCompletedAt(),
                 completedPageIdsByRunId.getOrDefault(run.getId(), PageProgress.EMPTY).settled(),
                 reportService.summary(run),
-                retryableCount(run, completedPageIdsByRunId.getOrDefault(run.getId(), PageProgress.EMPTY))
+                retryableCount(run, completedPageIdsByRunId.getOrDefault(run.getId(), PageProgress.EMPTY)),
+                run.getWorkflowRunId()
         );
     }
 

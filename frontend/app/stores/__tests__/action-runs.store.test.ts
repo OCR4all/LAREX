@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ActionWorkflowRun } from '@/types/action-workflow'
+import { buildStatusJobs } from '@/utils/status-center'
 import type { ActionRun } from '@/types/action'
 
 function createRun(overrides: Partial<ActionRun> = {}): ActionRun {
@@ -59,6 +60,49 @@ describe('action-runs.store', () => {
     vi.resetModules()
     vi.clearAllMocks()
     vi.useRealTimers()
+  })
+
+  it('never exposes workflow children as standalone jobs when parent metadata temporarily fails', async () => {
+    let metadataAvailable = false
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/workflow-runs')) {
+        if (!metadataAvailable) throw new Error('Temporary metadata failure')
+        return [createWorkflow()]
+      }
+      return [createRun({ workflowRunId: 'workflow-run' })]
+    })
+    const store = await createStore(fetchMock)
+    await store.refreshWorkspaceRuns('workspace-1')
+    expect(store.isPageActionRunning('project-1', 'page-1')).toBe(true)
+    expect(buildStatusJobs([], store.runsArray)).toEqual([])
+    metadataAvailable = true
+    await store.refreshActiveRuns()
+    expect(buildStatusJobs([], store.runsArray, [], [], store.workflowRunsArray).map(job => job.kind)).toEqual(['workflow'])
+  })
+
+  it('retries failed metadata between steps even when no child is active, then stops after recovery', async () => {
+    vi.useFakeTimers()
+    let metadataAvailable = false
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/workflow-runs')) {
+        if (!metadataAvailable) throw new Error('Temporary metadata failure')
+        return [] // A dismissed parent is legitimately absent after recovery.
+      }
+      return [createRun({ status: 'COMPLETED', workflowRunId: 'workflow-run' })]
+    })
+    const store = await createStore(fetchMock)
+    await store.refreshWorkspaceRuns('workspace-1')
+    store.initializeRealtime()
+    expect(store.hasActiveRuns).toBe(false)
+    expect(store.hasActiveWorkflows).toBe(false)
+    metadataAvailable = true
+    fetchMock.mockClear()
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(fetchMock).toHaveBeenCalledWith('/api/workspaces/workspace-1/actions/workflow-runs')
+    expect(buildStatusJobs([], store.runsArray)).toEqual([])
+    fetchMock.mockClear()
+    await vi.advanceTimersByTimeAsync(2500)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('keeps polling the workflow between completed child runs', async () => {

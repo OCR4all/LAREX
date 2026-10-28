@@ -283,6 +283,8 @@ public class ActionDefinitionService {
         }
 
         List<ActionRun> terminalRuns = runRepository.findByProcessorDefinitionIdAndStatusIn(id, terminalStatuses());
+        if (!terminalRuns.isEmpty() && !runRepository.findActiveWorkflowChildIds(terminalRuns.stream().map(ActionRun::getId).toList()).isEmpty())
+            throw new IllegalStateException("Action is referenced by an active workflow and cannot be deleted");
         deleteRunsWithLogs(terminalRuns);
 
         List<ActionProcessorAssignment> assignments = assignmentRepository.findByDefinitionIds(List.of(id));

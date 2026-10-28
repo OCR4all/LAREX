@@ -178,6 +178,7 @@ export interface ExecutableActionProcessor {
 
 export interface ActionRun {
   id: string
+  workflowRunId?: string | null
   createdByUserId?: string | null
   processorDefinitionId: string
   processorKey: string

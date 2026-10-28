@@ -75,6 +75,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   let fallbackPollingInitialized = false
   const emittedPageResultKeys = new Set<string>()
   const workflowRefreshes = new Map<string, Promise<ActionWorkflowRun[]>>()
+  const failedWorkflowWorkspaces = new Set<string>()
   const pendingRealtimeScopes = new Map<string, {
     workspaceId: string
     projectId?: string
@@ -256,7 +257,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     fallbackPollingInitialized = true
     setInterval(() => {
       const pageVisible = typeof document === 'undefined' || document.visibilityState === 'visible'
-      if (pageVisible && (hasActiveRuns.value || hasActiveWorkflows.value)) {
+      if (pageVisible && (hasActiveRuns.value || hasActiveWorkflows.value || failedWorkflowWorkspaces.size > 0)) {
         void refreshActiveRuns()
       }
     }, 2500)
@@ -313,7 +314,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     }
     await Promise.allSettled([
       ...Array.from(scopes.values()).map(run => refreshProjectRuns(run.workspaceId, run.projectId as string, run.projectName)),
-      ...Array.from(trainingWorkspaceIds).map(refreshWorkspaceRuns)
+      ...Array.from(new Set([...trainingWorkspaceIds, ...failedWorkflowWorkspaces])).map(refreshWorkspaceRuns)
     ])
   }
 
@@ -329,6 +330,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     const pending = workflowRefreshes.get(workspaceId)
     if (pending) return pending
     const request = $fetch<ActionWorkflowRun[]>(`/api/workspaces/${workspaceId}/actions/workflow-runs`).then((workflows) => {
+      failedWorkflowWorkspaces.delete(workspaceId)
       const visibleIds = new Set(workflows.map(run => run.id))
       const hidden = new Set(dismissedWorkflowRunIds.value)
       for (const run of workflowRunsById.value.values()) {
@@ -337,6 +339,9 @@ export const useActionRunsStore = defineStore('action-runs', () => {
       dismissedWorkflowRunIds.value = hidden
       for (const run of workflows) upsertWorkflowRun(run)
       return workflows
+    }).catch((cause) => {
+      failedWorkflowWorkspaces.add(workspaceId)
+      throw cause
     }).finally(() => workflowRefreshes.delete(workspaceId))
     workflowRefreshes.set(workspaceId, request)
     return request

@@ -8,9 +8,11 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ActionWorkflowRunRepository extends JpaRepository<ActionWorkflowRun, String> {
-    List<ActionWorkflowRun> findByWorkspaceIdAndProjectIdOrderByCreatedDesc(String workspaceId, String projectId, Pageable pageable);
+    List<ActionWorkflowRun> findByWorkspaceIdAndStatusInOrderByCreatedDesc(String workspaceId, List<String> statuses);
 
-    List<ActionWorkflowRun> findByWorkspaceIdOrderByCreatedDesc(String workspaceId, Pageable pageable);
+    List<ActionWorkflowRun> findByWorkspaceIdAndStatusNotInOrderByCreatedDesc(String workspaceId, List<String> statuses, Pageable pageable);
+
+    List<ActionWorkflowRun> findByWorkspaceIdAndProjectIdAndStatusNotInOrderByCreatedDesc(String workspaceId, String projectId, List<String> statuses, Pageable pageable);
 
     List<ActionWorkflowRun> findByWorkflowIdOrderByCreatedDesc(String workflowId, Pageable pageable);
 

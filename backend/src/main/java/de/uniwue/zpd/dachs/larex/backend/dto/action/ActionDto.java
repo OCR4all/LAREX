@@ -369,7 +369,8 @@ public class ActionDto {
             LocalDateTime completedAt,
             List<String> settledPageIds,
             ReportCounts reportCounts,
-            int retryablePageCount
+            int retryablePageCount,
+            String workflowRunId
     ) {}
 
     public record RunDetailResponse(

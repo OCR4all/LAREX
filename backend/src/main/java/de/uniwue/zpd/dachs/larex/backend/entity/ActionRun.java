@@ -29,6 +29,12 @@ import java.time.LocalDateTime;
 @EntityListeners(AuditingEntityListener.class)
 public class ActionRun {
 
+    @Column(name = "workflow_run_id")
+    private String workflowRunId;
+
+    public String getWorkflowRunId() { return workflowRunId; }
+    public void setWorkflowRunId(String value) { workflowRunId = value; }
+
     public enum Kind {
         PROCESSING,
         TRAINING,

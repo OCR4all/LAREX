@@ -19,6 +19,10 @@ import java.time.LocalDateTime;
 @Repository
 public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
 
+    @Query(value = "SELECT r.id FROM action_runs r JOIN action_workflow_runs w ON w.id = r.workflow_run_id "
+            + "WHERE r.id IN (:runIds) AND w.status IN ('RUNNING', 'CANCEL_REQUESTED')", nativeQuery = true)
+    java.util.Set<String> findActiveWorkflowChildIds(@Param("runIds") Collection<String> runIds);
+
     @Query("SELECT COUNT(r) > 0 FROM ActionWorkflowRun r WHERE r.workflowId = :workflowId AND r.status IN ('RUNNING', 'CANCEL_REQUESTED')")
     boolean hasActiveWorkflowRuns(@Param("workflowId") String workflowId);
 

@@ -827,7 +827,7 @@ public class ActionRunService {
                                                ActionDto.StartRunRequest request,
                                                String userId,
                                                String publicApiBaseUrl) {
-        return startRunInternal(workspaceId, projectId, request, userId, publicApiBaseUrl, false);
+        return startRunInternal(workspaceId, projectId, request, userId, publicApiBaseUrl, null);
     }
 
     public ActionDto.StartRunResponse startWorkflowStep(de.uniwue.zpd.dachs.larex.backend.entity.ActionWorkflowRun workflowRun,
@@ -839,11 +839,12 @@ public class ActionRunService {
                 .anyMatch(step -> request.processorDefinitionId().equals(step.get("processorDefinitionId")));
         if (!"RUNNING".equals(workflowRun.getStatus()) || !included) throw new SecurityException("Invalid workflow step");
         return startRunInternal(workflowRun.getWorkspaceId(), workflowRun.getProjectId(), request,
-                workflowRun.getCreatedByUserId(), workflowRun.getPublicApiBaseUrl(), true);
+                workflowRun.getCreatedByUserId(), workflowRun.getPublicApiBaseUrl(), workflowRun.getId());
     }
 
     private ActionDto.StartRunResponse startRunInternal(String workspaceId, String projectId, ActionDto.StartRunRequest request,
-                                                         String userId, String publicApiBaseUrl, boolean workflowStep) {
+                                                         String userId, String publicApiBaseUrl, String workflowRunId) {
+        boolean workflowStep = workflowRunId != null;
         ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(request.processorDefinitionId())
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         if (definition.isWorkflow()) throw new IllegalArgumentException("Start workflows through the workflow run endpoint");
@@ -888,7 +889,7 @@ public class ActionRunService {
         if (dispatchImmediately && definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING) {
             validateLocks(project, pages);
         }
-        return createRun(
+        var created = createRun(
                 workspaceId,
                 projectId,
                 project,
@@ -907,6 +908,12 @@ public class ActionRunService {
                 ),
                 dispatchImmediately
         );
+        if (workflowRunId != null) {
+            var child = runRepository.findById(created.run().id()).orElseThrow();
+            child.setWorkflowRunId(workflowRunId);
+            return new ActionDto.StartRunResponse(responseMapper.toRunResponse(child, project.getName(), userId));
+        }
+        return created;
     }
 
     @Transactional(readOnly = true)
@@ -1332,8 +1339,8 @@ public class ActionRunService {
         requireGlobalAdmin();
         requireDefinition(definitionId);
         List<ActionRun> terminalRuns = runRepository.findByProcessorDefinitionIdAndStatusIn(definitionId, terminalStatuses());
-        deleteRunsWithLogs(terminalRuns);
-        return new ActionDto.ClearRunsResponse(terminalRuns.size());
+        int deleted = deleteRunsWithLogs(terminalRuns);
+        return new ActionDto.ClearRunsResponse(deleted);
     }
 
     public ActionDto.ClearRunsResponse clearProjectRunHistory(String workspaceId, String projectId, String userId) {
@@ -1344,10 +1351,10 @@ public class ActionRunService {
                 projectId,
                 List.of(Status.COMPLETED, Status.COMPLETED_WITH_ISSUES, Status.FAILED)
         );
-        deleteRunsWithLogs(historyRuns);
+        int deleted = deleteRunsWithLogs(historyRuns);
         actionAuditService.record("ACTION_RUN_HISTORY_CLEAR", "SUCCESS", userId, null, null,
-                workspaceId, projectId, Map.of("deletedCount", historyRuns.size()));
-        return new ActionDto.ClearRunsResponse(historyRuns.size());
+                workspaceId, projectId, Map.of("deletedCount", deleted));
+        return new ActionDto.ClearRunsResponse(deleted);
     }
 
     public void dismissRun(String workspaceId, String projectId, String runId, String userId) {
@@ -3324,14 +3331,15 @@ public class ActionRunService {
         if (expired.isEmpty()) {
             return;
         }
-        deleteRunsWithLogs(expired);
-        log.info("Pruned {} expired LAREX Action run(s)", expired.size());
+        int deleted = deleteRunsWithLogs(expired);
+        log.info("Pruned {} expired LAREX Action run(s)", deleted);
     }
 
-    private void deleteRunsWithLogs(List<ActionRun> runs) {
-        if (runs == null || runs.isEmpty()) {
-            return;
-        }
+    private int deleteRunsWithLogs(List<ActionRun> runs) {
+        if (runs == null || runs.isEmpty()) return 0;
+        var protectedIds = runRepository.findActiveWorkflowChildIds(runs.stream().map(ActionRun::getId).toList());
+        runs = runs.stream().filter(run -> !protectedIds.contains(run.getId())).toList();
+        if (runs.isEmpty()) return 0;
         runs.forEach(trainingSnapshotService::cleanupSnapshot);
         List<String> runIds = runs.stream()
                 .map(ActionRun::getId)
@@ -3342,6 +3350,7 @@ public class ActionRunService {
             logEventRepository.deleteByRunIds(runIds);
         }
         runRepository.deleteAll(runs);
+        return runs.size();
     }
 
     private Set<String> dismissedTerminalRunIds(String userId, List<ActionRun> runs) {
