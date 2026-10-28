@@ -427,7 +427,7 @@ defineExpose({ dirty, busy })
       description="Remove or replace disabled or missing processors before saving."
     />
     <div class="flex h-[680px] min-h-[560px] flex-col md:h-[calc(100dvh-350px)] md:flex-row">
-      <aside class="flex max-h-56 shrink-0 flex-col border-b border-default bg-muted/25 md:max-h-none md:w-56 md:border-r md:border-b-0" aria-label="Processor library">
+      <aside class="flex max-h-56 shrink-0 flex-col border-b border-default bg-muted/25 md:max-h-none md:w-72 md:border-r md:border-b-0" aria-label="Processor library">
         <div class="space-y-3 p-4">
           <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold text-highlighted">
