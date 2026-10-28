@@ -26,6 +26,12 @@ import { extractApiErrorMessage } from '@/utils/api-error'
 import { actionYamlIndentKeymap, actionYamlWhitespaceExtension } from '@/utils/action-yaml-editor'
 import { copyTextToClipboard } from '@/utils/clipboard'
 import { generateRandomActionSlug } from '@/utils/random-action-slug'
+import {
+  activeActionDefinitionFilterCount,
+  emptyActionDefinitionFilters,
+  matchesActionDefinitionFilters,
+  type ActionDefinitionFilters
+} from '@/utils/action-definition-filters'
 import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 import type { ActionWorkflow } from '~/types/action-workflow'
 
@@ -86,6 +92,7 @@ const initialYaml = ref(DEFAULT_ACTION_YAML)
 const editorContent = ref(DEFAULT_ACTION_YAML)
 const isWhitespaceVisible = ref(false)
 const workflowFilter = ref('')
+const definitionFilters = ref(emptyActionDefinitionFilters())
 const selectedAvailabilityWorkspaceIds = ref<string[]>([])
 const workspaceAvailability = ref<ActionWorkspaceAvailability[]>([])
 const isRunsPanelVisible = ref(false)
@@ -121,16 +128,35 @@ const assignedWorkspaceIds = computed(() => new Set(workspaceAvailability.value.
 const assignableWorkspaceOptions = computed(() => workspaces.value
   .filter(workspace => !assignedWorkspaceIds.value.has(workspace.id))
   .map(workspace => ({ label: getWorkspaceDisplayName(workspace), value: workspace.id })))
+const definitionFilterGroups: Array<{ key: keyof ActionDefinitionFilters, label: string, icon: string, items: Array<{ label: string, value: string }> }> = [
+  { key: 'status', label: 'Status', icon: 'i-lucide-power', items: [{ label: 'All', value: 'ALL' }, { label: 'Enabled', value: 'ENABLED' }, { label: 'Disabled', value: 'DISABLED' }] },
+  { key: 'scope', label: 'Availability', icon: 'i-lucide-globe', items: [{ label: 'All', value: 'ALL' }, { label: 'Global', value: 'GLOBAL' }, { label: 'Scoped', value: 'SCOPED' }] },
+  { key: 'kind', label: 'Type', icon: 'i-lucide-workflow', items: [{ label: 'All', value: 'ALL' }, { label: 'Action', value: 'ACTION' }, { label: 'Workflow', value: 'WORKFLOW' }] }
+]
+const activeDefinitionFilterCount = computed(() => activeActionDefinitionFilterCount(definitionFilters.value))
+const hasDefinitionFilters = computed(() => activeDefinitionFilterCount.value > 0 || workflowFilter.value.trim().length > 0)
 const filteredDefinitions = computed(() => {
   const items = draftDefinition.value ? [draftDefinition.value, ...definitions.value] : definitions.value
   const needle = workflowFilter.value.trim().toLowerCase()
-  if (!needle) return items
   return items.filter(definition =>
-    definition.name.toLowerCase().includes(needle)
-    || definition.processorKey.toLowerCase().includes(needle)
-    || (definition.description ?? '').toLowerCase().includes(needle)
+    // An unsaved draft stays listed, otherwise the selected entry would vanish from the sidebar.
+    (definition.id === draftDefinition.value?.id || matchesActionDefinitionFilters(definition, definitionFilters.value))
+    && (!needle
+      || definition.name.toLowerCase().includes(needle)
+      || definition.processorKey.toLowerCase().includes(needle)
+      || (definition.description ?? '').toLowerCase().includes(needle))
   )
 })
+const shownDefinitionCount = computed(() => filteredDefinitions.value.filter(definition => definition.id !== draftDefinition.value?.id).length)
+
+function setDefinitionFilter(key: keyof ActionDefinitionFilters, value: string | number | undefined) {
+  definitionFilters.value = { ...definitionFilters.value, [key]: value ?? 'ALL' } as ActionDefinitionFilters
+}
+
+function clearDefinitionFilters() {
+  workflowFilter.value = ''
+  definitionFilters.value = emptyActionDefinitionFilters()
+}
 const recentRuns = computed(() => runs.value.slice(0, 8))
 const queuedRuns = computed(() => runs.value
   .filter(run => run.status === 'QUEUED')
@@ -1405,25 +1431,82 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                   Actions
                 </h2>
                 <p class="text-xs text-muted">
-                  {{ definitions.length }} registered
+                  {{ hasDefinitionFilters ? `${shownDefinitionCount} of ${definitions.length} shown` : `${definitions.length} registered` }}
                 </p>
               </div>
               <UBadge size="sm" variant="soft" color="neutral">
                 YAML v1
               </UBadge>
             </div>
-            <UInput
-              v-model="workflowFilter"
-              icon="i-lucide-search"
-              size="sm"
-              placeholder="Filter Actions"
-            />
+            <div class="flex items-center gap-2">
+              <UInput
+                v-model="workflowFilter"
+                icon="i-lucide-search"
+                size="sm"
+                placeholder="Filter Actions"
+                aria-label="Filter Actions"
+                class="min-w-0 flex-1"
+              />
+              <UPopover :content="{ align: 'end' }">
+                <UButton
+                  :color="activeDefinitionFilterCount ? 'primary' : 'neutral'"
+                  :variant="activeDefinitionFilterCount ? 'soft' : 'outline'"
+                  size="sm"
+                  icon="i-lucide-filter"
+                  class="shrink-0"
+                  :title="activeDefinitionFilterCount ? `Filter Actions (${activeDefinitionFilterCount} active)` : 'Filter Actions'"
+                  :aria-label="activeDefinitionFilterCount ? `Filter Actions (${activeDefinitionFilterCount} active)` : 'Filter Actions'"
+                >
+                  <template v-if="activeDefinitionFilterCount" #trailing>
+                    <UBadge size="xs" color="primary" variant="solid">
+                      {{ activeDefinitionFilterCount }}
+                    </UBadge>
+                  </template>
+                </UButton>
+                <template #content>
+                  <div class="w-72 max-w-[calc(100vw-2rem)]">
+                    <div class="flex items-center justify-between gap-2 border-b border-default p-3">
+                      <h3 class="text-sm font-semibold">
+                        Filter Actions
+                      </h3>
+                      <UButton
+                        label="Reset"
+                        icon="i-lucide-filter-x"
+                        color="neutral"
+                        variant="ghost"
+                        size="xs"
+                        :disabled="!activeDefinitionFilterCount"
+                        @click="definitionFilters = emptyActionDefinitionFilters()"
+                      />
+                    </div>
+                    <div class="space-y-4 p-3">
+                      <div v-for="group in definitionFilterGroups" :key="group.key" class="space-y-1.5">
+                        <div class="flex items-center gap-2 text-sm font-medium text-highlighted">
+                          <UIcon :name="group.icon" class="size-4 text-muted" />
+                          {{ group.label }}
+                        </div>
+                        <URadioGroup
+                          :model-value="definitionFilters[group.key]"
+                          :items="group.items"
+                          :legend="group.label"
+                          orientation="horizontal"
+                          size="sm"
+                          :ui="{ fieldset: 'flex-wrap gap-x-4 gap-y-1', legend: 'sr-only' }"
+                          @update:model-value="setDefinitionFilter(group.key, $event)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </UPopover>
+            </div>
           </div>
 
           <div class="p-2">
             <USkeleton v-if="pending" class="h-24 w-full" />
-            <div v-else-if="filteredDefinitions.length === 0" class="p-3 text-sm text-muted">
-              No Actions found.
+            <div v-else-if="filteredDefinitions.length === 0" class="space-y-3 p-3 text-sm text-muted">
+              <p>{{ hasDefinitionFilters ? 'No Actions match the current filters.' : 'No Actions found.' }}</p>
+              <AppTableClearFiltersButton :active="hasDefinitionFilters" @clear="clearDefinitionFilters" />
             </div>
             <button
               v-for="definition in filteredDefinitions"
@@ -1433,10 +1516,24 @@ function lineColumnToOffset(source: string, line: number, column: number) {
               :class="definition.id === selectedId ? 'bg-elevated text-highlighted' : 'text-default'"
               @click="selectDefinition(definition)"
             >
-              <UIcon :name="definition.workflowId ? 'i-lucide-workflow' : definition.enabled ? 'i-lucide-circle-play' : 'i-lucide-circle-pause'" class="size-4 shrink-0 text-muted" />
+              <UIcon :name="definition.workflowId ? 'i-lucide-workflow' : 'i-lucide-circle-play'" class="size-4 shrink-0 text-muted" />
               <span class="min-w-0 flex-1">
                 <span class="block truncate font-medium">{{ definition.name }}</span>
                 <span class="block truncate text-xs text-muted">{{ definition.workflowId ? 'Workflow' : definition.processorKey }}</span>
+              </span>
+              <!-- Unsaved drafts have no enabled state yet. -->
+              <span
+                v-if="draftDefinition?.id !== definition.id"
+                class="inline-flex shrink-0"
+                :title="definition.enabled ? 'Enabled' : 'Disabled'"
+              >
+                <UIcon
+                  :name="definition.enabled ? 'i-lucide-circle-check' : 'i-lucide-circle-off'"
+                  class="size-4"
+                  :class="definition.enabled ? 'text-success' : 'text-muted'"
+                  aria-hidden="true"
+                />
+                <span class="sr-only">{{ definition.enabled ? 'Enabled' : 'Disabled' }}</span>
               </span>
               <UBadge
                 v-if="definition.global"
