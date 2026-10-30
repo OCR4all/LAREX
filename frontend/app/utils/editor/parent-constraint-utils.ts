@@ -54,7 +54,7 @@ export function isPointWithinParentBounds(point: { x: number, y: number }, paren
     return true // No parent constraint if no valid parent
   }
 
-  return isPointInPolygon(point, parentPolygon.points)
+  return isPointWithinOrOnPolygon(point, parentPolygon.points)
 }
 
 /**
@@ -68,5 +68,20 @@ export function areAllPointsWithinParentBounds(points: { x: number, y: number }[
     return true // No parent constraint if no valid parent
   }
 
-  return points.every(point => isPointInPolygon(point, parentPolygon.points))
+  return points.every(point => isPointWithinOrOnPolygon(point, parentPolygon.points))
+}
+
+/** Parent boundaries are inclusive, including vertices introduced by clipping. */
+function isPointWithinOrOnPolygon(point: { x: number, y: number }, points: { x: number, y: number }[]): boolean {
+  if (isPointInPolygon(point, points)) return true
+  return points.some((start, index) => {
+    const end = points[(index + 1) % points.length]!
+    const dx = end.x - start.x
+    const dy = end.y - start.y
+    const length = Math.hypot(dx, dy)
+    if (length === 0) return Math.hypot(point.x - start.x, point.y - start.y) <= 1e-9
+    const cross = dx * (point.y - start.y) - dy * (point.x - start.x)
+    const dot = (point.x - start.x) * dx + (point.y - start.y) * dy
+    return Math.abs(cross) <= 1e-9 * length && dot >= -1e-9 * length && dot <= length * length + 1e-9 * length
+  })
 }

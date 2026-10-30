@@ -12,6 +12,7 @@ import {
 import {
   splitPolygonByLine,
   subtractPolygon,
+  intersectPolygons,
   doPolygonsIntersect,
   calculatePolygonArea,
   clipPolylineToPolygon,
@@ -44,6 +45,8 @@ export interface CutElementsCommandData {
   targetElementIds?: string[]
   /** Minimum area threshold - polygons below this area are auto-deleted */
   minAreaThreshold?: number
+  /** Keep the overlap with the cut shape instead of subtracting it. */
+  intersect?: boolean
 }
 
 /**
@@ -72,12 +75,14 @@ export class CutElementsCommand implements Command {
   private mode: CutMode
   private cutPoints: Point[]
   private targetElementIds?: string[]
+  private intersect: boolean
   private minAreaThreshold: number
 
   private undoSnapshot: UndoSnapshot | null = null
   private affectedPolygonIds: string[] = []
 
   constructor(data: CutElementsCommandData) {
+    this.intersect = data.intersect ?? false
     this.mode = data.mode
     this.cutPoints = data.cutPoints.map(p => ({ x: p.x, y: p.y }))
     this.targetElementIds = data.targetElementIds
@@ -155,6 +160,12 @@ export class CutElementsCommand implements Command {
       invalidateMultiplePolygonGeometry(ctx.canvasId, this.affectedPolygonIds)
     }
 
+    if (this.intersect) {
+      const existingIds = collectRegionIds(pcGts.page.regions)
+      const removedIds = new Set([...collectRegionIds(this.undoSnapshot.regions)].filter(id => !existingIds.has(id)))
+      removeIdsFromReadingOrder(pcGts.page.readingOrder?.root?.elements, removedIds)
+    }
+
     pcGts.page.relations = filterRelationsByExistingRegionIds(
       pcGts.page.relations,
       collectRegionIds(pcGts.page.regions)
@@ -208,6 +219,7 @@ export class CutElementsCommand implements Command {
    * Check if an element should be cut based on intersection with cut shape
    */
   private shouldCutElement(points: Point[]): boolean {
+    if (this.intersect) return true
     if (this.mode === 'line') {
       return this.doesLineIntersectForSplit(points)
     } else {
@@ -245,7 +257,9 @@ export class CutElementsCommand implements Command {
         region.coords = new PolygonGeometry(piece.map(p => [p.x, p.y] as [number, number]))
       }
 
-      if (isTextRegion(region)) {
+      if (this.intersect) {
+        this.constrainChildrenToRegion(region, pcGts)
+      } else if (isTextRegion(region)) {
         this.clipTextLinesToParent(region)
       }
 
@@ -365,11 +379,34 @@ export class CutElementsCommand implements Command {
     }
 
     this.distributeChildRegions(childRegions, regionPieces)
+    if (this.intersect) {
+      for (const piece of regionPieces) this.constrainChildrenToRegion(piece.region, pcGts)
+    }
 
     return {
       cutCount: 1,
       deletedCount: 0,
       createdCount: regionPieces.length - 1
+    }
+  }
+
+  /** Keep descendants legal when their selected container is clipped or split. */
+  private constrainChildrenToRegion(region: Region, pcGts: PcGts): void {
+    const previousCutPoints = this.cutPoints
+    this.cutPoints = region.coords.points.map(([x, y]) => ({ x, y }))
+    try {
+      if (isTextRegion(region)) {
+        for (const line of [...(region.textLines ?? [])]) {
+          this.affectedPolygonIds.push(line.id)
+          this.cutStandaloneTextLine(line, region)
+        }
+      }
+      for (const child of [...(region.regions ?? [])]) {
+        this.affectedPolygonIds.push(child.id)
+        this.cutRegionWithChildren(child, region, pcGts)
+      }
+    } finally {
+      this.cutPoints = previousCutPoints
     }
   }
 
@@ -403,6 +440,8 @@ export class CutElementsCommand implements Command {
           }
         }
       } else {
+        const textLines = this.intersect && isTextRegion(childRegion) ? [...(childRegion.textLines ?? [])] : []
+        if (this.intersect && isTextRegion(childRegion)) childRegion.textLines = []
         const sortedPieces = childCutResult.pieces
           .map(pts => ({ points: pts, area: calculatePolygonArea(pts) }))
           .sort((a, b) => b.area - a.area)
@@ -428,8 +467,37 @@ export class CutElementsCommand implements Command {
           }
         }
 
+        if (this.intersect) this.distributeIntersectionTextLines(textLines, childPieces)
         if (grandchildren.length > 0 && childPieces.length > 0) {
           this.distributeChildRegions(grandchildren, childPieces)
+        }
+      }
+    }
+  }
+
+  /** Preserve nested line geometry in every surviving region piece. */
+  private distributeIntersectionTextLines(lines: TextLine[], parents: Array<{ region: Region, points: Point[] }>): void {
+    for (const line of lines) {
+      const points = line.coords.points.map(([x, y]) => ({ x, y }))
+      const baseline = line.baseline?.points.points.map(([x, y]) => ({ x, y }))
+      let usedOriginal = false
+      this.affectedPolygonIds.push(line.id)
+      for (const parent of parents) {
+        if (!isTextRegion(parent.region)) continue
+        for (const piece of intersectPolygons(points, parent.points)) {
+          const result = usedOriginal ? this.cloneTextLine(line, this.generateId(), piece) : line
+          usedOriginal = true
+          result.coords = new PolygonGeometry(piece.map(p => [p.x, p.y]))
+          if (baseline) {
+            const clipped = clipPolylineToPolygon(baseline, piece)
+            if (clipped.length >= 2) {
+              result.baseline = { points: new PolylineGeometry(clipped.map(p => [p.x, p.y])) }
+            } else {
+              delete result.baseline
+            }
+          }
+          parent.region.textLines ??= []
+          parent.region.textLines.push(result)
         }
       }
     }
@@ -502,6 +570,7 @@ export class CutElementsCommand implements Command {
         }
       } else {
         const newTextLine = this.cloneTextLine(textLine, this.generateId(), piece.points)
+        if (this.intersect) delete newTextLine.baseline
 
         if (baselinePoints.length >= 2) {
           const clippedBaseline = clipPolylineToPolygon(baselinePoints, piece.points)
@@ -522,6 +591,10 @@ export class CutElementsCommand implements Command {
    * Cut a polygon using the current cut shape
    */
   private cutPolygon(points: Point[]): { deleted: boolean, pieces: Point[][] } {
+    if (this.intersect) {
+      const pieces = intersectPolygons(points, this.cutPoints)
+      return { deleted: pieces.length === 0, pieces }
+    }
     if (this.mode === 'line') {
       const result = splitPolygonByLine(points, this.cutPoints, this.minAreaThreshold)
       if (!result.success || result.resultPolygons.length === 0) {
@@ -715,6 +788,7 @@ export class CutElementsCommand implements Command {
    */
   private cloneRegion(original: Region, newId: string, newPoints: Point[]): Region {
     const clone: Region = {
+      ...(this.intersect ? original : {}),
       id: newId,
       kind: original.kind,
       coords: new PolygonGeometry(newPoints.map(p => [p.x, p.y] as [number, number])),
@@ -736,6 +810,9 @@ export class CutElementsCommand implements Command {
    */
   private cloneTextLine(original: TextLine, newId: string, newPoints: Point[]): TextLine {
     return new TextLine({
+      ...(this.intersect ? original : {}),
+      // Word/glyph IDs remain with the original line when creating a piece.
+      words: undefined,
       id: newId,
       coords: new PolygonGeometry(newPoints.map(p => [p.x, p.y] as [number, number])),
       textContentVariants: original.textContentVariants ? [...original.textContentVariants] : undefined

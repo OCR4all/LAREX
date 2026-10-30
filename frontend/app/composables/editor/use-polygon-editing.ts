@@ -1,6 +1,6 @@
 import type { UnwrapNestedRefs } from 'vue'
 import type { Commander } from '@/commands'
-import { UpdatePolygonCommand } from '@/commands'
+import { ConstrainToParentCommand, UpdatePolygonCommand } from '@/commands'
 import type { Point, View, AspectRatioScale, ImageSize } from '@/models/editor'
 import type { RenderablePolygon, ViewMode } from '@/types/editor/rendering'
 import { getEditorSession } from '@/session/editor/editor-session'
@@ -141,6 +141,7 @@ export function usePolygonEditing(
   const justFinishedDragging = ref<boolean>(false)
 
   const isInvalidPosition = ref<boolean>(false)
+  let blockedByParentBounds = false
 
   // Geometry replacements (including undo/redo) invalidate node indices.
   watch(() => {
@@ -345,6 +346,8 @@ export function usePolygonEditing(
         }
       }
 
+      blockedByParentBounds = violatesParentConstraints
+
       if (!wouldIntersect && !violatesParentConstraints) {
         polygon.points[nodeIndex] = { ...constrainedPoint }
       }
@@ -362,6 +365,41 @@ export function usePolygonEditing(
    */
   function handleMouseUp(_canvas: HTMLElement | null): void {
     if (draggedNodeInfo.isDragging) {
+      const polygon = polygons[draggedNodeInfo.polygonIndex]
+      const parent = polygons.find(p => p.id === polygon?.parentId)
+      const needsRepair = blockedByParentBounds && polygon && parent && dragOriginalPosition.value
+        && !areAllPointsWithinParentBounds(dragOriginalPosition.value.originalPoints, parent)
+      if (isInvalidPosition.value && polygon && dragOriginalPosition.value) {
+        polygon.points = dragOriginalPosition.value.originalPoints.map(point => ({ ...point }))
+      }
+      if (needsRepair) {
+        const polygonId = polygon.id
+        const session = getEditorSession(canvasId)
+        useToast().add({
+          id: `parent-bounds-${canvasId}-${polygonId}`,
+          title: 'Shape exceeds parent bounds',
+          description: 'This shape already extends outside its parent, so Parent Bounds blocks this edit. Constrain it to remove the parts outside. You can undo this action.',
+          color: 'error',
+          duration: 10000,
+          actions: [{
+            label: 'Constrain to Parent',
+            onClick: () => {
+              // A toast can outlive the page that produced it.
+              if (!session || getEditorSession(canvasId) !== session) return
+              try {
+                commander.execute(new ConstrainToParentCommand([polygonId]), { session, canvasId })
+              } catch (error) {
+                useToast().add({
+                  title: 'Could not constrain shape to parent',
+                  description: error instanceof Error ? error.message : 'Check the polygon geometry and try again.',
+                  color: 'error'
+                })
+              }
+            }
+          }]
+        })
+      }
+      blockedByParentBounds = false
       if (dragOriginalPosition.value && !isInvalidPosition.value) {
         const polygon = polygons[draggedNodeInfo.polygonIndex]
         if (polygon && polygon.points.some((point, index) => {
@@ -407,6 +445,7 @@ export function usePolygonEditing(
     draggedNodeInfo.nodeIndex = -1
     draggedNodeInfo.isDragging = false
     isInvalidPosition.value = false
+    blockedByParentBounds = false
     dragOriginalPosition.value = null
     justFinishedDragging.value = false
   }
@@ -531,6 +570,7 @@ export function usePolygonEditing(
     draggedNodeInfo.nodeIndex = -1
     draggedNodeInfo.isDragging = false
     isInvalidPosition.value = false
+    blockedByParentBounds = false
     dragOriginalPosition.value = null
     justFinishedDragging.value = false
   }

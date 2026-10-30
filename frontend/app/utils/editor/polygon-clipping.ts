@@ -699,6 +699,15 @@ function fromMartinezResult(result: unknown): Polygon[] {
   return polygons
 }
 
+/** Intersect two polygons, retaining every disconnected piece and boundary vertex. */
+export function intersectPolygons(subject: Point[], parent: Point[]): Point[][] {
+  if (subject.length < 3 || parent.length < 3) {
+    throw new Error('Both shapes need at least three points.')
+  }
+  return fromMartinezResult(martinezIntersection(toMartinezPolygon(subject), toMartinezPolygon(parent)))
+    .filter(points => calculatePolygonArea(points) > 0)
+}
+
 /**
  * Find index of the largest polygon by area
  */

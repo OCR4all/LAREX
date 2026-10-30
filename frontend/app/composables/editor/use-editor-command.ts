@@ -1,6 +1,6 @@
 import type { Commander } from '@/commands'
 import type { CommandContext } from '@/commands/editor/types'
-import { DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand, CompoundCommand } from '@/commands'
+import { ConstrainToParentCommand, DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand, CompoundCommand } from '@/commands'
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
@@ -622,6 +622,7 @@ export function useEditorCommand(
         label: 'Shape Tools',
         icon: 'i-lucide-shapes',
         submenu: [
+          { id: 'constrain-selection-to-parent', label: 'Constrain to Parent', icon: 'i-lucide-crop', disabled: !selection.polygons.some(p => p.parentId) },
           { id: 'simplify-selection', label: 'Simplify Selection', icon: 'i-lucide-minimize-2' },
           { id: 'convex-hull-selection', label: 'Convex Hull Selection', icon: 'i-lucide-octagon' },
           { id: 'fit-selection-to-bbox', label: 'Bounding Box', icon: 'i-lucide-square' }
@@ -730,6 +731,7 @@ export function useEditorCommand(
         label: 'Shape Tools',
         icon: 'i-lucide-shapes',
         submenu: [
+          { id: 'constrain-to-parent', label: 'Constrain to Parent', icon: 'i-lucide-crop', disabled: !polygon.parentId },
           { id: 'simplify-polygon', label: 'Simplify', icon: 'i-lucide-minimize-2' },
           { id: 'convex-hull', label: 'Convex Hull', icon: 'i-lucide-octagon' },
           { id: 'fit-to-bbox', label: 'Bounding Box', icon: 'i-lucide-square' },
@@ -987,6 +989,18 @@ export function useEditorCommand(
     }), { canvasId, session })
   }
 
+  function constrainPolygonsToParent(ids: string[]): void {
+    try {
+      commander.execute(new ConstrainToParentCommand(ids), getCommandContext())
+    } catch (error) {
+      useToast().add({
+        title: 'Could not constrain shapes to parent',
+        description: error instanceof Error ? error.message : 'Check the polygon geometry and try again.',
+        color: 'error'
+      })
+    }
+  }
+
   function executePolygonSelectionShapeCommand(
     selection: ContextMenuSelection,
     factory: (polygon: RenderablePolygon) => SimplifyPolygonCommand | ConvexHullCommand | FitToBoundingBoxCommand,
@@ -1048,6 +1062,9 @@ export function useEditorCommand(
           break
         case 'remove-selection-from-reading-order':
           updateSelectionReadingOrder(selection, 'remove')
+          break
+        case 'constrain-selection-to-parent':
+          constrainPolygonsToParent(selection.polygonIds)
           break
         case 'simplify-selection':
           executePolygonSelectionShapeCommand(
@@ -1210,6 +1227,9 @@ export function useEditorCommand(
           })
           commander.execute(cmd, commandCtx)
         }
+        break
+      case 'constrain-to-parent':
+        if (target.type === 'polygon') constrainPolygonsToParent([target.element!.id])
         break
       case 'simplify-polygon':
         if (target.type === 'polygon') {

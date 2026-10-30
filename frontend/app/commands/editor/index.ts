@@ -70,3 +70,5 @@ export {
   getPointsFromPolygon,
   getPointsFromPolyline
 } from './utils'
+
+export { ConstrainToParentCommand } from './constrain-to-parent-command'

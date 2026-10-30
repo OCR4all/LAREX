@@ -7,20 +7,22 @@ import { createMockSession, createTestContext, createTestDocument, createTestTex
 import { usePolygonEditing } from '../use-polygon-editing'
 
 vi.mock('@/session/editor/editor-session', () => ({ getEditorSession: vi.fn() }))
-vi.mock('@/composables/editor/use-geometry-cache-integrations', () => ({ invalidatePolygonGeometry: vi.fn() }))
+vi.mock('@/composables/editor/use-geometry-cache-integrations', () => ({ invalidatePolygonGeometry: vi.fn(), invalidateMultiplePolygonGeometry: vi.fn() }))
+vi.mock('@/stores/editor/editor.ui.store', () => ({ useEditorUiStore: () => ({ bumpReadingOrderVersion: vi.fn() }) }))
 
 function setup(points = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }]) {
   const { session } = createMockSession(createTestDocument({ regions: [createTestTextRegion({ id: 'region', points })] }))
   vi.mocked(getEditorSession).mockReturnValue(session)
-  const polygons = reactive([{ id: 'region', points }])
+  const polygons = reactive<{ id: string, points: { x: number, y: number }[], parentId?: string }[]>([{ id: 'region', points }])
+  const constrainToParent = ref(false)
   const commander = new Commander()
   const editing = usePolygonEditing(polygons, { zoom: 1, offsetX: 0, offsetY: 0 }, ref({ scaleX: 1, scaleY: 1 }),
-    ref(false), undefined, ref(false), undefined, ref(-1), ref('default'), commander, 'test', ref([]), ref([]))
+    ref(false), undefined, constrainToParent, undefined, ref(-1), ref('default'), commander, 'test', ref([]), ref([]))
   const clickNode = (index: number) => {
     editing.handleMouseDown(polygons[0]!.points[index]!, ref(0), null)
     editing.handleMouseUp(null)
   }
-  return { editing, polygons, commander, session, clickNode }
+  return { editing, polygons, commander, session, clickNode, constrainToParent }
 }
 
 describe('polygon node deletion', () => {
@@ -30,6 +32,41 @@ describe('polygon node deletion', () => {
     vi.stubGlobal('useToast', () => ({ add: notify }))
   })
   afterEach(() => vi.unstubAllGlobals())
+
+  it('offers an undoable repair when existing parent violations block a node drag', () => {
+    const h = setup([{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 0, y: 1 }])
+    const parentPoints = [{ x: -1, y: -1 }, { x: 1, y: -1 }, { x: 1, y: 2 }, { x: -1, y: 2 }]
+    const parent = createTestTextRegion({ id: 'parent', points: parentPoints })
+    parent.regions = h.session.document.value!.page.regions
+    h.session.document.value!.page.regions = [parent]
+    h.polygons[0]!.parentId = 'parent'
+    h.polygons.push({ id: 'parent', points: parentPoints })
+    h.constrainToParent.value = true
+
+    h.editing.handleMouseDown({ x: 0, y: 0 }, ref(0), null)
+    h.editing.handleMouseMove({ x: 0.1, y: 0.1 })
+    h.editing.handleMouseUp(null)
+
+    expect(h.commander.canUndo()).toBe(false)
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Shape exceeds parent bounds',
+      actions: [expect.objectContaining({ label: 'Constrain to Parent', onClick: expect.any(Function) })]
+    }))
+    notify.mock.lastCall![0].actions[0].onClick()
+    expect(parent.regions![0]!.coords.points.every(([x]) => x <= 1)).toBe(true)
+    // The canvas receives the clipped geometry through its document watcher.
+    h.polygons[0]!.points = parent.regions![0]!.coords.points.map(([x, y]) => ({ x, y }))
+    notify.mockClear()
+    const boundaryIndex = h.polygons[0]!.points.findIndex(p => p.x === 1 && p.y === 0)
+    h.editing.handleMouseDown(h.polygons[0]!.points[boundaryIndex]!, ref(0), null)
+    h.editing.handleMouseMove({ x: 0.9, y: 0.1 })
+    h.editing.handleMouseUp(null)
+    expect(notify).not.toHaveBeenCalled()
+    expect(parent.regions![0]!.coords.points.some(([x, y]) => x === 0.9 && y === 0.1)).toBe(true)
+    h.commander.undo(createTestContext(h.session))
+    h.commander.undo(createTestContext(h.session))
+    expect(h.session.document.value!.page.regions[0]!.regions![0]!.coords.points.some(([x]) => x === 2)).toBe(true)
+  })
 
   it('retains a clicked corner without recording a drag, deletes it, and supports undo/redo', () => {
     const h = setup()
