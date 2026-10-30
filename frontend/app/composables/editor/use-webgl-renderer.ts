@@ -1269,7 +1269,10 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         renderState.draggedNodeInfo,
         renderState.isInvalidPosition.value,
         nodeColor,
-        getVertexSizeMultiplier()
+        getVertexSizeMultiplier(),
+        renderState.selectedPolygonNodes?.polygonId === selectedPolygon?.id
+          ? renderState.selectedPolygonNodes?.nodeIndices
+          : undefined
       )
     }
 

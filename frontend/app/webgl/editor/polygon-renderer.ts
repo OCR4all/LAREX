@@ -50,7 +50,8 @@ export class PolygonRenderer {
     draggedNodeInfo: any,
     isInvalidPosition: boolean,
     nodeColor?: readonly number[], // Optional custom color for nodes
-    vertexSizeMultiplier = 1
+    vertexSizeMultiplier = 1,
+    selectedNodeIndices: readonly number[] = []
   ): void {
     if (selectedIndex < 0 || selectedIndex >= polygons.length) return
 
@@ -89,6 +90,24 @@ export class PolygonRenderer {
     )
 
     this.gl.drawArrays(this.gl.POINTS, 0, pointCount)
+
+    if (selectedNodeIndices.length > 0) {
+      this.uniformState.uniform1f(
+        this.uniformState.getLocation(this.program, 'u_pointSize'),
+        RENDER_SIZES.DRAGGED_POINT_SIZE * vertexSizeMultiplier
+      )
+      this.uniformState.uniform4f(
+        this.uniformState.getLocation(this.program, 'u_color'),
+        ...RENDER_COLORS.ACTIVE_YELLOW_POLYGON
+      )
+      for (const index of selectedNodeIndices) {
+        if (index >= 0 && index < pointCount) this.gl.drawArrays(this.gl.POINTS, index, 1)
+      }
+      this.uniformState.uniform4f(
+        this.uniformState.getLocation(this.program, 'u_color'),
+        color[0], color[1], color[2], color[3]
+      )
+    }
 
     if (hoveredNodeIndex >= 0 && hoveredNodeIndex < pointCount) {
       this.uniformState.uniform1f(

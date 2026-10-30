@@ -77,6 +77,7 @@ export interface EditorCanvasControls {
   setView?: (value: EditorCanvasViewState) => void
   resetView?: () => void
   addHoveredElementToReadingOrder?: () => boolean
+  deleteSelectedNodes?: () => boolean
 
   canUndo: ComputedRef<boolean>
   canRedo: ComputedRef<boolean>

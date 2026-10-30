@@ -85,8 +85,9 @@ export function useEditorInteractions(
   let marqueeContext: MarqueeContext | null = null
   let lastSelectionEscapeTime = 0
 
-  let pendingShiftMarquee = false
-  let pendingShiftStartClient: { x: number, y: number } | null = null
+  let pendingMarqueeIsPlainDrag = false
+  let pendingMarquee = false
+  let pendingMarqueeStartClient: { x: number, y: number } | null = null
 
   function isBaselineMode(viewMode: ViewMode | undefined): boolean {
     return viewMode === 'baseline'
@@ -95,6 +96,15 @@ export function useEditorInteractions(
   function normalizeViewMode(raw: string | undefined): ViewMode | undefined {
     if (raw === 'default' || raw === 'textline' || raw === 'baseline') return raw
     return undefined
+  }
+
+  function getPolygonSelectionContexts(activeIndex: number): number[] {
+    // Additive selection includes children, the active polygon, and its siblings.
+    const activePolygon = polygons[activeIndex]
+    const parentIndex = activePolygon?.parentId
+      ? polygons.findIndex(polygon => polygon.id === activePolygon.parentId)
+      : -1
+    return Array.from(new Set([activeIndex, parentIndex]))
   }
 
   function pointInRect(p: Point, rect: { minX: number, maxX: number, minY: number, maxY: number }): boolean {
@@ -123,6 +133,11 @@ export function useEditorInteractions(
 
     marqueeContext = {
       selectedPolygonIndex: effectiveSelectedPolygonIndex,
+      nodePolygonId: selectedPolylineIndex.value < 0
+        ? polygons[effectiveSelectedPolygonIndex]?.id
+        : undefined,
+      additiveNodes: !pendingMarqueeIsPlainDrag,
+      polygonSelectionContexts: getPolygonSelectionContexts(effectiveSelectedPolygonIndex),
       selectedPolylineIndex: -1,
       viewMode
     }
@@ -166,6 +181,16 @@ export function useEditorInteractions(
 
     const viewMode = marqueeContext.viewMode
 
+    if (marqueeContext.nodePolygonId) {
+      const polygonIndex = polygons.findIndex(polygon => polygon.id === marqueeContext?.nodePolygonId)
+      if (polygonIndex === selectedPolygonIndex.value && polygonIndex >= 0 && canMutateCanvas()) {
+        polygonEditing.selectNodesInRect?.(polygonIndex, worldRect, marqueeContext.additiveNodes)
+        replaceSelectionFromCurrentIndices(viewMode)
+      }
+      resetMarqueeState()
+      return
+    }
+
     if (isBaselineMode(viewMode)) {
       const polylineIds: string[] = []
       for (const line of polylines) {
@@ -201,13 +226,13 @@ export function useEditorInteractions(
 
         if (hiddenPolygonIdSet.value.has(poly.id)) continue
 
-        const selectable = visibilityService.shouldBeSelectablePolygon(poly, {
-          selectedPolygonIndex: marqueeContext.selectedPolygonIndex,
+        const selectable = marqueeContext.polygonSelectionContexts.some(contextIndex => visibilityService.shouldBeSelectablePolygon(poly, {
+          selectedPolygonIndex: contextIndex,
           allPolygons: polygons,
           viewMode,
           hiddenPolygonIds: hiddenPolygonIdSet.value,
           hiddenPolylineIds: hiddenPolylineIdSet.value
-        })
+        }))
         if (!selectable) continue
         if (allPointsInRect(poly.points, worldRect)) {
           polygonIds.push(poly.id)
@@ -262,15 +287,7 @@ export function useEditorInteractions(
   }
 
   function getShiftClickedPolygonIndex(point: Point, viewMode: ViewMode | undefined): number {
-    // Keep child selection available when drilled into a region, and also
-    // allow the active element and its siblings to be toggled.
-    const activePolygon = polygons[selectedPolygonIndex.value]
-    const parentIndex = activePolygon?.parentId
-      ? polygons.findIndex(polygon => polygon.id === activePolygon.parentId)
-      : -1
-    const selectionContexts = new Set([selectedPolygonIndex.value, parentIndex])
-
-    for (const contextIndex of selectionContexts) {
+    for (const contextIndex of getPolygonSelectionContexts(selectedPolygonIndex.value)) {
       const clickedIndex = getVisiblePolygonAtPoint(
         polygons,
         point,
@@ -459,8 +476,10 @@ export function useEditorInteractions(
       if (!canvas.value) return
 
       if (e.shiftKey) {
-        pendingShiftMarquee = true
-        pendingShiftStartClient = { x: e.clientX, y: e.clientY }
+        if (selectedPolygonIndex.value < 0) polygonEditing.clearNodeSelection?.()
+        pendingMarqueeIsPlainDrag = false
+        pendingMarquee = true
+        pendingMarqueeStartClient = { x: e.clientX, y: e.clientY }
         return
       }
 
@@ -479,11 +498,17 @@ export function useEditorInteractions(
 
       const polylineEditingStarted = polylineEditing.handleMouseDown(point, selectedPolygonIndex, canvas.value)
       if (polylineEditingStarted) return
+
+      if (selectedPolygonIndex.value >= 0 && selectedPolylineIndex.value < 0) {
+        pendingMarquee = true
+        pendingMarqueeIsPlainDrag = true
+        pendingMarqueeStartClient = { x: e.clientX, y: e.clientY }
+      }
     }
   }
 
   function onMouseMove(e: MouseEvent): void {
-    const marqueePointerStateActive = isMarqueeSelecting.value || pendingShiftMarquee
+    const marqueePointerStateActive = isMarqueeSelecting.value || pendingMarquee
     const primaryButtonWasReleased = typeof e.buttons === 'number' && (e.buttons & 1) === 0
     if (marqueePointerStateActive && primaryButtonWasReleased) {
       cancelMarquee()
@@ -618,11 +643,11 @@ export function useEditorInteractions(
       return
     }
 
-    if (pendingShiftMarquee && pendingShiftStartClient) {
+    if (pendingMarquee && pendingMarqueeStartClient) {
       if (mouseInteraction.hasExceededMovementThreshold(e)) {
-        startMarqueeFromStartPoint(pendingShiftStartClient)
-        pendingShiftMarquee = false
-        pendingShiftStartClient = marqueeStartClient
+        startMarqueeFromStartPoint(pendingMarqueeStartClient)
+        pendingMarquee = false
+        pendingMarqueeStartClient = marqueeStartClient
       } else {
         return
       }
@@ -734,15 +759,15 @@ export function useEditorInteractions(
     if (isMarqueeSelecting.value) {
       finishMarquee(e)
       mouseInteraction.handleMouseUp(e)
-      pendingShiftMarquee = false
-      pendingShiftStartClient = null
+      pendingMarquee = false
+      pendingMarqueeStartClient = null
       return
     }
 
-    if (pendingShiftMarquee && pendingShiftStartClient && !mouseInteraction.hasMoved()) {
+    if (pendingMarquee && !pendingMarqueeIsPlainDrag && pendingMarqueeStartClient && !mouseInteraction.hasMoved()) {
       if (!canvas.value) {
-        pendingShiftMarquee = false
-        pendingShiftStartClient = null
+        pendingMarquee = false
+        pendingMarqueeStartClient = null
         return
       }
 
@@ -793,13 +818,14 @@ export function useEditorInteractions(
       }
 
       mouseInteraction.handleMouseUp(e)
-      pendingShiftMarquee = false
-      pendingShiftStartClient = null
+      pendingMarquee = false
+      pendingMarqueeStartClient = null
       return
     }
 
-    pendingShiftMarquee = false
-    pendingShiftStartClient = null
+    pendingMarquee = false
+    pendingMarqueeIsPlainDrag = false
+    pendingMarqueeStartClient = null
 
     const startPosition = mouseInteraction.actionState.startPosition
       ? { ...mouseInteraction.actionState.startPosition }
@@ -1036,12 +1062,13 @@ export function useEditorInteractions(
     marqueeRectPx.value = null
     marqueeStartClient = null
     marqueeContext = null
-    pendingShiftMarquee = false
-    pendingShiftStartClient = null
+    pendingMarquee = false
+    pendingMarqueeIsPlainDrag = false
+    pendingMarqueeStartClient = null
   }
 
   function cancelMarquee(): boolean {
-    if (!isMarqueeSelecting.value && !pendingShiftMarquee) return false
+    if (!isMarqueeSelecting.value && !pendingMarquee) return false
 
     resetMarqueeState()
     mouseInteraction.endPanning()
@@ -1082,6 +1109,11 @@ export function useEditorInteractions(
       mouseInteraction.resetActionState()
       stateActions?.setHoveredPolygonId(null)
       stateActions?.setHoveredPolylineId(null)
+      return true
+    }
+
+    if (polygonEditing.selectedNodes?.value) {
+      polygonEditing.clearNodeSelection?.()
       return true
     }
 

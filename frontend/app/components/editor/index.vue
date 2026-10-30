@@ -543,6 +543,15 @@ const polygonEditing = usePolygonEditing(
   hiddenPolygonIds, hiddenPolylineIds
 )
 
+canvasControls.deleteSelectedNodes = () => isCanvasEditable.value
+  && polygonEditing.deleteSelectedNodes(selectedPolygonIndex.value)
+
+watch(
+  () => [polygons[selectedPolygonIndex.value]?.id, selectedPolylineIndex.value, canvasControls.drawingMode.value],
+  () => polygonEditing.clearNodeSelection(),
+  { flush: 'sync' }
+)
+
 const polylineDrawing = usePolylineDrawing(
   polylines, view, pixelsToWorld, constrainToImage, webglRenderer.imageSize,
   selectedPolygonIndex, polygons, constrainToParent, autoSelect,

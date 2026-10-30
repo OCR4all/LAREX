@@ -170,7 +170,12 @@ async function createHarness(
     isInvalidPosition: ref(false)
   }
 
+  const selectedNodes = ref<{ polygonId: string, nodeIndices: number[] } | null>(null)
   const polygonEditing = {
+    selectedNodes,
+    clearNodeSelection: vi.fn(() => {
+      selectedNodes.value = null
+    }),
     handleMouseDown: vi.fn(() => false),
     handleMouseMove: vi.fn(),
     handleMouseUp: vi.fn(),
@@ -438,6 +443,33 @@ describe('useEditorInteractions', () => {
     click(harness, 50, true)
     expect(harness.selectedPolylineIds.value).toEqual([])
     expect(harness.selectedPolylineIndex.value).toBe(-1)
+  })
+
+  it('clears a corner selection before starting polygon marquee selection', async () => {
+    const harness = await createHarness('select')
+    harness.polygonEditing.selectedNodes.value = { polygonId: 'region', nodeIndices: [0] }
+    harness.interactions.onMouseDown(eventStub({ shiftKey: true, clientX: 10, clientY: 10 }))
+    expect(harness.polygonEditing.selectedNodes.value).toBeNull()
+  })
+
+  it.each([false, true])('selects corner nodes with a rectangle in an active polygon (Shift: %s)', async (shiftKey) => {
+    const harness = await createHarness('select', {
+      realEditing: true,
+      polygons: [{ id: 'shape', type: 'region', points: [
+        { x: -0.6, y: -0.4 }, { x: 0, y: -0.4 }, { x: 0.6, y: -0.4 },
+        { x: 0.6, y: 0.4 }, { x: 0, y: 0.4 }, { x: -0.6, y: 0.4 }
+      ] }]
+    })
+    click(harness, 100)
+    expect(harness.selectedPolygonIds.value).toEqual(['shape'])
+    harness.interactions.onMouseDown(eventStub({ shiftKey, clientX: 30, clientY: 130 }))
+    harness.interactions.onMouseMove(eventStub({ shiftKey, clientX: 110, clientY: 150 }))
+    expect(harness.interactions.isMarqueeSelecting.value).toBe(true)
+    harness.interactions.onMouseUp(eventStub({ shiftKey, clientX: 110, clientY: 150 }))
+    expect(harness.polygonEditing).toHaveProperty('selectedNodes.value', { polygonId: 'shape', nodeIndices: [0, 1] })
+    expect(harness.selectedPolygonIndex.value).toBe(0)
+    expect(harness.selectedPolygonIds.value).toEqual(['shape'])
+    expect(harness.mouseInteraction.startPanning).not.toHaveBeenCalled()
   })
 
   it('keeps Shift-drag marquee selection additive after Shift-click', async () => {

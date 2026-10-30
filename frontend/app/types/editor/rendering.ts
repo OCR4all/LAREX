@@ -111,6 +111,7 @@ export interface WebGLRenderState {
   hiddenPolylineIds: Ref<string[]>
 
   hoveredNodeIndex: Ref<number>
+  selectedPolygonNodes?: { polygonId: string, nodeIndices: number[] } | null
   previewNodePosition: Point | null
   draggedNodeInfo?: DraggedNodeInfo
 

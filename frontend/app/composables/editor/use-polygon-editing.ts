@@ -11,7 +11,8 @@ import {
   getHoverablePolygonAtPoint,
   getClosestEdge,
   wouldSelfIntersect,
-  isPointInPolygon
+  isPointInPolygon,
+  isClosedPolygonSelfIntersecting
 } from '@/utils/editor/hit-detection'
 import { clampToWorldBounds, getImageBounds } from '@/utils/editor/coordinates'
 import { areAllPointsWithinParentBounds } from '@/utils/editor/parent-constraint-utils'
@@ -64,6 +65,65 @@ export function usePolygonEditing(
 
   const hoveredPolygonIndex = ref<number>(-1)
   const hoveredNodeIndex = ref<number>(-1)
+  const selectedNodes = ref<{ polygonId: string, nodeIndices: number[] } | null>(null)
+
+  function clearNodeSelection(): void {
+    selectedNodes.value = null
+  }
+
+  function selectNodesInRect(
+    polygonIndex: number,
+    rect: { minX: number, maxX: number, minY: number, maxY: number },
+    additive = false
+  ): void {
+    const polygon = polygons[polygonIndex]
+    if (!polygon) return
+    const indices = polygon.points.flatMap((point, index) =>
+      point.x >= rect.minX && point.x <= rect.maxX && point.y >= rect.minY && point.y <= rect.maxY
+        ? [index]
+        : []
+    )
+    const previous = additive && selectedNodes.value?.polygonId === polygon.id
+      ? selectedNodes.value.nodeIndices
+      : []
+    const nodeIndices = Array.from(new Set([...previous, ...indices])).sort((a, b) => a - b)
+    clearNodeSelection()
+    if (nodeIndices.length > 0) selectedNodes.value = { polygonId: polygon.id, nodeIndices }
+    hoveredNodeIndex.value = -1
+    resetEdgeHover()
+  }
+
+  /** Returns true even when deletion is blocked, so Delete never falls through to the polygon. */
+  function deleteSelectedNodes(selectedPolygonIndex: number): boolean {
+    const selection = selectedNodes.value
+    const polygon = polygons[selectedPolygonIndex]
+    if (!selection || !polygon || polygon.id !== selection.polygonId
+      || (externalSelectedPolylineIndex?.value ?? -1) >= 0) return false
+    if (draggedNodeInfo.isDragging) return true
+
+    const selectedIndices = new Set(selection.nodeIndices)
+    const points = polygon.points.filter((_, index) => !selectedIndices.has(index))
+    let deletionError: string | null = null
+    if (points.length < 3) {
+      deletionError = 'A polygon needs at least 3 nodes. Select fewer nodes and try again.'
+    } else if (isClosedPolygonSelfIntersecting(points)) {
+      deletionError = 'Deleting these nodes would make polygon edges cross. Change the node selection and try again.'
+    }
+    if (deletionError) {
+      useToast().add({
+        title: 'Cannot delete selected nodes',
+        description: deletionError,
+        color: 'warning'
+      })
+      return true
+    }
+
+    commander.execute(new UpdatePolygonCommand({ polygonId: polygon.id, newPoints: points }), getCommandContext())
+    clearNodeSelection()
+    hoveredNodeIndex.value = -1
+    resetEdgeHover()
+    return true
+  }
   const hoveredEdgeInfo: UnwrapNestedRefs<HoveredEdgeInfo> = reactive({
     polygonIndex: -1,
     edgeStartIndex: -1,
@@ -81,6 +141,14 @@ export function usePolygonEditing(
   const justFinishedDragging = ref<boolean>(false)
 
   const isInvalidPosition = ref<boolean>(false)
+
+  // Geometry replacements (including undo/redo) invalidate node indices.
+  watch(() => {
+    const polygon = polygons.find(p => p.id === selectedNodes.value?.polygonId)
+    return polygon?.points
+  }, (_points, previousPoints) => {
+    if (previousPoints && !draggedNodeInfo.isDragging) clearNodeSelection()
+  }, { flush: 'sync' })
 
   /**
    * Check if a polygon is currently being dragged.
@@ -176,11 +244,14 @@ export function usePolygonEditing(
       return false
     }
 
+    clearNodeSelection()
+
     if (selectedPolygonIndex.value >= 0) {
       const nodeIndex = getNodeAtPoint(polygons, point, selectedPolygonIndex.value, view)
       if (nodeIndex >= 0) {
         const polygon = polygons[selectedPolygonIndex.value]
         if (polygon) {
+          selectedNodes.value = { polygonId: polygon.id, nodeIndices: [nodeIndex] }
           dragOriginalPosition.value = {
             polygonId: polygon.id,
             originalPoints: [...polygon.points]
@@ -216,6 +287,7 @@ export function usePolygonEditing(
 
           commander.execute(updateCommand, getCommandContext())
 
+          selectedNodes.value = { polygonId: polygon.id, nodeIndices: [insertIndex] }
           draggedNodeInfo.polygonIndex = polyIndex
           draggedNodeInfo.nodeIndex = insertIndex
           draggedNodeInfo.isDragging = true
@@ -292,7 +364,10 @@ export function usePolygonEditing(
     if (draggedNodeInfo.isDragging) {
       if (dragOriginalPosition.value && !isInvalidPosition.value) {
         const polygon = polygons[draggedNodeInfo.polygonIndex]
-        if (polygon) {
+        if (polygon && polygon.points.some((point, index) => {
+          const original = dragOriginalPosition.value?.originalPoints[index]
+          return !original || point.x !== original.x || point.y !== original.y
+        })) {
           const updateCommand = new UpdatePolygonCommand({
             polygonId: dragOriginalPosition.value.polygonId,
             newPoints: [...polygon.points]
@@ -318,6 +393,7 @@ export function usePolygonEditing(
   }
 
   function cancelCurrentOperation(): void {
+    clearNodeSelection()
     if (draggedNodeInfo.isDragging && dragOriginalPosition.value) {
       const polygon = polygons[draggedNodeInfo.polygonIndex]
       if (polygon) {
@@ -447,6 +523,7 @@ export function usePolygonEditing(
    * Clear all editing state.
    */
   function clearEditingState(): void {
+    clearNodeSelection()
     hoveredPolygonIndex.value = -1
     hoveredNodeIndex.value = -1
     resetEdgeHover()
@@ -461,6 +538,10 @@ export function usePolygonEditing(
   return {
     hoveredPolygonIndex,
     hoveredNodeIndex,
+    selectedNodes,
+    selectNodesInRect,
+    clearNodeSelection,
+    deleteSelectedNodes,
     hoveredEdgeInfo,
     previewNodePosition,
     draggedNodeInfo,

@@ -111,6 +111,9 @@ export interface RectangleDrawing {
 }
 
 export interface PolygonEditing {
+  selectNodesInRect?: (polygonIndex: number, rect: { minX: number, maxX: number, minY: number, maxY: number }, additive?: boolean) => void
+  selectedNodes?: Ref<{ polygonId: string, nodeIndices: number[] } | null>
+  clearNodeSelection?: () => void
   handleMouseDown: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, canvas: HTMLCanvasElement | null) => boolean
   handleMouseMove: (point: { x: number, y: number }) => void
   handleMouseUp: (canvas: HTMLElement | null) => void
@@ -204,6 +207,9 @@ export interface EditorCommands {
 }
 
 export interface MarqueeContext {
+  nodePolygonId?: string
+  additiveNodes?: boolean
+  polygonSelectionContexts: number[]
   selectedPolygonIndex: number
   selectedPolylineIndex: number
   viewMode?: ViewMode

@@ -123,6 +123,17 @@ describe('vertex size rendering', () => {
     renderer.cleanup()
   })
 
+  it('highlights each selected polygon corner', () => {
+    const { renderer, gl } = setupImageUpload(1000, 800)
+    const state = baselineRenderState()
+    state.selectedPolylineIndex.value = -1
+    state.selectedPolygonNodes = { polygonId: 'line', nodeIndices: [0, 2] }
+    renderer.renderFrame(state, scale, view, () => [0, 1, 2, 0, 2, 3])
+    expect(gl.drawArrays).toHaveBeenCalledWith(gl.POINTS, 0, 1)
+    expect(gl.drawArrays).toHaveBeenCalledWith(gl.POINTS, 2, 1)
+    renderer.cleanup()
+  })
+
   it('scales every layer of baseline handles and keeps their size when zooming', () => {
     editorSettings.defaultVertexSize = 'small'
     const { renderer, gl } = setupImageUpload(1000, 800)

@@ -178,8 +178,16 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     const commander = getCommander()
     if (!ctx || !commander) return false
 
-    const polygonIds = selectedPolygonIds.value
-    const polylineIds = selectedPolylineIds.value
+    const controls = ctx.session.controls.value
+    if (controls?.isCanvasEditable.value === false) return false
+    if (controls?.deleteSelectedNodes?.()) return true
+
+    // A clicked handle clears the selection set while keeping the active element.
+    const hasSelectionSet = selectedPolygonIds.value.length > 0 || selectedPolylineIds.value.length > 0
+    const polygon = polygons.value[selectedPolygonIndex.value]
+    const polyline = polylines.value[selectedPolylineIndex.value]
+    const polygonIds = hasSelectionSet ? [...selectedPolygonIds.value] : (!polyline && polygon ? [polygon.id] : [])
+    const polylineIds = hasSelectionSet ? [...selectedPolylineIds.value] : (polyline ? [polyline.id] : [])
     if (polygonIds.length === 0 && polylineIds.length === 0) return false
 
     if (callbacks.deleteSelected) {
@@ -481,7 +489,9 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
           continue
         }
 
-        const handled = runCommand(commandId, scopeState.registration, { isTextViewContext })
+        // Holding Delete after removing a corner must not remove its whole polygon.
+        const handled = (commandId === 'delete' && event.repeat)
+          || runCommand(commandId, scopeState.registration, { isTextViewContext })
         if (!handled) continue
 
         event.preventDefault()
