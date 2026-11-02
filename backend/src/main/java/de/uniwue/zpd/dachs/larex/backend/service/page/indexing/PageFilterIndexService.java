@@ -510,7 +510,7 @@ public class PageFilterIndexService {
     public Map<String, Object> getIndexStats(String projectId) {
         Map<String, Object> stats = new HashMap<>();
 
-        long totalPages = (long) pageRepository.findByProjectId(projectId).size();
+        long totalPages = pageRepository.countByProjectId(projectId);
 
         long indexedTextPages = 0L;
         long indexedLabelPages = 0L;

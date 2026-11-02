@@ -23,21 +23,18 @@ class PageTextConfidenceStatsServiceTest {
     private PageConfidenceIndexRepository pageConfidenceIndexRepository;
 
     @Test
-    void resolveStatsComputesTextEquivAggregates() {
+    void resolveStatsMapsDatabaseAggregates() {
         PageTextConfidenceStatsService service = new PageTextConfidenceStatsService(pageConfidenceIndexRepository);
         Page first = page("page-1");
         Page second = page("page-2");
 
-        when(pageConfidenceIndexRepository.findConfidenceValuesByProjectIdAndPageIdsAndElementType(
+        when(pageConfidenceIndexRepository.aggregateConfidenceStatsByProjectIdAndPageIds(
                 eq("project-1"),
                 anyCollection(),
-                eq(PageConfidenceIndex.ElementType.TEXTEQUIV)
+                eq(PageConfidenceIndex.ElementType.TEXTEQUIV.name())
         )).thenReturn(List.of(
-                new Object[] {"page-1", 0.2d},
-                new Object[] {"page-1", 0.4d},
-                new Object[] {"page-1", 0.9d},
-                new Object[] {"page-2", 0.5d},
-                new Object[] {"page-2", 0.7d}
+                new Object[] {"page-1", 0.2d, 0.9d, 0.5d, 0.4d, 3L},
+                new Object[] {"page-2", 0.5d, 0.7d, 0.6d, 0.6d, 2L}
         ));
 
         Map<String, PageDto.TextConfidenceStats> stats = service.resolveStats("project-1", List.of(first, second));

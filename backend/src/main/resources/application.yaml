@@ -28,6 +28,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        # Load lazy collections (e.g. page tags) in batches instead of one query per entity.
+        default_batch_fetch_size: ${LAREX_HIBERNATE_BATCH_FETCH_SIZE:100}
         type:
           json_format_mapper: de.uniwue.zpd.dachs.larex.backend.config.ToolsJacksonJsonFormatMapper
   flyway:

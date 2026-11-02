@@ -55,17 +55,24 @@ public interface PageConfidenceIndexRepository extends JpaRepository<PageConfide
         @Param("pageIds") Collection<String> pageIds
     );
 
-    @Query("""
-        SELECT p.page.id, p.confidence
-        FROM PageConfidenceIndex p
-        WHERE p.page.project.id = :projectId
-          AND p.page.id IN :pageIds
-          AND p.elementType = :elementType
-        ORDER BY p.page.id, p.confidence
-        """)
-    List<Object[]> findConfidenceValuesByProjectIdAndPageIdsAndElementType(
+    /** Per-page min, max, mean, median and count, aggregated in the database. */
+    @Query(value = """
+        SELECT pci.page_id,
+               MIN(pci.confidence),
+               MAX(pci.confidence),
+               AVG(pci.confidence),
+               PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY pci.confidence),
+               COUNT(*)
+        FROM page_confidence_index pci
+        JOIN pages p ON p.id = pci.page_id
+        WHERE p.project_id = :projectId
+          AND pci.page_id IN (:pageIds)
+          AND pci.element_type = :elementType
+        GROUP BY pci.page_id
+        """, nativeQuery = true)
+    List<Object[]> aggregateConfidenceStatsByProjectIdAndPageIds(
         @Param("projectId") String projectId,
         @Param("pageIds") Collection<String> pageIds,
-        @Param("elementType") PageConfidenceIndex.ElementType elementType
+        @Param("elementType") String elementType
     );
 }

@@ -4,7 +4,6 @@ import de.uniwue.zpd.dachs.larex.backend.dto.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageConfidenceIndex;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 public class PageTextConfidenceStatsService {
+
+    private static final int PAGE_ID_CHUNK_SIZE = 1_000;
 
     private final PageConfidenceIndexRepository pageConfidenceIndexRepository;
 
@@ -35,36 +36,27 @@ public class PageTextConfidenceStatsService {
             return Map.of();
         }
 
-        List<Object[]> rows = pageConfidenceIndexRepository.findConfidenceValuesByProjectIdAndPageIdsAndElementType(
-                projectId,
-                pageIds,
-                PageConfidenceIndex.ElementType.TEXTEQUIV
-        );
-
-        Map<String, List<Double>> valuesByPageId = new HashMap<>();
-        for (Object[] row : rows) {
-            if (row.length < 2 || !(row[0] instanceof String pageId) || !(row[1] instanceof Number confidence)) {
-                continue;
-            }
-            valuesByPageId.computeIfAbsent(pageId, ignored -> new ArrayList<>()).add(confidence.doubleValue());
-        }
-
         Map<String, PageDto.TextConfidenceStats> statsByPageId = new HashMap<>();
-        for (Map.Entry<String, List<Double>> entry : valuesByPageId.entrySet()) {
-            List<Double> values = entry.getValue().stream().sorted().toList();
-            if (values.isEmpty()) {
-                continue;
+        // Chunk to stay well below PostgreSQL's bind-parameter limit on very large projects.
+        for (int from = 0; from < pageIds.size(); from += PAGE_ID_CHUNK_SIZE) {
+            List<String> chunk = pageIds.subList(from, Math.min(from + PAGE_ID_CHUNK_SIZE, pageIds.size()));
+            List<Object[]> rows = pageConfidenceIndexRepository.aggregateConfidenceStatsByProjectIdAndPageIds(
+                    projectId,
+                    chunk,
+                    PageConfidenceIndex.ElementType.TEXTEQUIV.name()
+            );
+            for (Object[] row : rows) {
+                if (row.length < 6 || !(row[0] instanceof String pageId)) {
+                    continue;
+                }
+                statsByPageId.put(pageId, new PageDto.TextConfidenceStats(
+                        ((Number) row[1]).doubleValue(),
+                        ((Number) row[2]).doubleValue(),
+                        ((Number) row[3]).doubleValue(),
+                        ((Number) row[4]).doubleValue(),
+                        ((Number) row[5]).intValue()
+                ));
             }
-
-            int count = values.size();
-            double min = values.getFirst();
-            double max = values.getLast();
-            double mean = values.stream().mapToDouble(Double::doubleValue).average().orElse(0.0d);
-            double median = count % 2 == 1
-                    ? values.get(count / 2)
-                    : (values.get((count / 2) - 1) + values.get(count / 2)) / 2.0d;
-
-            statsByPageId.put(entry.getKey(), new PageDto.TextConfidenceStats(min, max, mean, median, count));
         }
 
         return statsByPageId;

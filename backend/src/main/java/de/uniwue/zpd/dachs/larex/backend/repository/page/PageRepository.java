@@ -22,6 +22,8 @@ public interface PageRepository extends JpaRepository<Page, String> {
     @EntityGraph(attributePaths = {"images", "project"})
     List<Page> findByProjectId(String projectId);
 
+    long countByProjectId(String projectId);
+
     @Query("SELECT p.id FROM Page p WHERE p.project.id = :projectId AND p.workflowState IN :states")
     List<String> findIdsByProjectIdAndWorkflowStateIn(
             @Param("projectId") String projectId,
