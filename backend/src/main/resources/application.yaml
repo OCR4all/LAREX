@@ -59,6 +59,8 @@ spring:
 
 keycloak:
   resource-client-id: larex-backend
+  # Clients whose access tokens the API accepts (checked against the token's azp/aud claims).
+  allowed-token-clients: ${KEYCLOAK_ALLOWED_TOKEN_CLIENTS:larex-frontend}
   admin:
     server-url: http://keycloak:8080
     realm: larex-dev

@@ -10,6 +10,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
@@ -81,6 +83,15 @@ public class SecurityConfig {
                 );
 
         return http.build();
+    }
+
+    /** Picked up by Spring Boot's auto-configured JwtDecoder as an additional validator. */
+    @Bean
+    public OAuth2TokenValidator<Jwt> jwtClientValidator(KeycloakResourceProperties keycloakResourceProperties) {
+        return new JwtClientValidator(
+                keycloakResourceProperties.resourceClientId(),
+                keycloakResourceProperties.allowedTokenClients()
+        );
     }
 
     @Bean
