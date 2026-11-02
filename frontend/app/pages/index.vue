@@ -1625,11 +1625,14 @@ async function handleLegacyOcr4allImport(event: Event) {
           <UEmpty
             v-if="data && data.length === 0"
             variant="naked"
-            icon="i-lucide-book"
             title="No projects found"
             description="It looks like you haven't added any projects. Create one to get started."
             :actions="emptyActions as any"
-          />
+          >
+            <template #leading>
+              <WorkspaceEmptyDrawer />
+            </template>
+          </UEmpty>
 
           <div v-else-if="data">
             <UEmpty

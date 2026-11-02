@@ -2812,15 +2812,34 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
               </div>
             </div>
 
-            <div v-else-if="pages && pages.length === 0" class="py-12 text-center">
-              <UIcon name="i-lucide-file-text" class="mx-auto text-4xl text-neutral-400 mb-4" />
-              <p class="text-neutral-600 dark:text-neutral-400 mb-4">
-                No pages found in this project.
-              </p>
-              <div class="text-sm text-neutral-500 dark:text-neutral-500 space-y-2 max-w-md mx-auto">
-                <p><strong>Upload Files:</strong> Upload images and XML files to create pages automatically.</p>
-                <p>Files are grouped by basename (everything before the first dot) to create organized pages.</p>
+            <div v-else-if="pages && pages.length === 0" class="flex flex-col items-center gap-4 px-4 py-12 text-center">
+              <ProjectEmptyBinder />
+              <div class="max-w-md space-y-2">
+                <h2 class="text-lg font-semibold text-highlighted">
+                  No pages yet
+                </h2>
+                <p class="text-sm text-muted">
+                  Upload images, XML files, or PDFs to add the first pages to this project.
+                </p>
               </div>
+              <button
+                v-if="canUploadProject"
+                type="button"
+                class="flex w-full max-w-md flex-col items-center gap-2 rounded-lg border-2 border-dashed border-default bg-muted/30 px-6 py-8 text-sm transition-colors hover:border-primary hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-default disabled:hover:bg-muted/30"
+                :disabled="isUploading || projectStatus?.isBlocked || project?.locked"
+                :aria-busy="isUploading"
+                @click="() => fileInput?.click()"
+              >
+                <UIcon
+                  :name="isUploading ? 'i-lucide-loader-circle' : 'i-lucide-upload'"
+                  class="size-6 text-muted"
+                  :class="{ 'animate-spin': isUploading }"
+                />
+                <span class="font-medium text-highlighted">
+                  {{ isUploading ? 'Uploading files…' : 'Drop files here or click to browse' }}
+                </span>
+                <span class="text-xs text-muted">Images, XML files, and PDFs</span>
+              </button>
             </div>
 
             <div v-else-if="pages && filteredPages.length === 0" class="py-12 text-center">
