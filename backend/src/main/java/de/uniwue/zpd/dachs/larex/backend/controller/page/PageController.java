@@ -303,6 +303,7 @@ public class PageController {
             @RequestParam String textContent,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
+        pageService.requirePageAccess(projectId, pageId, userId);
         List<String> textLineIds = pageFilterIndexService.getMatchingTextLineIds(pageId, textContent);
         return ResponseEntity.ok(new PageDto.MatchingTextLinesResponse(pageId, textLineIds));
     }
@@ -318,6 +319,7 @@ public class PageController {
             @RequestParam String textContent,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
+        pageService.requirePageAccess(projectId, pageId, userId);
         List<String> regionIds = pageFilterIndexService.getMatchingTextRegionIds(pageId, textContent);
         return ResponseEntity.ok(new PageDto.MatchingTextRegionsResponse(pageId, regionIds));
     }
@@ -330,6 +332,7 @@ public class PageController {
             @PathVariable String projectId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
+        pageService.requireProjectAccess(projectId, userId);
         log.info("Getting index stats for project: {}", projectId);
         try {
             Map<String, Object> stats = pageFilterIndexService.getIndexStats(projectId);
@@ -365,6 +368,7 @@ public class PageController {
             @PathVariable String projectId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
+        pageService.requireProjectAccess(projectId, userId);
         List<Map<String, Object>> labels = pageFilterIndexService.getAvailableLabelsWithCounts(projectId);
         List<PageDto.LabelWithCount> response = labels.stream()
                 .map(m -> new PageDto.LabelWithCount(
@@ -401,6 +405,7 @@ public class PageController {
             @PathVariable String projectId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
+        pageService.requireProjectAccess(projectId, userId);
         pageFilterIndexService.rebuildProjectIndex(projectId);
         return ResponseEntity.accepted().body(Map.of("message", "Index rebuild started for project " + projectId));
     }

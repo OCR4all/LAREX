@@ -246,7 +246,14 @@ public class ProjectTransferService {
         });
     }
 
-    public List<ProjectTransferRequest> getPendingIncomingRequestsForWorkspace(String workspaceId) {
+    /** Members without transfer rights see no requests; non-members are denied. */
+    public List<ProjectTransferRequest> getPendingIncomingRequestsForWorkspace(String workspaceId, String userId) {
+        if (!authorizationPolicyService.canAccessWorkspace(workspaceId, userId)) {
+            throw new SecurityException("Access denied to workspace: " + workspaceId);
+        }
+        if (!isUserAdministratorInWorkspace(workspaceId, userId)) {
+            return List.of();
+        }
         return transferRequestRepository.findPendingRequestsForTargetWorkspace(workspaceId);
     }
 
@@ -284,7 +291,14 @@ public class ProjectTransferService {
                 .orElse(true);
     }
 
-    public List<ProjectTransferRequest> getPendingOutgoingRequestsForWorkspace(String workspaceId) {
+    /** Members without transfer rights see no requests; non-members are denied. */
+    public List<ProjectTransferRequest> getPendingOutgoingRequestsForWorkspace(String workspaceId, String userId) {
+        if (!authorizationPolicyService.canAccessWorkspace(workspaceId, userId)) {
+            throw new SecurityException("Access denied to workspace: " + workspaceId);
+        }
+        if (!isUserAdministratorInWorkspace(workspaceId, userId)) {
+            return List.of();
+        }
         return transferRequestRepository.findPendingRequestsFromSourceWorkspace(workspaceId);
     }
 

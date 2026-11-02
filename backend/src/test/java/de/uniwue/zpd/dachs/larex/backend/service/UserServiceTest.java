@@ -219,19 +219,26 @@ class UserServiceTest {
     }
 
     @Test
-    void searchUsers_returnsCappedInvitableSuggestionsForBlankQuery() {
-        UserRepresentation alice = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
-        UserRepresentation disabled = localUser("user-2", "disabled", "disabled@example.org", false, true, List.of());
-        UserRepresentation serviceAccount = serviceAccountUser("service-1", "service-account-client");
-        UserRepresentation bob = localUser("user-3", "bob", "bob@example.org", true, true, List.of());
-        when(usersResource.list(0, 4)).thenReturn(List.of(alice, disabled, serviceAccount, bob));
-
+    void searchUsers_doesNotListUsersForBlankQuery() {
         var suggestions = userService.searchUsers(" ", 2);
 
-        assertEquals(List.of("alice", "bob"), suggestions.stream().map(user -> user.username()).toList());
-        verify(usersResource).list(0, 4);
+        assertEquals(List.of(), suggestions);
+        verify(usersResource, never()).list(anyInt(), anyInt());
         verify(usersResource, never()).searchByUsername(anyString(), eq(true));
-        verify(usersResource, never()).searchByEmail(anyString(), eq(true));
+    }
+
+    @Test
+    void searchUsers_hidesEmailUnlessExactAddressWasSearched() {
+        UserRepresentation alice = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
+        UserRepresentation alicia = localUser("user-2", "alicia", "alicia@example.org", true, true, List.of());
+        when(usersResource.searchByUsername("alice@example.org", true)).thenReturn(List.of());
+        when(usersResource.searchByEmail("alice@example.org", true)).thenReturn(List.of(alice));
+        when(usersResource.search("alice@example.org", 0, 10)).thenReturn(List.of(alice, alicia));
+
+        var results = userService.searchUsers("alice@example.org", 10);
+
+        assertEquals("alice@example.org", results.get(0).email());
+        assertEquals(null, results.get(1).email());
     }
 
     @Test

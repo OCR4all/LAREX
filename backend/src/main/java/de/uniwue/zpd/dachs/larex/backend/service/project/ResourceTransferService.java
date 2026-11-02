@@ -215,11 +215,25 @@ public class ResourceTransferService {
         return transferRequestRepository.findByRequestedByUserId(userId);
     }
 
-    public List<ResourceTransferRequest> getPendingIncomingRequestsForWorkspace(String workspaceId) {
+    /** Members without transfer rights see no requests; non-members are denied. */
+    public List<ResourceTransferRequest> getPendingIncomingRequestsForWorkspace(String workspaceId, String userId) {
+        if (!authorizationPolicyService.canAccessWorkspace(workspaceId, userId)) {
+            throw new SecurityException("Access denied to workspace: " + workspaceId);
+        }
+        if (!isUserAdministratorInWorkspace(workspaceId, userId)) {
+            return List.of();
+        }
         return transferRequestRepository.findPendingRequestsForTargetWorkspace(workspaceId);
     }
 
-    public List<ResourceTransferRequest> getPendingOutgoingRequestsForWorkspace(String workspaceId) {
+    /** Members without transfer rights see no requests; non-members are denied. */
+    public List<ResourceTransferRequest> getPendingOutgoingRequestsForWorkspace(String workspaceId, String userId) {
+        if (!authorizationPolicyService.canAccessWorkspace(workspaceId, userId)) {
+            throw new SecurityException("Access denied to workspace: " + workspaceId);
+        }
+        if (!isUserAdministratorInWorkspace(workspaceId, userId)) {
+            return List.of();
+        }
         return transferRequestRepository.findPendingRequestsFromSourceWorkspace(workspaceId);
     }
 

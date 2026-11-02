@@ -507,18 +507,6 @@ public class UserService {
         RealmResource realmResource = keycloakAdmin.realm(realm);
         String searchTerm = query == null ? "" : query.trim();
 
-        if (searchTerm.isEmpty()) {
-            int candidateLimit = Math.min(cappedLimit * 2, 50);
-            List<UserRepresentation> candidates = realmResource.users().list(0, candidateLimit).stream()
-                    .filter(this::isInvitableUser)
-                    .limit(cappedLimit)
-                    .toList();
-            Map<String, String> avatars = getAvatarUrls(candidates);
-            return candidates.stream()
-                    .map(user -> mapToUserDto(user, avatars.get(user.getId())))
-                    .toList();
-        }
-
         if (searchTerm.length() < 2) {
             return List.of();
         }
@@ -550,8 +538,14 @@ public class UserService {
                 .toList();
         Map<String, String> avatars = getAvatarUrls(users);
         return users.stream()
-                .map(user -> mapToUserDto(user, avatars.get(user.getId())))
+                .map(user -> toInviteSearchResult(user, avatars.get(user.getId()), searchTerm))
                 .toList();
+    }
+
+    /** Hides email addresses from user search unless the searcher already typed the exact address. */
+    private UserDto toInviteSearchResult(UserRepresentation user, String avatar, String searchTerm) {
+        String email = user.getEmail() != null && user.getEmail().equalsIgnoreCase(searchTerm) ? user.getEmail() : null;
+        return new UserDto(user.getId(), user.getUsername(), email, user.getFirstName(), user.getLastName(), avatar);
     }
 
     private AdminUserDto updateUserEnabledStateForAdmin(String actorUserId, String actorUsername, String targetUserId, boolean enabled) {

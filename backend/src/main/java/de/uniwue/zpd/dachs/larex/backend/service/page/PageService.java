@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
@@ -180,6 +181,23 @@ public class PageService {
             return pageRepository.findByProjectIdAndTagsIn(projectId, tags, pageable);
         }
         return pageRepository.findByProjectId(projectId, pageable);
+    }
+
+    /** Returns the project's workspace ID, or throws when the project is missing or not accessible. */
+    public String requireProjectAccess(String projectId, String userId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project", projectId));
+        String workspaceId = project.getLibrary().getWorkspaceId();
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        return workspaceId;
+    }
+
+    /** Throws unless the page belongs to the project and the user can access that project. */
+    public void requirePageAccess(String projectId, String pageId, String userId) {
+        requireProjectAccess(projectId, userId);
+        if (!pageBelongsToProject(pageId, projectId)) {
+            throw new ResourceNotFoundException("Page", pageId);
+        }
     }
 
     /** Scalar query deliberately bypasses managed entities when checking stale lease contexts. */

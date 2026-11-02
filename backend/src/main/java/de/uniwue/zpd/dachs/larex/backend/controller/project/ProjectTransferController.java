@@ -92,17 +92,19 @@ public class ProjectTransferController {
 
     @GetMapping("/workspace/{workspaceId}/incoming")
     public ResponseEntity<List<ProjectTransferDto.Response>> getIncomingRequestsForWorkspace(
-            @PathVariable String workspaceId) {
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.ok(projectTransferService.toResponses(
-                projectTransferService.getPendingIncomingRequestsForWorkspace(workspaceId)
+                projectTransferService.getPendingIncomingRequestsForWorkspace(workspaceId, userId)
         ));
     }
 
     @GetMapping("/workspace/{workspaceId}/outgoing")
     public ResponseEntity<List<ProjectTransferDto.Response>> getOutgoingRequestsForWorkspace(
-            @PathVariable String workspaceId) {
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.ok(projectTransferService.toResponses(
-                projectTransferService.getPendingOutgoingRequestsForWorkspace(workspaceId)
+                projectTransferService.getPendingOutgoingRequestsForWorkspace(workspaceId, userId)
         ));
     }
 

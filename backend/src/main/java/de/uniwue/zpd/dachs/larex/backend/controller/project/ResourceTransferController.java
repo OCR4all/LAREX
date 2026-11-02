@@ -63,17 +63,19 @@ public class ResourceTransferController {
 
     @GetMapping("/workspace/{workspaceId}/incoming")
     public ResponseEntity<List<ResourceTransferDto.Response>> getIncomingRequestsForWorkspace(
-            @PathVariable String workspaceId) {
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.ok(resourceTransferService.toResponses(
-                resourceTransferService.getPendingIncomingRequestsForWorkspace(workspaceId)
+                resourceTransferService.getPendingIncomingRequestsForWorkspace(workspaceId, userId)
         ));
     }
 
     @GetMapping("/workspace/{workspaceId}/outgoing")
     public ResponseEntity<List<ResourceTransferDto.Response>> getOutgoingRequestsForWorkspace(
-            @PathVariable String workspaceId) {
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.ok(resourceTransferService.toResponses(
-                resourceTransferService.getPendingOutgoingRequestsForWorkspace(workspaceId)
+                resourceTransferService.getPendingOutgoingRequestsForWorkspace(workspaceId, userId)
         ));
     }
 
