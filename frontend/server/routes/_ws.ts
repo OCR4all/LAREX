@@ -5,6 +5,7 @@ import {
   verifyCollaborationRoomToken
 } from '#server/utils/collaboration-token'
 import { isExpectedDisconnectError } from '#server/utils/disconnect-error'
+import { isSameOriginWebSocket } from '#server/utils/websocket-origin'
 import type { Peer } from 'crossws'
 
 async function resolveSessionUserId(peer: Peer): Promise<string | null> {
@@ -53,6 +54,12 @@ function sendJson(peer: Peer, data: unknown) {
 export default defineWebSocketHandler({
   async open(peer) {
     console.log(`WebSocket connected: ${peer.id}`)
+
+    if (!isSameOriginWebSocket(peer.request?.headers)) {
+      console.warn(`Rejected cross-origin WebSocket peer ${peer.id}`, { origin: peer.request?.headers?.get('origin') })
+      peer.close(4403, 'Cross-origin WebSocket connections are not allowed')
+      return
+    }
 
     const userId = await resolveSessionUserId(peer)
     if (!userId) {
