@@ -47,7 +47,8 @@ export default defineEventHandler(async (event) => {
   const timestamp = getHeader(event, 'x-larex-notification-bridge-timestamp')
   const signature = getHeader(event, 'x-larex-notification-bridge-signature')
   const rawBody = await readRawBody(event, 'utf8')
-  const requestIp = getRequestIP(event, { xForwardedFor: true }) ?? null
+  // Use the socket peer: forwarding headers are client-controlled and must not satisfy the IP checks.
+  const requestIp = getRequestIP(event) ?? null
 
   if (!rawBody) {
     throw createError({ statusCode: 400, statusMessage: 'Missing notification bridge payload' })
