@@ -155,7 +155,7 @@ export function useEditorCommandCenter(options: EditorCommandCenterOptions) {
           if (!project) continue
 
           try {
-            const projectPages = await $fetch<ProjectPageResponse[]>(`/api/projects/${project.id}/pages`)
+            const projectPages = await $fetch<ProjectPageResponse[]>(`/api/projects/${project.id}/pages/summaries`)
             for (const page of projectPages ?? []) {
               pages.push({
                 id: page.id,

@@ -27,6 +27,19 @@ export interface PageResponse {
   textConfidence?: TextConfidenceStats | null
 }
 
+/** Slim page listing from `GET /api/projects/{id}/pages/summaries`. */
+export interface PageSummaryResponse {
+  id: string
+  name: string
+  sortOrder: number | null
+  workflowState: PageWorkflowState
+  locked: boolean
+  lockedReason: string | null
+}
+
+/** Pages accepted by `POST /api/projects/{id}/pages/by-ids` in one request. */
+export const MAX_PAGES_BY_IDS = 1000
+
 /**
  * Pages explicitly known to have no images cannot be opened in the editor.
  * Keep partial/legacy responses whose image count is unknown so callers can

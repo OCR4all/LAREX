@@ -410,6 +410,45 @@ public class PageController {
         return ResponseEntity.accepted().body(Map.of("message", "Index rebuild started for project " + projectId));
     }
 
+    /** Slim listing for pickers and lock checks: no images, tags, confidence or index status. */
+    @GetMapping("/summaries")
+    public ResponseEntity<List<PageDto.Summary>> getPageSummaries(
+            @PathVariable String projectId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        List<PageDto.Summary> summaries = pageService.getProjectPageSummaries(projectId, userId).stream()
+                .map(page -> new PageDto.Summary(
+                        page.getId(),
+                        page.getName(),
+                        page.getSortOrder(),
+                        page.getWorkflowState(),
+                        page.isEffectivelyLocked(),
+                        page.getEffectiveLockedReason()
+                ))
+                .toList();
+        return ResponseEntity.ok(summaries);
+    }
+
+    /** Full page responses for a selection, so opening a few pages does not load the whole project. */
+    @PostMapping("/by-ids")
+    public ResponseEntity<List<PageDto.Response>> getPagesByIds(
+            @PathVariable String projectId,
+            @Valid @RequestBody PageDto.PageIdsRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        List<Page> pages = pageService.getProjectPagesByIds(projectId, request.pageIds(), userId);
+        Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
+        Map<String, PageDto.PageIndexingStatus> indexingStatuses =
+                pageIndexStatusReadService.resolveStatusesForProjectPages(projectId, pages);
+        Map<String, PageDto.TextConfidenceStats> textConfidenceStats =
+                pageTextConfidenceStatsService.resolveStats(projectId, pages);
+
+        return ResponseEntity.ok(pages.stream()
+                .map(page -> mapToResponse(page, tagLookup, indexingStatuses.get(page.getId()),
+                        textConfidenceStats.get(page.getId())))
+                .toList());
+    }
+
     @GetMapping("/{pageId}")
     public ResponseEntity<PageDto.Response> getPage(
             @PathVariable String projectId,

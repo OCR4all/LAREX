@@ -68,13 +68,13 @@ describe('useEditorCommandCenter', () => {
       if (url === '/api/workspaces/ws-1/projects') {
         return [{ id: 'p1', name: 'Project One', pageCount: 2 }]
       }
-      if (url === '/api/projects/p1/pages') {
+      if (url === '/api/projects/p1/pages/summaries') {
         return [{ id: 'pg1', name: 'Alpha Page' }, { id: 'pg2', name: 'Beta Page' }]
       }
       if (url === '/api/workspaces/ws-2/projects') {
         return [{ id: 'p2', name: 'Project Two', pageCount: 1 }]
       }
-      if (url === '/api/projects/p2/pages') {
+      if (url === '/api/projects/p2/pages/summaries') {
         return [{ id: 'pg3', name: 'Gamma Page' }]
       }
       return []
@@ -93,7 +93,7 @@ describe('useEditorCommandCenter', () => {
     await flush()
 
     expect(fetchMock).toHaveBeenCalledWith('/api/workspaces/ws-1/projects')
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/p1/pages')
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/p1/pages/summaries')
 
     api.searchTerm.value = 'page'
     await flush()
@@ -110,7 +110,7 @@ describe('useEditorCommandCenter', () => {
     await flush()
 
     expect(fetchMock).toHaveBeenCalledWith('/api/workspaces/ws-2/projects')
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/p2/pages')
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/p2/pages/summaries')
   })
 
   it('maps project and page selections to expected payloads', async () => {
@@ -118,7 +118,7 @@ describe('useEditorCommandCenter', () => {
       if (url === '/api/workspaces/ws-1/projects') {
         return [{ id: 'p1', name: 'Project One', pageCount: 2 }]
       }
-      if (url === '/api/projects/p1/pages') {
+      if (url === '/api/projects/p1/pages/summaries') {
         return [{ id: 'pg1', name: 'Alpha Page' }, { id: 'pg2', name: 'Beta Page' }]
       }
       return []

@@ -34,7 +34,7 @@ import { redoSessionCommand, undoSessionCommand } from '@/session/editor/canvas-
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import type { Commander } from '@/commands/editor/commander'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
-import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
+import { createSkeletonPageData, MAX_PAGES_BY_IDS, type PageResponse, type PageSummaryResponse } from '@/services/editor/project-loader'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { LabelSet as ApiLabelSet, LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
 import type { ValidateCodecAgainstSourcesResponse } from '@/types/codec'
@@ -311,7 +311,17 @@ async function openSelectionsInEditor(
     let allPages: PageResponse[] = []
 
     try {
-      allPages = await $fetch<PageResponse[]>(`/api/projects/${projectId}/pages`)
+      // Fetch only the selected pages unless the whole project (or a very large selection) is opened.
+      if (selection.pageIds?.length === 0) {
+        allPages = []
+      } else if (selection.pageIds && selection.pageIds.length <= MAX_PAGES_BY_IDS) {
+        allPages = await $fetch<PageResponse[]>(`/api/projects/${projectId}/pages/by-ids`, {
+          method: 'POST',
+          body: { pageIds: selection.pageIds }
+        })
+      } else {
+        allPages = await $fetch<PageResponse[]>(`/api/projects/${projectId}/pages`)
+      }
     } catch (err: unknown) {
       toast.add({
         title: 'Failed to load project pages',
@@ -1016,7 +1026,7 @@ async function reconcileActionRunTerminalLocks(projectId: string) {
   if (editorStore.getProjectPages(projectId).length === 0) return
 
   try {
-    const pages = await $fetch<PageResponse[]>(`/api/projects/${projectId}/pages`)
+    const pages = await $fetch<PageSummaryResponse[]>(`/api/projects/${projectId}/pages/summaries`)
     editorStore.patchProjectPageSummaries(projectId, pages)
     for (const page of pages) {
       const canvasId = getCanvasId(projectId, page.id)
@@ -2086,12 +2096,10 @@ async function ensureProjectPagesLoaded(projectId: string, pageId: string): Prom
     const projectPromise = selectedWorkspace.value
       ? $fetch<{ id: string, name: string }>(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}`).catch(() => null)
       : Promise.resolve(null)
-    const [project, allPagesResponse] = await Promise.all([
+    const [project, targetPage] = await Promise.all([
       projectPromise,
-      $fetch<PageResponse[]>(`/api/projects/${projectId}/pages`)
+      $fetch<PageResponse>(`/api/projects/${projectId}/pages/${pageId}`).catch(() => null)
     ])
-
-    const targetPage = allPagesResponse.find(page => page.id === pageId)
     if (!targetPage) return false
 
     const skeletonPages = createSkeletonPageData([targetPage], {

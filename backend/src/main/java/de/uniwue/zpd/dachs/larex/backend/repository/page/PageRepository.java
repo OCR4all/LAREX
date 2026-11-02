@@ -24,6 +24,16 @@ public interface PageRepository extends JpaRepository<Page, String> {
 
     long countByProjectId(String projectId);
 
+    /** Pages with their project but without image collections, for lightweight listings. */
+    @EntityGraph(attributePaths = {"project"})
+    @Query("SELECT p FROM Page p WHERE p.project.id = :projectId")
+    List<Page> findWithProjectByProjectId(@Param("projectId") String projectId);
+
+    @EntityGraph(attributePaths = {"images", "project"})
+    @Query("SELECT p FROM Page p WHERE p.project.id = :projectId AND p.id IN :pageIds")
+    List<Page> findWithImagesByProjectIdAndIdIn(@Param("projectId") String projectId,
+                                                @Param("pageIds") Collection<String> pageIds);
+
     @Query("SELECT p.id FROM Page p WHERE p.project.id = :projectId AND p.workflowState IN :states")
     List<String> findIdsByProjectIdAndWorkflowStateIn(
             @Param("projectId") String projectId,

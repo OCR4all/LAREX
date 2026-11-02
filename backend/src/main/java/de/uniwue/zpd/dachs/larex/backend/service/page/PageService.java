@@ -33,6 +33,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -121,6 +122,18 @@ public class PageService {
         this.pageOrderService = pageOrderService;
         this.annotationReadCache = annotationReadCache;
         this.pageFilterIndexService = pageFilterIndexService;
+    }
+
+    /** All pages of a project in project order, without loading images. */
+    public List<Page> getProjectPageSummaries(String projectId, String userId) {
+        requireProjectAccess(projectId, userId);
+        return pageOrderService.sortPages(pageRepository.findWithProjectByProjectId(projectId));
+    }
+
+    /** The requested pages of a project in project order; IDs from other projects are ignored. */
+    public List<Page> getProjectPagesByIds(String projectId, Collection<String> pageIds, String userId) {
+        requireProjectAccess(projectId, userId);
+        return pageOrderService.sortPages(pageRepository.findWithImagesByProjectIdAndIdIn(projectId, pageIds));
     }
 
     public List<Page> getProjectPages(String projectId, String userId) {

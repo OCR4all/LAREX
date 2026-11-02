@@ -52,7 +52,7 @@ async function ensurePagesLoaded(projectId: string) {
     [projectId]: true
   }
   try {
-    const pages = await $fetch<ProjectPage[]>(`/api/projects/${projectId}/pages`)
+    const pages = await $fetch<ProjectPage[]>(`/api/projects/${projectId}/pages/summaries`)
     pagesByProjectId.value = {
       ...pagesByProjectId.value,
       [projectId]: pages

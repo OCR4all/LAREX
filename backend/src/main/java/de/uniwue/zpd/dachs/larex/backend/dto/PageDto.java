@@ -72,6 +72,22 @@ public class PageDto {
             List<ImageVariantPreview> imageVariants
     ) {}
 
+    /** Page identity and lock state only, for pickers and lock checks that do not need images or stats. */
+    public record Summary(
+            String id,
+            String name,
+            Integer sortOrder,
+            Page.WorkflowState workflowState,
+            boolean locked,
+            String lockedReason
+    ) {}
+
+    public record PageIdsRequest(
+            @NotEmpty(message = "Page IDs are required")
+            @Size(max = 1000, message = "At most 1000 pages can be requested at once")
+            List<String> pageIds
+    ) {}
+
     public record SortOrderRequest(
             List<String> pageIds
     ) {}
