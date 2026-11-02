@@ -111,3 +111,17 @@ Add nested headings when they materially help, and test keyboard-only navigation
 5. Turn the useful one-off checks into maintained regression coverage and show version applicability.
 
 Success should be measured by independent readers completing representative tasks and recovering from expected errors, not by adding another target number of pages. No new user study or fresh authenticated application session was performed in this evaluation.
+
+## Status update, 2 November 2026
+
+Source-checked against the working tree after the Oct 19 – Nov 2 changes. Resolved:
+
+- Finding 1: Add/Create GT, index change/swap, and on-demand GT creation are documented in the tutorial and text review. The fixture-based acceptance run is still open.
+- Finding 2: SDK setup starts with `uv init`; Kraken registration includes workspace activation and a test run; release verification keeps one working directory and attests the JSON manifest.
+- Finding 4: baseline comparison is limited to summary metrics; the export guide states which index each format uses and the per-line fallback.
+- Finding 5 (restore): target database prerequisites are documented. Fixtures and visuals remain open.
+- Finding 8 (training grammar): enabled outputs are rejected, a disabled block is accepted, and `locking.mode: NONE` must be explicit.
+- The YAML reference, Actions overview, Running Actions, SDK, and user guide now distinguish all four Action kinds. Every complete definition on those pages and in `deployment/actions/` passed `ActionDefinitionService.validateYaml`, using a temporary test that was removed afterwards.
+- Drift since 18 October: production secret checks, `KEYCLOAK_ALLOWED_TOKEN_CLIENTS`, the IIIF private-host guard, reverse-proxy requirements (Host forwarding for WebSockets, `X-Forwarded-For`, blocking `/api/notifications/`), health detail visibility, invalid-XML upload and editor recovery, workflow execute roles and history, polygon node deletion, the full default shortcut set, and admin user labels.
+
+Still open: findings 3, 5 (fixtures/visuals), 6, 7, 8 (CI checks, applicability), and 9.
