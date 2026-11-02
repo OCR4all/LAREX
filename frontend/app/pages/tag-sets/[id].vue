@@ -432,30 +432,22 @@ const handleDeleteTag = async (tagId: string) => {
         @clear="activeTag = null"
       >
         <template v-if="activeTag && canEditTagSet">
-          <UButton
+          <UiFloatingSelectionButton
             label="Add Child"
             icon="i-lucide-plus"
-            color="neutral"
-            variant="ghost"
-            size="sm"
             aria-label="Add child to selected tag"
             @click="handleCreateTag(activeTag.id)"
           />
-          <UButton
+          <UiFloatingSelectionButton
             label="Duplicate"
             icon="i-lucide-copy"
-            color="neutral"
-            variant="ghost"
-            size="sm"
             aria-label="Duplicate selected tag"
             @click="handleDuplicateTag(activeTag.id)"
           />
-          <UButton
+          <UiFloatingSelectionButton
             label="Delete"
             icon="i-lucide-trash"
             color="error"
-            variant="ghost"
-            size="sm"
             aria-label="Delete selected tag"
             @click="handleDeleteTag(activeTag.id)"
           />

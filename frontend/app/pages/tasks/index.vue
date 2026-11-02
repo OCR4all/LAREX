@@ -675,16 +675,11 @@ const viewModeItems = [
               onSelect: () => handleBulkStatusChange(opt.value)
             }))"
           >
-            <UButton
+            <UiFloatingSelectionButton
+              label="Status"
               icon="i-lucide-circle-dot"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
               :loading="bulkLoading"
-            >
-              Status
-            </UButton>
+            />
           </UDropdownMenu>
 
           <UDropdownMenu
@@ -694,16 +689,11 @@ const viewModeItems = [
               onSelect: () => handleBulkPriorityChange(opt.value)
             }))"
           >
-            <UButton
+            <UiFloatingSelectionButton
+              label="Priority"
               icon="i-lucide-flag"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
               :loading="bulkLoading"
-            >
-              Priority
-            </UButton>
+            />
           </UDropdownMenu>
 
           <UPopover
@@ -711,17 +701,12 @@ const viewModeItems = [
             v-model:open="bulkAssignPopoverOpen"
             :content="{ align: 'start', sideOffset: 6 }"
           >
-            <UButton
+            <UiFloatingSelectionButton
+              label="Assign"
               :icon="bulkLoading ? 'i-lucide-loader-2' : 'i-lucide-user-plus'"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
               :ui="{ leadingIcon: bulkLoading ? 'animate-spin' : '' }"
               :disabled="bulkLoading"
-            >
-              Assign
-            </UButton>
+            />
 
             <template #content>
               <div class="w-64 space-y-2 p-2">
@@ -754,18 +739,14 @@ const viewModeItems = [
             </template>
           </UPopover>
 
-          <UButton
+          <UiFloatingSelectionButton
             v-if="canBulkDeleteSelected"
+            label="Delete"
             icon="i-lucide-trash-2"
             color="error"
-            variant="ghost"
-            size="sm"
-            class="hover:bg-error/20"
             :loading="bulkLoading"
             @click="handleBulkDelete"
-          >
-            Delete
-          </UButton>
+          />
         </UiFloatingSelectionMenu>
       </div>
 

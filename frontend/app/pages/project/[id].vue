@@ -2884,80 +2884,52 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
               :selected-count="selectedPageIds.size"
               @clear="clearSelection"
             >
-              <UButton
+              <UiFloatingSelectionButton
+                label="Open in Editor"
                 icon="i-lucide-pencil"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
                 :loading="isLoadingEditor"
                 :disabled="!pages || pages.length === 0 || project?.locked"
                 aria-label="Open selected pages in editor"
                 @click="handleOpenInEditor"
-              >
-                <span class="hidden sm:inline">Open in Editor</span>
-              </UButton>
-              <UButton
+              />
+              <UiFloatingSelectionButton
+                label="Run Action"
                 icon="i-lucide-play"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
                 :disabled="!hasSelection || project?.locked || !canExecuteProjectActions"
                 aria-label="Run Action on selected pages"
                 @click="openActionRunSlideover('selection')"
-              >
-                <span class="hidden sm:inline">Run Action</span>
-              </UButton>
-              <UButton
+              />
+              <UiFloatingSelectionButton
                 v-if="canManageProjects"
+                label="Move pages"
                 icon="i-lucide-folder-input"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
                 :disabled="!hasSelection || project?.locked"
                 aria-label="Move selected pages to another project"
                 @click="openMovePagesSlideover"
-              >
-                <span class="hidden sm:inline">Move pages</span>
-              </UButton>
+              />
               <UDropdownMenu :items="selectionMoreActionItems" :content="{ align: 'end' }">
-                <UButton
+                <UiFloatingSelectionButton
+                  label="More"
                   icon="i-lucide-ellipsis"
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
                   aria-label="More selected page actions"
-                >
-                  <span class="hidden sm:inline">More</span>
-                </UButton>
+                />
               </UDropdownMenu>
-              <UButton
+              <UiFloatingSelectionButton
                 v-if="canDeleteProjectPages && selectedAnnotationPages.length > 0"
+                label="Delete Annotations"
                 icon="i-lucide-file-x-2"
                 color="error"
-                variant="ghost"
-                size="sm"
-                class="hover:bg-error/20"
                 :aria-label="selectedAnnotationPages.length === 1 ? 'Delete annotation from selected page' : 'Delete annotations from selected pages'"
                 @click="deleteAnnotations(selectedAnnotationPages)"
-              >
-                <span class="hidden sm:inline">Delete Annotations</span>
-              </UButton>
-              <UButton
+              />
+              <UiFloatingSelectionButton
                 v-if="canBulkDeletePages"
+                label="Delete"
                 icon="i-lucide-trash-2"
                 color="error"
-                variant="ghost"
-                size="sm"
-                class="hover:bg-error/20"
                 aria-label="Delete selected pages"
                 @click="openBulkDeleteSlideover"
-              >
-                <span class="hidden sm:inline">Delete</span>
-              </UButton>
+              />
             </UiFloatingSelectionMenu>
           </div>
 

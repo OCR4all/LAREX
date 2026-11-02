@@ -1532,39 +1532,26 @@ useHead({
                     :selected-count="selectedItemIds.size"
                     @clear="clearItemSelection"
                   >
-                    <UButton
+                    <UiFloatingSelectionButton
+                      label="Open Selected"
                       icon="i-lucide-pencil"
-                      color="neutral"
-                      variant="ghost"
-                      size="sm"
-                      class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
                       :disabled="!canOpenSelectedItemsInEditor"
                       :loading="openingEditor"
                       @click="openSelectedItemsInEditor"
-                    >
-                      <span class="hidden sm:inline">Open Selected</span>
-                    </UButton>
+                    />
 
-                    <UButton
+                    <UiFloatingSelectionButton
+                      label="Run Action"
                       icon="i-lucide-plug"
-                      color="neutral"
-                      variant="ghost"
-                      size="sm"
                       @click="openIntegrationAction(true)"
-                    >
-                      Run Action
-                    </UButton>
-                    <UButton
+                    />
+                    <UiFloatingSelectionButton
+                      label="Delete"
                       icon="i-lucide-trash"
                       color="error"
-                      variant="ghost"
-                      size="sm"
-                      class="hover:bg-error/20"
                       :disabled="!canDeleteSelectedItems"
                       @click="deleteSelectedItems"
-                    >
-                      Delete
-                    </UButton>
+                    />
                   </UiFloatingSelectionMenu>
 
                   <div v-if="totalItems > 0" class="hidden sm:flex items-center justify-between border-t border-default pt-4">

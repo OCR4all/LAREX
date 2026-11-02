@@ -630,48 +630,34 @@ onBeforeRouteLeave(async () => {
         :selected-count="selectedLabelCount"
         @clear="clearSelection"
       >
-        <UButton
+        <UiFloatingSelectionButton
           v-if="!isReadOnlyLabelSet && selectedLabelCount > 1"
+          label="Group"
           icon="i-lucide-folder-plus"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
           aria-label="Group selected labels"
           @click="openGroupSelectedDialog"
-        >
-          <span class="hidden sm:inline">Group</span>
-        </UButton>
+        />
 
         <UDropdownMenu
           v-if="!isReadOnlyLabelSet && moveToGroupItems.length > 0"
           :items="moveToGroupItems"
           :content="{ align: 'end' }"
         >
-          <UButton
+          <UiFloatingSelectionButton
+            label="Move"
             icon="i-lucide-folder-input"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
             aria-label="Move selected labels to group"
-          >
-            <span class="hidden sm:inline">Move</span>
-          </UButton>
+          />
         </UDropdownMenu>
 
-        <UButton
+        <UiFloatingSelectionButton
           v-if="!isReadOnlyLabelSet"
+          label="Delete"
           icon="i-lucide-trash-2"
           color="error"
-          variant="ghost"
-          size="sm"
-          class="hover:bg-error/20"
           aria-label="Delete selected labels"
           @click="handleDeleteSelected"
-        >
-          <span class="hidden sm:inline">Delete</span>
-        </UButton>
+        />
       </UiFloatingSelectionMenu>
 
       <div v-if="showGroupDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" @click="cancelGroupSelected">

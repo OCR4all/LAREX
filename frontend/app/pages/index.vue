@@ -1689,68 +1689,46 @@ async function handleLegacyOcr4allImport(event: Event) {
             :selected-count="selectedProjectIds.size"
             @clear="clearSelection"
           >
-            <UButton
+            <UiFloatingSelectionButton
               v-if="hasSelection"
+              label="Open in Editor"
               icon="i-lucide-pencil"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
               :loading="isOpeningSelectedProjectsInEditor"
               :disabled="!canOpenSelectedProjectsInEditor"
               @click="handleOpenSelectedProjectsInEditor"
-            >
-              Open in Editor
-            </UButton>
-            <UButton
+            />
+            <UiFloatingSelectionButton
+              label="Share"
               icon="i-lucide-share-2"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
               :disabled="!canShareSelectedProjects"
               @click="openBatchShareSlideover"
-            >
-              Share
-            </UButton>
+            />
             <UDropdownMenu :items="batchExportItems" :content="{ align: 'center', side: 'top' }">
-              <UButton
+              <UiFloatingSelectionButton
+                label="Export"
                 icon="i-lucide-download"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
+                trailing-icon="i-lucide-chevron-down"
+                :ui="{ trailingIcon: 'size-4' }"
                 :loading="isBatchExporting"
                 :disabled="!canExportSelectedProjects"
-              >
-                Export
-                <UIcon name="i-lucide-chevron-down" class="size-4" />
-              </UButton>
+              />
             </UDropdownMenu>
             <UDropdownMenu :items="batchToolkitItems" :content="{ align: 'center', side: 'top' }">
-              <UButton
+              <UiFloatingSelectionButton
+                label="Toolkit"
                 icon="i-lucide-tool-case"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                class="text-neutral-950 dark:text-neutral-50 hover:dark:bg-white/10 hover:bg-black/10"
+                trailing-icon="i-lucide-chevron-down"
+                :ui="{ trailingIcon: 'size-4' }"
                 :disabled="!hasSelection"
-              >
-                Toolkit
-                <UIcon name="i-lucide-chevron-down" class="size-4" />
-              </UButton>
+              />
             </UDropdownMenu>
-            <UButton
+            <UiFloatingSelectionButton
+              label="Delete"
               icon="i-lucide-trash"
               color="error"
-              variant="ghost"
-              size="sm"
-              class="hover:bg-error/20"
               :disabled="!canDeleteSelectedProjects"
               @click="handleDeleteSelectedProjects"
-            >
-              Delete
-            </UButton>
+            />
           </UiFloatingSelectionMenu>
         </template>
 
