@@ -49,8 +49,7 @@ export function useLocalDateTime(value: MaybeRefOrGetter<DateTimeInput>) {
     computed(() => date.value ?? new Date()),
     {
       max: RELATIVE_MAX_MS,
-      fullDateFormatter: formatLocalDateTime,
-      updateInterval: 30_000
+      fullDateFormatter: formatLocalDateTime
     }
   )
 

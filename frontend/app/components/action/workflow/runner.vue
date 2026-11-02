@@ -43,6 +43,8 @@ const reviewTotal = computed(() => impact.value ? impact.value.pages.length + im
 const reviewProgress = computed(() => reviewTotal.value ? Math.round(included.value.length / reviewTotal.value * 100) : 0)
 const visibleReviewPages = computed(() => impact.value?.pages.filter(page =>
   (page.name || page.pageId).toLocaleLowerCase().includes(reviewSearch.value.trim().toLocaleLowerCase())) ?? [])
+const affectedLevelsLabel = (page: ActionRunImpact['pages'][number]) =>
+  page.affectedLevels.map(level => annotationLevelLabels[level]).join(', ')
 const visibleSkippedPages = computed(() => impact.value?.skippedPages.filter(page =>
   [page.name, page.pageId, page.reason].some(value => value?.toLocaleLowerCase().includes(reviewSearch.value.trim().toLocaleLowerCase()))) ?? [])
 const reviewStatus = computed(() => busy.value ? impact.value ? 'Starting' : 'Checking' : reviewError.value ? 'Needs attention' : !included.value.length ? 'No pages selected' : impact.value?.skippedPages.length ? 'Pages skipped' : 'Ready')
@@ -366,7 +368,7 @@ onBeforeUnmount(() => {
                       v-for="page in visibleReviewPages"
                       :key="page.pageId"
                       :label="page.name || page.pageId"
-                      :description="page.warningPrecision === 'UNKNOWN' ? 'A step does not declare which annotations it replaces.' : page.affectedLevels.map(level => annotationLevelLabels[level]).join(', ') || 'No declared annotation changes.'"
+                      :description="page.warningPrecision === 'UNKNOWN' ? 'A step does not declare which annotations it replaces.' : affectedLevelsLabel(page) || 'No declared annotation changes.'"
                       :model-value="!excluded.includes(page.pageId)"
                       :disabled="busy"
                       :ui="{ label: 'break-words', description: 'break-words' }"
