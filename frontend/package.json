@@ -80,7 +80,7 @@
     "@types/rbush": "^4.0.0",
     "eslint": "^10.13.0",
     "happy-dom": "^21.0.4",
-    "typescript": "^7.0.2",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.12",
     "vue-tsc": "^3.3.13"
   },
