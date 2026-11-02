@@ -2090,7 +2090,19 @@ const pageColumns = [
 
       return h('div', { class: 'flex flex-wrap gap-1' }, [
         ...visibleTags.map((tag, index) => renderTagBadge(tag, index)),
-        h(UBadge, { color: 'primary', variant: 'subtle', size: 'sm' }, () => `+${hiddenTags.length}`)
+        h(UPopover, { mode: 'hover' }, {
+          default: () => h(UBadge, {
+            'color': 'primary',
+            'variant': 'subtle',
+            'size': 'sm',
+            'tabindex': 0,
+            'class': 'cursor-help',
+            'aria-label': `Show all ${displayTags.length} tags`
+          }, () => `+${hiddenTags.length}`),
+          content: () => h('div', { class: 'p-2 flex flex-col gap-1' },
+            displayTags.map((tag, index) => renderTagBadge(tag, index))
+          )
+        })
       ])
     }
   },
