@@ -23,6 +23,9 @@ spring:
     username: larex
     password: larex_dev_pw
   jpa:
+    # Controllers and many non-transactional services still read lazy associations after the
+    # service call returns. Keep the session open per request until those paths are migrated.
+    open-in-view: true
     hibernate:
       ddl-auto: validate
     properties:
