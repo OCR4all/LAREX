@@ -3,12 +3,19 @@ package de.uniwue.zpd.dachs.larex.backend.service.dictionary;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.io.TempDir;
+
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class DictionaryServiceJsonImportTest {
 
@@ -46,6 +53,25 @@ class DictionaryServiceJsonImportTest {
                 """);
 
         assertEquals(List.of("resources", "entries", "apple", "pear"), forms(parsed));
+    }
+
+    @Test
+    void parseTeiRejectsExternalEntities(@TempDir Path tempDir) throws Exception {
+        Path secret = Files.writeString(tempDir.resolve("secret.txt"), "SECRET-CANARY");
+        DictionaryService service = dictionaryService();
+
+        Method parseTei = DictionaryService.class.getDeclaredMethod("parseTei", String.class);
+        parseTei.setAccessible(true);
+
+        InvocationTargetException thrown = assertThrows(InvocationTargetException.class, () -> parseTei.invoke(service, """
+                <?xml version="1.0"?>
+                <!DOCTYPE TEI [<!ENTITY xxe SYSTEM "%s">]>
+                <TEI xmlns="http://www.tei-c.org/ns/1.0"><text><body>
+                  <entry><form><orth>&xxe;</orth></form></entry>
+                </body></text></TEI>
+                """.formatted(secret.toUri())));
+
+        assertInstanceOf(IllegalArgumentException.class, thrown.getCause());
     }
 
     private DictionaryService dictionaryService() {
