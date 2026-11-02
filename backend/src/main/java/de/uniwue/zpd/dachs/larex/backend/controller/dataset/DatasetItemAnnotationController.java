@@ -460,7 +460,7 @@ public class DatasetItemAnnotationController {
             FileSystemResource resource = new FileSystemResource(context.imagePath());
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(context.copyImage().getMimeType()))
-                    .header("Cache-Control", "public, max-age=3600")
+                    .header("Cache-Control", "private, max-age=3600")
                     .header("Content-Length", String.valueOf(resource.contentLength()))
                     .header("Accept-Ranges", "bytes")
                     .body(resource);

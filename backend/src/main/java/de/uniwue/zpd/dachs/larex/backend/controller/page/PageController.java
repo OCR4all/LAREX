@@ -927,7 +927,7 @@ public class PageController {
             // Return the file as Resource with appropriate content type
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(image.getMimeType()))
-                    .header("Cache-Control", "public, max-age=3600")
+                    .header("Cache-Control", "private, max-age=3600")
                     .header("Content-Length", String.valueOf(resource.contentLength()))
                     .header("Accept-Ranges", "bytes")
                     .body(resource);
@@ -1105,7 +1105,7 @@ public class PageController {
         ByteArrayResource resource = new ByteArrayResource(preview.bytes());
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(preview.mediaType()))
-                .header("Cache-Control", "public, max-age=600")
+                .header("Cache-Control", "private, max-age=600")
                 .contentLength(preview.bytes().length)
                 .body(resource);
     }
