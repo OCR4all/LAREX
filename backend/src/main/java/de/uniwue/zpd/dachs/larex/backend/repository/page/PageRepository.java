@@ -24,6 +24,12 @@ public interface PageRepository extends JpaRepository<Page, String> {
 
     long countByProjectId(String projectId);
 
+    @Query("SELECT p.id FROM Page p WHERE p.project.id = :projectId ORDER BY p.id")
+    List<String> findIdsByProjectId(@Param("projectId") String projectId);
+
+    @Query("SELECT DISTINCT p.project.id FROM Page p")
+    List<String> findDistinctProjectIds();
+
     /** Pages with their project but without image collections, for lightweight listings. */
     @EntityGraph(attributePaths = {"project"})
     @Query("SELECT p FROM Page p WHERE p.project.id = :projectId")

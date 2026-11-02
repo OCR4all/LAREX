@@ -36,7 +36,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -73,6 +75,7 @@ public class PageFilterIndexService {
             String value) {}
 
     private static final Logger log = LoggerFactory.getLogger(PageFilterIndexService.class);
+    private static final int REBUILD_BATCH_SIZE = 50;
 
     private static final String REGION_KIND_TEXT = "TextRegion";
     private static final double DEFAULT_CONFIDENCE_MIN = 0.0;
@@ -88,6 +91,7 @@ public class PageFilterIndexService {
     private final AnnotationProcessingService annotationProcessingService;
     private final SearchLexiconService searchLexiconService;
     private final String uploadDir;
+    private final TransactionTemplate rebuildTransaction;
 
     public PageFilterIndexService(
             PageRepository pageRepository,
@@ -98,7 +102,8 @@ public class PageFilterIndexService {
             PageXmlAttributeIndexRepository xmlAttributeIndexRepository,
             AnnotationProcessingService annotationProcessingService,
             SearchLexiconService searchLexiconService,
-            @Value("${file.upload-dir}") String uploadDir) {
+            @Value("${file.upload-dir}") String uploadDir,
+            PlatformTransactionManager transactionManager) {
         this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.textContentRepository = textContentRepository;
@@ -108,6 +113,7 @@ public class PageFilterIndexService {
         this.annotationProcessingService = annotationProcessingService;
         this.searchLexiconService = searchLexiconService;
         this.uploadDir = uploadDir;
+        this.rebuildTransaction = new TransactionTemplate(transactionManager);
     }
 
     // ============================================================================
@@ -265,56 +271,65 @@ public class PageFilterIndexService {
     }
 
     @Async
-    @Transactional
     public void rebuildProjectIndex(String projectId) {
         log.info("Starting index rebuild for project {}", projectId);
-
-        List<Page> pages = pageRepository.findByProjectId(projectId);
-        int successCount = 0;
-        int failCount = 0;
-
-        for (Page page : pages) {
-            try {
-                indexPageFromXml(page);
-                successCount++;
-            } catch (Exception e) {
-                log.error("Failed to index page {}: {}", page.getId(), e.getMessage());
-                failCount++;
-            }
-        }
-
+        RebuildCounts counts = rebuildPages(pageRepository.findIdsByProjectId(projectId));
         searchLexiconService.rebuildProjectLexicon(projectId);
-
-        log.info("Index rebuild complete for project {}. Success: {}, Failed: {}", projectId, successCount, failCount);
+        log.info("Index rebuild complete for project {}. Success: {}, Failed: {}",
+                projectId, counts.success(), counts.failed());
     }
 
     @Async
     public void rebuildGlobalIndex() {
         log.info("Starting global index rebuild");
-
-        List<Page> pages = pageRepository.findAll();
         int successCount = 0;
         int failCount = 0;
+        for (String projectId : pageRepository.findDistinctProjectIds()) {
+            RebuildCounts counts = rebuildPages(pageRepository.findIdsByProjectId(projectId));
+            searchLexiconService.rebuildProjectLexicon(projectId);
+            successCount += counts.success();
+            failCount += counts.failed();
+        }
+        log.info("Global index rebuild complete. Success: {}, Failed: {}", successCount, failCount);
+    }
 
-        Set<String> projectIds = new HashSet<>();
-        for (Page page : pages) {
+    /**
+     * Indexes pages in short transactions of {@link #REBUILD_BATCH_SIZE} pages, so large projects
+     * do not keep every page and its parsed annotation in one persistence context.
+     */
+    private RebuildCounts rebuildPages(List<String> pageIds) {
+        int successCount = 0;
+        int failCount = 0;
+        for (int from = 0; from < pageIds.size(); from += REBUILD_BATCH_SIZE) {
+            List<String> batch = pageIds.subList(from, Math.min(from + REBUILD_BATCH_SIZE, pageIds.size()));
             try {
-                indexPageFromXml(page);
-                if (page.getProject() != null) {
-                    projectIds.add(page.getProject().getId());
+                RebuildCounts counts = rebuildTransaction.execute(status -> {
+                    int success = 0;
+                    int failed = 0;
+                    for (Page page : pageRepository.findAllById(batch)) {
+                        try {
+                            indexPageFromXml(page);
+                            success++;
+                        } catch (Exception e) {
+                            log.error("Failed to index page {}: {}", page.getId(), e.getMessage());
+                            failed++;
+                        }
+                    }
+                    return new RebuildCounts(success, failed);
+                });
+                if (counts != null) {
+                    successCount += counts.success();
+                    failCount += counts.failed();
                 }
-                successCount++;
-            } catch (Exception e) {
-                log.error("Failed to index page {}: {}", page.getId(), e.getMessage());
-                failCount++;
+            } catch (RuntimeException e) {
+                log.error("Failed to index a batch of {} pages: {}", batch.size(), e.getMessage());
+                failCount += batch.size();
             }
         }
+        return new RebuildCounts(successCount, failCount);
+    }
 
-        for (String projectId : projectIds) {
-            searchLexiconService.rebuildProjectLexicon(projectId);
-        }
-
-        log.info("Global index rebuild complete. Success: {}, Failed: {}", successCount, failCount);
+    private record RebuildCounts(int success, int failed) {
     }
 
     // ============================================================================

@@ -32,6 +32,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
 
 
 import java.nio.file.Files;
@@ -48,10 +49,12 @@ import java.util.stream.StreamSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -83,6 +86,9 @@ class PageFilterIndexServiceTest {
     @Mock
     private SearchLexiconService searchLexiconService;
 
+    @Mock
+    private PlatformTransactionManager transactionManager;
+
     private PageFilterIndexService service;
 
     @BeforeEach
@@ -96,8 +102,33 @@ class PageFilterIndexServiceTest {
             xmlAttributeIndexRepository,
             annotationProcessingService,
             searchLexiconService,
-            tempDir.toString()
+            tempDir.toString(),
+            transactionManager
         );
+    }
+
+    @Test
+    void rebuildProjectIndex_indexesPagesInSeparateBatchTransactions() {
+        List<String> pageIds = new ArrayList<>();
+        for (int index = 0; index < 120; index++) {
+            pageIds.add("page-" + index);
+        }
+        when(pageRepository.findIdsByProjectId("project-1")).thenReturn(pageIds);
+        when(pageRepository.findAllById(anyList())).thenAnswer(invocation -> {
+            List<String> ids = invocation.getArgument(0);
+            return ids.stream().map(id -> page(id, "project-1")).toList();
+        });
+        when(pageXmlRepository.findByPage_Id(any())).thenReturn(Optional.empty());
+
+        service.rebuildProjectIndex("project-1");
+
+        // 120 pages in batches of 50: three transactions, each loading only its own pages.
+        verify(transactionManager, times(3)).getTransaction(any());
+        verify(transactionManager, times(3)).commit(any());
+        ArgumentCaptor<List<String>> batches = ArgumentCaptor.forClass(List.class);
+        verify(pageRepository, times(3)).findAllById(batches.capture());
+        assertEquals(List.of(50, 50, 20), batches.getAllValues().stream().map(List::size).toList());
+        verify(searchLexiconService).rebuildProjectLexicon("project-1");
     }
 
     @Test
