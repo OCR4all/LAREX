@@ -12,12 +12,11 @@ import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** page4j's SAX parser resolves external entities; the application must block them JVM-wide. */
+/** Guards against a page4j version whose PAGE XML reader resolves external entities (XXE). */
 class XmlExternalEntityProtectionTest {
 
     @Test
     void pageXmlParsingCannotReadLocalFiles(@TempDir Path tempDir) throws Exception {
-        Class.forName(BackendApplication.class.getName(), true, getClass().getClassLoader());
         Path secret = Files.writeString(tempDir.resolve("secret.txt"), "SECRET-CANARY");
         Path xml = Files.writeString(tempDir.resolve("page.xml"), """
                 <?xml version="1.0" encoding="UTF-8"?>

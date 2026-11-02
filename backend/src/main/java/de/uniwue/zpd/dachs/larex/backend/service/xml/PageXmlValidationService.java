@@ -132,6 +132,9 @@ public class PageXmlValidationService {
         CollectingErrorHandler handler = new CollectingErrorHandler("XSD_VALIDATION_ERROR");
         try {
             Validator validator = schema.newValidator();
+            // The validator parses the document itself; never let it resolve external resources.
+            validator.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            validator.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
             validator.setErrorHandler(handler);
             try (InputStream inputStream = xmlResource.getInputStream()) {
                 Source source = new StreamSource(inputStream);
