@@ -48,7 +48,10 @@ export default defineEventHandler(async (event) => {
   const signature = getHeader(event, 'x-larex-notification-bridge-signature')
   const rawBody = await readRawBody(event, 'utf8')
   // Use the socket peer: forwarding headers are client-controlled and must not satisfy the IP checks.
-  const requestIp = getRequestIP(event) ?? null
+  // Only `nuxt dev` runs Nitro behind an internal proxy without a socket peer, so fall back there.
+  const requestIp = getRequestIP(event)
+    ?? (import.meta.dev ? getRequestIP(event, { xForwardedFor: true }) : null)
+    ?? null
 
   if (!rawBody) {
     throw createError({ statusCode: 400, statusMessage: 'Missing notification bridge payload' })
