@@ -30,18 +30,19 @@ public class IiifImageDownloader {
 
     private final IiifRemoteRequestThrottler requestThrottler;
     private final HttpClient httpClient;
+    private final IiifRemoteUrlGuard urlGuard;
 
     @Autowired
-    public IiifImageDownloader(IiifRemoteRequestThrottler requestThrottler) {
-        this(requestThrottler, HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
+    public IiifImageDownloader(IiifRemoteRequestThrottler requestThrottler, IiifRemoteUrlGuard urlGuard) {
+        this(requestThrottler, IiifRemoteUrlGuard.clientBuilder()
                 .connectTimeout(HTTP_TIMEOUT)
-                .build());
+                .build(), urlGuard);
     }
 
-    IiifImageDownloader(IiifRemoteRequestThrottler requestThrottler, HttpClient httpClient) {
+    IiifImageDownloader(IiifRemoteRequestThrottler requestThrottler, HttpClient httpClient, IiifRemoteUrlGuard urlGuard) {
         this.requestThrottler = requestThrottler;
         this.httpClient = httpClient;
+        this.urlGuard = urlGuard;
     }
 
     public DownloadedImage download(String imageUrl, String pageName, long maxBytes) throws IOException {
@@ -51,15 +52,16 @@ public class IiifImageDownloader {
         try {
             for (int attempt = 0; attempt < MAX_HTTP_ATTEMPTS; attempt++) {
                 requestThrottler.awaitDownloadRequestSlot(imageUrl);
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(new URI(imageUrl))
-                        .timeout(HTTP_TIMEOUT)
-                        .GET()
-                        .header("Accept", "image/*, */*;q=0.8")
-                        .header("User-Agent", "LAREX IIIF Import")
-                        .build();
-                HttpResponse<InputStream> response = httpClient.send(
-                        request,
+                HttpResponse<InputStream> response = urlGuard.send(
+                        httpClient,
+                        new URI(imageUrl),
+                        uri -> HttpRequest.newBuilder()
+                                .uri(uri)
+                                .timeout(HTTP_TIMEOUT)
+                                .GET()
+                                .header("Accept", "image/*, */*;q=0.8")
+                                .header("User-Agent", "LAREX IIIF Import")
+                                .build(),
                         HttpResponse.BodyHandlers.ofInputStream()
                 );
                 if (response.statusCode() >= 200 && response.statusCode() < 300) {
@@ -113,8 +115,8 @@ public class IiifImageDownloader {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while downloading image for " + pageName, e);
-        } catch (URISyntaxException e) {
-            throw new IOException("IIIF image URL is invalid: " + imageUrl, e);
+        } catch (URISyntaxException | IllegalArgumentException e) {
+            throw new IOException("IIIF image URL is invalid or not allowed: " + imageUrl, e);
         }
     }
 

@@ -96,6 +96,7 @@ public class IiifImportService {
     private final TaskExecutor previewTaskExecutor;
     private final JobRealtimePublisher jobRealtimePublisher;
     private final HttpClient httpClient;
+    private final IiifRemoteUrlGuard urlGuard;
     private final Cache<String, IiifPreviewSession> previewCache;
     private final Cache<String, IiifPreviewJobState> previewJobCache;
 
@@ -111,7 +112,8 @@ public class IiifImportService {
                              IiifRemoteRequestThrottler iiifRemoteRequestThrottler,
                              ObjectMapper objectMapper,
                              @Qualifier("iiifPreviewTaskExecutor") TaskExecutor previewTaskExecutor,
-                             JobRealtimePublisher jobRealtimePublisher) {
+                             JobRealtimePublisher jobRealtimePublisher,
+                             IiifRemoteUrlGuard urlGuard) {
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -125,8 +127,8 @@ public class IiifImportService {
         this.objectMapper = objectMapper;
         this.previewTaskExecutor = previewTaskExecutor;
         this.jobRealtimePublisher = jobRealtimePublisher;
-        this.httpClient = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
+        this.urlGuard = urlGuard;
+        this.httpClient = IiifRemoteUrlGuard.clientBuilder()
                 .connectTimeout(HTTP_TIMEOUT)
                 .build();
         this.previewCache = Caffeine.newBuilder()
@@ -1311,14 +1313,17 @@ public class IiifImportService {
         try {
             for (int attempt = 0; attempt < MAX_HTTP_ATTEMPTS; attempt++) {
                 iiifRemoteRequestThrottler.awaitPreviewRequestSlot(url);
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(new URI(url))
-                        .timeout(HTTP_TIMEOUT)
-                        .GET()
-                        .header("Accept", acceptHeader)
-                        .header("User-Agent", "LAREX IIIF Import")
-                        .build();
-                HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+                HttpResponse<byte[]> response = urlGuard.send(
+                        httpClient,
+                        new URI(url),
+                        uri -> HttpRequest.newBuilder()
+                                .uri(uri)
+                                .timeout(HTTP_TIMEOUT)
+                                .GET()
+                                .header("Accept", acceptHeader)
+                                .header("User-Agent", "LAREX IIIF Import")
+                                .build(),
+                        HttpResponse.BodyHandlers.ofByteArray());
                 if (response.statusCode() >= 200 && response.statusCode() < 300) {
                     return response.body();
                 }

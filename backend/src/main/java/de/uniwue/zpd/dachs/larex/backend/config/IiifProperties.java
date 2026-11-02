@@ -25,6 +25,8 @@ public class IiifProperties {
     @Valid
     private ExecutorPoolProperties downloadAsync = new ExecutorPoolProperties(1, 2, 50);
 
+    private boolean allowPrivateNetworkHosts = false;
+
     @Min(30_000)
     @Max(3_600_000)
     private long workerLeaseDurationMs = 120_000;
@@ -67,6 +69,14 @@ public class IiifProperties {
 
     public void setDownloadAsync(ExecutorPoolProperties downloadAsync) {
         this.downloadAsync = downloadAsync;
+    }
+
+    public boolean isAllowPrivateNetworkHosts() {
+        return allowPrivateNetworkHosts;
+    }
+
+    public void setAllowPrivateNetworkHosts(boolean allowPrivateNetworkHosts) {
+        this.allowPrivateNetworkHosts = allowPrivateNetworkHosts;
     }
 
     public long getWorkerLeaseDurationMs() {

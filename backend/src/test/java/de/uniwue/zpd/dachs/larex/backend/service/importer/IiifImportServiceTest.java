@@ -98,7 +98,8 @@ class IiifImportServiceTest {
                 iiifRemoteRequestThrottler,
                 new ObjectMapper(),
                 previewTaskExecutor,
-                jobRealtimePublisher
+                jobRealtimePublisher,
+                new IiifRemoteUrlGuard(true)
         );
         lenient().when(pageOrderService.reserveAppendSortOrders(any(), anyInt())).thenAnswer(invocation -> {
             int count = invocation.getArgument(1);

@@ -74,7 +74,8 @@ class IiifImageDownloaderTest {
     private IiifImageDownloader downloader() {
         return new IiifImageDownloader(
                 mock(IiifRemoteRequestThrottler.class),
-                HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build()
+                IiifRemoteUrlGuard.clientBuilder().build(),
+                new IiifRemoteUrlGuard(true)
         );
     }
 
