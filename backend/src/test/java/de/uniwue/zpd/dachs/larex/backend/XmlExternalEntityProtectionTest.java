@@ -9,6 +9,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,7 +36,8 @@ class XmlExternalEntityProtectionTest {
             var layout = result.page().getLayout();
             for (int index = 0; index < layout.getRegionCount(); index++) {
                 if (layout.getRegion(index) instanceof TextObject text) {
-                    assertThat(text.getText()).doesNotContain("SECRET-CANARY");
+                    // page4j skips the unresolved entity, which can leave the text empty (null).
+                    assertThat(Objects.toString(text.getText(), "")).doesNotContain("SECRET-CANARY");
                 }
             }
         }
