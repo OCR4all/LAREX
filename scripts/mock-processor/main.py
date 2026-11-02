@@ -213,47 +213,46 @@ async def process_run(ctx: ActionContext) -> None:
             )
             failed_count += 1
             continue
-        async with ctx.step(f"Copying {page.name}"):
-            await ctx.check_cancelled()
-            results = ctx.result_builder()
-            if page.images:
-                image = page.images[0]
-                image_bytes = await ctx.download_bytes(image)
-                results.add_image_bytes(
-                    page_id=page.id,
-                    content=image_bytes,
-                    file_name=image.file_name or f"{page.name}-{OUTPUT_IMAGE_VARIANT}",
-                    variant=OUTPUT_IMAGE_VARIANT,
-                    mime_type=image.mime_type or "application/octet-stream",
-                )
-                image_count += 1
+        await ctx.heartbeat(status_message=f"Copying {page.name}", raise_on_cancel=True)
+        results = ctx.result_builder()
+        if page.images:
+            image = page.images[0]
+            image_bytes = await ctx.download_bytes(image)
+            results.add_image_bytes(
+                page_id=page.id,
+                content=image_bytes,
+                file_name=image.file_name or f"{page.name}-{OUTPUT_IMAGE_VARIANT}",
+                variant=OUTPUT_IMAGE_VARIANT,
+                mime_type=image.mime_type or "application/octet-stream",
+            )
+            image_count += 1
 
-            if page.xml:
-                xml = page.xml[0]
-                xml_bytes = await ctx.download_bytes(xml)
-                results.add_xml_bytes(
-                    page_id=page.id,
-                    content=xml_bytes,
-                    file_name=xml.file_name or f"{page.name}.xml",
-                )
-                xml_count += 1
+        if page.xml:
+            xml = page.xml[0]
+            xml_bytes = await ctx.download_bytes(xml)
+            results.add_xml_bytes(
+                page_id=page.id,
+                content=xml_bytes,
+                file_name=xml.file_name or f"{page.name}.xml",
+            )
+            xml_count += 1
 
-            if ctx.capabilities.custom_file_results:
-                results.add_file_bytes(
-                    content=json.dumps(
-                        {"pageId": page.id, "pageName": page.name},
-                        separators=(",", ":"),
-                    ).encode("utf-8"),
-                    file_name=f"{page.name}-metadata.json",
-                    mime_type="application/json",
-                    page_id=page.id,
-                )
-                file_count += 1
+        if ctx.capabilities.custom_file_results:
+            results.add_file_bytes(
+                content=json.dumps(
+                    {"pageId": page.id, "pageName": page.name},
+                    separators=(",", ":"),
+                ).encode("utf-8"),
+                file_name=f"{page.name}-metadata.json",
+                mime_type="application/json",
+                page_id=page.id,
+            )
+            file_count += 1
 
-            try:
-                await ctx.submit_page_results(page.id, results, f"Copied {page.name}")
-            except PageResultRejected:
-                failed_count += 1
+        try:
+            await ctx.submit_page_results(page.id, results, f"Copied {page.name}")
+        except PageResultRejected:
+            failed_count += 1
 
     message = result_message(image_count, xml_count, file_count)
     if failed_count:
