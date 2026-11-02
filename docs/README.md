@@ -32,7 +32,6 @@ The repository's CI docs build runs the same prebuild checks. The generated site
 | `content/04.deployment/` | Production setup, configuration, and operation. |
 | `content/05.development/` | Contributor environment and commands. |
 | `content/06.troubleshooting/` | Technical diagnosis for operators and developers. |
-| `maintenance/` | Audit, coverage map, and editorial maintenance records; not published. |
 
 Numeric prefixes control sidebar and previous/next order. Nuxt Content removes them from published URLs. Use zero-padded prefixes so `10` sorts after `09`. Keep existing unnumbered slugs stable; changing them requires redirects and a link audit. `.navigation.yml` files provide section titles/icons. The homepage's `index.md` contains metadata only; keep rendered landing content in the Vue component to avoid competing versions.
 

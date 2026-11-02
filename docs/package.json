@@ -11,8 +11,7 @@
     "prebuild": "pnpm prepare:installer-assets && pnpm check",
     "build": "nuxt build",
     "start": "node .output/server/index.mjs",
-    "preview": "pnpm run build && pnpm run start",
-    "check": "node scripts/check-content.mjs"
+    "preview": "pnpm run build && pnpm run start"
   },
   "dependencies": {
     "@nuxt/a11y": "1.0.0-alpha.1",
