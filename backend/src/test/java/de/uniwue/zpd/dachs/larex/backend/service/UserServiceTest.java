@@ -118,7 +118,7 @@ class UserServiceTest {
         UserLogin login = org.mockito.Mockito.mock(UserLogin.class);
         when(login.getUserId()).thenReturn("user-1");
         when(login.getLastLoginAt()).thenReturn(Instant.parse("2026-10-01T10:00:00Z"));
-        when(usersResource.list()).thenReturn(List.of(alice, bob));
+        when(usersResource.list(0, 500)).thenReturn(List.of(alice, bob));
         when(userLoginRepository.findAllById(List.of("user-1", "user-2"))).thenReturn(List.of(login));
 
         var users = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null).items();
@@ -133,13 +133,28 @@ class UserServiceTest {
     }
 
     @Test
+    void adminUserListPagesBeyondKeycloakDefaultLimit() {
+        List<UserRepresentation> firstPage = new java.util.ArrayList<>();
+        for (int index = 0; index < 500; index++) {
+            firstPage.add(localUser("user-" + index, "user" + index, "user" + index + "@example.org", true, true, List.of()));
+        }
+        UserRepresentation last = localUser("user-500", "user500", "user500@example.org", true, true, List.of());
+        when(usersResource.list(0, 500)).thenReturn(firstPage);
+        when(usersResource.list(500, 500)).thenReturn(List.of(last));
+
+        var page = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null);
+
+        assertEquals(501L, page.totalElements());
+    }
+
+    @Test
     void lastLoginSortingAndCutoffApplyBeforePagination() {
         Instant cutoff = Instant.parse("2026-10-01T00:00:00Z");
         var old = localUser("old", "old", "old@example.org", true, true, List.of());
         var boundary = localUser("boundary", "boundary", "boundary@example.org", true, true, List.of());
         var recent = localUser("recent", "recent", "recent@example.org", true, true, List.of());
         var unknown = localUser("unknown", "unknown", "unknown@example.org", true, true, List.of());
-        when(usersResource.list()).thenReturn(List.of(unknown, recent, old, boundary));
+        when(usersResource.list(0, 500)).thenReturn(List.of(unknown, recent, old, boundary));
         var logins = java.util.Map.of("old", cutoff.minusSeconds(1), "boundary", cutoff, "recent", cutoff.plusSeconds(1))
                 .entrySet().stream().map(entry -> {
                     UserLogin login = org.mockito.Mockito.mock(UserLogin.class);
@@ -471,7 +486,7 @@ class UserServiceTest {
         UserRepresentation byClientId = serviceAccountUser("svc-1", "anything");
         byClientId.setCreatedTimestamp(300L);
 
-        when(usersResource.list()).thenReturn(List.of(human, ldapUser, byClientId));
+        when(usersResource.list(0, 500)).thenReturn(List.of(human, ldapUser, byClientId));
 
         AdminUserPageDto visibleByDefault = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null);
         AdminUserPageDto includeAll = userService.getUserPageForAdmin(0, 25, null, true, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null);
@@ -498,7 +513,7 @@ class UserServiceTest {
         UserRepresentation service = serviceAccountUser("service", "service-account-larex");
         service.setCreatedTimestamp(100L);
 
-        when(usersResource.list()).thenReturn(List.of(service, ldap, disabled, pending, active));
+        when(usersResource.list(0, 500)).thenReturn(List.of(service, ldap, disabled, pending, active));
 
         AdminUserPageDto page = userService.getUserPageForAdmin(0, 25, null, true, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null);
 
@@ -523,7 +538,7 @@ class UserServiceTest {
     void getUserPageForAdmin_disablesCapabilitiesInLdapManagedMode() {
         userService = createUserService(UserProvisioningMode.LDAP_MANAGED);
         UserRepresentation localUser = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
-        when(usersResource.list()).thenReturn(List.of(localUser));
+        when(usersResource.list(0, 500)).thenReturn(List.of(localUser));
 
         AdminUserPageDto page = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null);
 

@@ -26,6 +26,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminUserAuditService;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
@@ -50,6 +51,7 @@ public class UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     private static final List<String> SETUP_ACTIONS = List.of("VERIFY_EMAIL", "UPDATE_PASSWORD");
     private static final String SERVICE_ACCOUNT_USERNAME_PREFIX = "service-account-";
+    private static final int KEYCLOAK_USER_PAGE_SIZE = 500;
     private static final String GLOBAL_ADMIN_ROLE = "GLOBAL_ADMIN";
     private static final String GLOBAL_CURATOR_ROLE = "GLOBAL_CURATOR";
     private static final int IDENTITY_PROVIDER_ERROR_DETAIL_MAX_LENGTH = 240;
@@ -98,8 +100,7 @@ public class UserService {
     }
 
     public List<UserDto> getAllUsers() {
-        RealmResource realmResource = keycloakAdmin.realm(realm);
-        List<UserRepresentation> users = realmResource.users().list();
+        List<UserRepresentation> users = listAllRealmUsers();
         Map<String, String> avatars = getAvatarUrls(users);
 
         return users.stream()
@@ -107,8 +108,23 @@ public class UserService {
                 .toList();
     }
 
+    /** Keycloak returns at most 100 users per request by default, so page through the whole realm. */
+    private List<UserRepresentation> listAllRealmUsers() {
+        var usersResource = keycloakAdmin.realm(realm).users();
+        List<UserRepresentation> users = new ArrayList<>();
+        int first = 0;
+        while (true) {
+            List<UserRepresentation> batch = usersResource.list(first, KEYCLOAK_USER_PAGE_SIZE);
+            users.addAll(batch);
+            if (batch.size() < KEYCLOAK_USER_PAGE_SIZE) {
+                return users;
+            }
+            first += KEYCLOAK_USER_PAGE_SIZE;
+        }
+    }
+
     public AdminUserPageDto getUserPageForAdmin(int page, int size, String search, boolean includeServiceAccounts, AdminUserStatusFilter status, AdminUserSort sort, Instant lastLoginBefore) {
-        List<UserRepresentation> users = keycloakAdmin.realm(realm).users().list();
+        List<UserRepresentation> users = listAllRealmUsers();
         String normalizedSearch = normalizeOptional(search);
         Map<String, Instant> lastLogins = userLoginRepository.findAllById(
                 users.stream().map(UserRepresentation::getId).toList()).stream()
