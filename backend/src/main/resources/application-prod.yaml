@@ -102,4 +102,6 @@ management:
       base-path: /actuator
   endpoint:
     health:
-      show-details: always
+      # Database, disk and path details are for global admins (admin Actuator page) only.
+      show-details: when-authorized
+      roles: GLOBAL_ADMIN
