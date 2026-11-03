@@ -22,7 +22,6 @@ const selectedItemIds = ref<Set<string>>(new Set())
 const globalVariants = ref<string[]>([])
 const itemImageIdLists = ref<Record<string, string[]>>({})
 const parameters = ref<Record<string, ActionParameterValue>>({})
-const parameterChoices = ref<Record<string, ActionParameterChoice[]>>({})
 const starting = ref(false)
 const trainingInputs = ref<TrainingInputResponse | null>(null)
 const loadingInputs = ref(false)
@@ -247,21 +246,18 @@ watch([workspaceId, selectedDatasetId], async ([, id]) => {
   if (!id) return
   await refreshDatasetDetail()
 }, { immediate: true })
-watch(selectedProcessor, async (processor) => {
+const { data: parameterValues } = await useFetch<{ values: Record<string, ActionParameterChoice[]> }>(
+  () => `/api/workspaces/${workspaceId.value}/actions/training/processors/${selectedProcessorId.value}/parameter-values`,
+  { default: () => ({ values: {} }) }
+)
+const parameterChoices = computed(() => parameterValues.value.values)
+watch(selectedProcessor, (processor) => {
   parameters.value = {}
-  parameterChoices.value = {}
-  if (!processor) return
-  for (const [key, definition] of Object.entries(processor.parameters ?? {})) {
+  for (const [key, definition] of Object.entries(processor?.parameters ?? {})) {
     const defaultValue = definition.defaultValue ?? definition.default
     parameters.value[key] = (defaultValue ?? (definition.type === 'boolean' ? false : '')) as ActionParameterValue
   }
-  if (Object.values(processor.parameters ?? {}).some(definition => definition.allowedValues?.provider)) {
-    const response = await $fetch<{ values: Record<string, ActionParameterChoice[]> }>(
-      `/api/workspaces/${workspaceId.value}/actions/training/processors/${processor.id}/parameter-values`
-    )
-    parameterChoices.value = response.values
-  }
-})
+}, { immediate: true })
 
 function toggleItem(itemId: string, checked: boolean) {
   const next = new Set(selectedItemIds.value)

@@ -15,7 +15,6 @@ const selectedItemIds = ref<Set<string>>(new Set())
 const globalVariants = ref<string[]>([])
 const itemImageIdLists = ref<Record<string, string[]>>({})
 const parameters = ref<Record<string, ActionParameterValue>>({})
-const parameterChoices = ref<Record<string, ActionParameterChoice[]>>({})
 const inputs = ref<TrainingInputResponse | null>(null)
 const loadingInputs = ref(false)
 const startPending = ref(false)
@@ -30,6 +29,8 @@ watch(datasets, (value) => { if (!selectedDatasetId.value || !value.some(item =>
 watch(processors, (value) => { if (!selectedProcessorId.value || !value.some(item => item.id === selectedProcessorId.value)) selectedProcessorId.value = value[0]?.id }, { immediate: true })
 
 const selectedProcessor = computed(() => processors.value.find(item => item.id === selectedProcessorId.value))
+const { data: parameterValues } = await useFetch<{ values: Record<string, ActionParameterChoice[]> }>(() => `/api/workspaces/${workspaceId.value}/actions/evaluation/processors/${selectedProcessorId.value}/parameter-values`, { default: () => ({ values: {} }) })
+const parameterChoices = computed(() => parameterValues.value.values)
 // Evaluation Actions may take PAGE XML alone; images follow the declared input level.
 const imageLevel = computed(() => selectedProcessor.value ? actionInputLevelForTarget(selectedProcessor.value.inputs.images, 'PAGE') : 'REQUIRED')
 const acceptsImages = computed(() => imageLevel.value !== 'NONE')
@@ -110,15 +111,10 @@ async function loadInputs() {
   try { inputs.value = await $fetch<TrainingInputResponse>(`/api/workspaces/${workspaceId.value}/actions/evaluation/datasets/${selectedDatasetId.value}/inputs`) } catch { inputs.value = null } finally { loadingInputs.value = false }
 }
 watch([workspaceId, selectedDatasetId], () => { selectedItemIds.value = new Set(); itemImageIdLists.value = {}; globalVariants.value = []; void loadInputs() }, { immediate: true })
-watch(selectedProcessor, async (processor) => {
-  parameters.value = {}; parameterChoices.value = {}
-  if (!processor) return
-  for (const [key, definition] of Object.entries(processor.parameters || {})) parameters.value[key] = (definition.defaultValue ?? definition.default ?? (definition.type === 'boolean' ? false : '')) as ActionParameterValue
-  if (Object.values(processor.parameters || {}).some(definition => definition.allowedValues?.provider)) {
-    const result = await $fetch<{ values: Record<string, ActionParameterChoice[]> }>(`/api/workspaces/${workspaceId.value}/actions/evaluation/processors/${processor.id}/parameter-values`)
-    parameterChoices.value = result.values
-  }
-})
+watch(selectedProcessor, (processor) => {
+  parameters.value = {}
+  for (const [key, definition] of Object.entries(processor?.parameters || {})) parameters.value[key] = (definition.defaultValue ?? definition.default ?? (definition.type === 'boolean' ? false : '')) as ActionParameterValue
+}, { immediate: true })
 function toggleItem(itemId: string, value: boolean) {
   const next = new Set(selectedItemIds.value)
   if (value) next.add(itemId)
