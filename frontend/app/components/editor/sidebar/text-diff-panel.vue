@@ -26,7 +26,7 @@ watch(() => defaultGtIndex.value, (val) => {
 
 watch(() => defaultRecognitionIndices.value, (val) => {
   recognitionIndicesInput.value = (val ?? [1]).join(', ')
-}, { deep: true })
+})
 
 function parsePayload(): { defaultGtIndex: number, defaultRecognitionIndices: number[] } | null {
   localError.value = null

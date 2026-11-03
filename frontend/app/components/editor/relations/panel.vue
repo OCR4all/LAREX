@@ -215,14 +215,14 @@ watch(relations, (nextRelations) => {
   if (!selectedStillExists) {
     editorUiStore.setSelectedRelationId(nextRelations[0]?.id ?? null)
   }
-}, { immediate: true, deep: true })
+}, { immediate: true })
 
 watch(selectedRelation, (relation) => {
   selectedDraft.value = relationToDraft(relation)
   if (relation) {
     isCreateSectionOpen.value = false
   }
-}, { immediate: true, deep: true })
+}, { immediate: true })
 </script>
 
 <template>

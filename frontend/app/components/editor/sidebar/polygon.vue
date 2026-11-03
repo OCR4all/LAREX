@@ -485,14 +485,14 @@ watch(() => props.selectedPolygonIds, (newIds) => {
   for (const id of newIds) {
     expandAncestors(id)
   }
-}, { deep: true })
+})
 
 watch(() => props.selectedPolylineIds, (newIds) => {
   if (!newIds?.length) return
   for (const id of newIds) {
     expandAncestors(id)
   }
-}, { deep: true })
+})
 
 watch(() => props.collapsed, (collapsed) => {
   if (!collapsed) closeCollapsedPopover()
