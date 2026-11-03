@@ -1,7 +1,7 @@
-import type { PageDto, PolygonDto, RegionDto, TextLineDto } from '@/types/page-dto'
+import type { GlyphDto, PageDto, PolygonDto, RegionDto, TextContentVariantDto, TextLineDto, WordDto } from '@/types/page-dto'
 
 export type PageVersionCompareSource = 'version' | 'action-result'
-export type PageVersionCompareElementKind = 'region' | 'textline' | 'baseline'
+export type PageVersionCompareElementKind = 'region' | 'textline' | 'word' | 'glyph' | 'baseline'
 export type PageVersionCompareChangeType = 'added' | 'removed' | 'geometry' | 'text' | 'metadata'
 
 export interface PageVersionCompareElement {
@@ -39,7 +39,8 @@ export interface PageVersionCompareChangeGroup {
 }
 
 const CHANGE_TYPES: PageVersionCompareChangeType[] = ['added', 'removed', 'geometry', 'text', 'metadata']
-const ELEMENT_KINDS: PageVersionCompareElementKind[] = ['region', 'textline', 'baseline']
+const ELEMENT_KINDS: PageVersionCompareElementKind[] = ['region', 'textline', 'word', 'glyph', 'baseline']
+const TEXT_ELEMENT_KINDS = new Set<PageVersionCompareElementKind>(['textline', 'word', 'glyph'])
 
 export function createEmptyCompareCounts(): PageVersionCompareSummary['counts'] {
   return ELEMENT_KINDS.reduce((acc, kind) => {
@@ -76,7 +77,7 @@ export function comparePageVersions(
       if (currentElement.geometrySignature !== comparedElement.geometrySignature) {
         matchedChangeTypes.push('geometry')
       }
-      if (currentElement.kind === 'textline' && normalizeText(currentElement.text) !== normalizeText(comparedElement.text)) {
+      if (TEXT_ELEMENT_KINDS.has(currentElement.kind) && normalizeText(currentElement.text) !== normalizeText(comparedElement.text)) {
         matchedChangeTypes.push('text')
       }
       if (
@@ -315,6 +316,73 @@ function collectTextLine(
       metadataSignature: textLine.baseline.confidence == null ? '' : String(textLine.baseline.confidence)
     })
   }
+
+  for (const word of textLine.words ?? []) {
+    collectWord(word, elements, gtIndex, dimensions, textLine.id)
+  }
+}
+
+const TEXT_SHAPE_METADATA_KEYS = [
+  'alternativeImages',
+  'labels',
+  'userDefined',
+  'textStyle',
+  'language',
+  'primaryScript',
+  'secondaryScript',
+  'script',
+  'readingDirection',
+  'production',
+  'ligature',
+  'symbol',
+  'graphemes',
+  'custom',
+  'comments',
+  'confidence'
+] as const
+
+function collectWord(
+  word: WordDto,
+  elements: Map<string, PageVersionCompareElement>,
+  gtIndex: number,
+  dimensions: { width: number, height: number },
+  parentId: string
+) {
+  const points = normalizePoints(word.coords)
+  elements.set(word.id, {
+    id: word.id,
+    kind: 'word',
+    parentId,
+    label: `Word ${word.id}`,
+    points,
+    geometrySignature: geometrySignature(points, dimensions),
+    text: variantText(word.textContentVariants, gtIndex),
+    metadataSignature: metadataSignature(word, [...TEXT_SHAPE_METADATA_KEYS])
+  })
+
+  for (const glyph of word.glyphs ?? []) {
+    collectGlyph(glyph, elements, gtIndex, dimensions, word.id)
+  }
+}
+
+function collectGlyph(
+  glyph: GlyphDto,
+  elements: Map<string, PageVersionCompareElement>,
+  gtIndex: number,
+  dimensions: { width: number, height: number },
+  parentId: string
+) {
+  const points = normalizePoints(glyph.coords)
+  elements.set(glyph.id, {
+    id: glyph.id,
+    kind: 'glyph',
+    parentId,
+    label: `Glyph ${glyph.id}`,
+    points,
+    geometrySignature: geometrySignature(points, dimensions),
+    text: variantText(glyph.textContentVariants, gtIndex),
+    metadataSignature: metadataSignature(glyph, [...TEXT_SHAPE_METADATA_KEYS])
+  })
 }
 
 function regionLabel(region: RegionDto): string {
@@ -323,7 +391,11 @@ function regionLabel(region: RegionDto): string {
 }
 
 function textLineText(textLine: TextLineDto, gtIndex: number): string {
-  const variants = textLine.textContentVariants ?? []
+  return variantText(textLine.textContentVariants, gtIndex)
+}
+
+function variantText(textContentVariants: TextContentVariantDto[] | undefined, gtIndex: number): string {
+  const variants = textContentVariants ?? []
   const exact = variants.find(variant => variant.index === gtIndex)
   const fallback = variants.find(variant => variant.index === 0) ?? variants[0]
   return exact?.unicode ?? exact?.plainText ?? fallback?.unicode ?? fallback?.plainText ?? ''

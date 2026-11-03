@@ -19,7 +19,7 @@ export interface PreviewPoint {
   y: number | null
 }
 
-export type ViewMode = 'default' | 'textline' | 'baseline'
+export type ViewMode = 'default' | 'textline' | 'word' | 'glyph' | 'baseline'
 
 export interface RenderablePolygon {
   id: string
@@ -160,7 +160,7 @@ export interface WebGLRenderState {
 }
 
 /**
- * Preview information for auto-parent assignment during Textline/Baseline creation.
+ * Preview information for auto-parent assignment during Textline/Word/Glyph/Baseline creation.
  * Used to show visual feedback about which parent the new element will be assigned to,
  * or what helper shape will be created.
  */
@@ -171,8 +171,13 @@ export interface AutoParentPreview {
   isExisting: boolean
   /** Preview of helper shape to be created (bounding rectangle) */
   helperShapePoints?: Point[]
-  /** For baseline mode: preview of the textline that will be created */
+  /** For baseline/word/glyph mode: preview of the textline that will be created */
   helperTextlinePoints?: Point[]
-  /** Level of auto-creation needed: 'none' | 'textline' | 'region' | 'both' */
-  creationLevel: 'none' | 'textline' | 'region' | 'both'
+  /** For glyph mode: preview of the word that will be created */
+  helperWordPoints?: Point[]
+  /**
+   * Highest level of auto-creation needed: 'none' | 'word' | 'textline' | 'region' | 'both'
+   * ('both' = textline and region; a helper word may be created in addition)
+   */
+  creationLevel: 'none' | 'word' | 'textline' | 'region' | 'both'
 }

@@ -334,4 +334,32 @@ describe('page-version-compare', () => {
       { value: ' text', status: 'same' }
     ])
   })
+
+  it('compares words and glyphs as their own elements', () => {
+    const line = (wordText: string, glyphOffset: number): PageDto['regions'] => [{
+      id: 'region-a',
+      kind: 'TextRegion',
+      coords: polygon(),
+      textLines: [{
+        id: 'line-a',
+        coords: polygon(),
+        words: [{
+          id: 'word-a',
+          coords: polygon(),
+          textContentVariants: [{ unicode: wordText, index: 0 }],
+          glyphs: [{ id: 'glyph-a', coords: polygon(glyphOffset) }]
+        }]
+      }]
+    }]
+
+    const summary = comparePageVersions(page(line('Hello', 0.1)), page(line('Hallo', 0)))
+
+    expect(summary.counts.word.text).toBe(1)
+    expect(summary.counts.glyph.geometry).toBe(1)
+    expect(summary.counts.textline.text).toBe(0)
+    expect(summary.changes.map(change => `${change.kind}:${change.id}:${change.changeType}`).sort()).toEqual([
+      'glyph:glyph-a:geometry',
+      'word:word-a:text'
+    ])
+  })
 })

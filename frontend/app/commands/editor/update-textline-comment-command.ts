@@ -1,6 +1,6 @@
 import type { Command, CommandContext } from './types'
 import { PcGts } from '@/models/editor'
-import { findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
+import { findGlyphRecursive, findTextLineRecursive, findWordRecursive } from '@/utils/editor/pcgts-editor-primitives'
 
 export interface UpdateTextlineCommentCommandData {
   textlineId: string
@@ -23,15 +23,15 @@ export class UpdateTextlineCommentCommand implements Command {
     const pcGts = session?.document.value
     if (!session || !pcGts) return
 
-    const hit = findTextLineRecursive(pcGts.page.regions, this.textlineId)
-    if (!hit) return
+    const target = findCommentOwner(pcGts, this.textlineId)
+    if (!target) return
 
     if (!this.capturedOriginalComment) {
-      this.originalComment = hit.textLine.comments
+      this.originalComment = target.comments
       this.capturedOriginalComment = true
     }
 
-    hit.textLine.comments = this.comment
+    target.comments = this.comment
     pcGts.metadata?.touch?.()
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
   }
@@ -43,10 +43,10 @@ export class UpdateTextlineCommentCommand implements Command {
     const pcGts = session?.document.value
     if (!session || !pcGts) return
 
-    const hit = findTextLineRecursive(pcGts.page.regions, this.textlineId)
-    if (!hit) return
+    const target = findCommentOwner(pcGts, this.textlineId)
+    if (!target) return
 
-    hit.textLine.comments = this.originalComment
+    target.comments = this.originalComment
     pcGts.metadata?.touch?.()
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
   }
@@ -54,4 +54,12 @@ export class UpdateTextlineCommentCommand implements Command {
   getDescription(): string {
     return `Update text-line comment (${this.textlineId})`
   }
+}
+
+/** Text lines, words and glyphs all carry a PAGE @comments attribute. */
+function findCommentOwner(pcGts: PcGts, id: string): { comments?: string } | null {
+  return findTextLineRecursive(pcGts.page.regions, id)?.textLine
+    ?? findWordRecursive(pcGts.page.regions, id)?.word
+    ?? findGlyphRecursive(pcGts.page.regions, id)?.glyph
+    ?? null
 }

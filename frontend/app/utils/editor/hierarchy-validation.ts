@@ -3,7 +3,9 @@
  *
  * Rules:
  * - A region can contain other regions as well as textlines
- * - A textline can only contain exactly one baseline
+ * - A textline can contain words and at most one baseline
+ * - A word can contain glyphs
+ * - A glyph can't contain anything
  * - A baseline always belongs to exactly one textline (and can't contain anything else)
  */
 
@@ -35,11 +37,11 @@ export function isValidParentChildType(parentType: string, childType: string): b
   }
 
   if (parentType === PolygonType.TEXTLINE) {
-    return childType === PolygonType.BASELINE
+    return childType === PolygonType.BASELINE || childType === PolygonType.WORD
   }
 
-  if (parentType === PolygonType.BASELINE) {
-    return false
+  if (parentType === PolygonType.WORD) {
+    return childType === PolygonType.GLYPH
   }
 
   return false
@@ -57,6 +59,20 @@ export function validatePolygonParent(
     return {
       valid: false,
       error: 'A textline must belong to a region. Please select a region first.'
+    }
+  }
+
+  if (childType === PolygonType.WORD && !parentId) {
+    return {
+      valid: false,
+      error: 'A word must belong to a textline. Please select a textline first.'
+    }
+  }
+
+  if (childType === PolygonType.GLYPH && !parentId) {
+    return {
+      valid: false,
+      error: 'A glyph must belong to a word. Please select a word first.'
     }
   }
 
@@ -179,6 +195,27 @@ export function validatePolygonTypeChange(
     }
   }
 
+  if (newType === PolygonType.GLYPH && children.length > 0) {
+    return {
+      valid: false,
+      error: 'Cannot change to glyph: glyphs cannot contain other elements'
+    }
+  }
+
+  if (newType === PolygonType.WORD && children.some(child => child.type !== PolygonType.GLYPH)) {
+    return {
+      valid: false,
+      error: 'Cannot change to word: words can only contain glyphs.'
+    }
+  }
+
+  if (newType === PolygonType.WORD && polylineChildren.length > 0) {
+    return {
+      valid: false,
+      error: 'Cannot change to word: words cannot contain baselines.'
+    }
+  }
+
   if (polygon.type === PolygonType.TEXTLINE && newType !== PolygonType.TEXTLINE) {
     if (polylineChildren.length > 0) {
       return {
@@ -189,10 +226,10 @@ export function validatePolygonTypeChange(
   }
 
   if (newType === PolygonType.TEXTLINE) {
-    if (children.length > 0) {
+    if (children.some(child => child.type !== PolygonType.WORD)) {
       return {
         valid: false,
-        error: 'Cannot change to textline: it contains polygon children. Textlines can only contain baselines.'
+        error: 'Cannot change to textline: textlines can only contain words and baselines.'
       }
     }
 
@@ -244,8 +281,12 @@ export function getValidParentTypesDescription(childType: string): string {
     return 'regions'
   }
 
-  if (childType === PolygonType.BASELINE) {
+  if (childType === PolygonType.BASELINE || childType === PolygonType.WORD) {
     return 'textlines'
+  }
+
+  if (childType === PolygonType.GLYPH) {
+    return 'words'
   }
 
   return 'none'
@@ -260,7 +301,15 @@ export function getValidChildTypesDescription(parentType: string): string {
   }
 
   if (parentType === PolygonType.TEXTLINE) {
-    return 'baselines only'
+    return 'words and one baseline'
+  }
+
+  if (parentType === PolygonType.WORD) {
+    return 'glyphs only'
+  }
+
+  if (parentType === PolygonType.GLYPH) {
+    return 'none (glyphs cannot contain other elements)'
   }
 
   if (parentType === PolygonType.BASELINE) {

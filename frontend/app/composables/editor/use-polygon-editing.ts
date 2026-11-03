@@ -2,7 +2,8 @@ import type { UnwrapNestedRefs } from 'vue'
 import type { Commander } from '@/commands'
 import { ConstrainToParentCommand, UpdatePolygonCommand } from '@/commands'
 import type { Point, View, AspectRatioScale, ImageSize } from '@/models/editor'
-import type { RenderablePolygon, ViewMode } from '@/types/editor/rendering'
+import type { RenderablePolygon } from '@/types/editor/rendering'
+import { normalizeLayoutViewMode } from '@/services/editor/visibility-service'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { SpatialIndexService } from '@/services/editor/spatial-index-service'
 import {
@@ -171,10 +172,7 @@ export function usePolygonEditing(
     const hiddenPolylineIdSet = hiddenPolylineIds ? new Set(hiddenPolylineIds.value) : undefined
 
     const rawViewMode = viewMode?.value
-    const normalizedViewMode: ViewMode | undefined
-      = rawViewMode === 'default' || rawViewMode === 'textline' || rawViewMode === 'baseline'
-        ? rawViewMode
-        : undefined
+    const normalizedViewMode = normalizeLayoutViewMode(rawViewMode)
 
     const hoverIndex = getHoverablePolygonAtPoint(
       polygons,
@@ -487,10 +485,7 @@ export function usePolygonEditing(
     const hiddenPolygonIdSet = hiddenPolygonIds ? new Set(hiddenPolygonIds.value) : undefined
 
     const rawViewMode = viewMode?.value
-    const normalizedViewMode: ViewMode | undefined
-      = rawViewMode === 'default' || rawViewMode === 'textline' || rawViewMode === 'baseline'
-        ? rawViewMode
-        : undefined
+    const normalizedViewMode = normalizeLayoutViewMode(rawViewMode)
 
     const polygonIndex = getVisiblePolygonAtPoint(polygons, point, selectedPolygonIndex.value, spatialIndex, normalizedViewMode, hiddenPolygonIdSet)
     const clickedInsideSelectedPolygon = !isPointOutsideSelectedPolygon(point, selectedPolygonIndex.value)
@@ -519,7 +514,7 @@ export function usePolygonEditing(
           return
         }
 
-        const isInViewMode = viewMode?.value === 'textline' || viewMode?.value === 'baseline'
+        const isInViewMode = !!normalizeLayoutViewMode(viewMode?.value) && viewMode?.value !== 'default'
 
         if (isInViewMode) {
           selectedPolygonIndex.value = -1

@@ -386,6 +386,45 @@ export const textLineMetadataSchema = z.object({
 export type TextLineMetadataFormState = z.infer<typeof textLineMetadataSchema>
 
 /**
+ * Schema for Word attributes (WordType)
+ */
+export const wordMetadataSchema = z.object({
+  id: z.string(), // Read-only
+  language: optionalLanguage,
+  primaryScript: optionalScript,
+  secondaryScript: optionalScript,
+  readingDirection: readingDirectionEnum.optional(),
+  production: productionEnum.optional(),
+  custom: optionalString,
+  comments: optionalString,
+  alternativeImages: z.array(alternativeImageSchema).default([]),
+  labels: z.array(labelsSchema).default([]),
+  userDefinedAttributes: z.array(userAttributeSchema).default([]),
+  textStyle: textStyleSchema.default(createEmptyTextStyleFormState())
+})
+
+export type WordMetadataFormState = z.infer<typeof wordMetadataSchema>
+
+/**
+ * Schema for Glyph attributes (GlyphType)
+ */
+export const glyphMetadataSchema = z.object({
+  id: z.string(), // Read-only
+  script: optionalScript,
+  production: productionEnum.optional(),
+  ligature: optionalBoolean,
+  symbol: optionalBoolean,
+  custom: optionalString,
+  comments: optionalString,
+  alternativeImages: z.array(alternativeImageSchema).default([]),
+  labels: z.array(labelsSchema).default([]),
+  userDefinedAttributes: z.array(userAttributeSchema).default([]),
+  textStyle: textStyleSchema.default(createEmptyTextStyleFormState())
+})
+
+export type GlyphMetadataFormState = z.infer<typeof glyphMetadataSchema>
+
+/**
  * Schema for Baseline - very minimal, only conf is editable
  */
 export const baselineMetadataSchema = z.object({
@@ -815,6 +854,53 @@ export function createTextLineMetadataFormState(textLine: {
     labels: (textLine.labels ?? []).map(group => createLabelsFormState(group)),
     userDefinedAttributes: (textLine.userDefined?.attributes ?? []).map(attribute => createUserAttributeFormState(attribute)),
     textStyle: createTextStyleFormState(textLine.textStyle)
+  }
+}
+
+/** Attributes shared by text lines, words and glyphs. */
+type TextElementMetadataSource = Pick<
+  Parameters<typeof createTextLineMetadataFormState>[0],
+  'id' | 'production' | 'custom' | 'comments' | 'alternativeImages' | 'labels' | 'userDefined' | 'textStyle'
+>
+
+function createTextElementMetadataFormState(element: TextElementMetadataSource) {
+  return {
+    id: element.id,
+    production: element.production as WordMetadataFormState['production'],
+    custom: element.custom ?? '',
+    comments: element.comments ?? '',
+    alternativeImages: (element.alternativeImages ?? []).map(image => createAlternativeImageFormState(image)),
+    labels: (element.labels ?? []).map(group => createLabelsFormState(group)),
+    userDefinedAttributes: (element.userDefined?.attributes ?? []).map(attribute => createUserAttributeFormState(attribute)),
+    textStyle: createTextStyleFormState(element.textStyle)
+  }
+}
+
+export function createWordMetadataFormState(word: TextElementMetadataSource & {
+  language?: string
+  primaryScript?: string
+  secondaryScript?: string
+  readingDirection?: string
+}): WordMetadataFormState {
+  return {
+    ...createTextElementMetadataFormState(word),
+    language: normalizeLanguageValue(word.language),
+    primaryScript: normalizeScriptValue(word.primaryScript),
+    secondaryScript: normalizeScriptValue(word.secondaryScript),
+    readingDirection: word.readingDirection as WordMetadataFormState['readingDirection']
+  }
+}
+
+export function createGlyphMetadataFormState(glyph: TextElementMetadataSource & {
+  script?: string
+  ligature?: boolean
+  symbol?: boolean
+}): GlyphMetadataFormState {
+  return {
+    ...createTextElementMetadataFormState(glyph),
+    script: normalizeScriptValue(glyph.script),
+    ligature: glyph.ligature,
+    symbol: glyph.symbol
   }
 }
 

@@ -8,6 +8,13 @@ import { getRegionColor } from '@/utils/editor/region-colors'
 const DEFAULT_ELEMENT_LABEL_COLOR = '#475569'
 const DEFAULT_LINE_LABEL_COLOR = '#3B82F6'
 
+/** Text elements share one label style per type; regions are colored by their label instead. */
+const TEXT_ELEMENT_LABELS: Partial<Record<string, { elementType: string, backgroundColor: string }>> = {
+  [PolygonType.TEXTLINE]: { elementType: 'TextLine', backgroundColor: DEFAULT_LINE_LABEL_COLOR },
+  [PolygonType.WORD]: { elementType: 'Word', backgroundColor: '#00B899' },
+  [PolygonType.GLYPH]: { elementType: 'Glyph', backgroundColor: '#FF731A' }
+}
+
 function averagePoint(points: Point[]): Point | null {
   if (points.length === 0) return null
 
@@ -74,13 +81,13 @@ export function createPolygonElementLabel(
   const position = averagePoint(polygon.points)
   if (!position) return null
 
-  if (polygon.type === PolygonType.TEXTLINE) {
+  const textElementLabel = polygon.type ? TEXT_ELEMENT_LABELS[polygon.type] : undefined
+  if (textElementLabel) {
     return {
       id: polygon.id,
       position,
       label: polygon.label || polygon.id,
-      elementType: 'TextLine',
-      backgroundColor: DEFAULT_LINE_LABEL_COLOR
+      ...textElementLabel
     }
   }
 

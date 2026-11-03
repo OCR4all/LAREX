@@ -1,7 +1,7 @@
 import type { Commander, CutMode } from '@/commands'
 import { CutElementsCommand } from '@/commands'
 import type { Point, ImageSize, View, AspectRatioScale } from '@/models/editor'
-import { PolygonType } from '@/models/editor'
+import { getViewModePolygonType } from '@/services/editor/visibility-service'
 import type { RenderablePolygon, PreviewPoint } from '@/types/editor/rendering'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { isPointWithinImageBounds, clampToWorldBounds, getImageBounds } from '@/utils/editor/coordinates'
@@ -61,9 +61,10 @@ export function useCutDrawing(
       return childIds.length > 0 ? childIds : [selectedPolygon.id]
     }
 
-    if (viewMode?.value === 'textline') {
+    const focusedType = getViewModePolygonType(viewMode?.value)
+    if (focusedType) {
       return polygons
-        .filter(p => p.type === PolygonType.TEXTLINE)
+        .filter(p => p.type === focusedType)
         .map(p => p.id)
     }
 

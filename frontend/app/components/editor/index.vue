@@ -27,7 +27,7 @@ import type { MergeSettings } from '@/components/editor/slideover/merge-settings
 import type { ActionProcessingRenderTarget, CommentOverlayLabel, ElementOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
 import type { ActionTargetSelection } from '@/types/action'
 import type { SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
-import { visibilityService } from '@/services/editor/visibility-service'
+import { getViewModePolygonType, visibilityService } from '@/services/editor/visibility-service'
 import { getCollaborationColor } from '@/types/collaboration'
 import {
   isCollaborationCanvasViewMode,
@@ -918,11 +918,12 @@ const elementOverlayLabels = computed<ElementOverlayLabel[]>(() => {
     temporaryHoverPolylineId: editorUiStore.temporaryHoverPolylineId
   }
   const heatmapEnabled = editorUiStore.confidenceHeatmap.enabled
+  const focusedPolygonType = getViewModePolygonType(viewMode)
 
   for (const polygon of polygons) {
     const visibleInHeatmap = heatmapEnabled
-      && viewMode === 'textline'
-      && polygon.type === PolygonType.TEXTLINE
+      && !!focusedPolygonType
+      && polygon.type === focusedPolygonType
       && !hiddenPolygonSet.has(polygon.id)
     const visibleNormally = visibilityService.shouldShowPolygon(polygon, visibilityContext)
       || visibilityService.shouldRenderAsBackground(polygon, visibilityContext)
@@ -1514,15 +1515,23 @@ useResizeObserver(canvas, (width, height) => {
 let interactionsAttached = false
 let stopUiModeWatch: WatchStopHandle | null = null
 
-function normalizeActionTargetViewMode(): 'default' | 'textline' | 'baseline' | undefined {
+function normalizeActionTargetViewMode(): 'default' | 'textline' | 'word' | 'glyph' | 'baseline' | undefined {
   const mode = canvasControls.viewMode?.value
-  if (mode === 'default' || mode === 'textline' || mode === 'baseline') return mode
+  if (mode === 'default' || mode === 'textline' || mode === 'word' || mode === 'glyph' || mode === 'baseline') return mode
   return undefined
 }
 
-function buildActionTargetSelectionFromPolygon(polygon: RenderablePolygon): { targetSelection: ActionTargetSelection, targetSummary: string } | null {
+function buildActionTargetSelectionFromPolygon(clickedPolygon: RenderablePolygon): { targetSelection: ActionTargetSelection, targetSummary: string } | null {
   const currentPageId = pageId.value
   if (!currentPageId) return null
+
+  // Actions target text lines at the finest level, so words and glyphs resolve to their line.
+  let polygon: RenderablePolygon | undefined = clickedPolygon
+  while (polygon && (polygon.type === PolygonType.WORD || polygon.type === PolygonType.GLYPH)) {
+    const parentId: string | undefined = polygon.parentId
+    polygon = parentId ? polygons.find(candidate => candidate.id === parentId) : undefined
+  }
+  if (!polygon) return null
 
   if (isTextlinePolygonType(polygon.type)) {
     return {

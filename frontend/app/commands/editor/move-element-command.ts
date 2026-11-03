@@ -1,11 +1,14 @@
 import type { Command, CommandContext } from './types'
 import { PcGts, isTextRegion } from '@/models/editor'
-import type { Point, Region } from '@/models/editor'
+import type { Point, Region, TextLine, Word } from '@/models/editor'
 import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
+  findGlyphRecursive,
+  findPolygonCoordsRecursive,
   findRegionRecursive,
   findTextLineRecursive,
+  findWordRecursive,
   type TextLineHit,
   rebuildSpatialIndexFromPcGts,
   baselineIdForTextLineId,
@@ -21,7 +24,7 @@ export interface MoveElementCommandData {
 
 interface SavedPoints {
   id: string
-  type: 'region' | 'textline' | 'baseline'
+  type: 'region' | 'textline' | 'word' | 'glyph' | 'baseline'
   points: [number, number][]
 }
 
@@ -65,6 +68,18 @@ export class MoveElementCommand implements Command {
       return
     }
 
+    const wordHit = findWordRecursive(pcGts.page.regions, this.elementId)
+    if (wordHit) {
+      this.saveAndMoveWord(wordHit.word, this.moveWithChildren)
+      return
+    }
+
+    const glyphHit = findGlyphRecursive(pcGts.page.regions, this.elementId)
+    if (glyphHit) {
+      this.saveAndMovePolygon(glyphHit.glyph, 'glyph')
+      return
+    }
+
     const regionHit = findRegionRecursive(pcGts.page.regions, this.elementId)
     if (!regionHit) return
 
@@ -92,14 +107,41 @@ export class MoveElementCommand implements Command {
     })
     hit.textLine.coords.points = this.applyDelta(hit.textLine.coords.points)
 
-    if (this.moveWithChildren && hit.textLine.baseline) {
-      this.savedPoints.push({
-        id: baselineIdForTextLineId(hit.textLine.id),
-        type: 'baseline',
-        points: [...hit.textLine.baseline.points.points]
-      })
-      hit.textLine.baseline.points.points = this.applyDelta(hit.textLine.baseline.points.points)
+    if (this.moveWithChildren) {
+      this.moveTextLineChildren(hit.textLine)
     }
+  }
+
+  private moveTextLineChildren(textLine: TextLine): void {
+    if (textLine.baseline) {
+      this.savedPoints.push({
+        id: baselineIdForTextLineId(textLine.id),
+        type: 'baseline',
+        points: [...textLine.baseline.points.points]
+      })
+      textLine.baseline.points.points = this.applyDelta(textLine.baseline.points.points)
+    }
+
+    for (const word of textLine.words ?? []) {
+      this.saveAndMoveWord(word, true)
+    }
+  }
+
+  private saveAndMoveWord(word: Word, withGlyphs: boolean): void {
+    this.saveAndMovePolygon(word, 'word')
+    if (!withGlyphs) return
+    for (const glyph of word.glyphs ?? []) {
+      this.saveAndMovePolygon(glyph, 'glyph')
+    }
+  }
+
+  private saveAndMovePolygon(element: { id: string, coords: { points: [number, number][] } }, type: 'word' | 'glyph'): void {
+    this.savedPoints.push({
+      id: element.id,
+      type,
+      points: [...element.coords.points]
+    })
+    element.coords.points = this.applyDelta(element.coords.points)
   }
 
   private moveRegionChildren(region: Region): void {
@@ -118,15 +160,7 @@ export class MoveElementCommand implements Command {
           points: [...tl.coords.points]
         })
         tl.coords.points = this.applyDelta(tl.coords.points)
-
-        if (tl.baseline) {
-          this.savedPoints.push({
-            id: baselineIdForTextLineId(tl.id),
-            type: 'baseline',
-            points: [...tl.baseline.points.points]
-          })
-          tl.baseline.points.points = this.applyDelta(tl.baseline.points.points)
-        }
+        this.moveTextLineChildren(tl)
       }
     }
   }
@@ -162,15 +196,10 @@ export class MoveElementCommand implements Command {
         if (hit?.textLine.baseline) {
           hit.textLine.baseline.points.points = [...saved.points]
         }
-      } else if (saved.type === 'textline') {
-        const hit = findTextLineRecursive(pcGts.page.regions, saved.id)
-        if (hit) {
-          hit.textLine.coords.points = [...saved.points]
-        }
       } else {
-        const hit = findRegionRecursive(pcGts.page.regions, saved.id)
-        if (hit) {
-          hit.region.coords.points = [...saved.points]
+        const coords = findPolygonCoordsRecursive(pcGts.page.regions, saved.id, saved.type)
+        if (coords) {
+          coords.points = [...saved.points]
         }
       }
     }

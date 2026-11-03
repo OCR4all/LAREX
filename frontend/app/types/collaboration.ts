@@ -21,7 +21,7 @@ export interface CollaborationViewport {
   offsetY: number
 }
 
-export type CollaborationCanvasViewMode = 'default' | 'textline' | 'baseline'
+export type CollaborationCanvasViewMode = 'default' | 'textline' | 'word' | 'glyph' | 'baseline'
 
 export interface CollaborationCursor {
   x: number

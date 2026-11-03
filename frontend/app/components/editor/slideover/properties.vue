@@ -27,6 +27,8 @@ const pointsCount = computed(() => polygon.value?.points?.length ?? polyline.val
 const elementType = computed(() => {
   if (polygon.value) {
     if (polygon.value.type === 'textline' || polygon.value.type === 'TextLine') return 'TextLine'
+    if (polygon.value.type === 'word') return 'Word'
+    if (polygon.value.type === 'glyph') return 'Glyph'
     return polygon.value.regionKind || 'Region'
   }
   if (polyline.value) {

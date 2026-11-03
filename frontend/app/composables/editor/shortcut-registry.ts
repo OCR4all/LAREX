@@ -130,6 +130,32 @@ export const SHORTCUT_DEFINITIONS = {
     defaultBindings: ['shift_t']
   },
 
+  wordPolygon: {
+    description: 'Word (Polygon)',
+    group: 'tools',
+    scope: 'global',
+    defaultBindings: ['w']
+  },
+  wordRectangle: {
+    description: 'Word (Rectangle)',
+    group: 'tools',
+    scope: 'global',
+    defaultBindings: ['shift_w']
+  },
+
+  glyphPolygon: {
+    description: 'Glyph (Polygon)',
+    group: 'tools',
+    scope: 'global',
+    defaultBindings: ['y']
+  },
+  glyphRectangle: {
+    description: 'Glyph (Rectangle)',
+    group: 'tools',
+    scope: 'global',
+    defaultBindings: ['shift_y']
+  },
+
   baseline: {
     description: 'Baseline',
     group: 'tools',
@@ -160,37 +186,49 @@ export const SHORTCUT_DEFINITIONS = {
     description: 'Layout · Hierarchy',
     group: 'view',
     scope: 'global',
-    defaultBindings: ['1']
+    defaultBindings: ['meta_1']
   },
   textlineView: {
     description: 'Layout · Text lines',
     group: 'view',
     scope: 'global',
-    defaultBindings: ['2']
+    defaultBindings: ['meta_2']
   },
   baselineView: {
     description: 'Layout · Baselines',
     group: 'view',
     scope: 'global',
-    defaultBindings: ['3']
+    defaultBindings: ['meta_3']
+  },
+  wordView: {
+    description: 'Layout · Words',
+    group: 'view',
+    scope: 'global',
+    defaultBindings: ['meta_4']
+  },
+  glyphView: {
+    description: 'Layout · Glyphs',
+    group: 'view',
+    scope: 'global',
+    defaultBindings: ['meta_5']
   },
   textCanvasView: {
     description: 'Text · Canvas',
     group: 'view',
     scope: 'global',
-    defaultBindings: ['4']
+    defaultBindings: ['meta_6']
   },
   textListView: {
     description: 'Text · List',
     group: 'view',
     scope: 'global',
-    defaultBindings: ['5']
+    defaultBindings: ['meta_7']
   },
   textFullView: {
     description: 'Text · Full text',
     group: 'view',
     scope: 'global',
-    defaultBindings: ['6']
+    defaultBindings: ['meta_8']
   },
 
   clearSelection: {

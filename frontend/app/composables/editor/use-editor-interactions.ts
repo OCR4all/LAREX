@@ -5,7 +5,7 @@ import {
   getVisiblePolygonAtPoint,
   isPointInPolygon
 } from '@/utils/editor/hit-detection'
-import { visibilityService } from '@/services/editor/visibility-service'
+import { normalizeLayoutViewMode, visibilityService } from '@/services/editor/visibility-service'
 import { PolygonType, type View, type AspectRatioScale, type Point } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline, ViewMode } from '@/types/editor/rendering'
 import { HIT_DETECTION, TIMING, VIEW_PADDING, ZOOM } from '@/utils/editor/editor-constants'
@@ -93,10 +93,7 @@ export function useEditorInteractions(
     return viewMode === 'baseline'
   }
 
-  function normalizeViewMode(raw: string | undefined): ViewMode | undefined {
-    if (raw === 'default' || raw === 'textline' || raw === 'baseline') return raw
-    return undefined
-  }
+  const normalizeViewMode = normalizeLayoutViewMode
 
   function getPolygonSelectionContexts(activeIndex: number): number[] {
     // Additive selection includes children, the active polygon, and its siblings.

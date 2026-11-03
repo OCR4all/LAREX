@@ -2,7 +2,7 @@
 import type { CollaborationLeaseOwner, CollaborationRoomMember, CollaborationTakeoverRequest } from '@/types/collaboration'
 import type { RegionKind, TextRegionSubtype } from '@/models/editor/region'
 
-export type RegionType = RegionKind | 'TextLine' | 'Baseline' | 'Polyline'
+export type RegionType = RegionKind | 'TextLine' | 'Word' | 'Glyph' | 'Baseline' | 'Polyline'
 export type TextSubtype = TextRegionSubtype | string
 
 export interface EntityInfo {
@@ -73,6 +73,8 @@ const regionIconMap: Partial<Record<RegionType, string>> = {
   UnknownRegion: 'lucide:help-circle',
   CustomRegion: 'lucide:tag',
   TextLine: 'lucide:type',
+  Word: 'lucide:whole-word',
+  Glyph: 'lucide:letter-text',
   Baseline: 'lucide:minus',
   Polyline: 'lucide:line-chart'
 }
@@ -94,6 +96,8 @@ const regionColorMap: Partial<Record<RegionType, string>> = {
   UnknownRegion: 'text-neutral-500 dark:text-neutral-400',
   CustomRegion: 'text-neutral-500 dark:text-neutral-400',
   TextLine: 'text-cyan-600 dark:text-cyan-400',
+  Word: 'text-teal-600 dark:text-teal-400',
+  Glyph: 'text-orange-600 dark:text-orange-400',
   Baseline: 'text-neutral-500 dark:text-neutral-400',
   Polyline: 'text-neutral-500 dark:text-neutral-400'
 }

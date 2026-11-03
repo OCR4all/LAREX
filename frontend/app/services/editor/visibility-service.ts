@@ -4,6 +4,7 @@
  */
 
 import type { Point } from '@/models/editor'
+import type { ViewMode } from '@/types/editor/rendering'
 
 export interface BaseElement {
   id: string
@@ -22,7 +23,7 @@ export interface VisibilityContext {
   selectedPolylineIndex?: number
   allPolygons: Polygon[]
   allPolylines?: Polyline[]
-  viewMode?: 'default' | 'textline' | 'baseline' // Optional view mode filter
+  viewMode?: ViewMode // Optional view mode filter
   hiddenPolygonIds?: Set<string>
   hiddenPolylineIds?: Set<string>
   temporaryHoverPolygonId?: string | null
@@ -37,6 +38,30 @@ export interface HierarchyInfo {
   ancestorIds: Set<string>
   directChildIds: Set<string>
   branchMaxDepth: number
+}
+
+/** Polygon types from the outermost to the innermost hierarchy level. */
+const POLYGON_TYPE_DEPTH: Record<string, number> = {
+  region: 0,
+  textline: 1,
+  word: 2,
+  glyph: 3
+}
+
+const LAYOUT_VIEW_MODES: ReadonlySet<string> = new Set<ViewMode>(['default', 'textline', 'word', 'glyph', 'baseline'])
+
+/** Narrow an arbitrary view mode string to a known layout view mode. */
+export function normalizeLayoutViewMode(raw: string | undefined): ViewMode | undefined {
+  return raw && LAYOUT_VIEW_MODES.has(raw) ? raw as ViewMode : undefined
+}
+
+/**
+ * The polygon type that is directly selectable in a layout view mode, or null
+ * when the view mode doesn't focus a polygon level (default, baseline).
+ */
+export function getViewModePolygonType(viewMode: string | undefined): 'textline' | 'word' | 'glyph' | null {
+  if (viewMode === 'textline' || viewMode === 'word' || viewMode === 'glyph') return viewMode
+  return null
 }
 
 /**
@@ -58,6 +83,8 @@ export class VisibilityService {
    * Background elements provide visual context for the user without being interactive.
    *
    * In TEXTLINE mode: Regions are rendered as background (textlines are selectable)
+   * In WORD mode: Regions and Textlines are rendered as background (words are selectable)
+   * In GLYPH mode: Regions, Textlines and Words are rendered as background (glyphs are selectable)
    * In BASELINE mode: Regions and Textlines are rendered as background (baselines are selectable)
    *
    * Only applies when NOTHING is selected - once a selection is made, normal hierarchy applies.
@@ -73,15 +100,11 @@ export class VisibilityService {
       return false
     }
 
-    if (viewMode === 'textline') {
-      return polygon.type === 'region'
-    }
+    const focusedType = viewMode === 'baseline' ? 'word' : getViewModePolygonType(viewMode)
+    if (!focusedType) return false
 
-    if (viewMode === 'baseline') {
-      return polygon.type === 'region' || polygon.type === 'textline'
-    }
-
-    return false
+    const depth = POLYGON_TYPE_DEPTH[polygon.type ?? 'region'] ?? 0
+    return depth < POLYGON_TYPE_DEPTH[focusedType]!
   }
 
   /**
@@ -97,8 +120,9 @@ export class VisibilityService {
     const hasSelection = selectedPolygonIndex >= 0 || (selectedPolylineIndex !== undefined && selectedPolylineIndex >= 0)
 
     if (!hasSelection && viewMode && viewMode !== 'default') {
-      if (viewMode === 'textline') {
-        return polygon.type === 'textline'
+      const focusedType = getViewModePolygonType(viewMode)
+      if (focusedType) {
+        return polygon.type === focusedType
       }
 
       if (viewMode === 'baseline') {
@@ -146,8 +170,9 @@ export class VisibilityService {
     const hasSelection = selectedPolygonIndex >= 0 || (selectedPolylineIndex !== undefined && selectedPolylineIndex >= 0)
 
     if (!hasSelection && viewMode && viewMode !== 'default') {
-      if (viewMode === 'textline') {
-        return polygon.type === 'textline'
+      const focusedType = getViewModePolygonType(viewMode)
+      if (focusedType) {
+        return polygon.type === focusedType
       }
 
       if (viewMode === 'baseline') {
@@ -270,8 +295,9 @@ export class VisibilityService {
     const hasSelection = selectedPolygonIndex >= 0 && selectedPolygonIndex < allPolygons.length
 
     if (!hasSelection && viewMode && viewMode !== 'default') {
-      if (viewMode === 'textline') {
-        return polygon.type === 'textline'
+      const focusedType = getViewModePolygonType(viewMode)
+      if (focusedType) {
+        return polygon.type === focusedType
       }
 
       if (viewMode === 'baseline') {
@@ -307,8 +333,9 @@ export class VisibilityService {
     const hasSelection = selectedPolygonIndex >= 0 && selectedPolygonIndex < allPolygons.length
 
     if (!hasSelection && viewMode && viewMode !== 'default') {
-      if (viewMode === 'textline') {
-        return polygon.type === 'textline'
+      const focusedType = getViewModePolygonType(viewMode)
+      if (focusedType) {
+        return polygon.type === focusedType
       }
 
       if (viewMode === 'baseline') {
@@ -354,12 +381,24 @@ export class VisibilityService {
     const ancestorIds = new Set<string>()
     const directChildIds = new Set<string>()
 
-    const root = this.getRootOfHierarchy(selectedPolygon, allPolygons)
-    const depth = this.getElementDepth(selectedPolygon, allPolygons)
-    const branchMaxDepth = this.getBranchMaxDepth(selectedPolygon, allPolygons)
+    // Pages with word/glyph annotations can hold thousands of polygons, so
+    // resolve parents through an index instead of scanning the array.
+    const byId = new Map<string, Polygon>()
+    const childrenById = new Map<string, Polygon[]>()
+    for (const polygon of allPolygons) {
+      byId.set(polygon.id, polygon)
+      if (!polygon.parentId) continue
+      const siblings = childrenById.get(polygon.parentId)
+      if (siblings) siblings.push(polygon)
+      else childrenById.set(polygon.parentId, [polygon])
+    }
+
+    const root = this.getRootOfHierarchy(selectedPolygon, byId)
+    const depth = this.getElementDepth(selectedPolygon, byId)
+    const branchMaxDepth = this.getBranchMaxDepth(selectedPolygon, byId, childrenById)
 
     for (const polygon of allPolygons) {
-      if (this.isPolygonVisibleInHierarchy(polygon, selectedPolygon, allPolygons, depth)) {
+      if (this.isPolygonVisibleInHierarchy(polygon, selectedPolygon, root, byId, depth)) {
         visibleIds.add(polygon.id)
       }
 
@@ -371,15 +410,13 @@ export class VisibilityService {
     let current: Polygon = selectedPolygon
     while (current.parentId) {
       ancestorIds.add(current.parentId)
-      const parent = allPolygons.find(p => p.id === current.parentId)
+      const parent = byId.get(current.parentId)
       if (!parent) break
       current = parent
     }
 
-    for (const polygon of allPolygons) {
-      if (polygon.parentId === selectedPolygon.id) {
-        directChildIds.add(polygon.id)
-      }
+    for (const child of childrenById.get(selectedPolygon.id) ?? []) {
+      directChildIds.add(child.id)
     }
 
     return {
@@ -399,13 +436,12 @@ export class VisibilityService {
   private isPolygonVisibleInHierarchy(
     polygon: Polygon,
     selectedPolygon: Polygon,
-    allPolygons: Polygon[],
+    selectedRoot: Polygon,
+    byId: Map<string, Polygon>,
     selectedDepth: number
   ): boolean {
     const selectedId = selectedPolygon.id
-    const selectedRoot = this.getRootOfHierarchy(selectedPolygon, allPolygons)
-    const polygonRoot = this.getRootOfHierarchy(polygon, allPolygons)
-    const polygonDepth = this.getElementDepth(polygon, allPolygons)
+    const polygonRoot = this.getRootOfHierarchy(polygon, byId)
 
     const inSameTree = polygonRoot.id === selectedRoot.id
 
@@ -414,7 +450,7 @@ export class VisibilityService {
         return true
       }
 
-      if (this.isAncestorOf(polygon, selectedPolygon, allPolygons)) {
+      if (this.isAncestorOf(polygon, selectedPolygon, byId)) {
         return true
       }
 
@@ -422,12 +458,8 @@ export class VisibilityService {
         return true
       }
 
-      if (polygonDepth <= selectedDepth) {
-        const branchMaxDepth = this.getBranchMaxDepth(polygon, allPolygons)
-        return polygonDepth <= Math.min(selectedDepth, branchMaxDepth)
-      }
-
-      return false
+      // Same-tree elements up to the selected level stay visible (siblings, cousins, ...).
+      return this.getElementDepth(polygon, byId) <= selectedDepth
     } else {
       return !polygon.parentId
     }
@@ -450,10 +482,10 @@ export class VisibilityService {
   /**
    * Get the root polygon of a hierarchy
    */
-  private getRootOfHierarchy(polygon: Polygon, allPolygons: Polygon[]): Polygon {
+  private getRootOfHierarchy(polygon: Polygon, byId: Map<string, Polygon>): Polygon {
     let current = polygon
     while (current.parentId) {
-      const parent = allPolygons.find(p => p.id === current.parentId)
+      const parent = byId.get(current.parentId)
       if (!parent) break
       current = parent
     }
@@ -463,13 +495,13 @@ export class VisibilityService {
   /**
    * Get the depth of an element in the hierarchy
    */
-  private getElementDepth(element: BaseElement, allPolygons: Polygon[]): number {
+  private getElementDepth(element: BaseElement, byId: Map<string, Polygon>): number {
     let depth = 0
     let current: BaseElement = element
 
     while (current.parentId) {
       depth++
-      const parent = allPolygons.find(p => p.id === current.parentId)
+      const parent = byId.get(current.parentId)
       if (!parent) break
       current = parent
     }
@@ -480,19 +512,18 @@ export class VisibilityService {
   /**
    * Get the maximum depth of a branch
    */
-  private getBranchMaxDepth(polygon: Polygon, allPolygons: Polygon[]): number {
-    let maxDepth = this.getElementDepth(polygon, allPolygons)
+  private getBranchMaxDepth(polygon: Polygon, byId: Map<string, Polygon>, childrenById: Map<string, Polygon[]>): number {
+    const baseDepth = this.getElementDepth(polygon, byId)
+    let maxDepth = baseDepth
 
-    const findDeepestDescendant = (current: Polygon): void => {
-      const children = allPolygons.filter(p => p.parentId === current.id)
-      for (const child of children) {
-        const childDepth = this.getElementDepth(child, allPolygons)
-        maxDepth = Math.max(maxDepth, childDepth)
-        findDeepestDescendant(child)
+    const findDeepestDescendant = (current: Polygon, currentDepth: number): void => {
+      for (const child of childrenById.get(current.id) ?? []) {
+        maxDepth = Math.max(maxDepth, currentDepth + 1)
+        findDeepestDescendant(child, currentDepth + 1)
       }
     }
 
-    findDeepestDescendant(polygon)
+    findDeepestDescendant(polygon, baseDepth)
     return maxDepth
   }
 
@@ -502,7 +533,7 @@ export class VisibilityService {
   private isAncestorOf(
     ancestor: BaseElement,
     descendant: BaseElement,
-    allPolygons: Polygon[]
+    byId: Map<string, Polygon>
   ): boolean {
     if (ancestor.id === descendant.id) {
       return true
@@ -513,7 +544,7 @@ export class VisibilityService {
       if (current.parentId === ancestor.id) {
         return true
       }
-      const parent = allPolygons.find(p => p.id === current.parentId)
+      const parent = byId.get(current.parentId)
       if (!parent) break
       current = parent
     }
@@ -669,7 +700,7 @@ export class VisibilityService {
     const selectedPolygon = allPolygons[selectedPolygonIndex]
     if (!selectedPolygon) return 0
 
-    return this.getElementDepth(selectedPolygon, allPolygons)
+    return this.getElementDepth(selectedPolygon, new Map(allPolygons.map(p => [p.id, p])))
   }
 }
 

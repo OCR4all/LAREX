@@ -48,6 +48,12 @@ export {
   type CreateBaselineAutoParentCommandData,
   type CreateBaselineAutoParentResult
 } from './create-baseline-auto-parent-command'
+export {
+  CreateTextElementAutoParentCommand,
+  type CreateTextElementAutoParentCommandData,
+  type CreateTextElementAutoParentResult,
+  type TextElementPolygonType
+} from './create-text-element-auto-parent-command'
 
 export { SimplifyPolygonCommand, type SimplifyPolygonCommandData } from './simplify-polygon-command'
 export { BufferPolygonCommand, type BufferPolygonCommandData } from './buffer-polygon-command'

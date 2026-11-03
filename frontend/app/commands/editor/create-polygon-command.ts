@@ -1,5 +1,5 @@
 import type { Command, CommandContext } from './types'
-import { PcGts, PolygonType, TextLine } from '@/models/editor'
+import { Glyph, PcGts, PolygonType, TextLine, Word } from '@/models/editor'
 import type { Point, PolygonType as PolygonTypeType, Region, RegionKind, TextRegion } from '@/models/editor'
 import type { LabelDefinition } from '@/models/editor/labels'
 import { Polygon } from '@/models/editor/geometry'
@@ -9,8 +9,10 @@ import type { RenderablePolygon } from '@/types/editor/rendering'
 import { subtractPolygon } from '@/utils/editor/polygon-clipping'
 import { resolvePageXmlRegionLabel } from '@/utils/editor/page-label-mapping'
 import {
+  findGlyphRecursive,
   findRegionRecursive,
   findTextLineRecursive,
+  findWordRecursive,
   rebuildSpatialIndexFromPcGts
 } from '@/utils/editor/pcgts-editor-primitives'
 
@@ -34,7 +36,7 @@ export class CreatePolygonCommand implements Command {
   private overlapMinAreaThreshold: number
   private labelDefinition?: LabelDefinition
 
-  private createdKind: 'region' | 'textline' | null = null
+  private createdKind: 'region' | 'textline' | 'word' | 'glyph' | null = null
   private resolvedPoints: Point[] | null | undefined = undefined
 
   constructor(data: CreatePolygonCommandData) {
@@ -75,6 +77,36 @@ export class CreatePolygonCommand implements Command {
         })
       )
       this.createdKind = 'textline'
+    } else if (this.type === PolygonType.WORD) {
+      const parentId = this.parentId
+      if (!parentId) return { id: this.regionId, created: false }
+
+      const hit = findTextLineRecursive(pcGts.page.regions, parentId)
+      if (!hit) return { id: this.regionId, created: false }
+
+      hit.textLine.words = hit.textLine.words ?? []
+      hit.textLine.words.push(
+        Word.fromFields({
+          id: this.regionId,
+          coords: new Polygon(pointsToCreate.map(p => [p.x, p.y]))
+        })
+      )
+      this.createdKind = 'word'
+    } else if (this.type === PolygonType.GLYPH) {
+      const parentId = this.parentId
+      if (!parentId) return { id: this.regionId, created: false }
+
+      const hit = findWordRecursive(pcGts.page.regions, parentId)
+      if (!hit) return { id: this.regionId, created: false }
+
+      hit.word.glyphs = hit.word.glyphs ?? []
+      hit.word.glyphs.push(
+        Glyph.fromFields({
+          id: this.regionId,
+          coords: new Polygon(pointsToCreate.map(p => [p.x, p.y]))
+        })
+      )
+      this.createdKind = 'glyph'
     } else {
       const resolvedLabel = this.labelDefinition
         ? resolvePageXmlRegionLabel(this.labelDefinition)
@@ -128,6 +160,12 @@ export class CreatePolygonCommand implements Command {
       if (hit) {
         hit.parent.textLines?.splice(hit.index, 1)
       }
+    } else if (this.createdKind === 'word') {
+      const hit = findWordRecursive(pcGts.page.regions, this.regionId)
+      hit?.parentTextLine.words?.splice(hit.index, 1)
+    } else if (this.createdKind === 'glyph') {
+      const hit = findGlyphRecursive(pcGts.page.regions, this.regionId)
+      hit?.parentWord.glyphs?.splice(hit.index, 1)
     } else if (this.createdKind === 'region') {
       removeRegionById(pcGts, this.regionId)
     }
@@ -148,6 +186,8 @@ export class CreatePolygonCommand implements Command {
   private generateDefaultLabel(type?: PolygonType): string {
     if (!type) return 'TextRegion'
     if (type === PolygonType.TEXTLINE) return 'TextLine'
+    if (type === PolygonType.WORD) return 'Word'
+    if (type === PolygonType.GLYPH) return 'Glyph'
     if (type === PolygonType.BASELINE) return 'Baseline'
     return 'TextRegion'
   }
@@ -162,7 +202,7 @@ export class CreatePolygonCommand implements Command {
       return this.resolvedPoints
     }
 
-    if (this.type !== PolygonType.REGION && this.type !== PolygonType.TEXTLINE) {
+    if (this.type === PolygonType.BASELINE) {
       this.resolvedPoints = toPlainPoints(this.points)
       return this.resolvedPoints
     }

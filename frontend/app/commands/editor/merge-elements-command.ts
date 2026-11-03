@@ -1,5 +1,5 @@
 import type { Command, CommandContext } from './types'
-import { PcGts, TextLine, TextContentVariant } from '@/models/editor'
+import { Glyph, PcGts, TextLine, TextContentVariant, Word } from '@/models/editor'
 import type { Region, RegionKind, Relation, ReadingOrder } from '@/models/editor'
 import { Polygon } from '@/models/editor/geometry'
 import { isTextRegion, canContainTextLines } from '@/models/editor/region'
@@ -7,8 +7,10 @@ import { unionPolygons } from '@/utils/editor/polygon-clipping'
 import { visibilityService } from '@/services/editor/visibility-service'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import {
+  findGlyphRecursive,
   findRegionRecursive,
   findTextLineRecursive,
+  findWordRecursive,
   rebuildSpatialIndexFromPcGts
 } from '@/utils/editor/pcgts-editor-primitives'
 import { cloneRelations, removeRelationsReferencingIds } from '@/utils/editor/relations'
@@ -16,7 +18,7 @@ import { cloneReadingOrder, replaceIdsInReadingOrder } from './reading-order-uti
 
 export interface MergeElementsCommandData {
   elementIds: string[]
-  elementType: 'region' | 'textline'
+  elementType: 'region' | 'textline' | 'word' | 'glyph'
   targetKind?: RegionKind
   mergeChildren?: boolean
 }
@@ -24,6 +26,8 @@ export interface MergeElementsCommandData {
 interface UndoData {
   removedRegions: Array<{ region: Region, parentId: string | null, index: number }>
   removedTextLines: Array<{ textLine: TextLine, parentRegionId: string, index: number }>
+  removedWords?: Array<{ word: Word, parentTextLineId: string, index: number }>
+  removedGlyphs?: Array<{ glyph: Glyph, parentWordId: string, index: number }>
   createdId: string
   relations?: Relation[]
   readingOrder?: ReadingOrder
@@ -44,6 +48,12 @@ export class MergeElementsCommand implements Command {
 
     if (this.data.elementType === 'textline') {
       return this.mergeTextLines(pcGts, session)
+    }
+    if (this.data.elementType === 'word') {
+      return this.mergeWords(pcGts, session)
+    }
+    if (this.data.elementType === 'glyph') {
+      return this.mergeGlyphs(pcGts, session)
     }
     return this.mergeRegions(pcGts, session)
   }
@@ -169,9 +179,11 @@ export class MergeElementsCommand implements Command {
     )
 
     const newId = `merged_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const mergedWords = this.data.mergeChildren ? textLines.flatMap(t => t.textLine.words ?? []) : []
     const newTextLine = new TextLine({
       id: newId,
       coords: new Polygon(unionedPolygon.map(p => [p.x, p.y])),
+      words: mergedWords.length > 0 ? mergedWords : undefined,
       textContentVariants: mergedTextContentVariants.length > 0 ? mergedTextContentVariants : undefined
     })
 
@@ -206,7 +218,120 @@ export class MergeElementsCommand implements Command {
     return { id: newId }
   }
 
-  private mergeTextContentVariants(textContentVariants: TextContentVariant[]): TextContentVariant[] {
+  private mergeWords(pcGts: PcGts, session: any): { id: string } | undefined {
+    const words: Array<{ word: Word, parentTextLineId: string, index: number }> = []
+
+    for (const id of this.data.elementIds) {
+      const hit = findWordRecursive(pcGts.page.regions, id)
+      if (hit) {
+        words.push({ word: hit.word, parentTextLineId: hit.parentTextLine.id, index: hit.index })
+      }
+    }
+
+    if (words.length < 2) return undefined
+
+    const unionedPolygon = unionPolygons(words.map(w => w.word.coords.points.map(([x, y]) => ({ x, y }))))
+    if (!unionedPolygon) return undefined
+
+    const mergedTextContentVariants = this.mergeTextContentVariants(
+      words.flatMap(w => w.word.textContentVariants ?? []),
+      ''
+    )
+    const mergedGlyphs = this.data.mergeChildren ? words.flatMap(w => w.word.glyphs ?? []) : []
+
+    const newId = `merged_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const newWord = Word.fromFields({
+      id: newId,
+      coords: new Polygon(unionedPolygon.map(p => [p.x, p.y])),
+      glyphs: mergedGlyphs.length > 0 ? mergedGlyphs : undefined,
+      textContentVariants: mergedTextContentVariants.length > 0 ? mergedTextContentVariants : undefined
+    })
+
+    this.undoData = {
+      removedRegions: [],
+      removedTextLines: [],
+      removedWords: words.map(w => ({ ...w })),
+      createdId: newId,
+      relations: cloneRelations(pcGts.page.relations),
+      readingOrder: cloneReadingOrder(pcGts.page.readingOrder)
+    }
+
+    for (const { word, parentTextLineId } of [...words].sort((a, b) => b.index - a.index)) {
+      const parent = findTextLineRecursive(pcGts.page.regions, parentTextLineId)?.textLine
+      const idx = parent?.words?.findIndex(w => w.id === word.id) ?? -1
+      if (idx >= 0) parent!.words!.splice(idx, 1)
+    }
+
+    const firstWord = words[0]!
+    const parent = findTextLineRecursive(pcGts.page.regions, firstWord.parentTextLineId)?.textLine
+    if (parent) {
+      parent.words = parent.words ?? []
+      parent.words.splice(Math.min(firstWord.index, parent.words.length), 0, newWord)
+    }
+
+    session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
+    rebuildSpatialIndexFromPcGts(session)
+    visibilityService.clearCache()
+    return { id: newId }
+  }
+
+  private mergeGlyphs(pcGts: PcGts, session: any): { id: string } | undefined {
+    const glyphs: Array<{ glyph: Glyph, parentWordId: string, index: number }> = []
+
+    for (const id of this.data.elementIds) {
+      const hit = findGlyphRecursive(pcGts.page.regions, id)
+      if (hit) {
+        glyphs.push({ glyph: hit.glyph, parentWordId: hit.parentWord.id, index: hit.index })
+      }
+    }
+
+    if (glyphs.length < 2) return undefined
+
+    const unionedPolygon = unionPolygons(glyphs.map(g => g.glyph.coords.points.map(([x, y]) => ({ x, y }))))
+    if (!unionedPolygon) return undefined
+
+    const mergedTextContentVariants = this.mergeTextContentVariants(
+      glyphs.flatMap(g => g.glyph.textContentVariants ?? []),
+      ''
+    )
+
+    const newId = `merged_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const newGlyph = Glyph.fromFields({
+      id: newId,
+      coords: new Polygon(unionedPolygon.map(p => [p.x, p.y])),
+      unicode: mergedTextContentVariants[0]?.unicode,
+      textContentVariants: mergedTextContentVariants.length > 0 ? mergedTextContentVariants : undefined
+    })
+
+    this.undoData = {
+      removedRegions: [],
+      removedTextLines: [],
+      removedGlyphs: glyphs.map(g => ({ ...g })),
+      createdId: newId,
+      relations: cloneRelations(pcGts.page.relations),
+      readingOrder: cloneReadingOrder(pcGts.page.readingOrder)
+    }
+
+    for (const { glyph, parentWordId } of [...glyphs].sort((a, b) => b.index - a.index)) {
+      const parent = findWordRecursive(pcGts.page.regions, parentWordId)?.word
+      const idx = parent?.glyphs?.findIndex(g => g.id === glyph.id) ?? -1
+      if (idx >= 0) parent!.glyphs!.splice(idx, 1)
+    }
+
+    const firstGlyph = glyphs[0]!
+    const parent = findWordRecursive(pcGts.page.regions, firstGlyph.parentWordId)?.word
+    if (parent) {
+      parent.glyphs = parent.glyphs ?? []
+      parent.glyphs.splice(Math.min(firstGlyph.index, parent.glyphs.length), 0, newGlyph)
+    }
+
+    session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
+    rebuildSpatialIndexFromPcGts(session)
+    visibilityService.clearCache()
+    return { id: newId }
+  }
+
+  private mergeTextContentVariants(textContentVariants: TextContentVariant[], separator = ' '): TextContentVariant[] {
     if (textContentVariants.length === 0) return []
 
     const byIndex = new Map<number | undefined, string[]>()
@@ -219,7 +344,7 @@ export class MergeElementsCommand implements Command {
 
     const result: TextContentVariant[] = []
     for (const [index, texts] of byIndex) {
-      result.push(new TextContentVariant(texts.join(' '), undefined, undefined, index))
+      result.push(new TextContentVariant(texts.join(separator), undefined, undefined, index))
     }
     return result.sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
   }
@@ -241,6 +366,12 @@ export class MergeElementsCommand implements Command {
           }
         }
       }
+    } else if (this.data.elementType === 'word') {
+      const hit = findWordRecursive(pcGts.page.regions, this.undoData.createdId)
+      hit?.parentTextLine.words?.splice(hit.index, 1)
+    } else if (this.data.elementType === 'glyph') {
+      const hit = findGlyphRecursive(pcGts.page.regions, this.undoData.createdId)
+      hit?.parentWord.glyphs?.splice(hit.index, 1)
     } else {
       this.removeRegionById(pcGts.page.regions, this.undoData.createdId)
     }
@@ -263,6 +394,24 @@ export class MergeElementsCommand implements Command {
       if (parentHit && isTextRegion(parentHit.region)) {
         parentHit.region.textLines = parentHit.region.textLines ?? []
         parentHit.region.textLines.splice(index, 0, textLine)
+      }
+    }
+
+    const sortedWords = [...(this.undoData.removedWords ?? [])].sort((a, b) => a.index - b.index)
+    for (const { word, parentTextLineId, index } of sortedWords) {
+      const parent = findTextLineRecursive(pcGts.page.regions, parentTextLineId)?.textLine
+      if (parent) {
+        parent.words = parent.words ?? []
+        parent.words.splice(index, 0, word)
+      }
+    }
+
+    const sortedGlyphs = [...(this.undoData.removedGlyphs ?? [])].sort((a, b) => a.index - b.index)
+    for (const { glyph, parentWordId, index } of sortedGlyphs) {
+      const parent = findWordRecursive(pcGts.page.regions, parentWordId)?.word
+      if (parent) {
+        parent.glyphs = parent.glyphs ?? []
+        parent.glyphs.splice(index, 0, glyph)
       }
     }
 

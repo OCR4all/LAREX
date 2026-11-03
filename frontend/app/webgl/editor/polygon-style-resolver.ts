@@ -24,7 +24,12 @@ export interface ResolvePolygonRenderStyleOptions {
   renderPhase?: PolygonRenderPhase
 }
 
-const TEXTLINE_STROKE_COLOR: RGBA = RENDER_COLORS.SELECTED_BLUE
+/** Fixed stroke colors for text elements; regions are colored by their label instead. */
+const TEXT_ELEMENT_STROKE_COLORS: Partial<Record<string, RGBA>> = {
+  [PolygonType.TEXTLINE]: RENDER_COLORS.SELECTED_BLUE,
+  [PolygonType.WORD]: RENDER_COLORS.WORD_TEAL,
+  [PolygonType.GLYPH]: RENDER_COLORS.GLYPH_ORANGE
+}
 
 export function withAlpha(color: RGBA, alpha: number): RGBA {
   return [color[0], color[1], color[2], alpha]
@@ -70,11 +75,11 @@ export function resolvePolygonRenderStyle(
   }
 
   const renderPhase = options.renderPhase ?? 'default'
-  const isTextline = polygon.type === PolygonType.TEXTLINE
-  const baseStrokeColor = isTextline
-    ? TEXTLINE_STROKE_COLOR
-    : getRegionStrokeColor(polygon, options.document, options.labelSet)
-  const persistentFill = !isTextline && options.showPersistentFill
+  const textElementStrokeColor = polygon.type ? TEXT_ELEMENT_STROKE_COLORS[polygon.type] : undefined
+  const isTextElement = !!textElementStrokeColor
+  const baseStrokeColor = textElementStrokeColor
+    ?? getRegionStrokeColor(polygon, options.document, options.labelSet)
+  const persistentFill = !isTextElement && options.showPersistentFill
     ? withAlpha(baseStrokeColor, RENDER_ALPHA.FILL_LABEL_BACKGROUND)
     : null
 
@@ -91,7 +96,7 @@ export function resolvePolygonRenderStyle(
   return {
     strokeColor: baseStrokeColor,
     strokePattern: 'solid',
-    strokeWidthMultiplier: isTextline ? 0.8 : 1,
+    strokeWidthMultiplier: isTextElement ? 0.8 : 1,
     persistentFill,
     nodeColor: baseStrokeColor
   }

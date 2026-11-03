@@ -20,8 +20,13 @@ export interface FlatStructureRow {
 const TYPE_ORDER: Record<string, number> = {
   REGION: 0,
   TEXTLINE: 1,
-  BASELINE: 2
+  BASELINE: 2,
+  WORD: 3,
+  GLYPH: 4
 }
+
+/** Words and glyphs keep their document (reading) order instead of being sorted by label. */
+const DOCUMENT_ORDER_TYPES = new Set(['WORD', 'GLYPH'])
 
 function normalizeType(type?: string): string {
   return (type ?? '').toUpperCase()
@@ -38,6 +43,8 @@ export function getTreeItemDisplayType(item: TreeItemData): string {
   const displayTypes: Record<string, string> = {
     REGION: 'Region',
     TEXTLINE: 'TextLine',
+    WORD: 'Word',
+    GLYPH: 'Glyph',
     BASELINE: 'Baseline'
   }
 
@@ -57,6 +64,7 @@ export function compareTreeItems(left: TreeItemData, right: TreeItemData): numbe
   const leftWeight = typeOrderWeight(left)
   const rightWeight = typeOrderWeight(right)
   if (leftWeight !== rightWeight) return leftWeight - rightWeight
+  if (DOCUMENT_ORDER_TYPES.has(normalizeType(left.type))) return 0
 
   const leftLabel = (left.label ?? left.id ?? '').toLowerCase()
   const rightLabel = (right.label ?? right.id ?? '').toLowerCase()

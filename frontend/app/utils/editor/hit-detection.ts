@@ -1,6 +1,6 @@
 import earcut from 'earcut'
 import { visibilityService } from '@/services/editor/visibility-service'
-import type { Polygon, Polyline } from '@/services/editor/visibility-service'
+import type { Polygon, Polyline, VisibilityContext } from '@/services/editor/visibility-service'
 import type { SpatialIndexService } from '@/services/editor/spatial-index-service'
 import type { Point, View } from '@/models/editor'
 import type { ViewMode } from '@/types/editor/rendering'
@@ -62,7 +62,7 @@ export function getVisiblePolygonAtPoint(
     if (!visibilityService.shouldBeSelectablePolygon(polygon, {
       selectedPolygonIndex,
       allPolygons: polygons,
-      viewMode: viewMode as 'default' | 'textline' | 'baseline' | undefined,
+      viewMode: viewMode as VisibilityContext['viewMode'],
       hiddenPolygonIds
     })) {
       continue
@@ -118,7 +118,7 @@ export function getHoverablePolygonAtPoint(
       selectedPolylineIndex,
       allPolygons: polygons,
       allPolylines: polylines,
-      viewMode: viewMode as 'default' | 'textline' | 'baseline' | undefined,
+      viewMode: viewMode as VisibilityContext['viewMode'],
       hiddenPolygonIds,
       hiddenPolylineIds
     })
@@ -177,7 +177,7 @@ export function getHoverablePolylineAtPoint(
       selectedPolylineIndex,
       allPolygons: polygons,
       allPolylines: polylines,
-      viewMode: viewMode as 'default' | 'textline' | 'baseline' | undefined,
+      viewMode: viewMode as VisibilityContext['viewMode'],
       hiddenPolygonIds,
       hiddenPolylineIds
     })) {

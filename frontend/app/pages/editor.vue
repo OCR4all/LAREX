@@ -629,7 +629,9 @@ async function handleMergeSelected() {
   if (types.size !== 1) return
 
   const type = selectedPolygons[0]?.type
-  const elementType = type === PolygonType.REGION ? 'region' : type === PolygonType.TEXTLINE ? 'textline' : null
+  const elementType = type === PolygonType.REGION || type === PolygonType.TEXTLINE || type === PolygonType.WORD || type === PolygonType.GLYPH
+    ? type
+    : null
   if (!elementType) return
 
   let targetKind: RegionKind | undefined
@@ -2040,12 +2042,10 @@ if (import.meta.client) {
         editorUiStore.toggleRightCollapsed()
       },
       mergeSelected: handleMergeSelected,
-      setRegionType: (type: 'region' | 'textline' | 'baseline') => {
+      setRegionType: (type: 'region' | 'textline' | 'word' | 'glyph' | 'baseline') => {
         const controls = activeControls.value
         if (!controls?.regionType) return
-        if (type === 'region') controls.regionType.value = PolygonType.REGION
-        else if (type === 'textline') controls.regionType.value = PolygonType.TEXTLINE
-        else controls.regionType.value = PolygonType.BASELINE
+        controls.regionType.value = type
       },
       setCutMode: (mode: 'line' | 'polygon' | 'rectangle') => {
         const controls = activeControls.value

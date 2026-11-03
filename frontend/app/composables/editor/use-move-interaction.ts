@@ -2,6 +2,7 @@ import type { Commander } from '@/commands'
 import { MoveElementCommand } from '@/commands'
 import type { Point, ImageSize } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline, ViewMode } from '@/types/editor/rendering'
+import { normalizeLayoutViewMode } from '@/services/editor/visibility-service'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { getVisiblePolygonAtPoint, getHoverablePolylineAtPoint, isPointInPolygon } from '@/utils/editor/hit-detection'
 import { getImageBounds } from '@/utils/editor/coordinates'
@@ -99,15 +100,22 @@ export function useMoveInteraction(
     return false
   }
 
-  function storeChildrenPoints(parentId: string): void {
-    for (const p of polygons) {
-      if (p.parentId === parentId) {
-        childOriginalPoints.set(p.id, p.points.map(pt => ({ ...pt })))
-        storeChildrenPoints(p.id)
+  function storeChildrenPoints(rootId: string): void {
+    const ownerIds = new Set([rootId])
+    let added = true
+    // Collect all descendants (textlines, words, glyphs) breadth-first by parent ID.
+    while (added) {
+      added = false
+      for (const p of polygons) {
+        if (p.parentId && ownerIds.has(p.parentId) && !ownerIds.has(p.id)) {
+          ownerIds.add(p.id)
+          childOriginalPoints.set(p.id, p.points.map(pt => ({ ...pt })))
+          added = true
+        }
       }
     }
     for (const pl of polylines) {
-      if (pl.parentId && childOriginalPoints.has(pl.parentId)) {
+      if (pl.parentId && ownerIds.has(pl.parentId)) {
         childOriginalPoints.set(pl.id, pl.points.map(pt => ({ ...pt })))
       }
     }
@@ -289,10 +297,7 @@ export function useMoveInteraction(
     return true
   }
 
-  function normalizeViewMode(raw: string | undefined): ViewMode | undefined {
-    if (raw === 'default' || raw === 'textline' || raw === 'baseline') return raw
-    return undefined
-  }
+  const normalizeViewMode = normalizeLayoutViewMode
 
   return {
     state,

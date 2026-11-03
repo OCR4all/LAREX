@@ -12,6 +12,8 @@ vi.mock('@/composables/editor/use-geometry-cache-integrations', () => ({ invalid
 
 function setup(ids: string[] = []) {
   vi.stubGlobal('useEditorPreferences', () => ({ preferences: ref({ shortcutBindings: {} }) }))
+  vi.stubGlobal('onMounted', vi.fn())
+  vi.stubGlobal('onUnmounted', vi.fn())
   const { session } = createMockSession(createTestDocument({ regions: ['a', 'b'].map(id => createTestTextRegion({ id })) }))
   vi.mocked(getEditorSession).mockReturnValue(session)
   const commander = new Commander()

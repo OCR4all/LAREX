@@ -14,7 +14,7 @@ import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping
 import { resolvePageLockReason } from '@/utils/page-lock'
 
 type StatusEntityInfo = {
-  regionType: RegionKind | 'TextLine' | 'Baseline' | 'Polyline'
+  regionType: RegionKind | 'TextLine' | 'Word' | 'Glyph' | 'Baseline' | 'Polyline'
   subtype?: string
   id: string
   label?: string
@@ -297,17 +297,23 @@ function getChildCount(id: string, polygons: RenderablePolygon[], polylines: Ren
   return count
 }
 
+const TEXT_ELEMENT_TYPE_NAMES: Partial<Record<string, 'TextLine' | 'Word' | 'Glyph'>> = {
+  [PolygonType.TEXTLINE]: 'TextLine',
+  [PolygonType.WORD]: 'Word',
+  [PolygonType.GLYPH]: 'Glyph'
+}
+
 function buildEntityFromPolygon(
   polygon: RenderablePolygon,
   polygons: RenderablePolygon[],
   polylines: RenderablePolyline[],
   labelSet?: LabelSet | null
 ): StatusEntityInfo {
-  const isTextLine = polygon.type === PolygonType.TEXTLINE || polygon.type === 'textline'
-  const regionType = isTextLine ? 'TextLine' : (polygon.regionKind ?? 'CustomRegion')
-  const subtype = !isTextLine ? polygon.regionSubtype : undefined
+  const textElementType = TEXT_ELEMENT_TYPE_NAMES[polygon.type?.toLowerCase() ?? '']
+  const regionType = textElementType ?? polygon.regionKind ?? 'CustomRegion'
+  const subtype = !textElementType ? polygon.regionSubtype : undefined
 
-  const label = isTextLine
+  const label = textElementType
     ? polygon.label
     : resolveRegionLabelDisplayName(labelSet?.labels, polygon, polygon.label || polygon.regionSubtype)
 

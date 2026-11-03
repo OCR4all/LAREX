@@ -138,6 +138,8 @@ export const RENDER_COLORS = {
   ACTIVE_VIOLET_BASELINE: [0.545, 0.361, 0.965, 1.0] as RGBA,
   ACTIVE_YELLOW_POLYGON: [1.0, 0.8, 0.1, 1.0] as RGBA,
   SELECTED_BLUE: [0.2, 0.6, 1.0, 1.0] as RGBA,
+  WORD_TEAL: [0.0, 0.72, 0.6, 1.0] as RGBA,
+  GLYPH_ORANGE: [1.0, 0.45, 0.1, 1.0] as RGBA,
   PREVIEW_PINK: [1.0, 0.4, 0.8, 1.0] as RGBA,
 
   HOVER_FILL_YELLOW: [1.0, 0.8, 0.1, 0.5] as RGBA,
@@ -172,8 +174,11 @@ export const AUTO_PARENT_INDICATOR = {
   /** Fill color for helper shape preview (subtle blue tint) */
   NEW_PARENT_FILL: [0.3, 0.5, 0.9, 0.1] as RGBA,
 
-  /** Outline color for helper textline in baseline mode (cyan dashed) */
+  /** Outline color for helper textline in baseline/word/glyph mode (cyan dashed) */
   NEW_TEXTLINE_OUTLINE: [0.2, 0.7, 0.8, 0.6] as RGBA,
+
+  /** Outline color for helper word in glyph mode (teal dashed) */
+  NEW_WORD_OUTLINE: [0.0, 0.72, 0.6, 0.6] as RGBA,
 
   /** Line thickness for parent indicator outlines */
   LINE_THICKNESS: 4.0,

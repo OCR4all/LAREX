@@ -2,6 +2,8 @@
 import { LazyUiConfirmModal } from '#components'
 import { PolygonType, type ReadingOrder } from '@/models/editor'
 import type { Region, TextRegion } from '@/models/editor/region'
+import type { Glyph, TextLine, Word } from '@/models/editor/text'
+import { findGlyphRecursive, findWordRecursive, toPolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
 import type { AvailableItem } from '@/components/editor/reading-order'
 import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
 import type { RenderablePolyline } from '@/types/editor/rendering'
@@ -27,6 +29,13 @@ const confirmModal = overlay.create(LazyUiConfirmModal)
 
 const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
+const DELETE_ELEMENT_LABELS = {
+  region: 'Region',
+  textline: 'Text Line',
+  word: 'Word',
+  glyph: 'Glyph'
+} as const
+
 const activePopoverButtonClass = 'bg-navy-600 text-white hover:bg-navy-500 active:bg-navy-700 dark:bg-navy-500 dark:hover:bg-navy-400 dark:active:bg-navy-600'
 
 function showReadingOrderOverlay(): void {
@@ -202,7 +211,13 @@ function findTextLineById(regions: Region[], id: string): import('@/models/edito
   return null
 }
 
-const selectedElement = computed<Region | import('@/models/editor/text').TextLine | RenderablePolyline | null>(() => {
+const selectedTextElementType = computed<'word' | 'glyph' | null>(() => {
+  if (props.selectedPolylineId || !props.selectedPolygonId) return null
+  const type = props.polygons.find(p => p.id === props.selectedPolygonId)?.type
+  return type === PolygonType.WORD || type === PolygonType.GLYPH ? type : null
+})
+
+const selectedElement = computed<Region | TextLine | Word | Glyph | RenderablePolyline | null>(() => {
   if (!props.page?.regions) return null
 
   if (props.selectedPolylineId) {
@@ -218,6 +233,10 @@ const selectedElement = computed<Region | import('@/models/editor/text').TextLin
       return findRegionById(props.page.regions, props.selectedPolygonId)
     } else if (polygon.type === PolygonType.TEXTLINE) {
       return findTextLineById(props.page.regions, props.selectedPolygonId)
+    } else if (polygon.type === PolygonType.WORD) {
+      return findWordRecursive(props.page.regions, props.selectedPolygonId)?.word ?? null
+    } else if (polygon.type === PolygonType.GLYPH) {
+      return findGlyphRecursive(props.page.regions, props.selectedPolygonId)?.glyph ?? null
     }
   }
 
@@ -408,10 +427,11 @@ async function deletePolygon(polygonId: string): Promise<void> {
     : polygon.label || polygon.id
 
   const hasChildren = props.polygons.some(p => p.parentId === polygonId)
+  const elementLabel = DELETE_ELEMENT_LABELS[toPolygonElementType(polygon.type)]
   const instance = confirmModal.open({
-    title: hasChildren ? 'Delete Region and Children?' : 'Delete Region?',
+    title: hasChildren ? `Delete ${elementLabel} and Children?` : `Delete ${elementLabel}?`,
     description: hasChildren
-      ? `Are you sure you want to delete "${displayLabel}"? This will also delete all associated textlines and baselines.`
+      ? `Are you sure you want to delete "${displayLabel}"? This will also delete all of its child elements.`
       : `Are you sure you want to delete "${displayLabel}"?`,
     confirmLabel: 'Delete',
     confirmColor: 'error'
@@ -570,6 +590,7 @@ watch(() => props.collapsed, (collapsed) => {
                   :document="document"
                   :page="page"
                   :selected-element="selectedElement"
+                  :selected-text-element-type="selectedTextElementType"
                   :read-only="isPageLocked"
                   @apply="handleMetadataApply"
                   @change-region-kind="handleRegionKindChange"
@@ -653,6 +674,7 @@ watch(() => props.collapsed, (collapsed) => {
             :document="document"
             :page="page"
             :selected-element="selectedElement"
+            :selected-text-element-type="selectedTextElementType"
             :read-only="isPageLocked"
             @apply="handleMetadataApply"
             @change-region-kind="handleRegionKindChange"

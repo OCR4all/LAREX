@@ -1,5 +1,5 @@
 import type { Commander } from '@/commands'
-import { CreatePolygonCommand, CreateTextlineAutoParentCommand } from '@/commands'
+import { CreatePolygonCommand, CreateTextElementAutoParentCommand, CreateTextlineAutoParentCommand } from '@/commands'
 import { PolygonType } from '@/models/editor'
 import type { Point, View, ImageSize, AspectRatioScale } from '@/models/editor'
 import type { RenderablePolygon, PreviewPoint } from '@/types/editor/rendering'
@@ -194,6 +194,47 @@ export function usePolygonDraw(
       if (autoSelect?.value && result?.textlineId) {
         setTimeout(() => {
           const idx = polygons.findIndex(p => p.id === result.textlineId)
+          if (idx >= 0) selectedPolygonIndex.value = idx
+        }, 0)
+      }
+
+      clearDrawing()
+      return true
+    }
+
+    const isTextElementViewMode = (viewMode?.value === 'word' && currentType === PolygonType.WORD)
+      || (viewMode?.value === 'glyph' && currentType === PolygonType.GLYPH)
+
+    if (isTextElementViewMode) {
+      log.debug(`Using auto-parent command for ${currentType} creation in ${viewMode?.value} view mode`)
+
+      const autoParentCommand = new CreateTextElementAutoParentCommand({
+        points: [...currentPolygonPoints],
+        type: currentType as typeof PolygonType.WORD | typeof PolygonType.GLYPH,
+        preventOverlapOnCreate: preventOverlapOnCreate?.value,
+        overlapMinAreaThreshold: overlapMinAreaThreshold?.value
+      })
+
+      const session = getEditorSession(canvasId)
+      const commandCtx = session ? { canvasId, session } : undefined
+      let result: { id: string } | undefined
+      try {
+        result = commander.execute(autoParentCommand, commandCtx)
+      } catch (error) {
+        const message = error instanceof Error && error.message
+          ? error.message
+          : `Could not create ${currentType} with overlap prevention enabled.`
+        dialogs.alert({
+          title: `${currentType === PolygonType.WORD ? 'Word' : 'Glyph'} creation blocked`,
+          message
+        })
+        clearDrawing()
+        return false
+      }
+
+      if (autoSelect?.value && result?.id) {
+        setTimeout(() => {
+          const idx = polygons.findIndex(p => p.id === result.id)
           if (idx >= 0) selectedPolygonIndex.value = idx
         }, 0)
       }

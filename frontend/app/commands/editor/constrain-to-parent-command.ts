@@ -1,6 +1,8 @@
 import type { Command, CommandContext } from './types'
+import type { Region } from '@/models/editor'
+import type { Polygon } from '@/models/editor/geometry'
 import { CutElementsCommand } from './cut-elements-command'
-import { collectRenderablePolygonsFromPcGts, findRegionRecursive, findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
+import { collectRenderablePolygonsFromPcGts, findGlyphRecursive, findRegionRecursive, findTextLineRecursive, findWordRecursive } from '@/utils/editor/pcgts-editor-primitives'
 
 /** Clips selected polygons against their current parents, in hierarchy order. */
 export class ConstrainToParentCommand implements Command {
@@ -18,9 +20,7 @@ export class ConstrainToParentCommand implements Command {
     const targets = collectRenderablePolygonsFromPcGts(document).filter(p => selected.has(p.id))
     try {
       for (const target of targets) {
-        const region = findRegionRecursive(document.page.regions, target.id)
-        const line = region ? null : findTextLineRecursive(document.page.regions, target.id)
-        const parent = region?.parent ?? line?.parentTextRegion
+        const parent = this.findParentCoordsHolder(document.page.regions, target.id)
         if (!parent || parent.coords.points.length < 3) continue
         const command = new CutElementsCommand({
           mode: 'polygon',
@@ -43,5 +43,15 @@ export class ConstrainToParentCommand implements Command {
 
   getDescription(): string {
     return 'Constrain to Parent'
+  }
+
+  private findParentCoordsHolder(regions: Region[], id: string): { coords: Polygon } | null {
+    const region = findRegionRecursive(regions, id)
+    if (region) return region.parent
+    const line = findTextLineRecursive(regions, id)
+    if (line) return line.parentTextRegion
+    const word = findWordRecursive(regions, id)
+    if (word) return word.parentTextLine
+    return findGlyphRecursive(regions, id)?.parentWord ?? null
   }
 }

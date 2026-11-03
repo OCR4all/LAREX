@@ -16,6 +16,7 @@ import { getEditorSession } from '@/session/editor/editor-session'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 import type { TextModeSubmode } from '@/stores/editor/types'
 import {
+  isTypingSafeShortcut,
   isTypingTarget,
   shouldIgnoreGlobalShortcutForTypingTarget
 } from '@/utils/editor/keyboard-shortcut-target'
@@ -67,7 +68,7 @@ export interface KeyboardShortcutsOptions {
     deleteSelected?: () => void
     toggleShortcutsHelp?: () => void
     mergeSelected?: () => void
-    setRegionType?: (type: 'region' | 'textline' | 'baseline') => void
+    setRegionType?: (type: 'region' | 'textline' | 'word' | 'glyph' | 'baseline') => void
     setCutMode?: (mode: 'line' | 'polygon' | 'rectangle') => void
     setUiMode?: (mode: 'layout' | 'text') => void
     setLayoutViewMode?: (mode: ViewMode) => void
@@ -246,9 +247,11 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
 
   const runGlobalCommand = (
     commandId: ShortcutCommandId,
-    options?: { allowWhileTyping?: boolean }
+    options?: { allowWhileTyping?: boolean, typingSafe?: boolean }
   ): boolean => {
     const allowWhileTyping = options?.allowWhileTyping === true
+    // Typing-safe Mod/Ctrl bindings run even when a text field has focus.
+    const isBlockedByTyping = () => isInputFocused() && options?.typingSafe !== true
 
     switch (commandId) {
       case 'undo':
@@ -287,6 +290,26 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         callbacks.setRegionType?.('textline')
         callbacks.setDrawingMode(DRAWING_MODES.RECTANGLE)
         return true
+      case 'wordPolygon':
+        if (isInputFocused()) return false
+        callbacks.setRegionType?.('word')
+        callbacks.setDrawingMode(DRAWING_MODES.POLYGON)
+        return true
+      case 'wordRectangle':
+        if (isInputFocused()) return false
+        callbacks.setRegionType?.('word')
+        callbacks.setDrawingMode(DRAWING_MODES.RECTANGLE)
+        return true
+      case 'glyphPolygon':
+        if (isInputFocused()) return false
+        callbacks.setRegionType?.('glyph')
+        callbacks.setDrawingMode(DRAWING_MODES.POLYGON)
+        return true
+      case 'glyphRectangle':
+        if (isInputFocused()) return false
+        callbacks.setRegionType?.('glyph')
+        callbacks.setDrawingMode(DRAWING_MODES.RECTANGLE)
+        return true
       case 'baseline':
         if (isInputFocused()) return false
         callbacks.setRegionType?.('baseline')
@@ -305,30 +328,40 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         callbacks.setCutMode?.('rectangle')
         return true
       case 'defaultView':
-        if (isInputFocused()) return false
+        if (isBlockedByTyping()) return false
         if (callbacks.setLayoutViewMode) callbacks.setLayoutViewMode(VIEW_MODES.DEFAULT)
         else callbacks.setViewMode(VIEW_MODES.DEFAULT)
         return true
       case 'textlineView':
-        if (isInputFocused()) return false
+        if (isBlockedByTyping()) return false
         if (callbacks.setLayoutViewMode) callbacks.setLayoutViewMode(VIEW_MODES.TEXTLINE)
         else callbacks.setViewMode(VIEW_MODES.TEXTLINE)
         return true
+      case 'wordView':
+        if (isBlockedByTyping()) return false
+        if (callbacks.setLayoutViewMode) callbacks.setLayoutViewMode(VIEW_MODES.WORD)
+        else callbacks.setViewMode(VIEW_MODES.WORD)
+        return true
+      case 'glyphView':
+        if (isBlockedByTyping()) return false
+        if (callbacks.setLayoutViewMode) callbacks.setLayoutViewMode(VIEW_MODES.GLYPH)
+        else callbacks.setViewMode(VIEW_MODES.GLYPH)
+        return true
       case 'baselineView':
-        if (isInputFocused()) return false
+        if (isBlockedByTyping()) return false
         if (callbacks.setLayoutViewMode) callbacks.setLayoutViewMode(VIEW_MODES.BASELINE)
         else callbacks.setViewMode(VIEW_MODES.BASELINE)
         return true
       case 'textCanvasView':
-        if (isInputFocused()) return false
+        if (isBlockedByTyping()) return false
         callbacks.setTextViewMode?.('visual')
         return true
       case 'textListView':
-        if (isInputFocused()) return false
+        if (isBlockedByTyping()) return false
         callbacks.setTextViewMode?.('expert')
         return true
       case 'textFullView':
-        if (isInputFocused()) return false
+        if (isBlockedByTyping()) return false
         callbacks.setTextViewMode?.('full')
         return true
       case 'clearSelection':
@@ -373,11 +406,11 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         if (isInputFocused()) return false
         return callbacks.addHoveredToReadingOrder?.() ?? false
       case 'toggleLeftSidebar':
-        if (isInputFocused()) return false
+        if (isBlockedByTyping()) return false
         callbacks.toggleLeftSidebar?.()
         return true
       case 'toggleRightSidebar':
-        if (isInputFocused()) return false
+        if (isBlockedByTyping()) return false
         callbacks.toggleRightSidebar?.()
         return true
       case 'layoutMode':
@@ -393,7 +426,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         callbacks.toggleVirtualKeyboard?.()
         return true
       case 'save':
-        if (isInputFocused()) return false
+        if (isBlockedByTyping()) return false
         callbacks.saveDocument?.()
         return true
       case 'nextImage':
@@ -457,14 +490,14 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
   const runCommand = (
     commandId: ShortcutCommandId,
     registration: RegisteredTextViewShortcutScope | undefined,
-    options?: { isTextViewContext?: boolean }
+    options?: { isTextViewContext?: boolean, typingSafe?: boolean }
   ): boolean => {
     const definition = SHORTCUT_DEFINITIONS[commandId] as ShortcutDefinition
     if (definition.scope === 'text-view') {
       return runScopedCommand(commandId, registration)
     }
 
-    return runGlobalCommand(commandId, { allowWhileTyping: options?.isTextViewContext })
+    return runGlobalCommand(commandId, { allowWhileTyping: options?.isTextViewContext, typingSafe: options?.typingSafe })
   }
 
   const onKeydown = (event: KeyboardEvent) => {
@@ -484,14 +517,17 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         if (commandId === 'clearSelection' && binding === 'escape') continue
         if (
           scope === 'global'
-          && shouldIgnoreGlobalShortcutForTypingTarget(commandId, isTextViewContext, event)
+          && shouldIgnoreGlobalShortcutForTypingTarget(commandId, isTextViewContext, event, binding)
         ) {
           continue
         }
 
         // Holding Delete after removing a corner must not remove its whole polygon.
         const handled = (commandId === 'delete' && event.repeat)
-          || runCommand(commandId, scopeState.registration, { isTextViewContext })
+          || runCommand(commandId, scopeState.registration, {
+            isTextViewContext,
+            typingSafe: isTypingSafeShortcut(commandId, binding)
+          })
         if (!handled) continue
 
         event.preventDefault()
@@ -502,10 +538,9 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     }
   }
 
-  if (import.meta.client) {
-    onMounted(() => window.addEventListener('keydown', onKeydown, true))
-    onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
-  }
+  // Lifecycle hooks only run in the browser, so no client guard is needed.
+  onMounted(() => window.addEventListener('keydown', onKeydown, true))
+  onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
 
   return {
     deleteSelectedElements,

@@ -34,7 +34,7 @@ const emit = defineEmits<{
 }>()
 
 type FilterKey = 'all' | 'geometry' | 'text' | 'metadata'
-type CompareViewMode = 'default' | 'textline' | 'baseline'
+type CompareViewMode = 'default' | 'textline' | 'word' | 'glyph' | 'baseline'
 
 const editorStore = useEditorStore()
 const toast = useToast()
@@ -90,7 +90,10 @@ const filteredChangeGroups = computed(() =>
   }))
 )
 const countTotal = computed(() => changeGroups.value.length)
-const textChangeCount = computed(() => summary.value.counts.textline.text)
+const textChangeCount = computed(() => {
+  const { textline, word, glyph } = summary.value.counts
+  return textline.text + word.text + glyph.text
+})
 
 const filterItems: Array<{ key: FilterKey, label: string }> = [
   { key: 'all', label: 'All' },
@@ -101,7 +104,9 @@ const filterItems: Array<{ key: FilterKey, label: string }> = [
 const viewModeItems: Array<{ key: CompareViewMode, label: string, icon: string }> = [
   { key: 'default', label: 'Regions', icon: 'i-lucide-panel-top' },
   { key: 'textline', label: 'Lines', icon: 'i-lucide-text-cursor-input' },
-  { key: 'baseline', label: 'Baselines', icon: 'i-lucide-baseline' }
+  { key: 'baseline', label: 'Baselines', icon: 'i-lucide-baseline' },
+  { key: 'word', label: 'Words', icon: 'i-lucide-whole-word' },
+  { key: 'glyph', label: 'Glyphs', icon: 'i-lucide-letter-text' }
 ]
 
 function controlsForCanvas(canvasId: string) {

@@ -200,21 +200,23 @@ describe('shortcut-registry', () => {
     }, { platform: 'other' })).toBe('meta_shift_arrowup')
   })
 
-  it('maps the six editor mode and view choices to number keys without conflicts', () => {
+  it('maps the editor mode and view choices to Mod+number in menu order without conflicts', () => {
     const bindings = getEffectiveShortcutBindings(null)
     const conflictMap = getShortcutConflictMap(bindings)
+    const viewCommands = [
+      'defaultView',
+      'textlineView',
+      'baselineView',
+      'wordView',
+      'glyphView',
+      'textCanvasView',
+      'textListView',
+      'textFullView'
+    ] as const
 
-    expect(bindings.defaultView).toEqual(['1'])
-    expect(bindings.textlineView).toEqual(['2'])
-    expect(bindings.baselineView).toEqual(['3'])
-    expect(bindings.textCanvasView).toEqual(['4'])
-    expect(bindings.textListView).toEqual(['5'])
-    expect(bindings.textFullView).toEqual(['6'])
-    expect(conflictMap.defaultView).toBeUndefined()
-    expect(conflictMap.textlineView).toBeUndefined()
-    expect(conflictMap.baselineView).toBeUndefined()
-    expect(conflictMap.textCanvasView).toBeUndefined()
-    expect(conflictMap.textListView).toBeUndefined()
-    expect(conflictMap.textFullView).toBeUndefined()
+    viewCommands.forEach((commandId, index) => {
+      expect(bindings[commandId]).toEqual([`meta_${index + 1}`])
+      expect(conflictMap[commandId]).toBeUndefined()
+    })
   })
 })

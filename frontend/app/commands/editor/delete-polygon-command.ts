@@ -1,12 +1,14 @@
 import type { Command, CommandContext } from './types'
 import { PcGts } from '@/models/editor'
-import type { Region, TextLine, TextRegion, ReadingOrder, Relation } from '@/models/editor'
+import type { Glyph, Region, TextLine, TextRegion, ReadingOrder, Relation, Word } from '@/models/editor'
 import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
   collectRenderablePolygonsFromPcGts,
+  findGlyphRecursive,
   findRegionRecursive,
   findTextLineRecursive,
+  findWordRecursive,
   rebuildSpatialIndexFromPcGts
 } from '@/utils/editor/pcgts-editor-primitives'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
@@ -14,7 +16,7 @@ import { cloneRelations, removeRelationsReferencingIds } from '@/utils/editor/re
 import { cloneReadingOrder, removeIdsFromReadingOrder } from './reading-order-utils'
 
 export interface DeletePolygonCommandData {
-  polygonId: string // Region ID to delete
+  polygonId: string // Region, text line, word or glyph ID to delete
 }
 
 export class DeletePolygonCommand implements Command {
@@ -22,6 +24,8 @@ export class DeletePolygonCommand implements Command {
 
   private deletedRegion: { region: Region, parent: Region | null, index: number } | null = null
   private deletedTextLine: { textLine: TextLine, parentTextRegion: TextRegion, index: number } | null = null
+  private deletedWord: { word: Word, parentTextLine: TextLine, index: number } | null = null
+  private deletedGlyph: { glyph: Glyph, parentWord: Word, index: number } | null = null
   private previousRelations: Relation[] | undefined
   private previousReadingOrder?: ReadingOrder
   private relationsModified = false
@@ -46,15 +50,8 @@ export class DeletePolygonCommand implements Command {
       const siblings = regionHit.parent ? (regionHit.parent.regions ?? []) : pcGts.page.regions
       this.deletedRegion = { region: regionHit.region, parent: regionHit.parent, index: regionHit.index }
       siblings.splice(regionHit.index, 1)
-    } else {
-      const textLineHit = findTextLineRecursive(pcGts.page.regions, this.polygonId)
-      if (!textLineHit) return
-      this.deletedTextLine = {
-        textLine: textLineHit.textLine,
-        parentTextRegion: textLineHit.parentTextRegion,
-        index: textLineHit.index
-      }
-      textLineHit.parentTextRegion.textLines?.splice(textLineHit.index, 1)
+    } else if (!this.deleteTextElement(pcGts)) {
+      return
     }
 
     const idsToRemove = new Set(polygonIdsToInvalidate)
@@ -100,6 +97,16 @@ export class DeletePolygonCommand implements Command {
       parentTextRegion.textLines = parentTextRegion.textLines ?? []
       const safeIndex = Math.min(Math.max(index, 0), parentTextRegion.textLines.length)
       parentTextRegion.textLines.splice(safeIndex, 0, textLine)
+    } else if (this.deletedWord) {
+      const { word, parentTextLine, index } = this.deletedWord
+      parentTextLine.words = parentTextLine.words ?? []
+      const safeIndex = Math.min(Math.max(index, 0), parentTextLine.words.length)
+      parentTextLine.words.splice(safeIndex, 0, word)
+    } else if (this.deletedGlyph) {
+      const { glyph, parentWord, index } = this.deletedGlyph
+      parentWord.glyphs = parentWord.glyphs ?? []
+      const safeIndex = Math.min(Math.max(index, 0), parentWord.glyphs.length)
+      parentWord.glyphs.splice(safeIndex, 0, glyph)
     } else {
       return
     }
@@ -121,6 +128,35 @@ export class DeletePolygonCommand implements Command {
 
   getDescription(): string {
     return `Delete polygon`
+  }
+
+  private deleteTextElement(pcGts: PcGts): boolean {
+    const textLineHit = findTextLineRecursive(pcGts.page.regions, this.polygonId)
+    if (textLineHit) {
+      this.deletedTextLine = {
+        textLine: textLineHit.textLine,
+        parentTextRegion: textLineHit.parentTextRegion,
+        index: textLineHit.index
+      }
+      textLineHit.parentTextRegion.textLines?.splice(textLineHit.index, 1)
+      return true
+    }
+
+    const wordHit = findWordRecursive(pcGts.page.regions, this.polygonId)
+    if (wordHit) {
+      this.deletedWord = { word: wordHit.word, parentTextLine: wordHit.parentTextLine, index: wordHit.index }
+      wordHit.parentTextLine.words?.splice(wordHit.index, 1)
+      return true
+    }
+
+    const glyphHit = findGlyphRecursive(pcGts.page.regions, this.polygonId)
+    if (glyphHit) {
+      this.deletedGlyph = { glyph: glyphHit.glyph, parentWord: glyphHit.parentWord, index: glyphHit.index }
+      glyphHit.parentWord.glyphs?.splice(glyphHit.index, 1)
+      return true
+    }
+
+    return false
   }
 }
 

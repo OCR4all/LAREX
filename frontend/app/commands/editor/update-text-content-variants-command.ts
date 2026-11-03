@@ -2,7 +2,7 @@ import type { Command, CommandContext } from './types'
 import { PcGts, TextContentVariant } from '@/models/editor'
 import type { TextRegion } from '@/models/editor'
 import { deepClone } from './utils'
-import { findRegionRecursive, findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
+import { findGlyphRecursive, findRegionRecursive, findTextLineRecursive, findWordRecursive } from '@/utils/editor/pcgts-editor-primitives'
 
 export type UpdateTextContentVariantsCommandData = {
   elementId: string
@@ -83,6 +83,12 @@ type TextContentVariantOwner = { textContentVariants?: TextContentVariant[] }
 function findTextContentVariantOwner(pcGts: PcGts, id: string): TextContentVariantOwner | null {
   const tlHit = findTextLineRecursive(pcGts.page.regions, id)
   if (tlHit) return tlHit.textLine
+
+  const wordHit = findWordRecursive(pcGts.page.regions, id)
+  if (wordHit) return wordHit.word
+
+  const glyphHit = findGlyphRecursive(pcGts.page.regions, id)
+  if (glyphHit) return glyphHit.glyph
 
   const regionHit = findRegionRecursive(pcGts.page.regions, id)
   if (regionHit && regionHit.region.kind === 'TextRegion') {

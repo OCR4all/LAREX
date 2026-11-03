@@ -10,7 +10,7 @@ export interface AnnotationLoadError {
 }
 
 export type UiMode = 'layout' | 'text'
-export type LayoutViewMode = 'default' | 'textline' | 'baseline'
+export type LayoutViewMode = 'default' | 'textline' | 'word' | 'glyph' | 'baseline'
 export type LineWidthPreset = 'thin' | 'light' | 'normal' | 'medium' | 'bold' | 'extraBold'
 export type VertexSizePreset = 'tiny' | 'small' | 'normal' | 'large' | 'extraLarge'
 export type UiModeScope = 'global' | 'per-canvas'
@@ -80,7 +80,7 @@ export type PageComparisonDiffTone = 'added' | 'removed' | 'changed'
 
 export interface PageComparisonDiffHighlight {
   tone: PageComparisonDiffTone
-  kind: 'region' | 'textline' | 'baseline'
+  kind: 'region' | 'textline' | 'word' | 'glyph' | 'baseline'
 }
 
 export interface XmlFile {

@@ -5,13 +5,12 @@ import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cac
 import { toPlainPoints } from './utils'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
-  findRegionRecursive,
-  findTextLineRecursive,
+  findPolygonCoordsRecursive,
   rebuildSpatialIndexFromPcGts
 } from '@/utils/editor/pcgts-editor-primitives'
 
 export interface UpdatePolygonCommandData {
-  polygonId: string // Region ID to update
+  polygonId: string // Region, text line, word or glyph ID to update
   newPoints: Point[]
 }
 
@@ -30,21 +29,13 @@ export class UpdatePolygonCommand implements Command {
     const pcGts = session?.document.value
     if (!session || !pcGts) return
 
-    const hitRegion = findRegionRecursive(pcGts.page.regions, this.polygonId)
-    if (hitRegion) {
-      if (this.originalPoints === null) {
-        this.originalPoints = [...hitRegion.region.coords.points]
-      }
-      hitRegion.region.coords.points = toPlainPoints(this.newPoints).map(p => [p.x, p.y])
-    } else {
-      const hitTextLine = findTextLineRecursive(pcGts.page.regions, this.polygonId)
-      if (!hitTextLine) return
+    const coords = findPolygonCoordsRecursive(pcGts.page.regions, this.polygonId)
+    if (!coords) return
 
-      if (this.originalPoints === null) {
-        this.originalPoints = [...hitTextLine.textLine.coords.points]
-      }
-      hitTextLine.textLine.coords.points = toPlainPoints(this.newPoints).map(p => [p.x, p.y])
+    if (this.originalPoints === null) {
+      this.originalPoints = [...coords.points]
     }
+    coords.points = toPlainPoints(this.newPoints).map(p => [p.x, p.y])
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
@@ -64,14 +55,9 @@ export class UpdatePolygonCommand implements Command {
     const pcGts = session?.document.value
     if (!session || !pcGts) return
 
-    const hitRegion = findRegionRecursive(pcGts.page.regions, this.polygonId)
-    if (hitRegion) {
-      hitRegion.region.coords.points = [...this.originalPoints]
-    } else {
-      const hitTextLine = findTextLineRecursive(pcGts.page.regions, this.polygonId)
-      if (!hitTextLine) return
-      hitTextLine.textLine.coords.points = [...this.originalPoints]
-    }
+    const coords = findPolygonCoordsRecursive(pcGts.page.regions, this.polygonId)
+    if (!coords) return
+    coords.points = [...this.originalPoints]
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)

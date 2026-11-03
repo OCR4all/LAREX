@@ -1,11 +1,13 @@
 import type { Command, CommandContext } from './types'
-import { PcGts, TextLine, isTextRegion } from '@/models/editor'
+import { Glyph, PcGts, TextLine, Word, isTextRegion } from '@/models/editor'
 import type { Point, Region } from '@/models/editor'
 import { Polygon, Polyline } from '@/models/editor/geometry'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
+  findGlyphRecursive,
   findRegionRecursive,
   findTextLineRecursive,
+  findWordRecursive,
   rebuildSpatialIndexFromPcGts,
   baselineIdForTextLineId
 } from '@/utils/editor/pcgts-editor-primitives'
@@ -45,6 +47,24 @@ export class DuplicateElementCommand implements Command {
     const textLineHit = findTextLineRecursive(pcGts.page.regions, this.elementId)
     if (textLineHit) {
       return this.duplicateTextLine(pcGts, session, textLineHit)
+    }
+
+    const wordHit = findWordRecursive(pcGts.page.regions, this.elementId)
+    if (wordHit) {
+      const newId = this.generateId()
+      this.createdId = newId
+      wordHit.parentTextLine.words = wordHit.parentTextLine.words ?? []
+      wordHit.parentTextLine.words.push(Word.fromFields({ id: newId, coords: this.offsetPolygon(wordHit.word.coords) }))
+      return this.finish(pcGts, session, newId)
+    }
+
+    const glyphHit = findGlyphRecursive(pcGts.page.regions, this.elementId)
+    if (glyphHit) {
+      const newId = this.generateId()
+      this.createdId = newId
+      glyphHit.parentWord.glyphs = glyphHit.parentWord.glyphs ?? []
+      glyphHit.parentWord.glyphs.push(Glyph.fromFields({ id: newId, coords: this.offsetPolygon(glyphHit.glyph.coords) }))
+      return this.finish(pcGts, session, newId)
     }
 
     const regionHit = findRegionRecursive(pcGts.page.regions, this.elementId)
@@ -155,8 +175,14 @@ export class DuplicateElementCommand implements Command {
       }
     } else {
       const textLineHit = findTextLineRecursive(pcGts.page.regions, this.createdId)
+      const wordHit = textLineHit ? null : findWordRecursive(pcGts.page.regions, this.createdId)
+      const glyphHit = textLineHit || wordHit ? null : findGlyphRecursive(pcGts.page.regions, this.createdId)
       if (textLineHit) {
         textLineHit.parentTextRegion.textLines?.splice(textLineHit.index, 1)
+      } else if (wordHit) {
+        wordHit.parentTextLine.words?.splice(wordHit.index, 1)
+      } else if (glyphHit) {
+        glyphHit.parentWord.glyphs?.splice(glyphHit.index, 1)
       } else {
         const regionHit = findRegionRecursive(pcGts.page.regions, this.createdId)
         if (regionHit) {
@@ -173,6 +199,17 @@ export class DuplicateElementCommand implements Command {
 
   getDescription(): string {
     return `Duplicate ${this.elementType}`
+  }
+
+  private offsetPolygon(coords: Polygon): Polygon {
+    return new Polygon(coords.points.map(([x, y]) => [x + DUPLICATE_OFFSET, y + DUPLICATE_OFFSET]))
+  }
+
+  private finish(pcGts: PcGts, session: any, id: string): { id: string } {
+    session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
+    rebuildSpatialIndexFromPcGts(session)
+    visibilityService.clearCache()
+    return { id }
   }
 
   private offsetPoints(points: Point[]): Point[] {

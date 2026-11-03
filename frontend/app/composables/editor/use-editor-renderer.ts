@@ -10,7 +10,8 @@ import type {
   PolylineEditing,
   CutDrawing
 } from './editor-interactions/types'
-import type { ActionProcessingRenderTarget, WebGLRenderState, ViewMode, RelationRenderData } from '@/types/editor/rendering'
+import type { ActionProcessingRenderTarget, WebGLRenderState, RelationRenderData } from '@/types/editor/rendering'
+import { normalizeLayoutViewMode } from '@/services/editor/visibility-service'
 import type { ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
 import { RenderPriority, useRenderQueue, type RenderStats } from './use-render-queue'
 import { useEditorCustomCursor } from './use-editor-custom-cursor'
@@ -112,10 +113,7 @@ export function useEditorRenderer(
     return { x: preview.x, y: preview.y }
   }
 
-  function normalizeViewMode(raw: string | undefined): ViewMode | undefined {
-    if (raw === 'default' || raw === 'textline' || raw === 'baseline') return raw
-    return undefined
-  }
+  const normalizeViewMode = normalizeLayoutViewMode
 
   /**
    * Render the current editor state to WebGL

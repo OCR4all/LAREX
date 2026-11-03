@@ -1,5 +1,6 @@
-import type { PcGts, Region, TextLine, TextRegion } from '@/models/editor'
+import type { Glyph, PcGts, Region, TextLine, TextRegion, Word } from '@/models/editor'
 import { PolygonType, isTextRegion } from '@/models/editor'
+import type { Polygon } from '@/models/editor/geometry'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { EditorSession } from '@/session/editor/editor-session'
 
@@ -26,6 +27,34 @@ function getRegionLabel(region: Region): string {
 
 function getTextLineLabel(textLine: TextLine): string {
   return textLine.id
+}
+
+function collectFromWords(textLine: TextLine, outPolygons: RenderablePolygon[]): void {
+  for (const word of textLine.words ?? []) {
+    outPolygons.push({
+      id: word.id,
+      parentId: textLine.id,
+      type: PolygonType.WORD,
+      label: word.id,
+      comments: word.comments,
+      points: tuplesToPoints(word.coords.points),
+      textContentVariants: word.textContentVariants,
+      confidence: word.confidence
+    })
+
+    for (const glyph of word.glyphs ?? []) {
+      outPolygons.push({
+        id: glyph.id,
+        parentId: word.id,
+        type: PolygonType.GLYPH,
+        label: glyph.id,
+        comments: glyph.comments,
+        points: tuplesToPoints(glyph.coords.points),
+        textContentVariants: glyph.textContentVariants,
+        confidence: glyph.confidence
+      })
+    }
+  }
 }
 
 function collectFromRegions(
@@ -63,6 +92,8 @@ function collectFromRegions(
           textContentVariants: textLine.textContentVariants,
           confidence: textLine.confidence
         } as RenderablePolygon)
+
+        collectFromWords(textLine, outPolygons)
 
         if (textLine.baseline) {
           outPolylines.push({
@@ -220,6 +251,20 @@ export type TextLineHit = {
   index: number
 }
 
+export type WordHit = {
+  word: Word
+  parentTextLine: TextLine
+  parentTextRegion: TextRegion
+  index: number
+}
+
+export type GlyphHit = {
+  glyph: Glyph
+  parentWord: Word
+  parentTextLine: TextLine
+  index: number
+}
+
 export function findTextLineRecursive(regions: Region[], textLineId: string): TextLineHit | null {
   for (const region of regions) {
     if (isTextRegion(region) && region.textLines) {
@@ -238,4 +283,74 @@ export function findTextLineRecursive(regions: Region[], textLineId: string): Te
   }
 
   return null
+}
+
+function* iterateTextLines(regions: Region[]): Generator<{ textLine: TextLine, parentTextRegion: TextRegion }> {
+  for (const region of regions) {
+    if (isTextRegion(region) && region.textLines) {
+      for (const textLine of region.textLines) {
+        yield { textLine, parentTextRegion: region }
+      }
+    }
+    if (region.regions?.length) {
+      yield* iterateTextLines(region.regions)
+    }
+  }
+}
+
+export function findWordRecursive(regions: Region[], wordId: string): WordHit | null {
+  for (const { textLine, parentTextRegion } of iterateTextLines(regions)) {
+    const words = textLine.words
+    if (!words?.length) continue
+    const idx = words.findIndex(word => word.id === wordId)
+    const word = idx >= 0 ? words[idx] : undefined
+    if (word) return { word, parentTextLine: textLine, parentTextRegion, index: idx }
+  }
+
+  return null
+}
+
+export function findGlyphRecursive(regions: Region[], glyphId: string): GlyphHit | null {
+  for (const { textLine } of iterateTextLines(regions)) {
+    for (const word of textLine.words ?? []) {
+      const glyphs = word.glyphs
+      if (!glyphs?.length) continue
+      const idx = glyphs.findIndex(glyph => glyph.id === glyphId)
+      const glyph = idx >= 0 ? glyphs[idx] : undefined
+      if (glyph) return { glyph, parentWord: word, parentTextLine: textLine, index: idx }
+    }
+  }
+
+  return null
+}
+
+/** Polygon element kinds that carry their own Coords in PAGE XML. */
+export type PolygonElementType = 'region' | 'textline' | 'word' | 'glyph'
+
+export function toPolygonElementType(type: string | undefined): PolygonElementType {
+  if (type === PolygonType.TEXTLINE || type === PolygonType.WORD || type === PolygonType.GLYPH) return type
+  return 'region'
+}
+
+/**
+ * Resolve the Coords polygon of any region, text line, word or glyph by ID.
+ * Pass the element type when known to skip the lookups for other kinds.
+ */
+export function findPolygonCoordsRecursive(regions: Region[], id: string, type?: PolygonElementType): Polygon | null {
+  if (!type || type === 'region') {
+    const region = findRegionRecursive(regions, id)?.region
+    if (region) return region.coords
+    if (type) return null
+  }
+  if (!type || type === 'textline') {
+    const textLine = findTextLineRecursive(regions, id)?.textLine
+    if (textLine) return textLine.coords
+    if (type) return null
+  }
+  if (!type || type === 'word') {
+    const word = findWordRecursive(regions, id)?.word
+    if (word) return word.coords
+    if (type) return null
+  }
+  return findGlyphRecursive(regions, id)?.glyph.coords ?? null
 }

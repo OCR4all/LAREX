@@ -356,7 +356,6 @@ const handleHistoryItemClick = (targetIndex: number) => {
 
 const isSelectMode = computed(() => drawingMode.value === DRAWING_MODES.SELECT)
 const isMoveMode = computed(() => drawingMode.value === DRAWING_MODES.MOVE)
-const isDrawingMode = computed(() => drawingMode.value !== DRAWING_MODES.SELECT && drawingMode.value !== DRAWING_MODES.MOVE)
 const isPolygonMode = computed(() => drawingMode.value === DRAWING_MODES.POLYGON)
 const isRectangleMode = computed(() => drawingMode.value === DRAWING_MODES.RECTANGLE)
 const isPolylineMode = computed(() => drawingMode.value === DRAWING_MODES.POLYLINE)
@@ -364,10 +363,6 @@ const isCutLineMode = computed(() => drawingMode.value === DRAWING_MODES.CUT_LIN
 const isCutPolygonMode = computed(() => drawingMode.value === DRAWING_MODES.CUT_POLYGON)
 const isCutRectangleMode = computed(() => drawingMode.value === DRAWING_MODES.CUT_RECTANGLE)
 const isCutMode = computed(() => isCutLineMode.value || isCutPolygonMode.value || isCutRectangleMode.value)
-
-const isRegionTypeRegion = computed(() => selectedRegionType.value === PolygonType.REGION)
-const isRegionTypeTextline = computed(() => selectedRegionType.value === PolygonType.TEXTLINE)
-const isRegionTypeBaseline = computed(() => selectedRegionType.value === PolygonType.BASELINE)
 
 const isTextUiMode = computed(() => effectiveUiMode.value === 'text')
 const isTextVisualMode = computed(() => isTextUiMode.value && uiStore.textModeSubmode === 'visual')
@@ -463,6 +458,26 @@ const modeViewOptions = computed<ModeViewOption[]>(() => [
     kbds: getTooltipProps('baselineView').kbds
   },
   {
+    value: `layout:${VIEW_MODES.WORD}`,
+    mode: 'layout',
+    modeLabel: 'Layout',
+    view: VIEW_MODES.WORD,
+    label: 'Words',
+    description: 'Focus selection and editing on word geometry.',
+    icon: 'i-lucide-whole-word',
+    kbds: getTooltipProps('wordView').kbds
+  },
+  {
+    value: `layout:${VIEW_MODES.GLYPH}`,
+    mode: 'layout',
+    modeLabel: 'Layout',
+    view: VIEW_MODES.GLYPH,
+    label: 'Glyphs',
+    description: 'Focus selection and editing on glyph geometry.',
+    icon: 'i-lucide-letter-text',
+    kbds: getTooltipProps('glyphView').kbds
+  },
+  {
     value: 'text:visual',
     mode: 'text',
     modeLabel: 'Text',
@@ -544,6 +559,8 @@ const selectedPolygon = computed<RenderablePolygon | undefined>(() => {
 
 const isSelectedRegion = computed(() => selectedPolygon.value?.type === PolygonType.REGION)
 const isSelectedTextline = computed(() => selectedPolygon.value?.type === PolygonType.TEXTLINE)
+const isSelectedWord = computed(() => selectedPolygon.value?.type === PolygonType.WORD)
+const isSelectedGlyph = computed(() => selectedPolygon.value?.type === PolygonType.GLYPH)
 /** Check if selected region is a TextRegion (can contain TextLines) */
 const isSelectedTextRegion = computed(() =>
   isSelectedRegion.value && selectedPolygon.value?.regionKind === 'TextRegion'
@@ -557,7 +574,9 @@ const selectedTextlineHasBaseline = computed(() => {
   return baselines.some(b => b.parentId === textlineId)
 })
 
-const canCreateRegion = computed(() => canEditCurrentCanvas.value && !isSelectedTextline.value)
+const canCreateRegion = computed(() =>
+  canEditCurrentCanvas.value && !isSelectedTextline.value && !isSelectedWord.value && !isSelectedGlyph.value
+)
 /**
  * TextLines can be created:
  * 1. When a TextRegion is selected (traditional mode)
@@ -565,6 +584,22 @@ const canCreateRegion = computed(() => canEditCurrentCanvas.value && !isSelected
  */
 const canCreateTextline = computed(() =>
   canEditCurrentCanvas.value && (isSelectedTextRegion.value || selectedViewMode.value === VIEW_MODES.TEXTLINE)
+)
+/**
+ * Words can be created:
+ * 1. When a TextLine is selected (traditional mode)
+ * 2. When in Word view mode (auto-parent mode - will create helper textline/region if needed)
+ */
+const canCreateWord = computed(() =>
+  canEditCurrentCanvas.value && (isSelectedTextline.value || selectedViewMode.value === VIEW_MODES.WORD)
+)
+/**
+ * Glyphs can be created:
+ * 1. When a Word is selected (traditional mode)
+ * 2. When in Glyph view mode (auto-parent mode - will create helper word/textline/region if needed)
+ */
+const canCreateGlyph = computed(() =>
+  canEditCurrentCanvas.value && (isSelectedWord.value || selectedViewMode.value === VIEW_MODES.GLYPH)
 )
 /**
  * Baselines can be created:
@@ -578,6 +613,8 @@ const canCreateBaseline = computed(() =>
 const selectedPolygonIds = computed(() => currentCanvasState.value?.selectedPolygonIds?.value ?? [])
 const selectedPolylineIds = computed(() => currentCanvasState.value?.selectedPolylineIds?.value ?? [])
 
+const MERGEABLE_POLYGON_TYPES = new Set<string | undefined>([PolygonType.REGION, PolygonType.TEXTLINE, PolygonType.WORD, PolygonType.GLYPH])
+
 const canMerge = computed(() => {
   if (!canEditCurrentCanvas.value) return false
   if (selectedPolylineIds.value.length > 0) return false
@@ -590,7 +627,7 @@ const canMerge = computed(() => {
   if (selectedPolygons.length < 2) return false
 
   const types = new Set(selectedPolygons.map(p => p.type))
-  return types.size === 1 && (types.has(PolygonType.REGION) || types.has(PolygonType.TEXTLINE))
+  return types.size === 1 && MERGEABLE_POLYGON_TYPES.has(selectedPolygons[0]?.type)
 })
 
 const handleMerge = () => {
@@ -611,24 +648,31 @@ function cancelActionWand() {
   }
 }
 
-function canActivateEntry(entry: 'region' | 'textline' | 'baseline') {
+type ToolEntry = 'region' | 'textline' | 'word' | 'glyph' | 'baseline'
+type PolygonToolEntry = Exclude<ToolEntry, 'baseline'>
+
+function canActivateEntry(entry: ToolEntry) {
   if (!canEditCurrentCanvas.value) return false
   if (entry === 'region') return canCreateRegion.value
   if (entry === 'textline') return canCreateTextline.value
+  if (entry === 'word') return canCreateWord.value
+  if (entry === 'glyph') return canCreateGlyph.value
   return canCreateBaseline.value
 }
 
 type ShapeOption = 'polygon' | 'rectangle' | 'polyline'
 
-const preferredShapeByEntry = reactive<{ region: ShapeOption, textline: ShapeOption }>({
+const preferredShapeByEntry = reactive<Record<PolygonToolEntry, ShapeOption>>({
   region: 'rectangle',
-  textline: 'rectangle'
+  textline: 'rectangle',
+  word: 'rectangle',
+  glyph: 'rectangle'
 })
 
-function getPrimaryShapeForEntry(entry: 'region' | 'textline' | 'baseline'): ShapeOption {
+function getPrimaryShapeForEntry(entry: ToolEntry): ShapeOption {
   if (entry === 'baseline') return 'polyline'
 
-  return entry === 'region' ? preferredShapeByEntry.region : preferredShapeByEntry.textline
+  return preferredShapeByEntry[entry]
 }
 
 function getIconForShape(option: ShapeOption): string {
@@ -637,13 +681,81 @@ function getIconForShape(option: ShapeOption): string {
   return 'i-lucide-pen-tool'
 }
 
-function getEntryTooltipProps(entry: 'region' | 'textline') {
-  const shape = getPrimaryShapeForEntry(entry)
-  const shortcutId = entry === 'region'
-    ? shape === 'rectangle' ? 'regionRectangle' : 'regionPolygon'
-    : shape === 'rectangle' ? 'textlineRectangle' : 'textlinePolygon'
-  return getTooltipProps(shortcutId)
+function getEntryShortcutId(entry: PolygonToolEntry, shape: ShapeOption) {
+  return `${entry}${shape === 'rectangle' ? 'Rectangle' : 'Polygon'}` as const
 }
+
+function getToolShortcutId(entry: ToolEntry, shape: ShapeOption) {
+  return entry === 'baseline' ? 'baseline' : getEntryShortcutId(entry, shape)
+}
+
+/** Creation tools in menu order, with the copy that tells them apart in the toolbar. */
+const CREATE_TOOL_ENTRIES: Array<{ entry: ToolEntry, label: string, tag: string, unavailableHint: string }> = [
+  { entry: 'region', label: 'Region', tag: 'Region', unavailableHint: 'Deselect the text line, word or glyph first' },
+  { entry: 'textline', label: 'Text line', tag: 'Line', unavailableHint: 'Select a text region or use the Text lines view' },
+  { entry: 'word', label: 'Word', tag: 'Word', unavailableHint: 'Select a text line or use the Words view' },
+  { entry: 'glyph', label: 'Glyph', tag: 'Glyph', unavailableHint: 'Select a word or use the Glyphs view' },
+  { entry: 'baseline', label: 'Baseline', tag: 'Base', unavailableHint: 'Select a text line without a baseline or use the Baselines view' }
+]
+
+const SHAPE_LABELS: Record<ShapeOption, string> = {
+  rectangle: 'Rectangle',
+  polygon: 'Polygon',
+  polyline: 'Polyline'
+}
+
+const SHAPE_DESCRIPTIONS: Record<ShapeOption, string> = {
+  rectangle: 'Drag to draw a rectangle.',
+  polygon: 'Click to place points, double-click to finish.',
+  polyline: 'Click along the line, double-click to finish.'
+}
+
+function getShapesForEntry(entry: ToolEntry): ShapeOption[] {
+  return entry === 'baseline' ? ['polyline'] : ['rectangle', 'polygon']
+}
+
+const lastCreateEntry = ref<ToolEntry>('region')
+
+/** The tool currently drawing, if any. */
+const activeCreateEntry = computed<ToolEntry | null>(() => {
+  if (!isPolygonMode.value && !isRectangleMode.value && !isPolylineMode.value) return null
+  const entry = CREATE_TOOL_ENTRIES.find(item => item.entry === selectedRegionType.value)?.entry
+  return entry ?? null
+})
+
+/**
+ * The tool the primary button starts: the active one, else the last used one,
+ * else the first tool that is available in the current selection/view.
+ */
+const primaryCreateEntry = computed<ToolEntry>(() => {
+  if (activeCreateEntry.value) return activeCreateEntry.value
+  if (canActivateEntry(lastCreateEntry.value)) return lastCreateEntry.value
+  return CREATE_TOOL_ENTRIES.find(item => canActivateEntry(item.entry))?.entry ?? lastCreateEntry.value
+})
+
+const primaryCreateTool = computed(() => {
+  const meta = CREATE_TOOL_ENTRIES.find(item => item.entry === primaryCreateEntry.value)!
+  const shape = getPrimaryShapeForEntry(meta.entry)
+  const tooltip = getTooltipProps(getToolShortcutId(meta.entry, shape))
+  const available = !!currentCanvasState.value && canActivateEntry(meta.entry)
+  return {
+    ...meta,
+    shape,
+    icon: getIconForShape(shape),
+    available,
+    tooltip: available ? tooltip : { text: `${tooltip.text}: ${meta.unavailableHint}`, kbds: tooltip.kbds }
+  }
+})
+
+const anyCreateToolAvailable = computed(() => CREATE_TOOL_ENTRIES.some(item => canActivateEntry(item.entry)))
+
+const createToolMenuIcon = computed(() => {
+  const side = modeViewMenuSide.value
+  if (side === 'bottom') return 'i-lucide-chevron-down'
+  if (side === 'left') return 'i-lucide-chevron-left'
+  if (side === 'right') return 'i-lucide-chevron-right'
+  return 'i-lucide-chevron-up'
+})
 
 const actionWandTooltip = 'Action wand'
 
@@ -691,26 +803,19 @@ const handleRedo = () => {
   }
 }
 
-function setEntryAndMode(entry: 'region' | 'textline' | 'baseline', option?: ShapeOption) {
+function setEntryAndMode(entry: ToolEntry, option?: ShapeOption) {
   if (!currentCanvasState.value) return
   if (!canActivateEntry(entry)) return
   cancelActionWand()
 
   const next = option ?? getPrimaryShapeForEntry(entry)
 
-  if (entry === 'region') {
-    preferredShapeByEntry.region = next
-  } else if (entry === 'textline') {
-    preferredShapeByEntry.textline = next
+  if (entry !== 'baseline') {
+    preferredShapeByEntry[entry] = next
   }
 
-  if (entry === 'region') {
-    selectedRegionType.value = PolygonType.REGION
-  } else if (entry === 'textline') {
-    selectedRegionType.value = PolygonType.TEXTLINE
-  } else {
-    selectedRegionType.value = PolygonType.BASELINE
-  }
+  lastCreateEntry.value = entry
+  selectedRegionType.value = entry
 
   if (next === 'polygon') {
     currentCanvasState.value.togglePolygonMode?.()
@@ -721,15 +826,14 @@ function setEntryAndMode(entry: 'region' | 'textline' | 'baseline', option?: Sha
   }
 }
 
+// Tools picked via keyboard shortcuts bypass setEntryAndMode, so remember them here.
 watchEffect(() => {
-  if (!isDrawingMode.value) return
+  const entry = activeCreateEntry.value
+  if (!entry) return
 
-  if (isRegionTypeRegion.value && (isPolygonMode.value || isRectangleMode.value)) {
-    preferredShapeByEntry.region = isRectangleMode.value ? 'rectangle' : 'polygon'
-  }
-
-  if (isRegionTypeTextline.value && (isPolygonMode.value || isRectangleMode.value)) {
-    preferredShapeByEntry.textline = isRectangleMode.value ? 'rectangle' : 'polygon'
+  lastCreateEntry.value = entry
+  if (entry !== 'baseline' && (isPolygonMode.value || isRectangleMode.value)) {
+    preferredShapeByEntry[entry] = isRectangleMode.value ? 'rectangle' : 'polygon'
   }
 })
 
@@ -826,9 +930,7 @@ watch(
 
 const showVirtualKeyboardControls = computed(() => !isCompact.value || hasKeyboards.value)
 const showSelectAndMove = computed(() => !isCompact.value || !!currentCanvasState.value)
-const showRegionTools = computed(() => !isCompact.value || (!!currentCanvasState.value && canCreateRegion.value))
-const showTextlineTools = computed(() => !isCompact.value || (!!currentCanvasState.value && canCreateTextline.value))
-const showBaselineTool = computed(() => !isCompact.value || (!!currentCanvasState.value && canCreateBaseline.value))
+const showCreateTools = computed(() => !isCompact.value || (!!currentCanvasState.value && anyCreateToolAvailable.value))
 const showCutTools = computed(() => !isCompact.value || !!currentCanvasState.value)
 const showMergeTool = computed(() => !isCompact.value || (!!currentCanvasState.value && canMerge.value))
 const showActionTool = computed(() => !isCompact.value || !!currentCanvasState.value)
@@ -891,57 +993,27 @@ const vkDropdownItems = computed(() => [
   ]
 ])
 
-const regionDropdownItems = computed<DropdownMenuItem[][]>(() => [
-  [
+/** One group per element type; the label explains why a type is unavailable right now. */
+const createToolMenuItems = computed<DropdownMenuItem[][]>(() => CREATE_TOOL_ENTRIES.map((meta) => {
+  const available = !!currentCanvasState.value && canActivateEntry(meta.entry)
+  return [
     {
-      label: 'Rectangle',
-      icon: 'i-lucide-square',
-      kbds: getTooltipProps('regionRectangle').kbds,
-      color: 'neutral',
-      active: isRegionTypeRegion.value && isRectangleMode.value,
-      class: activeDropdownItemClass(isRegionTypeRegion.value && isRectangleMode.value),
-      ui: activeDropdownItemUi(isRegionTypeRegion.value && isRectangleMode.value),
-      disabled: !currentCanvasState.value || !canCreateRegion.value,
-      onSelect: () => setEntryAndMode('region', 'rectangle')
+      type: 'label' as const,
+      label: meta.label,
+      description: available ? undefined : meta.unavailableHint,
+      ui: { itemDescription: 'font-normal' }
     },
-    {
-      label: 'Polygon',
-      icon: 'i-lucide-pen-tool',
-      kbds: getTooltipProps('regionPolygon').kbds,
-      color: 'neutral',
-      active: isRegionTypeRegion.value && isPolygonMode.value,
-      class: activeDropdownItemClass(isRegionTypeRegion.value && isPolygonMode.value),
-      ui: activeDropdownItemUi(isRegionTypeRegion.value && isPolygonMode.value),
-      disabled: !currentCanvasState.value || !canCreateRegion.value,
-      onSelect: () => setEntryAndMode('region', 'polygon')
-    }
+    ...getShapesForEntry(meta.entry).map(shape => ({
+      label: SHAPE_LABELS[shape],
+      description: SHAPE_DESCRIPTIONS[shape],
+      icon: getIconForShape(shape),
+      kbds: getTooltipProps(getToolShortcutId(meta.entry, shape)).kbds,
+      disabled: !available,
+      checked: activeCreateEntry.value === meta.entry && getPrimaryShapeForEntry(meta.entry) === shape,
+      onSelect: () => setEntryAndMode(meta.entry, shape)
+    }))
   ]
-])
-
-const textlineDropdownItems = computed(() => [
-  [
-    {
-      label: 'Rectangle',
-      icon: 'i-lucide-square',
-      kbds: getTooltipProps('textlineRectangle').kbds,
-      disabled: !currentCanvasState.value || !canCreateTextline.value,
-      active: isRegionTypeTextline.value && isRectangleMode.value,
-      class: activeDropdownItemClass(isRegionTypeTextline.value && isRectangleMode.value),
-      ui: activeDropdownItemUi(isRegionTypeTextline.value && isRectangleMode.value),
-      onSelect: () => setEntryAndMode('textline', 'rectangle')
-    },
-    {
-      label: 'Polygon',
-      icon: 'i-lucide-pen-tool',
-      kbds: getTooltipProps('textlinePolygon').kbds,
-      disabled: !currentCanvasState.value || !canCreateTextline.value,
-      active: isRegionTypeTextline.value && isPolygonMode.value,
-      class: activeDropdownItemClass(isRegionTypeTextline.value && isPolygonMode.value),
-      ui: activeDropdownItemUi(isRegionTypeTextline.value && isPolygonMode.value),
-      onSelect: () => setEntryAndMode('textline', 'polygon')
-    }
-  ]
-])
+}))
 
 const cutDropdownItems = computed(() => [
   [
@@ -1397,187 +1469,73 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
           </template>
 
           <USeparator
-            v-if="showSelectAndMove && (showRegionTools || showTextlineTools || showBaselineTool || showCutTools || showMergeTool)"
+            v-if="showSelectAndMove && (showCreateTools || showCutTools || showMergeTool)"
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
             :ui="toolbarSeparatorUi"
           />
 
-          <template v-if="!isFloating">
-            <div v-if="showRegionTools" data-tour="region-tools" class="contents">
-              <UTooltip :delay-duration="0" v-bind="getTooltipProps('regionRectangle')">
+          <div v-if="showCreateTools" data-tour="create-tools" class="flex items-center">
+            <UFieldGroup :orientation="isVertical ? 'vertical' : 'horizontal'">
+              <UTooltip :delay-duration="0" v-bind="primaryCreateTool.tooltip">
                 <UButton
                   variant="ghost"
-                  size="sm"
-                  icon="i-lucide-square"
+                  :size="isFloating ? 'md' : 'sm'"
                   color="neutral"
-                  :active="isRegionTypeRegion && isRectangleMode"
-                  :aria-pressed="isRegionTypeRegion && isRectangleMode"
-                  :aria-label="getTooltipProps('regionRectangle').text"
-                  :class="activeToolClass(isRegionTypeRegion && isRectangleMode)"
-                  :disabled="!currentCanvasState || !canCreateRegion"
-                  @click="setEntryAndMode('region', 'rectangle')"
-                />
-              </UTooltip>
-
-              <UTooltip :delay-duration="0" v-bind="getTooltipProps('regionPolygon')">
-                <UButton
-                  variant="ghost"
-                  size="sm"
-                  icon="i-lucide-pen-tool"
-                  color="neutral"
-                  :active="isRegionTypeRegion && isPolygonMode"
-                  :aria-pressed="isRegionTypeRegion && isPolygonMode"
-                  :aria-label="getTooltipProps('regionPolygon').text"
-                  :class="activeToolClass(isRegionTypeRegion && isPolygonMode)"
-                  :disabled="!currentCanvasState || !canCreateRegion"
-                  @click="setEntryAndMode('region', 'polygon')"
-                />
-              </UTooltip>
-            </div>
-
-            <USeparator
-              v-if="showRegionTools && showTextlineTools"
-              :orientation="isVertical ? 'horizontal' : 'vertical'"
-              class="h-6 mx-1"
-              :ui="toolbarSeparatorUi"
-            />
-
-            <div v-if="showTextlineTools" data-tour="textline-tools" class="contents">
-              <UTooltip :delay-duration="0" v-bind="getTooltipProps('textlineRectangle')">
-                <UButton
-                  variant="ghost"
-                  size="sm"
-                  icon="i-lucide-square"
-                  color="neutral"
-                  :active="isRegionTypeTextline && isRectangleMode"
-                  :aria-pressed="isRegionTypeTextline && isRectangleMode"
-                  :aria-label="getTooltipProps('textlineRectangle').text"
-                  :class="activeToolClass(isRegionTypeTextline && isRectangleMode)"
-                  :disabled="!currentCanvasState || !canCreateTextline"
-                  @click="setEntryAndMode('textline', 'rectangle')"
-                />
-              </UTooltip>
-
-              <UTooltip :delay-duration="0" v-bind="getTooltipProps('textlinePolygon')">
-                <UButton
-                  variant="ghost"
-                  size="sm"
-                  icon="i-lucide-pen-tool"
-                  color="neutral"
-                  :active="isRegionTypeTextline && isPolygonMode"
-                  :aria-pressed="isRegionTypeTextline && isPolygonMode"
-                  :aria-label="getTooltipProps('textlinePolygon').text"
-                  :class="activeToolClass(isRegionTypeTextline && isPolygonMode)"
-                  :disabled="!currentCanvasState || !canCreateTextline"
-                  @click="setEntryAndMode('textline', 'polygon')"
-                />
-              </UTooltip>
-            </div>
-          </template>
-
-          <template v-else>
-            <div v-if="showRegionTools" data-tour="region-tools" class="flex items-center">
-              <UFieldGroup>
-                <UTooltip :delay-duration="0" v-bind="getEntryTooltipProps('region')">
-                  <UButton
-                    variant="ghost"
-                    size="md"
-                    color="neutral"
-                    :active="isRegionTypeRegion && (isPolygonMode || isRectangleMode)"
-                    :aria-pressed="isRegionTypeRegion && (isPolygonMode || isRectangleMode)"
-                    :aria-label="getEntryTooltipProps('region').text"
-                    :class="activeToolClass(isRegionTypeRegion && (isPolygonMode || isRectangleMode))"
-                    :disabled="!currentCanvasState || !canCreateRegion"
-                    @click="setEntryAndMode('region', getPrimaryShapeForEntry('region'))"
-                  >
-                    <Icon :name="getIconForShape(getPrimaryShapeForEntry('region'))" class="h-4 w-4" />
-                  </UButton>
-                </UTooltip>
-
-                <UDropdownMenu :items="regionDropdownItems" :popper="{ placement: 'top' }">
-                  <UButton
-                    variant="ghost"
-                    size="sm"
-                    icon="i-lucide-chevron-up"
-                    color="neutral"
-                    :active="isRegionTypeRegion && (isPolygonMode || isRectangleMode)"
-                    :class="activeToolClass(isRegionTypeRegion && (isPolygonMode || isRectangleMode))"
-                    :disabled="!currentCanvasState || !canCreateRegion"
-                    aria-label="Region tools"
-                  />
-                </UDropdownMenu>
-              </UFieldGroup>
-            </div>
-
-            <USeparator
-              v-if="showRegionTools && showTextlineTools"
-              :orientation="isVertical ? 'horizontal' : 'vertical'"
-              class="h-6 mx-1"
-              :ui="toolbarSeparatorUi"
-            />
-
-            <div v-if="showTextlineTools" data-tour="textline-tools" class="flex items-center">
-              <UFieldGroup>
-                <UTooltip :delay-duration="0" v-bind="getEntryTooltipProps('textline')">
-                  <UButton
-                    variant="ghost"
-                    size="md"
-                    color="neutral"
-                    :active="isRegionTypeTextline && (isPolygonMode || isRectangleMode)"
-                    :aria-pressed="isRegionTypeTextline && (isPolygonMode || isRectangleMode)"
-                    :aria-label="getEntryTooltipProps('textline').text"
-                    :class="activeToolClass(isRegionTypeTextline && (isPolygonMode || isRectangleMode))"
-                    :disabled="!currentCanvasState || !canCreateTextline"
-                    @click="setEntryAndMode('textline', getPrimaryShapeForEntry('textline'))"
-                  >
-                    <Icon :name="getIconForShape(getPrimaryShapeForEntry('textline'))" class="h-4 w-4" />
-                  </UButton>
-                </UTooltip>
-
-                <UDropdownMenu
-                  :items="textlineDropdownItems"
-                  :popper="{ placement: 'top' }"
+                  :active="!!activeCreateEntry"
+                  :aria-pressed="!!activeCreateEntry"
+                  :aria-label="primaryCreateTool.tooltip.text"
+                  :class="[activeToolClass(!!activeCreateEntry), 'relative gap-1.5']"
+                  :disabled="!primaryCreateTool.available"
+                  @click="setEntryAndMode(primaryCreateTool.entry, primaryCreateTool.shape)"
                 >
-                  <UButton
-                    variant="ghost"
-                    size="sm"
-                    icon="i-lucide-chevron-up"
-                    color="neutral"
-                    :active="isRegionTypeTextline && (isPolygonMode || isRectangleMode)"
-                    :class="activeToolClass(isRegionTypeTextline && (isPolygonMode || isRectangleMode))"
-                    :disabled="!currentCanvasState || !canCreateTextline"
-                    aria-label="Textline tools"
-                  />
-                </UDropdownMenu>
-              </UFieldGroup>
-            </div>
-          </template>
+                  <Icon :name="primaryCreateTool.icon" class="h-4 w-4 shrink-0" />
+                  <span
+                    :class="isVertical
+                      ? 'absolute -bottom-0.5 right-0 rounded-sm bg-elevated px-0.5 text-[0.5625rem] font-semibold leading-3 uppercase'
+                      : 'min-w-9 text-left text-xs font-medium'"
+                  >
+                    {{ isVertical ? primaryCreateTool.tag.charAt(0) : primaryCreateTool.tag }}
+                  </span>
+                </UButton>
+              </UTooltip>
+
+              <UDropdownMenu
+                :items="createToolMenuItems"
+                size="sm"
+                :content="{ side: modeViewMenuSide, align: 'start' }"
+                :ui="{
+                  content: 'w-88 max-w-[calc(100vw-1rem)]',
+                  label: 'text-[10px]/3',
+                  itemDescription: 'whitespace-normal'
+                }"
+              >
+                <UButton
+                  variant="ghost"
+                  size="sm"
+                  :icon="createToolMenuIcon"
+                  color="neutral"
+                  :active="!!activeCreateEntry"
+                  :class="activeToolClass(!!activeCreateEntry)"
+                  :disabled="!currentCanvasState || !canEditCurrentCanvas"
+                  aria-label="Creation tools"
+                />
+
+                <!-- Same trailing layout as the mode/view menu: shortcut keys, then a check on the active tool. -->
+                <template #item-trailing="{ item }">
+                  <div v-if="item.kbds?.length" class="flex items-center gap-1">
+                    <UKbd v-for="kbd in item.kbds" :key="String(kbd)" size="sm">
+                      {{ kbd }}
+                    </UKbd>
+                  </div>
+                  <UIcon v-if="'checked' in item && item.checked" name="i-lucide-check" class="size-4 shrink-0 text-primary" />
+                </template>
+              </UDropdownMenu>
+            </UFieldGroup>
+          </div>
 
           <USeparator
-            v-if="showBaselineTool && (showRegionTools || showTextlineTools)"
-            :orientation="isVertical ? 'horizontal' : 'vertical'"
-            class="h-6 mx-1"
-            :ui="toolbarSeparatorUi"
-          />
-
-          <UTooltip v-if="showBaselineTool" :delay-duration="0" v-bind="canCreateBaseline ? getTooltipProps('baseline') : { text: 'Select a TextLine or switch to Baseline view' }">
-            <UButton
-              variant="ghost"
-              size="sm"
-              icon="i-lucide-activity"
-              color="neutral"
-              :active="isRegionTypeBaseline && isPolylineMode"
-              :aria-pressed="isRegionTypeBaseline && isPolylineMode"
-              :aria-label="getTooltipProps('baseline').text"
-              :class="activeToolClass(isRegionTypeBaseline && isPolylineMode)"
-              :disabled="!currentCanvasState || !canCreateBaseline"
-              @click="setEntryAndMode('baseline', 'polyline')"
-            />
-          </UTooltip>
-
-          <USeparator
-            v-if="(showRegionTools || showTextlineTools || showBaselineTool) && (showCutTools || showMergeTool)"
+            v-if="showCreateTools && (showCutTools || showMergeTool)"
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
             :ui="toolbarSeparatorUi"
@@ -1695,7 +1653,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
           </UTooltip>
 
           <USeparator
-            v-if="showSelectAndMove || showRegionTools || showTextlineTools || showBaselineTool || showCutTools || showMergeTool || showActionTool"
+            v-if="showSelectAndMove || showCreateTools || showCutTools || showMergeTool || showActionTool"
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
             :ui="toolbarSeparatorUi"

@@ -3,9 +3,11 @@ import type {
   BaselineMetadataFormState,
   DocumentMetadataFormState,
   GenericRegionMetadataFormState,
+  GlyphMetadataFormState,
   PageMetadataFormState,
   TextLineMetadataFormState,
-  TextRegionMetadataFormState
+  TextRegionMetadataFormState,
+  WordMetadataFormState
 } from '@/utils/editor/metadata-schema'
 
 export type MetadataApplyPayload
@@ -14,6 +16,8 @@ export type MetadataApplyPayload
     | { target: 'textRegion', elementId: string, data: TextRegionMetadataFormState }
     | { target: 'genericRegion', elementId: string, data: GenericRegionMetadataFormState }
     | { target: 'textLine', elementId: string, data: TextLineMetadataFormState }
+    | { target: 'word', elementId: string, data: WordMetadataFormState }
+    | { target: 'glyph', elementId: string, data: GlyphMetadataFormState }
     | { target: 'baseline', elementId: string, data: BaselineMetadataFormState }
 
 export type RegionKindChangePayload = {

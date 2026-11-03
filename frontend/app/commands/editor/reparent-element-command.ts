@@ -3,11 +3,11 @@ import { PcGts } from '@/models/editor'
 import type { TextRegion } from '@/models/editor'
 import { isTextRegion, canContainTextLines } from '@/models/editor/region'
 import { visibilityService } from '@/services/editor/visibility-service'
-import { findRegionRecursive, findTextLineRecursive, rebuildSpatialIndexFromPcGts } from '@/utils/editor/pcgts-editor-primitives'
+import { findGlyphRecursive, findRegionRecursive, findTextLineRecursive, findWordRecursive, rebuildSpatialIndexFromPcGts } from '@/utils/editor/pcgts-editor-primitives'
 
 export interface ReparentElementCommandData {
   elementId: string
-  elementType: 'region' | 'textline'
+  elementType: 'region' | 'textline' | 'word' | 'glyph'
   newParentId: string | null // null = root level (regions only)
 }
 
@@ -31,7 +31,45 @@ export class ReparentElementCommand implements Command {
     if (this.data.elementType === 'textline') {
       return this.reparentTextLine(pcGts, ctx!)
     }
+    if (this.data.elementType === 'word') {
+      return this.reparentWord(pcGts, ctx!)
+    }
+    if (this.data.elementType === 'glyph') {
+      return this.reparentGlyph(pcGts, ctx!)
+    }
     return this.reparentRegion(pcGts, ctx!)
+  }
+
+  private reparentWord(pcGts: PcGts, ctx: CommandContext): boolean {
+    const hit = findWordRecursive(pcGts.page.regions, this.data.elementId)
+    if (!hit || !this.data.newParentId) return false
+
+    const newParent = findTextLineRecursive(pcGts.page.regions, this.data.newParentId)?.textLine
+    if (!newParent || hit.parentTextLine.id === newParent.id) return false
+
+    this.undoState = { oldParentId: hit.parentTextLine.id, oldIndex: hit.index }
+    hit.parentTextLine.words!.splice(hit.index, 1)
+    newParent.words = newParent.words ?? []
+    newParent.words.push(hit.word)
+
+    this.finalize(ctx, pcGts)
+    return true
+  }
+
+  private reparentGlyph(pcGts: PcGts, ctx: CommandContext): boolean {
+    const hit = findGlyphRecursive(pcGts.page.regions, this.data.elementId)
+    if (!hit || !this.data.newParentId) return false
+
+    const newParent = findWordRecursive(pcGts.page.regions, this.data.newParentId)?.word
+    if (!newParent || hit.parentWord.id === newParent.id) return false
+
+    this.undoState = { oldParentId: hit.parentWord.id, oldIndex: hit.index }
+    hit.parentWord.glyphs!.splice(hit.index, 1)
+    newParent.glyphs = newParent.glyphs ?? []
+    newParent.glyphs.push(hit.glyph)
+
+    this.finalize(ctx, pcGts)
+    return true
   }
 
   private reparentTextLine(pcGts: PcGts, ctx: CommandContext): boolean {
@@ -88,9 +126,43 @@ export class ReparentElementCommand implements Command {
 
     if (this.data.elementType === 'textline') {
       this.undoTextLine(pcGts, ctx!)
+    } else if (this.data.elementType === 'word') {
+      this.undoWord(pcGts, ctx!)
+    } else if (this.data.elementType === 'glyph') {
+      this.undoGlyph(pcGts, ctx!)
     } else {
       this.undoRegion(pcGts, ctx!)
     }
+  }
+
+  private undoWord(pcGts: PcGts, ctx: CommandContext): void {
+    const hit = findWordRecursive(pcGts.page.regions, this.data.elementId)
+    if (!hit) return
+
+    hit.parentTextLine.words!.splice(hit.index, 1)
+
+    const oldParent = findTextLineRecursive(pcGts.page.regions, this.undoState!.oldParentId!)?.textLine
+    if (oldParent) {
+      oldParent.words = oldParent.words ?? []
+      oldParent.words.splice(this.undoState!.oldIndex, 0, hit.word)
+    }
+
+    this.finalize(ctx, pcGts)
+  }
+
+  private undoGlyph(pcGts: PcGts, ctx: CommandContext): void {
+    const hit = findGlyphRecursive(pcGts.page.regions, this.data.elementId)
+    if (!hit) return
+
+    hit.parentWord.glyphs!.splice(hit.index, 1)
+
+    const oldParent = findWordRecursive(pcGts.page.regions, this.undoState!.oldParentId!)?.word
+    if (oldParent) {
+      oldParent.glyphs = oldParent.glyphs ?? []
+      oldParent.glyphs.splice(this.undoState!.oldIndex, 0, hit.glyph)
+    }
+
+    this.finalize(ctx, pcGts)
   }
 
   private undoTextLine(pcGts: PcGts, ctx: CommandContext): void {

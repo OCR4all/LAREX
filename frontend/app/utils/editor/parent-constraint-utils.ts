@@ -27,8 +27,15 @@ export function findParentPolygon(polygons: RenderablePolygon[], selectedPolygon
       }
       break
 
+    case PolygonType.WORD:
     case PolygonType.BASELINE:
       if (selectedPolygon.type === PolygonType.TEXTLINE) {
+        return selectedPolygon
+      }
+      break
+
+    case PolygonType.GLYPH:
+      if (selectedPolygon.type === PolygonType.WORD) {
         return selectedPolygon
       }
       break

@@ -1,5 +1,5 @@
 import { triggerRef, type ComputedRef } from 'vue'
-import { baselineIdForTextLineId } from '@/utils/editor/pcgts-editor-primitives'
+import { baselineIdForTextLineId, findGlyphRecursive, findWordRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { Polygon } from '@/models/editor'
 import type { AlternativeImage, Labels, MetadataItem, TextStyleAttributes, UserDefined } from '@/models/editor'
@@ -410,6 +410,39 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
         textLine.labels = normalizeLabelsFromForm(payload.data.labels)
         textLine.userDefined = normalizeUserDefinedFromForm(payload.data.userDefinedAttributes)
         textLine.textStyle = normalizeTextStyleFromForm(payload.data.textStyle)
+        updated = true
+        break
+      }
+      case 'word': {
+        const word = regions ? findWordRecursive(regions, payload.elementId)?.word : undefined
+        if (!word) break
+        word.language = normalizeOptionalMetadataString(payload.data.language)
+        word.primaryScript = normalizeOptionalMetadataString(payload.data.primaryScript)
+        word.secondaryScript = normalizeOptionalMetadataString(payload.data.secondaryScript)
+        word.readingDirection = payload.data.readingDirection
+        word.production = payload.data.production
+        word.custom = payload.data.custom || undefined
+        word.comments = payload.data.comments || undefined
+        word.alternativeImages = normalizeAlternativeImagesFromForm(payload.data.alternativeImages)
+        word.labels = normalizeLabelsFromForm(payload.data.labels)
+        word.userDefined = normalizeUserDefinedFromForm(payload.data.userDefinedAttributes)
+        word.textStyle = normalizeTextStyleFromForm(payload.data.textStyle)
+        updated = true
+        break
+      }
+      case 'glyph': {
+        const glyph = regions ? findGlyphRecursive(regions, payload.elementId)?.glyph : undefined
+        if (!glyph) break
+        glyph.script = normalizeOptionalMetadataString(payload.data.script)
+        glyph.production = payload.data.production
+        glyph.ligature = payload.data.ligature
+        glyph.symbol = payload.data.symbol
+        glyph.custom = payload.data.custom || undefined
+        glyph.comments = payload.data.comments || undefined
+        glyph.alternativeImages = normalizeAlternativeImagesFromForm(payload.data.alternativeImages)
+        glyph.labels = normalizeLabelsFromForm(payload.data.labels)
+        glyph.userDefined = normalizeUserDefinedFromForm(payload.data.userDefinedAttributes)
+        glyph.textStyle = normalizeTextStyleFromForm(payload.data.textStyle)
         updated = true
         break
       }

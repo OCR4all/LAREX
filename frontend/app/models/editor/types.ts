@@ -22,6 +22,8 @@ export interface Point {
 export const PolygonType = {
   REGION: 'region',
   TEXTLINE: 'textline',
+  WORD: 'word',
+  GLYPH: 'glyph',
   BASELINE: 'baseline'
 } as const
 

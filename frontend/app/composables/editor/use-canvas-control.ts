@@ -26,6 +26,8 @@ export type DrawingMode = typeof DRAWING_MODES[keyof typeof DRAWING_MODES]
 export const VIEW_MODES = {
   DEFAULT: 'default',
   TEXTLINE: 'textline',
+  WORD: 'word',
+  GLYPH: 'glyph',
   BASELINE: 'baseline'
 } as const
 

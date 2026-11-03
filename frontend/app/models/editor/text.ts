@@ -164,6 +164,32 @@ export class Word {
     this.textStyle = textStyle
   }
 
+  /** Build a word from named fields, e.g. when cloning a (possibly plain-object) word. */
+  static fromFields(fields: Pick<Word, 'id' | 'coords'> & Partial<Omit<Word, 'id' | 'coords'>>): Word {
+    return new Word(
+      fields.id,
+      fields.coords,
+      fields.textContentVariants,
+      fields.glyphs,
+      fields.styleRefs,
+      fields.processingRefs,
+      fields.confidence,
+      fields.language,
+      fields.primaryScript,
+      fields.secondaryScript,
+      fields.script,
+      fields.readingDirection,
+      fields.metadata,
+      fields.production,
+      fields.custom,
+      fields.comments,
+      fields.alternativeImages,
+      fields.labels,
+      fields.userDefined,
+      fields.textStyle
+    )
+  }
+
   addGlyph(glyph: Glyph): Word {
     return new Word(
       this.id,
@@ -221,7 +247,7 @@ export class Glyph {
   ligature?: boolean
   symbol?: boolean
   script?: string
-  production?: 'manual' | 'automatic'
+  production?: 'printed' | 'handwritten-cursive' | 'handwritten-printscript' | 'medieval-manuscript' | 'typewritten' | 'other'
   confidence?: number
   custom?: string
   comments?: string
@@ -240,7 +266,7 @@ export class Glyph {
     ligature?: boolean,
     symbol?: boolean,
     script?: string,
-    production?: 'manual' | 'automatic',
+    production?: 'printed' | 'handwritten-cursive' | 'handwritten-printscript' | 'medieval-manuscript' | 'typewritten' | 'other',
     confidence?: number,
     metadata?: Record<string, unknown>,
     custom?: string,
@@ -268,6 +294,29 @@ export class Glyph {
     this.userDefined = userDefined
     this.textStyle = textStyle
     this.graphemes = graphemes
+  }
+
+  /** Build a glyph from named fields, e.g. when cloning a (possibly plain-object) glyph. */
+  static fromFields(fields: Pick<Glyph, 'id' | 'coords'> & Partial<Omit<Glyph, 'id' | 'coords'>>): Glyph {
+    return new Glyph(
+      fields.id,
+      fields.coords,
+      fields.unicode,
+      fields.textContentVariants,
+      fields.ligature,
+      fields.symbol,
+      fields.script,
+      fields.production,
+      fields.confidence,
+      fields.metadata,
+      fields.custom,
+      fields.comments,
+      fields.alternativeImages,
+      fields.labels,
+      fields.userDefined,
+      fields.textStyle,
+      fields.graphemes
+    )
   }
 
   isLigature(): boolean {

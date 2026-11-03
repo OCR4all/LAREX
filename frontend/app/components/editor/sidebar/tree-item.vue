@@ -125,6 +125,8 @@ function getLabelColor(item: TreeItemData): string {
 
   const normalizedType = item.type?.toUpperCase?.() ?? ''
   if (normalizedType === 'TEXTLINE') return '#3B82F6'
+  if (normalizedType === 'WORD') return '#00B899'
+  if (normalizedType === 'GLYPH') return '#FF731A'
 
   const { kind, subtype } = resolveRegionForItem(item)
   if (kind) {

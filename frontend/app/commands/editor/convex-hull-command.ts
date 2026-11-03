@@ -3,11 +3,11 @@ import { PcGts } from '@/models/editor'
 import type { Polygon } from '@/models/editor/geometry'
 import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
-import { findRegionRecursive, findTextLineRecursive, rebuildSpatialIndexFromPcGts } from '@/utils/editor/pcgts-editor-primitives'
+import { findPolygonCoordsRecursive, rebuildSpatialIndexFromPcGts, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
 
 export interface ConvexHullCommandData {
   elementId: string
-  elementType: 'region' | 'textline'
+  elementType: PolygonElementType
 }
 
 export class ConvexHullCommand implements Command {
@@ -47,10 +47,7 @@ export class ConvexHullCommand implements Command {
   }
 
   private getCoords(pcGts: PcGts): Polygon | null {
-    if (this.data.elementType === 'textline') {
-      return findTextLineRecursive(pcGts.page.regions, this.data.elementId)?.textLine.coords ?? null
-    }
-    return findRegionRecursive(pcGts.page.regions, this.data.elementId)?.region.coords ?? null
+    return findPolygonCoordsRecursive(pcGts.page.regions, this.data.elementId, this.data.elementType)
   }
 
   private computeConvexHull(points: [number, number][]): [number, number][] {

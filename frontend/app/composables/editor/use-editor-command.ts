@@ -14,8 +14,35 @@ import { clearLarexRegionLabelMetadata, findRegionLabelDefinitionForRegion, reso
 import { createScopedLogger } from '@/services/editor/logger-service'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
+import { toPolygonElementType, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
 
 const log = createScopedLogger('EditorCommand')
+
+const POLYGON_ELEMENT_LABELS: Record<PolygonElementType, string> = {
+  region: 'Region',
+  textline: 'Text Line',
+  word: 'Word',
+  glyph: 'Glyph'
+}
+
+const POLYGON_CHILD_DESCRIPTIONS: Record<PolygonElementType, string> = {
+  region: 'nested regions, textlines, words, glyphs and baselines',
+  textline: 'words, glyphs and its baseline',
+  word: 'glyphs',
+  glyph: 'children'
+}
+
+/** Which parent type a textline, word or glyph can be moved to via "Move to ...". */
+const REPARENT_TARGETS: Record<string, { parentType: string, childLabel: string, parentLabel: string } | undefined> = {
+  [PolygonType.TEXTLINE]: { parentType: PolygonType.REGION, childLabel: 'Text Line', parentLabel: 'Region' },
+  [PolygonType.WORD]: { parentType: PolygonType.TEXTLINE, childLabel: 'Word', parentLabel: 'Text Line' },
+  [PolygonType.GLYPH]: { parentType: PolygonType.WORD, childLabel: 'Glyph', parentLabel: 'Word' }
+}
+
+const REPARENT_PARENT_ICONS: Record<string, string | undefined> = {
+  [PolygonType.TEXTLINE]: 'i-lucide-type',
+  [PolygonType.WORD]: 'i-lucide-whole-word'
+}
 
 export interface ContextMenuItem {
   id: string
@@ -301,7 +328,7 @@ export function useEditorCommand(
     if (!pendingBufferPolygon.value) return
 
     const polygon = pendingBufferPolygon.value
-    const elementType = polygon.type === 'region' ? 'region' : 'textline'
+    const elementType = toPolygonElementType(polygon.type)
     const session = getEditorSession(canvasId)
     const commandCtx: CommandContext | undefined = session ? { canvasId, session } : undefined
 
@@ -377,45 +404,47 @@ export function useEditorCommand(
   }
 
   /**
-   * Build submenu for reparenting a textline to a different region
+   * Whether a polygon can become the new parent of an element of the given type.
    */
-  function buildReparentSubmenu(elementId: string, currentParentId?: string): ContextMenuItem[] {
-    const validParents = polygons.filter(p =>
-      p.type === 'region'
-      && p.id !== elementId
-      && p.id !== currentParentId
-      && !!p.regionKind
-      && canContainTextLines(p.regionKind)
-    )
-
-    return validParents.map(p => ({
-      id: `reparent-to-${p.id}`,
-      label: p.label ? `${p.label} (${p.id})` : p.id,
-      icon: p.regionKind ? getRegionKindIcon(p.regionKind) : 'i-lucide-square'
-    }))
+  function isValidReparentTarget(parent: RenderablePolygon, childType: string | undefined): boolean {
+    const target = REPARENT_TARGETS[childType ?? '']
+    if (!target || parent.type !== target.parentType) return false
+    if (parent.type !== PolygonType.REGION) return true
+    return !!parent.regionKind && canContainTextLines(parent.regionKind)
   }
 
-  function buildBulkReparentSubmenu(textlineIds: string[]): ContextMenuItem[] {
-    const selected = new Set(textlineIds)
+  function toReparentMenuItem(p: RenderablePolygon): ContextMenuItem {
+    return {
+      id: `reparent-to-${p.id}`,
+      label: p.label && p.label !== p.id ? `${p.label} (${p.id})` : p.id,
+      icon: p.regionKind ? getRegionKindIcon(p.regionKind) : REPARENT_PARENT_ICONS[p.type ?? ''] ?? 'i-lucide-square'
+    }
+  }
+
+  /**
+   * Build submenu for reparenting a textline, word or glyph to a different parent
+   */
+  function buildReparentSubmenu(elementId: string, elementType: string | undefined, currentParentId?: string): ContextMenuItem[] {
+    return polygons
+      .filter(p => p.id !== elementId && p.id !== currentParentId && isValidReparentTarget(p, elementType))
+      .map(toReparentMenuItem)
+  }
+
+  function buildBulkReparentSubmenu(elementIds: string[], elementType: string | undefined): ContextMenuItem[] {
+    const selected = new Set(elementIds)
     const currentParents = new Set(
       polygons
         .filter(p => selected.has(p.id))
         .map(p => p.parentId)
         .filter(Boolean)
     )
-    const validParents = polygons.filter(p =>
-      p.type === 'region'
-      && !selected.has(p.id)
-      && !(currentParents.size === 1 && currentParents.has(p.id))
-      && !!p.regionKind
-      && canContainTextLines(p.regionKind)
-    )
-
-    return validParents.map(p => ({
-      id: `reparent-to-${p.id}`,
-      label: p.label ? `${p.label} (${p.id})` : p.id,
-      icon: p.regionKind ? getRegionKindIcon(p.regionKind) : 'i-lucide-square'
-    }))
+    return polygons
+      .filter(p =>
+        !selected.has(p.id)
+        && !(currentParents.size === 1 && currentParents.has(p.id))
+        && isValidReparentTarget(p, elementType)
+      )
+      .map(toReparentMenuItem)
   }
 
   function getPolygonSelectionContext(polygon: RenderablePolygon): ContextMenuSelection | null {
@@ -543,7 +572,8 @@ export function useEditorCommand(
     const selectedPolygons = selection.polygons
     const polygonTypes = new Set(selectedPolygons.map(p => p.type))
     const allRegions = polygonCount > 1 && polygonTypes.size === 1 && selectedPolygons[0]?.type === PolygonType.REGION
-    const allTextLines = polygonCount > 1 && polygonTypes.size === 1 && selectedPolygons[0]?.type === PolygonType.TEXTLINE
+    const sharedPolygonType = polygonCount > 1 && polygonTypes.size === 1 ? selectedPolygons[0]?.type : undefined
+    const reparentTarget = sharedPolygonType ? REPARENT_TARGETS[sharedPolygonType] : undefined
 
     contextMenuTarget.value = {
       type: 'selection',
@@ -587,12 +617,12 @@ export function useEditorCommand(
       }
     }
 
-    if (allTextLines) {
-      const reparentSubmenu = buildBulkReparentSubmenu(selection.polygonIds)
+    if (reparentTarget) {
+      const reparentSubmenu = buildBulkReparentSubmenu(selection.polygonIds, sharedPolygonType)
       if (reparentSubmenu.length > 0) {
         menuItems.push({
           id: 'reparent',
-          label: `Move ${formatElementCount(polygonCount, 'Text Line')} to Region`,
+          label: `Move ${formatElementCount(polygonCount, reparentTarget.childLabel)} to ${reparentTarget.parentLabel}`,
           icon: 'i-lucide-move',
           submenu: reparentSubmenu
         })
@@ -611,7 +641,7 @@ export function useEditorCommand(
     if (mergeState.canMerge && mergeState.elementType) {
       menuItems.push({
         id: 'merge-selection',
-        label: `Merge ${mergeState.elementType === 'region' ? formatElementCount(polygonCount, 'Region') : formatElementCount(polygonCount, 'Text Line')}`,
+        label: `Merge ${formatElementCount(polygonCount, POLYGON_ELEMENT_LABELS[mergeState.elementType])}`,
         icon: 'i-lucide-merge'
       })
     }
@@ -692,12 +722,13 @@ export function useEditorCommand(
     const readingOrder = session?.document.value?.page?.readingOrder
     const inReadingOrder = isRegionInReadingOrder(readingOrder, polygon.id)
 
-    if (isTextLine) {
-      const reparentSubmenu = buildReparentSubmenu(polygon.id, polygon.parentId)
+    const reparentTarget = REPARENT_TARGETS[polygon.type ?? '']
+    if (reparentTarget) {
+      const reparentSubmenu = buildReparentSubmenu(polygon.id, polygon.type, polygon.parentId)
       if (reparentSubmenu.length > 0) {
         menuItems.push({
           id: 'reparent',
-          label: 'Move to Region',
+          label: `Move to ${reparentTarget.parentLabel}`,
           icon: 'i-lucide-move',
           submenu: reparentSubmenu
         })
@@ -944,15 +975,22 @@ export function useEditorCommand(
   }
 
   function reparentSelection(selection: ContextMenuSelection, newParentId: string): void {
-    const selectedTextLines = selection.polygons.filter(p => p.type === PolygonType.TEXTLINE)
-    if (selectedTextLines.length === 0) return
+    const newParent = polygons.find(p => p.id === newParentId)
+    const elementsToMove = newParent
+      ? selection.polygons.filter(p => p.type !== PolygonType.REGION && isValidReparentTarget(newParent, p.type))
+      : []
+    if (elementsToMove.length === 0) return
 
-    const commands = selectedTextLines.map(polygon => new ReparentElementCommand({
+    const commands = elementsToMove.map(polygon => new ReparentElementCommand({
       elementId: polygon.id,
-      elementType: 'textline',
+      elementType: toPolygonElementType(polygon.type),
       newParentId
     }))
-    commander.execute(new CompoundCommand(commands, `Move ${selectedTextLines.length} text lines to region`), getCommandContext())
+    const target = REPARENT_TARGETS[elementsToMove[0]!.type ?? '']
+    commander.execute(
+      new CompoundCommand(commands, `Move ${formatElementCount(elementsToMove.length, target?.childLabel ?? 'Element')} to ${target?.parentLabel ?? 'parent'}`),
+      getCommandContext()
+    )
   }
 
   function updateSelectionReadingOrder(selection: ContextMenuSelection, action: 'add' | 'remove'): void {
@@ -1070,7 +1108,7 @@ export function useEditorCommand(
           executePolygonSelectionShapeCommand(
             selection,
             (polygon) => {
-              const elementType = polygon.type === 'region' ? 'region' : 'textline'
+              const elementType = toPolygonElementType(polygon.type)
               return new SimplifyPolygonCommand({ elementId: polygon.id, elementType })
             },
             `Simplify ${selection.polygons.length} selected polygons`
@@ -1080,7 +1118,7 @@ export function useEditorCommand(
           executePolygonSelectionShapeCommand(
             selection,
             (polygon) => {
-              const elementType = polygon.type === 'region' ? 'region' : 'textline'
+              const elementType = toPolygonElementType(polygon.type)
               return new ConvexHullCommand({ elementId: polygon.id, elementType })
             },
             `Convex hull for ${selection.polygons.length} selected polygons`
@@ -1090,7 +1128,7 @@ export function useEditorCommand(
           executePolygonSelectionShapeCommand(
             selection,
             (polygon) => {
-              const elementType = polygon.type === 'region' ? 'region' : 'textline'
+              const elementType = toPolygonElementType(polygon.type)
               return new FitToBoundingBoxCommand({ elementId: polygon.id, elementType })
             },
             `Fit ${selection.polygons.length} selected polygons to bounding boxes`
@@ -1181,7 +1219,7 @@ export function useEditorCommand(
         const newParentId = item.id.replace('reparent-to-', '')
         commander.execute(new ReparentElementCommand({
           elementId: polygon.id,
-          elementType: 'textline',
+          elementType: toPolygonElementType(polygon.type),
           newParentId
         }), commandCtx)
       }
@@ -1234,21 +1272,21 @@ export function useEditorCommand(
       case 'simplify-polygon':
         if (target.type === 'polygon') {
           const polygon = target.element as RenderablePolygon
-          const elementType = polygon.type === 'region' ? 'region' : 'textline'
+          const elementType = toPolygonElementType(polygon.type)
           commander.execute(new SimplifyPolygonCommand({ elementId: polygon.id, elementType }), commandCtx)
         }
         break
       case 'convex-hull':
         if (target.type === 'polygon') {
           const polygon = target.element as RenderablePolygon
-          const elementType = polygon.type === 'region' ? 'region' : 'textline'
+          const elementType = toPolygonElementType(polygon.type)
           commander.execute(new ConvexHullCommand({ elementId: polygon.id, elementType }), commandCtx)
         }
         break
       case 'fit-to-bbox':
         if (target.type === 'polygon') {
           const polygon = target.element as RenderablePolygon
-          const elementType = polygon.type === 'region' ? 'region' : 'textline'
+          const elementType = toPolygonElementType(polygon.type)
           commander.execute(new FitToBoundingBoxCommand({ elementId: polygon.id, elementType }), commandCtx)
         }
         break
@@ -1323,11 +1361,13 @@ export function useEditorCommand(
     const displayLabel = polygon.type === PolygonType.REGION
       ? resolveRegionLabelDisplayName(editorStore.labelSet?.labels, polygon, polygon.label || polygon.id) ?? polygon.id
       : polygon.label || polygon.id
+    const elementType = toPolygonElementType(polygon.type)
+    const elementLabel = POLYGON_ELEMENT_LABELS[elementType]
 
     const confirmed = await dialogs.confirm({
-      title: hasChildren ? 'Delete Region and Children?' : 'Delete Region?',
+      title: hasChildren ? `Delete ${elementLabel} and Children?` : `Delete ${elementLabel}?`,
       message: hasChildren
-        ? `Are you sure you want to delete "${displayLabel}"? This will also delete all associated textlines and baselines.`
+        ? `Are you sure you want to delete "${displayLabel}"? This will also delete all of its ${POLYGON_CHILD_DESCRIPTIONS[elementType]}.`
         : `Are you sure you want to delete "${displayLabel}"?`,
       confirmLabel: 'Delete',
       cancelLabel: 'Cancel',
@@ -1370,7 +1410,7 @@ export function useEditorCommand(
   /**
    * Check if merge is possible (>1 same-type elements selected)
    */
-  function canMergeSelection(selectedPolygonIds: string[], selectedPolylineIds: string[]): { canMerge: boolean, elementType: 'region' | 'textline' | null } {
+  function canMergeSelection(selectedPolygonIds: string[], selectedPolylineIds: string[]): { canMerge: boolean, elementType: PolygonElementType | null } {
     if (selectedPolylineIds.length > 0) return { canMerge: false, elementType: null }
     if (selectedPolygonIds.length < 2) return { canMerge: false, elementType: null }
 
@@ -1381,8 +1421,9 @@ export function useEditorCommand(
     if (types.size !== 1) return { canMerge: false, elementType: null }
 
     const type = selectedPolygons[0]?.type
-    if (type === PolygonType.REGION) return { canMerge: true, elementType: 'region' }
-    if (type === PolygonType.TEXTLINE) return { canMerge: true, elementType: 'textline' }
+    if (type === PolygonType.REGION || type === PolygonType.TEXTLINE || type === PolygonType.WORD || type === PolygonType.GLYPH) {
+      return { canMerge: true, elementType: type }
+    }
 
     return { canMerge: false, elementType: null }
   }

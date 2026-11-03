@@ -14,7 +14,7 @@ import { UniformStateCache } from '@/webgl/editor/uniform-state-cache'
 import { drawPolygonOutlineWithStyle } from '@/webgl/editor/polygon-outline-dispatch'
 import { resolvePolygonRenderStyle, withAlpha, type PolygonRenderPhase, type ResolvedPolygonRenderStyle } from '@/webgl/editor/polygon-style-resolver'
 import { PolygonType } from '@/models/editor'
-import { visibilityService } from '@/services/editor/visibility-service'
+import { getViewModePolygonType, normalizeLayoutViewMode, visibilityService } from '@/services/editor/visibility-service'
 import type { VisibilityContext } from '@/services/editor/visibility-service'
 import { computeElementConfidence, confidenceToHeatRgba, scaleConfidenceForHeatmap } from '@/utils/editor/confidence-heatmap'
 import { useEditorStore } from '@/stores/editor/editor.store'
@@ -23,17 +23,14 @@ import { getEditorSession } from '@/session/editor/editor-session'
 import type { View, ImageSize, AspectRatioScale, Point, PcGts as DocumentModel } from '@/models/editor'
 import { BASELINE_STYLE, RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, VERTEX_SIZE_PRESETS, type RGBA } from '@/utils/editor/editor-constants'
 import { WEBGL_CORE, WEBGL_GEOMETRY } from '@/webgl/editor/webgl-constants'
-import type { RenderablePolygon, WebGLRenderState, ViewMode } from '@/types/editor/rendering'
+import type { RenderablePolygon, WebGLRenderState } from '@/types/editor/rendering'
 import { createScopedLogger } from '@/services/editor/logger-service'
 
 const log = createScopedLogger('WebGLRenderer')
 
 type RenderState = WebGLRenderState
 
-function normalizeViewMode(raw: string | undefined): ViewMode | undefined {
-  if (raw === 'default' || raw === 'textline' || raw === 'baseline') return raw
-  return undefined
-}
+const normalizeViewMode = normalizeLayoutViewMode
 
 interface RenderFrameContext {
   renderState: RenderState
@@ -665,7 +662,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       const highlight = renderState.diffHighlights?.[polygon.id]
       const fillColor = getDiffHighlightColor(highlight, 0.48)
       if (!fillColor) return
-      if (polygon.type !== PolygonType.REGION && polygon.type !== PolygonType.TEXTLINE) return
+      if (polygon.type === PolygonType.BASELINE) return
 
       if (
         !visibilityService.shouldShowPolygon(polygon, visibility)
@@ -858,6 +855,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
    * These are non-selectable context elements that help users understand the annotation structure.
    *
    * In TEXTLINE mode: Regions are drawn as background
+   * In WORD mode: Regions and Textlines are drawn as background
+   * In GLYPH mode: Regions, Textlines and Words are drawn as background
    * In BASELINE mode: Regions and Textlines are drawn as background
    */
   function drawBackgroundPolygons(
@@ -956,12 +955,16 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       )
     }
 
-    if (preview.helperTextlinePoints && preview.helperTextlinePoints.length >= 3) {
-      const textlinePoints = preview.helperTextlinePoints
+    const helperOutlines: Array<[Point[] | undefined, RGBA]> = [
+      [preview.helperTextlinePoints, AUTO_PARENT_INDICATOR.NEW_TEXTLINE_OUTLINE],
+      [preview.helperWordPoints, AUTO_PARENT_INDICATOR.NEW_WORD_OUTLINE]
+    ]
+    for (const [helperPoints, outlineColor] of helperOutlines) {
+      if (!helperPoints || helperPoints.length < 3) continue
 
       dashedLineRenderer.drawDashedLine(
-        textlinePoints,
-        AUTO_PARENT_INDICATOR.NEW_TEXTLINE_OUTLINE,
+        helperPoints,
+        outlineColor,
         AUTO_PARENT_INDICATOR.LINE_THICKNESS,
         true, // closed polygon
         AUTO_PARENT_INDICATOR.DASH_LENGTH,
@@ -1060,8 +1063,9 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         && renderState.moveState.elementId === polygon.id
       if (isMovingInvalid) continue
 
-      const shouldRender = viewMode === 'textline'
-        ? polygon.type === PolygonType.TEXTLINE
+      const focusedType = getViewModePolygonType(viewMode)
+      const shouldRender = focusedType
+        ? polygon.type === focusedType
         : visibilityService.shouldShowPolygon(polygon, frameContext.visibility)
 
       if (!shouldRender) continue

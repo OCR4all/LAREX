@@ -1,12 +1,14 @@
 import type { Command, CommandContext } from './types'
-import { PcGts, TextLine, PolygonType, isTextRegion } from '@/models/editor'
+import { Glyph, PcGts, TextLine, PolygonType, Word, isTextRegion } from '@/models/editor'
 import type { Point, Region, TextRegion, ReadingOrderNode, Relation } from '@/models/editor'
 import { Polygon as PolygonGeometry, Polyline as PolylineGeometry } from '@/models/editor/geometry'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
   collectRenderablePolygonsFromPcGts,
+  findGlyphRecursive,
   findRegionRecursive,
   findTextLineRecursive,
+  findWordRecursive,
   rebuildSpatialIndexFromPcGts
 } from '@/utils/editor/pcgts-editor-primitives'
 import {
@@ -58,14 +60,22 @@ interface UndoSnapshot {
   relations?: Relation[]
 }
 
+/** A polygon element nested inside a text line (word) or word (glyph). */
+type TextShape = Word | Glyph
+
+interface PlacedPiece<T> {
+  element: T
+  points: Point[]
+}
+
 /**
- * Command for cutting regions, textlines, and baselines using line, polygon, or rectangle shapes.
+ * Command for cutting regions, textlines, words, glyphs and baselines using line, polygon, or rectangle shapes.
  *
  * Cut Line: Splits intersected elements into multiple pieces
  * Cut Polygon/Rectangle: Subtracts the shape from elements, deleting fully enclosed ones
  *
  * Features:
- * - When cutting regions, also cuts all child textlines and baselines
+ * - When cutting regions, also cuts all child textlines, words, glyphs and baselines
  * - Child elements are properly assigned to the correct parent pieces
  * - Largest resulting polygon inherits the original ID
  * - Auto-deletes polygons below the area threshold
@@ -151,6 +161,48 @@ export class CutElementsCommand implements Command {
       if (!hit) continue
 
       const result = this.cutStandaloneTextLine(hit.textLine, hit.parentTextRegion)
+      cutCount += result.cutCount
+      deletedCount += result.deletedCount
+      createdCount += result.createdCount
+    }
+
+    const parentById = new Map(allPolygons.map(p => [p.id, p.parentId]))
+
+    const wordPolygons = allPolygons.filter(p =>
+      p.type === PolygonType.WORD && (!targetElementIdSet || targetElementIdSet.has(p.id))
+    )
+
+    for (const wordPoly of wordPolygons) {
+      if (this.isAffectedOrHasAffectedAncestor(wordPoly.id, parentById)) continue
+      if (!this.shouldCutElement(wordPoly.points)) continue
+
+      this.affectedPolygonIds.push(wordPoly.id)
+
+      const hit = findWordRecursive(pcGts.page.regions, wordPoly.id)
+      if (!hit) continue
+
+      const glyphs = this.detachGlyphs(hit.word)
+      const result = this.cutTextShapeInPlace(hit.word, hit.parentTextLine.words ?? [], (word, id, points) => this.cloneWord(word, id, points))
+      this.distributeGlyphs(glyphs, result.pieces)
+      cutCount += result.cutCount
+      deletedCount += result.deletedCount
+      createdCount += result.createdCount
+    }
+
+    const glyphPolygons = allPolygons.filter(p =>
+      p.type === PolygonType.GLYPH && (!targetElementIdSet || targetElementIdSet.has(p.id))
+    )
+
+    for (const glyphPoly of glyphPolygons) {
+      if (this.isAffectedOrHasAffectedAncestor(glyphPoly.id, parentById)) continue
+      if (!this.shouldCutElement(glyphPoly.points)) continue
+
+      this.affectedPolygonIds.push(glyphPoly.id)
+
+      const hit = findGlyphRecursive(pcGts.page.regions, glyphPoly.id)
+      if (!hit) continue
+
+      const result = this.cutTextShapeInPlace(hit.glyph, hit.parentWord.glyphs ?? [], (glyph, id, points) => this.cloneGlyph(glyph, id, points))
       cutCount += result.cutCount
       deletedCount += result.deletedCount
       createdCount += result.createdCount
@@ -306,6 +358,9 @@ export class CutElementsCommand implements Command {
         continue
       }
 
+      const words = this.detachWords(textLine)
+      const linePieces: Array<PlacedPiece<TextLine>> = []
+
       const originalBaseline = textLine.baseline
       const baselinePoints = originalBaseline?.points?.points?.map(p => ({ x: p[0], y: p[1] })) ?? []
 
@@ -317,6 +372,7 @@ export class CutElementsCommand implements Command {
           const clippedTextLine = this.clipTextLineToParent(textLine, bestRegion.points)
           if (clippedTextLine) {
             bestRegion.region.textLines.push(clippedTextLine)
+            linePieces.push({ element: clippedTextLine, points: textLinePoints })
           }
         }
       } else if (textLineCutResult.pieces.length === 1) {
@@ -340,6 +396,7 @@ export class CutElementsCommand implements Command {
             const clippedTextLine = this.clipTextLineToParent(textLine, bestRegion.points)
             if (clippedTextLine) {
               bestRegion.region.textLines.push(clippedTextLine)
+              linePieces.push({ element: clippedTextLine, points: piece })
             }
           }
         }
@@ -373,9 +430,12 @@ export class CutElementsCommand implements Command {
           const clippedTextLine = this.clipTextLineToParent(textLineToUse, bestRegion.points)
           if (clippedTextLine) {
             bestRegion.region.textLines.push(clippedTextLine)
+            linePieces.push({ element: clippedTextLine, points: piece })
           }
         }
       }
+
+      this.distributeWords(words, linePieces)
     }
 
     this.distributeChildRegions(childRegions, regionPieces)
@@ -480,6 +540,8 @@ export class CutElementsCommand implements Command {
     for (const line of lines) {
       const points = line.coords.points.map(([x, y]) => ({ x, y }))
       const baseline = line.baseline?.points.points.map(([x, y]) => ({ x, y }))
+      const words = this.detachWords(line)
+      const linePieces: Array<PlacedPiece<TextLine>> = []
       let usedOriginal = false
       this.affectedPolygonIds.push(line.id)
       for (const parent of parents) {
@@ -498,8 +560,10 @@ export class CutElementsCommand implements Command {
           }
           parent.region.textLines ??= []
           parent.region.textLines.push(result)
+          linePieces.push({ element: result, points: piece })
         }
       }
+      this.distributeWords(words, linePieces)
     }
   }
 
@@ -527,11 +591,13 @@ export class CutElementsCommand implements Command {
 
     const originalBaseline = textLine.baseline
     const baselinePoints = originalBaseline?.points?.points?.map(p => ({ x: p[0], y: p[1] })) ?? []
+    const words = this.detachWords(textLine)
 
     if (cutResult.pieces.length === 1) {
       const piece = cutResult.pieces[0]
       if (piece) {
         textLine.coords = new PolygonGeometry(piece.map(p => [p.x, p.y] as [number, number]))
+        this.distributeWords(words, [{ element: textLine, points: piece }])
 
         if (baselinePoints.length >= 2) {
           const clippedBaseline = clipPolylineToPolygon(baselinePoints, piece)
@@ -550,6 +616,7 @@ export class CutElementsCommand implements Command {
       .sort((a, b) => b.area - a.area)
 
     let createdCount = 0
+    const linePieces: Array<PlacedPiece<TextLine>> = []
 
     for (let i = 0; i < sortedPieces.length; i++) {
       const piece = sortedPieces[i]
@@ -559,6 +626,7 @@ export class CutElementsCommand implements Command {
 
       if (isOriginal) {
         textLine.coords = new PolygonGeometry(piece.points.map(p => [p.x, p.y] as [number, number]))
+        linePieces.push({ element: textLine, points: piece.points })
 
         if (baselinePoints.length >= 2) {
           const clippedBaseline = clipPolylineToPolygon(baselinePoints, piece.points)
@@ -580,11 +648,142 @@ export class CutElementsCommand implements Command {
         }
 
         siblings.push(newTextLine)
+        linePieces.push({ element: newTextLine, points: piece.points })
         createdCount++
       }
     }
 
+    this.distributeWords(words, linePieces)
+
     return { cutCount: 1, deletedCount: 0, createdCount }
+  }
+
+  /**
+   * Cut a word or glyph within its sibling list. The largest piece keeps the
+   * original ID; additional pieces are inserted right after it.
+   */
+  private cutTextShapeInPlace<T extends TextShape>(
+    element: T,
+    siblings: T[],
+    clone: (original: T, newId: string, points: Point[]) => T
+  ): { pieces: Array<PlacedPiece<T>>, cutCount: number, deletedCount: number, createdCount: number } {
+    const points = element.coords.points.map(([x, y]) => ({ x, y }))
+    const cutResult = this.cutPolygon(points)
+
+    if (cutResult.deleted) {
+      const index = siblings.findIndex(sibling => sibling.id === element.id)
+      if (index >= 0) siblings.splice(index, 1)
+      return { pieces: [], cutCount: 0, deletedCount: 1, createdCount: 0 }
+    }
+
+    if (cutResult.pieces.length === 0) {
+      return { pieces: [{ element, points }], cutCount: 0, deletedCount: 0, createdCount: 0 }
+    }
+
+    const sortedPieces = [...cutResult.pieces].sort((a, b) => calculatePolygonArea(b) - calculatePolygonArea(a))
+    const pieces: Array<PlacedPiece<T>> = []
+    let insertAt = siblings.findIndex(sibling => sibling.id === element.id)
+
+    for (const [i, piece] of sortedPieces.entries()) {
+      const target = i === 0 ? element : clone(element, this.generateId(), piece)
+      target.coords = new PolygonGeometry(piece.map(p => [p.x, p.y] as [number, number]))
+      if (i > 0) {
+        insertAt = insertAt >= 0 ? insertAt + 1 : siblings.length
+        siblings.splice(insertAt, 0, target)
+      }
+      pieces.push({ element: target, points: piece })
+    }
+
+    return { pieces, cutCount: 1, deletedCount: 0, createdCount: pieces.length - 1 }
+  }
+
+  /**
+   * Cut a nested word or glyph against the cut shape and assign each piece to
+   * the best matching parent piece. When intersecting, the child is clipped to
+   * every parent piece it overlaps instead.
+   */
+  private placeTextShape<T extends TextShape, P extends { points: Point[] }>(
+    child: T,
+    parents: P[],
+    clone: (original: T, newId: string, points: Point[]) => T
+  ): Array<PlacedPiece<T> & { parent: P }> {
+    const childPoints = child.coords.points.map(([x, y]) => ({ x, y }))
+    const placed: Array<PlacedPiece<T> & { parent: P }> = []
+    const place = (piece: Point[], parent: P, reshape: boolean) => {
+      const element = placed.length === 0 ? child : clone(child, this.generateId(), piece)
+      if (reshape) element.coords = new PolygonGeometry(piece.map(p => [p.x, p.y] as [number, number]))
+      placed.push({ element, points: piece, parent })
+    }
+
+    if (this.intersect) {
+      for (const parent of parents) {
+        for (const piece of intersectPolygons(childPoints, parent.points)) {
+          place(piece, parent, true)
+        }
+      }
+      return placed
+    }
+
+    const cutResult = this.cutPolygon(childPoints)
+    if (cutResult.deleted) return placed
+
+    const pieces = cutResult.pieces.length > 0
+      ? [...cutResult.pieces].sort((a, b) => calculatePolygonArea(b) - calculatePolygonArea(a))
+      : [childPoints]
+
+    for (const piece of pieces) {
+      const parent = this.findBestMatchingRegion(piece, parents)
+      if (parent) place(piece, parent, cutResult.pieces.length > 0)
+    }
+
+    return placed
+  }
+
+  private distributeWords(words: Word[], linePieces: Array<PlacedPiece<TextLine>>): void {
+    if (words.length === 0) return
+
+    for (const word of words) {
+      const glyphs = this.detachGlyphs(word)
+      const placed = this.placeTextShape(word, linePieces, (original, id, points) => this.cloneWord(original, id, points))
+      for (const { element, parent } of placed) {
+        parent.element.words ??= []
+        parent.element.words.push(element)
+      }
+      this.distributeGlyphs(glyphs, placed)
+    }
+  }
+
+  private distributeGlyphs(glyphs: Glyph[], wordPieces: Array<PlacedPiece<Word>>): void {
+    if (glyphs.length === 0) return
+
+    for (const glyph of glyphs) {
+      const placed = this.placeTextShape(glyph, wordPieces, (original, id, points) => this.cloneGlyph(original, id, points))
+      for (const { element, parent } of placed) {
+        parent.element.glyphs ??= []
+        parent.element.glyphs.push(element)
+      }
+    }
+  }
+
+  private detachWords(textLine: TextLine): Word[] {
+    const words = textLine.words ?? []
+    if (textLine.words) textLine.words = []
+    return words
+  }
+
+  private detachGlyphs(word: Word): Glyph[] {
+    const glyphs = word.glyphs ?? []
+    if (word.glyphs) word.glyphs = []
+    return glyphs
+  }
+
+  private isAffectedOrHasAffectedAncestor(id: string, parentById: Map<string, string | undefined>): boolean {
+    let current: string | undefined = id
+    while (current) {
+      if (this.affectedPolygonIds.includes(current)) return true
+      current = parentById.get(current)
+    }
+    return false
   }
 
   /**
@@ -620,10 +819,10 @@ export class CutElementsCommand implements Command {
    * 2. Calculate actual polygon intersection area percentage
    * 3. Find the closest region by centroid distance
    */
-  private findBestMatchingRegion(
+  private findBestMatchingRegion<P extends { points: Point[] }>(
     points: Point[],
-    regionPieces: Array<{ region: Region, points: Point[] }>
-  ): { region: Region, points: Point[] } | null {
+    regionPieces: P[]
+  ): P | null {
     if (regionPieces.length === 0) return null
     if (regionPieces.length === 1) return regionPieces[0] ?? null
 
@@ -635,7 +834,7 @@ export class CutElementsCommand implements Command {
       }
     }
 
-    let bestMatch: { region: Region, points: Point[] } | null = null
+    let bestMatch: P | null = null
     let maxOverlapPercentage = 0
 
     for (const piece of regionPieces) {
@@ -811,10 +1010,36 @@ export class CutElementsCommand implements Command {
   private cloneTextLine(original: TextLine, newId: string, newPoints: Point[]): TextLine {
     return new TextLine({
       ...(this.intersect ? original : {}),
-      // Word/glyph IDs remain with the original line when creating a piece.
+      // Words are redistributed across the line pieces separately.
       words: undefined,
       id: newId,
       coords: new PolygonGeometry(newPoints.map(p => [p.x, p.y] as [number, number])),
+      textContentVariants: original.textContentVariants ? [...original.textContentVariants] : undefined
+    })
+  }
+
+  /**
+   * Clone a word piece. Glyphs are redistributed separately.
+   */
+  private cloneWord(original: Word, newId: string, newPoints: Point[]): Word {
+    return Word.fromFields({
+      ...(this.intersect ? original : {}),
+      glyphs: undefined,
+      id: newId,
+      coords: new PolygonGeometry(newPoints.map(p => [p.x, p.y] as [number, number])),
+      textContentVariants: original.textContentVariants ? [...original.textContentVariants] : undefined
+    })
+  }
+
+  /**
+   * Clone a glyph piece
+   */
+  private cloneGlyph(original: Glyph, newId: string, newPoints: Point[]): Glyph {
+    return Glyph.fromFields({
+      ...(this.intersect ? original : {}),
+      id: newId,
+      coords: new PolygonGeometry(newPoints.map(p => [p.x, p.y] as [number, number])),
+      unicode: original.unicode,
       textContentVariants: original.textContentVariants ? [...original.textContentVariants] : undefined
     })
   }

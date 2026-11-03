@@ -5,12 +5,13 @@ import type { input as ZodInput } from 'zod'
 import MetadataAlternativeImagesForm from './metadata/alternative-images-form.vue'
 import MetadataItemsForm from './metadata/items-form.vue'
 import MetadataLabelGroupsForm from './metadata/label-groups-form.vue'
+import MetadataTextStyleForm from './metadata/text-style-form.vue'
 import MetadataUserAttributesForm from './metadata/user-attributes-form.vue'
 import type { PcGts } from '@/models/editor/document'
 import type { Page } from '@/models/editor/page'
 import type { Region, TextRegion, RegionKind } from '@/models/editor/region'
 import { isTextRegion, ALL_REGION_KINDS, ALL_TEXT_REGION_SUBTYPES, ALL_GRAPHIC_REGION_SUBTYPES, ALL_CHART_REGION_SUBTYPES, canContainTextLines } from '@/models/editor/region'
-import type { TextLine } from '@/models/editor/text'
+import type { Glyph, TextLine, Word } from '@/models/editor/text'
 import type { RenderablePolyline } from '@/types/editor/rendering'
 import type { MetadataApplyPayload, RegionKindChangePayload } from '@/types/editor/metadata'
 import { getRegionKindDisplayName } from '@/utils/editor/region-colors'
@@ -21,18 +22,24 @@ import {
   textRegionMetadataSchema,
   genericRegionMetadataSchema,
   textLineMetadataSchema,
+  wordMetadataSchema,
+  glyphMetadataSchema,
   baselineMetadataSchema,
   createDocumentMetadataFormState,
   createPageMetadataFormState,
   createTextRegionMetadataFormState,
   createGenericRegionMetadataFormState,
   createTextLineMetadataFormState,
+  createWordMetadataFormState,
+  createGlyphMetadataFormState,
   createBaselineMetadataFormState,
   type DocumentMetadataFormState,
   type PageMetadataFormState,
   type TextRegionMetadataFormState,
   type GenericRegionMetadataFormState,
   type TextLineMetadataFormState,
+  type WordMetadataFormState,
+  type GlyphMetadataFormState,
   type BaselineMetadataFormState,
   type GridRowFormState
 } from '@/utils/editor/metadata-schema'
@@ -43,7 +50,9 @@ const confirmModal = overlay.create(LazyUiConfirmModal)
 const props = defineProps<{
   document?: PcGts | null
   page?: Page | null
-  selectedElement?: Region | TextLine | RenderablePolyline | null
+  selectedElement?: Region | TextLine | Word | Glyph | RenderablePolyline | null
+  /** Words and glyphs are structurally similar to text lines, so the caller names them explicitly. */
+  selectedTextElementType?: 'word' | 'glyph' | null
   readOnly?: boolean
 }>()
 
@@ -53,7 +62,7 @@ const emit = defineEmits<{
 }>()
 
 const isEditing = ref(false)
-type EditContext = 'document' | 'page' | 'textRegion' | 'genericRegion' | 'textLine' | 'baseline'
+type EditContext = 'document' | 'page' | 'textRegion' | 'genericRegion' | 'textLine' | 'word' | 'glyph' | 'baseline'
 const editContext = ref<EditContext | null>(null)
 
 const documentFormState = reactive<DocumentMetadataFormState>({
@@ -86,19 +95,38 @@ const textLineFormState = reactive(createTextLineMetadataFormState({
   id: ''
 }))
 
+const wordFormState = reactive(createWordMetadataFormState({
+  id: ''
+}))
+
+const glyphFormState = reactive(createGlyphMetadataFormState({
+  id: ''
+}))
+
 const baselineFormState = reactive(createBaselineMetadataFormState({ conf: undefined }))
 
 const pageFormModel = computed<Partial<ZodInput<typeof pageMetadataSchema>>>(() => pageFormState as Partial<ZodInput<typeof pageMetadataSchema>>)
 const textRegionFormModel = computed<Partial<ZodInput<typeof textRegionMetadataSchema>>>(() => textRegionFormState as Partial<ZodInput<typeof textRegionMetadataSchema>>)
 const genericRegionFormModel = computed<Partial<ZodInput<typeof genericRegionMetadataSchema>>>(() => genericRegionFormState as Partial<ZodInput<typeof genericRegionMetadataSchema>>)
 const textLineFormModel = computed<Partial<ZodInput<typeof textLineMetadataSchema>>>(() => textLineFormState as Partial<ZodInput<typeof textLineMetadataSchema>>)
+const wordFormModel = computed<Partial<ZodInput<typeof wordMetadataSchema>>>(() => wordFormState as Partial<ZodInput<typeof wordMetadataSchema>>)
+const glyphFormModel = computed<Partial<ZodInput<typeof glyphMetadataSchema>>>(() => glyphFormState as Partial<ZodInput<typeof glyphMetadataSchema>>)
 
 function isRegionElement(element: unknown): element is Region {
   return !!element && typeof element === 'object' && 'kind' in element && 'coords' in element
 }
 
 function isTextLineElement(element: unknown): element is TextLine {
-  return !!element && typeof element === 'object' && 'id' in element && 'coords' in element && !('kind' in element) && !('type' in element)
+  return !props.selectedTextElementType
+    && !!element && typeof element === 'object' && 'id' in element && 'coords' in element && !('kind' in element) && !('type' in element)
+}
+
+function isWordElement(element: unknown): element is Word {
+  return props.selectedTextElementType === 'word' && !!element && typeof element === 'object' && 'coords' in element
+}
+
+function isGlyphElement(element: unknown): element is Glyph {
+  return props.selectedTextElementType === 'glyph' && !!element && typeof element === 'object' && 'coords' in element
 }
 
 function isBaselineElement(element: unknown): element is RenderablePolyline {
@@ -110,6 +138,8 @@ const currentContext = computed<EditContext | null>(() => {
 
   if (props.selectedElement) {
     if (isBaselineElement(props.selectedElement)) return 'baseline'
+    if (isWordElement(props.selectedElement)) return 'word'
+    if (isGlyphElement(props.selectedElement)) return 'glyph'
     if (isTextLineElement(props.selectedElement)) return 'textLine'
     if (isRegionElement(props.selectedElement)) {
       return isTextRegion(props.selectedElement) ? 'textRegion' : 'genericRegion'
@@ -181,6 +211,16 @@ function startEditing() {
         Object.assign(textLineFormState, createTextLineMetadataFormState(props.selectedElement))
       }
       break
+    case 'word':
+      if (props.selectedElement && isWordElement(props.selectedElement)) {
+        Object.assign(wordFormState, createWordMetadataFormState(props.selectedElement))
+      }
+      break
+    case 'glyph':
+      if (props.selectedElement && isGlyphElement(props.selectedElement)) {
+        Object.assign(glyphFormState, createGlyphMetadataFormState(props.selectedElement))
+      }
+      break
     case 'baseline':
       if (props.selectedElement && isBaselineElement(props.selectedElement)) {
         Object.assign(baselineFormState, createBaselineMetadataFormState({ conf: undefined }))
@@ -238,6 +278,30 @@ function onSubmitTextLine(event: FormSubmitEvent<TextLineMetadataFormState>) {
 
   emit('apply', {
     target: 'textLine',
+    elementId: props.selectedElement.id,
+    data: event.data
+  })
+  cancelEditing()
+}
+
+function onSubmitWord(event: FormSubmitEvent<WordMetadataFormState>) {
+  if (props.readOnly) return
+  if (!props.selectedElement || !isWordElement(props.selectedElement)) return
+
+  emit('apply', {
+    target: 'word',
+    elementId: props.selectedElement.id,
+    data: event.data
+  })
+  cancelEditing()
+}
+
+function onSubmitGlyph(event: FormSubmitEvent<GlyphMetadataFormState>) {
+  if (props.readOnly) return
+  if (!props.selectedElement || !isGlyphElement(props.selectedElement)) return
+
+  emit('apply', {
+    target: 'glyph',
     elementId: props.selectedElement.id,
     data: event.data
   })
@@ -1272,6 +1336,152 @@ watch(() => props.readOnly, (readOnly) => {
           </UForm>
 
           <UForm
+            v-else-if="editContext === 'word'"
+            :schema="wordMetadataSchema"
+            :state="wordFormModel"
+            class="space-y-4"
+            @submit="onSubmitWord"
+          >
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:whole-word" class="w-4 h-4 text-muted" />
+              <span class="text-sm font-medium">Word</span>
+            </div>
+
+            <UFormField label="ID" name="id">
+              <UInput :model-value="wordFormState.id" disabled class="bg-muted font-mono text-xs" />
+            </UFormField>
+
+            <UFormField label="Language" name="language">
+              <USelectMenu
+                v-model="wordFormState.language"
+                :items="languageOptions"
+                placeholder="Select language"
+                :search-input="{ placeholder: 'Search language...' }"
+                virtualize
+                clear
+              />
+            </UFormField>
+
+            <div class="grid grid-cols-2 gap-2">
+              <UFormField label="Primary Script" name="primaryScript">
+                <USelectMenu
+                  v-model="wordFormState.primaryScript"
+                  :items="scriptOptions"
+                  placeholder="Select script"
+                  :search-input="{ placeholder: 'Search script...' }"
+                  virtualize
+                  clear
+                />
+              </UFormField>
+              <UFormField label="Secondary Script" name="secondaryScript">
+                <USelectMenu
+                  v-model="wordFormState.secondaryScript"
+                  :items="scriptOptions"
+                  placeholder="Select script"
+                  :search-input="{ placeholder: 'Search script...' }"
+                  virtualize
+                  clear
+                />
+              </UFormField>
+            </div>
+
+            <UFormField label="Reading Direction" name="readingDirection">
+              <USelect v-model="wordFormState.readingDirection" :items="readingDirectionOptions" placeholder="Select direction" />
+            </UFormField>
+
+            <UFormField label="Production" name="production">
+              <USelect v-model="wordFormState.production" :items="productionOptions" placeholder="Select production" />
+            </UFormField>
+
+            <UFormField label="Comments" name="comments">
+              <UTextarea v-model="wordFormState.comments" placeholder="Comments..." :rows="2" />
+            </UFormField>
+
+            <UFormField label="Custom" name="custom">
+              <UInput v-model="wordFormState.custom" placeholder="Custom data" />
+            </UFormField>
+
+            <MetadataAlternativeImagesForm v-model="wordFormState.alternativeImages" />
+            <MetadataLabelGroupsForm v-model="wordFormState.labels" />
+            <MetadataUserAttributesForm
+              v-model="wordFormState.userDefinedAttributes"
+              :type-options="userAttributeTypeOptions"
+            />
+            <MetadataTextStyleForm v-model="wordFormState.textStyle" />
+
+            <div class="flex gap-2 pt-4 border-t border-default">
+              <UButton type="submit" class="flex-1">
+                <Icon name="lucide:save" class="w-4 h-4 mr-1" />Save
+              </UButton>
+              <UButton type="button" variant="outline" @click="cancelEditing">
+                Cancel
+              </UButton>
+            </div>
+          </UForm>
+
+          <UForm
+            v-else-if="editContext === 'glyph'"
+            :schema="glyphMetadataSchema"
+            :state="glyphFormModel"
+            class="space-y-4"
+            @submit="onSubmitGlyph"
+          >
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:letter-text" class="w-4 h-4 text-muted" />
+              <span class="text-sm font-medium">Glyph</span>
+            </div>
+
+            <UFormField label="ID" name="id">
+              <UInput :model-value="glyphFormState.id" disabled class="bg-muted font-mono text-xs" />
+            </UFormField>
+
+            <UFormField label="Script" name="script">
+              <USelectMenu
+                v-model="glyphFormState.script"
+                :items="scriptOptions"
+                placeholder="Select script"
+                :search-input="{ placeholder: 'Search script...' }"
+                virtualize
+                clear
+              />
+            </UFormField>
+
+            <UFormField label="Production" name="production">
+              <USelect v-model="glyphFormState.production" :items="productionOptions" placeholder="Select production" />
+            </UFormField>
+
+            <div class="space-y-1">
+              <UCheckbox v-model="glyphFormState.ligature" label="Ligature" />
+              <UCheckbox v-model="glyphFormState.symbol" label="Symbol" />
+            </div>
+
+            <UFormField label="Comments" name="comments">
+              <UTextarea v-model="glyphFormState.comments" placeholder="Comments..." :rows="2" />
+            </UFormField>
+
+            <UFormField label="Custom" name="custom">
+              <UInput v-model="glyphFormState.custom" placeholder="Custom data" />
+            </UFormField>
+
+            <MetadataAlternativeImagesForm v-model="glyphFormState.alternativeImages" />
+            <MetadataLabelGroupsForm v-model="glyphFormState.labels" />
+            <MetadataUserAttributesForm
+              v-model="glyphFormState.userDefinedAttributes"
+              :type-options="userAttributeTypeOptions"
+            />
+            <MetadataTextStyleForm v-model="glyphFormState.textStyle" />
+
+            <div class="flex gap-2 pt-4 border-t border-default">
+              <UButton type="submit" class="flex-1">
+                <Icon name="lucide:save" class="w-4 h-4 mr-1" />Save
+              </UButton>
+              <UButton type="button" variant="outline" @click="cancelEditing">
+                Cancel
+              </UButton>
+            </div>
+          </UForm>
+
+          <UForm
             v-else-if="editContext === 'baseline'"
             :schema="baselineMetadataSchema"
             :state="baselineFormState"
@@ -1318,6 +1528,75 @@ watch(() => props.readOnly, (readOnly) => {
             <div class="space-y-1.5 text-sm">
               <div class="flex justify-between">
                 <span class="text-muted">ID</span><span class="font-mono text-xs">{{ selectedElement.id }}</span>
+              </div>
+            </div>
+          </template>
+
+          <template v-else-if="selectedElement && isWordElement(selectedElement)">
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:whole-word" class="w-4 h-4 text-muted" />
+              <span class="text-sm font-medium truncate">Word</span>
+            </div>
+            <div class="space-y-1.5 text-sm">
+              <div class="flex justify-between">
+                <span class="text-muted">ID</span><span class="font-mono text-xs truncate ml-2">{{ selectedElement.id }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Language</span><span>{{ selectedElement.language || '—' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Primary Script</span><span>{{ selectedElement.primaryScript || '—' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Secondary Script</span><span>{{ selectedElement.secondaryScript || '—' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Reading Direction</span><span>{{ selectedElement.readingDirection || '—' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Production</span><span>{{ selectedElement.production || '—' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Confidence</span><span>{{ formatConfidence(selectedElement.confidence) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Comments</span><span>{{ selectedElement.comments || '—' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ selectedElement.custom || '—' }}</span>
+              </div>
+            </div>
+          </template>
+
+          <template v-else-if="selectedElement && isGlyphElement(selectedElement)">
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:letter-text" class="w-4 h-4 text-muted" />
+              <span class="text-sm font-medium truncate">Glyph</span>
+            </div>
+            <div class="space-y-1.5 text-sm">
+              <div class="flex justify-between">
+                <span class="text-muted">ID</span><span class="font-mono text-xs truncate ml-2">{{ selectedElement.id }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Script</span><span>{{ selectedElement.script || '—' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Production</span><span>{{ selectedElement.production || '—' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Ligature</span><span>{{ formatBoolean(selectedElement.ligature) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Symbol</span><span>{{ formatBoolean(selectedElement.symbol) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Confidence</span><span>{{ formatConfidence(selectedElement.confidence) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Comments</span><span>{{ selectedElement.comments || '—' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ selectedElement.custom || '—' }}</span>
               </div>
             </div>
           </template>
