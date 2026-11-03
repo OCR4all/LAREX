@@ -37,8 +37,9 @@ function createHarness() {
   }
   const drawing = () => ({
     currentPolygonPoints: reactive([]), currentPolylinePoints: reactive([]),
-    previewPoint: reactive({ x: null, y: null }), isInvalidPosition: ref(false)
+    previewPoint: reactive<{ x: number | null, y: number | null }>({ x: null, y: null }), isInvalidPosition: ref(false)
   })
+  const polygonDrawing = drawing()
   const scope = effectScope()
   scope.run(() => {
     // Only rendering watches are exercised; interaction handlers are not called.
@@ -47,8 +48,8 @@ function createHarness() {
       ref(false), ref(false), ref(false), ref(false), ref({ width: 1000, height: 800 }),
       { renderFrame: vi.fn(), imageSize: ref({ width: 1, height: 1 }) },
       ref({ scaleX: 1, scaleY: 1 }), view, { actionState: reactive({ action: 'idle' }) },
-      drawing(), drawing(), { previewPoints: reactive([]), isInvalidPosition: ref(false) },
-      polygonEditing, { ...polygonEditing, selectedPolylineIndex: ref(-1) },
+      polygonDrawing, drawing(), { previewPoints: reactive([]), isInvalidPosition: ref(false) },
+      polygonEditing, { ...polygonEditing, hoveredPolylineIndex: ref(-1), selectedPolylineIndex: ref(-1) },
       vi.fn(() => []), ref('default'), ref('TextRegion'), ref(true),
       ref(undefined), ref(false), ref(undefined), ref(false), undefined,
       ref(false), ref(false), ref(false), ref(false), undefined, ref(null), ref(null), ref(undefined), ref([])
@@ -57,7 +58,7 @@ function createHarness() {
   })
   coordinateReads = 0
   scheduleRender.mockClear()
-  return { scope, view, polygons, hoveredNodeIndex, coordinateReads: () => coordinateReads }
+  return { scope, view, polygons, hoveredNodeIndex, polygonEditing, polygonDrawing, coordinateReads: () => coordinateReads }
 }
 
 afterEach(() => vi.clearAllMocks())
@@ -107,6 +108,28 @@ describe('editor render invalidation', () => {
       await nextTick()
       await nextTick()
       expect(scheduleRender).toHaveBeenCalled()
+    } finally {
+      harness.scope.stop()
+    }
+  })
+
+  it('schedules rendering when interaction state is mutated in place', async () => {
+    const harness = createHarness()
+    try {
+      const mutations = [
+        () => { harness.polygonEditing.draggedNodeInfo.nodeIndex = 3 },
+        () => { harness.polygonEditing.hoveredEdgeInfo.t = 0.5 },
+        () => { harness.polygonDrawing.previewPoint.x = 10 },
+        () => { (harness.polygonDrawing.currentPolygonPoints as Array<{ x: number, y: number }>).push({ x: 1, y: 1 }) }
+      ]
+      for (const mutate of mutations) {
+        scheduleRender.mockClear()
+        mutate()
+        await nextTick()
+        await nextTick()
+        expect(scheduleRender).toHaveBeenCalled()
+      }
+      expect(harness.coordinateReads()).toBe(0)
     } finally {
       harness.scope.stop()
     }

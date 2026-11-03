@@ -225,42 +225,29 @@ export function useEditorRenderer(
 
     // View/interaction changes must not deep-traverse the page's geometry.
     watch([
-      () => polygonEditing.hoveredPolygonIndex,
+      polygonEditing.hoveredPolygonIndex,
       selectedPolygonIndex,
       selectedPolygonIds,
       selectedPolylineIds,
       hiddenPolygonIds,
       hiddenPolylineIds,
-      () => polylineEditing.hoveredPolylineIndex,
-      () => polylineEditing.selectedPolylineIndex,
-      polygonDrawing.currentPolygonPoints,
-      polylineDrawing.currentPolylinePoints,
-      polygonDrawing.previewPoint,
-      polylineDrawing.previewPoint,
-      () => rectangleDrawing.previewPoints,
-      () => polygonEditing.hoveredNodeIndex,
+      polylineEditing.hoveredPolylineIndex,
+      polylineEditing.selectedPolylineIndex,
+      polygonEditing.hoveredNodeIndex,
       () => polygonEditing.selectedNodes?.value,
-      () => polylineEditing.hoveredNodeIndex,
-      () => polygonEditing.hoveredEdgeInfo,
-      () => polygonEditing.previewNodePosition,
-      () => polygonEditing.draggedNodeInfo,
-      () => polylineEditing.draggedNodeInfo,
-      () => polygonEditing.isInvalidPosition,
-      () => polylineEditing.isInvalidPosition,
+      polylineEditing.hoveredNodeIndex,
+      polygonEditing.isInvalidPosition,
+      polylineEditing.isInvalidPosition,
       isPolygonMode,
       isRectangleMode,
       isPolylineMode,
       isCutMode,
-      () => cutDrawing?.currentPoints,
-      () => cutDrawing?.previewPoint,
-      () => cutDrawing?.rectPreviewPoints,
-      () => cutDrawing?.isRectDrawing,
-      () => cutDrawing?.isInvalidPosition,
+      () => cutDrawing?.isRectDrawing.value,
+      () => cutDrawing?.isInvalidPosition.value,
       () => moveInteraction?.isMoving(),
       () => moveInteraction?.state.isInvalid,
       bufferPreview,
       labelConflictIds,
-      view,
       aspectRatioScale,
       canvasDimensions,
       () => mouseInteraction.actionState.action,
@@ -271,13 +258,21 @@ export function useEditorRenderer(
       () => editorUiStore.temporaryHoverPolygonId,
       () => editorUiStore.temporaryHoverPolylineId,
       () => editorUiStore.globalSettings.defaultVertexSize,
-      () => editorUiStore.confidenceHeatmap
+      () => editorUiStore.confidenceHeatmap,
+      view,
+      polygonDrawing.currentPolygonPoints,
+      polygonDrawing.previewPoint,
+      polylineDrawing.currentPolylinePoints,
+      polylineDrawing.previewPoint,
+      rectangleDrawing.previewPoints,
+      polygonEditing.hoveredEdgeInfo,
+      polygonEditing.previewNodePosition,
+      polygonEditing.draggedNodeInfo,
+      polylineEditing.draggedNodeInfo,
+      ...(cutDrawing ? [cutDrawing.currentPoints, cutDrawing.previewPoint, cutDrawing.rectPreviewPoints] : [])
     ],
-    scheduleStateRender,
-    { deep: true })
+    scheduleStateRender)
 
-    // These computeds return fresh objects whenever their inputs change, so
-    // identity is enough; deep traversal would walk every arrow and label.
     watch([actionProcessingTargets, readingOrderData, relationData], scheduleStateRender)
 
     watch(() => polygonEditing.hoveredPolygonIndex.value, (newIndex) => {
