@@ -13,6 +13,7 @@ export interface ReorderTextLinesCommandData {
 export class ReorderTextLinesCommand implements Command {
   private data: ReorderTextLinesCommandData
   private previousOrder: string[] | null = null
+  private previousIndexById: Map<string, number | undefined> | null = null
 
   constructor(data: ReorderTextLinesCommandData) {
     this.data = data
@@ -49,9 +50,18 @@ export class ReorderTextLinesCommand implements Command {
     }
 
     const nextIds = next.map(tl => tl.id)
-    if (currentIds.length === nextIds.length && currentIds.every((id, i) => id === nextIds[i])) {
+    const sameOrder = currentIds.length === nextIds.length && currentIds.every((id, i) => id === nextIds[i])
+    const indicesMatch = next.every((tl, i) => tl.index === i)
+    if (sameOrder && indicesMatch) {
       return false
     }
+
+    // Persist the manual order as explicit textline reading order (TextLine/@index)
+    // so it takes precedence over the user's fallback textline sort order.
+    this.previousIndexById = new Map(current.map(tl => [tl.id, tl.index]))
+    next.forEach((tl, i) => {
+      tl.index = i
+    })
 
     region.textLines = next
     this.finalize(ctx, pcGts)
@@ -84,6 +94,12 @@ export class ReorderTextLinesCommand implements Command {
       if (!byId.has(tl.id)) continue
       next.push(tl)
       byId.delete(tl.id)
+    }
+
+    if (this.previousIndexById) {
+      for (const tl of next) {
+        if (this.previousIndexById.has(tl.id)) tl.index = this.previousIndexById.get(tl.id)
+      }
     }
 
     region.textLines = next

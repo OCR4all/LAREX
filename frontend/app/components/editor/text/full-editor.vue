@@ -151,7 +151,7 @@ const fullTextLines = computed<FullTextLine[]>(() => {
 
   const textlineById = collectTextlines(currentPage.regions)
   const directionById = computeTextLineReadingDirectionMap(currentPage)
-  return collectTextlineIdsInReadingOrder(currentPage.regions, currentPage.readingOrder)
+  return collectTextlineIdsInReadingOrder(currentPage.regions, currentPage.readingOrder, uiStore.textlineSortOrder)
     .flatMap((id) => {
       const textline = textlineById.get(id)
       if (!textline) return []

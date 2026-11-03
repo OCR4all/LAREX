@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.editor.EditorPreferenceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -49,6 +50,7 @@ public class EditorPreferenceController {
             Double canvasTextCorrectionZoom,
             String textModeSubmode,
             Boolean highlightUnknownCodecChars,
+            @Pattern(regexp = "top-to-bottom|alphabetical") String textlineSortOrder,
             JsonNode shortcutBindings,
             JsonNode tableColumnVisibility,
             JsonNode tableSorting,
@@ -91,6 +93,7 @@ public class EditorPreferenceController {
                     pref.getCanvasTextCorrectionZoom(),
                     pref.getTextModeSubmode(),
                     pref.getHighlightUnknownCodecChars(),
+                    pref.getTextlineSortOrder(),
                     pref.getShortcutBindings(),
                     pref.getTableColumnVisibility(),
                     pref.getTableSorting(),

@@ -61,6 +61,11 @@ const autoSelectFirstLineModel = computed({
   set: next => uiStore.setTextViewAutoSelectFirstLine(Boolean(next))
 })
 
+const textlineSortOrderModel = computed({
+  get: () => uiStore.textlineSortOrder,
+  set: next => uiStore.setTextlineSortOrder(next)
+})
+
 const focusModeModel = computed({
   get: () => textViewSettings.value?.focusMode ?? false,
   set: (next: boolean) => {
@@ -252,6 +257,7 @@ onBeforeUnmount(() => {
                 v-model:text-item-layout="textItemLayoutModel"
                 v-model:auto-select-first-line="autoSelectFirstLineModel"
                 v-model:focus-mode="focusModeModel"
+                v-model:textline-sort-order="textlineSortOrderModel"
                 :full-text-mode="isFullTextMode"
                 :canvas-mode="uiStore.textModeSubmode === 'visual' || isFullTextMode"
               />
@@ -314,6 +320,7 @@ onBeforeUnmount(() => {
             v-model:text-item-layout="textItemLayoutModel"
             v-model:auto-select-first-line="autoSelectFirstLineModel"
             v-model:focus-mode="focusModeModel"
+            v-model:textline-sort-order="textlineSortOrderModel"
             :full-text-mode="isFullTextMode"
             :canvas-mode="uiStore.textModeSubmode === 'visual' || isFullTextMode"
           />

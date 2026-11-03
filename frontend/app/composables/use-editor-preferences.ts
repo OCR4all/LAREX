@@ -1,5 +1,6 @@
 import type { ToolbarLayout, VirtualKeyboardMode, TextItemLayout } from '@/stores/editor/types'
 import type { ShortcutPreferences } from '@/composables/editor/shortcut-registry'
+import type { TextlineSortOrder } from '@/utils/editor/textline-navigation'
 
 type TableColumnVisibilityPreferences = Record<string, Record<string, boolean>>
 export type TableSortPreference = {
@@ -41,6 +42,7 @@ export interface EditorPreferences {
   canvasTextCorrectionOverlayYRatio: number | null
   canvasTextCorrectionZoom: number | null
   textModeSubmode: 'visual' | 'expert' | 'full' | null
+  textlineSortOrder: TextlineSortOrder | null
   highlightUnknownCodecChars: boolean | null
   shortcutBindings: ShortcutPreferences | null
   onboardingDashboardTourVersion: number | null
@@ -91,6 +93,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   canvasTextCorrectionOverlayYRatio: null,
   canvasTextCorrectionZoom: null,
   textModeSubmode: null,
+  textlineSortOrder: null,
   highlightUnknownCodecChars: null,
   shortcutBindings: null,
   onboardingDashboardTourVersion: null,

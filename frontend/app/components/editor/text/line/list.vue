@@ -23,7 +23,12 @@ import type { KeyboardItem, KeyboardLayout } from '@/types/virtual-keyboard'
 import type { LabelDefinition } from '@/types/label-set'
 import { wsKey } from '@/utils/fetch-keys'
 import { findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
-import { collectRegionIdsInReadingOrder } from '@/utils/editor/textline-navigation'
+import {
+  collectRegionIdsInReadingOrder,
+  collectTextlineExplicitOrders,
+  compareTextlineSortEntries,
+  getTextlineSortAnchor
+} from '@/utils/editor/textline-navigation'
 import { tokenizeForDictionary } from '../shared/text-highlighting'
 import { computeTextLineReadingDirectionMap } from './reading-direction'
 import FilterOptions from './filter-options.vue'
@@ -853,6 +858,16 @@ function variantRole(index: number | undefined): 'gt' | 'recognition' | 'nonAssi
   return 'nonAssigned'
 }
 
+const textlineExplicitOrderById = computed(() => {
+  void uiStore.readingOrderVersion
+
+  const canvasId = effectiveCanvasId.value
+  const regions = canvasId
+    ? getEditorSession(canvasId)?.document.value?.page?.regions
+    : undefined
+  return collectTextlineExplicitOrders(regions)
+})
+
 const textlines = computed(() => {
   const canvasId = effectiveCanvasId.value
   if (!canvasId) return []
@@ -916,7 +931,17 @@ const textlines = computed(() => {
     }
   })
 
-  return result.filter(tl => tl.matchesVariantFilter && tl.matchesAssignedVisibility)
+  // Region grouping happens later and keeps this relative order within each region.
+  const textlineSortOrder = uiStore.textlineSortOrder
+  const explicitOrderById = textlineExplicitOrderById.value
+  return result
+    .filter(tl => tl.matchesVariantFilter && tl.matchesAssignedVisibility)
+    .map(tl => ({
+      tl,
+      entry: { id: tl.id, explicitOrder: explicitOrderById.get(tl.id), ...getTextlineSortAnchor(tl.points) }
+    }))
+    .sort((a, b) => compareTextlineSortEntries(a.entry, b.entry, textlineSortOrder))
+    .map(item => item.tl)
 })
 
 const dictionaryTokensOnPage = computed(() => {

@@ -6,7 +6,8 @@ import {
   collectRegionIdsInReadingOrder,
   collectTextlineIdsInPageOrder,
   collectTextlineIdsInReadingOrder,
-  getAdjacentTextlineId
+  getAdjacentTextlineId,
+  getTextlineExplicitOrder
 } from '../textline-navigation'
 
 function makePolygon() {
@@ -167,5 +168,77 @@ describe('textline-navigation', () => {
     ]
 
     expect(collectTextlineIdsInReadingOrder(regions, undefined)).toEqual(['line-1', 'line-2'])
+  })
+
+  describe('textline sort order within a region', () => {
+    function makeLineAt(id: string, top: number, extra: { index?: number, custom?: string } = {}) {
+      return new TextLine({
+        id,
+        coords: new Polygon([[0, top], [100, top], [100, top + 10], [0, top + 10]]),
+        ...extra
+      })
+    }
+
+    function makeRegion(textLines: TextLine[]): Region[] {
+      return [{ id: 'region-1', kind: 'TextRegion', coords: makePolygon(), textLines }]
+    }
+
+    it('orders textlines top to bottom by default', () => {
+      const regions = makeRegion([
+        makeLineAt('line-a', 50),
+        makeLineAt('line-b', 10),
+        makeLineAt('line-c', 30)
+      ])
+
+      expect(collectTextlineIdsInPageOrder(regions)).toEqual(['line-b', 'line-c', 'line-a'])
+      expect(collectTextlineIdsInReadingOrder(regions, undefined)).toEqual(['line-b', 'line-c', 'line-a'])
+    })
+
+    it('orders textlines top to bottom in y-up world coordinates', () => {
+      const makeWorldLine = (id: string, top: number) => new TextLine({
+        id,
+        coords: new Polygon([[-0.5, top], [0.5, top], [0.5, top - 0.1], [-0.5, top - 0.1]])
+      })
+      const regions = makeRegion([
+        makeWorldLine('line-bottom', -0.5),
+        makeWorldLine('line-top', 0.8),
+        makeWorldLine('line-middle', 0.2)
+      ])
+
+      expect(collectTextlineIdsInPageOrder(regions)).toEqual(['line-top', 'line-middle', 'line-bottom'])
+    })
+
+    it('orders textlines by natural ID order when alphabetical', () => {
+      const regions = makeRegion([
+        makeLineAt('line_10', 10),
+        makeLineAt('line_2', 20),
+        makeLineAt('line_1', 30)
+      ])
+
+      expect(collectTextlineIdsInPageOrder(regions, 'alphabetical')).toEqual(['line_1', 'line_2', 'line_10'])
+    })
+
+    it('prefers explicit textline reading order over the fallback order', () => {
+      const regions = makeRegion([
+        makeLineAt('line-top', 10, { index: 2 }),
+        makeLineAt('line-middle', 20, { custom: 'readingOrder {index:0;}' }),
+        makeLineAt('line-bottom', 30, { index: 1 }),
+        makeLineAt('line-unordered', 0)
+      ])
+
+      expect(collectTextlineIdsInPageOrder(regions)).toEqual([
+        'line-middle',
+        'line-bottom',
+        'line-top',
+        'line-unordered'
+      ])
+    })
+
+    it('reads explicit order from @index before Transkribus custom attributes', () => {
+      expect(getTextlineExplicitOrder({ index: 3, custom: 'readingOrder {index:7;}' })).toBe(3)
+      expect(getTextlineExplicitOrder({ custom: 'structure {type:x;} readingOrder {index:7;}' })).toBe(7)
+      expect(getTextlineExplicitOrder({ custom: 'structure {type:x;}' })).toBeUndefined()
+      expect(getTextlineExplicitOrder({})).toBeUndefined()
+    })
   })
 })

@@ -54,6 +54,7 @@ public class EditorPreferenceService {
         if (dto.canvasTextCorrectionZoom() != null) pref.setCanvasTextCorrectionZoom(dto.canvasTextCorrectionZoom());
         if (dto.textModeSubmode() != null) pref.setTextModeSubmode(dto.textModeSubmode());
         if (dto.highlightUnknownCodecChars() != null) pref.setHighlightUnknownCodecChars(dto.highlightUnknownCodecChars());
+        if (dto.textlineSortOrder() != null) pref.setTextlineSortOrder(dto.textlineSortOrder());
         if (dto.shortcutBindings() != null) pref.setShortcutBindings(dto.shortcutBindings());
         if (dto.tableColumnVisibility() != null) pref.setTableColumnVisibility(dto.tableColumnVisibility());
         if (dto.tableSorting() != null) pref.setTableSorting(dto.tableSorting());

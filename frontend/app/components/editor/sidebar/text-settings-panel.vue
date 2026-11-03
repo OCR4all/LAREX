@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TextItemLayout } from '@/stores/editor/types'
+import type { TextlineSortOrder } from '@/utils/editor/textline-navigation'
 import CanvasCommentsSetting from './canvas-comments-setting.vue'
 
 const padding = defineModel<number>('padding', { default: 10 })
@@ -8,6 +9,7 @@ const cutoutHeight = defineModel<number>('cutoutHeight', { default: 72 })
 const textItemLayout = defineModel<TextItemLayout>('textItemLayout', { default: 'vertical' })
 const autoSelectFirstLine = defineModel<boolean>('autoSelectFirstLine', { default: true })
 const focusMode = defineModel<boolean>('focusMode', { default: false })
+const textlineSortOrder = defineModel<TextlineSortOrder>('textlineSortOrder', { default: 'top-to-bottom' })
 
 const props = withDefaults(defineProps<{
   fullTextMode?: boolean
@@ -20,6 +22,11 @@ const props = withDefaults(defineProps<{
 const layoutTabItems = [
   { label: 'Side by side', value: 'side-by-side' as const, icon: 'i-lucide-columns-2' },
   { label: 'Vertical', value: 'vertical' as const, icon: 'i-lucide-rows-2' }
+]
+
+const textlineSortTabItems = [
+  { label: 'Top to bottom', value: 'top-to-bottom' as const, icon: 'i-lucide-arrow-down-wide-narrow' },
+  { label: 'Alphabetical', value: 'alphabetical' as const, icon: 'i-lucide-arrow-down-a-z' }
 ]
 </script>
 
@@ -63,6 +70,14 @@ const layoutTabItems = [
         :max="220"
         :step="4"
       />
+    </div>
+
+    <div>
+      <span class="text-sm font-medium block">Textline Order</span>
+      <span class="text-xs text-muted mb-2 block">
+        Order of textlines within a region when the PAGE XML defines no textline reading order.
+      </span>
+      <UTabs v-model="textlineSortOrder" :items="textlineSortTabItems" />
     </div>
 
     <div v-if="!props.fullTextMode">

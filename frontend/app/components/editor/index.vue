@@ -2627,7 +2627,10 @@ const isDictionaryCheckLoadingForGt = computed(() => {
   })
 })
 
-const pageOrderTextlineIds = computed(() => collectTextlineIdsInPageOrder(session.document.value?.page?.regions))
+const pageOrderTextlineIds = computed(() => collectTextlineIdsInPageOrder(
+  session.document.value?.page?.regions,
+  editorUiStore.textlineSortOrder
+))
 
 function getFirstVisualTextlineId(): string | null {
   const availableTextlineIds = new Set(

@@ -119,6 +119,9 @@ public class EditorPreference {
     @Column(name = "highlight_unknown_codec_chars")
     private Boolean highlightUnknownCodecChars;
 
+    @Column(name = "textline_sort_order")
+    private String textlineSortOrder;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "shortcut_bindings", columnDefinition = "jsonb")
     private JsonNode shortcutBindings;
@@ -261,6 +264,9 @@ public class EditorPreference {
 
     public Boolean getHighlightUnknownCodecChars() { return highlightUnknownCodecChars; }
     public void setHighlightUnknownCodecChars(Boolean highlightUnknownCodecChars) { this.highlightUnknownCodecChars = highlightUnknownCodecChars; }
+
+    public String getTextlineSortOrder() { return textlineSortOrder; }
+    public void setTextlineSortOrder(String textlineSortOrder) { this.textlineSortOrder = textlineSortOrder; }
 
     public JsonNode getShortcutBindings() { return shortcutBindings; }
     public void setShortcutBindings(JsonNode shortcutBindings) { this.shortcutBindings = shortcutBindings; }

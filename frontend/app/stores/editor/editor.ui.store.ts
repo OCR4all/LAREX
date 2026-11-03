@@ -17,6 +17,7 @@ import type {
   ConfidenceHeatmapSettings
 } from './types'
 import { useEditorPreferences } from '@/composables/use-editor-preferences'
+import { DEFAULT_TEXTLINE_SORT_ORDER, normalizeTextlineSortOrder, type TextlineSortOrder } from '@/utils/editor/textline-navigation'
 import { createEmptyRelationDraft } from '@/utils/editor/relations'
 import { VERTEX_SIZE_PRESETS } from '@/utils/editor/editor-constants'
 
@@ -90,6 +91,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const textViewCutoutHeight = ref<number>(72)
   const textItemLayout = ref<TextItemLayout>('vertical')
   const textViewAutoSelectFirstLine = ref<boolean>(true)
+  const textlineSortOrder = ref<TextlineSortOrder>(DEFAULT_TEXTLINE_SORT_ORDER)
   const textModeSubmode = ref<TextModeSubmode>('visual')
   const canvasTextCorrectionOverlaySnapToLine = ref<boolean>(true)
   const canvasTextCorrectionOverlayXRatio = ref<number | null>(null)
@@ -182,6 +184,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.textViewAutoSelectFirstLine !== null) {
       textViewAutoSelectFirstLine.value = Boolean(prefs.textViewAutoSelectFirstLine)
     }
+    if (prefs.textlineSortOrder !== null) textlineSortOrder.value = normalizeTextlineSortOrder(prefs.textlineSortOrder)
     if (prefs.textModeSubmode === 'expert' || prefs.textModeSubmode === 'visual' || prefs.textModeSubmode === 'full') {
       textModeSubmode.value = prefs.textModeSubmode
     }
@@ -531,6 +534,11 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     editorPreferences.updatePreference('textViewAutoSelectFirstLine', textViewAutoSelectFirstLine.value)
   }
 
+  function setTextlineSortOrder(order: TextlineSortOrder) {
+    textlineSortOrder.value = normalizeTextlineSortOrder(order)
+    editorPreferences.updatePreference('textlineSortOrder', textlineSortOrder.value)
+  }
+
   function setTextModeSubmode(mode: TextModeSubmode) {
     textModeSubmode.value = mode
     editorPreferences.updatePreference('textModeSubmode', mode)
@@ -686,6 +694,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     textViewCutoutHeight,
     textItemLayout,
     textViewAutoSelectFirstLine,
+    textlineSortOrder,
     textModeSubmode,
     canvasTextCorrectionOverlaySnapToLine,
     canvasTextCorrectionOverlayXRatio,
@@ -760,6 +769,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     setTextViewCutoutHeight,
     setTextItemLayout,
     setTextViewAutoSelectFirstLine,
+    setTextlineSortOrder,
     setTextModeSubmode,
     setCanvasTextCorrectionOverlaySnapToLine,
     setCanvasTextCorrectionOverlayPosition,
