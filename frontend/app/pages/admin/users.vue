@@ -114,6 +114,19 @@ function createEmptyInviteUser(): CreateUserSchema {
 }
 
 const inviteUsersState = reactive<InviteUsersSchema>({ users: [createEmptyInviteUser()] })
+
+// Stable row keys, so removing a row doesn't hand its input state to the next
+// row. Keyed by object because validated rows come back without extra fields.
+const inviteRowKeys = new WeakMap<object, number>()
+let nextInviteRowKey = 0
+function inviteRowKey(user: CreateUserSchema): number {
+  let key = inviteRowKeys.get(user)
+  if (key === undefined) {
+    key = nextInviteRowKey++
+    inviteRowKeys.set(user, key)
+  }
+  return key
+}
 const inviteUsersFormId = useId()
 
 const defaultUsersPage = (): AdminUserPage => ({
@@ -940,7 +953,7 @@ async function submitGlobalRoleAction() {
       >
         <div
           v-for="(user, index) in inviteUsersState.users"
-          :key="index"
+          :key="inviteRowKey(user)"
           class="space-y-4 rounded-lg border border-default p-4"
         >
           <div class="flex items-center justify-between gap-3">
