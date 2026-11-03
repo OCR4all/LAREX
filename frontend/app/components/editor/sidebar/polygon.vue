@@ -23,6 +23,7 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
+import { cloneReadingOrder } from '@/commands/editor/reading-order-utils'
 
 const overlay = useOverlay()
 const confirmModal = overlay.create(LazyUiConfirmModal)
@@ -242,10 +243,6 @@ const selectedElement = computed<Region | TextLine | Word | Glyph | RenderablePo
 
   return null
 })
-
-function cloneReadingOrder(readingOrder: ReadingOrder): ReadingOrder {
-  return JSON.parse(JSON.stringify(readingOrder)) as ReadingOrder
-}
 
 const localReadingOrder = ref<ReadingOrder>({
   root: {

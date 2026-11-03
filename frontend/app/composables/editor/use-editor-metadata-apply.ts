@@ -9,6 +9,7 @@ import type { Page } from '@/models/editor/page'
 import type { Region, TextRegion } from '@/models/editor/region'
 import type { TextLine, Baseline } from '@/models/editor/text'
 import type { MetadataApplyPayload } from '@/types/editor/metadata'
+import { cloneReadingOrder } from '@/commands/editor/reading-order-utils'
 
 type EditorMetadataApplyOptions = {
   activeCanvasId: ComputedRef<string | null>
@@ -18,10 +19,6 @@ type EditorMetadataApplyOptions = {
 }
 
 export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
-  function cloneReadingOrder(readingOrder: ReadingOrder): ReadingOrder {
-    return JSON.parse(JSON.stringify(readingOrder)) as ReadingOrder
-  }
-
   function findRegionById(regions: Region[] | undefined, id: string): Region | null {
     if (!regions) return null
     for (const region of regions) {

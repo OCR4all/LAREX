@@ -7,6 +7,7 @@ import type {
   RegionRef
 } from '@/models/editor'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import { cloneReadingOrder } from '@/commands/editor/reading-order-utils'
 import { createScopedLogger } from '@/services/editor/logger-service'
 
 const log = createScopedLogger('ReadingOrder')
@@ -185,7 +186,7 @@ function toggleGroupExpanded(groupId: string): void {
 
 function handleRootElementsUpdate(newElements: ReadingOrderNode[]): void {
   if (props.readOnly) return
-  const updated = deepClone(props.modelValue)
+  const updated = cloneReadingOrder(props.modelValue)
   updated.root.elements = newElements
 
   const seen = new Set<string>()
@@ -247,7 +248,7 @@ function groupSelectedItems(ordered: boolean = true): void {
     }
   }
 
-  const clonedOrder = deepClone(props.modelValue)
+  const clonedOrder = cloneReadingOrder(props.modelValue)
   findAndRemove(clonedOrder.root.elements)
 
   const pos = insertPos.value
@@ -267,7 +268,7 @@ function groupSelectedItems(ordered: boolean = true): void {
 
 function dissolveGroup(groupId: string): void {
   if (props.readOnly) return
-  const clonedOrder = deepClone(props.modelValue)
+  const clonedOrder = cloneReadingOrder(props.modelValue)
 
   function findAndDissolve(elements: ReadingOrderNode[]): boolean {
     for (let i = 0; i < elements.length; i++) {
@@ -311,7 +312,7 @@ function addItemToList(item: AvailableItem): void {
     regionRef: item.regionRef
   }
 
-  const clonedOrder = deepClone(props.modelValue)
+  const clonedOrder = cloneReadingOrder(props.modelValue)
   clonedOrder.root.elements.push(newRef)
 
   log.debug('Emitting update with', clonedOrder.root.elements.length + ' elements')
@@ -327,7 +328,7 @@ function addItemToListById(id: string): void {
 
 function removeItem(itemId: string): void {
   if (props.readOnly) return
-  const clonedOrder = deepClone(props.modelValue)
+  const clonedOrder = cloneReadingOrder(props.modelValue)
 
   function findAndRemove(elements: ReadingOrderNode[]): boolean {
     for (let i = 0; i < elements.length; i++) {
@@ -354,7 +355,7 @@ function removeItem(itemId: string): void {
 
 function removeSelectedItems(): void {
   if (props.readOnly) return
-  const clonedOrder = deepClone(props.modelValue)
+  const clonedOrder = cloneReadingOrder(props.modelValue)
   const idsToRemove = new Set(selectedIds.value)
 
   function findAndRemove(elements: ReadingOrderNode[]): void {
@@ -374,10 +375,6 @@ function removeSelectedItems(): void {
 
   emit('update:modelValue', clonedOrder)
   clearSelection()
-}
-
-function deepClone<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj))
 }
 
 function getItemLabel(id: string): string {

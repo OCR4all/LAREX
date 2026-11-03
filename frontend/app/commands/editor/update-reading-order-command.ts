@@ -2,14 +2,10 @@ import type { Command, CommandContext } from './types'
 import { PcGts } from '@/models/editor'
 import type { ReadingOrder } from '@/models/editor'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import { cloneReadingOrder } from './reading-order-utils'
 
 export interface UpdateReadingOrderCommandData {
   readingOrder: ReadingOrder
-}
-
-function cloneReadingOrder(readingOrder: ReadingOrder | undefined): ReadingOrder | undefined {
-  if (!readingOrder) return undefined
-  return JSON.parse(JSON.stringify(readingOrder)) as ReadingOrder
 }
 
 export class UpdateReadingOrderCommand implements Command<void> {
@@ -17,7 +13,7 @@ export class UpdateReadingOrderCommand implements Command<void> {
   private previousReadingOrder?: ReadingOrder
 
   constructor(data: UpdateReadingOrderCommandData) {
-    this.readingOrder = cloneReadingOrder(data.readingOrder)!
+    this.readingOrder = cloneReadingOrder(data.readingOrder)
   }
 
   execute(ctx?: CommandContext): void {

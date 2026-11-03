@@ -6,6 +6,8 @@ interface ReadingOrderInsertion {
   sourceRef: RegionRef
 }
 
+export function cloneReadingOrder(readingOrder: ReadingOrder): ReadingOrder
+export function cloneReadingOrder(readingOrder?: ReadingOrder): ReadingOrder | undefined
 export function cloneReadingOrder(readingOrder?: ReadingOrder): ReadingOrder | undefined {
   if (!readingOrder) return undefined
   return JSON.parse(JSON.stringify(readingOrder)) as ReadingOrder
