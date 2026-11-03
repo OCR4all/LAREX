@@ -20,17 +20,16 @@ export interface AvailableItem {
 }
 
 export interface Props {
-  modelValue: ReadingOrder
   allItems: AvailableItem[]
   readOnly?: boolean
 }
 
 const props = defineProps<Props>()
+const readingOrder = defineModel<ReadingOrder>({ required: true })
 
 const emit = defineEmits<{
-  'update:modelValue': [value: ReadingOrder]
-  'groupCreated': [group: ReadingOrderGroup]
-  'groupDissolved': [groupId: string]
+  groupCreated: [group: ReadingOrderGroup]
+  groupDissolved: [groupId: string]
 }>()
 
 const uiStore = useEditorUiStore()
@@ -83,7 +82,7 @@ const includedRegionRefIds = computed(() => {
     }
   }
 
-  props.modelValue.root.elements.forEach(collectIds)
+  readingOrder.value.root.elements.forEach(collectIds)
   return ids
 })
 
@@ -126,7 +125,7 @@ function generateId(prefix: string = 'ro'): string {
 
 function handleItemClick(event: MouseEvent, itemId: string, _parentElements: ReadingOrderNode[]): void {
   if (event.shiftKey && lastClickedId.value) {
-    const flatList = getFlatIdList(props.modelValue.root.elements)
+    const flatList = getFlatIdList(readingOrder.value.root.elements)
     const lastIndex = flatList.indexOf(lastClickedId.value)
     const currentIndex = flatList.indexOf(itemId)
 
@@ -186,7 +185,7 @@ function toggleGroupExpanded(groupId: string): void {
 
 function handleRootElementsUpdate(newElements: ReadingOrderNode[]): void {
   if (props.readOnly) return
-  const updated = cloneReadingOrder(props.modelValue)
+  const updated = cloneReadingOrder(readingOrder.value)
   updated.root.elements = newElements
 
   const seen = new Set<string>()
@@ -207,7 +206,7 @@ function handleRootElementsUpdate(newElements: ReadingOrderNode[]): void {
 
   updated.root.elements = dedupe(updated.root.elements)
   log.debug(`Updated: ${updated.root.elements.length} elements`)
-  emit('update:modelValue', updated)
+  readingOrder.value = updated
 }
 
 function groupSelectedItems(ordered: boolean = true): void {
@@ -248,7 +247,7 @@ function groupSelectedItems(ordered: boolean = true): void {
     }
   }
 
-  const clonedOrder = cloneReadingOrder(props.modelValue)
+  const clonedOrder = cloneReadingOrder(readingOrder.value)
   findAndRemove(clonedOrder.root.elements)
 
   const pos = insertPos.value
@@ -261,14 +260,14 @@ function groupSelectedItems(ordered: boolean = true): void {
     selectedIds.value.clear()
     selectedIds.value.add(newGroup.id)
 
-    emit('update:modelValue', clonedOrder)
+    readingOrder.value = clonedOrder
     emit('groupCreated', newGroup)
   }
 }
 
 function dissolveGroup(groupId: string): void {
   if (props.readOnly) return
-  const clonedOrder = cloneReadingOrder(props.modelValue)
+  const clonedOrder = cloneReadingOrder(readingOrder.value)
 
   function findAndDissolve(elements: ReadingOrderNode[]): boolean {
     for (let i = 0; i < elements.length; i++) {
@@ -292,7 +291,7 @@ function dissolveGroup(groupId: string): void {
     expandedGroups.value.delete(groupId)
     selectedIds.value.delete(groupId)
 
-    emit('update:modelValue', clonedOrder)
+    readingOrder.value = clonedOrder
     emit('groupDissolved', groupId)
   }
 }
@@ -312,11 +311,11 @@ function addItemToList(item: AvailableItem): void {
     regionRef: item.regionRef
   }
 
-  const clonedOrder = cloneReadingOrder(props.modelValue)
+  const clonedOrder = cloneReadingOrder(readingOrder.value)
   clonedOrder.root.elements.push(newRef)
 
   log.debug('Emitting update with', clonedOrder.root.elements.length + ' elements')
-  emit('update:modelValue', clonedOrder)
+  readingOrder.value = clonedOrder
 }
 
 function addItemToListById(id: string): void {
@@ -328,7 +327,7 @@ function addItemToListById(id: string): void {
 
 function removeItem(itemId: string): void {
   if (props.readOnly) return
-  const clonedOrder = cloneReadingOrder(props.modelValue)
+  const clonedOrder = cloneReadingOrder(readingOrder.value)
 
   function findAndRemove(elements: ReadingOrderNode[]): boolean {
     for (let i = 0; i < elements.length; i++) {
@@ -349,13 +348,13 @@ function removeItem(itemId: string): void {
 
   if (findAndRemove(clonedOrder.root.elements)) {
     selectedIds.value.delete(itemId)
-    emit('update:modelValue', clonedOrder)
+    readingOrder.value = clonedOrder
   }
 }
 
 function removeSelectedItems(): void {
   if (props.readOnly) return
-  const clonedOrder = cloneReadingOrder(props.modelValue)
+  const clonedOrder = cloneReadingOrder(readingOrder.value)
   const idsToRemove = new Set(selectedIds.value)
 
   function findAndRemove(elements: ReadingOrderNode[]): void {
@@ -373,7 +372,7 @@ function removeSelectedItems(): void {
 
   findAndRemove(clonedOrder.root.elements)
 
-  emit('update:modelValue', clonedOrder)
+  readingOrder.value = clonedOrder
   clearSelection()
 }
 
@@ -505,7 +504,7 @@ defineExpose({
         <template #reading-order>
           <div class="p-2">
             <EditorReadingOrderNodeRecursive
-              :elements="modelValue.root.elements"
+              :elements="readingOrder.root.elements"
               :depth="0"
               :base-index="1"
               :selected-ids="selectedIds"
@@ -523,7 +522,7 @@ defineExpose({
             />
 
             <div
-              v-if="modelValue.root.elements.length === 0"
+              v-if="readingOrder.root.elements.length === 0"
               class="text-center py-8 text-muted"
             >
               <p class="text-sm">

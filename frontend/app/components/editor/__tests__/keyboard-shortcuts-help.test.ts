@@ -37,11 +37,9 @@ interface Setup {
   resetAll: () => void
   shortcutMenu: (id: CommandId) => Array<{ label: string, disabled?: boolean, onSelect: () => void }>
 }
-const scopes: Vue.EffectScope[] = []
 const mountedApps: Vue.App[] = []
 afterEach(() => {
   mountedApps.splice(0).forEach(app => app.unmount())
-  scopes.splice(0).forEach(scope => scope.stop())
   document.body.innerHTML = ''
 })
 
@@ -64,11 +62,24 @@ function createSetup(bindings: registry.ShortcutBindingsMap = {}) {
     if (id === '@/composables/editor/use-canvas-interaction-blocker') return { useBlockEditorCanvasInteractions: () => {} }
     throw new Error(`Unexpected dependency ${id}`)
   }, exportsObject)
+  // defineModel needs a component instance, so run setup inside a host that
+  // owns the open state like a parent using v-model:open would.
+  const component = exportsObject.default!
   const props = Vue.reactive({ open: true })
-  const scope = Vue.effectScope()
-  scopes.push(scope)
-  const setup = scope.run(() => exportsObject.default!.setup(props, { expose: () => {}, emit: () => {} }))!
-  return { setup, props, preferences, save, component: exportsObject.default! }
+  let setup!: Setup
+  const Dialog = Vue.defineComponent({
+    ...(component as Vue.ComponentOptions),
+    setup(dialogProps: unknown, context: unknown) {
+      setup = component.setup(dialogProps, context)
+      return () => null
+    }
+  })
+  const host = Vue.createApp({
+    render: () => Vue.h(Dialog, { 'open': props.open, 'onUpdate:open': (value: boolean) => { props.open = value } })
+  })
+  host.mount(document.createElement('div'))
+  mountedApps.push(host)
+  return { setup, props, preferences, save, component }
 }
 
 async function record(setup: Setup, index: number, key: string, options: KeyboardEventInit = {}) {

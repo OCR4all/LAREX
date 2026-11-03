@@ -3,7 +3,6 @@ import type { TagNode, FlattenedTag } from '~/types/tag-set'
 import UiColorTag from '@/components/ui/color-tag.vue'
 
 interface Props {
-  modelValue: string[]
   tagSetId?: string | null
   workspaceId: string
   placeholder?: string
@@ -15,9 +14,7 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false
 })
 
-const emit = defineEmits<{
-  'update:modelValue': [value: string[]]
-}>()
+const selectedTags = defineModel<string[]>({ required: true })
 
 const { data: tagSet, status: tagSetStatus, refresh: refreshTagSet } = await useFetch<{
   id: string
@@ -80,16 +77,6 @@ const selectItems = computed(() => {
   }))
 })
 
-const selectedTags = computed({
-  get: () => props.modelValue,
-  set: (value: string[]) => emit('update:modelValue', value)
-})
-
-const freeFormTags = computed({
-  get: () => props.modelValue,
-  set: (value: string[]) => emit('update:modelValue', value)
-})
-
 const getTagDetails = (tagId: string) => {
   return flattenedTags.value.find(t => t.id === tagId)
 }
@@ -121,7 +108,7 @@ const isLoading = computed(() => tagSetStatus.value === 'pending')
       <template #item="{ item }">
         <div class="flex items-center gap-2 w-full">
           <UIcon
-            v-if="props.modelValue.includes(item.value)"
+            v-if="selectedTags.includes(item.value)"
             name="i-lucide-check"
             class="w-4 h-4 text-primary-500 shrink-0"
           />
@@ -146,7 +133,7 @@ const isLoading = computed(() => tagSetStatus.value === 'pending')
 
     <UInputTags
       v-else
-      v-model="freeFormTags"
+      v-model="selectedTags"
       :placeholder="placeholder"
       :disabled="disabled"
     />

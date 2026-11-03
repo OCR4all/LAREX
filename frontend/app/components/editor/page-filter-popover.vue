@@ -10,13 +10,13 @@ const props = defineProps<{
   availableTags?: { label: string, value: string, count?: number }[]
   openSubtaskPageIds?: Set<string>
   popoverSide?: 'bottom' | 'right' | 'left' | 'top'
-  open?: boolean
 }>()
 
 const emit = defineEmits<{
   'rebuild-index': []
-  'update:open': [value: boolean]
 }>()
+
+const isOpen = defineModel<boolean>('open', { default: false })
 
 const projectIdRef = computed(() => props.projectId)
 const {
@@ -47,14 +47,6 @@ const {
 } = usePageFilter(projectIdRef)
 
 const editorStore = useEditorStore()
-const localOpen = ref(false)
-const isOpen = computed({
-  get: () => props.open ?? localOpen.value,
-  set: (value: boolean) => {
-    if (props.open === undefined) localOpen.value = value
-    emit('update:open', value)
-  }
-})
 const addMenuOpen = ref(false)
 const addSearch = ref('')
 const isLoadingStats = ref(false)

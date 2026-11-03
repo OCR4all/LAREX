@@ -6,7 +6,7 @@ const props = defineProps<{
   layouts?: KeyboardLayout[]
 }>()
 
-const emit = defineEmits(['update:layoutId'])
+const emit = defineEmits<{ 'update:layoutId': [id: string] }>()
 
 const open = ref(false)
 const cellSize = ref(50)

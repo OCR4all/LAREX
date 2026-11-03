@@ -1,20 +1,11 @@
 <script setup lang="ts">
-const props = defineProps<{
-  modelValue: string
-  opacity: number
-}>()
+const color = defineModel<string>({ required: true })
+const opacity = defineModel<number>('opacity', { required: true })
 
-const emit = defineEmits<{
-  'update:modelValue': [value: string]
-  'update:opacity': [value: number]
-  'save': []
-}>()
-
-const hexInput = ref(props.modelValue || '#D9D9D9')
+const hexInput = ref(color.value || '#D9D9D9')
 const hue = ref(0)
 const saturation = ref(0)
 const brightness = ref(85)
-const localOpacity = ref(props.opacity)
 
 const gradientRef = ref<HTMLElement>()
 const hueRef = ref<HTMLElement>()
@@ -60,7 +51,7 @@ function hsbToHex(h: number, s: number, b: number) {
   return `#${toHex(r)}${toHex(g)}${toHex(bl)}`
 }
 
-watch(() => props.modelValue, (val) => {
+watch(color, (val) => {
   if (val && /^#[0-9A-Fa-f]{6}$/.test(val)) {
     hexInput.value = val
     const hsb = hexToHsb(val)
@@ -70,17 +61,9 @@ watch(() => props.modelValue, (val) => {
   }
 }, { immediate: true })
 
-watch(() => props.opacity, (val) => {
-  localOpacity.value = val
-}, { immediate: true })
-
 watch([hue, saturation, brightness], () => {
   hexInput.value = hsbToHex(hue.value, saturation.value, brightness.value)
-  emit('update:modelValue', hexInput.value)
-})
-
-watch(localOpacity, (val) => {
-  emit('update:opacity', val)
+  color.value = hexInput.value
 })
 
 function onHexInput(e: Event) {
@@ -143,7 +126,7 @@ function onOpacityMouseDown(e: MouseEvent) {
 function updateOpacity(e: MouseEvent) {
   if (!opacityRef.value) return
   const rect = opacityRef.value.getBoundingClientRect()
-  localOpacity.value = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  opacity.value = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
 }
 
 const hueColor = computed(() => hsbToHex(hue.value, 100, 100))
@@ -186,13 +169,13 @@ const hueColor = computed(() => hsbToHex(hue.value, 100, 100))
       />
       <div
         class="absolute w-3 h-3 border-2 border-white rounded-sm -translate-x-1/2 top-0 shadow pointer-events-none"
-        :style="{ left: `${localOpacity * 100}%` }"
+        :style="{ left: `${opacity * 100}%` }"
       />
     </div>
 
     <div class="flex items-center gap-2">
       <div class="w-8 h-8 rounded-sm border border-default checkerboard-bg">
-        <div class="w-full h-full rounded" :style="{ backgroundColor: hexInput, opacity: localOpacity }" />
+        <div class="w-full h-full rounded" :style="{ backgroundColor: hexInput, opacity }" />
       </div>
       <input
         :value="hexInput.toUpperCase().slice(1)"
@@ -200,7 +183,7 @@ const hueColor = computed(() => hsbToHex(hue.value, 100, 100))
         maxlength="6"
         @input="(e: Event) => onHexInput({ target: { value: '#' + (e.target as HTMLInputElement).value } } as any)"
       >
-      <span class="text-xs text-muted">{{ Math.round(localOpacity * 100) }}%</span>
+      <span class="text-xs text-muted">{{ Math.round(opacity * 100) }}%</span>
     </div>
   </div>
 </template>

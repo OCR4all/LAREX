@@ -6,21 +6,17 @@ import type { UCalendar } from '#components'
 type PickerSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 type CalendarModelValue = Parameters<typeof UCalendar>[0]['modelValue']
 
-const props = withDefaults(defineProps<{
-  modelValue?: string | null
+const model = defineModel<string | null>({ default: '' })
+
+withDefaults(defineProps<{
   disabled?: boolean
   placeholder?: string
   size?: PickerSize
 }>(), {
-  modelValue: '',
   disabled: false,
   placeholder: 'Select date and time',
   size: 'md'
 })
-
-const emit = defineEmits<{
-  'update:modelValue': [value: string]
-}>()
 
 const isOpen = ref(false)
 const selectedDate = ref<CalendarDate | undefined>(undefined)
@@ -37,7 +33,7 @@ const minuteItems = Array.from({ length: 60 }, (_, i) => {
   return { label: value, value }
 })
 
-const normalizedModelValue = computed(() => normalizeModelValue(props.modelValue))
+const normalizedModelValue = computed(() => normalizeModelValue(model.value))
 
 watch(() => normalizedModelValue.value, (value) => {
   applyModelToDraft(value)
@@ -46,7 +42,7 @@ watch(() => normalizedModelValue.value, (value) => {
 watch([selectedDate, selectedHour, selectedMinute], () => {
   const nextValue = buildDraftValue()
   if (nextValue !== normalizedModelValue.value) {
-    emit('update:modelValue', nextValue)
+    model.value = nextValue
   }
 })
 
@@ -108,7 +104,7 @@ function setNow() {
 function clearSelection() {
   selectedDate.value = undefined
   if (normalizedModelValue.value) {
-    emit('update:modelValue', '')
+    model.value = ''
   }
 }
 

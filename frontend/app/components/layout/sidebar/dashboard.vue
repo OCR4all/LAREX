@@ -1,16 +1,7 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
-interface Props {
-  open: boolean
-}
-
-interface Emits {
-  'update:open': [value: boolean]
-}
-
-const props = defineProps<Props>()
-const emit = defineEmits<Emits>()
+const sidebarOpen = defineModel<boolean>('open', { required: true })
 
 const route = useRoute()
 const { isNotificationsSlideoverOpen } = useDashboard()
@@ -18,11 +9,6 @@ const { unreadCount, ensureInitialData } = useNotifications()
 const isMobileSidebar = useMediaQuery('(max-width: 1023px)')
 
 await ensureInitialData()
-
-const sidebarOpen = computed({
-  get: () => props.open,
-  set: value => emit('update:open', value)
-})
 
 const isAdmin = computed(() => route.path.startsWith('/admin'))
 

@@ -19,12 +19,7 @@ import {
 import { useShortcutBindings } from '@/composables/editor/use-shortcut-bindings'
 import { useBlockEditorCanvasInteractions } from '@/composables/editor/use-canvas-interaction-blocker'
 
-const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ 'update:open': [value: boolean] }>()
-const isOpen = computed({
-  get: () => props.open,
-  set: value => emit('update:open', value)
-})
+const isOpen = defineModel<boolean>('open', { required: true })
 useBlockEditorCanvasInteractions(isOpen)
 
 const searchQuery = ref('')
@@ -191,7 +186,7 @@ const visibleShortcutGroups = computed(() => SHORTCUT_HELP_GROUPS.map(group => (
 const totalShortcutCount = computed(() => allShortcutItems.value.length)
 const visibleShortcutCount = computed(() => visibleShortcutGroups.value.reduce((count, group) => count + group.shortcuts.length, 0))
 
-watch(() => props.open, (open) => {
+watch(isOpen, (open) => {
   if (!open) {
     void finishEditing(false)
     resetError.value = null

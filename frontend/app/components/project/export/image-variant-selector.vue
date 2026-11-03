@@ -3,20 +3,19 @@ import type { ImageVariantSelection, Page } from '@/types/project-page'
 
 const props = withDefaults(defineProps<{
   pages?: Page[]
-  modelValue?: ImageVariantSelection
 }>(), {
   pages: () => []
 })
 
-const emit = defineEmits<{
-  'update:modelValue': [value: ImageVariantSelection | undefined]
-}>()
+// The parent only seeds the selection; this component owns it from then on
+// and publishes the reconciled value, including the default on mount.
+const model = defineModel<ImageVariantSelection | undefined>()
 
-const mode = ref<'global' | 'perPage'>(props.modelValue?.mode === 'PER_PAGE' ? 'perPage' : 'global')
-const selectedVariant = ref(props.modelValue?.variant ?? '')
-const fallbackImage = ref(Boolean(props.modelValue?.fallbackImage))
+const mode = ref<'global' | 'perPage'>(model.value?.mode === 'PER_PAGE' ? 'perPage' : 'global')
+const selectedVariant = ref(model.value?.variant ?? '')
+const fallbackImage = ref(Boolean(model.value?.fallbackImage))
 const pageVariants = reactive<Record<string, string>>({
-  ...(props.modelValue?.pageVariants ?? {})
+  ...(model.value?.pageVariants ?? {})
 })
 
 const modeItems = [
@@ -86,7 +85,9 @@ const selection = computed<ImageVariantSelection | undefined>(() => {
 })
 
 watch([() => props.pages, variantOptions], reconcileSelection, { immediate: true })
-watch(selection, value => emit('update:modelValue', value), { immediate: true })
+watch(selection, (value) => {
+  model.value = value
+}, { immediate: true })
 
 function reconcileSelection() {
   const options = variantOptions.value

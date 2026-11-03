@@ -3,8 +3,9 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import type { PageWorkflowState } from '@/types/project-page'
 import { PAGE_WORKFLOW_STATES, PAGE_WORKFLOW_STATE_META } from '@/utils/page-workflow-state'
 
+const state = defineModel<PageWorkflowState>({ required: true })
+
 const props = withDefaults(defineProps<{
-  modelValue: PageWorkflowState
   canChange: boolean
   updating?: boolean
   side?: 'top' | 'bottom'
@@ -13,16 +14,15 @@ const props = withDefaults(defineProps<{
   side: 'bottom'
 })
 
-const emit = defineEmits<{ 'update:modelValue': [state: PageWorkflowState] }>()
-const meta = computed(() => PAGE_WORKFLOW_STATE_META[props.modelValue])
-const items = computed<DropdownMenuItem[]>(() => PAGE_WORKFLOW_STATES.map(state => ({
-  label: PAGE_WORKFLOW_STATE_META[state].label,
-  icon: PAGE_WORKFLOW_STATE_META[state].icon,
+const meta = computed(() => PAGE_WORKFLOW_STATE_META[state.value])
+const items = computed<DropdownMenuItem[]>(() => PAGE_WORKFLOW_STATES.map(option => ({
+  label: PAGE_WORKFLOW_STATE_META[option].label,
+  icon: PAGE_WORKFLOW_STATE_META[option].icon,
   type: 'checkbox',
-  checked: props.modelValue === state,
-  disabled: props.updating || props.modelValue === state,
+  checked: state.value === option,
+  disabled: props.updating || state.value === option,
   onSelect: () => {
-    if (props.canChange && !props.updating) emit('update:modelValue', state)
+    if (props.canChange && !props.updating) state.value = option
   }
 })))
 </script>
