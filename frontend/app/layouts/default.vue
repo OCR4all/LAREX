@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { LazyWorkspaceSlideoverCreate, LazyLibrarySlideoverCreate } from '#components'
+import { defaultWindow } from '@vueuse/core'
 
 const workspace = useWorkspaceStore()
 const route = useRoute()
@@ -41,13 +42,7 @@ const handleOpenSidebarForOnboarding = () => {
   open.value = true
 }
 
-onMounted(() => {
-  window.addEventListener('larex:onboarding:open-dashboard-sidebar', handleOpenSidebarForOnboarding as EventListener)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('larex:onboarding:open-dashboard-sidebar', handleOpenSidebarForOnboarding as EventListener)
-})
+useEventListener(defaultWindow, 'larex:onboarding:open-dashboard-sidebar', handleOpenSidebarForOnboarding as EventListener)
 
 const groups = computed(() => {
   const actionItems = []

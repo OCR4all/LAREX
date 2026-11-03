@@ -1,4 +1,5 @@
 import type { ComputedRef, Ref } from 'vue'
+import { useEventListener } from '@vueuse/core'
 import type { Commander } from '@/commands'
 import { DeleteSelectedElementsCommand } from '@/commands/editor/delete-selected-elements-command'
 import { DRAWING_MODES, type DrawingMode, VIEW_MODES, type ViewMode } from '@/composables/editor/use-canvas-control'
@@ -538,9 +539,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     }
   }
 
-  // Lifecycle hooks only run in the browser, so no client guard is needed.
-  onMounted(() => window.addEventListener('keydown', onKeydown, true))
-  onUnmounted(() => window.removeEventListener('keydown', onKeydown, true))
+  useEventListener('keydown', onKeydown, true)
 
   return {
     deleteSelectedElements,

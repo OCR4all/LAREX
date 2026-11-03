@@ -77,15 +77,8 @@ const closeKeyboard = () => {
   open.value = false
 }
 
-onMounted(() => {
-  window.addEventListener('focusin', onFocus)
-  window.addEventListener('focusout', onBlur)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('focusin', onFocus)
-  window.removeEventListener('focusout', onBlur)
-})
+useEventListener('focusin', onFocus)
+useEventListener('focusout', onBlur)
 
 const gridLineColor = computed(() => getVirtualKeyboardGridLineColor(palette.value.boardStyle))
 

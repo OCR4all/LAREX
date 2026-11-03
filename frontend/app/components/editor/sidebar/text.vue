@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import EditorSidebarMetadata from '@/components/editor/sidebar/metadata.vue'
+import { defaultWindow } from '@vueuse/core'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { PcGts } from '@/models/editor/document'
 import type { Page } from '@/models/editor/page'
@@ -203,13 +204,7 @@ watch(accordionItems, (items) => {
   }
 })
 
-onMounted(() => {
-  window.addEventListener('larex:onboarding:expand-text-panels', expandAllPanelsForOnboarding as EventListener)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('larex:onboarding:expand-text-panels', expandAllPanelsForOnboarding as EventListener)
-})
+useEventListener(defaultWindow, 'larex:onboarding:expand-text-panels', expandAllPanelsForOnboarding as EventListener)
 </script>
 
 <template>

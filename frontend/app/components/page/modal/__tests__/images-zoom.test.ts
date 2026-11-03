@@ -45,6 +45,7 @@ function mountViewer() {
   vi.stubGlobal('useBackgroundDownloads', () => ({}))
   vi.stubGlobal('onMounted', () => {})
   vi.stubGlobal('onUnmounted', () => {})
+  vi.stubGlobal('useEventListener', () => {})
   const component = exportsObject.default!
   let state: Record<string, unknown>
   const app = Vue.createApp({

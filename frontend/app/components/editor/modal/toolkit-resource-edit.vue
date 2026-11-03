@@ -29,13 +29,7 @@ function handleMessage(event: MessageEvent) {
   }
 }
 
-onMounted(() => {
-  window.addEventListener('message', handleMessage)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('message', handleMessage)
-})
+useEventListener('message', handleMessage)
 
 function close() {
   emit('close', true)

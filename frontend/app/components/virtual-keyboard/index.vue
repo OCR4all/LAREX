@@ -368,22 +368,14 @@ const handleKeyMouseDown = (e: MouseEvent, item: KeyboardItem) => {
   typeKey(item)
 }
 
-onMounted(() => {
-  window.addEventListener('keydown', handlePhysicalKeyDown)
-  window.addEventListener('keyup', handlePhysicalKeyUp)
-  window.addEventListener('focusin', onFocus)
-  window.addEventListener('focusout', onBlur)
-  window.addEventListener('mousemove', handleMouseMove)
-  window.addEventListener('mouseup', handleMouseUp)
-})
+useEventListener('keydown', handlePhysicalKeyDown)
+useEventListener('keyup', handlePhysicalKeyUp)
+useEventListener('focusin', onFocus)
+useEventListener('focusout', onBlur)
+useEventListener('mousemove', handleMouseMove)
+useEventListener('mouseup', handleMouseUp)
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handlePhysicalKeyDown)
-  window.removeEventListener('keyup', handlePhysicalKeyUp)
-  window.removeEventListener('focusin', onFocus)
-  window.removeEventListener('focusout', onBlur)
-  window.removeEventListener('mousemove', handleMouseMove)
-  window.removeEventListener('mouseup', handleMouseUp)
   window.removeEventListener('mousemove', onKeyDragMove)
   window.removeEventListener('mouseup', onKeyDragEnd)
 })

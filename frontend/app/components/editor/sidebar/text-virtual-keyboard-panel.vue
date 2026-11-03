@@ -4,6 +4,7 @@ import { toProjectToolkitSettings, useProjectToolkitPresets } from '@/composable
 import type { KeyboardItem } from '@/types/virtual-keyboard'
 import { LazyEditorModalToolkitResourceEdit, LazyUiConfirmSlideover } from '#components'
 import type { DropdownMenuItem } from '@nuxt/ui'
+import { defaultDocument } from '@vueuse/core'
 
 interface WrappedKeyboardItem {
   id: string
@@ -325,13 +326,13 @@ function updateKeyboardViewportWidth() {
   keyboardViewportWidth.value = width > 0 ? width : 0
 }
 
-onMounted(() => {
-  window.addEventListener('focusin', onFocusIn)
-  window.addEventListener('focusout', onFocusOut)
-  document.addEventListener('keydown', onWindowKeyDown, true)
-  document.addEventListener('keyup', onWindowKeyUp, true)
-  window.addEventListener('blur', onWindowBlur)
+useEventListener('focusin', onFocusIn)
+useEventListener('focusout', onFocusOut)
+useEventListener(defaultDocument, 'keydown', onWindowKeyDown, true)
+useEventListener(defaultDocument, 'keyup', onWindowKeyUp, true)
+useEventListener('blur', onWindowBlur)
 
+onMounted(() => {
   if (typeof ResizeObserver !== 'undefined' && keyboardViewportRef.value) {
     resizeObserver = new ResizeObserver(() => {
       updateKeyboardViewportWidth()
@@ -343,12 +344,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('focusin', onFocusIn)
-  window.removeEventListener('focusout', onFocusOut)
-  document.removeEventListener('keydown', onWindowKeyDown, true)
-  document.removeEventListener('keyup', onWindowKeyUp, true)
-  window.removeEventListener('blur', onWindowBlur)
-
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null

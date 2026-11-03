@@ -1196,8 +1196,7 @@ if (import.meta.env.DEV) {
       showRenderStats.value = !showRenderStats.value
     }
   }
-  onMounted(() => window.addEventListener('keydown', toggleStats))
-  onBeforeUnmount(() => window.removeEventListener('keydown', toggleStats))
+  useEventListener('keydown', toggleStats)
 }
 
 watch(() => webglRenderer.imageSize.value, (newSize) => {

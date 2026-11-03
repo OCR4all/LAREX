@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch, type ComputedRef } from 'vue'
+import { useEventListener } from '@vueuse/core'
 import type { EditorQueue, EditorQueuePage } from '~/types'
 import { useEditorSessionStore, type FocusedWorkSession } from '@/stores/editor/editor.session.store'
 
@@ -121,13 +122,12 @@ export function useFocusedWorkQueue(options: FocusedWorkQueueOptions) {
     unsubscribeRealtime = realtime.subscribe((message) => {
       void handleRealtimeMessage(message)
     })
-    window.addEventListener('focus', debouncedRefresh)
   })
+  useEventListener('focus', debouncedRefresh)
 
   onBeforeUnmount(() => {
     unsubscribeRealtime?.()
     if (refreshTimer) clearTimeout(refreshTimer)
-    window.removeEventListener('focus', debouncedRefresh)
   })
 
   return {

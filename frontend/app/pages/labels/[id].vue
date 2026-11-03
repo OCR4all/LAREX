@@ -541,8 +541,7 @@ if (import.meta.client) {
     if (!isDirty.value) return
     event.preventDefault()
   }
-  onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
-  onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload))
+  useEventListener('beforeunload', onBeforeUnload)
 }
 
 onBeforeRouteLeave(async () => {

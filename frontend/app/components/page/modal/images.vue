@@ -528,14 +528,8 @@ function handleKeyDown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
-  fetchPageImages()
-  window.addEventListener('keydown', handleKeyDown)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeyDown)
-})
+onMounted(fetchPageImages)
+useEventListener('keydown', handleKeyDown)
 </script>
 
 <template>

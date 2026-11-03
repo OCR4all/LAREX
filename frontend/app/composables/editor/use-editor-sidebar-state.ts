@@ -1,4 +1,5 @@
-import { computed, onBeforeUnmount, onMounted, ref, watch, type ComputedRef } from 'vue'
+import { computed, ref, watch, type ComputedRef } from 'vue'
+import { defaultWindow, useEventListener } from '@vueuse/core'
 
 type EditorSidebarStateOptions = {
   openedProjectIds: ComputedRef<string[]>
@@ -44,19 +45,10 @@ export function useEditorSidebarState(options: EditorSidebarStateOptions) {
     editorFilterPopoverOpen.value = false
   }
 
-  onMounted(() => {
-    window.addEventListener('larex:onboarding:expand-layout-panels', handleExpandLayoutPanels)
-    window.addEventListener('larex:onboarding:prepare-editor-right-sidebar', handlePrepareRightSidebarForOnboarding)
-    window.addEventListener('larex:onboarding:open-editor-filter-popover', handleOpenEditorFilterPopover)
-    window.addEventListener('larex:onboarding:close-editor-filter-popover', handleCloseEditorFilterPopover)
-  })
-
-  onBeforeUnmount(() => {
-    window.removeEventListener('larex:onboarding:expand-layout-panels', handleExpandLayoutPanels)
-    window.removeEventListener('larex:onboarding:prepare-editor-right-sidebar', handlePrepareRightSidebarForOnboarding)
-    window.removeEventListener('larex:onboarding:open-editor-filter-popover', handleOpenEditorFilterPopover)
-    window.removeEventListener('larex:onboarding:close-editor-filter-popover', handleCloseEditorFilterPopover)
-  })
+  useEventListener(defaultWindow, 'larex:onboarding:expand-layout-panels', handleExpandLayoutPanels)
+  useEventListener(defaultWindow, 'larex:onboarding:prepare-editor-right-sidebar', handlePrepareRightSidebarForOnboarding)
+  useEventListener(defaultWindow, 'larex:onboarding:open-editor-filter-popover', handleOpenEditorFilterPopover)
+  useEventListener(defaultWindow, 'larex:onboarding:close-editor-filter-popover', handleCloseEditorFilterPopover)
 
   return {
     editorFilterPopoverOpen,

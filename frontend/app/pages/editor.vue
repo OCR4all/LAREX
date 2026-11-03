@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import 'dockview-vue/dist/styles/dockview.css'
+import { defaultWindow } from '@vueuse/core'
 import {
   LazyEditorModalOpenProjectPages,
   LazyEditorSlideoverMergeSettings,
@@ -552,8 +553,7 @@ if (import.meta.client) {
       e.preventDefault()
     }
   }
-  onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
-  onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload))
+  useEventListener('beforeunload', onBeforeUnload)
 }
 
 let shouldCleanupOnUnmount = false
@@ -1112,11 +1112,8 @@ function handleEditorActionTargetEvent(event: Event) {
 }
 
 if (import.meta.client) {
-  onMounted(() => {
-    window.addEventListener('larex:editor-action-target', handleEditorActionTargetEvent)
-  })
+  useEventListener(defaultWindow, 'larex:editor-action-target', handleEditorActionTargetEvent)
   onBeforeUnmount(() => {
-    window.removeEventListener('larex:editor-action-target', handleEditorActionTargetEvent)
     for (const timer of editorActionIndexStatusTimers) {
       clearTimeout(timer)
     }
