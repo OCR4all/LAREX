@@ -259,16 +259,13 @@ export function useEditorRenderer(
       () => moveInteraction?.isMoving(),
       () => moveInteraction?.state.isInvalid,
       bufferPreview,
-      actionProcessingTargets,
       labelConflictIds,
       view,
       aspectRatioScale,
       canvasDimensions,
       () => mouseInteraction.actionState.action,
       viewMode,
-      readingOrderData,
       showReadingOrderOverlay,
-      relationData,
       showRelationsOverlay,
       () => editorUiStore.readingOrderVersion,
       () => editorUiStore.globalSettings.defaultVertexSize,
@@ -276,6 +273,10 @@ export function useEditorRenderer(
     ],
     scheduleStateRender,
     { deep: true })
+
+    // These computeds return fresh objects whenever their inputs change, so
+    // identity is enough; deep traversal would walk every arrow and label.
+    watch([actionProcessingTargets, readingOrderData, relationData], scheduleStateRender)
 
     watch(() => polygonEditing.hoveredPolygonIndex.value, (newIndex) => {
       if (newIndex >= 0 && polygons[newIndex]) {
