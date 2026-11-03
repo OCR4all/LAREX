@@ -654,6 +654,22 @@ function handleCommitTextContentVariant(textlineId: string, pos: number, text: s
   commitTextContentVariants(textlineId, current)
 }
 
+function handleUpdateTextContentVariantComment(textlineId: string, pos: number, comment: string): void {
+  if (!isCanvasEditable.value) return
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
+  const region = runtime?.polygons.find(r => r.id === textlineId)
+  if (!region) return
+
+  const current = normalizeTextContentVariants(region.textContentVariants)
+  const variant = current[pos]
+  if (!variant) return
+
+  const nextComment = serializeFullTextComment(comment)
+  if (variant.comments === nextComment) return
+  variant.comments = nextComment
+  commitTextContentVariants(textlineId, current)
+}
+
 function handleCreateGtFromRecognition(textlineId: string, payload: CreateGtPayload): boolean {
   if (!isCanvasEditable.value) return false
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
@@ -888,7 +904,8 @@ const textlines = computed(() => {
         pos,
         index: typeof te.index === 'number' && Number.isFinite(te.index) && te.index >= 0 ? te.index : undefined,
         text: te.unicode ?? '',
-        confidence: te.confidence
+        confidence: te.confidence,
+        comments: te.comments
       }))
 
     const filteredTextContentVariants = filterTextContentVariants(allTextContentVariants, variantFilterState)
@@ -1560,6 +1577,7 @@ const sectionMenuItems = computed(() => {
                     @remove-text-content-variant="handleRemoveTextContentVariant"
                     @update-text-content-variant="handleCommitTextContentVariant"
                     @update-text-content-variant-index="handleCommitTextContentVariantIndex"
+                    @update-text-content-variant-comment="handleUpdateTextContentVariantComment"
                     @update-element-comment="handleUpdateTextlineComment"
                     @create-gt-from-recognition="handleCreateGtFromRecognition"
                     @quick-add-codec-char="handleQuickAddCodecCharacter"

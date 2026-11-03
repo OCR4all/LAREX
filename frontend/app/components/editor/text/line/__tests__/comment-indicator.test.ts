@@ -65,15 +65,23 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-async function mountLine(layout: 'vertical' | 'horizontal', focusMode: boolean, readOnly = false) {
+interface Variant {
+  pos: number
+  index?: number
+  text: string
+  comments?: string
+}
+
+async function mountLine(layout: 'vertical' | 'horizontal', focusMode: boolean, readOnly = false, variants: Variant[] = []) {
   // The annotation has no image geometry; let the real visibility callback run
   // without attempting to load an image or draw a canvas.
   vi.stubGlobal('IntersectionObserver', undefined)
-  const textline = Vue.reactive({ id: 'line-1', comments: 'Check this transcription', points: [] as Array<{ x: number, y: number }>, textContentVariants: [] })
-  const props = Vue.reactive({ textline, imageUrl: '', padding: 0, layout, focusMode, readOnly, showComments: false })
+  const textline = Vue.reactive({ id: 'line-1', comments: 'Check this transcription', points: [] as Array<{ x: number, y: number }>, textContentVariants: variants })
+  const props = Vue.reactive({ textline, imageUrl: '', padding: 0, layout, focusMode, readOnly, showComments: false, gtIndex: 0, recognitionIndices: [1, 2, -1], showDiff: false })
+  const saveVariantComment = vi.fn()
   const component = { ...componentExports.default, render: componentExports.render } as Vue.Component
   const app = Vue.createApp({
-    render: () => Vue.h(component, props)
+    render: () => Vue.h(component, { ...props, onUpdateTextContentVariantComment: saveVariantComment })
   })
   const control = Vue.defineComponent({
     setup: (_, { slots }) => () => Vue.h('span', slots.default?.())
@@ -81,9 +89,6 @@ async function mountLine(layout: 'vertical' | 'horizontal', focusMode: boolean, 
   for (const name of ['UBadge', 'UTooltip', 'UPopover', 'UDropdownMenu', 'UButton', 'Icon', 'USkeleton', 'UTextarea', 'UCheckbox', 'UInput']) {
     app.component(name, control)
   }
-  app.component('UAlert', Vue.defineComponent({
-    props: ['description'], setup: props => () => Vue.h('aside', props.description)
-  }))
   registerCommentControls(app)
   app.component('EditorTextSharedCommentPopover', commentPopoverComponent)
   const host = document.createElement('div')
@@ -91,7 +96,7 @@ async function mountLine(layout: 'vertical' | 'horizontal', focusMode: boolean, 
   apps.push(app)
   app.mount(host)
   await Vue.nextTick()
-  return { host, props, textline }
+  return { host, props, textline, saveVariantComment }
 }
 
 describe('textline comment visibility', () => {
@@ -129,12 +134,98 @@ describe('textline comment visibility', () => {
     expect(host.querySelector('[aria-label="Has comment"]')).not.toBeNull()
   })
 
-  it('shows the full comment when enabled without hiding its indicator', async () => {
-    const { host, props } = await mountLine('vertical', false)
+  it.each([
+    ['vertical', false], ['horizontal', false], ['vertical', true], ['horizontal', true]
+  ] as const)('shows the full comment next to the icon in %s layout (focus: %s)', async (layout, focus) => {
+    const { host, props } = await mountLine(layout, focus)
+    expect(host.querySelector('[aria-label="Text-line comment"]')).toBeNull()
     props.showComments = true
     await Vue.nextTick()
-    expect(host.querySelector('aside')?.textContent).toBe('Check this transcription')
+    expect(host.querySelector('[aria-label="Text-line comment"]')?.textContent?.trim()).toBe('Check this transcription')
     expect(host.querySelector('[aria-label="Has comment"]')).not.toBeNull()
+    expect(host.querySelector('[aria-label="Has comment"]')?.textContent?.trim()).toBe('')
+    expect(host.querySelector('aside')).toBeNull()
+    props.showComments = false
+    await Vue.nextTick()
+    expect(host.querySelector('[aria-label="Text-line comment"]')).toBeNull()
+    expect(host.querySelector('[aria-label="Has comment"]')).not.toBeNull()
+  })
+})
+
+describe('TextEquiv comment visibility', () => {
+  const variants: Variant[] = [
+    { pos: 0, index: 0, text: 'Ground truth' },
+    { pos: 1, index: 1, text: 'First recognition', comments: 'Model A\nVersion 1' },
+    { pos: 2, index: 2, text: 'Second recognition', comments: 'Model B' },
+    { pos: 3, text: 'Unindexed recognition', comments: 'Unindexed model' },
+    { pos: 4, index: 3, text: 'Blank comment', comments: ' \n ' }
+  ]
+
+  it.each([
+    ['vertical', false, false], ['horizontal', false, false],
+    ['vertical', true, false], ['horizontal', true, true]
+  ] as const)('shows per-variant indicators and toggles text in %s layout (focus: %s, read-only: %s)', async (layout, focus, readOnly) => {
+    const { host, props } = await mountLine(layout, focus, readOnly, variants.map(variant => ({ ...variant })))
+    expect(host.querySelectorAll('[aria-label="Has variant comment"]')).toHaveLength(3)
+    expect(host.textContent).not.toContain('Model A')
+    props.showComments = true
+    props.showDiff = true
+    await Vue.nextTick()
+    for (const [index, comment] of [[1, 'Model A\nVersion 1'], [2, 'Model B'], ['unindexed', 'Unindexed model']]) {
+      expect(host.querySelector(`[aria-label="TextEquiv ${index} comment"]`)?.textContent?.trim()).toBe(comment)
+    }
+    expect(host.querySelector('[aria-label="TextEquiv 0 comment"]')).toBeNull()
+    expect(host.querySelector('[aria-label="TextEquiv 3 comment"]')).toBeNull()
+    props.showComments = false
+    await Vue.nextTick()
+    expect(host.textContent).not.toContain('Model A')
+    expect(host.querySelectorAll('[aria-label="Has variant comment"]')).toHaveLength(3)
+  })
+
+  it('opens the correct full comment as read-only and follows updated variants', async () => {
+    const { host, textline, props } = await mountLine('vertical', false, true, variants.map(variant => ({ ...variant })))
+    expect(host.querySelector('[aria-label="Add variant comment"]')).toBeNull()
+    host.querySelector<HTMLButtonElement>('[aria-label="Has variant comment"]')!.click()
+    await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull())
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Model A\nVersion 1')
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('TextEquiv 1')
+    expect(document.querySelector('[role="dialog"] textarea')).toBeNull()
+    document.querySelector('[role="dialog"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull())
+    textline.textContentVariants = [{ pos: 1, index: 1, text: 'Updated', comments: 'New model' }]
+    props.showComments = true
+    await Vue.nextTick()
+    expect(host.querySelectorAll('[aria-label="Has variant comment"]')).toHaveLength(1)
+    expect(host.querySelector('[aria-label="TextEquiv 1 comment"]')?.textContent?.trim()).toBe('New model')
+    textline.textContentVariants[0]!.comments = '  '
+    await Vue.nextTick()
+    expect(host.querySelector('[aria-label="Has variant comment"]')).toBeNull()
+    expect(host.querySelector('[aria-label="TextEquiv 1 comment"]')).toBeNull()
+  })
+
+  it('adds and edits comments on recognition variants using the original variant position', async () => {
+    const { host, saveVariantComment } = await mountLine('vertical', false, false, [
+      { pos: 7, index: 1, text: 'Recognition A', comments: 'Model A' },
+      { pos: 2, index: 2, text: 'Recognition B' }
+    ])
+    for (const [label, initial, comment, position] of [
+      ['Has variant comment', 'Model A', '  Updated model\nVersion 2  ', 7],
+      ['Add variant comment', '', 'Model B', 2],
+      ['Has variant comment', 'Model A', ' \n ', 7]
+    ] as const) {
+      host.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click()
+      await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull())
+      const textarea = document.querySelector<HTMLTextAreaElement>('[aria-label="TextEquiv comment"]')!
+      expect(textarea.value).toBe(initial)
+      textarea.value = comment
+      textarea.dispatchEvent(new Event('input', { bubbles: true }))
+      await Vue.nextTick()
+      const save = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(button => button.textContent?.trim() === 'Save')!
+      save.click()
+      await Vue.nextTick()
+      expect(saveVariantComment).toHaveBeenLastCalledWith('line-1', position, comment)
+      await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull())
+    }
   })
 })
 

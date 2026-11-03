@@ -7,18 +7,24 @@ const props = withDefaults(defineProps<{
   readOnly?: boolean
   iconOnly?: boolean
   emptyIcon?: string
+  indicatorLabel?: string
+  emptyLabel?: string
+  inputLabel?: string
 }>(), {
   comment: '',
   readOnly: false,
   iconOnly: false,
-  emptyIcon: 'i-lucide-message-square'
+  emptyIcon: 'i-lucide-message-square',
+  indicatorLabel: 'Has comment',
+  emptyLabel: 'Add comment',
+  inputLabel: 'Text-line comment'
 })
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ save: [comment: string] }>()
 const normalizedComment = computed(() => normalizeFullTextComment(props.comment))
 const hasComment = computed(() => normalizedComment.value.length > 0)
 const draft = ref(props.comment)
-const actionLabel = computed(() => props.readOnly ? 'View comment' : hasComment.value ? 'Edit comment' : 'Add comment')
+const actionLabel = computed(() => props.readOnly ? 'View comment' : hasComment.value ? 'Edit comment' : props.emptyLabel)
 
 watch(open, (isOpen) => {
   if (isOpen) draft.value = props.comment
@@ -45,32 +51,20 @@ function handleKeydown(event: KeyboardEvent): void {
 <template>
   <UPopover v-model:open="open" :content="{ side: 'top', align: 'start', sideOffset: 8 }">
     <UTooltip :text="normalizedComment || actionLabel">
-      <UBadge
-        v-if="hasComment"
-        as="button"
-        type="button"
-        color="info"
-        variant="subtle"
-        class="shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        aria-label="Has comment"
-        :title="actionLabel"
-        @click.stop
-      >
-        <Icon name="i-lucide-message-square" class="h-3 w-3 mr-1" />
-        Comment
-      </UBadge>
       <UButton
-        v-else
         type="button"
         color="neutral"
         variant="ghost"
         size="xs"
-        :icon="props.emptyIcon"
-        :aria-label="actionLabel"
+        class="shrink-0"
+        :class="hasComment ? 'text-info' : ''"
+        :icon="hasComment ? 'i-lucide-message-square-text' : props.emptyIcon"
+        :aria-label="hasComment ? props.indicatorLabel : actionLabel"
+        :title="actionLabel"
         @click.stop
       >
         <template v-if="!props.iconOnly" #default>
-          {{ actionLabel }}
+          {{ hasComment ? 'Comment' : actionLabel }}
         </template>
       </UButton>
     </UTooltip>
@@ -93,7 +87,7 @@ function handleKeydown(event: KeyboardEvent): void {
           autoresize
           :rows="4"
           placeholder="Enter comment..."
-          aria-label="Text-line comment"
+          :aria-label="props.inputLabel"
           @keydown="handleKeydown"
         />
         <div class="flex items-center justify-end gap-2">

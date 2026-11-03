@@ -5,10 +5,12 @@ import ts from 'typescript'
 import { Commander } from '@/commands/editor/commander'
 import { UpdateTextlineCommentCommand } from '@/commands/editor/update-textline-comment-command'
 import { createMockSession, createTestContext, createTestDocument, createTestTextRegion } from '@/commands/editor/__tests__/test-utils'
-import { TextLine } from '@/models/editor/text'
+import { TextContentVariant, TextLine } from '@/models/editor/text'
 import { Polygon } from '@/models/editor/geometry'
 import { findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { serializeFullTextComment } from '../../shared/full-text-comments'
+import { createTextlineVariantsUpdateCommand } from '../../shared/textline-variant-update'
+import { normalizeTextContentVariants } from '../../shared/text-view-runtime'
 import source from '../list.vue?raw'
 import canvasSource from '../../../index.vue?raw'
 import fullTextSource from '../../full-editor.vue?raw'
@@ -104,5 +106,83 @@ describe('List view comment history', () => {
       expect(commander.redo(context)).toBe(true)
       expect(comment()).toBe(next)
     }
+  })
+})
+
+function setupVariantComments() {
+  const region = createTestTextRegion({
+    id: 'region-1',
+    textLines: [new TextLine({
+      id: 'line-1', coords: new Polygon([]), comments: 'Line comment',
+      textContentVariants: [
+        new TextContentVariant('Prediction B', undefined, 0.8, 2, undefined, undefined, 'Model B'),
+        new TextContentVariant('GT', undefined, 1, 0),
+        new TextContentVariant('Prediction A', 'Plain A', 0.9, 1, 'other', 'Model details', 'Model A')
+      ]
+    })]
+  })
+  region.textContentVariants = [new TextContentVariant('GT', undefined, undefined, 0)]
+  const { session } = createMockSession(createTestDocument({ regions: [region] }))
+  const commander = new Commander()
+  const context = createTestContext(session)
+  const line = () => findTextLineRecursive(session.document.value!.page.regions, 'line-1')!.textLine
+  const editable = ref(true)
+  const dependencies = {
+    isCanvasEditable: editable,
+    effectiveCanvasId: ref(session.canvasId),
+    getTextViewRuntimeControls: () => ({ commander, polygons: [line()] }),
+    editorStore: {},
+    getEditorSession: () => session,
+    createTextlineVariantsUpdateCommand,
+    gtIndexModel: ref(0),
+    createTextViewCommandContext: () => context,
+    normalizeTextContentVariants,
+    serializeFullTextComment
+  }
+  const commitTextContentVariants = new Function(...Object.keys(dependencies), compileHandler(source, 'commitTextContentVariants'))(...Object.values(dependencies))
+  const update = new Function(
+    ...Object.keys(dependencies), 'commitTextContentVariants', compileHandler(source, 'handleUpdateTextContentVariantComment')
+  )(...Object.values(dependencies), commitTextContentVariants)
+  const variants = () => normalizeTextContentVariants(line().textContentVariants)
+  return { update, variants, line, editable, commander, context, region }
+}
+
+describe('TextEquiv comment history', () => {
+  it('adds, edits and clears comments with undo/redo while preserving text and metadata', () => {
+    const { update, variants, line, commander, context, region } = setupVariantComments()
+    const original = variants()
+    update('line-1', 0, 'Ground truth source')
+    update('line-1', 1, '  Model A\nVersion 2  ')
+    expect(variants()[1]).toEqual({ ...original[1], comments: 'Model A\nVersion 2' })
+    update('line-1', 1, ' \n ')
+    expect(variants()[1]?.comments).toBeUndefined()
+    expect(variants()[0]?.comments).toBe('Ground truth source')
+    expect(variants()[2]).toEqual(original[2])
+    expect(line().comments).toBe('Line comment')
+    expect(region.textContentVariants?.[0]?.unicode).toBe('GT')
+
+    commander.undo(context)
+    expect(variants()[1]?.comments).toBe('Model A\nVersion 2')
+    commander.undo(context)
+    expect(variants()[1]?.comments).toBe('Model A')
+    commander.undo(context)
+    expect(variants()).toEqual(original)
+    for (let i = 0; i < 3; i++) commander.redo(context)
+    expect(variants()[0]?.comments).toBe('Ground truth source')
+    expect(variants()[1]?.comments).toBeUndefined()
+    expect(variants()[2]).toEqual(original[2])
+  })
+
+  it('ignores unchanged comments, missing targets and read-only edits', () => {
+    const { update, variants, editable, commander } = setupVariantComments()
+    const original = variants()
+    update('line-1', 1, '  Model A  ')
+    update('line-1', -1, 'Invalid')
+    update('line-1', 50, 'Missing variant')
+    update('missing-line', 0, 'Missing line')
+    editable.value = false
+    update('line-1', 1, 'Read-only change')
+    expect(variants()).toEqual(original)
+    expect(commander.canUndo()).toBe(false)
   })
 })

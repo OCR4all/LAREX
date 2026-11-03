@@ -32,6 +32,7 @@ interface TextContentVariantData {
   index?: number
   text: string
   confidence?: number
+  comments?: string
   diffs?: Diff[]
 }
 
@@ -116,6 +117,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   updateTextContentVariant: [id: string, arrayPos: number, text: string]
   updateTextContentVariantIndex: [id: string, arrayPos: number, index: number | undefined]
+  updateTextContentVariantComment: [id: string, arrayPos: number, comment: string]
   updateElementComment: [id: string, comment: string]
   addTextContentVariant: [id: string]
   removeTextContentVariant: [id: string, arrayPos: number]
@@ -1048,7 +1050,7 @@ onBeforeUnmount(() => {
             ]"
           >
             <div v-if="!props.focusMode || hasElementComment" class="flex flex-wrap items-center gap-2">
-              <div class="flex min-w-0 flex-wrap items-center gap-2">
+              <div class="flex min-w-0 max-w-full flex-wrap items-center gap-2">
                 <UBadge
                   v-if="!props.focusMode"
                   variant="subtle"
@@ -1058,13 +1060,18 @@ onBeforeUnmount(() => {
                   <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
                   {{ props.textline.label ?? props.textline.id }}
                 </UBadge>
-                <EditorTextSharedCommentPopover
-                  v-if="hasElementComment"
-                  :textline-id="props.textline.id"
-                  :comment="props.textline.comments"
-                  :read-only="props.readOnly"
-                  @save="emit('updateElementComment', props.textline.id, $event)"
-                />
+                <div v-if="hasElementComment" class="flex min-w-0 max-w-full items-start gap-1">
+                  <EditorTextSharedCommentPopover
+                    :textline-id="props.textline.id"
+                    :comment="props.textline.comments"
+                    :read-only="props.readOnly"
+                    icon-only
+                    @save="emit('updateElementComment', props.textline.id, $event)"
+                  />
+                  <p v-if="props.showComments" class="min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] py-1 text-xs text-muted" aria-label="Text-line comment">
+                    {{ normalizedComment }}
+                  </p>
+                </div>
               </div>
               <div v-if="!props.focusMode" class="flex flex-wrap items-center gap-1">
                 <template v-if="props.showReorderButtons">
@@ -1273,16 +1280,6 @@ onBeforeUnmount(() => {
               />
             </div>
 
-            <UAlert
-              v-if="!props.focusMode && props.showComments && normalizedComment.length > 0"
-              color="info"
-              variant="subtle"
-              title="Comment"
-              :description="normalizedComment"
-              :ui="{ description: 'whitespace-pre-wrap break-words' }"
-              icon="i-lucide-message-square-quote"
-            />
-
             <div class="flex flex-col" :class="props.focusMode ? 'gap-1' : 'gap-2'">
               <div
                 v-for="textEquiv in visibleTextContentVariantsWithDiff"
@@ -1407,6 +1404,29 @@ onBeforeUnmount(() => {
                           </template>
                         </div>
                       </UTextarea>
+                    </div>
+                    <div
+                      v-if="textEquiv.comments?.trim() || canMutateAnnotation"
+                      class="flex min-w-0 max-w-80 items-center gap-1 rounded-md"
+                      :class="props.showComments && textEquiv.comments?.trim() ? 'bg-info/10' : ''"
+                    >
+                      <EditorTextSharedCommentPopover
+                        :textline-id="`${props.textline.id} · TextEquiv ${textEquiv.index ?? 'unindexed'}`"
+                        :comment="textEquiv.comments"
+                        :read-only="props.readOnly"
+                        indicator-label="Has variant comment"
+                        empty-label="Add variant comment"
+                        input-label="TextEquiv comment"
+                        icon-only
+                        @save="emit('updateTextContentVariantComment', props.textline.id, textEquiv.pos, $event)"
+                      />
+                      <p
+                        v-if="props.showComments && textEquiv.comments?.trim()"
+                        class="min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] py-1 pe-2 text-sm font-medium text-info"
+                        :aria-label="`TextEquiv ${textEquiv.index ?? 'unindexed'} comment`"
+                      >
+                        {{ textEquiv.comments.trim() }}
+                      </p>
                     </div>
                     <UTooltip text="Remove variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                       <UButton

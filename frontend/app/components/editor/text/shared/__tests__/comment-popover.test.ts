@@ -46,7 +46,7 @@ async function edit(value: string) {
 }
 
 describe('shared text-line comment popover', () => {
-  it('opens from the badge, discards canceled edits, and retains proofreading details', async () => {
+  it('opens from the comment button, discards canceled edits, and retains proofreading details', async () => {
     const { save } = mount()
     await open()
     expect(document.querySelector('textarea')?.value).toBe('First line\nSecond line')
