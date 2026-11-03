@@ -1206,18 +1206,6 @@ watch(() => webglRenderer.imageSize.value, (newSize) => {
   }
 })
 
-watch(() => editorUiStore.temporaryHoverPolygonId, () => {
-  if (renderEnabled.value) {
-    nextTick(() => editorRenderer.render())
-  }
-})
-
-watch(() => editorUiStore.temporaryHoverPolylineId, () => {
-  if (renderEnabled.value) {
-    nextTick(() => editorRenderer.render())
-  }
-})
-
 function resolveSelectionFocusMode(options?: SelectionFocusOptions): SelectionFocusMode {
   if (options?.focusMode) return options.focusMode
   return options?.zoomToFit === false ? 'none' : 'context'

@@ -268,6 +268,8 @@ export function useEditorRenderer(
       showReadingOrderOverlay,
       showRelationsOverlay,
       () => editorUiStore.readingOrderVersion,
+      () => editorUiStore.temporaryHoverPolygonId,
+      () => editorUiStore.temporaryHoverPolylineId,
       () => editorUiStore.globalSettings.defaultVertexSize,
       () => editorUiStore.confidenceHeatmap
     ],
