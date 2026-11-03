@@ -47,7 +47,7 @@ const {
   selectTag,
   optimizeColors,
   reset
-} = useTagSetBuilder()
+} = provideTagSetBuilder()
 
 const fileInput = ref<HTMLInputElement | null>(null)
 

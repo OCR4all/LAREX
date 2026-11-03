@@ -53,7 +53,7 @@ const {
   moveSelectedToGroup,
   isDirty,
   markSavedState
-} = useLabelBuilder()
+} = provideLabelBuilder()
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const groupNameInput = ref('')

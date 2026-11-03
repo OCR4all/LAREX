@@ -1,4 +1,4 @@
-import { computed, reactive, ref } from 'vue'
+import { computed, inject, provide, reactive, ref, type InjectionKey } from 'vue'
 import {
   CANONICAL_PAGE_CUSTOM_KEY,
   type LabelDefinition,
@@ -12,13 +12,6 @@ const PRESET_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#
 const PAGE_REGIONS = ['TextRegion', 'ImageRegion', 'LineDrawingRegion', 'GraphicRegion', 'TableRegion', 'ChartRegion', 'MapRegion', 'SeparatorRegion', 'MathsRegion', 'ChemRegion', 'MusicRegion', 'AdvertRegion', 'NoiseRegion', 'UnknownRegion']
 const PAGE_TEXT_TYPES = ['paragraph', 'heading', 'caption', 'header', 'footer', 'page-number', 'drop-capital', 'credit', 'floating', 'signature-mark', 'catch-word', 'marginalia', 'footnote', 'footnote-continued', 'endnote', 'TOC-entry', 'list-label', 'other', 'custom']
 
-const meta = reactive({
-  name: 'My Custom Label Set',
-  description: 'Optimized for historical document layout analysis',
-  tags: [] as string[],
-  isSystem: false,
-  defaultLabelId: null as string | null
-})
 export type EditablePageXmlMapping = {
   regionType?: PageRegionType
   textType?: PageTextType
@@ -51,13 +44,6 @@ export function isGroupMeta(entry: BuilderEntry): entry is GroupMeta {
 export function isEditableLabelDefinition(entry: BuilderEntry): entry is EditableLabelDefinition {
   return !isGroupMeta(entry)
 }
-
-const labels = ref<BuilderEntry[]>([])
-const activeLabel = ref<EditableLabelDefinition | null>(null)
-const searchQuery = ref('')
-const selectedLabelIds = ref<Set<string>>(new Set())
-const lastSelectedLabelId = ref<string | null>(null)
-const savedStateSnapshot = ref<string | null>(null)
 
 interface LabelBuilderMetaLike {
   name: string
@@ -165,12 +151,6 @@ export function createNextFreeLabelMapping(entries: BuilderEntry[], fallbackLabe
       customData: ''
     }
   }
-}
-
-if (labels.value.length === 0) {
-  labels.value = [
-    normalizeEditableLabel({ id: '1', scope: 'region', name: 'Paragraph', description: 'Body text', color: '#3b82f6', hasText: true, isContainer: false, group: null, mapping: createMapping('Paragraph') })
-  ]
 }
 
 export function moveBuilderLabel(
@@ -316,7 +296,23 @@ export function applyPageTextTypeChange(pageXml: EditablePageXmlMapping, textTyp
   pageXml.customData = ''
 }
 
-export const useLabelBuilder = () => {
+export function createLabelBuilder() {
+  const meta = reactive({
+    name: 'My Custom Label Set',
+    description: 'Optimized for historical document layout analysis',
+    tags: [] as string[],
+    isSystem: false,
+    defaultLabelId: null as string | null
+  })
+  const labels = ref<BuilderEntry[]>([
+    normalizeEditableLabel({ id: '1', scope: 'region', name: 'Paragraph', description: 'Body text', color: '#3b82f6', hasText: true, isContainer: false, group: null, mapping: createMapping('Paragraph') })
+  ])
+  const activeLabel = ref<EditableLabelDefinition | null>(null)
+  const searchQuery = ref('')
+  const selectedLabelIds = ref<Set<string>>(new Set())
+  const lastSelectedLabelId = ref<string | null>(null)
+  const savedStateSnapshot = ref<string | null>(null)
+
   const currentStateSnapshot = computed(() => createLabelBuilderStateSnapshot(meta, labels.value))
   const isDirty = computed(() => savedStateSnapshot.value !== null && savedStateSnapshot.value !== currentStateSnapshot.value)
 
@@ -653,4 +649,22 @@ export const useLabelBuilder = () => {
     moveLabel, moveLabelByOffset, moveGroup, moveGroupByOffset,
     isDirty, markSavedState
   }
+}
+
+export type LabelBuilder = ReturnType<typeof createLabelBuilder>
+
+// One builder per page instance. Module-level state would be shared between
+// concurrent SSR requests and leak one workspace's label set into another's HTML.
+const labelBuilderKey: InjectionKey<LabelBuilder> = Symbol('label-builder')
+
+export function provideLabelBuilder(): LabelBuilder {
+  const builder = createLabelBuilder()
+  provide(labelBuilderKey, builder)
+  return builder
+}
+
+export function useLabelBuilder(): LabelBuilder {
+  const builder = inject(labelBuilderKey, null)
+  if (!builder) throw new Error('useLabelBuilder() must be used below a component that calls provideLabelBuilder().')
+  return builder
 }

@@ -9,7 +9,7 @@ import {
   moveBuilderGroup,
   moveBuilderGroupByOffset,
   normalizeEditableLabel,
-  useLabelBuilder,
+  createLabelBuilder,
   type BuilderEntry,
   type EditableLabelDefinition
 } from '@/composables/use-label-builder'
@@ -218,7 +218,7 @@ describe('createLabelBuilderStateSnapshot', () => {
 
 describe('default label builder state', () => {
   it('sets an existing default and clears it when that label is deleted', () => {
-    const builder = useLabelBuilder()
+    const builder = createLabelBuilder()
     builder.labels.value = [label('first'), label('second')]
     builder.meta.defaultLabelId = null
 
@@ -230,7 +230,7 @@ describe('default label builder state', () => {
   })
 
   it('ignores an unknown default label ID', () => {
-    const builder = useLabelBuilder()
+    const builder = createLabelBuilder()
     builder.labels.value = [label('first')]
     builder.meta.defaultLabelId = null
 
