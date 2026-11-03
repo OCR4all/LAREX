@@ -89,7 +89,6 @@ watch(selectedJobId, async (id) => {
   }
 })
 
-let pollHandle: NodeJS.Timeout | null = null
 let realtimeUnsubscribe: (() => void) | null = null
 let realtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
 let lastRealtimeAuditAt = Date.now()
@@ -111,14 +110,15 @@ onMounted(() => {
       void refreshBackupData()
     }, 50)
   })
-  pollHandle = setInterval(() => {
-    if (!realtime.isPageVisible.value) return
-    const realtimeConnected = realtime.connectionStatus.value === 'connected'
-    if (realtimeConnected && !hasActiveJobs.value && Date.now() - lastRealtimeAuditAt < 60_000) return
-    if (realtimeConnected) lastRealtimeAuditAt = Date.now()
-    void refreshBackupData()
-  }, 3000)
 })
+
+useIntervalFn(() => {
+  if (!realtime.isPageVisible.value) return
+  const realtimeConnected = realtime.connectionStatus.value === 'connected'
+  if (realtimeConnected && !hasActiveJobs.value && Date.now() - lastRealtimeAuditAt < 60_000) return
+  if (realtimeConnected) lastRealtimeAuditAt = Date.now()
+  void refreshBackupData()
+}, 3000)
 
 watch([
   () => realtime.connectionStatus.value,
@@ -132,9 +132,6 @@ watch([
 })
 
 onUnmounted(() => {
-  if (pollHandle) {
-    clearInterval(pollHandle)
-  }
   if (realtimeRefreshTimer) clearTimeout(realtimeRefreshTimer)
   realtimeUnsubscribe?.()
 })

@@ -25,7 +25,6 @@ const page = ref(1)
 const itemsPerPage = usePersistentTablePageSize('workspace-training-runs', 25)
 let realtimeUnsubscribe: (() => void) | null = null
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
-let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const statusOptions = [
   { label: 'All statuses', value: 'ALL' as const },
@@ -256,18 +255,18 @@ onMounted(() => {
       void loadRuns()
     }, 100)
   })
-  pollTimer = setInterval(() => {
-    if (realtime.isPageVisible.value && runs.value.some(run => isActiveRun(run.status))) {
-      void loadRuns()
-    }
-  }, 10000)
 })
+
+useIntervalFn(() => {
+  if (realtime.isPageVisible.value && runs.value.some(run => isActiveRun(run.status))) {
+    void loadRuns()
+  }
+}, 10000)
 
 onBeforeUnmount(() => {
   realtimeUnsubscribe?.()
   realtimeUnsubscribe = null
   if (refreshTimer) clearTimeout(refreshTimer)
-  if (pollTimer) clearInterval(pollTimer)
 })
 
 const toolbarRefresh = useRefreshFeedback(() => loadRuns())

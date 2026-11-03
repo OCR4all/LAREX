@@ -27,7 +27,6 @@ const statusFilter = ref<'ALL' | ActionRunStatus>('ALL')
 const page = ref(1)
 const itemsPerPage = usePersistentTablePageSize('workspace-action-runs', 25)
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, computed(() => filteredRuns.value.length))
-let pollTimer: ReturnType<typeof setInterval> | null = null
 let realtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
 let realtimeUnsubscribe: (() => void) | null = null
 let lastRealtimeAuditAt = Date.now()
@@ -208,19 +207,19 @@ onMounted(() => {
       void loadRuns()
     }, 50)
   })
-
-  pollTimer = setInterval(() => {
-    if (!realtime.isPageVisible.value) return
-    const realtimeConnected = realtime.connectionStatus.value === 'connected'
-    const auditDue = !realtimeConnected || Date.now() - lastRealtimeAuditAt >= 60_000
-    if (runs.value.some(run => isActiveRun(run.status)) && auditDue) {
-      if (realtimeConnected) {
-        lastRealtimeAuditAt = Date.now()
-      }
-      void loadRuns()
-    }
-  }, 5000)
 })
+
+useIntervalFn(() => {
+  if (!realtime.isPageVisible.value) return
+  const realtimeConnected = realtime.connectionStatus.value === 'connected'
+  const auditDue = !realtimeConnected || Date.now() - lastRealtimeAuditAt >= 60_000
+  if (runs.value.some(run => isActiveRun(run.status)) && auditDue) {
+    if (realtimeConnected) {
+      lastRealtimeAuditAt = Date.now()
+    }
+    void loadRuns()
+  }
+}, 5000)
 
 watch(() => realtime.isPageVisible.value, (pageVisible) => {
   if (pageVisible && realtime.connectionStatus.value !== 'connected' && runs.value.some(run => isActiveRun(run.status))) {
@@ -229,10 +228,6 @@ watch(() => realtime.isPageVisible.value, (pageVisible) => {
 })
 
 onBeforeUnmount(() => {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
   if (realtimeRefreshTimer) {
     clearTimeout(realtimeRefreshTimer)
     realtimeRefreshTimer = null
