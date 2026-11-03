@@ -35,6 +35,8 @@ import {
 import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 import type { ActionWorkflow } from '~/types/action-workflow'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 type AdminWorkspace = {
@@ -1090,12 +1092,12 @@ function runSecondaryLabel(run: AdminActionRun) {
 
 function formatDate(value: string | null) {
   if (!value) return 'Never'
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDateTime(value, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  }).format(new Date(value))
+  })
 }
 
 function formatDuration(seconds: number | null) {

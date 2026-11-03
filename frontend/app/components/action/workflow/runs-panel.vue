@@ -3,6 +3,8 @@ import type { ActionWorkflowRun } from '~/types/action-workflow'
 import { actionRunStatusColor, actionRunStatusLabel } from '~/utils/action-run-status'
 import { extractApiErrorDetails } from '~/utils/api-error'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 const props = defineProps<{ workflowId: string }>()
 const emit = defineEmits<{ close: [] }>()
 const runs = ref<ActionWorkflowRun[]>([])
@@ -70,7 +72,7 @@ function statusColor(status: ActionWorkflowRun['status']) {
   return status === 'CANCELLED' ? 'neutral' : actionRunStatusColor(status)
 }
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+  return formatDateTime(value, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 function duration(run: ActionWorkflowRun) {
   if (!run.completedAt) return 'In progress'

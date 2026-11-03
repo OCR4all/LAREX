@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TaskActivityLog, TaskActivityType } from '~/types/index'
-import { formatDistanceToNow, parseISO, differenceInMinutes } from 'date-fns'
+import { differenceInMinutes } from 'date-fns'
 
 const props = defineProps<{
   activity: TaskActivityLog[]
@@ -38,8 +38,8 @@ const clusteredActivity = computed<ActivityGroup[]>(() => {
         && lastGroup.userId === log.userId
         && Math.abs(
           differenceInMinutes(
-            parseISO(lastLog.created),
-            parseISO(log.created)
+            normalizeLocalDateTimeInput(lastLog.created)!,
+            normalizeLocalDateTimeInput(log.created)!
           )
         ) <= 10
 
@@ -63,9 +63,7 @@ const clusteredActivity = computed<ActivityGroup[]>(() => {
   return groups
 })
 
-function formatTime(dateString: string) {
-  return formatDistanceToNow(parseISO(dateString), { addSuffix: true })
-}
+const { formatRelativeTime: formatTime } = useLocalDateTimeFormatter()
 
 function getDisplayName(log: TaskActivityLog) {
   if (log.user?.firstName && log.user?.lastName) {

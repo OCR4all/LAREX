@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { DateTimeInput } from '@/composables/use-local-date-time'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 const props = defineProps<{
   createdAt?: DateTimeInput
   updatedAt?: DateTimeInput
@@ -8,8 +10,8 @@ const props = defineProps<{
 }>()
 
 const { absoluteLabel, isoDate, label, shouldUseRelativeLabel } = useLocalDateTime(() => props.value)
-const createdLabel = computed(() => formatLocalDateTime(props.createdAt) || '—')
-const updatedLabel = computed(() => formatLocalDateTime(props.updatedAt) || '—')
+const createdLabel = computed(() => formatDateTime(props.createdAt) || '—')
+const updatedLabel = computed(() => formatDateTime(props.updatedAt) || '—')
 </script>
 
 <template>
@@ -45,12 +47,10 @@ const updatedLabel = computed(() => formatLocalDateTime(props.updatedAt) || '—
       </div>
     </template>
   </UPopover>
-  <NuxtTime
+  <time
     v-else-if="isoDate"
     :datetime="isoDate"
     :title="absoluteLabel"
-    date-style="medium"
-    time-style="short"
-  />
+  >{{ label }}</time>
   <span v-else>—</span>
 </template>

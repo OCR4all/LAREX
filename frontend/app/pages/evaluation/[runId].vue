@@ -5,6 +5,8 @@ import type { BreadcrumbItem, TableColumn } from '@nuxt/ui'
 import type { ActionOutputFile } from '@/types/action-output'
 import type { ActionRun, ActionRunDetail, EvaluationMetric, EvaluationReport } from '@/types/action'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 await useWorkspaceBootstrap()
 const route = useRoute()
 const workspaceStore = useWorkspaceStore()
@@ -71,7 +73,7 @@ async function downloadFile(file: ActionOutputFile) {
 function fileSize(bytes: number) {
   return bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
-const baselineOptions = computed(() => baselines.value.map(run => ({ label: `${run.processorName} · ${new Date(run.created).toLocaleString()}`, value: run.id })))
+const baselineOptions = computed(() => baselines.value.map(run => ({ label: `${run.processorName} · ${formatDateTime(run.created)}`, value: run.id })))
 const reportTables = computed(() => report.value?.tables || [])
 const filteredSamples = computed(() => {
   const samples = report.value?.samples || []
@@ -214,7 +216,7 @@ watch([workspaceId, runId], () => {
               Download evaluation results
             </h2>
             <p class="text-xs text-muted">
-              {{ output.expiresAt ? `Available until ${new Date(output.expiresAt).toLocaleString()}` : 'Kept indefinitely' }}
+              {{ output.expiresAt ? `Available until ${formatDateTime(output.expiresAt)}` : 'Kept indefinitely' }}
             </p>
           </template>
           <ul class="divide-y divide-default">

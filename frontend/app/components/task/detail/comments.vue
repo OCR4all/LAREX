@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { TaskComment } from '~/types/index'
-import { formatDistanceToNow, parseISO } from 'date-fns'
 
 const props = defineProps<{
   taskId: string
@@ -78,9 +77,7 @@ async function deleteComment(commentId: string) {
   }
 }
 
-function formatTime(dateString: string) {
-  return formatDistanceToNow(parseISO(dateString), { addSuffix: true })
-}
+const { formatRelativeTime: formatTime } = useLocalDateTimeFormatter()
 
 function getDisplayName(comment: TaskComment) {
   if (comment.user?.firstName && comment.user?.lastName) {

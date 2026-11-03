@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 interface IiifSettings {
@@ -86,10 +88,10 @@ async function resetOverride() {
 
 function formatUpdatedAt(value: string | null | undefined) {
   if (!value) return 'Not overridden'
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDateTime(value, {
     dateStyle: 'medium',
     timeStyle: 'short'
-  }).format(new Date(value))
+  })
 }
 
 const toolbarRefresh = useRefreshFeedback(() => refresh())

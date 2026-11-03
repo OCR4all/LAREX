@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Task, TaskStatus, TaskComment, TaskActivityLog, TaskLinks, Subtask, SubtaskProgress, TaskReminder, UserProfile, WorkspaceMember } from '~/types/index'
-import { formatDistanceToNow, isPast, parseISO, format, addHours, addDays, set } from 'date-fns'
+import { isPast, format, addHours, addDays, set } from 'date-fns'
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import { LazyTaskSlideoverEdit, LazyUiDeleteSlideover, LazyTaskSlideoverLinkItems } from '#components'
 
@@ -182,17 +182,19 @@ const priorityColor = (priority: Task['priority']) => {
 const isOverdue = computed(() => {
   if (!task.value?.dueDate) return false
   if (task.value.status === 'COMPLETED' || task.value.status === 'CANCELLED') return false
-  return isPast(parseISO(task.value.dueDate))
+  return isPast(normalizeLocalDateTimeInput(task.value.dueDate)!)
 })
+
+const { formatDateTime, formatRelativeTime } = useLocalDateTimeFormatter()
 
 const formattedDueDate = computed(() => {
   if (!task.value?.dueDate) return null
-  return format(parseISO(task.value.dueDate), 'PPp')
+  return formatDateTime(task.value.dueDate)
 })
 
 const dueDateRelative = computed(() => {
   if (!task.value?.dueDate) return null
-  return formatDistanceToNow(parseISO(task.value.dueDate), { addSuffix: true })
+  return formatRelativeTime(task.value.dueDate)
 })
 
 const dueDateEditorOpen = ref(false)
@@ -238,13 +240,13 @@ function getUserDisplayName(user: UserProfile): string {
 }
 
 function openDueDateEditor() {
-  dueDateDraft.value = task.value?.dueDate?.slice(0, 16) ?? ''
+  dueDateDraft.value = toLocalDateTimeInput(task.value?.dueDate)
   dueDateEditorOpen.value = true
 }
 
 function closeDueDateEditor() {
   dueDateEditorOpen.value = false
-  dueDateDraft.value = task.value?.dueDate?.slice(0, 16) ?? ''
+  dueDateDraft.value = toLocalDateTimeInput(task.value?.dueDate)
 }
 
 function toggleAssigneeDraft(userId: string) {
@@ -283,7 +285,7 @@ async function persistDueDate(dueDate: string | null) {
 
 async function saveDueDate() {
   const value = dueDateDraft.value.trim()
-  await persistDueDate(value ? `${value}:00` : null)
+  await persistDueDate(localDateTimeInputToUtc(value))
 }
 
 async function removeDueDate() {
@@ -351,7 +353,7 @@ async function deleteReminder(reminderId: string) {
 }
 
 const sortedReminders = computed(() => {
-  return [...(reminders.value ?? [])].sort((a, b) => parseISO(a.reminderTime).getTime() - parseISO(b.reminderTime).getTime())
+  return [...(reminders.value ?? [])].sort((a, b) => normalizeLocalDateTimeInput(a.reminderTime)!.getTime() - normalizeLocalDateTimeInput(b.reminderTime)!.getTime())
 })
 
 const updatingTaskStatus = ref<TaskStatus | null>(null)
@@ -1033,7 +1035,7 @@ const tabItems = [
                   size="xs"
                   color="neutral"
                   variant="soft"
-                  @click="setReminderPreset(addDays(parseISO(task.dueDate), -1))"
+                  @click="setReminderPreset(addDays(normalizeLocalDateTimeInput(task.dueDate)!, -1))"
                 >
                   1 day before due
                 </UButton>
@@ -1059,7 +1061,7 @@ const tabItems = [
                 class="flex items-center justify-between gap-2"
               >
                 <div class="text-sm">
-                  {{ format(parseISO(reminder.reminderTime), 'PPp') }}
+                  {{ formatDateTime(reminder.reminderTime) }}
                 </div>
                 <UButton
                   v-if="canEdit"
@@ -1099,10 +1101,10 @@ const tabItems = [
               Timestamps
             </h3>
             <div class="text-sm text-muted space-y-1">
-              <p>Created: {{ format(parseISO(task.created), 'PPp') }}</p>
-              <p>Updated: {{ format(parseISO(task.updated), 'PPp') }}</p>
+              <p>Created: {{ formatDateTime(task.created) }}</p>
+              <p>Updated: {{ formatDateTime(task.updated) }}</p>
               <p v-if="task.completedAt">
-                Completed: {{ format(parseISO(task.completedAt), 'PPp') }}
+                Completed: {{ formatDateTime(task.completedAt) }}
               </p>
             </div>
           </section>

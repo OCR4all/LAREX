@@ -15,6 +15,8 @@ import {
 import type { PageComparisonDiffHighlight } from '@/stores/editor/types'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 const props = defineProps<{
   pageLabel: string
   annotationBasePath: string
@@ -436,7 +438,7 @@ function close() {
                 :key="version.id"
                 :value="version.id"
               >
-                v{{ version.versionNumber }} - {{ version.comment || version.created }}
+                v{{ version.versionNumber }} - {{ version.comment || formatDateTime(version.created) }}
               </option>
             </select>
             <UButton

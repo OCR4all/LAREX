@@ -5,6 +5,8 @@ import { actionParameterChoices, actionParameterDefaultValue, coerceActionParame
 import { actionImageSelectionValues, actionInputLevelForTarget, compatibleActionImages, actionImageVariantOptions, selectableActionImages, defaultActionImageVariants } from '@/utils/action-input-requirements'
 import { extractApiErrorDetails } from '@/utils/api-error'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 const props = defineProps<{ workspaceId: string, datasetId: string, datasetName: string, itemIds?: string[] }>()
 const emit = defineEmits<{ close: [boolean] }>()
 const store = useActionRunsStore()
@@ -391,7 +393,7 @@ onMounted(load)
               {{ run.statusMessage || run.errorMessage }}
             </p>
             <p class="text-xs text-muted">
-              {{ run.inputCount }} inputs · {{ new Date(run.created).toLocaleString() }}
+              {{ run.inputCount }} inputs · {{ formatDateTime(run.created) }}
             </p>
             <div class="flex gap-2">
               <UButton

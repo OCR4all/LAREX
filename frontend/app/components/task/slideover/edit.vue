@@ -132,7 +132,7 @@ function applyTaskToState(task: Task) {
   state.description = task.description || ''
   state.status = task.status
   state.priority = task.priority
-  state.dueDate = task.dueDate ? task.dueDate.slice(0, 16) : ''
+  state.dueDate = toLocalDateTimeInput(task.dueDate)
   state.syncLinkedPageStates = task.syncLinkedPageStates ?? false
 
   assignedUserIds.value = [...(task.assignedUserIds || [])]
@@ -178,14 +178,6 @@ onMounted(() => {
   }
 })
 
-function toLocalDateTime(value: string | undefined) {
-  if (!value) return null
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  if (trimmed.length === 16) return `${trimmed}:00`
-  return trimmed
-}
-
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (!isEditing.value && creationStep.value === 1) {
     creationStep.value = 2
@@ -194,7 +186,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
   isSubmitting.value = true
   try {
-    const dueDate = toLocalDateTime(event.data.dueDate)
+    const dueDate = localDateTimeInputToUtc(event.data.dueDate || '')
     const payload = {
       title: event.data.title.trim(),
       description: event.data.description?.trim() || null,

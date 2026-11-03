@@ -4,6 +4,8 @@ import { LazyUiDeleteSlideover } from '#components'
 import { extractApiErrorMessage } from '@/utils/api-error'
 import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 type SortColumn = 'created' | 'totalSizeBytes'
@@ -169,7 +171,7 @@ function formatBytes(bytes: number) {
 
 function formatDate(value: string | null) {
   return value
-    ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+    ? formatDateTime(value, { dateStyle: 'medium', timeStyle: 'short' }, 'en-GB')
     : '—'
 }
 

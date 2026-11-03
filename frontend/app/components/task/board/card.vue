@@ -2,7 +2,9 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { Task } from '~/types/index'
 import { DEFAULT_TASK_CAPABILITIES } from '@/types/capabilities'
-import { format, isPast, parseISO } from 'date-fns'
+import { isPast } from 'date-fns'
+
+const { formatDateTime } = useLocalDateTimeFormatter()
 
 const props = defineProps<{
   task: Task
@@ -57,13 +59,12 @@ const priorityLabel = computed(() => {
 const isOverdue = computed(() => {
   if (!props.task.dueDate) return false
   if (props.task.status === 'COMPLETED' || props.task.status === 'CANCELLED') return false
-  return isPast(parseISO(props.task.dueDate))
+  return isPast(normalizeLocalDateTimeInput(props.task.dueDate)!)
 })
 
 const dueDateText = computed(() => {
   if (!props.task.dueDate) return null
-  const date = parseISO(props.task.dueDate)
-  return format(date, 'd MMM yyyy')
+  return formatDateTime(props.task.dueDate, { day: 'numeric', month: 'short', year: 'numeric' })
 })
 
 const displayedAssignees = computed(() => {

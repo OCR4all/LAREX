@@ -415,7 +415,7 @@ async function handleArchiveAllRead() {
                   <span class="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
                     <span class="text-highlighted font-medium flex-1 min-w-32 line-clamp-2">{{ getSingleNotification(group).title }}</span>
                     <span class="flex items-center gap-1 text-muted shrink-0">
-                      <NuxtTime :datetime="getSingleNotification(group).created" relative class="text-xs" />
+                      <NuxtTime :datetime="normalizeLocalDateTimeInput(getSingleNotification(group).created)!" relative class="text-xs" />
                       <UIcon v-if="getNotificationLink(getSingleNotification(group))" name="i-lucide-arrow-up-right" class="size-3" />
                     </span>
                   </span>
@@ -447,7 +447,7 @@ async function handleArchiveAllRead() {
                     <span class="sr-only">{{ group.items.every(n => n.read) ? 'Read' : 'Unread' }} notifications:</span>
                     <span class="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
                       <span class="text-highlighted font-medium flex-1 min-w-32 line-clamp-2">{{ getGroupTitle(group) }}</span>
-                      <NuxtTime :datetime="group.latestCreated" relative class="text-muted text-xs shrink-0" />
+                      <NuxtTime :datetime="normalizeLocalDateTimeInput(group.latestCreated)!" relative class="text-muted text-xs shrink-0" />
                     </span>
                     <span class="text-muted text-xs flex items-center gap-1">
                       <UIcon :name="group.isExpanded ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="size-3.5" />

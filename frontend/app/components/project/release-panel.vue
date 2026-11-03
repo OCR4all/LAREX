@@ -2,6 +2,8 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { ProjectPackageRelease } from '@/types/project-package-release'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 const props = defineProps<{
   releases: ProjectPackageRelease[]
   pending: boolean
@@ -19,9 +21,9 @@ const emit = defineEmits<{
 
 function formatDate(value?: string | null) {
   if (!value) return '-'
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDateTime(value, {
     dateStyle: 'medium'
-  }).format(new Date(value))
+  })
 }
 
 function getReleaseCardItems(release: ProjectPackageRelease): DropdownMenuItem[] {

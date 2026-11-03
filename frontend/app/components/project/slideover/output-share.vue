@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ActionOutput, ActionOutputShareRequest, ActionOutputShareResponse } from '@/types/action-output'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 const props = defineProps<{ projectId: string, output: ActionOutput }>()
 const emit = defineEmits<{ close: [boolean] }>()
 const toast = useToast()
@@ -19,18 +21,18 @@ function formatLocal(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 function toLocal(value?: string | null) {
-  return value ? formatLocal(new Date(value)) : ''
+  return toLocalDateTimeInput(value)
 }
 function defaultExpiry() {
   const expiry = new Date(Date.now() + 7 * 86400000)
-  if (props.output.expiresAt && expiry > new Date(props.output.expiresAt)) return toLocal(props.output.expiresAt)
+  if (props.output.expiresAt && expiry > normalizeLocalDateTimeInput(props.output.expiresAt)!) return toLocal(props.output.expiresAt)
   return formatLocal(expiry)
 }
 function payload(): ActionOutputShareRequest {
-  return { expiresAt: expiresAtInput.value.length === 16 ? `${expiresAtInput.value}:00` : expiresAtInput.value }
+  return { expiresAt: localDateTimeInputToUtc(expiresAtInput.value) || '' }
 }
 function formatDate(value?: string | null) {
-  return value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '—'
+  return value ? formatDateTime(value, { dateStyle: 'medium', timeStyle: 'short' }) : '—'
 }
 async function refresh() {
   if (!selectedWorkspace.value) return

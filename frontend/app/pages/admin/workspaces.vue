@@ -2,6 +2,8 @@
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { getWorkspaceDisplayName, getWorkspaceSearchText, getWorkspaceSecondaryLabel } from '@/utils/workspace-display'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const router = useRouter()
@@ -153,7 +155,7 @@ const columns: TableColumn<AdminWorkspaceRow>[] = [
       h('span', 'Created'),
       h(UButton, { icon: sort.value.column === 'created' ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down') : 'i-lucide-arrow-up-down', size: 'xs', variant: 'ghost', color: sort.value.column === 'created' ? 'primary' : 'neutral', onClick: () => { sort.value = sort.value.column === 'created' ? { column: 'created', direction: sort.value.direction === 'asc' ? 'desc' : 'asc' } : { column: 'created', direction: 'asc' } } })
     ]),
-    cell: ({ row }) => new Date(row.original.created).toLocaleDateString()
+    cell: ({ row }) => formatDateTime(row.original.created, { dateStyle: 'medium' })
   },
   {
     accessorKey: 'actions',

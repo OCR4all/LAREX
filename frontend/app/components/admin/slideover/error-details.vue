@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { AdminErrorEventDetail } from '@/types/admin-errors'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 interface Props {
   open: boolean
   errorEvent: AdminErrorEventDetail | null
@@ -20,14 +22,14 @@ function formatDate(value?: string | null): string {
     return '-'
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
+  return formatDateTime(value, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit'
-  }).format(new Date(value))
+  }, 'en-GB')
 }
 
 async function copyErrorId() {

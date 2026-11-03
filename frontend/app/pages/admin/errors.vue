@@ -5,6 +5,8 @@ import type { AdminErrorEventDetail, AdminErrorEventPage, AdminErrorEventSummary
 import type { AdminUserPage } from '@/types/admin-users'
 import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const UBadge = resolveComponent('UBadge')
@@ -298,13 +300,13 @@ function formatDate(value?: string | null): string {
     return '-'
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
+  return formatDateTime(value, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  }).format(new Date(value))
+  }, 'en-GB')
 }
 
 async function openDetails(errorId: string) {

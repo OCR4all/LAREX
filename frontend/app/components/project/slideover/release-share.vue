@@ -5,6 +5,8 @@ import type {
   ProjectPackageReleaseShareResponse
 } from '@/types/project-package-release'
 
+const { formatDateTime: formatTimestamp } = useLocalDateTimeFormatter()
+
 const props = defineProps<{
   projectId: string
   release: ProjectPackageRelease
@@ -168,10 +170,10 @@ async function copyBrowserDownloadUrl() {
 
 function formatDateTime(value?: string | null) {
   if (!value) return '—'
-  return new Intl.DateTimeFormat(undefined, {
+  return formatTimestamp(value, {
     dateStyle: 'medium',
     timeStyle: 'short'
-  }).format(new Date(value))
+  })
 }
 
 function defaultExpiryInput() {
@@ -182,7 +184,7 @@ function defaultExpiryInput() {
 
 function toDateTimeLocalInput(value?: string | null) {
   if (!value) return ''
-  return formatDateTimeLocal(new Date(value))
+  return toLocalDateTimeInput(value)
 }
 
 function formatDateTimeLocal(value: Date) {
@@ -195,7 +197,7 @@ function formatDateTimeLocal(value: Date) {
 }
 
 function normalizeDateTimeLocal(value: string) {
-  return value.length === 16 ? `${value}:00` : value
+  return localDateTimeInputToUtc(value) || ''
 }
 </script>
 

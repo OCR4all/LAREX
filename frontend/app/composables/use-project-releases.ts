@@ -25,6 +25,8 @@ type ProjectReleasesOptions = {
 }
 
 export async function useProjectReleases(options: ProjectReleasesOptions) {
+  const { formatDateTime } = useLocalDateTimeFormatter()
+  const formatDate = (value?: string | null) => formatDateTime(value, { dateStyle: 'medium' }) || '-'
   const toast = useToast()
   const backgroundDownloads = useBackgroundDownloads()
   const projectReleasesKey = computed(() => wsKey(options.selectedWorkspace.value as string, 'projects', options.projectId, 'releases'))
@@ -169,11 +171,4 @@ export async function useProjectReleases(options: ProjectReleasesOptions) {
     openReleaseShare,
     downloadProjectRelease
   }
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return '-'
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium'
-  }).format(new Date(value))
 }

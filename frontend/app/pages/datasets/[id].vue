@@ -18,6 +18,8 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { buildDatasetPackageFileName } from '@/utils/download-file-names'
 
+const { formatDateTime: formatTimestamp } = useLocalDateTimeFormatter()
+
 const route = useRoute()
 const toast = useToast()
 const overlay = useOverlay()
@@ -769,10 +771,10 @@ function itemStatusLabel(status: DatasetItemStatus) {
 
 function formatDateTime(value?: string | null) {
   if (!value) return '—'
-  return new Intl.DateTimeFormat(undefined, {
+  return formatTimestamp(value, {
     dateStyle: 'medium',
     timeStyle: 'short'
-  }).format(new Date(value))
+  })
 }
 
 function formatBytes(value?: number | null) {

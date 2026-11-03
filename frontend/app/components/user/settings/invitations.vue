@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { WorkspaceInvitation } from '~/types'
 import { ROLE_LABELS } from '~/types'
-import { formatTimeAgo } from '@vueuse/core'
 
+const { formatRelativeTime } = useLocalDateTimeFormatter()
 const toast = useToast()
 const { refreshUserInvitations, refreshWorkspaceList, refreshWorkspaceMembership } = useDataRefresh()
 
@@ -107,7 +107,7 @@ async function declineInvite(invitation: WorkspaceInvitation) {
             <div class="flex items-center gap-2 text-sm text-muted">
               <span>Invited as {{ ROLE_LABELS[invitation.role] }}</span>
               <span>•</span>
-              <time v-text="formatTimeAgo(new Date(invitation.invitedAt))" />
+              <time v-text="formatRelativeTime(invitation.invitedAt)" />
             </div>
           </div>
         </div>

@@ -8,6 +8,8 @@ import type {
   AdminUserOnboardingState
 } from '@/types/admin-users'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 interface Props {
   open: boolean
   user: AdminUser | null
@@ -72,13 +74,13 @@ function formatDetailDate(value?: string | null): string {
     return '-'
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
+  return formatDateTime(value, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  }).format(new Date(value))
+  }, 'en-GB')
 }
 
 function formatActionLabel(value: string): string {

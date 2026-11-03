@@ -2,6 +2,8 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { ActionOutput, ActionOutputFile } from '@/types/action-output'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 const props = defineProps<{ outputs: ActionOutput[], pending: boolean, error?: unknown, summary: string, canManage: boolean }>()
 const emit = defineEmits<{
   download: [output: ActionOutput]
@@ -22,7 +24,7 @@ function toggle(outputId: string) {
 }
 function formatDate(value?: string | null) {
   if (!value) return 'Never'
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+  return formatDateTime(value, { dateStyle: 'medium', timeStyle: 'short' })
 }
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`

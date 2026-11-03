@@ -14,6 +14,8 @@ import type {
   ErrorResponseData
 } from '@/types/admin-users'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const toast = useToast()
@@ -444,7 +446,7 @@ function identitySourceColor(source: AdminUserIdentitySource): 'info' | 'neutral
 }
 
 function formatDate(value?: string | null): string {
-  return value ? new Date(value).toLocaleString() : '-'
+  return value ? formatDateTime(value) : '-'
 }
 
 function getErrorData(error: unknown): ErrorResponseData | undefined {

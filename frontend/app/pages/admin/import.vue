@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const toast = useToast()
@@ -417,7 +419,7 @@ function getStatusColor(status: string): 'success' | 'error' | 'neutral' | 'prim
                     {{ job.sourcePath }}
                   </div>
                   <div class="text-sm text-(--ui-text-muted)">
-                    Project: {{ job.projectId }} | Created: {{ new Date(job.created).toLocaleString() }}
+                    Project: {{ job.projectId }} | Created: {{ formatDateTime(job.created) }}
                   </div>
                 </div>
                 <UBadge :color="getStatusColor(job.status)">
@@ -438,7 +440,7 @@ function getStatusColor(status: string): 'success' | 'error' | 'neutral' | 'prim
               </div>
 
               <div v-if="job.status === 'COMPLETED'" class="text-sm text-(--ui-text-muted)">
-                Completed at {{ new Date(job.completedAt!).toLocaleString() }} |
+                Completed at {{ formatDateTime(job.completedAt!) }} |
                 {{ job.processedFiles }} processed, {{ job.skippedFiles }} skipped, {{ job.failedFiles }} failed
               </div>
 

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { AdminAvatarSettings, AvatarStyle } from '~/types/avatar'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const { refresh: refreshGlobalAvatarSettings } = useAvatarSettings()
@@ -70,10 +72,10 @@ async function saveSettings() {
 
 function formatUpdatedAt(value: string | null | undefined) {
   if (!value) return 'Initial Gradient default'
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDateTime(value, {
     dateStyle: 'medium',
     timeStyle: 'short'
-  }).format(new Date(value))
+  })
 }
 
 const toolbarRefresh = useRefreshFeedback(() => refresh())

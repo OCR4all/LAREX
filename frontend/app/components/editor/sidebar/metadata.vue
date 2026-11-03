@@ -44,6 +44,8 @@ import {
   type GridRowFormState
 } from '@/utils/editor/metadata-schema'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 const overlay = useOverlay()
 const confirmModal = overlay.create(LazyUiConfirmModal)
 
@@ -154,15 +156,7 @@ const currentContext = computed<EditContext | null>(() => {
 
 const canEdit = computed(() => currentContext.value !== null && !props.readOnly)
 
-function formatDate(dateStr?: string): string {
-  if (!dateStr) return '—'
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleString()
-  } catch {
-    return dateStr
-  }
-}
+const formatDate = (dateStr?: string) => formatDateTime(dateStr) || '—'
 
 function formatConfidence(value?: number): string {
   if (value === undefined || value === null) return '—'

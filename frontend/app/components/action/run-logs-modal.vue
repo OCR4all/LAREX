@@ -2,6 +2,8 @@
 import type { ActionRunDetail } from '@/types/action'
 import { extractApiErrorMessage } from '@/utils/api-error'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 const props = defineProps<{
   workspaceId: string
   runId: string
@@ -20,9 +22,8 @@ const { data, pending, error, refresh } = useFetch<ActionRunDetail>(
 )
 const logs = computed(() => {
   if (data.value?.logEvents?.length) {
-    const formatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' })
     return data.value.logEvents.map(event =>
-      `[${formatter.format(new Date(event.created))}] ${event.level}: ${event.message}`
+      `[${formatDateTime(event.created, { dateStyle: 'medium', timeStyle: 'medium' })}] ${event.level}: ${event.message}`
     ).join('\n')
   }
   return data.value?.logText || 'No logs recorded yet.'

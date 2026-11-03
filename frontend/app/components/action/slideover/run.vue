@@ -29,6 +29,8 @@ import type {
   ActionParameterValue
 } from '@/types/action'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 useBlockEditorCanvasInteractions()
 
 type ActionRunPageImageVariantSummary = {
@@ -883,12 +885,12 @@ function isRunDetailLoading(run: ActionRun) {
 
 function formatDate(value: string | null) {
   if (!value) return 'Never'
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDateTime(value, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  }).format(new Date(value))
+  })
 }
 
 function formatDuration(seconds: number | null | undefined) {

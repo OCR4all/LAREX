@@ -5,6 +5,8 @@ import type { AdminActionRun, ActionRunStatus, ActionRunReport as RunReport } fr
 import { extractApiErrorMessage } from '@/utils/api-error'
 import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 
+const { formatDateTime } = useLocalDateTimeFormatter()
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 type AdminWorkspace = {
@@ -347,10 +349,10 @@ function formatRunLogs(run: AdminActionRun) {
 }
 
 function formatLogTimestamp(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
+  return formatDateTime(value, {
     dateStyle: 'medium',
     timeStyle: 'medium'
-  }).format(new Date(value))
+  })
 }
 
 function compareRuns(left: AdminActionRun, right: AdminActionRun) {
