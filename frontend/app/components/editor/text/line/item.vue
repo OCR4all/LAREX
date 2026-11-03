@@ -1047,7 +1047,7 @@ onBeforeUnmount(() => {
               isVertical ? 'w-full' : '@max-4xl:w-full flex-1'
             ]"
           >
-            <div v-if="!props.focusMode || hasElementComment" class="flex flex-wrap items-center justify-between gap-2">
+            <div v-if="!props.focusMode || hasElementComment" class="flex flex-wrap items-center gap-2">
               <div class="flex min-w-0 flex-wrap items-center gap-2">
                 <UBadge
                   v-if="!props.focusMode"
@@ -1066,7 +1066,7 @@ onBeforeUnmount(() => {
                   @save="emit('updateElementComment', props.textline.id, $event)"
                 />
               </div>
-              <div v-if="isVertical && !props.focusMode" class="ml-auto flex flex-wrap items-center justify-end gap-1">
+              <div v-if="!props.focusMode" class="flex flex-wrap items-center gap-1">
                 <template v-if="props.showReorderButtons">
                   <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                     <UButton
@@ -1238,40 +1238,8 @@ onBeforeUnmount(() => {
               isVertical ? 'w-full' : '@max-4xl:w-full flex-1'
             ]"
           >
-            <div v-if="!isVerticalFocusMode" class="flex flex-wrap items-center gap-1 justify-end w-full">
-              <template v-if="props.showReorderButtons && !props.focusMode && (!isVertical || props.focusMode)">
-                <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="xs"
-                    icon="i-lucide-arrow-up"
-                    :disabled="!canMutateAnnotation || !props.canMoveUp"
-                    @click.stop="emit('moveUpTextline', props.textline.id)"
-                  />
-                </UTooltip>
-                <UTooltip text="Move down within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    icon="i-lucide-arrow-down"
-                    size="xs"
-                    :disabled="!canMutateAnnotation || !props.canMoveDown"
-                    @click.stop="emit('moveDownTextline', props.textline.id)"
-                  />
-                </UTooltip>
-              </template>
-              <UTooltip v-if="props.showDeleteButton && !props.focusMode && (!isVertical || props.focusMode)" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                <UButton
-                  color="error"
-                  variant="ghost"
-                  icon="i-lucide-trash-2"
-                  size="xs"
-                  :disabled="!canMutateAnnotation"
-                  @click.stop="emit('deleteTextline', props.textline.id)"
-                />
-              </UTooltip>
-              <UTooltip v-if="!props.focusMode && !isVertical && canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+            <div v-if="props.focusMode && !isVertical" class="flex flex-wrap items-center gap-1 justify-end w-full">
+              <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                 <UButton
                   color="success"
                   variant="soft"
@@ -1283,19 +1251,7 @@ onBeforeUnmount(() => {
                   Create GT
                 </UButton>
               </UTooltip>
-              <UTooltip v-if="props.focusMode && canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                <UButton
-                  color="success"
-                  variant="soft"
-                  size="xs"
-                  icon="i-lucide-copy-plus"
-                  :disabled="!canMutateAnnotation"
-                  @click.stop="createGtFromRecognition"
-                >
-                  Create GT
-                </UButton>
-              </UTooltip>
-              <UDropdownMenu v-if="props.focusMode" :items="focusMoreActionItems" :content="{ align: 'end' }">
+              <UDropdownMenu :items="focusMoreActionItems" :content="{ align: 'end' }">
                 <UButton
                   color="neutral"
                   variant="ghost"
@@ -1307,20 +1263,8 @@ onBeforeUnmount(() => {
                   @click.stop
                 />
               </UDropdownMenu>
-              <UTooltip v-if="canAddTextContentVariant && !props.focusMode && !isVertical" text="Add another transcription variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  icon="i-lucide-plus"
-                  :disabled="!canMutateAnnotation"
-                  @click.stop="addTextContentVariant"
-                >
-                  Add
-                </UButton>
-              </UTooltip>
               <EditorTextSharedCommentPopover
-                v-if="!hasElementComment && (!isVertical || props.focusMode)"
+                v-if="!hasElementComment"
                 :textline-id="props.textline.id"
                 :comment="props.textline.comments"
                 :read-only="props.readOnly"

@@ -1443,7 +1443,6 @@ const sectionMenuItems = computed(() => {
             >
               <div class="w-1 h-8 rounded-sm" :style="{ backgroundColor: region.color }" />
               <div class="flex-1 flex items-center gap-2 min-w-0">
-                <Icon name="i-lucide-map-pin" class="h-4 w-4 text-muted shrink-0" />
                 <span class="font-medium text-sm truncate">{{ region.label }}</span>
                 <UBadge
                   variant="solid"
@@ -1463,7 +1462,7 @@ const sectionMenuItems = computed(() => {
                 color="neutral"
                 variant="ghost"
                 size="sm"
-                class="h-7 w-7 p-0"
+                class="h-7 w-7 shrink-0 justify-center p-0"
                 @click.stop="toggleRegion(region.id)"
               >
                 <Icon
