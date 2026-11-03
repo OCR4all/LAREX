@@ -1,4 +1,4 @@
-import { isRef, type CSSProperties, type ComputedRef, type Ref } from 'vue'
+import { isRef, toValue, type CSSProperties, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
 import {
   getEditorFloatingAnchorElement,
   getEditorFloatingAnchorRect,
@@ -17,7 +17,7 @@ import {
 
 type UseFloatingAnchorPositionOptions = {
   enabled: ComputedRef<boolean>
-  anchorId: ComputedRef<string | null | undefined>
+  anchorId: MaybeRefOrGetter<string | null | undefined>
   shellRef: Ref<HTMLElement | null>
   placement: FloatingControlPlacement
   fallbackSize: FloatingControlSize
@@ -68,7 +68,7 @@ export function useFloatingAnchorPosition(options: UseFloatingAnchorPositionOpti
   function getDefaultPosition(): FloatingControlPosition {
     return computeFloatingDefaultPosition({
       placement: options.placement,
-      anchorRect: getEditorFloatingAnchorRect(options.anchorId.value),
+      anchorRect: getEditorFloatingAnchorRect(toValue(options.anchorId)),
       controlSize: getControlSize(),
       viewport: getViewportSize(),
       gap: options.gap
@@ -116,7 +116,7 @@ export function useFloatingAnchorPosition(options: UseFloatingAnchorPositionOpti
 
     if (!import.meta.client || typeof ResizeObserver === 'undefined') return
 
-    const anchorElement = getEditorFloatingAnchorElement(options.anchorId.value)
+    const anchorElement = getEditorFloatingAnchorElement(toValue(options.anchorId))
     if (!anchorElement) return
 
     anchorResizeObserver = new ResizeObserver(() => {
@@ -199,7 +199,7 @@ export function useFloatingAnchorPosition(options: UseFloatingAnchorPositionOpti
   })
 
   watch(
-    () => [options.enabled.value, options.anchorId.value, registryVersion.value] as const,
+    () => [options.enabled.value, toValue(options.anchorId), registryVersion.value] as const,
     ([enabled]) => {
       if (!import.meta.client) return
       if (!enabled) {

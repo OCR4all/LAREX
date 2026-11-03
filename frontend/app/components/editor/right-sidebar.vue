@@ -23,7 +23,6 @@ const props = defineProps<{
 const editorUiStore = useEditorUiStore()
 const sidebarShellRef = ref<HTMLElement | null>(null)
 const floatingOffset = ref<{ dx: number, dy: number } | null>(null)
-const floatingAnchorId = computed(() => EDITOR_WORKSPACE_FLOATING_ANCHOR_ID)
 const isFloatingCollapsed = computed(() => editorUiStore.rightCollapsed && props.useFloatingCollapsed)
 
 const DEFAULT_FLOATING_RIGHT_SIDEBAR_GAP = 24
@@ -38,7 +37,7 @@ const {
   startDrag: startSidebarDrag
 } = useFloatingAnchorPosition({
   enabled: isFloatingCollapsed,
-  anchorId: floatingAnchorId,
+  anchorId: EDITOR_WORKSPACE_FLOATING_ANCHOR_ID,
   shellRef: sidebarShellRef,
   placement: 'right-sidebar',
   fallbackSize: { width: 48, height: 320 },

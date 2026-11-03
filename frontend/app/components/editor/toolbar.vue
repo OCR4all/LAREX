@@ -158,7 +158,6 @@ function activeDropdownItemUi(active: boolean): typeof toolbarActiveDropdownItem
 }
 
 const currentCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
-const floatingAnchorId = computed(() => EDITOR_WORKSPACE_FLOATING_ANCHOR_ID)
 
 const isFloating = computed(() => {
   return editorStore.toolbarLayout === 'floating'
@@ -206,7 +205,7 @@ const {
   startDrag: startToolbarDrag
 } = useFloatingAnchorPosition({
   enabled: isFloating,
-  anchorId: floatingAnchorId,
+  anchorId: EDITOR_WORKSPACE_FLOATING_ANCHOR_ID,
   shellRef: toolbarShellRef,
   placement: 'toolbar',
   fallbackSize: { width: 360, height: 48 },
@@ -369,24 +368,17 @@ const isTextVisualMode = computed(() => isTextUiMode.value && uiStore.textModeSu
 const supportsTextDiff = computed(() =>
   isTextUiMode.value && (uiStore.textModeSubmode === 'visual' || uiStore.textModeSubmode === 'expert')
 )
-const showCommentsModel = computed({
-  get: () => sessionStore.textViewSettings.showComments,
-  set: (next: boolean) => {
-    sessionStore.updateTextViewSettings(current => ({ ...current, showComments: Boolean(next) }))
-  }
-})
-const showDiffModel = computed({
-  get: () => sessionStore.textViewSettings.showDiff,
-  set: (next: boolean) => {
-    sessionStore.updateTextViewSettings(current => ({ ...current, showDiff: Boolean(next) }))
-  }
-})
-const showRecognitionModel = computed({
-  get: () => sessionStore.textViewSettings.showRecognition ?? true,
-  set: (next: boolean) => {
-    sessionStore.updateTextViewSettings(current => ({ ...current, showRecognition: Boolean(next) }))
-  }
-})
+function textViewToggleModel(key: 'showComments' | 'showDiff' | 'showRecognition', fallback = false) {
+  return computed({
+    get: () => sessionStore.textViewSettings[key] ?? fallback,
+    set: (next: boolean) => {
+      sessionStore.updateTextViewSettings(current => ({ ...current, [key]: Boolean(next) }))
+    }
+  })
+}
+const showCommentsModel = textViewToggleModel('showComments')
+const showDiffModel = textViewToggleModel('showDiff')
+const showRecognitionModel = textViewToggleModel('showRecognition', true)
 const textFontSizeModel = computed({
   get: () => uiStore.textViewFontSize,
   set: (next: number) => {
