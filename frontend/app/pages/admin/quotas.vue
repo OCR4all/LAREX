@@ -127,11 +127,7 @@ watch([globalFilter, columnFilters], () => {
   page.value = 1
 }, { deep: true })
 
-watch(totalPages, (newTotalPages) => {
-  if (page.value > newTotalPages) {
-    page.value = newTotalPages
-  }
-})
+useClampedPage(page, totalPages)
 
 function toggleSort(column: string, initialDirection: 'asc' | 'desc' = 'asc') {
   if (sort.value.column === column) {

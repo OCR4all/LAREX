@@ -16,6 +16,13 @@ export function useSmallTableScreen() {
   return useMediaQuery('(width < 640px)', { ssrWidth: 640 })
 }
 
+// Keep the current page in range when filtering or deleting shrinks the result.
+export function useClampedPage(page: Ref<number>, totalPages: MaybeRefOrGetter<number>) {
+  watch(() => toValue(totalPages), (value) => {
+    if (page.value > value) page.value = value
+  })
+}
+
 export function useTablePagination<T>(
   data: MaybeRefOrGetter<T[]>,
   page: Ref<number>,

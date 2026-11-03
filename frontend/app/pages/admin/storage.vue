@@ -171,11 +171,7 @@ watch(itemsPerPage, () => {
   clearSelection()
 })
 
-watch(totalPages, (newTotalPages) => {
-  if (page.value > newTotalPages) {
-    page.value = newTotalPages
-  }
-})
+useClampedPage(page, totalPages)
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'

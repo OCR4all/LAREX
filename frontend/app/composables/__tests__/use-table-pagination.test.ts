@@ -1,6 +1,6 @@
 import { effectScope, nextTick, ref, type EffectScope } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useServerTablePagination, useTablePagination } from '../use-table-pagination'
+import { useClampedPage, useServerTablePagination, useTablePagination } from '../use-table-pagination'
 
 const screen = vi.hoisted(() => ({ small: null as unknown as ReturnType<typeof ref<boolean>> }))
 vi.mock('@vueuse/core', () => ({ useMediaQuery: () => screen.small }))
@@ -143,5 +143,21 @@ describe('server table pagination', () => {
     expect(fetchPage).toHaveBeenCalledTimes(1)
     screen.small.value = true
     expect(table.page.value).toBe(1)
+  })
+})
+
+describe('useClampedPage', () => {
+  it('moves the page back into range when the total shrinks', async () => {
+    const page = ref(5)
+    const totalPages = ref(5)
+    scope.run(() => useClampedPage(page, totalPages))
+
+    totalPages.value = 3
+    await nextTick()
+    expect(page.value).toBe(3)
+
+    totalPages.value = 8
+    await nextTick()
+    expect(page.value).toBe(3)
   })
 })

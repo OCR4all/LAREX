@@ -210,11 +210,7 @@ const activeErrorFilters = computed(() => {
   return filters
 })
 
-watch(totalPages, (value) => {
-  if (page.value > value) {
-    page.value = value
-  }
-})
+useClampedPage(page, totalPages)
 
 const userOptions = computed(() => [
   { label: 'All users', value: 'all' },

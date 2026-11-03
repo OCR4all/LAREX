@@ -219,11 +219,7 @@ watch([statusFilter, lastLoginBeforeDate, userSort], () => {
   page.value = 1
 })
 
-watch(totalPages, (newTotalPages) => {
-  if (page.value > newTotalPages) {
-    page.value = newTotalPages
-  }
-})
+useClampedPage(page, totalPages)
 
 type UserRowAction = {
   label: string

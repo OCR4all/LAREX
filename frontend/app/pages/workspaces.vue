@@ -83,11 +83,7 @@ const somePageSelected = computed(() =>
 watch(globalFilter, () => {
   page.value = 1
 })
-watch(totalPages, (value) => {
-  if (page.value > value) {
-    page.value = value
-  }
-})
+useClampedPage(page, totalPages)
 watch(rows, (nextRows) => {
   const validIds = new Set(nextRows.map(workspace => workspace.id))
   selectedWorkspaceIds.value = new Set(Array.from(selectedWorkspaceIds.value).filter(id => validIds.has(id)))

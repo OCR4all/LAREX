@@ -157,11 +157,7 @@ const { rows: paginatedRuns, infiniteScroll } = useTablePagination(filteredRuns,
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
 
-watch(totalPages, (value) => {
-  if (page.value > value) {
-    page.value = value
-  }
-})
+useClampedPage(page, totalPages)
 
 const columns = computed<TableColumn<AdminActionRun>[]>(() => [
   {

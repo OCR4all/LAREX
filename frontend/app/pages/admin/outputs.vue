@@ -128,9 +128,7 @@ watch(searchInput, useDebounceFn((value: string) => {
   page.value = 1
 }, 250))
 
-watch(totalPages, (value) => {
-  if (page.value > value) page.value = value
-})
+useClampedPage(page, totalPages)
 
 watch(cleanupOlderThanDaysInput, () => {
   cleanupPreviewReady.value = false

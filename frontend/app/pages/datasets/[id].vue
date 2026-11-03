@@ -543,11 +543,7 @@ watch([globalFilter, columnFilters], () => {
   page.value = 1
 }, { deep: true })
 
-watch(totalPages, (value) => {
-  if (page.value > value) {
-    page.value = value
-  }
-})
+useClampedPage(page, totalPages)
 
 const itemColumns = computed<TableColumn<DatasetTableRow>[]>(() => [
   {

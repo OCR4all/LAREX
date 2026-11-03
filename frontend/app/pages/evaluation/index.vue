@@ -34,7 +34,7 @@ const filtered = computed(() => {
 const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))
 const { rows: paginated, infiniteScroll } = useTablePagination(filtered, page, pageSize)
 watch([search, status], () => { page.value = 1 })
-watch(totalPages, (value) => { if (page.value > value) page.value = value })
+useClampedPage(page, totalPages)
 
 const UButtonComponent = resolveComponent('UButton')
 const UBadgeComponent = resolveComponent('UBadge')

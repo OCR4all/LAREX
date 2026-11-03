@@ -61,9 +61,7 @@ const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, filte
 watch([searchInput, statusFilter], () => {
   page.value = 1
 })
-watch(totalPages, (value) => {
-  if (page.value > value) page.value = value
-})
+useClampedPage(page, totalPages)
 
 const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, computed(() => filteredRuns.value.length))
 

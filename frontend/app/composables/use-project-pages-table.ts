@@ -155,11 +155,7 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     page.value = 1
   }, { deep: true })
 
-  watch(totalPagesCount, (value) => {
-    if (page.value > value) {
-      page.value = value
-    }
-  })
+  useClampedPage(page, totalPagesCount)
 
   const visibleProjectPageRows = ref<Page[]>([])
   const projectPagesTableRef = ref<{ $el?: HTMLElement | null } | null>(null)

@@ -82,11 +82,7 @@ export function useResourceListPage<T extends object>(options: ResourceListPageO
     page.value = 1
   }, { deep: true })
 
-  watch(totalPages, (value) => {
-    if (page.value > value) {
-      page.value = value
-    }
-  })
+  useClampedPage(page, totalPages)
 
   return {
     ...filters,
