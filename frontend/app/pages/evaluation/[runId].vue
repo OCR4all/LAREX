@@ -1,7 +1,7 @@
 <!-- eslint-disable @stylistic/max-statements-per-line -->
 <script setup lang="ts">
 import { actionRunStatusLabel } from '@/utils/action-run-status'
-import type { TableColumn } from '@nuxt/ui'
+import type { BreadcrumbItem, TableColumn } from '@nuxt/ui'
 import type { ActionOutputFile } from '@/types/action-output'
 import type { ActionRun, ActionRunDetail, EvaluationMetric, EvaluationReport } from '@/types/action'
 
@@ -27,7 +27,25 @@ const samplePageSize = 25
 const fileMode = computed(() => detail.value?.evaluationOutputMode === 'FILES')
 const output = computed(() => detail.value?.evaluationOutput)
 const report = computed<EvaluationReport | null>(() => fileMode.value ? null : (detail.value?.evaluationReport || detail.value?.resultSummary || null) as EvaluationReport | null)
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
+  { label: 'Home', icon: 'i-lucide-home', to: '/' },
+  { label: 'Evaluation', icon: 'i-lucide-chart-no-axes-combined', to: '/evaluation' },
+  { label: detail.value ? `${detail.value.run.datasetLabel || 'Dataset'} · ${detail.value.run.processorName}` : 'Evaluation results' }
+])
 const backgroundDownloads = useBackgroundDownloads()
+async function downloadReportJson() {
+  const currentRun = detail.value?.run
+  if (!report.value || !currentRun) return
+  const fileName = `evaluation-${currentRun.datasetLabel || 'dataset'}-${currentRun.processorName}-${currentRun.id.slice(0, 8)}.json`
+  const target = await backgroundDownloads.prepareDownload(fileName)
+  if (!target) return
+  const response = new Response(JSON.stringify(report.value, null, 2), { headers: { 'Content-Type': 'application/json' } })
+  try {
+    await backgroundDownloads.downloadBlobResponse(response, fileName, undefined, target)
+  } catch (error: unknown) {
+    toast.add({ title: 'Could not download evaluation report', description: error instanceof Error ? error.message : undefined, color: 'error' })
+  }
+}
 async function downloadFile(file: ActionOutputFile) {
   const currentOutput = output.value
   const currentRun = detail.value?.run
@@ -136,18 +154,23 @@ watch([workspaceId, runId], () => {
 <template>
   <UDashboardPanel id="evaluation-detail">
     <template #header>
-      <UDashboardNavbar :title="detail?.run.processorName || 'Evaluation results'">
+      <UDashboardNavbar :title="detail?.run.processorName || 'Evaluation results'" />
+      <UDashboardToolbar>
+        <template #left>
+          <UBreadcrumb :items="breadcrumbItems" />
+        </template>
         <template #right>
           <UButton
-            to="/evaluation"
+            v-if="report"
             color="neutral"
             variant="outline"
-            icon="i-lucide-arrow-left"
+            icon="i-lucide-file-json"
+            @click="downloadReportJson"
           >
-            Evaluation runs
+            Download JSON
           </UButton>
         </template>
-      </UDashboardNavbar>
+      </UDashboardToolbar>
     </template>
     <template #body>
       <div v-if="loading && !detail" class="mx-auto w-full max-w-7xl space-y-4 p-6">
