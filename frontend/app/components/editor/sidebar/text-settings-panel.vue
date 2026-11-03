@@ -9,6 +9,7 @@ const cutoutHeight = defineModel<number>('cutoutHeight', { default: 72 })
 const textItemLayout = defineModel<TextItemLayout>('textItemLayout', { default: 'vertical' })
 const autoSelectFirstLine = defineModel<boolean>('autoSelectFirstLine', { default: true })
 const focusMode = defineModel<boolean>('focusMode', { default: false })
+const showNonAssignedIndices = defineModel<boolean>('showNonAssignedIndices', { default: false })
 const textlineSortOrder = defineModel<TextlineSortOrder>('textlineSortOrder', { default: 'top-to-bottom' })
 
 const props = withDefaults(defineProps<{
@@ -93,6 +94,19 @@ const textlineSortTabItems = [
         </span>
       </div>
       <USwitch v-model="focusMode" />
+    </div>
+
+    <div v-if="!props.fullTextMode && !props.canvasMode" class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <span class="text-sm font-medium block">Show Non-Assigned Indices</span>
+        <span class="text-xs text-muted">
+          Show indices outside configured GT/recognition assignments as disabled fields.
+        </span>
+        <p v-if="focusMode" class="text-xs text-muted mt-1">
+          Turn off Focus Mode to show these variants.
+        </p>
+      </div>
+      <USwitch v-model="showNonAssignedIndices" :disabled="focusMode" aria-label="Show Non-Assigned Indices" />
     </div>
 
     <div v-if="!props.fullTextMode" class="flex items-center justify-between gap-3">

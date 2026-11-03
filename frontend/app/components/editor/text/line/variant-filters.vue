@@ -2,7 +2,6 @@
 const selectedIndices = defineModel<number[]>('selectedIndices', { default: () => [] })
 const filterUnindexed = defineModel<boolean>('filterUnindexed', { default: false })
 const confidenceRange = defineModel<number[]>('confidenceRange', { default: () => [0, 1] })
-const showNonAssignedIndices = defineModel<boolean>('showNonAssignedIndices', { default: false })
 
 defineProps<{
   availableIndices: number[]
@@ -82,16 +81,6 @@ const confidenceRangeModel = computed<[number, number]>({
           No variants found.
         </div>
       </div>
-    </div>
-
-    <div class="flex items-center justify-between gap-3">
-      <div class="min-w-0">
-        <span class="text-sm font-medium block">Show Non-Assigned Indices</span>
-        <span class="text-xs text-muted">
-          Show indices outside configured GT/recognition assignments as disabled fields.
-        </span>
-      </div>
-      <USwitch v-model="showNonAssignedIndices" />
     </div>
   </div>
 </template>

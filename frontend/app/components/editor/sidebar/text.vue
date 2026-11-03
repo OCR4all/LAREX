@@ -73,6 +73,13 @@ const focusModeModel = computed({
   }
 })
 
+const showNonAssignedIndicesModel = computed({
+  get: () => textViewSettings.value.showNonAssignedIndices,
+  set: (next: boolean) => {
+    sessionStore.updateTextViewSettings(current => ({ ...current, showNonAssignedIndices: Boolean(next) }))
+  }
+})
+
 const includeWhitespaceInCodecHighlightModel = computed({
   get: () => uiStore.includeWhitespaceInCodecHighlight,
   set: next => uiStore.setIncludeWhitespaceInCodecHighlight(Boolean(next))
@@ -257,6 +264,7 @@ onBeforeUnmount(() => {
                 v-model:text-item-layout="textItemLayoutModel"
                 v-model:auto-select-first-line="autoSelectFirstLineModel"
                 v-model:focus-mode="focusModeModel"
+                v-model:show-non-assigned-indices="showNonAssignedIndicesModel"
                 v-model:textline-sort-order="textlineSortOrderModel"
                 :full-text-mode="isFullTextMode"
                 :canvas-mode="uiStore.textModeSubmode === 'visual' || isFullTextMode"
@@ -320,6 +328,7 @@ onBeforeUnmount(() => {
             v-model:text-item-layout="textItemLayoutModel"
             v-model:auto-select-first-line="autoSelectFirstLineModel"
             v-model:focus-mode="focusModeModel"
+            v-model:show-non-assigned-indices="showNonAssignedIndicesModel"
             v-model:textline-sort-order="textlineSortOrderModel"
             :full-text-mode="isFullTextMode"
             :canvas-mode="uiStore.textModeSubmode === 'visual' || isFullTextMode"

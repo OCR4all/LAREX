@@ -69,15 +69,16 @@ describe('Additional textline filters', () => {
     expect(filters.activeLocalFilterCount.value).toBe(3)
   })
 
-  it('resets all selected filters and the active count', () => {
+  it('resets filters without changing the non-assigned indices setting', () => {
     const filters = setup()
+    filters.showNonAssignedIndicesModel.value = true
+    expect(filters.activeLocalFilterCount.value).toBe(0)
     filters.additionalFilters.value = ['empty', 'dictionaryMismatch', 'matchingFilter']
     filters.gtFilterModel.value = 'with'
     filters.confidenceRangeModel.value = [0.2, 0.8]
     filters.selectedIndicesModel.value = [1, 2]
     filters.filterUnindexedModel.value = true
-    filters.showNonAssignedIndicesModel.value = true
-    expect(filters.activeLocalFilterCount.value).toBe(7)
+    expect(filters.activeLocalFilterCount.value).toBe(6)
     filters.resetLineFilters()
 
     expect(filters.additionalFilters.value).toEqual([])
@@ -85,7 +86,7 @@ describe('Additional textline filters', () => {
     expect(filters.confidenceRangeModel.value).toEqual([0, 1])
     expect(filters.selectedIndicesModel.value).toEqual([])
     expect(filters.filterUnindexedModel.value).toBe(false)
-    expect(filters.showNonAssignedIndicesModel.value).toBe(false)
+    expect(filters.showNonAssignedIndicesModel.value).toBe(true)
     expect(filters.activeLocalFilterCount.value).toBe(0)
     expect(filters.ids()).toHaveLength(5)
   })

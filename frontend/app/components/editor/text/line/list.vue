@@ -248,15 +248,7 @@ const hasUnindexed = computed(() => {
       || !Number.isFinite(variant.index) || variant.index < 0))
 })
 
-const showNonAssignedIndicesModel = computed({
-  get: () => textViewSettings.value.showNonAssignedIndices,
-  set: (next: boolean) => {
-    sessionStore.updateTextViewSettings(current => ({
-      ...current,
-      showNonAssignedIndices: Boolean(next)
-    }))
-  }
-})
+const showNonAssignedIndicesModel = computed(() => textViewSettings.value.showNonAssignedIndices)
 
 const gtFilterModel = computed({
   get: () => textViewSettings.value.gtFilter,
@@ -1229,7 +1221,6 @@ function resetLineFilters(): void {
   confidenceRangeModel.value = [0, 1]
   selectedIndicesModel.value = []
   filterUnindexedModel.value = false
-  showNonAssignedIndicesModel.value = false
   diffFilter.value = 'all'
   additionalFilters.value = []
 }
@@ -1255,8 +1246,7 @@ const activeLocalFilterCount = computed(() => [
   commentsFilter.value !== 'all',
   diffFilter.value !== 'all',
   hasConfidenceFilter(confidenceRangeModel.value),
-  selectedIndicesModel.value.length > 0 || filterUnindexedModel.value,
-  showNonAssignedIndicesModel.value
+  selectedIndicesModel.value.length > 0 || filterUnindexedModel.value
 ].filter(Boolean).length + additionalFilters.value.length)
 
 const hasActiveLocalFilters = computed(() => activeLocalFilterCount.value > 0)
@@ -1387,7 +1377,6 @@ const sectionMenuItems = computed(() => {
                   <VariantFilters
                     v-model:selected-indices="selectedIndicesModel"
                     v-model:filter-unindexed="filterUnindexedModel"
-                    v-model:show-non-assigned-indices="showNonAssignedIndicesModel"
                     v-model:confidence-range="confidenceRangeModel"
                     :available-indices="availableIndices"
                     :has-unindexed="hasUnindexed"
