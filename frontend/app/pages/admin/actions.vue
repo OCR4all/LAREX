@@ -92,6 +92,8 @@ const diagnostics = ref<ActionValidationDiagnostic[]>([])
 const validation = ref<ActionValidationResponse | null>(null)
 const initialYaml = ref(DEFAULT_ACTION_YAML)
 const editorContent = ref(DEFAULT_ACTION_YAML)
+// Keep YAML edits for this page visit, including incomplete/invalid definitions.
+const unsavedYaml = new Map<string, { content: string, initial: string }>()
 const isWhitespaceVisible = ref(false)
 const workflowFilter = ref('')
 const definitionFilters = ref(emptyActionDefinitionFilters())
@@ -198,6 +200,7 @@ const knownSecretRefs = computed(() => {
 const canCreateEndpointSecret = computed(() => endpointSecretRefInput.value.trim().length > 0 && !creatingEndpointSecret.value)
 
 onMounted(() => {
+  window.addEventListener('beforeunload', beforeUnload)
   if (!syncDefinitionSelectionFromRoute()) {
     const firstDefinition = definitions.value[0]
     if (firstDefinition) {
@@ -246,6 +249,7 @@ watch(selectedId, async () => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', beforeUnload)
   editorView?.destroy()
   editorView = null
 })
@@ -305,7 +309,31 @@ function createWorkflow() {
   createNewDefinition(true)
 }
 
-onBeforeRouteLeave(() => canLeaveWorkflow())
+onBeforeRouteLeave(async () => {
+  if (workflowBusy.value) return false
+  if (!hasUnsavedChanges()) return true
+  const instance = confirmSlideover.open({
+    title: 'Leave Actions?',
+    message: 'All unsaved drafts and changes will be lost if you leave this page.',
+    confirmLabel: 'Discard and leave',
+    cancelLabel: 'Keep editing',
+    confirmColor: 'warning',
+    confirmIcon: 'i-lucide-log-out'
+  })
+  return await instance.result === true
+})
+
+function hasUnsavedChanges() {
+  return Boolean(draftDefinition.value)
+    || workflowDirty.value
+    || (!selectedDefinition.value?.workflowId && isDirty.value)
+    // The selected Action's current text takes precedence if its edits were reverted.
+    || [...unsavedYaml.keys()].some(id => id !== selectedId.value)
+}
+
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (hasUnsavedChanges()) event.preventDefault()
+}
 
 function canLeaveWorkflow() {
   if (workflowBusy.value) return false
@@ -330,6 +358,7 @@ function workflowMetadata(value: { name: string, description: string }) {
 
 function selectDefinition(definition: ActionDefinitionResponse) {
   if (!canLeaveWorkflow()) return
+  rememberUnsavedYaml()
   newWorkflow.value = false
   workflowDirty.value = false
   if (definition.workflowId || selectedDefinition.value?.workflowId) {
@@ -339,11 +368,29 @@ function selectDefinition(definition: ActionDefinitionResponse) {
   if (definition.workflowId) isRunsPanelVisible.value = false
   else isWorkflowRunsPanelVisible.value = false
   selectedId.value = definition.id
-  initialYaml.value = definition.yaml
+  const draft = unsavedYaml.get(definition.id)
+  initialYaml.value = draft?.initial ?? definition.yaml
   validation.value = null
   diagnostics.value = []
   expandedAuditEventIds.value = []
-  void nextTick(() => replaceEditorContent(definition.yaml))
+  showYaml(draft?.content ?? definition.yaml)
+}
+
+function rememberUnsavedYaml() {
+  const definition = selectedDefinition.value
+  if (!definition || definition.workflowId) return
+  if (isDirty.value) {
+    unsavedYaml.set(definition.id, { content: currentYaml.value, initial: initialYaml.value })
+  } else {
+    unsavedYaml.delete(definition.id)
+  }
+}
+
+function showYaml(content: string) {
+  editorContent.value = content
+  void nextTick(() => {
+    if (editorContent.value === content) replaceEditorContent(content)
+  })
 }
 
 function syncDefinitionSelectionFromRoute(items: ActionDefinitionResponse[] = definitions.value) {
@@ -358,7 +405,12 @@ function syncDefinitionSelectionFromRoute(items: ActionDefinitionResponse[] = de
 }
 
 function createNewDefinition(asWorkflow = false) {
+  if (draftDefinition.value && Boolean(draftDefinition.value.workflowId) === asWorkflow) {
+    selectDefinition(draftDefinition.value)
+    return
+  }
   if (!canLeaveWorkflow()) return
+  rememberUnsavedYaml()
   isWorkflowRunsPanelVisible.value = false
   newWorkflow.value = asWorkflow
   workflowDirty.value = false
@@ -409,7 +461,7 @@ function createNewDefinition(asWorkflow = false) {
     editorView?.destroy()
     editorView = null
   } else {
-    void nextTick(() => replaceEditorContent(yaml))
+    showYaml(yaml)
   }
 }
 
@@ -504,6 +556,7 @@ async function saveDefinition() {
   if (!canSave.value) return
   saving.value = true
   try {
+    const savedDraftId = selectedId.value
     const saved = selectedPersistedDefinition.value
       ? await $fetch<ActionDefinitionResponse>(`/api/admin/actions/processors/${selectedPersistedDefinition.value.id}`, {
           method: 'PUT',
@@ -514,7 +567,8 @@ async function saveDefinition() {
           body: { yaml: currentYaml.value }
         })
     await refresh()
-    draftDefinition.value = null
+    if (savedDraftId) unsavedYaml.delete(savedDraftId)
+    if (draftDefinition.value?.id === savedDraftId) draftDefinition.value = null
     selectedId.value = saved.id
     initialYaml.value = saved.yaml
     validation.value = null
@@ -647,6 +701,7 @@ async function deleteSelectedAction() {
   try {
     const deletedId = selectedPersistedDefinition.value.id
     await $fetch(`/api/admin/actions/processors/${deletedId}`, { method: 'DELETE' })
+    unsavedYaml.delete(deletedId)
     if (draftDefinition.value?.id === deletedId) {
       draftDefinition.value = null
     }
@@ -678,6 +733,7 @@ async function deleteSelectedAction() {
 function discardDraft() {
   workflowDirty.value = false
   newWorkflow.value = false
+  if (draftDefinition.value) unsavedYaml.delete(draftDefinition.value.id)
   draftDefinition.value = null
   const firstDefinition = definitions.value[0]
   if (firstDefinition) {
@@ -692,7 +748,7 @@ function discardDraft() {
   runs.value = []
   auditEvents.value = []
   expandedAuditEventIds.value = []
-  void nextTick(() => replaceEditorContent(DEFAULT_ACTION_YAML))
+  showYaml(DEFAULT_ACTION_YAML)
 }
 
 async function toggleRunsPanel() {
