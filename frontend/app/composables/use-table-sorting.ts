@@ -67,7 +67,6 @@ export function usePersistentTableSorting(
     const nextSort = copySort(stored ?? fallback)
     if (areSortsEqual(sort.value, nextSort)) return
 
-    // Applying stored or default sorting is not a user change; don't persist it.
     ignorePreferenceSync(() => {
       sort.value = nextSort
     })

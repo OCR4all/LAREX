@@ -62,8 +62,6 @@ function createSetup(bindings: registry.ShortcutBindingsMap = {}) {
     if (id === '@/composables/editor/use-canvas-interaction-blocker') return { useBlockEditorCanvasInteractions: () => {} }
     throw new Error(`Unexpected dependency ${id}`)
   }, exportsObject)
-  // defineModel needs a component instance, so run setup inside a host that
-  // owns the open state like a parent using v-model:open would.
   const component = exportsObject.default!
   const props = Vue.reactive({ open: true })
   let setup!: Setup

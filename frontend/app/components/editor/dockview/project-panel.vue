@@ -159,8 +159,6 @@ const onReady = (event: DockviewReadyEvent) => {
   })
 }
 
-// Only page membership matters here; a deep watch would also fire on selection,
-// drawing mode and save state changes in every canvas.
 const projectCanvasPageIds = computed(() => {
   const id = projectId.value
   if (!id) return []

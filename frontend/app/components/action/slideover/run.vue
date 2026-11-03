@@ -439,8 +439,6 @@ const canStart = computed(() =>
 watch([
   selectedProcessorId, scope, parameterValues, submittedImageVariantSelection
 ], resetReview, { deep: true, flush: 'sync' })
-// Callers pass freshly built targets on open, so identity is enough. Deep
-// traversal would walk every page summary on each synchronous trigger.
 watch([
   () => props.targetSelection, () => props.pageIds, () => props.pages
 ], resetReview, { flush: 'sync' })

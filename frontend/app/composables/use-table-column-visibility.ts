@@ -102,7 +102,6 @@ export function usePersistentTableColumnVisibility(
     const nextState = buildVisibilityState(ids, initialVisibility)
     if (areVisibilityStatesEqual(columnVisibility.value, nextState)) return
 
-    // Applying stored or default visibility is not a user change; don't persist it.
     ignorePreferenceSync(() => {
       columnVisibility.value = nextState
     })

@@ -115,8 +115,7 @@ function createEmptyInviteUser(): CreateUserSchema {
 
 const inviteUsersState = reactive<InviteUsersSchema>({ users: [createEmptyInviteUser()] })
 
-// Stable row keys, so removing a row doesn't hand its input state to the next
-// row. Keyed by object because validated rows come back without extra fields.
+// Keyed by object because validated rows come back without extra fields.
 const inviteRowKeys = new WeakMap<object, number>()
 let nextInviteRowKey = 0
 function inviteRowKey(user: CreateUserSchema): number {
