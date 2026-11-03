@@ -1,3 +1,4 @@
+import { effectScope } from 'vue'
 import { normalizeLegacyLabelFilterValues } from '@/utils/editor/page-filter-tokens'
 import { extractApiErrorMessage } from '@/utils/api-error'
 import type { PageWorkflowState } from '@/types/project-page'
@@ -319,11 +320,15 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
 
   if (!persistenceWatcherInitialized) {
     persistenceWatcherInitialized = true
-    watch(globalFilterState, (state) => {
-      if (import.meta.client && globalCurrentProjectId.value) {
-        sessionStorage.setItem(`page-filter-${globalCurrentProjectId.value}`, JSON.stringify(state))
-      }
-    }, { deep: true })
+    // The filter state is module-level, so its watcher must outlive the first
+    // caller. Created in that component's scope, it would stop on unmount.
+    effectScope(true).run(() => {
+      watch(globalFilterState, (state) => {
+        if (import.meta.client && globalCurrentProjectId.value) {
+          sessionStorage.setItem(`page-filter-${globalCurrentProjectId.value}`, JSON.stringify(state))
+        }
+      }, { deep: true })
+    })
   }
 
   watch(projectId, (newProjectId) => {
