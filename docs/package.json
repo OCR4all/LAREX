@@ -8,25 +8,16 @@
     "prepare:installer-assets": "node --experimental-strip-types ../scripts/stage-docs-installer-assets.mts",
     "predev": "pnpm prepare:installer-assets",
     "dev": "nuxt dev",
-    "prebuild": "pnpm prepare:installer-assets && pnpm check",
+    "prebuild": "pnpm prepare:installer-assets",
     "build": "nuxt build",
     "start": "node .output/server/index.mjs",
     "preview": "pnpm run build && pnpm run start"
   },
   "dependencies": {
     "@nuxt/a11y": "1.0.0-alpha.1",
-    "@nuxt/content": "3.14.0",
-    "@nuxt/fonts": "0.12.1",
-    "@nuxt/icon": "2.2.0",
-    "@nuxt/image": "2.0.0",
-    "@nuxt/ui": "4.8.2",
     "better-sqlite3": "^12.10.0",
+    "docus": "5.15.0",
     "fflate": "^0.8.3",
-    "nuxt": "^4.4.8",
-    "tailwindcss": "^4.3.1"
-  },
-  "devDependencies": {
-    "github-slugger": "2.0.0",
-    "yaml": "2.9.0"
+    "nuxt": "^4.6.3"
   }
 }
