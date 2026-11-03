@@ -84,29 +84,8 @@ const formSplitSeed = ref(42)
 const formStratifyTags = ref<string[]>([])
 const trainPercentage = ref(70)
 const valPercentage = ref(15)
-const syncingForm = ref(false)
 
-watch(dataset, (value) => {
-  if (!value) return
-
-  syncingForm.value = true
-  formOutputRetentionDays.value = value.outputRetentionDays ?? 30
-  formRetainOutputsForever.value = value.outputRetentionDays == null
-  formName.value = value.name
-  formDescription.value = value.description || ''
-  formTags.value = [...(value.tags || [])]
-  formSplitTemplate.value = value.splitTemplate
-  formSplitAlgorithm.value = value.splitAlgorithm
-  formSplitSeed.value = value.splitSeed
-  trainPercentage.value = value.trainPercentage
-  valPercentage.value = value.valPercentage
-  formStratifyTags.value = [...(value.stratifyTagIds || [])]
-  syncingForm.value = false
-}, { immediate: true })
-
-watch(() => formSplitTemplate.value, (value) => {
-  if (syncingForm.value) return
-
+const { ignoreUpdates: ignoreSplitTemplateChange } = watchIgnorable(formSplitTemplate, (value) => {
   if (value === 'TRAIN_VAL') {
     if (trainPercentage.value + valPercentage.value !== 100) {
       trainPercentage.value = 80
@@ -122,6 +101,25 @@ watch(() => formSplitTemplate.value, (value) => {
     valPercentage.value = 15
   }
 })
+
+watch(dataset, (value) => {
+  if (!value) return
+
+  // Loading the saved split must not reset its percentages to template defaults.
+  ignoreSplitTemplateChange(() => {
+    formOutputRetentionDays.value = value.outputRetentionDays ?? 30
+    formRetainOutputsForever.value = value.outputRetentionDays == null
+    formName.value = value.name
+    formDescription.value = value.description || ''
+    formTags.value = [...(value.tags || [])]
+    formSplitTemplate.value = value.splitTemplate
+    formSplitAlgorithm.value = value.splitAlgorithm
+    formSplitSeed.value = value.splitSeed
+    trainPercentage.value = value.trainPercentage
+    valPercentage.value = value.valPercentage
+    formStratifyTags.value = [...(value.stratifyTagIds || [])]
+  })
+}, { immediate: true })
 
 const validationResult = ref<DatasetValidationResult | null>(null)
 const validating = ref(false)

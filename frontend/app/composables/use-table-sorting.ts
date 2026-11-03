@@ -1,4 +1,5 @@
 import type { MaybeRefOrGetter } from 'vue'
+import { watchIgnorable } from '@vueuse/core'
 import {
   useEditorPreferences,
   type TableSortPreference
@@ -32,7 +33,6 @@ export function usePersistentTableSorting(
   const tableId = computed(() => toValue(tableIdSource).trim())
   const defaultSort = computed(() => copySort(toValue(defaultSortSource)))
   const sort = ref<TableSortPreference>(copySort(defaultSort.value))
-  const syncingFromPreferences = ref(false)
 
   const storedSort = computed<TableSortPreference | null>(() => {
     if (!editorPreferences.initialized.value || !tableId.value) return null
@@ -41,19 +41,9 @@ export function usePersistentTableSorting(
     return isTableSortPreference(candidate) ? candidate : null
   })
 
-  watch([storedSort, defaultSort], ([stored, fallback]) => {
-    const nextSort = copySort(stored ?? fallback)
-    if (areSortsEqual(sort.value, nextSort)) return
-
-    syncingFromPreferences.value = true
-    sort.value = nextSort
-    syncingFromPreferences.value = false
-  }, { immediate: true })
-
-  watch(sort, (nextSort) => {
+  const { ignoreUpdates: ignorePreferenceSync } = watchIgnorable(sort, (nextSort) => {
     if (
       import.meta.server
-        || syncingFromPreferences.value
         || !editorPreferences.initialized.value
         || !tableId.value
         || !isTableSortPreference(nextSort)
@@ -72,6 +62,16 @@ export function usePersistentTableSorting(
     editorPreferences.preferences.value.tableSorting = nextTableSorting
     void editorPreferences.savePreferences({ tableSorting: nextTableSorting })
   }, { deep: true })
+
+  watch([storedSort, defaultSort], ([stored, fallback]) => {
+    const nextSort = copySort(stored ?? fallback)
+    if (areSortsEqual(sort.value, nextSort)) return
+
+    // Applying stored or default sorting is not a user change; don't persist it.
+    ignorePreferenceSync(() => {
+      sort.value = nextSort
+    })
+  }, { immediate: true })
 
   onServerPrefetch(async () => {
     if (!editorPreferences.initialized.value) {

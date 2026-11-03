@@ -70,4 +70,17 @@ describe('usePersistentTableSorting', () => {
       tableSorting: preferences.value.tableSorting
     })
   })
+
+  it('does not persist a changed default sort as a user preference', async () => {
+    const { usePersistentTableSorting } = await import('../use-table-sorting')
+    const defaultSort = ref<{ column: string, direction: 'asc' | 'desc' }>({ column: 'name', direction: 'asc' })
+    const sort = usePersistentTableSorting('project-pages-v2', defaultSort)
+
+    defaultSort.value = { column: 'updated', direction: 'desc' }
+    await nextTick()
+    await nextTick()
+
+    expect(sort.value).toEqual({ column: 'updated', direction: 'desc' })
+    expect(savePreferences).not.toHaveBeenCalled()
+  })
 })

@@ -1,5 +1,6 @@
 import type { VisibilityState } from '@tanstack/vue-table'
 import type { MaybeRefOrGetter } from 'vue'
+import { watchIgnorable } from '@vueuse/core'
 import { useEditorPreferences } from '@/composables/use-editor-preferences'
 
 function normalizeColumnIds(ids: string[]): string[] {
@@ -49,7 +50,6 @@ export function usePersistentTableColumnVisibility(
   const editorPreferences = useEditorPreferences()
 
   const columnVisibility = ref<VisibilityState>({})
-  const syncingFromPreferences = ref(false)
 
   const tableId = computed(() => toValue(tableIdSource).trim())
   const columnIds = computed(() => normalizeColumnIds(toValue(columnIdsSource)))
@@ -68,29 +68,13 @@ export function usePersistentTableColumnVisibility(
     return allTableVisibility[tableId.value] ?? null
   })
 
-  watch([storedVisibility, columnIds, defaultVisibleColumnIds], ([stored, ids, defaultVisible]) => {
-    const initialVisibility = stored ?? (defaultVisible
-      ? ids.reduce<VisibilityState>((acc, columnId) => {
-          acc[columnId] = defaultVisible.includes(columnId)
-          return acc
-        }, {})
-      : null)
-    const nextState = buildVisibilityState(ids, initialVisibility)
-    if (areVisibilityStatesEqual(columnVisibility.value, nextState)) return
-
-    syncingFromPreferences.value = true
-    columnVisibility.value = nextState
-    syncingFromPreferences.value = false
-  }, { immediate: true })
-
-  watch(columnVisibility, (nextState) => {
-    if (import.meta.server || syncingFromPreferences.value || !editorPreferences.initialized.value || !tableId.value) return
+  const { ignoreUpdates: ignorePreferenceSync } = watchIgnorable(columnVisibility, (nextState) => {
+    if (import.meta.server || !editorPreferences.initialized.value || !tableId.value) return
 
     const normalizedState = buildVisibilityState(columnIds.value, nextState)
     if (!areVisibilityStatesEqual(nextState, normalizedState)) {
-      syncingFromPreferences.value = true
+      // This watcher runs again with the normalized state and persists that.
       columnVisibility.value = normalizedState
-      syncingFromPreferences.value = false
       return
     }
 
@@ -107,6 +91,22 @@ export function usePersistentTableColumnVisibility(
     editorPreferences.preferences.value.tableColumnVisibility = nextTableColumnVisibility
     void editorPreferences.savePreferences({ tableColumnVisibility: nextTableColumnVisibility })
   }, { deep: true })
+
+  watch([storedVisibility, columnIds, defaultVisibleColumnIds], ([stored, ids, defaultVisible]) => {
+    const initialVisibility = stored ?? (defaultVisible
+      ? ids.reduce<VisibilityState>((acc, columnId) => {
+          acc[columnId] = defaultVisible.includes(columnId)
+          return acc
+        }, {})
+      : null)
+    const nextState = buildVisibilityState(ids, initialVisibility)
+    if (areVisibilityStatesEqual(columnVisibility.value, nextState)) return
+
+    // Applying stored or default visibility is not a user change; don't persist it.
+    ignorePreferenceSync(() => {
+      columnVisibility.value = nextState
+    })
+  }, { immediate: true })
 
   onServerPrefetch(async () => {
     if (!editorPreferences.initialized.value) {
