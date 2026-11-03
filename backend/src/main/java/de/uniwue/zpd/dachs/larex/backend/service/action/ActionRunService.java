@@ -1473,7 +1473,7 @@ public class ActionRunService {
                 ActionTrainingInput first = inputs.getFirst();
                 return new ActionDto.MachinePageInput(
                         first.getDatasetItemId(), first.getPageName(), first.getSourcePageId(), first.getSplit(),
-                        inputs.stream().map(input -> new ActionDto.MachinePageFile(
+                        inputs.stream().filter(input -> input.getImageFileName() != null).map(input -> new ActionDto.MachinePageFile(
                                 input.getId(), input.getImageFileName(), input.getImageVariant(), input.getImageMimeType(),
                                 input.getImageFileSize(), machineFileUrl(publicApiBaseUrl, runId, "images", input.getId()), imageTypes.typeOf(input))).toList(),
                         List.of(new ActionDto.MachinePageFile(
@@ -1585,7 +1585,10 @@ public class ActionRunService {
                     .filter(value -> value.getRun() != null && runId.equals(value.getRun().getId()))
                     .orElseThrow(() -> new IllegalArgumentException("Training input file not found"));
             return switch (type) {
-                case "images" -> new MachineFile(input.getImageSnapshotPath(), input.getImageFileName(), input.getImageMimeType());
+                case "images" -> {
+                    if (input.getImageSnapshotPath() == null) throw new IllegalArgumentException("Training input file not found");
+                    yield new MachineFile(input.getImageSnapshotPath(), input.getImageFileName(), input.getImageMimeType());
+                }
                 case "xml" -> new MachineFile(input.getXmlSnapshotPath(), input.getXmlFileName(), input.getXmlMimeType());
                 default -> throw new IllegalArgumentException("Unsupported file type");
             };
@@ -3914,8 +3917,11 @@ public class ActionRunService {
 
     private ActionDto.InputRequirements datasetInputRequirements(ActionRun run) {
         var images = inputRequirementsForRun(run).images();
+        // Training always freezes images; evaluation honors the declared image level.
+        ActionDto.InputLevel imageLevel = run.getKind() == ActionRun.Kind.EVALUATION
+                ? images.levelFor(ActionTarget.PAGE) : ActionDto.InputLevel.REQUIRED;
         return new ActionDto.InputRequirements(
-                new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), images.multiple(), images.imageTypes()),
+                new ActionDto.InputRequirement(imageLevel, List.of(), images.multiple(), images.imageTypes()),
                 new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of()));
     }
 

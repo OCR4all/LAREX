@@ -60,7 +60,7 @@ public class ImageTypeService {
     public int backfillBatch() {
         int count = backfill("page_images", "file_path", "");
         count += backfill("dataset_item_copy_files", "file_path", " AND kind = 'IMAGE'");
-        count += backfill("action_training_inputs", "image_snapshot_path", "");
+        count += backfill("action_training_inputs", "image_snapshot_path", " AND image_snapshot_path IS NOT NULL");
         return count + backfill("action_input_snapshots", "snapshot_path", " AND file_type = 'images'");
     }
 

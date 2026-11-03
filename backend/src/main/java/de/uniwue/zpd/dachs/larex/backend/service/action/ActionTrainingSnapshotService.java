@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService;
 import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.InputLevel;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionInputSnapshot;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionInputSnapshotRepository;
@@ -113,7 +114,8 @@ public class ActionTrainingSnapshotService {
         return createSnapshot(workspaceId, dataset, run,
                 new ActionDto.StartTrainingRunRequest(
                         request.processorDefinitionId(), request.selection(), request.imageSelection(),
-                        request.parameters(), request.enqueueIfBusy()), requirements, imageRequirement);
+                        request.parameters(), request.enqueueIfBusy()), requirements, imageRequirement,
+                imageRequirement.levelFor(ActionTarget.PAGE));
     }
 
     public SnapshotResult createSnapshot(String workspaceId,
@@ -122,6 +124,17 @@ public class ActionTrainingSnapshotService {
                                          ActionDto.StartTrainingRunRequest request,
                                          ActionDto.TrainingSplitRequirements requirements,
                                          ActionDto.InputRequirement imageRequirement) throws IOException {
+        // Training processors always receive frozen image/XML pairs.
+        return createSnapshot(workspaceId, dataset, run, request, requirements, imageRequirement, InputLevel.REQUIRED);
+    }
+
+    private SnapshotResult createSnapshot(String workspaceId,
+                                          Dataset dataset,
+                                          ActionRun run,
+                                          ActionDto.StartTrainingRunRequest request,
+                                          ActionDto.TrainingSplitRequirements requirements,
+                                          ActionDto.InputRequirement imageRequirement,
+                                          InputLevel imageLevel) throws IOException {
         List<DatasetItem> allItems = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(dataset.getId());
         List<DatasetItem> selectedItems = selectItems(allItems, request.selection(), requirements);
         if (selectedItems.isEmpty()) {
@@ -133,22 +146,22 @@ public class ActionTrainingSnapshotService {
             if (item.getStatus() != DatasetItem.Status.READY) {
                 throw new IllegalArgumentException("Dataset item is not ready: " + item.getSourcePageName());
             }
-            materials.addAll(resolveMaterials(workspaceId, item, request.imageSelection(), imageRequirement));
+            materials.addAll(resolveMaterials(workspaceId, item, request.imageSelection(), imageRequirement, imageLevel));
         }
         requireSplits(materials, requirements);
 
-        long totalBytes = materials.stream().mapToLong(material -> material.image().size() + material.xml().size()).sum();
+        long totalBytes = materials.stream().mapToLong(material -> (material.image() == null ? 0 : material.image().size()) + material.xml().size()).sum();
         long reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(workspaceId, totalBytes, "action-training-snapshot");
         Path runRoot = snapshotRoot(run);
         try {
             Files.createDirectories(runRoot);
             List<ActionTrainingInput> saved = new ArrayList<>();
             for (ResolvedMaterial material : materials) {
-                Path itemRoot = runRoot.resolve(safeSegment(material.item().getId())).resolve(safeSegment(material.image().id()));
+                ResolvedFile image = material.image();
+                Path itemRoot = runRoot.resolve(safeSegment(material.item().getId()))
+                        .resolve(image == null ? "xml-only" : safeSegment(image.id()));
                 Files.createDirectories(itemRoot);
-                Path imageTarget = itemRoot.resolve("image-" + safeFileName(material.image().fileName()));
                 Path xmlTarget = itemRoot.resolve("annotation-" + safeFileName(material.xml().fileName()));
-                Files.copy(material.image().path(), imageTarget, StandardCopyOption.REPLACE_EXISTING);
                 Files.copy(material.xml().path(), xmlTarget, StandardCopyOption.REPLACE_EXISTING);
 
                 ActionTrainingInput input = new ActionTrainingInput();
@@ -157,14 +170,18 @@ public class ActionTrainingSnapshotService {
                 input.setSourcePageId(material.item().getSourcePageId());
                 input.setPageName(material.item().getSourcePageName());
                 input.setSplit(material.item().getAssignedSplit());
-                input.setImageFileId(material.image().id());
-                input.setImageFileName(material.image().fileName());
-                input.setImageVariant(material.image().variant());
-                input.setImageType(material.image().imageType());
-                input.setImageMimeType(material.image().mimeType());
-                input.setImageFileSize(Files.size(imageTarget));
-                input.setImageChecksumSha256(sha256(imageTarget));
-                input.setImageSnapshotPath(relativePath(imageTarget));
+                if (image != null) {
+                    Path imageTarget = itemRoot.resolve("image-" + safeFileName(image.fileName()));
+                    Files.copy(image.path(), imageTarget, StandardCopyOption.REPLACE_EXISTING);
+                    input.setImageFileId(image.id());
+                    input.setImageFileName(image.fileName());
+                    input.setImageVariant(image.variant());
+                    input.setImageType(image.imageType());
+                    input.setImageMimeType(image.mimeType());
+                    input.setImageFileSize(Files.size(imageTarget));
+                    input.setImageChecksumSha256(sha256(imageTarget));
+                    input.setImageSnapshotPath(relativePath(imageTarget));
+                }
                 input.setXmlFileId(material.xml().id());
                 input.setXmlFileName(material.xml().fileName());
                 input.setXmlMimeType(material.xml().mimeType());
@@ -409,7 +426,8 @@ public class ActionTrainingSnapshotService {
     private List<ResolvedMaterial> resolveMaterials(String workspaceId,
                                                     DatasetItem item,
                                                     ActionDto.TrainingImageSelection selection,
-                                                    ActionDto.InputRequirement imageRequirement) {
+                                                    ActionDto.InputRequirement imageRequirement,
+                                                    InputLevel imageLevel) {
         List<ResolvedFile> images;
         ResolvedFile xml;
         if (item.getMode() == DatasetItem.Mode.COPY) {
@@ -447,6 +465,12 @@ public class ActionTrainingSnapshotService {
         if (!Files.isRegularFile(xml.path())) {
             throw new IllegalArgumentException("Selected XML file is missing for " + item.getSourcePageName());
         }
+        ResolvedFile selectedXml = xml;
+        if (imageLevel == InputLevel.NONE
+                || imageLevel == InputLevel.OPTIONAL && !hasImageOverride(item, selection)
+                && images.stream().noneMatch(image -> imageRequirement.acceptsType(image.imageType()))) {
+            return List.of(new ResolvedMaterial(item, null, selectedXml));
+        }
         List<ResolvedFile> selected = selectImages(item, images, selection, imageRequirement);
         if (selected.isEmpty()) {
             throw new IllegalArgumentException("No compatible image for " + item.getSourcePageName()
@@ -457,7 +481,6 @@ public class ActionTrainingSnapshotService {
                 throw new IllegalArgumentException("Selected image file is missing for " + item.getSourcePageName());
             }
         }
-        ResolvedFile selectedXml = xml;
         return selected.stream().map(image -> new ResolvedMaterial(item, image, selectedXml)).toList();
     }
 
@@ -663,7 +686,7 @@ public class ActionTrainingSnapshotService {
                     .forEach(input -> {
                         String value = String.join("|", input.getDatasetItemId(), input.getSourcePageId(),
                                 input.getSplit().name(), Objects.toString(input.getImageVariant(), ""),
-                                input.getImageFileId(), input.getImageChecksumSha256(),
+                                Objects.toString(input.getImageFileId(), ""), Objects.toString(input.getImageChecksumSha256(), ""),
                                 input.getXmlFileId(), input.getXmlChecksumSha256());
                         digest.update(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     });

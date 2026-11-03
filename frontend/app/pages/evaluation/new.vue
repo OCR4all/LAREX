@@ -1,6 +1,6 @@
 <!-- eslint-disable @stylistic/max-statements-per-line -->
 <script setup lang="ts">
-import { actionImageSelectionValues, compatibleActionImages, actionImageVariantOptions, selectableActionImages, defaultActionImageVariants } from '@/utils/action-input-requirements'
+import { actionImageSelectionValues, actionInputLevelForTarget, compatibleActionImages, actionImageVariantOptions, selectableActionImages, defaultActionImageVariants } from '@/utils/action-input-requirements'
 import type { ActionDefinitionResponse, ActionEvaluationDefinition, ActionParameterChoice, ActionParameterValue, StartActionRunResponse, TrainingInputItem, TrainingInputResponse } from '@/types/action'
 import type { DatasetSummary } from '@/types/dataset'
 
@@ -30,6 +30,9 @@ watch(datasets, (value) => { if (!selectedDatasetId.value || !value.some(item =>
 watch(processors, (value) => { if (!selectedProcessorId.value || !value.some(item => item.id === selectedProcessorId.value)) selectedProcessorId.value = value[0]?.id }, { immediate: true })
 
 const selectedProcessor = computed(() => processors.value.find(item => item.id === selectedProcessorId.value))
+// Evaluation Actions may take PAGE XML alone; images follow the declared input level.
+const imageLevel = computed(() => selectedProcessor.value ? actionInputLevelForTarget(selectedProcessor.value.inputs.images, 'PAGE') : 'REQUIRED')
+const acceptsImages = computed(() => imageLevel.value !== 'NONE')
 const multipleImages = computed(() => selectedProcessor.value?.inputs.images.multiple === true)
 watch(multipleImages, (multiple) => {
   if (multiple) return
@@ -43,9 +46,9 @@ const evaluation = computed<ActionEvaluationDefinition | null>(() => selectedPro
 const splitRequirements = computed(() => evaluation.value?.splits)
 const filteredDatasets = computed(() => datasets.value.filter(dataset => `${dataset.name} ${dataset.description || ''}`.toLowerCase().includes(datasetSearch.value.trim().toLowerCase())))
 function compatibleImages(item: TrainingInputItem) {
-  return compatibleActionImages(item.images, selectedProcessor.value?.inputs.images)
+  return acceptsImages.value ? compatibleActionImages(item.images, selectedProcessor.value?.inputs.images) : []
 }
-const compatibleItems = computed(() => (inputs.value?.items || []).filter(item => splitLevel(item) !== 'NONE' && item.status === 'READY' && item.xmlAvailable && compatibleImages(item).length > 0))
+const compatibleItems = computed(() => (inputs.value?.items || []).filter(item => splitLevel(item) !== 'NONE' && item.status === 'READY' && item.xmlAvailable && (imageLevel.value !== 'REQUIRED' || compatibleImages(item).length > 0)))
 const activeItems = computed(() => selectionMode.value === 'ALL' ? compatibleItems.value : compatibleItems.value.filter(item => selectedItemIds.value.has(item.itemId)))
 const filteredItems = computed(() => (inputs.value?.items || []).filter(item => (splitFilter.value === 'ALL' || item.split === splitFilter.value) && item.pageName.toLowerCase().includes(itemSearch.value.trim().toLowerCase())))
 const splitCounts = computed(() => activeItems.value.reduce<Record<string, number>>((result, item) => { result[item.split] = (result[item.split] || 0) + 1; return result }, {}))
@@ -70,6 +73,7 @@ function selectedImageIds(item: TrainingInputItem) {
   return resolvedImages(item).map(image => image.id).filter(id => selectableIds.has(id))
 }
 const submittedImageIdLists = computed(() => {
+  if (!acceptsImages.value) return {}
   const selections = { ...itemImageIdLists.value }
   if (selectedProcessor.value?.inputs.images.imageTypes?.length) {
     for (const item of activeItems.value) {
@@ -92,7 +96,7 @@ function resolvedImages(item: TrainingInputItem) {
   }
   return compatibleImages(item).length === 1 ? compatibleImages(item) : []
 }
-const imageSelectionReady = computed(() => activeItems.value.every(item => resolvedImages(item).length > 0))
+const imageSelectionReady = computed(() => activeItems.value.every(item => (imageLevel.value !== 'REQUIRED' && compatibleImages(item).length === 0) || resolvedImages(item).length > 0))
 const requiredParametersPresent = computed(() => Object.entries(selectedProcessor.value?.parameters || {}).every(([key, definition]) => !definition.required || (parameters.value[key] !== undefined && String(parameters.value[key]).trim().length > 0)))
 const canStart = computed(() => Boolean(selectedDatasetId.value && selectedProcessorId.value && activeItems.value.length && requiredSplitsPresent.value && imageSelectionReady.value && requiredParametersPresent.value))
 const steps = [{ title: 'Dataset', description: 'Choose a dataset', icon: 'i-lucide-database' }, { title: 'Subset', description: 'Select pages and splits', icon: 'i-lucide-list-checks' }, { title: 'Action', description: 'Select model and parameters', icon: 'i-lucide-sliders-horizontal' }, { title: 'Review', description: 'Confirm and start', icon: 'i-lucide-rocket' }]
@@ -125,7 +129,7 @@ async function startEvaluation() {
   if (!canStart.value) return
   startPending.value = true
   try {
-    const response = await $fetch<StartActionRunResponse>(`/api/workspaces/${workspaceId.value}/actions/evaluation/datasets/${selectedDatasetId.value}/runs`, { method: 'POST', body: { processorDefinitionId: selectedProcessorId.value, selection: selectionMode.value === 'ALL' ? { mode: 'ALL' } : { mode: 'SELECTED', itemIds: [...selectedItemIds.value] }, imageSelection: { globalVariants: globalVariants.value, itemImageIdLists: submittedImageIdLists.value }, parameters: parameters.value, enqueueIfBusy: true } })
+    const response = await $fetch<StartActionRunResponse>(`/api/workspaces/${workspaceId.value}/actions/evaluation/datasets/${selectedDatasetId.value}/runs`, { method: 'POST', body: { processorDefinitionId: selectedProcessorId.value, selection: selectionMode.value === 'ALL' ? { mode: 'ALL' } : { mode: 'SELECTED', itemIds: [...selectedItemIds.value] }, imageSelection: { globalVariants: acceptsImages.value ? globalVariants.value : [], itemImageIdLists: submittedImageIdLists.value }, parameters: parameters.value, enqueueIfBusy: true } })
     toast.add({ title: response.run.status === 'QUEUED' ? 'Evaluation queued' : 'Evaluation started', color: 'success' }); await navigateTo('/evaluation')
   } catch (error: unknown) { toast.add({ title: 'Could not start evaluation', description: error instanceof Error ? error.message : undefined, color: 'error' }) } finally { startPending.value = false }
 }
@@ -253,7 +257,7 @@ async function startEvaluation() {
                   <p class="truncate font-medium">
                     {{ item.pageName }}
                   </p><p class="truncate text-xs text-muted">
-                    {{ compatibleItems.includes(item) ? `${compatibleImages(item).length} image variant(s) · XML ready` : (item.brokenReason || 'Unsupported or incomplete input') }}
+                    {{ compatibleItems.includes(item) ? (acceptsImages ? `${compatibleImages(item).length} image variant(s) · XML ready` : 'XML ready') : (item.brokenReason || 'Unsupported or incomplete input') }}
                   </p>
                 </div><USelect
                   v-if="compatibleItems.includes(item) && selectableImages(item).length > 0"
@@ -285,7 +289,7 @@ async function startEvaluation() {
               :description="selectedProcessor?.info ?? undefined"
               :ui="{ description: 'whitespace-pre-wrap' }"
             />
-            <UFormField label="Global image variants" :description="selectedProcessor?.inputs.images.imageTypes?.length ? `Accepted types: ${selectedProcessor.inputs.images.imageTypes.join(', ').toLowerCase()}. Pending types are checked before starting.` : undefined">
+            <UFormField v-if="acceptsImages" label="Global image variants" :description="selectedProcessor?.inputs.images.imageTypes?.length ? `Accepted types: ${selectedProcessor.inputs.images.imageTypes.join(', ').toLowerCase()}. Pending types are checked before starting.` : undefined">
               <USelect
                 :model-value="multipleImages ? globalVariants : globalVariants[0]"
                 :multiple="multipleImages"
@@ -349,7 +353,7 @@ async function startEvaluation() {
             class="mt-5"
             color="warning"
             title="Evaluation cannot start yet"
-            description="Resolve required splits, image/XML pairs, image variants, or parameters."
+            description="Resolve required splits, XML or image inputs, image variants, or parameters."
           />
         </UCard>
         <div class="flex items-center justify-between border-t border-default pt-4">

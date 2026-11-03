@@ -53,25 +53,25 @@ public class ActionTrainingInput {
     @Column(nullable = false, length = 16)
     private DatasetItem.Split split;
 
-    @Column(nullable = false, name = "image_file_id")
+    @Column(name = "image_file_id")
     private String imageFileId;
 
-    @Column(nullable = false, name = "image_file_name")
+    @Column(name = "image_file_name")
     private String imageFileName;
 
     @Column(name = "image_variant")
     private String imageVariant;
 
-    @Column(nullable = false, name = "image_mime_type")
+    @Column(name = "image_mime_type")
     private String imageMimeType;
 
-    @Column(nullable = false, name = "image_file_size")
-    private long imageFileSize;
+    @Column(name = "image_file_size")
+    private Long imageFileSize;
 
-    @Column(nullable = false, name = "image_checksum_sha256", length = 64)
+    @Column(name = "image_checksum_sha256", length = 64)
     private String imageChecksumSha256;
 
-    @Column(nullable = false, name = "image_snapshot_path", columnDefinition = "TEXT")
+    @Column(name = "image_snapshot_path", columnDefinition = "TEXT")
     private String imageSnapshotPath;
 
     @Column(nullable = false, name = "xml_file_id")
@@ -115,8 +115,8 @@ public class ActionTrainingInput {
     public void setImageVariant(String imageVariant) { this.imageVariant = imageVariant; }
     public String getImageMimeType() { return imageMimeType; }
     public void setImageMimeType(String imageMimeType) { this.imageMimeType = imageMimeType; }
-    public long getImageFileSize() { return imageFileSize; }
-    public void setImageFileSize(long imageFileSize) { this.imageFileSize = imageFileSize; }
+    public Long getImageFileSize() { return imageFileSize; }
+    public void setImageFileSize(Long imageFileSize) { this.imageFileSize = imageFileSize; }
     public String getImageChecksumSha256() { return imageChecksumSha256; }
     public void setImageChecksumSha256(String imageChecksumSha256) { this.imageChecksumSha256 = imageChecksumSha256; }
     public String getImageSnapshotPath() { return imageSnapshotPath; }

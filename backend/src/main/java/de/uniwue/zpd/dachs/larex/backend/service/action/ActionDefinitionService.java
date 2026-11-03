@@ -528,9 +528,8 @@ public class ActionDefinitionService {
             if (outputsXml || outputsImages || outputsFiles) {
                 diagnostics.add(error("outputs", "Evaluation Actions use evaluation.outputMode instead of outputs"));
             }
-            if (!inputRequirements.images().required(ActionTarget.PAGE)
-                    || !inputRequirements.xml().required(ActionTarget.PAGE)) {
-                diagnostics.add(error("inputs", "Evaluation Actions require image and XML inputs"));
+            if (!inputRequirements.xml().required(ActionTarget.PAGE)) {
+                diagnostics.add(error("inputs.xml", "Evaluation Actions require XML inputs"));
             }
         } else if (lockMode == LockMode.NONE) {
             diagnostics.add(error("locking.mode", "Processing Actions must lock pages or the project"));

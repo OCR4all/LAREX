@@ -171,6 +171,38 @@ class ActionIntegrationSnapshotServiceTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = ActionDto.InputLevel.class, names = {"NONE", "OPTIONAL"})
+    void freezesXmlOnlyEvaluationInputsWhenImagesAreNotRequired(ActionDto.InputLevel imageLevel) throws Exception {
+        run.setProjectId(null); run.setDatasetId("dataset"); run.setKind(ActionRun.Kind.EVALUATION);
+        Dataset dataset = new Dataset(); dataset.setId("dataset");
+        DatasetItem item = new DatasetItem(); item.setId("item"); item.setSourcePageId("page");
+        item.setSourcePageName("Page"); item.setMode(DatasetItem.Mode.COPY); item.setStatus(DatasetItem.Status.READY);
+        item.setAssignedSplit(DatasetItem.Split.TEST); item.setSelectedSourceXmlId("xml"); item.setSelectedSourceImageIds(List.of());
+        item.setCopyFiles(List.of(copyFile(DatasetItemCopyFile.Kind.XML, "xml", "source.xml")));
+        when(items.findByDatasetIdOrderByCreatedAsc("dataset")).thenReturn(List.of(item));
+        var splits = new ActionDto.TrainingSplitRequirements(ActionDto.InputLevel.NONE,
+                ActionDto.InputLevel.NONE, ActionDto.InputLevel.REQUIRED);
+        var request = new ActionDto.StartEvaluationRunRequest("definition",
+                new ActionDto.TrainingSelection("ALL", List.of()), null, Map.of(), true);
+
+        var result = service.createEvaluationSnapshot("workspace", dataset, run, request, splits,
+                new ActionDto.InputRequirement(imageLevel, List.of()));
+
+        assertThat(result.inputCount()).isEqualTo(1);
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        org.mockito.ArgumentCaptor<List<ActionTrainingInput>> captured = org.mockito.ArgumentCaptor.forClass((Class) List.class);
+        verify(trainingInputs).saveAll(captured.capture());
+        assertThat(captured.getValue()).singleElement().satisfies(input -> {
+            assertThat(input.getImageFileId()).isNull();
+            assertThat(input.getImageSnapshotPath()).isNull();
+            assertThat(Files.readString(root.resolve(input.getXmlSnapshotPath()))).isEqualTo("original xml");
+        });
+        assertThatThrownBy(() -> service.createEvaluationSnapshot("workspace", dataset, run, request, splits,
+                new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of())))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("No selected image");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.EnumSource(value = ActionRun.Kind.class, names = {"TRAINING", "EVALUATION", "INTEGRATION"})
     void selectsTypesAndFreezesTheirMetadataForCopiedAndLinkedDatasets(ActionRun.Kind kind) throws Exception {
         var binaryType = de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY;
