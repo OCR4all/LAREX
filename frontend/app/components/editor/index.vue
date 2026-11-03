@@ -2317,10 +2317,7 @@ const selectedTextlineGtVariant = computed(() => {
     .find(variant => variant.index === activeGtIndex.value)
 })
 
-const selectedTextlineFirstRecognitionVariant = computed(() => {
-  const polygon = selectedTextlinePolygon.value
-  if (!polygon) return undefined
-
+function findFirstRecognitionVariant(polygon: RenderableTextlinePolygon) {
   const variants = normalizeEditableTextVariants(polygon.textContentVariants)
   for (const recognitionIndex of activeRecognitionIndices.value) {
     const variant = variants.find(candidate => (
@@ -2331,6 +2328,11 @@ const selectedTextlineFirstRecognitionVariant = computed(() => {
   }
 
   return undefined
+}
+
+const selectedTextlineFirstRecognitionVariant = computed(() => {
+  const polygon = selectedTextlinePolygon.value
+  return polygon ? findFirstRecognitionVariant(polygon) : undefined
 })
 
 const canCreateGtFromRecognition = computed(() => (
@@ -2763,11 +2765,19 @@ function flushPendingCorrectionCommit() {
   pendingCorrectionCommit.value = null
 }
 
-function navigateCanvasCorrectionTextline(direction: 1 | -1): boolean {
+function navigateCanvasCorrectionTextline(direction: 1 | -1, populateGt = false): boolean {
   flushPendingCorrectionCommit()
   const currentId = selectedTextlinePolygon.value?.id ?? null
   const nextId = getAdjacentTextlineId(pageOrderTextlineIds.value, currentId, direction)
-  if (!nextId || nextId === currentId) return false
+  if (!nextId || (nextId === currentId && !populateGt)) return false
+
+  if (populateGt && isCanvasWritable.value) {
+    const nextPolygon = polygons.find(polygon => polygon.id === nextId) as RenderableTextlinePolygon | undefined
+    if (nextPolygon && !nextPolygon.textContentVariants?.some(variant => variant.index === activeGtIndex.value)) {
+      const source = findFirstRecognitionVariant(nextPolygon)
+      updateTextlineGtTextById(nextId, source?.unicode ?? '')
+    }
+  }
 
   canvasControls.selectPolylineById?.(null, { focusMode: 'none' })
   canvasControls.selectPolygonById?.(nextId, { focusMode: 'none' })
@@ -2784,6 +2794,9 @@ function handleCorrectionTextareaKeydown(event: KeyboardEvent) {
 
   if (event.key === 'Enter') {
     event.preventDefault()
+    if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey) return
+    event.stopPropagation()
+    navigateCanvasCorrectionTextline(event.shiftKey ? -1 : 1, true)
   }
 }
 
@@ -2876,7 +2889,7 @@ watch(
     const gtIndexChanged = gtIndex !== prevGtIndex
     if (!selectionChanged && !justEnabled && !gtIndexChanged) return
 
-    // Selecting a line only loads its text. Input and Copy to GT create GT on demand.
+    // Selecting a line only loads its text. Input, Enter navigation and Copy to GT create GT on demand.
     correctionInputValue.value = selectedTextlineGtText.value
 
     if (selectionChanged || justEnabled) {

@@ -8,7 +8,7 @@ import { createMockSession, createTestContext, createTestDocument, createTestTex
 import { TextContentVariant, TextLine } from '@/models/editor'
 import { Polygon } from '@/models/editor/geometry'
 import { getAdjacentTextlineId } from '@/utils/editor/textline-navigation'
-import { setGtVariantUnicode } from '@/utils/editor/text-variants'
+import { normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
 import { createTextlineVariantsUpdateCommand } from '../text/shared/textline-variant-update'
 import editorSource from '../index.vue?raw'
 
@@ -16,7 +16,7 @@ import editorSource from '../index.vue?raw'
 // with real undoable document commands and without mounting the WebGL editor.
 const ast = ts.createSourceFile('editor.ts', parse(editorSource).descriptor.scriptSetup!.content, ts.ScriptTarget.Latest, true)
 const functionNames = [
-  'commitTextlineVariants', 'normalizeSingleLineText',
+  'commitTextlineVariants', 'normalizeSingleLineText', 'findFirstRecognitionVariant',
   'updateTextlineGtTextById', 'flushPendingCorrectionCommit', 'navigateCanvasCorrectionTextline',
   'handleCorrectionTextareaKeydown', 'handleCorrectionOverlayKeydown',
   'handleCorrectionTextareaInput', 'handleCorrectionTextareaBlur', 'createGtFromRecognition'
@@ -51,6 +51,7 @@ function setup() {
   const selectedId = ref<string | null>(null)
   const selectedTextlinePolygon = computed(() => lines.find(line => line.id === selectedId.value))
   const activeGtIndex = ref(0)
+  const activeRecognitionIndices = ref([1])
   const selectedTextlineGtVariant = computed(() => {
     // Depend on the document revision, as the renderable polygons do in production.
     void session.document.value
@@ -61,12 +62,12 @@ function setup() {
   const isTextVisualMode = ref(true)
   const isCanvasWritable = ref(true)
   const dependencies = {
-    watch, session, activeGtIndex, selectedTextlinePolygon, selectedTextlineGtVariant,
+    watch, session, activeGtIndex, activeRecognitionIndices, selectedTextlinePolygon, selectedTextlineGtVariant,
     selectedTextlineGtText: computed(() => selectedTextlineGtVariant.value?.unicode ?? ''),
     selectedTextlineFirstRecognitionVariant: computed(() => selectedTextlinePolygon.value?.textContentVariants?.find(variant => variant.index === 1)),
     correctionInputValue, pendingCorrectionCommit, isTextVisualMode, isCanvasWritable,
     correctionViewInitialized: ref(false), pageOrderTextlineIds: ref(lines.map(line => line.id)),
-    polygons: lines, setGtVariantUnicode, getAdjacentTextlineId,
+    polygons: lines, normalizeEditableTextVariants, setGtVariantUnicode, getAdjacentTextlineId,
     createTextlineVariantsUpdateCommand, getCommandContext: () => context,
     canvasControls: {
       commander,
@@ -92,10 +93,98 @@ function setup() {
     handlers.handleCorrectionOverlayKeydown(new KeyboardEvent('keydown', { key: 'Tab', shiftKey }))
     await nextTick()
   }
-  return { ...handlers, input, tab, selectedId, activeGtIndex, correctionInputValue, isTextVisualMode, isCanvasWritable, lines, region, commander, context }
+  const enter = async (init: KeyboardEventInit = {}) => {
+    const event = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, ...init })
+    handlers.handleCorrectionTextareaKeydown(event)
+    await nextTick()
+    return event
+  }
+  return { ...handlers, input, tab, enter, selectedId, activeGtIndex, activeRecognitionIndices, correctionInputValue, isTextVisualMode, isCanvasWritable, lines, region, commander, context }
 }
 
 describe('Canvas text correction', () => {
+  it('saves pending input and populates the next line from recognition on Enter with undo/redo', async () => {
+    const editor = setup()
+    editor.selectedId.value = 'line-1'
+    await nextTick()
+    editor.input('Transcription')
+    const event = await editor.enter()
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(editor.selectedId.value).toBe('line-2')
+    expect(editor.lines[0]!.textContentVariants?.[0]?.unicode).toBe('Transcription')
+    expect(editor.lines[1]!.textContentVariants?.map(variant => [variant.index, variant.unicode]))
+      .toEqual([[0, 'OCR'], [1, 'OCR']])
+    expect(editor.correctionInputValue.value).toBe('OCR')
+    expect(editor.region.textContentVariants?.[0]?.unicode).toBe('Transcription\nOCR')
+
+    editor.commander.undo(editor.context)
+    expect(editor.lines[1]!.textContentVariants?.map(variant => variant.index)).toEqual([1])
+    editor.commander.redo(editor.context)
+    expect(editor.lines[1]!.textContentVariants?.[0]?.unicode).toBe('OCR')
+  })
+
+  it.each(['Existing GT', '', '  '])('preserves existing GT %j on Enter', async (text) => {
+    const editor = setup()
+    editor.lines[1]!.textContentVariants!.unshift(new TextContentVariant(text, undefined, undefined, 0))
+    editor.selectedId.value = 'line-1'
+    await nextTick()
+    await editor.enter()
+
+    expect(editor.selectedId.value).toBe('line-2')
+    expect(editor.correctionInputValue.value).toBe(text)
+    expect(editor.commander.canUndo()).toBe(false)
+  })
+
+  it('wraps in both directions and creates empty GT when recognition is missing', async () => {
+    const editor = setup()
+    editor.selectedId.value = 'line-2'
+    await nextTick()
+    await editor.enter()
+
+    expect(editor.selectedId.value).toBe('line-1')
+    expect(editor.lines[0]!.textContentVariants?.map(variant => [variant.index, variant.unicode])).toEqual([[0, '']])
+    await editor.enter({ shiftKey: true })
+    expect(editor.selectedId.value).toBe('line-2')
+    expect(editor.correctionInputValue.value).toBe('OCR')
+  })
+
+  it('uses the configured GT and recognition indices and normalizes copied text', async () => {
+    const editor = setup()
+    editor.activeGtIndex.value = 3
+    editor.activeRecognitionIndices.value = [2, 1]
+    editor.lines[1]!.textContentVariants!.push(new TextContentVariant('Preferred\nOCR', undefined, undefined, 2))
+    editor.selectedId.value = 'line-1'
+    await nextTick()
+    await editor.enter()
+
+    expect(editor.lines[1]!.textContentVariants?.find(variant => variant.index === 3)?.unicode).toBe('Preferred OCR')
+    expect(editor.correctionInputValue.value).toBe('Preferred OCR')
+  })
+
+  it.each([{ isComposing: true }, { altKey: true }, { ctrlKey: true }, { metaKey: true }])(
+    'does not navigate or populate GT on modified or composing Enter: %j', async (init) => {
+      const editor = setup()
+      editor.selectedId.value = 'line-1'
+      await nextTick()
+      await editor.enter(init)
+
+      expect(editor.selectedId.value).toBe('line-1')
+      expect(editor.commander.canUndo()).toBe(false)
+    }
+  )
+
+  it('does not populate GT on a read-only canvas', async () => {
+    const editor = setup()
+    editor.isCanvasWritable.value = false
+    editor.selectedId.value = 'line-1'
+    await nextTick()
+    await editor.enter()
+
+    expect(editor.lines[1]!.textContentVariants?.map(variant => variant.index)).toEqual([1])
+    expect(editor.commander.canUndo()).toBe(false)
+  })
+
   it('does not create GT or undo history when selecting and tabbing through untouched lines', async () => {
     const editor = setup()
     editor.selectedId.value = 'line-1'
