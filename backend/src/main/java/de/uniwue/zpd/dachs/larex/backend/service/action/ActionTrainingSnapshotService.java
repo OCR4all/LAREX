@@ -141,12 +141,18 @@ public class ActionTrainingSnapshotService {
             throw new IllegalArgumentException("No compatible dataset items selected for this Action");
         }
 
+        // ALL means "all compatible": skip items without an accepted image type, as integration snapshots do.
+        boolean explicit = request.selection() != null && "SELECTED".equalsIgnoreCase(request.selection().mode());
         List<ResolvedMaterial> materials = new ArrayList<>();
         for (DatasetItem item : selectedItems) {
             if (item.getStatus() != DatasetItem.Status.READY) {
                 throw new IllegalArgumentException("Dataset item is not ready: " + item.getSourcePageName());
             }
-            materials.addAll(resolveMaterials(workspaceId, item, request.imageSelection(), imageRequirement, imageLevel));
+            materials.addAll(resolveMaterials(workspaceId, item, request.imageSelection(), imageRequirement, imageLevel, !explicit));
+        }
+        if (materials.isEmpty()) {
+            throw new IllegalArgumentException("No compatible image for any selected dataset item; accepted types: "
+                    + imageRequirement.imageTypes());
         }
         requireSplits(materials, requirements);
 
@@ -427,7 +433,8 @@ public class ActionTrainingSnapshotService {
                                                     DatasetItem item,
                                                     ActionDto.TrainingImageSelection selection,
                                                     ActionDto.InputRequirement imageRequirement,
-                                                    InputLevel imageLevel) {
+                                                    InputLevel imageLevel,
+                                                    boolean skipIncompatible) {
         List<ResolvedFile> images;
         ResolvedFile xml;
         if (item.getMode() == DatasetItem.Mode.COPY) {
@@ -470,6 +477,10 @@ public class ActionTrainingSnapshotService {
                 || imageLevel == InputLevel.OPTIONAL && !hasImageOverride(item, selection)
                 && images.stream().noneMatch(image -> imageRequirement.acceptsType(image.imageType()))) {
             return List.of(new ResolvedMaterial(item, null, selectedXml));
+        }
+        if (skipIncompatible && !imageRequirement.imageTypes().isEmpty() && !images.isEmpty() && !hasImageOverride(item, selection)
+                && images.stream().noneMatch(image -> imageRequirement.acceptsType(image.imageType()))) {
+            return List.of();
         }
         List<ResolvedFile> selected = selectImages(item, images, selection, imageRequirement);
         if (selected.isEmpty()) {

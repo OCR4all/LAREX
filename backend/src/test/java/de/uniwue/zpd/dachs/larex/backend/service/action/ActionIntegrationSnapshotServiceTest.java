@@ -268,7 +268,43 @@ class ActionIntegrationSnapshotServiceTest {
                 List.of(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY));
         var request = new ActionDto.StartTrainingRunRequest("definition", new ActionDto.TrainingSelection("ALL", List.of()), null, Map.of(), true);
         assertThatThrownBy(() -> service.createSnapshot("workspace", dataset, run, request, splits, requirement))
+                .hasMessageContaining("No compatible image for any selected dataset item");
+        var explicit = new ActionDto.StartTrainingRunRequest("definition", new ActionDto.TrainingSelection("SELECTED", List.of("item")), null, Map.of(), true);
+        assertThatThrownBy(() -> service.createSnapshot("workspace", dataset, run, explicit, splits, requirement))
                 .hasMessageContaining("No compatible image for Page");
+    }
+
+    @Test void evaluationOfAllCompatibleItemsSkipsItemsWithoutAcceptedImageTypes() throws Exception {
+        run.setKind(ActionRun.Kind.EVALUATION); run.setProjectId(null); run.setDatasetId("dataset");
+        var dataset = new Dataset(); dataset.setId("dataset");
+        Files.writeString(root.resolve("gray.png"), "gray");
+        Files.writeString(root.resolve("binary.png"), "binary");
+        var compatible = typedItem("compatible", "gray", "gray.png", de.uniwue.zpd.dachs.larex.backend.entity.ImageType.GRAYSCALE);
+        var incompatible = typedItem("incompatible", "binary", "binary.png", de.uniwue.zpd.dachs.larex.backend.entity.ImageType.BINARY);
+        when(items.findByDatasetIdOrderByCreatedAsc("dataset")).thenReturn(List.of(compatible, incompatible));
+        var splits = new ActionDto.TrainingSplitRequirements(ActionDto.InputLevel.REQUIRED, ActionDto.InputLevel.NONE, ActionDto.InputLevel.NONE);
+        var requirement = new ActionDto.InputRequirement(ActionDto.InputLevel.REQUIRED, List.of(), false,
+                List.of(de.uniwue.zpd.dachs.larex.backend.entity.ImageType.COLOR, de.uniwue.zpd.dachs.larex.backend.entity.ImageType.GRAYSCALE));
+        var variants = new ActionDto.TrainingImageSelection(null, null, List.of("scan"), Map.of());
+        var request = new ActionDto.StartEvaluationRunRequest("definition", new ActionDto.TrainingSelection("ALL", List.of()), variants, Map.of(), true);
+
+        var result = service.createEvaluationSnapshot("workspace", dataset, run, request, splits, requirement);
+
+        assertThat(result.inputCount()).isEqualTo(1);
+        var explicit = new ActionDto.StartEvaluationRunRequest("definition",
+                new ActionDto.TrainingSelection("SELECTED", List.of("compatible", "incompatible")), variants, Map.of(), true);
+        assertThatThrownBy(() -> service.createEvaluationSnapshot("workspace", dataset, run, explicit, splits, requirement))
+                .hasMessageContaining("Selected image variants are missing for incompatible");
+    }
+
+    DatasetItem typedItem(String id, String imageId, String imagePath, de.uniwue.zpd.dachs.larex.backend.entity.ImageType type) throws Exception {
+        var item = new DatasetItem(); item.setId(id); item.setSourcePageId(id); item.setSourcePageName(id);
+        item.setMode(DatasetItem.Mode.COPY); item.setStatus(DatasetItem.Status.READY); item.setAssignedSplit(DatasetItem.Split.TRAIN);
+        item.setSelectedSourceXmlId("xml"); item.setSelectedSourceImageIds(List.of(imageId));
+        var image = copyFile(DatasetItemCopyFile.Kind.IMAGE, imageId, imagePath);
+        image.setImageType(type); image.setVariant("scan");
+        item.setCopyFiles(List.of(image, copyFile(DatasetItemCopyFile.Kind.XML, "xml", "source.xml")));
+        return item;
     }
 
     @Test void freezesLinkedDatasetFilesBeforeSourceEdits() throws Exception {
