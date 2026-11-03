@@ -499,8 +499,6 @@ export const useEditorStore = defineStore('editor', () => {
       clearLabelSet(projectId)
       clearProjectCodec(projectId)
     }
-    pages.value = []
-    selectedVariantIdByPageId.value = {}
     clearLabelSet()
     clearProjectCodec()
   }

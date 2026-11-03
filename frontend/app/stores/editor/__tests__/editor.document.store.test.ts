@@ -275,4 +275,33 @@ describe('editor.document.store', () => {
     expect(store.projectDictionaryId).toBe('dictionary-default-b')
     expect(store.projectVirtualKeyboardId).toBe('keyboard-default-b')
   })
+
+  it('reads back metadata set while no project is active', async () => {
+    const { store } = await createStores()
+
+    store.setLabelSet(new LabelSet('page-xml', 'PAGE XML', []))
+    store.setProjectToolkitSettings({ allowCodecOverride: false })
+    store.setProjectTextIndexDefaults({ gtIndex: 2, recognitionIndices: [0] })
+
+    expect(store.labelSet?.id).toBe('page-xml')
+    expect(store.projectToolkitSettings.allowCodecOverride).toBe(false)
+    expect(store.projectTextDefaultGtIndex).toBe(2)
+    expect(store.pages).toEqual([])
+  })
+
+  it('updates active views when the active project changes in place', async () => {
+    const { sessionStore, store } = await createStores()
+
+    sessionStore.addOpenedProject('project-a')
+    sessionStore.setActiveProject('project-a')
+    store.setProjectPages('project-a', [createPage('project-a', 'a-1')], { replaceProject: true })
+
+    store.enrichPage('a-1', createPage('project-a', 'a-1'), 'project-a')
+    store.setSelectedVariantOverride('a-1', 'a-1-img', 'project-a')
+    store.patchProjectPageSummaries('project-a', [{ id: 'a-1', name: 'Renamed' }])
+
+    expect(store.loadedPageIds.has('a-1')).toBe(true)
+    expect(store.selectedVariantIdByPageId).toEqual({ 'a-1': 'a-1-img' })
+    expect(store.pages[0]?.label).toBe('Renamed')
+  })
 })

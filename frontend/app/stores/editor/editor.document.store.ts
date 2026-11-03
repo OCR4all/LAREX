@@ -1,3 +1,4 @@
+import type { Ref } from 'vue'
 import { editorPresentationUrl } from '@/services/editor/editor-image'
 import type { PageData, ImageVariant } from './types'
 import type { LabelSet as ApiLabelSet, LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
@@ -76,108 +77,88 @@ function normalizeProjectTextIndexDefaults(input?: Partial<ProjectTextIndexDefau
   }
 }
 
+type ProjectCodec = {
+  id: string | null
+  characters: string[]
+}
+
+type ProjectDictionary = {
+  id: string | null
+  forms: DictionaryFormEntry[]
+  caseSensitive: boolean
+  unicodeNormalization: string
+  canEdit: boolean
+  locked: boolean
+}
+
+// Key for project metadata set while no project is active, such as the PAGE XML
+// fallback label set. Project IDs are never empty, so it cannot collide.
+const DETACHED_PROJECT_KEY = ''
+
+function setEntry<T>(map: Ref<Record<string, T>>, key: string, value: T) {
+  map.value = { ...map.value, [key]: value }
+}
+
+function removeEntry<T>(map: Ref<Record<string, T>>, key: string) {
+  const { [key]: _removed, ...remaining } = map.value
+  map.value = remaining
+}
+
 export const useEditorDocumentStore = defineStore('editor-document', () => {
   const sessionStore = useEditorSessionStore()
 
   const pagesByProjectId = ref<Record<string, PageData[]>>({})
-  const pages = ref<PageData[]>([])
   const loadedPageIdsByProjectId = ref<Record<string, Set<string>>>({})
-  const loadedPageIds = ref<Set<string>>(new Set())
-
   const preferredImageVariantKeyByProjectId = ref<Record<string, string | null>>({})
   const selectedVariantIdByPageIdByProject = ref<Record<string, Record<string, string | null>>>({})
-  const selectedVariantIdByPageId = ref<Record<string, string | null>>({})
-
   const labelSetByProjectId = ref<Record<string, LabelSetModel | null>>({})
-  const labelSet = ref<LabelSetModel | null>(null)
-
-  const projectCodecByProjectId = ref<Record<string, { id: string | null, characters: string[] }>>({})
-  const projectCodecId = ref<string | null>(null)
-  const projectCodecCharacters = ref<string[]>([])
-  const projectDictionaryByProjectId = ref<Record<string, {
-    id: string | null
-    forms: DictionaryFormEntry[]
-    caseSensitive: boolean
-    unicodeNormalization: string
-    canEdit: boolean
-    locked: boolean
-  }>>({})
-  const projectDictionaryId = ref<string | null>(null)
-  const projectDictionaryForms = ref<DictionaryFormEntry[]>([])
-  const projectDictionaryCaseSensitive = ref<boolean>(false)
-  const projectDictionaryUnicodeNormalization = ref<string>('NFC')
-  const projectDictionaryCanEdit = ref<boolean>(false)
-  const projectDictionaryLocked = ref<boolean>(false)
+  const projectCodecByProjectId = ref<Record<string, ProjectCodec>>({})
+  const projectDictionaryByProjectId = ref<Record<string, ProjectDictionary>>({})
   const projectVirtualKeyboardIdByProjectId = ref<Record<string, string | null>>({})
-  const projectVirtualKeyboardId = ref<string | null>(null)
   const projectToolkitSettingsByProjectId = ref<Record<string, ProjectToolkitSettings>>({})
-  const projectToolkitSettings = ref<ProjectToolkitSettings>({ ...DEFAULT_TOOLKIT_SETTINGS })
   const projectTextIndexDefaultsByProjectId = ref<Record<string, ProjectTextIndexDefaults>>({})
-  const projectTextDefaultGtIndex = ref<number>(0)
-  const projectTextDefaultRecognitionIndices = ref<number[]>([1])
 
   const allPages = computed<PageData[]>(() => {
     return Object.values(pagesByProjectId.value).flat()
   })
 
   const activeProjectId = computed(() => sessionStore.activeProjectId)
-  const preferredImageVariantKey = computed(() => {
-    const projectId = activeProjectId.value
-    return projectId ? preferredImageVariantKeyByProjectId.value[projectId] ?? null : null
-  })
+  const activeProjectKey = computed(() => activeProjectId.value ?? DETACHED_PROJECT_KEY)
 
-  function syncActiveProjectState() {
-    const projectId = activeProjectId.value
-    pages.value = projectId ? [...(pagesByProjectId.value[projectId] ?? [])] : []
-    loadedPageIds.value = projectId ? cloneSet(loadedPageIdsByProjectId.value[projectId] ?? new Set()) : new Set()
-    selectedVariantIdByPageId.value = projectId ? { ...(selectedVariantIdByPageIdByProject.value[projectId] ?? {}) } : {}
-    labelSet.value = projectId ? (labelSetByProjectId.value[projectId] ?? null) : null
+  const pages = computed(() => pagesByProjectId.value[activeProjectKey.value] ?? [])
+  const loadedPageIds = computed(() => loadedPageIdsByProjectId.value[activeProjectKey.value] ?? new Set<string>())
+  const preferredImageVariantKey = computed(() => preferredImageVariantKeyByProjectId.value[activeProjectKey.value] ?? null)
+  const selectedVariantIdByPageId = computed(() => selectedVariantIdByPageIdByProject.value[activeProjectKey.value] ?? {})
+  const labelSet = computed(() => labelSetByProjectId.value[activeProjectKey.value] ?? null)
 
-    const codec = projectId ? projectCodecByProjectId.value[projectId] : undefined
-    projectCodecId.value = codec?.id ?? null
-    projectCodecCharacters.value = codec?.characters ? [...codec.characters] : []
+  const activeCodec = computed(() => projectCodecByProjectId.value[activeProjectKey.value])
+  const projectCodecId = computed(() => activeCodec.value?.id ?? null)
+  const projectCodecCharacters = computed(() => activeCodec.value?.characters ?? [])
 
-    const dictionary = projectId ? projectDictionaryByProjectId.value[projectId] : undefined
-    projectDictionaryId.value = dictionary?.id ?? null
-    projectDictionaryForms.value = dictionary?.forms ? [...dictionary.forms] : []
-    projectDictionaryCaseSensitive.value = dictionary?.caseSensitive ?? false
-    projectDictionaryUnicodeNormalization.value = dictionary?.unicodeNormalization ?? 'NFC'
-    projectDictionaryCanEdit.value = dictionary?.canEdit ?? false
-    projectDictionaryLocked.value = dictionary?.locked ?? false
-    projectVirtualKeyboardId.value = projectId ? (projectVirtualKeyboardIdByProjectId.value[projectId] ?? null) : null
-    projectToolkitSettings.value = projectId
-      ? { ...DEFAULT_TOOLKIT_SETTINGS, ...(projectToolkitSettingsByProjectId.value[projectId] ?? {}) }
-      : { ...DEFAULT_TOOLKIT_SETTINGS }
+  const activeDictionary = computed(() => projectDictionaryByProjectId.value[activeProjectKey.value])
+  const projectDictionaryId = computed(() => activeDictionary.value?.id ?? null)
+  const projectDictionaryForms = computed(() => activeDictionary.value?.forms ?? [])
+  const projectDictionaryCaseSensitive = computed(() => activeDictionary.value?.caseSensitive ?? false)
+  const projectDictionaryUnicodeNormalization = computed(() => activeDictionary.value?.unicodeNormalization ?? 'NFC')
+  const projectDictionaryCanEdit = computed(() => activeDictionary.value?.canEdit ?? false)
+  const projectDictionaryLocked = computed(() => activeDictionary.value?.locked ?? false)
 
-    const textDefaults = projectId ? projectTextIndexDefaultsByProjectId.value[projectId] : undefined
-    const normalizedTextDefaults = normalizeProjectTextIndexDefaults(textDefaults)
-    projectTextDefaultGtIndex.value = normalizedTextDefaults.gtIndex
-    projectTextDefaultRecognitionIndices.value = [...normalizedTextDefaults.recognitionIndices]
-  }
+  const projectVirtualKeyboardId = computed(() => projectVirtualKeyboardIdByProjectId.value[activeProjectKey.value] ?? null)
+  const projectToolkitSettings = computed<ProjectToolkitSettings>(() => ({
+    ...DEFAULT_TOOLKIT_SETTINGS,
+    ...(projectToolkitSettingsByProjectId.value[activeProjectKey.value] ?? {})
+  }))
 
-  watch(() => activeProjectId.value, () => {
-    syncActiveProjectState()
-  }, { immediate: true })
+  const activeTextIndexDefaults = computed(() =>
+    normalizeProjectTextIndexDefaults(projectTextIndexDefaultsByProjectId.value[activeProjectKey.value])
+  )
+  const projectTextDefaultGtIndex = computed(() => activeTextIndexDefaults.value.gtIndex)
+  const projectTextDefaultRecognitionIndices = computed(() => activeTextIndexDefaults.value.recognitionIndices)
 
   function ensureProject(projectId: string) {
-    if (!pagesByProjectId.value[projectId]) {
-      pagesByProjectId.value = {
-        ...pagesByProjectId.value,
-        [projectId]: []
-      }
-    }
-    if (!loadedPageIdsByProjectId.value[projectId]) {
-      loadedPageIdsByProjectId.value = {
-        ...loadedPageIdsByProjectId.value,
-        [projectId]: new Set()
-      }
-    }
-    if (!selectedVariantIdByPageIdByProject.value[projectId]) {
-      selectedVariantIdByPageIdByProject.value = {
-        ...selectedVariantIdByPageIdByProject.value,
-        [projectId]: {}
-      }
-    }
+    if (!pagesByProjectId.value[projectId]) setEntry(pagesByProjectId, projectId, [])
+    if (!loadedPageIdsByProjectId.value[projectId]) setEntry(loadedPageIdsByProjectId, projectId, new Set())
+    if (!selectedVariantIdByPageIdByProject.value[projectId]) setEntry(selectedVariantIdByPageIdByProject, projectId, {})
   }
 
   function toLabelSetModel(apiLabelSet: ApiLabelSet): LabelSetModel {
@@ -222,39 +203,26 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     const current = pagesByProjectId.value[projectId] ?? []
 
     if (replaceProject) {
-      pagesByProjectId.value = {
-        ...pagesByProjectId.value,
-        [projectId]: incoming
-      }
-      loadedPageIdsByProjectId.value = {
-        ...loadedPageIdsByProjectId.value,
-        [projectId]: markLoaded
-          ? new Set(incoming.map(page => page.id))
-          : options?.preserveLoaded === true
-            ? cloneSet(loadedPageIdsByProjectId.value[projectId] ?? new Set())
-            : new Set()
-      }
-    } else {
-      const byId = new Map<string, PageData>()
-      for (const page of current) byId.set(page.id, page)
-      for (const page of incoming) byId.set(page.id, page)
-      pagesByProjectId.value = {
-        ...pagesByProjectId.value,
-        [projectId]: sortPages(Array.from(byId.values()))
-      }
-      if (markLoaded) {
-        const nextLoaded = cloneSet(loadedPageIdsByProjectId.value[projectId] ?? new Set())
-        for (const page of incoming) {
-          nextLoaded.add(page.id)
-        }
-        loadedPageIdsByProjectId.value = {
-          ...loadedPageIdsByProjectId.value,
-          [projectId]: nextLoaded
-        }
-      }
+      setEntry(pagesByProjectId, projectId, incoming)
+      setEntry(loadedPageIdsByProjectId, projectId, markLoaded
+        ? new Set(incoming.map(page => page.id))
+        : options?.preserveLoaded === true
+          ? cloneSet(loadedPageIdsByProjectId.value[projectId] ?? new Set())
+          : new Set())
+      return
     }
 
-    syncActiveProjectState()
+    const byId = new Map<string, PageData>()
+    for (const page of current) byId.set(page.id, page)
+    for (const page of incoming) byId.set(page.id, page)
+    setEntry(pagesByProjectId, projectId, sortPages(Array.from(byId.values())))
+    if (markLoaded) {
+      const nextLoaded = cloneSet(loadedPageIdsByProjectId.value[projectId] ?? new Set())
+      for (const page of incoming) {
+        nextLoaded.add(page.id)
+      }
+      setEntry(loadedPageIdsByProjectId, projectId, nextLoaded)
+    }
   }
 
   function appendProjectPages(projectId: string, projectPages: PageData[]) {
@@ -262,37 +230,16 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
   }
 
   function removeProject(projectId: string) {
-    const { [projectId]: _pages, ...remainingPagesByProject } = pagesByProjectId.value
-    pagesByProjectId.value = remainingPagesByProject
-
-    const { [projectId]: _loaded, ...remainingLoaded } = loadedPageIdsByProjectId.value
-    loadedPageIdsByProjectId.value = remainingLoaded
-
-    const { [projectId]: _variants, ...remainingVariants } = selectedVariantIdByPageIdByProject.value
-    selectedVariantIdByPageIdByProject.value = remainingVariants
-
-    const { [projectId]: _labelSet, ...remainingLabelSets } = labelSetByProjectId.value
-    labelSetByProjectId.value = remainingLabelSets
-
-    const { [projectId]: _codec, ...remainingCodecs } = projectCodecByProjectId.value
-    projectCodecByProjectId.value = remainingCodecs
-
-    const { [projectId]: _dictionary, ...remainingDictionaries } = projectDictionaryByProjectId.value
-    projectDictionaryByProjectId.value = remainingDictionaries
-
-    const { [projectId]: _keyboard, ...remainingVirtualKeyboards } = projectVirtualKeyboardIdByProjectId.value
-    projectVirtualKeyboardIdByProjectId.value = remainingVirtualKeyboards
-
-    const { [projectId]: _toolkitSettings, ...remainingToolkitSettings } = projectToolkitSettingsByProjectId.value
-    projectToolkitSettingsByProjectId.value = remainingToolkitSettings
-
-    const { [projectId]: _textDefaults, ...remainingTextDefaults } = projectTextIndexDefaultsByProjectId.value
-    projectTextIndexDefaultsByProjectId.value = remainingTextDefaults
-
-    const { [projectId]: _preferredVariant, ...remainingPreferredVariants } = preferredImageVariantKeyByProjectId.value
-    preferredImageVariantKeyByProjectId.value = remainingPreferredVariants
-
-    syncActiveProjectState()
+    removeEntry(pagesByProjectId, projectId)
+    removeEntry(loadedPageIdsByProjectId, projectId)
+    removeEntry(selectedVariantIdByPageIdByProject, projectId)
+    removeEntry(labelSetByProjectId, projectId)
+    removeEntry(projectCodecByProjectId, projectId)
+    removeEntry(projectDictionaryByProjectId, projectId)
+    removeEntry(projectVirtualKeyboardIdByProjectId, projectId)
+    removeEntry(projectToolkitSettingsByProjectId, projectId)
+    removeEntry(projectTextIndexDefaultsByProjectId, projectId)
+    removeEntry(preferredImageVariantKeyByProjectId, projectId)
   }
 
   function getProjectPages(projectId: string): PageData[] {
@@ -304,7 +251,6 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     if (!inferredProjectId) {
       pagesByProjectId.value = {}
       loadedPageIdsByProjectId.value = {}
-      syncActiveProjectState()
       return
     }
     setProjectPages(inferredProjectId, newPages, { replaceProject: true })
@@ -329,13 +275,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     ensureProject(projectId)
     const next = cloneSet(loadedPageIdsByProjectId.value[projectId] ?? new Set())
     next.add(pageId)
-    loadedPageIdsByProjectId.value = {
-      ...loadedPageIdsByProjectId.value,
-      [projectId]: next
-    }
-    if (activeProjectId.value === projectId) {
-      loadedPageIds.value = cloneSet(next)
-    }
+    setEntry(loadedPageIdsByProjectId, projectId, next)
   }
 
   function enrichPage(pageId: string, enrichedData: PageData, projectId?: string) {
@@ -351,12 +291,8 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
       ...enrichedData,
       projectId: targetProjectId
     }
-    pagesByProjectId.value = {
-      ...pagesByProjectId.value,
-      [targetProjectId]: projectPages
-    }
+    setEntry(pagesByProjectId, targetProjectId, projectPages)
     markPageAsLoaded(targetProjectId, pageId)
-    syncActiveProjectState()
   }
 
   function patchPageIndexingStatuses(projectId: string, statuses: Record<string, PageData['indexingStatus']>) {
@@ -376,13 +312,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
       }
     })
 
-    if (!changed) return
-
-    pagesByProjectId.value = {
-      ...pagesByProjectId.value,
-      [projectId]: nextProjectPages
-    }
-    syncActiveProjectState()
+    if (changed) setEntry(pagesByProjectId, projectId, nextProjectPages)
   }
 
   function patchProjectPageSummaries(
@@ -432,13 +362,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
       }
     })
 
-    if (!changed) return
-
-    pagesByProjectId.value = {
-      ...pagesByProjectId.value,
-      [projectId]: nextProjectPages
-    }
-    syncActiveProjectState()
+    if (changed) setEntry(pagesByProjectId, projectId, nextProjectPages)
   }
 
   function getPage(pageId: string, projectId?: string): PageData | undefined {
@@ -476,27 +400,16 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     if (!targetProjectId) return
 
     ensureProject(targetProjectId)
-    const nextProjectVariants = {
+    setEntry(selectedVariantIdByPageIdByProject, targetProjectId, {
       ...(selectedVariantIdByPageIdByProject.value[targetProjectId] ?? {}),
       [pageId]: variantId
-    }
-    selectedVariantIdByPageIdByProject.value = {
-      ...selectedVariantIdByPageIdByProject.value,
-      [targetProjectId]: nextProjectVariants
-    }
-
-    if (activeProjectId.value === targetProjectId) {
-      selectedVariantIdByPageId.value = { ...nextProjectVariants }
-    }
+    })
   }
 
   function updatePreferredImageVariantKey(key: string | null, projectId?: string) {
     const targetProjectId = projectId ?? activeProjectId.value
     if (!targetProjectId) return
-    preferredImageVariantKeyByProjectId.value = {
-      ...preferredImageVariantKeyByProjectId.value,
-      [targetProjectId]: key
-    }
+    setEntry(preferredImageVariantKeyByProjectId, targetProjectId, key)
   }
 
   function getDisplayedVariantForPage(page: PageData): ImageVariant | null {
@@ -541,18 +454,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
   }
 
   function setLabelSet(next: LabelSetModel | null, projectId?: string) {
-    const targetProjectId = projectId ?? activeProjectId.value
-    if (!targetProjectId) {
-      labelSet.value = next
-      return
-    }
-    labelSetByProjectId.value = {
-      ...labelSetByProjectId.value,
-      [targetProjectId]: next
-    }
-    if (activeProjectId.value === targetProjectId) {
-      labelSet.value = next
-    }
+    setEntry(labelSetByProjectId, projectId ?? activeProjectKey.value, next)
   }
 
   function setLabelSetFromApi(apiLabelSet: ApiLabelSet, projectId?: string) {
@@ -564,23 +466,10 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
   }
 
   function setProjectCodec(id: string | null, characters: string[], projectId?: string) {
-    const targetProjectId = projectId ?? activeProjectId.value
-    if (!targetProjectId) {
-      projectCodecId.value = id
-      projectCodecCharacters.value = [...new Set(characters ?? [])]
-      return
-    }
-    projectCodecByProjectId.value = {
-      ...projectCodecByProjectId.value,
-      [targetProjectId]: {
-        id,
-        characters: [...new Set(characters ?? [])]
-      }
-    }
-    if (activeProjectId.value === targetProjectId) {
-      projectCodecId.value = id
-      projectCodecCharacters.value = [...new Set(characters ?? [])]
-    }
+    setEntry(projectCodecByProjectId, projectId ?? activeProjectKey.value, {
+      id,
+      characters: [...new Set(characters ?? [])]
+    })
   }
 
   function clearProjectCodec(projectId?: string) {
@@ -595,39 +484,14 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     canEdit?: boolean
     locked?: boolean
   }, projectId?: string) {
-    const targetProjectId = projectId ?? activeProjectId.value
-    const normalizedPayload = {
+    setEntry(projectDictionaryByProjectId, projectId ?? activeProjectKey.value, {
       id: payload.id,
       forms: [...(payload.forms ?? [])],
       caseSensitive: Boolean(payload.caseSensitive),
       unicodeNormalization: payload.unicodeNormalization || 'NFC',
       canEdit: Boolean(payload.canEdit),
       locked: Boolean(payload.locked)
-    }
-
-    if (!targetProjectId) {
-      projectDictionaryId.value = normalizedPayload.id
-      projectDictionaryForms.value = normalizedPayload.forms
-      projectDictionaryCaseSensitive.value = normalizedPayload.caseSensitive
-      projectDictionaryUnicodeNormalization.value = normalizedPayload.unicodeNormalization
-      projectDictionaryCanEdit.value = normalizedPayload.canEdit
-      projectDictionaryLocked.value = normalizedPayload.locked
-      return
-    }
-
-    projectDictionaryByProjectId.value = {
-      ...projectDictionaryByProjectId.value,
-      [targetProjectId]: normalizedPayload
-    }
-
-    if (activeProjectId.value === targetProjectId) {
-      projectDictionaryId.value = normalizedPayload.id
-      projectDictionaryForms.value = normalizedPayload.forms
-      projectDictionaryCaseSensitive.value = normalizedPayload.caseSensitive
-      projectDictionaryUnicodeNormalization.value = normalizedPayload.unicodeNormalization
-      projectDictionaryCanEdit.value = normalizedPayload.canEdit
-      projectDictionaryLocked.value = normalizedPayload.locked
-    }
+    })
   }
 
   function clearProjectDictionary(projectId?: string) {
@@ -635,18 +499,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
   }
 
   function setProjectVirtualKeyboard(id: string | null, projectId?: string) {
-    const targetProjectId = projectId ?? activeProjectId.value
-    if (!targetProjectId) {
-      projectVirtualKeyboardId.value = id
-      return
-    }
-    projectVirtualKeyboardIdByProjectId.value = {
-      ...projectVirtualKeyboardIdByProjectId.value,
-      [targetProjectId]: id
-    }
-    if (activeProjectId.value === targetProjectId) {
-      projectVirtualKeyboardId.value = id
-    }
+    setEntry(projectVirtualKeyboardIdByProjectId, projectId ?? activeProjectKey.value, id)
   }
 
   function clearProjectVirtualKeyboard(projectId?: string) {
@@ -654,42 +507,14 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
   }
 
   function setProjectToolkitSettings(settings: Partial<ProjectToolkitSettings>, projectId?: string) {
-    const targetProjectId = projectId ?? activeProjectId.value
-    const normalized = {
+    setEntry(projectToolkitSettingsByProjectId, projectId ?? activeProjectKey.value, {
       ...DEFAULT_TOOLKIT_SETTINGS,
       ...settings
-    }
-    if (!targetProjectId) {
-      projectToolkitSettings.value = normalized
-      return
-    }
-    projectToolkitSettingsByProjectId.value = {
-      ...projectToolkitSettingsByProjectId.value,
-      [targetProjectId]: normalized
-    }
-    if (activeProjectId.value === targetProjectId) {
-      projectToolkitSettings.value = normalized
-    }
+    })
   }
 
   function setProjectTextIndexDefaults(defaults: Partial<ProjectTextIndexDefaults>, projectId?: string) {
-    const targetProjectId = projectId ?? activeProjectId.value
-    const normalized = normalizeProjectTextIndexDefaults(defaults)
-    if (!targetProjectId) {
-      projectTextDefaultGtIndex.value = normalized.gtIndex
-      projectTextDefaultRecognitionIndices.value = [...normalized.recognitionIndices]
-      return
-    }
-
-    projectTextIndexDefaultsByProjectId.value = {
-      ...projectTextIndexDefaultsByProjectId.value,
-      [targetProjectId]: normalized
-    }
-
-    if (activeProjectId.value === targetProjectId) {
-      projectTextDefaultGtIndex.value = normalized.gtIndex
-      projectTextDefaultRecognitionIndices.value = [...normalized.recognitionIndices]
-    }
+    setEntry(projectTextIndexDefaultsByProjectId, projectId ?? activeProjectKey.value, normalizeProjectTextIndexDefaults(defaults))
   }
 
   function clearProjectTextIndexDefaults(projectId?: string) {
