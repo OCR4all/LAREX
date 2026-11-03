@@ -3,7 +3,7 @@
 import { EditorState, type Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { basicSetup } from 'codemirror'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { actionYamlIndentKeymap, actionYamlWhitespaceExtension } from './action-yaml-editor'
 
 function createEditor(doc: string, extensions: Extension = [basicSetup, actionYamlIndentKeymap]) {
@@ -15,8 +15,19 @@ function createEditor(doc: string, extensions: Extension = [basicSetup, actionYa
   })
 }
 
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
 describe('Action YAML editor behavior', () => {
   it('keeps focus in the editor and indents with Tab', () => {
+    // happy-dom fires selectionchange synchronously, re-entering CodeMirror's update; browsers queue it.
+    const dispatchEvent = document.dispatchEvent.bind(document)
+    vi.spyOn(document, 'dispatchEvent').mockImplementation((event: Event) => {
+      if (event.type !== 'selectionchange') return dispatchEvent(event)
+      queueMicrotask(() => dispatchEvent(event))
+      return true
+    })
     const view = createEditor('root:\nchild: value')
     view.dispatch({ selection: { anchor: 6 } })
     view.focus()

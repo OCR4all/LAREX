@@ -18,10 +18,14 @@ type Item = PageMovePreview['items'][number]
 const mounted: Array<{ app: Vue.App, host: HTMLElement }> = []
 
 beforeEach(() => {
-  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
+  const height = function (this: HTMLElement) {
     return this.getAttribute('role') === 'region' ? 320 : this.querySelector('ul') ? 144 : 80
-  })
+  }
+  // The virtualizer reads the scroller from client* and rows from offset* sizes.
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(height)
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(500)
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(height)
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(500)
   vi.spyOn(HTMLElement.prototype, 'scrollTo').mockImplementation(function (this: HTMLElement, options?: ScrollToOptions | number, y?: number) {
     this.scrollTop = typeof options === 'number' ? y ?? 0 : options?.top ?? 0
     this.dispatchEvent(new Event('scroll'))

@@ -26,11 +26,14 @@ function nuxtFetch(fetch: ReturnType<typeof vi.fn>) {
     const code = readFileSync(path, 'utf8').replace(/import\.meta\.(client|server|dev|prerender)/g, (_, flag) => String(flag === 'client'))
     const compiled = ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
     const exports = {}
+    // Register before evaluating so import cycles (addons.js <-> asyncData.js) resolve like CommonJS.
+    cache.set(path, exports)
     const dependencies: Record<string, unknown> = {
       'vue': Vue,
       '../nuxt.js': { useNuxtApp: () => app },
       '../utils.js': {},
       './error.js': { createError: (error: unknown) => error },
+      '../error.js': { createError: (error: unknown) => error },
       '../utils/hash.js': { hashKey: JSON.stringify },
       '../internal/tracing.js': {},
       '../components/client-only.js': { clientOnlySymbol: Symbol() },
@@ -49,7 +52,6 @@ function nuxtFetch(fetch: ReturnType<typeof vi.fn>) {
       if (name.startsWith('.')) return load(resolve(dirname(path), name))
       return require(name)
     }, exports)
-    cache.set(path, exports)
     return exports
   }
   return load(resolve(root, 'dist/app/composables/fetch.js')).useFetch

@@ -28,7 +28,7 @@ class WorkflowActionsMigrationIntegrationTest {
                     ('first', 'owner'), ('second', 'owner'), ('first', 'other-user'), ('active-child', 'owner')
                     """);
                 Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-                        .baselineOnMigrate(true).baselineVersion("48").load().migrate();
+                        .baselineOnMigrate(true).baselineVersion("48").target("49").load().migrate();
                 try (var rows = statement.executeQuery("SELECT id, workflow_run_id FROM action_runs ORDER BY id")) {
                     assertThat(rows.next()).isTrue();
                     assertThat(rows.getString(2)).isEqualTo("active");
