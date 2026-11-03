@@ -344,7 +344,7 @@ async function closeWithGuard() {
 <template>
   <UiResponsiveSlideover
     side="right"
-    :ui="{ content: 'max-w-7/8' }"
+    :ui="{ content: 'max-w-7/8 sm:max-w-7/8' }"
     :close="{ onClick: closeWithGuard }"
   >
     <template #header>
