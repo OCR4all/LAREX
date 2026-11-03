@@ -856,7 +856,7 @@ const imageResolutionTooltip = computed(() => {
 })
 function toggleImageResolution(): void {
   const canvas = imageResolutionCanvas.value
-  if (canvas?.imageSrc) canvas.originalImage = !canvas.originalImage
+  if (canvas?.imageSrc) editorStore.setCanvasOriginalImage(canvas.id, !canvas.originalImage)
 }
 
 const isTextCanvasMode = computed(() =>

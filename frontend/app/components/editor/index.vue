@@ -3333,7 +3333,7 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
   if (!newSrc) return
   currentImageSrc.value = newSrc
   if (newSrc !== oldSrc && canvasState.value?.originalImage) {
-    canvasState.value.originalImage = false
+    editorStore.setCanvasOriginalImage(props.canvasId, false)
     return
   }
   void loadCanvasImage(newSrc)

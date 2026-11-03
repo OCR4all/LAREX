@@ -818,6 +818,11 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
+  function setCanvasOriginalImage(canvasId: string, original: boolean) {
+    const canvas = canvases.value[canvasId]
+    if (canvas) canvas.originalImage = original
+  }
+
   function setImageSize(width: number, height: number, canvasId = activeCanvasId.value) {
     const canvas = canvasId ? canvases.value[canvasId] : undefined
     if (canvas) {
@@ -1638,6 +1643,7 @@ export const useEditorStore = defineStore('editor', () => {
     setDrawingMode,
     setRegionType,
     setImageSize,
+    setCanvasOriginalImage,
     setDocument,
     clearAllAnnotations,
     loadPage,
