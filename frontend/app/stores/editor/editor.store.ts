@@ -443,9 +443,6 @@ export const useEditorStore = defineStore('editor', () => {
       selectedBaselineId: null,
       drawingMode: 'select',
       regionType: 'text-region',
-      hoveredRegionId: null,
-      hoveredBaselineId: null,
-      hoveredNodeIndex: -1,
       hasUnsavedChanges: false,
       historyBaselineIndex: -1,
       historyCurrentIndex: -1,
@@ -818,27 +815,6 @@ export const useEditorStore = defineStore('editor', () => {
     const canvas = activeCanvas.value
     if (canvas) {
       canvas.regionType = type
-    }
-  }
-
-  function setHoveredRegionId(regionId: string | null) {
-    const canvas = activeCanvas.value
-    if (canvas) {
-      canvas.hoveredRegionId = regionId
-    }
-  }
-
-  function setHoveredBaselineId(baselineId: string | null) {
-    const canvas = activeCanvas.value
-    if (canvas) {
-      canvas.hoveredBaselineId = baselineId
-    }
-  }
-
-  function setHoveredNodeIndex(index: number) {
-    const canvas = activeCanvas.value
-    if (canvas) {
-      canvas.hoveredNodeIndex = index
     }
   }
 
@@ -1661,9 +1637,6 @@ export const useEditorStore = defineStore('editor', () => {
     clearBaselineSelection,
     setDrawingMode,
     setRegionType,
-    setHoveredRegionId,
-    setHoveredBaselineId,
-    setHoveredNodeIndex,
     setImageSize,
     setDocument,
     clearAllAnnotations,

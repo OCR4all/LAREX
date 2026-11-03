@@ -175,9 +175,6 @@ export interface CanvasState {
   selectedBaselineId: string | null
   drawingMode: string
   regionType: string
-  hoveredRegionId: string | null
-  hoveredBaselineId: string | null
-  hoveredNodeIndex: number
   imageSize?: { width: number, height: number }
   /** Explicit full-resolution display choice for this canvas. */
   originalImage?: boolean
