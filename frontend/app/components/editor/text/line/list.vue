@@ -45,7 +45,8 @@ import { serializeFullTextComment } from '../shared/full-text-comments'
 import {
   getVisibleTextContentVariantTextareas,
   focusNextSameIndex,
-  focusTextContentVariantAtOffset
+  focusTextContentVariantAtOffset,
+  focusTextFieldInContext
 } from '../shared/text-field-navigation'
 import {
   createTextViewCommandContext,
@@ -334,7 +335,8 @@ function findVisibleGtTextarea(textlineId: string): HTMLTextAreaElement | undefi
 
 function focusGtTextarea(textlineId: string): void {
   void nextTick(() => {
-    findVisibleGtTextarea(textlineId)?.focus()
+    const textarea = findVisibleGtTextarea(textlineId)
+    if (textarea) focusTextFieldInContext(textarea)
   })
 }
 
@@ -1581,6 +1583,8 @@ const sectionMenuItems = computed(() => {
             </div>
           </template>
         </div>
+        <!-- Scroll space after the last line, so keyboard navigation can center the last lines too. -->
+        <div class="h-[50vh] shrink-0" aria-hidden="true" />
       </div>
     </div>
 

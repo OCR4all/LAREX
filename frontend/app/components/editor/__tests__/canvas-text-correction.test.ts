@@ -75,7 +75,8 @@ function setup() {
       selectPolylineById: vi.fn()
     },
     queueCorrectionInputFocus: vi.fn(), commitCorrectionInputDebounced: vi.fn(),
-    getPersistedCorrectionZoom: () => null
+    getPersistedCorrectionZoom: () => null,
+    rememberCorrectionNavigationAnchor: vi.fn(), alignCorrectionViewToNavigationAnchor: () => false
   }
   const scope = effectScope()
   scopes.push(scope)

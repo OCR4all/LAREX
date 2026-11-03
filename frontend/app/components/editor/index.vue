@@ -41,7 +41,7 @@ import {
 } from '@/utils/editor/textline-navigation'
 import { findRegionLabelConflicts } from '@/utils/editor/region-label-conflicts'
 import { normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
-import { computeCanvasTextCorrectionPlacement } from '@/utils/editor/canvas-text-correction-placement'
+import { computeCanvasTextCorrectionAnchorTarget, computeCanvasTextCorrectionPlacement } from '@/utils/editor/canvas-text-correction-placement'
 import { ZOOM } from '@/utils/editor/editor-constants'
 import { createTextlineVariantsUpdateCommand } from '@/components/editor/text/shared/textline-variant-update'
 import { serializeFullTextComment } from '@/components/editor/text/shared/full-text-comments'
@@ -93,6 +93,7 @@ const CORRECTION_FONT_MIN = 14
 const CORRECTION_FONT_MAX = 64
 const CORRECTION_FONT_DEFAULT = 32
 const CORRECTION_OVERLAY_MARGIN = 8
+const CORRECTION_OVERLAY_GAP = 6
 
 function isTextlinePolygonType(type: unknown): boolean {
   return typeof type === 'string' && type.toLowerCase() === PolygonType.TEXTLINE
@@ -312,6 +313,8 @@ const correctionOverlayContainerRef = ref<HTMLDivElement | null>(null)
 const webglRenderer = useWebglRenderer(canvas)
 const suppressCorrectionZoomPreferenceUpdate = ref(false)
 const correctionViewInitialized = ref(false)
+// Screen position of the line left by Enter/Tab, so the next line lands at the same height.
+const correctionNavigationAnchor = ref<{ textlineId: string, x: number, y: number } | null>(null)
 
 async function loadCanvasImage(src: string, refresh = false): Promise<void> {
   if (!src) {
@@ -2118,7 +2121,8 @@ const correctionOverlayLayout = computed(() => {
       width: overlayWidth,
       height: overlayHeight
     },
-    margin: CORRECTION_OVERLAY_MARGIN
+    margin: CORRECTION_OVERLAY_MARGIN,
+    gap: CORRECTION_OVERLAY_GAP
   })
 
   return {
@@ -2300,6 +2304,51 @@ function centerCorrectionViewOnTextlineWithZoom(
     offsetX: -(((minX + maxX) / 2) * normalizedZoom),
     offsetY: -(((minY + maxY) / 2) * normalizedZoom)
   })
+}
+
+function screenToWorldPoint(point: { x: number, y: number }): { x: number, y: number } {
+  const { width, height } = canvasDimensions.value
+  return clipToWorldCoords({
+    x: (point.x / width) * 2 - 1,
+    y: 1 - (point.y / height) * 2
+  }, view, aspectRatioScale.value)
+}
+
+function rememberCorrectionNavigationAnchor(nextTextlineId: string): void {
+  const bounds = selectedTextlineScreenBounds.value
+  correctionNavigationAnchor.value = bounds
+    ? { textlineId: nextTextlineId, x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 }
+    : null
+}
+
+/** Pans (without zooming) so the selected line takes the screen height of the line navigated away from. */
+function alignCorrectionViewToNavigationAnchor(textlineId: string): boolean {
+  const anchor = correctionNavigationAnchor.value
+  correctionNavigationAnchor.value = null
+  if (!anchor || anchor.textlineId !== textlineId) return false
+
+  const bounds = selectedTextlineScreenBounds.value
+  const { width, height } = canvasDimensions.value
+  if (!bounds || !width || !height) return false
+
+  const overlayHeight = canvasTextCorrectionSnapToLine.value ? (correctionOverlayLayout.value?.height ?? 0) : 0
+  const target = computeCanvasTextCorrectionAnchorTarget({
+    lineBounds: bounds,
+    anchor,
+    viewport: { width, height },
+    reservedBelow: overlayHeight > 0 ? overlayHeight + CORRECTION_OVERLAY_GAP : 0,
+    margin: CORRECTION_OVERLAY_MARGIN
+  })
+  const lineCenter = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 }
+
+  const lineWorld = screenToWorldPoint(lineCenter)
+  const targetWorld = screenToWorldPoint(target)
+  mouseInteraction.setView({
+    zoom: view.zoom,
+    offsetX: view.offsetX + (targetWorld.x - lineWorld.x) * view.zoom,
+    offsetY: view.offsetY + (targetWorld.y - lineWorld.y) * view.zoom
+  })
+  return true
 }
 
 const selectedTextlineGtText = computed(() => {
@@ -2779,6 +2828,7 @@ function navigateCanvasCorrectionTextline(direction: 1 | -1, populateGt = false)
     }
   }
 
+  if (nextId !== currentId) rememberCorrectionNavigationAnchor(nextId)
   canvasControls.selectPolylineById?.(null, { focusMode: 'none' })
   canvasControls.selectPolygonById?.(nextId, { focusMode: 'none' })
   queueCorrectionInputFocus()
@@ -2897,7 +2947,7 @@ watch(
 
       if (shouldUseDefaultFit) {
         canvasControls.selectPolygonById?.(selectedId, { focusMode: 'fit-width' })
-      } else {
+      } else if (!alignCorrectionViewToNavigationAnchor(selectedId)) {
         const persistedCorrectionZoom = getPersistedCorrectionZoom()
         if (persistedCorrectionZoom !== null) {
           withSuppressedCorrectionZoomPreferenceUpdate(() => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeCanvasTextCorrectionPlacement } from '../canvas-text-correction-placement'
+import { computeCanvasTextCorrectionAnchorTarget, computeCanvasTextCorrectionPlacement } from '../canvas-text-correction-placement'
 
 describe('canvas-text-correction-placement', () => {
   it('places overlay below anchor when there is enough space', () => {
@@ -38,5 +38,51 @@ describe('canvas-text-correction-placement', () => {
 
     expect(leftClamped.left).toBe(8)
     expect(rightClamped.left).toBe(272)
+  })
+
+  describe('anchor target', () => {
+    const viewport = { width: 800, height: 600 }
+
+    it('keeps the previous line height and horizontal position', () => {
+      const target = computeCanvasTextCorrectionAnchorTarget({
+        lineBounds: { minX: 100, maxX: 500, minY: 380, maxY: 400 },
+        anchor: { x: 300, y: 240 },
+        viewport
+      })
+
+      expect(target).toEqual({ x: 300, y: 240 })
+    })
+
+    it('moves the line up to keep room for the overlay below it', () => {
+      const target = computeCanvasTextCorrectionAnchorTarget({
+        lineBounds: { minX: 100, maxX: 500, minY: 380, maxY: 400 },
+        anchor: { x: 300, y: 500 },
+        viewport,
+        reservedBelow: 200
+      })
+
+      expect(target.y).toBe(382)
+    })
+
+    it('keeps the line visible at the top when the overlay leaves no room', () => {
+      const target = computeCanvasTextCorrectionAnchorTarget({
+        lineBounds: { minX: 100, maxX: 500, minY: 380, maxY: 400 },
+        anchor: { x: 300, y: 240 },
+        viewport,
+        reservedBelow: 700
+      })
+
+      expect(target.y).toBe(18)
+    })
+
+    it('centers lines that overflow the viewport horizontally', () => {
+      const target = computeCanvasTextCorrectionAnchorTarget({
+        lineBounds: { minX: -50, maxX: 500, minY: 380, maxY: 400 },
+        anchor: { x: 300, y: 240 },
+        viewport
+      })
+
+      expect(target.x).toBe(400)
+    })
   })
 })

@@ -1011,6 +1011,7 @@ onBeforeUnmount(() => {
   <TooltipProvider :delay-duration="200">
     <div
       ref="rootRef"
+      data-textline-item
       :style="textViewFontVars"
       class="@container group relative rounded-md border transition-all duration-150"
       :class="[
