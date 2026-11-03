@@ -208,7 +208,6 @@ export interface EditorCommands {
 
 export interface MarqueeContext {
   nodePolygonId?: string
-  additiveNodes?: boolean
   polygonSelectionContexts: number[]
   selectedPolygonIndex: number
   selectedPolylineIndex: number

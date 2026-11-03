@@ -452,7 +452,23 @@ describe('useEditorInteractions', () => {
     expect(harness.polygonEditing.selectedNodes.value).toBeNull()
   })
 
-  it.each([false, true])('selects corner nodes with a rectangle in an active polygon (Shift: %s)', async (shiftKey) => {
+  it.each(['region', 'textline'])('pans with a plain drag while a %s is selected', async (type) => {
+    const harness = await createHarness('select', { realEditing: true, polygons: siblingPolygons(type) })
+    if (type === 'textline') harness.canvasControls.viewMode.value = 'textline'
+    click(harness, 50)
+    expect(harness.selectedPolygonIndex.value).toBe(0)
+    harness.interactions.onMouseDown(eventStub({ clientX: 100, clientY: 100 }))
+    harness.interactions.onMouseMove(eventStub({ clientX: 110, clientY: 150 }))
+    expect(harness.interactions.isMarqueeSelecting.value).toBe(false)
+    expect(harness.mouseInteraction.startPanning).toHaveBeenCalled()
+    expect(harness.mouseInteraction.updatePanning).toHaveBeenCalled()
+    harness.interactions.onMouseUp(eventStub({ clientX: 110, clientY: 150 }))
+    expect(harness.selectedPolygonIndex.value).toBe(0)
+    expect(harness.polygonEditing.selectedNodes.value).toBeNull()
+  })
+
+  it('selects corner nodes with Shift-drag in an active polygon', async () => {
+    const shiftKey = true
     const harness = await createHarness('select', {
       realEditing: true,
       polygons: [{ id: 'shape', type: 'region', points: [

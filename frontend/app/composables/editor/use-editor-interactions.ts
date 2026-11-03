@@ -85,7 +85,6 @@ export function useEditorInteractions(
   let marqueeContext: MarqueeContext | null = null
   let lastSelectionEscapeTime = 0
 
-  let pendingMarqueeIsPlainDrag = false
   let pendingMarquee = false
   let pendingMarqueeStartClient: { x: number, y: number } | null = null
 
@@ -133,7 +132,6 @@ export function useEditorInteractions(
       nodePolygonId: selectedPolylineIndex.value < 0
         ? polygons[effectiveSelectedPolygonIndex]?.id
         : undefined,
-      additiveNodes: !pendingMarqueeIsPlainDrag,
       polygonSelectionContexts: getPolygonSelectionContexts(effectiveSelectedPolygonIndex),
       selectedPolylineIndex: -1,
       viewMode
@@ -181,7 +179,7 @@ export function useEditorInteractions(
     if (marqueeContext.nodePolygonId) {
       const polygonIndex = polygons.findIndex(polygon => polygon.id === marqueeContext?.nodePolygonId)
       if (polygonIndex === selectedPolygonIndex.value && polygonIndex >= 0 && canMutateCanvas()) {
-        polygonEditing.selectNodesInRect?.(polygonIndex, worldRect, marqueeContext.additiveNodes)
+        polygonEditing.selectNodesInRect?.(polygonIndex, worldRect, true)
         replaceSelectionFromCurrentIndices(viewMode)
       }
       resetMarqueeState()
@@ -474,7 +472,6 @@ export function useEditorInteractions(
 
       if (e.shiftKey) {
         if (selectedPolygonIndex.value < 0) polygonEditing.clearNodeSelection?.()
-        pendingMarqueeIsPlainDrag = false
         pendingMarquee = true
         pendingMarqueeStartClient = { x: e.clientX, y: e.clientY }
         return
@@ -495,12 +492,6 @@ export function useEditorInteractions(
 
       const polylineEditingStarted = polylineEditing.handleMouseDown(point, selectedPolygonIndex, canvas.value)
       if (polylineEditingStarted) return
-
-      if (selectedPolygonIndex.value >= 0 && selectedPolylineIndex.value < 0) {
-        pendingMarquee = true
-        pendingMarqueeIsPlainDrag = true
-        pendingMarqueeStartClient = { x: e.clientX, y: e.clientY }
-      }
     }
   }
 
@@ -761,7 +752,7 @@ export function useEditorInteractions(
       return
     }
 
-    if (pendingMarquee && !pendingMarqueeIsPlainDrag && pendingMarqueeStartClient && !mouseInteraction.hasMoved()) {
+    if (pendingMarquee && pendingMarqueeStartClient && !mouseInteraction.hasMoved()) {
       if (!canvas.value) {
         pendingMarquee = false
         pendingMarqueeStartClient = null
@@ -821,7 +812,6 @@ export function useEditorInteractions(
     }
 
     pendingMarquee = false
-    pendingMarqueeIsPlainDrag = false
     pendingMarqueeStartClient = null
 
     const startPosition = mouseInteraction.actionState.startPosition
@@ -1060,7 +1050,6 @@ export function useEditorInteractions(
     marqueeStartClient = null
     marqueeContext = null
     pendingMarquee = false
-    pendingMarqueeIsPlainDrag = false
     pendingMarqueeStartClient = null
   }
 
