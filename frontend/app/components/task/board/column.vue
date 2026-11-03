@@ -48,7 +48,7 @@ const columnAppearance = computed(() => {
 
 watch(() => props.tasks, (newTasks) => {
   localTasks.value = [...newTasks]
-}, { immediate: true, deep: true })
+}, { immediate: true, deep: 1 })
 
 function onDragEnd(event: any) {
   if (event.to !== event.from) {

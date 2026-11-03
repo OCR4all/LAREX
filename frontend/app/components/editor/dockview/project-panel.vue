@@ -159,18 +159,24 @@ const onReady = (event: DockviewReadyEvent) => {
   })
 }
 
-watch(() => editorStore.canvases, () => {
+// Only page membership matters here; a deep watch would also fire on selection,
+// drawing mode and save state changes in every canvas.
+const projectCanvasPageIds = computed(() => {
   const id = projectId.value
-  const api = innerDockviewApi.value
-  if (!id || !api) return
-
-  const canvases = Object.values(editorStore.canvases)
+  if (!id) return []
+  return Object.values(editorStore.canvases)
     .filter(canvas => canvas.projectId === id && canvas.pageId && !canvas.comparison)
+    .map(canvas => canvas.pageId as string)
+})
 
-  for (const canvas of canvases) {
-    ensurePagePanelExists(api, canvas.pageId as string)
+watch(() => projectCanvasPageIds.value.join('\u0000'), () => {
+  const api = innerDockviewApi.value
+  if (!api) return
+
+  for (const pageId of projectCanvasPageIds.value) {
+    ensurePagePanelExists(api, pageId)
   }
-}, { deep: true })
+})
 
 onBeforeUnmount(() => {
   const id = projectId.value

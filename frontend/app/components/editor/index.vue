@@ -1095,7 +1095,7 @@ watch(actionProcessingTargets, (targets) => {
     stopActionProcessingAnimation()
     nextTick(() => editorRenderer.render())
   }
-}, { immediate: true, deep: true })
+}, { immediate: true })
 
 function getCommandContext() {
   return { canvasId: props.canvasId, session }
@@ -1204,7 +1204,7 @@ watch(() => webglRenderer.imageSize.value, (newSize) => {
   if (newSize && newSize.width > 0 && newSize.height > 0) {
     editorStore.setImageSize(newSize.width, newSize.height, props.canvasId)
   }
-}, { deep: true })
+})
 
 watch(() => editorUiStore.temporaryHoverPolygonId, () => {
   if (renderEnabled.value) {

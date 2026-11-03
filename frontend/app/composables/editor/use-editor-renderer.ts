@@ -285,10 +285,10 @@ export function useEditorRenderer(
       }
     })
 
-    watch(() => webglRenderer.imageSize, () => {
+    watch(webglRenderer.imageSize, () => {
       if (enabled && !enabled.value) return
       nextTick(() => scheduleRender(RenderPriority.NORMAL, 'image-size'))
-    }, { deep: true })
+    })
   }
 
   /**
@@ -360,7 +360,7 @@ export function useEditorRenderer(
         interactionMode: isMoveMode.value ? 'move' : isCreateMode ? 'create' : 'select'
       })
     },
-    { immediate: true, deep: true })
+    { immediate: true })
   }
 
   let animationFrameId: number | null = null

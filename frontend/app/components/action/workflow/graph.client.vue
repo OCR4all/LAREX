@@ -46,7 +46,7 @@ const positions = computed(() => {
 watch(() => getNodes.value.map(node => [node.id, node.dimensions.width] as const), (dimensions) => {
   const measured = Object.fromEntries(dimensions.filter(([, width]) => width > 0))
   if (JSON.stringify(measured) !== JSON.stringify(widths.value)) widths.value = measured
-}, { deep: true })
+})
 function initializeViewport() {
   if (viewportInitialized || !props.steps.length) return
   viewportInitialized = true
