@@ -2,7 +2,7 @@
 <!-- eslint-disable @stylistic/max-statements-per-line -->
 <script setup lang="ts">
 import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
-import type { TableColumn } from '@nuxt/ui'
+import type { TableColumn, TableRow } from '@nuxt/ui'
 import type { ActionRun, ActionRunStatus } from '@/types/action'
 
 await useWorkspaceBootstrap()
@@ -39,6 +39,7 @@ watch(totalPages, (value) => { if (page.value > value) page.value = value })
 const UButtonComponent = resolveComponent('UButton')
 const UBadgeComponent = resolveComponent('UBadge')
 const UProgressComponent = resolveComponent('UProgress')
+const UDropdownMenuComponent = resolveComponent('UDropdownMenu')
 const columns = computed<TableColumn<ActionRun>[]>(() => [
   { id: 'dataset', header: 'Dataset', cell: ({ row }) => h('span', { class: 'truncate font-medium' }, row.original.datasetLabel || 'Dataset') },
   { id: 'action', header: 'Action', cell: ({ row }) => h('span', { class: 'truncate' }, row.original.processorName) },
@@ -49,8 +50,20 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
   { id: 'test', header: 'Test', cell: ({ row }) => h('span', { class: 'tabular-nums' }, String(row.original.splitCounts?.TEST ?? 0)) },
   { id: 'progress', header: 'Progress', cell: ({ row }) => h(UProgressComponent, { modelValue: row.original.progressPercent, max: 100, size: 'xs', color: actionRunStatusColor(row.original.status), class: 'w-20' }) },
   { accessorKey: 'updated', header: 'Updated' },
-  { id: 'actions', header: '', cell: ({ row }) => row.original.canCancel && !isTerminalActionRun(row.original.status) ? h(UButtonComponent, { 'color': 'warning', 'variant': 'ghost', 'size': 'xs', 'icon': 'i-lucide-ban', 'loading': cancelling.value === row.original.id, 'aria-label': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel evaluation' : 'Cancel evaluation', 'title': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel evaluation' : 'Cancel evaluation', 'onClick': (event: MouseEvent) => { event.stopPropagation(); void cancelRun(row.original) } }) : null }
+  { id: 'actions', header: '', cell: ({ row }) => h('div', { class: 'flex items-center justify-end gap-2' }, [
+    row.original.canCancel && !isTerminalActionRun(row.original.status) ? h(UButtonComponent, { 'color': 'warning', 'variant': 'ghost', 'size': 'xs', 'icon': 'i-lucide-ban', 'loading': cancelling.value === row.original.id, 'aria-label': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel evaluation' : 'Cancel evaluation', 'title': row.original.status === 'CANCEL_REQUESTED' ? 'Force cancel evaluation' : 'Cancel evaluation', 'onClick': (event: MouseEvent) => { event.stopPropagation(); void cancelRun(row.original) } }) : null,
+    h(UDropdownMenuComponent, { items: rowActions(row.original), content: { align: 'end' } }, () => h(UButtonComponent, { 'icon': 'i-lucide-ellipsis-vertical', 'color': 'neutral', 'variant': 'ghost', 'size': 'xs', 'square': true, 'type': 'button', 'aria-label': `Actions for ${row.original.datasetLabel || 'evaluation'} · ${row.original.processorName}`, 'onClick': (event: MouseEvent) => event.stopPropagation() }))
+  ].filter(Boolean)) }
 ])
+function openRun(run: ActionRun) {
+  return navigateTo(`/evaluation/${run.id}`)
+}
+function rowActions(run: ActionRun) {
+  return [
+    { label: 'Open results', icon: 'i-lucide-arrow-right', onSelect: () => openRun(run) },
+    ...(run.datasetId ? [{ label: 'Open dataset', icon: 'i-lucide-database', onSelect: () => navigateTo(`/datasets/${run.datasetId}`) }] : [])
+  ]
+}
 
 async function loadRuns() {
   if (!workspaceId.value) return
@@ -156,7 +169,7 @@ const toolbarRefresh = useRefreshFeedback(() => loadRuns())
           :infinite-scroll="infiniteScroll"
           :default-visible-column-ids="['dataset', 'action', 'status', 'inputs', 'train', 'val', 'test', 'progress', 'updated', 'actions']"
           class="flex-1 px-4 pb-4"
-          @select="(row: any) => navigateTo(`/evaluation/${row.original.id}`)"
+          @select="(_event: Event, row: TableRow<ActionRun>) => openRun(row.original)"
         /><div v-if="filtered.length" class="hidden sm:flex items-center justify-between border-t border-default px-4 py-4">
           <span class="text-sm text-muted">{{ filtered.length }} runs</span><div class="flex items-center gap-4">
             <USelect
