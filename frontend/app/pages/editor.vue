@@ -247,20 +247,19 @@ const availableLabelsForFilter = computed<ApiLabelDefinition[]>(() => {
 })
 
 const availableTags = computed(() => {
-  const tagMap = new Map<string, { count: number }>()
+  const tagCounts = new Map<string, number>()
+  const tagLabels = new Map<string, string>()
   for (const page of editorStore.pages) {
-    for (const tag of page.tags ?? []) {
-      const existing = tagMap.get(tag)
-      if (existing) {
-        existing.count++
-      } else {
-        tagMap.set(tag, { count: 1 })
-      }
+    for (const tag of page.resolvedTags ?? []) {
+      if (tag.label) tagLabels.set(tag.id, tag.label)
+    }
+    for (const tagId of page.tags ?? []) {
+      tagCounts.set(tagId, (tagCounts.get(tagId) ?? 0) + 1)
     }
   }
-  return Array.from(tagMap.entries()).map(([tag, { count }]) => ({
-    label: tag,
-    value: tag,
+  return Array.from(tagCounts, ([tagId, count]) => ({
+    label: tagLabels.get(tagId) ?? tagId,
+    value: tagId,
     count
   }))
 })

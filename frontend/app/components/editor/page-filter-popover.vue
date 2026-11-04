@@ -162,7 +162,7 @@ function titleFor(type: SingletonPageFilterType): string {
   <UPopover v-model:open="isOpen" :content="{ side: popoverSide ?? 'bottom', align: 'start', sideOffset: 8 }">
     <UButton
       data-tour="editor-page-filter-button"
-      :icon="hasActiveFilters ? 'i-lucide-list-filter-plus' : 'i-lucide-list-filter'"
+      icon="i-lucide-funnel"
       :color="hasActiveFilters ? 'primary' : 'neutral'"
       variant="ghost"
       size="sm"
