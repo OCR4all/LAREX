@@ -2,7 +2,7 @@
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { DRAWING_MODES, VIEW_MODES } from '@/composables/editor/use-canvas-control'
-import { getTooltipProps } from '@/composables/editor/use-keyboard-shortcuts'
+import { getTextViewHistoryDraft, getTooltipProps } from '@/composables/editor/use-keyboard-shortcuts'
 import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboards'
 import { PolygonType } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
@@ -265,10 +265,12 @@ function syncDetachedCommanderState(): void {
 }
 
 const canUndo = computed(() => {
+  if (getTextViewHistoryDraft(currentCanvasId.value)?.hasChanges.value) return true
   if (currentCanvasState.value?.canUndo) return currentCanvasState.value.canUndo.value
   return detachedCommanderState.value.canUndo
 })
 const canRedo = computed(() => {
+  if (getTextViewHistoryDraft(currentCanvasId.value)?.hasChanges.value) return false
   if (currentCanvasState.value?.canRedo) return currentCanvasState.value.canRedo.value
   return detachedCommanderState.value.canRedo
 })
@@ -766,6 +768,7 @@ const handleToggleMoveMode = () => {
 }
 
 const handleUndo = () => {
+  getTextViewHistoryDraft(currentCanvasId.value)?.commit()
   if (currentCanvasState.value?.handleUndo) {
     currentCanvasState.value.handleUndo()
     updateHistoryItems()
@@ -781,6 +784,7 @@ const handleUndo = () => {
 }
 
 const handleRedo = () => {
+  getTextViewHistoryDraft(currentCanvasId.value)?.commit()
   if (currentCanvasState.value?.handleRedo) {
     currentCanvasState.value.handleRedo()
     updateHistoryItems()

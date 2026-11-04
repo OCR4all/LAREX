@@ -8,14 +8,6 @@ export type FullTextLineValue = {
   sourceIndex?: number
 }
 
-export function resolveFullTextDraft(
-  modelText: string,
-  localDraft: string | undefined,
-  keepLocalDraft: boolean
-): string {
-  return keepLocalDraft ? (localDraft ?? modelText) : modelText
-}
-
 /**
  * Resolve the single value shown by Full text mode without mutating variants.
  * An existing GT wins even when it is intentionally empty. Predictions are

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveFullTextDraft, resolveFullTextLineValue } from '../full-text-lines'
+import { resolveFullTextLineValue } from '../full-text-lines'
 
 describe('resolveFullTextLineValue', () => {
   it('prefers an existing GT even when it is empty', () => {
@@ -36,10 +36,5 @@ describe('resolveFullTextLineValue', () => {
       text: '',
       source: 'empty'
     })
-  })
-
-  it('keeps an active local edit until the PAGE model catches up', () => {
-    expect(resolveFullTextDraft('old PAGE text', 'local edit', true)).toBe('local edit')
-    expect(resolveFullTextDraft('updated PAGE text', 'local edit', false)).toBe('updated PAGE text')
   })
 })

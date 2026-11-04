@@ -9,6 +9,7 @@ import type { Region } from '@/models/editor/region'
 import { UpdateTextlineCommentCommand } from '@/commands/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
+import { useTextViewShortcutScope } from '@/composables/editor/use-keyboard-shortcuts'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { collectTextlineIdsInReadingOrder, getAdjacentTextlineId } from '@/utils/editor/textline-navigation'
 import { findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
@@ -27,7 +28,6 @@ import {
   getReadingDirectionTextAttributes
 } from './line/reading-direction'
 import {
-  resolveFullTextDraft,
   resolveFullTextLineValue,
   type FullTextLineSource
 } from './shared/full-text-lines'
@@ -186,9 +186,18 @@ const selectedTextlineId = computed(() => {
   return selectedId && orderedTextlineIdSet.value.has(selectedId) ? selectedId : null
 })
 
-const drafts = ref<Record<string, string>>({})
+const shortcutRoot = ref<HTMLElement | null>(null)
 const pendingCommit = ref<{ textlineId: string, text: string } | null>(null)
-const editingTextlineId = ref<string | null>(null)
+const hasPendingHistoryEdit = computed(() => {
+  const pending = pendingCommit.value
+  const line = pending && fullTextLineById.value.get(pending.textlineId)
+  return Boolean(isEditable.value && pending && line && (line.source !== 'gt' || line.text !== pending.text))
+})
+useTextViewShortcutScope({
+  canvasId: effectiveCanvasId,
+  rootEl: shortcutRoot,
+  historyDraft: { hasChanges: hasPendingHistoryEdit, commit: flushPendingCommit }
+})
 const hoveredTextlineId = ref<string | null>(null)
 const commentEditorTextlineId = ref<string | null>(null)
 const dictionaryWordPopover = ref<{
@@ -219,27 +228,13 @@ function resizeAllTextareas(): void {
   }
 }
 
-watch(fullTextLines, (lines) => {
-  const nextDrafts: Record<string, string> = {}
-  for (const line of lines) {
-    const keepLocalDraft = editingTextlineId.value === line.id
-      || pendingCommit.value?.textlineId === line.id
-    nextDrafts[line.id] = resolveFullTextDraft(
-      line.text,
-      drafts.value[line.id],
-      keepLocalDraft
-    )
-  }
-  drafts.value = nextDrafts
-  nextTick(resizeAllTextareas)
-}, { immediate: true })
-
-watch(fontSize, () => nextTick(resizeAllTextareas))
+watch([fullTextLines, fontSize], resizeAllTextareas, { flush: 'post' })
 
 function getDisplayedText(textlineId: string): string {
-  return drafts.value[textlineId]
-    ?? fullTextLineById.value.get(textlineId)?.text
-    ?? ''
+  const pending = pendingCommit.value
+  return pending?.textlineId === textlineId
+    ? pending.text
+    : fullTextLineById.value.get(textlineId)?.text ?? ''
 }
 
 function getTextlineComment(textlineId: string): string {
@@ -296,7 +291,7 @@ const codecSegmentsByTextlineId = computed(() => {
     segmentsByTextlineId.set(
       line.id,
       getFullTextCodecSegments(
-        drafts.value[line.id] ?? line.text,
+        getDisplayedText(line.id),
         codecCharacterSet.value,
         includeWhitespaceInCodecHighlight.value
       )
@@ -426,7 +421,7 @@ const dictionarySegmentsByTextlineId = computed(() => {
   if (!dictionaryEnabled.value || !workspaceId || !dictionaryId) return segmentsByTextlineId
 
   for (const line of fullTextLines.value) {
-    const text = drafts.value[line.id] ?? line.text
+    const text = getDisplayedText(line.id)
     segmentsByTextlineId.set(
       line.id,
       getFullTextDictionarySegments(
@@ -497,7 +492,7 @@ function isDictionarySuggestionLoading(token: string): boolean {
 const dictionaryTokens = computed(() => {
   if (!dictionaryEnabled.value) return []
   const tokens = fullTextLines.value.flatMap(line =>
-    tokenizeForDictionary(drafts.value[line.id] ?? line.text)
+    tokenizeForDictionary(getDisplayedText(line.id))
   )
   return [...new Set(tokens)]
 })
@@ -690,10 +685,6 @@ function applyDictionarySuggestion(
   if (currentText.slice(segment.start, segment.end) !== segment.text) return
 
   const nextText = `${currentText.slice(0, segment.start)}${replacement}${currentText.slice(segment.end)}`
-  drafts.value = {
-    ...drafts.value,
-    [textlineId]: nextText
-  }
   pendingCommit.value = { textlineId, text: nextText }
 
   const textarea = textareaById.get(textlineId)
@@ -827,18 +818,6 @@ function handleRowMouseLeave(textlineId: string): void {
   runtime?.unhoverPolygon?.()
 }
 
-function handleTextareaFocus(textlineId: string): void {
-  editingTextlineId.value = textlineId
-  selectTextline(textlineId)
-}
-
-function handleTextareaBlur(textlineId: string): void {
-  flushPendingCommit()
-  if (editingTextlineId.value === textlineId) {
-    editingTextlineId.value = null
-  }
-}
-
 function focusTextline(textlineId: string): void {
   nextTick(() => {
     const textarea = textareaById.get(textlineId)
@@ -875,10 +854,6 @@ function handleTextareaInput(event: Event, textlineId: string): void {
   const normalizedText = normalizeSingleLineText(textarea.value)
   if (textarea.value !== normalizedText) {
     textarea.value = normalizedText
-  }
-  drafts.value = {
-    ...drafts.value,
-    [textlineId]: normalizedText
   }
   pendingCommit.value = { textlineId, text: normalizedText }
   resizeTextarea(textarea)
@@ -920,6 +895,7 @@ onBeforeUnmount(() => {
 <template>
   <TooltipProvider :delay-duration="200">
     <section
+      ref="shortcutRoot"
       class="flex h-full min-h-0 w-full flex-col bg-default dark:bg-[color-mix(in_srgb,var(--ui-bg)_72%,black)]"
       aria-label="Full transcription"
     >
@@ -956,7 +932,15 @@ onBeforeUnmount(() => {
           @mouseenter="handleRowMouseEnter(line.id)"
           @mouseleave="handleRowMouseLeave(line.id)"
         >
-          <div class="flex shrink-0 self-stretch items-start justify-center pt-1.5">
+          <span
+            v-if="line.source === 'gt'"
+            aria-hidden="true"
+            class="pointer-events-none absolute inset-y-1.5 left-0.5 w-0.5 rounded-full bg-success"
+          />
+          <div
+            class="box-content flex h-[1lh] items-center justify-center py-1 leading-[1.4]"
+            :style="{ fontSize: `${fontSize}px` }"
+          >
             <EditorTextSharedCommentPopover
               :textline-id="line.id"
               :comment="line.comments"
@@ -983,8 +967,13 @@ onBeforeUnmount(() => {
                     </UBadge>
                   </div>
 
+                  <div v-if="line.source === 'gt'" class="flex items-center gap-2 text-xs text-success">
+                    <Icon name="i-lucide-leaf" class="size-3.5 shrink-0" />
+                    <span>Ground truth</span>
+                  </div>
+
                   <div
-                    v-if="line.source === 'prediction'"
+                    v-else-if="line.source === 'prediction'"
                     class="flex items-start gap-2 rounded-md bg-muted/40 p-2 text-xs text-muted"
                   >
                     <Icon name="i-lucide-wand-sparkles" class="mt-0.5 size-3.5 shrink-0" />
@@ -1293,9 +1282,9 @@ onBeforeUnmount(() => {
 
               <textarea
                 :ref="(element) => setTextareaRef(line.id, element)"
-                :value="drafts[line.id] ?? line.text"
+                :value="getDisplayedText(line.id)"
                 :readonly="!isEditable"
-                :aria-label="`Transcription for text line ${line.id}`"
+                :aria-label="`Transcription for text line ${line.id}${line.source === 'gt' ? ' (ground truth)' : ''}`"
                 :dir="getReadingDirectionTextAttributes(line.readingDirection).dir"
                 :style="{
                   ...getReadingDirectionTextAttributes(line.readingDirection).style,
@@ -1308,9 +1297,9 @@ onBeforeUnmount(() => {
                 class="relative z-10 min-h-10 w-full min-w-0 resize-none overflow-hidden border-0 bg-transparent px-1 py-1 font-junicode text-highlighted outline-none placeholder:text-muted/50"
                 placeholder="…"
                 @click.stop="handleTextareaClick($event, line.id)"
-                @focus="handleTextareaFocus(line.id)"
+                @focus="selectTextline(line.id)"
                 @input="handleTextareaInput($event, line.id)"
-                @blur="handleTextareaBlur(line.id)"
+                @blur="flushPendingCommit"
                 @keydown="handleTextareaKeydown($event, line.id)"
                 @beforeinput="handleSingleLineTextareaBeforeInput($event as InputEvent, isEditable)"
                 @paste="handleSingleLineTextareaPaste($event, isEditable)"

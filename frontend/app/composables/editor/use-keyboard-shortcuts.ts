@@ -1,4 +1,4 @@
-import type { ComputedRef, Ref } from 'vue'
+import { shallowReactive, type ComputedRef, type Ref } from 'vue'
 import { useEventListener } from '@vueuse/core'
 import type { Commander } from '@/commands'
 import { DeleteSelectedElementsCommand } from '@/commands/editor/delete-selected-elements-command'
@@ -33,10 +33,15 @@ type TextViewShortcutHandlers = Pick<Record<ShortcutCommandId, () => boolean>, '
 
 interface RegisteredTextViewShortcutScope {
   rootEl: Ref<HTMLElement | null>
-  handlers: TextViewShortcutHandlers
+  handlers?: TextViewShortcutHandlers
+  historyDraft?: { hasChanges: ComputedRef<boolean>, commit: () => void }
 }
 
-const textViewScopeRegistry = new Map<string, RegisteredTextViewShortcutScope>()
+const textViewScopeRegistry = shallowReactive(new Map<string, RegisteredTextViewShortcutScope>())
+
+export function getTextViewHistoryDraft(canvasId: string | null | undefined) {
+  return canvasId ? textViewScopeRegistry.get(canvasId)?.historyDraft : undefined
+}
 
 export interface KeyboardShortcutsOptions {
   canvasId: Ref<string | null>
@@ -89,10 +94,10 @@ export interface KeyboardShortcutsOptions {
 
 export function useTextViewShortcutScope(options: {
   canvasId: Ref<string | null | undefined> | ComputedRef<string | null | undefined>
-  rootEl: Ref<HTMLElement | null>
-  handlers: TextViewShortcutHandlers
-}) {
+} & RegisteredTextViewShortcutScope) {
+  if (import.meta.server) return
   const previousCanvasId = ref<string | null>(null)
+  const { rootEl, handlers, historyDraft } = options
 
   watchEffect(() => {
     const canvasId = options.canvasId.value ?? null
@@ -103,10 +108,7 @@ export function useTextViewShortcutScope(options: {
     }
 
     if (canvasId) {
-      textViewScopeRegistry.set(canvasId, {
-        rootEl: options.rootEl,
-        handlers: options.handlers
-      })
+      textViewScopeRegistry.set(canvasId, { rootEl, handlers, historyDraft })
     }
 
     previousCanvasId.value = canvasId
@@ -260,10 +262,12 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     switch (commandId) {
       case 'undo':
         if (isInputFocused() && !allowWhileTyping) return false
+        getTextViewHistoryDraft(canvasId.value)?.commit()
         callbacks.handleUndo()
         return true
       case 'redo':
         if (isInputFocused() && !allowWhileTyping) return false
+        getTextViewHistoryDraft(canvasId.value)?.commit()
         callbacks.handleRedo()
         return true
       case 'selectMode':
@@ -437,7 +441,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         if (isBlockedByTyping()) return false
         // Clicking a line can leave focus outside the list, so this must not depend on the active scope.
         return callbacks.createGtFromRecognition?.()
-          || textViewScopeRegistry.get(canvasId.value ?? '')?.handlers.createGtFromRecognition()
+          || textViewScopeRegistry.get(canvasId.value ?? '')?.handlers?.createGtFromRecognition()
           || false
       case 'reviewApprove':
         if (isBlockedByTyping()) return false
@@ -488,7 +492,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     commandId: ShortcutCommandId,
     registration: RegisteredTextViewShortcutScope | undefined
   ): boolean => {
-    if (!registration) return false
+    if (!registration?.handlers) return false
 
     switch (commandId) {
       case 'nextTextField':
@@ -530,6 +534,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
       for (const [commandId, definition] of Object.entries(SHORTCUT_DEFINITIONS) as Array<[ShortcutCommandId, ShortcutDefinition]>) {
         if (definition.scope !== scope) continue
         if (!(resolvedBindings.value[commandId] ?? []).includes(binding)) continue
+        if (event.isComposing && (commandId === 'undo' || commandId === 'redo')) continue
         if (commandId === 'clearSelection' && binding === 'escape') continue
         if (
           scope === 'global'
