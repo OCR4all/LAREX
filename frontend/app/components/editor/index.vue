@@ -2516,12 +2516,10 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
 
       <div
         v-if="regionLabelConflictCount > 0"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-error/30 bg-neutral-100/95 p-0.5 pl-2 text-sm text-highlighted shadow-md backdrop-blur dark:bg-neutral-800/95"
+        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 px-1.5 py-0.5 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
       >
-        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
-          <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-error/15 text-error">
-            <Icon name="i-lucide-tags" class="h-3 w-3" />
-          </div>
+        <div class="flex min-w-0 items-center gap-1.5 rounded-full border border-transparent bg-(--ui-color-error-600) px-1.5 py-0.5 text-white">
+          <Icon name="i-lucide-tags" class="size-3.5 shrink-0" />
           <span class="font-medium">Label conflicts</span>
         </div>
         <span class="min-w-0 truncate text-xs text-toned">
@@ -2532,10 +2530,10 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
 
         <UButton
           size="xs"
-          color="error"
-          variant="soft"
+          color="neutral"
+          variant="outline"
           icon="i-lucide-wand-sparkles"
-          class="h-6 shrink-0 px-2 text-[11px]"
+          class="h-6 shrink-0 rounded-full px-2 text-[11px]"
           label="Resolve labels"
           @click="openLabelConflictResolver"
         />
