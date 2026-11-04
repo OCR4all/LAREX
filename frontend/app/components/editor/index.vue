@@ -506,6 +506,10 @@ const polygonEditing = usePolygonEditing(
 canvasControls.deleteSelectedNodes = () => isCanvasEditable.value
   && polygonEditing.deleteSelectedNodes(selectedPolygonIndex.value)
 
+const hitTestHiddenPolylineIds = computed(() =>
+  isTextCanvasMode.value ? polylines.map(polyline => polyline.id) : hiddenPolylineIds.value
+)
+
 watch(
   () => [polygons[selectedPolygonIndex.value]?.id, selectedPolylineIndex.value, canvasControls.drawingMode.value],
   () => polygonEditing.clearNodeSelection(),
@@ -523,7 +527,7 @@ const polylineEditing = usePolylineEditing(
   polylines, view, aspectRatioScale, constrainToImage, webglRenderer.imageSize,
   polygons, constrainToParent, spatialIndex, selectedPolygonIndex, selectedPolylineIndex,
   canvasControls.viewMode, canvasControls.commander,
-  props.canvasId, hiddenPolygonIds, hiddenPolylineIds
+  props.canvasId, hiddenPolygonIds, hitTestHiddenPolylineIds
 )
 
 const cutDrawing = useCutDrawing(
@@ -893,6 +897,8 @@ const elementOverlayLabels = computed<ElementOverlayLabel[]>(() => {
     if (label) labels.push(label)
   }
 
+  if (isTextCanvasMode.value) return labels
+
   const polygonById = new Map(polygons.map(polygon => [polygon.id, polygon]))
   for (const polyline of polylines) {
     const visibleInHeatmap = heatmapEnabled
@@ -911,7 +917,7 @@ const elementOverlayLabels = computed<ElementOverlayLabel[]>(() => {
 const editorInteractions = useEditorInteractions(
   canvas, view, aspectRatioScale, polygons, polylines, selectedPolygonIndex, selectedPolylineIndex,
   selectedPolygonIds, selectedPolylineIds,
-  hiddenPolygonIds, hiddenPolylineIds,
+  hiddenPolygonIds, hitTestHiddenPolylineIds,
   isPolygonMode, isRectangleMode, isPolylineMode, isDrawingMode, isMoveMode, canvasControls.regionType, mouseInteraction,
   polygonDrawing, polylineDrawing, rectangleDrawing, polygonEditing, polylineEditing,
   editorCommands, canvasControls, webglRenderer.imageSize, moveInteraction, stateActions
@@ -997,7 +1003,8 @@ const editorRenderer = useEditorRenderer(
   bufferPreviewForRenderer,
   actionProcessingTargets,
   diffHighlights,
-  regionLabelConflictIds
+  regionLabelConflictIds,
+  isTextCanvasMode
 )
 const renderStats = computed(() => editorRenderer.renderStats.value)
 const exposeRenderDiagnostics = import.meta.env.DEV

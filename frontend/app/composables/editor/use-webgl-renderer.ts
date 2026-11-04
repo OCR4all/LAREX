@@ -1845,12 +1845,14 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     drawSelectedPolygonOutline(renderState, aspectRatioScale, view, triangulatePolygon)
     // Keep baseline selection feedback above polygon fills and focus overlays.
-    if (renderState.polylines) {
+    if (!renderState.hideBaselines) {
       drawPolylines(renderState, aspectRatioScale, view)
     }
     drawPolygonNodes(renderState, aspectRatioScale, view)
     drawPreviewNodes(renderState, aspectRatioScale, view)
-    drawPolylinePreviewNodes(renderState.polylinePreviewNodePosition, aspectRatioScale, view)
+    if (!renderState.hideBaselines) {
+      drawPolylinePreviewNodes(renderState.polylinePreviewNodePosition, aspectRatioScale, view)
+    }
   }
 
   /**

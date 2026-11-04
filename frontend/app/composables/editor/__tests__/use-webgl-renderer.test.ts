@@ -237,6 +237,23 @@ describe('baseline rendering', () => {
     renderer.cleanup()
   })
 
+  it('hides the selected textline baseline in text views and restores it in layout', () => {
+    const { renderer } = setupImageUpload(1000, 800)
+    const stroke = vi.spyOn(ThickLineRenderer.prototype, 'drawThickLine')
+    const state = baselineRenderState()
+    state.viewMode = 'textline'
+    state.selectedPolylineIndex.value = -1
+    state.hideBaselines = true
+
+    renderer.renderFrame(state, scale, view, () => [0, 1, 2, 0, 2, 3])
+    expect(stroke.mock.calls.some(call => call[0] === state.polylines[0]!.points)).toBe(false)
+
+    state.hideBaselines = false
+    renderer.renderFrame(state, scale, view, () => [0, 1, 2, 0, 2, 3])
+    expect(stroke.mock.calls.some(call => call[0] === state.polylines[0]!.points)).toBe(true)
+    renderer.cleanup()
+  })
+
   it('reuses baseline geometry across casing passes, panning, and zooming', () => {
     const { renderer } = setupImageUpload(1000, 800)
     const generate = vi.spyOn(ThickLineRenderer.prototype, 'generateThickLineVertices')

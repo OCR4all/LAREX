@@ -96,6 +96,7 @@ export interface ActionProcessingRenderTarget {
 export interface WebGLRenderState {
   polygons: RenderablePolygon[]
   polylines: RenderablePolyline[]
+  hideBaselines?: boolean
   /** Region IDs whose PAGE mappings are absent from the active project label set. */
   labelConflictIds?: string[]
 
