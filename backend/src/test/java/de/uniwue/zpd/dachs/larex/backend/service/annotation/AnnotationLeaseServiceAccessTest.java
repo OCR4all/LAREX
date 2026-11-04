@@ -113,6 +113,27 @@ class AnnotationLeaseServiceAccessTest {
         assertThrows(AnnotationLeaseLockedException.class, () -> service.assertWriteAccess(context, "user-1"));
     }
 
+    @Test
+    void pagesInReviewStayEditableForReviewersOnly() {
+        Library library = new Library("workspace-1", "Library");
+        Project project = new Project("Project", null, library);
+        project.setId("project-1");
+        Page page = new Page("Page", null, project);
+        page.setId("page-1");
+        page.setWorkflowState(Page.WorkflowState.IN_REVIEW);
+        when(pageService.getPageById("page-1", "editor")).thenReturn(Optional.of(page));
+        when(pageService.getPageById("page-1", "curator")).thenReturn(Optional.of(page));
+        when(authorizationPolicyService.canAccessWorkspace("workspace-1", "editor")).thenReturn(true);
+        when(authorizationPolicyService.canAccessWorkspace("workspace-1", "curator")).thenReturn(true);
+        when(authorizationPolicyService.canReviewPages("workspace-1", "editor")).thenReturn(false);
+        when(authorizationPolicyService.canReviewPages("workspace-1", "curator")).thenReturn(true);
+
+        assertFalse(service.resolvePageAccess("project-1", "page-1", "editor").canEdit());
+        assertThrows(AnnotationLeaseLockedException.class, () -> service.assertPageWriteAccess("project-1", "page-1", "editor"));
+        org.junit.jupiter.api.Assertions.assertTrue(service.resolvePageAccess("project-1", "page-1", "curator").canEdit());
+        service.assertPageWriteAccess("project-1", "page-1", "curator");
+    }
+
     private AnnotationLeaseService.RoomAccessContext editorContext(String pageId) {
         return new AnnotationLeaseService.RoomAccessContext("workspace-1", "project-1", pageId, "xml-" + pageId,
                 "project-1:" + pageId, "Project", "Page", true, true,

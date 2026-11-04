@@ -62,7 +62,8 @@ class WorkspaceProjectDefaultsServiceTest {
         WorkspaceDto.ProjectDefaultsPreviewResponse response = service.preview(
                 WORKSPACE_ID,
                 new WorkspaceDto.ProjectDefaultsProposal(
-                        null, "new-label", null, null, null, null, 0, List.of(1)
+                        null, "new-label", null, null, null, null, 0, List.of(1),
+                        null
                 ),
                 USER_ID
         );
@@ -235,10 +236,36 @@ class WorkspaceProjectDefaultsServiceTest {
 
         assertThrows(SecurityException.class, () -> service.preview(
                 WORKSPACE_ID,
-                new WorkspaceDto.ProjectDefaultsProposal(null, null, null, null, null, null, 0, List.of(1)),
+                new WorkspaceDto.ProjectDefaultsProposal(null, null, null, null, null, null, 0, List.of(1), null),
                 USER_ID
         ));
         verify(projectRepository, never()).findByLibraryWorkspaceId(WORKSPACE_ID);
+    }
+
+    @Test
+    void reviewPolicyFillsUnsetProjectsAndKeepsExplicitChoices() {
+        TeamWorkspace beforeWorkspace = workspace(null);
+        WorkspaceProjectDefaultsService.WorkspaceDefaults before =
+                WorkspaceProjectDefaultsService.WorkspaceDefaults.from(beforeWorkspace);
+        TeamWorkspace afterWorkspace = workspace(null);
+        afterWorkspace.setDefaultReviewRequired(true);
+        Project unset = project("unset", null);
+        Project explicit = project("explicit", null);
+        explicit.setReviewRequired(false);
+        when(projectRepository.findByLibraryWorkspaceId(WORKSPACE_ID)).thenReturn(List.of(unset, explicit));
+
+        WorkspaceDto.ProjectDefaultsPropagationResult unsetOnly = service.apply(
+                WORKSPACE_ID, before, afterWorkspace, WorkspaceDto.ProjectDefaultPropagationScope.UNSET_ONLY, USER_ID);
+
+        assertEquals(Boolean.TRUE, unset.getReviewRequired());
+        assertEquals(Boolean.FALSE, explicit.getReviewRequired());
+        assertEquals(1, unsetOnly.updatedProjects());
+
+        WorkspaceDto.ProjectDefaultsPropagationResult all = service.apply(
+                WORKSPACE_ID, before, afterWorkspace, WorkspaceDto.ProjectDefaultPropagationScope.ALL, USER_ID);
+
+        assertEquals(Boolean.TRUE, explicit.getReviewRequired());
+        assertEquals(1, all.updatedProjects());
     }
 
     private TeamWorkspace workspace(String labelSetId) {

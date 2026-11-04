@@ -92,7 +92,7 @@ export const useNotifications = () => {
     const { isInAppEnabled } = useNotificationPreferences()
     if (!isInAppEnabled(type)) return
 
-    const toast = useToast()
+    const toast = useAppToast()
     toast.add({
       title,
       description,

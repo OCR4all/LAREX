@@ -83,7 +83,7 @@ class TaskServiceDeleteTest {
     void deleteTaskRemovesSubtasksAndAllTaskOwnedRecords() {
         Task task = new Task("Task", null, "creator-1", Task.TaskPriority.MEDIUM, "workspace-1");
         task.setId("task-1");
-        task.setSyncLinkedPageStates(true);
+        task.setPageCompletion(Task.PageCompletion.DONE);
         TaskPageLink pageLink = new TaskPageLink(
                 "task-1",
                 "page-1",

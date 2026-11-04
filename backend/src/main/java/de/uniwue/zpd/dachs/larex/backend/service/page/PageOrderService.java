@@ -87,7 +87,8 @@ public class PageOrderService {
         }
 
         List<Page> pages = pageRepository.findByProjectIdForUpdate(projectId);
-        if (pages.stream().anyMatch(Page::isEffectivelyLocked)) {
+        boolean canReviewPages = workspaceAccessService.canReviewPages(workspaceId, userId);
+        if (pages.stream().anyMatch(page -> page.isLockedFor(canReviewPages))) {
             throw new IllegalStateException("One or more pages are locked");
         }
 

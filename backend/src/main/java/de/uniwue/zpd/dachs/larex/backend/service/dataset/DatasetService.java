@@ -738,12 +738,13 @@ public class DatasetService {
             selectedImages.add(sourceImage);
         }
 
+        boolean canReviewPages = authorizationPolicyService.canReviewPages(workspaceId, userId);
         boolean canEdit = authorizationPolicyService.canAccessWorkspace(workspaceId, userId)
                 && !sourcePage.getProject().isLocked()
-                && !sourcePage.isEffectivelyLocked();
+                && !sourcePage.isLockedFor(canReviewPages);
         String readOnlyReason = canEdit
                 ? null
-                : resolveReadOnlyReason(sourcePage.getEffectiveLockedReason(), "Source page is read-only");
+                : resolveReadOnlyReason(sourcePage.getLockedReasonFor(canReviewPages), "Source page is read-only");
 
         String annotationBasePath = "/api/projects/" + sourcePage.getProject().getId()
                 + "/pages/" + sourcePage.getId()

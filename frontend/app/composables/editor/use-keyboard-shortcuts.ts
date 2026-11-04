@@ -76,6 +76,9 @@ export interface KeyboardShortcutsOptions {
     setTextViewMode?: (mode: TextModeSubmode) => void
     toggleVirtualKeyboard?: () => void
     saveDocument?: () => void
+    createGtFromRecognition?: () => boolean
+    reviewApprove?: () => void
+    reviewRequestChanges?: () => void
     nextImage?: () => void
     prevImage?: () => void
     closeActiveTab?: () => void
@@ -430,6 +433,20 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         if (isBlockedByTyping()) return false
         callbacks.saveDocument?.()
         return true
+      case 'createGtFromRecognition':
+        if (isBlockedByTyping()) return false
+        // Clicking a line can leave focus outside the list, so this must not depend on the active scope.
+        return callbacks.createGtFromRecognition?.()
+          || textViewScopeRegistry.get(canvasId.value ?? '')?.handlers.createGtFromRecognition()
+          || false
+      case 'reviewApprove':
+        if (isBlockedByTyping()) return false
+        callbacks.reviewApprove?.()
+        return true
+      case 'reviewRequestChanges':
+        if (isBlockedByTyping()) return false
+        callbacks.reviewRequestChanges?.()
+        return true
       case 'nextImage':
         if (isInputFocused()) return false
         callbacks.nextImage?.()
@@ -461,7 +478,6 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
       case 'prevTextField':
       case 'blurTextField':
       case 'nextSameIndexField':
-      case 'createGtFromRecognition':
         return false
       default:
         return false
@@ -481,7 +497,6 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
       case 'prevTextField':
       case 'blurTextField':
       case 'nextSameIndexField':
-      case 'createGtFromRecognition':
         return registration.handlers[commandId]()
       default:
         return false

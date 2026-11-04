@@ -148,6 +148,7 @@ type ProjectListItem = {
   pageCount: number
   completedPageCount: number
   completionPercentage: number
+  inReviewPageCount?: number
   isStarred: boolean
   storageUsedBytes: number
   storageUsedFormatted: string
@@ -461,6 +462,7 @@ const columns: TableColumn<ProjectListItem>[] = [
       const completed = row.original.completedPageCount
       const total = row.original.pageCount
       const percentage = row.original.completionPercentage
+      const inReview = row.original.inReviewPageCount ?? 0
 
       return h(UPopover, {
         mode: 'hover',
@@ -472,6 +474,7 @@ const columns: TableColumn<ProjectListItem>[] = [
         }, [
           h(ProjectProgress, {
             'modelValue': percentage,
+            'inReviewPercentage': total > 0 ? (inReview * 100) / total : 0,
             'size': 'sm',
             'aria-label': `${completed} of ${total} pages done (${percentage}% complete)`
           })
@@ -482,6 +485,10 @@ const columns: TableColumn<ProjectListItem>[] = [
             h('div', { class: 'flex items-center justify-between gap-6' }, [
               h('dt', { class: 'text-muted' }, 'Done'),
               h('dd', { class: 'font-medium text-highlighted' }, `${completed} of ${total} pages`)
+            ]),
+            h('div', { class: 'flex items-center justify-between gap-6' }, [
+              h('dt', { class: 'text-muted' }, 'In review'),
+              h('dd', { class: 'font-medium text-highlighted' }, `${inReview} pages`)
             ]),
             h('div', { class: 'flex items-center justify-between gap-6' }, [
               h('dt', { class: 'text-muted' }, 'Completion'),

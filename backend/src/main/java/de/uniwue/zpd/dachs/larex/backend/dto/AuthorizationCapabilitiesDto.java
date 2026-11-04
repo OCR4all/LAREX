@@ -11,6 +11,7 @@ public class AuthorizationCapabilitiesDto {
             boolean canManageTasks,
             boolean canManageToolkit,
             boolean canSetPresets,
+            boolean canReviewPages,
             boolean canEditPageName,
             boolean canEditPageDescription,
             boolean canEditPageTags
@@ -26,6 +27,7 @@ public class AuthorizationCapabilitiesDto {
             boolean canExecuteActions,
             boolean canManageActions,
             boolean canChangePageState,
+            boolean canReviewPages,
             boolean canEditPageName,
             boolean canEditPageDescription,
             boolean canEditPageTags

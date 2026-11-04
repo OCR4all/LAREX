@@ -73,6 +73,10 @@ public class ProjectService {
                 defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, primaryImageVariant, userId);
     }
 
+    public Project setReviewRequired(Project project, boolean reviewRequired, String userId) {
+        return projectCrudService.setReviewRequired(project, reviewRequired, userId);
+    }
+
     public Optional<Project> updateProject(String projectId, String name, String description, List<String> tags, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                            String normalizationProfileId, String validationRulesetId, String virtualKeyboardId,
                                            Boolean allowCodecOverride, Boolean allowDictionaryOverride, Boolean allowVirtualKeyboardOverride,

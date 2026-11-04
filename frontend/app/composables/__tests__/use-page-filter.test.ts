@@ -21,7 +21,7 @@ describe('use-page-filter helpers', () => {
       confidenceRange: [0, 1],
       confidenceElementTypes: [],
       hasComments: false,
-      onlyWithOpenSubtasks: false
+      onlyWithOpenSubtasks: false, changesRequested: false
     })
 
     expect(body).toEqual({
@@ -35,7 +35,7 @@ describe('use-page-filter helpers', () => {
       commentText: null,
       workflowStates: null,
       annotationPresence: null,
-      onlyWithOpenSubtasks: null,
+      onlyWithOpenSubtasks: null, changesRequested: null,
       xmlAttributeFilters: null,
       filterOperator: 'and'
     })
@@ -52,7 +52,7 @@ describe('use-page-filter helpers', () => {
       confidenceRange: [0.2, 0.8],
       confidenceElementTypes: [],
       hasComments: false,
-      onlyWithOpenSubtasks: false
+      onlyWithOpenSubtasks: false, changesRequested: false
     })
 
     expect(bodyWithRange).toMatchObject({
@@ -69,7 +69,7 @@ describe('use-page-filter helpers', () => {
       confidenceRange: [0, 1],
       confidenceElementTypes: ['TEXTEQUIV', 'COORDS'],
       hasComments: false,
-      onlyWithOpenSubtasks: false
+      onlyWithOpenSubtasks: false, changesRequested: false
     })
 
     expect(bodyWithTypes).toMatchObject({
@@ -109,7 +109,7 @@ describe('use-page-filter helpers', () => {
       confidenceRange: [0, 1],
       confidenceElementTypes: [],
       hasComments: true,
-      onlyWithOpenSubtasks: false
+      onlyWithOpenSubtasks: false, changesRequested: false
     })
 
     expect(body).toMatchObject({
@@ -117,12 +117,24 @@ describe('use-page-filter helpers', () => {
     })
   })
 
+  it('serializes the changes-requested filter and counts it as active', async () => {
+    const { buildPageFilterRequestBody, activePageFilterCount } = await import('../use-page-filter')
+    const state = {
+      labelIds: [], textContent: '', tags: [], filterOperator: 'and' as const, confidenceRange: [0, 1] as [number, number],
+      confidenceElementTypes: [], hasComments: false, commentText: '', onlyWithOpenSubtasks: false, changesRequested: true,
+      workflowStates: [], annotationPresence: null, xmlAttributeFilters: [], visibleFilters: []
+    }
+
+    expect(buildPageFilterRequestBody(state)).toMatchObject({ changesRequested: true })
+    expect(activePageFilterCount(state)).toBe(1)
+  })
+
   it('serializes the optional dedicated comment search text', async () => {
     const { buildPageFilterRequestBody } = await import('../use-page-filter')
 
     const body = buildPageFilterRequestBody({
       labelIds: [], textContent: '', tags: [], filterOperator: 'and', confidenceRange: [0, 1],
-      confidenceElementTypes: [], hasComments: true, commentText: '  review me  ', onlyWithOpenSubtasks: false
+      confidenceElementTypes: [], hasComments: true, commentText: '  review me  ', onlyWithOpenSubtasks: false, changesRequested: false
     })
 
     expect(body).toMatchObject({ hasComments: true, commentText: 'review me' })
@@ -139,8 +151,8 @@ describe('use-page-filter helpers', () => {
       confidenceRange: [0, 1],
       confidenceElementTypes: [],
       hasComments: false,
-      onlyWithOpenSubtasks: true,
-      workflowStates: ['IN_PROGRESS'],
+      onlyWithOpenSubtasks: true, changesRequested: false,
+      workflowStates: ['IN_REVIEW'],
       annotationPresence: 'with_xml',
       xmlAttributeFilters: [
         { id: 'complete', elementName: 'TextLine', attributeName: 'comments', operator: 'contains', value: 'review' },
@@ -150,9 +162,10 @@ describe('use-page-filter helpers', () => {
     })
 
     expect(body).toMatchObject({
-      workflowStates: ['IN_PROGRESS'],
+      workflowStates: ['IN_REVIEW'],
       annotationPresence: 'with_xml',
       onlyWithOpenSubtasks: true,
+      changesRequested: null,
       xmlAttributeFilters: [{
         elementName: 'TextLine',
         attributeName: 'comments',
@@ -167,7 +180,7 @@ describe('use-page-filter helpers', () => {
 
     expect(activePageFilterCount({
       labelIds: [], textContent: '', tags: [], filterOperator: 'and', confidenceRange: [0, 1],
-      confidenceElementTypes: [], hasComments: false, commentText: '', onlyWithOpenSubtasks: false, workflowStates: [],
+      confidenceElementTypes: [], hasComments: false, commentText: '', onlyWithOpenSubtasks: false, changesRequested: false, workflowStates: [],
       annotationPresence: null, visibleFilters: ['labels'],
       xmlAttributeFilters: [
         { id: 'empty', elementName: '', attributeName: '', operator: 'exists', value: '' },
@@ -194,7 +207,7 @@ describe('use-page-filter helpers', () => {
     const { addPageFilterRow, removePageFilterRow } = await import('../use-page-filter')
     const initial = {
       labelIds: [], textContent: '', tags: [], filterOperator: 'and' as const, confidenceRange: [0, 1] as [number, number],
-      confidenceElementTypes: [], hasComments: false, commentText: '', onlyWithOpenSubtasks: false, workflowStates: [],
+      confidenceElementTypes: [], hasComments: false, commentText: '', onlyWithOpenSubtasks: false, changesRequested: false, workflowStates: [],
       annotationPresence: null, xmlAttributeFilters: [], visibleFilters: []
     }
 

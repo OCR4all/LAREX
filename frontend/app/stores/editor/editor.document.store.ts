@@ -327,6 +327,8 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
       locked?: boolean
       lockedReason?: string | null
       workflowState?: PageData['workflowState']
+      changesRequested?: boolean
+      reviewSubmittedByUserId?: string | null
       imageCount?: number
       xmlFileCount?: number
       indexingStatus?: PageData['indexingStatus']
@@ -354,6 +356,10 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
         locked: summary.locked ?? false,
         lockedReason: summary.lockedReason ?? null,
         workflowState: summary.workflowState ?? page.workflowState ?? 'OPEN',
+        changesRequested: summary.changesRequested ?? page.changesRequested ?? false,
+        reviewSubmittedByUserId: summary.reviewSubmittedByUserId !== undefined
+          ? summary.reviewSubmittedByUserId
+          : page.reviewSubmittedByUserId,
         imageCount: summary.imageCount ?? page.imageCount,
         xmlFileCount: summary.xmlFileCount ?? page.xmlFileCount,
         indexingStatus: summary.indexingStatus ?? page.indexingStatus,

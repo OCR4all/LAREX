@@ -51,6 +51,7 @@ it.each(['PROJECT', 'DATASET'] as const)('keeps force-saved live annotations thr
   vi.stubGlobal('window', { addEventListener: vi.fn() })
   vi.stubGlobal('BroadcastChannel', undefined)
   vi.stubGlobal('useToast', () => ({ add: vi.fn() }))
+  vi.stubGlobal('useAppToast', () => ({ add: vi.fn() }))
   vi.stubGlobal('useThrottleFn', (callback: unknown) => callback)
   vi.stubGlobal('useDebounceFn', (callback: unknown) => callback)
   let handleMessage: (message: { type: string, payload: unknown }) => void = () => {}

@@ -111,6 +111,7 @@ public class WorkspaceService {
                                                            Boolean allowEditorsToEditPageName,
                                                            Boolean allowEditorsToEditPageDescription,
                                                            Boolean allowEditorsToEditPageTags,
+                                                           Boolean defaultReviewRequired,
                                                            String userId) {
         Optional<AbstractWorkspace> workspaceOpt = workspaceQueryService.findWorkspaceById(workspaceId);
         if (workspaceOpt.isEmpty()) return Optional.empty();
@@ -123,14 +124,16 @@ public class WorkspaceService {
             Optional<PersonalWorkspace> personal = personalWorkspaceService.updatePersonalWorkspace(
                     workspaceId, description, avatar, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices,
-                    allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags, userId
+                    allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags,
+                    defaultReviewRequired, userId
             );
             updated = personal.map(pw -> (AbstractWorkspace) pw);
         } else {
             Optional<TeamWorkspace> team = teamWorkspaceService.updateTeamWorkspace(
                     workspaceId, name, description, avatar, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices,
-                    allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags, userId
+                    allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags,
+                    defaultReviewRequired, userId
             );
             updated = team.map(tw -> (AbstractWorkspace) tw);
         }

@@ -235,6 +235,7 @@ public class ProjectCrudService {
         project.setDefaultRecognitionIndicesList(resolvedTextIndexDefaults.recognitionIndices());
         project.setOutputRetentionDays(outputRetentionDays);
         project.setPrimaryImageVariant(primaryImageVariant);
+        project.setReviewRequired(workspace != null ? workspace.isDefaultReviewRequired() : null);
 
         project = projectRepository.save(project);
         notifyWorkspaceMembers(workspaceId, userId, "New project created: " + name, project.getId());
@@ -345,6 +346,19 @@ public class ProjectCrudService {
                 allowCodecOverride, allowDictionaryOverride, allowVirtualKeyboardOverride, allowLabelSetOverride,
                 allowTagSetOverride, allowNormalizationProfileOverride, allowValidationRulesetOverride,
                 defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, null, userId);
+    }
+
+    public Project setReviewRequired(Project project, boolean reviewRequired, String userId) {
+        String workspaceId = project.getLibrary().getWorkspaceId();
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        if (project.isReviewEnforced() == reviewRequired) {
+            return project;
+        }
+        if (!workspaceAccessService.canSetPresets(workspaceId, userId)) {
+            throw new SecurityException("You do not have permission to change the project's review policy.");
+        }
+        project.setReviewRequired(reviewRequired);
+        return projectRepository.save(project);
     }
 
     public Optional<Project> updateToolkitPresets(String workspaceId, String projectId,

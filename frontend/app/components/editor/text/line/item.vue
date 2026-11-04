@@ -1107,6 +1107,9 @@ onBeforeUnmount(() => {
                     @click.stop="createGtFromRecognition"
                   >
                     Create GT
+                    <template #trailing>
+                      <EditorShortcutKbds command="createGtFromRecognition" />
+                    </template>
                   </UButton>
                 </UTooltip>
                 <UTooltip v-if="canAddTextContentVariant" text="Add another transcription variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
@@ -1213,6 +1216,9 @@ onBeforeUnmount(() => {
                     @click.stop="createGtFromRecognition"
                   >
                     Create GT
+                    <template #trailing>
+                      <EditorShortcutKbds command="createGtFromRecognition" />
+                    </template>
                   </UButton>
                 </UTooltip>
                 <EditorTextSharedCommentPopover
@@ -1257,6 +1263,9 @@ onBeforeUnmount(() => {
                   @click.stop="createGtFromRecognition"
                 >
                   Create GT
+                  <template #trailing>
+                    <EditorShortcutKbds command="createGtFromRecognition" />
+                  </template>
                 </UButton>
               </UTooltip>
               <UDropdownMenu :items="focusMoreActionItems" :content="{ align: 'end' }">

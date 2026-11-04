@@ -114,6 +114,8 @@ export type NotificationType
     | 'COLLAB_TAKEOVER_DECLINED'
     | 'COLLAB_TAKEOVER_FORCED'
     | 'COLLAB_LEASE_EXPIRED'
+    | 'PAGE_REVIEW_REQUESTED'
+    | 'PAGE_CHANGES_REQUESTED'
 
 export interface Notification {
   id: string
@@ -182,7 +184,7 @@ export interface Task {
   completedAt: string | null
   completedByUserId: string | null
   workspaceId: string
-  syncLinkedPageStates: boolean
+  pageCompletion: TaskPageCompletion
   capabilities?: TaskCapabilities
 }
 
@@ -303,6 +305,8 @@ export interface AssignedWorkspaceTasks {
   blockedAssignedPageCount: number
 }
 
+export type TaskPageCompletion = 'NONE' | 'DONE' | 'REVIEW'
+
 export interface EditorQueuePage {
   pageId: string
   pageName: string
@@ -312,6 +316,9 @@ export interface EditorQueuePage {
   blocked: boolean
   blockedReason?: string | null
   subtasks: Subtask[]
+  submittedBy?: UserProfile | null
+  submittedAt?: string | null
+  assignments?: Array<{ id: string, title: string }>
 }
 
 export interface EditorQueue {
@@ -321,6 +328,19 @@ export interface EditorQueue {
   openAssignedPageCount: number
   blockedAssignedPageCount: number
   pages: EditorQueuePage[]
+}
+
+export interface ReviewQueuePage extends Omit<EditorQueuePage, 'subtasks'> {
+  submittedByUserId?: string | null
+  dueDate?: string | null
+}
+
+export interface ReviewQueue {
+  workspaceId: string
+  workspaceName: string
+  totalPageCount: number
+  blockedPageCount: number
+  pages: ReviewQueuePage[]
 }
 
 export interface SubtaskProgress {

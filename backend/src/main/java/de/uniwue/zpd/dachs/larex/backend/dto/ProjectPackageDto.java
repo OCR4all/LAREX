@@ -151,7 +151,8 @@ public class ProjectPackageDto {
             boolean allowValidationRulesetOverride,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices,
-            String primaryImageVariant
+            String primaryImageVariant,
+            Boolean reviewRequired
     ) {
         public ProjectSnapshot(String name,
                                String description,
@@ -170,7 +171,7 @@ public class ProjectPackageDto {
             this(name, description, tags, locked, lockedReason, allowCodecOverride, allowDictionaryOverride,
                     allowVirtualKeyboardOverride, allowLabelSetOverride, allowTagSetOverride,
                     allowNormalizationProfileOverride, allowValidationRulesetOverride,
-                    defaultGtIndex, defaultRecognitionIndices, null);
+                    defaultGtIndex, defaultRecognitionIndices, null, null);
         }
     }
 

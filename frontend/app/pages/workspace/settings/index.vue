@@ -35,6 +35,7 @@ interface Workspace {
   allowEditorsToEditPageName?: boolean
   allowEditorsToEditPageDescription?: boolean
   allowEditorsToEditPageTags?: boolean
+  defaultReviewRequired?: boolean
   created?: string
   updated?: string
 }
@@ -117,7 +118,8 @@ const form = reactive({
   defaultRecognitionIndicesInput: '1',
   allowEditorsToEditPageName: false,
   allowEditorsToEditPageDescription: false,
-  allowEditorsToEditPageTags: false
+  allowEditorsToEditPageTags: false,
+  defaultReviewRequired: false
 })
 
 function formatRecognitionIndices(value?: number[] | null): string {
@@ -131,7 +133,8 @@ const defaultLabels: Record<ProjectDefaultKey, string> = {
   TAG_SET: 'Tag set',
   NORMALIZATION_PROFILE: 'Normalization profile',
   VALIDATION_RULESET: 'Validation ruleset',
-  TEXT_INDICES: 'Text indices'
+  TEXT_INDICES: 'Text indices',
+  REVIEW_REQUIRED: 'Page review'
 }
 
 function normalizeId(value?: string | null): string | null {
@@ -172,7 +175,7 @@ function changedWorkspaceDefaults(defaultGtIndex: number, defaultRecognitionIndi
     }
   )
   const changed: Array<{ key: ProjectDefaultKey, label: string, before: string, after: string }> = []
-  const resources: Array<{ key: Exclude<ProjectDefaultKey, 'TEXT_INDICES'>, current?: string | null, next: string, options: SelectOption[] }> = [
+  const resources: Array<{ key: Exclude<ProjectDefaultKey, 'TEXT_INDICES' | 'REVIEW_REQUIRED'>, current?: string | null, next: string, options: SelectOption[] }> = [
     { key: 'CODEC', current: workspace.value.codecId, next: form.codecId, options: codecsSafe.value },
     { key: 'LABEL_SET', current: workspace.value.labelSetId, next: form.labelSetId, options: labelSetsSafe.value },
     { key: 'DICTIONARY', current: workspace.value.dictionaryId, next: form.dictionaryId, options: dictionariesSafe.value },
@@ -200,6 +203,15 @@ function changedWorkspaceDefaults(defaultGtIndex: number, defaultRecognitionIndi
       label: defaultLabels.TEXT_INDICES,
       before: `GT ${currentGtIndex}; Recognition ${currentRecognitionIndices.join(', ')}`,
       after: `GT ${defaultGtIndex}; Recognition ${defaultRecognitionIndices.join(', ')}`
+    })
+  }
+
+  if ((workspace.value.defaultReviewRequired ?? false) !== form.defaultReviewRequired) {
+    changed.push({
+      key: 'REVIEW_REQUIRED',
+      label: defaultLabels.REVIEW_REQUIRED,
+      before: workspace.value.defaultReviewRequired ? 'Required' : 'Optional',
+      after: form.defaultReviewRequired ? 'Required' : 'Optional'
     })
   }
 
@@ -338,6 +350,7 @@ watchEffect(() => {
     form.allowEditorsToEditPageName = workspace.value.allowEditorsToEditPageName ?? false
     form.allowEditorsToEditPageDescription = workspace.value.allowEditorsToEditPageDescription ?? false
     form.allowEditorsToEditPageTags = workspace.value.allowEditorsToEditPageTags ?? false
+    form.defaultReviewRequired = workspace.value.defaultReviewRequired ?? false
   }
 })
 
@@ -361,6 +374,7 @@ const cancelEditing = () => {
     form.allowEditorsToEditPageName = workspace.value.allowEditorsToEditPageName ?? false
     form.allowEditorsToEditPageDescription = workspace.value.allowEditorsToEditPageDescription ?? false
     form.allowEditorsToEditPageTags = workspace.value.allowEditorsToEditPageTags ?? false
+    form.defaultReviewRequired = workspace.value.defaultReviewRequired ?? false
   }
   isEditing.value = false
 }
@@ -387,7 +401,8 @@ const saveWorkspace = async () => {
           normalizationProfileId: normalizeId(form.normalizationProfileId),
           validationRulesetId: normalizeId(form.validationRulesetId),
           defaultGtIndex,
-          defaultRecognitionIndices
+          defaultRecognitionIndices,
+          defaultReviewRequired: form.defaultReviewRequired
         }
       })
       const modal = projectDefaultsPropagationModal.open({
@@ -415,7 +430,8 @@ const saveWorkspace = async () => {
         projectDefaultPropagationScope: propagationScope,
         allowEditorsToEditPageName: form.allowEditorsToEditPageName,
         allowEditorsToEditPageDescription: form.allowEditorsToEditPageDescription,
-        allowEditorsToEditPageTags: form.allowEditorsToEditPageTags
+        allowEditorsToEditPageTags: form.allowEditorsToEditPageTags,
+        defaultReviewRequired: form.defaultReviewRequired
       }
     })
 
@@ -875,6 +891,25 @@ async function openDeleteSlideover() {
                 />
               </div>
             </div>
+
+            <template v-if="!workspace?.isPersonal">
+              <USeparator />
+              <UiFormSectionHeader title="Page review" />
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-sm font-medium">
+                    Require review in new projects
+                  </p>
+                  <p class="text-xs text-muted">
+                    Editors submit finished pages, and only curators can mark them as done.
+                  </p>
+                </div>
+                <USwitch
+                  v-model="form.defaultReviewRequired"
+                  :disabled="!isEditing || !canSetWorkspacePresets"
+                />
+              </div>
+            </template>
           </template>
 
           <div class="flex gap-2">

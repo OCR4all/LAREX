@@ -88,7 +88,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
 
 <template>
   <USelectMenu
-    v-model="selectedWorkspace"
+    :model-value="selectedWorkspace"
     :items="items"
     variant="ghost"
     :class="isAdminMode ? 'bg-warning/20' : ''"

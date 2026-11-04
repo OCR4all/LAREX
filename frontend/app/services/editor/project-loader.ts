@@ -19,6 +19,8 @@ export interface PageResponse {
   locked?: boolean
   lockedReason?: string | null
   workflowState?: PageWorkflowState
+  changesRequested?: boolean
+  reviewSubmittedByUserId?: string | null
   imageCount?: number
   xmlFileCount?: number
   indexingStatus?: PageIndexingStatus
@@ -33,6 +35,8 @@ export interface PageSummaryResponse {
   name: string
   sortOrder: number | null
   workflowState: PageWorkflowState
+  changesRequested?: boolean
+  reviewSubmittedByUserId?: string | null
   locked: boolean
   lockedReason: string | null
 }
@@ -107,6 +111,8 @@ export function createSkeletonPageData(
     locked: page.locked ?? false,
     lockedReason: page.lockedReason ?? null,
     workflowState: page.workflowState ?? 'OPEN',
+    changesRequested: page.changesRequested ?? false,
+    reviewSubmittedByUserId: page.reviewSubmittedByUserId ?? null,
     imageCount: page.imageCount ?? 0,
     xmlFileCount: page.xmlFileCount ?? 0,
     indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
@@ -164,6 +170,8 @@ export async function loadSinglePageData(projectId: string, page: PageResponse |
     locked: page.locked ?? false,
     lockedReason: page.lockedReason ?? null,
     workflowState: page.workflowState ?? 'OPEN',
+    changesRequested: page.changesRequested ?? false,
+    reviewSubmittedByUserId: page.reviewSubmittedByUserId ?? null,
     indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
     annotationContext: projectAnnotationContext(projectId, page.id)
   }

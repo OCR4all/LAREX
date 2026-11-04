@@ -17,6 +17,14 @@ describe('global shortcuts while typing', () => {
     expect(shouldIgnoreGlobalShortcutForTypingTarget('merge', false, keyboardEvent(textarea))).toBe(true)
   })
 
+  it('keeps Create GT available from a textarea', () => {
+    const textarea = document.createElement('textarea')
+
+    expect(
+      shouldIgnoreGlobalShortcutForTypingTarget('createGtFromRecognition', false, keyboardEvent(textarea), 'meta_alt_g')
+    ).toBe(false)
+  })
+
   it('still permits editor undo in a registered text-view scope', () => {
     const textarea = document.createElement('textarea')
 

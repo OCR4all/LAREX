@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.persistence.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -48,6 +49,15 @@ public class Page {
     @Column(name = "workflow_state", nullable = false, length = 32)
     private WorkflowState workflowState = WorkflowState.OPEN;
 
+    @Column(name = "review_submitted_by_user_id")
+    private String reviewSubmittedByUserId;
+
+    @Column(name = "review_submitted_at")
+    private LocalDateTime reviewSubmittedAt;
+
+    @Column(name = "changes_requested", nullable = false)
+    private boolean changesRequested = false;
+
     @Column(name = "sort_order")
     private Integer sortOrder;
 
@@ -88,8 +98,9 @@ public class Page {
     }
 
     public enum WorkflowState {
+        @JsonAlias("IN_PROGRESS")
         OPEN,
-        IN_PROGRESS,
+        IN_REVIEW,
         DONE
     }
 
@@ -157,18 +168,59 @@ public class Page {
         this.workflowState = workflowState == null ? WorkflowState.OPEN : workflowState;
     }
 
+    public String getReviewSubmittedByUserId() {
+        return reviewSubmittedByUserId;
+    }
+
+    public void setReviewSubmittedByUserId(String reviewSubmittedByUserId) {
+        this.reviewSubmittedByUserId = reviewSubmittedByUserId;
+    }
+
+    public LocalDateTime getReviewSubmittedAt() {
+        return reviewSubmittedAt;
+    }
+
+    public void setReviewSubmittedAt(LocalDateTime reviewSubmittedAt) {
+        this.reviewSubmittedAt = reviewSubmittedAt;
+    }
+
+    public boolean isChangesRequested() {
+        return changesRequested;
+    }
+
+    public void setChangesRequested(boolean changesRequested) {
+        this.changesRequested = changesRequested;
+    }
+
     public boolean isEffectivelyLocked() {
-        return (project != null && project.isLocked()) || locked || workflowState == WorkflowState.DONE;
+        return isLockedFor(false);
+    }
+
+    /**
+     * The In review lock only binds users who cannot review pages. Every other lock applies to everyone.
+     */
+    public boolean isLockedFor(boolean canReviewPages) {
+        return (project != null && project.isLocked())
+                || locked
+                || workflowState == WorkflowState.DONE
+                || (workflowState == WorkflowState.IN_REVIEW && !canReviewPages);
     }
 
     public String getEffectiveLockedReason() {
+        return getLockedReasonFor(false);
+    }
+
+    public String getLockedReasonFor(boolean canReviewPages) {
         if (project != null && project.isLocked()) {
             return project.getLockedReason() == null ? "Project is locked" : project.getLockedReason();
         }
         if (locked) {
             return lockedReason;
         }
-        return workflowState == WorkflowState.DONE ? "Page workflow state is Done" : null;
+        if (workflowState == WorkflowState.DONE) {
+            return "Page workflow state is Done";
+        }
+        return workflowState == WorkflowState.IN_REVIEW && !canReviewPages ? "Page is in review" : null;
     }
 
     public Integer getSortOrder() {

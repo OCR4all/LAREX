@@ -73,7 +73,9 @@ public class Notification {
         COLLAB_TAKEOVER_GRANTED,
         COLLAB_TAKEOVER_DECLINED,
         COLLAB_TAKEOVER_FORCED,
-        COLLAB_LEASE_EXPIRED
+        COLLAB_LEASE_EXPIRED,
+        PAGE_REVIEW_REQUESTED,
+        PAGE_CHANGES_REQUESTED
     }
 
     public Notification() {}

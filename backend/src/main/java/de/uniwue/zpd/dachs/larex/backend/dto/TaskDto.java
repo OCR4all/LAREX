@@ -26,7 +26,7 @@ public class TaskDto {
             LocalDateTime completedAt,
             String completedByUserId,
             String workspaceId,
-            boolean syncLinkedPageStates,
+            Task.PageCompletion pageCompletion,
             AuthorizationCapabilitiesDto.TaskCapabilities capabilities
     ) {}
 
@@ -55,7 +55,7 @@ public class TaskDto {
             @Size(max = 50, message = "Cannot assign more than 50 users")
             List<String> assignedUserIds,
 
-            Boolean syncLinkedPageStates,
+            Task.PageCompletion pageCompletion,
 
             Task.TaskStatus status,
 
@@ -74,7 +74,7 @@ public class TaskDto {
 
             LocalDateTime dueDate,
 
-            Boolean syncLinkedPageStates
+            Task.PageCompletion pageCompletion
     ) {}
 
     public record UpdateStatusRequest(

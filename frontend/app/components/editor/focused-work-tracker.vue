@@ -18,6 +18,7 @@ const props = defineProps<{
   isSavingActiveCanvas: boolean
   canEditActiveCanvas: boolean
   isActivePageLocked: boolean
+  completeLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -70,6 +71,10 @@ function getTaskDescription(subtask: Subtask) {
         <span class="text-xs font-medium tabular-nums" aria-live="polite">{{ progressPercentage }}%</span>
       </div>
 
+      <div v-if="$slots.feedback" class="mt-2 border-t border-default/60 pt-2">
+        <slot name="feedback" />
+      </div>
+
       <div v-if="openSubtasks.length" class="mt-2 max-h-28 space-y-1 overflow-y-auto border-t border-default/60 pt-2">
         <div v-for="subtask in openSubtasks" :key="subtask.id" class="flex items-start gap-2">
           <div class="flex min-w-0 flex-1 items-start gap-2">
@@ -110,7 +115,7 @@ function getTaskDescription(subtask: Subtask) {
           color="success"
           variant="soft"
           icon="i-lucide-check-check"
-          label="Complete all & save"
+          :label="completeLabel ?? 'Complete all & save'"
           :loading="isSavingActiveCanvas || isCompletingOpenSubtasks"
           :disabled="!canCompleteActivePageSubtasks || !canEditActiveCanvas || isSavingActiveCanvas || isCompletingOpenSubtasks || Boolean(completingSubtaskId)"
           @click="emit('saveAndContinue')"

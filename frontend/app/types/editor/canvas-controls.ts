@@ -78,6 +78,7 @@ export interface EditorCanvasControls {
   resetView?: () => void
   addHoveredElementToReadingOrder?: () => boolean
   deleteSelectedNodes?: () => boolean
+  createGtFromRecognition?: () => boolean
 
   canUndo: ComputedRef<boolean>
   canRedo: ComputedRef<boolean>

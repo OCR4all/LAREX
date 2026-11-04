@@ -228,8 +228,15 @@ class AuthorizationPolicyServiceTest {
         assertTrue(curatorCaps.canUpload());
         assertTrue(curatorCaps.canExportPackage());
 
+        assertTrue(curatorCaps.canReviewPages());
+        assertTrue(service.canReviewPages(workspaceId, "owner"));
+        assertFalse(service.resolveProjectCapabilities(lockedProject, "curator").canReviewPages());
+
         AuthorizationCapabilitiesDto.ProjectCapabilities editorCaps = service.resolveProjectCapabilities(unlockedProject, "editor");
         assertFalse(editorCaps.canEdit());
+        assertTrue(editorCaps.canChangePageState());
+        assertFalse(editorCaps.canReviewPages());
+        assertFalse(service.canReviewPages(workspaceId, "pending"));
         assertFalse(editorCaps.canShare());
         assertFalse(editorCaps.canDelete());
         assertFalse(editorCaps.canDeletePages());

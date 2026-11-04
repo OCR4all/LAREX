@@ -38,8 +38,8 @@ import type { ApplySourcesResponse, NormalizePreview, NormalizeSourcesResponse, 
 import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/types/validation-ruleset'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import PageWorkflowStateDropdown from '@/components/page/workflow-state-dropdown.vue'
-import { PAGE_WORKFLOW_STATES as pageWorkflowStates, PAGE_WORKFLOW_STATE_META as workflowStateMeta } from '@/utils/page-workflow-state'
-import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowState, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
+import { PAGE_WORKFLOW_ACTION_META, availablePageTransitions } from '@/utils/page-workflow-state'
+import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowAction, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
 import type { UploadFile, UploadSession } from '@/composables/use-chunked-upload'
 import { isProjectImageOrXml } from '@/utils/directory-project-upload'
 import { isActionLockedPage, resolvePageLockReason } from '@/utils/page-lock'
@@ -187,6 +187,7 @@ const canShareProject = computed(() => allow(projectCapabilities.value.canShare)
 const canManageProjects = computed(() => allow(workspaceCapabilities.value.canManageProjects))
 const canDeleteProjectPages = computed(() => allow(projectCapabilities.value.canDeletePages))
 const canChangePageState = computed(() => allow(projectCapabilities.value.canChangePageState))
+const canReviewPages = computed(() => allow(projectCapabilities.value.canReviewPages))
 const canEditPageName = computed(() => allow(projectCapabilities.value.canEditPageName))
 const canEditPageDescription = computed(() => allow(projectCapabilities.value.canEditPageDescription))
 const canEditPageTags = computed(() => allow(projectCapabilities.value.canEditPageTags))
@@ -271,21 +272,39 @@ function mergeUpdatedPages(updatedPages: Page[]) {
   pages.value = pages.value.map(page => updates.has(page.id) ? { ...page, ...updates.get(page.id)! } : page)
 }
 
-async function updatePageWorkflowState(page: Page, workflowState: PageWorkflowState) {
-  if (
-    !canChangePageState.value
-    || project.value?.locked
-    || page.workflowState === workflowState
-    || updatingPageWorkflowStateIds.value.has(page.id)
-  ) return
+const BULK_WORKFLOW_ACTIONS: PageWorkflowAction[] = ['SUBMIT', 'APPROVE', 'REQUEST_CHANGES', 'WITHDRAW', 'MARK_DONE', 'REOPEN']
+const pageWorkflow = usePageWorkflow()
+const { user: sessionUser } = useUserSession()
+const inReviewPercentage = computed(() => project.value?.pageCount
+  ? ((project.value.inReviewPageCount ?? 0) * 100) / project.value.pageCount
+  : 0)
+
+function pageWorkflowActions(page: Page): PageWorkflowAction[] {
+  if (!canChangePageState.value || project.value?.locked) return []
+  return availablePageTransitions({
+    workflowState: page.workflowState,
+    canReviewPages: canReviewPages.value,
+    reviewRequired: project.value?.reviewRequired === true,
+    isSubmitter: Boolean(sessionUser.value?.id) && page.reviewSubmittedByUserId === sessionUser.value?.id
+  })
+}
+
+function pagesEligibleFor(action: PageWorkflowAction): Page[] {
+  return (pages.value ?? []).filter(page => selectedPageIds.value.has(page.id) && pageWorkflowActions(page).includes(action))
+}
+
+async function promptForComment(action: PageWorkflowAction, pageCount: number): Promise<{ comment?: string } | null> {
+  return action === 'REQUEST_CHANGES' ? await pageWorkflow.promptForChanges(pageCount) : {}
+}
+
+async function runPageWorkflowAction(page: Page, action: PageWorkflowAction) {
+  if (updatingPageWorkflowStateIds.value.has(page.id)) return
+  const input = await promptForComment(action, 1)
+  if (!input) return
 
   setPageWorkflowStateUpdating(page.id, true)
   try {
-    const updated = await $fetch<Page>(`/api/projects/${projectId}/pages/${page.id}/workflow-state`, {
-      method: 'PUT',
-      body: { workflowState }
-    })
-    mergeUpdatedPages([updated])
+    mergeUpdatedPages(await transitionPages(projectId, [page.id], action, input.comment))
     await Promise.all([refreshProject(), refreshNuxtData(projectsListKey.value)])
   } catch (error) {
     toast.add({
@@ -298,15 +317,23 @@ async function updatePageWorkflowState(page: Page, workflowState: PageWorkflowSt
   }
 }
 
-async function bulkUpdatePageWorkflowState(workflowState: PageWorkflowState) {
-  if (!canChangePageState.value || selectedPageIds.value.size === 0) return
+async function bulkRunPageWorkflowAction(action: PageWorkflowAction) {
+  const eligible = pagesEligibleFor(action)
+  if (eligible.length === 0) return
+  const input = await promptForComment(action, eligible.length)
+  if (!input) return
+
   try {
-    const updated = await $fetch<Page[]>(`/api/projects/${projectId}/pages/bulk/workflow-state`, {
-      method: 'PUT',
-      body: { pageIds: Array.from(selectedPageIds.value), workflowState }
-    })
-    mergeUpdatedPages(updated)
+    mergeUpdatedPages(await transitionPages(projectId, eligible.map(page => page.id), action, input.comment))
     await Promise.all([refreshProject(), refreshNuxtData(projectsListKey.value)])
+    const skipped = selectedPageIds.value.size - eligible.length
+    if (skipped > 0) {
+      toast.add({
+        title: `Updated ${eligible.length} of ${selectedPageIds.value.size} pages`,
+        description: `${skipped} selected ${skipped === 1 ? 'page was' : 'pages were'} not in the right state for this action.`,
+        color: 'warning'
+      })
+    }
   } catch (error) {
     toast.add({
       title: 'Failed to update selected pages',
@@ -315,6 +342,18 @@ async function bulkUpdatePageWorkflowState(workflowState: PageWorkflowState) {
     })
   }
 }
+
+usePageWorkflowRealtime(async (change) => {
+  if (change.projectId !== projectId) return
+  try {
+    const changedPages = new Set(change.pageIds)
+    const summaries = await $fetch<Array<Pick<Page, 'id' | 'workflowState' | 'locked' | 'lockedReason' | 'changesRequested' | 'reviewSubmittedByUserId'>>>(`/api/projects/${projectId}/pages/summaries`)
+    mergeUpdatedPages(summaries.filter(summary => changedPages.has(summary.id)) as Page[])
+    await refreshProject()
+  } catch (error) {
+    console.warn('Failed to refresh page states:', error)
+  }
+})
 
 const PAGE_INDEX_STATUS_POLL_MS = 3000
 
@@ -659,6 +698,8 @@ async function handleOpenInEditor() {
       locked: page.locked,
       lockedReason: page.lockedReason,
       workflowState: page.workflowState,
+      changesRequested: page.changesRequested,
+      reviewSubmittedByUserId: page.reviewSubmittedByUserId,
       imageCount: page.imageCount,
       xmlFileCount: page.xmlFileCount,
       indexingStatus: page.indexingStatus,
@@ -1735,13 +1776,18 @@ async function openValidationRulesetModal(scope: ProjectActionScope = 'all') {
 
 const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
   const stateItems: DropdownMenuItem[] = [
-    { type: 'label', label: 'Set page state' },
-    ...pageWorkflowStates.map(workflowState => ({
-      label: workflowStateMeta[workflowState].label,
-      icon: workflowStateMeta[workflowState].icon,
-      disabled: !hasSelection.value || !canChangePageState.value,
-      onSelect: () => { void bulkUpdatePageWorkflowState(workflowState) }
-    }))
+    { type: 'label', label: 'Page state' },
+    ...BULK_WORKFLOW_ACTIONS.map((action) => {
+      const eligible = pagesEligibleFor(action).length
+      return {
+        label: hasSelection.value && eligible > 0
+          ? `${PAGE_WORKFLOW_ACTION_META[action].label} (${eligible})`
+          : PAGE_WORKFLOW_ACTION_META[action].label,
+        icon: PAGE_WORKFLOW_ACTION_META[action].icon,
+        disabled: eligible === 0,
+        onSelect: () => { void bulkRunPageWorkflowAction(action) }
+      }
+    })
   ]
   const exportItems: DropdownMenuItem[] = [
     {
@@ -2113,12 +2159,22 @@ const pageColumns = [
       const page = row.original
       const updating = updatingPageWorkflowStateIds.value.has(page.id)
 
-      return h(PageWorkflowStateDropdown, {
-        'modelValue': page.workflowState,
-        'canChange': canChangePageState.value && !project.value?.locked,
-        updating,
-        'onUpdate:modelValue': (state: PageWorkflowState) => { void updatePageWorkflowState(page, state) }
-      })
+      return h('div', { class: 'flex items-center gap-1.5' }, [
+        h(PageWorkflowStateDropdown, {
+          state: page.workflowState,
+          actions: pageWorkflowActions(page),
+          updating,
+          onAction: (action: PageWorkflowAction) => { void runPageWorkflowAction(page, action) }
+        }),
+        page.changesRequested
+          ? h(UIcon, {
+              'name': 'i-lucide-message-square-warning',
+              'class': 'size-4 text-warning',
+              'aria-label': 'Changes requested',
+              'title': 'Changes requested'
+            })
+          : null
+      ])
     }
   },
   {
@@ -2467,11 +2523,14 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
                     </div>
                     <ProjectProgress
                       :model-value="project.completionPercentage"
+                      :in-review-percentage="inReviewPercentage"
                       size="xs"
                       :aria-label="`Project progress: ${project.completionPercentage}%`"
                     />
                     <p class="text-xs text-muted">
-                      {{ project.completedPageCount }}/{{ project.pageCount }} pages completed
+                      {{ project.completedPageCount }}/{{ project.pageCount }} pages completed<template v-if="project.inReviewPageCount">
+                        , {{ project.inReviewPageCount }} in review
+                      </template>
                     </p>
                   </div>
                   <div v-if="project.storageUsedFormatted" class="flex items-center justify-between gap-3 text-sm">
@@ -2499,11 +2558,12 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
 
             <UTooltip
               v-if="project"
-              :text="`Project progress: ${project.completedPageCount}/${project.pageCount} done (${project.completionPercentage}%)`"
+              :text="`Project progress: ${project.completedPageCount}/${project.pageCount} done (${project.completionPercentage}%)${project.inReviewPageCount ? `, ${project.inReviewPageCount} in review` : ''}`"
             >
               <div class="mr-1 hidden min-w-28 items-center gap-2 text-xs text-muted lg:flex">
                 <ProjectProgress
                   :model-value="project.completionPercentage"
+                  :in-review-percentage="inReviewPercentage"
                   size="xs"
                   class="w-20"
                   :aria-label="`Project progress: ${project.completionPercentage}%`"

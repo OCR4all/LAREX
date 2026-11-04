@@ -84,6 +84,14 @@ public class NotificationService {
         return saved;
     }
 
+    public Notification createNotificationUnlessUnread(String userId, String title, String message, Notification.NotificationType type,
+                                                       String relatedEntityId, String relatedEntityType, String link) {
+        if (notificationRepository.existsByUserIdAndTypeAndRelatedEntityIdAndRead(userId, type, relatedEntityId, false)) {
+            return null;
+        }
+        return createNotification(userId, title, message, type, relatedEntityId, relatedEntityType, link);
+    }
+
     private void dispatchSavedNotification(Notification saved) {
         Runnable dispatch = () -> {
             try {

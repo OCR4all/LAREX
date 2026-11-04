@@ -31,10 +31,19 @@ interface MultiProjectEditorSessionState {
   focusedWork?: FocusedWorkSession | null
 }
 
+export interface ReviewQueueFilters {
+  projectId?: string
+  taskId?: string
+  submittedBy?: string
+}
+
 export interface FocusedWorkSession {
+  kind: 'assigned' | 'review'
   workspaceId: string
   startedAt: string
   completedSubtaskIds: string[]
+  reviewedPageIds: string[]
+  reviewFilters?: ReviewQueueFilters
 }
 
 interface LegacyEditorSessionState {
@@ -228,7 +237,12 @@ function normalizeState(value: unknown): MultiProjectEditorSessionState {
     focusedWork: candidate.focusedWork && typeof candidate.focusedWork === 'object'
       && typeof (candidate.focusedWork as Record<string, unknown>).workspaceId === 'string'
       ? {
+          kind: (candidate.focusedWork as Record<string, unknown>).kind === 'review' ? 'review' : 'assigned',
           workspaceId: (candidate.focusedWork as Record<string, unknown>).workspaceId as string,
+          reviewedPageIds: Array.isArray((candidate.focusedWork as Record<string, unknown>).reviewedPageIds)
+            ? ((candidate.focusedWork as Record<string, unknown>).reviewedPageIds as unknown[]).filter((id): id is string => typeof id === 'string')
+            : [],
+          reviewFilters: ((candidate.focusedWork as Record<string, unknown>).reviewFilters ?? undefined) as ReviewQueueFilters | undefined,
           startedAt: typeof (candidate.focusedWork as Record<string, unknown>).startedAt === 'string'
             ? (candidate.focusedWork as Record<string, unknown>).startedAt as string
             : new Date().toISOString(),
@@ -381,15 +395,18 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
     return true
   }
 
-  function startFocusedWork(newWorkspaceId: string) {
+  function startFocusedWork(newWorkspaceId: string, kind: FocusedWorkSession['kind'] = 'assigned', reviewFilters?: ReviewQueueFilters) {
     workspaceId.value = newWorkspaceId
     openedProjectIds.value = []
     activeProjectId.value = null
     projectsById.value = {}
     focusedWork.value = {
+      kind,
       workspaceId: newWorkspaceId,
       startedAt: new Date().toISOString(),
-      completedSubtaskIds: []
+      completedSubtaskIds: [],
+      reviewedPageIds: [],
+      reviewFilters
     }
     persistState()
   }
@@ -399,6 +416,15 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
     focusedWork.value = {
       ...focusedWork.value,
       completedSubtaskIds: [...new Set([...focusedWork.value.completedSubtaskIds, ...ids])]
+    }
+    persistState()
+  }
+
+  function markFocusedPageReviewed(pageId: string) {
+    if (!focusedWork.value) return
+    focusedWork.value = {
+      ...focusedWork.value,
+      reviewedPageIds: [...new Set([...focusedWork.value.reviewedPageIds, pageId])]
     }
     persistState()
   }
@@ -555,6 +581,7 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
     loadPersistedSession,
     startFocusedWork,
     markFocusedSubtasksCompleted,
+    markFocusedPageReviewed,
     clearFocusedWork,
     retainSingleOpenedPagePerProject,
     hasSession

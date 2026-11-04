@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PAGE_WORKFLOW_STATES, PAGE_WORKFLOW_STATE_META } from '@/utils/page-workflow-state'
 import type { LabelDefinition } from '@/types/label-set'
 import type { PageWorkflowState } from '@/types/project-page'
 import { createCanonicalLabelFilterOptions } from '@/utils/editor/page-filter-tokens'
@@ -28,6 +29,7 @@ const {
   confidenceElementTypes,
   commentText,
   onlyWithOpenSubtasks,
+  changesRequested,
   workflowStates,
   annotationPresence,
   xmlAttributeFilters,
@@ -55,7 +57,7 @@ const indexStats = ref<IndexStats | null>(null)
 const availableXmlAttributes = ref<XmlAttributeWithCount[]>([])
 
 const filterDefinitions: Array<{ type: PageFilterType, label: string, description: string, icon: string }> = [
-  { type: 'workflowStates', label: 'Page state', description: 'Open, in progress, or done', icon: 'i-lucide-list-checks' },
+  { type: 'workflowStates', label: 'Page state', description: 'Open, in review, or done', icon: 'i-lucide-list-checks' },
   { type: 'annotationPresence', label: 'Annotation', description: 'With or without XML', icon: 'i-lucide-file-code-2' },
   { type: 'labels', label: 'Labels', description: 'PAGE label definitions', icon: 'i-lucide-tags' },
   { type: 'textContent', label: 'Text content', description: 'TextEquiv/Unicode contains', icon: 'i-lucide-text-search' },
@@ -63,6 +65,7 @@ const filterDefinitions: Array<{ type: PageFilterType, label: string, descriptio
   { type: 'confidence', label: 'Confidence', description: 'PAGE @conf range', icon: 'i-lucide-gauge' },
   { type: 'comments', label: 'Comments', description: 'Pages containing comments', icon: 'i-lucide-message-square' },
   { type: 'openSubtasks', label: 'Open tasks', description: 'Your incomplete Tasks', icon: 'i-lucide-square-check-big' },
+  { type: 'changesRequested', label: 'Changes requested', description: 'Pages sent back by a reviewer', icon: 'i-lucide-message-square-warning' },
   { type: 'xmlAttribute', label: 'PAGE XML attribute', description: 'Source attribute presence or value', icon: 'i-lucide-brackets' }
 ]
 
@@ -73,11 +76,10 @@ const filteredAddDefinitions = computed(() => {
 const visibleFilterSet = computed(() => new Set(visibleFilters.value))
 const labelItems = computed(() => createCanonicalLabelFilterOptions(props.availableLabels ?? []))
 const confidenceElementTypeOptions = PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS.map(option => ({ ...option }))
-const workflowStateOptions: Array<{ label: string, value: PageWorkflowState }> = [
-  { label: 'Open', value: 'OPEN' },
-  { label: 'In progress', value: 'IN_PROGRESS' },
-  { label: 'Done', value: 'DONE' }
-]
+const workflowStateOptions: Array<{ label: string, value: PageWorkflowState }> = PAGE_WORKFLOW_STATES.map(value => ({
+  label: PAGE_WORKFLOW_STATE_META[value].label,
+  value
+}))
 const annotationOptions = [
   { label: 'With annotation', value: 'with_xml' },
   { label: 'Without annotation', value: 'without_xml' }
@@ -344,6 +346,9 @@ function titleFor(type: SingletonPageFilterType): string {
                 Leave empty to match any metadata or PAGE XML comment.
               </p>
             </template>
+            <div v-else-if="type === 'changesRequested'" class="flex items-center justify-between gap-2">
+              <UCheckbox v-model="changesRequested" label="Only pages with requested changes" />
+            </div>
             <div v-else-if="type === 'openSubtasks'" class="flex items-center justify-between gap-2">
               <UCheckbox v-model="onlyWithOpenSubtasks" label="Only pages with my open tasks" />
               <UBadge color="warning" variant="subtle" size="xs">

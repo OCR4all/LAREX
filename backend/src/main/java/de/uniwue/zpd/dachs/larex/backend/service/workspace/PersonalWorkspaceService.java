@@ -120,6 +120,7 @@ public class PersonalWorkspaceService extends AbstractWorkspaceService {
                                                                Boolean allowEditorsToEditPageName,
                                                                Boolean allowEditorsToEditPageDescription,
                                                                Boolean allowEditorsToEditPageTags,
+                                                               Boolean defaultReviewRequired,
                                                                String userId) {
         Optional<PersonalWorkspace> workspaceOpt = personalWorkspaceRepository.findById(workspaceId);
 
@@ -140,6 +141,9 @@ public class PersonalWorkspaceService extends AbstractWorkspaceService {
             }
             if (allowEditorsToEditPageTags != null) {
                 workspace.setAllowEditorsToEditPageTags(allowEditorsToEditPageTags);
+            }
+            if (defaultReviewRequired != null) {
+                workspace.setDefaultReviewRequired(defaultReviewRequired);
             }
 
             Codec codec = null;

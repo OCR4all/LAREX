@@ -117,6 +117,9 @@ public class Project {
     @Column(name = "output_retention_days")
     private Integer outputRetentionDays;
 
+    @Column(name = "review_required")
+    private Boolean reviewRequired;
+
     @Column(name = "primary_image_variant", length = 255)
     private String primaryImageVariant;
 
@@ -362,6 +365,18 @@ public class Project {
 
     public void setDefaultRecognitionIndicesList(List<Integer> indices) {
         this.defaultRecognitionIndices = TextIndexDefaultsUtil.toCsv(indices);
+    }
+
+    public Boolean getReviewRequired() {
+        return reviewRequired;
+    }
+
+    public void setReviewRequired(Boolean reviewRequired) {
+        this.reviewRequired = reviewRequired;
+    }
+
+    public boolean isReviewEnforced() {
+        return Boolean.TRUE.equals(reviewRequired);
     }
 
     public Integer getOutputRetentionDays() {

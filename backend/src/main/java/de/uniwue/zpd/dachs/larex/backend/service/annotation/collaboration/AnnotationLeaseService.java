@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Iterator;
@@ -110,7 +111,7 @@ public class AnnotationLeaseService {
         String workspaceId = page.getProject().getLibrary().getWorkspaceId();
         boolean canEdit = authorizationPolicyService.canAccessWorkspace(workspaceId, userId)
                 && !page.getProject().isLocked()
-                && !page.isEffectivelyLocked();
+                && !page.isLockedFor(authorizationPolicyService.canReviewPages(workspaceId, userId));
         boolean canForceTakeover = authorizationPolicyService.canManageProjects(workspaceId, userId);
 
         return new PageAccessContext(
@@ -143,6 +144,25 @@ public class AnnotationLeaseService {
         }
         dispatchNotifications(notifications);
         if (lockedException != null) throw lockedException;
+    }
+
+    /** Display names of the users editing the given pages, by page. Pages held by {@code excludedUserId} are left out. */
+    public Map<String, String> findActiveEditors(Collection<String> pageIds, String excludedUserId) {
+        Set<String> requested = Set.copyOf(pageIds);
+        Map<String, String> editors = new HashMap<>();
+        List<NotificationIntent> notifications = new ArrayList<>();
+        synchronized (leases) {
+            for (Map.Entry<String, LeaseRecord> entry : new ArrayList<>(leases.entrySet())) {
+                if (entry.getValue().pageId == null || !requested.contains(entry.getValue().pageId)) continue;
+                LeaseRecord record = getActiveRecord(entry.getKey(), notifications);
+                if (record != null && record.owner != null && record.owner.user != null
+                        && !record.owner.user.id().equals(excludedUserId)) {
+                    editors.put(record.pageId, displayName(record.owner.user));
+                }
+            }
+        }
+        dispatchNotifications(notifications);
+        return editors;
     }
 
     private AnnotationLeaseLockedException activeEditorException(Set<String> pageIds, String allowedUserId,

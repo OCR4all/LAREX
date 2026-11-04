@@ -279,7 +279,7 @@ public class PageService {
                 return Optional.empty();
             }
 
-            assertPageWritable(page);
+            assertPageWritable(page, userId);
 
             if (name != null) {
                 if (!page.getName().equals(name) && pageRepository.existsByNameAndProjectId(name, page.getProject().getId())) {
@@ -311,7 +311,7 @@ public class PageService {
             String workspaceId = page.getProject().getLibrary().getWorkspaceId();
 
             if (workspaceAccessService.isUserAdministrator(workspaceId, userId)) {
-                assertPageWritable(page);
+                assertPageWritable(page, userId);
                 String pageName = page.getName();
 
                 deletePageFiles(page);
@@ -362,7 +362,7 @@ public class PageService {
                         page.getProject().getLibrary().getWorkspaceId(),
                         userId
                 ))
-                .filter(page -> !page.getProject().isLocked() && !page.isEffectivelyLocked())
+                .filter(page -> !page.getProject().isLocked() && !page.isLockedFor(canReviewPages(page, userId)))
                 .toList();
         if (pagesToDelete.isEmpty()) {
             return 0;
@@ -436,7 +436,7 @@ public class PageService {
             if (!workspaceAccessService.canManageProjects(workspaceId, userId)) {
                 return false;
             }
-            assertPageWritable(page);
+            assertPageWritable(page, userId);
 
             if (!isValidXmlFile(xmlFile)) {
                 return false;
@@ -491,7 +491,7 @@ public class PageService {
             if (!workspaceAccessService.canManageProjects(workspaceId, userId)) {
                 return false;
             }
-            assertPageWritable(page);
+            assertPageWritable(page, userId);
             String projectId = page.getProject().getId();
 
             for (int i = 0; i < images.size(); i++) {
@@ -669,7 +669,7 @@ public class PageService {
         String workspaceId = page.getProject().getLibrary().getWorkspaceId();
         return workspaceAccessService.canManageProjects(workspaceId, userId)
                 && !page.getProject().isLocked()
-                && !page.isEffectivelyLocked();
+                && !page.isLockedFor(canReviewPages(page, userId));
     }
 
     public record AnnotationDeleteResult(
@@ -707,8 +707,8 @@ public class PageService {
         }
 
         Page targetPage = targetPageOpt.get();
-        assertPageWritable(image.getPage());
-        assertPageWritable(targetPage);
+        assertPageWritable(image.getPage(), userId);
+        assertPageWritable(targetPage, userId);
 
         // Check if both pages are in the same workspace (for security)
         String sourceWorkspaceId = image.getPage().getProject().getLibrary().getWorkspaceId();
@@ -749,7 +749,17 @@ public class PageService {
                 (fileName != null && fileName.toLowerCase().endsWith(".xml"));
     }
 
-    private void assertPageWritable(Page page) {
+    public boolean canReviewPages(String projectId, String userId) {
+        return projectRepository.findById(projectId)
+                .map(project -> workspaceAccessService.canReviewPages(project.getLibrary().getWorkspaceId(), userId))
+                .orElse(false);
+    }
+
+    private boolean canReviewPages(Page page, String userId) {
+        return workspaceAccessService.canReviewPages(page.getProject().getLibrary().getWorkspaceId(), userId);
+    }
+
+    private void assertPageWritable(Page page, String userId) {
         if (page == null || page.getProject() == null) {
             throw new IllegalStateException("Page is not writable");
         }
@@ -758,10 +768,11 @@ public class PageService {
                     ? "Project is locked"
                     : page.getProject().getLockedReason());
         }
-        if (page.isEffectivelyLocked()) {
-            throw new IllegalStateException(page.getEffectiveLockedReason() == null
+        boolean canReviewPages = canReviewPages(page, userId);
+        if (page.isLockedFor(canReviewPages)) {
+            throw new IllegalStateException(page.getLockedReasonFor(canReviewPages) == null
                     ? "Page is locked"
-                    : page.getEffectiveLockedReason());
+                    : page.getLockedReasonFor(canReviewPages));
         }
     }
 

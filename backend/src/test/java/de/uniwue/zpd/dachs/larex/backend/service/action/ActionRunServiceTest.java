@@ -620,6 +620,22 @@ class ActionRunServiceTest {
     }
 
     @Test
+    void impactPreviewSkipsPagesInReviewForEditorsButNotForCurators() {
+        ImpactFixture fixture = prepareImpact();
+        fixture.pages().getFirst().setWorkflowState(Page.WorkflowState.IN_REVIEW);
+
+        var editorPreview = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID);
+        assertThat(editorPreview.pages()).extracting(ActionDto.ImpactPage::pageId).containsExactly("page-2");
+        assertThat(editorPreview.skippedPages()).singleElement().satisfies(page ->
+                assertThat(page.reason()).contains("locked", "in review"));
+
+        when(workspaceAccessService.canReviewPages(WORKSPACE_ID, OWNER_ID)).thenReturn(true);
+        var curatorPreview = service.previewRunImpact(WORKSPACE_ID, fixture.project().getId(), fixture.request(), OWNER_ID);
+        assertThat(curatorPreview.pages()).extracting(ActionDto.ImpactPage::pageId).containsExactlyInAnyOrder("page-1", "page-2");
+        assertThat(curatorPreview.skippedPages()).isEmpty();
+    }
+
+    @Test
     void integrationPreviewKeepsLockedPagesBecauseItDoesNotModifyThem() {
         ImpactFixture fixture = prepareImpact();
         fixture.definition().setActionKind(ActionProcessorDefinition.ActionKind.INTEGRATION);

@@ -127,7 +127,7 @@ class SubtaskServiceBulkCreateTest {
     @Test
     void completingPageTaskRecomputesItsWorkflowState() {
         Task task = task();
-        task.setSyncLinkedPageStates(true);
+        task.setPageCompletion(Task.PageCompletion.DONE);
         Subtask subtask = new Subtask("task-1", "Task", 0);
         subtask.setId("subtask-1");
         subtask.setPageId("page-1");

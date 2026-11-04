@@ -118,6 +118,14 @@ public class WorkspaceProjectDefaultsService {
                 }
                 continue;
             }
+            if (key == WorkspaceDto.ProjectDefaultKey.REVIEW_REQUIRED) {
+                if (scope == WorkspaceDto.ProjectDefaultPropagationScope.UNSET_ONLY) {
+                    if (isUnset(project, key)) return true;
+                } else if (project.isReviewEnforced() != after.reviewRequired) {
+                    return true;
+                }
+                continue;
+            }
 
             String current = resourceId(project, key);
             String target = resourceId(after, key);
@@ -145,6 +153,7 @@ public class WorkspaceProjectDefaultsService {
             project.setDefaultGtIndex(after.gtIndex);
             project.setDefaultRecognitionIndicesList(after.recognitionIndices);
         }
+        if (keys.contains(WorkspaceDto.ProjectDefaultKey.REVIEW_REQUIRED)) project.setReviewRequired(after.reviewRequired);
     }
 
     private Set<WorkspaceDto.ProjectDefaultKey> keysToWrite(
@@ -162,6 +171,7 @@ public class WorkspaceProjectDefaultsService {
     private boolean isUnset(Project project, WorkspaceDto.ProjectDefaultKey key) {
         return switch (key) {
             case TEXT_INDICES -> project.getDefaultGtIndex() == null && project.getDefaultRecognitionIndices() == null;
+            case REVIEW_REQUIRED -> project.getReviewRequired() == null;
             default -> resourceId(project, key) == null;
         };
     }
@@ -177,6 +187,7 @@ public class WorkspaceProjectDefaultsService {
         if (!TextIndexDefaultsUtil.equalsDefaults(before.gtIndex, before.recognitionIndices, after.gtIndex, after.recognitionIndices)) {
             changed.add(WorkspaceDto.ProjectDefaultKey.TEXT_INDICES);
         }
+        if (before.reviewRequired != after.reviewRequired) changed.add(WorkspaceDto.ProjectDefaultKey.REVIEW_REQUIRED);
         return changed;
     }
 
@@ -188,7 +199,7 @@ public class WorkspaceProjectDefaultsService {
             case TAG_SET -> project.getTagSet() == null ? null : project.getTagSet().getId();
             case NORMALIZATION_PROFILE -> project.getNormalizationProfile() == null ? null : project.getNormalizationProfile().getId();
             case VALIDATION_RULESET -> project.getValidationRuleset() == null ? null : project.getValidationRuleset().getId();
-            case TEXT_INDICES -> null;
+            case TEXT_INDICES, REVIEW_REQUIRED -> null;
         };
     }
 
@@ -200,7 +211,7 @@ public class WorkspaceProjectDefaultsService {
             case TAG_SET -> defaults.tagSetId;
             case NORMALIZATION_PROFILE -> defaults.normalizationProfileId;
             case VALIDATION_RULESET -> defaults.validationRulesetId;
-            case TEXT_INDICES -> null;
+            case TEXT_INDICES, REVIEW_REQUIRED -> null;
         };
     }
 
@@ -213,6 +224,7 @@ public class WorkspaceProjectDefaultsService {
         private final String validationRulesetId;
         private final int gtIndex;
         private final List<Integer> recognitionIndices;
+        private final boolean reviewRequired;
         private final de.uniwue.zpd.dachs.larex.backend.entity.Codec codecEntity;
         private final de.uniwue.zpd.dachs.larex.backend.entity.LabelSet labelSetEntity;
         private final de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary dictionaryEntity;
@@ -222,7 +234,7 @@ public class WorkspaceProjectDefaultsService {
 
         private WorkspaceDefaults(String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                   String normalizationProfileId, String validationRulesetId,
-                                  int gtIndex, List<Integer> recognitionIndices,
+                                  int gtIndex, List<Integer> recognitionIndices, boolean reviewRequired,
                                   de.uniwue.zpd.dachs.larex.backend.entity.Codec codecEntity,
                                   de.uniwue.zpd.dachs.larex.backend.entity.LabelSet labelSetEntity,
                                   de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary dictionaryEntity,
@@ -237,6 +249,7 @@ public class WorkspaceProjectDefaultsService {
             this.validationRulesetId = validationRulesetId;
             this.gtIndex = gtIndex;
             this.recognitionIndices = List.copyOf(recognitionIndices);
+            this.reviewRequired = reviewRequired;
             this.codecEntity = codecEntity;
             this.labelSetEntity = labelSetEntity;
             this.dictionaryEntity = dictionaryEntity;
@@ -250,6 +263,7 @@ public class WorkspaceProjectDefaultsService {
                     id(workspace.getCodec()), id(workspace.getLabelSet()), id(workspace.getDictionary()), id(workspace.getTagSet()),
                     id(workspace.getNormalizationProfile()), id(workspace.getValidationRuleset()),
                     workspace.getEffectiveDefaultGtIndex(), workspace.getDefaultRecognitionIndicesList(),
+                    workspace.isDefaultReviewRequired(),
                     workspace.getCodec(), workspace.getLabelSet(), workspace.getDictionary(), workspace.getTagSet(),
                     workspace.getNormalizationProfile(), workspace.getValidationRuleset()
             );
@@ -266,6 +280,7 @@ public class WorkspaceProjectDefaultsService {
             List<Integer> recognitionIndices = TextIndexDefaultsUtil.effectiveRecognitionIndices(proposal.defaultRecognitionIndices());
             return new WorkspaceDefaults(codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId, gtIndex, recognitionIndices,
+                    Boolean.TRUE.equals(proposal.defaultReviewRequired()),
                     null, null, null, null, null, null);
         }
 

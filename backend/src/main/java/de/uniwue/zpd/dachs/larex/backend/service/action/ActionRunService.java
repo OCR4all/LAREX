@@ -704,18 +704,19 @@ public class ActionRunService {
                                                         ActionDto.StartRunRequest request, String userId) {
         ActionProcessorDefinition definition = requireImpactDefinition(workspaceId, projectId,
                 request.processorDefinitionId(), userId);
-        return previewStepImpact(workspaceId, projectId, request, definition);
+        return previewStepImpact(workspaceId, projectId, request, definition, userId);
     }
 
     @Transactional(readOnly = true)
     public ActionDto.RunImpactResponse previewWorkflowStepImpact(String workspaceId, String projectId, String workflowId,
                                                                   ActionDto.StartRunRequest request, String userId) {
         var definition = requireWorkflowProcessor(workspaceId, projectId, workflowId, request.processorDefinitionId(), userId, true);
-        return previewStepImpact(workspaceId, projectId, request, definition);
+        return previewStepImpact(workspaceId, projectId, request, definition, userId);
     }
 
     private ActionDto.RunImpactResponse previewStepImpact(String workspaceId, String projectId,
-                                                           ActionDto.StartRunRequest request, ActionProcessorDefinition definition) {
+                                                           ActionDto.StartRunRequest request, ActionProcessorDefinition definition,
+                                                           String userId) {
         requireProject(workspaceId, projectId);
         ActionDto.TargetSelection selection = normalizeTargetSelection(request, projectId, true);
         requireTargetSupported(definition, selection.type());
@@ -723,7 +724,8 @@ public class ActionRunService {
         Map<String, Object> parameters = resolveRunParameters(definition, request.parameters(), request.imageVariantSelection(), request.imageTypes());
         List<Page> pages = resolveRunPages(projectId, selection.pages().stream()
                 .map(ActionDto.TargetSelectionPage::pageId).toList());
-        return buildRunImpact(definition, selection, pages, parameters);
+        return buildRunImpact(definition, selection, pages, parameters,
+                workspaceAccessService.canReviewPages(workspaceId, userId));
     }
 
     @Transactional(readOnly = true)
@@ -748,7 +750,8 @@ public class ActionRunService {
         definitionService.validateAllowedParameterValues(definition, parameters);
         List<Page> pages = retryPages;
         validateTargetSelection(projectId, selection.type(), selection.pages(), true);
-        return buildRunImpact(definition, selection, pages, parameters);
+        return buildRunImpact(definition, selection, pages, parameters,
+                workspaceAccessService.canReviewPages(workspaceId, userId));
     }
 
     private ActionProcessorDefinition requireImpactDefinition(String workspaceId, String projectId,
@@ -767,7 +770,8 @@ public class ActionRunService {
 
     private ActionDto.RunImpactResponse buildRunImpact(ActionProcessorDefinition definition,
                                                        ActionDto.TargetSelection selection, List<Page> pages,
-                                                       Map<String, Object> parameters) {
+                                                       Map<String, Object> parameters,
+                                                       boolean canReviewPages) {
         Set<String> eligible = new LinkedHashSet<>(eligibleProcessorPageIds(pages.stream().map(Page::getId).toList(),
                 definition, selection.type(), payloadService.readImageVariantSelection(parameters), effectiveInputRequirements(definition, parameters)));
         Map<String, PageXml> xmlByPage = pageXmlRepository.findByPage_IdIn(pages.stream().map(Page::getId).toList())
@@ -784,8 +788,8 @@ public class ActionRunService {
         List<ActionDto.ImpactPage> impacts = new ArrayList<>();
         List<ActionDto.SkippedImpactPage> skipped = new ArrayList<>();
         for (Page page : pages) {
-            if (definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING && page.isEffectivelyLocked()) {
-                skipped.add(new ActionDto.SkippedImpactPage(page.getId(), page.getName(), actionPageLockReason(page)));
+            if (definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING && page.isLockedFor(canReviewPages)) {
+                skipped.add(new ActionDto.SkippedImpactPage(page.getId(), page.getName(), actionPageLockReason(page, canReviewPages)));
                 continue;
             }
             if (!eligible.contains(page.getId())) {
@@ -889,7 +893,7 @@ public class ActionRunService {
             throw new ActionConcurrencyLimitException(concurrency.message());
         }
         if (dispatchImmediately && definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING) {
-            validateLocks(project, pages);
+            validateLocks(project, pages, workspaceAccessService.canReviewPages(workspaceId, userId));
         }
         var created = createRun(
                 workspaceId,
@@ -1249,7 +1253,7 @@ public class ActionRunService {
             throw new ActionConcurrencyLimitException(concurrency.message());
         }
         if (dispatchImmediately) {
-            validateLocks(project, pages);
+            validateLocks(project, pages, workspaceAccessService.canReviewPages(workspaceId, userId));
         }
         return createRun(
                 workspaceId,
@@ -2681,7 +2685,8 @@ public class ActionRunService {
             List<Page> pages = isDatasetAction(run) || run.getKind() == ActionRun.Kind.INTEGRATION
                     ? List.of() : resolveRunPagesForUpdate(run.getProjectId(), payloadService.readPageIds(run));
             ConcurrencyDecision concurrency = evaluateConcurrency(definition, run.getWorkspaceId(), run.getProjectId());
-            if (!concurrency.available() || (run.getKind() == ActionRun.Kind.PROCESSING && hasBlockingLocks(project, pages))) {
+            if (!concurrency.available() || (run.getKind() == ActionRun.Kind.PROCESSING && hasBlockingLocks(project, pages,
+                    workspaceAccessService.canReviewPages(run.getWorkspaceId(), run.getCreatedByUserId())))) {
                 return;
             }
             if (run.getPublicApiBaseUrl() == null || run.getPublicApiBaseUrl().isBlank()) {
@@ -3049,7 +3054,7 @@ public class ActionRunService {
         realtimePublisher.publishPageResult(run, pageId, resultTypes);
     }
 
-    private void validateLocks(Project project, List<Page> pages) {
+    private void validateLocks(Project project, List<Page> pages, boolean canReviewPages) {
         if (project.isLocked()) {
             String reason = project.getLockedReason();
             throw new ActionScopeLockedException("Cannot start this Action because the project is locked. "
@@ -3057,23 +3062,23 @@ public class ActionRunService {
                     + "Unlock the project before trying again.");
         }
         for (Page page : pages) {
-            if (page.isEffectivelyLocked()) {
+            if (page.isLockedFor(canReviewPages)) {
                 throw new ActionScopeLockedException("Cannot start this Action on \"" + page.getName() + "\": "
-                        + actionPageLockReason(page) + ". Review the pages again to skip locked pages.");
+                        + actionPageLockReason(page, canReviewPages) + ". Review the pages again to skip locked pages.");
             }
         }
     }
 
-    private String actionPageLockReason(Page page) {
-        String reason = page.getEffectiveLockedReason();
+    private String actionPageLockReason(Page page, boolean canReviewPages) {
+        String reason = page.getLockedReasonFor(canReviewPages);
         return "Page is locked" + (reason == null || reason.isBlank() ? "" : ": " + reason);
     }
 
-    private boolean hasBlockingLocks(Project project, List<Page> pages) {
+    private boolean hasBlockingLocks(Project project, List<Page> pages, boolean canReviewPages) {
         if (project.isLocked()) {
             return true;
         }
-        return pages.stream().anyMatch(Page::isEffectivelyLocked);
+        return pages.stream().anyMatch(page -> page.isLockedFor(canReviewPages));
     }
 
     private List<Page> resolveRunPages(String projectId, List<String> requestedPageIds) {

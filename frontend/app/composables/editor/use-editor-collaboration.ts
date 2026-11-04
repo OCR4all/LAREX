@@ -217,7 +217,7 @@ function defaultAnnotationContext(projectId: string, pageId: string): Annotation
 export function useEditorCollaboration() {
   const { user, loggedIn } = useUserSession()
   const editorStore = useEditorStore()
-  const toast = import.meta.client ? useToast() : null
+  const toast = import.meta.client ? useAppToast() : null
   const realtime = useRealtimeSocket()
 
   const connectionStatus = useState<ConnectionStatus>('editor-collaboration.status', () => 'idle')

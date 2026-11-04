@@ -56,8 +56,7 @@ const pageTagFilter = ref<string[]>([])
 const { data: projects, status: projectsStatus } = await useFetch<Project[]>(
   () => `/api/workspaces/${props.workspaceId}/projects`,
   {
-    key: wsKey(props.workspaceId, 'projects', 'list'),
-    default: () => []
+    key: wsKey(props.workspaceId, 'projects', 'list')
   }
 )
 

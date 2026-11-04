@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
-import type { EditorQueue, Task, TaskStatus, TaskPriority, UserProfile, WorkspaceMember } from '~/types/index'
+import type { EditorQueue, ReviewQueue, Task, TaskStatus, TaskPriority, UserProfile, WorkspaceMember } from '~/types/index'
 import { DEFAULT_TASK_CAPABILITIES } from '@/types/capabilities'
-import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
+import { useEditorSessionStore, type ReviewQueueFilters } from '@/stores/editor/editor.session.store'
+import { filterReviewPages } from '@/utils/page-workflow-state'
 import { LazyUiDeleteSlideover, LazyTaskSlideoverEdit } from '#components'
 
 const UButton = resolveComponent('UButton')
@@ -23,20 +24,22 @@ await useWorkspaceBootstrap()
 const workspace = useWorkspaceStore()
 const editorSessionStore = useEditorSessionStore()
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
-const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
+const { capabilities: workspaceCapabilities, pending: capabilitiesPending } = useWorkspaceCapabilities(selectedWorkspace)
 const { allow } = useActionVisibility()
 
 const { user } = useUserSession()
 const currentUserId = computed(() => user.value?.id || '')
 
-type ViewMode = 'table' | 'kanban'
+type ViewMode = 'table' | 'kanban' | 'review'
 const viewMode = useCookie<ViewMode>('larex-tasks-view-mode', {
   default: () => 'table',
   maxAge: 60 * 60 * 24 * 365,
   sameSite: 'lax'
 })
 
-if (viewMode.value !== 'table' && viewMode.value !== 'kanban') {
+if (route.query.view === 'review') {
+  viewMode.value = 'review'
+} else if (viewMode.value !== 'table' && viewMode.value !== 'kanban' && viewMode.value !== 'review') {
   viewMode.value = 'table'
 }
 
@@ -44,6 +47,9 @@ const statusFilter = ref<TaskStatus | 'ALL'>('ALL')
 const assignedToMe = ref(true)
 const q = ref('')
 const isOpeningTaskQueue = ref(false)
+const reviewFilters = ref<ReviewQueueFilters>(typeof route.query.project === 'string' ? { projectId: route.query.project } : {})
+const reviewQueue = ref<ReviewQueue | null>(null)
+const isLoadingReviewQueue = ref(false)
 
 const activeTaskFilters = computed(() => {
   const filters: Array<{ key: string, label: string, clear: () => void }> = []
@@ -138,6 +144,36 @@ const canCreateTasks = computed(() => canManageTasks.value)
 const tasksSafe = computed(() => Array.isArray(tasks.value) ? tasks.value : [])
 const tasksSafeCount = computed(() => tasksSafe.value.length)
 const hasQueuedTasks = computed(() => (taskQueue.value?.openAssignedSubtaskCount ?? 0) > 0)
+const canReviewPages = computed(() => allow(workspaceCapabilities.value.canReviewPages))
+const reviewablePageCount = computed(() => filterReviewPages(reviewQueue.value?.pages ?? [], reviewFilters.value)
+  .filter(page => !page.blocked).length)
+
+async function refreshReviewQueue() {
+  if (!selectedWorkspace.value || !canReviewPages.value || capabilitiesPending.value) {
+    reviewQueue.value = null
+    return
+  }
+  isLoadingReviewQueue.value = true
+  try {
+    reviewQueue.value = await $fetch<ReviewQueue>(`/api/workspaces/${selectedWorkspace.value}/review-queue`)
+  } catch (error) {
+    reviewQueue.value = null
+    console.warn('Failed to load the review queue:', error)
+  } finally {
+    isLoadingReviewQueue.value = false
+  }
+}
+
+onMounted(() => {
+  void refreshReviewQueue()
+})
+watch([selectedWorkspace, canReviewPages, capabilitiesPending], () => {
+  void refreshReviewQueue()
+  if (!capabilitiesPending.value && !canReviewPages.value && viewMode.value === 'review') viewMode.value = 'table'
+})
+usePageWorkflowRealtime((change) => {
+  if (change.workspaceId === selectedWorkspace.value) void refreshReviewQueue()
+})
 
 const filteredTasks = computed(() => {
   const source = Array.isArray(tasksSafe.value) ? tasksSafe.value : []
@@ -531,6 +567,12 @@ async function openTaskQueue() {
   }
 }
 
+async function openReviewQueue() {
+  if (!selectedWorkspace.value || reviewablePageCount.value === 0) return
+  editorSessionStore.startFocusedWork(selectedWorkspace.value, 'review', reviewFilters.value)
+  await navigateTo('/editor')
+}
+
 function handleTaskClick(task: Task) {
   navigateTo(`/tasks/${task.id}`)
 }
@@ -540,10 +582,13 @@ watch(() => route.query.taskId, (taskId) => {
   navigateTo(`/tasks/${taskId}`)
 }, { immediate: true })
 
-const viewModeItems = [
+const viewModeItems = computed(() => [
   { value: 'table', label: 'Table', icon: 'i-lucide-table-2' },
-  { value: 'kanban', label: 'Board', icon: 'i-lucide-kanban' }
-]
+  { value: 'kanban', label: 'Board', icon: 'i-lucide-kanban' },
+  ...(canReviewPages.value
+    ? [{ value: 'review', label: 'Review', icon: 'i-lucide-eye', badge: reviewQueue.value?.totalPageCount || undefined }]
+    : [])
+])
 </script>
 
 <template>
@@ -561,6 +606,15 @@ const viewModeItems = [
             @click="openTaskQueue"
           />
           <UButton
+            v-if="selectedWorkspace && canReviewPages"
+            :label="`Open Review Queue (${reviewablePageCount})`"
+            color="primary"
+            icon="i-lucide-eye"
+            :loading="isLoadingReviewQueue"
+            :disabled="reviewablePageCount === 0"
+            @click="openReviewQueue"
+          />
+          <UButton
             v-if="selectedWorkspace && canCreateTasks"
             data-tour="tasks-new"
             label="New Assignment"
@@ -574,29 +628,31 @@ const viewModeItems = [
 
       <UDashboardToolbar>
         <template #left>
-          <UInput
-            v-model="q"
-            data-tour="tasks-search"
-            placeholder="Search assignments..."
-            icon="i-lucide-search"
-            class="w-64"
-          />
-          <USelect
-            v-if="viewMode === 'table'"
-            v-model="statusFilter"
-            :items="statusFilterOptions"
-            value-key="value"
-            class="w-40"
-          />
-          <UCheckbox
-            v-model="assignedToMe"
-            label="Assigned to me"
-            class="ml-1"
-          />
-          <AppTableClearFiltersButton
-            :active="activeTaskFilters.length > 0"
-            @clear="clearTaskFilters"
-          />
+          <template v-if="viewMode !== 'review'">
+            <UInput
+              v-model="q"
+              data-tour="tasks-search"
+              placeholder="Search assignments..."
+              icon="i-lucide-search"
+              class="w-64"
+            />
+            <USelect
+              v-if="viewMode === 'table'"
+              v-model="statusFilter"
+              :items="statusFilterOptions"
+              value-key="value"
+              class="w-40"
+            />
+            <UCheckbox
+              v-model="assignedToMe"
+              label="Assigned to me"
+              class="ml-1"
+            />
+            <AppTableClearFiltersButton
+              :active="activeTaskFilters.length > 0"
+              @clear="clearTaskFilters"
+            />
+          </template>
         </template>
         <template #right>
           <div class="flex items-center gap-2">
@@ -619,7 +675,15 @@ const viewModeItems = [
     </template>
 
     <template #body>
-      <div v-if="tasksStatus === 'pending' && tasksSafeCount === 0" class="py-8 text-center">
+      <TaskReviewQueue
+        v-if="viewMode === 'review'"
+        v-model:filters="reviewFilters"
+        :queue="reviewQueue"
+        :loading="isLoadingReviewQueue"
+        @updated="refreshReviewQueue"
+      />
+
+      <div v-else-if="tasksStatus === 'pending' && tasksSafeCount === 0" class="py-8 text-center">
         <div class="flex items-center justify-center">
           <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
           <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading assignments...</span>

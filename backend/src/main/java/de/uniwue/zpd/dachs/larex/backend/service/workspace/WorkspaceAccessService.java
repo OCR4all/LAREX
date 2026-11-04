@@ -78,6 +78,16 @@ public class WorkspaceAccessService {
         }
     }
 
+    public boolean canReviewPages(String workspaceId, String userId) {
+        return authorizationPolicyService.canReviewPages(workspaceId, userId);
+    }
+
+    public void requireReviewPagesAccess(String workspaceId, String userId) {
+        if (!canReviewPages(workspaceId, userId)) {
+            throw new SecurityException("Page review access required for workspace: " + workspaceId);
+        }
+    }
+
     public boolean canManageToolkit(String workspaceId, String userId) {
         return authorizationPolicyService.canManageToolkit(workspaceId, userId);
     }

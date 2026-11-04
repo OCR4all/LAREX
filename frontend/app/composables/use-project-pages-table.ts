@@ -1,3 +1,4 @@
+import { PAGE_WORKFLOW_STATES, PAGE_WORKFLOW_STATE_META } from '@/utils/page-workflow-state'
 import { moveArrayElement, useSortable } from '@vueuse/integrations/useSortable'
 import { computed, nextTick, onBeforeUnmount, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { createPageSortOrderRequest } from '@/utils/editor/page-sort'
@@ -61,12 +62,11 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     { value: 'has_xml', label: 'With Annotation' },
     { value: 'no_xml', label: 'Without Annotation' }
   ]
-  const workflowStateFilter = ref<'all' | Page['workflowState']>('all')
+  const workflowStateFilter = ref<'all' | 'CHANGES_REQUESTED' | Page['workflowState']>('all')
   const workflowStateOptions = [
     { value: 'all', label: 'All states' },
-    { value: 'OPEN', label: 'Open' },
-    { value: 'IN_PROGRESS', label: 'In progress' },
-    { value: 'DONE', label: 'Done' }
+    ...PAGE_WORKFLOW_STATES.map(value => ({ value, label: PAGE_WORKFLOW_STATE_META[value].label })),
+    { value: 'CHANGES_REQUESTED', label: 'Changes requested' }
   ]
 
   const activeProjectPageFilters = computed(() => {
@@ -111,7 +111,9 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
       })
     }
     if (workflowStateFilter.value !== 'all') {
-      result = result.filter(page => page.workflowState === workflowStateFilter.value)
+      result = result.filter(page => workflowStateFilter.value === 'CHANGES_REQUESTED'
+        ? page.changesRequested
+        : page.workflowState === workflowStateFilter.value)
     }
     return result
   })

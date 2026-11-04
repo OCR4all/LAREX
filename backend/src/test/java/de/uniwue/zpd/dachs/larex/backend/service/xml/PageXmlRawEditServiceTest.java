@@ -167,6 +167,29 @@ class PageXmlRawEditServiceTest {
         verify(pageXmlRepository, never()).save(any());
     }
 
+    @Test
+    void saveXmlText_blocksEditorsButNotReviewersWhilePageIsInReview() throws Exception {
+        PageXmlRawEditService service = service();
+        PageXml pageXml = pageXml("annotations/page.xml");
+        pageXml.getPage().setWorkflowState(de.uniwue.zpd.dachs.larex.backend.entity.Page.WorkflowState.IN_REVIEW);
+        prepareXmlPath(pageXml.getFilePath(), "<old/>");
+
+        when(pageService.getXmlById("xml-1", "user-1")).thenReturn(pageXml);
+        when(authorizationPolicyService.canAccessWorkspace("ws-1", "user-1")).thenReturn(true);
+
+        assertThrows(AccessDeniedException.class, () -> service.saveXmlText(
+                "project-1", "page-1", "xml-1", "<new/>", null, "user-1"));
+        verify(pageXmlValidationService, never()).validatePageXml(anyString());
+
+        when(authorizationPolicyService.canReviewPages("ws-1", "user-1")).thenReturn(true);
+        when(pageXmlValidationService.validatePageXml(anyString())).thenReturn(new PageXmlTextDto.XmlValidationResult(
+                false, List.of(), null, null));
+
+        service.saveXmlText("project-1", "page-1", "xml-1", "<new/>", null, "user-1");
+
+        verify(pageXmlValidationService).validatePageXml(anyString());
+    }
+
     private PageXmlRawEditService service() {
         UploadDirectoryProperties uploadDirectoryProperties = new UploadDirectoryProperties();
         uploadDirectoryProperties.setRootDirectory(tempDir);

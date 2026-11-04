@@ -1,6 +1,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch, type ComputedRef } from 'vue'
 import { useEventListener } from '@vueuse/core'
-import type { EditorQueue, EditorQueuePage } from '~/types'
+import type { EditorQueue, EditorQueuePage, ReviewQueue } from '~/types'
 import { useEditorSessionStore, type FocusedWorkSession } from '@/stores/editor/editor.session.store'
 
 type FocusedWorkQueueOptions = {
@@ -10,6 +10,17 @@ type FocusedWorkQueueOptions = {
   openPage: (page: EditorQueuePage) => Promise<boolean>
   canLeaveCurrentPage?: () => Promise<boolean>
   closeCurrentPage?: () => Promise<boolean>
+}
+
+function toEditorQueue(review: ReviewQueue): EditorQueue {
+  return {
+    workspaceId: review.workspaceId,
+    workspaceName: review.workspaceName,
+    openAssignedSubtaskCount: review.totalPageCount,
+    openAssignedPageCount: review.totalPageCount,
+    blockedAssignedPageCount: review.blockedPageCount,
+    pages: review.pages.map(page => ({ ...page, subtasks: [] }))
+  }
 }
 
 export function useFocusedWorkQueue(options: FocusedWorkQueueOptions) {
@@ -25,7 +36,9 @@ export function useFocusedWorkQueue(options: FocusedWorkQueueOptions) {
   const remainingTaskCount = computed(() => queue.value?.openAssignedSubtaskCount ?? 0)
   const remainingPageCount = computed(() => actionablePages.value.length)
   const blockedPageCount = computed(() => queue.value?.blockedAssignedPageCount ?? 0)
-  const completedTaskCount = computed(() => options.focusedWork.value?.completedSubtaskIds.length ?? 0)
+  const completedTaskCount = computed(() => options.focusedWork.value?.kind === 'review'
+    ? options.focusedWork.value.reviewedPageIds.length
+    : options.focusedWork.value?.completedSubtaskIds.length ?? 0)
   const isComplete = computed(() => queue.value !== null && remainingTaskCount.value === 0)
 
   async function refresh() {
@@ -33,7 +46,11 @@ export function useFocusedWorkQueue(options: FocusedWorkQueueOptions) {
     if (!workspaceId || !options.focusedWork.value) return
     isLoading.value = true
     try {
-      queue.value = await $fetch<EditorQueue>(`/api/workspaces/${workspaceId}/tasks/assigned-to-me/queue`)
+      queue.value = options.focusedWork.value.kind === 'review'
+        ? toEditorQueue(await $fetch<ReviewQueue>(`/api/workspaces/${workspaceId}/review-queue`, {
+            query: options.focusedWork.value.reviewFilters
+          }))
+        : await $fetch<EditorQueue>(`/api/workspaces/${workspaceId}/tasks/assigned-to-me/queue`)
       error.value = null
     } catch (err: unknown) {
       error.value = err instanceof Error ? err.message : 'Could not load your work queue.'
@@ -97,8 +114,14 @@ export function useFocusedWorkQueue(options: FocusedWorkQueueOptions) {
     await refresh()
   }
 
+  async function markReviewed(pageId: string) {
+    useEditorSessionStore().markFocusedPageReviewed(pageId)
+    await refresh()
+  }
+
   async function handleRealtimeMessage(message: { type?: string, payload?: unknown }) {
-    if (message.type !== 'TASK_QUEUE_CHANGED') return
+    const expectedType = options.focusedWork.value?.kind === 'review' ? 'PAGE_WORKFLOW_CHANGED' : 'TASK_QUEUE_CHANGED'
+    if (message.type !== expectedType) return
     const payload = message.payload as { workspaceId?: unknown } | undefined
     if (payload?.workspaceId !== options.workspaceId.value) return
     debouncedRefresh()
@@ -145,6 +168,7 @@ export function useFocusedWorkQueue(options: FocusedWorkQueueOptions) {
     openFirstPage,
     openNextPage,
     openPreviousPage,
-    markCompleted
+    markCompleted,
+    markReviewed
   }
 }

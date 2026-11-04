@@ -37,6 +37,7 @@ it.each([
   vi.stubGlobal('window', { sessionStorage: { getItem: () => 'curator-instance' }, addEventListener: vi.fn() })
   vi.stubGlobal('BroadcastChannel', undefined)
   vi.stubGlobal('useToast', () => ({ add: vi.fn() }))
+  vi.stubGlobal('useAppToast', () => ({ add: vi.fn() }))
   vi.stubGlobal('useThrottleFn', (callback: unknown) => callback)
   vi.stubGlobal('useDebounceFn', (callback: unknown) => callback)
   const roomKey = 'takeover-project:page:xml'
@@ -54,7 +55,7 @@ it.each([
     projectId: 'takeover-project', pageId: 'page', xmlFileId: 'xml', isLoadingAnnotations: false
   } })
   store.getCanvas.mockImplementation((id: string) => store.canvases[id])
-  store.getPage.mockReturnValue({ locked: false, workflowState: 'IN_PROGRESS' })
+  store.getPage.mockReturnValue({ locked: false, workflowState: 'OPEN' })
   let persistedPage: PageDto = { imageWidth: 100, imageHeight: 100, custom: 'persisted annotations' }
   store.loadPageIntoCanvas.mockImplementation(async () => {
     store.canvases[canvasId]!.isLoadingAnnotations = true
@@ -234,6 +235,7 @@ it.each([
   vi.stubGlobal('window', { sessionStorage: { getItem: () => 'closing-instance' }, addEventListener: vi.fn() })
   vi.stubGlobal('BroadcastChannel', undefined)
   vi.stubGlobal('useToast', () => ({ add: vi.fn() }))
+  vi.stubGlobal('useAppToast', () => ({ add: vi.fn() }))
   vi.stubGlobal('useThrottleFn', (callback: unknown) => callback)
   vi.stubGlobal('useDebounceFn', (callback: unknown) => callback)
   const user: CollaborationUserIdentity = { id: 'closing-user', username: 'closing-user', displayName: 'Closing user' }
@@ -249,7 +251,7 @@ it.each([
     projectId: 'closing-project', pageId: 'page', xmlFileId: initialCreation ? null : 'xml', isLoadingAnnotations: false
   } })
   store.getCanvas.mockImplementation((id: string) => store.canvases[id])
-  store.getPage.mockReturnValue({ locked: false, workflowState: 'IN_PROGRESS', label: 'page', xmlFiles: [] })
+  store.getPage.mockReturnValue({ locked: false, workflowState: 'OPEN', label: 'page', xmlFiles: [] })
   if (initialCreation) ensureEditorSession('closing', { document: convertPageDtoToPcGts({ imageWidth: 100, imageHeight: 100 }) })
   const events: string[] = []
   let owned = false

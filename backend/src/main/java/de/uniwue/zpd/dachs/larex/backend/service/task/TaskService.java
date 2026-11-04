@@ -142,9 +142,10 @@ public class TaskService {
                     .filter(Objects::nonNull)
                     .filter(pagesById::containsKey)
                     .collect(Collectors.toSet());
+            boolean canReviewPages = authorizationPolicyService.canReviewPages(workspace.getId(), userId);
             long blockedPageCount = pageIds.stream()
                     .map(pagesById::get)
-                    .filter(de.uniwue.zpd.dachs.larex.backend.entity.Page::isEffectivelyLocked)
+                    .filter(page -> page.isLockedFor(canReviewPages))
                     .count();
 
             result.add(new TaskDto.AssignedWorkspaceResponse(
@@ -241,7 +242,7 @@ public class TaskService {
         );
         task.setDueDate(request.dueDate());
         task.setAssignedUserIds(new ArrayList<>(normalizedAssignees));
-        task.setSyncLinkedPageStates(Boolean.TRUE.equals(request.syncLinkedPageStates()));
+        task.setPageCompletion(request.pageCompletion());
         task.setStatus(request.status() == null ? Task.TaskStatus.OPEN : request.status());
 
         Task saved = taskRepository.save(task);
@@ -279,7 +280,7 @@ public class TaskService {
         String oldDescription = task.getDescription();
         Task.TaskPriority oldPriority = task.getPriority();
         String oldDueDate = task.getDueDate() != null ? task.getDueDate().toString() : null;
-        boolean oldSyncLinkedPageStates = task.isSyncLinkedPageStates();
+        Task.PageCompletion oldPageCompletion = task.getPageCompletion();
 
         if (request.title() != null) {
             String title = request.title().trim();
@@ -295,13 +296,13 @@ public class TaskService {
         if (request.dueDate() != null) {
             task.setDueDate(request.dueDate());
         }
-        if (request.syncLinkedPageStates() != null) {
-            task.setSyncLinkedPageStates(request.syncLinkedPageStates());
+        if (request.pageCompletion() != null) {
+            task.setPageCompletion(request.pageCompletion());
         }
 
         Task saved = taskRepository.save(task);
 
-        if (oldSyncLinkedPageStates != saved.isSyncLinkedPageStates()) {
+        if (oldPageCompletion != saved.getPageCompletion()) {
             pageWorkflowService.recomputeForPageIds(taskPageLinkRepository.findByTaskId(taskId).stream()
                     .map(link -> link.getPageId())
                     .toList(), userId);
@@ -351,7 +352,7 @@ public class TaskService {
 
         Task saved = taskRepository.save(task);
 
-        if (saved.isSyncLinkedPageStates()) {
+        if (saved.affectsPageState()) {
             pageWorkflowService.recomputeForPageIds(taskPageLinkRepository.findByTaskId(taskId).stream()
                     .map(link -> link.getPageId())
                     .toList(), userId);
@@ -465,7 +466,7 @@ public class TaskService {
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
         taskQueueRealtimePublisher.publishAfterCommit(task.getAssignedUserIds(), task.getWorkspaceId());
 
-        List<String> linkedPageIds = task.isSyncLinkedPageStates()
+        List<String> linkedPageIds = task.affectsPageState()
                 ? taskPageLinkRepository.findByTaskId(taskId).stream().map(link -> link.getPageId()).toList()
                 : List.of();
 
@@ -559,7 +560,7 @@ public class TaskService {
                 task.getCompletedAt(),
                 task.getCompletedByUserId(),
                 task.getWorkspaceId(),
-                task.isSyncLinkedPageStates(),
+                task.getPageCompletion(),
                 authorizationPolicyService.resolveTaskCapabilities(task, userId)
         );
     }

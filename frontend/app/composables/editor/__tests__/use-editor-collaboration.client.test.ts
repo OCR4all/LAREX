@@ -25,6 +25,7 @@ it.each([
   vi.stubGlobal('window', { sessionStorage: { getItem: () => 'instance-1' }, addEventListener: vi.fn() })
   vi.stubGlobal('BroadcastChannel', undefined)
   vi.stubGlobal('useToast', () => ({ add: vi.fn() }))
+  vi.stubGlobal('useAppToast', () => ({ add: vi.fn() }))
   const roomKey = 'project-reconnect:page-1:xml-1'
   const user = { id: 'user-1', username: 'user-1', displayName: 'User 1' }
   const ownedLease: CollaborationLeaseState = {
@@ -100,7 +101,7 @@ it.each([
     return { roomKey, lease: releasedLease, persistedRevision: 'revision-1' }
   }))
   editorStore.getCanvas.mockReturnValue({ projectId: 'project-reconnect', pageId: 'page-1', xmlFileId: 'xml-1' })
-  editorStore.getPage.mockReturnValue({ locked: false, workflowState: 'IN_PROGRESS' })
+  editorStore.getPage.mockReturnValue({ locked: false, workflowState: 'OPEN' })
 
   const { useEditorCollaboration } = await import('../use-editor-collaboration')
   const collaboration = useEditorCollaboration()

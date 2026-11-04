@@ -90,7 +90,9 @@ const notificationAppearance = {
   COLLAB_TAKEOVER_GRANTED: { icon: 'i-lucide-lock-open', tone: iconTones.success },
   COLLAB_TAKEOVER_DECLINED: { icon: 'i-lucide-shield-x', tone: iconTones.error },
   COLLAB_TAKEOVER_FORCED: { icon: 'i-lucide-shield-alert', tone: iconTones.warning },
-  COLLAB_LEASE_EXPIRED: { icon: 'i-lucide-hourglass', tone: iconTones.warning }
+  COLLAB_LEASE_EXPIRED: { icon: 'i-lucide-hourglass', tone: iconTones.warning },
+  PAGE_REVIEW_REQUESTED: { icon: 'i-lucide-eye', tone: iconTones.info },
+  PAGE_CHANGES_REQUESTED: { icon: 'i-lucide-message-square-warning', tone: iconTones.warning }
 } satisfies Record<NotificationType, { icon: string, tone: string }>
 
 function getNotificationAppearance(type: NotificationType) {
@@ -112,7 +114,9 @@ function getGroupTitle(group: NotificationGroup): string {
     COLLAB_TAKEOVER_GRANTED: 'edit access grants',
     COLLAB_TAKEOVER_DECLINED: 'edit access declines',
     COLLAB_TAKEOVER_FORCED: 'forced takeovers',
-    COLLAB_LEASE_EXPIRED: 'expired edit locks'
+    COLLAB_LEASE_EXPIRED: 'expired edit locks',
+    PAGE_REVIEW_REQUESTED: 'review requests',
+    PAGE_CHANGES_REQUESTED: 'change requests'
   }
   return `${count} ${typeLabels[group.type] || 'notifications'}`
 }

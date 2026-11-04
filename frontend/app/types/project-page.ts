@@ -1,4 +1,5 @@
 import type { ImageType } from './image'
+import type { UserProfile } from './index'
 
 export type ProjectData = {
   id: string
@@ -10,6 +11,7 @@ export type ProjectData = {
   pageCount: number
   completedPageCount: number
   completionPercentage: number
+  inReviewPageCount?: number
   isStarred: boolean
   storageUsedBytes: number
   storageUsedFormatted: string
@@ -33,6 +35,7 @@ export type ProjectData = {
   defaultRecognitionIndices?: number[] | null
   outputRetentionDays?: number | null
   primaryImageVariant?: string | null
+  reviewRequired?: boolean
   capabilities?: {
     canEdit: boolean
     canShare: boolean
@@ -43,6 +46,7 @@ export type ProjectData = {
     canExecuteActions: boolean
     canManageActions: boolean
     canChangePageState: boolean
+    canReviewPages: boolean
     canEditPageName: boolean
     canEditPageDescription: boolean
     canEditPageTags: boolean
@@ -74,7 +78,20 @@ export type ConflictInfo = {
 }
 
 export type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
-export type PageWorkflowState = 'OPEN' | 'IN_PROGRESS' | 'DONE'
+export type PageWorkflowState = 'OPEN' | 'IN_REVIEW' | 'DONE'
+export type PageWorkflowAction = 'SUBMIT' | 'APPROVE' | 'REQUEST_CHANGES' | 'WITHDRAW' | 'MARK_DONE' | 'REOPEN'
+export type PageWorkflowEventAction = PageWorkflowAction | 'ASSIGNMENT_SYNC'
+
+export type PageWorkflowEvent = {
+  id: string
+  action: PageWorkflowEventAction
+  fromState: PageWorkflowState
+  toState: PageWorkflowState
+  actorUserId: string | null
+  actor: UserProfile | null
+  comment: string | null
+  created: string
+}
 
 export type TextConfidenceStats = {
   min: number
@@ -95,6 +112,8 @@ export type Page = {
   xmlFileCount: number
   imageCount: number
   workflowState: PageWorkflowState
+  changesRequested?: boolean
+  reviewSubmittedByUserId?: string | null
   locked?: boolean
   lockedReason?: string | null
   thumbnailUrl?: string | null

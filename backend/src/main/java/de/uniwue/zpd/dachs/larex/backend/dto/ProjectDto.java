@@ -38,7 +38,8 @@ public class ProjectDto {
             @Positive(message = "Output retention days must be positive")
             Integer outputRetentionDays,
             @Size(max = 255, message = "Primary image variant must not exceed 255 characters")
-            String primaryImageVariant
+            String primaryImageVariant,
+            Boolean reviewRequired
     ) {}
 
     public record ToolkitPresetsRequest(
@@ -69,6 +70,7 @@ public class ProjectDto {
             int pageCount,
             int completedPageCount,
             int completionPercentage,
+            int inReviewPageCount,
             boolean isStarred,
             Long storageUsedBytes,
             String storageUsedFormatted,
@@ -92,6 +94,7 @@ public class ProjectDto {
             List<Integer> defaultRecognitionIndices,
             Integer outputRetentionDays,
             String primaryImageVariant,
+            boolean reviewRequired,
             AuthorizationCapabilitiesDto.ProjectCapabilities capabilities
     ) {
         private static String formatBytes(Long bytes) {
@@ -109,7 +112,7 @@ public class ProjectDto {
         public static Response of(String id, String name, String description, List<String> tags,
                                   List<ResolvedTag> resolvedTags,
                                   LocalDateTime created, LocalDateTime updated, int pageCount,
-                                  int completedPageCount, int completionPercentage,
+                                  int completedPageCount, int completionPercentage, int inReviewPageCount,
                                   boolean isStarred, Long storageUsedBytes, boolean locked, String lockedReason,
                                   String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                   String normalizationProfileId, String validationRulesetId,
@@ -121,14 +124,15 @@ public class ProjectDto {
                                   Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                   Integer outputRetentionDays,
                                   String primaryImageVariant,
+                                  boolean reviewRequired,
                                   AuthorizationCapabilitiesDto.ProjectCapabilities capabilities) {
             return new Response(id, name, description, tags, resolvedTags, created, updated, pageCount,
-                    completedPageCount, completionPercentage, isStarred,
+                    completedPageCount, completionPercentage, inReviewPageCount, isStarred,
                     storageUsedBytes, formatBytes(storageUsedBytes), locked, lockedReason, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId, virtualKeyboardId,
                     allowCodecOverride, allowDictionaryOverride, allowVirtualKeyboardOverride, allowLabelSetOverride,
                     allowTagSetOverride, allowNormalizationProfileOverride, allowValidationRulesetOverride,
-                    defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, primaryImageVariant, capabilities);
+                    defaultGtIndex, defaultRecognitionIndices, outputRetentionDays, primaryImageVariant, reviewRequired, capabilities);
         }
     }
 }

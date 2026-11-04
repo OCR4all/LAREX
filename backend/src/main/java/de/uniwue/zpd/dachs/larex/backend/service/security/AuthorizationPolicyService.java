@@ -125,6 +125,10 @@ public class AuthorizationPolicyService {
         return canManageWorkspaceOperations(workspaceId, userId);
     }
 
+    public boolean canReviewPages(String workspaceId, String userId) {
+        return canManageWorkspaceOperations(workspaceId, userId);
+    }
+
     public boolean canManageToolkit(String workspaceId, String userId) {
         return canManageWorkspaceOperations(workspaceId, userId);
     }
@@ -157,6 +161,7 @@ public class AuthorizationPolicyService {
         boolean canManageTasks = canManageTasks(workspaceId, userId);
         boolean canManageToolkit = canManageToolkit(workspaceId, userId);
         boolean canSetPresets = canSetPresets(workspaceId, userId);
+        boolean canReviewPages = canReviewPages(workspaceId, userId);
         AuthorizationCapabilitiesDto.PageMetadataPermissions metadata = resolvePageMetadataPermissions(workspaceId, userId);
 
         return new AuthorizationCapabilitiesDto.WorkspaceCapabilities(
@@ -168,6 +173,7 @@ public class AuthorizationPolicyService {
                 canManageTasks,
                 canManageToolkit,
                 canSetPresets,
+                canReviewPages,
                 metadata.canEditName(),
                 metadata.canEditDescription(),
                 metadata.canEditTags()
@@ -190,6 +196,7 @@ public class AuthorizationPolicyService {
         boolean canExecuteActions = canAccessWorkspace && unlocked;
         boolean canManageActions = canManageProjects;
         boolean canChangePageState = canAccessWorkspace && unlocked;
+        boolean canReviewPages = canReviewPages(workspaceId, userId) && unlocked;
         AuthorizationCapabilitiesDto.PageMetadataPermissions metadata = resolvePageMetadataPermissions(workspaceId, userId);
 
         return new AuthorizationCapabilitiesDto.ProjectCapabilities(
@@ -202,6 +209,7 @@ public class AuthorizationPolicyService {
                 canExecuteActions,
                 canManageActions,
                 canChangePageState,
+                canReviewPages,
                 unlocked && metadata.canEditName(),
                 unlocked && metadata.canEditDescription(),
                 unlocked && metadata.canEditTags()

@@ -1,6 +1,6 @@
 import type { ProjectDefaultKey } from '~/types/workspace-project-defaults'
 
-export type WorkspaceProjectDefaultResourceKey = Exclude<ProjectDefaultKey, 'TEXT_INDICES'>
+export type WorkspaceProjectDefaultResourceKey = Exclude<ProjectDefaultKey, 'TEXT_INDICES' | 'REVIEW_REQUIRED'>
 
 export interface WorkspaceProjectDefaultsSnapshot {
   codecId?: string | null

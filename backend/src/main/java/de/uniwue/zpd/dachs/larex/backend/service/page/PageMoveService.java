@@ -150,6 +150,7 @@ public class PageMoveService {
         String prefix = Objects.requireNonNullElse(request.prefix(), "");
         String suffix = Objects.requireNonNullElse(request.suffix(), "");
         List<Item> items = new ArrayList<>();
+        boolean canReviewPages = access.canReviewPages(workspaceId, userId);
         for (Page page : selected) {
             Page clash = destinationByName.get(page.getName());
             Outcome outcome = clash == null ? Outcome.MOVE : switch (request.conflictPolicy()) {
@@ -159,9 +160,9 @@ public class PageMoveService {
             };
             String name = outcome == Outcome.RENAME ? prefix + page.getName() + suffix : page.getName();
             List<String> itemBlockers = new ArrayList<>();
-            checkWritable(page, itemBlockers);
+            checkWritable(page, canReviewPages, itemBlockers);
             if (outcome != Outcome.SKIP) {
-                if (outcome == Outcome.OVERWRITE) checkWritable(clash, itemBlockers);
+                if (outcome == Outcome.OVERWRITE) checkWritable(clash, canReviewPages, itemBlockers);
                 if (name.isBlank() || name.length() > 255 || name.codePoints().anyMatch(Character::isISOControl)) {
                     itemBlockers.add("The resulting name must contain 1–255 characters and no control characters.");
                 }
@@ -190,8 +191,8 @@ public class PageMoveService {
         return new Plan(projectMap.get(request.destinationProjectId()), sourcePages, preview);
     }
 
-    private void checkWritable(Page page, List<String> blockers) {
-        if (page.isEffectivelyLocked()) {
+    private void checkWritable(Page page, boolean canReviewPages, List<String> blockers) {
+        if (page.isLockedFor(canReviewPages)) {
             blockers.add("Page '" + page.getName() + "' is locked.");
         }
         try {

@@ -122,6 +122,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                                                        Boolean allowEditorsToEditPageName,
                                                        Boolean allowEditorsToEditPageDescription,
                                                        Boolean allowEditorsToEditPageTags,
+                                                       Boolean defaultReviewRequired,
                                                        String userId) {
         Optional<TeamWorkspace> workspaceOpt = teamWorkspaceRepository.findById(workspaceId);
 
@@ -160,6 +161,9 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
             }
             if (allowEditorsToEditPageTags != null) {
                 workspace.setAllowEditorsToEditPageTags(allowEditorsToEditPageTags);
+            }
+            if (defaultReviewRequired != null) {
+                workspace.setDefaultReviewRequired(defaultReviewRequired);
             }
 
             Codec codec = null;

@@ -27,7 +27,8 @@ const TYPING_SAFE_COMMANDS = new Set<ShortcutCommandId>([
   'textListView',
   'textFullView',
   'toggleLeftSidebar',
-  'toggleRightSidebar'
+  'toggleRightSidebar',
+  'createGtFromRecognition'
 ])
 
 /** Whether a matched binding may run even while the user is typing in a field. */

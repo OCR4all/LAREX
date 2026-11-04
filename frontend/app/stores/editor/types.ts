@@ -106,6 +106,8 @@ export interface PageData {
   locked?: boolean
   lockedReason?: string | null
   workflowState?: import('@/types/project-page').PageWorkflowState
+  changesRequested?: boolean
+  reviewSubmittedByUserId?: string | null
   /** Available from page list API before enrichment */
   imageCount?: number
   /** Available from page list API before enrichment */

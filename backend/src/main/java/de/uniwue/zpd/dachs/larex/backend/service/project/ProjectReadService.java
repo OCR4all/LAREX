@@ -59,6 +59,8 @@ public class ProjectReadService {
         Map<String, Long> pageCountByProjectId = toLongMap(pageRepository.countByProjectIds(projectIds));
         Map<String, Long> completedPageCountByProjectId = toLongMap(
                 pageRepository.countByProjectIdsAndWorkflowState(projectIds, de.uniwue.zpd.dachs.larex.backend.entity.Page.WorkflowState.DONE));
+        Map<String, Long> inReviewPageCountByProjectId = toLongMap(
+                pageRepository.countByProjectIdsAndWorkflowState(projectIds, de.uniwue.zpd.dachs.larex.backend.entity.Page.WorkflowState.IN_REVIEW));
         Map<String, Long> imageBytesByProjectId = toLongMap(pageImageRepository.sumFileSizeByProjectIds(projectIds));
         Map<String, Long> xmlBytesByProjectId = toLongMap(pageXmlRepository.sumFileSizeByProjectIds(projectIds));
         Map<String, Map<String, TagSetDto.TagNode>> tagLookupByProjectId = tagLookupService.buildTagLookupForProjects(projects);
@@ -89,6 +91,7 @@ public class ProjectReadService {
                     pageCount,
                     completedPageCount,
                     completionPercentage,
+                    inReviewPageCountByProjectId.getOrDefault(project.getId(), 0L).intValue(),
                     starredProjectIds.contains(project.getId()),
                     storageUsedBytes,
                     project.isLocked(),
@@ -111,6 +114,7 @@ public class ProjectReadService {
                     project.getDefaultRecognitionIndicesList(),
                     project.getOutputRetentionDays(),
                     project.getPrimaryImageVariant(),
+                    project.isReviewEnforced(),
                     authorizationPolicyService.resolveProjectCapabilities(project, userId)
             ));
         }

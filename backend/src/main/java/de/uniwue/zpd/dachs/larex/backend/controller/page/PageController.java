@@ -113,6 +113,7 @@ public class PageController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
+        boolean canReviewPages = pageService.canReviewPages(projectId, userId);
 
         if (page != null && size != null) {
             org.springframework.data.domain.Page<Page> paginated = pageService.getProjectPagesPaginated(
@@ -131,7 +132,7 @@ public class PageController {
                     pageTextConfidenceStatsService.resolveStats(projectId, paginated.getContent());
 
             List<PageDto.Response> content = paginated.getContent().stream()
-                    .map(p -> mapToResponse(p, tagLookup, indexingStatuses.get(p.getId()), textConfidenceStats.get(p.getId())))
+                    .map(p -> mapToResponse(p, tagLookup, indexingStatuses.get(p.getId()), textConfidenceStats.get(p.getId()), canReviewPages))
                     .toList();
             return ResponseEntity.ok(new PaginatedResponse<>(content, paginated.getNumber(), paginated.getSize(), paginated.getTotalElements(), paginated.getTotalPages()));
         }
@@ -152,7 +153,7 @@ public class PageController {
                 pageTextConfidenceStatsService.resolveStats(projectId, pages);
 
         List<PageDto.Response> response = pages.stream()
-                .map(p -> mapToResponse(p, tagLookup, indexingStatuses.get(p.getId()), textConfidenceStats.get(p.getId())))
+                .map(p -> mapToResponse(p, tagLookup, indexingStatuses.get(p.getId()), textConfidenceStats.get(p.getId()), canReviewPages))
                 .toList();
 
         return ResponseEntity.ok(response);
@@ -171,6 +172,7 @@ public class PageController {
 
         List<Page> pages = pagesOpt.get();
         Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
+        boolean canReviewPages = pageService.canReviewPages(projectId, userId);
         Map<String, PageDto.PageIndexingStatus> indexingStatuses =
                 pageIndexStatusReadService.resolveStatusesForProjectPages(projectId, pages);
         Map<String, PageDto.TextConfidenceStats> textConfidenceStats =
@@ -181,42 +183,37 @@ public class PageController {
                         page,
                         tagLookup,
                         indexingStatuses.get(page.getId()),
-                        textConfidenceStats.get(page.getId())
+                        textConfidenceStats.get(page.getId()),
+                        canReviewPages
                 ))
                 .toList());
     }
 
-    @PutMapping("/{pageId}/workflow-state")
-    public ResponseEntity<PageDto.Response> updateWorkflowState(
+    @PostMapping("/workflow-transitions")
+    public ResponseEntity<List<PageDto.Response>> transitionWorkflow(
             @PathVariable String projectId,
-            @PathVariable String pageId,
-            @Valid @RequestBody PageDto.WorkflowStateRequest request,
+            @Valid @RequestBody PageDto.WorkflowTransitionRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        Page page = pageWorkflowService.updateState(projectId, pageId, request.workflowState(), userId);
-        Map<String, PageDto.PageIndexingStatus> indexingStatuses =
-                pageIndexStatusReadService.resolveStatusesForProjectPages(projectId, List.of(page));
-        Map<String, PageDto.TextConfidenceStats> textConfidenceStats =
-                pageTextConfidenceStatsService.resolveStats(projectId, List.of(page));
-        return ResponseEntity.ok(mapToResponse(page, tagLookupService.buildTagLookupForProject(projectId),
-                indexingStatuses.get(pageId), textConfidenceStats.get(pageId)));
-    }
-
-    @PutMapping("/bulk/workflow-state")
-    public ResponseEntity<List<PageDto.Response>> bulkUpdateWorkflowState(
-            @PathVariable String projectId,
-            @Valid @RequestBody PageDto.BulkWorkflowStateRequest request,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
-        List<Page> pages = pageWorkflowService.bulkUpdateState(
-                projectId, request.pageIds(), request.workflowState(), userId);
+        List<Page> pages = pageWorkflowService.transition(
+                projectId, request.pageIds(), request.action(), request.comment(), userId);
         Map<String, PageDto.PageIndexingStatus> indexingStatuses =
                 pageIndexStatusReadService.resolveStatusesForProjectPages(projectId, pages);
         Map<String, PageDto.TextConfidenceStats> textConfidenceStats =
                 pageTextConfidenceStatsService.resolveStats(projectId, pages);
         Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
+        boolean canReviewPages = pageService.canReviewPages(projectId, userId);
         return ResponseEntity.ok(pages.stream()
                 .map(page -> mapToResponse(page, tagLookup, indexingStatuses.get(page.getId()),
-                        textConfidenceStats.get(page.getId())))
+                        textConfidenceStats.get(page.getId()), canReviewPages))
                 .toList());
+    }
+
+    @GetMapping("/{pageId}/workflow-events")
+    public ResponseEntity<List<PageDto.WorkflowEventResponse>> getWorkflowEvents(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(pageWorkflowService.listEvents(projectId, pageId, userId));
     }
 
     // ============================================================================
@@ -263,6 +260,7 @@ public class PageController {
                 request.hasComments(),
                 request.commentText(),
                 request.workflowStates(),
+                request.changesRequested(),
                 request.annotationPresence(),
                 request.onlyWithOpenSubtasks(),
                 openSubtaskPageIds,
@@ -416,14 +414,17 @@ public class PageController {
             @PathVariable String projectId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
+        boolean canReviewPages = pageService.canReviewPages(projectId, userId);
         List<PageDto.Summary> summaries = pageService.getProjectPageSummaries(projectId, userId).stream()
                 .map(page -> new PageDto.Summary(
                         page.getId(),
                         page.getName(),
                         page.getSortOrder(),
                         page.getWorkflowState(),
-                        page.isEffectivelyLocked(),
-                        page.getEffectiveLockedReason()
+                        page.isLockedFor(canReviewPages),
+                        page.getLockedReasonFor(canReviewPages),
+                        page.isChangesRequested(),
+                        page.getReviewSubmittedByUserId()
                 ))
                 .toList();
         return ResponseEntity.ok(summaries);
@@ -438,6 +439,7 @@ public class PageController {
 
         List<Page> pages = pageService.getProjectPagesByIds(projectId, request.pageIds(), userId);
         Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
+        boolean canReviewPages = pageService.canReviewPages(projectId, userId);
         Map<String, PageDto.PageIndexingStatus> indexingStatuses =
                 pageIndexStatusReadService.resolveStatusesForProjectPages(projectId, pages);
         Map<String, PageDto.TextConfidenceStats> textConfidenceStats =
@@ -445,7 +447,7 @@ public class PageController {
 
         return ResponseEntity.ok(pages.stream()
                 .map(page -> mapToResponse(page, tagLookup, indexingStatuses.get(page.getId()),
-                        textConfidenceStats.get(page.getId())))
+                        textConfidenceStats.get(page.getId()), canReviewPages))
                 .toList());
     }
 
@@ -457,12 +459,14 @@ public class PageController {
 
         Optional<Page> pageOpt = pageService.getPageById(pageId, userId);
         Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
+        boolean canReviewPages = pageService.canReviewPages(projectId, userId);
 
         return pageOpt.map(page -> mapToResponse(
                         page,
                         tagLookup,
                         pageIndexStatusReadService.resolveStatusForPage(page),
-                        pageTextConfidenceStatsService.resolveStats(projectId, List.of(page)).get(page.getId())
+                        pageTextConfidenceStatsService.resolveStats(projectId, List.of(page)).get(page.getId()),
+                        canReviewPages
                 ))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -483,11 +487,13 @@ public class PageController {
         );
 
         Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
+        boolean canReviewPages = pageService.canReviewPages(projectId, userId);
         return pageOpt.map(page -> mapToResponse(
                         page,
                         tagLookup,
                         pageIndexStatusReadService.resolveStatusForPage(page),
-                        pageTextConfidenceStatsService.resolveStats(projectId, List.of(page)).get(page.getId())
+                        pageTextConfidenceStatsService.resolveStats(projectId, List.of(page)).get(page.getId()),
+                        canReviewPages
                 ))
                 .map(response -> ResponseEntity.status(HttpStatus.CREATED).body(response))
                 .orElse(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
@@ -509,11 +515,13 @@ public class PageController {
         );
 
         Map<String, TagSetDto.TagNode> tagLookup = tagLookupService.buildTagLookupForProject(projectId);
+        boolean canReviewPages = pageService.canReviewPages(projectId, userId);
         return pageOpt.map(page -> mapToResponse(
                         page,
                         tagLookup,
                         pageIndexStatusReadService.resolveStatusForPage(page),
-                        pageTextConfidenceStatsService.resolveStats(projectId, List.of(page)).get(page.getId())
+                        pageTextConfidenceStatsService.resolveStats(projectId, List.of(page)).get(page.getId()),
+                        canReviewPages
                 ))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -832,7 +840,8 @@ public class PageController {
     private PageDto.Response mapToResponse(Page page,
                                           Map<String, TagSetDto.TagNode> tagLookup,
                                           PageDto.PageIndexingStatus indexingStatus,
-                                          PageDto.TextConfidenceStats textConfidenceStats) {
+                                          PageDto.TextConfidenceStats textConfidenceStats,
+                                          boolean canReviewPages) {
         List<PageDto.ResolvedTag> resolvedTags = null;
         if (tagLookup != null && !tagLookup.isEmpty() && page.getTags() != null) {
             resolvedTags = page.getTags().stream()
@@ -876,11 +885,13 @@ public class PageController {
                 indexingStatus == null || indexingStatus == PageDto.PageIndexingStatus.NOT_APPLICABLE ? 0 : 1,
                 images.size(),
                 page.getWorkflowState(),
-                page.isEffectivelyLocked(),
-                page.getEffectiveLockedReason(),
+                page.isLockedFor(canReviewPages),
+                page.getLockedReasonFor(canReviewPages),
                 thumbnailUrl,
                 indexingStatus != null ? indexingStatus : PageDto.PageIndexingStatus.NOT_APPLICABLE,
-                imageVariants
+                imageVariants,
+                page.isChangesRequested(),
+                page.getReviewSubmittedByUserId()
         );
     }
 

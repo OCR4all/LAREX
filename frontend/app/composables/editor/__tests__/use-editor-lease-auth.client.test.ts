@@ -26,6 +26,7 @@ async function setupLeaseRenewal(annotationRoute: CollaborationAnnotationRoute =
   vi.stubGlobal('window', { sessionStorage: { getItem: () => 'auth-instance' }, addEventListener: vi.fn() })
   vi.stubGlobal('BroadcastChannel', undefined)
   vi.stubGlobal('useToast', () => ({ add: vi.fn() }))
+  vi.stubGlobal('useAppToast', () => ({ add: vi.fn() }))
   vi.stubGlobal('useThrottleFn', (callback: unknown) => callback)
   const user = { id: 'auth-editor', username: 'editor', displayName: 'Editor',
     login: 'editor', name: 'Editor', email: 'editor@example.test', roles: [] }
@@ -105,7 +106,7 @@ async function setupLeaseRenewal(annotationRoute: CollaborationAnnotationRoute =
   })
   vi.stubGlobal('$fetch', fetch)
   store.getCanvas.mockReturnValue({ projectId: 'auth-project', pageId: 'page', xmlFileId: 'xml' })
-  store.getPage.mockReturnValue({ locked: false, workflowState: 'IN_PROGRESS' })
+  store.getPage.mockReturnValue({ locked: false, workflowState: 'OPEN' })
   const collaboration = useEditorCollaboration()
   collaboration.connect()
   socketStatus.value = 'connected'

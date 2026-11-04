@@ -7,6 +7,7 @@ export type ProjectDefaultKey = 'CODEC'
   | 'NORMALIZATION_PROFILE'
   | 'VALIDATION_RULESET'
   | 'TEXT_INDICES'
+  | 'REVIEW_REQUIRED'
 
 export interface ProjectDefaultsImpact {
   affectedProjects: number

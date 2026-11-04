@@ -22,6 +22,23 @@ public interface SubtaskRepository extends JpaRepository<Subtask, String> {
 
     List<Subtask> findByTaskIdAndPageIdIn(String taskId, Collection<String> pageIds);
 
+    @Query("""
+        SELECT s FROM Subtask s JOIN Task t ON s.taskId = t.id
+        WHERE s.pageId IN :pageIds
+          AND s.completed = true
+          AND t.pageCompletion <> 'NONE'
+          AND t.status <> 'CANCELLED'
+        """)
+    List<Subtask> findCompletedAffectingPageState(@Param("pageIds") Collection<String> pageIds);
+
+    @Query("""
+        SELECT s FROM Subtask s JOIN Task t ON s.taskId = t.id
+        WHERE s.pageId IN :pageIds
+          AND s.completed = true
+          AND t.status <> 'CANCELLED'
+        """)
+    List<Subtask> findCompletedOnActiveAssignments(@Param("pageIds") Collection<String> pageIds);
+
     @Query("SELECT COALESCE(MAX(s.sortOrder), -1) + 1 FROM Subtask s WHERE s.taskId = :taskId")
     int getNextSortOrder(@Param("taskId") String taskId);
 

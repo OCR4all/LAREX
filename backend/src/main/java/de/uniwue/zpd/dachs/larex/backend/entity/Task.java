@@ -58,8 +58,15 @@ public class Task {
     @Column(name = "workspace_id", nullable = false)
     private String workspaceId;
 
-    @Column(name = "sync_linked_page_states", nullable = false)
-    private boolean syncLinkedPageStates = false;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "page_completion", nullable = false, length = 32)
+    private PageCompletion pageCompletion = PageCompletion.NONE;
+
+    public enum PageCompletion {
+        NONE,
+        DONE,
+        REVIEW
+    }
 
     public enum TaskStatus {
         OPEN,
@@ -190,11 +197,15 @@ public class Task {
         this.workspaceId = workspaceId;
     }
 
-    public boolean isSyncLinkedPageStates() {
-        return syncLinkedPageStates;
+    public PageCompletion getPageCompletion() {
+        return pageCompletion;
     }
 
-    public void setSyncLinkedPageStates(boolean syncLinkedPageStates) {
-        this.syncLinkedPageStates = syncLinkedPageStates;
+    public void setPageCompletion(PageCompletion pageCompletion) {
+        this.pageCompletion = pageCompletion == null ? PageCompletion.NONE : pageCompletion;
+    }
+
+    public boolean affectsPageState() {
+        return pageCompletion != PageCompletion.NONE;
     }
 }

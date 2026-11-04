@@ -58,6 +58,7 @@ async function createEditor() {
   vi.stubGlobal('BroadcastChannel', undefined)
   const toast = vi.fn()
   vi.stubGlobal('useToast', () => ({ add: toast }))
+  vi.stubGlobal('useAppToast', () => ({ add: toast }))
   vi.stubGlobal('useThrottleFn', (callback: unknown) => callback)
   vi.stubGlobal('useDebounceFn', (callback: () => void, delay: number) => {
     let timer: ReturnType<typeof setTimeout>

@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { PAGE_WORKFLOW_STATE_META } from '@/utils/page-workflow-state'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { PageData } from '@/stores/editor/types'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import UiColorTag from '@/components/ui/color-tag.vue'
-import type { PageWorkflowState } from '@/types/project-page'
 import { resolvePageLockReason } from '@/utils/page-lock'
 
 type VariantItem = { label: string, value: string }
@@ -39,14 +39,7 @@ const pageLockReason = computed(() => resolvePageLockReason(props.page, actionLo
 const isPageLocked = computed(() => pageLockReason.value !== null)
 
 const pageLabel = computed(() => props.page.label || props.page.id)
-const workflowStateBadge = computed(() => {
-  const state: PageWorkflowState = props.page.workflowState ?? 'OPEN'
-  return {
-    OPEN: { label: 'Open', icon: 'i-lucide-circle', color: 'neutral' as const },
-    IN_PROGRESS: { label: 'In progress', icon: 'i-lucide-loader-circle', color: 'info' as const },
-    DONE: { label: 'Done', icon: 'i-lucide-circle-check', color: 'success' as const }
-  }[state]
-})
+const workflowStateBadge = computed(() => PAGE_WORKFLOW_STATE_META[props.page.workflowState ?? 'OPEN'])
 const openTasks = computed(() => props.openSubtaskCount ?? 0)
 const hasAnnotations = computed(() => (props.page.xmlFiles?.length ?? 0) > 0 || (props.page.xmlFileCount ?? 0) > 0)
 const hasUnsavedChanges = computed(() => editorStore.hasUnsavedChangesForPage(props.page.id))

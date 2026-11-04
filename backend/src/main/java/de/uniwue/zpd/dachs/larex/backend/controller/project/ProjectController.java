@@ -143,7 +143,8 @@ public class ProjectController {
                 userId
         );
 
-        return projectOpt.map(project -> projectReadService.toResponse(project, userId))
+        return projectOpt.map(project -> applyReviewRequired(project, request, userId))
+                .map(project -> projectReadService.toResponse(project, userId))
                 .map(response -> ResponseEntity.status(HttpStatus.CREATED).body(response))
                 .orElseThrow(() -> new SecurityException("Cannot create project in this workspace. You may not have access to the workspace"));
     }
@@ -181,9 +182,16 @@ public class ProjectController {
                 userId
         );
 
-        return projectOpt.map(project -> projectReadService.toResponse(project, userId))
+        return projectOpt.map(project -> applyReviewRequired(project, request, userId))
+                .map(project -> projectReadService.toResponse(project, userId))
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", projectId));
+    }
+
+    private Project applyReviewRequired(Project project, ProjectDto.CreateOrUpdateRequest request, String userId) {
+        return request.reviewRequired() == null
+                ? project
+                : projectService.setReviewRequired(project, request.reviewRequired(), userId);
     }
 
     @PatchMapping("/{projectId}/toolkit-presets")

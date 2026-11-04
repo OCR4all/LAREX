@@ -15,7 +15,7 @@ export const PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS = [
 export type PageConfidenceElementType = typeof PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS[number]['value']
 export type AnnotationPresence = 'with_xml' | 'without_xml' | null
 export type XmlAttributeOperator = 'exists' | 'not_exists' | 'equals' | 'not_equals' | 'contains' | 'not_contains'
-export type SingletonPageFilterType = 'workflowStates' | 'annotationPresence' | 'labels' | 'textContent' | 'tags' | 'confidence' | 'comments' | 'openSubtasks'
+export type SingletonPageFilterType = 'workflowStates' | 'annotationPresence' | 'labels' | 'textContent' | 'tags' | 'confidence' | 'comments' | 'openSubtasks' | 'changesRequested'
 export type PageFilterType = SingletonPageFilterType | 'xmlAttribute'
 
 export interface XmlAttributeFilterRow {
@@ -36,6 +36,7 @@ export interface PageFilterState {
   hasComments: boolean
   commentText: string
   onlyWithOpenSubtasks: boolean
+  changesRequested: boolean
   workflowStates: PageWorkflowState[]
   annotationPresence: AnnotationPresence
   xmlAttributeFilters: XmlAttributeFilterRow[]
@@ -76,6 +77,7 @@ const DEFAULT_FILTER_STATE: PageFilterState = {
   hasComments: false,
   commentText: '',
   onlyWithOpenSubtasks: false,
+  changesRequested: false,
   workflowStates: [],
   annotationPresence: null,
   xmlAttributeFilters: [],
@@ -83,9 +85,9 @@ const DEFAULT_FILTER_STATE: PageFilterState = {
 }
 
 const VALID_CONFIDENCE_ELEMENT_TYPES = new Set<PageConfidenceElementType>(PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS.map(option => option.value))
-const VALID_WORKFLOW_STATES = new Set<PageWorkflowState>(['OPEN', 'IN_PROGRESS', 'DONE'])
+const VALID_WORKFLOW_STATES = new Set<PageWorkflowState>(['OPEN', 'IN_REVIEW', 'DONE'])
 const VALID_SINGLETON_FILTERS = new Set<SingletonPageFilterType>([
-  'workflowStates', 'annotationPresence', 'labels', 'textContent', 'tags', 'confidence', 'comments', 'openSubtasks'
+  'workflowStates', 'annotationPresence', 'labels', 'textContent', 'tags', 'confidence', 'comments', 'openSubtasks', 'changesRequested'
 ])
 const VALID_XML_OPERATORS = new Set<XmlAttributeOperator>([
   'exists', 'not_exists', 'equals', 'not_equals', 'contains', 'not_contains'
@@ -178,6 +180,7 @@ function deriveVisibleFilters(parsed: Record<string, unknown>, state: Omit<PageF
   if (isConfidenceFilterActive(state)) visible.push('confidence')
   if (state.hasComments) visible.push('comments')
   if (state.onlyWithOpenSubtasks) visible.push('openSubtasks')
+  if (state.changesRequested) visible.push('changesRequested')
   return visible
 }
 
@@ -196,6 +199,7 @@ export function normalizeStoredPageFilterState(parsed: Record<string, unknown>):
     hasComments: parsed.hasComments === true || normalizedCommentText.trim().length > 0,
     commentText: normalizedCommentText,
     onlyWithOpenSubtasks: parsed.onlyWithOpenSubtasks === true,
+    changesRequested: parsed.changesRequested === true,
     workflowStates: normalizeWorkflowStates(parsed.workflowStates),
     annotationPresence: normalizedAnnotationPresence,
     xmlAttributeFilters: normalizeXmlAttributeFilters(parsed.xmlAttributeFilters)
@@ -223,6 +227,7 @@ export function activePageFilterCount(state: PageFilterState): number {
     + Number(isConfidenceFilterActive(state))
     + Number(state.hasComments)
     + Number(state.onlyWithOpenSubtasks)
+    + Number(state.changesRequested)
     + Number(state.workflowStates.length > 0)
     + Number(state.annotationPresence !== null)
     + state.xmlAttributeFilters.filter(isXmlAttributeFilterComplete).length
@@ -238,6 +243,7 @@ export function buildPageFilterRequestBody(state: {
   readonly hasComments: boolean
   readonly commentText?: string
   readonly onlyWithOpenSubtasks: boolean
+  readonly changesRequested: boolean
   readonly workflowStates?: readonly PageWorkflowState[]
   readonly annotationPresence?: AnnotationPresence
   readonly xmlAttributeFilters?: readonly XmlAttributeFilterRow[]
@@ -262,6 +268,7 @@ export function buildPageFilterRequestBody(state: {
     hasComments: state.hasComments || null,
     commentText: state.hasComments && state.commentText?.trim() ? state.commentText.trim() : null,
     workflowStates: state.workflowStates?.length ? state.workflowStates : null,
+    changesRequested: state.changesRequested || null,
     annotationPresence: state.annotationPresence ?? null,
     onlyWithOpenSubtasks: state.onlyWithOpenSubtasks || null,
     xmlAttributeFilters: xmlAttributeFilters.length ? xmlAttributeFilters : null,
@@ -286,6 +293,7 @@ export function addPageFilterRow(state: PageFilterState, type: PageFilterType): 
   const next = { ...state, visibleFilters: [...state.visibleFilters, type] }
   if (type === 'comments') next.hasComments = true
   if (type === 'openSubtasks') next.onlyWithOpenSubtasks = true
+  if (type === 'changesRequested') next.changesRequested = true
   return next
 }
 
@@ -308,6 +316,7 @@ export function removePageFilterRow(state: PageFilterState, type: PageFilterType
     next.commentText = ''
   }
   if (type === 'openSubtasks') next.onlyWithOpenSubtasks = false
+  if (type === 'changesRequested') next.changesRequested = false
   return next
 }
 
@@ -549,6 +558,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
     hasComments: model('hasComments'),
     commentText: model('commentText'),
     onlyWithOpenSubtasks: model('onlyWithOpenSubtasks'),
+    changesRequested: model('changesRequested'),
     workflowStates,
     annotationPresence: model('annotationPresence'),
     xmlAttributeFilters: model('xmlAttributeFilters'),

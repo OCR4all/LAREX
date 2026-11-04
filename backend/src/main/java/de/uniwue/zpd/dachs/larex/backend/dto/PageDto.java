@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.dto;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageWorkflowEvent;
 import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -69,7 +70,9 @@ public class PageDto {
             String lockedReason,
             String thumbnailUrl,
             PageIndexingStatus indexingStatus,
-            List<ImageVariantPreview> imageVariants
+            List<ImageVariantPreview> imageVariants,
+            boolean changesRequested,
+            String reviewSubmittedByUserId
     ) {}
 
     /** Page identity and lock state only, for pickers and lock checks that do not need images or stats. */
@@ -79,7 +82,9 @@ public class PageDto {
             Integer sortOrder,
             Page.WorkflowState workflowState,
             boolean locked,
-            String lockedReason
+            String lockedReason,
+            boolean changesRequested,
+            String reviewSubmittedByUserId
     ) {}
 
     public record PageIdsRequest(
@@ -92,16 +97,25 @@ public class PageDto {
             List<String> pageIds
     ) {}
 
-    public record WorkflowStateRequest(
-            @NotNull(message = "Workflow state is required")
-            Page.WorkflowState workflowState
+    public record WorkflowTransitionRequest(
+            @NotEmpty(message = "Page IDs are required")
+            @Size(max = 1000, message = "At most 1000 pages can be changed at once")
+            List<String> pageIds,
+            @NotNull(message = "Action is required")
+            PageWorkflowEvent.Action action,
+            @Size(max = 2000, message = "Comments can have at most 2000 characters")
+            String comment
     ) {}
 
-    public record BulkWorkflowStateRequest(
-            @NotEmpty(message = "Page IDs are required")
-            List<String> pageIds,
-            @NotNull(message = "Workflow state is required")
-            Page.WorkflowState workflowState
+    public record WorkflowEventResponse(
+            String id,
+            PageWorkflowEvent.Action action,
+            Page.WorkflowState fromState,
+            Page.WorkflowState toState,
+            String actorUserId,
+            UserDto actor,
+            String comment,
+            LocalDateTime created
     ) {}
 
     public record ImageResponse(
@@ -172,6 +186,8 @@ public class PageDto {
             String commentText,
             /** Workflow states included by the page-state criterion */
             List<String> workflowStates,
+            /** Filter only pages a reviewer sent back and nobody has resubmitted yet */
+            Boolean changesRequested,
             /** "with_xml", "without_xml", or null */
             String annotationPresence,
             /** Filter to pages with an incomplete subtask assigned to the authenticated user */

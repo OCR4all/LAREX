@@ -17,6 +17,8 @@ public interface TaskPageLinkRepository extends JpaRepository<TaskPageLink, Stri
 
     List<TaskPageLink> findByPageId(String pageId);
 
+    List<TaskPageLink> findByPageIdIn(Collection<String> pageIds);
+
     Optional<TaskPageLink> findByTaskIdAndPageId(String taskId, String pageId);
 
     List<TaskPageLink> findByTaskIdAndPageIdIn(String taskId, List<String> pageIds);
@@ -43,7 +45,7 @@ public interface TaskPageLinkRepository extends JpaRepository<TaskPageLink, Stri
              AND s.taskId = t.id
              AND s.pageId = tpl.pageId
              AND tpl.pageId IN :pageIds
-             AND t.syncLinkedPageStates = true
+             AND t.pageCompletion <> 'NONE'
            """)
-    List<Object[]> findSyncEnabledTaskSubtasksByPageIds(@Param("pageIds") Collection<String> pageIds);
+    List<Object[]> findPageStateTaskSubtasksByPageIds(@Param("pageIds") Collection<String> pageIds);
 }

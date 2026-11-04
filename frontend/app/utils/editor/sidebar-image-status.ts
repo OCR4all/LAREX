@@ -30,7 +30,6 @@ export interface StatusRailPartition {
   overflowCount: number
 }
 
-const WORKFLOW_DERIVED_LOCK_REASON = 'Page workflow state is Done'
 const STATUS_GAP_PX = 4
 const ICON_STATUS_WIDTH_PX = 28
 const OVERFLOW_STATUS_WIDTH_PX = 28
@@ -43,7 +42,8 @@ export function isWorkflowDerivedLock(
   page: Pick<PageData, 'workflowState'>,
   pageLockReason?: string | null
 ): boolean {
-  return page.workflowState === 'DONE' && pageLockReason === WORKFLOW_DERIVED_LOCK_REASON
+  return (page.workflowState === 'DONE' && pageLockReason === 'Page workflow state is Done')
+    || (page.workflowState === 'IN_REVIEW' && pageLockReason === 'Page is in review')
 }
 
 export function getWorkflowStatus(page: Pick<PageData, 'workflowState'>): SidebarStatusDescriptor {
@@ -63,13 +63,13 @@ export function getWorkflowStatus(page: Pick<PageData, 'workflowState'>): Sideba
     }
   }
 
-  if (state === 'IN_PROGRESS') {
+  if (state === 'IN_REVIEW') {
     return {
-      key: 'workflow-in-progress',
-      label: 'In progress',
-      description: 'Workflow: In progress.',
-      icon: 'i-lucide-loader-circle',
-      color: 'info',
+      key: 'workflow-in-review',
+      label: 'In review',
+      description: 'Workflow: In review. Only curators can edit this page until the review ends.',
+      icon: 'i-lucide-eye',
+      color: 'warning',
       severity: 0,
       display: 'label',
       category: 'core',

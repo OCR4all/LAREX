@@ -308,7 +308,7 @@ export const SHORTCUT_DEFINITIONS = {
   createGtFromRecognition: {
     description: 'Create GT from selected textline recognition',
     group: 'text',
-    scope: 'text-view',
+    scope: 'global',
     defaultBindings: ['meta_alt_g']
   },
 
@@ -395,6 +395,18 @@ export const SHORTCUT_DEFINITIONS = {
     group: 'editing',
     scope: 'global',
     defaultBindings: ['meta_s']
+  },
+  reviewApprove: {
+    description: 'Approve page in review mode',
+    group: 'navigation',
+    scope: 'global',
+    defaultBindings: ['meta_enter']
+  },
+  reviewRequestChanges: {
+    description: 'Request changes in review mode',
+    group: 'navigation',
+    scope: 'global',
+    defaultBindings: ['meta_shift_enter']
   },
   nextImage: {
     description: 'Next page',

@@ -40,6 +40,17 @@ public interface PageRepository extends JpaRepository<Page, String> {
     List<Page> findWithImagesByProjectIdAndIdIn(@Param("projectId") String projectId,
                                                 @Param("pageIds") Collection<String> pageIds);
 
+    @Query("SELECT p.id FROM Page p WHERE p.project.id = :projectId AND p.changesRequested = true")
+    List<String> findIdsByProjectIdAndChangesRequestedTrue(@Param("projectId") String projectId);
+
+    @Query("""
+           SELECT p FROM Page p
+           JOIN FETCH p.project project
+           WHERE project.library.workspaceId = :workspaceId
+             AND p.workflowState = 'IN_REVIEW'
+           """)
+    List<Page> findInReviewByWorkspaceId(@Param("workspaceId") String workspaceId);
+
     @Query("SELECT p.id FROM Page p WHERE p.project.id = :projectId AND p.workflowState IN :states")
     List<String> findIdsByProjectIdAndWorkflowStateIn(
             @Param("projectId") String projectId,

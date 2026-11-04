@@ -52,8 +52,8 @@ import { useProjectDockviewRegistry } from '@/composables/editor/use-project-doc
 import { useProjectTabCloseState } from '@/composables/editor/use-project-tab-close-state'
 import { useEditorCommandCenter } from '@/composables/editor/use-editor-command-center'
 import type { OpenProjectPagesSelection } from '@/components/editor/modal/open-project-pages.vue'
-import type { Page, PageWorkflowState, ProjectData } from '@/types/project-page'
-import { PAGE_WORKFLOW_STATES, PAGE_WORKFLOW_STATE_META } from '@/utils/page-workflow-state'
+import type { Page, PageWorkflowAction, PageWorkflowState, ProjectData } from '@/types/project-page'
+import { PAGE_WORKFLOW_ACTION_META, PAGE_WORKFLOW_STATE_META, availablePageTransitions } from '@/utils/page-workflow-state'
 
 import EditorEmpty from '@/components/editor/empty.vue'
 import PageWorkflowStateDropdown from '@/components/page/workflow-state-dropdown.vue'
@@ -149,7 +149,6 @@ const logoMenuItems: DropdownMenuItem[][] = [[
 
 const pageNameFilter = ref('')
 const pageSortMode = ref<PageSortMode>(DEFAULT_PAGE_SORT_MODE)
-const editorWorkflowStateOptions = PAGE_WORKFLOW_STATES.map(value => ({ value, ...PAGE_WORKFLOW_STATE_META[value] }))
 
 const editorStore = useEditorStore()
 const actionRunsStore = useActionRunsStore()
@@ -1294,18 +1293,23 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
       }
     },
     {
-      label: `Page state: ${editorWorkflowStateOptions.find(option => option.value === activeWorkflowState.value)?.label ?? 'Open'}`,
+      label: `Page state: ${PAGE_WORKFLOW_STATE_META[activeWorkflowState.value].label}`,
       icon: 'i-lucide-list-checks',
-      children: editorWorkflowStateOptions.map(option => ({
-        label: option.label,
-        icon: option.icon,
-        type: 'checkbox' as const,
-        checked: activeWorkflowState.value === option.value,
-        disabled: !canChangeActiveWorkflowState.value || activeWorkflowStateUpdating.value || activeWorkflowState.value === option.value,
+      disabled: activeWorkflowActions.value.length === 0,
+      children: activeWorkflowActions.value.map(action => ({
+        label: PAGE_WORKFLOW_ACTION_META[action].label,
+        icon: PAGE_WORKFLOW_ACTION_META[action].icon,
+        disabled: activeWorkflowStateUpdating.value,
         onSelect: () => {
-          void updateActiveWorkflowState(option.value)
+          void runActiveWorkflowAction(action)
         }
       }))
+    },
+    {
+      label: 'Review history',
+      icon: 'i-lucide-history',
+      disabled: !activePageId.value || !currentProjectId.value,
+      onSelect: openActivePageHistory
     },
     {
       label: 'Download',
@@ -1318,7 +1322,7 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
   if (activeUiMode.value === 'layout') {
     if (canCompleteActivePageSubtasks.value) {
       pageActions.push({
-        label: 'Save + Complete',
+        label: completeActionLabel.value ?? 'Save + Complete',
         icon: 'i-lucide-check-square',
         disabled: isSavingActiveCanvas.value || isCompletingOpenSubtasks.value || isActivePageLocked.value || !activeCanvasCanEdit.value,
         onSelect: () => {
@@ -1653,67 +1657,120 @@ function onPageTagsSaved(projectId: string, page: Page) {
   editorStore.patchProjectPageSummaries(projectId, [{ ...page, thumbnailUrl: page.thumbnailUrl ?? undefined }])
 }
 
-const projectWorkflowAccessById = ref<Record<string, boolean>>({})
+type ProjectWorkflowAccess = { canChange: boolean, canReview: boolean, reviewRequired: boolean }
+const NO_WORKFLOW_ACCESS: ProjectWorkflowAccess = { canChange: false, canReview: false, reviewRequired: false }
+
+const pageWorkflow = usePageWorkflow()
+const { user: sessionUser } = useUserSession()
+const projectWorkflowAccessById = ref<Record<string, ProjectWorkflowAccess>>({})
 const updatingWorkflowPageIds = ref<Set<string>>(new Set())
 const activeWorkflowStateUpdating = computed(() => !!activePageId.value && updatingWorkflowPageIds.value.has(activePageId.value))
-const activeWorkflowState = computed<PageWorkflowState>(() => {
-  if (!activePageId.value || !currentProjectId.value) return 'OPEN'
-  return editorStore.getPage(activePageId.value, currentProjectId.value)?.workflowState ?? 'OPEN'
-})
+const activeWorkflowAccess = computed(() => (currentProjectId.value && projectWorkflowAccessById.value[currentProjectId.value]) || NO_WORKFLOW_ACCESS)
+const activeWorkflowPage = computed(() => activePageId.value && currentProjectId.value
+  ? editorStore.getPage(activePageId.value, currentProjectId.value)
+  : undefined)
+const activeWorkflowState = computed<PageWorkflowState>(() => activeWorkflowPage.value?.workflowState ?? 'OPEN')
 const canChangeActiveWorkflowState = computed(() => {
-  if (!activePageId.value || !currentProjectId.value || activeCanvasIsComparison.value || !projectWorkflowAccessById.value[currentProjectId.value]) return false
-  const page = editorStore.getPage(activePageId.value, currentProjectId.value)
-  const workflowOnlyLock = page?.workflowState === 'DONE' && page.lockedReason === 'Page workflow state is Done'
-  return Boolean(selectedWorkspace.value && activeAnnotationMode.value === 'PROJECT' && (!page?.locked || workflowOnlyLock))
+  if (!activePageId.value || !currentProjectId.value || activeCanvasIsComparison.value || !activeWorkflowAccess.value.canChange) return false
+  const page = activeWorkflowPage.value
+  return Boolean(selectedWorkspace.value && activeAnnotationMode.value === 'PROJECT' && (!page?.locked || activeWorkflowState.value !== 'OPEN'))
 })
+const activeWorkflowActions = computed<PageWorkflowAction[]>(() => canChangeActiveWorkflowState.value
+  ? availablePageTransitions({
+      workflowState: activeWorkflowState.value,
+      canReviewPages: activeWorkflowAccess.value.canReview,
+      reviewRequired: activeWorkflowAccess.value.reviewRequired,
+      isSubmitter: Boolean(sessionUser.value?.id) && activeWorkflowPage.value?.reviewSubmittedByUserId === sessionUser.value?.id
+    })
+  : [])
+const showReviewFeedback = computed(() => Boolean(
+  currentProjectId.value && activePageId.value && activeWorkflowPage.value?.changesRequested && !activeCanvasIsComparison.value
+))
+const completeActionLabel = computed(() => activeWorkflowAccess.value.reviewRequired ? 'Save + Submit for review' : undefined)
 
-async function updateActiveWorkflowState(workflowState: PageWorkflowState) {
+function openActivePageHistory() {
+  const page = activeWorkflowPage.value
+  if (activePageId.value && currentProjectId.value) {
+    pageWorkflow.openHistory(currentProjectId.value, activePageId.value, page?.label ?? activePageId.value)
+  }
+}
+
+async function syncCanvasLease(canvasId: string, pageLocked: boolean) {
+  if (pageLocked) {
+    await collaboration.releaseCanvasLease(canvasId)
+    return
+  }
+  await collaboration.ensureCanvasRoom(canvasId)
+  const session = getEditorSession(canvasId)
+  if (session) collaboration.attachCanvasSession(canvasId, session)
+}
+
+async function runActiveWorkflowAction(action: PageWorkflowAction): Promise<boolean> {
   const projectId = currentProjectId.value
   const pageId = activePageId.value
   const canvasId = activeCanvasId.value
   const workspaceId = selectedWorkspace.value
-  if (!projectId || !pageId || !workspaceId || workflowState === activeWorkflowState.value || !canChangeActiveWorkflowState.value || updatingWorkflowPageIds.value.has(pageId)) return
+  if (!projectId || !pageId || !workspaceId || !activeWorkflowActions.value.includes(action) || updatingWorkflowPageIds.value.has(pageId)) return false
+
+  let comment: string | undefined
+  if (action === 'REQUEST_CHANGES') {
+    const result = await pageWorkflow.promptForChanges()
+    if (!result) return false
+    comment = result.comment
+  }
 
   updatingWorkflowPageIds.value = new Set([...updatingWorkflowPageIds.value, pageId])
   try {
-    if (workflowState === 'DONE') {
+    if (action !== 'WITHDRAW' && action !== 'REOPEN') {
       const saved = await handleSaveDocument()
-      if (!saved) return
+      if (!saved) return false
     }
 
-    const updated = await $fetch<PageResponse>(`/api/projects/${projectId}/pages/${pageId}/workflow-state`, {
-      method: 'PUT',
-      body: { workflowState }
-    })
+    const [updated] = await transitionPages<PageResponse>(projectId, [pageId], action, comment)
+    if (!updated) return false
     editorStore.patchProjectPageSummaries(projectId, [updated])
+    clearNuxtData(wsKey(workspaceId, 'projects', projectId, 'pages'))
 
-    const projectPagesCacheKey = wsKey(workspaceId, 'projects', projectId, 'pages')
-    clearNuxtData(projectPagesCacheKey)
-
-    if (canvasId) {
-      if (workflowState === 'DONE') {
-        await collaboration.releaseCanvasLease(canvasId)
-      } else {
-        await collaboration.ensureCanvasRoom(canvasId)
-        const session = getEditorSession(canvasId)
-        if (session) collaboration.attachCanvasSession(canvasId, session)
-      }
-    }
+    if (canvasId) await syncCanvasLease(canvasId, updated.locked === true)
 
     await Promise.all([
       refreshNuxtData(wsKey(workspaceId, 'projects', projectId)),
       refreshNuxtData(wsKey(workspaceId, 'projects', 'list'))
     ])
+    return true
   } catch (error) {
     toast.add({
       title: 'Failed to update page state',
       description: extractApiErrorMessage(error, 'Could not update the page workflow state.'),
       color: 'error'
     })
+    return false
   } finally {
     updatingWorkflowPageIds.value = new Set([...updatingWorkflowPageIds.value].filter(id => id !== pageId))
   }
 }
+
+usePageWorkflowRealtime(async ({ projectId, pageIds }) => {
+  if (!sessionStore.openedProjectIds.includes(projectId)) return
+  void fetchOpenSubtasks(projectId)
+  try {
+    const pageId = activePageId.value
+    const canvasId = activeCanvasId.value
+    const wasLocked = activeWorkflowPage.value?.locked
+    const changedPages = new Set(pageIds)
+    const summaries = await $fetch<PageSummaryResponse[]>(`/api/projects/${projectId}/pages/summaries`)
+    editorStore.patchProjectPageSummaries(projectId, summaries.filter(summary => changedPages.has(summary.id)))
+
+    const isActiveChange = projectId === currentProjectId.value && pageId === activePageId.value && !!pageId && changedPages.has(pageId)
+    const isLocked = activeWorkflowPage.value?.locked
+    if (canvasId && isActiveChange && wasLocked !== isLocked && !updatingWorkflowPageIds.value.has(pageId)) {
+      await syncCanvasLease(canvasId, isLocked === true)
+    }
+  } catch (error) {
+    console.warn('Failed to refresh page states:', error)
+  }
+})
+
 const collapsedImagePopoverDismissKey = ref(0)
 
 watch(activeUiMode, (mode) => {
@@ -1767,6 +1824,7 @@ const {
   openSubtaskPageIds,
   getOpenSubtaskCountByPage,
   activeOpenSubtasks,
+  fetchOpenSubtasks,
   canCompleteActivePageSubtasks,
   isCompletingOpenSubtasks,
   completingSubtaskId,
@@ -2074,6 +2132,9 @@ if (import.meta.client) {
         editorUiStore.setVirtualKeyboardMode(current === 'off' ? 'floating' : 'off')
       },
       saveDocument: handleSaveDocument,
+      createGtFromRecognition: () => activeControls.value?.createGtFromRecognition?.() ?? false,
+      reviewApprove: () => { void reviewActivePage('APPROVE') },
+      reviewRequestChanges: () => { void reviewActivePage('REQUEST_CHANGES') },
       nextImage: () => navigateImage('next'),
       prevImage: () => navigateImage('prev'),
       toggleShortcutsHelp: () => editorUiStore.toggleShortcutsHelp(),
@@ -2180,8 +2241,13 @@ const loadProjectLabelSet = async (projectId?: string | null, force = false) => 
       defaultRecognitionIndices?: number[] | null
       capabilities?: ProjectData['capabilities']
       locked?: boolean
+      reviewRequired?: boolean
     }>(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}`)
-    projectWorkflowAccessById.value[projectId] = project.capabilities?.canChangePageState === true && !project.locked
+    projectWorkflowAccessById.value[projectId] = {
+      canChange: project.capabilities?.canChangePageState === true && !project.locked,
+      canReview: project.capabilities?.canReviewPages === true,
+      reviewRequired: project.reviewRequired === true
+    }
     editorStore.setProjectToolkitSettings({
       codecId: project.codecId ?? null,
       labelSetId: project.labelSetId ?? null,
@@ -2600,7 +2666,21 @@ const focusedNextPageAvailable = computed(() => {
 })
 
 async function exitFocusedWork() {
-  await navigateTo('/tasks')
+  const destination = isReviewSession.value ? '/tasks?view=review' : '/tasks'
+  sessionStore.clearFocusedWork()
+  await navigateTo(destination)
+}
+
+const isReviewSession = computed(() => sessionStore.focusedWork?.kind === 'review')
+
+watch(focusedWorkQueue.queue, () => {
+  if (!isReviewSession.value && currentProjectId.value) void fetchOpenSubtasks(currentProjectId.value)
+})
+
+async function reviewActivePage(action: 'APPROVE' | 'REQUEST_CHANGES') {
+  const pageId = activePageId.value
+  if (!isReviewSession.value || !pageId) return
+  if (await runActiveWorkflowAction(action)) await focusedWorkQueue.markReviewed(pageId)
 }
 
 async function waitForCondition(condition: () => boolean, timeoutMs = 900, intervalMs = 30): Promise<boolean> {
@@ -3015,17 +3095,37 @@ const {
           />
           <PageWorkflowStateDropdown
             v-if="activePageMetadata"
-            :model-value="activeWorkflowState"
-            :can-change="canChangeActiveWorkflowState"
+            :state="activeWorkflowState"
+            :actions="activeWorkflowActions"
             :updating="activeWorkflowStateUpdating"
             side="top"
-            @update:model-value="updateActiveWorkflowState"
+            @action="runActiveWorkflowAction"
           />
         </template>
       </EditorEntityStatusBar>
 
+      <EditorReviewTracker
+        v-if="isReviewSession"
+        :pages="focusedWorkQueue.pages.value"
+        :current-page-id="activePageId"
+        :remaining-page-count="focusedWorkQueue.remainingPageCount.value"
+        :blocked-page-count="focusedWorkQueue.blockedPageCount.value"
+        :reviewed-page-count="focusedWorkQueue.completedTaskCount.value"
+        :is-complete="focusedWorkQueue.isComplete.value"
+        :can-go-previous="focusedPreviousPageAvailable"
+        :can-go-next="focusedNextPageAvailable"
+        :actions="activeWorkflowActions"
+        :updating="activeWorkflowStateUpdating"
+        @previous="focusedWorkQueue.openPreviousPage"
+        @next="focusedWorkQueue.openNextPage"
+        @select="openFocusedQueuePage"
+        @exit="exitFocusedWork"
+        @approve="reviewActivePage('APPROVE')"
+        @request-changes="reviewActivePage('REQUEST_CHANGES')"
+      />
+
       <EditorFocusedWorkTracker
-        v-if="sessionStore.focusedWork"
+        v-else-if="sessionStore.focusedWork"
         :pages="focusedWorkQueue.pages.value"
         :current-page-id="activePageId"
         :remaining-task-count="focusedWorkQueue.remainingTaskCount.value"
@@ -3042,16 +3142,25 @@ const {
         :is-saving-active-canvas="isSavingActiveCanvas"
         :can-edit-active-canvas="activeCanvasCanEdit"
         :is-active-page-locked="isActivePageLocked"
+        :complete-label="completeActionLabel"
         @previous="focusedWorkQueue.openPreviousPage"
         @next="focusedWorkQueue.openNextPage"
         @select="openFocusedQueuePage"
         @exit="exitFocusedWork"
         @complete-subtask="completeSubtask"
         @save-and-continue="handleSaveAndCompleteOpenSubtasks"
-      />
+      >
+        <template v-if="showReviewFeedback" #feedback>
+          <EditorReviewFeedback
+            :project-id="currentProjectId!"
+            :page-id="activePageId!"
+            @history="openActivePageHistory"
+          />
+        </template>
+      </EditorFocusedWorkTracker>
 
       <EditorMinimalTaskOverlay
-        v-if="!sessionStore.focusedWork && activeCanvasId && !activeCanvasIsComparison && activeOpenSubtasks.length > 0"
+        v-if="!sessionStore.focusedWork && activeCanvasId && !activeCanvasIsComparison && (activeOpenSubtasks.length > 0 || showReviewFeedback)"
         :open-subtasks="activeOpenSubtasks"
         :completing-subtask-id="completingSubtaskId"
         :can-complete-active-page-subtasks="canCompleteActivePageSubtasks"
@@ -3059,9 +3168,18 @@ const {
         :is-saving-active-canvas="isSavingActiveCanvas"
         :can-edit-active-canvas="activeCanvasCanEdit"
         :is-active-page-locked="isActivePageLocked"
+        :complete-label="completeActionLabel"
         @complete-subtask="completeSubtask"
         @save-and-continue="handleSaveAndCompleteOpenSubtasks"
-      />
+      >
+        <template v-if="showReviewFeedback" #feedback>
+          <EditorReviewFeedback
+            :project-id="currentProjectId!"
+            :page-id="activePageId!"
+            @history="openActivePageHistory"
+          />
+        </template>
+      </EditorMinimalTaskOverlay>
 
       <EditorEmpty v-if="!activeCanvasId && !sessionStore.focusedWork" class="absolute inset-0 z-10" />
 

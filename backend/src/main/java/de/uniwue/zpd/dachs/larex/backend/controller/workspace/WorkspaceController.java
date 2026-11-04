@@ -131,6 +131,7 @@ public class WorkspaceController {
                 teamWorkspace.isAllowEditorsToEditPageName(),
                 teamWorkspace.isAllowEditorsToEditPageDescription(),
                 teamWorkspace.isAllowEditorsToEditPageTags(),
+                teamWorkspace.isDefaultReviewRequired(),
                 authorizationPolicyService.resolveWorkspaceCapabilities(teamWorkspace.getId(), userId),
                 null
         );
@@ -164,6 +165,7 @@ public class WorkspaceController {
                 request.allowEditorsToEditPageName(),
                 request.allowEditorsToEditPageDescription(),
                 request.allowEditorsToEditPageTags(),
+                request.defaultReviewRequired(),
                 userId
         );
 
@@ -431,6 +433,7 @@ public class WorkspaceController {
                     personalWorkspace.isAllowEditorsToEditPageName(),
                     personalWorkspace.isAllowEditorsToEditPageDescription(),
                     personalWorkspace.isAllowEditorsToEditPageTags(),
+                    personalWorkspace.isDefaultReviewRequired(),
                     capabilities,
                     projectDefaultsPropagation
             );
@@ -454,6 +457,7 @@ public class WorkspaceController {
                     teamWorkspace.isAllowEditorsToEditPageName(),
                     teamWorkspace.isAllowEditorsToEditPageDescription(),
                     teamWorkspace.isAllowEditorsToEditPageTags(),
+                    teamWorkspace.isDefaultReviewRequired(),
                     capabilities,
                     projectDefaultsPropagation
             );

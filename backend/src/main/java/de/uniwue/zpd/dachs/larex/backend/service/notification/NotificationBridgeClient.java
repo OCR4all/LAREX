@@ -12,6 +12,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -103,6 +104,21 @@ public class NotificationBridgeClient {
         pushPayload(new RealtimeEventBridgePayload(
                 userId,
                 new BridgeEvent("TASK_QUEUE_CHANGED", payload),
+                source
+        ), source);
+    }
+
+    public void pushPageWorkflowChanged(String userId, String workspaceId, String projectId, List<String> pageIds, String source) {
+        if (!properties.isEnabled() || !properties.isConfigured() || userId == null || userId.isBlank()) {
+            return;
+        }
+        pushPayload(new RealtimeEventBridgePayload(
+                userId,
+                new BridgeEvent("PAGE_WORKFLOW_CHANGED", Map.of(
+                        "workspaceId", workspaceId,
+                        "projectId", projectId,
+                        "pageIds", pageIds
+                )),
                 source
         ), source);
     }

@@ -41,10 +41,16 @@ const schema = z.object({
   status: z.enum(['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
   dueDate: z.string().optional(),
-  syncLinkedPageStates: z.boolean()
+  pageCompletion: z.enum(['NONE', 'DONE', 'REVIEW'])
 })
 
 type Schema = z.output<typeof schema>
+
+const pageCompletionOptions = [
+  { value: 'NONE', label: 'Keep the page state' },
+  { value: 'DONE', label: 'Mark the page as done' },
+  { value: 'REVIEW', label: 'Send the page to review' }
+]
 
 const state = reactive<Partial<Schema>>({
   title: '',
@@ -52,7 +58,7 @@ const state = reactive<Partial<Schema>>({
   status: 'OPEN',
   priority: 'MEDIUM',
   dueDate: '',
-  syncLinkedPageStates: false
+  pageCompletion: 'NONE'
 })
 
 const assignedUserIds = ref<string[]>([])
@@ -133,7 +139,7 @@ function applyTaskToState(task: Task) {
   state.status = task.status
   state.priority = task.priority
   state.dueDate = toLocalDateTimeInput(task.dueDate)
-  state.syncLinkedPageStates = task.syncLinkedPageStates ?? false
+  state.pageCompletion = task.pageCompletion ?? 'NONE'
 
   assignedUserIds.value = [...(task.assignedUserIds || [])]
   assignedUsers.value = [...(task.assignedUsers || [])]
@@ -193,7 +199,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       priority: event.data.priority as TaskPriority,
       dueDate,
       assignedUserIds: props.isAdmin ? assignedUserIds.value : [props.currentUserId],
-      syncLinkedPageStates: props.isAdmin ? event.data.syncLinkedPageStates : false,
+      pageCompletion: props.isAdmin ? event.data.pageCompletion : 'NONE',
       status: event.data.status as TaskStatus,
       pageIds: selectedPages.value.map(page => page.pageId)
     }
@@ -222,7 +228,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             description: payload.description,
             priority: payload.priority,
             dueDate: payload.dueDate,
-            syncLinkedPageStates: payload.syncLinkedPageStates
+            pageCompletion: payload.pageCompletion
           }
         })
       : taskLocal.value
@@ -340,13 +346,15 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
 
             <UFormField
               v-if="isAdmin"
-              label="Linked page states"
-              name="syncLinkedPageStates"
-              hint="Set linked pages to Done when all of their page Tasks are complete."
+              label="When page work finishes"
+              name="pageCompletion"
+              hint="Applies when all of a page's Tasks are complete."
             >
-              <USwitch
-                v-model="state.syncLinkedPageStates"
-                label="Synchronize page workflow states"
+              <USelect
+                v-model="state.pageCompletion"
+                :items="pageCompletionOptions"
+                value-key="value"
+                class="w-full"
                 :disabled="isSubmitting"
               />
             </UFormField>

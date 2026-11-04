@@ -78,6 +78,9 @@ public abstract class AbstractWorkspace {
     @Column(name = "allow_editors_edit_page_tags", nullable = false)
     private boolean allowEditorsToEditPageTags = false;
 
+    @Column(name = "default_review_required", nullable = false)
+    private boolean defaultReviewRequired = false;
+
     protected AbstractWorkspace() {}
 
     protected AbstractWorkspace(String ownerUserId, String description) {
@@ -219,6 +222,14 @@ public abstract class AbstractWorkspace {
 
     public void setAllowEditorsToEditPageDescription(boolean allowEditorsToEditPageDescription) {
         this.allowEditorsToEditPageDescription = allowEditorsToEditPageDescription;
+    }
+
+    public boolean isDefaultReviewRequired() {
+        return defaultReviewRequired;
+    }
+
+    public void setDefaultReviewRequired(boolean defaultReviewRequired) {
+        this.defaultReviewRequired = defaultReviewRequired;
     }
 
     public boolean isAllowEditorsToEditPageTags() {

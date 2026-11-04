@@ -602,13 +602,13 @@ const tabItems = [
                   {{ task.priority }}
                 </UBadge>
                 <UBadge
-                  v-if="task.syncLinkedPageStates"
-                  color="info"
+                  v-if="task.pageCompletion !== 'NONE'"
+                  :color="task.pageCompletion === 'REVIEW' ? 'warning' : 'info'"
                   variant="subtle"
                   size="sm"
-                  icon="i-lucide-refresh-cw"
+                  :icon="task.pageCompletion === 'REVIEW' ? 'i-lucide-eye' : 'i-lucide-refresh-cw'"
                 >
-                  Page sync
+                  {{ task.pageCompletion === 'REVIEW' ? 'Review required' : 'Page sync' }}
                 </UBadge>
               </div>
             </div>

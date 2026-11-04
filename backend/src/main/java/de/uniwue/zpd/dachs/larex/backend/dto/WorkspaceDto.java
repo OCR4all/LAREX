@@ -25,7 +25,8 @@ public class WorkspaceDto {
         TAG_SET,
         NORMALIZATION_PROFILE,
         VALIDATION_RULESET,
-        TEXT_INDICES
+        TEXT_INDICES,
+        REVIEW_REQUIRED
     }
 
     public record ProjectDefaultsImpact(
@@ -41,7 +42,8 @@ public class WorkspaceDto {
             String normalizationProfileId,
             String validationRulesetId,
             Integer defaultGtIndex,
-            List<Integer> defaultRecognitionIndices
+            List<Integer> defaultRecognitionIndices,
+            Boolean defaultReviewRequired
     ) {}
 
     public record ProjectDefaultsPreviewResponse(
@@ -88,6 +90,7 @@ public class WorkspaceDto {
         private final boolean allowEditorsToEditPageName;
         private final boolean allowEditorsToEditPageDescription;
         private final boolean allowEditorsToEditPageTags;
+        private final boolean defaultReviewRequired;
         private final AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities;
         private final ProjectDefaultsPropagationResult projectDefaultsPropagation;
 
@@ -97,6 +100,7 @@ public class WorkspaceDto {
                           String normalizationProfileId, String validationRulesetId,
                           Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                           boolean allowEditorsToEditPageName, boolean allowEditorsToEditPageDescription, boolean allowEditorsToEditPageTags,
+                          boolean defaultReviewRequired,
                           AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
                           ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             this.id = id;
@@ -118,6 +122,7 @@ public class WorkspaceDto {
             this.allowEditorsToEditPageName = allowEditorsToEditPageName;
             this.allowEditorsToEditPageDescription = allowEditorsToEditPageDescription;
             this.allowEditorsToEditPageTags = allowEditorsToEditPageTags;
+            this.defaultReviewRequired = defaultReviewRequired;
             this.capabilities = capabilities;
             this.projectDefaultsPropagation = projectDefaultsPropagation;
         }
@@ -142,6 +147,7 @@ public class WorkspaceDto {
         public boolean isAllowEditorsToEditPageName() { return allowEditorsToEditPageName; }
         public boolean isAllowEditorsToEditPageDescription() { return allowEditorsToEditPageDescription; }
         public boolean isAllowEditorsToEditPageTags() { return allowEditorsToEditPageTags; }
+        public boolean isDefaultReviewRequired() { return defaultReviewRequired; }
         public AuthorizationCapabilitiesDto.WorkspaceCapabilities getCapabilities() { return capabilities; }
         public ProjectDefaultsPropagationResult getProjectDefaultsPropagation() { return projectDefaultsPropagation; }
     }
@@ -153,12 +159,14 @@ public class WorkspaceDto {
                                        String normalizationProfileId, String validationRulesetId,
                                        Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                        boolean allowEditorsToEditPageName, boolean allowEditorsToEditPageDescription, boolean allowEditorsToEditPageTags,
+                                       boolean defaultReviewRequired,
                                        AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
                                        ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             super(id, "Personal Workspace", description, avatar, created, updated, true, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId,
                     defaultGtIndex, defaultRecognitionIndices,
                     allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags,
+                    defaultReviewRequired,
                     capabilities, projectDefaultsPropagation);
         }
     }
@@ -170,12 +178,14 @@ public class WorkspaceDto {
                                    String normalizationProfileId, String validationRulesetId,
                                    Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                    boolean allowEditorsToEditPageName, boolean allowEditorsToEditPageDescription, boolean allowEditorsToEditPageTags,
+                                   boolean defaultReviewRequired,
                                    AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities,
                                    ProjectDefaultsPropagationResult projectDefaultsPropagation) {
             super(id, name, description, avatar, created, updated, false, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
                     normalizationProfileId, validationRulesetId,
                     defaultGtIndex, defaultRecognitionIndices,
                     allowEditorsToEditPageName, allowEditorsToEditPageDescription, allowEditorsToEditPageTags,
+                    defaultReviewRequired,
                     capabilities, projectDefaultsPropagation);
         }
     }
@@ -236,7 +246,8 @@ public class WorkspaceDto {
             ProjectDefaultPropagationScope projectDefaultPropagationScope,
             Boolean allowEditorsToEditPageName,
             Boolean allowEditorsToEditPageDescription,
-            Boolean allowEditorsToEditPageTags
+            Boolean allowEditorsToEditPageTags,
+            Boolean defaultReviewRequired
     ) {}
 
     public record UpdatePersonalWorkspaceRequest(
@@ -254,7 +265,8 @@ public class WorkspaceDto {
             ProjectDefaultPropagationScope projectDefaultPropagationScope,
             Boolean allowEditorsToEditPageName,
             Boolean allowEditorsToEditPageDescription,
-            Boolean allowEditorsToEditPageTags
+            Boolean allowEditorsToEditPageTags,
+            Boolean defaultReviewRequired
     ) {}
 
     // Invitation DTOs (only for team workspaces)

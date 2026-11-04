@@ -1118,7 +1118,8 @@ public class ProjectPackageService {
                         project.isAllowValidationRulesetOverride(),
                         project.getDefaultGtIndex(),
                         project.getDefaultRecognitionIndicesList(),
-                        project.getPrimaryImageVariant()
+                        project.getPrimaryImageVariant(),
+                        project.getReviewRequired()
                 ),
                 List.copyOf(pagePaths),
                 Map.copyOf(resourcePaths),
@@ -1207,6 +1208,7 @@ public class ProjectPackageService {
         project.setDefaultGtIndex(snapshot.defaultGtIndex());
         project.setDefaultRecognitionIndicesList(snapshot.defaultRecognitionIndices());
         project.setPrimaryImageVariant(snapshot.primaryImageVariant());
+        project.setReviewRequired(snapshot.reviewRequired());
     }
 
     private ImportCounts importPagesAndFiles(ProjectPackageArchiveService.ImportedPackage importedPackage,

@@ -113,11 +113,12 @@ public class SubtaskService {
                 .collect(java.util.stream.Collectors.groupingBy(Subtask::getPageId));
 
         LocalDateTime now = LocalDateTime.now();
+        boolean canReviewPages = workspaceAccessService.canReviewPages(workspaceId, userId);
         List<EditorQueueDto.PageResponse> pages = subtasksByPage.entrySet().stream()
                 .map(entry -> {
                     Page page = pagesById.get(entry.getKey());
                     List<Subtask> pageSubtasks = entry.getValue();
-                    boolean blocked = page.isEffectivelyLocked();
+                    boolean blocked = page.isLockedFor(canReviewPages);
                     return new EditorQueueDto.PageResponse(
                             page.getId(),
                             page.getName(),
@@ -125,7 +126,7 @@ public class SubtaskService {
                             page.getProject().getName(),
                             page.getSortOrder(),
                             blocked,
-                            blocked ? page.getEffectiveLockedReason() : null,
+                            blocked ? page.getLockedReasonFor(canReviewPages) : null,
                             pageSubtasks.stream()
                                     .sorted(Comparator.comparing(Subtask::getSortOrder))
                                     .map(subtask -> responseById.get(subtask.getId()))
@@ -315,7 +316,7 @@ public class SubtaskService {
             taskPageLinkRepository.saveAll(newLinkPageIds.stream()
                     .map(pageId -> new TaskPageLink(taskId, pageId, TaskPageLink.LinkType.MANUAL, userId))
                     .toList());
-            if (task.isSyncLinkedPageStates()) {
+            if (task.affectsPageState()) {
                 pageWorkflowService.recomputeForPageIds(newLinkPageIds, userId);
             }
         }
@@ -413,7 +414,7 @@ public class SubtaskService {
         }
 
         subtask = subtaskRepository.save(subtask);
-        if (task.isSyncLinkedPageStates() && subtask.getPageId() != null) {
+        if (task.affectsPageState() && subtask.getPageId() != null) {
             pageWorkflowService.recomputeForExistingPageIds(List.of(subtask.getPageId()), userId);
         }
         publishQueueChange(task, subtask.getAssignedUserId());
@@ -496,7 +497,7 @@ public class SubtaskService {
         for (Subtask subtask : toComplete) {
             activityService.logSubtaskCompleted(taskId, userId, subtask.getTitle());
         }
-        if (task.isSyncLinkedPageStates()) {
+        if (task.affectsPageState()) {
             recomputeLinkedPageStates(toComplete, userId);
         }
         publishQueueChange(task, toComplete.stream().map(Subtask::getAssignedUserId).filter(Objects::nonNull).toList());
@@ -536,11 +537,11 @@ public class SubtaskService {
     }
 
     private void recomputeLinkedPageStates(List<Subtask> subtasks, String allowedUserId) {
-        subtasks.stream()
+        pageWorkflowService.recomputeForExistingPageIds(subtasks.stream()
                 .map(Subtask::getPageId)
                 .filter(Objects::nonNull)
                 .distinct()
-                .forEach(pageId -> pageWorkflowService.recomputeForExistingPageIds(List.of(pageId), allowedUserId));
+                .toList(), allowedUserId);
     }
 
     private void removeDerivedLinkIfUnused(Task task, String pageId, String allowedUserId) {
@@ -554,7 +555,7 @@ public class SubtaskService {
         taskPageLinkRepository.findByTaskIdAndPageId(task.getId(), pageId).ifPresent(link -> {
             taskPageLinkRepository.delete(link);
             taskPageLinkRepository.flush();
-            if (task.isSyncLinkedPageStates()) {
+            if (task.affectsPageState()) {
                 pageWorkflowService.recomputeForExistingPageIds(List.of(pageId), allowedUserId);
             }
         });

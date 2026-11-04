@@ -20,6 +20,16 @@ export function getNotificationLink(notification: Notification): string | undefi
         ? `/project/${notification.relatedEntityId}`
         : undefined
 
+    case 'PAGE_REVIEW_REQUESTED':
+      return notification.relatedEntityType === 'Project'
+        ? `/tasks?view=review&project=${encodeURIComponent(notification.relatedEntityId)}`
+        : '/tasks?view=review'
+
+    case 'PAGE_CHANGES_REQUESTED':
+      return notification.relatedEntityType === 'Project'
+        ? `/project/${notification.relatedEntityId}`
+        : undefined
+
     case 'PAGE_CREATED':
       return undefined
 

@@ -303,12 +303,13 @@ function triggerCreateGtForSelectedTextline(): boolean {
   if (selectedLine.hasGtVariant) return false
 
   const source = findFirstRecognitionCandidate(selectedLine)
-  handleCreateGtFromRecognition(selectedLine.id, {
+  if (!source) return false
+
+  return handleCreateGtFromRecognition(selectedLine.id, {
     gtIndex: gtIndexModel.value,
-    sourceRecognitionIndex: source?.index,
-    sourceRecognitionText: source?.text
+    sourceRecognitionIndex: source.index,
+    sourceRecognitionText: source.text
   })
-  return true
 }
 
 function getRenderedTextlineOrder(): typeof displayTextlines.value {

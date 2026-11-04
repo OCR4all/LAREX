@@ -394,6 +394,47 @@ public class PageFilterIndexService {
             Set<String> openSubtaskPageIds,
             List<XmlAttributePredicate> xmlAttributeFilters,
             String filterOperator) {
+        return filterPages(
+            projectId,
+            textContent,
+            labelIds,
+            labelOperator,
+            tags,
+            tagOperator,
+            confidenceMin,
+            confidenceMax,
+            confidenceElementTypes,
+            hasComments,
+            commentText,
+            workflowStates,
+            null,
+            annotationPresence,
+            onlyWithOpenSubtasks,
+            openSubtaskPageIds,
+            xmlAttributeFilters,
+            filterOperator
+        );
+    }
+
+    public Set<String> filterPages(
+            String projectId,
+            String textContent,
+            List<String> labelIds,
+            String labelOperator,
+            List<String> tags,
+            String tagOperator,
+            Double confidenceMin,
+            Double confidenceMax,
+            List<String> confidenceElementTypes,
+            Boolean hasComments,
+            String commentText,
+            List<String> workflowStates,
+            Boolean changesRequested,
+            String annotationPresence,
+            Boolean onlyWithOpenSubtasks,
+            Set<String> openSubtaskPageIds,
+            List<XmlAttributePredicate> xmlAttributeFilters,
+            String filterOperator) {
 
         List<Set<String>> activeFilterGroups = new ArrayList<>();
 
@@ -463,6 +504,10 @@ public class PageFilterIndexService {
             activeFilterGroups.add(new HashSet<>(
                 pageRepository.findIdsByProjectIdAndWorkflowStateIn(projectId, parsedWorkflowStates)
             ));
+        }
+
+        if (Boolean.TRUE.equals(changesRequested)) {
+            activeFilterGroups.add(new HashSet<>(pageRepository.findIdsByProjectIdAndChangesRequestedTrue(projectId)));
         }
 
         if ("with_xml".equals(annotationPresence)) {

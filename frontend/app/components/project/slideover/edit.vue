@@ -47,6 +47,7 @@ interface Project {
   defaultRecognitionIndices?: number[] | null
   outputRetentionDays?: number | null
   primaryImageVariant?: string | null
+  reviewRequired?: boolean
 }
 type WorkspaceDefaults = {
   codecId?: string | null
@@ -93,7 +94,8 @@ const schema = z.object({
   defaultRecognitionIndicesUndefined: z.boolean().optional(),
   outputRetentionDaysInput: z.union([z.string(), z.number()]).optional(),
   retainOutputsForever: z.boolean().optional(),
-  primaryImageVariant: z.string().max(255).optional().or(z.literal(''))
+  primaryImageVariant: z.string().max(255).optional().or(z.literal('')),
+  reviewRequired: z.boolean().optional()
 })
 
 type Schema = z.output<typeof schema>
@@ -126,7 +128,8 @@ const state = ref<Schema>({
     : false,
   outputRetentionDaysInput: String(props.project.outputRetentionDays ?? 30),
   retainOutputsForever: props.project.outputRetentionDays == null,
-  primaryImageVariant: props.project.primaryImageVariant ?? AUTOMATIC_IMAGE_VARIANT
+  primaryImageVariant: props.project.primaryImageVariant ?? AUTOMATIC_IMAGE_VARIANT,
+  reviewRequired: props.project.reviewRequired === true
 })
 
 const { data: codecs, error: codecsError } = await useFetch<CodecSummary[]>(
@@ -315,6 +318,13 @@ const configurationPanelItems = computed(() => [
     icon: 'i-lucide-file-pen-line'
   },
   {
+    label: 'Page Review',
+    description: 'Decide whether finished pages need a curator\'s approval.',
+    value: 'page-review',
+    slot: 'page-review',
+    icon: 'i-lucide-eye'
+  },
+  {
     label: 'Action Outputs',
     description: 'Set how long newly started Action outputs are retained.',
     value: 'action-outputs',
@@ -423,6 +433,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         primaryImageVariant: event.data.primaryImageVariant === AUTOMATIC_IMAGE_VARIANT
           ? null
           : event.data.primaryImageVariant || null,
+        reviewRequired: event.data.reviewRequired === true,
         ...(defaultGtIndex !== undefined ? { defaultGtIndex } : {}),
         ...(defaultRecognitionIndices.length > 0 ? { defaultRecognitionIndices } : {})
       }
@@ -503,6 +514,21 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                   :rows="3"
                   :disabled="isSubmitting"
                   class="w-full"
+                />
+              </UFormField>
+            </div>
+          </template>
+
+          <template #page-review>
+            <div class="pb-4">
+              <UFormField
+                name="reviewRequired"
+                help="Editors submit finished pages, and only curators can mark them as done. Assignments that mark pages as done send them to review instead."
+              >
+                <USwitch
+                  v-model="state.reviewRequired"
+                  label="Require review for this project"
+                  :disabled="isSubmitting"
                 />
               </UFormField>
             </div>
