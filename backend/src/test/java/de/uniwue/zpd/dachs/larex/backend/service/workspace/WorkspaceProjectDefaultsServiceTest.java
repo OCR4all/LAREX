@@ -2,9 +2,13 @@ package de.uniwue.zpd.dachs.larex.backend.service.workspace;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.WorkspaceDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
+import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
+import de.uniwue.zpd.dachs.larex.backend.entity.NormalizationProfile;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
+import de.uniwue.zpd.dachs.larex.backend.entity.ValidationRuleset;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
@@ -102,6 +106,99 @@ class WorkspaceProjectDefaultsServiceTest {
     }
 
     @Test
+    void unsetOnlyKeepsExplicitValueWhenAnotherChangedDefaultIsUnset() {
+        WorkspaceProjectDefaultsService.WorkspaceDefaults before =
+                WorkspaceProjectDefaultsService.WorkspaceDefaults.from(workspace("old-label"));
+        TeamWorkspace after = workspace(null);
+        LabelSet newLabelSet = labelSet("new-label");
+        after.setCodec(codec("new-codec"));
+        after.setLabelSet(newLabelSet);
+
+        Codec explicitCodec = codec("explicit-codec");
+        Project project = project("project", null);
+        project.setCodec(explicitCodec);
+        when(projectRepository.findByLibraryWorkspaceId(WORKSPACE_ID)).thenReturn(List.of(project));
+
+        WorkspaceDto.ProjectDefaultsPropagationResult result = service.apply(
+                WORKSPACE_ID, before, after, WorkspaceDto.ProjectDefaultPropagationScope.UNSET_ONLY, USER_ID);
+
+        assertSame(explicitCodec, project.getCodec());
+        assertSame(newLabelSet, project.getLabelSet());
+        assertEquals(1, result.updatedProjects());
+    }
+
+    @Test
+    void unsetOnlyDecidesEveryDefaultKeyPerProject() {
+        WorkspaceProjectDefaultsService.WorkspaceDefaults before =
+                WorkspaceProjectDefaultsService.WorkspaceDefaults.from(workspace(null));
+        TeamWorkspace after = workspace(null);
+        Codec newCodec = codec("new-codec");
+        LabelSet newLabelSet = labelSet("new-label");
+        ControlledDictionary newDictionary = dictionary("new-dictionary");
+        TagSet newTagSet = tagSet("new-tag-set");
+        NormalizationProfile newProfile = normalizationProfile("new-profile");
+        ValidationRuleset newRuleset = validationRuleset("new-ruleset");
+        after.setCodec(newCodec);
+        after.setLabelSet(newLabelSet);
+        after.setDictionary(newDictionary);
+        after.setTagSet(newTagSet);
+        after.setNormalizationProfile(newProfile);
+        after.setValidationRuleset(newRuleset);
+        after.setDefaultGtIndex(3);
+        after.setDefaultRecognitionIndicesList(List.of(4));
+
+        Codec explicitCodec = codec("explicit-codec");
+        LabelSet explicitLabelSet = labelSet("explicit-label");
+        ControlledDictionary explicitDictionary = dictionary("explicit-dictionary");
+        TagSet explicitTagSet = tagSet("explicit-tag-set");
+        NormalizationProfile explicitProfile = normalizationProfile("explicit-profile");
+        ValidationRuleset explicitRuleset = validationRuleset("explicit-ruleset");
+        Project explicitResources = project("explicit-resources", explicitLabelSet);
+        explicitResources.setCodec(explicitCodec);
+        explicitResources.setDictionary(explicitDictionary);
+        explicitResources.setTagSet(explicitTagSet);
+        explicitResources.setNormalizationProfile(explicitProfile);
+        explicitResources.setValidationRuleset(explicitRuleset);
+
+        Project explicitIndices = project("explicit-indices", null);
+        explicitIndices.setDefaultGtIndex(1);
+        explicitIndices.setDefaultRecognitionIndicesList(List.of(2));
+
+        Project partialIndices = project("partial-indices", null);
+        partialIndices.setDefaultGtIndex(1);
+
+        when(projectRepository.findByLibraryWorkspaceId(WORKSPACE_ID))
+                .thenReturn(List.of(explicitResources, explicitIndices, partialIndices));
+
+        WorkspaceDto.ProjectDefaultsPropagationResult result = service.apply(
+                WORKSPACE_ID, before, after, WorkspaceDto.ProjectDefaultPropagationScope.UNSET_ONLY, USER_ID);
+
+        assertSame(explicitCodec, explicitResources.getCodec());
+        assertSame(explicitLabelSet, explicitResources.getLabelSet());
+        assertSame(explicitDictionary, explicitResources.getDictionary());
+        assertSame(explicitTagSet, explicitResources.getTagSet());
+        assertSame(explicitProfile, explicitResources.getNormalizationProfile());
+        assertSame(explicitRuleset, explicitResources.getValidationRuleset());
+        assertEquals(3, explicitResources.getDefaultGtIndex());
+        assertEquals(List.of(4), explicitResources.getDefaultRecognitionIndicesList());
+
+        assertSame(newCodec, explicitIndices.getCodec());
+        assertSame(newLabelSet, explicitIndices.getLabelSet());
+        assertSame(newDictionary, explicitIndices.getDictionary());
+        assertSame(newTagSet, explicitIndices.getTagSet());
+        assertSame(newProfile, explicitIndices.getNormalizationProfile());
+        assertSame(newRuleset, explicitIndices.getValidationRuleset());
+        assertEquals(1, explicitIndices.getDefaultGtIndex());
+        assertEquals(List.of(2), explicitIndices.getDefaultRecognitionIndicesList());
+
+        assertSame(newCodec, partialIndices.getCodec());
+        assertEquals(1, partialIndices.getDefaultGtIndex());
+        assertEquals(null, partialIndices.getDefaultRecognitionIndices());
+
+        assertEquals(3, result.updatedProjects());
+    }
+
+    @Test
     void allClearsExistingValuesAndUpdatesTextIndicesAsPair() {
         TeamWorkspace beforeWorkspace = workspace("old-label");
         beforeWorkspace.setDefaultGtIndex(1);
@@ -166,5 +263,35 @@ class WorkspaceProjectDefaultsServiceTest {
         labelSet.setId(id);
         labelSet.setName(id);
         return labelSet;
+    }
+
+    private Codec codec(String id) {
+        Codec codec = new Codec();
+        codec.setId(id);
+        return codec;
+    }
+
+    private ControlledDictionary dictionary(String id) {
+        ControlledDictionary dictionary = new ControlledDictionary();
+        dictionary.setId(id);
+        return dictionary;
+    }
+
+    private TagSet tagSet(String id) {
+        TagSet tagSet = new TagSet();
+        tagSet.setId(id);
+        return tagSet;
+    }
+
+    private NormalizationProfile normalizationProfile(String id) {
+        NormalizationProfile profile = new NormalizationProfile();
+        profile.setId(id);
+        return profile;
+    }
+
+    private ValidationRuleset validationRuleset(String id) {
+        ValidationRuleset ruleset = new ValidationRuleset();
+        ruleset.setId(id);
+        return ruleset;
     }
 }

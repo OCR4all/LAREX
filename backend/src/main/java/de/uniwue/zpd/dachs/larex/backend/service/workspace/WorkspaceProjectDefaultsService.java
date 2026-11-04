@@ -78,7 +78,7 @@ public class WorkspaceProjectDefaultsService {
                 skippedLocked++;
                 continue;
             }
-            applyDefaults(project, next, changed);
+            applyDefaults(project, next, changed, effectiveScope);
             projectRepository.save(project);
             updated++;
         }
@@ -108,7 +108,7 @@ public class WorkspaceProjectDefaultsService {
         for (WorkspaceDto.ProjectDefaultKey key : changed) {
             if (key == WorkspaceDto.ProjectDefaultKey.TEXT_INDICES) {
                 if (scope == WorkspaceDto.ProjectDefaultPropagationScope.UNSET_ONLY) {
-                    if (project.getDefaultGtIndex() == null && project.getDefaultRecognitionIndices() == null) return true;
+                    if (isUnset(project, key)) return true;
                 } else if (!TextIndexDefaultsUtil.equalsDefaults(
                         project.getEffectiveDefaultGtIndex(),
                         project.getDefaultRecognitionIndicesList(),
@@ -122,7 +122,7 @@ public class WorkspaceProjectDefaultsService {
             String current = resourceId(project, key);
             String target = resourceId(after, key);
             if (scope == WorkspaceDto.ProjectDefaultPropagationScope.UNSET_ONLY) {
-                if (current == null && target != null) return true;
+                if (isUnset(project, key) && target != null) return true;
             } else if (!Objects.equals(current, target)) {
                 return true;
             }
@@ -132,17 +132,38 @@ public class WorkspaceProjectDefaultsService {
 
     private void applyDefaults(Project project,
                                WorkspaceDefaults after,
-                               Set<WorkspaceDto.ProjectDefaultKey> changed) {
-        if (changed.contains(WorkspaceDto.ProjectDefaultKey.CODEC)) project.setCodec(after.codecEntity);
-        if (changed.contains(WorkspaceDto.ProjectDefaultKey.LABEL_SET)) project.setLabelSet(after.labelSetEntity);
-        if (changed.contains(WorkspaceDto.ProjectDefaultKey.DICTIONARY)) project.setDictionary(after.dictionaryEntity);
-        if (changed.contains(WorkspaceDto.ProjectDefaultKey.TAG_SET)) project.setTagSet(after.tagSetEntity);
-        if (changed.contains(WorkspaceDto.ProjectDefaultKey.NORMALIZATION_PROFILE)) project.setNormalizationProfile(after.normalizationProfileEntity);
-        if (changed.contains(WorkspaceDto.ProjectDefaultKey.VALIDATION_RULESET)) project.setValidationRuleset(after.validationRulesetEntity);
-        if (changed.contains(WorkspaceDto.ProjectDefaultKey.TEXT_INDICES)) {
+                               Set<WorkspaceDto.ProjectDefaultKey> changed,
+                               WorkspaceDto.ProjectDefaultPropagationScope scope) {
+        Set<WorkspaceDto.ProjectDefaultKey> keys = keysToWrite(project, changed, scope);
+        if (keys.contains(WorkspaceDto.ProjectDefaultKey.CODEC)) project.setCodec(after.codecEntity);
+        if (keys.contains(WorkspaceDto.ProjectDefaultKey.LABEL_SET)) project.setLabelSet(after.labelSetEntity);
+        if (keys.contains(WorkspaceDto.ProjectDefaultKey.DICTIONARY)) project.setDictionary(after.dictionaryEntity);
+        if (keys.contains(WorkspaceDto.ProjectDefaultKey.TAG_SET)) project.setTagSet(after.tagSetEntity);
+        if (keys.contains(WorkspaceDto.ProjectDefaultKey.NORMALIZATION_PROFILE)) project.setNormalizationProfile(after.normalizationProfileEntity);
+        if (keys.contains(WorkspaceDto.ProjectDefaultKey.VALIDATION_RULESET)) project.setValidationRuleset(after.validationRulesetEntity);
+        if (keys.contains(WorkspaceDto.ProjectDefaultKey.TEXT_INDICES)) {
             project.setDefaultGtIndex(after.gtIndex);
             project.setDefaultRecognitionIndicesList(after.recognitionIndices);
         }
+    }
+
+    private Set<WorkspaceDto.ProjectDefaultKey> keysToWrite(
+            Project project,
+            Set<WorkspaceDto.ProjectDefaultKey> changed,
+            WorkspaceDto.ProjectDefaultPropagationScope scope) {
+        if (scope != WorkspaceDto.ProjectDefaultPropagationScope.UNSET_ONLY) return changed;
+        Set<WorkspaceDto.ProjectDefaultKey> unset = EnumSet.noneOf(WorkspaceDto.ProjectDefaultKey.class);
+        for (WorkspaceDto.ProjectDefaultKey key : changed) {
+            if (isUnset(project, key)) unset.add(key);
+        }
+        return unset;
+    }
+
+    private boolean isUnset(Project project, WorkspaceDto.ProjectDefaultKey key) {
+        return switch (key) {
+            case TEXT_INDICES -> project.getDefaultGtIndex() == null && project.getDefaultRecognitionIndices() == null;
+            default -> resourceId(project, key) == null;
+        };
     }
 
     private Set<WorkspaceDto.ProjectDefaultKey> changedKeys(WorkspaceDefaults before, WorkspaceDefaults after) {
