@@ -17,7 +17,7 @@ import {
 } from '@/session/editor/canvas-commander'
 import type { Commander } from '@/commands/editor/commander'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
-import type { LayoutViewMode, TextModeSubmode, VirtualKeyboardMode } from '@/stores/editor/types'
+import type { LayoutViewMode, TextModeSubmode, ToolbarLayout, VirtualKeyboardMode } from '@/stores/editor/types'
 import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
 
 const editorStore = useEditorStore()
@@ -54,51 +54,25 @@ type ModeViewGroupLabel = SelectMenuItem & {
   value: ModeViewValue
 }
 
+function toolbarLayoutItem(label: string, icon: string, layout: ToolbarLayout): DropdownMenuItem {
+  return {
+    label,
+    icon,
+    type: 'checkbox',
+    checked: editorStore.toolbarLayout === layout,
+    onSelect() {
+      editorStore.setToolbarLayout(layout)
+    }
+  }
+}
+
 const toolbarLayoutItems = computed<DropdownMenuItem[][]>(() => [
+  [toolbarLayoutItem('Floating', 'i-lucide-panel-bottom-dashed', 'floating')],
   [
-    {
-      label: 'Floating',
-      icon: 'i-lucide-panel-bottom-dashed',
-      type: 'checkbox',
-      checked: editorStore.toolbarLayout === 'floating',
-      onUpdateChecked(checked: boolean) {
-        if (checked) editorStore.setToolbarLayout('floating')
-      },
-      onSelect(e: Event) {
-        e.preventDefault()
-        editorStore.setToolbarLayout('floating')
-      }
-    }
-  ],
-  [
-    {
-      label: 'Top (Docked)',
-      icon: 'i-lucide-panel-top',
-      onSelect() {
-        editorStore.setToolbarLayout('docked-top')
-      }
-    },
-    {
-      label: 'Bottom (Docked)',
-      icon: 'i-lucide-panel-bottom',
-      onSelect() {
-        editorStore.setToolbarLayout('docked-bottom')
-      }
-    },
-    {
-      label: 'Left (Docked)',
-      icon: 'i-lucide-panel-left',
-      onSelect() {
-        editorStore.setToolbarLayout('docked-left')
-      }
-    },
-    {
-      label: 'Right (Docked)',
-      icon: 'i-lucide-panel-right',
-      onSelect() {
-        editorStore.setToolbarLayout('docked-right')
-      }
-    }
+    toolbarLayoutItem('Top (Docked)', 'i-lucide-panel-top', 'docked-top'),
+    toolbarLayoutItem('Bottom (Docked)', 'i-lucide-panel-bottom', 'docked-bottom'),
+    toolbarLayoutItem('Left (Docked)', 'i-lucide-panel-left', 'docked-left'),
+    toolbarLayoutItem('Right (Docked)', 'i-lucide-panel-right', 'docked-right')
   ]
 ])
 
@@ -1111,6 +1085,11 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
       onSelect(e: Event) {
         e.preventDefault()
       }
+    },
+    {
+      label: 'Toolbar position',
+      icon: toolbarLayoutIcon.value,
+      children: toolbarLayoutItems.value
     }
   ],
   [
@@ -1758,16 +1737,6 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
           class="h-6 mx-1"
           :ui="toolbarSeparatorUi"
         />
-
-        <UDropdownMenu :items="toolbarLayoutItems">
-          <UButton
-            :icon="toolbarLayoutIcon"
-            color="neutral"
-            size="sm"
-            variant="ghost"
-            aria-label="Toolbar layout"
-          />
-        </UDropdownMenu>
 
         <UDropdownMenu :items="moreOptionsDropdownItems">
           <UButton
