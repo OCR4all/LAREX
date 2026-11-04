@@ -287,7 +287,7 @@ watch([groups, labelDefinitionsById], () => {
               >
                 <template #item-leading="{ item }">
                   <span
-                    class="size-3 shrink-0 rounded-full ring ring-default"
+                    class="size-3 shrink-0 self-center rounded-full ring ring-default"
                     :style="{ backgroundColor: item.color }"
                   />
                 </template>

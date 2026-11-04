@@ -207,7 +207,7 @@ async function save() {
               class="w-full"
             >
               <template #item-leading="{ item }">
-                <UIcon name="i-lucide-circle" class="size-2 shrink-0 fill-current text-dimmed" :style="{ color: tagColor(item.color) }" />
+                <UIcon name="i-lucide-circle" class="size-2 shrink-0 self-center fill-current text-dimmed" :style="{ color: tagColor(item.color) }" />
               </template>
             </USelectMenu>
             <UInputTags
