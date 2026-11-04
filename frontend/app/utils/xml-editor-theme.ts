@@ -3,10 +3,21 @@ import { EditorView } from '@codemirror/view'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 
+const editorSelectionStyles = {
+  // CodeMirror paints its selection behind the line, so the line fill must let it show through.
+  '.cm-activeLine, .cm-activeLineGutter': {
+    backgroundColor: 'color-mix(in srgb, var(--ui-primary) 5%, transparent)'
+  },
+  '.cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-content ::selection': {
+    backgroundColor: 'var(--editor-selection-bg)'
+  }
+}
+
 const xmlEditorLightTheme = EditorView.theme({
   '&': {
-    color: 'var(--ui-text)',
-    background: 'var(--ui-bg)'
+    '--editor-selection-bg': 'color-mix(in srgb, var(--ui-bg), var(--color-brand-blue) 20%)',
+    'color': 'var(--ui-text)',
+    'background': 'var(--ui-bg)'
   },
   '.cm-content': {
     caretColor: 'var(--ui-text)'
@@ -19,15 +30,7 @@ const xmlEditorLightTheme = EditorView.theme({
     color: 'var(--ui-text-muted)',
     borderRight: '1px solid var(--ui-border)'
   },
-  '.cm-activeLine': {
-    background: 'color-mix(in srgb, var(--ui-bg-elevated) 84%, var(--ui-primary) 16%)'
-  },
-  '.cm-activeLineGutter': {
-    background: 'color-mix(in srgb, var(--ui-bg-elevated) 78%, var(--ui-primary) 22%)'
-  },
-  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, .cm-content ::selection': {
-    background: 'color-mix(in srgb, var(--ui-primary) 32%, transparent)'
-  },
+  ...editorSelectionStyles,
   '.cm-searchMatch': {
     background: 'color-mix(in srgb, var(--ui-warning) 25%, transparent)',
     outline: '1px solid color-mix(in srgb, var(--ui-warning) 70%, var(--ui-border))'
@@ -90,8 +93,9 @@ const xmlEditorLightTheme = EditorView.theme({
 
 const xmlEditorDarkTheme = EditorView.theme({
   '&': {
-    color: 'var(--ui-text)',
-    background: 'var(--ui-bg)'
+    '--editor-selection-bg': 'color-mix(in srgb, var(--ui-bg), var(--color-brand-blue) 36%)',
+    'color': 'var(--ui-text)',
+    'background': 'var(--ui-bg)'
   },
   '.cm-content': {
     caretColor: 'var(--ui-text)'
@@ -104,15 +108,7 @@ const xmlEditorDarkTheme = EditorView.theme({
     color: 'var(--ui-text-muted)',
     borderRight: '1px solid var(--ui-border)'
   },
-  '.cm-activeLine': {
-    background: 'color-mix(in srgb, var(--ui-bg-elevated) 84%, var(--ui-primary) 16%)'
-  },
-  '.cm-activeLineGutter': {
-    background: 'color-mix(in srgb, var(--ui-bg-elevated) 78%, var(--ui-primary) 22%)'
-  },
-  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, .cm-content ::selection': {
-    background: 'color-mix(in srgb, var(--ui-primary) 35%, transparent)'
-  },
+  ...editorSelectionStyles,
   '.cm-searchMatch': {
     background: 'color-mix(in srgb, var(--ui-warning) 25%, transparent)',
     outline: '1px solid color-mix(in srgb, var(--ui-warning) 70%, var(--ui-border))'
@@ -177,8 +173,8 @@ const xmlEditorLightHighlight = HighlightStyle.define([
   { tag: tags.tagName, color: '#0c4a6e' },
   { tag: tags.attributeName, color: '#7c2d12' },
   { tag: [tags.string, tags.attributeValue], color: '#166534' },
-  { tag: tags.comment, color: '#6b7280', fontStyle: 'italic' },
-  { tag: tags.processingInstruction, color: '#7c3aed' },
+  { tag: tags.comment, color: '#4b5563', fontStyle: 'italic' },
+  { tag: tags.processingInstruction, color: '#6d28d9' },
   { tag: [tags.angleBracket, tags.bracket], color: '#334155' }
 ])
 
@@ -186,7 +182,7 @@ const xmlEditorDarkHighlight = HighlightStyle.define([
   { tag: tags.tagName, color: '#7ad0ff' },
   { tag: tags.attributeName, color: '#ffb88d' },
   { tag: [tags.string, tags.attributeValue], color: '#9fe58c' },
-  { tag: tags.comment, color: '#8e8b86', fontStyle: 'italic' },
+  { tag: tags.comment, color: '#aaa7a2', fontStyle: 'italic' },
   { tag: tags.processingInstruction, color: '#c8a7ff' },
   { tag: [tags.angleBracket, tags.bracket], color: '#c2c0bb' }
 ])
