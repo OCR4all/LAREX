@@ -579,6 +579,7 @@ async function exportProfile() {
                   :disabled="isSaving"
                   placeholder="Paste representative source text here..."
                   class="font-junicode"
+                  :ui="{ base: 'text-2xl/9 md:text-2xl/9' }"
                 />
               </UPageCard>
 
@@ -588,6 +589,7 @@ async function exportProfile() {
                   :rows="8"
                   disabled
                   class="font-junicode"
+                  :ui="{ base: 'text-2xl/9 md:text-2xl/9' }"
                 />
               </UPageCard>
             </div>
