@@ -7,6 +7,7 @@ import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/type
 
 type UnicodeNormalizationForm = 'NFC' | 'NFD' | 'NFKC' | 'NFKD'
 type ReplacementMode = 'plain' | 'regex'
+type EditableReplacementRule = NormalizationReplacementRule & { key: number }
 
 const route = useRoute()
 const router = useRouter()
@@ -84,11 +85,8 @@ const expandCommonLigatures = ref(Boolean(initial.expandCommonLigatures))
 const normalizeQuotes = ref(Boolean(initial.normalizeQuotes))
 const normalizeDashes = ref(Boolean(initial.normalizeDashes))
 const normalizeEllipsis = ref(Boolean(initial.normalizeEllipsis))
-const replacementRules = ref<NormalizationReplacementRule[]>((initial.replacementRules ?? []).map(rule => ({
-  search: rule.search ?? '',
-  replacement: rule.replacement ?? '',
-  regex: Boolean(rule.regex)
-})))
+let nextReplacementRuleKey = 0
+const replacementRules = ref<EditableReplacementRule[]>((initial.replacementRules ?? []).map(rule => createReplacementRule(rule)))
 const previewInput = ref('ſæ ligature — “Quoted” text...\nLine-\nbreak   spacing')
 const activeTab = ref<'rules' | 'preview'>('rules')
 const tabs = [
@@ -164,11 +162,12 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
   return items
 })
 
-function createReplacementRule(): NormalizationReplacementRule {
+function createReplacementRule(rule?: Partial<NormalizationReplacementRule>): EditableReplacementRule {
   return {
-    search: '',
-    replacement: '',
-    regex: false
+    key: nextReplacementRuleKey++,
+    search: rule?.search ?? '',
+    replacement: rule?.replacement ?? '',
+    regex: Boolean(rule?.regex)
   }
 }
 
@@ -533,7 +532,7 @@ async function exportProfile() {
 
                   <div
                     v-for="(rule, index) in replacementRules"
-                    :key="`${index}-${rule.search}-${rule.replacement}`"
+                    :key="rule.key"
                     class="rounded-lg border border-default p-4 space-y-3"
                   >
                     <div class="flex items-center justify-between gap-3">
