@@ -2751,22 +2751,28 @@ function commitTextlineVariants(textlineId: string, variants: Array<{
   )
 }
 
-function createGtFromRecognition(): void {
+function createGtFromRecognition(): boolean {
+  // Typed text is committed on blur, which a shortcut does not trigger.
+  flushPendingCorrectionCommit()
+
   const polygon = selectedTextlinePolygon.value
   const source = selectedTextlineFirstRecognitionVariant.value
-  if (!polygon || !source || !isCanvasWritable.value) return
-  if (selectedTextlineGtVariant.value?.unicode.trim()) return
+  if (!polygon || !source || !isCanvasWritable.value) return false
+  if (!isTextVisualMode.value || selectedTextlineGtVariant.value?.unicode.trim()) return false
 
   const updated = setGtVariantUnicode(
     polygon.textContentVariants,
     activeGtIndex.value,
     normalizeSingleLineText(source.unicode)
   )
-  if (!updated.changed && !updated.created) return
+  if (!updated.changed && !updated.created) return false
 
   commitTextlineVariants(polygon.id, updated.variants)
   correctionInputValue.value = updated.variants[updated.gtPos]?.unicode ?? ''
+  return true
 }
+
+canvasControls.createGtFromRecognition = createGtFromRecognition
 
 function normalizeSingleLineText(value: string): string {
   return value.replace(/[ \t]*\r?\n+[ \t]*/g, ' ')
@@ -3758,6 +3764,9 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
                 @click="createGtFromRecognition"
               >
                 Copy to GT
+                <template #trailing>
+                  <EditorShortcutKbds command="createGtFromRecognition" />
+                </template>
               </UButton>
             </UTooltip>
             <span class="font-medium text-muted">GT #{{ activeGtIndex }}</span>
