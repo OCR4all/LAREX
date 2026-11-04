@@ -3,7 +3,7 @@ import { PAGE_WORKFLOW_STATES, PAGE_WORKFLOW_STATE_META } from '@/utils/page-wor
 import type { LabelDefinition } from '@/types/label-set'
 import type { PageWorkflowState } from '@/types/project-page'
 import { createCanonicalLabelFilterOptions } from '@/utils/editor/page-filter-tokens'
-import type { PageFilterType, SingletonPageFilterType, XmlAttributeFilterRow, XmlAttributeWithCount } from '@/composables/use-page-filter'
+import type { PageFilterType, SingletonPageFilterType, XmlAttributeFilterRow, XmlAttributeOperator, XmlAttributeWithCount } from '@/composables/use-page-filter'
 
 const props = defineProps<{
   projectId: string
@@ -34,6 +34,7 @@ const {
   annotationPresence,
   xmlAttributeFilters,
   visibleFilters,
+  negatedFilters,
   activeFilterCount,
   hasActiveFilters,
   isFiltering,
@@ -74,6 +75,10 @@ const filteredAddDefinitions = computed(() => {
   return filterDefinitions.filter(definition => !query || `${definition.label} ${definition.description}`.toLowerCase().includes(query))
 })
 const visibleFilterSet = computed(() => new Set(visibleFilters.value))
+const filterModes = [
+  { label: 'Include', negated: false },
+  { label: 'Exclude', negated: true }
+]
 const labelItems = computed(() => createCanonicalLabelFilterOptions(props.availableLabels ?? []))
 const confidenceElementTypeOptions = PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS.map(option => ({ ...option }))
 const workflowStateOptions: Array<{ label: string, value: PageWorkflowState }> = PAGE_WORKFLOW_STATES.map(value => ({
@@ -84,7 +89,7 @@ const annotationOptions = [
   { label: 'With annotation', value: 'with_xml' },
   { label: 'Without annotation', value: 'without_xml' }
 ]
-const xmlOperatorOptions = [
+const xmlOperatorOptions: Array<{ label: string, value: XmlAttributeOperator }> = [
   { label: 'Exists', value: 'exists' },
   { label: 'Does not exist', value: 'not_exists' },
   { label: 'Equals', value: 'equals' },
@@ -127,8 +132,15 @@ function selectFilter(type: PageFilterType) {
   addSearch.value = ''
 }
 
-function updateXmlRow(rowId: string, key: keyof Omit<XmlAttributeFilterRow, 'id'>, value: string) {
-  xmlAttributeFilters.value = xmlAttributeFilters.value.map(row => row.id === rowId ? { ...row, [key]: value } : row)
+function setFilterMode(type: SingletonPageFilterType, negated: boolean) {
+  if (negatedFilters.value.includes(type) === negated) return
+  negatedFilters.value = negated
+    ? [...negatedFilters.value, type]
+    : negatedFilters.value.filter(value => value !== type)
+}
+
+function updateXmlRow(rowId: string, update: Partial<Omit<XmlAttributeFilterRow, 'id'>>) {
+  xmlAttributeFilters.value = xmlAttributeFilters.value.map(row => row.id === rowId ? { ...row, ...update } : row)
 }
 
 async function handleRebuildIndex() {
@@ -264,14 +276,27 @@ function titleFor(type: SingletonPageFilterType): string {
               <h4 class="text-xs font-semibold">
                 {{ titleFor(type) }}
               </h4>
-              <UButton
-                icon="i-lucide-x"
-                size="xs"
-                variant="ghost"
-                color="neutral"
-                :aria-label="`Remove ${titleFor(type)} filter`"
-                @click="removeFilter(type)"
-              />
+              <div class="flex items-center gap-1">
+                <UFieldGroup size="xs" role="group" :aria-label="`${titleFor(type)} filter mode`">
+                  <UButton
+                    v-for="mode in filterModes"
+                    :key="mode.label"
+                    :label="mode.label"
+                    :color="negatedFilters.includes(type) === mode.negated ? 'primary' : 'neutral'"
+                    :variant="negatedFilters.includes(type) === mode.negated ? 'solid' : 'outline'"
+                    :aria-pressed="negatedFilters.includes(type) === mode.negated"
+                    @click="setFilterMode(type, mode.negated)"
+                  />
+                </UFieldGroup>
+                <UButton
+                  icon="i-lucide-x"
+                  size="xs"
+                  variant="ghost"
+                  color="neutral"
+                  :aria-label="`Remove ${titleFor(type)} filter`"
+                  @click="removeFilter(type)"
+                />
+              </div>
             </div>
 
             <USelectMenu
@@ -362,14 +387,27 @@ function titleFor(type: SingletonPageFilterType): string {
               <h4 class="text-xs font-semibold">
                 PAGE XML attribute {{ index + 1 }}
               </h4>
-              <UButton
-                icon="i-lucide-x"
-                size="xs"
-                variant="ghost"
-                color="neutral"
-                aria-label="Remove PAGE XML attribute filter"
-                @click="removeFilter('xmlAttribute', row.id)"
-              />
+              <div class="flex items-center gap-1">
+                <UFieldGroup size="xs" role="group" :aria-label="`PAGE XML attribute ${index + 1} filter mode`">
+                  <UButton
+                    v-for="mode in filterModes"
+                    :key="mode.label"
+                    :label="mode.label"
+                    :color="Boolean(row.negated) === mode.negated ? 'primary' : 'neutral'"
+                    :variant="Boolean(row.negated) === mode.negated ? 'solid' : 'outline'"
+                    :aria-pressed="Boolean(row.negated) === mode.negated"
+                    @click="updateXmlRow(row.id, { negated: mode.negated })"
+                  />
+                </UFieldGroup>
+                <UButton
+                  icon="i-lucide-x"
+                  size="xs"
+                  variant="ghost"
+                  color="neutral"
+                  aria-label="Remove PAGE XML attribute filter"
+                  @click="removeFilter('xmlAttribute', row.id)"
+                />
+              </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <UInputMenu
@@ -379,7 +417,7 @@ function titleFor(type: SingletonPageFilterType): string {
                 open-on-focus
                 placeholder="Any element"
                 aria-label="PAGE XML element name"
-                @update:model-value="updateXmlRow(row.id, 'elementName', String($event))"
+                @update:model-value="updateXmlRow(row.id, { elementName: String($event) })"
               />
               <UInputMenu
                 :model-value="row.attributeName"
@@ -388,7 +426,7 @@ function titleFor(type: SingletonPageFilterType): string {
                 open-on-focus
                 placeholder="Attribute name"
                 aria-label="PAGE XML attribute name"
-                @update:model-value="updateXmlRow(row.id, 'attributeName', String($event))"
+                @update:model-value="updateXmlRow(row.id, { attributeName: String($event) })"
               />
             </div>
             <USelect
@@ -396,13 +434,13 @@ function titleFor(type: SingletonPageFilterType): string {
               :items="xmlOperatorOptions"
               value-key="value"
               class="w-full"
-              @update:model-value="updateXmlRow(row.id, 'operator', String($event))"
+              @update:model-value="updateXmlRow(row.id, { operator: $event })"
             />
             <UInput
               v-if="valueOperators.has(row.operator)"
               :model-value="row.value"
               placeholder="Attribute value (case-sensitive)"
-              @update:model-value="updateXmlRow(row.id, 'value', String($event))"
+              @update:model-value="updateXmlRow(row.id, { value: String($event) })"
             />
             <p v-if="!row.attributeName.trim()" class="text-xs text-muted">
               Enter an attribute name to activate this filter.

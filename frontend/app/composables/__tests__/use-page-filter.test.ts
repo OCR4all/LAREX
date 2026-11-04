@@ -122,7 +122,7 @@ describe('use-page-filter helpers', () => {
     const state = {
       labelIds: [], textContent: '', tags: [], filterOperator: 'and' as const, confidenceRange: [0, 1] as [number, number],
       confidenceElementTypes: [], hasComments: false, commentText: '', onlyWithOpenSubtasks: false, changesRequested: true,
-      workflowStates: [], annotationPresence: null, xmlAttributeFilters: [], visibleFilters: []
+      workflowStates: [], annotationPresence: null, xmlAttributeFilters: [], visibleFilters: [], negatedFilters: []
     }
 
     expect(buildPageFilterRequestBody(state)).toMatchObject({ changesRequested: true })
@@ -181,7 +181,7 @@ describe('use-page-filter helpers', () => {
     expect(activePageFilterCount({
       labelIds: [], textContent: '', tags: [], filterOperator: 'and', confidenceRange: [0, 1],
       confidenceElementTypes: [], hasComments: false, commentText: '', onlyWithOpenSubtasks: false, changesRequested: false, workflowStates: [],
-      annotationPresence: null, visibleFilters: ['labels'],
+      annotationPresence: null, visibleFilters: ['labels'], negatedFilters: [],
       xmlAttributeFilters: [
         { id: 'empty', elementName: '', attributeName: '', operator: 'exists', value: '' },
         { id: 'active', elementName: '', attributeName: 'comments', operator: 'not_exists', value: '' }
@@ -208,7 +208,7 @@ describe('use-page-filter helpers', () => {
     const initial = {
       labelIds: [], textContent: '', tags: [], filterOperator: 'and' as const, confidenceRange: [0, 1] as [number, number],
       confidenceElementTypes: [], hasComments: false, commentText: '', onlyWithOpenSubtasks: false, changesRequested: false, workflowStates: [],
-      annotationPresence: null, xmlAttributeFilters: [], visibleFilters: []
+      annotationPresence: null, xmlAttributeFilters: [], visibleFilters: [], negatedFilters: []
     }
 
     let state = addPageFilterRow(initial, 'labels')
@@ -221,6 +221,33 @@ describe('use-page-filter helpers', () => {
 
     state = removePageFilterRow(state, 'xmlAttribute', state.xmlAttributeFilters[0]?.id)
     expect(state.xmlAttributeFilters).toHaveLength(1)
+  })
+
+  it('restores and serializes negation for individual rows', async () => {
+    const { addPageFilterRow, buildPageFilterRequestBody, normalizeStoredPageFilterState, removePageFilterRow } = await import('../use-page-filter')
+
+    const state = normalizeStoredPageFilterState({
+      labelIds: ['region|kind=ImageRegion'],
+      negatedFilters: ['labels', 'labels', 'comments', 'unknown'],
+      xmlAttributeFilters: [
+        { id: 'negated', attributeName: 'comments', negated: true },
+        { id: 'positive', attributeName: 'custom' },
+        { id: 'incomplete', negated: true }
+      ]
+    })
+
+    const body = buildPageFilterRequestBody(state)
+    expect(body).toMatchObject({
+      labelIds: ['region|kind=ImageRegion'],
+      negatedFilters: ['labels']
+    })
+    expect(body.xmlAttributeFilters).toEqual([
+      { elementName: null, attributeName: 'comments', operator: 'exists', value: null, negated: true },
+      { elementName: null, attributeName: 'custom', operator: 'exists', value: null }
+    ])
+
+    const readded = addPageFilterRow(removePageFilterRow(state, 'labels'), 'labels')
+    expect(buildPageFilterRequestBody(readded)).not.toHaveProperty('negatedFilters')
   })
 
   it('ignores stale responses and preserves the newest successful result', async () => {

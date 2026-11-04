@@ -72,7 +72,18 @@ public class PageFilterIndexService {
             String elementName,
             String attributeName,
             String operator,
-            String value) {}
+            String value,
+            boolean negated) {
+        public XmlAttributePredicate(String elementName, String attributeName, String operator, String value) {
+            this(elementName, attributeName, operator, value, false);
+        }
+    }
+
+    private record FilterGroup(Set<String> pageIds, boolean negated) {
+        boolean matches(String pageId) {
+            return pageIds.contains(pageId) != negated;
+        }
+    }
 
     private static final Logger log = LoggerFactory.getLogger(PageFilterIndexService.class);
     private static final int REBUILD_BATCH_SIZE = 50;
@@ -412,6 +423,8 @@ public class PageFilterIndexService {
             onlyWithOpenSubtasks,
             openSubtaskPageIds,
             xmlAttributeFilters,
+            null,
+            Set.of(),
             filterOperator
         );
     }
@@ -434,14 +447,16 @@ public class PageFilterIndexService {
             Boolean onlyWithOpenSubtasks,
             Set<String> openSubtaskPageIds,
             List<XmlAttributePredicate> xmlAttributeFilters,
+            List<Page> accessiblePages,
+            Set<String> negatedFilters,
             String filterOperator) {
 
-        List<Set<String>> activeFilterGroups = new ArrayList<>();
+        List<FilterGroup> activeFilterGroups = new ArrayList<>();
 
         if (textContent != null && !textContent.trim().isEmpty()) {
-            activeFilterGroups.add(new HashSet<>(
+            activeFilterGroups.add(new FilterGroup(new HashSet<>(
                 textContentRepository.findPageIdsByProjectIdAndTextContentContaining(projectId, textContent.trim())
-            ));
+            ), negatedFilters.contains("textContent")));
         }
 
         if (labelIds != null && !labelIds.isEmpty()) {
@@ -455,11 +470,11 @@ public class PageFilterIndexService {
                     labelIndexRepository.findPageIdsByProjectIdAndLabelIdsIn(projectId, labelIds)
                 );
             }
-            activeFilterGroups.add(labelMatches);
+            activeFilterGroups.add(new FilterGroup(labelMatches, negatedFilters.contains("labels")));
         }
 
         if (tags != null && !tags.isEmpty()) {
-            activeFilterGroups.add(findTagMatches(projectId, tags, tagOperator));
+            activeFilterGroups.add(new FilterGroup(findTagMatches(projectId, tags, tagOperator), negatedFilters.contains("tags")));
         }
 
         boolean hasConfidenceFilter = confidenceMin != null
@@ -486,69 +501,85 @@ public class PageFilterIndexService {
                         elementTypes
                     )
                 );
-            activeFilterGroups.add(confidenceMatches);
+            activeFilterGroups.add(new FilterGroup(confidenceMatches, negatedFilters.contains("confidence")));
         }
 
         if (commentText != null && !commentText.trim().isEmpty()) {
-            activeFilterGroups.add(new HashSet<>(
+            activeFilterGroups.add(new FilterGroup(new HashSet<>(
                 textContentRepository.findPageIdsByProjectIdAndCommentContaining(projectId, commentText.trim())
-            ));
+            ), negatedFilters.contains("comments")));
         } else if (Boolean.TRUE.equals(hasComments)) {
-            activeFilterGroups.add(new HashSet<>(
+            activeFilterGroups.add(new FilterGroup(new HashSet<>(
                 textContentRepository.findPageIdsByProjectIdWithComments(projectId)
-            ));
+            ), negatedFilters.contains("comments")));
         }
 
         Set<Page.WorkflowState> parsedWorkflowStates = parseWorkflowStates(workflowStates);
         if (!parsedWorkflowStates.isEmpty()) {
-            activeFilterGroups.add(new HashSet<>(
+            activeFilterGroups.add(new FilterGroup(new HashSet<>(
                 pageRepository.findIdsByProjectIdAndWorkflowStateIn(projectId, parsedWorkflowStates)
-            ));
+            ), negatedFilters.contains("workflowStates")));
         }
 
         if (Boolean.TRUE.equals(changesRequested)) {
-            activeFilterGroups.add(new HashSet<>(pageRepository.findIdsByProjectIdAndChangesRequestedTrue(projectId)));
+            activeFilterGroups.add(new FilterGroup(
+                new HashSet<>(pageRepository.findIdsByProjectIdAndChangesRequestedTrue(projectId)),
+                negatedFilters.contains("changesRequested")
+            ));
         }
 
-        if ("with_xml".equals(annotationPresence)) {
-            activeFilterGroups.add(new HashSet<>(pageXmlRepository.findPageIdsByProjectId(projectId)));
-        } else if ("without_xml".equals(annotationPresence)) {
-            Set<String> withoutXml = allPageIds(projectId);
-            withoutXml.removeAll(pageXmlRepository.findPageIdsByProjectId(projectId));
-            activeFilterGroups.add(withoutXml);
+        boolean withoutXml = "without_xml".equals(annotationPresence);
+        if (withoutXml || "with_xml".equals(annotationPresence)) {
+            activeFilterGroups.add(new FilterGroup(new HashSet<>(pageXmlRepository.findPageIdsByProjectId(projectId)),
+                withoutXml != negatedFilters.contains("annotationPresence")));
         }
 
         if (Boolean.TRUE.equals(onlyWithOpenSubtasks)) {
-            activeFilterGroups.add(openSubtaskPageIds == null
+            activeFilterGroups.add(new FilterGroup(openSubtaskPageIds == null
                 ? Collections.emptySet()
-                : new HashSet<>(openSubtaskPageIds));
+                : openSubtaskPageIds, negatedFilters.contains("openSubtasks")));
         }
 
         if (xmlAttributeFilters != null) {
             for (XmlAttributePredicate predicate : xmlAttributeFilters) {
-                Set<String> matches = findXmlAttributeMatches(projectId, predicate);
-                if (matches != null) {
-                    activeFilterGroups.add(matches);
+                FilterGroup group = findXmlAttributeGroup(projectId, predicate);
+                if (group != null) {
+                    activeFilterGroups.add(group);
                 }
             }
         }
 
+        boolean useOr = "or".equalsIgnoreCase(filterOperator);
+
         if (activeFilterGroups.isEmpty()) {
-            return allPageIds(projectId);
+            return allPageIds(projectId, accessiblePages);
         }
 
-        boolean useOr = "or".equalsIgnoreCase(filterOperator);
         if (useOr) {
+            if (activeFilterGroups.stream().anyMatch(FilterGroup::negated)) {
+                Set<String> result = allPageIds(projectId, accessiblePages);
+                result.removeIf(id -> activeFilterGroups.stream().noneMatch(group -> group.matches(id)));
+                return result;
+            }
             Set<String> union = new HashSet<>();
-            for (Set<String> matches : activeFilterGroups) {
-                union.addAll(matches);
+            for (FilterGroup group : activeFilterGroups) {
+                union.addAll(group.pageIds());
             }
             return union;
         }
 
-        Set<String> intersection = new HashSet<>(activeFilterGroups.get(0));
-        for (int i = 1; i < activeFilterGroups.size(); i++) {
-            intersection.retainAll(activeFilterGroups.get(i));
+        Set<String> intersection = activeFilterGroups.stream()
+            .filter(group -> !group.negated())
+            .map(FilterGroup::pageIds)
+            .min(Comparator.comparingInt(Set::size))
+            .<Set<String>>map(HashSet::new)
+            .orElseGet(() -> allPageIds(projectId, accessiblePages));
+        for (FilterGroup group : activeFilterGroups) {
+            if (group.negated()) {
+                intersection.removeAll(group.pageIds());
+            } else {
+                intersection.retainAll(group.pageIds());
+            }
         }
         return intersection;
     }
@@ -1118,8 +1149,9 @@ public class PageFilterIndexService {
     // Query Helpers
     // ============================================================================
 
-    private Set<String> allPageIds(String projectId) {
-        return pageRepository.findByProjectId(projectId)
+    private Set<String> allPageIds(String projectId, List<Page> accessiblePages) {
+        List<Page> pages = accessiblePages != null ? accessiblePages : pageRepository.findByProjectId(projectId);
+        return pages
             .stream()
             .map(Page::getId)
             .filter(Objects::nonNull)
@@ -1146,7 +1178,7 @@ public class PageFilterIndexService {
     }
 
     /** Returns null for an incomplete predicate so it does not become an active filter group. */
-    private Set<String> findXmlAttributeMatches(String projectId, XmlAttributePredicate predicate) {
+    private FilterGroup findXmlAttributeGroup(String projectId, XmlAttributePredicate predicate) {
         if (predicate == null) {
             return null;
         }
@@ -1183,12 +1215,7 @@ public class PageFilterIndexService {
             }
         }
 
-        if (operator.startsWith("not_")) {
-            Set<String> complement = allPageIds(projectId);
-            complement.removeAll(positiveMatches);
-            return complement;
-        }
-        return positiveMatches;
+        return new FilterGroup(positiveMatches, operator.startsWith("not_") != predicate.negated());
     }
 
     private Set<String> findTagMatches(String projectId, List<String> tags, String tagOperator) {

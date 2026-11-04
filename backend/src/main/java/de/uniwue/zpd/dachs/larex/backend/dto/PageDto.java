@@ -164,7 +164,8 @@ public class PageDto {
             String elementName,
             String attributeName,
             String operator,
-            String value
+            String value,
+            boolean negated
     ) {}
 
     public record FilterRequest(
@@ -194,6 +195,8 @@ public class PageDto {
             Boolean onlyWithOpenSubtasks,
             /** Independent PAGE XML source-attribute predicates */
             List<XmlAttributeFilter> xmlAttributeFilters,
+            /** Filter row names to invert before applying the global operator */
+            Set<String> negatedFilters,
             /** Global operator for combining all filters: "and" or "or" (default: "or") */
             String filterOperator
     ) {}

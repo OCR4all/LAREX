@@ -24,6 +24,7 @@ export interface XmlAttributeFilterRow {
   attributeName: string
   operator: XmlAttributeOperator
   value: string
+  negated?: boolean
 }
 
 export interface PageFilterState {
@@ -41,6 +42,7 @@ export interface PageFilterState {
   annotationPresence: AnnotationPresence
   xmlAttributeFilters: XmlAttributeFilterRow[]
   visibleFilters: SingletonPageFilterType[]
+  negatedFilters: SingletonPageFilterType[]
 }
 
 export interface PageFilterResult {
@@ -81,7 +83,8 @@ const DEFAULT_FILTER_STATE: PageFilterState = {
   workflowStates: [],
   annotationPresence: null,
   xmlAttributeFilters: [],
-  visibleFilters: []
+  visibleFilters: [],
+  negatedFilters: []
 }
 
 const VALID_CONFIDENCE_ELEMENT_TYPES = new Set<PageConfidenceElementType>(PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS.map(option => option.value))
@@ -115,7 +118,8 @@ function cloneDefaultState(): PageFilterState {
     confidenceElementTypes: [],
     workflowStates: [],
     xmlAttributeFilters: [],
-    visibleFilters: []
+    visibleFilters: [],
+    negatedFilters: []
   }
 }
 
@@ -160,12 +164,13 @@ function normalizeXmlAttributeFilters(input: unknown): XmlAttributeFilterRow[] {
       elementName: typeof value.elementName === 'string' ? value.elementName : '',
       attributeName: typeof value.attributeName === 'string' ? value.attributeName : '',
       operator,
-      value: typeof value.value === 'string' ? value.value : ''
+      value: typeof value.value === 'string' ? value.value : '',
+      negated: value.negated === true
     }]
   })
 }
 
-function deriveVisibleFilters(parsed: Record<string, unknown>, state: Omit<PageFilterState, 'visibleFilters'>): SingletonPageFilterType[] {
+function deriveVisibleFilters(parsed: Record<string, unknown>, state: Omit<PageFilterState, 'visibleFilters' | 'negatedFilters'>): SingletonPageFilterType[] {
   if (Array.isArray(parsed.visibleFilters)) {
     return [...new Set(parsed.visibleFilters.filter((value): value is SingletonPageFilterType =>
       typeof value === 'string' && VALID_SINGLETON_FILTERS.has(value as SingletonPageFilterType)
@@ -204,7 +209,12 @@ export function normalizeStoredPageFilterState(parsed: Record<string, unknown>):
     annotationPresence: normalizedAnnotationPresence,
     xmlAttributeFilters: normalizeXmlAttributeFilters(parsed.xmlAttributeFilters)
   }
-  return { ...state, visibleFilters: deriveVisibleFilters(parsed, state) }
+  const visibleFilters = deriveVisibleFilters(parsed, state)
+  const storedNegatedFilters = parsed.negatedFilters
+  const negatedFilters = Array.isArray(storedNegatedFilters)
+    ? visibleFilters.filter(type => storedNegatedFilters.includes(type))
+    : []
+  return { ...state, visibleFilters, negatedFilters }
 }
 
 export function isConfidenceFilterActive(state: {
@@ -247,15 +257,17 @@ export function buildPageFilterRequestBody(state: {
   readonly workflowStates?: readonly PageWorkflowState[]
   readonly annotationPresence?: AnnotationPresence
   readonly xmlAttributeFilters?: readonly XmlAttributeFilterRow[]
+  readonly negatedFilters?: readonly SingletonPageFilterType[]
 }): Record<string, unknown> {
   const confidenceActive = isConfidenceFilterActive(state)
   const xmlAttributeFilters = (state.xmlAttributeFilters ?? [])
     .filter(isXmlAttributeFilterComplete)
-    .map(({ elementName, attributeName, operator, value }) => ({
+    .map(({ elementName, attributeName, operator, value, negated }) => ({
       elementName: elementName.trim() || null,
       attributeName: attributeName.trim(),
       operator,
-      value: VALUE_XML_OPERATORS.has(operator) ? value : null
+      value: VALUE_XML_OPERATORS.has(operator) ? value : null,
+      ...(negated && { negated: true })
     }))
 
   return {
@@ -272,6 +284,7 @@ export function buildPageFilterRequestBody(state: {
     annotationPresence: state.annotationPresence ?? null,
     onlyWithOpenSubtasks: state.onlyWithOpenSubtasks || null,
     xmlAttributeFilters: xmlAttributeFilters.length ? xmlAttributeFilters : null,
+    ...(state.negatedFilters?.length && { negatedFilters: state.negatedFilters }),
     filterOperator: state.filterOperator
   }
 }
@@ -301,7 +314,11 @@ export function removePageFilterRow(state: PageFilterState, type: PageFilterType
   if (type === 'xmlAttribute') {
     return { ...state, xmlAttributeFilters: state.xmlAttributeFilters.filter(row => row.id !== rowId) }
   }
-  const next = { ...state, visibleFilters: state.visibleFilters.filter(value => value !== type) }
+  const next = {
+    ...state,
+    visibleFilters: state.visibleFilters.filter(value => value !== type),
+    negatedFilters: state.negatedFilters.filter(value => value !== type)
+  }
   if (type === 'workflowStates') next.workflowStates = []
   if (type === 'annotationPresence') next.annotationPresence = null
   if (type === 'labels') next.labelIds = []
@@ -563,6 +580,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
     annotationPresence: model('annotationPresence'),
     xmlAttributeFilters: model('xmlAttributeFilters'),
     visibleFilters: model('visibleFilters'),
+    negatedFilters: model('negatedFilters'),
     addFilter,
     removeFilter,
     applyFilters,

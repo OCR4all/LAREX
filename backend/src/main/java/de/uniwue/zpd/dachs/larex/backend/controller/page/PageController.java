@@ -231,7 +231,8 @@ public class PageController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         String operator = request.filterOperator() != null ? request.filterOperator() : "or";
-        List<String> accessiblePageIds = pageService.getProjectPages(projectId, userId).stream()
+        List<Page> accessiblePages = pageService.getProjectPages(projectId, userId);
+        List<String> accessiblePageIds = accessiblePages.stream()
                 .map(Page::getId)
                 .toList();
         Set<String> openSubtaskPageIds = Boolean.TRUE.equals(request.onlyWithOpenSubtasks())
@@ -245,7 +246,8 @@ public class PageController {
                                     filter.elementName(),
                                     filter.attributeName(),
                                     filter.operator(),
-                                    filter.value()))
+                                    filter.value(),
+                                    filter.negated()))
                             .toList();
         Set<String> pageIds = pageFilterIndexService.filterPages(
                 projectId,
@@ -265,6 +267,8 @@ public class PageController {
                 request.onlyWithOpenSubtasks(),
                 openSubtaskPageIds,
                 xmlAttributePredicates,
+                accessiblePages,
+                request.negatedFilters() == null ? Set.of() : request.negatedFilters(),
                 operator
         );
         pageIds.retainAll(accessiblePageIds);

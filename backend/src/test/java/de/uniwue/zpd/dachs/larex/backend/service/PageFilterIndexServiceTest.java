@@ -385,6 +385,32 @@ class PageFilterIndexServiceTest {
     }
 
     @Test
+    void filterPages_negatesImageRegionBeforeCombiningWithPageState() {
+        String projectId = "project-1";
+        List<String> labels = List.of("region|kind=ImageRegion");
+        List<Page> accessiblePages = List.of(
+            page("done-with-image", projectId), page("done-without-image", projectId),
+            page("open-with-image", projectId), page("open-without-image", projectId)
+        );
+        List<String> labelMatches = List.of("done-with-image", "open-with-image");
+        when(labelIndexRepository.findPageIdsByProjectIdAndAllLabelIds(projectId, labels, 1)).thenReturn(labelMatches);
+        when(labelIndexRepository.findPageIdsByProjectIdAndLabelIdsIn(projectId, labels)).thenReturn(labelMatches);
+        when(pageRepository.findIdsByProjectIdAndWorkflowStateIn(projectId, Set.of(Page.WorkflowState.DONE)))
+            .thenReturn(List.of("done-with-image", "done-without-image"));
+
+        assertEquals(Set.of("done-without-image"), service.filterPages(
+            projectId, null, labels, "and", null, "and", null, null, null,
+            null, null, List.of("DONE"), null, null, false, Set.of(), List.of(),
+            accessiblePages, Set.of("labels"), "and"
+        ));
+        assertEquals(Set.of("done-with-image", "done-without-image", "open-without-image"), service.filterPages(
+            projectId, null, labels, "or", null, "or", null, null, null,
+            null, null, List.of("DONE"), null, null, false, Set.of(), List.of(),
+            accessiblePages, Set.of("labels"), "or"
+        ));
+    }
+
+    @Test
     void filterPages_confidenceTypesDefaultToAllWhenNoneSelected() {
         String projectId = "project-1";
         when(confidenceIndexRepository.findPageIdsByProjectIdAndConfidenceRangeAndElementTypes(
@@ -502,6 +528,15 @@ class PageFilterIndexServiceTest {
         );
 
         assertEquals(Set.of("page-2"), result);
+        assertEquals(Set.of("page-1"), service.filterPages(
+            projectId, null, null, "and", null, "and", null, null, null, null,
+            null, null, null, false, Set.of(),
+            List.of(
+                new PageFilterIndexService.XmlAttributePredicate("TextLine", "comments", "not_exists", null, true),
+                new PageFilterIndexService.XmlAttributePredicate(null, "custom", "contains", "readingOrder", true)
+            ),
+            "and"
+        ));
     }
 
     @Test
