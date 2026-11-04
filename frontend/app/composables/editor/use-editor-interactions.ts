@@ -8,7 +8,7 @@ import {
 import { normalizeLayoutViewMode, visibilityService } from '@/services/editor/visibility-service'
 import { PolygonType, type View, type AspectRatioScale, type Point } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline, ViewMode } from '@/types/editor/rendering'
-import { HIT_DETECTION, TIMING, VIEW_PADDING, ZOOM } from '@/utils/editor/editor-constants'
+import { HIT_DETECTION, TIMING, VIEW_PADDING, WORLD_COORD_THRESHOLD, ZOOM } from '@/utils/editor/editor-constants'
 import type { EditorStateActions } from './use-editor-state'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type {
@@ -74,7 +74,6 @@ export function useEditorInteractions(
     | 'setHoveredPolylineId'
   >
 ) {
-  const WORLD_COORD_THRESHOLD = 2.5
   const editorUiStore = useEditorUiStore()
   const hiddenPolygonIdSet = computed(() => new Set(hiddenPolygonIds.value))
   const hiddenPolylineIdSet = computed(() => new Set(hiddenPolylineIds.value))

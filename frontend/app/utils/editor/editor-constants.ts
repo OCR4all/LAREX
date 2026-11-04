@@ -3,6 +3,9 @@
  * Centralizing these values makes them easier to tune and maintain.
  */
 
+/** Points within this range are world coordinates; larger values are image pixels. */
+export const WORLD_COORD_THRESHOLD = 2.5
+
 /**
  * Hit detection thresholds (in world coordinates, -1 to 1)
  */

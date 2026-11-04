@@ -12,17 +12,19 @@ import { serializeFullTextComment } from '../../shared/full-text-comments'
 import { createTextlineVariantsUpdateCommand } from '../../shared/textline-variant-update'
 import { normalizeTextContentVariants } from '../../shared/text-view-runtime'
 import source from '../list.vue?raw'
-import canvasSource from '../../../index.vue?raw'
+import canvasSource from '@/composables/editor/use-canvas-text-correction.ts?raw'
 import fullTextSource from '../../full-editor.vue?raw'
 
 const ast = ts.createSourceFile('list.ts', parse(source).descriptor.scriptSetup!.content, ts.ScriptTarget.Latest, true)
 const handler = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'handleUpdateTextlineComment')!
 const compiled = ts.transpileModule(handler.getText(ast), {}).outputText
 
-function compileHandler(source: string, name: string): string {
-  const ast = ts.createSourceFile('editor.ts', parse(source).descriptor.scriptSetup!.content, ts.ScriptTarget.Latest, true)
-  const handler = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name)!
-  return `${ts.transpileModule(handler.getText(ast), {}).outputText}; return ${name}`
+function compileHandler(script: string, name: string): string {
+  const ast = ts.createSourceFile('editor.ts', script, ts.ScriptTarget.Latest, true)
+  const find = (node: ts.Node): ts.FunctionDeclaration | undefined => (
+    ts.isFunctionDeclaration(node) && node.name?.text === name ? node : ts.forEachChild(node, find)
+  )
+  return `${ts.transpileModule(find(ast)!.getText(ast), {}).outputText}; return ${name}`
 }
 
 function setup() {
@@ -51,7 +53,7 @@ function setup() {
   const fullTextUpdate = new Function(
     'isEditable', 'effectiveCanvasId', 'serializeFullTextComment', 'fullTextLineById',
     'getTextViewRuntimeControls', 'editorStore', 'UpdateTextlineCommentCommand', 'createTextViewCommandContext',
-    compileHandler(fullTextSource, 'updateTextlineComment')
+    compileHandler(parse(fullTextSource).descriptor.scriptSetup!.content, 'updateTextlineComment')
   )(
     editable, ref(session.canvasId), serializeFullTextComment, computed(() => new Map([['line-1', selected.value]])),
     () => ({ commander }), {}, UpdateTextlineCommentCommand, () => context

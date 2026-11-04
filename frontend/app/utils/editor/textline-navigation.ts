@@ -2,6 +2,7 @@ import type { Region } from '@/models/editor/region'
 import { isTextRegion } from '@/models/editor/region'
 import type { ReadingOrder, ReadingOrderNode } from '@/models/editor/reading-order'
 import type { TextLine } from '@/models/editor/text'
+import { PolygonType } from '@/models/editor'
 
 /**
  * Fallback order for textlines inside a region that carry no explicit
@@ -262,6 +263,10 @@ export function collectTextlineIdsInReadingOrder(
   }
 
   return orderedTextlineIds
+}
+
+export function isTextlinePolygonType(type: unknown): boolean {
+  return typeof type === 'string' && type.toLowerCase() === PolygonType.TEXTLINE
 }
 
 /**

@@ -1,43 +1,43 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { computed, effectScope, nextTick, ref, watch } from 'vue'
-import { parse } from 'vue/compiler-sfc'
-import ts from 'typescript'
+import { computed, effectScope, nextTick, reactive, ref, shallowReactive, watch } from 'vue'
 import { Commander } from '@/commands/editor/commander'
 import { createMockSession, createTestContext, createTestDocument, createTestTextRegion } from '@/commands/editor/__tests__/test-utils'
 import { TextContentVariant, TextLine } from '@/models/editor'
 import { Polygon } from '@/models/editor/geometry'
-import { getAdjacentTextlineId } from '@/utils/editor/textline-navigation'
-import { normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
-import { createTextlineVariantsUpdateCommand } from '../text/shared/textline-variant-update'
-import editorSource from '../index.vue?raw'
+import type { RenderablePolygon } from '@/types/editor/rendering'
+import { useCanvasTextCorrection } from '../use-canvas-text-correction'
 
-// Run the production navigation, input handlers and selection watcher together,
-// with real undoable document commands and without mounting the WebGL editor.
-const ast = ts.createSourceFile('editor.ts', parse(editorSource).descriptor.scriptSetup!.content, ts.ScriptTarget.Latest, true)
-const functionNames = [
-  'commitTextlineVariants', 'normalizeSingleLineText', 'findFirstRecognitionVariant',
-  'updateTextlineGtTextById', 'flushPendingCorrectionCommit', 'navigateCanvasCorrectionTextline',
-  'handleCorrectionTextareaKeydown', 'handleCorrectionOverlayKeydown',
-  'handleCorrectionTextareaInput', 'handleCorrectionTextareaBlur', 'createGtFromRecognition'
-]
-const productionCode = ast.statements.filter(node => (
-  ts.isFunctionDeclaration(node) && functionNames.includes(node.name?.text ?? '')
-) || (
-  ts.isExpressionStatement(node) && node.getText(ast).startsWith('watch(')
-  && (node.getText(ast).includes('prevGtIndex') || node.getText(ast).startsWith('watch(selectedTextlineGtText,'))
-)).map(node => node.getText(ast)).join('\n')
-const compiled = ts.transpileModule(productionCode, {}).outputText
+const editorStore = reactive({
+  projectTextDefaultGtIndex: 0,
+  projectTextDefaultRecognitionIndices: [1],
+  projectCodecId: null,
+  projectCodecCharacters: [],
+  projectDictionaryId: null
+})
+const editorUiStore = reactive({
+  textViewFontSize: 32,
+  canvasTextCorrectionOverlaySnapToLine: true,
+  highlightUnknownCodecChars: false,
+  highlightUnknownDictionaryTokens: false,
+  preferencesLoaded: true,
+  textViewAutoSelectFirstLine: false,
+  setCanvasTextCorrectionZoom: vi.fn(),
+  setCanvasTextCorrectionOverlaySnapToLine: vi.fn(),
+  setCanvasTextCorrectionOverlayPosition: vi.fn()
+})
+vi.mock('@/stores/editor/editor.store', () => ({ useEditorStore: () => editorStore }))
+vi.mock('@/stores/editor/editor.ui.store', () => ({ useEditorUiStore: () => editorUiStore }))
+vi.mock('@/stores/editor/editor.session.store', () => ({
+  useEditorSessionStore: () => ({ textViewSettings: { showDiff: false, showComments: false, showRecognition: true } })
+}))
+vi.mock('@/stores/workspace.store', () => ({ useWorkspaceStore: () => ({ selectedWorkspaceId: null }) }))
+vi.mock('@/composables/use-dictionary-token-lookup', () => ({
+  useDictionaryTokenLookup: () => ({ ensureTokenResults: vi.fn(), getTokenResult: vi.fn(), isTokenPending: vi.fn(), hasSuggestionsLoaded: vi.fn() })
+}))
+
 const scopes: ReturnType<typeof effectScope>[] = []
 afterEach(() => scopes.splice(0).forEach(scope => scope.stop()))
-
-type CorrectionHandlers = {
-  handleCorrectionTextareaKeydown: (event: KeyboardEvent) => void
-  handleCorrectionOverlayKeydown: (event: KeyboardEvent) => void
-  handleCorrectionTextareaInput: (event: Event) => void
-  handleCorrectionTextareaBlur: () => void
-  createGtFromRecognition: () => void
-}
 
 function setup() {
   const lines = [
@@ -48,42 +48,58 @@ function setup() {
   const { session } = createMockSession(createTestDocument({ regions: [region] }))
   const commander = new Commander()
   const context = createTestContext(session)
-  const selectedId = ref<string | null>(null)
-  const selectedTextlinePolygon = computed(() => lines.find(line => line.id === selectedId.value))
-  const activeGtIndex = ref(0)
-  const activeRecognitionIndices = ref([1])
-  const selectedTextlineGtVariant = computed(() => {
-    // Depend on the document revision, as the renderable polygons do in production.
-    void session.document.value
-    return selectedTextlinePolygon.value?.textContentVariants?.find(variant => variant.index === activeGtIndex.value)
+  editorStore.projectTextDefaultGtIndex = 0
+  editorStore.projectTextDefaultRecognitionIndices = [1]
+  const activeGtIndex = computed({
+    get: () => editorStore.projectTextDefaultGtIndex,
+    set: (value) => { editorStore.projectTextDefaultGtIndex = value }
   })
-  const correctionInputValue = ref('')
-  const pendingCorrectionCommit = ref<{ textlineId: string, text: string } | null>(null)
+  const activeRecognitionIndices = computed({
+    get: () => editorStore.projectTextDefaultRecognitionIndices,
+    set: (value) => { editorStore.projectTextDefaultRecognitionIndices = value }
+  })
+  const selectedId = ref<string | null>(null)
   const isTextVisualMode = ref(true)
   const isCanvasWritable = ref(true)
-  const dependencies = {
-    watch, session, activeGtIndex, activeRecognitionIndices, selectedTextlinePolygon, selectedTextlineGtVariant,
-    selectedTextlineGtText: computed(() => selectedTextlineGtVariant.value?.unicode ?? ''),
-    selectedTextlineFirstRecognitionVariant: computed(() => selectedTextlinePolygon.value?.textContentVariants?.find(variant => variant.index === 1)),
-    correctionInputValue, pendingCorrectionCommit, isTextVisualMode, isCanvasWritable,
-    correctionViewInitialized: ref(false), pageOrderTextlineIds: ref(lines.map(line => line.id)),
-    polygons: lines, normalizeEditableTextVariants, setGtVariantUnicode, getAdjacentTextlineId,
-    createTextlineVariantsUpdateCommand, getCommandContext: () => context,
-    canvasControls: {
-      commander,
-      selectPolygonById: (id: string) => { selectedId.value = id },
-      selectPolylineById: vi.fn()
-    },
-    queueCorrectionInputFocus: vi.fn(), commitCorrectionInputDebounced: vi.fn(),
-    getPersistedCorrectionZoom: () => null,
-    rememberCorrectionNavigationAnchor: vi.fn(), alignCorrectionViewToNavigationAnchor: () => false
-  }
+  const toRenderable = (): RenderablePolygon[] => lines.map(line => ({
+    id: line.id,
+    type: 'textline',
+    points: [{ x: 10, y: 10 }],
+    get textContentVariants() { return line.textContentVariants }
+  } as unknown as RenderablePolygon))
+  const polygons = shallowReactive(toRenderable())
   const scope = effectScope()
   scopes.push(scope)
-  const handlers = scope.run<CorrectionHandlers>(() => new Function(
-    ...Object.keys(dependencies),
-    `${compiled}; return { handleCorrectionTextareaKeydown, handleCorrectionOverlayKeydown, handleCorrectionTextareaInput, handleCorrectionTextareaBlur, createGtFromRecognition }`
-  )(...Object.values(dependencies)))!
+  const correction = scope.run(() => {
+    // Renderable polygons follow the document revision, as they do in production.
+    watch(session.document, () => polygons.splice(0, polygons.length, ...toRenderable()), { flush: 'sync' })
+    return useCanvasTextCorrection({
+      session,
+      canvasControls: {
+        commander,
+        selectPolygonById: (id: string | null) => { selectedId.value = id },
+        selectPolylineById: vi.fn()
+      },
+      polygons,
+      selectedPolygonIds: computed(() => selectedId.value ? [selectedId.value] : []),
+      selectedPolygonIndex: ref(-1),
+      selectedPolylineIds: ref([]),
+      selectedPolylineIndex: ref(-1),
+      selectedRegionId: ref(null),
+      pageId: ref('page-1'),
+      view: reactive({ zoom: 1, offsetX: 0, offsetY: 0 }),
+      aspectRatioScale: ref({ scaleX: 1, scaleY: 1 }),
+      canvasDimensions: ref({ width: 1000, height: 800 }),
+      imageSize: ref({ width: 1000, height: 800 }),
+      setView: vi.fn(),
+      isTextVisualMode,
+      isCanvasWritable,
+      canShowCanvasContent: ref(true),
+      toScreenPoint: point => point,
+      getCommandContext: () => context
+    })
+  })!
+  const { correctionInputValue, ...handlers } = correction
   const textarea = document.createElement('textarea')
   textarea.addEventListener('input', handlers.handleCorrectionTextareaInput)
   const input = (text: string) => {
@@ -100,7 +116,7 @@ function setup() {
     await nextTick()
     return event
   }
-  return { ...handlers, input, tab, enter, selectedId, activeGtIndex, activeRecognitionIndices, correctionInputValue, isTextVisualMode, isCanvasWritable, lines, region, commander, context }
+  return { ...handlers, input, tab, enter, scope, selectedId, activeGtIndex, activeRecognitionIndices, correctionInputValue, isTextVisualMode, isCanvasWritable, lines, region, commander, context }
 }
 
 describe('Canvas text correction', () => {
@@ -269,5 +285,41 @@ describe('Canvas text correction', () => {
     expect(editor.commander.getState().totalCount).toBe(1)
     editor.commander.undo(editor.context)
     expect(editor.lines[1]!.textContentVariants?.map(variant => variant.index)).toEqual([1])
+  })
+
+  it('keeps pending typed text when Copy to GT is triggered by shortcut', async () => {
+    const editor = setup()
+    editor.selectedId.value = 'line-2'
+    await nextTick()
+    editor.input('Typed')
+
+    expect(editor.createGtFromRecognition()).toBe(false)
+    expect(editor.lines[1]!.textContentVariants?.find(variant => variant.index === 0)?.unicode).toBe('Typed')
+  })
+
+  it('saves input after the debounce without any navigation', async () => {
+    const editor = setup()
+    editor.selectedId.value = 'line-1'
+    await nextTick()
+    editor.input('Typed')
+    expect(editor.commander.canUndo()).toBe(false)
+
+    await new Promise(resolve => setTimeout(resolve, 120))
+    expect(editor.lines[0]!.textContentVariants?.[0]?.unicode).toBe('Typed')
+    expect(editor.commander.getState().totalCount).toBe(1)
+  })
+
+  it('removes overlay drag listeners when disposed mid-drag', async () => {
+    const editor = setup()
+    editor.selectedId.value = 'line-1'
+    await nextTick()
+    editor.correctionOverlayContainerRef.value = document.createElement('div')
+    const removeListener = vi.spyOn(window, 'removeEventListener')
+
+    editor.handleCorrectionOverlayPointerDown(new PointerEvent('pointerdown', { button: 0, pointerId: 1 }))
+    editor.scope.stop()
+
+    expect(removeListener.mock.calls.map(([type]) => type)).toEqual(['pointermove', 'pointerup', 'pointercancel'])
+    removeListener.mockRestore()
   })
 })
