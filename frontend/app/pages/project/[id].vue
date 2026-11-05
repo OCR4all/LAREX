@@ -1048,13 +1048,6 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
       onSelect: () => {
         void openActionRunSlideover('all')
       }
-    }
-  ]
-
-  const toolkitItems: DropdownMenuItem[] = [
-    {
-      type: 'label',
-      label: 'Toolkit'
     },
     {
       label: 'Train on this project',
@@ -1067,14 +1060,36 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
       icon: 'i-lucide-chart-no-axes-combined',
       disabled: (pages.value?.length ?? 0) === 0,
       onSelect: () => openDatasetRun('evaluation')
+    }
+  ]
+
+  const textItems: DropdownMenuItem[] = [
+    {
+      type: 'label',
+      label: 'Text'
+    },
+    {
+      label: 'Normalization (full project)',
+      icon: 'i-lucide-wand-sparkles',
+      disabled: (pages.value?.length ?? 0) === 0,
+      onSelect: () => {
+        void openNormalizationPreviewModal('all')
+      }
     },
     {
       label: 'Generate codec (full project)',
-      icon: 'i-lucide-wand-sparkles',
+      icon: 'i-lucide-case-lower',
       disabled: (pages.value?.length ?? 0) === 0,
       onSelect: () => {
         void openCodecGenerateSlideover('all')
       }
+    }
+  ]
+
+  const validationItems: DropdownMenuItem[] = [
+    {
+      type: 'label',
+      label: 'Validation'
     },
     {
       label: 'Validate codec (full project)',
@@ -1093,14 +1108,6 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
       }
     },
     {
-      label: 'Normalization (full project)',
-      icon: 'i-lucide-wand-sparkles',
-      disabled: (pages.value?.length ?? 0) === 0,
-      onSelect: () => {
-        void openNormalizationPreviewModal('all')
-      }
-    },
-    {
       label: 'Validate ruleset (full project)',
       icon: 'i-lucide-shield-alert',
       disabled: (pages.value?.length ?? 0) === 0,
@@ -1110,11 +1117,21 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  const exportItems: DropdownMenuItem[] = [
+  const transferItems: DropdownMenuItem[] = [
     {
       type: 'label',
-      label: 'Export'
+      label: 'Import & export'
     },
+    ...(allow(projectCapabilities.value.canEdit)
+      ? [{
+          label: 'Import IIIF',
+          icon: 'i-lucide-image-plus',
+          disabled: project.value?.locked,
+          onSelect: () => {
+            void openIiifImportSlideover()
+          }
+        }]
+      : []),
     {
       label: 'Export project (basic)',
       icon: 'i-lucide-file-archive',
@@ -1149,15 +1166,6 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
   ]
 
   if (allow(projectCapabilities.value.canEdit)) {
-    projectItems.push({
-      label: 'Import IIIF',
-      icon: 'i-lucide-image-plus',
-      disabled: project.value?.locked,
-      onSelect: () => {
-        void openIiifImportSlideover()
-      }
-    })
-
     projectItems.push({
       label: 'Edit project',
       icon: 'i-lucide-edit',
@@ -1197,8 +1205,10 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
     })
   }
 
+  const deleteItems: DropdownMenuItem[] = []
+
   if (allow(projectCapabilities.value.canDelete)) {
-    projectItems.push({
+    deleteItems.push({
       label: 'Delete project',
       icon: 'i-lucide-trash',
       color: 'error' as const,
@@ -1207,7 +1217,8 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
     })
   }
 
-  return [projectItems, larexActionItems, exportItems, toolkitItems].filter(group => group.length > 1)
+  return [projectItems, larexActionItems, textItems, validationItems, transferItems, deleteItems]
+    .filter(group => group.some(item => item.type !== 'label'))
 })
 
 async function openAddToDatasetSlideover() {
@@ -1811,10 +1822,10 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  const toolkitItems: DropdownMenuItem[] = [
+  const selectionActionItems: DropdownMenuItem[] = [
     {
       type: 'label',
-      label: 'Toolkit'
+      label: 'Actions'
     },
     {
       label: 'Add to dataset',
@@ -1835,14 +1846,36 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
       icon: 'i-lucide-chart-no-axes-combined',
       disabled: !hasSelection.value,
       onSelect: () => openDatasetRun('evaluation', [...selectedPageIds.value])
+    }
+  ]
+
+  const textItems: DropdownMenuItem[] = [
+    {
+      type: 'label',
+      label: 'Text'
+    },
+    {
+      label: 'Normalization (selected pages)',
+      icon: 'i-lucide-wand-sparkles',
+      disabled: !hasSelection.value,
+      onSelect: () => {
+        void openNormalizationPreviewModal('selection')
+      }
     },
     {
       label: 'Generate codec (selected pages)',
-      icon: 'i-lucide-wand-sparkles',
+      icon: 'i-lucide-case-lower',
       disabled: !hasSelection.value,
       onSelect: () => {
         void openCodecGenerateSlideover('selection')
       }
+    }
+  ]
+
+  const validationItems: DropdownMenuItem[] = [
+    {
+      type: 'label',
+      label: 'Validation'
     },
     {
       label: 'Validate codec (selected pages)',
@@ -1861,14 +1894,6 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
       }
     },
     {
-      label: 'Normalization (selected pages)',
-      icon: 'i-lucide-wand-sparkles',
-      disabled: !hasSelection.value,
-      onSelect: () => {
-        void openNormalizationPreviewModal('selection')
-      }
-    },
-    {
       label: 'Validate ruleset (selected pages)',
       icon: 'i-lucide-shield-alert',
       disabled: !hasSelection.value,
@@ -1878,7 +1903,7 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  return [stateItems, exportItems, toolkitItems]
+  return [stateItems, selectionActionItems, textItems, validationItems, exportItems]
 })
 
 function renderPageEditorIndicator(page: Page) {
