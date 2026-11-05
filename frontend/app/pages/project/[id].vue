@@ -193,9 +193,12 @@ const canEditPageMetadata = computed(() =>
   canEditPageName.value || canEditPageDescription.value || canEditPageTags.value
 )
 
-const { data: pages, error: pagesError, pending: pagesPending, refresh: refreshPagesFetch } = await useFetch<Page[]>(() => `/api/projects/${projectId}/pages`, {
-  key: projectPagesKey
+// Client-only: the list grows with the project and would otherwise be inlined into the SSR payload.
+const { data: pages, error: pagesError, status: pagesStatus, refresh: refreshPagesFetch } = useLazyFetch<Page[]>(() => `/api/projects/${projectId}/pages`, {
+  key: projectPagesKey,
+  server: false
 })
+const pagesPending = computed(() => pagesStatus.value === 'idle' || pagesStatus.value === 'pending')
 
 const availableImageVariants = computed(() => [...new Set(
   (pages.value ?? [])
