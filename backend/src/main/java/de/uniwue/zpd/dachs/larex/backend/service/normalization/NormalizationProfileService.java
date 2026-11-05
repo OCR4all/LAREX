@@ -182,7 +182,16 @@ public class NormalizationProfileService {
         CompiledNormalizationProfile compiledProfile = compileProfile(profile);
         VariantSelection variantSelection = resolveVariantSelection(request.variantScope(), request.variantIndex(), request.unindexedOnly());
 
-        List<PageTextContent> rows = loadSourceRows(workspaceId, request.sources(), variantSelection, request.targets());
+        List<ScopedProject> scopes = resolveSourceScopes(workspaceId, request.sources());
+        int totalPageCount = scopes.stream().mapToInt(scope -> scope.pageScope().pageIds().size()).sum();
+        int pageOffset = request.pageOffset() == null ? 0 : request.pageOffset();
+        Integer pageLimit = request.pageLimit();
+        List<ScopedProject> selectedScopes = pageLimit == null ? scopes : slicePages(scopes, pageOffset, pageLimit);
+        Integer nextPageOffset = pageLimit != null && (long) pageOffset + pageLimit < totalPageCount
+                ? pageOffset + pageLimit
+                : null;
+
+        List<PageTextContent> rows = loadSourceRows(selectedScopes, variantSelection, request.targets());
         List<RowSnapshot> rowSnapshots = rows.stream()
                 .map(this::toRowSnapshot)
                 .filter(Objects::nonNull)
@@ -223,7 +232,9 @@ public class NormalizationProfileService {
                 changedRowCount,
                 changedPageIds.size(),
                 previews,
-                message
+                message,
+                totalPageCount,
+                nextPageOffset
         );
     }
 
@@ -237,7 +248,7 @@ public class NormalizationProfileService {
         CompiledNormalizationProfile compiledProfile = compileProfile(profile);
         VariantSelection variantSelection = resolveVariantSelection(request.variantScope(), request.variantIndex(), request.unindexedOnly());
 
-        List<PageTextContent> rows = loadSourceRows(workspaceId, request.sources(), variantSelection, request.targets());
+        List<PageTextContent> rows = loadSourceRows(resolveSourceScopes(workspaceId, request.sources()), variantSelection, request.targets());
         Set<String> analyzedProjectIds = new LinkedHashSet<>();
         Set<String> analyzedPageIds = new LinkedHashSet<>();
         Map<String, List<PageTextContent>> rowsByPageId = new LinkedHashMap<>();
@@ -434,33 +445,68 @@ public class NormalizationProfileService {
         );
     }
 
-    private List<PageTextContent> loadSourceRows(String workspaceId,
-                                                 List<NormalizationProfileDto.ProjectScope> sources,
-                                                 VariantSelection variantSelection,
-                                                 List<NormalizationProfileDto.NormalizeTarget> targets) {
+    private List<ScopedProject> resolveSourceScopes(String workspaceId,
+                                                    List<NormalizationProfileDto.ProjectScope> sources) {
         if (sources == null || sources.isEmpty()) {
             throw new IllegalArgumentException("At least one source is required");
         }
 
-        List<PageTextContent> rows = new ArrayList<>();
+        List<ScopedProject> scopes = new ArrayList<>();
         for (NormalizationProfileDto.ProjectScope source : sources) {
             if (source == null || trimToNull(source.projectId()) == null) {
                 throw new IllegalArgumentException("Project ID is required in every source");
             }
             Project project = projectRepository.findByIdAndLibraryWorkspaceId(source.projectId().trim(), workspaceId)
                     .orElseThrow(() -> new ResourceNotFoundException("Project", source.projectId()));
-            PageScopeResolution pageScope = resolvePageScope(project.getId(), source.pageIds());
+            scopes.add(new ScopedProject(project.getId(), resolvePageScope(project.getId(), source.pageIds())));
+        }
+        return scopes;
+    }
+
+    private List<ScopedProject> slicePages(List<ScopedProject> scopes, int pageOffset, int pageLimit) {
+        List<ScopedProject> sliced = new ArrayList<>();
+        int remainingToSkip = pageOffset;
+        int remainingToTake = pageLimit;
+        for (ScopedProject scope : scopes) {
+            if (remainingToTake == 0) {
+                break;
+            }
+            Set<String> pageIds = scope.pageScope().pageIds();
+            int skipped = Math.min(remainingToSkip, pageIds.size());
+            remainingToSkip -= skipped;
+            Set<String> selectedPageIds = pageIds.stream()
+                    .skip(skipped)
+                    .limit(remainingToTake)
+                    .collect(LinkedHashSet::new, LinkedHashSet::add, LinkedHashSet::addAll);
+            if (!selectedPageIds.isEmpty()) {
+                remainingToTake -= selectedPageIds.size();
+                sliced.add(new ScopedProject(scope.projectId(), new PageScopeResolution(selectedPageIds, false)));
+            }
+        }
+        return sliced;
+    }
+
+    private List<PageTextContent> loadSourceRows(List<ScopedProject> scopes,
+                                                 VariantSelection variantSelection,
+                                                 List<NormalizationProfileDto.NormalizeTarget> targets) {
+        List<PageTextContent> rows = new ArrayList<>();
+        for (ScopedProject scope : scopes) {
+            PageScopeResolution pageScope = scope.pageScope();
             if (pageScope.pageIds().isEmpty()) {
                 continue;
             }
+            List<String> pageIds = new ArrayList<>(pageScope.pageIds());
             List<PageTextContent> projectRows = pageScope.allPagesSelected()
-                    ? pageTextContentRepository.findByProjectId(project.getId())
-                    : pageTextContentRepository.findByProjectIdAndPageIds(project.getId(), new ArrayList<>(pageScope.pageIds()));
-            for (PageTextContent row : projectRows) {
-                if (matchesVariantSelection(row.getVariantIndex(), variantSelection)) {
-                    rows.add(row);
-                }
+                    ? pageTextContentRepository.findByProjectId(scope.projectId())
+                    : pageTextContentRepository.findByProjectIdAndPageIds(scope.projectId(), pageIds);
+            Map<String, Integer> pagePositions = new HashMap<>();
+            for (int index = 0; index < pageIds.size(); index++) {
+                pagePositions.put(pageIds.get(index), index);
             }
+            projectRows.stream()
+                    .filter(row -> matchesVariantSelection(row.getVariantIndex(), variantSelection))
+                    .sorted(Comparator.comparingInt(row -> pagePositions.getOrDefault(row.getPage().getId(), Integer.MAX_VALUE)))
+                    .forEach(rows::add);
         }
         return filterRowsByTargets(rows, targets);
     }
@@ -490,9 +536,7 @@ public class NormalizationProfileService {
 
     private PageScopeResolution resolvePageScope(String projectId, List<String> requestedPageIds) {
         if (requestedPageIds == null || requestedPageIds.isEmpty()) {
-            List<Page> allPages = pageRepository.findByProjectId(projectId);
-            Set<String> pageIds = allPages.stream().map(Page::getId).collect(LinkedHashSet::new, LinkedHashSet::add, LinkedHashSet::addAll);
-            return new PageScopeResolution(pageIds, true);
+            return new PageScopeResolution(new LinkedHashSet<>(pageRepository.findIdsByProjectIdOrderByName(projectId)), true);
         }
 
         Set<String> normalizedRequested = requestedPageIds.stream()
@@ -996,6 +1040,9 @@ public class NormalizationProfileService {
     }
 
     private record PageScopeResolution(Set<String> pageIds, boolean allPagesSelected) {
+    }
+
+    private record ScopedProject(String projectId, PageScopeResolution pageScope) {
     }
 
     private record RowTargetKey(String pageId, String textLineId, String regionId, Integer variantIndex) {

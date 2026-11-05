@@ -2,8 +2,7 @@
 import type {
   ApplySourcesResponse,
   NormalizationProfileSummary,
-  NormalizeSourcesRequest,
-  NormalizeSourcesResponse
+  NormalizeSourcesRequest
 } from '@/types/normalization-profile'
 
 type BatchProject = {
@@ -19,9 +18,15 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [completed: boolean] }>()
 const toast = useToast()
 const selectedProfileId = ref('')
-const isPreviewing = ref(false)
 const isApplying = ref(false)
-const preview = ref<NormalizeSourcesResponse | null>(null)
+const {
+  rows: previewRows,
+  summary: previewSummary,
+  isLoading: isPreviewing,
+  isComplete: isPreviewComplete,
+  load: loadPreview,
+  reset: resetPreview
+} = useNormalizationPreview()
 const applyResult = ref<ApplySourcesResponse | null>(null)
 
 const profilesKey = computed(() => wsKey(props.workspaceId, 'normalization-profiles', 'list'))
@@ -43,9 +48,10 @@ const selectedProfile = computed(() => (profiles.value ?? [])
   .find(profile => profile.id === selectedProfileId.value) ?? null)
 const hasCompleted = computed(() => Boolean(applyResult.value))
 const isBusy = computed(() => isPreviewing.value || isApplying.value)
+const canApply = computed(() => isPreviewComplete.value && (previewSummary.value?.changedRowCount ?? 0) > 0)
 
 watch(selectedProfileId, () => {
-  preview.value = null
+  resetPreview()
   applyResult.value = null
 })
 
@@ -61,16 +67,11 @@ function requestBody(): NormalizeSourcesRequest {
 async function previewNormalization() {
   if (!selectedProfileId.value || isBusy.value) return
 
-  isPreviewing.value = true
-  preview.value = null
   applyResult.value = null
   try {
-    preview.value = await $fetch<NormalizeSourcesResponse>(
+    await loadPreview(
       `/api/workspaces/${props.workspaceId}/normalization-profiles/${selectedProfileId.value}/normalize-sources`,
-      {
-        method: 'POST',
-        body: requestBody()
-      }
+      requestBody()
     )
   } catch (requestError) {
     toast.add({
@@ -78,13 +79,11 @@ async function previewNormalization() {
       description: extractApiErrorMessage(requestError, 'Could not preview normalization for the selected projects.'),
       color: 'error'
     })
-  } finally {
-    isPreviewing.value = false
   }
 }
 
 async function applyNormalization() {
-  if (!selectedProfileId.value || !preview.value || preview.value.changedRowCount === 0 || isBusy.value) return
+  if (!selectedProfileId.value || !canApply.value || isBusy.value) return
 
   isApplying.value = true
   try {
@@ -95,7 +94,7 @@ async function applyNormalization() {
         body: requestBody()
       }
     )
-    preview.value = null
+    resetPreview()
     toast.add({
       title: applyResult.value.changedRowCount > 0 ? 'Normalization applied' : 'No changes applied',
       description: applyResult.value.message,
@@ -163,7 +162,7 @@ async function applyNormalization() {
         />
 
         <UAlert
-          v-if="!preview && !applyResult"
+          v-if="!previewSummary && !isPreviewing && !applyResult"
           color="info"
           variant="subtle"
           icon="i-lucide-info"
@@ -171,64 +170,18 @@ async function applyNormalization() {
           description="The preview is read-only. Applying the result writes normalized text back to every matching PAGE XML row in the selected projects."
         />
 
-        <template v-if="preview">
-          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <UPageCard title="Projects" :description="String(preview.analyzedProjectCount)" variant="subtle" />
-            <UPageCard title="Pages" :description="String(preview.analyzedPageCount)" variant="subtle" />
-            <UPageCard title="Rows" :description="String(preview.analyzedRowCount)" variant="subtle" />
-            <UPageCard title="Changed Rows" :description="String(preview.changedRowCount)" variant="subtle" />
-            <UPageCard title="Changed Pages" :description="String(preview.changedPageCount)" variant="subtle" />
-          </div>
-
-          <UAlert
-            :color="preview.changedRowCount > 0 ? 'warning' : 'success'"
-            variant="subtle"
-            :icon="preview.changedRowCount > 0 ? 'i-lucide-triangle-alert' : 'i-lucide-circle-check'"
-            :title="preview.changedRowCount > 0 ? 'Review changes before applying' : 'No changes needed'"
-            :description="preview.message"
-          />
-
-          <div v-if="preview.previews.length > 0" class="space-y-3">
-            <p class="text-sm text-muted">
-              Showing {{ Math.min(preview.previews.length, 100) }} of {{ preview.previews.length }} changed rows.
-            </p>
-            <UCard v-for="row in preview.previews.slice(0, 100)" :key="`${row.pageId}:${row.textLineId || row.regionId}:${row.variantIndex}`">
-              <template #header>
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p class="font-medium">
-                      {{ row.projectName }} · {{ row.pageName }}
-                    </p>
-                    <p class="text-xs text-muted">
-                      Variant {{ row.variantIndex ?? 'unindexed' }}
-                    </p>
-                  </div>
-                  <UBadge color="neutral" variant="subtle">
-                    {{ row.matchedRules.length }} rule{{ row.matchedRules.length === 1 ? '' : 's' }}
-                  </UBadge>
-                </div>
-              </template>
-              <div class="grid gap-3 lg:grid-cols-2">
-                <div>
-                  <p class="mb-1 text-xs font-medium text-muted">
-                    Before
-                  </p>
-                  <p class="whitespace-pre-wrap break-words rounded-md bg-elevated p-3 text-sm">
-                    {{ row.originalText }}
-                  </p>
-                </div>
-                <div>
-                  <p class="mb-1 text-xs font-medium text-muted">
-                    After
-                  </p>
-                  <p class="whitespace-pre-wrap break-words rounded-md bg-elevated p-3 text-sm">
-                    {{ row.normalizedText }}
-                  </p>
-                </div>
-              </div>
-            </UCard>
-          </div>
-        </template>
+        <NormalizationPreviewResults
+          v-if="previewSummary"
+          :rows="previewRows"
+          :summary="previewSummary"
+          :is-loading="isPreviewing"
+          :is-complete="isPreviewComplete"
+          :project-count="projects.length"
+        />
+        <div v-else-if="isPreviewing" class="space-y-3">
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-32 w-full rounded-lg" />
+        </div>
 
         <template v-if="applyResult">
           <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -261,16 +214,16 @@ async function applyNormalization() {
         :disabled="!selectedProfileId || isBusy"
         @click="previewNormalization"
       >
-        {{ preview || applyResult ? 'Preview again' : 'Preview changes' }}
+        {{ previewSummary || applyResult ? 'Preview again' : 'Preview changes' }}
       </UButton>
       <UButton
-        v-if="preview && preview.changedRowCount > 0"
+        v-if="canApply"
         icon="i-lucide-wand-sparkles"
         :loading="isApplying"
         :disabled="isBusy"
         @click="applyNormalization"
       >
-        Apply {{ preview.changedRowCount }} change{{ preview.changedRowCount === 1 ? '' : 's' }}
+        Apply {{ previewSummary?.changedRowCount }} change{{ previewSummary?.changedRowCount === 1 ? '' : 's' }}
       </UButton>
     </template>
   </UiResponsiveSlideover>

@@ -23,8 +23,6 @@ import {
   LazyEditorVersionHistorySlideover,
   LazyShareSlideover
 } from '#components'
-import DiffMatchPatch from 'diff-match-patch'
-import type { Diff } from 'diff-match-patch'
 import type { DropdownMenuItem, BreadcrumbItem } from '@nuxt/ui'
 import type { Subtask } from '~/types/index'
 import { canOpenPageInEditor, createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
@@ -34,7 +32,7 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import type { IiifImportTerminalEvent } from '@/stores/iiif-import-jobs.store'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse } from '@/types/dictionary'
-import type { ApplySourcesResponse, NormalizePreview, NormalizeSourcesResponse, NormalizationProfile, NormalizationProjectScope, NormalizeTarget } from '@/types/normalization-profile'
+import type { ApplySourcesResponse, NormalizePreview, NormalizationProfile, NormalizationProfileSummary, NormalizationProjectScope, NormalizeTarget } from '@/types/normalization-profile'
 import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/types/validation-ruleset'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import PageWorkflowStateDropdown from '@/components/page/workflow-state-dropdown.vue'
@@ -1354,26 +1352,25 @@ function getValidationSources(scope: ProjectActionScope): ValidationProjectScope
   return [{ projectId, pageIds: getScopedPageIds(scope) }]
 }
 
-type NormalizationDiffSegment = {
-  text: string
-  changed: boolean
-  kind: 'equal' | 'insert' | 'delete'
-}
-
-type NormalizationPreviewRow = NormalizePreview & {
-  key: string
-  originalSegments: NormalizationDiffSegment[]
-  normalizedSegments: NormalizationDiffSegment[]
-}
-
 const dictionaryValidationResult = ref<DictionaryValidateAgainstSourcesResponse | null>(null)
 const isDictionaryValidationModalOpen = ref(false)
 const isDictionaryValidationLoading = ref(false)
-const normalizationPreviewResult = ref<NormalizeSourcesResponse | null>(null)
+const {
+  rows: normalizationPreviewRows,
+  summary: normalizationPreviewSummary,
+  isLoading: isNormalizationPreviewLoading,
+  isComplete: isNormalizationPreviewComplete,
+  load: fetchNormalizationPreview,
+  cancel: cancelNormalizationPreview,
+  reset: resetNormalizationPreview,
+  removeRow: removeNormalizationPreviewRow
+} = useNormalizationPreview()
 const isNormalizationPreviewSlideoverOpen = ref(false)
-const isNormalizationPreviewLoading = ref(false)
 const isApplyingNormalization = ref(false)
 const normalizationApplyingRowKey = ref<string | null>(null)
+const normalizationProfiles = ref<NormalizationProfileSummary[]>([])
+const isNormalizationProfilesLoading = ref(false)
+const selectedNormalizationProfileId = ref('')
 const activeNormalizationProfile = ref<NormalizationProfile | null>(null)
 const isNormalizationProfileLoading = ref(false)
 const normalizationProfileLoadError = ref<string | null>(null)
@@ -1385,51 +1382,11 @@ const validationRulesetResult = ref<ValidateAgainstSourcesResponse | null>(null)
 const isValidationRulesetModalOpen = ref(false)
 const isValidationRulesetLoading = ref(false)
 
-let normalizationDmp: DiffMatchPatch | null = null
-
-function getNormalizationDmp(): DiffMatchPatch {
-  if (!normalizationDmp) {
-    normalizationDmp = new DiffMatchPatch()
-  }
-  return normalizationDmp
-}
-
-function buildNormalizationDiffSegments(originalText: string, normalizedText: string, side: 'original' | 'normalized'): NormalizationDiffSegment[] {
-  const dmp = getNormalizationDmp()
-  const diffs = dmp.diff_main(originalText || '', normalizedText || '') as Diff[]
-  dmp.diff_cleanupSemantic(diffs)
-
-  const segments: NormalizationDiffSegment[] = []
-  for (const diff of diffs) {
-    const [operation, text] = diff
-    if (!text) continue
-
-    if (operation === 0) {
-      segments.push({ text, changed: false, kind: 'equal' })
-      continue
-    }
-
-    if (operation === -1 && side === 'original') {
-      segments.push({ text, changed: true, kind: 'delete' })
-      continue
-    }
-
-    if (operation === 1 && side === 'normalized') {
-      segments.push({ text, changed: true, kind: 'insert' })
-    }
-  }
-
-  return segments.length > 0 ? segments : [{ text: side === 'original' ? originalText : normalizedText, changed: false, kind: 'equal' }]
-}
-
-const normalizationPreviewRows = computed<NormalizationPreviewRow[]>(() =>
-  (normalizationPreviewResult.value?.previews ?? []).map(preview => ({
-    ...preview,
-    key: [preview.pageId, preview.textLineId ?? preview.regionId ?? 'row', preview.variantIndex ?? 'primary', preview.originalText, preview.normalizedText].join('::'),
-    originalSegments: buildNormalizationDiffSegments(preview.originalText || '', preview.normalizedText || '', 'original'),
-    normalizedSegments: buildNormalizationDiffSegments(preview.originalText || '', preview.normalizedText || '', 'normalized')
-  }))
-)
+const normalizationProfileOptions = computed(() => normalizationProfiles.value.map(profile => ({
+  label: profile.id === project.value?.normalizationProfileId ? `${profile.name} (project default)` : profile.name,
+  value: profile.id,
+  description: profile.description || undefined
+})))
 
 const normalizationPresetRules = computed<Array<{ key: NormalizationPresetRuleKey, label: string, enabled: boolean, value: string }>>(() => {
   const profile = activeNormalizationProfile.value
@@ -1494,7 +1451,7 @@ function buildNormalizationRequestBody(targets?: NormalizeTarget[]) {
   }
 }
 
-function buildNormalizationRowTargets(preview: NormalizationPreviewRow): NormalizeTarget[] {
+function buildNormalizationRowTargets(preview: NormalizePreview): NormalizeTarget[] {
   return [{
     pageId: preview.pageId,
     textLineId: preview.textLineId ?? null,
@@ -1503,8 +1460,28 @@ function buildNormalizationRowTargets(preview: NormalizationPreviewRow): Normali
   }]
 }
 
+async function loadNormalizationProfiles() {
+  if (!selectedWorkspace.value) return
+
+  isNormalizationProfilesLoading.value = true
+  try {
+    normalizationProfiles.value = await $fetch<NormalizationProfileSummary[]>(
+      `/api/workspaces/${selectedWorkspace.value}/normalization-profiles`
+    )
+  } catch (error) {
+    toast.add({
+      title: 'Normalization profiles unavailable',
+      description: getErrorMessage(error, 'Could not load the normalization profiles of this workspace.'),
+      color: 'warning'
+    })
+  } finally {
+    isNormalizationProfilesLoading.value = false
+  }
+}
+
 async function loadActiveNormalizationProfile() {
-  if (!selectedWorkspace.value || !project.value?.normalizationProfileId) {
+  const profileId = selectedNormalizationProfileId.value
+  if (!selectedWorkspace.value || !profileId) {
     activeNormalizationProfile.value = null
     normalizationProfileLoadError.value = null
     return
@@ -1514,19 +1491,27 @@ async function loadActiveNormalizationProfile() {
   normalizationProfileLoadError.value = null
 
   try {
-    activeNormalizationProfile.value = await $fetch<NormalizationProfile>(
-      `/api/workspaces/${selectedWorkspace.value}/normalization-profiles/${project.value.normalizationProfileId}`
+    const profile = await $fetch<NormalizationProfile>(
+      `/api/workspaces/${selectedWorkspace.value}/normalization-profiles/${profileId}`
     )
+    if (profileId === selectedNormalizationProfileId.value) {
+      activeNormalizationProfile.value = profile
+    }
   } catch (error) {
-    activeNormalizationProfile.value = null
-    normalizationProfileLoadError.value = getErrorMessage(error, 'Could not load normalization profile details.')
+    if (profileId === selectedNormalizationProfileId.value) {
+      activeNormalizationProfile.value = null
+      normalizationProfileLoadError.value = getErrorMessage(error, 'Could not load normalization profile details.')
+    }
   } finally {
-    isNormalizationProfileLoading.value = false
+    if (profileId === selectedNormalizationProfileId.value) {
+      isNormalizationProfileLoading.value = false
+    }
   }
 }
 
 async function loadNormalizationPreview(closeOnError = false) {
-  if (!selectedWorkspace.value || !project.value?.normalizationProfileId) {
+  if (!selectedWorkspace.value || !selectedNormalizationProfileId.value) {
+    resetNormalizationPreview()
     return
   }
   if (effectiveNormalizationVariantIndex.value === null) {
@@ -1539,17 +1524,12 @@ async function loadNormalizationPreview(closeOnError = false) {
   }
 
   try {
-    normalizationPreviewResult.value = null
-    isNormalizationPreviewLoading.value = true
-    normalizationPreviewResult.value = await $fetch<NormalizeSourcesResponse>(
-      `/api/workspaces/${selectedWorkspace.value}/normalization-profiles/${project.value.normalizationProfileId}/normalize-sources`,
-      {
-        method: 'POST',
-        body: buildNormalizationRequestBody()
-      }
+    await fetchNormalizationPreview(
+      `/api/workspaces/${selectedWorkspace.value}/normalization-profiles/${selectedNormalizationProfileId.value}/normalize-sources`,
+      buildNormalizationRequestBody()
     )
   } catch (error) {
-    if (closeOnError) {
+    if (closeOnError && !normalizationPreviewSummary.value) {
       isNormalizationPreviewSlideoverOpen.value = false
     }
     toast.add({
@@ -1557,9 +1537,15 @@ async function loadNormalizationPreview(closeOnError = false) {
       description: getErrorMessage(error, 'Could not load normalization details for this project.'),
       color: 'error'
     })
-  } finally {
-    isNormalizationPreviewLoading.value = false
   }
+}
+
+async function selectNormalizationProfile(profileId: string) {
+  selectedNormalizationProfileId.value = profileId
+  await Promise.all([
+    loadActiveNormalizationProfile(),
+    loadNormalizationPreview()
+  ])
 }
 
 async function openCodecGenerateSlideover(scope: ProjectActionScope = 'all') {
@@ -1635,23 +1621,22 @@ async function openDictionaryValidationModal(scope: ProjectActionScope = 'all') 
 }
 
 async function openNormalizationPreviewModal(scope: ProjectActionScope = 'all') {
-  if (!selectedWorkspace.value || !project.value?.normalizationProfileId) {
-    toast.add({
-      title: 'No project normalization profile configured',
-      description: 'Assign a normalization profile to this project first, then run a preview.',
-      color: 'warning'
-    })
-    return
-  }
+  if (!selectedWorkspace.value) return
 
   normalizationActionScope.value = scope
   normalizationVariantIndexInput.value = defaultNormalizationVariantIndex.value
+  selectedNormalizationProfileId.value = project.value?.normalizationProfileId ?? ''
   isNormalizationPreviewSlideoverOpen.value = true
   await Promise.all([
+    loadNormalizationProfiles(),
     loadActiveNormalizationProfile(),
     loadNormalizationPreview(true)
   ])
 }
+
+watch(isNormalizationPreviewSlideoverOpen, (isOpen) => {
+  if (!isOpen) cancelNormalizationPreview()
+})
 
 async function openNormalizationRulesSlideover() {
   isNormalizationRulesSlideoverOpen.value = true
@@ -1661,12 +1646,8 @@ async function openNormalizationRulesSlideover() {
   }
 }
 
-async function applyNormalizationPreview(options: {
-  targets?: NormalizeTarget[]
-  rowKey?: string | null
-  closeOnSuccess?: boolean
-} = {}) {
-  if (!selectedWorkspace.value || !project.value?.normalizationProfileId) {
+async function applyNormalizationPreview(row?: NormalizePreview) {
+  if (!selectedWorkspace.value || !selectedNormalizationProfileId.value) {
     return
   }
   if (project.value?.locked) {
@@ -1686,7 +1667,7 @@ async function applyNormalizationPreview(options: {
     return
   }
 
-  const { targets, rowKey = null, closeOnSuccess = rowKey === null } = options
+  const rowKey = row ? getNormalizationPreviewKey(row) : null
 
   try {
     if (rowKey) {
@@ -1696,10 +1677,10 @@ async function applyNormalizationPreview(options: {
     }
 
     const response = await $fetch<ApplySourcesResponse>(
-      `/api/workspaces/${selectedWorkspace.value}/normalization-profiles/${project.value.normalizationProfileId}/apply-sources`,
+      `/api/workspaces/${selectedWorkspace.value}/normalization-profiles/${selectedNormalizationProfileId.value}/apply-sources`,
       {
         method: 'POST',
-        body: buildNormalizationRequestBody(targets)
+        body: buildNormalizationRequestBody(row ? buildNormalizationRowTargets(row) : undefined)
       }
     )
 
@@ -1712,11 +1693,11 @@ async function applyNormalizationPreview(options: {
       icon: response.changedRowCount > 0 ? 'i-lucide-check' : 'i-lucide-info'
     })
 
-    normalizationPreviewResult.value = null
-    if (closeOnSuccess) {
-      isNormalizationPreviewSlideoverOpen.value = false
+    if (row) {
+      removeNormalizationPreviewRow(row)
     } else {
-      await loadNormalizationPreview()
+      resetNormalizationPreview()
+      isNormalizationPreviewSlideoverOpen.value = false
     }
   } catch (error) {
     toast.add({
@@ -1731,14 +1712,6 @@ async function applyNormalizationPreview(options: {
       isApplyingNormalization.value = false
     }
   }
-}
-
-async function applyNormalizationRow(preview: NormalizationPreviewRow) {
-  await applyNormalizationPreview({
-    targets: buildNormalizationRowTargets(preview),
-    rowKey: preview.key,
-    closeOnSuccess: false
-  })
 }
 
 async function openValidationRulesetModal(scope: ProjectActionScope = 'all') {
@@ -3221,34 +3194,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
     </template>
 
     <template #body>
-      <div v-if="isNormalizationPreviewLoading" class="space-y-4">
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <USkeleton class="h-24 w-full rounded-lg" />
-          <USkeleton class="h-24 w-full rounded-lg" />
-          <USkeleton class="h-24 w-full rounded-lg" />
-          <USkeleton class="h-24 w-full rounded-lg" />
-        </div>
-        <USkeleton class="h-20 w-full rounded-lg" />
-        <div class="space-y-3">
-          <USkeleton class="h-32 w-full rounded-lg" />
-          <USkeleton class="h-32 w-full rounded-lg" />
-        </div>
-      </div>
-      <div v-else-if="normalizationPreviewResult" class="space-y-4">
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <UPageCard title="Projects" :description="String(normalizationPreviewResult.analyzedProjectCount)" variant="subtle" />
-          <UPageCard title="Pages" :description="String(normalizationPreviewResult.analyzedPageCount)" variant="subtle" />
-          <UPageCard title="Rows" :description="String(normalizationPreviewResult.analyzedRowCount)" variant="subtle" />
-          <UPageCard title="Changed Rows" :description="String(normalizationPreviewResult.changedRowCount)" variant="subtle" />
-        </div>
-
-        <UAlert
-          :color="normalizationPreviewResult.changedRowCount > 0 ? 'warning' : 'success'"
-          variant="subtle"
-          :title="normalizationPreviewResult.changedRowCount > 0 ? 'Normalization changes were detected.' : 'No normalization changes were detected.'"
-          :description="normalizationPreviewResult.message"
-        />
-
+      <div class="space-y-4">
         <UAlert
           v-if="project?.locked"
           color="warning"
@@ -3257,27 +3203,15 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
           :description="project.lockedReason || 'Unlock the project before applying normalization changes.'"
         />
 
-        <div v-if="isNormalizationProfileLoading" class="space-y-3">
-          <USkeleton class="h-24 w-full rounded-lg" />
-        </div>
-
-        <UAlert
-          v-else-if="normalizationProfileLoadError"
-          color="warning"
-          variant="subtle"
-          title="Normalization profile details unavailable"
-          :description="normalizationProfileLoadError"
-        />
-
-        <UCard v-else-if="activeNormalizationProfile">
+        <UCard>
           <template #header>
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="min-w-0">
                 <p class="text-sm font-medium">
-                  Assigned Normalization Profile
+                  Normalization Profile
                 </p>
                 <p class="text-xs text-muted">
-                  This normalization run uses the assigned profile for all selected sources.
+                  Starts with the project default. Choose another profile to run it on this scope without changing the default.
                 </p>
               </div>
               <UButton
@@ -3285,6 +3219,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
                 color="neutral"
                 variant="outline"
                 size="sm"
+                :disabled="!activeNormalizationProfile"
                 @click="openNormalizationRulesSlideover"
               >
                 View rules
@@ -3293,32 +3228,51 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
           </template>
 
           <div class="space-y-3">
-            <div class="flex flex-wrap items-center gap-2">
-              <UBadge color="primary" variant="soft">
-                {{ activeNormalizationProfile.name }}
-              </UBadge>
-              <UBadge color="neutral" variant="subtle">
-                {{ enabledNormalizationPresetRuleCount }} preset rule(s) active
-              </UBadge>
-              <UBadge color="neutral" variant="subtle">
-                {{ normalizationManualRuleCount }} manual rule(s)
-              </UBadge>
-            </div>
+            <USelectMenu
+              :model-value="selectedNormalizationProfileId"
+              :items="normalizationProfileOptions"
+              value-key="value"
+              label-key="label"
+              class="w-full"
+              placeholder="Select a normalization profile"
+              :search-input="{ placeholder: 'Search normalization profiles...' }"
+              :loading="isNormalizationProfilesLoading"
+              :disabled="isApplyingNormalization"
+              @update:model-value="selectNormalizationProfile(String($event))"
+            />
 
-            <p v-if="activeNormalizationProfile.description" class="text-sm text-muted">
-              {{ activeNormalizationProfile.description }}
-            </p>
+            <USkeleton v-if="isNormalizationProfileLoading" class="h-6 w-full max-w-sm rounded-lg" />
 
-            <div v-if="activeNormalizationProfile.tags.length > 0" class="flex flex-wrap gap-2">
-              <UBadge
-                v-for="tag in activeNormalizationProfile.tags"
-                :key="`normalization-profile-tag-${tag}`"
-                color="neutral"
-                variant="soft"
-              >
-                {{ tag }}
-              </UBadge>
-            </div>
+            <UAlert
+              v-else-if="normalizationProfileLoadError"
+              color="warning"
+              variant="subtle"
+              title="Normalization profile details unavailable"
+              :description="normalizationProfileLoadError"
+            />
+
+            <template v-else-if="activeNormalizationProfile">
+              <div class="flex flex-wrap items-center gap-2">
+                <UBadge color="neutral" variant="subtle">
+                  {{ enabledNormalizationPresetRuleCount }} preset rule(s) active
+                </UBadge>
+                <UBadge color="neutral" variant="subtle">
+                  {{ normalizationManualRuleCount }} manual rule(s)
+                </UBadge>
+                <UBadge
+                  v-for="tag in activeNormalizationProfile.tags"
+                  :key="`normalization-profile-tag-${tag}`"
+                  color="neutral"
+                  variant="soft"
+                >
+                  {{ tag }}
+                </UBadge>
+              </div>
+
+              <p v-if="activeNormalizationProfile.description" class="text-sm text-muted">
+                {{ activeNormalizationProfile.description }}
+              </p>
+            </template>
           </div>
         </UCard>
 
@@ -3359,111 +3313,30 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
           </p>
         </UCard>
 
-        <div v-if="normalizationPreviewRows.length > 0" class="space-y-3">
-          <h3 class="text-sm font-semibold">
-            Affected Rows
-          </h3>
-          <div
-            v-for="preview in normalizationPreviewRows"
-            :key="preview.key"
-            class="rounded-lg border border-default p-3 space-y-3"
-          >
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p class="font-medium">
-                  {{ preview.pageName }}
-                </p>
-                <p class="text-xs text-muted">
-                  {{ preview.projectName }}
-                </p>
-              </div>
-              <div class="flex flex-wrap items-center gap-2">
-                <UBadge color="neutral" variant="soft">
-                  {{ preview.textLineId ? 'Text Line' : 'Region' }}
-                </UBadge>
-                <UBadge color="neutral" variant="subtle">
-                  Variant {{ preview.variantIndex ?? 0 }}
-                </UBadge>
-                <UButton
-                  icon="i-lucide-wand-sparkles"
-                  color="warning"
-                  variant="outline"
-                  size="xs"
-                  :loading="normalizationApplyingRowKey === preview.key"
-                  :disabled="project?.locked || isApplyingNormalization || (normalizationApplyingRowKey !== null && normalizationApplyingRowKey !== preview.key)"
-                  @click="applyNormalizationRow(preview)"
-                >
-                  Apply row
-                </UButton>
-              </div>
-            </div>
-
-            <div v-if="preview.matchedRules.length > 0" class="space-y-2">
-              <p class="text-xs font-medium text-muted">
-                Matched rules
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <UPopover
-                  v-for="rule in preview.matchedRules"
-                  :key="`${preview.key}-${rule.key}`"
-                  mode="hover"
-                >
-                  <UBadge :color="rule.manual ? 'warning' : 'primary'" variant="soft" class="cursor-help">
-                    {{ rule.label }}
-                  </UBadge>
-
-                  <template #content>
-                    <div class="max-w-xs space-y-1 p-3">
-                      <p class="text-sm font-medium">
-                        {{ rule.label }}
-                      </p>
-                      <p class="text-xs text-muted">
-                        {{ rule.description || 'No additional rule details.' }}
-                      </p>
-                    </div>
-                  </template>
-                </UPopover>
-              </div>
-            </div>
-
-            <div class="grid gap-3 lg:grid-cols-2">
-              <div>
-                <p class="mb-1 text-xs font-medium text-muted">
-                  Original
-                </p>
-                <div class="rounded border border-default bg-muted/30 p-2 text-sm whitespace-pre-wrap break-words font-junicode">
-                  <template v-for="(segment, segmentIndex) in preview.originalSegments" :key="`original-${preview.key}-${segmentIndex}`">
-                    <mark v-if="segment.changed" class="normalization-preview-mark normalization-preview-mark--delete">{{ segment.text }}</mark>
-                    <template v-else>
-                      {{ segment.text }}
-                    </template>
-                  </template>
-                </div>
-              </div>
-              <div>
-                <p class="mb-1 text-xs font-medium text-muted">
-                  Normalized
-                </p>
-                <div class="rounded border border-default bg-muted/30 p-2 text-sm whitespace-pre-wrap break-words font-junicode">
-                  <template v-for="(segment, segmentIndex) in preview.normalizedSegments" :key="`normalized-${preview.key}-${segmentIndex}`">
-                    <mark v-if="segment.changed" class="normalization-preview-mark normalization-preview-mark--insert">{{ segment.text }}</mark>
-                    <template v-else>
-                      {{ segment.text }}
-                    </template>
-                  </template>
-                </div>
-              </div>
-            </div>
-          </div>
+        <NormalizationPreviewResults
+          v-if="normalizationPreviewSummary"
+          :rows="normalizationPreviewRows"
+          :summary="normalizationPreviewSummary"
+          :is-loading="isNormalizationPreviewLoading"
+          :is-complete="isNormalizationPreviewComplete"
+          show-row-apply
+          :applying-row-key="normalizationApplyingRowKey"
+          :row-apply-disabled="project?.locked || isApplyingNormalization"
+          @apply-row="applyNormalizationPreview"
+        />
+        <div v-else-if="isNormalizationPreviewLoading" class="space-y-3">
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-32 w-full rounded-lg" />
         </div>
+        <UAlert
+          v-else-if="!selectedNormalizationProfileId"
+          color="info"
+          variant="subtle"
+          icon="i-lucide-info"
+          title="Select a normalization profile"
+          description="This project has no default profile. Choose one above to preview its changes."
+        />
       </div>
-      <UAlert
-        v-else
-        color="neutral"
-        variant="subtle"
-        title="No normalization results"
-        description="Run normalization again to load normalization details."
-      />
     </template>
     <template #footer>
       <div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -3479,7 +3352,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
             color="neutral"
             variant="outline"
             :loading="isNormalizationPreviewLoading"
-            :disabled="effectiveNormalizationVariantIndex === null"
+            :disabled="effectiveNormalizationVariantIndex === null || !selectedNormalizationProfileId"
             @click="loadNormalizationPreview()"
           >
             Refresh
@@ -3489,7 +3362,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
             color="warning"
             variant="solid"
             :loading="isApplyingNormalization"
-            :disabled="project?.locked || normalizationApplyingRowKey !== null || effectiveNormalizationVariantIndex === null || !normalizationPreviewResult || normalizationPreviewResult.changedRowCount === 0"
+            :disabled="project?.locked || normalizationApplyingRowKey !== null || effectiveNormalizationVariantIndex === null || !isNormalizationPreviewComplete || normalizationPreviewSummary?.changedRowCount === 0"
             @click="applyNormalizationPreview()"
           >
             Apply normalization
@@ -3735,21 +3608,6 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
 </template>
 
 <style scoped>
-.normalization-preview-mark {
-  border-radius: 0.25rem;
-  padding: 0 0.1rem;
-}
-
-.normalization-preview-mark--delete {
-  background: color-mix(in srgb, var(--ui-error) 14%, transparent);
-  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ui-error) 60%, transparent);
-}
-
-.normalization-preview-mark--insert {
-  background: color-mix(in srgb, var(--ui-warning) 18%, transparent);
-  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ui-warning) 70%, transparent);
-}
-
 .release-sidebar-enter-active,
 .release-sidebar-leave-active {
   overflow: hidden;

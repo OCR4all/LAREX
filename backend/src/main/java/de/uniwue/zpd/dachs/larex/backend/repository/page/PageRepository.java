@@ -27,6 +27,9 @@ public interface PageRepository extends JpaRepository<Page, String> {
     @Query("SELECT p.id FROM Page p WHERE p.project.id = :projectId ORDER BY p.id")
     List<String> findIdsByProjectId(@Param("projectId") String projectId);
 
+    @Query("SELECT p.id FROM Page p WHERE p.project.id = :projectId ORDER BY p.name, p.id")
+    List<String> findIdsByProjectIdOrderByName(@Param("projectId") String projectId);
+
     @Query("SELECT DISTINCT p.project.id FROM Page p")
     List<String> findDistinctProjectIds();
 

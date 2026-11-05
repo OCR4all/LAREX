@@ -1,6 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.dto;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
@@ -95,7 +97,12 @@ public class NormalizationProfileDto {
             VariantScope variantScope,
             Integer variantIndex,
             Boolean unindexedOnly,
-            List<@Valid NormalizeTarget> targets
+            List<@Valid NormalizeTarget> targets,
+            @Min(value = 0, message = "Page offset cannot be negative")
+            Integer pageOffset,
+            @Min(value = 1, message = "Page limit must be at least 1")
+            @Max(value = 200, message = "Page limit cannot exceed 200")
+            Integer pageLimit
     ) {}
 
     public record NormalizeMatch(
@@ -126,7 +133,9 @@ public class NormalizationProfileDto {
             int changedRowCount,
             int changedPageCount,
             List<NormalizePreview> previews,
-            String message
+            String message,
+            int totalPageCount,
+            Integer nextPageOffset
     ) {}
 
     public record ApplySourcesResponse(

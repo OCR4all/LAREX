@@ -66,6 +66,8 @@ export interface NormalizeSourcesRequest {
   variantIndex?: number | null
   unindexedOnly?: boolean
   targets?: NormalizeTarget[]
+  pageOffset?: number
+  pageLimit?: number
 }
 
 export interface NormalizeTarget {
@@ -104,6 +106,17 @@ export interface NormalizeSourcesResponse {
   changedPageCount: number
   previews: NormalizePreview[]
   message: string
+  totalPageCount: number
+  nextPageOffset: number | null
+}
+
+export interface NormalizationPreviewSummary {
+  analyzedPageCount: number
+  analyzedRowCount: number
+  changedRowCount: number
+  changedPageCount: number
+  scannedPageCount: number
+  totalPageCount: number
 }
 
 export interface ApplySourcesResponse {
