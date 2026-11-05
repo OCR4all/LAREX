@@ -4,6 +4,10 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Dataset;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import org.springframework.stereotype.Service;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -21,17 +25,60 @@ import java.util.stream.Collectors;
 @Service
 public class DatasetSplitService {
 
+    public static final int MANAGED_TRAIN_PERCENTAGE = 70;
+    public static final int MANAGED_VAL_PERCENTAGE = 15;
+    public static final int MANAGED_TEST_PERCENTAGE = 15;
+
     public List<String> regenerateSplitAssignments(Dataset dataset, List<DatasetItem> items) {
+        List<DatasetItem> preservedItems = items.stream().filter(this::shouldPreserveSplit).toList();
+        List<DatasetItem> mutableItems = items.stream().filter(item -> !shouldPreserveSplit(item)).toList();
+        return assignSplits(dataset, preservedItems, mutableItems);
+    }
+
+    /**
+     * Assigns splits to {@code newItems} only, so pages already held out never move into training.
+     * With project grouping, a new page joins the split its source project already uses.
+     */
+    public List<String> assignSplitsToNewItems(Dataset dataset, List<DatasetItem> existingItems, List<DatasetItem> newItems) {
+        Map<String, DatasetItem.Split> projectSplits = dataset.getSplitAlgorithm() == Dataset.SplitAlgorithm.GROUP_BY_SOURCE_PROJECT
+                ? dominantSplitByProject(existingItems)
+                : Map.of();
+        List<DatasetItem> preservedItems = new ArrayList<>(existingItems);
+        List<DatasetItem> unassignedItems = new ArrayList<>();
+        for (DatasetItem item : newItems) {
+            DatasetItem.Split projectSplit = projectSplits.get(item.getSourceProjectId());
+            if (projectSplit == null) {
+                unassignedItems.add(item);
+            } else {
+                item.setAssignedSplit(projectSplit);
+                preservedItems.add(item);
+            }
+        }
+        return assignSplits(dataset, preservedItems, unassignedItems);
+    }
+
+    /**
+     * Derives a split from the page ID alone, so a page keeps its split as projects grow
+     * and in every combination of projects it is part of.
+     */
+    public DatasetItem.Split stableSplit(String pageId) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(pageId.getBytes(StandardCharsets.UTF_8));
+            int bucket = Math.floorMod(ByteBuffer.wrap(digest).getInt(), 100);
+            if (bucket < MANAGED_TRAIN_PERCENTAGE) return DatasetItem.Split.TRAIN;
+            return bucket < MANAGED_TRAIN_PERCENTAGE + MANAGED_VAL_PERCENTAGE ? DatasetItem.Split.VAL : DatasetItem.Split.TEST;
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 is unavailable", error);
+        }
+    }
+
+    private List<String> assignSplits(Dataset dataset, List<DatasetItem> preservedItems, List<DatasetItem> mutableItems) {
         validateSplitConfiguration(dataset);
         List<String> warnings = new ArrayList<>();
 
         Dataset.SplitTemplate template = dataset.getSplitTemplate();
         Map<DatasetItem.Split, Integer> targetCounts = targetCounts(template, dataset.getTrainPercentage(),
-                dataset.getValPercentage(), dataset.getTestPercentage(), items.size());
-
-        List<DatasetItem> preservedItems = items.stream()
-                .filter(this::shouldPreserveSplit)
-                .toList();
+                dataset.getValPercentage(), dataset.getTestPercentage(), preservedItems.size() + mutableItems.size());
 
         Map<DatasetItem.Split, Integer> preservedCounts = new EnumMap<>(DatasetItem.Split.class);
         for (DatasetItem.Split split : DatasetItem.Split.values()) {
@@ -49,9 +96,6 @@ public class DatasetSplitService {
             }
         }
 
-        List<DatasetItem> mutableItems = items.stream()
-                .filter(item -> !preservedItems.contains(item))
-                .toList();
         Map<DatasetItem.Split, Integer> remainingCounts = new EnumMap<>(DatasetItem.Split.class);
         for (DatasetItem.Split split : allowedSplits(template)) {
             remainingCounts.put(split, Math.max(0, targetCounts.getOrDefault(split, 0) - preservedCounts.getOrDefault(split, 0)));
@@ -70,7 +114,7 @@ public class DatasetSplitService {
                     dataset.getStratifyTagIds(), warnings);
         }
 
-        for (DatasetItem item : items) {
+        for (DatasetItem item : mutableItems) {
             item.setAssignedSplit(normalizeSplitForTemplate(template, item.getAssignedSplit()));
         }
 
@@ -106,6 +150,12 @@ public class DatasetSplitService {
 
     private boolean shouldPreserveSplit(DatasetItem item) {
         return item.getMode() == DatasetItem.Mode.COPY && item.getCopiedAt() != null;
+    }
+
+    private Map<String, DatasetItem.Split> dominantSplitByProject(List<DatasetItem> items) {
+        return items.stream().collect(Collectors.groupingBy(DatasetItem::getSourceProjectId, Collectors.collectingAndThen(
+                Collectors.groupingBy(DatasetItem::getAssignedSplit, () -> new EnumMap<>(DatasetItem.Split.class), Collectors.counting()),
+                counts -> Collections.max(counts.entrySet(), Map.Entry.comparingByValue()).getKey())));
     }
 
     private void assignRandomly(List<DatasetItem> items,

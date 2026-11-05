@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   actionParameterChoices,
+  actionParameterLabel,
   coerceActionParameterInput,
   hasAllowedActionParameterValue
 } from './action-parameter-values'
@@ -28,5 +29,12 @@ describe('Action parameter values', () => {
     expect(coerceActionParameterInput({ type: 'integer' }, '3')).toBe(3)
     expect(coerceActionParameterInput({ type: 'integer' }, '3.5')).toBe('')
     expect(coerceActionParameterInput({ type: 'number' }, '0.75')).toBe(0.75)
+  })
+
+  it('turns parameter keys into readable labels', () => {
+    expect(actionParameterLabel('modelName')).toBe('Model name')
+    expect(actionParameterLabel('max_epochs')).toBe('Max epochs')
+    expect(actionParameterLabel('delay-seconds')).toBe('Delay seconds')
+    expect(actionParameterLabel('epochs')).toBe('Epochs')
   })
 })

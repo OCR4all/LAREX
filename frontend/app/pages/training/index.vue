@@ -67,7 +67,7 @@ const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, computed(() =
 const columns = computed<TableColumn<ActionRun>[]>(() => [
   {
     id: 'dataset',
-    header: 'Dataset',
+    header: 'Source',
     cell: ({ row }) => h('span', { class: 'truncate font-medium' }, row.original.datasetLabel || 'Dataset')
   },
   {
@@ -162,9 +162,26 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
             }
           })
         ])
-      : null
+      : canEvaluate(row.original)
+        ? h('div', { class: 'flex justify-end' }, [
+            h(UButtonComponent, {
+              'color': 'neutral',
+              'variant': 'ghost',
+              'size': 'xs',
+              'icon': 'i-lucide-chart-no-axes-combined',
+              'aria-label': 'Evaluate on this source',
+              'title': 'Evaluate on this source',
+              'to': { path: '/evaluation/new', query: { dataset: row.original.datasetId } },
+              'onClick': (event: MouseEvent) => event.stopPropagation()
+            })
+          ])
+        : null
   }
 ])
+
+function canEvaluate(run: ActionRun) {
+  return Boolean(run.datasetId) && (run.status === 'COMPLETED' || run.status === 'COMPLETED_WITH_ISSUES')
+}
 
 async function loadRuns() {
   if (!workspaceId.value) {
@@ -287,7 +304,7 @@ const toolbarRefresh = useRefreshFeedback(() => loadRuns())
           <UInput
             v-model="searchInput"
             icon="i-lucide-search"
-            placeholder="Search dataset or Action…"
+            placeholder="Search source or Action…"
             class="w-full sm:w-64"
           />
           <USelectMenu

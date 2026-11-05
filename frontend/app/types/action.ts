@@ -1,5 +1,6 @@
 import type { ImageType, KnownImageType } from './image'
 import type { ActionOutput } from './action-output'
+import type { PageWorkflowState } from './project-page'
 
 export type ActionExecuteRole = 'EDITOR' | 'CURATOR'
 export type ActionLockMode = 'NONE' | 'PAGES' | 'PROJECT'
@@ -241,6 +242,8 @@ export interface TrainingInputItem {
   brokenReason: string | null
   xmlAvailable: boolean
   images: TrainingInputImage[]
+  workflowState: PageWorkflowState | null
+  usedForTraining: boolean
 }
 
 export interface TrainingInputResponse {

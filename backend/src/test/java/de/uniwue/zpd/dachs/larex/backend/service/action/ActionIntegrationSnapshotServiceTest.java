@@ -82,6 +82,55 @@ class ActionIntegrationSnapshotServiceTest {
         verifyNoInteractions(metadata);
     }
 
+    private DatasetItem xmlOnlyCopy(String id, DatasetItem.Split split) throws Exception {
+        DatasetItem item = new DatasetItem(); item.setId(id); item.setSourcePageId("page-" + id);
+        item.setSourcePageName(id); item.setMode(DatasetItem.Mode.COPY); item.setStatus(DatasetItem.Status.READY);
+        item.setAssignedSplit(split); item.setSelectedSourceXmlId("xml");
+        item.setCopyFiles(List.of(copyFile(DatasetItemCopyFile.Kind.XML, "xml", "source.xml")));
+        return item;
+    }
+
+    private ActionTrainingSnapshotService.SnapshotResult evaluate(Boolean allPages, ActionDto.TrainingSplitRequirements splits) throws Exception {
+        run.setKind(ActionRun.Kind.EVALUATION); run.setProjectId(null); run.setDatasetId("dataset");
+        Dataset dataset = new Dataset(); dataset.setId("dataset");
+        when(items.findByDatasetIdOrderByCreatedAsc("dataset")).thenReturn(List.of(
+                xmlOnlyCopy("train", DatasetItem.Split.TRAIN), xmlOnlyCopy("val", DatasetItem.Split.VAL),
+                xmlOnlyCopy("test", DatasetItem.Split.TEST)));
+        return service.createEvaluationSnapshot("workspace", dataset, run,
+                new ActionDto.StartEvaluationRunRequest("definition", new ActionDto.TrainingSelection("ALL", List.of()),
+                        null, Map.of(), true, allPages),
+                splits, new ActionDto.InputRequirement(ActionDto.InputLevel.NONE, List.of()));
+    }
+
+    @Test void evaluationKeepsAssignedSplitsByDefault() throws Exception {
+        var result = evaluate(null, new ActionDto.TrainingSplitRequirements(
+                ActionDto.InputLevel.NONE, ActionDto.InputLevel.NONE, ActionDto.InputLevel.REQUIRED));
+        assertThat(result.splitCounts()).containsExactly(Map.entry("TEST", 1L));
+    }
+
+    @Test void evaluationOfAllPagesFreezesThemAsTheActionsSplitWithoutChangingTheDataset() throws Exception {
+        var result = evaluate(true, new ActionDto.TrainingSplitRequirements(
+                ActionDto.InputLevel.NONE, ActionDto.InputLevel.NONE, ActionDto.InputLevel.REQUIRED));
+        assertThat(result.splitCounts()).containsExactly(Map.entry("TEST", 3L));
+        verify(items, never()).save(any());
+        verify(items, never()).saveAll(any());
+        assertThat(items.findByDatasetIdOrderByCreatedAsc("dataset")).extracting(DatasetItem::getAssignedSplit)
+                .containsExactly(DatasetItem.Split.TRAIN, DatasetItem.Split.VAL, DatasetItem.Split.TEST);
+    }
+
+    @Test void evaluationOfAllPagesFollowsARequiredSplitOverAnOptionalOne() throws Exception {
+        var result = evaluate(true, new ActionDto.TrainingSplitRequirements(
+                ActionDto.InputLevel.NONE, ActionDto.InputLevel.REQUIRED, ActionDto.InputLevel.OPTIONAL));
+        assertThat(result.splitCounts()).containsExactly(Map.entry("VAL", 3L));
+    }
+
+    @Test void evaluationOfAllPagesIsRejectedWhenTheActionNeedsSeveralSplits() {
+        assertThatThrownBy(() -> evaluate(true, new ActionDto.TrainingSplitRequirements(
+                ActionDto.InputLevel.REQUIRED, ActionDto.InputLevel.NONE, ActionDto.InputLevel.REQUIRED)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("several splits");
+    }
+
     List<ActionDto.MachinePageInput> xmlInput() {
         return List.of(new ActionDto.MachinePageInput("page", "Page", "page", null, List.of(),
                 List.of(new ActionDto.MachinePageFile("xml", "source.xml", null, "application/xml", 12L, "unused"))));

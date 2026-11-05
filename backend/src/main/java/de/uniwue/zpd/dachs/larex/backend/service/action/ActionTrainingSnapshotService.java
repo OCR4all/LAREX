@@ -52,6 +52,9 @@ import java.util.Set;
 @Transactional
 public class ActionTrainingSnapshotService {
 
+    private static final List<ActionRun.Status> FINISHED_TRAINING_STATUSES =
+            List.of(ActionRun.Status.COMPLETED, ActionRun.Status.COMPLETED_WITH_ISSUES);
+
     private final ImageTypeService imageTypes;
     private final ActionInputSnapshotRepository snapshotRepository;
     private final DatasetRepository datasetRepository;
@@ -96,13 +99,23 @@ public class ActionTrainingSnapshotService {
         Dataset dataset = requireDataset(workspaceId, datasetId);
         List<ActionDto.TrainingInputItem> items = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(datasetId)
                 .stream()
-                .map(item -> overviewItem(workspaceId, item))
+                .map(item -> overviewItem(workspaceId, item, Set.of()))
                 .toList();
         return new ActionDto.TrainingInputResponse(dataset.getId(), dataset.getName(), items);
     }
 
+    /** Runs don't record which model they used, so any finished training run counts as overlap. */
     public ActionDto.TrainingInputResponse listEvaluationInputs(String workspaceId, String datasetId, String userId) {
-        return listInputs(workspaceId, datasetId, userId);
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        Dataset dataset = requireDataset(workspaceId, datasetId);
+        List<DatasetItem> datasetItems = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(datasetId);
+        List<String> pageIds = datasetItems.stream().map(DatasetItem::getSourcePageId).toList();
+        Set<String> trainedPageIds = pageIds.isEmpty() ? Set.of()
+                : trainingInputRepository.findTrainedPageIds(workspaceId, FINISHED_TRAINING_STATUSES, pageIds);
+        List<ActionDto.TrainingInputItem> items = datasetItems.stream()
+                .map(item -> overviewItem(workspaceId, item, trainedPageIds))
+                .toList();
+        return new ActionDto.TrainingInputResponse(dataset.getId(), dataset.getName(), items);
     }
 
     public SnapshotResult createEvaluationSnapshot(String workspaceId,
@@ -115,7 +128,8 @@ public class ActionTrainingSnapshotService {
                 new ActionDto.StartTrainingRunRequest(
                         request.processorDefinitionId(), request.selection(), request.imageSelection(),
                         request.parameters(), request.enqueueIfBusy()), requirements, imageRequirement,
-                imageRequirement.levelFor(ActionTarget.PAGE));
+                imageRequirement.levelFor(ActionTarget.PAGE),
+                Boolean.TRUE.equals(request.allPages()) ? allPagesSplit(requirements) : null);
     }
 
     public SnapshotResult createSnapshot(String workspaceId,
@@ -125,7 +139,7 @@ public class ActionTrainingSnapshotService {
                                          ActionDto.TrainingSplitRequirements requirements,
                                          ActionDto.InputRequirement imageRequirement) throws IOException {
         // Training processors always receive frozen image/XML pairs.
-        return createSnapshot(workspaceId, dataset, run, request, requirements, imageRequirement, InputLevel.REQUIRED);
+        return createSnapshot(workspaceId, dataset, run, request, requirements, imageRequirement, InputLevel.REQUIRED, null);
     }
 
     private SnapshotResult createSnapshot(String workspaceId,
@@ -134,9 +148,10 @@ public class ActionTrainingSnapshotService {
                                           ActionDto.StartTrainingRunRequest request,
                                           ActionDto.TrainingSplitRequirements requirements,
                                           ActionDto.InputRequirement imageRequirement,
-                                          InputLevel imageLevel) throws IOException {
+                                          InputLevel imageLevel,
+                                          DatasetItem.Split frozenSplit) throws IOException {
         List<DatasetItem> allItems = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(dataset.getId());
-        List<DatasetItem> selectedItems = selectItems(allItems, request.selection(), requirements);
+        List<DatasetItem> selectedItems = selectItems(allItems, request.selection(), requirements, frozenSplit);
         if (selectedItems.isEmpty()) {
             throw new IllegalArgumentException("No compatible dataset items selected for this Action");
         }
@@ -154,7 +169,7 @@ public class ActionTrainingSnapshotService {
             throw new IllegalArgumentException("No compatible image for any selected dataset item; accepted types: "
                     + imageRequirement.imageTypes());
         }
-        requireSplits(materials, requirements);
+        requireSplits(materials, requirements, frozenSplit);
 
         long totalBytes = materials.stream().mapToLong(material -> (material.image() == null ? 0 : material.image().size()) + material.xml().size()).sum();
         long reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(workspaceId, totalBytes, "action-training-snapshot");
@@ -175,7 +190,7 @@ public class ActionTrainingSnapshotService {
                 input.setDatasetItemId(material.item().getId());
                 input.setSourcePageId(material.item().getSourcePageId());
                 input.setPageName(material.item().getSourcePageName());
-                input.setSplit(material.item().getAssignedSplit());
+                input.setSplit(runSplit(material.item(), frozenSplit));
                 if (image != null) {
                     Path imageTarget = itemRoot.resolve("image-" + safeFileName(image.fileName()));
                     Files.copy(image.path(), imageTarget, StandardCopyOption.REPLACE_EXISTING);
@@ -252,7 +267,7 @@ public class ActionTrainingSnapshotService {
         ActionDto.TrainingSplitRequirements splits = new ActionDto.TrainingSplitRequirements(
                 InputLevel.OPTIONAL, InputLevel.OPTIONAL, InputLevel.OPTIONAL);
         List<DatasetItem> items = selectItems(datasetItemRepository.findByDatasetIdOrderByCreatedAsc(dataset.getId()),
-                request.selection(), splits);
+                request.selection(), splits, null);
         List<IntegrationMaterial> materials = new ArrayList<>();
         boolean explicit = request.selection() != null && "SELECTED".equalsIgnoreCase(request.selection().mode());
         for (DatasetItem item : items) {
@@ -373,11 +388,12 @@ public class ActionTrainingSnapshotService {
 
     private List<DatasetItem> selectItems(List<DatasetItem> allItems,
                                           ActionDto.TrainingSelection selection,
-                                          ActionDto.TrainingSplitRequirements requirements) {
+                                          ActionDto.TrainingSplitRequirements requirements,
+                                          DatasetItem.Split frozenSplit) {
         String mode = selection == null || selection.mode() == null ? "ALL" : selection.mode().trim().toUpperCase();
         if ("ALL".equals(mode)) {
             return allItems.stream()
-                    .filter(item -> splitLevel(item.getAssignedSplit(), requirements) != InputLevel.NONE)
+                    .filter(item -> splitLevel(runSplit(item, frozenSplit), requirements) != InputLevel.NONE)
                     .filter(item -> item.getStatus() == DatasetItem.Status.READY)
                     .toList();
         }
@@ -400,7 +416,7 @@ public class ActionTrainingSnapshotService {
             if (item == null) {
                 throw new IllegalArgumentException("Dataset item not found: " + id);
             }
-            if (splitLevel(item.getAssignedSplit(), requirements) == InputLevel.NONE) {
+            if (splitLevel(runSplit(item, frozenSplit), requirements) == InputLevel.NONE) {
                 throw new IllegalArgumentException("Dataset split is unsupported by this training Action: " + item.getAssignedSplit());
             }
             result.add(item);
@@ -408,9 +424,31 @@ public class ActionTrainingSnapshotService {
         return result;
     }
 
-    private void requireSplits(List<ResolvedMaterial> materials, ActionDto.TrainingSplitRequirements requirements) {
+    private DatasetItem.Split runSplit(DatasetItem item, DatasetItem.Split frozenSplit) {
+        return frozenSplit == null ? item.getAssignedSplit() : frozenSplit;
+    }
+
+    /** The single split an Action reads every page from when an evaluation ignores dataset splits. */
+    private DatasetItem.Split allPagesSplit(ActionDto.TrainingSplitRequirements requirements) {
+        List<DatasetItem.Split> preferred = List.of(DatasetItem.Split.TEST, DatasetItem.Split.VAL, DatasetItem.Split.TRAIN);
+        List<DatasetItem.Split> required = preferred.stream()
+                .filter(split -> splitLevel(split, requirements) == InputLevel.REQUIRED)
+                .toList();
+        if (required.size() > 1) {
+            throw new IllegalArgumentException("This Action needs pages from several splits, so it cannot evaluate all pages together");
+        }
+        if (required.size() == 1) return required.getFirst();
+        return preferred.stream()
+                .filter(split -> splitLevel(split, requirements) != InputLevel.NONE)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("This Action accepts no dataset splits"));
+    }
+
+    private void requireSplits(List<ResolvedMaterial> materials,
+                               ActionDto.TrainingSplitRequirements requirements,
+                               DatasetItem.Split frozenSplit) {
         Map<DatasetItem.Split, Long> counts = new EnumMap<>(DatasetItem.Split.class);
-        materials.forEach(material -> counts.merge(material.item().getAssignedSplit(), 1L, Long::sum));
+        materials.forEach(material -> counts.merge(runSplit(material.item(), frozenSplit), 1L, Long::sum));
         for (DatasetItem.Split split : DatasetItem.Split.values()) {
             if (splitLevel(split, requirements) == InputLevel.REQUIRED && counts.getOrDefault(split, 0L) == 0) {
                 throw new IllegalArgumentException("At least one " + split + " dataset item is required");
@@ -559,16 +597,18 @@ public class ActionTrainingSnapshotService {
         throw new IllegalArgumentException("Choose image variants for " + item.getSourcePageName());
     }
 
-    private ActionDto.TrainingInputItem overviewItem(String workspaceId, DatasetItem item) {
+    private ActionDto.TrainingInputItem overviewItem(String workspaceId, DatasetItem item, Set<String> trainedPageIds) {
         try {
             ResolvedOverview overview = resolveOverview(workspaceId, item);
             return new ActionDto.TrainingInputItem(
                     item.getId(), item.getSourcePageId(), item.getSourcePageName(), item.getAssignedSplit(),
-                    item.getStatus(), item.getBrokenReason(), overview.xmlAvailable(), overview.images());
+                    item.getStatus(), item.getBrokenReason(), overview.xmlAvailable(), overview.images(), overview.workflowState(),
+                    trainedPageIds.contains(item.getSourcePageId()));
         } catch (RuntimeException error) {
             return new ActionDto.TrainingInputItem(
                     item.getId(), item.getSourcePageId(), item.getSourcePageName(), item.getAssignedSplit(),
-                    DatasetItem.Status.BROKEN, error.getMessage(), false, List.of());
+                    DatasetItem.Status.BROKEN, error.getMessage(), false, List.of(), null,
+                    trainedPageIds.contains(item.getSourcePageId()));
         }
     }
 
@@ -584,7 +624,7 @@ public class ActionTrainingSnapshotService {
                     .filter(file -> Files.isRegularFile(uploadPathService.resolve(file.getFilePath())))
                     .map(file -> new ActionDto.TrainingImageChoice(file.getSourceFileId(), file.getFileName(), file.getVariant(), file.getImageType()))
                     .toList();
-            return new ResolvedOverview(xmlAvailable, images);
+            return new ResolvedOverview(xmlAvailable, images, null);
         }
         Page page = pageRepository.findById(item.getSourcePageId()).orElseThrow();
         if (page.getProject() == null || page.getProject().getLibrary() == null
@@ -600,7 +640,7 @@ public class ActionTrainingSnapshotService {
                 .filter(image -> Files.isRegularFile(uploadPathService.resolve(image.getFilePath())))
                 .map(image -> new ActionDto.TrainingImageChoice(image.getId(), image.getFileName(), image.getVariant(), image.getImageType()))
                 .toList();
-        return new ResolvedOverview(xmlAvailable, images);
+        return new ResolvedOverview(xmlAvailable, images, page.getWorkflowState());
     }
 
     private Dataset requireDataset(String workspaceId, String datasetId) {
@@ -710,5 +750,5 @@ public class ActionTrainingSnapshotService {
     public record SnapshotResult(int inputCount, Map<String, Long> splitCounts) {}
     private record ResolvedMaterial(DatasetItem item, ResolvedFile image, ResolvedFile xml) {}
     private record ResolvedFile(String id, String fileName, String variant, String mimeType, long size, Path path, ImageType imageType) {}
-    private record ResolvedOverview(boolean xmlAvailable, List<ActionDto.TrainingImageChoice> images) {}
+    private record ResolvedOverview(boolean xmlAvailable, List<ActionDto.TrainingImageChoice> images, Page.WorkflowState workflowState) {}
 }

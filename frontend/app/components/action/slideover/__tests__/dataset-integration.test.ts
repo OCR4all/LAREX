@@ -55,7 +55,7 @@ const definition: ActionDefinition = {
 }
 const item: IntegrationInputItem = {
   itemId: 'item', sourcePageId: 'page', pageName: 'Page', split: null, status: 'READY',
-  brokenReason: null, xmlAvailable: true, images: []
+  brokenReason: null, xmlAvailable: true, workflowState: null, usedForTraining: false, images: []
 }
 
 describe('Dataset Integration run flow', () => {

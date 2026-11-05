@@ -67,6 +67,12 @@ public class Dataset {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "managed_key", length = 64)
+    private String managedKey;
+
+    @Column(name = "managed_label")
+    private String managedLabel;
+
     @ElementCollection
     @CollectionTable(name = "dataset_tags", joinColumns = @JoinColumn(name = "dataset_id"))
     @Column(name = "tag")
@@ -155,6 +161,30 @@ public class Dataset {
 
     public String getName() {
         return name;
+    }
+
+    public String getManagedKey() {
+        return managedKey;
+    }
+
+    public void setManagedKey(String managedKey) {
+        this.managedKey = managedKey;
+    }
+
+    public String getManagedLabel() {
+        return managedLabel;
+    }
+
+    public void setManagedLabel(String managedLabel) {
+        this.managedLabel = managedLabel;
+    }
+
+    public boolean isManaged() {
+        return managedKey != null;
+    }
+
+    public String getDisplayName() {
+        return isManaged() ? managedLabel : name;
     }
 
     public void setName(String name) {

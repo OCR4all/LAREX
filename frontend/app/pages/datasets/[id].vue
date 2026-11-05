@@ -498,6 +498,12 @@ async function openIntegrationAction(selected = false) {
 
 const actionItems = computed<DropdownMenuItem[]>(() => {
   const items: DropdownMenuItem[] = [{
+    label: 'Train Model', icon: 'i-lucide-brain-circuit', disabled: isBusy.value,
+    onSelect: () => { void navigateTo({ path: '/training/new', query: { dataset: datasetId } }) }
+  }, {
+    label: 'Evaluate Model', icon: 'i-lucide-chart-no-axes-combined', disabled: isBusy.value,
+    onSelect: () => { void navigateTo({ path: '/evaluation/new', query: { dataset: datasetId } }) }
+  }, {
     label: 'Run Action', icon: 'i-lucide-plug', disabled: isBusy.value,
     onSelect: () => { void openIntegrationAction() }
   }]

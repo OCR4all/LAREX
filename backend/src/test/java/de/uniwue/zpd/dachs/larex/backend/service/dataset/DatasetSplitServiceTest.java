@@ -48,6 +48,89 @@ class DatasetSplitServiceTest {
     }
 
     @Test
+    void addingItemsKeepsExistingLinkedAssignments() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.RANDOM_SEEDED);
+        List<DatasetItem> existing = items(20);
+        service.regenerateSplitAssignments(dataset, existing);
+        List<DatasetItem.Split> before = existing.stream().map(DatasetItem::getAssignedSplit).toList();
+
+        service.assignSplitsToNewItems(dataset, existing, items(5));
+
+        assertThat(existing).extracting(DatasetItem::getAssignedSplit).containsExactlyElementsOf(before);
+    }
+
+    @Test
+    void addingItemsFillsSplitsTowardTheConfiguredTargets() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.RANDOM_SEEDED);
+        List<DatasetItem> existing = items(10);
+        service.regenerateSplitAssignments(dataset, existing);
+        List<DatasetItem> added = items(10);
+
+        service.assignSplitsToNewItems(dataset, existing, added);
+
+        List<DatasetItem> all = new ArrayList<>(existing);
+        all.addAll(added);
+        assertThat(countsBySplit(all)).containsEntry(DatasetItem.Split.TRAIN, 14L);
+        assertThat(countsBySplit(all)).containsEntry(DatasetItem.Split.VAL, 3L);
+        assertThat(countsBySplit(all)).containsEntry(DatasetItem.Split.TEST, 3L);
+    }
+
+    @Test
+    void addingItemsKeepsManualAssignments() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.RANDOM_SEEDED);
+        List<DatasetItem> existing = items(4);
+        existing.forEach(item -> {
+            item.setAssignedSplit(DatasetItem.Split.TEST);
+            item.setManualSplit(true);
+        });
+
+        service.assignSplitsToNewItems(dataset, existing, items(1));
+
+        assertThat(existing).allSatisfy(item -> assertThat(item.getAssignedSplit()).isEqualTo(DatasetItem.Split.TEST));
+    }
+
+    @Test
+    void addingItemsToAnEmptyDatasetMatchesRegeneration() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.RANDOM_SEEDED);
+        List<DatasetItem> regenerated = items(10);
+        List<DatasetItem> added = items(10);
+
+        service.regenerateSplitAssignments(dataset, regenerated);
+        service.assignSplitsToNewItems(dataset, List.of(), added);
+
+        assertThat(added).extracting(DatasetItem::getAssignedSplit)
+                .containsExactlyElementsOf(regenerated.stream().map(DatasetItem::getAssignedSplit).toList());
+    }
+
+    @Test
+    void newPagesJoinTheirProjectSplitWhenGroupingByProject() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.GROUP_BY_SOURCE_PROJECT);
+        List<DatasetItem> existing = items(2);
+        existing.get(0).setSourceProjectId("held-out");
+        existing.get(0).setAssignedSplit(DatasetItem.Split.TEST);
+        existing.get(1).setSourceProjectId("trained-on");
+        existing.get(1).setAssignedSplit(DatasetItem.Split.TRAIN);
+        List<DatasetItem> added = items(2);
+        added.forEach(item -> item.setSourceProjectId("held-out"));
+
+        service.assignSplitsToNewItems(dataset, existing, added);
+
+        assertThat(added).allSatisfy(item -> assertThat(item.getAssignedSplit()).isEqualTo(DatasetItem.Split.TEST));
+    }
+
+    @Test
+    void stableSplitIsRepeatableAndCloseToTheManagedPercentages() {
+        Map<DatasetItem.Split, Long> counts = java.util.stream.IntStream.range(0, 10_000)
+                .mapToObj(index -> service.stableSplit("page-" + index))
+                .collect(Collectors.groupingBy(split -> split, Collectors.counting()));
+
+        assertThat(service.stableSplit("page-1")).isEqualTo(service.stableSplit("page-1"));
+        assertThat(counts.get(DatasetItem.Split.TRAIN)).isBetween(6_800L, 7_200L);
+        assertThat(counts.get(DatasetItem.Split.VAL)).isBetween(1_350L, 1_650L);
+        assertThat(counts.get(DatasetItem.Split.TEST)).isBetween(1_350L, 1_650L);
+    }
+
+    @Test
     void invalidPercentagesAreRejected() {
         Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.RANDOM_SEEDED);
         dataset.setTrainPercentage(50);

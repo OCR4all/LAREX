@@ -41,7 +41,7 @@ const UBadgeComponent = resolveComponent('UBadge')
 const UProgressComponent = resolveComponent('UProgress')
 const UDropdownMenuComponent = resolveComponent('UDropdownMenu')
 const columns = computed<TableColumn<ActionRun>[]>(() => [
-  { id: 'dataset', header: 'Dataset', cell: ({ row }) => h('span', { class: 'truncate font-medium' }, row.original.datasetLabel || 'Dataset') },
+  { id: 'dataset', header: 'Source', cell: ({ row }) => h('span', { class: 'truncate font-medium' }, row.original.datasetLabel || 'Dataset') },
   { id: 'action', header: 'Action', cell: ({ row }) => h('span', { class: 'truncate' }, row.original.processorName) },
   { id: 'status', header: 'Status', cell: ({ row }) => h(UBadgeComponent, { size: 'sm', variant: 'soft', color: statusColor(row.original.status) }, () => actionRunStatusLabel(row.original.status)) },
   { id: 'inputs', header: 'Inputs', cell: ({ row }) => h('span', { class: 'tabular-nums' }, String(row.original.inputCount ?? 0)) },
@@ -113,7 +113,7 @@ const toolbarRefresh = useRefreshFeedback(() => loadRuns())
           <UInput
             v-model="search"
             icon="i-lucide-search"
-            placeholder="Search dataset or Action…"
+            placeholder="Search source or Action…"
             class="w-full sm:w-64"
           /><USelectMenu
             v-model="status"

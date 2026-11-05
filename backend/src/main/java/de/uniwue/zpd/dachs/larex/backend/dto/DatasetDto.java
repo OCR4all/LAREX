@@ -41,6 +41,14 @@ public class DatasetDto {
         }
     }
 
+    public record SaveProjectDatasetRequest(
+            @NotBlank(message = "Name is required")
+            @Size(max = 255, message = "Name must not exceed 255 characters")
+            String name,
+            @NotEmpty(message = "At least one page is required")
+            List<String> itemIds
+    ) {}
+
     public record AddItemsRequest(
             @NotEmpty(message = "At least one item is required")
             List<@Valid AddItemRequest> items
@@ -93,6 +101,15 @@ public class DatasetDto {
             @NotNull(message = "expiresAt is required")
             @Future(message = "expiresAt must be in the future")
             LocalDateTime expiresAt
+    ) {}
+
+    public record ProjectDatasetRequest(
+            @NotEmpty List<String> projectIds
+    ) {}
+
+    public record ProjectDatasetResponse(
+            SummaryResponse dataset,
+            int pagesWithoutXml
     ) {}
 
     public record SummaryResponse(

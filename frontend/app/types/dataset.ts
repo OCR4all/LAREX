@@ -21,6 +21,16 @@ export interface DatasetStats {
   countsByTag: Record<string, number>
 }
 
+export interface ProjectDatasetResponse {
+  dataset: DatasetSummary
+  pagesWithoutXml: number
+}
+
+export interface SaveProjectDatasetRequest {
+  name: string
+  itemIds: string[]
+}
+
 export interface DatasetSummary {
   id: string
   workspaceId: string

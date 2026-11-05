@@ -135,9 +135,15 @@ public class DatasetService {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         AuthorizationCapabilitiesDto.DatasetCapabilities capabilities =
                 authorizationPolicyService.resolveDatasetCapabilities(workspaceId, userId);
-        return datasetRepository.findByWorkspaceIdOrderByUpdatedDesc(workspaceId).stream()
+        return datasetRepository.findByWorkspaceIdAndManagedKeyIsNullOrderByUpdatedDesc(workspaceId).stream()
                 .map(dataset -> toSummaryResponse(dataset, capabilities))
                 .toList();
+    }
+
+    public DatasetDto.SummaryResponse getDatasetSummary(String workspaceId, String datasetId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        return toSummaryResponse(requireDataset(workspaceId, datasetId),
+                authorizationPolicyService.resolveDatasetCapabilities(workspaceId, userId));
     }
 
     public DatasetDto.DetailResponse getDataset(String workspaceId, String datasetId, String userId) {
@@ -238,7 +244,7 @@ public class DatasetService {
                                                    DatasetDto.CreateOrUpdateRequest request,
                                                    String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
-        Dataset dataset = requireDataset(workspaceId, datasetId);
+        Dataset dataset = requireEditableDataset(workspaceId, datasetId);
         validateDatasetName(workspaceId, request.name(), dataset.getId());
         applyDatasetConfiguration(dataset, request);
         Dataset saved = datasetRepository.save(dataset);
@@ -289,7 +295,7 @@ public class DatasetService {
                                               DatasetDto.AddItemsRequest request,
                                               String userId) throws IOException {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
-        Dataset dataset = requireDataset(workspaceId, datasetId);
+        Dataset dataset = requireEditableDataset(workspaceId, datasetId);
         if (request.items() == null || request.items().isEmpty()) {
             throw new IllegalArgumentException("At least one item is required");
         }
@@ -339,8 +345,7 @@ public class DatasetService {
                 newItems.add(datasetItemRepository.save(item));
             }
 
-            List<DatasetItem> allItems = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(datasetId);
-            regenerateSplitAssignments(dataset, allItems);
+            assignSplitsToNewItems(dataset, newItems);
 
             for (DatasetItem item : newItems) {
                 if (item.getMode() == DatasetItem.Mode.COPY) {
@@ -368,7 +373,7 @@ public class DatasetService {
                                                 DatasetDto.UpdateItemRequest request,
                                                 String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
-        requireDataset(workspaceId, datasetId);
+        requireEditableDataset(workspaceId, datasetId);
         DatasetItem item = datasetItemRepository.findByIdAndDatasetId(itemId, datasetId)
                 .orElseThrow(() -> new ResourceNotFoundException("Dataset item", itemId));
         if (request.assignedSplit() != null) {
@@ -384,7 +389,7 @@ public class DatasetService {
                                                 String itemId,
                                                 String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
-        requireDataset(workspaceId, datasetId);
+        requireEditableDataset(workspaceId, datasetId);
         DatasetItem item = datasetItemRepository.findByIdAndDatasetId(itemId, datasetId)
                 .orElseThrow(() -> new ResourceNotFoundException("Dataset item", itemId));
         deleteCopiedFiles(item.getCopyFiles());
@@ -398,7 +403,7 @@ public class DatasetService {
                                                             List<String> ids,
                                                             String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
-        requireDataset(workspaceId, datasetId);
+        requireEditableDataset(workspaceId, datasetId);
 
         List<String> deletedIds = new ArrayList<>();
         List<String> failedIds = new ArrayList<>();
@@ -439,7 +444,7 @@ public class DatasetService {
                                                    DatasetDto.GenerateSplitRequest request,
                                                    String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
-        Dataset dataset = requireDataset(workspaceId, datasetId);
+        Dataset dataset = requireEditableDataset(workspaceId, datasetId);
 
         if (request != null) {
             DatasetDto.CreateOrUpdateRequest configRequest = new DatasetDto.CreateOrUpdateRequest(
@@ -1121,8 +1126,18 @@ public class DatasetService {
     }
 
     private void regenerateSplitAssignments(Dataset dataset, List<DatasetItem> items) {
-        List<String> warnings = datasetSplitService.regenerateSplitAssignments(dataset, items);
+        saveSplitAssignments(dataset, items, datasetSplitService.regenerateSplitAssignments(dataset, items));
+    }
 
+    private void assignSplitsToNewItems(Dataset dataset, List<DatasetItem> newItems) {
+        Set<String> newItemIds = newItems.stream().map(DatasetItem::getId).collect(Collectors.toSet());
+        List<DatasetItem> existingItems = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(dataset.getId()).stream()
+                .filter(item -> !newItemIds.contains(item.getId()))
+                .toList();
+        saveSplitAssignments(dataset, newItems, datasetSplitService.assignSplitsToNewItems(dataset, existingItems, newItems));
+    }
+
+    private void saveSplitAssignments(Dataset dataset, List<DatasetItem> items, List<String> warnings) {
         for (DatasetItem item : items) {
             datasetItemRepository.save(item);
         }
@@ -1362,7 +1377,7 @@ public class DatasetService {
         return new DatasetDto.DetailResponse(
                 dataset.getId(),
                 dataset.getWorkspaceId(),
-                dataset.getName(),
+                dataset.getDisplayName(),
                 dataset.getDescription(),
                 defaultList(dataset.getTags()),
                 dataset.getCreated(),
@@ -1395,7 +1410,7 @@ public class DatasetService {
         return new DatasetDto.SummaryResponse(
                 dataset.getId(),
                 dataset.getWorkspaceId(),
-                dataset.getName(),
+                dataset.getDisplayName(),
                 dataset.getDescription(),
                 defaultList(dataset.getTags()),
                 dataset.getCreated(),
@@ -1531,6 +1546,14 @@ public class DatasetService {
         dataset.setTestPercentage(request.testPercentage() == null ? defaultTest : request.testPercentage());
         dataset.setStratifyTagIds(normalizeStrings(request.stratifyTagIds()));
         datasetSplitService.validateSplitConfiguration(dataset);
+    }
+
+    private Dataset requireEditableDataset(String workspaceId, String datasetId) {
+        Dataset dataset = requireDataset(workspaceId, datasetId);
+        if (dataset.isManaged()) {
+            throw new IllegalArgumentException("This dataset follows its source projects and cannot be edited");
+        }
+        return dataset;
     }
 
     private void validateDatasetName(String workspaceId, String name, String existingDatasetId) {

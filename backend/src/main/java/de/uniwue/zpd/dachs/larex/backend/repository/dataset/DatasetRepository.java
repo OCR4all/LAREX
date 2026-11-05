@@ -12,6 +12,10 @@ public interface DatasetRepository extends JpaRepository<Dataset, String> {
 
     List<Dataset> findByWorkspaceIdOrderByUpdatedDesc(String workspaceId);
 
+    List<Dataset> findByWorkspaceIdAndManagedKeyIsNullOrderByUpdatedDesc(String workspaceId);
+
+    Optional<Dataset> findByWorkspaceIdAndManagedKey(String workspaceId, String managedKey);
+
     Optional<Dataset> findByIdAndWorkspaceId(String id, String workspaceId);
 
     boolean existsByWorkspaceIdAndNameIgnoreCase(String workspaceId, String name);

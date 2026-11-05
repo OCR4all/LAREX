@@ -8,6 +8,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Status;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Kind;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
+import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -287,8 +288,16 @@ public class ActionDto {
             TrainingSelection selection,
             TrainingImageSelection imageSelection,
             Map<String, Object> parameters,
-            Boolean enqueueIfBusy
-    ) {}
+            Boolean enqueueIfBusy,
+            /** Evaluates the selected pages whatever their split, without changing the dataset. */
+            Boolean allPages
+    ) {
+        public StartEvaluationRunRequest(String processorDefinitionId, TrainingSelection selection,
+                                         TrainingImageSelection imageSelection, Map<String, Object> parameters,
+                                         Boolean enqueueIfBusy) {
+            this(processorDefinitionId, selection, imageSelection, parameters, enqueueIfBusy, null);
+        }
+    }
 
     public record TrainingSelection(
             String mode,
@@ -321,7 +330,9 @@ public class ActionDto {
             DatasetItem.Status status,
             String brokenReason,
             boolean xmlAvailable,
-            List<TrainingImageChoice> images
+            List<TrainingImageChoice> images,
+            Page.WorkflowState workflowState,
+            boolean usedForTraining
     ) {}
 
     public record TrainingImageChoice(

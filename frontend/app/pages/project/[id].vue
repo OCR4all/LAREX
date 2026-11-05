@@ -759,6 +759,12 @@ const projectDeleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const projectShareSlideover = overlay.create(LazyShareSlideover)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 const addToDatasetSlideover = overlay.create(LazyProjectSlideoverAddToDataset)
+const datasetRunPageSelection = useDatasetRunPageSelection()
+
+function openDatasetRun(kind: 'training' | 'evaluation', pageIds?: string[]) {
+  datasetRunPageSelection.value = pageIds ? { projectId, pageIds } : null
+  void navigateTo({ path: `/${kind}/new`, query: { project: projectId } })
+}
 const bulkDeletePagesSlideover = overlay.create(LazyProjectSlideoverBulkDeletePages)
 const movePagesSlideover = overlay.create(LazyProjectSlideoverMovePages)
 const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover)
@@ -1049,6 +1055,18 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
     {
       type: 'label',
       label: 'Toolkit'
+    },
+    {
+      label: 'Train on this project',
+      icon: 'i-lucide-brain-circuit',
+      disabled: (pages.value?.length ?? 0) === 0,
+      onSelect: () => openDatasetRun('training')
+    },
+    {
+      label: 'Evaluate on this project',
+      icon: 'i-lucide-chart-no-axes-combined',
+      disabled: (pages.value?.length ?? 0) === 0,
+      onSelect: () => openDatasetRun('evaluation')
     },
     {
       label: 'Generate codec (full project)',
@@ -1805,6 +1823,18 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
       onSelect: () => {
         void openAddToDatasetSlideover()
       }
+    },
+    {
+      label: 'Train on selected pages',
+      icon: 'i-lucide-brain-circuit',
+      disabled: !hasSelection.value,
+      onSelect: () => openDatasetRun('training', [...selectedPageIds.value])
+    },
+    {
+      label: 'Evaluate on selected pages',
+      icon: 'i-lucide-chart-no-axes-combined',
+      disabled: !hasSelection.value,
+      onSelect: () => openDatasetRun('evaluation', [...selectedPageIds.value])
     },
     {
       label: 'Generate codec (selected pages)',

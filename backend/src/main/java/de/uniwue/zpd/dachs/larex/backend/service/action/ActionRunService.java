@@ -564,7 +564,7 @@ public class ActionRunService {
         run.setProcessorDefinition(definition);
         run.setWorkspaceId(workspaceId);
         run.setDatasetId(dataset.getId());
-        run.setDatasetLabel(dataset.getName());
+        run.setDatasetLabel(dataset.getDisplayName());
         run.setCreatedByUserId(userId);
         run.setStatus(dispatchImmediately ? Status.PENDING : Status.QUEUED);
         run.setStatusMessage(dispatchImmediately ? "Freezing integration inputs" : "Freezing integration inputs before queueing");
@@ -614,7 +614,7 @@ public class ActionRunService {
         run.setProcessorDefinition(definition);
         run.setWorkspaceId(workspaceId);
         run.setDatasetId(dataset.getId());
-        run.setDatasetLabel(dataset.getName());
+        run.setDatasetLabel(dataset.getDisplayName());
         run.setCreatedByUserId(userId);
         run.setStatus(dispatchImmediately ? Status.PENDING : Status.QUEUED);
         run.setStatusMessage(dispatchImmediately ? "Freezing training inputs" : "Freezing training inputs before queueing");
@@ -668,7 +668,7 @@ public class ActionRunService {
         run.setProcessorDefinition(definition);
         run.setWorkspaceId(workspaceId);
         run.setDatasetId(dataset.getId());
-        run.setDatasetLabel(dataset.getName());
+        run.setDatasetLabel(dataset.getDisplayName());
         run.setCreatedByUserId(userId);
         run.setStatus(dispatchImmediately ? Status.PENDING : Status.QUEUED);
         run.setStatusMessage(dispatchImmediately ? "Freezing evaluation inputs" : "Freezing evaluation inputs before queueing");
