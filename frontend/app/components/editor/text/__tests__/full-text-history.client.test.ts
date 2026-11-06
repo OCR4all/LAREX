@@ -10,7 +10,8 @@ import { Polygon } from '@/models/editor/geometry'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 import * as shortcuts from '@/composables/editor/use-keyboard-shortcuts'
 import * as sessions from '@/session/editor/editor-session'
-import { getOrCreateSessionCommander, redoSessionCommand, undoSessionCommand } from '@/session/editor/canvas-commander'
+import { redoSessionCommand, undoSessionCommand } from '@/session/editor/canvas-commander'
+import { Commander } from '@/commands/editor/commander'
 import * as pagePrimitives from '@/utils/editor/pcgts-editor-primitives'
 import * as navigation from '@/utils/editor/textline-navigation'
 import * as textVariants from '@/utils/editor/text-variants'
@@ -71,17 +72,28 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function mountFullText() {
+function mountFullText({ editable = true, gtIndex = 0, withNextLine = false } = {}) {
   const line = new TextLine({
     id: 'line-1',
     coords: new Polygon([[0, 0], [10, 0], [10, 10]]),
     textContentVariants: [new TextContentVariant('OCR prediction', undefined, undefined, 1)]
   })
-  const region = createTestTextRegion({ id: 'region-1', textLines: [line] })
+  const nextLine = new TextLine({
+    id: 'line-2',
+    coords: new Polygon([[0, 20], [10, 20], [10, 30]]),
+    textContentVariants: [new TextContentVariant('Next prediction', undefined, undefined, 1)]
+  })
+  const lastLine = new TextLine({
+    id: 'line-3',
+    coords: new Polygon([[0, 40], [10, 40], [10, 50]]),
+    textContentVariants: [new TextContentVariant('Last prediction', undefined, undefined, 1)]
+  })
+  const region = createTestTextRegion({ id: 'region-1', textLines: withNextLine ? [line, nextLine, lastLine] : [line] })
   const session = sessions.ensureEditorSession(canvasId, { document: createTestDocument({ regions: [region] }) })
-  const commander = getOrCreateSessionCommander(canvasId)
-  session.controls.value = { commander, isCanvasEditable: Vue.ref(true) } as EditorCanvasControls
-  vi.stubGlobal('useEditorStore', () => ({ canvases: {}, setActiveCanvas: () => {}, regionsByCanvasId: () => [] }))
+  const commander = new Commander()
+  const selectPolygonById = vi.fn()
+  session.controls.value = { commander, isCanvasEditable: Vue.ref(editable), selectPolygonById } as EditorCanvasControls
+  vi.stubGlobal('useEditorStore', () => ({ canvases: {}, projectTextDefaultGtIndex: gtIndex, setActiveCanvas: () => {}, regionsByCanvasId: () => [] }))
   vi.stubGlobal('useEditorUiStore', () => ({}))
   vi.stubGlobal('useWorkspaceStore', () => ({}))
   vi.stubGlobal('useToast', () => ({}))
@@ -129,7 +141,7 @@ function mountFullText() {
     app.component(name, passthrough)
   }
   app.mount(host)
-  return { textarea: host.querySelector('textarea')!, commander, line, region }
+  return { textarea: host.querySelector('textarea')!, nextTextarea: host.querySelectorAll('textarea')[1], commander, line, nextLine, region, selectPolygonById }
 }
 
 function pressHistory(target: HTMLTextAreaElement, shiftKey = false) {
@@ -146,6 +158,102 @@ function pressHistory(target: HTMLTextAreaElement, shiftKey = false) {
 }
 
 describe('Full Text history', () => {
+  it.each(['Next prediction', 'Corrected text'])('saves "%s" as GT and focuses the previous line on Shift+Enter', async (text) => {
+    const { textarea, nextTextarea, line, nextLine, selectPolygonById } = mountFullText({ withNextLine: true })
+    const target = nextTextarea!
+    target.focus()
+    if (text !== target.value) {
+      target.value = text
+      target.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    const event = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true })
+    target.dispatchEvent(event)
+    await Vue.nextTick()
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(nextLine.textContentVariants?.find(variant => variant.index === 0)?.unicode).toBe(text)
+    expect(line.textContentVariants?.map(variant => variant.index)).toEqual([1])
+    expect(document.activeElement).toBe(textarea)
+    expect(selectPolygonById).toHaveBeenLastCalledWith('line-1', { focusMode: 'fit-width' })
+  })
+
+  it.each(['OCR prediction', 'Corrected text'])('saves "%s" as GT and focuses the next line on Enter', async (text) => {
+    const { textarea, nextTextarea, line, nextLine, selectPolygonById } = mountFullText({ withNextLine: true })
+    textarea.focus()
+    if (text !== textarea.value) {
+      textarea.value = text
+      textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    await Vue.nextTick()
+
+    expect(line.textContentVariants?.find(variant => variant.index === 0)?.unicode).toBe(text)
+    expect(nextLine.textContentVariants?.map(variant => variant.index)).toEqual([1])
+    expect(document.activeElement).toBe(nextTextarea)
+    expect(selectPolygonById).toHaveBeenLastCalledWith('line-2', { focusMode: 'fit-width' })
+  })
+
+  it('saves unchanged recognition as GT on Enter and supports undo and redo', async () => {
+    const { textarea, commander, line, region } = mountFullText()
+    textarea.focus()
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    textarea.dispatchEvent(event)
+    await Vue.nextTick()
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(line.textContentVariants?.find(variant => variant.index === 0)?.unicode).toBe('OCR prediction')
+    expect(line.textContentVariants?.find(variant => variant.index === 1)?.unicode).toBe('OCR prediction')
+    expect(region.textContentVariants?.find(variant => variant.index === 0)?.unicode).toBe('OCR prediction')
+    expect(document.activeElement).toBe(textarea)
+
+    // Confirming the same GT twice must not add another undo step.
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    expect(pressHistory(textarea)).toBe(true)
+    await Vue.nextTick()
+    expect(line.textContentVariants?.map(variant => variant.index)).toEqual([1])
+    expect(region.textContentVariants?.find(variant => variant.index === 0)).toBeUndefined()
+    expect(commander.canUndo()).toBe(false)
+    expect(commander.canRedo()).toBe(true)
+    expect(pressHistory(textarea, true)).toBe(true)
+    await Vue.nextTick()
+    expect(line.textContentVariants?.find(variant => variant.index === 0)?.unicode).toBe('OCR prediction')
+  })
+
+  it('saves edited text at the configured GT index on Enter before blur', async () => {
+    const { textarea, line, region } = mountFullText({ gtIndex: 3 })
+    textarea.focus()
+    textarea.value = 'Corrected text'
+    textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    await Vue.nextTick()
+
+    expect(line.textContentVariants?.find(variant => variant.index === 3)?.unicode).toBe('Corrected text')
+    expect(line.textContentVariants?.find(variant => variant.index === 1)?.unicode).toBe('OCR prediction')
+    expect(region.textContentVariants?.find(variant => variant.index === 3)?.unicode).toBe('Corrected text')
+    expect(shortcuts.getTextViewHistoryDraft(canvasId)?.hasChanges.value).toBe(false)
+    expect(document.activeElement).toBe(textarea)
+  })
+
+  it('does not confirm recognition while composing or using modified Enter', async () => {
+    const { textarea, commander, line } = mountFullText()
+    for (const init of [{ isComposing: true }, { altKey: true }, { ctrlKey: true }, { metaKey: true }]) {
+      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...init }))
+    }
+    await Vue.nextTick()
+
+    expect(line.textContentVariants?.map(variant => variant.index)).toEqual([1])
+    expect(commander.canUndo()).toBe(false)
+  })
+
+  it('does not create GT on Enter when the canvas is read-only', async () => {
+    const { textarea, commander, line } = mountFullText({ editable: false })
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    await Vue.nextTick()
+
+    expect(line.textContentVariants?.map(variant => variant.index)).toEqual([1])
+    expect(commander.canUndo()).toBe(false)
+  })
+
   it('undoes and redoes an in-progress transcription edit without moving focus', async () => {
     const { textarea, commander, line, region } = mountFullText()
     expect(textarea.value).toBe('OCR prediction')

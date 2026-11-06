@@ -837,12 +837,17 @@ function navigateTextlines(currentId: string, direction: 1 | -1): void {
 }
 
 function handleTextareaKeydown(event: KeyboardEvent, textlineId: string): void {
+  if (event.isComposing) return
   if (event.key === 'Tab') {
     event.preventDefault()
     navigateTextlines(textlineId, event.shiftKey ? -1 : 1)
     return
   }
   handleSingleLineTextareaKeydownEnter(event, isEditable.value)
+  if (event.key === 'Enter' && isEditable.value && !event.altKey && !event.ctrlKey && !event.metaKey) {
+    pendingCommit.value = { textlineId, text: getDisplayedText(textlineId) }
+    navigateTextlines(textlineId, event.shiftKey ? -1 : 1)
+  }
 }
 
 function handleTextareaInput(event: Event, textlineId: string): void {
