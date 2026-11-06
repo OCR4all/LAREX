@@ -92,7 +92,13 @@ function mountFullText({ editable = true, gtIndex = 0, withNextLine = false } = 
   const session = sessions.ensureEditorSession(canvasId, { document: createTestDocument({ regions: [region] }) })
   const commander = new Commander()
   const selectPolygonById = vi.fn()
-  session.controls.value = { commander, isCanvasEditable: Vue.ref(editable), selectPolygonById } as EditorCanvasControls
+  const controls = {
+    commander,
+    isCanvasEditable: Vue.computed(() => editable),
+    selectPolygonById
+  } satisfies Pick<EditorCanvasControls, 'commander' | 'isCanvasEditable' | 'selectPolygonById'>
+  // Only these controls participate in full-text history and navigation.
+  session.controls.value = controls as unknown as EditorCanvasControls
   vi.stubGlobal('useEditorStore', () => ({ canvases: {}, projectTextDefaultGtIndex: gtIndex, setActiveCanvas: () => {}, regionsByCanvasId: () => [] }))
   vi.stubGlobal('useEditorUiStore', () => ({}))
   vi.stubGlobal('useWorkspaceStore', () => ({}))
