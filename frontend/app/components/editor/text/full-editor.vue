@@ -1308,6 +1308,8 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </div>
+        <!-- Scroll space after the last line, so it can clear the floating toolbar. -->
+        <div class="col-span-2 h-[12.5vh] shrink-0" aria-hidden="true" />
       </div>
     </section>
   </TooltipProvider>
