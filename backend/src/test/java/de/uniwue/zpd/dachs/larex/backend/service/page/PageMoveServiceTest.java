@@ -253,6 +253,43 @@ class PageMoveServiceTest {
         assertThat(first.getProject()).isSameAs(source);
     }
 
+    @Test
+    void copyPreviewUsesCopyOutcomesAndAllowsLockedSourcesButProtectsDestinations() {
+        source.setLocked(true);
+        first.setLocked(true);
+        second.setWorkflowState(Page.WorkflowState.DONE);
+        Preview preview = service.previewCopy("workspace", "source", request(ConflictPolicy.SKIP, "", "", null), "user");
+        assertThat(preview.items()).extracting(Item::outcome).containsExactly(Outcome.SKIP, Outcome.COPY);
+        assertThat(preview.movedCount()).isZero();
+        assertThat(preview.copiedCount()).isEqualTo(1);
+        assertThat(preview.canTransfer()).isTrue();
+        clash.setLocked(true);
+        assertThat(service.previewCopy("workspace", "source", request(ConflictPolicy.OVERWRITE, "", "", null), "user")
+                .canTransfer()).isFalse();
+        clash.setLocked(false);
+        destination.setLocked(true);
+        assertThat(service.previewCopy("workspace", "source", request(ConflictPolicy.SKIP, "", "", null), "user")
+                .canTransfer()).isFalse();
+    }
+
+    @Test
+    void copyPreviewChecksEditorsPermissionsAndWorkspaceAndSeparatesMoveFingerprints() {
+        Request request = request(ConflictPolicy.RENAME, "copy-", "", null);
+        Preview copy = service.previewCopy("workspace", "source", request, "user");
+        assertThat(copy.fingerprint()).isNotEqualTo(service.preview("workspace", "source", request, "user").fingerprint());
+        assertThat(copy.items()).extracting(Item::resultingName).containsExactly("copy-001", "002");
+        lenient().doThrow(new AnnotationLeaseLockedException("Editor active", null, "active"))
+                .when(leases).assertNoOtherActiveEditor("second", null);
+        assertThat(service.previewCopy("workspace", "source", request, "user").canTransfer()).isFalse();
+        when(access.canManageProjects("workspace", "user")).thenReturn(false);
+        assertThatThrownBy(() -> service.previewCopy("workspace", "source", request, "user"))
+                .isInstanceOf(SecurityException.class);
+        when(access.canManageProjects("workspace", "user")).thenReturn(true);
+        when(projects.findByIdAndLibraryWorkspaceId("destination", "workspace")).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.previewCopy("workspace", "source", request, "user"))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
     private Preview preview(ConflictPolicy policy, String prefix, String suffix) {
         return service.preview("workspace", "source", request(policy, prefix, suffix, null), "user");
     }

@@ -57,12 +57,12 @@ public class PageMoveService {
 
     @Transactional(readOnly = true)
     public Preview preview(String workspaceId, String sourceProjectId, Request request, String userId) {
-        return prepare(workspaceId, sourceProjectId, request, userId, false).preview();
+        return prepare(workspaceId, sourceProjectId, request, userId, false, false).preview();
     }
 
     @Transactional(rollbackFor = IOException.class)
     public Preview move(String workspaceId, String sourceProjectId, Request request, String userId) throws IOException {
-        Plan plan = prepare(workspaceId, sourceProjectId, request, userId, true);
+        Plan plan = prepare(workspaceId, sourceProjectId, request, userId, true, false);
         Preview preview = plan.preview();
         if (request.fingerprint() == null || !request.fingerprint().equals(preview.fingerprint())) {
             throw new PageMoveConflictException("The move preview has changed. Review a fresh preview before moving pages.");
@@ -80,13 +80,7 @@ public class PageMoveService {
         var changes = files.enlist(sourceProjectId, request.destinationProjectId());
         files.copyAssets(movingIds, workspaceId, request.destinationProjectId(), userId, changes);
         if (!overwrittenIds.isEmpty()) {
-            files.collectOverwrittenAssets(overwrittenIds, changes);
-            taskLinks.deleteByPageIdIn(overwrittenIds);
-            subtasks.deleteByPageIdIn(overwrittenIds);
-            // Asset/index/history foreign keys cascade. Tags need explicit removal for bulk deletion.
-            pages.deleteTagsByPageIds(overwrittenIds);
-            pages.deleteByIdIn(overwrittenIds);
-            pages.flush();
+            deleteOverwritten(overwrittenIds, changes);
         }
         List<Integer> sortOrders = order.reserveAppendSortOrders(request.destinationProjectId(), moving.size());
         for (int index = 0; index < moving.size(); index++) {
@@ -107,9 +101,29 @@ public class PageMoveService {
         return preview;
     }
 
-    private Plan prepare(String workspaceId, String sourceId, Request request, String userId, boolean lock) {
+    @Transactional(readOnly = true)
+    public Preview previewCopy(String workspaceId, String sourceProjectId, Request request, String userId) {
+        return prepare(workspaceId, sourceProjectId, request, userId, false, true).preview();
+    }
+
+    Plan prepareCopy(String workspaceId, String sourceId, Request request, String userId) {
+        return prepare(workspaceId, sourceId, request, userId, true, true);
+    }
+
+    void deleteOverwritten(List<String> overwrittenIds, PageMoveFileService.Changes changes) {
+        files.collectOverwrittenAssets(overwrittenIds, changes);
+        taskLinks.deleteByPageIdIn(overwrittenIds);
+        subtasks.deleteByPageIdIn(overwrittenIds);
+        // Asset/index/history foreign keys cascade. Tags need explicit removal for bulk deletion.
+        pages.deleteTagsByPageIds(overwrittenIds);
+        pages.deleteByIdIn(overwrittenIds);
+        pages.flush();
+    }
+
+    private Plan prepare(String workspaceId, String sourceId, Request request, String userId,
+                         boolean lock, boolean copying) {
         if (!access.canManageProjects(workspaceId, userId)) {
-            throw new SecurityException("You do not have permission to move pages in this workspace.");
+            throw new SecurityException("You do not have permission to " + (copying ? "copy" : "move") + " pages in this workspace.");
         }
         if (sourceId.equals(request.destinationProjectId())) {
             throw new IllegalArgumentException("Choose a different destination project.");
@@ -143,7 +157,7 @@ public class PageMoveService {
         var destinationByName = destinationPages.stream().collect(Collectors.toMap(Page::getName, Function.identity()));
         List<String> blockers = new ArrayList<>();
         for (String id : projectIds) {
-            if (projectMap.get(id).isLocked()) {
+            if (projectMap.get(id).isLocked() && (!copying || !id.equals(sourceId))) {
                 blockers.add("Project '" + projectMap.get(id).getName() + "' is locked.");
             }
         }
@@ -153,14 +167,15 @@ public class PageMoveService {
         boolean canReviewPages = access.canReviewPages(workspaceId, userId);
         for (Page page : selected) {
             Page clash = destinationByName.get(page.getName());
-            Outcome outcome = clash == null ? Outcome.MOVE : switch (request.conflictPolicy()) {
+            Outcome outcome = clash == null ? (copying ? Outcome.COPY : Outcome.MOVE) : switch (request.conflictPolicy()) {
                 case SKIP -> Outcome.SKIP;
                 case OVERWRITE -> Outcome.OVERWRITE;
                 case RENAME -> Outcome.RENAME;
             };
             String name = outcome == Outcome.RENAME ? prefix + page.getName() + suffix : page.getName();
             List<String> itemBlockers = new ArrayList<>();
-            checkWritable(page, canReviewPages, itemBlockers);
+            if (copying) checkNoActiveEditor(page, itemBlockers);
+            else checkWritable(page, canReviewPages, itemBlockers);
             if (outcome != Outcome.SKIP) {
                 if (outcome == Outcome.OVERWRITE) checkWritable(clash, canReviewPages, itemBlockers);
                 if (name.isBlank() || name.length() > 255 || name.codePoints().anyMatch(Character::isISOControl)) {
@@ -186,8 +201,9 @@ public class PageMoveService {
         int skipped = (int) items.stream().filter(item -> item.outcome() == Outcome.SKIP).count();
         int overwritten = (int) items.stream().filter(item -> item.outcome() == Outcome.OVERWRITE).count();
         int renamed = (int) items.stream().filter(item -> item.outcome() == Outcome.RENAME).count();
-        Preview preview = new Preview(items, blockers, items.size() - skipped, skipped, overwritten, renamed,
-                fingerprint(workspaceId, sourceId, request, projectMap, sourcePages, destinationByName, items));
+        Preview preview = new Preview(items, blockers, copying ? 0 : items.size() - skipped, skipped, overwritten, renamed,
+                fingerprint(workspaceId, sourceId, request, projectMap, sourcePages, destinationByName, items, copying),
+                copying ? items.size() - skipped : 0);
         return new Plan(projectMap.get(request.destinationProjectId()), sourcePages, preview);
     }
 
@@ -195,6 +211,10 @@ public class PageMoveService {
         if (page.isLockedFor(canReviewPages)) {
             blockers.add("Page '" + page.getName() + "' is locked.");
         }
+        checkNoActiveEditor(page, blockers);
+    }
+
+    private void checkNoActiveEditor(Page page, List<String> blockers) {
         try {
             leases.assertNoOtherActiveEditor(page.getId(), null);
         } catch (AnnotationLeaseLockedException exception) {
@@ -204,10 +224,10 @@ public class PageMoveService {
 
     private String fingerprint(String workspaceId, String sourceId, Request request,
                                Map<String, Project> projectMap, Map<String, Page> sourcePages,
-                               Map<String, Page> destinationByName, List<Item> items) {
+                               Map<String, Page> destinationByName, List<Item> items, boolean copying) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            hash(digest, workspaceId, sourceId, request.destinationProjectId(), request.conflictPolicy(),
+            hash(digest, copying, workspaceId, sourceId, request.destinationProjectId(), request.conflictPolicy(),
                     Objects.requireNonNullElse(request.prefix(), ""), Objects.requireNonNullElse(request.suffix(), ""));
             for (String id : projectMap.keySet().stream().sorted().toList()) {
                 Project project = projectMap.get(id);
@@ -241,5 +261,5 @@ public class PageMoveService {
         }
     }
 
-    private record Plan(Project destination, Map<String, Page> sourcePages, Preview preview) {}
+    record Plan(Project destination, Map<String, Page> sourcePages, Preview preview) {}
 }

@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.page;
 
+import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
@@ -13,6 +14,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -109,6 +111,47 @@ public class PageMoveFileService {
         }
     }
 
+    /** Physical size includes thumbnails and does not trust possibly stale database sizes. */
+    public long copiedAssetBytes(List<String> pageIds) throws IOException {
+        long bytes = 0;
+        for (PageImage image : images.findByPageIdIn(pageIds)) {
+            bytes += Files.size(storage.resolveUploadPath(image.getFilePath()));
+            if (image.getThumbnailPath() != null && !image.getThumbnailPath().isBlank()) {
+                bytes += Files.size(storage.resolveUploadPath(image.getThumbnailPath()));
+            }
+        }
+        for (PageXml xml : xmls.findByPage_IdIn(pageIds)) {
+            bytes += Files.size(storage.resolveUploadPath(xml.getFilePath()));
+        }
+        return bytes;
+    }
+
+    /** Create independent assets for new pages; source records and history remain untouched. */
+    public void duplicateAssets(Map<String, Page> copies, String workspaceId, String destinationProjectId,
+                                String userId, Changes changes) throws IOException {
+        List<String> sourceIds = List.copyOf(copies.keySet());
+        for (PageImage source : images.findByPageIdIn(sourceIds)) {
+            var stored = copy(source.getFilePath(), source.getFileName(), source.getMimeType(),
+                    workspaceId, destinationProjectId, StoredFileType.IMG, userId, changes, false);
+            PageImage image = new PageImage(source.getFileName(), stored.storagePath(), source.getMimeType(),
+                    stored.sizeBytes(), source.getVariant(), source.getBaseName(), copies.get(source.getPage().getId()));
+            image.setImageType(source.getImageType());
+            if (source.getThumbnailPath() != null && !source.getThumbnailPath().isBlank()) {
+                var thumbnail = copy(source.getThumbnailPath(), source.getFileName(), source.getMimeType(),
+                        workspaceId, destinationProjectId, StoredFileType.THUMB, userId, changes, false);
+                image.setThumbnailPath(thumbnail.storagePath());
+            }
+            images.save(image);
+        }
+        for (PageXml source : xmls.findByPage_IdIn(sourceIds)) {
+            var stored = copy(source.getFilePath(), source.getFileName(), source.getMimeType(),
+                    workspaceId, destinationProjectId, StoredFileType.XML, userId, changes, false);
+            xmls.save(new PageXml(source.getFileName(), stored.storagePath(), source.getMimeType(),
+                    stored.sizeBytes(), source.getVariant(), source.getBaseName(), source.getSchema(),
+                    source.getSchemaVersion(), copies.get(source.getPage().getId())));
+        }
+    }
+
     public void collectOverwrittenAssets(List<String> pageIds, Changes changes) {
         for (PageImage image : images.findByPageIdIn(pageIds)) {
             changes.replacedPaths.add(image.getFilePath());
@@ -124,10 +167,16 @@ public class PageMoveFileService {
     private HierarchicalFileStorageService.StoredFileDescriptor copy(
             String path, String filename, String mimeType, String workspaceId, String projectId,
             StoredFileType type, String userId, Changes changes) throws IOException {
+        return copy(path, filename, mimeType, workspaceId, projectId, type, userId, changes, true);
+    }
+
+    private HierarchicalFileStorageService.StoredFileDescriptor copy(
+            String path, String filename, String mimeType, String workspaceId, String projectId,
+            StoredFileType type, String userId, Changes changes, boolean replaceSource) throws IOException {
         var stored = storage.storeFromPath(storage.resolveUploadPath(path), filename, mimeType,
                 workspaceId, projectId, type, userId, false);
         changes.createdPaths.add(stored.storagePath());
-        changes.replacedPaths.add(path);
+        if (replaceSource) changes.replacedPaths.add(path);
         return stored;
     }
 

@@ -279,6 +279,14 @@ public class GlobalExceptionHandler {
                 request.getRequestURI(), "PAGE_MOVE_CONFLICT"));
     }
 
+    @ExceptionHandler(PageCopyConflictException.class)
+    public ResponseEntity<ErrorResponseDto> handlePageCopyConflictException(
+            PageCopyConflictException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDto(
+                HttpStatus.CONFLICT.value(), "Page Copy Conflict", ex.getMessage(),
+                request.getRequestURI(), "PAGE_COPY_CONFLICT"));
+    }
+
     @ExceptionHandler(ProjectNameConflictException.class)
     public ResponseEntity<ErrorResponseDto> handleProjectNameConflictException(
             ProjectNameConflictException ex, HttpServletRequest request) {

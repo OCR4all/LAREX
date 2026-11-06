@@ -6,12 +6,12 @@ import type { PageMovePreview } from '@/types/page-move'
 type PreviewItem = PageMovePreview['items'][number]
 type PreviewFilter = 'all' | 'blocked' | PreviewItem['outcome']
 
-const props = defineProps<{ items: PageMovePreview['items'] }>()
+const props = defineProps<{ items: PageMovePreview['items'], operation?: 'move' | 'copy' }>()
 const search = ref('')
 const filter = ref<PreviewFilter>('all')
 const scroller = ref<HTMLElement | null>(null)
 const counts = computed(() => {
-  const result = { MOVE: 0, SKIP: 0, OVERWRITE: 0, RENAME: 0, blocked: 0 }
+  const result = { MOVE: 0, COPY: 0, SKIP: 0, OVERWRITE: 0, RENAME: 0, blocked: 0 }
   for (const item of props.items) {
     result[item.outcome]++
     if (item.blockers.length) result.blocked++
@@ -23,7 +23,7 @@ const filterOptions = computed(() => [
   { label: `Replacements (${counts.value.OVERWRITE.toLocaleString()})`, value: 'OVERWRITE' },
   { label: `Renamed (${counts.value.RENAME.toLocaleString()})`, value: 'RENAME' },
   { label: `Skipped (${counts.value.SKIP.toLocaleString()})`, value: 'SKIP' },
-  { label: `Unchanged names (${counts.value.MOVE.toLocaleString()})`, value: 'MOVE' },
+  { label: `Unchanged names (${(counts.value.MOVE + counts.value.COPY).toLocaleString()})`, value: props.operation === 'copy' ? 'COPY' : 'MOVE' },
   { label: `Needs attention (${counts.value.blocked.toLocaleString()})`, value: 'blocked' }
 ])
 const filteredItems = computed(() => {
@@ -36,6 +36,7 @@ const filteredItems = computed(() => {
 })
 const outcomes = {
   MOVE: { label: 'Move', color: 'success', icon: 'i-lucide-folder-input' },
+  COPY: { label: 'Copy', color: 'success', icon: 'i-lucide-copy' },
   SKIP: { label: 'Skip', color: 'neutral', icon: 'i-lucide-skip-forward' },
   OVERWRITE: { label: 'Replace', color: 'warning', icon: 'i-lucide-replace' },
   RENAME: { label: 'Rename', color: 'info', icon: 'i-lucide-pencil-line' }
@@ -69,7 +70,7 @@ function clearFilters() {
 </script>
 
 <template>
-  <section class="space-y-3" aria-label="Page move preview">
+  <section class="space-y-3" :aria-label="`Page ${operation ?? 'move'} preview`">
     <div class="flex items-center justify-between gap-3">
       <h3 class="text-sm font-semibold text-highlighted">
         Page preview
@@ -90,7 +91,7 @@ function clearFilters() {
         v-model="search"
         icon="i-lucide-search"
         placeholder="Find a page…"
-        aria-label="Search page move preview"
+        :aria-label="`Search page ${operation ?? 'move'} preview`"
         class="min-w-0 flex-1"
       >
         <template v-if="search" #trailing>
@@ -118,7 +119,7 @@ function clearFilters() {
       v-if="filteredItems.length"
       ref="scroller"
       role="region"
-      aria-label="Scrollable page move results"
+      :aria-label="`Scrollable page ${operation ?? 'move'} results`"
       tabindex="0"
       class="max-h-[50svh] overflow-y-auto overscroll-contain rounded-sm border border-default focus-visible:outline-2 focus-visible:outline-primary"
       :style="{ height: `${Math.min(totalSize, 416)}px` }"
@@ -156,7 +157,7 @@ function clearFilters() {
               <p v-else class="text-xs text-muted">
                 {{ item.outcome === 'SKIP' ? 'Stays in the source project' : item.outcome === 'OVERWRITE' ? 'Replaces the destination page with this name' : 'Keeps its name in the destination' }}
               </p>
-              <ul v-if="item.blockers.length" class="space-y-1 text-xs text-error" aria-label="Reasons this page blocks the move">
+              <ul v-if="item.blockers.length" class="space-y-1 text-xs text-error" :aria-label="`Reasons this page blocks the ${operation ?? 'move'}`">
                 <li v-for="blocker in item.blockers" :key="blocker" class="break-words">
                   {{ blocker }}
                 </li>

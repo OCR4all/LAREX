@@ -7,17 +7,23 @@ const props = defineProps<{
   projectId: string
   projectName: string
   pageIds: string[]
+  operation?: 'move' | 'copy'
 }>()
 const emit = defineEmits<{ close: [result: PageMoveResult | null] }>()
 const toast = useToast()
-const endpoint = `/api/workspaces/${props.workspaceId}/projects/${props.projectId}/pages/move`
+const operation = props.operation ?? 'move'
+const verb = operation === 'copy' ? 'Copy' : 'Move'
+const pastVerb = operation === 'copy' ? 'copied' : 'moved'
+const icon = operation === 'copy' ? 'i-lucide-copy' : 'i-lucide-folder-input'
+const endpoint = `/api/workspaces/${props.workspaceId}/projects/${props.projectId}/pages/${operation}`
 const {
   destinationProjectId, conflictPolicy, prefix, suffix,
   preview, previewPending, moving, error, canMove, refreshPreview, move
 } = usePageMove(props.pageIds, {
   preview: body => $fetch<PageMovePreview>(`${endpoint}/preview`, { method: 'POST', body }),
   move: body => $fetch<PageMovePreview>(endpoint, { method: 'POST', body })
-})
+}, operation)
+const transferCount = computed(() => (preview.value?.movedCount ?? 0) + (preview.value?.copiedCount ?? 0))
 const { data: projects, pending: projectsPending, error: projectsError, refresh: refreshProjects } = await useFetch<ProjectData[]>(
   `/api/workspaces/${props.workspaceId}/projects`
 )
@@ -33,18 +39,18 @@ const policies = [
 const overwriteDescription = computed(() => {
   const count = preview.value?.overwrittenCount ?? 0
   return count === 1
-    ? '1 destination page will be deleted with all its images, XML, and version history. The source page will take its place.'
-    : `${count} destination pages will be deleted with all their images, XML, and version history. The source pages will take their place.`
+    ? `1 destination page will be deleted with all its images, XML, and version history. ${operation === 'copy' ? 'A copy of the source page' : 'The source page'} will take its place.`
+    : `${count} destination pages will be deleted with all their images, XML, and version history. ${operation === 'copy' ? 'Copies of the source pages' : 'The source pages'} will take their place.`
 })
 
 async function submit() {
   const result = await move()
   if (!result) return
   toast.add({
-    title: 'Pages moved',
-    description: `${result.movedCount} moved, ${result.skippedCount} skipped, ${result.overwrittenCount} overwritten, ${result.renamedCount} renamed.`,
+    title: `Pages ${pastVerb}`,
+    description: `${result.movedCount + (result.copiedCount ?? 0)} ${pastVerb}, ${result.skippedCount} skipped, ${result.overwrittenCount} overwritten, ${result.renamedCount} renamed.`,
     color: 'success',
-    icon: 'i-lucide-folder-input'
+    icon
   })
   emit('close', result)
 }
@@ -52,16 +58,16 @@ async function submit() {
 
 <template>
   <UiResponsiveSlideover
-    title="Move pages"
-    :description="`Move ${pageIds.length} selected ${pageIds.length === 1 ? 'page' : 'pages'} from ${projectName} to another project in this workspace.`"
+    :title="`${verb} pages`"
+    :description="`${verb} ${pageIds.length} selected ${pageIds.length === 1 ? 'page' : 'pages'} from ${projectName} to another project in this workspace.`"
     :dismissible="!moving"
     :close="moving ? false : { onClick: () => emit('close', null) }"
   >
     <template #header>
       <UiSlideoverHeader
-        title="Move pages"
-        icon="i-lucide-folder-input"
-        :description="`Move ${pageIds.length} selected ${pageIds.length === 1 ? 'page' : 'pages'} from ${projectName} to another project in this workspace.`"
+        :title="`${verb} pages`"
+        :icon="icon"
+        :description="`${verb} ${pageIds.length} selected ${pageIds.length === 1 ? 'page' : 'pages'} from ${projectName} to another project in this workspace.`"
       />
     </template>
     <template #body>
@@ -76,6 +82,9 @@ async function submit() {
             />
           </template>
         </UAlert>
+        <p v-if="operation === 'copy'" class="text-sm text-muted">
+          Copies keep images, current annotations, and metadata, and start as open pages. Task links and version history stay with the originals.
+        </p>
         <UFormField label="Destination project" required>
           <USelectMenu
             v-model="destinationProjectId"
@@ -125,7 +134,7 @@ async function submit() {
         <UAlert
           v-if="error"
           color="error"
-          title="Move needs attention"
+          :title="`${verb} needs attention`"
           :description="error"
           role="alert"
         >
@@ -147,7 +156,7 @@ async function submit() {
             v-for="blocker in preview.blockers"
             :key="blocker"
             color="error"
-            title="Move blocked"
+            :title="`${verb} blocked`"
             :description="blocker"
           />
           <UAlert
@@ -159,11 +168,11 @@ async function submit() {
             :description="overwriteDescription"
           />
           <p class="text-sm" aria-live="polite">
-            {{ preview.movedCount }} to move · {{ preview.skippedCount }} skipped · {{ preview.overwrittenCount }} overwritten · {{ preview.renamedCount }} renamed
+            {{ transferCount }} to {{ operation }} · {{ preview.skippedCount }} skipped · {{ preview.overwrittenCount }} overwritten · {{ preview.renamedCount }} renamed
           </p>
-          <ProjectPageMovePreview :items="preview.items" />
-          <p v-if="preview.movedCount === 0" class="text-sm text-muted">
-            No pages would move with these settings.
+          <ProjectPageMovePreview :items="preview.items" :operation="operation" />
+          <p v-if="transferCount === 0" class="text-sm text-muted">
+            No pages would {{ operation }} with these settings.
           </p>
         </template>
       </div>
@@ -178,9 +187,9 @@ async function submit() {
           @click="emit('close', null)"
         />
         <UButton
-          :label="preview?.overwrittenCount ? `Move ${preview.movedCount} ${preview.movedCount === 1 ? 'page' : 'pages'} · replace ${preview.overwrittenCount}` : `Move ${preview?.movedCount ?? pageIds.length} ${(preview?.movedCount ?? pageIds.length) === 1 ? 'page' : 'pages'}`"
+          :label="preview?.overwrittenCount ? `${verb} ${transferCount} ${transferCount === 1 ? 'page' : 'pages'} · replace ${preview.overwrittenCount}` : `${verb} ${preview ? transferCount : pageIds.length} ${(preview ? transferCount : pageIds.length) === 1 ? 'page' : 'pages'}`"
           :color="preview?.overwrittenCount ? 'warning' : 'primary'"
-          icon="i-lucide-folder-input"
+          :icon="icon"
           :disabled="!canMove"
           :loading="moving"
           @click="submit"

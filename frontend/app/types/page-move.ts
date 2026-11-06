@@ -14,12 +14,13 @@ export type PageMovePreview = {
     pageId: string
     sourceName: string
     resultingName: string
-    outcome: 'MOVE' | 'SKIP' | 'OVERWRITE' | 'RENAME'
+    outcome: 'MOVE' | 'COPY' | 'SKIP' | 'OVERWRITE' | 'RENAME'
     overwrittenPageId: string | null
     blockers: string[]
   }>
   blockers: string[]
   movedCount: number
+  copiedCount?: number
   skippedCount: number
   overwrittenCount: number
   renamedCount: number

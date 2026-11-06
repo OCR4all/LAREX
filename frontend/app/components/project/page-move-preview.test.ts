@@ -51,11 +51,11 @@ function page(index: number, overrides: Partial<Item> = {}): Item {
   return { pageId: `page-${index}`, sourceName: name, resultingName: name, outcome: 'MOVE', overwrittenPageId: null, blockers: [], ...overrides }
 }
 
-async function mount(items: Item[]) {
+async function mount(items: Item[], operation: 'move' | 'copy' = 'move') {
   const entries = Vue.shallowRef(items)
   const host = document.createElement('div')
   document.body.append(host)
-  const app = Vue.createApp({ setup: () => () => Vue.h(Preview, { items: entries.value }) })
+  const app = Vue.createApp({ setup: () => () => Vue.h(Preview, { items: entries.value, operation }) })
   app.component('UIcon', { render: () => Vue.h('span') })
   app.component('UBadge', Vue.defineComponent({ setup: (_, { slots }) => () => Vue.h('span', slots.default?.()) }))
   app.component('UButton', Vue.defineComponent({
@@ -99,6 +99,17 @@ async function searchFor(host: HTMLElement, value: string) {
 }
 
 describe('virtual page move preview', () => {
+  it('labels copy outcomes and filters unchanged copied names', async () => {
+    const items = [page(0, { outcome: 'COPY' }), page(1, { outcome: 'SKIP' })]
+    const { host } = await mount(items, 'copy')
+    expect(host.querySelector('section')?.getAttribute('aria-label')).toBe('Page copy preview')
+    expect(host.querySelector('[role="list"]')?.textContent).toContain('Copy')
+    await selectFilter(host, 'COPY')
+    expect(host.querySelector('[role="list"]')?.textContent).toContain('Page 00000')
+    expect(host.querySelector('[role="list"]')?.textContent).not.toContain('Page 00001')
+    expect(host.querySelector('select')?.textContent).toContain('Unchanged names (1)')
+  })
+
   it('keeps the rendered list bounded for 10,000 pages and renders distant rows on scroll', async () => {
     const { host } = await mount(Array.from({ length: 10000 }, (_, index) => page(index)))
     expect(host.querySelectorAll('[role="listitem"]').length).toBeGreaterThan(0)

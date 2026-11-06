@@ -6,12 +6,12 @@ type PageMoveTransport = {
   move: (request: PageMoveRequest) => Promise<PageMovePreview>
 }
 
-function errorMessage(error: unknown) {
+function errorMessage(error: unknown, operation: 'move' | 'copy') {
   const candidate = error as { data?: { message?: string }, message?: string } | null
-  return candidate?.data?.message || candidate?.message || 'Could not move pages. Please try again.'
+  return candidate?.data?.message || candidate?.message || `Could not ${operation} pages. Please try again.`
 }
 
-export function usePageMove(pageIds: string[], transport: PageMoveTransport) {
+export function usePageMove(pageIds: string[], transport: PageMoveTransport, operation: 'move' | 'copy' = 'move') {
   const destinationProjectId = ref<string>()
   const conflictPolicy = ref<PageMovePolicy>('SKIP')
   const prefix = ref('')
@@ -31,7 +31,7 @@ export function usePageMove(pageIds: string[], transport: PageMoveTransport) {
     suffix: conflictPolicy.value === 'RENAME' ? suffix.value : ''
   }))
   const canMove = computed(() => !!preview.value
-    && preview.value.movedCount > 0
+    && (preview.value.movedCount + (preview.value.copiedCount ?? 0)) > 0
     && preview.value.blockers.length === 0
     && preview.value.items.every(item => item.blockers.length === 0)
     && !previewPending.value && !moving.value)
@@ -52,7 +52,7 @@ export function usePageMove(pageIds: string[], transport: PageMoveTransport) {
         if (!preserveError) error.value = ''
       }
     } catch (cause) {
-      if (currentRevision === revision) error.value = errorMessage(cause)
+      if (currentRevision === revision) error.value = errorMessage(cause, operation)
     } finally {
       if (currentRevision === revision) previewPending.value = false
     }
@@ -81,7 +81,7 @@ export function usePageMove(pageIds: string[], transport: PageMoveTransport) {
       const result = await transport.move(body)
       return { ...result, destinationProjectId: body.destinationProjectId }
     } catch (cause) {
-      error.value = errorMessage(cause)
+      error.value = errorMessage(cause, operation)
       await refreshPreview({ preserveError: true })
       return null
     } finally {

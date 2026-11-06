@@ -10,7 +10,7 @@ public final class PageMoveDto {
     private PageMoveDto() {}
 
     public enum ConflictPolicy { SKIP, OVERWRITE, RENAME }
-    public enum Outcome { MOVE, SKIP, OVERWRITE, RENAME }
+    public enum Outcome { MOVE, COPY, SKIP, OVERWRITE, RENAME }
 
     public record Request(
             @NotEmpty List<@NotBlank String> pageIds,
@@ -26,7 +26,17 @@ public final class PageMoveDto {
 
     public record Preview(List<Item> items, List<String> blockers, int movedCount,
                           int skippedCount, int overwrittenCount, int renamedCount,
-                          String fingerprint) {
+                          String fingerprint, int copiedCount) {
+        public Preview(List<Item> items, List<String> blockers, int movedCount,
+                       int skippedCount, int overwrittenCount, int renamedCount, String fingerprint) {
+            this(items, blockers, movedCount, skippedCount, overwrittenCount, renamedCount, fingerprint, 0);
+        }
+
+        public boolean canTransfer() {
+            return movedCount + copiedCount > 0 && blockers.isEmpty()
+                    && items.stream().allMatch(item -> item.blockers().isEmpty());
+        }
+
         public boolean canMove() {
             return movedCount > 0 && blockers.isEmpty()
                     && items.stream().allMatch(item -> item.blockers().isEmpty());

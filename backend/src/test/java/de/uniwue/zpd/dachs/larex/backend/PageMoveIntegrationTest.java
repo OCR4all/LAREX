@@ -59,6 +59,10 @@ class PageMoveIntegrationTest {
     @Autowired DatasetRepository datasets;
     @Autowired DatasetItemRepository datasetItems;
     @Autowired PageMoveService service;
+    @Autowired de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService annotations;
+    @Autowired de.uniwue.zpd.dachs.larex.backend.service.page.PageCopyService copies;
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService quotaGuard;
     @Autowired HierarchicalFileStorageService storage;
     @Autowired ProjectFileService projectFiles;
     @Autowired UploadDirectoryProperties uploadDirectories;
@@ -90,6 +94,7 @@ class PageMoveIntegrationTest {
     void setUp() {
         ReflectionTestUtils.setField(storage, "uploadRoot", root.toAbsolutePath().normalize());
         uploadDirectories.setRootDirectory(root);
+        ReflectionTestUtils.setField(annotations, "uploadDir", root.toString());
         when(access.canManageProjects(anyString(), anyString())).thenReturn(true);
         workspace = "move-" + UUID.randomUUID();
         Library library = libraries.save(new Library(workspace, "Library"));
@@ -391,6 +396,184 @@ class PageMoveIntegrationTest {
         } catch (PageMoveConflictException exception) {
             return "stale";
         }
+    }
+
+    @Test
+    void copiesIndependentAssetsMetadataAndSearchWhileKeepingSourceHistoryAndTasks() throws Exception {
+        Page original = createPage(source, "001", "original");
+        PageXml originalXml = xmls.findByPage_Id(original.getId()).orElseThrow();
+        PageImage originalImage = images.findByPageId(original.getId()).getFirst();
+        String history = createVersion(originalXml);
+        Files.writeString(root.resolve(originalXml.getFilePath()), """
+                <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+                  <Metadata><Creator>Test</Creator><Created>2026-01-01T00:00:00Z</Created><LastChange>2026-01-01T00:00:00Z</LastChange></Metadata>
+                  <Page imageFilename="001.png" imageWidth="100" imageHeight="100">
+                    <TextRegion id="r1"><Coords points="0,0 90,0 90,90 0,90"/>
+                      <TextLine id="l1"><Coords points="0,0 80,0 80,20 0,20"/>
+                        <TextEquiv><Unicode>copiedtoken</Unicode></TextEquiv>
+                      </TextLine>
+                    </TextRegion>
+                  </Page>
+                </PcGts>
+                """);
+        transaction.executeWithoutResult(status -> {
+            Page page = pages.findById(original.getId()).orElseThrow();
+            page.setWorkflowState(Page.WorkflowState.DONE);
+            page.setLocked(true);
+            page.setReviewSubmittedByUserId("reviewer");
+            page.setChangesRequested(true);
+            page.setExternalSourceType("IIIF");
+            page.setExternalSourceId("canvas");
+            page.setExternalSourceUrl("https://example.com/canvas");
+            page.setExternalSourceMetadataJson("{\"label\":\"Original\"}");
+        });
+        Task task = tasks.save(new Task("Task", null, "user", Task.TaskPriority.MEDIUM, workspace));
+        taskLinks.save(new TaskPageLink(task.getId(), original.getId(), TaskPageLink.LinkType.MANUAL, "user"));
+        Preview result = copy(List.of(original.getId()), ConflictPolicy.SKIP, "", "");
+        assertThat(result.copiedCount()).isEqualTo(1);
+        assertThat(result.movedCount()).isZero();
+        assertThat(result.items()).extracting(Item::outcome).containsExactly(Outcome.COPY);
+        Page copied = pages.findByProjectId(destination.getId()).getFirst();
+        assertThat(copied.getId()).isNotEqualTo(original.getId());
+        transaction.executeWithoutResult(status -> {
+            Page page = pages.findById(copied.getId()).orElseThrow();
+            assertThat(page.getDescription()).isEqualTo("original");
+            assertThat(page.getTags()).containsExactly("tag");
+            assertThat(page.getExternalSourceType()).isEqualTo("IIIF");
+            assertThat(page.getExternalSourceId()).isEqualTo("canvas");
+            assertThat(page.getExternalSourceUrl()).isEqualTo("https://example.com/canvas");
+            assertThat(page.getExternalSourceMetadataJson()).isEqualTo("{\"label\":\"Original\"}");
+            assertThat(page.getWorkflowState()).isEqualTo(Page.WorkflowState.OPEN);
+            assertThat(page.isLocked()).isFalse();
+            assertThat(page.getReviewSubmittedByUserId()).isNull();
+            assertThat(page.isChangesRequested()).isFalse();
+            assertThat(pages.findById(original.getId()).orElseThrow().getProject().getId()).isEqualTo(source.getId());
+        });
+        PageImage image = images.findByPageId(copied.getId()).getFirst();
+        PageXml xml = xmls.findByPage_Id(copied.getId()).orElseThrow();
+        assertThat(image.getId()).isNotEqualTo(originalImage.getId());
+        assertThat(xml.getId()).isNotEqualTo(originalXml.getId());
+        assertThat(image.getFilePath()).contains("/pr/" + destination.getId() + "/");
+        assertThat(root.resolve(image.getFilePath())).hasContent("original-image");
+        assertThat(root.resolve(image.getThumbnailPath())).hasContent("original-thumb");
+        assertThat(Files.readString(root.resolve(xml.getFilePath())))
+                .isEqualTo(Files.readString(root.resolve(originalXml.getFilePath())));
+        assertThat(root.resolve(originalImage.getFilePath())).hasContent("original-image");
+        assertThat(root.resolve(history)).hasContent("history");
+        assertThat(versions.findByPageXml_IdOrderByVersionNumberDesc(xml.getId())).isEmpty();
+        assertThat(taskLinks.findByPageId(copied.getId())).isEmpty();
+        assertThat(taskLinks.findByPageId(original.getId())).hasSize(1);
+        assertThat(texts.findByPageId(copied.getId())).extracting(PageTextContent::getTextContent).contains("copiedtoken");
+        transaction.executeWithoutResult(status -> {
+            Project project = projects.findById(source.getId()).orElseThrow();
+            projectFiles.deleteProjectFiles(project);
+            projects.delete(project);
+        });
+        assertThat(root.resolve(image.getFilePath())).hasContent("original-image");
+        assertThat(root.resolve(xml.getFilePath())).exists();
+    }
+
+    @Test
+    void copySkipAndRenamePreserveSourceNamesAndAppendInSourceOrder() throws Exception {
+        Page first = createPage(source, "001", "one");
+        Page second = createPage(source, "002", "two");
+        transaction.executeWithoutResult(status -> {
+            pages.findById(first.getId()).orElseThrow().setSortOrder(2000);
+            pages.findById(second.getId()).orElseThrow().setSortOrder(1000);
+        });
+        Page existing = createPage(destination, "001", "existing");
+        Preview skipped = copy(List.of(first.getId(), second.getId()), ConflictPolicy.SKIP, "", "");
+        assertThat(skipped.copiedCount()).isEqualTo(1);
+        assertThat(skipped.skippedCount()).isEqualTo(1);
+        Preview renamed = copy(List.of(first.getId(), second.getId()), ConflictPolicy.RENAME, "copy-", "");
+        assertThat(renamed.items()).extracting(Item::resultingName).containsExactly("copy-002", "copy-001");
+        assertThat(pages.findById(first.getId()).orElseThrow().getName()).isEqualTo("001");
+        assertThat(pages.findById(second.getId()).orElseThrow().getName()).isEqualTo("002");
+        assertThat(pages.findById(existing.getId())).isPresent();
+        var ordered = pages.findByProjectId(destination.getId()).stream()
+                .sorted(java.util.Comparator.comparing(Page::getSortOrder, java.util.Comparator.nullsFirst(Integer::compareTo)))
+                .map(Page::getName).toList();
+        assertThat(ordered).endsWith("copy-002", "copy-001");
+    }
+
+    @Test
+    void copyOverwriteRemovesOnlyDestinationAndRollsBackOnFailureAfterAssetCopy() throws Exception {
+        Page original = createPage(source, "001", "original");
+        Page target = createPage(destination, "001", "target");
+        String targetHistory = createVersion(xmls.findByPage_Id(target.getId()).orElseThrow());
+        List<String> before = physicalFiles();
+        Request reviewed = reviewedCopy(List.of(original.getId()), ConflictPolicy.OVERWRITE, "", "");
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.callRealMethod();
+            throw new IOException("Simulated late failure");
+        }).when(moveFiles).duplicateAssets(org.mockito.ArgumentMatchers.anyMap(), anyString(), anyString(), anyString(),
+                org.mockito.ArgumentMatchers.any());
+        assertThatThrownBy(() -> copies.copy(workspace, source.getId(), reviewed, "user")).isInstanceOf(IOException.class);
+        assertThat(physicalFiles()).containsExactlyElementsOf(before);
+        assertThat(pages.findById(original.getId())).isPresent();
+        assertThat(pages.findById(target.getId())).isPresent();
+        org.mockito.Mockito.doCallRealMethod().when(moveFiles).duplicateAssets(org.mockito.ArgumentMatchers.anyMap(),
+                anyString(), anyString(), anyString(), org.mockito.ArgumentMatchers.any());
+        copy(List.of(original.getId()), ConflictPolicy.OVERWRITE, "", "");
+        assertThat(pages.findById(target.getId())).isEmpty();
+        assertThat(root.resolve(targetHistory)).doesNotExist();
+        assertThat(pages.findById(original.getId())).isPresent();
+        assertThat(pages.findByProjectId(destination.getId())).extracting(Page::getId).doesNotContain(original.getId(), target.getId());
+    }
+
+    @Test
+    void copyQuotaRejectionLeavesAllRecordsAndFilesUntouched() throws Exception {
+        Page original = createPage(source, "001", "original");
+        Request reviewed = reviewedCopy(List.of(original.getId()), ConflictPolicy.SKIP, "", "");
+        List<String> before = physicalFiles();
+        org.mockito.Mockito.doThrow(new IllegalStateException("Quota exceeded"))
+                .when(quotaGuard).reserveBytesOrThrow(org.mockito.ArgumentMatchers.eq(workspace), org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.eq("page-copy"));
+        assertThatThrownBy(() -> copies.copy(workspace, source.getId(), reviewed, "user")).hasMessage("Quota exceeded");
+        assertThat(physicalFiles()).containsExactlyElementsOf(before);
+        assertThat(pages.findByProjectId(destination.getId())).isEmpty();
+        assertThat(pages.findById(original.getId())).isPresent();
+    }
+
+    @Test
+    void copyEndpointsValidateAuthorizationFingerprintAndRequests() throws Exception {
+        Page original = createPage(source, "001", "original");
+        String route = "/workspaces/" + workspace + "/projects/" + source.getId() + "/pages/copy";
+        Request request = new Request(List.of(original.getId()), destination.getId(), ConflictPolicy.SKIP, "", "", null);
+        String json = mvc.perform(post(route + "/preview").with(jwt().jwt(jwt -> jwt.subject("user")))
+                .contentType("application/json").content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.copiedCount").value(1))
+                .andExpect(jsonPath("$.items[0].outcome").value("COPY"))
+                .andReturn().getResponse().getContentAsString();
+        Preview preview = mapper.readValue(json, Preview.class);
+        mvc.perform(post(route).with(jwt().jwt(jwt -> jwt.subject("user")))
+                .contentType("application/json").content(mapper.writeValueAsString(request)))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PAGE_COPY_CONFLICT"));
+        mvc.perform(post(route + "/preview").with(jwt().jwt(jwt -> jwt.subject("user")))
+                .contentType("application/json").content("{\"pageIds\":[],\"destinationProjectId\":\"destination\",\"conflictPolicy\":\"SKIP\"}"))
+                .andExpect(status().isBadRequest());
+        when(access.canManageProjects(workspace, "user")).thenReturn(false);
+        mvc.perform(post(route + "/preview").with(jwt().jwt(jwt -> jwt.subject("user")))
+                .contentType("application/json").content(mapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+        when(access.canManageProjects(workspace, "user")).thenReturn(true);
+        Request reviewed = new Request(request.pageIds(), destination.getId(), ConflictPolicy.SKIP, "", "", preview.fingerprint());
+        mvc.perform(post(route).with(jwt().jwt(jwt -> jwt.subject("user")))
+                .contentType("application/json").content(mapper.writeValueAsString(reviewed)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.copiedCount").value(1));
+        assertThat(pages.findById(original.getId())).isPresent();
+        assertThatThrownBy(() -> copies.copy(workspace, source.getId(), reviewed, "user"))
+                .isInstanceOf(de.uniwue.zpd.dachs.larex.backend.exception.PageCopyConflictException.class);
+    }
+
+    private Request reviewedCopy(List<String> ids, ConflictPolicy policy, String prefix, String suffix) {
+        Request request = new Request(ids, destination.getId(), policy, prefix, suffix, null);
+        return new Request(ids, destination.getId(), policy, prefix, suffix,
+                service.previewCopy(workspace, source.getId(), request, "user").fingerprint());
+    }
+
+    private Preview copy(List<String> ids, ConflictPolicy policy, String prefix, String suffix) throws IOException {
+        return copies.copy(workspace, source.getId(), reviewedCopy(ids, policy, prefix, suffix), "user");
     }
 
     private DatasetItem datasetItem(Dataset dataset, Page page, PageXml xml, DatasetItem.Mode mode) {

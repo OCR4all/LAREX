@@ -1247,10 +1247,11 @@ async function openAddToDatasetSlideover() {
   clearSelection()
 }
 
-async function openMovePagesSlideover() {
+async function openMovePagesSlideover(operation: 'move' | 'copy' = 'move') {
   const workspaceId = selectedWorkspace.value
-  if (!workspaceId || !project.value || !canManageProjects.value || !hasSelection.value || project.value.locked) return
+  if (!workspaceId || !project.value || !canManageProjects.value || !hasSelection.value || (operation === 'move' && project.value.locked)) return
   const instance = movePagesSlideover.open({
+    operation,
     workspaceId,
     projectId,
     projectName: project.value.name,
@@ -1258,7 +1259,9 @@ async function openMovePagesSlideover() {
   })
   const result = await instance.result as import('@/types/page-move').PageMoveResult | null
   if (!result) return
-  selectedPageIds.value = new Set(result.items.filter(item => item.outcome === 'SKIP').map(item => item.pageId))
+  if (operation === 'move') {
+    selectedPageIds.value = new Set(result.items.filter(item => item.outcome === 'SKIP').map(item => item.pageId))
+  }
   await Promise.allSettled([
     refreshProjectPagesData(),
     refreshNuxtData(wsKey(workspaceId, 'projects', result.destinationProjectId)),
@@ -1780,6 +1783,34 @@ async function openValidationRulesetModal(scope: ProjectActionScope = 'all') {
 }
 
 const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
+  const pageManagementItems: DropdownMenuItem[] = [
+    { type: 'label', label: 'Manage pages' }
+  ]
+  if (canManageProjects.value) {
+    pageManagementItems.push(
+      {
+        label: 'Move pages',
+        icon: 'i-lucide-folder-input',
+        disabled: !hasSelection.value || project.value?.locked,
+        onSelect: () => { void openMovePagesSlideover('move') }
+      },
+      {
+        label: 'Copy pages',
+        icon: 'i-lucide-copy',
+        disabled: !hasSelection.value,
+        onSelect: () => { void openMovePagesSlideover('copy') }
+      }
+    )
+  }
+  if (canDeleteProjectPages.value && selectedAnnotationPages.value.length > 0) {
+    pageManagementItems.push({
+      label: 'Delete annotations',
+      icon: 'i-lucide-file-x-2',
+      color: 'error',
+      disabled: project.value?.locked,
+      onSelect: () => { void deleteAnnotations(selectedAnnotationPages.value) }
+    })
+  }
   const stateItems: DropdownMenuItem[] = [
     { type: 'label', label: 'Page state' },
     ...BULK_WORKFLOW_ACTIONS.map((action) => {
@@ -1906,7 +1937,11 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  return [stateItems, selectionActionItems, textItems, validationItems, exportItems]
+  return [
+    stateItems,
+    ...(pageManagementItems.length > 1 ? [pageManagementItems] : []),
+    selectionActionItems, textItems, validationItems, exportItems
+  ]
 })
 
 function renderPageEditorIndicator(page: Page) {
@@ -3021,14 +3056,6 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
                 aria-label="Run Action on selected pages"
                 @click="openActionRunSlideover('selection')"
               />
-              <UiFloatingSelectionButton
-                v-if="canManageProjects"
-                label="Move pages"
-                icon="i-lucide-folder-input"
-                :disabled="!hasSelection || project?.locked"
-                aria-label="Move selected pages to another project"
-                @click="openMovePagesSlideover"
-              />
               <UDropdownMenu :items="selectionMoreActionItems" :content="{ align: 'end' }">
                 <UiFloatingSelectionButton
                   label="More"
@@ -3036,14 +3063,6 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
                   aria-label="More selected page actions"
                 />
               </UDropdownMenu>
-              <UiFloatingSelectionButton
-                v-if="canDeleteProjectPages && selectedAnnotationPages.length > 0"
-                label="Delete Annotations"
-                icon="i-lucide-file-x-2"
-                color="error"
-                :aria-label="selectedAnnotationPages.length === 1 ? 'Delete annotation from selected page' : 'Delete annotations from selected pages'"
-                @click="deleteAnnotations(selectedAnnotationPages)"
-              />
               <UiFloatingSelectionButton
                 v-if="canBulkDeletePages"
                 label="Delete"

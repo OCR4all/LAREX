@@ -12,12 +12,12 @@ function plan(overrides: Partial<PageMovePreview> = {}): PageMovePreview {
 }
 
 const scopes: ReturnType<typeof effectScope>[] = []
-function setup() {
+function setup(operation: 'move' | 'copy' = 'move') {
   vi.useFakeTimers()
   const transport = { preview: vi.fn().mockResolvedValue(plan()), move: vi.fn().mockResolvedValue(plan()) }
   const scope = effectScope()
   scopes.push(scope)
-  const state = scope.run(() => usePageMove(['page'], transport))!
+  const state = scope.run(() => usePageMove(['page'], transport, operation))!
   return { state, transport, scope }
 }
 
@@ -105,6 +105,26 @@ describe('page move workflow', () => {
     expect(state.error.value).toBe('Preview changed. Review again.')
     expect(state.preview.value?.fingerprint).toBe('fresh')
     expect(state.canMove.value).toBe(true)
+  })
+
+  it('submits copies with a reviewed fingerprint when no pages are moved', async () => {
+    const { state, transport } = setup('copy')
+    const copied = plan({
+      movedCount: 0, copiedCount: 1,
+      items: [{ ...plan().items[0]!, outcome: 'COPY' }]
+    })
+    transport.preview.mockResolvedValue(copied)
+    transport.move.mockResolvedValue(copied)
+    state.destinationProjectId.value = 'target'
+    await vi.advanceTimersByTimeAsync(250)
+    expect(state.canMove.value).toBe(true)
+    expect(await state.move()).toMatchObject({ copiedCount: 1, movedCount: 0, destinationProjectId: 'target' })
+    expect(transport.move).toHaveBeenCalledExactlyOnceWith({
+      pageIds: ['page'], destinationProjectId: 'target', conflictPolicy: 'SKIP', prefix: '', suffix: '', fingerprint: 'reviewed'
+    })
+    transport.move.mockRejectedValueOnce({})
+    expect(await state.move()).toBeNull()
+    expect(state.error.value).toBe('Could not copy pages. Please try again.')
   })
 
   it('clears a preview error after a successful manual retry', async () => {
