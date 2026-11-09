@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { computed, effectScope, nextTick, reactive, ref, shallowReactive, watch } from 'vue'
 import { Commander } from '@/commands/editor/commander'
+import { UpdateReadingOrderCommand } from '@/commands/editor/update-reading-order-command'
 import { createMockSession, createTestContext, createTestDocument, createTestTextRegion } from '@/commands/editor/__tests__/test-utils'
 import { TextContentVariant, TextLine } from '@/models/editor'
 import { Polygon } from '@/models/editor/geometry'
@@ -22,6 +23,7 @@ const editorUiStore = reactive({
   highlightUnknownDictionaryTokens: false,
   preferencesLoaded: true,
   textViewAutoSelectFirstLine: false,
+  bumpReadingOrderVersion: vi.fn(),
   setCanvasTextCorrectionZoom: vi.fn(),
   setCanvasTextCorrectionOverlaySnapToLine: vi.fn(),
   setCanvasTextCorrectionOverlayPosition: vi.fn()
@@ -37,15 +39,34 @@ vi.mock('@/composables/use-dictionary-token-lookup', () => ({
 }))
 
 const scopes: ReturnType<typeof effectScope>[] = []
-afterEach(() => scopes.splice(0).forEach(scope => scope.stop()))
+afterEach(() => {
+  scopes.splice(0).forEach(scope => scope.stop())
+  editorUiStore.textViewAutoSelectFirstLine = false
+})
 
-function setup() {
+function setup({ separateRegions = false } = {}) {
   const lines = [
     new TextLine({ id: 'line-1', coords: new Polygon([]), textContentVariants: [] }),
     new TextLine({ id: 'line-2', coords: new Polygon([]), textContentVariants: [new TextContentVariant('OCR', undefined, 0.9, 1)] })
   ]
+  if (separateRegions) lines.push(new TextLine({ id: 'line-3', coords: new Polygon([]), textContentVariants: [] }))
   const region = createTestTextRegion({ id: 'region-1', textLines: lines })
-  const { session } = createMockSession(createTestDocument({ regions: [region] }))
+  const { session } = createMockSession(createTestDocument({
+    regions: separateRegions
+      ? lines.map((line, i) => createTestTextRegion({ id: `region-${i + 1}`, textLines: [line] }))
+      : [region],
+    readingOrder: separateRegions
+      ? {
+          root: {
+            kind: 'OrderedGroup', id: 'root', elements: [
+              { kind: 'RegionRefIndexed', id: 'ref-2', regionRef: 'region-2', index: 0 },
+              { kind: 'RegionRefIndexed', id: 'ref-1', regionRef: 'region-1', index: 1 },
+              { kind: 'RegionRefIndexed', id: 'ref-3', regionRef: 'region-3', index: 2 }
+            ]
+          }
+        }
+      : undefined
+  }))
   const commander = new Commander()
   const context = createTestContext(session)
   editorStore.projectTextDefaultGtIndex = 0
@@ -120,6 +141,49 @@ function setup() {
 }
 
 describe('Canvas text correction', () => {
+  it('automatically selects the first line in PAGE reading order', async () => {
+    editorUiStore.textViewAutoSelectFirstLine = true
+    const editor = setup({ separateRegions: true })
+    await nextTick()
+    expect(editor.selectedId.value).toBe('line-2')
+  })
+
+  it('navigates between regions in PAGE reading order in both directions', async () => {
+    const editor = setup({ separateRegions: true })
+    editor.selectedId.value = 'line-2'
+    await nextTick()
+
+    await editor.tab()
+    expect(editor.selectedId.value).toBe('line-1')
+    await editor.tab()
+    expect(editor.selectedId.value).toBe('line-3')
+    await editor.tab()
+    expect(editor.selectedId.value).toBe('line-2')
+    await editor.tab(true)
+    expect(editor.selectedId.value).toBe('line-3')
+    expect(editor.commander.canUndo()).toBe(false)
+  })
+
+  it('refreshes navigation after reading-order edits and undo/redo', async () => {
+    const editor = setup({ separateRegions: true })
+    const readingOrder = editor.context.session!.document.value!.page.readingOrder!
+    editor.selectedId.value = 'line-2'
+    await nextTick()
+    editor.commander.execute(new UpdateReadingOrderCommand({ readingOrder: {
+      root: { ...readingOrder.root, elements: [...readingOrder.root.elements].reverse() }
+    } }), editor.context)
+    await editor.tab()
+    expect(editor.selectedId.value).toBe('line-3')
+
+    editor.commander.undo(editor.context)
+    await editor.tab()
+    expect(editor.selectedId.value).toBe('line-2')
+
+    editor.commander.redo(editor.context)
+    await editor.tab()
+    expect(editor.selectedId.value).toBe('line-3')
+  })
+
   it('saves pending input and populates the next line from recognition on Enter with undo/redo', async () => {
     const editor = setup()
     editor.selectedId.value = 'line-1'

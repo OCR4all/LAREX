@@ -16,6 +16,7 @@ import com.maxnth.page4j.basic.variable.VariableMap;
 import com.maxnth.page4j.dla.page.AlternativeImage;
 import com.maxnth.page4j.dla.page.Page;
 import com.maxnth.page4j.dla.page.io.xml.DefaultXmlNames;
+import com.maxnth.page4j.dla.page.io.xml.XmlSourceMetadata;
 import com.maxnth.page4j.dla.page.layout.PageLayout;
 import com.maxnth.page4j.dla.page.layout.logical.ContentObjectRelation;
 import com.maxnth.page4j.dla.page.layout.logical.Group;
@@ -78,8 +79,10 @@ import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlPre
 import de.uniwue.zpd.dachs.larex.backend.util.CoordinateUtils;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.xml.namespace.QName;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -90,11 +93,15 @@ public class Page4jToDtoMapper {
     }
 
     public PageDto toDto(Page page, PageXmlPresenceIndex presenceIndex) {
+        return toDto(page, presenceIndex, null);
+    }
+
+    public PageDto toDto(Page page, PageXmlPresenceIndex presenceIndex, XmlSourceMetadata sourceMetadata) {
         if (page == null) {
             return null;
         }
 
-        return new Page4jToDtoMappingSession(page.getLayout(), presenceIndex).toDto(page);
+        return new Page4jToDtoMappingSession(page.getLayout(), presenceIndex, sourceMetadata).toDto(page);
     }
 }
 
@@ -103,11 +110,44 @@ final class Page4jToDtoMappingSession {
     private final int imageWidth;
     private final int imageHeight;
     private final PageXmlPresenceIndex presenceIndex;
+    private final Map<String, List<Integer>> readingOrderIndices;
 
-    Page4jToDtoMappingSession(PageLayout layout, PageXmlPresenceIndex presenceIndex) {
+    Page4jToDtoMappingSession(PageLayout layout, PageXmlPresenceIndex presenceIndex, XmlSourceMetadata sourceMetadata) {
         this.imageWidth = layout.getWidth();
         this.imageHeight = layout.getHeight();
         this.presenceIndex = presenceIndex;
+        this.readingOrderIndices = collectReadingOrderIndices(sourceMetadata);
+    }
+
+    /** page4j 2.0.2 retains group members in XML order, discarding their @index. */
+    private static Map<String, List<Integer>> collectReadingOrderIndices(XmlSourceMetadata metadata) {
+        Map<String, List<Integer>> indices = new HashMap<>();
+        if (metadata == null) return indices;
+
+        for (var element : metadata.elements()) {
+            if (element.parentIndex() == null) continue;
+            var parent = metadata.elements().get(element.parentIndex());
+            String parentName = parent.name().getLocalPart();
+            if (!"OrderedGroup".equals(parentName) && !"OrderedGroupIndexed".equals(parentName)) continue;
+            switch (element.name().getLocalPart()) {
+                case "RegionRef", "RegionRefIndexed", "OrderedGroup", "OrderedGroupIndexed", "UnorderedGroup", "UnorderedGroupIndexed" -> {
+                    String groupId = parent.attributes().get(new QName("id"));
+                    String sourceIndex = element.attributes().get(new QName("index"));
+                    int index = Integer.MAX_VALUE;
+                    try {
+                        if (sourceIndex != null) {
+                            int parsed = Integer.parseInt(sourceIndex.trim());
+                            if (parsed >= 0) index = parsed;
+                        }
+                    } catch (NumberFormatException ignored) {
+                        // Keep missing/invalid indices in stable source order after indexed members.
+                    }
+                    if (groupId != null) indices.computeIfAbsent(groupId, ignored -> new ArrayList<>()).add(index);
+                }
+                default -> { }
+            }
+        }
+        return indices;
     }
 
     private static String nullIfEmpty(String value) {
@@ -576,9 +616,13 @@ final class Page4jToDtoMappingSession {
         }
 
         List<ReadingOrderDto.GroupMemberDto> members = new ArrayList<>();
+        String groupId = group.getId() != null ? group.getId().toString() : null;
+        List<Integer> sourceIndices = readingOrderIndices.get(groupId);
         for (int i = 0; i < group.getSize(); i++) {
             GroupMember member = group.getMember(i);
-            Integer memberIndex = group.isOrdered() ? i : null;
+            Integer memberIndex = group.isOrdered()
+                ? sourceIndices != null && i < sourceIndices.size() ? sourceIndices.get(i) : i
+                : null;
             if (member instanceof RegionRef regionRef) {
                 members.add(new ReadingOrderDto.RegionRefDto(
                     null,
@@ -588,6 +632,13 @@ final class Page4jToDtoMappingSession {
             } else if (member instanceof Group childGroup) {
                 members.add(new ReadingOrderDto.NestedGroupDto(toGroupDto(childGroup, memberIndex)));
             }
+        }
+
+        if (group.isOrdered()) {
+            members.sort(Comparator.comparingInt(member -> switch (member) {
+                case ReadingOrderDto.RegionRefDto ref -> ref.index();
+                case ReadingOrderDto.NestedGroupDto nested -> nested.group().index();
+            }));
         }
 
         return new ReadingOrderDto.GroupDto(

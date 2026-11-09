@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Region } from '@/models/editor/region'
+import { convertReadingOrderFromDto, convertReadingOrderToDto } from '@/services/editor/page-conversion/reading-order-converter'
 import { Polygon } from '@/models/editor/geometry'
 import { TextLine } from '@/models/editor/text'
 import {
@@ -19,6 +20,75 @@ function makeTextLine(id: string) {
 }
 
 describe('textline-navigation', () => {
+  it('uses PAGE indices for region order in text views, including nested groups', () => {
+    const readingOrder = convertReadingOrderFromDto({
+      root: {
+        ordered: true,
+        id: 'root',
+        members: [
+          { type: 'regionRef', id: 'ref-last', regionRef: 'last', index: 2 },
+          {
+            type: 'nestedGroup', group: {
+              ordered: true, id: 'nested', index: 0,
+              members: [
+                { type: 'regionRef', id: 'ref-second', regionRef: 'second', index: 1 },
+                { type: 'regionRef', id: 'ref-first', regionRef: 'first', index: 0 }
+              ]
+            }
+          },
+          { type: 'regionRef', id: 'ref-middle', regionRef: 'middle', index: 1 }
+        ]
+      }
+    })
+    const regions: Region[] = ['last', 'middle', 'first', 'second', 'unreferenced'].map(id => ({
+      id, kind: 'TextRegion', coords: makePolygon(), textLines: [makeTextLine(`line-${id}`)]
+    }))
+    const original = structuredClone(readingOrder)
+
+    expect(collectRegionIdsInReadingOrder(readingOrder)).toEqual(['first', 'second', 'middle', 'last'])
+    expect(collectTextlineIdsInReadingOrder(regions, readingOrder)).toEqual([
+      'line-first', 'line-second', 'line-middle', 'line-last', 'line-unreferenced'
+    ])
+    expect(readingOrder).toEqual(original)
+  })
+
+  it('preserves edited order and linked nested groups across DTO round trips', () => {
+    const readingOrder = convertReadingOrderFromDto({ root: {
+      id: 'root', ordered: true, members: [
+        { type: 'nestedGroup', group: {
+          id: 'group', ordered: true, index: 0, regionRef: 'parent', members: [
+            { type: 'regionRef', regionRef: 'child', index: 0 }
+          ]
+        } },
+        { type: 'regionRef', regionRef: 'last', index: 1 }
+      ]
+    } })!
+    readingOrder.root.elements.reverse()
+
+    const dto = convertReadingOrderToDto(readingOrder)!
+    expect(dto.root?.members?.[1]).toMatchObject({
+      type: 'nestedGroup', group: { regionRef: 'parent', index: 1 }
+    })
+    expect(collectRegionIdsInReadingOrder(convertReadingOrderFromDto(dto))).toEqual(['last', 'parent', 'child'])
+  })
+
+  it('keeps unordered groups in source order and stabilizes missing or tied indices', () => {
+    const members = [
+      { type: 'regionRef' as const, regionRef: 'missing' },
+      { type: 'regionRef' as const, regionRef: 'second', index: 1 },
+      { type: 'regionRef' as const, regionRef: 'tied', index: 1 },
+      { type: 'regionRef' as const, regionRef: 'first', index: 0 }
+    ]
+    const original = structuredClone(members)
+    expect(collectRegionIdsInReadingOrder(convertReadingOrderFromDto({
+      root: { id: 'root', ordered: false, members }
+    }))).toEqual(['missing', 'second', 'tied', 'first'])
+    expect(collectRegionIdsInReadingOrder(convertReadingOrderFromDto({
+      root: { id: 'root', ordered: true, members }
+    }))).toEqual(['first', 'second', 'tied', 'missing'])
+    expect(members).toEqual(original)
+  })
+
   it('collects textline IDs in recursive PAGE traversal order', () => {
     const regions: Region[] = [
       {

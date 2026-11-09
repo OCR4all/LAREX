@@ -25,7 +25,7 @@ import { computeCanvasTextCorrectionAnchorTarget, computeCanvasTextCorrectionPla
 import { clipToWorldCoords, imageToWorld } from '@/utils/editor/coordinates'
 import { WORLD_COORD_THRESHOLD, ZOOM } from '@/utils/editor/editor-constants'
 import { normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
-import { collectTextlineIdsInPageOrder, getAdjacentTextlineId, isTextlinePolygonType } from '@/utils/editor/textline-navigation'
+import { collectTextlineIdsInReadingOrder, getAdjacentTextlineId, isTextlinePolygonType } from '@/utils/editor/textline-navigation'
 
 export const CORRECTION_FONT_MIN = 14
 export const CORRECTION_FONT_MAX = 64
@@ -924,8 +924,9 @@ export function useCanvasTextCorrection(options: CanvasTextCorrectionOptions) {
     })
   })
 
-  const pageOrderTextlineIds = computed(() => collectTextlineIdsInPageOrder(
+  const readingOrderTextlineIds = computed(() => collectTextlineIdsInReadingOrder(
     session.document.value?.page?.regions,
+    session.document.value?.page?.readingOrder,
     editorUiStore.textlineSortOrder
   ))
 
@@ -936,7 +937,7 @@ export function useCanvasTextCorrection(options: CanvasTextCorrectionOptions) {
         .map(polygon => polygon.id)
     )
 
-    for (const textlineId of pageOrderTextlineIds.value) {
+    for (const textlineId of readingOrderTextlineIds.value) {
       if (availableTextlineIds.has(textlineId)) return textlineId
     }
 
@@ -962,7 +963,7 @@ export function useCanvasTextCorrection(options: CanvasTextCorrectionOptions) {
       editorUiStore.textViewAutoSelectFirstLine,
       canShowCanvasContent.value,
       selectedTextlinePolygon.value?.id ?? null,
-      pageOrderTextlineIds.value.join('\u0000'),
+      readingOrderTextlineIds.value.join('\u0000'),
       polygons.length
     ] as const,
     () => {
@@ -1063,7 +1064,7 @@ export function useCanvasTextCorrection(options: CanvasTextCorrectionOptions) {
   function navigateCanvasCorrectionTextline(direction: 1 | -1, populateGt = false): boolean {
     flushPendingCorrectionCommit()
     const currentId = selectedTextlinePolygon.value?.id ?? null
-    const nextId = getAdjacentTextlineId(pageOrderTextlineIds.value, currentId, direction)
+    const nextId = getAdjacentTextlineId(readingOrderTextlineIds.value, currentId, direction)
     if (!nextId || (nextId === currentId && !populateGt)) return false
 
     if (populateGt && isCanvasWritable.value) {

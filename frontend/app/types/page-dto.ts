@@ -237,18 +237,16 @@ export interface RegionDto {
   continuation?: boolean
 }
 
-export interface GroupMemberDto {
-  type: 'regionRef' | 'nestedGroup'
-}
+export type GroupMemberDto = RegionRefDto | NestedGroupDto
 
-export interface RegionRefDto extends GroupMemberDto {
+export interface RegionRefDto {
   type: 'regionRef'
   id?: string
   regionRef?: string
   index?: number
 }
 
-export interface NestedGroupDto extends GroupMemberDto {
+export interface NestedGroupDto {
   type: 'nestedGroup'
   group: GroupDto
 }

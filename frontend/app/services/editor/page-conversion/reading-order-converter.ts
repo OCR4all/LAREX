@@ -2,9 +2,7 @@ import type { ReadingOrder, ReadingOrderGroup, ReadingOrderNode } from '@/models
 import type {
   GroupDto,
   GroupMemberDto,
-  NestedGroupDto,
-  ReadingOrderDto,
-  RegionRefDto
+  ReadingOrderDto
 } from '@/types/page-dto'
 import {
   convertLabelsFromDto,
@@ -23,7 +21,7 @@ export function convertReadingOrderFromDto(dto: ReadingOrderDto): ReadingOrder |
     if (groupDto.members) {
       for (const member of groupDto.members) {
         if (member.type === 'regionRef') {
-          const refDto = member as RegionRefDto
+          const refDto = member
           if (refDto.index !== undefined) hasIndex = true
           elements.push({
             kind: refDto.index !== undefined ? 'RegionRefIndexed' : 'RegionRef',
@@ -32,12 +30,21 @@ export function convertReadingOrderFromDto(dto: ReadingOrderDto): ReadingOrder |
             index: refDto.index
           })
         } else if (member.type === 'nestedGroup') {
-          const nested = (member as NestedGroupDto).group
+          const nested = member.group
           const converted = convertGroupDto(nested)
           if ('index' in converted && converted.index !== undefined) hasIndex = true
           elements.push(converted)
         }
       }
+    }
+    // The editor uses array order for traversal and drag-and-drop edits. Resolve
+    // PAGE indices on import so every consumer sees the same effective order.
+    if (groupDto.ordered) {
+      elements.sort((a, b) => {
+        const ai = typeof a.index === 'number' && Number.isFinite(a.index) && a.index >= 0 ? a.index : Infinity
+        const bi = typeof b.index === 'number' && Number.isFinite(b.index) && b.index >= 0 ? b.index : Infinity
+        return ai === bi ? 0 : ai - bi
+      })
     }
     const kind = groupDto.ordered
       ? hasIndex ? 'OrderedGroupIndexed' : 'OrderedGroup'
@@ -70,18 +77,20 @@ export function convertReadingOrderToDto(ro?: ReadingOrder): ReadingOrderDto | u
     const ordered = group.kind === 'OrderedGroup' || group.kind === 'OrderedGroupIndexed'
     const members: GroupMemberDto[] = []
     for (const element of group.elements) {
-      if ('regionRef' in element && typeof element.regionRef === 'string') {
+      // Edits change array order; refresh indices so reload/collaboration keeps it.
+      const index = ordered ? members.length : undefined
+      if ('elements' in element) {
+        members.push({
+          type: 'nestedGroup',
+          group: { ...convertGroup(element), index }
+        })
+      } else {
         members.push({
           type: 'regionRef',
           id: element.id,
           regionRef: element.regionRef,
-          index: element.index
-        } as RegionRefDto)
-      } else if ('elements' in element) {
-        members.push({
-          type: 'nestedGroup',
-          group: convertGroup(element as ReadingOrderGroup)
-        } as NestedGroupDto)
+          index
+        })
       }
     }
     return {

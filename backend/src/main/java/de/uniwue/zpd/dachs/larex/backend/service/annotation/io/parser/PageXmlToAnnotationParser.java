@@ -70,7 +70,7 @@ public class PageXmlToAnnotationParser {
 
             // Convert to DTO using sparse presence information from source XML
             startedAt = System.nanoTime();
-            PageDto dto = mapper.toDto(page, presenceIndex);
+            PageDto dto = mapper.toDto(page, presenceIndex, readResult.sourceMetadata());
             long mapMs = (System.nanoTime() - startedAt) / 1_000_000;
             if (log.isDebugEnabled()) {
                 log.debug(
