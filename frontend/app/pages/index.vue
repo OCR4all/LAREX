@@ -1742,20 +1742,13 @@ async function handleLegacyOcr4allImport(event: Event) {
           </UiFloatingSelectionMenu>
         </template>
 
-        <div
+        <AppDropZoneOverlay
           v-if="isOverProjectOverviewDropZone"
-          class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 p-6 backdrop-blur-sm"
-        >
-          <div class="flex flex-col items-center gap-2 rounded-lg border border-primary/20 bg-default/90 px-8 py-6 text-center shadow-lg">
-            <UIcon name="i-lucide-folder-up" class="size-8 text-primary" />
-            <p class="font-medium text-highlighted">
-              Drop a folder to upload it as a project
-            </p>
-            <p class="text-sm text-muted">
-              Images and XML files will be imported automatically
-            </p>
-          </div>
-        </div>
+          :target="projectOverviewDropZone"
+          icon="i-lucide-folder-up"
+          title="Drop a folder to upload it as a project"
+          description="Images and XML files will be imported automatically"
+        />
       </div>
     </template>
   </UDashboardPanel>

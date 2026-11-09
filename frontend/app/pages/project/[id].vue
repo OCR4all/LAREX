@@ -3112,22 +3112,13 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
           </Transition>
         </div>
 
-        <div
+        <AppDropZoneOverlay
           v-if="isOverProjectPagesDropZone"
-          role="status"
-          aria-live="polite"
-          class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10 p-6 backdrop-blur-sm"
-        >
-          <div class="flex flex-col items-center gap-2 rounded-lg border border-primary/20 bg-default/90 px-8 py-6 text-center shadow-lg">
-            <UIcon name="i-lucide-files" class="size-8 text-primary" />
-            <p class="font-medium text-highlighted">
-              Drop files to upload
-            </p>
-            <p class="text-sm text-muted">
-              Images, XML files, and PDFs are supported
-            </p>
-          </div>
-        </div>
+          :target="projectPagesDropZone"
+          icon="i-lucide-files"
+          title="Drop files to upload"
+          description="Images, XML files, and PDFs are supported"
+        />
       </div>
     </template>
   </UDashboardPanel>
