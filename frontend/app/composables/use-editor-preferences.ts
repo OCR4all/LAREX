@@ -141,7 +141,7 @@ const sendPendingSaveOnPageHide = () => {
 }
 
 const registerPageHideFlush = () => {
-  if (pageHideFlushRegistered || typeof window === 'undefined') return
+  if (pageHideFlushRegistered || typeof window === 'undefined' || typeof document === 'undefined') return
   pageHideFlushRegistered = true
   window.addEventListener('pagehide', sendPendingSaveOnPageHide)
   document.addEventListener('visibilitychange', () => {
