@@ -1,6 +1,6 @@
 services:
   socket-proxy:
-    image: tecnativa/docker-socket-proxy:v0.4.2
+    image: tecnativa/docker-socket-proxy:v0.5.0
     environment:
       CONTAINERS: 1
       EVENTS: 1
@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   traefik:
-    image: traefik:v3.7.14
+    image: traefik:v3.7.17
     command:
       - --configFile=/etc/traefik/traefik.yml
     ports:
@@ -30,7 +30,7 @@ services:
       - socket-proxy
 
   postgres:
-    image: postgres:18.2-alpine
+    image: postgres:18.6-alpine
     environment:
       POSTGRES_DB: larex_backend
       POSTGRES_USER: larex
@@ -47,7 +47,7 @@ services:
       retries: 5
 
   keycloak-postgres:
-    image: postgres:18.2-alpine
+    image: postgres:18.6-alpine
     environment:
       POSTGRES_DB: keycloak
       POSTGRES_USER: keycloak
@@ -62,7 +62,7 @@ services:
       retries: 5
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.7.4
+    image: quay.io/keycloak/keycloak:26.8.2-0
     command: start-dev --import-realm
     environment:
       KC_DB: postgres

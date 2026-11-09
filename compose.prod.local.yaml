@@ -2,7 +2,7 @@ name: larex-prod-local
 
 services:
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.31.8-alpine
     restart: unless-stopped
     ports:
       - "${LAREX_BIND_IP:-127.0.0.1}:80:80"
@@ -25,7 +25,7 @@ services:
       start_period: 5s
 
   mailpit:
-    image: axllent/mailpit:v1.29.1
+    image: axllent/mailpit:v1.32.0
     restart: unless-stopped
     ports:
       - "${LAREX_BIND_IP:-127.0.0.1}:8025:8025"
