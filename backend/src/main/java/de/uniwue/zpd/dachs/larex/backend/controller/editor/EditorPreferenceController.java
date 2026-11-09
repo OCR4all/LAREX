@@ -1,14 +1,16 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.editor;
 
-import tools.jackson.databind.JsonNode;
-import de.uniwue.zpd.dachs.larex.backend.entity.EditorPreference;
 import de.uniwue.zpd.dachs.larex.backend.service.editor.EditorPreferenceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Pattern;
 import org.springframework.web.bind.annotation.*;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
+/**
+ * Stores the frontend's UI preferences as an opaque JSON object. Settings the user has never
+ * changed are absent from the response; the frontend fills them with its defaults.
+ */
 @RestController
 @RequestMapping("/editor/preferences")
 public class EditorPreferenceController {
@@ -19,105 +21,16 @@ public class EditorPreferenceController {
         this.service = service;
     }
 
-    public record EditorPreferenceDto(
-            String backgroundColor,
-            Double backgroundOpacity,
-            String toolbarLayout,
-            Boolean toolbarCompact,
-            Boolean pageFocusMode,
-            Boolean leftCollapsed,
-            Boolean rightCollapsed,
-            Integer leftWidthPx,
-            Integer rightWidthPx,
-            Boolean constrainToImage,
-            Boolean constrainToParent,
-            Boolean autoSelect,
-            Boolean showPolygonLabelFill,
-            Boolean preventOverlapOnCreate,
-            Boolean openRegionTypeMenuOnCreate,
-            Boolean moveWithChildren,
-            Double cutMinAreaThreshold,
-            String defaultLineWidth,
-            String defaultVertexSize,
-            Integer textViewFontSize,
-            Integer textViewPadding,
-            Integer textViewCutoutHeight,
-            String textItemLayout,
-            Boolean textViewAutoSelectFirstLine,
-            Boolean canvasTextCorrectionOverlaySnapToLine,
-            Double canvasTextCorrectionOverlayXRatio,
-            Double canvasTextCorrectionOverlayYRatio,
-            Double canvasTextCorrectionZoom,
-            String textModeSubmode,
-            Boolean highlightUnknownCodecChars,
-            @Pattern(regexp = "top-to-bottom|alphabetical") String textlineSortOrder,
-            JsonNode shortcutBindings,
-            JsonNode tableColumnVisibility,
-            JsonNode tableSorting,
-            JsonNode tablePageSizes,
-            Integer onboardingDashboardTourVersion,
-            Integer onboardingEditorTourVersion,
-            JsonNode onboardingTourCompletion,
-            Boolean onboardingToursOptedOut,
-            Boolean autoOpenJobsPanel
-    ) {
-        public static EditorPreferenceDto from(EditorPreference pref) {
-            return new EditorPreferenceDto(
-                    pref.getBackgroundColor(),
-                    pref.getBackgroundOpacity(),
-                    pref.getToolbarLayout(),
-                    pref.getToolbarCompact(),
-                    pref.getPageFocusMode(),
-                    pref.getLeftCollapsed(),
-                    pref.getRightCollapsed(),
-                    pref.getLeftWidthPx(),
-                    pref.getRightWidthPx(),
-                    pref.getConstrainToImage(),
-                    pref.getConstrainToParent(),
-                    pref.getAutoSelect(),
-                    pref.getShowPolygonLabelFill(),
-                    pref.getPreventOverlapOnCreate(),
-                    pref.getOpenRegionTypeMenuOnCreate(),
-                    pref.getMoveWithChildren(),
-                    pref.getCutMinAreaThreshold(),
-                    pref.getDefaultLineWidth(),
-                    pref.getDefaultVertexSize(),
-                    pref.getTextViewFontSize(),
-                    pref.getTextViewPadding(),
-                    pref.getTextViewCutoutHeight(),
-                    pref.getTextItemLayout(),
-                    pref.getTextViewAutoSelectFirstLine(),
-                    pref.getCanvasTextCorrectionOverlaySnapToLine(),
-                    pref.getCanvasTextCorrectionOverlayXRatio(),
-                    pref.getCanvasTextCorrectionOverlayYRatio(),
-                    pref.getCanvasTextCorrectionZoom(),
-                    pref.getTextModeSubmode(),
-                    pref.getHighlightUnknownCodecChars(),
-                    pref.getTextlineSortOrder(),
-                    pref.getShortcutBindings(),
-                    pref.getTableColumnVisibility(),
-                    pref.getTableSorting(),
-                    pref.getTablePageSizes(),
-                    pref.getOnboardingDashboardTourVersion(),
-                    pref.getOnboardingEditorTourVersion(),
-                    pref.getOnboardingTourCompletion(),
-                    pref.getOnboardingToursOptedOut(),
-                    pref.getAutoOpenJobsPanel()
-            );
-        }
-    }
-
     @GetMapping
-    public ResponseEntity<EditorPreferenceDto> get(@AuthenticationPrincipal(expression = "subject") String userId) {
-        EditorPreference pref = service.getOrCreate(userId);
-        return ResponseEntity.ok(EditorPreferenceDto.from(pref));
+    public ResponseEntity<ObjectNode> get(@AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(service.get(userId));
     }
 
+    /** Merges the given keys into the stored preferences; a {@code null} value resets that key. */
     @PutMapping
-    public ResponseEntity<EditorPreferenceDto> update(
-            @Valid @RequestBody EditorPreferenceDto dto,
+    public ResponseEntity<ObjectNode> update(
+            @RequestBody JsonNode patch,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        EditorPreference pref = service.update(userId, dto);
-        return ResponseEntity.ok(EditorPreferenceDto.from(pref));
+        return ResponseEntity.ok(service.update(userId, patch));
     }
 }

@@ -106,9 +106,47 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
 }
 
 const SAVE_DEBOUNCE_MS = 1200
+const PREFERENCES_ENDPOINT = '/api/editor/preferences'
 
 type UpdatePreferenceOptions = {
   immediate?: boolean
+}
+
+// Shared by all callers so one debounced save covers every change, and so the page-hide
+// handler below can find it. Only used on the client.
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+let pendingSavePatch: Partial<EditorPreferences> = {}
+let pageHideFlushRegistered = false
+
+// A reload or tab close within the debounce window would drop the pending save. A keepalive
+// request is allowed to finish after the page is gone.
+const sendPendingSaveOnPageHide = () => {
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+  }
+  if (Object.keys(pendingSavePatch).length === 0) return
+
+  const patch = pendingSavePatch
+  pendingSavePatch = {}
+  void fetch(PREFERENCES_ENDPOINT, {
+    method: 'PUT',
+    keepalive: true,
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch)
+  }).catch((e) => {
+    console.error('Failed to save editor preferences on page hide:', e)
+  })
+}
+
+const registerPageHideFlush = () => {
+  if (pageHideFlushRegistered || typeof window === 'undefined') return
+  pageHideFlushRegistered = true
+  window.addEventListener('pagehide', sendPendingSaveOnPageHide)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') sendPendingSaveOnPageHide()
+  })
 }
 
 export const useEditorPreferences = () => {
@@ -118,12 +156,14 @@ export const useEditorPreferences = () => {
     isLoading: false
   }))
 
-  let saveTimer: ReturnType<typeof setTimeout> | null = null
-  let pendingSavePatch: Partial<EditorPreferences> = {}
+  if (import.meta.client) registerPageHideFlush()
 
+  // The backend stores preferences as an opaque JSON object and only returns keys the user
+  // has set, so a new preference only needs to be added to EditorPreferences and
+  // DEFAULT_PREFERENCES. Saving a key as null resets it to the default.
   const savePreferences = async (prefs: Partial<EditorPreferences>) => {
     try {
-      const data = await $fetch<EditorPreferences>('/api/editor/preferences', {
+      const data = await $fetch<Partial<EditorPreferences>>(PREFERENCES_ENDPOINT, {
         method: 'PUT',
         body: prefs
       })
@@ -178,10 +218,10 @@ export const useEditorPreferences = () => {
     state.value.isLoading = true
     try {
       const requestFetch = import.meta.server ? useRequestFetch() : $fetch
-      const data = await requestFetch<EditorPreferences>('/api/editor/preferences')
-      state.value.preferences = data
+      const data = await requestFetch<Partial<EditorPreferences>>(PREFERENCES_ENDPOINT)
+      state.value.preferences = { ...DEFAULT_PREFERENCES, ...data }
       state.value.initialized = true
-      return data
+      return state.value.preferences
     } catch (e) {
       console.error('Failed to fetch editor preferences:', e)
       return null
