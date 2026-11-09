@@ -3,6 +3,7 @@ import { PcGts } from '@/models/editor'
 import type { Polygon } from '@/models/editor/geometry'
 import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
+import { computeConvexHull } from '@/utils/editor/convex-hull'
 import { findPolygonCoordsRecursive, rebuildSpatialIndexFromPcGts, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
 
 export interface ConvexHullCommandData {
@@ -26,7 +27,7 @@ export class ConvexHullCommand implements Command {
     if (!coords) return
 
     this.originalPoints = [...coords.points]
-    coords.points = this.computeConvexHull(coords.points)
+    coords.points = computeConvexHull(coords.points)
 
     this.finalize(ctx!, pcGts)
   }
@@ -48,31 +49,6 @@ export class ConvexHullCommand implements Command {
 
   private getCoords(pcGts: PcGts): Polygon | null {
     return findPolygonCoordsRecursive(pcGts.page.regions, this.data.elementId, this.data.elementType)
-  }
-
-  private computeConvexHull(points: [number, number][]): [number, number][] {
-    if (points.length < 3) return points
-
-    const sorted = [...points].sort((a, b) => a[0] === b[0] ? a[1] - b[1] : a[0] - b[0])
-    const cross = (o: [number, number], a: [number, number], b: [number, number]) =>
-      (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
-
-    const lower: [number, number][] = []
-    for (const p of sorted) {
-      while (lower.length >= 2 && cross(lower[lower.length - 2]!, lower[lower.length - 1]!, p) <= 0) lower.pop()
-      lower.push(p)
-    }
-
-    const upper: [number, number][] = []
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      const p = sorted[i]!
-      while (upper.length >= 2 && cross(upper[upper.length - 2]!, upper[upper.length - 1]!, p) <= 0) upper.pop()
-      upper.push(p)
-    }
-
-    lower.pop()
-    upper.pop()
-    return [...lower, ...upper]
   }
 
   private finalize(ctx: CommandContext, pcGts: PcGts): void {

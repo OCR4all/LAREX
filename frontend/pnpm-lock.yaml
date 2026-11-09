@@ -113,6 +113,9 @@ importers:
       codemirror:
         specifier: ^6.0.2
         version: 6.0.2
+      d3-polygon:
+        specifier: ^3.0.1
+        version: 3.0.1
       date-fns:
         specifier: ^4.4.0
         version: 4.4.0
@@ -189,6 +192,9 @@ importers:
       '@nuxt/schema':
         specifier: 4.5.2
         version: 4.5.2
+      '@types/d3-polygon':
+        specifier: ^3.0.2
+        version: 3.0.2
       '@types/earcut':
         specifier: ^3.0.0
         version: 3.0.0

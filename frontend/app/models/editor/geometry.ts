@@ -1,3 +1,5 @@
+import { computeConvexHull } from '@/utils/editor/convex-hull'
+
 /** Geometry types */
 export class Polygon {
   points: [number, number][]
@@ -230,7 +232,7 @@ export class Polygon {
 
   private weilerAthertonUnion(other: Polygon): Polygon[] {
     const allPoints = [...this.points, ...other.points]
-    return [this.convexHull(allPoints)]
+    return [new Polygon(computeConvexHull(allPoints))]
   }
 
   private weilerAthertonDifference(other: Polygon): Polygon[] {
@@ -238,37 +240,6 @@ export class Polygon {
     if (!result) return [this]
 
     return [this]
-  }
-
-  private convexHull(points: [number, number][]): Polygon {
-    if (points.length < 3) return new Polygon(points)
-
-    const sorted = [...points].sort((a, b) => a[0] === b[0] ? a[1] - b[1] : a[0] - b[0])
-    const cross = (o: [number, number], a: [number, number], b: [number, number]) => {
-      return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
-    }
-
-    const lower: [number, number][] = []
-    for (const p of sorted) {
-      while (lower.length >= 2 && cross(lower[lower.length - 2]!, lower[lower.length - 1]!, p) <= 0) {
-        lower.pop()
-      }
-      lower.push(p)
-    }
-
-    const upper: [number, number][] = []
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      const p = sorted[i]
-      if (!p) continue
-      while (upper.length >= 2 && cross(upper[upper.length - 2]!, upper[upper.length - 1]!, p) <= 0) {
-        upper.pop()
-      }
-      upper.push(p)
-    }
-
-    lower.pop()
-    upper.pop()
-    return new Polygon([...lower, ...upper])
   }
 
   buffer(distance: number): Polygon {

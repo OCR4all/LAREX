@@ -4,6 +4,7 @@ import { Polygon } from '@/models/editor/geometry'
 import { bufferPolygonInPixels } from '@/utils/editor/buffer-polygon'
 import { BufferPolygonCommand } from '../buffer-polygon-command'
 import { ConvexHullCommand } from '../convex-hull-command'
+import { Commander } from '../commander'
 import { FitToBoundingBoxCommand } from '../fit-to-bounding-box-command'
 import {
   createMockSession,
@@ -92,14 +93,15 @@ describe('polygon shape commands', () => {
     expect(invalidatePolygonGeometry).toHaveBeenCalledTimes(2)
   })
 
-  it('invalidates rendered geometry after computing a convex hull and undoing', () => {
+  it('preserves convex hull coordinates and invalidates geometry across undo and redo', () => {
     const { ctx, getPoints } = setup()
+    const commander = new Commander()
     const command = new ConvexHullCommand({
       elementId: 'region-1',
       elementType: 'region'
     })
 
-    command.execute(ctx)
+    commander.execute(command, ctx)
 
     expect(getPoints()).toEqual([
       [100, 100],
@@ -109,9 +111,19 @@ describe('polygon shape commands', () => {
     ])
     expect(invalidatePolygonGeometry).toHaveBeenLastCalledWith(ctx.canvasId, 'region-1')
 
-    command.undo(ctx)
+    commander.undo(ctx)
 
     expect(getPoints()).toEqual(originalPoints.map(point => [point.x, point.y]))
     expect(invalidatePolygonGeometry).toHaveBeenCalledTimes(2)
+
+    commander.redo(ctx)
+
+    expect(getPoints()).toEqual([
+      [100, 100],
+      [500, 100],
+      [500, 300],
+      [100, 300]
+    ])
+    expect(invalidatePolygonGeometry).toHaveBeenCalledTimes(3)
   })
 })
