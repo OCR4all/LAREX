@@ -1,3 +1,5 @@
+import { useWebSocket } from '@vueuse/core'
+
 type RealtimeConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
 
 type RealtimeMessage = {
@@ -5,71 +7,27 @@ type RealtimeMessage = {
   payload?: unknown
 }
 
-const realtimeSubscribers = new Set<(message: RealtimeMessage) => void>()
+const realtimeSockets = new WeakMap<ReturnType<typeof useNuxtApp>, ReturnType<typeof createRealtimeSocket>>()
 
-export const useRealtimeSocket = () => {
-  const wsConnection = useState<WebSocket | null>('realtime.ws', () => null)
-  const reconnectTimeout = useState<ReturnType<typeof setTimeout> | null>('realtime.reconnectTimeout', () => null)
-  const shouldReconnect = useState<boolean>('realtime.shouldReconnect', () => true)
-  const lifecycleBound = useState<boolean>('realtime.lifecycleBound', () => false)
-  const connectionStatus = useState<RealtimeConnectionStatus>('realtime.connectionStatus', () => 'idle')
-  const isPageVisible = useState<boolean>('realtime.isPageVisible', () => true)
-
-  const clearReconnectTimeout = () => {
-    if (reconnectTimeout.value) {
-      clearTimeout(reconnectTimeout.value)
-      reconnectTimeout.value = null
-    }
+export function useRealtimeSocket() {
+  const app = useNuxtApp()
+  let realtime = realtimeSockets.get(app)
+  if (!realtime) {
+    realtime = createRealtimeSocket()
+    realtimeSockets.set(app, realtime)
   }
+  return realtime
+}
 
-  const closeActiveConnection = (code = 1000, reason = 'client disconnect') => {
-    const ws = wsConnection.value
-    if (!ws) return
-
-    try {
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close(code, reason)
-      }
-    } catch {
-      // Browser may already be tearing down the socket during unload.
-    } finally {
-      wsConnection.value = null
-      connectionStatus.value = 'idle'
-    }
-  }
-
-  const bindLifecycleHandlers = () => {
-    if (import.meta.server || lifecycleBound.value) return
-    isPageVisible.value = document.visibilityState === 'visible'
-
-    const handleVisibilityChange = () => {
-      isPageVisible.value = document.visibilityState === 'visible'
-    }
-
-    const handlePageHide = () => {
-      isPageVisible.value = false
-      shouldReconnect.value = false
-      clearReconnectTimeout()
-      closeActiveConnection(1001, 'page unload')
-    }
-
-    const handlePageShow = () => {
-      isPageVisible.value = document.visibilityState === 'visible'
-      shouldReconnect.value = true
-      const { loggedIn } = useUserSession()
-      if (loggedIn.value) {
-        connect()
-      }
-    }
-
-    window.addEventListener('pagehide', handlePageHide)
-    window.addEventListener('pageshow', handlePageShow)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    lifecycleBound.value = true
-  }
+function createRealtimeSocket() {
+  const subscribers = new Set<(message: RealtimeMessage) => void>()
+  const status = ref<RealtimeConnectionStatus>('idle')
+  const isPageVisible = ref(true)
+  const loggedIn = import.meta.server ? ref(false) : useUserSession().loggedIn
+  let lifecycleBound = false
 
   const dispatch = (message: RealtimeMessage) => {
-    for (const subscriber of realtimeSubscribers) {
+    for (const subscriber of subscribers) {
       try {
         subscriber(message)
       } catch (error) {
@@ -78,93 +36,112 @@ export const useRealtimeSocket = () => {
     }
   }
 
-  const connect = () => {
-    if (import.meta.server) return
-    bindLifecycleHandlers()
+  // VueUse reads the URL when dialing, including after the reconnect delay.
+  const transport = useWebSocket(() => {
+    if (!loggedIn.value) return undefined
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${protocol}//${window.location.host}/_ws`
+  }, {
+    immediate: false,
+    autoConnect: false,
+    autoClose: false,
+    autoReconnect: { delay: 5000 },
+    onConnected: () => {
+      status.value = 'connecting'
+    },
+    onMessage: (_, event) => {
+      try {
+        const message = JSON.parse(event.data) as RealtimeMessage
+        if (message.type === 'CONNECTED') {
+          status.value = 'connected'
+        }
+        dispatch(message)
+      } catch (error) {
+        console.error('[realtime-socket] Failed to parse message:', error)
+      }
+    },
+    onDisconnected: (socket) => {
+      if (transport.ws.value === socket) {
+        status.value = 'disconnected'
+      }
+    },
+    onError: (socket, error) => {
+      if (transport.ws.value === socket) {
+        console.error('[realtime-socket] WebSocket error:', error)
+        status.value = 'error'
+      }
+    }
+  })
 
-    const existing = wsConnection.value
-    if (existing?.readyState === WebSocket.OPEN || existing?.readyState === WebSocket.CONNECTING) {
-      return
+  const connectionStatus = computed<RealtimeConnectionStatus>(() => {
+    return transport.status.value === 'CONNECTING' && status.value !== 'error'
+      ? 'connecting'
+      : status.value
+  })
+
+  const closeActiveConnection = (reason = 'client disconnect') => {
+    transport.close(1000, reason)
+    status.value = 'idle'
+  }
+
+  const bindLifecycleHandlers = () => {
+    if (lifecycleBound) return
+    isPageVisible.value = document.visibilityState === 'visible'
+
+    const handleVisibilityChange = () => {
+      isPageVisible.value = document.visibilityState === 'visible'
     }
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}/_ws`
+    const handlePageHide = () => {
+      isPageVisible.value = false
+      closeActiveConnection('page unload')
+    }
+
+    const handlePageShow = () => {
+      isPageVisible.value = document.visibilityState === 'visible'
+      connect()
+    }
+
+    window.addEventListener('pagehide', handlePageHide)
+    window.addEventListener('pageshow', handlePageShow)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    lifecycleBound = true
+  }
+
+  const connect = () => {
+    if (import.meta.server || !loggedIn.value) return
+    bindLifecycleHandlers()
+
+    if (transport.status.value !== 'CLOSED') return
 
     try {
-      shouldReconnect.value = true
-      clearReconnectTimeout()
-      connectionStatus.value = 'connecting'
-
-      const ws = new WebSocket(wsUrl)
-
-      ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data) as RealtimeMessage
-          if (message.type === 'CONNECTED') {
-            connectionStatus.value = 'connected'
-          }
-          dispatch(message)
-        } catch (error) {
-          console.error('[realtime-socket] Failed to parse message:', error)
-        }
-      }
-
-      ws.onclose = () => {
-        connectionStatus.value = 'disconnected'
-        if (wsConnection.value === ws) {
-          wsConnection.value = null
-        }
-
-        if (!shouldReconnect.value) {
-          return
-        }
-
-        reconnectTimeout.value = setTimeout(() => {
-          reconnectTimeout.value = null
-          const { loggedIn } = useUserSession()
-          if (loggedIn.value) {
-            connect()
-          }
-        }, 5000)
-      }
-
-      ws.onerror = (error) => {
-        console.error('[realtime-socket] WebSocket error:', error)
-        connectionStatus.value = 'error'
-      }
-
-      wsConnection.value = ws
+      status.value = 'connecting'
+      transport.open()
     } catch (error) {
       console.error('[realtime-socket] Failed to connect:', error)
-      connectionStatus.value = 'error'
+      status.value = 'error'
     }
   }
 
   const disconnect = () => {
-    shouldReconnect.value = false
-    clearReconnectTimeout()
     closeActiveConnection()
   }
 
   const send = (message: Record<string, unknown>) => {
-    const ws = wsConnection.value
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      return false
-    }
-
-    ws.send(JSON.stringify(message))
-    return true
+    const socket = transport.ws.value
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false
+    return transport.send(JSON.stringify(message), false)
   }
 
   const subscribe = (listener: (message: RealtimeMessage) => void) => {
-    realtimeSubscribers.add(listener)
+    subscribers.add(listener)
     return () => {
-      realtimeSubscribers.delete(listener)
+      subscribers.delete(listener)
     }
   }
 
   return {
-    connectionStatus: readonly(connectionStatus),
+    connectionStatus,
     isPageVisible: readonly(isPageVisible),
     connect,
     disconnect,
