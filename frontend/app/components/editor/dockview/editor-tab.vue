@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { TabPartInitParameters } from 'dockview-core'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
-import { useEditorStore } from '@/stores/editor/editor.store'
 import { parsePagePanelId } from '@/stores/editor/editor.keys'
 
 const props = defineProps<{ params: TabPartInitParameters }>()

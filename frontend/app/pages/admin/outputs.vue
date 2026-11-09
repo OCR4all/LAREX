@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { LazyUiDeleteSlideover } from '#components'
-import { extractApiErrorMessage } from '@/utils/api-error'
-import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 
 const { formatDateTime } = useLocalDateTimeFormatter()
 

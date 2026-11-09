@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { ActionRunDetail } from '@/types/action'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 const { formatDateTime } = useLocalDateTimeFormatter()
 

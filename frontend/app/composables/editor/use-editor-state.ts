@@ -1,5 +1,4 @@
 import type { SpatialIndexService } from '@/services/editor/spatial-index-service'
-import { reactive, ref, watch } from 'vue'
 import { watchShapes } from '@/utils/editor/watch-shapes'
 
 export interface EditorPolygon {

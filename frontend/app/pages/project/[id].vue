@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useDropZone } from '@vueuse/core'
 import {
   ActionActiveIndicator,
   LazyActionSlideoverRun,
@@ -28,7 +27,6 @@ import type { Subtask } from '~/types/index'
 import { canOpenPageInEditor, createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
 import { createPageXmlLabelSet } from '@/models/editor'
 import type { LabelSet as ApiLabelSet } from '@/types/label-set'
-import { useEditorStore } from '@/stores/editor/editor.store'
 import type { IiifImportTerminalEvent } from '@/stores/iiif-import-jobs.store'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse } from '@/types/dictionary'
@@ -36,11 +34,8 @@ import type { ApplySourcesResponse, NormalizePreview, NormalizationProfile, Norm
 import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/types/validation-ruleset'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import PageWorkflowStateDropdown from '@/components/page/workflow-state-dropdown.vue'
-import { PAGE_WORKFLOW_ACTION_META, availablePageTransitions } from '@/utils/page-workflow-state'
 import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowAction, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
 import type { UploadFile, UploadSession } from '@/composables/use-chunked-upload'
-import { isProjectImageOrXml } from '@/utils/directory-project-upload'
-import { isActionLockedPage, resolvePageLockReason } from '@/utils/page-lock'
 
 type PdfPreflightResponse = {
   ready: boolean

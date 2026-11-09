@@ -19,8 +19,6 @@ import {
   DeletePolylineCommand,
   SetHiddenElementsCommand
 } from '@/commands'
-import { useEditorStore } from '@/stores/editor/editor.store'
-import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
 import { cloneReadingOrder } from '@/commands/editor/reading-order-utils'

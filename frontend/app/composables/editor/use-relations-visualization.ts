@@ -1,4 +1,4 @@
-import { computed, type Ref } from 'vue'
+import type { Ref } from 'vue'
 import type { Point, Relation } from '@/models/editor'
 import type { RenderablePolygon, RelationOverlayLabel, RelationRenderData } from '@/types/editor/rendering'
 import type { ArrowSegment } from '@/webgl/editor/reading-order-renderer'

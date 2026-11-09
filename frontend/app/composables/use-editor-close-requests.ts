@@ -1,4 +1,3 @@
-import { useEventBus } from '@vueuse/core'
 import type { DockviewPanelApi } from 'dockview-core'
 
 export type EditorCloseRequest = {

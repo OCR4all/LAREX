@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { LazyWorkspaceSlideoverCreate } from '#components'
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { getWorkspaceDisplayName, getWorkspaceSecondaryLabel } from '@/utils/workspace-display'
 
 defineProps<{
   collapsed?: boolean

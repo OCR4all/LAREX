@@ -1,7 +1,5 @@
 import type { Ref } from 'vue'
 import type { CollaborationPresence, CollaborationRoomMember, CollaborationUserIdentity } from '@/types/collaboration'
-import { getCollaborationColor } from '@/types/collaboration'
-import { resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 
 export interface CollaborationDisplayParticipant {

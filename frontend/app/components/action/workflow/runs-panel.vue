@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { ActionWorkflowRun } from '~/types/action-workflow'
-import { actionRunStatusColor, actionRunStatusLabel } from '~/utils/action-run-status'
-import { extractApiErrorDetails } from '~/utils/api-error'
 
 const { formatDateTime } = useLocalDateTimeFormatter()
 

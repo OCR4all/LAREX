@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { PageRegionType, PageTextType } from '@/types/label-set'
-import { applyPageRegionTypeChange, applyPageTextTypeChange } from '@/composables/use-label-builder'
 
 const props = defineProps<{
   isSystem?: boolean

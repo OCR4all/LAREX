@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
-import { CANONICAL_PAGE_CUSTOM_KEY, type LabelSet, type LabelSetCreateOrUpdateRequest, type LabelSetSummary } from '@/types/label-set'
-import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
+import type { LabelSet, LabelSetCreateOrUpdateRequest, LabelSetSummary } from '@/types/label-set'
+import type { ResourceCapabilities } from '@/types/capabilities'
 import { LazyEditorSlideoverUnsavedProgress, LazyLabelBuilderModalImportPreview, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
-import { isEditableLabelDefinition, isGroupMeta, normalizeEditableLabel, type BuilderEntry } from '@/composables/use-label-builder'
-import { buildToolkitPackageFileName } from '@/utils/download-file-names'
-import { buildLabelSetImportPreview } from '@/utils/label-set-import-preview'
-import { extractApiErrorDetails, extractApiErrorMessage } from '@/utils/api-error'
+import type { BuilderEntry } from '@/composables/use-label-builder'
 
 const route = useRoute()
 const router = useRouter()

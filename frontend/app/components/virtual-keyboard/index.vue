@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { LazyVirtualKeyboardSlideoverEditKey } from '#components'
 import type { KeyboardLayout, KeyboardItem } from '@/types/virtual-keyboard'
-import { wsKey } from '@/utils/fetch-keys'
 
 const props = defineProps<{
   layout: KeyboardLayout

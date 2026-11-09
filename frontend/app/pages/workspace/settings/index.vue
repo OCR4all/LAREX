@@ -12,7 +12,6 @@ import type {
   ProjectDefaultPropagationScope,
   ProjectDefaultsPreview
 } from '~/types/workspace-project-defaults'
-import { changedProjectDefaultKeys } from '~/utils/workspace-project-defaults'
 
 type SelectOption = { label: string, value: string }
 

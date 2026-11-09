@@ -1,4 +1,4 @@
-import { computed, effectScope, onScopeDispose, watch, type EffectScope } from 'vue'
+import { effectScope, onScopeDispose, type EffectScope } from 'vue'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSession } from '@/session/editor/editor-session'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'

@@ -1,5 +1,3 @@
-import { computed } from 'vue'
-
 export async function useWorkspaceBootstrap(options?: { validateSelection?: boolean }) {
   const workspace = useWorkspaceStore()
   const validateSelection = options?.validateSelection ?? true

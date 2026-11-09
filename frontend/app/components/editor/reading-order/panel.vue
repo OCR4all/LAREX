@@ -6,7 +6,6 @@ import type {
   ReadingOrderGroup,
   RegionRef
 } from '@/models/editor'
-import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { cloneReadingOrder } from '@/commands/editor/reading-order-utils'
 import { createScopedLogger } from '@/services/editor/logger-service'
 

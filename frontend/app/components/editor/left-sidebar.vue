@@ -3,8 +3,6 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import type { LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
 import { useFloatingAnchorPosition } from '@/composables/editor/use-floating-anchor-position'
 import { EDITOR_WORKSPACE_FLOATING_ANCHOR_ID } from '@/session/editor/editor-session'
-import { useEditorStore } from '@/stores/editor/editor.store'
-import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type { PageSortMode } from '@/utils/editor/page-sort'
 import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
 

@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import { PAGE_WORKFLOW_STATE_META } from '@/utils/page-workflow-state'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { PageData } from '@/stores/editor/types'
-import { useEditorStore } from '@/stores/editor/editor.store'
-import UiColorTag from '@/components/ui/color-tag.vue'
-import { resolvePageLockReason } from '@/utils/page-lock'
 
 type VariantItem = { label: string, value: string }
 

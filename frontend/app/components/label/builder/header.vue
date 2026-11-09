@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
-import { isEditableLabelDefinition } from '@/composables/use-label-builder'
 
 const props = defineProps<{
   isNew: boolean

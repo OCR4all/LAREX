@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { LazyProjectSlideoverXmlEditor } from '#components'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
-import { extractApiErrorMessage } from '@/utils/api-error'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 
 const props = defineProps<{ canvasId: string }>()

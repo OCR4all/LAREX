@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { LazyAdminSlideoverEditQuota } from '#components'
-import { getWorkspaceDisplayName, getWorkspaceSearchText, getWorkspaceSecondaryLabel } from '@/utils/workspace-display'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 

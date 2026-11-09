@@ -1,4 +1,3 @@
-import { computed, ref, watch } from 'vue'
 import { useGlobalSearch } from '@/composables/use-global-search'
 
 type DashboardSearchItem = {

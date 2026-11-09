@@ -2,7 +2,6 @@ import type { PresenceFilter } from '@/utils/editor/textline-filtering'
 import { createSpatialIndex, type SpatialIndexService } from '@/services/editor/spatial-index-service'
 import type { PcGts } from '@/models/editor'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
-import { shallowRef } from 'vue'
 
 export type PageVisibilityState = {
   hiddenPolygonIds: string[]

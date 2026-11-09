@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { Task } from '~/types/index'
-import { DEFAULT_TASK_CAPABILITIES } from '@/types/capabilities'
 import { isPast } from 'date-fns'
 
 const { formatDateTime } = useLocalDateTimeFormatter()

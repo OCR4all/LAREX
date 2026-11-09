@@ -1,5 +1,4 @@
 import type { TaskStatus } from '~/types/index'
-import { wsKey } from '@/utils/fetch-keys'
 
 const taskOverviewStatuses: Array<TaskStatus | 'ALL'> = [
   'ALL',

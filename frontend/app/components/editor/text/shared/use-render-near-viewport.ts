@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
+import { onBeforeUnmount, onMounted, type Ref } from 'vue'
 import { getScrollContainer } from './text-field-navigation'
 
 // Content renders this far outside the visible part of the scroll container, so it is ready before it scrolls into view.

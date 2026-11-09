@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { useMediaQuery } from '@vueuse/core'
-
 const {
   isOverlayOpen,
   isOverlayMinimized,

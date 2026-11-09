@@ -1,17 +1,8 @@
 <script setup lang="ts">
-import { actionRunCountsLabel } from '@/utils/action-run-status'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import ActionRunLogsModal from '@/components/action/run-logs-modal.vue'
-import { getWorkspaceDisplayName } from '@/utils/workspace-display'
-import {
-  getJobCreatorId,
-  getJobKey,
-  getJobWorkspaceId,
-  isOwnStatusJob,
-  isActiveAction,
-  isActiveIiifImport,
-  isActiveUpload,
-  type StatusJob
+import type {
+  StatusJob
 } from '@/utils/status-center'
 
 function uploadErrorMessage(message: string): string {

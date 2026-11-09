@@ -1,4 +1,4 @@
-import { readonly, ref, watch, type Ref } from 'vue'
+import type { Ref } from 'vue'
 
 export type EditorViewerNavigationMode = 'explore' | 'follow'
 

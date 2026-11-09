@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useDebounceFn, useIntersectionObserver } from '@vueuse/core'
 import type { TableInfiniteScroll } from '@/composables/use-table-pagination'
 
 const props = defineProps<{ state: TableInfiniteScroll }>()

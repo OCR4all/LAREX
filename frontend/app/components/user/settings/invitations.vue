@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { WorkspaceInvitation } from '~/types'
-import { ROLE_LABELS } from '~/types'
 
 const { formatRelativeTime } = useLocalDateTimeFormatter()
 const toast = useToast()

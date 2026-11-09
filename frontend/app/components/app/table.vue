@@ -4,12 +4,6 @@ import type { StyleValue } from 'vue'
 import AppDateTime from '@/components/app/date-time.vue'
 import type { DateTimeInput } from '@/composables/use-local-date-time'
 import type { TableInfiniteScroll } from '@/composables/use-table-pagination'
-import {
-  filterVisibleTableColumns,
-  getTableColumnId,
-  isTableColumnLike,
-  normalizeTableColumns
-} from '@/utils/table-columns'
 
 defineOptions({ inheritAttrs: false })
 const DEFAULT_TABLE_UI = {

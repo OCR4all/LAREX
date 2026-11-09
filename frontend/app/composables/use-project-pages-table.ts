@@ -1,6 +1,5 @@
-import { PAGE_WORKFLOW_STATES, PAGE_WORKFLOW_STATE_META } from '@/utils/page-workflow-state'
 import { moveArrayElement, useSortable } from '@vueuse/integrations/useSortable'
-import { computed, nextTick, onBeforeUnmount, ref, watch, type ComputedRef, type Ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import { createPageSortOrderRequest } from '@/utils/editor/page-sort'
 import type { Page, ProjectActionScope, ProjectData } from '@/types/project-page'
 

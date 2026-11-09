@@ -1,5 +1,5 @@
-import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
-import { useTableFilters, type TagFilterOperator } from '@/composables/use-table-filters'
+import type { ComputedRef, Ref } from 'vue'
+import type { TagFilterOperator } from '@/composables/use-table-filters'
 
 type TagOption = {
   label: string

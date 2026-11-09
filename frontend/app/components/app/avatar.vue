@@ -7,7 +7,6 @@ import {
 } from '@maxnth/gestalt'
 import type { AvatarBaseProps } from '@maxnth/gestalt'
 import type { AvatarSize, AvatarStyle } from '~/types/avatar'
-import { AVATAR_SIZE_PIXELS, getGeneratedAvatarSeed } from '~/utils/avatar-rendering'
 
 const props = withDefaults(defineProps<{
   seed: string | number

@@ -3,7 +3,6 @@ import type { TableColumn } from '@nuxt/ui'
 import type { ReviewQueue, ReviewQueuePage } from '~/types'
 import type { PageWorkflowAction } from '@/types/project-page'
 import type { ReviewQueueFilters } from '@/stores/editor/editor.session.store'
-import { filterReviewPages } from '@/utils/page-workflow-state'
 
 const props = defineProps<{
   queue: ReviewQueue | null

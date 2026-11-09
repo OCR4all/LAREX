@@ -1,4 +1,4 @@
-import { isRef, toValue, type CSSProperties, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
+import type { CSSProperties, ComputedRef, MaybeRefOrGetter, Ref } from 'vue'
 import {
   getEditorFloatingAnchorElement,
   getEditorFloatingAnchorRect,

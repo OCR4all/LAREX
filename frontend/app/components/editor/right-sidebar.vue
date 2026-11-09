@@ -2,7 +2,6 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useFloatingAnchorPosition } from '@/composables/editor/use-floating-anchor-position'
 import { EDITOR_WORKSPACE_FLOATING_ANCHOR_ID } from '@/session/editor/editor-session'
-import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
 
 const emit = defineEmits<{

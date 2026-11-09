@@ -1,4 +1,4 @@
-import { getCurrentScope, onScopeDispose, watch, type WatchStopHandle } from 'vue'
+import { getCurrentScope, onScopeDispose, type WatchStopHandle } from 'vue'
 
 /**
  * Watch array membership separately from each shape. A point edit should only

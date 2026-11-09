@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import MetadataLabelGroupsForm from './label-groups-form.vue'
 import type { MetadataItemFormState } from '@/utils/editor/metadata-schema'
 
 defineProps<{
@@ -41,7 +40,7 @@ const items = defineModel<MetadataItemFormState[]>({ required: true })
         <UInput v-model="item.date" placeholder="ISO date/time" />
       </UFormField>
 
-      <MetadataLabelGroupsForm v-model="item.labels" />
+      <EditorSidebarMetadataLabelGroupsForm v-model="item.labels" />
 
       <UButton
         type="button"

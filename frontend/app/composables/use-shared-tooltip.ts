@@ -1,4 +1,4 @@
-import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted } from 'vue'
 
 export const SHARED_TOOLTIP_DELAY_MS = 200
 

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { PageWorkflowAction, PageWorkflowState } from '@/types/project-page'
-import { PAGE_WORKFLOW_ACTION_META, PAGE_WORKFLOW_STATE_META } from '@/utils/page-workflow-state'
 
 const props = withDefaults(defineProps<{
   state: PageWorkflowState

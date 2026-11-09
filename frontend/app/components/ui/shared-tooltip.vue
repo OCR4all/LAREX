@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { useSharedTooltip } from '@/composables/use-shared-tooltip'
-
 const { reference, text, open, hide } = useSharedTooltip()
 </script>
 

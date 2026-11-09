@@ -1,9 +1,7 @@
-import { useMediaQuery } from '@vueuse/core'
 import type { Ref } from 'vue'
 import type { ActionOutput, ActionOutputFile } from '@/types/action-output'
 import type { ProjectData } from '@/types/project-page'
 import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
-import { buildActionOutputFileName } from '@/utils/download-file-names'
 
 type OutputShareSlideover = {
   open: (props: { projectId: string, output: ActionOutput }) => { result: Promise<unknown> }

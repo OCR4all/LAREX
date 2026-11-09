@@ -1,6 +1,5 @@
 import type { KeyboardLayout } from '@/types/virtual-keyboard'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
-import { wsKey } from '@/utils/fetch-keys'
 
 export function useVirtualKeyboards() {
   const workspace = useWorkspaceStore()

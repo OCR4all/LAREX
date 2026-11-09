@@ -9,7 +9,6 @@ import { getOrCreateSessionCommander } from '@/session/editor/canvas-commander'
 import type { EditorCanvasControls, SetViewModeOptions } from '@/types/editor/canvas-controls'
 import type { ViewMode } from '@/types/editor/rendering'
 import { resolvePageLockReason } from '@/utils/page-lock'
-import { computed, reactive, ref, watch } from 'vue'
 
 export const DRAWING_MODES = {
   SELECT: 'select',

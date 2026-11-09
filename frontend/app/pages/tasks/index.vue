@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import type { EditorQueue, ReviewQueue, Task, TaskStatus, TaskPriority, UserProfile, WorkspaceMember } from '~/types/index'
-import { DEFAULT_TASK_CAPABILITIES } from '@/types/capabilities'
 import { useEditorSessionStore, type ReviewQueueFilters } from '@/stores/editor/editor.session.store'
-import { filterReviewPages } from '@/utils/page-workflow-state'
 import { LazyUiDeleteSlideover, LazyTaskSlideoverEdit } from '#components'
 
 const UButton = resolveComponent('UButton')

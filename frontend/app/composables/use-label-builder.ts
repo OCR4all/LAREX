@@ -1,4 +1,4 @@
-import { computed, inject, provide, reactive, ref, type InjectionKey } from 'vue'
+import { inject, provide, type InjectionKey } from 'vue'
 import {
   CANONICAL_PAGE_CUSTOM_KEY,
   type LabelDefinition,

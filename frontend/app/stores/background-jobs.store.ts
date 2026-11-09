@@ -1,5 +1,3 @@
-import { defineStore } from 'pinia'
-
 export type BackgroundJobStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
 
 export interface BackgroundJob {

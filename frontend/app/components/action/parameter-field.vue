@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { actionParameterChoices, actionParameterLabel, coerceActionParameterInput } from '@/utils/action-parameter-values'
 import type { ActionParameterChoice, ActionParameterDefinition, ActionParameterValue } from '@/types/action'
 
 const props = defineProps<{

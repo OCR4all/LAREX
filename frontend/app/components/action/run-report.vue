@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { ActionRunReport, ActionPageOutcome } from '@/types/action'
-import { actionRunCountsLabel } from '@/utils/action-run-status'
 
 const props = defineProps<{ report: ActionRunReport, runId: string }>()
 const search = ref('')

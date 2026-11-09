@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { DATASET_SPLIT_OPTIONS, MIN_SPLIT_PERCENTAGE, percentagesFromThumbs, splitThumbs } from '@/utils/dataset-splits'
 import type { DatasetSplitPercentages } from '@/utils/dataset-splits'
 import type { DatasetItemSplit } from '@/types/dataset'
 

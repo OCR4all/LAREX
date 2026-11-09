@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { TagNode } from '~/types/tag-set'
-import UiColorTag from '@/components/ui/color-tag.vue'
 
 const { activeTag, tags } = useTagSetBuilder()
 

@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { LazyCodecSlideoverAction, LazyVirtualKeyboardSlideoverGlyphPicker, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
 import type { Codec, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
-import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
+import type { ResourceCapabilities } from '@/types/capabilities'
 import type { BreadcrumbItem, DropdownMenuItem, TableColumn } from '@nuxt/ui'
-import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 
 const route = useRoute()
 const router = useRouter()

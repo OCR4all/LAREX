@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LazyActionSlideoverDatasetIntegration, LazyDatasetSlideoverRelease, LazyDatasetSlideoverReleaseShare, LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover, USelect } from '#components'
+import { LazyActionSlideoverDatasetIntegration, LazyDatasetSlideoverRelease, LazyDatasetSlideoverReleaseShare, LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UPopover, USelect } from '#components'
 import type { BreadcrumbItem, DropdownMenuItem, TableColumn, TabsItem } from '@nuxt/ui'
 import type {
   DatasetCreateOrUpdateRequest,
@@ -13,9 +13,7 @@ import type {
   DatasetSplitAlgorithm,
   DatasetValidationResult
 } from '@/types/dataset'
-import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
-import { buildDatasetPackageFileName } from '@/utils/download-file-names'
 
 const { formatDateTime: formatTimestamp } = useLocalDateTimeFormatter()
 

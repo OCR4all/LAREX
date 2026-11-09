@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { normalizeTableColumns } from '@/utils/table-columns'
 
 const props = withDefaults(defineProps<{
   tableId: string

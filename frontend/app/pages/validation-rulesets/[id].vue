@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import type { ValidationRule, ValidationRuleset, ValidationRulesetCreateOrUpdateRequest, ValidationSeverity } from '@/types/validation-ruleset'
-import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
+import type { ResourceCapabilities } from '@/types/capabilities'
 
 interface ValidationPreviewRuleResult {
   ruleId: string

@@ -1,6 +1,5 @@
-import { computed, ref, watch, type ComputedRef } from 'vue'
+import type { ComputedRef } from 'vue'
 import type { Subtask } from '~/types/index'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 type EditorTaskStateOptions = {
   currentProjectId: ComputedRef<string | null>

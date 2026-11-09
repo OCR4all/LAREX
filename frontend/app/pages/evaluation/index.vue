@@ -1,7 +1,6 @@
 <!-- The compact render callbacks below intentionally keep table cell definitions together. -->
 <!-- eslint-disable @stylistic/max-statements-per-line -->
 <script setup lang="ts">
-import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import type { TableColumn } from '@nuxt/ui'
 import type { ActionRun, ActionRunStatus } from '@/types/action'
 

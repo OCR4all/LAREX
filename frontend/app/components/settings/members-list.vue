@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { WorkspaceMember } from '~/types'
-import { ROLE_LABELS } from '~/types'
 import { LazyUiConfirmModal } from '#components'
 
 const props = defineProps<{

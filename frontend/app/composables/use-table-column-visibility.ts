@@ -1,7 +1,5 @@
 import type { VisibilityState } from '@tanstack/vue-table'
 import type { MaybeRefOrGetter } from 'vue'
-import { watchIgnorable } from '@vueuse/core'
-import { useEditorPreferences } from '@/composables/use-editor-preferences'
 
 function normalizeColumnIds(ids: string[]): string[] {
   const seen = new Set<string>()

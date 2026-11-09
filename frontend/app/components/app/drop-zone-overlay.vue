@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { useElementBounding } from '@vueuse/core'
-
 const props = defineProps<{
   target: HTMLElement | null
   icon: string

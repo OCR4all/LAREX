@@ -1,9 +1,7 @@
-import { useMediaQuery } from '@vueuse/core'
 import type { Ref } from 'vue'
 import type { ProjectPackageRelease } from '@/types/project-package-release'
 import type { Page, ProjectData } from '@/types/project-page'
 import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 type CreateReleaseSlideover = {
   open: (props: { projectId: string, suggestedTag: string, imageVariantPages: Page[] }) => { result: Promise<unknown> }

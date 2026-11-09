@@ -1,5 +1,4 @@
 import type { MaybeRefOrGetter } from 'vue'
-import { computed, onScopeDispose, toValue, watch } from 'vue'
 
 export function useEditorCanvasInteractionBlocker() {
   const blockCount = useState<number>('editor.canvasInteractionBlockCount', () => 0)

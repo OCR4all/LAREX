@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import type { ActionActivationRequest, ActionAssignmentResponse, ActionDefinitionResponse } from '~/types/action'
-import { filterWorkspaceActions, groupWorkspaceActions, unconfiguredActions } from '~/utils/workspace-action-activation'
 import type { WorkspaceActionRow } from '~/utils/workspace-action-activation'
 
 const workspaceStore = useWorkspaceStore()

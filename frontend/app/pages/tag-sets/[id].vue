@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import type { BreadcrumbItem } from '@nuxt/ui'
 import type { TagSet, TagSetCreateOrUpdateRequest } from '@/types/tag-set'
-import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
+import type { ResourceCapabilities } from '@/types/capabilities'
 import {
   LazyShareSlideover,
   LazyUiDeleteSlideover,
   LazyUiConfirmSlideover
 } from '#components'
-import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 
 const route = useRoute()
 const router = useRouter()

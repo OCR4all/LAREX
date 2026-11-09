@@ -1,5 +1,3 @@
-import { globalKey, wsKey } from '@/utils/fetch-keys'
-
 function dedupeKeys(keys: Array<string | null | undefined>): string[] {
   return [...new Set(keys.filter((key): key is string => Boolean(key)))]
 }

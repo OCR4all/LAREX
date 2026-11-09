@@ -1,4 +1,4 @@
-import { computed, type ComputedRef } from 'vue'
+import type { ComputedRef } from 'vue'
 import type { Commander } from '@/commands/editor/commander'
 import type { CommandContext } from '@/commands/editor/types'
 import type { TextContentVariantData } from '@/models/editor'

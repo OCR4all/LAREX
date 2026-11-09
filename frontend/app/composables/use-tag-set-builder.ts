@@ -1,4 +1,4 @@
-import { inject, provide, type InjectionKey } from 'vue'
+import type { InjectionKey } from 'vue'
 import type { TagNode, TagSetMeta, FlattenedTag } from '~/types/tag-set'
 
 interface TagSetBuilderTag extends TagNode {

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { getProjectNameError } from '@/utils/directory-project-upload'
-
 const props = defineProps<{
   initialName: string
   existingNames: string[]

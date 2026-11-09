@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { buildNormalizationDiffSegments } from '@/utils/normalization-diff'
 import type { NormalizePreview } from '@/types/normalization-profile'
 
 const props = defineProps<{

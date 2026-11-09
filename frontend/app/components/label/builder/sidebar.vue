@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { VueDraggable } from 'vue-draggable-plus'
-import {
-  isGroupMeta,
-  type EditableLabelDefinition,
-  type GroupMeta
+import type {
+  EditableLabelDefinition,
+  GroupMeta
 } from '~/composables/use-label-builder'
 
 const { isSystem = false } = defineProps<{

@@ -1,5 +1,4 @@
 import { isTerminalActionRun } from '@/utils/action-run-status'
-import { defineStore } from 'pinia'
 import type { ActionRun, ActionRunDetail } from '@/types/action'
 import type { ActionWorkflowRun } from '@/types/action-workflow'
 

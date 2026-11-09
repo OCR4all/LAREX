@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
 import type { Subtask } from '~/types/index'
 
 const props = defineProps<{

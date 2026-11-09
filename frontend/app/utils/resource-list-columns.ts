@@ -1,4 +1,4 @@
-import { h, type Component, type Ref } from 'vue'
+import type { Component, Ref } from 'vue'
 import type { DropdownMenuItem } from '@nuxt/ui'
 
 type SortState = Ref<{ column: string, direction: 'asc' | 'desc' }>

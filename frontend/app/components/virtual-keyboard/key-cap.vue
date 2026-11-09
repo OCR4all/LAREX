@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { KeyboardItem } from '@/types/virtual-keyboard'
 import type { VirtualKeyboardPalette } from '@/composables/use-virtual-keyboard-palette'
-import { GlyphService } from '@/utils/glyph-service'
-import { toUnicodeCodepoint } from '@/utils/unicode'
 
 type GlyphMeta = {
   description: string | null

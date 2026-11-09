@@ -3,8 +3,7 @@ import { z } from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import { LazyLabelModalTransferConflict, LazyProjectModalTransferConflict } from '#components'
 import type { TransferableResourceType } from '@/types/capabilities'
-import { extractApiErrorMessage, isProjectNameConflictError } from '@/utils/api-error'
-import { defaultLabelSetTransferName, requestLabelSetTransfer, type LabelSetNameStatus } from '@/utils/label-set-transfer'
+import type { LabelSetNameStatus } from '@/utils/label-set-transfer'
 
 interface Workspace {
   id: string

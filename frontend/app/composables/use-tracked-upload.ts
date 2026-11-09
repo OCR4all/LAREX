@@ -1,5 +1,4 @@
 import type { UploadUiFile } from '@/stores/upload.store'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 type TrackedUploadStage = 'uploading' | 'processing'
 

@@ -6,7 +6,6 @@ import type { RenderablePolygon, PreviewPoint } from '@/types/editor/rendering'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { isPointWithinImageBounds, clampToWorldBounds, getImageBounds } from '@/utils/editor/coordinates'
 import { wouldNewVertexSelfIntersect } from '@/utils/editor/hit-detection'
-import { useEditorStore } from '@/stores/editor/editor.store'
 import { createScopedLogger } from '@/services/editor/logger-service'
 
 const log = createScopedLogger('CutDrawing')

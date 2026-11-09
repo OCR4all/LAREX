@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { Dictionary, DictionaryCreateOrUpdateRequest } from '@/types/dictionary'
-import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
+import type { ResourceCapabilities } from '@/types/capabilities'
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
-import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 
 const route = useRoute()
 const router = useRouter()

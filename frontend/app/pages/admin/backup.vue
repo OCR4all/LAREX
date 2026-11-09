@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { getWorkspaceDisplayName, getWorkspaceSecondaryLabel } from '@/utils/workspace-display'
-
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const toast = useToast()

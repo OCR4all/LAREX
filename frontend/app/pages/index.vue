@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useDropZone } from '@vueuse/core'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
 import {
@@ -18,7 +17,6 @@ import {
   ActionActiveIndicator,
   AppAvatar,
   NuxtLink,
-  UBadge,
   UButton,
   UDropdownMenu,
   UIcon,
@@ -31,22 +29,10 @@ import type {
   ProjectPackageImportPreview,
   ProjectPackageImportResult
 } from '@/types/project-package-import'
-import { DEFAULT_PROJECT_CAPABILITIES } from '@/types/capabilities'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
-import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
-import { naturalSortBy } from '@/utils/natural-sort'
-import {
-  buildBatchProjectExportFileName,
-  buildDownloadFileName,
-  buildProjectBasicExportFileName,
-  buildProjectPackageFileName
-} from '@/utils/download-file-names'
-import { formatProjectExportExtension } from '@/utils/project-export'
 import type { Page } from '@/types/project-page'
-import { getDirectoryProjectName, getProjectNameError, isProjectImageOrXml } from '@/utils/directory-project-upload'
-import { getDroppedDirectoryFiles } from '@/utils/file-drop'
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)

@@ -1,6 +1,4 @@
 import type { WorkspaceCapabilities } from '@/types/capabilities'
-import { DEFAULT_WORKSPACE_CAPABILITIES } from '@/types/capabilities'
-import { globalKey, wsKey } from '@/utils/fetch-keys'
 
 export function useWorkspaceCapabilities(workspaceId: MaybeRef<string | null | undefined>) {
   const resolvedWorkspaceId = computed(() => toValue(workspaceId))

@@ -1,8 +1,6 @@
 import type { Ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
-import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
-import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { resolveTextModeSubmodeFromQuery } from '@/utils/editor/text-mode'
 
 type EditorDeepLinksOptions = {

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { ActionRun, ActionRunDetail } from '@/types/action'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 const props = defineProps<{ run: ActionRun }>()
 const open = defineModel<boolean>('open', { default: false })

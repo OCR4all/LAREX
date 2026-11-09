@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { buildSharedReleaseFileName } from '@/utils/download-file-names'
-
 definePageMeta({
   layout: false
 })

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { PAGE_WORKFLOW_STATES, PAGE_WORKFLOW_STATE_META } from '@/utils/page-workflow-state'
 import type { LabelDefinition } from '@/types/label-set'
 import type { PageWorkflowState } from '@/types/project-page'
 import { createCanonicalLabelFilterOptions } from '@/utils/editor/page-filter-tokens'

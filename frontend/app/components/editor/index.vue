@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { triggerRef, type WatchStopHandle } from 'vue'
+import type { WatchStopHandle } from 'vue'
 import { LazyEditorCommentsLabelsOverlay, LazyEditorElementLabelsOverlay, LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay, LazyEditorSlideoverLabelConflicts, LazyEditorSlideoverMergeSettings } from '#components'
 import { getVisiblePolygonAtPoint, triangulatePolygon } from '@/utils/editor/hit-detection'
 import { clipToWorldCoords, getWorldCoordsFromEvent, imageToWorld, pixelsToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
@@ -10,9 +10,6 @@ import { useEditorFollowMode } from '@/composables/editor/use-editor-follow-mode
 import { useEditorSelectionSync } from '@/composables/editor/use-editor-selection-sync'
 import { CORRECTION_FONT_MAX, CORRECTION_FONT_MIN, useCanvasTextCorrection } from '@/composables/editor/use-canvas-text-correction'
 import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
-import { useEditorStore } from '@/stores/editor/editor.store'
-import { useEditorDocumentStore } from '@/stores/editor/editor.document.store'
-import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { normalizeRelation } from '@/utils/editor/relations'
 import { getEditorSession, useEditorSession, usePageVisibilityState } from '@/session/editor/editor-session'
 import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
@@ -25,7 +22,6 @@ import type { ActionProcessingRenderTarget, CommentOverlayLabel, ElementOverlayL
 import type { ActionTargetSelection } from '@/types/action'
 import type { SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import { getViewModePolygonType, visibilityService } from '@/services/editor/visibility-service'
-import { getCollaborationColor } from '@/types/collaboration'
 import {
   isCollaborationCanvasViewMode,
   normalizeCollaborationViewport,

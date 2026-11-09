@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { Notification, NotificationGroup, NotificationType, WorkspaceInvitation } from '~/types'
-import { ROLE_LABELS } from '~/types'
 import { LazyLabelModalTransferConflict, LazyProjectModalTransferConflict } from '#components'
-import { extractApiErrorMessage, isLabelSetNameConflictError, isProjectNameConflictError } from '@/utils/api-error'
 
 const { openSettings } = useUserSettings()
 

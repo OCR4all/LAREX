@@ -1,5 +1,3 @@
-import { watch } from 'vue'
-
 type Selection = readonly [string | null, string | null]
 
 interface EditorSelectionSyncOptions {

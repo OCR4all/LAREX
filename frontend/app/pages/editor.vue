@@ -20,8 +20,6 @@ import type { DockviewPanelApi } from 'dockview-core'
 
 import type { DropdownMenuItem } from '@nuxt/ui'
 
-import { useEditorStore } from '@/stores/editor/editor.store'
-import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import {
   EDITOR_WORKSPACE_FLOATING_ANCHOR_ID,
   getEditorSession,
@@ -53,10 +51,7 @@ import { useProjectTabCloseState } from '@/composables/editor/use-project-tab-cl
 import { useEditorCommandCenter } from '@/composables/editor/use-editor-command-center'
 import type { OpenProjectPagesSelection } from '@/components/editor/modal/open-project-pages.vue'
 import type { Page, PageIndexingStatus, PageWorkflowAction, PageWorkflowState, ProjectData } from '@/types/project-page'
-import { PAGE_WORKFLOW_ACTION_META, PAGE_WORKFLOW_STATE_META, availablePageTransitions } from '@/utils/page-workflow-state'
 
-import EditorEmpty from '@/components/editor/empty.vue'
-import PageWorkflowStateDropdown from '@/components/page/workflow-state-dropdown.vue'
 import { useEditorIndexStatusPolling } from '@/composables/editor/use-editor-index-status-polling'
 import { useEditorMetadataApply } from '@/composables/editor/use-editor-metadata-apply'
 import { useEditorSidebarState } from '@/composables/editor/use-editor-sidebar-state'
@@ -72,7 +67,6 @@ import { useEditorLayoutState } from '@/composables/editor/use-editor-layout-sta
 import { UpdateReadingOrderCommand } from '@/commands'
 import type { ReadingOrder } from '@/models/editor'
 import { resolveAdjacentPageId } from '@/utils/editor/page-navigation'
-import { isActionLockedPage } from '@/utils/page-lock'
 import { convertPageDtoToPcGts, convertPcGtsToPageDto } from '@/services/editor/page-conversion.service'
 
 definePageMeta({ layout: 'editor' })

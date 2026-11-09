@@ -1,5 +1,5 @@
 import { createScopedLogger } from '@/services/editor/logger-service'
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount } from 'vue'
 
 const log = createScopedLogger('RenderQueue')
 

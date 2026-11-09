@@ -7,10 +7,6 @@ import type {
   ProjectPackageResourcePreview,
   ProjectPackageToolkitType
 } from '@/types/project-package-import'
-import {
-  projectPackageRenameNameError,
-  resolveProjectPackageRenameName
-} from '@/utils/project-package-import'
 
 const props = defineProps<{
   fileName: string

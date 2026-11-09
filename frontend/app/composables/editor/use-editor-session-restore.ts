@@ -1,4 +1,4 @@
-import { nextTick, onMounted, ref, watch, type ComputedRef, type Ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import type { DockviewReadyEvent } from 'dockview-vue'
 
 type DockviewApi = DockviewReadyEvent['api']

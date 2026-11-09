@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { DockviewVue, type DockviewReadyEvent, type DockviewTheme } from 'dockview-vue'
-import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { getCanvasId, getPagePanelId, parsePagePanelId, parseProjectPanelId } from '@/stores/editor/editor.keys'
 import { useProjectDockviewRegistry, type ProjectDockviewApi } from '@/composables/editor/use-project-dockview-registry'

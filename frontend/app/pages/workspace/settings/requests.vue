@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { WorkspaceToolkitResourceType } from '@/types/capabilities'
 import { LazyLabelModalTransferConflict, LazyProjectModalTransferConflict } from '#components'
-import { extractApiErrorMessage, isLabelSetNameConflictError, isProjectNameConflictError } from '@/utils/api-error'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')

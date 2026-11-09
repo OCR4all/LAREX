@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import type { NormalizationProfile, NormalizationProfileCreateOrUpdateRequest, NormalizationReplacementRule } from '@/types/normalization-profile'
-import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
+import type { ResourceCapabilities } from '@/types/capabilities'
 
 type UnicodeNormalizationForm = 'NFC' | 'NFD' | 'NFKC' | 'NFKD'
 type ReplacementMode = 'plain' | 'regex'

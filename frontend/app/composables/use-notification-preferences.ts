@@ -1,4 +1,3 @@
-import { useWebNotification } from '@vueuse/core'
 import type { NotificationPreference, NotificationTypeInfo, NotificationType, UpdatePreferenceRequest } from '~/types'
 
 interface NotificationPreferencesState {

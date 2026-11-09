@@ -1,6 +1,3 @@
-import { computed } from 'vue'
-import { useRefreshFeedback } from './use-refresh-feedback'
-
 export function useEmptyStateRefresh(refresh: () => unknown | Promise<unknown>) {
   const feedback = useRefreshFeedback(refresh)
 

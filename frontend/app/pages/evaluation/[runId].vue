@@ -1,6 +1,5 @@
 <!-- eslint-disable @stylistic/max-statements-per-line -->
 <script setup lang="ts">
-import { actionRunStatusLabel } from '@/utils/action-run-status'
 import type { BreadcrumbItem, TableColumn } from '@nuxt/ui'
 import type { ActionOutputFile } from '@/types/action-output'
 import type { ActionRun, ActionRunDetail, EvaluationMetric, EvaluationReport } from '@/types/action'

@@ -2,8 +2,6 @@
 import type { ActionDefinition, ActionParameterValuesResponse, ActionParameterChoice, ActionParameterValue } from '~/types/action'
 import type { KnownImageType } from '~/types/image'
 import type { ActionWorkflowStep } from '~/types/action-workflow'
-import { actionParameterChoices, actionParameterDefaultValue, coerceActionParameterInput } from '~/utils/action-parameter-values'
-import { extractApiErrorDetails } from '~/utils/api-error'
 
 const props = defineProps<{
   processor: ActionDefinition

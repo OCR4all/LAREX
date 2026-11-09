@@ -1,4 +1,4 @@
-import { triggerRef, type ComputedRef } from 'vue'
+import type { ComputedRef } from 'vue'
 import { baselineIdForTextLineId, findGlyphRecursive, findWordRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { Polygon } from '@/models/editor'

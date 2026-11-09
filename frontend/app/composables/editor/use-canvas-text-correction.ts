@@ -1,6 +1,6 @@
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
-import { computed, nextTick, onScopeDispose, ref, watch, type Ref } from 'vue'
+import { onScopeDispose, type Ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { UpdateTextlineCommentCommand } from '@/commands'
 import type { CommandContext } from '@/commands/editor/types'

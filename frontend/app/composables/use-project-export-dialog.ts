@@ -1,15 +1,5 @@
 import type { ExportDialogMode, ExportDialogResult, Page } from '@/types/project-page'
 import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
-import {
-  normalizeDocxOptions,
-  normalizeExportFormat,
-  normalizePageXmlVersion,
-  normalizePdfProfile,
-  normalizeSpreadsheetProfiles,
-  normalizeTeiProfile,
-  normalizeTextLevel,
-  PAGE_XML_PRIMARY_VERSION
-} from '@/utils/project-export'
 
 type SlideoverInstance<T> = { result: Promise<T> }
 type ExportDialogResultWithDownload = ExportDialogResult & { downloadTarget?: PreparedDownloadTarget }

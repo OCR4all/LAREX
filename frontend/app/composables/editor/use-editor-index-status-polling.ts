@@ -1,7 +1,4 @@
-import { computed } from 'vue'
 import type { PageIndexingStatus } from '@/types/project-page'
-import { useIndexStatusPolling } from '@/composables/use-index-status-polling'
-import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 
 export function useEditorIndexStatusPolling() {

@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import type { KeyboardLayout } from '@/types/virtual-keyboard'
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
-import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
+import type { ResourceCapabilities } from '@/types/capabilities'
 import { LazyUiDeleteSlideover, LazyShareSlideover } from '#components'
-import { buildToolkitPackageFileName } from '@/utils/download-file-names'
 
 const route = useRoute()
 const router = useRouter()

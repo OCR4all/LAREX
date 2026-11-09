@@ -8,7 +8,6 @@
  * - Starts background health monitoring
  * - Initializes notifications polling
  */
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 export default defineNuxtPlugin({
   name: 'app-init',

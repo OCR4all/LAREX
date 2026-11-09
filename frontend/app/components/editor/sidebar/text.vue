@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import EditorSidebarMetadata from '@/components/editor/sidebar/metadata.vue'
 import { defaultWindow } from '@vueuse/core'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { PcGts } from '@/models/editor/document'

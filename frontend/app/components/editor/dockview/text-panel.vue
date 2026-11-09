@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { useEditorStore } from '@/stores/editor/editor.store'
-
 type TextPanelParams = {
   projectId?: string
   pageId?: string

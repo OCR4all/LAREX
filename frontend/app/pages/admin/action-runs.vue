@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import type { TableColumn } from '@nuxt/ui'
 import type { AdminActionRun, ActionRunStatus, ActionRunReport as RunReport } from '@/types/action'
-import { extractApiErrorMessage } from '@/utils/api-error'
-import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 
 const { formatDateTime } = useLocalDateTimeFormatter()
 

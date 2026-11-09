@@ -9,16 +9,6 @@ import type { TagSetSummary } from '~/types/tag-set'
 import type { ValidationRulesetSummary } from '~/types/validation-ruleset'
 import type { KeyboardLayout } from '@/types/virtual-keyboard'
 import type { WorkspaceProjectDefaultResourceKey } from '~/utils/workspace-project-defaults'
-import {
-  formatWorkspaceResourceDefault,
-  formatWorkspaceTextIndexDefault,
-  normalizeWorkspaceProjectDefaults,
-  resetWorkspaceResourceDefault,
-  resetTextIndexDefaults,
-  resourceMatchesWorkspaceDefault,
-  textIndicesMatchWorkspaceDefault,
-  workspaceResourceDefault
-} from '~/utils/workspace-project-defaults'
 
 type SelectOption = { label: string, value: string }
 type WorkspaceDefaults = {

@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
-import ImageItem from './item.vue'
-import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { PageData } from '@/stores/editor/types'
 import { getVerticalScrollDirection, getVerticalVisibilityDirection } from '@/utils/editor/vertical-visibility'
@@ -497,7 +495,7 @@ function handlePageUnload(page: PageData) {
         class="absolute left-0 top-0 w-full pb-3"
         :style="{ transform: `translateY(${row.item.start - scrollMargin}px)` }"
       >
-        <ImageItem
+        <EditorSidebarImageItem
           :page="row.page"
           :current-page-id="currentPageId"
           :preview-url="getPreviewUrl(row.page)"

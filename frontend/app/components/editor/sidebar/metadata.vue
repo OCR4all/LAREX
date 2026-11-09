@@ -2,11 +2,6 @@
 import { LazyUiConfirmModal } from '#components'
 import type { FormSubmitEvent } from '@nuxt/ui'
 import type { input as ZodInput } from 'zod'
-import MetadataAlternativeImagesForm from './metadata/alternative-images-form.vue'
-import MetadataItemsForm from './metadata/items-form.vue'
-import MetadataLabelGroupsForm from './metadata/label-groups-form.vue'
-import MetadataTextStyleForm from './metadata/text-style-form.vue'
-import MetadataUserAttributesForm from './metadata/user-attributes-form.vue'
 import type { PcGts } from '@/models/editor/document'
 import type { Page } from '@/models/editor/page'
 import type { Region, TextRegion, RegionKind } from '@/models/editor/region'
@@ -523,12 +518,12 @@ watch(() => props.readOnly, (readOnly) => {
               <UInput v-model="documentFormState.externalRef" placeholder="URL or reference" />
             </UFormField>
 
-            <MetadataUserAttributesForm
+            <EditorSidebarMetadataUserAttributesForm
               v-model="documentFormState.userDefinedAttributes"
               :type-options="userAttributeTypeOptions"
             />
 
-            <MetadataItemsForm
+            <EditorSidebarMetadataItemsForm
               v-model="documentFormState.items"
               :item-type-options="metadataItemTypeOptions"
             />
@@ -677,9 +672,9 @@ watch(() => props.readOnly, (readOnly) => {
               <UInput v-model="pageFormState.custom" placeholder="Custom data" />
             </UFormField>
 
-            <MetadataAlternativeImagesForm v-model="pageFormState.alternativeImages" />
-            <MetadataLabelGroupsForm v-model="pageFormState.labels" />
-            <MetadataUserAttributesForm
+            <EditorSidebarMetadataAlternativeImagesForm v-model="pageFormState.alternativeImages" />
+            <EditorSidebarMetadataLabelGroupsForm v-model="pageFormState.labels" />
+            <EditorSidebarMetadataUserAttributesForm
               v-model="pageFormState.userDefinedAttributes"
               :type-options="userAttributeTypeOptions"
             />
@@ -889,9 +884,9 @@ watch(() => props.readOnly, (readOnly) => {
               <UInput v-model="textRegionFormState.custom" placeholder="Custom data" />
             </UFormField>
 
-            <MetadataAlternativeImagesForm v-model="textRegionFormState.alternativeImages" />
-            <MetadataLabelGroupsForm v-model="textRegionFormState.labels" />
-            <MetadataUserAttributesForm
+            <EditorSidebarMetadataAlternativeImagesForm v-model="textRegionFormState.alternativeImages" />
+            <EditorSidebarMetadataLabelGroupsForm v-model="textRegionFormState.labels" />
+            <EditorSidebarMetadataUserAttributesForm
               v-model="textRegionFormState.userDefinedAttributes"
               :type-options="userAttributeTypeOptions"
             />
@@ -1116,9 +1111,9 @@ watch(() => props.readOnly, (readOnly) => {
               </div>
             </div>
 
-            <MetadataAlternativeImagesForm v-model="genericRegionFormState.alternativeImages" />
-            <MetadataLabelGroupsForm v-model="genericRegionFormState.labels" />
-            <MetadataUserAttributesForm
+            <EditorSidebarMetadataAlternativeImagesForm v-model="genericRegionFormState.alternativeImages" />
+            <EditorSidebarMetadataLabelGroupsForm v-model="genericRegionFormState.labels" />
+            <EditorSidebarMetadataUserAttributesForm
               v-model="genericRegionFormState.userDefinedAttributes"
               :type-options="userAttributeTypeOptions"
             />
@@ -1260,9 +1255,9 @@ watch(() => props.readOnly, (readOnly) => {
               <UInput v-model="textLineFormState.custom" placeholder="Custom data" />
             </UFormField>
 
-            <MetadataAlternativeImagesForm v-model="textLineFormState.alternativeImages" />
-            <MetadataLabelGroupsForm v-model="textLineFormState.labels" />
-            <MetadataUserAttributesForm
+            <EditorSidebarMetadataAlternativeImagesForm v-model="textLineFormState.alternativeImages" />
+            <EditorSidebarMetadataLabelGroupsForm v-model="textLineFormState.labels" />
+            <EditorSidebarMetadataUserAttributesForm
               v-model="textLineFormState.userDefinedAttributes"
               :type-options="userAttributeTypeOptions"
             />
@@ -1395,13 +1390,13 @@ watch(() => props.readOnly, (readOnly) => {
               <UInput v-model="wordFormState.custom" placeholder="Custom data" />
             </UFormField>
 
-            <MetadataAlternativeImagesForm v-model="wordFormState.alternativeImages" />
-            <MetadataLabelGroupsForm v-model="wordFormState.labels" />
-            <MetadataUserAttributesForm
+            <EditorSidebarMetadataAlternativeImagesForm v-model="wordFormState.alternativeImages" />
+            <EditorSidebarMetadataLabelGroupsForm v-model="wordFormState.labels" />
+            <EditorSidebarMetadataUserAttributesForm
               v-model="wordFormState.userDefinedAttributes"
               :type-options="userAttributeTypeOptions"
             />
-            <MetadataTextStyleForm v-model="wordFormState.textStyle" />
+            <EditorSidebarMetadataTextStyleForm v-model="wordFormState.textStyle" />
 
             <div class="flex gap-2 pt-4 border-t border-default">
               <UButton type="submit" class="flex-1">
@@ -1457,13 +1452,13 @@ watch(() => props.readOnly, (readOnly) => {
               <UInput v-model="glyphFormState.custom" placeholder="Custom data" />
             </UFormField>
 
-            <MetadataAlternativeImagesForm v-model="glyphFormState.alternativeImages" />
-            <MetadataLabelGroupsForm v-model="glyphFormState.labels" />
-            <MetadataUserAttributesForm
+            <EditorSidebarMetadataAlternativeImagesForm v-model="glyphFormState.alternativeImages" />
+            <EditorSidebarMetadataLabelGroupsForm v-model="glyphFormState.labels" />
+            <EditorSidebarMetadataUserAttributesForm
               v-model="glyphFormState.userDefinedAttributes"
               :type-options="userAttributeTypeOptions"
             />
-            <MetadataTextStyleForm v-model="glyphFormState.textStyle" />
+            <EditorSidebarMetadataTextStyleForm v-model="glyphFormState.textStyle" />
 
             <div class="flex gap-2 pt-4 border-t border-default">
               <UButton type="submit" class="flex-1">

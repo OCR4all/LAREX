@@ -7,21 +7,8 @@ import type {
   ProjectData
 } from '@/types/project-page'
 import {
-  formatProjectExportExtension as formatExtension,
-  normalizeDocxOptions,
-  normalizeExportFormat,
-  normalizePageXmlVersion,
-  normalizePdfProfile,
-  normalizeSpreadsheetProfiles,
-  normalizeTeiProfile,
-  normalizeTextLevel,
-  PAGE_XML_PRIMARY_VERSION
+  formatProjectExportExtension as formatExtension
 } from '@/utils/project-export'
-import {
-  buildDownloadFileName,
-  buildProjectBasicExportFileName,
-  buildProjectPackageFileName
-} from '@/utils/download-file-names'
 
 type SlideoverInstance<T> = {
   result: Promise<T>

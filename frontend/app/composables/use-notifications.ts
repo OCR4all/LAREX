@@ -1,7 +1,5 @@
 import type { Notification, NotificationGroup, WorkspaceInvitation, NotificationType } from '~/types'
 import type { WorkspaceToolkitResourceType } from '@/types/capabilities'
-import { getNotificationLink } from '~/utils/notifications'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 const GROUPING_WINDOW_MS = 2 * 60 * 1000 // 2 minutes
 const NOTIFICATION_FALLBACK_POLL_MS = 30 * 1000

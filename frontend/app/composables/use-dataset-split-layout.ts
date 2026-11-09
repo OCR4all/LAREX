@@ -1,5 +1,3 @@
-import { computed, ref } from 'vue'
-import { defaultSplitPercentages, splitsOfTemplate, templateOfSplits } from '@/utils/dataset-splits'
 import type { DatasetItemSplit, DatasetSplitTemplate } from '@/types/dataset'
 
 export function useDatasetSplitLayout() {

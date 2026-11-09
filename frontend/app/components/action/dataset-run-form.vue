@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import { actionImageSelectionValues } from '@/utils/action-input-requirements'
-import { DATASET_SPLIT_LABELS, pageCountLabel, useDatasetRun } from '@/composables/use-dataset-run'
 import type { DatasetRunKind, DatasetSplit } from '@/composables/use-dataset-run'
 import type { ActionDefinitionResponse, ActionParameterDefinition, TrainingInputItem } from '@/types/action'
-import { useDatasetRunPageSelection, useProjectRunSource } from '@/composables/use-project-run-source'
 import type { DatasetDetail, DatasetSummary } from '@/types/dataset'
 
 const props = defineProps<{ kind: DatasetRunKind }>()

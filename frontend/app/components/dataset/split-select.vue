@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { DATASET_SPLIT_OPTIONS } from '@/utils/dataset-splits'
 import type { DatasetItemSplit } from '@/types/dataset'
 
 defineProps<{ disabled?: boolean }>()

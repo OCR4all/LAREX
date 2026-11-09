@@ -14,14 +14,11 @@ import {
 } from '@/utils/editor/page-label-mapping'
 import type { RegionKind } from '@/models/editor/region'
 import { DeletePolygonCommand, ReorderTextLinesCommand, UpdateTextlineCommentCommand } from '@/commands'
-import { useTextViewShortcutScope } from '@/composables/editor/use-keyboard-shortcuts'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
-import { usePageFilter } from '@/composables/use-page-filter'
 import type { KeyboardItem, KeyboardLayout } from '@/types/virtual-keyboard'
 import type { LabelDefinition } from '@/types/label-set'
-import { wsKey } from '@/utils/fetch-keys'
 import { findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import {
   collectRegionIdsInReadingOrder,
@@ -31,8 +28,6 @@ import {
 } from '@/utils/editor/textline-navigation'
 import { tokenizeForDictionary } from '../shared/text-highlighting'
 import { computeTextLineReadingDirectionMap } from './reading-direction'
-import FilterOptions from './filter-options.vue'
-import VariantFilters from './variant-filters.vue'
 import {
   compareConfidenceLowFirst,
   createVariantFilterState,
@@ -1368,26 +1363,26 @@ const sectionMenuItems = computed(() => {
                   />
                 </div>
                 <div class="space-y-4 p-3">
-                  <FilterOptions
+                  <EditorTextLineFilterOptions
                     v-model="gtFilterModel"
                     label="Ground truth"
                     icon="i-lucide-leaf"
                     :items="gtFilterItems"
                   />
-                  <FilterOptions
+                  <EditorTextLineFilterOptions
                     v-model="commentsFilter"
                     label="Comments"
                     icon="i-lucide-message-square-text"
                     :items="commentsFilterItems"
                   />
-                  <FilterOptions
+                  <EditorTextLineFilterOptions
                     v-model="diffFilter"
                     label="Diff"
                     icon="i-lucide-git-compare"
                     :items="diffFilterItems"
                   />
                   <USeparator />
-                  <VariantFilters
+                  <EditorTextLineVariantFilters
                     v-model:selected-indices="selectedIndicesModel"
                     v-model:filter-unindexed="filterUnindexedModel"
                     v-model:confidence-range="confidenceRangeModel"

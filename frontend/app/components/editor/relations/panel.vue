@@ -4,8 +4,6 @@ import type { CommandContext } from '@/commands/editor/types'
 import type { Page } from '@/models/editor'
 import type { PcGts } from '@/models/editor/document'
 import { CreateRelationCommand, DeleteRelationCommand, UpdateRelationCommand } from '@/commands'
-import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
-import { useEditorStore } from '@/stores/editor/editor.store'
 import { getEditorSession } from '@/session/editor/editor-session'
 import {
   createEmptyRelationDraft,
@@ -16,7 +14,6 @@ import {
   relationToDraft,
   type RelationDraftState
 } from '@/utils/editor/relations'
-import MetadataLabelGroupsForm from '@/components/editor/sidebar/metadata/label-groups-form.vue'
 
 interface RegionOption {
   value: string
@@ -464,7 +461,7 @@ watch(selectedRelation, (relation) => {
           />
         </UFormField>
 
-        <MetadataLabelGroupsForm
+        <EditorSidebarMetadataLabelGroupsForm
           :model-value="draft.labels"
           :read-only="readOnly"
           @update:model-value="value => updateDraftField('labels', value ?? [])"
@@ -598,7 +595,7 @@ watch(selectedRelation, (relation) => {
           />
         </UFormField>
 
-        <MetadataLabelGroupsForm
+        <EditorSidebarMetadataLabelGroupsForm
           :model-value="selectedDraft.labels"
           :read-only="readOnly"
           @update:model-value="value => updateSelectedDraftField('labels', value ?? [])"

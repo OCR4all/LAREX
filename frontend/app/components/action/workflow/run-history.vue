@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { ActionWorkflowRun } from '~/types/action-workflow'
-import { actionRunStatusLabel } from '~/utils/action-run-status'
-import { extractApiErrorDetails } from '~/utils/api-error'
 
 const props = defineProps<{ workspaceId: string, projectId: string, projectName?: string | null }>()
 const store = useActionRunsStore()

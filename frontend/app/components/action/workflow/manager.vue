@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { ActionDefinition } from '~/types/action'
 import type { ActionWorkflow } from '~/types/action-workflow'
-import { extractApiErrorDetails } from '~/utils/api-error'
-import { workflowExecuteRole } from '~/utils/action-workflow'
 
 const props = defineProps<{ workspaceId?: string, processors: ActionDefinition[], embedded?: boolean }>()
 const emit = defineEmits<{ saved: [workflow: ActionWorkflow] }>()

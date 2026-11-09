@@ -2,7 +2,6 @@
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
 import type { LabelSet, LabelSetSummary } from '@/types/label-set'
-import { extractApiErrorMessage } from '@/utils/api-error'
 import { LazyShareSlideover, LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover } from '#components'
 
 const toast = useToast()

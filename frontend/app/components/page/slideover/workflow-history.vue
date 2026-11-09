@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { PageWorkflowAction, PageWorkflowEvent, PageWorkflowEventAction } from '@/types/project-page'
-import { PAGE_WORKFLOW_ACTION_META, PAGE_WORKFLOW_STATE_META } from '@/utils/page-workflow-state'
 
 const props = defineProps<{
   projectId: string

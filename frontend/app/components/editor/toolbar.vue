@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
-import { DRAWING_MODES, VIEW_MODES } from '@/composables/editor/use-canvas-control'
-import { getTextViewHistoryDraft, getTooltipProps } from '@/composables/editor/use-keyboard-shortcuts'
-import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboards'
 import { PolygonType } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { DropdownMenuItem, SelectMenuItem } from '@nuxt/ui'

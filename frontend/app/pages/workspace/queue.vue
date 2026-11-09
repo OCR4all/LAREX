@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import type { TableColumn } from '@nuxt/ui'
 import type { ActionRun, ActionRunStatus, ClearActionRunsResponse } from '@/types/action'
 

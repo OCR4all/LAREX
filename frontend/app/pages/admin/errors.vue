@@ -3,7 +3,6 @@ import type { TableColumn } from '@nuxt/ui'
 import type { SortingState } from '@tanstack/vue-table'
 import type { AdminErrorEventDetail, AdminErrorEventPage, AdminErrorEventSummary, AdminErrorSummary } from '@/types/admin-errors'
 import type { AdminUserPage } from '@/types/admin-users'
-import { getWorkspaceDisplayName } from '@/utils/workspace-display'
 
 const { formatDateTime } = useLocalDateTimeFormatter()
 

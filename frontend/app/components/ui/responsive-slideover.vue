@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { SlideoverProps } from '@nuxt/ui'
-import { useMediaQuery } from '@vueuse/core'
 
 defineOptions({
   inheritAttrs: false

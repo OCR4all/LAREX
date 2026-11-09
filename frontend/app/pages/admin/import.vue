@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { getWorkspaceDisplayName } from '@/utils/workspace-display'
-
 const { formatDateTime } = useLocalDateTimeFormatter()
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })

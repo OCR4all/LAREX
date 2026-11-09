@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useVirtualizer } from '@tanstack/vue-virtual'
-import { computed, nextTick, ref, watch, type VNodeRef } from 'vue'
+import type { VNodeRef } from 'vue'
 import type { PageMovePreview } from '@/types/page-move'
 
 type PreviewItem = PageMovePreview['items'][number]

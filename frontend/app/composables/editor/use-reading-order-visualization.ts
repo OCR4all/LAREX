@@ -9,7 +9,6 @@ import type { Ref } from 'vue'
 import type { ReadingOrder, ReadingOrderNode, ReadingOrderGroup, RegionRef, Point } from '@/models/editor'
 import type { RenderablePolygon } from '@/types/editor/rendering'
 import type { ArrowSegment, GroupBounds, OrderNumber, ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
-import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type { LabelSet } from '@/models/editor/labels'
 import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
 

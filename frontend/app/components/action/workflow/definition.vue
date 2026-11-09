@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { ActionDefinition } from '~/types/action'
 import type { ActionWorkflow } from '~/types/action-workflow'
-import { extractApiErrorDetails } from '~/utils/api-error'
 
 const props = defineProps<{ workflowId?: string, processors: ActionDefinition[], initialName?: string, initialDescription?: string, toolbarTarget?: string, metadataTarget?: string }>()
 const emit = defineEmits<{ saved: [workflow: ActionWorkflow], dirty: [value: boolean], busy: [value: boolean], metadata: [value: { name: string, description: string }] }>()

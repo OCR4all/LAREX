@@ -1,5 +1,5 @@
-import { computed, ref, watch, type ComputedRef } from 'vue'
-import { defaultWindow, useEventListener } from '@vueuse/core'
+import type { ComputedRef } from 'vue'
+import { defaultWindow } from '@vueuse/core'
 
 type EditorSidebarStateOptions = {
   openedProjectIds: ComputedRef<string[]>

@@ -3,7 +3,6 @@ import { PcGts } from '@/models/editor'
 import type { Point } from '@/models/editor'
 import { toPlainPoints } from './utils'
 import { visibilityService } from '@/services/editor/visibility-service'
-import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import {
   findTextLineRecursive,
   rebuildSpatialIndexFromPcGts,

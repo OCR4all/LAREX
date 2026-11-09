@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { LabelDefinition } from '@/models/editor/labels'
 import { getEditorSession } from '@/session/editor/editor-session'
-import { useEditorDocumentStore } from '@/stores/editor/editor.document.store'
 import { createCanonicalRegionMappingSignatureFromLabel } from '@/utils/editor/page-label-mapping'
 import { findRegionLabelConflicts, type RegionLabelConflictGroup } from '@/utils/editor/region-label-conflicts'
 import {

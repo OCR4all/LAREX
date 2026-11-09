@@ -1,5 +1,3 @@
-import { shallowRef } from 'vue'
-
 /**
  * Supports popovers that are only mounted while open and anchored to an existing button through
  * `reference`. Clicking the button while the popover is open first dismisses it as an outside
