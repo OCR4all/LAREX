@@ -57,7 +57,7 @@ class UserServiceKeycloakIntegrationTest {
     private static final String SERVICE_CLIENT_SECRET = "it-secret";
 
     @Container
-    private static final GenericContainer<?> KEYCLOAK = new GenericContainer<>("quay.io/keycloak/keycloak:26.7.4")
+    private static final GenericContainer<?> KEYCLOAK = new GenericContainer<>("quay.io/keycloak/keycloak:26.8.2-0")
             .withEnv("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")
             .withEnv("KC_BOOTSTRAP_ADMIN_PASSWORD", "admin")
             .withCommand("start-dev")
@@ -84,7 +84,9 @@ class UserServiceKeycloakIntegrationTest {
         masterAdmin.realms().create(realmRepresentation);
         RealmResource realm = masterAdmin.realm(REALM);
 
-        grantServiceAccountRoles(realm, createServiceClient(realm));
+        String serviceClientUuid = createServiceClient(realm);
+        grantServiceAccountRoles(realm, serviceClientUuid);
+        grantAdminApiScope(realm, serviceClientUuid);
         createIdentityProvider(realm);
         localUserId = createUser(realm, "local-user", true, true);
         brokeredUserId = createUser(realm, "sso-user", false, false);
@@ -172,6 +174,16 @@ class UserServiceKeycloakIntegrationTest {
                 .map(role -> realmManagement.roles().get(role).toRepresentation())
                 .toList();
         realm.users().get(serviceAccountUserId).roles().clientLevel(realmManagementUuid).add(roles);
+    }
+
+    /** Keycloak 26.8.2 rejects admin API tokens that lack the built-in kc-admin-api client scope. */
+    private static void grantAdminApiScope(RealmResource realm, String serviceClientUuid) {
+        String scopeId = realm.clientScopes().findAll().stream()
+                .filter(scope -> "kc-admin-api".equals(scope.getName()))
+                .findFirst()
+                .orElseThrow()
+                .getId();
+        realm.clients().get(serviceClientUuid).addDefaultClientScope(scopeId);
     }
 
     private static void createIdentityProvider(RealmResource realm) {

@@ -61,7 +61,8 @@
       "implicitFlowEnabled": false,
       "fullScopeAllowed": true,
       "defaultClientScopes": [
-        "roles"
+        "roles",
+        "kc-admin-api"
       ],
       "protocol": "openid-connect",
       "clientAuthenticatorType": "client-secret",
