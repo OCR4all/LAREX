@@ -1,4 +1,8 @@
 import { computeConvexHull } from '@/utils/editor/convex-hull'
+import Coordinate from 'jsts/org/locationtech/jts/geom/Coordinate.js'
+import GeometryFactory from 'jsts/org/locationtech/jts/geom/GeometryFactory.js'
+import IsValidOp from 'jsts/org/locationtech/jts/operation/valid/IsValidOp.js'
+import TopologyPreservingSimplifier from 'jsts/org/locationtech/jts/simplify/TopologyPreservingSimplifier.js'
 
 /** Geometry types */
 export class Polygon {
@@ -281,54 +285,21 @@ export class Polygon {
 
   simplify(tolerance: number): Polygon {
     if (this.points.length <= 3) return this
-
-    const simplified = this.ramerDouglasPeucker(this.points, tolerance)
-    return new Polygon(simplified.length >= 3 ? simplified : this.points)
-  }
-
-  private ramerDouglasPeucker(points: [number, number][], epsilon: number): [number, number][] {
-    if (points.length <= 2) return points
-
-    let maxDist = 0
-    let maxIndex = 0
-    const end = points.length - 1
-
-    for (let i = 1; i < end; i++) {
-      const dist = this.perpendicularDistance(points[i]!, points[0]!, points[end]!)
-      if (dist > maxDist) {
-        maxDist = dist
-        maxIndex = i
-      }
+    if (!Number.isFinite(tolerance) || tolerance < 0
+      || this.points.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y))) {
+      return this
     }
 
-    if (maxDist > epsilon) {
-      const left = this.ramerDouglasPeucker(points.slice(0, maxIndex + 1), epsilon)
-      const right = this.ramerDouglasPeucker(points.slice(maxIndex), epsilon)
-      return [...left.slice(0, -1), ...right]
-    }
+    const coordinates = this.points.map(([x, y]) => new Coordinate(x, y))
+    const wasClosed = coordinates[0]!.equals2D(coordinates[coordinates.length - 1]!)
+    if (!wasClosed) coordinates.push(coordinates[0]!.copy())
 
-    return [points[0]!, points[end]!]
-  }
+    const polygon = new GeometryFactory().createPolygon(coordinates)
+    if (!IsValidOp.isValid(polygon)) return this
 
-  private perpendicularDistance(
-    point: [number, number],
-    lineStart: [number, number],
-    lineEnd: [number, number]
-  ): number {
-    const dx = lineEnd[0] - lineStart[0]
-    const dy = lineEnd[1] - lineStart[1]
-    const norm = Math.sqrt(dx * dx + dy * dy)
-
-    if (norm === 0) {
-      return Math.sqrt(
-        Math.pow(point[0] - lineStart[0], 2)
-        + Math.pow(point[1] - lineStart[1], 2)
-      )
-    }
-
-    return Math.abs(
-      dy * point[0] - dx * point[1] + lineEnd[0] * lineStart[1] - lineEnd[1] * lineStart[0]
-    ) / norm
+    const simplified: Coordinate[] = TopologyPreservingSimplifier.simplify(polygon, tolerance).getCoordinates()
+    const ring = wasClosed ? simplified : simplified.slice(0, -1)
+    return new Polygon(ring.map(coordinate => [coordinate.x, coordinate.y]))
   }
 }
 

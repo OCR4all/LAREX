@@ -1,6 +1,7 @@
 import type { Command, CommandContext } from './types'
 import { PcGts } from '@/models/editor'
 import { Polygon } from '@/models/editor/geometry'
+import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import { findPolygonCoordsRecursive, rebuildSpatialIndexFromPcGts, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
 
@@ -54,6 +55,7 @@ export class SimplifyPolygonCommand implements Command {
   private finalize(ctx: CommandContext, pcGts: PcGts): void {
     ctx.session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(ctx.session)
+    invalidatePolygonGeometry(ctx.canvasId, this.data.elementId)
     visibilityService.clearCache()
   }
 }

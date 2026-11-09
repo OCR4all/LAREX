@@ -6,6 +6,7 @@ import { BufferPolygonCommand } from '../buffer-polygon-command'
 import { ConvexHullCommand } from '../convex-hull-command'
 import { Commander } from '../commander'
 import { FitToBoundingBoxCommand } from '../fit-to-bounding-box-command'
+import { SimplifyPolygonCommand } from '../simplify-polygon-command'
 import {
   createMockSession,
   createTestContext,
@@ -32,8 +33,8 @@ const originalPoints = [
   { x: 100, y: 300 }
 ]
 
-function setup() {
-  const region = createTestTextRegion({ id: 'region-1', points: originalPoints })
+function setup(points = originalPoints) {
+  const region = createTestTextRegion({ id: 'region-1', points })
   const { session, getDocument } = createMockSession(createTestDocument({ regions: [region] }))
   return {
     ctx: createTestContext(session),
@@ -124,6 +125,27 @@ describe('polygon shape commands', () => {
       [500, 300],
       [100, 300]
     ])
+    expect(invalidatePolygonGeometry).toHaveBeenCalledTimes(3)
+  })
+
+  it('simplifies with the default tolerance and refreshes geometry across undo and redo', () => {
+    const points = [
+      { x: 0, y: 0 }, { x: 0.5, y: 0.0005 }, { x: 1, y: 0 },
+      { x: 1, y: 1 }, { x: 0, y: 1 }, { x: 0, y: 0.5 }
+    ]
+    const { ctx, getPoints } = setup(points)
+    const commander = new Commander()
+    commander.execute(new SimplifyPolygonCommand({ elementId: 'region-1', elementType: 'region' }), ctx)
+
+    const expected = [[0, 0], [1, 0], [1, 1], [0, 1]]
+    expect(getPoints()).toEqual(expected)
+    expect(invalidatePolygonGeometry).toHaveBeenLastCalledWith(ctx.canvasId, 'region-1')
+
+    commander.undo(ctx)
+    expect(getPoints()).toEqual(points.map(point => [point.x, point.y]))
+
+    commander.redo(ctx)
+    expect(getPoints()).toEqual(expected)
     expect(invalidatePolygonGeometry).toHaveBeenCalledTimes(3)
   })
 })
