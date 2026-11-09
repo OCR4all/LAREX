@@ -11,7 +11,6 @@ import type {
   DatasetItemStatus,
   DatasetRelease,
   DatasetSplitAlgorithm,
-  DatasetSplitTemplate,
   DatasetValidationResult
 } from '@/types/dataset'
 import { useEditorStore } from '@/stores/editor/editor.store'
@@ -41,17 +40,6 @@ const { data: dataset, pending, error, refresh } = await useFetch<DatasetDetail 
 
 const datasetCapabilities = useResourceCapabilities(dataset, 'dataset')
 
-const splitTemplateOptions: Array<{ label: string, value: DatasetSplitTemplate }> = [
-  {
-    label: 'Train / Validation / Test',
-    value: 'TRAIN_VAL_TEST'
-  },
-  {
-    label: 'Train / Validation',
-    value: 'TRAIN_VAL'
-  }
-]
-
 const splitAlgorithmOptions: Array<{ label: string, value: DatasetSplitAlgorithm }> = [
   {
     label: 'Random seeded split',
@@ -78,47 +66,24 @@ const formRetainOutputsForever = ref(true)
 const formName = ref('')
 const formDescription = ref('')
 const formTags = ref<string[]>([])
-const formSplitTemplate = ref<DatasetSplitTemplate>('TRAIN_VAL_TEST')
+const { template: formSplitTemplate, splits: formSplits, percentages: formPercentages } = useDatasetSplitLayout()
 const formSplitAlgorithm = ref<DatasetSplitAlgorithm>('RANDOM_SEEDED')
 const formSplitSeed = ref(42)
 const formStratifyTags = ref<string[]>([])
-const trainPercentage = ref(70)
-const valPercentage = ref(15)
-
-const { ignoreUpdates: ignoreSplitTemplateChange } = watchIgnorable(formSplitTemplate, (value) => {
-  if (value === 'TRAIN_VAL') {
-    if (trainPercentage.value + valPercentage.value !== 100) {
-      trainPercentage.value = 80
-      valPercentage.value = 20
-    } else {
-      valPercentage.value = 100 - trainPercentage.value
-    }
-    return
-  }
-
-  if (trainPercentage.value + valPercentage.value >= 100 || testPercentage.value === 0) {
-    trainPercentage.value = 70
-    valPercentage.value = 15
-  }
-})
 
 watch(dataset, (value) => {
   if (!value) return
 
-  // Loading the saved split must not reset its percentages to template defaults.
-  ignoreSplitTemplateChange(() => {
-    formOutputRetentionDays.value = value.outputRetentionDays ?? 30
-    formRetainOutputsForever.value = value.outputRetentionDays == null
-    formName.value = value.name
-    formDescription.value = value.description || ''
-    formTags.value = [...(value.tags || [])]
-    formSplitTemplate.value = value.splitTemplate
-    formSplitAlgorithm.value = value.splitAlgorithm
-    formSplitSeed.value = value.splitSeed
-    trainPercentage.value = value.trainPercentage
-    valPercentage.value = value.valPercentage
-    formStratifyTags.value = [...(value.stratifyTagIds || [])]
-  })
+  formOutputRetentionDays.value = value.outputRetentionDays ?? 30
+  formRetainOutputsForever.value = value.outputRetentionDays == null
+  formName.value = value.name
+  formDescription.value = value.description || ''
+  formTags.value = [...(value.tags || [])]
+  formSplitTemplate.value = value.splitTemplate
+  formSplitAlgorithm.value = value.splitAlgorithm
+  formSplitSeed.value = value.splitSeed
+  formPercentages.value = { TRAIN: value.trainPercentage, VAL: value.valPercentage, TEST: value.testPercentage }
+  formStratifyTags.value = [...(value.stratifyTagIds || [])]
 }, { immediate: true })
 
 const validationResult = ref<DatasetValidationResult | null>(null)
@@ -153,15 +118,6 @@ type DatasetTableRow = {
 
 type DatasetReleaseRow = DatasetRelease
 
-const testPercentage = computed(() => {
-  if (formSplitTemplate.value === 'TRAIN_VAL') return 0
-  return Math.max(0, 100 - trainPercentage.value - valPercentage.value)
-})
-
-const splitTemplateSelectOptions = computed(() =>
-  splitTemplateOptions.map(option => ({ label: option.label, value: option.value }))
-)
-
 const splitAlgorithmSelectOptions = computed(() =>
   splitAlgorithmOptions.map(option => ({ label: option.label, value: option.value }))
 )
@@ -182,39 +138,16 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
   }
 ])
 
-const visibleSplitOptions = computed(() => {
-  if (formSplitTemplate.value === 'TRAIN_VAL_TEST') return splitSelectionOptions
-  if (dataset.value?.items.some(item => item.assignedSplit === 'TEST')) return splitSelectionOptions
-  return splitSelectionOptions.filter(option => option.value !== 'TEST')
-})
+const visibleSplitOptions = computed(() => splitSelectionOptions.filter(option =>
+  formSplits.value.includes(option.value)
+  || dataset.value?.items.some(item => item.assignedSplit === option.value)
+))
 
 const visibleWarnings = computed(() =>
   validationResult.value?.warnings?.length
     ? validationResult.value.warnings
     : (dataset.value?.lastValidationWarnings || [])
 )
-
-const splitSliderValue = computed<number[]>({
-  get: () => formSplitTemplate.value === 'TRAIN_VAL'
-    ? [trainPercentage.value]
-    : [trainPercentage.value, trainPercentage.value + valPercentage.value],
-  set: (value) => {
-    const values = Array.isArray(value) ? value.map(entry => Number(entry)) : [Number(value)]
-    const firstValue = values[0] ?? Number.NaN
-    const firstThumb = Math.min(95, Math.max(5, Number.isFinite(firstValue) ? firstValue : 70))
-
-    if (formSplitTemplate.value === 'TRAIN_VAL') {
-      trainPercentage.value = firstThumb
-      valPercentage.value = 100 - firstThumb
-      return
-    }
-
-    const secondValue = values[1] ?? Number.NaN
-    const secondThumb = Math.min(95, Math.max(firstThumb + 5, Number.isFinite(secondValue) ? secondValue : firstThumb + 15))
-    trainPercentage.value = firstThumb
-    valPercentage.value = secondThumb - firstThumb
-  }
-})
 
 const tableRows = computed<DatasetTableRow[]>(() => (dataset.value?.items || []).map(item => ({
   id: item.id,
@@ -802,9 +735,9 @@ function createPayload(): DatasetCreateOrUpdateRequest {
     splitTemplate: formSplitTemplate.value,
     splitAlgorithm: formSplitAlgorithm.value,
     splitSeed: Number(formSplitSeed.value) || 42,
-    trainPercentage: trainPercentage.value,
-    valPercentage: valPercentage.value,
-    testPercentage: testPercentage.value,
+    trainPercentage: formPercentages.value.TRAIN,
+    valPercentage: formPercentages.value.VAL,
+    testPercentage: formPercentages.value.TEST,
     stratifyTagIds: formStratifyTags.value,
     outputRetentionDays: formRetainOutputsForever.value ? null : Number(formOutputRetentionDays.value)
   }
@@ -1320,13 +1253,8 @@ useHead({
               Split Strategy
             </h2>
 
-            <UFormField label="Split layout">
-              <USelect
-                v-model="formSplitTemplate"
-                :items="splitTemplateSelectOptions"
-                value-key="value"
-                :disabled="!datasetCapabilities.canGenerateSplit"
-              />
+            <UFormField label="Splits">
+              <DatasetSplitSelect v-model="formSplits" :disabled="!datasetCapabilities.canGenerateSplit" />
             </UFormField>
 
             <UFormField label="Assignment algorithm">
@@ -1348,28 +1276,12 @@ useHead({
               />
             </UFormField>
 
-            <div class="space-y-4 rounded-lg border border-default bg-default p-4">
-              <div class="flex flex-wrap gap-2">
-                <UBadge color="primary" variant="soft">
-                  Train {{ trainPercentage }}%
-                </UBadge>
-                <UBadge color="neutral" variant="soft">
-                  Validation {{ valPercentage }}%
-                </UBadge>
-                <UBadge :color="formSplitTemplate === 'TRAIN_VAL' ? 'neutral' : 'warning'" variant="soft">
-                  Test {{ testPercentage }}%
-                </UBadge>
-              </div>
-              <USlider
-                v-model="splitSliderValue"
-                :min="5"
-                :max="95"
-                :step="1"
-                :min-steps-between-thumbs="5"
-                :disabled="!datasetCapabilities.canGenerateSplit"
-                tooltip
-              />
-            </div>
+            <DatasetSplitDistribution
+              v-model="formPercentages"
+              :splits="formSplits"
+              :disabled="!datasetCapabilities.canGenerateSplit"
+              class="bg-default"
+            />
 
             <UFormField
               label="Stratify tags"

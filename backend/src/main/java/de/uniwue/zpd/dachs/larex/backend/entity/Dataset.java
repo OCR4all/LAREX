@@ -32,8 +32,23 @@ import java.util.List;
 public class Dataset {
 
     public enum SplitTemplate {
-        TRAIN_VAL,
-        TRAIN_VAL_TEST
+        TRAIN(DatasetItem.Split.TRAIN),
+        VAL(DatasetItem.Split.VAL),
+        TEST(DatasetItem.Split.TEST),
+        TRAIN_VAL(DatasetItem.Split.TRAIN, DatasetItem.Split.VAL),
+        TRAIN_TEST(DatasetItem.Split.TRAIN, DatasetItem.Split.TEST),
+        VAL_TEST(DatasetItem.Split.VAL, DatasetItem.Split.TEST),
+        TRAIN_VAL_TEST(DatasetItem.Split.TRAIN, DatasetItem.Split.VAL, DatasetItem.Split.TEST);
+
+        private final List<DatasetItem.Split> splits;
+
+        SplitTemplate(DatasetItem.Split... splits) {
+            this.splits = List.of(splits);
+        }
+
+        public List<DatasetItem.Split> splits() {
+            return splits;
+        }
     }
 
     public enum SplitAlgorithm {

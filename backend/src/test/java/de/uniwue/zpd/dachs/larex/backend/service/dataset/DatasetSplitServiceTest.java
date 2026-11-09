@@ -3,6 +3,8 @@ package de.uniwue.zpd.dachs.larex.backend.service.dataset;
 import de.uniwue.zpd.dachs.larex.backend.entity.Dataset;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -140,6 +142,82 @@ class DatasetSplitServiceTest {
         assertThatThrownBy(() -> service.validateSplitConfiguration(dataset))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("add up to 100");
+    }
+
+    @ParameterizedTest
+    @EnumSource(Dataset.SplitTemplate.class)
+    void everyAlgorithmOnlyAssignsTheSplitsOfTheTemplate(Dataset.SplitTemplate template) {
+        for (Dataset.SplitAlgorithm algorithm : Dataset.SplitAlgorithm.values()) {
+            List<DatasetItem> items = items(20);
+            Dataset dataset = dataset(template, algorithm);
+            dataset.setTrainPercentage(service.defaultPercentage(template, DatasetItem.Split.TRAIN));
+            dataset.setValPercentage(service.defaultPercentage(template, DatasetItem.Split.VAL));
+            dataset.setTestPercentage(service.defaultPercentage(template, DatasetItem.Split.TEST));
+            dataset.setStratifyTagIds(List.of("tag"));
+
+            service.regenerateSplitAssignments(dataset, items);
+
+            assertThat(items).extracting(DatasetItem::getAssignedSplit).isSubsetOf(template.splits());
+        }
+    }
+
+    @Test
+    void randomAssignmentFollowsThePercentagesOfTwoSplits() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_TEST, Dataset.SplitAlgorithm.RANDOM_SEEDED);
+        dataset.setTrainPercentage(60);
+        dataset.setValPercentage(0);
+        dataset.setTestPercentage(40);
+        List<DatasetItem> items = items(10);
+
+        service.regenerateSplitAssignments(dataset, items);
+
+        assertThat(countsBySplit(items)).containsOnly(Map.entry(DatasetItem.Split.TRAIN, 6L), Map.entry(DatasetItem.Split.TEST, 4L));
+    }
+
+    @Test
+    void aSingleSplitAlwaysTakesTheWholeDataset() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TEST, Dataset.SplitAlgorithm.RANDOM_SEEDED);
+        dataset.setTrainPercentage(70);
+        dataset.setValPercentage(15);
+        dataset.setTestPercentage(15);
+
+        service.validateSplitConfiguration(dataset);
+
+        assertThat(dataset.getTrainPercentage()).isZero();
+        assertThat(dataset.getValPercentage()).isZero();
+        assertThat(dataset.getTestPercentage()).isEqualTo(100);
+    }
+
+    @Test
+    void percentagesOfUnusedSplitsDoNotCount() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.VAL_TEST, Dataset.SplitAlgorithm.RANDOM_SEEDED);
+        dataset.setTrainPercentage(99);
+        dataset.setValPercentage(30);
+        dataset.setTestPercentage(70);
+
+        service.validateSplitConfiguration(dataset);
+
+        assertThat(dataset.getTrainPercentage()).isZero();
+        dataset.setValPercentage(40);
+        assertThatThrownBy(() -> service.validateSplitConfiguration(dataset))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("add up to 100");
+    }
+
+    @Test
+    void unusedSplitsMoveAwayFromTrainingWherePossible() {
+        assertThat(service.normalizeSplitForTemplate(Dataset.SplitTemplate.TRAIN_TEST, DatasetItem.Split.VAL)).isEqualTo(DatasetItem.Split.TEST);
+        assertThat(service.normalizeSplitForTemplate(Dataset.SplitTemplate.VAL_TEST, DatasetItem.Split.TRAIN)).isEqualTo(DatasetItem.Split.VAL);
+        assertThat(service.normalizeSplitForTemplate(Dataset.SplitTemplate.TEST, DatasetItem.Split.TRAIN)).isEqualTo(DatasetItem.Split.TEST);
+        assertThat(service.normalizeSplitForTemplate(Dataset.SplitTemplate.TRAIN, DatasetItem.Split.TEST)).isEqualTo(DatasetItem.Split.TRAIN);
+        assertThat(service.normalizeSplitForTemplate(Dataset.SplitTemplate.TEST, null)).isEqualTo(DatasetItem.Split.TEST);
+    }
+
+    @ParameterizedTest
+    @EnumSource(Dataset.SplitTemplate.class)
+    void defaultPercentagesAddUpTo100(Dataset.SplitTemplate template) {
+        assertThat(java.util.Arrays.stream(DatasetItem.Split.values()).mapToInt(split -> service.defaultPercentage(template, split)).sum())
+                .isEqualTo(100);
     }
 
     private Dataset dataset(Dataset.SplitTemplate template, Dataset.SplitAlgorithm algorithm) {

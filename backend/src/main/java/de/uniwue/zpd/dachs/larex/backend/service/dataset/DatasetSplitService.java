@@ -77,8 +77,7 @@ public class DatasetSplitService {
         List<String> warnings = new ArrayList<>();
 
         Dataset.SplitTemplate template = dataset.getSplitTemplate();
-        Map<DatasetItem.Split, Integer> targetCounts = targetCounts(template, dataset.getTrainPercentage(),
-                dataset.getValPercentage(), dataset.getTestPercentage(), preservedItems.size() + mutableItems.size());
+        Map<DatasetItem.Split, Integer> targetCounts = targetCounts(dataset, preservedItems.size() + mutableItems.size());
 
         Map<DatasetItem.Split, Integer> preservedCounts = new EnumMap<>(DatasetItem.Split.class);
         for (DatasetItem.Split split : DatasetItem.Split.values()) {
@@ -97,7 +96,7 @@ public class DatasetSplitService {
         }
 
         Map<DatasetItem.Split, Integer> remainingCounts = new EnumMap<>(DatasetItem.Split.class);
-        for (DatasetItem.Split split : allowedSplits(template)) {
+        for (DatasetItem.Split split : template.splits()) {
             remainingCounts.put(split, Math.max(0, targetCounts.getOrDefault(split, 0) - preservedCounts.getOrDefault(split, 0)));
         }
 
@@ -122,30 +121,49 @@ public class DatasetSplitService {
     }
 
     public void validateSplitConfiguration(Dataset dataset) {
-        int train = defaultInt(dataset.getTrainPercentage());
-        int val = defaultInt(dataset.getValPercentage());
-        int test = dataset.getSplitTemplate() == Dataset.SplitTemplate.TRAIN_VAL ? 0 : defaultInt(dataset.getTestPercentage());
-
-        if (train < 0 || val < 0 || test < 0) {
-            throw new IllegalArgumentException("Split percentages must be non-negative");
+        List<DatasetItem.Split> splits = dataset.getSplitTemplate().splits();
+        if (splits.size() == 1) {
+            setPercentage(dataset, splits.getFirst(), 100);
         }
-        int total = train + val + test;
+        int total = 0;
+        for (DatasetItem.Split split : DatasetItem.Split.values()) {
+            if (!splits.contains(split)) {
+                setPercentage(dataset, split, 0);
+                continue;
+            }
+            int percentage = percentage(dataset, split);
+            if (percentage < 0) {
+                throw new IllegalArgumentException("Split percentages must be non-negative");
+            }
+            total += percentage;
+        }
         if (total != 100) {
             throw new IllegalArgumentException("Split percentages must add up to 100");
         }
-        if (dataset.getSplitTemplate() == Dataset.SplitTemplate.TRAIN_VAL) {
-            dataset.setTestPercentage(0);
-        }
     }
 
+    public int defaultPercentage(Dataset.SplitTemplate template, DatasetItem.Split split) {
+        List<DatasetItem.Split> splits = template.splits();
+        if (!splits.contains(split)) return 0;
+        if (splits.size() == 1) return 100;
+        if (!splits.contains(DatasetItem.Split.TRAIN)) return 50;
+        if (split == DatasetItem.Split.TRAIN) return splits.size() == 3 ? 70 : 80;
+        return splits.size() == 3 ? 15 : 20;
+    }
+
+    /** Moves a split the template doesn't use away from training where possible, so held-out pages stay held out. */
     public DatasetItem.Split normalizeSplitForTemplate(Dataset.SplitTemplate template, DatasetItem.Split split) {
+        List<DatasetItem.Split> splits = template.splits();
         if (split == null) {
-            return DatasetItem.Split.TRAIN;
+            return splits.getFirst();
         }
-        if (template == Dataset.SplitTemplate.TRAIN_VAL && split == DatasetItem.Split.TEST) {
-            return DatasetItem.Split.VAL;
+        if (splits.contains(split)) {
+            return split;
         }
-        return split;
+        return splits.stream()
+                .filter(candidate -> candidate.compareTo(split) > 0)
+                .findFirst()
+                .orElse(splits.getLast());
     }
 
     private boolean shouldPreserveSplit(DatasetItem item) {
@@ -164,7 +182,7 @@ public class DatasetSplitService {
                                 Long seed) {
         List<DatasetItem> shuffled = new ArrayList<>(items);
         Collections.shuffle(shuffled, new Random(seed == null ? 42L : seed));
-        List<DatasetItem.Split> splitOrder = allowedSplits(template);
+        List<DatasetItem.Split> splitOrder = template.splits();
         int cursor = 0;
         for (DatasetItem.Split split : splitOrder) {
             int amount = remainingCounts.getOrDefault(split, 0);
@@ -187,7 +205,7 @@ public class DatasetSplitService {
         List<Map.Entry<String, List<DatasetItem>>> entries = new ArrayList<>(groups.entrySet());
         Collections.shuffle(entries, new Random(seed == null ? 42L : seed));
         Map<DatasetItem.Split, Integer> assignedCounts = new EnumMap<>(DatasetItem.Split.class);
-        for (DatasetItem.Split split : allowedSplits(template)) {
+        for (DatasetItem.Split split : template.splits()) {
             assignedCounts.put(split, 0);
         }
 
@@ -237,7 +255,7 @@ public class DatasetSplitService {
         }
         Map<DatasetItem.Split, Integer> targets = new EnumMap<>(DatasetItem.Split.class);
         int assigned = 0;
-        List<DatasetItem.Split> splits = allowedSplits(template);
+        List<DatasetItem.Split> splits = template.splits();
         for (int i = 0; i < splits.size(); i++) {
             DatasetItem.Split split = splits.get(i);
             if (i == splits.size() - 1) {
@@ -256,7 +274,7 @@ public class DatasetSplitService {
                                                 Map<DatasetItem.Split, Integer> remainingCounts,
                                                 Map<DatasetItem.Split, Integer> assignedCounts,
                                                 Dataset.SplitTemplate template) {
-        return allowedSplits(template).stream()
+        return template.splits().stream()
                 .min(Comparator.comparingInt(split -> {
                     int remaining = remainingCounts.getOrDefault(split, 0) - assignedCounts.getOrDefault(split, 0);
                     if (remaining >= groupSize) {
@@ -267,38 +285,37 @@ public class DatasetSplitService {
                 .orElse(fallbackSplit(template));
     }
 
-    private Map<DatasetItem.Split, Integer> targetCounts(Dataset.SplitTemplate template,
-                                                         int trainPct,
-                                                         int valPct,
-                                                         int testPct,
-                                                         int itemCount) {
+    private Map<DatasetItem.Split, Integer> targetCounts(Dataset dataset, int itemCount) {
+        List<DatasetItem.Split> splits = dataset.getSplitTemplate().splits();
         Map<DatasetItem.Split, Integer> counts = new EnumMap<>(DatasetItem.Split.class);
-        int train = (int) Math.round(itemCount * (trainPct / 100.0));
-        int val = (int) Math.round(itemCount * (valPct / 100.0));
-        int assigned = train + val;
-        int test = Math.max(0, itemCount - assigned);
-        counts.put(DatasetItem.Split.TRAIN, train);
-        counts.put(DatasetItem.Split.VAL, val);
-        if (template == Dataset.SplitTemplate.TRAIN_VAL_TEST) {
-            counts.put(DatasetItem.Split.TEST, test);
-        } else {
-            counts.put(DatasetItem.Split.TEST, 0);
-            if (assigned < itemCount) {
-                counts.put(DatasetItem.Split.VAL, counts.get(DatasetItem.Split.VAL) + (itemCount - assigned));
-            }
+        int assigned = 0;
+        for (DatasetItem.Split split : splits.subList(0, splits.size() - 1)) {
+            int count = (int) Math.round(itemCount * (percentage(dataset, split) / 100.0));
+            counts.put(split, count);
+            assigned += count;
         }
+        counts.put(splits.getLast(), Math.max(0, itemCount - assigned));
         return counts;
     }
 
-    private List<DatasetItem.Split> allowedSplits(Dataset.SplitTemplate template) {
-        if (template == Dataset.SplitTemplate.TRAIN_VAL) {
-            return List.of(DatasetItem.Split.TRAIN, DatasetItem.Split.VAL);
+    private int percentage(Dataset dataset, DatasetItem.Split split) {
+        return defaultInt(switch (split) {
+            case TRAIN -> dataset.getTrainPercentage();
+            case VAL -> dataset.getValPercentage();
+            case TEST -> dataset.getTestPercentage();
+        });
+    }
+
+    private void setPercentage(Dataset dataset, DatasetItem.Split split, int percentage) {
+        switch (split) {
+            case TRAIN -> dataset.setTrainPercentage(percentage);
+            case VAL -> dataset.setValPercentage(percentage);
+            case TEST -> dataset.setTestPercentage(percentage);
         }
-        return List.of(DatasetItem.Split.TRAIN, DatasetItem.Split.VAL, DatasetItem.Split.TEST);
     }
 
     private DatasetItem.Split fallbackSplit(Dataset.SplitTemplate template) {
-        return template == Dataset.SplitTemplate.TRAIN_VAL ? DatasetItem.Split.VAL : DatasetItem.Split.TEST;
+        return template.splits().getLast();
     }
 
     private String stratifySignature(DatasetItem item, List<String> stratifyTagIds) {

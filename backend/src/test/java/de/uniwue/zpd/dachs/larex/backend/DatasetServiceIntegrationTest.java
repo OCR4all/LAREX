@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -395,6 +396,45 @@ class DatasetServiceIntegrationTest {
 
         assertThrows(ResourceNotFoundException.class, () ->
                 datasetService.downloadSharedReleasePackage(shareId, "Bearer " + share.secret(), true));
+    }
+
+    @Test
+    void testOnlyDatasetsHoldEveryPageAndSplitChangesMoveExistingPages() throws Exception {
+        TestSourcePage source = createSourcePage("ws-test-only", "test-only-page", "xml-test-only", "img-test-only");
+        DatasetDto.DetailResponse created = datasetService.createDataset(
+                source.workspaceId(), splitRequest(de.uniwue.zpd.dachs.larex.backend.entity.Dataset.SplitTemplate.TEST), "user-1");
+        assertThat(created.testPercentage()).isEqualTo(100);
+        assertThat(created.trainPercentage()).isZero();
+
+        DatasetDto.DetailResponse filled = datasetService.addItems(
+                source.workspaceId(),
+                created.id(),
+                new DatasetDto.AddItemsRequest(new ArrayList<>(List.of(new DatasetDto.AddItemRequest(
+                        source.project().getId(),
+                        source.page().getId(),
+                        DatasetItem.Mode.LINK,
+                        source.xml().getId(),
+                        new ArrayList<>(List.of(source.image().getId()))
+                )))),
+                "user-1"
+        );
+        assertThat(filled.items()).singleElement()
+                .satisfies(item -> assertThat(item.assignedSplit()).isEqualTo(DatasetItem.Split.TEST));
+
+        datasetService.updateDataset(source.workspaceId(), created.id(),
+                splitRequest(de.uniwue.zpd.dachs.larex.backend.entity.Dataset.SplitTemplate.TRAIN), "user-1");
+
+        DatasetDto.DetailResponse moved = datasetService.getDataset(source.workspaceId(), created.id(), "user-1");
+        assertThat(moved.trainPercentage()).isEqualTo(100);
+        assertThat(moved.items()).singleElement()
+                .satisfies(item -> assertThat(item.assignedSplit()).isEqualTo(DatasetItem.Split.TRAIN));
+    }
+
+    private DatasetDto.CreateOrUpdateRequest splitRequest(de.uniwue.zpd.dachs.larex.backend.entity.Dataset.SplitTemplate template) {
+        return new DatasetDto.CreateOrUpdateRequest(
+                "Isolated pages", null, new ArrayList<>(), template,
+                de.uniwue.zpd.dachs.larex.backend.entity.Dataset.SplitAlgorithm.RANDOM_SEEDED,
+                42L, null, null, null, new ArrayList<>());
     }
 
     private DatasetDto.DetailResponse createDataset(String workspaceId, String name) {

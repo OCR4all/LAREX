@@ -15,7 +15,6 @@ const schema = z.object({
   ),
   description: z.string().max(2000, { error: 'Description is too long' }).optional().or(z.literal('')),
   tags: z.array(z.string()).optional(),
-  splitTemplate: z.enum(['TRAIN_VAL', 'TRAIN_VAL_TEST']),
   splitAlgorithm: z.enum(['RANDOM_SEEDED', 'GROUP_BY_SOURCE_PROJECT', 'MULTILABEL_STRATIFIED_BY_TAGS']),
   splitSeed: z.number().int().min(0),
   stratifyTagIds: z.array(z.string()).optional(),
@@ -24,30 +23,18 @@ const schema = z.object({
 })
 
 type Schema = z.output<typeof schema>
-type SelectOption = { label: string, value: Schema['splitTemplate'] | Schema['splitAlgorithm'] }
+type SelectOption = { label: string, value: Schema['splitAlgorithm'] }
 
 const state = reactive<Schema>({
   name: '',
   description: '',
   tags: [],
-  splitTemplate: 'TRAIN_VAL_TEST',
   splitAlgorithm: 'RANDOM_SEEDED',
   splitSeed: 42,
   stratifyTagIds: [],
   retainOutputsForever: true,
   outputRetentionDays: 30
 })
-
-const splitTemplateOptions: Array<{ label: string, value: Schema['splitTemplate'] }> = [
-  {
-    label: 'Train / Validation / Test',
-    value: 'TRAIN_VAL_TEST'
-  },
-  {
-    label: 'Train / Validation',
-    value: 'TRAIN_VAL'
-  }
-]
 
 const splitAlgorithmOptions: Array<{ label: string, value: Schema['splitAlgorithm'] }> = [
   {
@@ -66,52 +53,7 @@ const splitAlgorithmOptions: Array<{ label: string, value: Schema['splitAlgorith
 
 const formId = useId()
 const creating = ref(false)
-const trainPercentage = ref(70)
-const valPercentage = ref(15)
-
-const testPercentage = computed(() => {
-  if (state.splitTemplate === 'TRAIN_VAL') return 0
-  return Math.max(0, 100 - trainPercentage.value - valPercentage.value)
-})
-
-const splitSliderValue = computed<number[]>({
-  get: () => state.splitTemplate === 'TRAIN_VAL'
-    ? [trainPercentage.value]
-    : [trainPercentage.value, trainPercentage.value + valPercentage.value],
-  set: (value) => {
-    const values = Array.isArray(value) ? value.map(entry => Number(entry)) : [Number(value)]
-    const firstValue = values[0] ?? Number.NaN
-    const firstThumb = Math.min(95, Math.max(5, Number.isFinite(firstValue) ? firstValue : 70))
-
-    if (state.splitTemplate === 'TRAIN_VAL') {
-      trainPercentage.value = firstThumb
-      valPercentage.value = 100 - firstThumb
-      return
-    }
-
-    const secondValue = values[1] ?? Number.NaN
-    const secondThumb = Math.min(95, Math.max(firstThumb + 5, Number.isFinite(secondValue) ? secondValue : firstThumb + 15))
-    trainPercentage.value = firstThumb
-    valPercentage.value = secondThumb - firstThumb
-  }
-})
-
-watch(() => state.splitTemplate, (value) => {
-  if (value === 'TRAIN_VAL') {
-    trainPercentage.value = 80
-    valPercentage.value = 20
-    return
-  }
-
-  if (trainPercentage.value + valPercentage.value >= 100 || testPercentage.value === 0) {
-    trainPercentage.value = 70
-    valPercentage.value = 15
-  }
-})
-
-const splitTemplateSelectOptions = computed<SelectOption[]>(() =>
-  splitTemplateOptions.map(option => ({ label: option.label, value: option.value }))
-)
+const { template: splitTemplate, splits, percentages } = useDatasetSplitLayout()
 
 const splitAlgorithmSelectOptions = computed<SelectOption[]>(() =>
   splitAlgorithmOptions.map(option => ({ label: option.label, value: option.value }))
@@ -125,12 +67,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     name: event.data.name.trim(),
     description: event.data.description?.trim() || null,
     tags: event.data.tags ?? [],
-    splitTemplate: event.data.splitTemplate,
+    splitTemplate: splitTemplate.value,
     splitAlgorithm: event.data.splitAlgorithm,
     splitSeed: Number(event.data.splitSeed) || 42,
-    trainPercentage: trainPercentage.value,
-    valPercentage: valPercentage.value,
-    testPercentage: testPercentage.value,
+    trainPercentage: percentages.value.TRAIN,
+    valPercentage: percentages.value.VAL,
+    testPercentage: percentages.value.TEST,
     stratifyTagIds: event.data.stratifyTagIds ?? [],
     outputRetentionDays: event.data.retainOutputsForever ? null : event.data.outputRetentionDays
   }
@@ -223,17 +165,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
         <UiSlideoverSection
           title="Split Strategy"
-          description="Configure reproducible train, validation, and test assignments."
+          description="Choose the splits this dataset uses and how pages are assigned to them."
           icon="i-lucide-git-branch"
         >
           <div class="space-y-5">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <UFormField label="Split layout" name="splitTemplate">
-                <USelect
-                  v-model="state.splitTemplate"
-                  :items="splitTemplateSelectOptions"
-                  value-key="value"
-                />
+              <UFormField label="Splits">
+                <DatasetSplitSelect v-model="splits" />
               </UFormField>
 
               <UFormField label="Assignment algorithm" name="splitAlgorithm">
@@ -254,27 +192,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               />
             </UFormField>
 
-            <div class="space-y-4 rounded-lg border border-default bg-default/50 p-4">
-              <div class="flex flex-wrap gap-2">
-                <UBadge color="primary" variant="soft">
-                  Train {{ trainPercentage }}%
-                </UBadge>
-                <UBadge color="neutral" variant="soft">
-                  Validation {{ valPercentage }}%
-                </UBadge>
-                <UBadge :color="state.splitTemplate === 'TRAIN_VAL' ? 'neutral' : 'warning'" variant="soft">
-                  Test {{ testPercentage }}%
-                </UBadge>
-              </div>
-              <USlider
-                v-model="splitSliderValue"
-                :min="5"
-                :max="95"
-                :step="1"
-                :min-steps-between-thumbs="5"
-                tooltip
-              />
-            </div>
+            <DatasetSplitDistribution v-model="percentages" :splits="splits" class="bg-default/50" />
 
             <UFormField
               label="Stratify tags"

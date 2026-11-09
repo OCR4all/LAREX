@@ -1,7 +1,7 @@
 import type { ImageType } from './image'
 import type { DatasetCapabilities } from './capabilities'
 
-export type DatasetSplitTemplate = 'TRAIN_VAL' | 'TRAIN_VAL_TEST'
+export type DatasetSplitTemplate = 'TRAIN' | 'VAL' | 'TEST' | 'TRAIN_VAL' | 'TRAIN_TEST' | 'VAL_TEST' | 'TRAIN_VAL_TEST'
 export type DatasetSplitAlgorithm = 'RANDOM_SEEDED' | 'GROUP_BY_SOURCE_PROJECT' | 'MULTILABEL_STRATIFIED_BY_TAGS'
 export type DatasetItemMode = 'LINK' | 'COPY'
 export type DatasetItemSplit = 'TRAIN' | 'VAL' | 'TEST'

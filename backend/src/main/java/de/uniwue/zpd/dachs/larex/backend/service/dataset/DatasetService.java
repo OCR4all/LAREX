@@ -246,8 +246,12 @@ public class DatasetService {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
         Dataset dataset = requireEditableDataset(workspaceId, datasetId);
         validateDatasetName(workspaceId, request.name(), dataset.getId());
+        Dataset.SplitTemplate previousTemplate = dataset.getSplitTemplate();
         applyDatasetConfiguration(dataset, request);
         Dataset saved = datasetRepository.save(dataset);
+        if (saved.getSplitTemplate() != previousTemplate) {
+            moveItemsIntoTemplate(saved);
+        }
         return toDetailResponse(saved, authorizationPolicyService.resolveDatasetCapabilities(workspaceId, userId));
     }
 
@@ -1125,6 +1129,13 @@ public class DatasetService {
         }
     }
 
+    private void moveItemsIntoTemplate(Dataset dataset) {
+        List<DatasetItem> items = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(dataset.getId());
+        items.forEach(item -> item.setAssignedSplit(
+                datasetSplitService.normalizeSplitForTemplate(dataset.getSplitTemplate(), item.getAssignedSplit())));
+        datasetItemRepository.saveAll(items);
+    }
+
     private void regenerateSplitAssignments(Dataset dataset, List<DatasetItem> items) {
         saveSplitAssignments(dataset, items, datasetSplitService.regenerateSplitAssignments(dataset, items));
     }
@@ -1537,13 +1548,12 @@ public class DatasetService {
         dataset.setSplitSeed(request.splitSeed() == null ? 42L : request.splitSeed());
 
         Dataset.SplitTemplate template = dataset.getSplitTemplate();
-        int defaultTrain = template == Dataset.SplitTemplate.TRAIN_VAL ? 80 : 70;
-        int defaultVal = template == Dataset.SplitTemplate.TRAIN_VAL ? 20 : 15;
-        int defaultTest = template == Dataset.SplitTemplate.TRAIN_VAL ? 0 : 15;
-
-        dataset.setTrainPercentage(request.trainPercentage() == null ? defaultTrain : request.trainPercentage());
-        dataset.setValPercentage(request.valPercentage() == null ? defaultVal : request.valPercentage());
-        dataset.setTestPercentage(request.testPercentage() == null ? defaultTest : request.testPercentage());
+        dataset.setTrainPercentage(request.trainPercentage() == null
+                ? datasetSplitService.defaultPercentage(template, DatasetItem.Split.TRAIN) : request.trainPercentage());
+        dataset.setValPercentage(request.valPercentage() == null
+                ? datasetSplitService.defaultPercentage(template, DatasetItem.Split.VAL) : request.valPercentage());
+        dataset.setTestPercentage(request.testPercentage() == null
+                ? datasetSplitService.defaultPercentage(template, DatasetItem.Split.TEST) : request.testPercentage());
         dataset.setStratifyTagIds(normalizeStrings(request.stratifyTagIds()));
         datasetSplitService.validateSplitConfiguration(dataset);
     }
