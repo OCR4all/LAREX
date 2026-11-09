@@ -1,4 +1,5 @@
 import type { ImageType } from '@/types/image'
+import type { PageIndexingStatus, ResolvedTag, TextConfidenceStats } from '@/types/project-page'
 import type { RelationDraftState } from '@/utils/editor/relations'
 import type { XmlValidationError } from '@/utils/xml-editor-diagnostics'
 
@@ -39,20 +40,6 @@ export interface ImageVariant {
   label: string
 }
 
-export interface ResolvedTag {
-  id: string
-  label: string
-  color: string | null
-}
-
-export type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
-export interface TextConfidenceStats {
-  min: number
-  max: number
-  mean: number
-  median: number
-  count: number
-}
 export type AnnotationApiMode = 'PROJECT' | 'DATASET_LINK' | 'DATASET_COPY'
 
 export interface AnnotationApiContext {

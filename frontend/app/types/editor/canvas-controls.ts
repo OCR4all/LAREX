@@ -1,10 +1,10 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { Commander } from '@/commands/editor/commander'
 import type { CutDrawing } from '@/composables/editor/editor-interactions/types'
-import type { DrawingMode, HistoryState, ViewMode } from '@/composables/editor/use-canvas-control'
+import type { DrawingMode, HistoryState } from '@/composables/editor/use-canvas-control'
 import type { PolygonType } from '@/models/editor'
 import type { SpatialIndexService } from '@/services/editor/spatial-index-service'
-import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
+import type { RenderablePolygon, RenderablePolyline, ViewMode } from '@/types/editor/rendering'
 
 export type SelectionFocusMode = 'context' | 'fit-width' | 'none'
 

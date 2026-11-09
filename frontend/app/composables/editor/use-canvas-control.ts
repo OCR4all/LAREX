@@ -7,6 +7,7 @@ import { PolygonType } from '@/models/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { getOrCreateSessionCommander } from '@/session/editor/canvas-commander'
 import type { EditorCanvasControls, SetViewModeOptions } from '@/types/editor/canvas-controls'
+import type { ViewMode } from '@/types/editor/rendering'
 import { resolvePageLockReason } from '@/utils/page-lock'
 import { computed, reactive, ref, watch } from 'vue'
 
@@ -29,9 +30,7 @@ export const VIEW_MODES = {
   WORD: 'word',
   GLYPH: 'glyph',
   BASELINE: 'baseline'
-} as const
-
-export type ViewMode = typeof VIEW_MODES[keyof typeof VIEW_MODES]
+} as const satisfies Record<string, ViewMode>
 
 export interface HistoryState {
   canUndo: boolean

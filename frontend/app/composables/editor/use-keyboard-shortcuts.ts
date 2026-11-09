@@ -2,7 +2,8 @@ import { shallowReactive, type ComputedRef, type Ref } from 'vue'
 import { useEventListener } from '@vueuse/core'
 import type { Commander } from '@/commands'
 import { DeleteSelectedElementsCommand } from '@/commands/editor/delete-selected-elements-command'
-import { DRAWING_MODES, type DrawingMode, VIEW_MODES, type ViewMode } from '@/composables/editor/use-canvas-control'
+import { DRAWING_MODES, type DrawingMode, VIEW_MODES } from '@/composables/editor/use-canvas-control'
+import type { ViewMode } from '@/types/editor/rendering'
 import {
   SHORTCUT_DEFINITIONS,
   SHORTCUT_HELP_GROUPS,

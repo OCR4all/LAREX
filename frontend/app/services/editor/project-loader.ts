@@ -1,6 +1,6 @@
 import type { ImageType } from '@/types/image'
-import type { PageData, ImageVariant, XmlFile, ResolvedTag, PageIndexingStatus, TextConfidenceStats } from '@/stores/editor/types'
-import type { PageWorkflowState } from '@/types/project-page'
+import type { PageData, ImageVariant, XmlFile } from '@/stores/editor/types'
+import type { ResolvedTag, PageIndexingStatus, PageWorkflowState, TextConfidenceStats } from '@/types/project-page'
 
 export interface PageImageVariantPreviewResponse {
   imageType?: ImageType | null
