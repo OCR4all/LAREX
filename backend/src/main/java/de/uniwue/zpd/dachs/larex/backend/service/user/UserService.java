@@ -27,18 +27,21 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.keycloak.admin.client.CreatedResponseUtil;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
+import org.keycloak.representations.idm.FederatedIdentityRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.slf4j.Logger;
@@ -51,6 +54,7 @@ public class UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     private static final List<String> SETUP_ACTIONS = List.of("VERIFY_EMAIL", "UPDATE_PASSWORD");
     private static final String SERVICE_ACCOUNT_USERNAME_PREFIX = "service-account-";
+    private static final String PASSWORD_CREDENTIAL_TYPE = "password";
     private static final int KEYCLOAK_USER_PAGE_SIZE = 500;
     private static final String GLOBAL_ADMIN_ROLE = "GLOBAL_ADMIN";
     private static final String GLOBAL_CURATOR_ROLE = "GLOBAL_CURATOR";
@@ -130,6 +134,7 @@ public class UserService {
                 users.stream().map(UserRepresentation::getId).toList()).stream()
                 .collect(Collectors.toMap(UserLogin::getUserId, UserLogin::getLastLoginAt));
         Map<String, String> avatars = getAvatarUrls(users);
+        Predicate<UserRepresentation> brokered = brokeredIdentityLookup();
 
         Comparator<UserRepresentation> comparator = switch (sort) {
             case CREATED_DESC -> this::compareByCreatedTimestampDesc;
@@ -139,14 +144,14 @@ public class UserService {
                     user -> lastLogins.get(user.getId()), Comparator.nullsLast(Comparator.reverseOrder()));
         };
 
-        List<AdminUserDto> filteredUsers = users.stream()
+        // Brokered identities need one Keycloak call per user, so only page items and status-filter candidates are resolved.
+        List<UserRepresentation> filteredUsers = users.stream()
                 .filter(user -> includeServiceAccounts || !isServiceAccount(user))
                 .filter(user -> lastLoginBefore == null || (lastLogins.containsKey(user.getId())
                         && lastLogins.get(user.getId()).isBefore(lastLoginBefore)))
-                .sorted(comparator.thenComparing(UserRepresentation::getId))
-                .map(user -> mapToAdminUserDto(user, avatars.get(user.getId()), lastLogins.get(user.getId())))
                 .filter(user -> matchesSearch(user, normalizedSearch))
-                .filter(user -> matchesStatus(user, status))
+                .filter(user -> matchesStatus(user, status, brokered))
+                .sorted(comparator.thenComparing(UserRepresentation::getId))
                 .toList();
 
         long totalElements = filteredUsers.size();
@@ -155,13 +160,15 @@ public class UserService {
         int toIndex = Math.min(fromIndex + size, filteredUsers.size());
 
         return new AdminUserPageDto(
-                filteredUsers.subList(fromIndex, toIndex),
+                filteredUsers.subList(fromIndex, toIndex).stream()
+                        .map(user -> mapToAdminUserDto(user, avatars.get(user.getId()), lastLogins.get(user.getId()), brokered))
+                        .toList(),
                 page,
                 size,
                 totalElements,
                 totalPages,
-                !isLdapManagedDeployment(),
-                !isLdapManagedDeployment()
+                !isExternallyManagedDeployment(),
+                !isExternallyManagedDeployment()
         );
     }
 
@@ -304,7 +311,8 @@ public class UserService {
         try {
             sendSetupActionsEmail(createdUserResource, SETUP_ACTIONS);
             UserRepresentation createdUser = createdUserResource.toRepresentation();
-            AdminUserDto createdDto = mapToAdminUserDto(createdUser);
+            // A user created here cannot be linked to an identity provider yet.
+            AdminUserDto createdDto = mapToAdminUserDto(createdUser, user -> false);
             adminUserAuditService.logEvent(
                     actorUserId,
                     actorUsername,
@@ -359,12 +367,19 @@ public class UserService {
             throw ex;
         }
 
-        AdminUserOnboardingState previousState = deriveOnboardingState(user);
-        AdminUserIdentitySource identitySource = deriveIdentitySource(user);
+        Predicate<UserRepresentation> brokered = brokeredIdentityLookup();
+        AdminUserOnboardingState previousState = deriveOnboardingState(user, brokered);
+        AdminUserIdentitySource identitySource = deriveIdentitySource(user, brokered);
 
         try {
             assertNotServiceAccount(user);
             assertMutableInCurrentMode(user, AdminMutationAction.RESEND_SETUP);
+            if (identitySource == AdminUserIdentitySource.IDENTITY_PROVIDER) {
+                throw new AdminUserManagementException(
+                        AdminUserErrorCode.ADMIN_USER_RESEND_NOT_ALLOWED,
+                        "Setup emails are not available for users who sign in through an identity provider."
+                );
+            }
             if (user.getEmail() == null || user.getEmail().isBlank() || previousState != AdminUserOnboardingState.PENDING_SETUP) {
                 throw new AdminUserManagementException(
                         AdminUserErrorCode.ADMIN_USER_RESEND_NOT_ALLOWED,
@@ -375,7 +390,7 @@ public class UserService {
             UserResource userResource = keycloakAdmin.realm(realm).users().get(targetUserId);
             sendSetupActionsEmail(userResource, SETUP_ACTIONS);
             UserRepresentation refreshedUser = userResource.toRepresentation();
-            AdminUserDto updatedDto = mapToAdminUserDto(refreshedUser);
+            AdminUserDto updatedDto = mapToAdminUserDto(refreshedUser, brokered);
 
             adminUserAuditService.logEvent(
                     actorUserId,
@@ -584,8 +599,9 @@ public class UserService {
             throw ex;
         }
 
-        AdminUserOnboardingState previousState = deriveOnboardingState(user);
-        AdminUserIdentitySource identitySource = deriveIdentitySource(user);
+        Predicate<UserRepresentation> brokered = brokeredIdentityLookup();
+        AdminUserOnboardingState previousState = deriveOnboardingState(user, brokered);
+        AdminUserIdentitySource identitySource = deriveIdentitySource(user, brokered);
 
         try {
             assertNotServiceAccount(user);
@@ -614,7 +630,7 @@ public class UserService {
             userResource.update(user);
 
             UserRepresentation refreshedUser = userResource.toRepresentation();
-            AdminUserDto updatedDto = mapToAdminUserDto(refreshedUser);
+            AdminUserDto updatedDto = mapToAdminUserDto(refreshedUser, brokered);
             adminUserAuditService.logEvent(
                     actorUserId,
                     actorUsername,
@@ -855,25 +871,25 @@ public class UserService {
     }
 
     private void assertProvisioningEnabledForCreate() {
-        if (isLdapManagedDeployment()) {
+        if (isExternallyManagedDeployment()) {
             throw new AdminUserManagementException(
                     AdminUserErrorCode.ADMIN_USER_PROVISIONING_DISABLED,
-                    "User creation is disabled because this deployment uses LDAP-managed identities."
+                    "User creation is disabled because this deployment manages users in an external directory or identity provider."
             );
         }
     }
 
     private void assertMutableInCurrentMode(UserRepresentation user, AdminMutationAction action) {
-        if (isLdapManagedDeployment()) {
+        if (isExternallyManagedDeployment()) {
             if (action == AdminMutationAction.RESEND_SETUP) {
                 throw new AdminUserManagementException(
                         AdminUserErrorCode.ADMIN_USER_PROVISIONING_DISABLED,
-                        "Setup email actions are disabled because this deployment uses LDAP-managed identities."
+                        "Setup email actions are disabled because this deployment manages users in an external directory or identity provider."
                 );
             }
             throw new AdminUserManagementException(
                     AdminUserErrorCode.ADMIN_USER_EXTERNALLY_MANAGED,
-                    "This user is managed externally through LDAP and cannot be changed here."
+                    "This deployment manages users in an external directory or identity provider, so they cannot be changed here."
             );
         }
 
@@ -886,15 +902,21 @@ public class UserService {
     }
 
     private AdminUserDto mapToAdminUserDto(UserRepresentation user) {
-        return mapToAdminUserDto(user, profileImageService.getAvatarUrl(user.getId()).orElse(null),
-                userLoginRepository.findById(user.getId()).map(UserLogin::getLastLoginAt).orElse(null));
+        return mapToAdminUserDto(user, brokeredIdentityLookup());
     }
 
-    private AdminUserDto mapToAdminUserDto(UserRepresentation user, String avatar, Instant lastLoginAt) {
+    private AdminUserDto mapToAdminUserDto(UserRepresentation user, Predicate<UserRepresentation> brokered) {
+        return mapToAdminUserDto(user, profileImageService.getAvatarUrl(user.getId()).orElse(null),
+                userLoginRepository.findById(user.getId()).map(UserLogin::getLastLoginAt).orElse(null),
+                brokered);
+    }
+
+    private AdminUserDto mapToAdminUserDto(
+            UserRepresentation user, String avatar, Instant lastLoginAt, Predicate<UserRepresentation> brokered) {
         boolean serviceAccount = isServiceAccount(user);
-        AdminUserIdentitySource identitySource = deriveIdentitySource(user);
-        boolean externallyManaged = identitySource != AdminUserIdentitySource.LOCAL;
-        AdminUserOnboardingState onboardingState = deriveOnboardingState(user);
+        AdminUserIdentitySource identitySource = deriveIdentitySource(user, brokered);
+        boolean externallyManaged = isExternallyManaged(identitySource);
+        AdminUserOnboardingState onboardingState = deriveOnboardingState(user, brokered);
 
         return new AdminUserDto(
                 user.getId(),
@@ -931,7 +953,7 @@ public class UserService {
         );
     }
 
-    private AdminUserOnboardingState deriveOnboardingState(UserRepresentation user) {
+    private AdminUserOnboardingState deriveOnboardingState(UserRepresentation user, Predicate<UserRepresentation> brokered) {
         if (isServiceAccount(user)) {
             return AdminUserOnboardingState.SERVICE_ACCOUNT;
         }
@@ -940,14 +962,17 @@ public class UserService {
         }
 
         List<String> requiredActions = user.getRequiredActions() != null ? user.getRequiredActions() : List.of();
-        boolean pendingSetup = !Boolean.TRUE.equals(user.isEmailVerified())
-                || requiredActions.contains("VERIFY_EMAIL")
-                || requiredActions.contains("UPDATE_PASSWORD");
-
-        return pendingSetup ? AdminUserOnboardingState.PENDING_SETUP : AdminUserOnboardingState.ACTIVE;
+        if (requiredActions.contains("VERIFY_EMAIL") || requiredActions.contains("UPDATE_PASSWORD")) {
+            return AdminUserOnboardingState.PENDING_SETUP;
+        }
+        if (Boolean.TRUE.equals(user.isEmailVerified())) {
+            return AdminUserOnboardingState.ACTIVE;
+        }
+        // Brokered users stay unverified when the realm does not trust the provider's email claim, yet sign in normally.
+        return brokered.test(user) ? AdminUserOnboardingState.ACTIVE : AdminUserOnboardingState.PENDING_SETUP;
     }
 
-    private AdminUserIdentitySource deriveIdentitySource(UserRepresentation user) {
+    private AdminUserIdentitySource deriveIdentitySource(UserRepresentation user, Predicate<UserRepresentation> brokered) {
         if (isServiceAccount(user)) {
             return AdminUserIdentitySource.SERVICE_ACCOUNT;
         }
@@ -955,37 +980,83 @@ public class UserService {
         if (federationLink != null) {
             return AdminUserIdentitySource.LDAP;
         }
+        if (brokered.test(user)) {
+            return AdminUserIdentitySource.IDENTITY_PROVIDER;
+        }
         return AdminUserIdentitySource.LOCAL;
     }
 
+    /** Brokered users keep their Keycloak account state, so LAREX can still enable or disable them. */
+    private boolean isExternallyManaged(AdminUserIdentitySource identitySource) {
+        return identitySource == AdminUserIdentitySource.LDAP || identitySource == AdminUserIdentitySource.SERVICE_ACCOUNT;
+    }
+
     private boolean isExternallyManaged(UserRepresentation user) {
-        return deriveIdentitySource(user) != AdminUserIdentitySource.LOCAL;
+        return isServiceAccount(user) || normalizeOptional(user.getFederationLink()) != null;
     }
 
-    private boolean isLdapManagedDeployment() {
-        return authProvisioningProperties.getUserProvisioningMode() == UserProvisioningMode.LDAP_MANAGED;
+    /** Memoizes per-user federated identity lookups for the lifetime of one request. */
+    private Predicate<UserRepresentation> brokeredIdentityLookup() {
+        Map<String, Boolean> brokeredByUserId = new HashMap<>();
+        return user -> {
+            if (user.getId() == null || isExternallyManaged(user)) {
+                return false;
+            }
+            return brokeredByUserId.computeIfAbsent(user.getId(), this::hasBrokeredIdentity);
+        };
     }
 
-    private boolean matchesSearch(AdminUserDto user, String normalizedSearch) {
+    private boolean hasBrokeredIdentity(String userId) {
+        try {
+            List<FederatedIdentityRepresentation> identities = keycloakAdmin.realm(realm).users().get(userId).getFederatedIdentity();
+            return identities != null && !identities.isEmpty();
+        } catch (Exception ex) {
+            logger.warn("Failed to read identity provider links for user {}: {}", userId, ex.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Users who only sign in through a brokered identity provider have no password Keycloak could change.
+     * Fails open so a lookup error never hides the existing password flow.
+     */
+    public boolean isPasswordChangeAvailable(String userId) {
+        try {
+            UserResource userResource = keycloakAdmin.realm(realm).users().get(userId);
+            boolean storedPassword = userResource.credentials().stream()
+                    .anyMatch(credential -> PASSWORD_CREDENTIAL_TYPE.equals(credential.getType()));
+            return storedPassword || userResource.getConfiguredUserStorageCredentialTypes().contains(PASSWORD_CREDENTIAL_TYPE);
+        } catch (Exception ex) {
+            logger.warn("Failed to read credential types for user {}: {}", userId, ex.getMessage());
+            return true;
+        }
+    }
+
+    private boolean isExternallyManagedDeployment() {
+        return authProvisioningProperties.getUserProvisioningMode() == UserProvisioningMode.EXTERNALLY_MANAGED;
+    }
+
+    private boolean matchesSearch(UserRepresentation user, String normalizedSearch) {
         if (normalizedSearch == null) {
             return true;
         }
 
         String query = normalizedSearch.toLowerCase(Locale.ROOT);
-        return containsIgnoreCase(user.username(), query)
-                || containsIgnoreCase(user.email(), query)
-                || containsIgnoreCase(user.firstName(), query)
-                || containsIgnoreCase(user.lastName(), query);
+        return containsIgnoreCase(user.getUsername(), query)
+                || containsIgnoreCase(user.getEmail(), query)
+                || containsIgnoreCase(user.getFirstName(), query)
+                || containsIgnoreCase(user.getLastName(), query);
     }
 
-    private boolean matchesStatus(AdminUserDto user, AdminUserStatusFilter status) {
+    private boolean matchesStatus(UserRepresentation user, AdminUserStatusFilter status, Predicate<UserRepresentation> brokered) {
         if (status == null || status == AdminUserStatusFilter.ALL) {
             return true;
         }
+        AdminUserOnboardingState state = deriveOnboardingState(user, brokered);
         return switch (status) {
-            case ACTIVE -> user.onboardingState() == AdminUserOnboardingState.ACTIVE;
-            case PENDING_SETUP -> user.onboardingState() == AdminUserOnboardingState.PENDING_SETUP;
-            case DISABLED -> user.onboardingState() == AdminUserOnboardingState.DISABLED;
+            case ACTIVE -> state == AdminUserOnboardingState.ACTIVE;
+            case PENDING_SETUP -> state == AdminUserOnboardingState.PENDING_SETUP;
+            case DISABLED -> state == AdminUserOnboardingState.DISABLED;
             case ALL -> true;
         };
     }

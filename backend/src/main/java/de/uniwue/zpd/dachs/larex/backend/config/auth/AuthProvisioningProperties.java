@@ -14,6 +14,8 @@ public class AuthProvisioningProperties {
     }
 
     public void setUserProvisioningMode(UserProvisioningMode userProvisioningMode) {
-        this.userProvisioningMode = userProvisioningMode;
+        this.userProvisioningMode = userProvisioningMode == UserProvisioningMode.LDAP_MANAGED
+                ? UserProvisioningMode.EXTERNALLY_MANAGED
+                : userProvisioningMode;
     }
 }

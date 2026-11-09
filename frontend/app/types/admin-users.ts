@@ -8,7 +8,7 @@ export type AdminUserAuditAction
     | 'GLOBAL_CURATOR_GRANT'
     | 'GLOBAL_CURATOR_REVOKE'
 export type AdminUserAuditOutcome = 'SUCCESS' | 'FAILURE'
-export type AdminUserIdentitySource = 'LOCAL' | 'LDAP' | 'SERVICE_ACCOUNT'
+export type AdminUserIdentitySource = 'LOCAL' | 'LDAP' | 'IDENTITY_PROVIDER' | 'SERVICE_ACCOUNT'
 
 export interface AdminUser {
   id: string

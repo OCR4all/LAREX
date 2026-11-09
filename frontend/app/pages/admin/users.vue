@@ -49,8 +49,8 @@ const errorCodeMessages: Record<string, string> = {
   ADMIN_USER_ALREADY_ENABLED: 'User is already enabled.',
   ADMIN_USER_ALREADY_DISABLED: 'User is already disabled.',
   ADMIN_USER_RESEND_NOT_ALLOWED: 'Setup email can only be resent for users still completing onboarding.',
-  ADMIN_USER_PROVISIONING_DISABLED: 'This deployment uses LDAP-managed identities. User provisioning from LAREX is disabled.',
-  ADMIN_USER_EXTERNALLY_MANAGED: 'This user is managed externally through LDAP and cannot be changed here.'
+  ADMIN_USER_PROVISIONING_DISABLED: 'This deployment manages users in an external directory or identity provider. User provisioning from LAREX is disabled.',
+  ADMIN_USER_EXTERNALLY_MANAGED: 'This user is managed in an external directory and cannot be changed here.'
 }
 
 const createUserSchema = z.object({
@@ -437,6 +437,8 @@ function identitySourceLabel(source: AdminUserIdentitySource): string {
       return 'Local'
     case 'LDAP':
       return 'LDAP'
+    case 'IDENTITY_PROVIDER':
+      return 'SSO'
     case 'SERVICE_ACCOUNT':
       return 'Service Account'
   }
@@ -447,6 +449,8 @@ function identitySourceColor(source: AdminUserIdentitySource): 'info' | 'neutral
     case 'LOCAL':
       return 'neutral'
     case 'LDAP':
+      return 'info'
+    case 'IDENTITY_PROVIDER':
       return 'info'
     case 'SERVICE_ACCOUNT':
       return 'neutral'
@@ -549,6 +553,7 @@ function canResendSetup(user: AdminUser): boolean {
     && user.onboardingState === 'PENDING_SETUP'
     && !user.serviceAccount
     && !user.externallyManaged
+    && user.identitySource !== 'IDENTITY_PROVIDER'
 }
 
 function actionKey(userId: string, action: 'disable' | 'enable' | 'resend'): string {
@@ -857,7 +862,7 @@ async function submitGlobalRoleAction() {
         v-if="!creationAllowed"
         class="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning"
       >
-        User creation is disabled because this deployment uses LDAP-managed identities.
+        User creation is disabled because this deployment manages users in an external directory or identity provider.
       </div>
 
       <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">

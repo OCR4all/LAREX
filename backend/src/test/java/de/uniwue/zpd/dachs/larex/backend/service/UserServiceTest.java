@@ -31,6 +31,8 @@ import org.keycloak.admin.client.resource.RoleScopeResource;
 import org.keycloak.admin.client.resource.RolesResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
+import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.FederatedIdentityRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.mockito.ArgumentCaptor;
@@ -59,6 +61,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -457,7 +460,7 @@ class UserServiceTest {
 
     @Test
     void createUserForAdmin_rejectsWhenProvisioningDisabled() {
-        userService = createUserService(UserProvisioningMode.LDAP_MANAGED);
+        userService = createUserService(UserProvisioningMode.EXTERNALLY_MANAGED);
 
         AdminUserManagementException ex = assertThrows(
                 AdminUserManagementException.class,
@@ -535,8 +538,8 @@ class UserServiceTest {
     }
 
     @Test
-    void getUserPageForAdmin_disablesCapabilitiesInLdapManagedMode() {
-        userService = createUserService(UserProvisioningMode.LDAP_MANAGED);
+    void getUserPageForAdmin_disablesCapabilitiesInExternallyManagedMode() {
+        userService = createUserService(UserProvisioningMode.EXTERNALLY_MANAGED);
         UserRepresentation localUser = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
         when(usersResource.list(0, 500)).thenReturn(List.of(localUser));
 
@@ -608,8 +611,8 @@ class UserServiceTest {
     }
 
     @Test
-    void disableUserForAdmin_rejectsAllMutationsInLdapManagedMode() {
-        userService = createUserService(UserProvisioningMode.LDAP_MANAGED);
+    void disableUserForAdmin_rejectsAllMutationsInExternallyManagedMode() {
+        userService = createUserService(UserProvisioningMode.EXTERNALLY_MANAGED);
         UserRepresentation localUser = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
         when(usersResource.get("user-1")).thenReturn(userResource);
         when(userResource.toRepresentation()).thenReturn(localUser);
@@ -743,7 +746,7 @@ class UserServiceTest {
 
     @Test
     void resendSetupEmailForAdmin_rejectsWhenProvisioningDisabled() {
-        userService = createUserService(UserProvisioningMode.LDAP_MANAGED);
+        userService = createUserService(UserProvisioningMode.EXTERNALLY_MANAGED);
         UserRepresentation localUser = localUser("user-1", "alice", "alice@example.org", true, false, List.of("VERIFY_EMAIL", "UPDATE_PASSWORD"));
         when(usersResource.get("user-1")).thenReturn(userResource);
         when(userResource.toRepresentation()).thenReturn(localUser);
@@ -878,6 +881,111 @@ class UserServiceTest {
         verify(realmRoleScopeResource, never()).add(anyList());
     }
 
+    @Test
+    void getUserPageForAdmin_labelsBrokeredUsersAsActiveIdentityProviderUsers() {
+        UserRepresentation brokered = localUser("sso-1", "sso-user", "sso@example.org", true, false, List.of());
+        when(usersResource.list(0, 500)).thenReturn(List.of(brokered));
+        when(usersResource.get("sso-1")).thenReturn(userResource);
+        when(userResource.getFederatedIdentity()).thenReturn(List.of(federatedIdentity("partner-sso")));
+
+        var user = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null)
+                .items().getFirst();
+
+        assertEquals(AdminUserIdentitySource.IDENTITY_PROVIDER, user.identitySource());
+        assertEquals(AdminUserOnboardingState.ACTIVE, user.onboardingState());
+        assertFalse(user.externallyManaged());
+        verify(userResource, times(1)).getFederatedIdentity();
+    }
+
+    @Test
+    void getUserPageForAdmin_keepsUnverifiedLocalUsersPendingAndResolvesOnlyPageItems() {
+        UserRepresentation pending = localUser("local-1", "alice", "alice@example.org", true, false, List.of());
+        pending.setCreatedTimestamp(200L);
+        UserRepresentation other = localUser("local-2", "bob", "bob@example.org", true, true, List.of());
+        other.setCreatedTimestamp(100L);
+        when(usersResource.list(0, 500)).thenReturn(List.of(pending, other));
+        UserResource pendingResource = org.mockito.Mockito.mock(UserResource.class);
+        when(usersResource.get("local-1")).thenReturn(pendingResource);
+        when(pendingResource.getFederatedIdentity()).thenReturn(List.of());
+
+        AdminUserPageDto page = userService.getUserPageForAdmin(0, 1, null, false, AdminUserStatusFilter.ALL, AdminUserSort.CREATED_DESC, null);
+
+        assertEquals(2, page.totalElements());
+        assertEquals(AdminUserIdentitySource.LOCAL, page.items().getFirst().identitySource());
+        assertEquals(AdminUserOnboardingState.PENDING_SETUP, page.items().getFirst().onboardingState());
+        verify(usersResource, never()).get("local-2");
+    }
+
+    @Test
+    void getUserPageForAdmin_pendingFilterExcludesBrokeredUsers() {
+        UserRepresentation brokered = localUser("sso-1", "sso-user", "sso@example.org", true, false, List.of());
+        when(usersResource.list(0, 500)).thenReturn(List.of(brokered));
+        when(usersResource.get("sso-1")).thenReturn(userResource);
+        when(userResource.getFederatedIdentity()).thenReturn(List.of(federatedIdentity("partner-sso")));
+
+        AdminUserPageDto page = userService.getUserPageForAdmin(0, 25, null, false, AdminUserStatusFilter.PENDING_SETUP, AdminUserSort.CREATED_DESC, null);
+
+        assertEquals(0, page.totalElements());
+    }
+
+    @Test
+    void resendSetupEmailForAdmin_rejectsBrokeredUser() {
+        UserRepresentation brokered = localUser("sso-1", "sso-user", "sso@example.org", true, false, List.of("VERIFY_EMAIL"));
+        when(usersResource.get("sso-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(brokered);
+        when(userResource.getFederatedIdentity()).thenReturn(List.of(federatedIdentity("partner-sso")));
+
+        AdminUserManagementException ex = assertThrows(
+                AdminUserManagementException.class,
+                () -> userService.resendSetupEmailForAdmin("admin-1", "admin", "sso-1")
+        );
+
+        assertEquals(AdminUserErrorCode.ADMIN_USER_RESEND_NOT_ALLOWED, ex.getCode());
+        verify(userResource, never()).executeActionsEmail(anyString(), anyString(), anyInt(), anyList());
+    }
+
+    @Test
+    void disableUserForAdmin_allowsBrokeredUser() {
+        UserRepresentation current = localUser("sso-1", "sso-user", "sso@example.org", true, false, List.of());
+        UserRepresentation updated = localUser("sso-1", "sso-user", "sso@example.org", false, false, List.of());
+        when(usersResource.get("sso-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(current, updated);
+        when(userResource.getFederatedIdentity()).thenReturn(List.of(federatedIdentity("partner-sso")));
+
+        var result = userService.disableUserForAdmin("admin-1", "admin", "sso-1");
+
+        verify(userResource).update(any(UserRepresentation.class));
+        assertEquals(AdminUserIdentitySource.IDENTITY_PROVIDER, result.identitySource());
+        verify(userResource, times(1)).getFederatedIdentity();
+    }
+
+    @Test
+    void isPasswordChangeAvailable_requiresStoredOrUserStoragePassword() {
+        when(usersResource.get("user-1")).thenReturn(userResource);
+        CredentialRepresentation otp = new CredentialRepresentation();
+        otp.setType("otp");
+        CredentialRepresentation password = new CredentialRepresentation();
+        password.setType("password");
+
+        when(userResource.credentials()).thenReturn(List.of(otp));
+        when(userResource.getConfiguredUserStorageCredentialTypes()).thenReturn(List.of());
+        assertFalse(userService.isPasswordChangeAvailable("user-1"));
+
+        when(userResource.getConfiguredUserStorageCredentialTypes()).thenReturn(List.of("password"));
+        assertTrue(userService.isPasswordChangeAvailable("user-1"));
+
+        when(userResource.credentials()).thenReturn(List.of(password));
+        assertTrue(userService.isPasswordChangeAvailable("user-1"));
+    }
+
+    @Test
+    void isPasswordChangeAvailable_failsOpenWhenKeycloakIsUnreachable() {
+        when(usersResource.get("user-1")).thenReturn(userResource);
+        when(userResource.credentials()).thenThrow(new jakarta.ws.rs.ProcessingException("connection refused"));
+
+        assertTrue(userService.isPasswordChangeAvailable("user-1"));
+    }
+
     private UserService createUserService(UserProvisioningMode provisioningMode) {
         AuthProvisioningProperties properties = new AuthProvisioningProperties();
         properties.setUserProvisioningMode(provisioningMode);
@@ -931,6 +1039,13 @@ class UserServiceTest {
         user.setEmailVerified(emailVerified);
         user.setRequiredActions(requiredActions);
         return user;
+    }
+
+    private FederatedIdentityRepresentation federatedIdentity(String alias) {
+        FederatedIdentityRepresentation identity = new FederatedIdentityRepresentation();
+        identity.setIdentityProvider(alias);
+        identity.setUserId("external-" + alias);
+        return identity;
     }
 
     private RoleRepresentation role(String name) {

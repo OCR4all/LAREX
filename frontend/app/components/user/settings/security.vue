@@ -1,6 +1,11 @@
 <script setup lang="ts">
 const { getPasswordChangeUrl, getDeleteAccountUrl } = useKeycloakUrls()
 
+const { data: security } = await useFetch<{ passwordChangeAvailable: boolean }>('/api/profile/security', {
+  key: 'settings-account-security'
+})
+const passwordChangeAvailable = computed(() => security.value?.passwordChangeAvailable !== false)
+
 const { data: passwordChangeUrl } = await useAsyncData(
   'settings-password-change-url',
   () => getPasswordChangeUrl()
@@ -26,6 +31,7 @@ function openDeleteAccount() {
 <template>
   <div class="space-y-6">
     <UPageCard
+      v-if="passwordChangeAvailable"
       data-tour="settings-security-password"
       title="Password"
       description="Change your password securely through Keycloak's self-service portal."
@@ -40,6 +46,14 @@ function openDeleteAccount() {
         @click="openPasswordChange"
       />
     </UPageCard>
+
+    <UPageCard
+      v-else
+      data-tour="settings-security-password"
+      title="Password"
+      description="You sign in through your organization's single sign-on, so your password is managed there."
+      variant="subtle"
+    />
 
     <UPageCard
       data-tour="settings-security-delete"

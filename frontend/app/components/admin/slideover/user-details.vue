@@ -64,6 +64,8 @@ function identitySourceLabel(source: AdminUserIdentitySource): string {
       return 'Local'
     case 'LDAP':
       return 'LDAP'
+    case 'IDENTITY_PROVIDER':
+      return 'SSO'
     case 'SERVICE_ACCOUNT':
       return 'Service Account'
   }
@@ -388,6 +390,15 @@ function handleGlobalCuratorUpdate(enabled: boolean) {
             icon="i-lucide-building-2"
             title="Externally managed account"
             description="Account lifecycle changes must be handled in your directory or identity provider."
+          />
+
+          <UAlert
+            v-else-if="user.identitySource === 'IDENTITY_PROVIDER'"
+            color="info"
+            variant="soft"
+            icon="i-lucide-key-round"
+            title="Signs in through single sign-on"
+            description="Password and email are managed by the identity provider. You can still enable or disable this account in LAREX."
           />
 
           <UiSlideoverSection

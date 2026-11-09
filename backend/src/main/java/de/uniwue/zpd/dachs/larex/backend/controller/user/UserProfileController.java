@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.user;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.AccountSecurityDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserProfileDto;
 import de.uniwue.zpd.dachs.larex.backend.service.user.ProfileImageService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
@@ -46,6 +47,12 @@ public class UserProfileController {
         Optional<UserProfileDto> profile = userService.getUserProfile(userId);
         return profile.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/security")
+    public ResponseEntity<AccountSecurityDto> getCurrentUserSecurity(
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(new AccountSecurityDto(userService.isPasswordChangeAvailable(userId)));
     }
 
     @PostMapping("/login")
