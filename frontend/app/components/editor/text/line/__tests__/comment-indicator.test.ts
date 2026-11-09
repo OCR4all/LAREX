@@ -7,6 +7,8 @@ import DiffMatchPatch from 'diff-match-patch'
 import { TooltipProvider } from 'reka-ui'
 import * as highlighting from '../../shared/text-highlighting'
 import * as inputGuards from '../../shared/text-input-guards'
+import * as renderNearViewport from '../../shared/use-render-near-viewport'
+import * as lazyPopoverTrigger from '@/composables/use-lazy-popover-trigger'
 import * as readingDirection from '../reading-direction'
 import * as variantRenderKey from '../variant-render-key'
 import * as cutoutSizing from '../cutout-sizing'
@@ -32,6 +34,8 @@ const dependencies: Record<string, unknown> = {
   'reka-ui': { TooltipProvider },
   '../shared/text-highlighting': highlighting,
   '../shared/text-input-guards': inputGuards,
+  '../shared/use-render-near-viewport': renderNearViewport,
+  '@/composables/use-lazy-popover-trigger': lazyPopoverTrigger,
   './reading-direction': readingDirection,
   './variant-render-key': variantRenderKey,
   './cutout-sizing': cutoutSizing,
@@ -237,6 +241,15 @@ describe('textline presentation cutouts', () => {
     const image = document.createElement('img')
     Object.defineProperties(image, { naturalWidth: { value: 3200 }, naturalHeight: { value: 2102 } })
     vi.spyOn(editorImage, 'loadEditorImage').mockResolvedValue({ image, originalSize: { width: 19218, height: 12623 } })
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe() {
+        queueMicrotask(() => this.callback([{ contentRect: { width: 800 } } as ResizeObserverEntry], this as unknown as ResizeObserver))
+      }
+
+      unobserve() {}
+      disconnect() {}
+    })
     const { props, textline } = await mountLine('vertical', false)
     props.imageUrl = '/api/projects/p/pages/images/scan/presentation?size=detail'
     textline.points = [{ x: 18000, y: 12000 }, { x: 19000, y: 12000 }, { x: 19000, y: 12200 }, { x: 18000, y: 12200 }]

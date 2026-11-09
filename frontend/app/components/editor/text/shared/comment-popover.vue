@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { normalizeFullTextComment } from './full-text-comments'
+import { useLazyPopoverTrigger } from '@/composables/use-lazy-popover-trigger'
 
 const props = withDefaults(defineProps<{
   textlineId: string
@@ -26,9 +27,24 @@ const hasComment = computed(() => normalizedComment.value.length > 0)
 const draft = ref(props.comment)
 const actionLabel = computed(() => props.readOnly ? 'View comment' : hasComment.value ? 'Edit comment' : props.emptyLabel)
 
+const triggerRef = ref<{ $el?: HTMLElement } | null>(null)
+const { anchor, onPointerDown, shouldOpen } = useLazyPopoverTrigger()
+
 watch(open, (isOpen) => {
-  if (isOpen) draft.value = props.comment
+  if (isOpen) {
+    draft.value = props.comment
+    anchor.value = triggerRef.value?.$el ?? anchor.value
+    return
+  }
+  void nextTick(() => {
+    const active = document.activeElement
+    if (!active || active === document.body) triggerRef.value?.$el?.focus?.()
+  })
 })
+
+function toggle(event: MouseEvent): void {
+  open.value = shouldOpen(event, open.value)
+}
 watch(() => props.textlineId, () => {
   open.value = false
   draft.value = props.comment
@@ -49,26 +65,33 @@ function handleKeydown(event: KeyboardEvent): void {
 </script>
 
 <template>
-  <UPopover v-model:open="open" :content="{ side: 'top', align: 'start', sideOffset: 8 }">
-    <UTooltip :text="normalizedComment || actionLabel">
-      <UButton
-        type="button"
-        color="neutral"
-        variant="ghost"
-        size="xs"
-        class="shrink-0"
-        :class="hasComment ? 'text-info' : ''"
-        :icon="hasComment ? 'i-lucide-message-square-text' : props.emptyIcon"
-        :aria-label="hasComment ? props.indicatorLabel : actionLabel"
-        :title="actionLabel"
-        @click.stop
-      >
-        <template v-if="!props.iconOnly" #default>
-          {{ hasComment ? 'Comment' : actionLabel }}
-        </template>
-      </UButton>
-    </UTooltip>
+  <UButton
+    ref="triggerRef"
+    type="button"
+    color="neutral"
+    variant="ghost"
+    size="xs"
+    class="shrink-0"
+    :class="hasComment ? 'text-info' : ''"
+    :icon="hasComment ? 'i-lucide-message-square-text' : props.emptyIcon"
+    :aria-label="hasComment ? props.indicatorLabel : actionLabel"
+    :aria-expanded="open"
+    aria-haspopup="dialog"
+    :data-tooltip="normalizedComment || actionLabel"
+    @pointerdown="onPointerDown(open)"
+    @click.stop="toggle"
+  >
+    <template v-if="!props.iconOnly" #default>
+      {{ hasComment ? 'Comment' : actionLabel }}
+    </template>
+  </UButton>
 
+  <UPopover
+    v-if="open && anchor"
+    v-model:open="open"
+    :reference="anchor"
+    :content="{ side: 'top', align: 'start', sideOffset: 8 }"
+  >
     <template #content>
       <div class="max-h-[min(75vh,36rem)] w-80 max-w-[calc(100vw-2rem)] space-y-3 overflow-y-auto overscroll-contain p-3" @click.stop>
         <div class="flex min-w-0 items-center justify-between gap-2">

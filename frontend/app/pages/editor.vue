@@ -3258,5 +3258,6 @@ const {
         @check-codec="openCodecValidationForLoadedPages"
       />
     </EditorRightSidebar>
+    <UiSharedTooltip />
   </div>
 </template>

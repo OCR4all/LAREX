@@ -334,10 +334,20 @@ function findVisibleGtTextarea(textlineId: string): HTMLTextAreaElement | undefi
     )
 }
 
+// Lines far from the visible area render only a placeholder, so the target line is rendered before its field is looked up.
+const forcedRenderTextlineId = ref<string | null>(null)
+// Tab navigation wraps between the first and last field, so both ends stay rendered.
+const edgeTextlineIds = computed(() => {
+  const ordered = getRenderedTextlineOrder()
+  return new Set([ordered[0]?.id, ordered.at(-1)?.id].filter((id): id is string => Boolean(id)))
+})
+
 function focusGtTextarea(textlineId: string): void {
+  forcedRenderTextlineId.value = textlineId
   void nextTick(() => {
     const textarea = findVisibleGtTextarea(textlineId)
     if (textarea) focusTextFieldInContext(textarea)
+    if (forcedRenderTextlineId.value === textlineId) forcedRenderTextlineId.value = null
   })
 }
 
@@ -1546,6 +1556,7 @@ const sectionMenuItems = computed(() => {
                     :recognition-candidates="textline.recognitionCandidates"
                     :show-diff="showDiffModel"
                     :is-selected="selectedTextlineId === textline.id"
+                    :keep-rendered="forcedRenderTextlineId === textline.id || edgeTextlineIds.has(textline.id)"
                     :text-highlight-query="activeTextHighlightQuery"
                     :show-comments="showCommentsModel"
                     :project-codec-id="editorStore.projectCodecId"

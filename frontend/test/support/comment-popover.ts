@@ -3,6 +3,7 @@ import { compileScript, parse } from 'vue/compiler-sfc'
 import { ModuleKind, transpileModule } from 'typescript'
 import { PopoverRoot, PopoverTrigger, PopoverPortal, PopoverContent } from 'reka-ui'
 import * as comments from '@/components/editor/text/shared/full-text-comments'
+import * as lazyPopoverTrigger from '@/composables/use-lazy-popover-trigger'
 import source from '@/components/editor/text/shared/comment-popover.vue?raw'
 
 const script = compileScript(parse(source).descriptor, { id: 'comment-popover-test', inlineTemplate: true })
@@ -12,6 +13,7 @@ new Function('require', 'exports', transpileModule(script.content, {
 }).outputText)((id: string) => {
   if (id === 'vue') return Vue
   if (id === './full-text-comments') return comments
+  if (id === '@/composables/use-lazy-popover-trigger') return lazyPopoverTrigger
   throw new Error(`Unexpected dependency ${id}`)
 }, exportsObject)
 export const commentPopoverComponent = exportsObject.default!
@@ -20,14 +22,14 @@ export const commentPopoverComponent = exportsObject.default!
 // in Nuxt UI. Only presentation controls are replaced with native elements.
 export function registerCommentControls(app: Vue.App): void {
   app.component('UPopover', Vue.defineComponent({
-    props: ['open'],
+    props: ['open', 'reference'],
     emits: ['update:open'],
     setup: (props, { slots, emit }) => () => Vue.h(PopoverRoot, {
       'open': props.open,
       'onUpdate:open': (open: boolean) => emit('update:open', open)
     }, () => [
-      Vue.h(PopoverTrigger, { asChild: true }, slots.default),
-      Vue.h(PopoverPortal, {}, () => Vue.h(PopoverContent, {}, slots.content))
+      slots.default ? Vue.h(PopoverTrigger, { asChild: true }, slots.default) : null,
+      Vue.h(PopoverPortal, {}, () => Vue.h(PopoverContent, { reference: props.reference }, slots.content))
     ])
   }))
   app.component('UTooltip', Vue.defineComponent({
