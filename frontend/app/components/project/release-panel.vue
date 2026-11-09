@@ -51,7 +51,7 @@ function getReleaseCardItems(release: ProjectPackageRelease): DropdownMenuItem[]
 </script>
 
 <template>
-  <div class="h-full space-y-5 p-4">
+  <div class="h-full space-y-5 overflow-y-auto overscroll-contain p-4">
     <div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-2 text-sm font-semibold text-highlighted">
         <UIcon name="i-lucide-box" class="size-4 text-muted" />

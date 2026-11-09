@@ -48,7 +48,7 @@ function items(output: ActionOutput): DropdownMenuItem[] {
 </script>
 
 <template>
-  <div class="h-full space-y-5 overflow-y-auto p-4">
+  <div class="h-full space-y-5 overflow-y-auto overscroll-contain p-4">
     <div class="flex items-center gap-2 text-sm font-semibold text-highlighted">
       <UIcon name="i-lucide-package-open" class="size-4 text-muted" /><span>Outputs</span>
     </div>

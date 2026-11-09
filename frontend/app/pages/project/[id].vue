@@ -2559,7 +2559,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
 </script>
 
 <template>
-  <UDashboardPanel :id="projectId" :ui="{ body: 'p-0 sm:p-0' }">
+  <UDashboardPanel :id="projectId" :ui="{ body: 'min-h-0 overflow-hidden p-0 sm:p-0' }">
     <template #header>
       <UDashboardNavbar>
         <template #title>
@@ -2891,8 +2891,8 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
         <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading project...</span>
       </div>
 
-      <div v-else-if="project" ref="projectPagesDropZone" class="relative flex min-h-full flex-col gap-4">
-        <div v-if="project.locked" class="bg-warning/10 border border-warning/30 rounded-sm p-4">
+      <div v-else-if="project" ref="projectPagesDropZone" class="relative flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+        <div v-if="project.locked" class="shrink-0 bg-warning/10 border border-warning/30 rounded-sm p-4">
           <div class="flex items-start">
             <UIcon name="i-lucide-lock" class="text-warning mt-0.5 mr-3" />
             <div>
@@ -2906,7 +2906,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
           </div>
         </div>
 
-        <div v-if="projectStatus?.hasUnresolvedConflicts" class="bg-warning/10 border border-warning/30 rounded-sm p-4">
+        <div v-if="projectStatus?.hasUnresolvedConflicts" class="shrink-0 bg-warning/10 border border-warning/30 rounded-sm p-4">
           <div class="flex items-start justify-between">
             <div class="flex items-start">
               <UIcon name="i-lucide-alert-triangle" class="text-warning mt-0.5 mr-3" />
@@ -2932,8 +2932,8 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
           </div>
         </div>
 
-        <div class="flex flex-1 flex-col gap-0 xl:min-h-0 xl:flex-row xl:items-stretch">
-          <div class="min-w-0 flex-1 space-y-6 p-6">
+        <div class="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden xl:flex-row xl:items-stretch">
+          <div class="min-h-0 min-w-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-6">
             <div v-if="pagesError" class="py-8 text-center">
               <div class="flex items-center justify-center gap-2 text-error">
                 <UIcon name="i-lucide-alert-circle" />
@@ -3077,7 +3077,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
           <Transition name="release-sidebar">
             <aside
               v-if="isReleaseSidebarVisible"
-              class="hidden w-85 shrink-0 self-stretch border-l border-default bg-muted/40 xl:block"
+              class="hidden min-h-0 w-85 shrink-0 self-stretch overflow-hidden border-l border-default bg-muted/40 xl:block"
             >
               <ProjectReleasePanel
                 :releases="releasesForSidebar"
@@ -3095,7 +3095,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
           <Transition name="release-sidebar">
             <aside
               v-if="isOutputSidebarVisible"
-              class="hidden w-95 shrink-0 self-stretch border-l border-default bg-muted/40 xl:block"
+              class="hidden min-h-0 w-95 shrink-0 self-stretch overflow-hidden border-l border-default bg-muted/40 xl:block"
             >
               <ProjectOutputPanel
                 :outputs="outputsForPanel"
