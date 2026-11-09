@@ -14,10 +14,20 @@ const UProgressComponent = resolveComponent('UProgress')
 const UTooltipComponent = resolveComponent('UTooltip')
 
 const workspaceId = computed(() => workspaceStore.selectedWorkspaceId)
-const runs = ref<ActionRun[]>([])
+const runsKey = computed(() => workspaceId.value
+  ? wsKey(workspaceId.value, 'training-runs', 'list')
+  : globalKey('pending', 'training-runs', 'list'))
+const { data: runs, pending: loading, error: loadError, refresh: loadRuns } = await useFetch<ActionRun[]>(
+  () => `/api/workspaces/${workspaceId.value}/actions/runs`,
+  {
+    key: runsKey,
+    transform: allRuns => allRuns.filter(run => run.kind === 'TRAINING'),
+    default: () => [],
+    immediate: !!workspaceId.value
+  }
+)
 const reportRun = ref<ActionRun | null>(null)
 const reportOpen = ref(false)
-const loading = ref(false)
 const searchInput = ref('')
 const statusFilter = ref<'ALL' | ActionRunStatus>('ALL')
 const cancellingRunId = ref<string | null>(null)
@@ -183,22 +193,6 @@ function canEvaluate(run: ActionRun) {
   return Boolean(run.datasetId) && (run.status === 'COMPLETED' || run.status === 'COMPLETED_WITH_ISSUES')
 }
 
-async function loadRuns() {
-  if (!workspaceId.value) {
-    runs.value = []
-    return
-  }
-  loading.value = true
-  try {
-    const allRuns = await $fetch<ActionRun[]>(`/api/workspaces/${workspaceId.value}/actions/runs`)
-    runs.value = allRuns.filter(run => run.kind === 'TRAINING')
-  } catch (error: unknown) {
-    toast.add({ title: 'Could not load training runs', description: error instanceof Error ? error.message : undefined, color: 'error' })
-  } finally {
-    loading.value = false
-  }
-}
-
 async function cancelRun(run: ActionRun) {
   if (!run.canCancel || !isActiveRun(run.status) || cancellingRunId.value === run.id) return
   cancellingRunId.value = run.id
@@ -258,11 +252,13 @@ function formatDurationFromRun(run: ActionRun) {
   return formatDuration(Math.max(0, Math.round((Date.parse(run.completedAt) - Date.parse(run.created)) / 1000)))
 }
 
-watch(workspaceId, () => {
-  void loadRuns()
-}, { immediate: true })
+function notifyLoadError() {
+  if (loadError.value) toast.add({ title: 'Could not load training runs', description: loadError.value.message, color: 'error' })
+}
+watch(loadError, notifyLoadError)
 
 onMounted(() => {
+  notifyLoadError()
   realtimeUnsubscribe = realtime.subscribe((message) => {
     if (message.type !== 'ACTION_RUN_UPDATED') return
     const messageWorkspaceId = (message.payload as { workspaceId?: unknown } | null)?.workspaceId

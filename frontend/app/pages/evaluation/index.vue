@@ -10,8 +10,18 @@ const workspaceStore = useWorkspaceStore()
 const toast = useToast()
 const realtime = useRealtimeSocket()
 const workspaceId = computed(() => workspaceStore.selectedWorkspaceId)
-const runs = ref<ActionRun[]>([])
-const loading = ref(false)
+const runsKey = computed(() => workspaceId.value
+  ? wsKey(workspaceId.value, 'evaluation-runs', 'list')
+  : globalKey('pending', 'evaluation-runs', 'list'))
+const { data: runs, pending: loading, error: loadError, refresh: loadRuns } = await useFetch<ActionRun[]>(
+  () => `/api/workspaces/${workspaceId.value}/actions/runs`,
+  {
+    key: runsKey,
+    transform: allRuns => allRuns.filter(run => run.kind === 'EVALUATION'),
+    default: () => [],
+    immediate: !!workspaceId.value
+  }
+)
 const search = ref('')
 const status = ref<'ALL' | ActionRunStatus>('ALL')
 const page = ref(1)
@@ -62,16 +72,6 @@ function rowActions(run: ActionRun) {
   ]
 }
 
-async function loadRuns() {
-  if (!workspaceId.value) return
-  loading.value = true
-  try {
-    const all = await $fetch<ActionRun[]>(`/api/workspaces/${workspaceId.value}/actions/runs`)
-    runs.value = all.filter(run => run.kind === 'EVALUATION')
-  } catch (error: unknown) {
-    toast.add({ title: 'Could not load evaluation runs', description: error instanceof Error ? error.message : undefined, color: 'error' })
-  } finally { loading.value = false }
-}
 async function cancelRun(run: ActionRun) {
   cancelling.value = run.id
   try {
@@ -84,8 +84,13 @@ async function cancelRun(run: ActionRun) {
 function statusColor(value: ActionRunStatus): 'success' | 'error' | 'neutral' | 'warning' | 'primary' {
   return value === 'CANCELLED' ? 'neutral' : actionRunStatusColor(value)
 }
-watch(workspaceId, () => { void loadRuns() }, { immediate: true })
+function notifyLoadError() {
+  if (loadError.value) toast.add({ title: 'Could not load evaluation runs', description: loadError.value.message, color: 'error' })
+}
+watch(loadError, notifyLoadError)
+
 onMounted(() => {
+  notifyLoadError()
   unsubscribe = realtime.subscribe((message) => {
     if (message.type !== 'ACTION_RUN_UPDATED' || timer) return
     const payload = message.payload as { workspaceId?: string } | null
