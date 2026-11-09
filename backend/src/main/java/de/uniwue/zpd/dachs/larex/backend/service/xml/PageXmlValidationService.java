@@ -6,9 +6,11 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
+import org.xml.sax.Attributes;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 
 import javax.xml.XMLConstants;
@@ -25,10 +27,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,10 +39,6 @@ import java.util.regex.Pattern;
 @Service
 public class PageXmlValidationService {
 
-    private static final Pattern ROOT_PATTERN = Pattern.compile("<\\s*([A-Za-z_][\\w:.-]*)\\b([^>]*)>", Pattern.DOTALL);
-    private static final Pattern DEFAULT_XMLNS_PATTERN = Pattern.compile("\\bxmlns\\s*=\\s*['\"]([^'\"]+)['\"]");
-    private static final Pattern PREFIX_XMLNS_PATTERN = Pattern.compile("\\bxmlns:([A-Za-z_][\\w.-]*)\\s*=\\s*['\"]([^'\"]+)['\"]");
-    private static final Pattern SCHEMA_LOCATION_PATTERN = Pattern.compile("\\bxsi:schemaLocation\\s*=\\s*['\"]([^'\"]+)['\"]");
     private static final Pattern VERSION_PATTERN = Pattern.compile("(\\d{4}-\\d{2}-\\d{2})");
 
     private final Map<String, Resource> xsdByVersion;
@@ -71,14 +67,15 @@ public class PageXmlValidationService {
     }
 
     public PageXmlTextDto.XmlValidationResult validatePageXml(Resource xmlResource) {
+        CollectingErrorHandler handler = new CollectingErrorHandler("XML_PARSE_ERROR");
         Detection detection;
-        try {
-            detection = detect(readPrefix(xmlResource, 131_072));
+        try (InputStream inputStream = xmlResource.getInputStream()) {
+            detection = checkWellFormedXml(inputStream, handler);
         } catch (IOException error) {
             return invalid(List.of(error(1, 1, "XML_READ_ERROR", "Could not read PAGE XML")), null, null);
         }
 
-        List<PageXmlTextDto.XmlValidationError> parseErrors = checkWellFormedXml(xmlResource);
+        List<PageXmlTextDto.XmlValidationError> parseErrors = handler.errors();
         if (!parseErrors.isEmpty()) {
             return invalid(parseErrors, detection.pageVersion(), detection.namespace());
         }
@@ -148,8 +145,8 @@ public class PageXmlValidationService {
         return handler.errors();
     }
 
-    private List<PageXmlTextDto.XmlValidationError> checkWellFormedXml(Resource xmlResource) {
-        CollectingErrorHandler handler = new CollectingErrorHandler("XML_PARSE_ERROR");
+    private Detection checkWellFormedXml(InputStream inputStream, CollectingErrorHandler handler) {
+        RootElementHandler rootHandler = new RootElementHandler();
         try {
             SAXParserFactory factory = SAXParserFactory.newInstance();
             factory.setNamespaceAware(true);
@@ -160,24 +157,20 @@ public class PageXmlValidationService {
             safeSetFeature(factory, "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
 
             SAXParser parser = factory.newSAXParser();
-            try (InputStream inputStream = xmlResource.getInputStream()) {
-                parser.parse(new InputSource(inputStream), new DefaultHandler() {
-                });
-            }
+            XMLReader reader = parser.getXMLReader();
+            reader.setContentHandler(rootHandler);
+            reader.setErrorHandler(handler);
+            reader.parse(new InputSource(inputStream));
         } catch (SAXParseException e) {
-            handler.error(e);
+            if (handler.errors().isEmpty()) {
+                handler.error(e);
+            }
         } catch (Exception e) {
             if (handler.errors().isEmpty()) {
                 handler.addFallback(e.getMessage());
             }
         }
-        return handler.errors();
-    }
-
-    private String readPrefix(Resource resource, int maxBytes) throws IOException {
-        try (InputStream inputStream = resource.getInputStream()) {
-            return new String(inputStream.readNBytes(maxBytes), StandardCharsets.UTF_8);
-        }
+        return rootHandler.detection == null ? new Detection(false, null, null) : rootHandler.detection;
     }
 
     private void safeSetFeature(SAXParserFactory factory, String feature, boolean value) {
@@ -212,49 +205,6 @@ public class PageXmlValidationService {
         } catch (Exception e) {
             return null;
         }
-    }
-
-    private Detection detect(String xmlText) {
-        Matcher rootMatcher = ROOT_PATTERN.matcher(xmlText);
-        if (!rootMatcher.find()) {
-            return new Detection(false, null, null);
-        }
-
-        String rootName = rootMatcher.group(1);
-        String attrs = rootMatcher.group(2) == null ? "" : rootMatcher.group(2);
-
-        String localName = rootName;
-        String prefix = null;
-        int colon = rootName.indexOf(':');
-        if (colon > 0) {
-            prefix = rootName.substring(0, colon);
-            localName = rootName.substring(colon + 1);
-        }
-
-        Map<String, String> namespaces = new HashMap<>();
-        Matcher defaultXmlnsMatcher = DEFAULT_XMLNS_PATTERN.matcher(attrs);
-        if (defaultXmlnsMatcher.find()) {
-            namespaces.put("", defaultXmlnsMatcher.group(1));
-        }
-        Matcher prefixedMatcher = PREFIX_XMLNS_PATTERN.matcher(attrs);
-        while (prefixedMatcher.find()) {
-            namespaces.put(prefixedMatcher.group(1), prefixedMatcher.group(2));
-        }
-
-        String namespace = prefix == null ? namespaces.get("") : namespaces.get(prefix);
-        if (namespace == null && rootName.toLowerCase(Locale.ROOT).contains("pcgts")) {
-            namespace = namespaces.get("");
-        }
-
-        String schemaLocation = null;
-        Matcher schemaLocationMatcher = SCHEMA_LOCATION_PATTERN.matcher(attrs);
-        if (schemaLocationMatcher.find()) {
-            schemaLocation = schemaLocationMatcher.group(1);
-        }
-
-        String pageVersion = extractVersion(namespace, schemaLocation);
-        boolean isPageRoot = "PcGts".equals(localName);
-        return new Detection(isPageRoot, pageVersion, namespace);
     }
 
     private String extractVersion(String namespace, String schemaLocation) {
@@ -333,6 +283,21 @@ public class PageXmlValidationService {
     }
 
     private record Detection(boolean isPageRoot, String pageVersion, String namespace) {
+    }
+
+    private final class RootElementHandler extends DefaultHandler {
+
+        private Detection detection;
+
+        @Override
+        public void startElement(String uri, String localName, String qName, Attributes attributes) {
+            if (detection != null) {
+                return;
+            }
+            String namespace = uri.isEmpty() ? null : uri;
+            String schemaLocation = attributes.getValue(XMLConstants.W3C_XML_SCHEMA_INSTANCE_NS_URI, "schemaLocation");
+            detection = new Detection("PcGts".equals(localName), extractVersion(namespace, schemaLocation), namespace);
+        }
     }
 
     private final class CollectingErrorHandler implements ErrorHandler {

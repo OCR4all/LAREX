@@ -10,6 +10,7 @@ import org.xml.sax.InputSource;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.dom.DOMSource;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
@@ -30,7 +31,10 @@ public final class PageXmlPrettyPrinter {
         if (xml == null) {
             throw new IllegalArgumentException("PAGE XML cannot be null");
         }
+        return prettyPrint(new InputSource(new StringReader(xml)));
+    }
 
+    private static String prettyPrint(InputSource source) throws IOException {
         try {
             DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
             documentBuilderFactory.setNamespaceAware(true);
@@ -41,7 +45,7 @@ public final class PageXmlPrettyPrinter {
             documentBuilderFactory.setExpandEntityReferences(false);
 
             Document document = documentBuilderFactory.newDocumentBuilder()
-                    .parse(new InputSource(new StringReader(xml)));
+                    .parse(source);
             removeFormattingWhitespace(document);
 
             StringWriter output = new StringWriter();
@@ -59,7 +63,10 @@ public final class PageXmlPrettyPrinter {
     }
 
     public static void prettyPrint(Path xmlPath) throws IOException {
-        String formatted = prettyPrint(Files.readString(xmlPath, StandardCharsets.UTF_8));
+        String formatted;
+        try (InputStream inputStream = Files.newInputStream(xmlPath)) {
+            formatted = prettyPrint(new InputSource(inputStream));
+        }
         Path parent = xmlPath.toAbsolutePath().getParent();
         Path tempPath = Files.createTempFile(parent, xmlPath.getFileName().toString(), ".pretty-print.tmp");
         try {

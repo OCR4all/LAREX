@@ -8,9 +8,13 @@ import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.io.FileSystemResource;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,10 +62,16 @@ class PageXmlCanonicalizationServiceTest {
         assertEquals(null, outcome.targetVersion());
     }
 
-    @Test
-    void canonicalizeAtIngest_primaryPageXml_isNoOpWithoutSnapshot() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"UTF-8", "UTF-16", "UTF-16LE", "UTF-16BE"})
+    void canonicalizeAtIngest_primaryPageXml_isNoOpWithoutSnapshot(String encoding) throws Exception {
         Path xmlPath = tempDir.resolve("primary.xml");
-        Files.writeString(xmlPath, compact2019Xml(), StandardCharsets.UTF_8);
+        String xml = compact2019Xml().replace("UTF-8", encoding)
+                .replace("<PcGts", "<!-- <Example/> -->\n<PcGts")
+                .replace("tester", "Tést");
+        Files.writeString(xmlPath, xml, Charset.forName(encoding));
+        PageXmlValidationService validation = new PageXmlValidationService();
+        assertTrue(validation.validatePageXml(new FileSystemResource(xmlPath)).valid());
 
         PageXml pageXml = new PageXml();
         pageXml.setId("xml-2");
@@ -84,7 +94,10 @@ class PageXmlCanonicalizationServiceTest {
         assertFalse(outcome.converted());
         assertFalse(outcome.snapshotCreated());
         assertEquals("2019-07-15", pageXml.getSchemaVersion());
-        assertTrue(Files.readString(xmlPath).contains("\n   <Metadata>\n      <Creator>tester</Creator>"));
+        String persistedXml = Files.readString(xmlPath, StandardCharsets.UTF_8);
+        assertTrue(persistedXml.contains("\n   <Metadata>\n      <Creator>Tést</Creator>"));
+        assertTrue(persistedXml.contains("encoding=\"UTF-8\""));
+        assertTrue(validation.validatePageXml(new FileSystemResource(xmlPath)).valid());
         verify(pageXmlVersionService, never()).createVersion(any(), any(), any());
         verify(pageXmlRepository).save(pageXml);
     }
