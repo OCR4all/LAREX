@@ -119,24 +119,29 @@ const notificationChipUi = {
 }
 
 const collapsedNavigation = computed<NavigationMenuItem[]>(() => {
-  if (isAdmin.value) return adminNavigation.value
+  const items = isAdmin.value
+    ? adminNavigation.value
+    : defaultNavigation.value.map((item) => {
+        if (item.label !== 'Toolkit' || !Array.isArray(item.children)) {
+          return item
+        }
 
-  return defaultNavigation.value.map((item) => {
-    if (item.label !== 'Toolkit' || !Array.isArray(item.children)) {
-      return item
-    }
+        const flattenedChildren: NavigationMenuItem[] = []
+        for (const child of item.children as NavigationMenuItem[]) {
+          if (child.label === 'Text' && Array.isArray(child.children)) {
+            flattenedChildren.push(...(child.children as NavigationMenuItem[]))
+          } else {
+            flattenedChildren.push(child)
+          }
+        }
 
-    const flattenedChildren: NavigationMenuItem[] = []
-    for (const child of item.children as NavigationMenuItem[]) {
-      if (child.label === 'Text' && Array.isArray(child.children)) {
-        flattenedChildren.push(...(child.children as NavigationMenuItem[]))
-      } else {
-        flattenedChildren.push(child)
-      }
-    }
+        return { ...item, children: flattenedChildren }
+      })
 
-    return { ...item, children: flattenedChildren }
-  })
+  // Children stay hidden until hover, so the parent has to show the active state.
+  return items.map(item =>
+    item.children ? { ...item, active: hasActive(item.children as ActiveNavigationItem[]) } : item
+  )
 })
 
 function openNotifications() {
