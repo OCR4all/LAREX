@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.page.indexing;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GlyphDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.AlternativeImageDto;
@@ -21,6 +23,8 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageLabelIndex;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageTextContent;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXmlAttributeIndex;
+import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -31,6 +35,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.Annotati
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlParseResult;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlPresenceIndex;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
+import de.uniwue.zpd.dachs.larex.backend.util.TextIndexDefaultsUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,9 +46,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -87,6 +98,7 @@ public class PageFilterIndexService {
 
     private static final Logger log = LoggerFactory.getLogger(PageFilterIndexService.class);
     private static final int REBUILD_BATCH_SIZE = 50;
+    private static final int TEXT_DIFF_BATCH_SIZE = 250;
 
     private static final String REGION_KIND_TEXT = "TextRegion";
     private static final double DEFAULT_CONFIDENCE_MIN = 0.0;
@@ -103,6 +115,10 @@ public class PageFilterIndexService {
     private final SearchLexiconService searchLexiconService;
     private final String uploadDir;
     private final TransactionTemplate rebuildTransaction;
+    private final Cache<TextMismatchKey, Boolean> textMismatchCache = Caffeine.newBuilder()
+            .maximumSize(50_000)
+            .expireAfterAccess(Duration.ofMinutes(30))
+            .build();
 
     public PageFilterIndexService(
             PageRepository pageRepository,
@@ -423,6 +439,7 @@ public class PageFilterIndexService {
             onlyWithOpenSubtasks,
             openSubtaskPageIds,
             xmlAttributeFilters,
+            false,
             null,
             Set.of(),
             filterOperator
@@ -447,6 +464,7 @@ public class PageFilterIndexService {
             Boolean onlyWithOpenSubtasks,
             Set<String> openSubtaskPageIds,
             List<XmlAttributePredicate> xmlAttributeFilters,
+            boolean hasTextMismatch,
             List<Page> accessiblePages,
             Set<String> negatedFilters,
             String filterOperator) {
@@ -550,6 +568,10 @@ public class PageFilterIndexService {
         }
 
         boolean useOr = "or".equalsIgnoreCase(filterOperator);
+        if (hasTextMismatch) {
+            activeFilterGroups.add(new FilterGroup(findTextMismatchPages(accessiblePages, activeFilterGroups, useOr),
+                negatedFilters.contains("textMismatch")));
+        }
 
         if (activeFilterGroups.isEmpty()) {
             return allPageIds(projectId, accessiblePages);
@@ -558,7 +580,7 @@ public class PageFilterIndexService {
         if (useOr) {
             if (activeFilterGroups.stream().anyMatch(FilterGroup::negated)) {
                 Set<String> result = allPageIds(projectId, accessiblePages);
-                result.removeIf(id -> activeFilterGroups.stream().noneMatch(group -> group.matches(id)));
+                result.removeIf(id -> !matchesFilterGroups(id, activeFilterGroups, true));
                 return result;
             }
             Set<String> union = new HashSet<>();
@@ -582,6 +604,115 @@ public class PageFilterIndexService {
             }
         }
         return intersection;
+    }
+
+    private static boolean matchesFilterGroups(String pageId, List<FilterGroup> groups, boolean useOr) {
+        return useOr ? groups.stream().anyMatch(group -> group.matches(pageId))
+            : groups.stream().allMatch(group -> group.matches(pageId));
+    }
+
+    private Set<String> findTextMismatchPages(
+            List<Page> pages, List<FilterGroup> otherGroups, boolean useOr) {
+        Set<String> matches = new HashSet<>();
+        if (pages.isEmpty()) {
+            return matches;
+        }
+
+        Project project = pages.getFirst().getProject();
+        int gtIndex = project.getEffectiveDefaultGtIndex();
+        Set<Integer> recognitionIndices = Set.copyOf(project.getDefaultRecognitionIndicesList());
+        List<String> candidateIds = pages.stream()
+                .map(Page::getId)
+                .filter(id -> matchesFilterGroups(id, otherGroups, useOr) != useOr)
+                .toList();
+
+        // The full-text index mixes text lines with word and glyph text and omits blank variants.
+        for (int from = 0; from < candidateIds.size(); from += TEXT_DIFF_BATCH_SIZE) {
+            List<String> batch = candidateIds.subList(from, Math.min(from + TEXT_DIFF_BATCH_SIZE, candidateIds.size()));
+            for (PageXml xml : pageXmlRepository.findByPage_IdIn(batch)) {
+                if (xml.getSchema() != XmlSchema.PAGE_XML) {
+                    continue;
+                }
+                try {
+                    if (hasCachedTextMismatch(xml, gtIndex, recognitionIndices)) {
+                        matches.add(xml.getPage().getId());
+                    }
+                } catch (IOException | UncheckedIOException e) {
+                    log.warn("Could not compare text variants in PAGE XML {}: {}", xml.getId(), e.getMessage());
+                }
+            }
+        }
+        return matches;
+    }
+
+    private boolean hasCachedTextMismatch(PageXml xml, int gtIndex, Set<Integer> recognitionIndices) throws IOException {
+        Path path = Paths.get(uploadDir, xml.getFilePath());
+        BasicFileAttributes attributes = Files.readAttributes(path, BasicFileAttributes.class);
+        var key = new TextMismatchKey(xml.getId(), path, attributes.fileKey(),
+                attributes.lastModifiedTime(), attributes.size(), gtIndex, recognitionIndices);
+        return textMismatchCache.get(key, ignored -> {
+            try {
+                // Keep project-wide scans from evicting full annotations used by the editor.
+                PageDto annotation = annotationProcessingService.parsePageXmlForScan(xml);
+                return hasTextMismatch(annotation.regions(), gtIndex, recognitionIndices);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
+    }
+
+    private record TextMismatchKey(String xmlId, Path path, Object fileKey, FileTime modifiedAt,
+                                   long size, int gtIndex, Set<Integer> recognitionIndices) {}
+
+    private boolean hasTextMismatch(List<RegionDto> regions, int gtIndex, Set<Integer> recognitionIndices) {
+        if (regions == null) {
+            return false;
+        }
+        for (RegionDto region : regions) {
+            if (region == null) {
+                continue;
+            }
+            if (region.textLines() != null && region.textLines().stream()
+                    .anyMatch(line -> line != null && hasLineMismatch(line.textContentVariants(), gtIndex, recognitionIndices))) {
+                return true;
+            }
+            if (hasTextMismatch(region.nestedRegions(), gtIndex, recognitionIndices)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasLineMismatch(
+            List<TextContentVariantDto> variants, int gtIndex, Set<Integer> recognitionIndices) {
+        if (variants == null || variants.isEmpty()) {
+            return false;
+        }
+        String gtText = variants.stream()
+                .filter(variant -> variant != null && Objects.equals(variant.index(), gtIndex))
+                .map(PageFilterIndexService::comparisonText)
+                .findFirst()
+                .orElse("");
+
+        for (TextContentVariantDto variant : variants) {
+            if (variant == null) {
+                continue;
+            }
+            int index = variant.index() == null || variant.index() < 0
+                    ? TextIndexDefaultsUtil.UNINDEXED_RECOGNITION_SENTINEL
+                    : variant.index();
+            if (index != gtIndex && recognitionIndices.contains(index)
+                    && !comparisonText(variant).equals(gtText)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String comparisonText(TextContentVariantDto variant) {
+        String unicode = variant.unicode();
+        // The PAGE XML mapper also treats whitespace-only text as empty.
+        return unicode == null || unicode.isBlank() ? "" : unicode;
     }
 
     public List<String> getMatchingTextLineIds(String pageId, String textContent) {

@@ -267,11 +267,12 @@ public class PageController {
                 request.onlyWithOpenSubtasks(),
                 openSubtaskPageIds,
                 xmlAttributePredicates,
+                Boolean.TRUE.equals(request.hasTextMismatch()),
                 accessiblePages,
                 request.negatedFilters() == null ? Set.of() : request.negatedFilters(),
                 operator
         );
-        pageIds.retainAll(accessiblePageIds);
+        pageIds.retainAll(new HashSet<>(accessiblePageIds));
 
         return ResponseEntity.ok(new PageDto.FilterResponse(pageIds, pageIds.size()));
     }

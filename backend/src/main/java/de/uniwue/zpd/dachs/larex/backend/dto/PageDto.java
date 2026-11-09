@@ -171,6 +171,8 @@ public class PageDto {
     public record FilterRequest(
             /** Text content substring to search for */
             String textContent,
+            /** Filter to pages with a text-line recognition mismatch */
+            Boolean hasTextMismatch,
             /** Canonical label filter tokens */
             List<String> labelIds,
             /** Tag IDs to filter by */

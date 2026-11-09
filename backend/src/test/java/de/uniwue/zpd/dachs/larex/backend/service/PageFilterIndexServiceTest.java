@@ -37,6 +37,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -401,12 +402,12 @@ class PageFilterIndexServiceTest {
         assertEquals(Set.of("done-without-image"), service.filterPages(
             projectId, null, labels, "and", null, "and", null, null, null,
             null, null, List.of("DONE"), null, null, false, Set.of(), List.of(),
-            accessiblePages, Set.of("labels"), "and"
+            false, accessiblePages, Set.of("labels"), "and"
         ));
         assertEquals(Set.of("done-with-image", "done-without-image", "open-without-image"), service.filterPages(
             projectId, null, labels, "or", null, "or", null, null, null,
             null, null, List.of("DONE"), null, null, false, Set.of(), List.of(),
-            accessiblePages, Set.of("labels"), "or"
+            false, accessiblePages, Set.of("labels"), "or"
         ));
     }
 
@@ -594,6 +595,103 @@ class PageFilterIndexServiceTest {
         );
 
         assertEquals(Set.of("done-page", "xml-page", "task-page"), result);
+    }
+
+    @Test
+    void filterPages_matchesDifferencesOnTheSameLineUsingProjectTextIndexes() throws Exception {
+        String projectId = "project-1";
+        Page matchingText = page("same-text", projectId);
+        matchingText.getProject().setDefaultGtIndex(3);
+        matchingText.getProject().setDefaultRecognitionIndicesList(List.of(4, -1));
+        Page emptyRecognition = page("empty-recognition", projectId);
+        Page missingGroundTruth = page("missing-gt", projectId);
+        Page noXml = page("no-xml", projectId);
+        List<Page> pages = List.of(matchingText, emptyRecognition, missingGroundTruth, noXml);
+        PageXml matchingTextXml = pageXml(matchingText);
+        PageXml emptyRecognitionXml = pageXml(emptyRecognition);
+        PageXml missingGroundTruthXml = pageXml(missingGroundTruth);
+        when(pageXmlRepository.findByPage_IdIn(pages.stream().map(Page::getId).toList()))
+                .thenReturn(List.of(matchingTextXml, emptyRecognitionXml, missingGroundTruthXml));
+        when(annotationProcessingService.parsePageXmlForScan(matchingTextXml)).thenReturn(pageWithLines(
+                textLine("line-1", null, List.of(variant("same", null, 3), variant("same", null, 4), variant("ignored", null, 1)),
+                        List.of(word("word", List.of(variant("ignored word", null, 4)), null, null)), null),
+                textLine("line-2", null, List.of(variant("different line", null, 3), variant("different line", null, 4)), null, null),
+                textLine("line-3", null, List.of(variant(" ", null, 3), variant(null, null, 4)), null, null)
+        ));
+        when(annotationProcessingService.parsePageXmlForScan(emptyRecognitionXml)).thenReturn(pageWithLines(
+                textLine("line", null, List.of(variant("ground truth", null, 3), variant(null, null, 4)), null, null)
+        ));
+        when(annotationProcessingService.parsePageXmlForScan(missingGroundTruthXml)).thenReturn(pageWithLines(
+                textLine("line", null, List.of(variant("unindexed recognition", null, null)), null, null)
+        ));
+
+        assertEquals(Set.of("empty-recognition", "missing-gt"), filterByTextMismatch(projectId, pages, null, "and"));
+
+        when(textContentRepository.findPageIdsByProjectIdAndTextContentContaining(projectId, "search"))
+                .thenReturn(List.of("same-text"));
+        when(pageXmlRepository.findByPage_IdIn(List.of("same-text"))).thenReturn(List.of(matchingTextXml));
+        when(pageXmlRepository.findByPage_IdIn(List.of("empty-recognition", "missing-gt", "no-xml")))
+                .thenReturn(List.of(emptyRecognitionXml, missingGroundTruthXml));
+
+        assertEquals(Set.of(), filterByTextMismatch(projectId, pages, "search", "and"));
+        assertEquals(Set.of("same-text", "empty-recognition", "missing-gt"),
+                filterByTextMismatch(projectId, pages, "search", "or"));
+        assertEquals(Set.of("same-text", "no-xml"), service.filterPages(
+                projectId, "search", null, "or", null, "or", null, null, null,
+                null, null, null, null, null, false, Set.of(), List.of(),
+                true, pages, Set.of("textMismatch"), "or"
+        ));
+        assertEquals(Set.of("empty-recognition", "missing-gt"), service.filterPages(
+                projectId, "search", null, "and", null, "and", null, null, null,
+                null, null, null, null, null, false, Set.of(), List.of(),
+                true, pages, Set.of("textContent"), "and"
+        ));
+        verify(annotationProcessingService, times(3)).parsePageXmlForScan(any(PageXml.class));
+    }
+
+    @Test
+    void filterPages_refreshesCachedTextMismatchesWhenTextIndexesOrFileChange() throws Exception {
+        String projectId = "project-1";
+        Page page = page("page-1", projectId);
+        PageXml xml = pageXml(page);
+        when(pageXmlRepository.findByPage_IdIn(List.of(page.getId()))).thenReturn(List.of(xml));
+        PageDto original = pageWithLines(textLine("line", null,
+                List.of(variant("same", null, 0), variant("same", null, 1), variant("different", null, 2)), null, null));
+        PageDto updated = pageWithLines(textLine("line", null,
+                List.of(variant("same", null, 0), variant("different", null, 1)), null, null));
+        when(annotationProcessingService.parsePageXmlForScan(xml)).thenReturn(original, original, updated);
+
+        assertEquals(Set.of(), filterByTextMismatch(projectId, List.of(page), null, "and"));
+
+        page.getProject().setDefaultRecognitionIndicesList(List.of(2));
+        assertEquals(Set.of(page.getId()), filterByTextMismatch(projectId, List.of(page), null, "and"));
+
+        page.getProject().setDefaultRecognitionIndicesList(List.of(1));
+        Path path = tempDir.resolve(xml.getFilePath());
+        FileTime previousModifiedAt = Files.getLastModifiedTime(path);
+        Files.writeString(path, "v2");
+        Files.setLastModifiedTime(path, FileTime.from(previousModifiedAt.toInstant().plusSeconds(10)));
+        assertEquals(Set.of(page.getId()), filterByTextMismatch(projectId, List.of(page), null, "and"));
+        verify(annotationProcessingService, times(3)).parsePageXmlForScan(xml);
+    }
+
+    private Set<String> filterByTextMismatch(String projectId, List<Page> pages, String text, String operator) {
+        return service.filterPages(projectId, text, null, operator, null, operator, null, null, null,
+                null, null, null, null, null, false, Set.of(), List.of(), true, pages, Set.of(), operator);
+    }
+
+    private PageXml pageXml(Page page) throws Exception {
+        PageXml xml = new PageXml();
+        xml.setId("xml-" + page.getId());
+        xml.setSchema(XmlSchema.PAGE_XML);
+        xml.setPage(page);
+        xml.setFilePath(xml.getId() + ".xml");
+        Files.writeString(tempDir.resolve(xml.getFilePath()), "v1");
+        return xml;
+    }
+
+    private static PageDto pageWithLines(TextLineDto... lines) {
+        return pageDto(List.of(region("region", RegionKind.TextRegion, null, null, null, List.of(lines), null)), null, null);
     }
 
     @Test

@@ -26,6 +26,7 @@ describe('use-page-filter helpers', () => {
 
     expect(body).toEqual({
       textContent: 'foo',
+      hasTextMismatch: null,
       labelIds: ['region|kind=TextRegion|textType=paragraph'],
       tags: ['tag-1'],
       confidenceMin: null,
@@ -120,7 +121,7 @@ describe('use-page-filter helpers', () => {
   it('serializes the changes-requested filter and counts it as active', async () => {
     const { buildPageFilterRequestBody, activePageFilterCount } = await import('../use-page-filter')
     const state = {
-      labelIds: [], textContent: '', tags: [], filterOperator: 'and' as const, confidenceRange: [0, 1] as [number, number],
+      labelIds: [], textContent: '', hasTextMismatch: false, tags: [], filterOperator: 'and' as const, confidenceRange: [0, 1] as [number, number],
       confidenceElementTypes: [], hasComments: false, commentText: '', onlyWithOpenSubtasks: false, changesRequested: true,
       workflowStates: [], annotationPresence: null, xmlAttributeFilters: [], visibleFilters: [], negatedFilters: []
     }
@@ -179,7 +180,7 @@ describe('use-page-filter helpers', () => {
     const { activePageFilterCount } = await import('../use-page-filter')
 
     expect(activePageFilterCount({
-      labelIds: [], textContent: '', tags: [], filterOperator: 'and', confidenceRange: [0, 1],
+      labelIds: [], textContent: '', hasTextMismatch: false, tags: [], filterOperator: 'and', confidenceRange: [0, 1],
       confidenceElementTypes: [], hasComments: false, commentText: '', onlyWithOpenSubtasks: false, changesRequested: false, workflowStates: [],
       annotationPresence: null, visibleFilters: ['labels'], negatedFilters: [],
       xmlAttributeFilters: [
@@ -206,7 +207,7 @@ describe('use-page-filter helpers', () => {
   it('keeps singleton rows unique while allowing repeated XML attribute rows', async () => {
     const { addPageFilterRow, removePageFilterRow } = await import('../use-page-filter')
     const initial = {
-      labelIds: [], textContent: '', tags: [], filterOperator: 'and' as const, confidenceRange: [0, 1] as [number, number],
+      labelIds: [], textContent: '', hasTextMismatch: false, tags: [], filterOperator: 'and' as const, confidenceRange: [0, 1] as [number, number],
       confidenceElementTypes: [], hasComments: false, commentText: '', onlyWithOpenSubtasks: false, changesRequested: false, workflowStates: [],
       annotationPresence: null, xmlAttributeFilters: [], visibleFilters: [], negatedFilters: []
     }
@@ -221,6 +222,22 @@ describe('use-page-filter helpers', () => {
 
     state = removePageFilterRow(state, 'xmlAttribute', state.xmlAttributeFilters[0]?.id)
     expect(state.xmlAttributeFilters).toHaveLength(1)
+  })
+
+  it('adds, restores, and removes the text mismatch criterion', async () => {
+    const {
+      activePageFilterCount, addPageFilterRow, buildPageFilterRequestBody, normalizeStoredPageFilterState, removePageFilterRow
+    } = await import('../use-page-filter')
+
+    const enabled = addPageFilterRow(normalizeStoredPageFilterState({}), 'textMismatch')
+    const restored = normalizeStoredPageFilterState({ ...enabled })
+    expect(restored.visibleFilters).toEqual(['textMismatch'])
+    expect(activePageFilterCount(restored)).toBe(1)
+    expect(buildPageFilterRequestBody(restored)).toMatchObject({ hasTextMismatch: true })
+
+    const removed = removePageFilterRow(restored, 'textMismatch')
+    expect(activePageFilterCount(removed)).toBe(0)
+    expect(buildPageFilterRequestBody(removed)).toMatchObject({ hasTextMismatch: null })
   })
 
   it('restores and serializes negation for individual rows', async () => {

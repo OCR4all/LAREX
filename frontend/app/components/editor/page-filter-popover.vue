@@ -23,6 +23,7 @@ const projectIdRef = computed(() => props.projectId)
 const {
   labelIds,
   textContent,
+  hasTextMismatch,
   tags,
   filterOperator,
   confidenceRange,
@@ -62,6 +63,7 @@ const filterDefinitions: Array<{ type: PageFilterType, label: string, descriptio
   { type: 'annotationPresence', label: 'Annotation', description: 'With or without XML', icon: 'i-lucide-file-code-2' },
   { type: 'labels', label: 'Labels', description: 'PAGE label definitions', icon: 'i-lucide-tags' },
   { type: 'textContent', label: 'Text content', description: 'TextEquiv/Unicode contains', icon: 'i-lucide-text-search' },
+  { type: 'textMismatch', label: 'Text diff mismatches', description: 'Recognition text differs from ground truth', icon: 'i-lucide-diff' },
   { type: 'tags', label: 'Tags', description: 'Page tags', icon: 'i-lucide-tag' },
   { type: 'confidence', label: 'Confidence', description: 'PAGE @conf range', icon: 'i-lucide-gauge' },
   { type: 'comments', label: 'Comments', description: 'Pages containing comments', icon: 'i-lucide-message-square' },
@@ -332,6 +334,11 @@ function titleFor(type: SingletonPageFilterType): string {
                 Searches all indexed PAGE XML text content.
               </p>
             </template>
+            <UCheckbox
+              v-else-if="type === 'textMismatch'"
+              v-model="hasTextMismatch"
+              label="Only pages with a text-line mismatch"
+            />
             <USelectMenu
               v-else-if="type === 'tags'"
               v-model="tags"

@@ -1124,6 +1124,10 @@ watch(() => actionRunsStore.pageResultEvents, (events) => {
     if (handledActionPageResultEvents.value.has(event.sequence)) continue
     handledActionPageResultEvents.value = new Set([...handledActionPageResultEvents.value, event.sequence].slice(-100))
     void reloadPageTouchedByActionResult(event)
+    if (pageFilterState.value.hasTextMismatch && sessionStore.openedProjectIds.includes(event.projectId)
+      && (event.resultTypes.length === 0 || event.resultTypes.includes('xml'))) {
+      debouncedRefreshBackendFiltersForOpenedProjects()
+    }
   }
 }, { deep: false })
 
@@ -1337,6 +1341,9 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
 const backendFilterSignature = computed(() => JSON.stringify({
   enabled: hasBackendFilters.value,
   request: buildPageFilterRequestBody(pageFilterState.value),
+  textIndexDefaults: pageFilterState.value.hasTextMismatch
+    ? [editorStore.projectTextDefaultGtIndex, editorStore.projectTextDefaultRecognitionIndices]
+    : null,
   projectIds: [...sessionStore.openedProjectIds]
 }))
 
@@ -1351,6 +1358,13 @@ const debouncedRefreshBackendFiltersForOpenedProjects = useDebounceFn(() => {
 watch(backendFilterSignature, () => {
   debouncedRefreshBackendFiltersForOpenedProjects()
 }, { immediate: true })
+
+editorStore.$onAction(({ name, after }) => {
+  if (name !== 'saveAnnotations') return
+  after((saved) => {
+    if (saved && pageFilterState.value.hasTextMismatch) debouncedRefreshBackendFiltersForOpenedProjects()
+  })
+})
 
 function getProjectDeepLink(projectId: string): string {
   const href = router.resolve({

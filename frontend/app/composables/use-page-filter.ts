@@ -15,7 +15,7 @@ export const PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS = [
 export type PageConfidenceElementType = typeof PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS[number]['value']
 export type AnnotationPresence = 'with_xml' | 'without_xml' | null
 export type XmlAttributeOperator = 'exists' | 'not_exists' | 'equals' | 'not_equals' | 'contains' | 'not_contains'
-export type SingletonPageFilterType = 'workflowStates' | 'annotationPresence' | 'labels' | 'textContent' | 'tags' | 'confidence' | 'comments' | 'openSubtasks' | 'changesRequested'
+export type SingletonPageFilterType = 'workflowStates' | 'annotationPresence' | 'labels' | 'textContent' | 'textMismatch' | 'tags' | 'confidence' | 'comments' | 'openSubtasks' | 'changesRequested'
 export type PageFilterType = SingletonPageFilterType | 'xmlAttribute'
 
 export interface XmlAttributeFilterRow {
@@ -30,6 +30,7 @@ export interface XmlAttributeFilterRow {
 export interface PageFilterState {
   labelIds: string[]
   textContent: string
+  hasTextMismatch: boolean
   tags: string[]
   filterOperator: 'and' | 'or'
   confidenceRange: [number, number]
@@ -72,6 +73,7 @@ export interface XmlAttributeWithCount {
 const DEFAULT_FILTER_STATE: PageFilterState = {
   labelIds: [],
   textContent: '',
+  hasTextMismatch: false,
   tags: [],
   filterOperator: 'and',
   confidenceRange: [0, 1],
@@ -90,7 +92,7 @@ const DEFAULT_FILTER_STATE: PageFilterState = {
 const VALID_CONFIDENCE_ELEMENT_TYPES = new Set<PageConfidenceElementType>(PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS.map(option => option.value))
 const VALID_WORKFLOW_STATES = new Set<PageWorkflowState>(['OPEN', 'IN_REVIEW', 'DONE'])
 const VALID_SINGLETON_FILTERS = new Set<SingletonPageFilterType>([
-  'workflowStates', 'annotationPresence', 'labels', 'textContent', 'tags', 'confidence', 'comments', 'openSubtasks', 'changesRequested'
+  'workflowStates', 'annotationPresence', 'labels', 'textContent', 'textMismatch', 'tags', 'confidence', 'comments', 'openSubtasks', 'changesRequested'
 ])
 const VALID_XML_OPERATORS = new Set<XmlAttributeOperator>([
   'exists', 'not_exists', 'equals', 'not_equals', 'contains', 'not_contains'
@@ -181,6 +183,7 @@ function deriveVisibleFilters(parsed: Record<string, unknown>, state: Omit<PageF
   if (state.annotationPresence) visible.push('annotationPresence')
   if (state.labelIds.length) visible.push('labels')
   if (state.textContent.trim()) visible.push('textContent')
+  if (state.hasTextMismatch) visible.push('textMismatch')
   if (state.tags.length) visible.push('tags')
   if (isConfidenceFilterActive(state)) visible.push('confidence')
   if (state.hasComments) visible.push('comments')
@@ -197,6 +200,7 @@ export function normalizeStoredPageFilterState(parsed: Record<string, unknown>):
   const state = {
     labelIds: normalizeLegacyLabelFilterValues(parsed.labelIds),
     textContent: typeof parsed.textContent === 'string' ? parsed.textContent : '',
+    hasTextMismatch: parsed.hasTextMismatch === true,
     tags: Array.isArray(parsed.tags) ? parsed.tags.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0) : [],
     filterOperator: parsed.filterOperator === 'or' ? 'or' as const : 'and' as const,
     confidenceRange: normalizeConfidenceRange(parsed.confidenceRange),
@@ -233,6 +237,7 @@ export function isXmlAttributeFilterComplete(row: XmlAttributeFilterRow): boolea
 export function activePageFilterCount(state: PageFilterState): number {
   return Number(state.labelIds.length > 0)
     + Number(state.textContent.trim().length > 0)
+    + Number(state.hasTextMismatch)
     + Number(state.tags.length > 0)
     + Number(isConfidenceFilterActive(state))
     + Number(state.hasComments)
@@ -246,6 +251,7 @@ export function activePageFilterCount(state: PageFilterState): number {
 export function buildPageFilterRequestBody(state: {
   readonly labelIds: readonly string[]
   readonly textContent: string
+  readonly hasTextMismatch?: boolean
   readonly tags: readonly string[]
   readonly filterOperator: 'and' | 'or'
   readonly confidenceRange: readonly [number, number]
@@ -272,6 +278,7 @@ export function buildPageFilterRequestBody(state: {
 
   return {
     textContent: state.textContent.trim() || null,
+    hasTextMismatch: state.hasTextMismatch || null,
     labelIds: state.labelIds.length ? state.labelIds : null,
     tags: state.tags.length ? state.tags : null,
     confidenceMin: confidenceActive ? state.confidenceRange[0] : null,
@@ -307,6 +314,7 @@ export function addPageFilterRow(state: PageFilterState, type: PageFilterType): 
   if (type === 'comments') next.hasComments = true
   if (type === 'openSubtasks') next.onlyWithOpenSubtasks = true
   if (type === 'changesRequested') next.changesRequested = true
+  if (type === 'textMismatch') next.hasTextMismatch = true
   return next
 }
 
@@ -323,6 +331,7 @@ export function removePageFilterRow(state: PageFilterState, type: PageFilterType
   if (type === 'annotationPresence') next.annotationPresence = null
   if (type === 'labels') next.labelIds = []
   if (type === 'textContent') next.textContent = ''
+  if (type === 'textMismatch') next.hasTextMismatch = false
   if (type === 'tags') next.tags = []
   if (type === 'confidence') {
     next.confidenceRange = [0, 1]
@@ -568,6 +577,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
     activeFilterCount: computed(() => activePageFilterCount(globalFilterState.value)),
     labelIds,
     textContent: model('textContent'),
+    hasTextMismatch: model('hasTextMismatch'),
     tags: model('tags'),
     filterOperator: model('filterOperator'),
     confidenceRange,

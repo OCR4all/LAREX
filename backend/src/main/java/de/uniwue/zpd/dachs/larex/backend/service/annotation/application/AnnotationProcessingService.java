@@ -103,13 +103,9 @@ public class AnnotationProcessingService {
      * Parse XML file to PageDto format.
      */
     public PageDto parseXmlToAnnotation(String xmlId) throws IOException {
-        long lookupStartedAt = System.nanoTime();
-        Optional<PageXml> xmlOpt = pageXmlRepository.findById(xmlId);
-        if (xmlOpt.isEmpty()) {
-            throw new IllegalArgumentException("XML file not found: " + xmlId);
-        }
-
-        PageXml xml = xmlOpt.get();
+        long startedAt = System.nanoTime();
+        PageXml xml = pageXmlRepository.findById(xmlId)
+                .orElseThrow(() -> new IllegalArgumentException("XML file not found: " + xmlId));
         Path xmlPath = Paths.get(uploadDir, xml.getFilePath());
 
         if (!Files.exists(xmlPath)) {
@@ -121,7 +117,7 @@ public class AnnotationProcessingService {
             if (cached != null) {
                 if (log.isDebugEnabled()) {
                     log.debug("Loaded PAGE XML {} from annotation read cache in {} ms",
-                            xmlId, (System.nanoTime() - lookupStartedAt) / 1_000_000);
+                            xmlId, (System.nanoTime() - startedAt) / 1_000_000);
                 }
                 return cached;
             }
@@ -130,7 +126,7 @@ public class AnnotationProcessingService {
             annotationReadCache.put(xmlId, xmlPath, parsed);
             if (log.isDebugEnabled()) {
                 log.debug("Loaded PAGE XML {} from disk in {} ms",
-                        xmlId, (System.nanoTime() - lookupStartedAt) / 1_000_000);
+                        xmlId, (System.nanoTime() - startedAt) / 1_000_000);
             }
             return parsed;
         } else if (xml.getSchema() == XmlSchema.ALTO_XML) {
@@ -139,6 +135,11 @@ public class AnnotationProcessingService {
         } else {
             throw new UnsupportedOperationException("No parser available for schema: " + xml.getSchema());
         }
+    }
+
+    /** Parse a PAGE annotation without populating the editor's annotation cache. */
+    public PageDto parsePageXmlForScan(PageXml xml) throws IOException {
+        return pageXmlParser.parse(Paths.get(uploadDir, xml.getFilePath()), xml);
     }
 
     /**
