@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.page;
 
+import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepository;
 import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
 import de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
@@ -76,6 +78,7 @@ public class PageService {
     private final PageOrderService pageOrderService;
     private final AnnotationReadCache annotationReadCache;
     private final PageFilterIndexService pageFilterIndexService;
+    private final DatasetItemRepository datasetItemRepository;
 
     public PageService(
             PageRepository pageRepository,
@@ -98,7 +101,8 @@ public class PageService {
             WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
             PageOrderService pageOrderService,
             AnnotationReadCache annotationReadCache,
-            PageFilterIndexService pageFilterIndexService) {
+            PageFilterIndexService pageFilterIndexService,
+            DatasetItemRepository datasetItemRepository) {
 
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -122,6 +126,7 @@ public class PageService {
         this.pageOrderService = pageOrderService;
         this.annotationReadCache = annotationReadCache;
         this.pageFilterIndexService = pageFilterIndexService;
+        this.datasetItemRepository = datasetItemRepository;
     }
 
     /** All pages of a project in project order, without loading images. */
@@ -292,6 +297,9 @@ public class PageService {
             }
             if (tags != null) {
                 page.setTags(tags);
+                List<DatasetItem> datasetItems = datasetItemRepository.findBySourcePageId(pageId);
+                datasetItems.forEach(item -> item.setSourcePageTags(new ArrayList<>(tags)));
+                datasetItemRepository.saveAll(datasetItems);
             }
 
             return Optional.of(pageRepository.save(page));

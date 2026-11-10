@@ -50,6 +50,94 @@ class DatasetSplitServiceTest {
     }
 
     @Test
+    void multilabelStratifiedWarnsWhenNoPageCarriesASelectedTag() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.MULTILABEL_STRATIFIED_BY_TAGS);
+        dataset.setStratifyTagIds(List.of("missing"));
+        List<DatasetItem> items = items(10);
+
+        List<String> warnings = service.regenerateSplitAssignments(dataset, items);
+
+        assertThat(warnings).containsExactly("No page in this dataset carries any of the selected stratify tags. Falling back to random seeded assignment.");
+        assertThat(countsBySplit(items)).containsEntry(DatasetItem.Split.TRAIN, 7L);
+    }
+
+    @Test
+    void multilabelStratifiedKeepsSplitSizesAndBalancesEachTag() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.MULTILABEL_STRATIFIED_BY_TAGS);
+        dataset.setStratifyTagIds(List.of("print", "marginalia"));
+        List<DatasetItem> items = new ArrayList<>();
+        for (int index = 0; index < 100; index++) {
+            List<String> tags = new ArrayList<>();
+            if (index < 40) tags.add("print");
+            if (index >= 30 && index < 50) tags.add("marginalia");
+            items.add(item("project", tags));
+        }
+
+        List<String> warnings = service.regenerateSplitAssignments(dataset, items);
+
+        assertThat(warnings).isEmpty();
+        assertThat(countsBySplit(items)).containsOnly(
+                Map.entry(DatasetItem.Split.TRAIN, 70L), Map.entry(DatasetItem.Split.VAL, 15L), Map.entry(DatasetItem.Split.TEST, 15L));
+        Map<DatasetItem.Split, Long> print = countsBySplit(items.stream().filter(item -> item.getSourcePageTags().contains("print")).toList());
+        assertThat(print.get(DatasetItem.Split.TRAIN)).isBetween(27L, 29L);
+        assertThat(print.get(DatasetItem.Split.VAL)).isBetween(5L, 7L);
+        assertThat(print.get(DatasetItem.Split.TEST)).isBetween(5L, 7L);
+        Map<DatasetItem.Split, Long> marginalia = countsBySplit(items.stream().filter(item -> item.getSourcePageTags().contains("marginalia")).toList());
+        assertThat(marginalia.get(DatasetItem.Split.TRAIN)).isBetween(13L, 15L);
+        assertThat(marginalia.get(DatasetItem.Split.VAL)).isBetween(2L, 4L);
+        assertThat(marginalia.get(DatasetItem.Split.TEST)).isBetween(2L, 4L);
+    }
+
+    @Test
+    void multilabelStratifiedSendsARareTagToEverySplit() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.MULTILABEL_STRATIFIED_BY_TAGS);
+        dataset.setStratifyTagIds(List.of("rubric"));
+        List<DatasetItem> items = new ArrayList<>();
+        for (int index = 0; index < 20; index++) {
+            items.add(item("project", index < 3 ? List.of("rubric") : List.of()));
+        }
+
+        service.regenerateSplitAssignments(dataset, items);
+
+        assertThat(items.subList(0, 3)).extracting(DatasetItem::getAssignedSplit)
+                .containsExactlyInAnyOrder(DatasetItem.Split.TRAIN, DatasetItem.Split.VAL, DatasetItem.Split.TEST);
+        assertThat(countsBySplit(items)).containsOnly(
+                Map.entry(DatasetItem.Split.TRAIN, 14L), Map.entry(DatasetItem.Split.VAL, 3L), Map.entry(DatasetItem.Split.TEST, 3L));
+    }
+
+    @Test
+    void multilabelStratifiedUsesTheGivenItemTags() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.MULTILABEL_STRATIFIED_BY_TAGS);
+        dataset.setStratifyTagIds(List.of("parent"));
+        List<DatasetItem> items = new ArrayList<>();
+        for (int index = 0; index < 20; index++) {
+            items.add(item("project", index < 3 ? List.of("child") : List.of()));
+        }
+
+        List<String> warnings = service.regenerateSplitAssignments(dataset, items, item -> item.getSourcePageTags().contains("child")
+                ? java.util.Set.of("child", "parent")
+                : java.util.Set.of());
+
+        assertThat(warnings).isEmpty();
+        assertThat(items.subList(0, 3)).extracting(DatasetItem::getAssignedSplit)
+                .containsExactlyInAnyOrder(DatasetItem.Split.TRAIN, DatasetItem.Split.VAL, DatasetItem.Split.TEST);
+    }
+
+    @Test
+    void multilabelStratifiedIsReproducibleForTheSameSeed() {
+        Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.MULTILABEL_STRATIFIED_BY_TAGS);
+        dataset.setStratifyTagIds(List.of("even"));
+        List<DatasetItem> first = items(30);
+        List<DatasetItem> second = items(30);
+
+        service.regenerateSplitAssignments(dataset, first);
+        service.regenerateSplitAssignments(dataset, second);
+
+        assertThat(first).extracting(DatasetItem::getAssignedSplit)
+                .containsExactlyElementsOf(second.stream().map(DatasetItem::getAssignedSplit).toList());
+    }
+
+    @Test
     void addingItemsKeepsExistingLinkedAssignments() {
         Dataset dataset = dataset(Dataset.SplitTemplate.TRAIN_VAL_TEST, Dataset.SplitAlgorithm.RANDOM_SEEDED);
         List<DatasetItem> existing = items(20);
@@ -241,6 +329,14 @@ class DatasetSplitServiceTest {
             items.add(item);
         }
         return items;
+    }
+
+    private DatasetItem item(String projectId, List<String> tags) {
+        DatasetItem item = new DatasetItem();
+        item.setSourceProjectId(projectId);
+        item.setSourcePageTags(tags);
+        item.setMode(DatasetItem.Mode.LINK);
+        return item;
     }
 
     private Map<DatasetItem.Split, Long> countsBySplit(List<DatasetItem> items) {

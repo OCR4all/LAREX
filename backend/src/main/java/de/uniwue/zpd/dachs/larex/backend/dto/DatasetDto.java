@@ -144,6 +144,7 @@ public class DatasetDto {
             Integer valPercentage,
             Integer testPercentage,
             List<String> stratifyTagIds,
+            List<TagOption> tagOptions,
             Dataset.ValidationStatus lastValidationStatus,
             Dataset.ExportStatus lastExportStatus,
             LocalDateTime lastValidationAt,
@@ -154,6 +155,19 @@ public class DatasetDto {
             List<ReleaseSummaryResponse> releases,
             Integer outputRetentionDays,
             AuthorizationCapabilitiesDto.DatasetCapabilities capabilities
+    ) {}
+
+    /**
+     * A tag that pages in the dataset carry, directly or through one of its child tags.
+     * {@code pageCount} counts pages tagged with it or any of its descendants.
+     */
+    public record TagOption(
+            String id,
+            String title,
+            List<String> path,
+            String color,
+            String tagSetName,
+            int pageCount
     ) {}
 
     public record ItemResponse(

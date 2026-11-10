@@ -12,6 +12,8 @@ import java.util.Optional;
 @Repository
 public interface DatasetItemRepository extends JpaRepository<DatasetItem, String> {
 
+    List<DatasetItem> findBySourcePageId(String sourcePageId);
+
     List<DatasetItem> findBySourcePageIdInAndMode(Collection<String> pageIds, DatasetItem.Mode mode);
 
     @EntityGraph(attributePaths = {"copyFiles"})

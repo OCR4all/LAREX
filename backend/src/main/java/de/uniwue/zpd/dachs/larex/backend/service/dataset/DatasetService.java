@@ -28,6 +28,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
+import de.uniwue.zpd.dachs.larex.backend.service.tag.TagLookupService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
@@ -88,6 +89,7 @@ public class DatasetService {
     private final AuthorizationPolicyService authorizationPolicyService;
     private final DatasetSplitService datasetSplitService;
     private final DatasetPackageArchiveService datasetPackageArchiveService;
+    private final TagLookupService tagLookupService;
     private final ObjectMapper objectMapper;
 
     @Value("${file.upload-dir}")
@@ -111,6 +113,7 @@ public class DatasetService {
                           AuthorizationPolicyService authorizationPolicyService,
                           DatasetSplitService datasetSplitService,
                           DatasetPackageArchiveService datasetPackageArchiveService,
+                          TagLookupService tagLookupService,
                           ObjectMapper objectMapper) {
         this.actionOutputService = actionOutputService;
         this.datasetRepository = datasetRepository;
@@ -128,6 +131,7 @@ public class DatasetService {
         this.authorizationPolicyService = authorizationPolicyService;
         this.datasetSplitService = datasetSplitService;
         this.datasetPackageArchiveService = datasetPackageArchiveService;
+        this.tagLookupService = tagLookupService;
         this.objectMapper = objectMapper;
     }
 
@@ -1137,7 +1141,8 @@ public class DatasetService {
     }
 
     private void regenerateSplitAssignments(Dataset dataset, List<DatasetItem> items) {
-        saveSplitAssignments(dataset, items, datasetSplitService.regenerateSplitAssignments(dataset, items));
+        DatasetTagCatalog tags = tagCatalog(items);
+        saveSplitAssignments(dataset, items, datasetSplitService.regenerateSplitAssignments(dataset, items, tags::tagsWithAncestors));
     }
 
     private void assignSplitsToNewItems(Dataset dataset, List<DatasetItem> newItems) {
@@ -1145,7 +1150,19 @@ public class DatasetService {
         List<DatasetItem> existingItems = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(dataset.getId()).stream()
                 .filter(item -> !newItemIds.contains(item.getId()))
                 .toList();
-        saveSplitAssignments(dataset, newItems, datasetSplitService.assignSplitsToNewItems(dataset, existingItems, newItems));
+        List<DatasetItem> allItems = new ArrayList<>(existingItems);
+        allItems.addAll(newItems);
+        DatasetTagCatalog tags = tagCatalog(allItems);
+        saveSplitAssignments(dataset, newItems,
+                datasetSplitService.assignSplitsToNewItems(dataset, existingItems, newItems, tags::tagsWithAncestors));
+    }
+
+    private DatasetTagCatalog tagCatalog(List<DatasetItem> items) {
+        Set<String> projectIds = items.stream()
+                .map(DatasetItem::getSourceProjectId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        return DatasetTagCatalog.of(projectRepository.findAllById(projectIds), tagLookupService);
     }
 
     private void saveSplitAssignments(Dataset dataset, List<DatasetItem> items, List<String> warnings) {
@@ -1384,6 +1401,7 @@ public class DatasetService {
         List<DatasetItem> items = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(dataset.getId());
         DatasetDto.StatsResponse stats = buildStats(items);
         List<String> warnings = readWarnings(dataset.getLastValidationWarningsJson());
+        List<String> stratifyTagIds = defaultList(dataset.getStratifyTagIds());
 
         return new DatasetDto.DetailResponse(
                 dataset.getId(),
@@ -1399,7 +1417,8 @@ public class DatasetService {
                 dataset.getTrainPercentage(),
                 dataset.getValPercentage(),
                 dataset.getTestPercentage(),
-                defaultList(dataset.getStratifyTagIds()),
+                stratifyTagIds,
+                tagCatalog(items).options(items, stratifyTagIds),
                 dataset.getLastValidationStatus(),
                 dataset.getLastExportStatus(),
                 dataset.getLastValidationAt(),

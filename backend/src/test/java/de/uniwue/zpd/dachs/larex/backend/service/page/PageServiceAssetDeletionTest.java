@@ -7,6 +7,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
+import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
@@ -14,6 +16,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.exception.InvalidPageXmlException;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
@@ -66,6 +69,7 @@ class PageServiceAssetDeletionTest {
     @Mock PageOrderService pageOrderService;
     @Mock AnnotationReadCache annotationReadCache;
     @Mock PageFilterIndexService pageFilterIndexService;
+    @Mock DatasetItemRepository datasetItemRepository;
 
     private PageService service;
 
@@ -92,8 +96,31 @@ class PageServiceAssetDeletionTest {
                 workspaceQuotaRefreshService,
                 pageOrderService,
                 annotationReadCache,
-                pageFilterIndexService
+                pageFilterIndexService,
+                datasetItemRepository
         );
+    }
+
+    @Test
+    void changingPageTagsUpdatesTheDatasetItemsOfThePage() {
+        Page page = page("page-1");
+        DatasetItem linked = new DatasetItem();
+        linked.setSourcePageTags(List.of("old"));
+        DatasetItem copied = new DatasetItem();
+        copied.setMode(DatasetItem.Mode.COPY);
+        copied.setSourcePageTags(List.of("old"));
+        when(pageRepository.findById("page-1")).thenReturn(Optional.of(page));
+        when(pageRepository.save(page)).thenReturn(page);
+        when(workspaceAccessService.hasWorkspaceAccess("workspace-1", "user-1")).thenReturn(true);
+        when(workspaceAccessService.resolvePageMetadataPermissions("workspace-1", "user-1"))
+                .thenReturn(new AuthorizationCapabilitiesDto.PageMetadataPermissions(true, true, true));
+        when(datasetItemRepository.findBySourcePageId("page-1")).thenReturn(List.of(linked, copied));
+
+        service.updatePage("page-1", null, null, List.of("tag-print", "tag-rubric"), "user-1");
+
+        assertEquals(List.of("tag-print", "tag-rubric"), linked.getSourcePageTags());
+        assertEquals(List.of("tag-print", "tag-rubric"), copied.getSourcePageTags());
+        verify(datasetItemRepository).saveAll(List.of(linked, copied));
     }
 
     @Test

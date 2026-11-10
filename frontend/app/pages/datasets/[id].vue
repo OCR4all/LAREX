@@ -250,6 +250,12 @@ const selectedStatuses = computed<string[]>({
   }
 })
 
+const tagOptionsById = computed(() => new Map((dataset.value?.tagOptions || []).map(option => [option.id, option])))
+
+function tagLabel(tagId: string) {
+  return tagOptionsById.value.get(tagId)?.path.join(' / ') || tagId
+}
+
 const uniqueTags = computed(() => {
   const tagCounts = new Map<string, number>()
 
@@ -260,8 +266,21 @@ const uniqueTags = computed(() => {
   }
 
   return Array.from(tagCounts.entries())
-    .sort((left, right) => left[0].localeCompare(right[0]))
-    .map(([value, count]) => ({ label: value, value, count }))
+    .map(([value, count]) => ({ label: tagLabel(value), value, count }))
+    .sort((left, right) => left.label.localeCompare(right.label))
+})
+
+const stratifyTagItems = computed(() => {
+  const options = dataset.value?.tagOptions || []
+  const showTagSet = new Set(options.map(option => option.tagSetName)).size > 1
+  return options.map(option => ({
+    label: option.path.join(' / '),
+    value: option.id,
+    description: [
+      `${option.pageCount} ${option.pageCount === 1 ? 'page' : 'pages'}`,
+      showTagSet ? option.tagSetName : null
+    ].filter(Boolean).join(' · ')
+  }))
 })
 
 const splitFilterOptions = computed(() =>
@@ -361,7 +380,7 @@ const activeDatasetItemFilters = computed(() => {
   for (const tag of selectedTags.value) {
     filters.push({
       key: `tag-${tag}`,
-      label: `Tag: ${tag}`,
+      label: `Tag: ${tagLabel(tag)}`,
       clear: () => { selectedTags.value = selectedTags.value.filter(value => value !== tag) }
     })
   }
@@ -563,7 +582,7 @@ const itemColumns = computed<TableColumn<DatasetTableRow>[]>(() => [
   {
     accessorKey: 'tags',
     header: 'Tags',
-    cell: ({ row }) => renderSimpleTagCell(row.original.tags, { UBadge, UButton, UPopover }) || h('span', { class: 'text-sm text-muted' }, '—')
+    cell: ({ row }) => renderSimpleTagCell(row.original.tags.map(tagLabel), { UBadge, UButton, UPopover }) || h('span', { class: 'text-sm text-muted' }, '—')
   },
   {
     accessorKey: 'manualSplit',
@@ -1282,14 +1301,20 @@ useHead({
             />
 
             <UFormField
+              v-if="formSplitAlgorithm === 'MULTILABEL_STRATIFIED_BY_TAGS'"
               label="Stratify tags"
-              hint="Only used by the tag-stratified algorithm. Leave empty for a plain seeded split."
+              help="Each selected tag is spread across the splits in proportion. A parent tag includes pages tagged with its children."
             >
-              <UInputTags
+              <USelectMenu
                 v-model="formStratifyTags"
+                :items="stratifyTagItems"
+                value-key="value"
                 icon="i-lucide-tag"
-                placeholder="e.g. print, marginalia, rubric"
-                :disabled="!datasetCapabilities.canGenerateSplit"
+                :placeholder="stratifyTagItems.length > 0 ? 'Select tags' : 'No tagged pages in this dataset'"
+                multiple
+                clear-search-on-close
+                class="w-full"
+                :disabled="!datasetCapabilities.canGenerateSplit || stratifyTagItems.length === 0"
               />
             </UFormField>
           </div>

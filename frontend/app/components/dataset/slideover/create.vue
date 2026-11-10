@@ -17,7 +17,6 @@ const schema = z.object({
   tags: z.array(z.string()).optional(),
   splitAlgorithm: z.enum(['RANDOM_SEEDED', 'GROUP_BY_SOURCE_PROJECT', 'MULTILABEL_STRATIFIED_BY_TAGS']),
   splitSeed: z.number().int().min(0),
-  stratifyTagIds: z.array(z.string()).optional(),
   retainOutputsForever: z.boolean(),
   outputRetentionDays: z.coerce.number().int().positive()
 })
@@ -31,7 +30,6 @@ const state = reactive<Schema>({
   tags: [],
   splitAlgorithm: 'RANDOM_SEEDED',
   splitSeed: 42,
-  stratifyTagIds: [],
   retainOutputsForever: true,
   outputRetentionDays: 30
 })
@@ -73,7 +71,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     trainPercentage: percentages.value.TRAIN,
     valPercentage: percentages.value.VAL,
     testPercentage: percentages.value.TEST,
-    stratifyTagIds: event.data.stratifyTagIds ?? [],
+    stratifyTagIds: [],
     outputRetentionDays: event.data.retainOutputsForever ? null : event.data.outputRetentionDays
   }
 
@@ -194,17 +192,9 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
             <DatasetSplitDistribution v-model="percentages" :splits="splits" class="bg-default/50" />
 
-            <UFormField
-              label="Stratify tags"
-              name="stratifyTagIds"
-              help="Only used by the tag-stratified algorithm. Leave empty for a plain seeded split."
-            >
-              <UInputTags
-                v-model="state.stratifyTagIds"
-                icon="i-lucide-tag"
-                placeholder="e.g. print, marginalia, rubric"
-              />
-            </UFormField>
+            <p v-if="state.splitAlgorithm === 'MULTILABEL_STRATIFIED_BY_TAGS'" class="text-sm text-muted">
+              Choose the tags to stratify by on the dataset page once it has pages.
+            </p>
           </div>
         </UiSlideoverSection>
       </UForm>

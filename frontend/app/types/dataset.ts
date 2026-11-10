@@ -68,6 +68,15 @@ export interface DatasetItem {
   updated: string
 }
 
+export interface DatasetTagOption {
+  id: string
+  title: string
+  path: string[]
+  color: string | null
+  tagSetName: string | null
+  pageCount: number
+}
+
 export interface DatasetDetail extends DatasetSummary {
   outputRetentionDays?: number | null
   splitTemplate: DatasetSplitTemplate
@@ -77,6 +86,7 @@ export interface DatasetDetail extends DatasetSummary {
   valPercentage: number
   testPercentage: number
   stratifyTagIds: string[]
+  tagOptions: DatasetTagOption[]
   lastValidationWarnings: string[]
   items: DatasetItem[]
   releases: DatasetRelease[]

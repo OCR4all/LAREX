@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,9 +32,16 @@ public class DatasetSplitService {
     public static final int MANAGED_TEST_PERCENTAGE = 15;
 
     public List<String> regenerateSplitAssignments(Dataset dataset, List<DatasetItem> items) {
+        return regenerateSplitAssignments(dataset, items, DatasetSplitService::directPageTags);
+    }
+
+    /**
+     * @param itemTags the tag IDs an item counts as carrying for tag stratification, e.g. including ancestors of its page tags
+     */
+    public List<String> regenerateSplitAssignments(Dataset dataset, List<DatasetItem> items, Function<DatasetItem, Set<String>> itemTags) {
         List<DatasetItem> preservedItems = items.stream().filter(this::shouldPreserveSplit).toList();
         List<DatasetItem> mutableItems = items.stream().filter(item -> !shouldPreserveSplit(item)).toList();
-        return assignSplits(dataset, preservedItems, mutableItems);
+        return assignSplits(dataset, preservedItems, mutableItems, itemTags);
     }
 
     /**
@@ -40,6 +49,13 @@ public class DatasetSplitService {
      * With project grouping, a new page joins the split its source project already uses.
      */
     public List<String> assignSplitsToNewItems(Dataset dataset, List<DatasetItem> existingItems, List<DatasetItem> newItems) {
+        return assignSplitsToNewItems(dataset, existingItems, newItems, DatasetSplitService::directPageTags);
+    }
+
+    public List<String> assignSplitsToNewItems(Dataset dataset,
+                                               List<DatasetItem> existingItems,
+                                               List<DatasetItem> newItems,
+                                               Function<DatasetItem, Set<String>> itemTags) {
         Map<String, DatasetItem.Split> projectSplits = dataset.getSplitAlgorithm() == Dataset.SplitAlgorithm.GROUP_BY_SOURCE_PROJECT
                 ? dominantSplitByProject(existingItems)
                 : Map.of();
@@ -54,7 +70,7 @@ public class DatasetSplitService {
                 preservedItems.add(item);
             }
         }
-        return assignSplits(dataset, preservedItems, unassignedItems);
+        return assignSplits(dataset, preservedItems, unassignedItems, itemTags);
     }
 
     /**
@@ -72,7 +88,10 @@ public class DatasetSplitService {
         }
     }
 
-    private List<String> assignSplits(Dataset dataset, List<DatasetItem> preservedItems, List<DatasetItem> mutableItems) {
+    private List<String> assignSplits(Dataset dataset,
+                                      List<DatasetItem> preservedItems,
+                                      List<DatasetItem> mutableItems,
+                                      Function<DatasetItem, Set<String>> itemTags) {
         validateSplitConfiguration(dataset);
         List<String> warnings = new ArrayList<>();
 
@@ -109,8 +128,8 @@ public class DatasetSplitService {
                     dataset.getSplitSeed(),
                     DatasetItem::getSourceProjectId
             );
-            case MULTILABEL_STRATIFIED_BY_TAGS -> assignMultilabelStratified(mutableItems, remainingCounts, template, dataset.getSplitSeed(),
-                    dataset.getStratifyTagIds(), warnings);
+            case MULTILABEL_STRATIFIED_BY_TAGS -> assignMultilabelStratified(preservedItems, mutableItems, targetCounts, remainingCounts,
+                    template, dataset.getSplitSeed(), dataset.getStratifyTagIds(), itemTags, warnings);
         }
 
         for (DatasetItem item : mutableItems) {
@@ -218,11 +237,19 @@ public class DatasetSplitService {
         }
     }
 
-    private void assignMultilabelStratified(List<DatasetItem> items,
+    /**
+     * Iterative stratification (Sechidis et al., 2011): balances each selected tag across the splits on its own,
+     * handling the rarest tag first, instead of bucketing pages by their exact tag combination.
+     * Pages without a selected tag then fill the remaining split sizes.
+     */
+    private void assignMultilabelStratified(List<DatasetItem> preservedItems,
+                                            List<DatasetItem> items,
+                                            Map<DatasetItem.Split, Integer> targetCounts,
                                             Map<DatasetItem.Split, Integer> remainingCounts,
                                             Dataset.SplitTemplate template,
                                             Long seed,
                                             List<String> stratifyTagIds,
+                                            Function<DatasetItem, Set<String>> itemTags,
                                             List<String> warnings) {
         List<String> effectiveTags = stratifyTagIds == null ? List.of() : stratifyTagIds.stream()
                 .filter(Objects::nonNull)
@@ -235,39 +262,121 @@ public class DatasetSplitService {
             return;
         }
 
-        Map<String, List<DatasetItem>> buckets = items.stream()
-                .collect(Collectors.groupingBy(item -> stratifySignature(item, effectiveTags), LinkedHashMap::new, Collectors.toList()));
-        Random random = new Random(seed == null ? 42L : seed);
+        Set<String> selected = new LinkedHashSet<>(effectiveTags);
+        Function<DatasetItem, Set<String>> labelsOf = item -> {
+            Set<String> labels = new LinkedHashSet<>(itemTags.apply(item));
+            labels.retainAll(selected);
+            return labels;
+        };
+        Map<DatasetItem, Set<String>> itemLabels = new LinkedHashMap<>();
+        for (DatasetItem item : items) {
+            itemLabels.put(item, labelsOf.apply(item));
+        }
+        Map<DatasetItem, Set<String>> preservedLabels = new LinkedHashMap<>();
+        for (DatasetItem item : preservedItems) {
+            preservedLabels.put(item, labelsOf.apply(item));
+        }
 
-        for (List<DatasetItem> bucketItems : buckets.values()) {
-            List<DatasetItem> shuffledBucket = new ArrayList<>(bucketItems);
-            Collections.shuffle(shuffledBucket, random);
-            assignRandomly(shuffledBucket, deriveBucketTargets(shuffledBucket.size(), remainingCounts, template), template, random.nextLong());
+        boolean anyTagged = itemLabels.values().stream().anyMatch(labels -> !labels.isEmpty())
+                || preservedLabels.values().stream().anyMatch(labels -> !labels.isEmpty());
+        if (!anyTagged) {
+            warnings.add("No page in this dataset carries any of the selected stratify tags. Falling back to random seeded assignment.");
+            assignRandomly(items, remainingCounts, template, seed);
+            return;
+        }
+
+        List<DatasetItem.Split> splits = template.splits();
+        int totalTarget = targetCounts.values().stream().mapToInt(Integer::intValue).sum();
+        Map<DatasetItem.Split, Double> shares = new EnumMap<>(DatasetItem.Split.class);
+        for (DatasetItem.Split split : splits) {
+            shares.put(split, totalTarget == 0 ? 0.0 : targetCounts.getOrDefault(split, 0) / (double) totalTarget);
+        }
+        List<DatasetItem.Split> usedSplits = splits.stream().filter(split -> shares.get(split) > 0).toList();
+
+        Map<String, Map<DatasetItem.Split, Integer>> labelCounts = new HashMap<>();
+        Map<String, Integer> labelTotals = new HashMap<>();
+        Map<String, Integer> labelRemaining = new HashMap<>();
+        for (String label : effectiveTags) {
+            Map<DatasetItem.Split, Integer> counts = new EnumMap<>(DatasetItem.Split.class);
+            splits.forEach(split -> counts.put(split, 0));
+            labelCounts.put(label, counts);
+            labelTotals.put(label, 0);
+            labelRemaining.put(label, 0);
+        }
+        preservedLabels.forEach((item, labels) -> labels.forEach(label -> {
+            labelCounts.get(label).merge(item.getAssignedSplit(), 1, Integer::sum);
+            labelTotals.merge(label, 1, Integer::sum);
+        }));
+        itemLabels.values().forEach(labels -> labels.forEach(label -> {
+            labelTotals.merge(label, 1, Integer::sum);
+            labelRemaining.merge(label, 1, Integer::sum);
+        }));
+
+        Map<DatasetItem.Split, Double> splitDesire = new EnumMap<>(DatasetItem.Split.class);
+        splits.forEach(split -> splitDesire.put(split, (double) remainingCounts.getOrDefault(split, 0)));
+
+        Random random = new Random(seed == null ? 42L : seed);
+        List<DatasetItem> shuffled = new ArrayList<>(items);
+        Collections.shuffle(shuffled, random);
+        Set<DatasetItem> unassigned = new LinkedHashSet<>(shuffled);
+
+        while (true) {
+            String label = effectiveTags.stream()
+                    .filter(candidate -> labelRemaining.get(candidate) > 0)
+                    .min(Comparator.comparingInt(labelRemaining::get))
+                    .orElse(null);
+            if (label == null) break;
+
+            List<DatasetItem> labelItems = unassigned.stream().filter(item -> itemLabels.get(item).contains(label)).toList();
+            for (DatasetItem item : labelItems) {
+                DatasetItem.Split split = chooseSplitForLabel(label, splits, usedSplits, shares, labelCounts, labelTotals,
+                        labelRemaining, splitDesire, random);
+                item.setAssignedSplit(split);
+                unassigned.remove(item);
+                splitDesire.merge(split, -1.0, Double::sum);
+                for (String itemLabel : itemLabels.get(item)) {
+                    labelCounts.get(itemLabel).merge(split, 1, Integer::sum);
+                    labelRemaining.merge(itemLabel, -1, Integer::sum);
+                }
+            }
+        }
+
+        for (DatasetItem item : unassigned) {
+            DatasetItem.Split split = splits.stream()
+                    .filter(candidate -> splitDesire.get(candidate) > 0)
+                    .max(Comparator.comparingDouble(splitDesire::get))
+                    .orElse(fallbackSplit(template));
+            item.setAssignedSplit(split);
+            splitDesire.merge(split, -1.0, Double::sum);
         }
     }
 
-    private Map<DatasetItem.Split, Integer> deriveBucketTargets(int bucketSize,
-                                                                Map<DatasetItem.Split, Integer> remainingCounts,
-                                                                Dataset.SplitTemplate template) {
-        int totalRemaining = remainingCounts.values().stream().mapToInt(Integer::intValue).sum();
-        if (totalRemaining <= 0) {
-            return Map.of(fallbackSplit(template), bucketSize);
+    /**
+     * Picks the split furthest below its share of the label. While a label has only as many pages left as there are
+     * used splits still missing it, those splits go first, so rare tags reach validation and test too.
+     */
+    private DatasetItem.Split chooseSplitForLabel(String label,
+                                                  List<DatasetItem.Split> splits,
+                                                  List<DatasetItem.Split> usedSplits,
+                                                  Map<DatasetItem.Split, Double> shares,
+                                                  Map<String, Map<DatasetItem.Split, Integer>> labelCounts,
+                                                  Map<String, Integer> labelTotals,
+                                                  Map<String, Integer> labelRemaining,
+                                                  Map<DatasetItem.Split, Double> splitDesire,
+                                                  Random random) {
+        Map<DatasetItem.Split, Integer> counts = labelCounts.get(label);
+        List<DatasetItem.Split> candidates = usedSplits.isEmpty() ? splits : usedSplits;
+        List<DatasetItem.Split> missing = candidates.stream().filter(split -> counts.get(split) == 0).toList();
+        if (!missing.isEmpty() && labelTotals.get(label) >= candidates.size() && labelRemaining.get(label) <= missing.size()) {
+            candidates = missing;
         }
-        Map<DatasetItem.Split, Integer> targets = new EnumMap<>(DatasetItem.Split.class);
-        int assigned = 0;
-        List<DatasetItem.Split> splits = template.splits();
-        for (int i = 0; i < splits.size(); i++) {
-            DatasetItem.Split split = splits.get(i);
-            if (i == splits.size() - 1) {
-                targets.put(split, Math.max(0, bucketSize - assigned));
-                continue;
-            }
-            double fraction = remainingCounts.getOrDefault(split, 0) / (double) totalRemaining;
-            int count = (int) Math.round(bucketSize * fraction);
-            targets.put(split, count);
-            assigned += count;
-        }
-        return targets;
+
+        Comparator<DatasetItem.Split> byDesire = Comparator
+                .comparingDouble((DatasetItem.Split split) -> labelTotals.get(label) * shares.get(split) - counts.get(split))
+                .thenComparingDouble(splitDesire::get);
+        DatasetItem.Split best = Collections.max(candidates, byDesire);
+        List<DatasetItem.Split> tied = candidates.stream().filter(split -> byDesire.compare(split, best) == 0).toList();
+        return tied.get(random.nextInt(tied.size()));
     }
 
     private DatasetItem.Split bestSplitForGroup(int groupSize,
@@ -318,17 +427,8 @@ public class DatasetSplitService {
         return template.splits().getLast();
     }
 
-    private String stratifySignature(DatasetItem item, List<String> stratifyTagIds) {
-        Set<String> tags = new LinkedHashSet<>(defaultList(item.getSourcePageTags()));
-        List<String> matching = stratifyTagIds.stream()
-                .filter(tags::contains)
-                .sorted()
-                .toList();
-        return matching.isEmpty() ? "__UNTAGGED__" : String.join("|", matching);
-    }
-
-    private List<String> defaultList(List<String> values) {
-        return values == null ? List.of() : values;
+    private static Set<String> directPageTags(DatasetItem item) {
+        return item.getSourcePageTags() == null ? Set.of() : new LinkedHashSet<>(item.getSourcePageTags());
     }
 
     private int defaultInt(Integer value) {
