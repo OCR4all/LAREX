@@ -207,11 +207,15 @@ const dictionaryWordPopover = ref<{
   top: number
 } | null>(null)
 const textareaById = new Map<string, HTMLTextAreaElement>()
+const scrollContainer = ref<HTMLElement | null>(null)
+const queuedTextareaResizes = new Set<HTMLTextAreaElement>()
 
 function setTextareaRef(textlineId: string, element: Element | ComponentPublicInstance | null): void {
   if (element instanceof HTMLTextAreaElement) {
+    // Vue calls function refs on every re-render, so only measure new elements.
+    if (textareaById.get(textlineId) === element) return
     textareaById.set(textlineId, element)
-    resizeTextarea(element)
+    queueTextareaResize(element)
     return
   }
   textareaById.delete(textlineId)
@@ -222,13 +226,56 @@ function resizeTextarea(textarea: HTMLTextAreaElement): void {
   textarea.style.height = `${Math.max(Math.ceil(fontSize.value * 1.5), textarea.scrollHeight)}px`
 }
 
-function resizeAllTextareas(): void {
-  for (const textarea of textareaById.values()) {
-    resizeTextarea(textarea)
+/**
+ * Resizes many textareas with a single layout pass. Interleaving the height
+ * reset and the scrollHeight read per element forces one layout per line.
+ */
+function resizeTextareas(textareas: Iterable<HTMLTextAreaElement>): void {
+  const connected = [...textareas].filter(textarea => textarea.isConnected)
+  if (connected.length === 0) return
+
+  // Collapsing every line shortens the list, which would clamp the scroll offset.
+  const scrollTop = scrollContainer.value?.scrollTop ?? 0
+  for (const textarea of connected) textarea.style.height = '0px'
+  const minHeight = Math.ceil(fontSize.value * 1.5)
+  const heights = connected.map(textarea => Math.max(minHeight, textarea.scrollHeight))
+  connected.forEach((textarea, index) => {
+    textarea.style.height = `${heights[index]}px`
+  })
+  if (scrollContainer.value && scrollContainer.value.scrollTop !== scrollTop) {
+    scrollContainer.value.scrollTop = scrollTop
   }
 }
 
+function queueTextareaResize(textarea: HTMLTextAreaElement): void {
+  const isFirst = queuedTextareaResizes.size === 0
+  queuedTextareaResizes.add(textarea)
+  if (!isFirst) return
+  queueMicrotask(() => {
+    const textareas = [...queuedTextareaResizes]
+    queuedTextareaResizes.clear()
+    resizeTextareas(textareas)
+  })
+}
+
+function resizeAllTextareas(): void {
+  resizeTextareas(textareaById.values())
+}
+
 watch([fullTextLines, fontSize], resizeAllTextareas, { flush: 'post' })
+
+// Line wrapping depends on the pane width, which changes with the split divider.
+let observedWidth = 0
+let widthObserver: ResizeObserver | null = null
+onMounted(() => {
+  widthObserver = new ResizeObserver(([entry]) => {
+    const width = Math.round(entry?.contentRect.width ?? 0)
+    if (width === observedWidth) return
+    observedWidth = width
+    resizeAllTextareas()
+  })
+  if (shortcutRoot.value) widthObserver.observe(shortcutRoot.value)
+})
 
 function getDisplayedText(textlineId: string): string {
   const pending = pendingCommit.value
@@ -893,6 +940,8 @@ onBeforeUnmount(() => {
     getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)?.unhoverPolygon?.()
     hoveredTextlineId.value = null
   }
+  widthObserver?.disconnect()
+  queuedTextareaResizes.clear()
   textareaById.clear()
 })
 </script>
@@ -924,7 +973,11 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
-      <div v-else class="grid min-h-0 flex-1 content-start grid-cols-[auto_minmax(0,1fr)] gap-x-1 overflow-y-auto p-2">
+      <div
+        v-else
+        ref="scrollContainer"
+        class="grid min-h-0 flex-1 content-start grid-cols-[auto_minmax(0,1fr)] gap-x-1 overflow-y-auto p-2"
+      >
         <div
           v-for="line in fullTextLines"
           :key="line.id"

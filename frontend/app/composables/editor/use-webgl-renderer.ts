@@ -193,6 +193,13 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     setUniform1f(program, 'u_canvasAspect', rotationAspect)
   }
 
+  let softwareRendering = false
+
+  function getRenderPixelRatio(): number {
+    const dpr = window.devicePixelRatio || WEBGL_CORE.DEFAULT_DEVICE_PIXEL_RATIO
+    return softwareRendering ? Math.min(dpr, 1) : dpr
+  }
+
   let polygonProgram: WebGLProgram | null = null
   let baselineMarkerProgram: WebGLProgram | null = null
   let polygonVao: WebGLVertexArrayObject | null = null
@@ -209,7 +216,17 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     try {
       const canvas = canvasRef.value
       if (!canvas) throw new Error('Canvas element is not available')
-      const context = canvas.getContext('webgl2', { stencil: true, alpha: true })
+      // Without GPU acceleration every sample is rasterized on the CPU, so
+      // multisampling and HiDPI backing stores make each frame far too slow.
+      let context = canvas.getContext('webgl2', { stencil: true, alpha: true, failIfMajorPerformanceCaveat: true })
+      softwareRendering = false
+      if (!context) {
+        context = canvas.getContext('webgl2', { stencil: true, alpha: true, antialias: false })
+        softwareRendering = context !== null
+        if (softwareRendering) {
+          log.warn('WebGL is not hardware accelerated in this browser; rendering without antialiasing at reduced resolution.')
+        }
+      }
       if (!context) throw new Error('WebGL 2 not supported')
       gl = context
 
@@ -1766,7 +1783,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     renderFrameContext = createRenderFrameContext(renderState)
     activeLabelConflictIds = renderFrameContext.labelConflictIds
 
-    const dpr = window.devicePixelRatio || WEBGL_CORE.DEFAULT_DEVICE_PIXEL_RATIO
+    const dpr = getRenderPixelRatio()
     const canvas = getGlCanvasElement()
     if (!canvas) return
     const { clientWidth, clientHeight } = canvas
@@ -1950,7 +1967,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       framesUntilLineCachePrune = 120
     }
 
-    const dpr = window.devicePixelRatio || WEBGL_CORE.DEFAULT_DEVICE_PIXEL_RATIO
+    const dpr = getRenderPixelRatio()
     const canvas = getGlCanvasElement()
     if (!canvas) return
     const { clientWidth, clientHeight } = canvas
