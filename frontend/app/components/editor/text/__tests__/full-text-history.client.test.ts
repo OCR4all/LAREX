@@ -107,6 +107,7 @@ function mountFullText({ editable = true, gtIndex = 0, withNextLine = false } = 
   vi.stubGlobal('useDictionaryTokenLookup', () => ({}))
   vi.stubGlobal('useEditorPreferences', () => ({ preferences: Vue.ref({ shortcutBindings: null }) }))
   vi.stubGlobal('watchEffect', Vue.watchEffect)
+  vi.stubGlobal('onMounted', Vue.onMounted)
   vi.stubGlobal('onBeforeUnmount', Vue.onBeforeUnmount)
 
   const host = document.createElement('div')
