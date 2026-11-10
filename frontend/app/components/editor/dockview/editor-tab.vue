@@ -102,7 +102,11 @@ function requestClose(ev: MouseEvent) {
 </script>
 
 <template>
-  <div class="dv-default-tab">
+  <div
+    class="dv-default-tab"
+    @pointerdown.middle.prevent.stop
+    @auxclick.middle="requestClose"
+  >
     <div class="dv-default-tab-content">
       <Icon name="i-lucide-file-text" class="size-3.5 shrink-0 opacity-70" />
       <span class="truncate tabular-nums" :title="title">{{ title }}</span>
