@@ -26,15 +26,18 @@ export function useClampedPage(page: Ref<number>, totalPages: MaybeRefOrGetter<n
 export function useTablePagination<T>(
   data: MaybeRefOrGetter<T[]>,
   page: Ref<number>,
-  pageSize: MaybeRefOrGetter<number>
+  pageSize: MaybeRefOrGetter<number>,
+  options: { resetOnDataChange?: boolean } = {}
 ) {
   const enabled = useSmallTableScreen()
   watch(enabled, () => {
     page.value = 1
   }, { flush: 'sync' })
-  watch(() => toValue(data), () => {
-    if (enabled.value) page.value = 1
-  })
+  if (options.resetOnDataChange !== false) {
+    watch(() => toValue(data), () => {
+      if (enabled.value) page.value = 1
+    })
+  }
 
   const rows = computed(() => {
     const size = toValue(pageSize)

@@ -16,9 +16,13 @@ const { data, pending, error, refresh } = useFetch<ActionRunDetail>(
   `/api/workspaces/${props.workspaceId}/actions/runs/${props.runId}`,
   {
     key: wsKey(props.workspaceId, 'action-run-logs', props.runId),
-    watch: [updated]
+    // Keep the report stable while it is being inspected. Progress events can
+    // arrive for every page; only the Refresh button should reload the details.
+    watch: false
   }
 )
+const hasUpdates = computed(() => !!data.value && !!updated.value
+  && Date.parse(updated.value) > Date.parse(data.value.run.updated))
 const logs = computed(() => {
   if (data.value?.logEvents?.length) {
     return data.value.logEvents.map(event =>
@@ -62,6 +66,9 @@ const logs = computed(() => {
       >
         Refresh
       </UButton>
+      <p role="status" class="text-xs text-muted">
+        {{ hasUpdates ? 'New updates available.' : 'Logs update when you refresh.' }}
+      </p>
     </template>
   </UModal>
 </template>

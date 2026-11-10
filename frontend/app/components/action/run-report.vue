@@ -17,8 +17,9 @@ const filteredPages = computed(() => {
   return props.report.pageOutcomes.filter(item => (outcome.value === 'ALL' || item.status === outcome.value)
     && (!query || [item.pageName, item.pageId, item.message, ...item.warnings].some(value => value?.toLowerCase().includes(query))))
 })
-const { rows: visiblePages, infiniteScroll } = useTablePagination(filteredPages, page, pageSize)
-watch([search, outcome, () => props.report], () => {
+const { rows: visiblePages, infiniteScroll } = useTablePagination(filteredPages, page, pageSize, { resetOnDataChange: false })
+useClampedPage(page, computed(() => Math.max(1, Math.ceil(filteredPages.value.length / pageSize))))
+watch([search, outcome, () => props.runId], () => {
   page.value = 1
 })
 
