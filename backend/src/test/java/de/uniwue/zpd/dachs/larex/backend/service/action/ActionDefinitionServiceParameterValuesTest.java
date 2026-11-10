@@ -98,6 +98,66 @@ class ActionDefinitionServiceParameterValuesTest {
     }
 
     @Test
+    void validatesMultipleParameterDefinitions() {
+        String multiple = validStaticYaml()
+                .replace("    type: integer\n", "    type: integer\n    multiple: true\n")
+                .replace("default: 2", "default: [1, 2]");
+
+        ActionDto.ValidationResponse valid = service.validateYaml(multiple, null);
+        ActionDto.ValidationResponse scalarDefault = service.validateYaml(
+                multiple.replace("default: [1, 2]", "default: 2"), null);
+        ActionDto.ValidationResponse disallowedDefault = service.validateYaml(
+                multiple.replace("default: [1, 2]", "default: [1, 3]"), null);
+        ActionDto.ValidationResponse duplicateDefault = service.validateYaml(
+                multiple.replace("default: [1, 2]", "default: [1, 1]"), null);
+        ActionDto.ValidationResponse withoutChoices = service.validateYaml("""
+                version: 1
+                id: processor-v1
+                name: Processor
+                endpoint:
+                  url: http://processor.localhost/dispatch
+                inputs:
+                  xml: true
+                outputs:
+                  xml:
+                    enabled: true
+                parameters:
+                  models:
+                    type: string
+                    multiple: true
+                """, null);
+
+        assertThat(valid.diagnostics()).isEmpty();
+        assertThat(scalarDefault.diagnostics()).extracting(ActionDto.ValidationDiagnostic::message)
+                .contains("default must be a list when multiple is true");
+        assertThat(disallowedDefault.diagnostics()).extracting(ActionDto.ValidationDiagnostic::message)
+                .contains("default values must all be statically allowed values");
+        assertThat(duplicateDefault.diagnostics()).extracting(ActionDto.ValidationDiagnostic::message)
+                .contains("default values must be unique");
+        assertThat(withoutChoices.diagnostics()).extracting(ActionDto.ValidationDiagnostic::message)
+                .contains("multiple requires allowedValues");
+    }
+
+    @Test
+    void enforcesDiscoveredValuesForEveryMultipleSelection() {
+        definition.setParsedJson(dynamicDefinitionJson()
+                .replace("\"default\": \"model-a\",", "\"multiple\": true,"));
+        when(httpResponse.statusCode()).thenReturn(200);
+        when(httpResponse.body()).thenAnswer(ignored -> successfulResponse("processor-v1", "model-a"));
+
+        service.validateAllowedParameterValues(definition, Map.of("model", java.util.List.of("model-a")));
+        service.validateAllowedParameterValues(definition, Map.of("model", java.util.List.of()));
+        assertThatThrownBy(() -> service.validateAllowedParameterValues(
+                definition, Map.of("model", java.util.List.of("model-a", "forged"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Action parameter model must only contain allowed values");
+        assertThatThrownBy(() -> service.validateAllowedParameterValues(
+                definition, Map.of("model", "model-a")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Action parameter model must be a list");
+    }
+
+    @Test
     void discoversSignedTypedValuesAndEnforcesThem() {
         when(httpResponse.statusCode()).thenReturn(200);
         when(httpResponse.body()).thenAnswer(ignored -> successfulResponse("processor-v1", "model-a"));

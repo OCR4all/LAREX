@@ -6,6 +6,7 @@ import { actionImageSelectionValues, actionInputLevelForTarget, compatibleAction
 import {
   actionParameterChoices,
   actionParameterDefaultValue,
+  allowedActionParameterValue,
   coerceActionParameterInput,
   hasAllowedActionParameterValue
 } from '@/utils/action-parameter-values'
@@ -707,8 +708,9 @@ function updateAllowedParameterValue(
   definition: ActionParameterDefinition,
   value: unknown
 ) {
-  if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') return
-  parameterValues[key] = value
+  const isScalar = (item: unknown) => typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean'
+  if (Array.isArray(value) ? !value.every(isScalar) : !isScalar(value)) return
+  parameterValues[key] = value as ActionParameterValue
   if (hasAllowedActionParameterValue(definition, value, discoveredParameterValues.value)) {
     Reflect.deleteProperty(parameterFieldErrors, key)
   }
@@ -740,8 +742,14 @@ async function refreshParameterValues() {
         parameterValues[entry.key],
         discoveredParameterValues.value
       )) {
-        parameterValues[entry.key] = undefined
-        parameterFieldErrors[entry.key] = 'Select an allowed value.'
+        parameterValues[entry.key] = allowedActionParameterValue(
+          entry.definition,
+          parameterValues[entry.key],
+          discoveredParameterValues.value
+        )
+        parameterFieldErrors[entry.key] = entry.definition.multiple
+          ? 'Some selected values are no longer available.'
+          : 'Select an allowed value.'
       }
     }
   } catch (error: unknown) {
@@ -1511,6 +1519,7 @@ function close() {
                       :model-value="parameterValues[entry.key]"
                       :items="allowedChoices(entry.definition)"
                       value-key="value"
+                      :multiple="Boolean(entry.definition.multiple)"
                       searchable
                       searchable-placeholder="Filter allowed values..."
                       :loading="parameterDiscoveryLoading && Boolean(entry.definition.allowedValues.provider)"

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
-import type { ActionDefinition, ActionParameterChoice, ActionParameterDefinition, ActionParameterValue, ActionRun, ActionRunDetail, IntegrationInputItem, IntegrationInputResponse, StartActionRunResponse } from '@/types/action'
-import { actionParameterChoices, actionParameterDefaultValue, coerceActionParameterInput, hasAllowedActionParameterValue } from '@/utils/action-parameter-values'
+import type { ActionDefinition, ActionParameterChoice, ActionParameterValue, ActionRun, ActionRunDetail, IntegrationInputItem, IntegrationInputResponse, StartActionRunResponse } from '@/types/action'
+import { actionParameterChoices, actionParameterDefaultValue, coerceActionParameterInput, hasAllowedActionParameterValue, isBlankActionParameterValue } from '@/utils/action-parameter-values'
 import { actionImageSelectionValues, actionInputLevelForTarget, compatibleActionImages, actionImageVariantOptions, selectableActionImages, defaultActionImageVariants } from '@/utils/action-input-requirements'
 import { extractApiErrorDetails } from '@/utils/api-error'
 
@@ -103,20 +103,8 @@ const canStart = computed(() => Boolean(processor.value) && !loading.value && !s
   && (!acceptsImages.value || compatibleItems.value.every(item => !compatibleImages(item).length || resolvedImages(item).length > 0))
   && Object.entries(processor.value?.parameters ?? {}).every(([key, definition]) => {
     const value = parameters.value[key]
-    return (!definition.required || (value !== undefined && value !== '')) && hasAllowedActionParameterValue(definition, value, discovered.value)
+    return (!definition.required || !isBlankActionParameterValue(value)) && hasAllowedActionParameterValue(definition, value, discovered.value)
   }))
-
-function choices(definition: ActionParameterDefinition) {
-  return actionParameterChoices(definition, discovered.value).map((choice, index) => ({ label: choice.label, value: String(index) }))
-}
-function selectedChoice(key: string, definition: ActionParameterDefinition) {
-  const index = actionParameterChoices(definition, discovered.value).findIndex(choice => choice.value === parameters.value[key])
-  return index < 0 ? undefined : String(index)
-}
-function chooseParameter(key: string, definition: ActionParameterDefinition, index: string) {
-  const choice = actionParameterChoices(definition, discovered.value)[Number(index)]
-  if (choice) parameters.value[key] = choice.value
-}
 
 let discoverySequence = 0
 watch(processor, async (value) => {
@@ -335,14 +323,15 @@ onMounted(load)
             :description="definition.description"
             :required="definition.required"
           >
-            <USelect
+            <USelectMenu
               v-if="definition.allowedValues"
-              :model-value="selectedChoice(key, definition)"
-              :items="choices(definition)"
+              v-model="parameters[key]"
+              :items="actionParameterChoices(definition, discovered)"
+              value-key="value"
+              :multiple="Boolean(definition.multiple)"
               :loading="discovering"
               :disabled="starting || discovering"
               class="w-full"
-              @update:model-value="chooseParameter(key, definition, $event)"
             />
             <USwitch
               v-else-if="definition.type === 'boolean'"

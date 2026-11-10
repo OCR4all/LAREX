@@ -105,6 +105,7 @@ function updateImages(value: string | number) {
           :model-value="value(String(key))"
           :items="actionParameterChoices(definition, discovered)"
           value-key="value"
+          :multiple="Boolean(definition.multiple)"
           :loading="loading"
           :disabled="disabled || loading"
           class="w-full"

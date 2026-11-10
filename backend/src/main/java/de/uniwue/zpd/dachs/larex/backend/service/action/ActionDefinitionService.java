@@ -761,6 +761,18 @@ public class ActionDefinitionService {
                         "No allowed values are currently available for Action parameter " + entry.getKey());
             }
             Object value = parameters.get(entry.getKey());
+            if (parameter.allowsMultiple()) {
+                if (!(value instanceof List<?> values)) {
+                    throw new IllegalArgumentException("Action parameter " + entry.getKey() + " must be a list");
+                }
+                boolean allAllowed = values.stream().allMatch(item -> choices.stream()
+                        .anyMatch(choice -> parameterValuesEqual(parameter, item, choice.value())));
+                if (!allAllowed) {
+                    throw new IllegalArgumentException(
+                            "Action parameter " + entry.getKey() + " must only contain allowed values");
+                }
+                continue;
+            }
             if (choices.stream().noneMatch(choice -> parameterValuesEqual(parameter, value, choice.value()))) {
                 throw new IllegalArgumentException(
                         "Action parameter " + entry.getKey() + " must be one of its allowed values");
@@ -1467,10 +1479,39 @@ public class ActionDefinitionService {
             if (parameter.min() != null && parameter.max() != null && parameter.min() > parameter.max()) {
                 diagnostics.add(error("parameters." + key, "min must be less than or equal to max"));
             }
+            if (parameter.allowsMultiple() && parameter.allowedValues() == null) {
+                diagnostics.add(error("parameters." + key + ".multiple", "multiple requires allowedValues"));
+            }
             if (parameter.defaultValue() != null) {
-                validateParameterValue("parameters." + key + ".default", parameter, parameter.defaultValue(), diagnostics);
+                if (parameter.allowsMultiple()) {
+                    validateMultipleDefault("parameters." + key + ".default", parameter, diagnostics);
+                } else {
+                    validateParameterValue("parameters." + key + ".default", parameter, parameter.defaultValue(), diagnostics);
+                }
             }
             validateAllowedValues(key, parameter, diagnostics);
+        }
+    }
+
+    private void validateMultipleDefault(String path,
+                                         ActionDefinitionDocument.Parameter parameter,
+                                         List<ActionDto.ValidationDiagnostic> diagnostics) {
+        if (!(parameter.defaultValue() instanceof List<?> values)) {
+            diagnostics.add(error(path, "default must be a list when multiple is true"));
+            return;
+        }
+        Set<String> seen = new LinkedHashSet<>();
+        for (int index = 0; index < values.size(); index++) {
+            Object value = values.get(index);
+            String valuePath = path + "[" + index + "]";
+            if (value == null) {
+                diagnostics.add(error(valuePath, "default values must not be empty"));
+                continue;
+            }
+            validateParameterValue(valuePath, parameter, value, diagnostics);
+            if (!seen.add(parameterChoiceFingerprint(parameter, value))) {
+                diagnostics.add(error(valuePath, "default values must be unique"));
+            }
         }
     }
 
@@ -1507,6 +1548,7 @@ public class ActionDefinitionService {
                 ? defaultParameterValue(parameter)
                 : parameter.defaultValue();
         boolean defaultMatched = false;
+        List<Object> choiceValues = new ArrayList<>();
         for (int index = 0; index < allowed.values().size(); index++) {
             ActionDefinitionDocument.ParameterChoice choice = allowed.values().get(index);
             String choicePath = path + ".values[" + index + "]";
@@ -1526,11 +1568,20 @@ public class ActionDefinitionService {
             if (!seen.add(fingerprint)) {
                 diagnostics.add(error(choicePath + ".value", "choice values must be unique"));
             }
+            choiceValues.add(choice.value());
             if (parameterValuesEqual(parameter, effectiveDefault, choice.value())) {
                 defaultMatched = true;
             }
         }
-        if (!defaultMatched) {
+        if (parameter.allowsMultiple()) {
+            List<?> defaults = parameter.defaultValue() instanceof List<?> values ? values : List.of();
+            boolean allDefaultsAllowed = defaults.stream().allMatch(value -> choiceValues.stream()
+                    .anyMatch(choice -> parameterValuesEqual(parameter, value, choice)));
+            if (!allDefaultsAllowed) {
+                diagnostics.add(error("parameters." + key + ".default",
+                        "default values must all be statically allowed values"));
+            }
+        } else if (!defaultMatched) {
             diagnostics.add(error("parameters." + key + ".default",
                     "default must be one of the statically allowed values"));
         }

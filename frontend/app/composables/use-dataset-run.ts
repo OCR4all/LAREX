@@ -6,7 +6,7 @@ import {
   defaultActionImageVariants,
   selectableActionImages
 } from '@/utils/action-input-requirements'
-import { actionParameterLabel } from '@/utils/action-parameter-values'
+import { actionParameterDefaultValue, actionParameterLabel, isBlankActionParameterValue } from '@/utils/action-parameter-values'
 import { extractApiErrorMessage } from '@/utils/api-error'
 import type {
   ActionDefinitionResponse,
@@ -220,8 +220,7 @@ export function useDatasetRun(options: {
   })
 
   const parameterBlockers = computed(() => Object.entries(selectedProcessor.value?.parameters ?? {})
-    .filter(([key, definition]) => definition.required
-      && (parameters.value[key] === undefined || String(parameters.value[key]).trim().length === 0))
+    .filter(([key, definition]) => definition.required && isBlankActionParameterValue(parameters.value[key]))
     .map(([key]) => `Enter ${actionParameterLabel(key).toLowerCase()}.`))
 
   const blockers = computed(() => [...pageBlockers.value, ...parameterBlockers.value])
@@ -351,8 +350,7 @@ export function useDatasetRun(options: {
   watch(selectedProcessor, (processor) => {
     parameters.value = {}
     for (const [key, definition] of Object.entries(processor?.parameters ?? {})) {
-      const defaultValue = definition.defaultValue ?? definition.default
-      parameters.value[key] = (defaultValue ?? (definition.type === 'boolean' ? false : '')) as ActionParameterValue
+      parameters.value[key] = actionParameterDefaultValue(definition)
     }
     if (workspaceId.value && processor) void loadParameterChoices(workspaceId.value, processor.id)
   }, { immediate: true })

@@ -1057,6 +1057,38 @@ class ActionRunServiceTest {
     }
 
     @Test
+    void resolveRunParametersCoercesMultipleValuesToTypedLists() {
+        ActionProcessorDefinition definition = definition("processor-multiple-parameters");
+        ActionDefinitionDocument.AllowedValues models = new ActionDefinitionDocument.AllowedValues(null, "models");
+        Map<String, ActionDefinitionDocument.Parameter> parameterDefinitions = Map.of(
+                "models", new ActionDefinitionDocument.Parameter(
+                        "string", null, null, null, null, true, models, true),
+                "passes", new ActionDefinitionDocument.Parameter(
+                        "integer", List.of(1), null, null, null, false, models, true)
+        );
+        when(definitionService.readParsedDocument(definition))
+                .thenReturn(parsedDefinition(definition.getProcessorKey(), "PROJECT", false, parameterDefinitions));
+
+        Map<String, Object> resolved = service.resolveRunParameters(
+                definition,
+                Map.of("models", List.of("a", "b")),
+                null
+        );
+
+        assertThat(resolved).containsEntry("models", List.of("a", "b"));
+        assertThat(resolved).containsEntry("passes", List.of(1));
+        assertThatThrownBy(() -> service.resolveRunParameters(definition, Map.of("models", "a"), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Action parameter models must be a list");
+        assertThatThrownBy(() -> service.resolveRunParameters(definition, Map.of("models", List.of("a", "a")), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Action parameter models must not contain duplicate values");
+        assertThatThrownBy(() -> service.resolveRunParameters(definition, Map.of("models", List.of()), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Action parameter models is required");
+    }
+
+    @Test
     void resolveRunParametersRejectsUnknownAndOutOfRangeOverrides() {
         ActionProcessorDefinition definition = definition("processor-parameter-validation");
         Map<String, ActionDefinitionDocument.Parameter> parameterDefinitions = Map.of(

@@ -10,6 +10,9 @@ const props = defineProps<{
 const value = defineModel<ActionParameterValue | undefined>()
 const choices = computed(() => actionParameterChoices(props.definition, props.discoveredValues))
 const numeric = computed(() => props.definition.type === 'integer' || props.definition.type === 'number')
+const inputValue = computed<string | number | undefined>(() =>
+  typeof value.value === 'boolean' || Array.isArray(value.value) ? String(value.value) : value.value
+)
 </script>
 
 <template>
@@ -19,10 +22,11 @@ const numeric = computed(() => props.definition.type === 'integer' || props.defi
     :required="definition.required"
   >
     <USelectMenu
-      v-if="choices.length"
+      v-if="choices.length || definition.multiple"
       v-model="value"
       :items="choices"
       value-key="value"
+      :multiple="Boolean(definition.multiple)"
       class="w-full"
     />
     <UCheckbox
@@ -32,7 +36,7 @@ const numeric = computed(() => props.definition.type === 'integer' || props.defi
     />
     <UInput
       v-else
-      :model-value="typeof value === 'boolean' ? String(value) : value"
+      :model-value="inputValue"
       :type="numeric ? 'number' : 'text'"
       :min="definition.min"
       :max="definition.max"

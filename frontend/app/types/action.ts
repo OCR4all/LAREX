@@ -94,12 +94,14 @@ export interface ActionParameterDefinition {
   description?: string
   required?: boolean
   allowedValues?: ActionAllowedValues
+  multiple?: boolean | null
 }
 
-export type ActionParameterValue = string | number | boolean
+export type ActionParameterScalar = string | number | boolean
+export type ActionParameterValue = ActionParameterScalar | ActionParameterScalar[]
 
 export interface ActionParameterChoice {
-  value: ActionParameterValue
+  value: ActionParameterScalar
   label: string
 }
 

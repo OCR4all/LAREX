@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   actionParameterChoices,
+  actionParameterDefaultValue,
+  allowedActionParameterValue,
+  isBlankActionParameterValue,
   actionParameterLabel,
   coerceActionParameterInput,
   hasAllowedActionParameterValue
@@ -23,6 +26,27 @@ describe('Action parameter values', () => {
     const discovered = { models: [{ value: 'model-a', label: 'Model A' }] }
 
     expect(actionParameterChoices(definition, discovered)).toEqual(discovered.models)
+  })
+
+  it('handles multiple selections as lists', () => {
+    const definition = { type: 'string' as const, multiple: true, allowedValues: { provider: 'models' } }
+    const discovered = { models: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] }
+
+    expect(actionParameterDefaultValue(definition)).toEqual([])
+    expect(actionParameterDefaultValue({ ...definition, default: ['a', { nested: true }] })).toEqual(['a'])
+    expect(hasAllowedActionParameterValue(definition, ['a', 'b'], discovered)).toBe(true)
+    expect(hasAllowedActionParameterValue(definition, [], discovered)).toBe(true)
+    expect(hasAllowedActionParameterValue(definition, ['a', 'gone'], discovered)).toBe(false)
+    expect(hasAllowedActionParameterValue(definition, 'a', discovered)).toBe(false)
+    expect(allowedActionParameterValue(definition, ['a', 'gone'], discovered)).toEqual(['a'])
+    expect(allowedActionParameterValue({ type: 'string', allowedValues: { provider: 'models' } }, 'gone', discovered)).toBeUndefined()
+  })
+
+  it('treats empty strings and empty lists as blank', () => {
+    expect(isBlankActionParameterValue([])).toBe(true)
+    expect(isBlankActionParameterValue('  ')).toBe(true)
+    expect(isBlankActionParameterValue(['a'])).toBe(false)
+    expect(isBlankActionParameterValue(false)).toBe(false)
   })
 
   it('coerces numeric inputs to numbers and rejects fractional integers', () => {

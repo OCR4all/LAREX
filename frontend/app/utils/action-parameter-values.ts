@@ -1,11 +1,19 @@
 import type {
   ActionParameterChoice,
   ActionParameterDefinition,
+  ActionParameterScalar,
   ActionParameterValue
 } from '@/types/action'
 
+function isActionParameterScalar(value: unknown): value is ActionParameterScalar {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
+}
+
 export function actionParameterDefaultValue(definition: ActionParameterDefinition): ActionParameterValue | '' {
   const configured = definition.defaultValue ?? definition.default
+  if (definition.multiple) {
+    return Array.isArray(configured) ? configured.filter(isActionParameterScalar) : []
+  }
   if (typeof configured === 'string' || typeof configured === 'number' || typeof configured === 'boolean') {
     return configured
   }
@@ -28,14 +36,38 @@ export function actionParameterChoices(
   return provider ? (discoveredValues[provider] ?? []) : []
 }
 
+function isAllowedChoice(choices: ActionParameterChoice[], value: unknown): boolean {
+  return choices.some(choice => typeof choice.value === typeof value && choice.value === value)
+}
+
 export function hasAllowedActionParameterValue(
   definition: ActionParameterDefinition,
   value: unknown,
   discoveredValues: Record<string, ActionParameterChoice[]>
 ): boolean {
   if (!definition.allowedValues) return true
-  return actionParameterChoices(definition, discoveredValues)
-    .some(choice => typeof choice.value === typeof value && choice.value === value)
+  const choices = actionParameterChoices(definition, discoveredValues)
+  if (definition.multiple) return Array.isArray(value) && value.every(item => isAllowedChoice(choices, item))
+  return isAllowedChoice(choices, value)
+}
+
+/** Keeps only the selections that are still offered, or `undefined` when a single value is no longer offered. */
+export function allowedActionParameterValue(
+  definition: ActionParameterDefinition,
+  value: unknown,
+  discoveredValues: Record<string, ActionParameterChoice[]>
+): ActionParameterValue | undefined {
+  const choices = actionParameterChoices(definition, discoveredValues)
+  if (definition.multiple) {
+    return Array.isArray(value) ? value.filter(item => isAllowedChoice(choices, item)) : []
+  }
+  return isAllowedChoice(choices, value) ? value as ActionParameterScalar : undefined
+}
+
+export function isBlankActionParameterValue(value: unknown): boolean {
+  if (value === undefined || value === null) return true
+  if (Array.isArray(value)) return value.length === 0
+  return typeof value === 'string' && value.trim().length === 0
 }
 
 export function coerceActionParameterInput(

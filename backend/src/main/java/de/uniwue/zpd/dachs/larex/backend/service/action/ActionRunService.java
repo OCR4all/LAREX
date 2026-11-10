@@ -3539,7 +3539,9 @@ public class ActionRunService {
         for (Map.Entry<String, ActionDefinitionDocument.Parameter> entry : definitions.entrySet()) {
             if (Boolean.TRUE.equals(entry.getValue().required())) {
                 Object value = resolved.get(entry.getKey());
-                if (value == null || (value instanceof String text && text.isBlank())) {
+                if (value == null
+                        || (value instanceof String text && text.isBlank())
+                        || (value instanceof Collection<?> values && values.isEmpty())) {
                     throw new IllegalArgumentException("Action parameter " + entry.getKey() + " is required");
                 }
             }
@@ -3582,6 +3584,9 @@ public class ActionRunService {
         if (parameter.defaultValue() != null) {
             return coerceParameterValue("default", parameter, parameter.defaultValue());
         }
+        if (parameter.allowsMultiple()) {
+            return List.of();
+        }
         return switch (parameterType(parameter)) {
             case "boolean" -> false;
             case "number" -> 0.0;
@@ -3591,6 +3596,28 @@ public class ActionRunService {
     }
 
     private Object coerceParameterValue(String key, ActionDefinitionDocument.Parameter parameter, Object value) {
+        if (!parameter.allowsMultiple()) {
+            return coerceScalarParameterValue(key, parameter, value);
+        }
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof Collection<?> values)) {
+            throw new IllegalArgumentException("Action parameter " + key + " must be a list");
+        }
+        LinkedHashSet<Object> coerced = new LinkedHashSet<>();
+        for (Object item : values) {
+            if (item == null) {
+                throw new IllegalArgumentException("Action parameter " + key + " must not contain empty values");
+            }
+            if (!coerced.add(coerceScalarParameterValue(key, parameter, item))) {
+                throw new IllegalArgumentException("Action parameter " + key + " must not contain duplicate values");
+            }
+        }
+        return List.copyOf(coerced);
+    }
+
+    private Object coerceScalarParameterValue(String key, ActionDefinitionDocument.Parameter parameter, Object value) {
         String type = parameterType(parameter);
         if ("boolean".equals(type)) {
             if (value instanceof Boolean booleanValue) {

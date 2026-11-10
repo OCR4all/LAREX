@@ -100,14 +100,29 @@ public record ActionDefinitionDocument(
                             Double max,
                             String description,
                             Boolean required,
-                            AllowedValues allowedValues) {
+                            AllowedValues allowedValues,
+                            Boolean multiple) {
         public Parameter(String type,
                          Object defaultValue,
                          Double min,
                          Double max,
                          String description,
                          Boolean required) {
-            this(type, defaultValue, min, max, description, required, null);
+            this(type, defaultValue, min, max, description, required, null, null);
+        }
+
+        public Parameter(String type,
+                         Object defaultValue,
+                         Double min,
+                         Double max,
+                         String description,
+                         Boolean required,
+                         AllowedValues allowedValues) {
+            this(type, defaultValue, min, max, description, required, allowedValues, null);
+        }
+
+        public boolean allowsMultiple() {
+            return Boolean.TRUE.equals(multiple);
         }
     }
 
