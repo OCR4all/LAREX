@@ -2316,34 +2316,34 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
       <Transition name="fade">
         <div
           v-if="pageLockActionName"
-          class="pointer-events-auto flex max-w-full items-center gap-1.5 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pr-3 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
+          class="editor-status-pill"
         >
-          <div class="flex shrink-0 items-center gap-1.5 rounded-full border border-default bg-default px-1.5 py-0.5">
+          <div class="editor-status-badge">
             <Icon name="i-lucide-loader-2" class="h-3.5 w-3.5 animate-spin" />
             <span class="font-medium">Action running</span>
           </div>
-          <span class="truncate px-2 font-medium text-toned">{{ pageLockActionName }}</span>
+          <span class="editor-status-message font-medium">{{ pageLockActionName }}</span>
         </div>
       </Transition>
 
       <div
         v-if="!isActionResultTransitionVisible && !pageLockReason && !isCanvasEditable && hasCanvasLeaseExpiredLocally && canReclaimCanvasEdit"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pl-2 pr-2 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
+        class="editor-status-pill"
       >
-        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
+        <div class="editor-status-badge">
           <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
             <Icon name="i-lucide-rotate-ccw" class="h-3 w-3" />
           </div>
           <span class="font-medium">Edit lock expired</span>
         </div>
-        <span class="min-w-0 truncate text-xs text-toned">This page is free again.</span>
+        <span class="editor-status-message">This page is free again.</span>
 
-        <div class="flex shrink-0 items-center gap-1.5">
+        <div class="editor-status-actions">
           <UButton
             size="xs"
             color="neutral"
             variant="outline"
-            class="h-6 px-2 text-[11px]"
+            class="editor-status-button"
             label="Reclaim Edit"
             @click="handleReclaimEdit"
           />
@@ -2352,24 +2352,24 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
 
       <div
         v-else-if="pageLockReason && !pageLockActionName"
-        class="editor-read-only-pill"
+        class="editor-status-pill"
       >
-        <div class="editor-read-only-status">
+        <div class="editor-status-badge">
           <Icon name="i-lucide-lock" class="size-3.5 shrink-0" />
           <span>Read-only</span>
         </div>
-        <span class="editor-read-only-helper">{{ pageLockDescription }}</span>
+        <span class="editor-status-message">{{ pageLockDescription }}</span>
       </div>
 
       <div
         v-else-if="!isActionResultTransitionVisible && !pageLockReason && !isCanvasEditable && canvasEditor"
-        class="editor-read-only-pill"
+        class="editor-status-pill"
       >
-        <div class="editor-read-only-status">
+        <div class="editor-status-badge">
           <Icon name="i-lucide-lock" class="size-3.5 shrink-0" />
           <span>Read-only</span>
         </div>
-        <span class="editor-read-only-helper">
+        <span class="editor-status-message">
           {{ canvasEditor.user.displayName }} currently holds the edit lock.
         </span>
 
@@ -2384,13 +2384,13 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
           :ui="{ leadingIcon: 'size-3.5 shrink-0' }"
           @update:model-value="handleViewerNavigationChange"
         />
-        <div v-if="canRequestTakeover || canForceTakeover" class="editor-read-only-actions">
+        <div v-if="canRequestTakeover || canForceTakeover" class="editor-status-actions">
           <UButton
             v-if="canRequestTakeover"
             size="xs"
             color="neutral"
             variant="ghost"
-            class="editor-read-only-button"
+            class="editor-status-button"
             :ui="{ leadingIcon: 'size-3.5 shrink-0' }"
             icon="i-lucide-pencil-line"
             label="Request edit"
@@ -2403,7 +2403,7 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
             size="xs"
             color="neutral"
             variant="ghost"
-            class="editor-read-only-button"
+            class="editor-status-button"
             :ui="{ leadingIcon: 'size-3.5 shrink-0 text-error' }"
             icon="i-lucide-octagon-alert"
             label="Force takeover"
@@ -2416,50 +2416,50 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
 
       <div
         v-else-if="!isActionResultTransitionVisible && !pageLockReason && !isCanvasEditable"
-        class="editor-read-only-pill"
+        class="editor-status-pill"
       >
-        <div class="editor-read-only-status">
+        <div class="editor-status-badge">
           <Icon name="i-lucide-lock" class="size-3.5 shrink-0" />
           <span>Read-only</span>
         </div>
-        <span class="editor-read-only-helper">Editing is disabled for this page.</span>
+        <span class="editor-status-message">Editing is disabled for this page.</span>
       </div>
 
       <div
         v-if="isCanvasEditable && isCanvasLeaseExpiringSoon"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 px-2 py-1 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
+        class="editor-status-pill"
       >
-        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
+        <div class="editor-status-badge">
           <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
             <Icon name="i-lucide-clock-3" class="h-3 w-3" />
           </div>
           <span class="font-medium">Edit lock expiring</span>
         </div>
-        <span class="min-w-0 truncate pr-2 text-xs text-toned">
+        <span class="editor-status-message">
           {{ canvasLeaseSecondsUntilExpiry ?? 0 }}s remaining unless the heartbeat resumes.
         </span>
       </div>
 
       <div
         v-if="isCanvasEditable && pendingTakeover"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pl-2 pr-2 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
+        class="editor-status-pill"
       >
-        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
+        <div class="editor-status-badge">
           <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
             <Icon name="i-lucide-arrow-right-left" class="h-3 w-3" />
           </div>
           <span class="font-medium">Edit requested</span>
         </div>
-        <span class="min-w-0 truncate text-xs text-toned">
+        <span class="editor-status-message">
           {{ pendingTakeover.requester.displayName }} requested access.
         </span>
 
-        <div class="flex shrink-0 items-center gap-1.5">
+        <div class="editor-status-actions">
           <UButton
             size="xs"
             color="neutral"
             variant="outline"
-            class="h-6 px-2 text-[11px]"
+            class="editor-status-button"
             label="Decline"
             :disabled="isTakeoverActionPending"
             @click="handleRespondToTakeover('decline')"
@@ -2468,7 +2468,7 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
             size="xs"
             color="neutral"
             variant="outline"
-            class="h-6 px-2 text-[11px]"
+            class="editor-status-button"
             label="Discard + Transfer"
             :disabled="isTakeoverActionPending"
             @click="handleRespondToTakeover('accept', 'discard')"
@@ -2477,7 +2477,7 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
             size="xs"
             color="neutral"
             variant="outline"
-            class="h-6 px-2 text-[11px]"
+            class="editor-status-button"
             label="Save + Transfer"
             :loading="isTakeoverActionPending"
             :disabled="isTakeoverActionPending"
@@ -2488,24 +2488,24 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
 
       <div
         v-if="isCollaborationResyncRequired"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 p-0.5 pl-2 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
+        class="editor-status-pill"
       >
-        <div class="flex min-w-0 items-center gap-2 rounded-full border border-default bg-default px-1.5 py-0.5">
+        <div class="editor-status-badge">
           <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
             <Icon name="i-lucide-alert-triangle" class="h-3 w-3" />
           </div>
           <span class="font-medium">Out of sync</span>
         </div>
-        <span class="min-w-0 truncate text-xs text-toned">
+        <span class="editor-status-message">
           Another save or restore changed the persisted XML revision.
         </span>
 
-        <div class="flex shrink-0 items-center gap-1.5">
+        <div class="editor-status-actions">
           <UButton
             size="xs"
             color="neutral"
             variant="outline"
-            class="h-6 px-2 text-[11px]"
+            class="editor-status-button"
             @click="handleResyncRoom"
           >
             Resync
@@ -2515,13 +2515,13 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
 
       <div
         v-if="regionLabelConflictCount > 0"
-        class="pointer-events-auto flex max-w-full items-center justify-between gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/95 px-1.5 py-0.5 text-sm text-highlighted shadow-md backdrop-blur dark:border-neutral-700/80 dark:bg-neutral-800/95"
+        class="editor-status-pill"
       >
-        <div class="flex min-w-0 items-center gap-1.5 rounded-full border border-transparent bg-(--ui-color-error-600) px-1.5 py-0.5 text-white">
+        <div class="editor-status-badge editor-status-badge-error">
           <Icon name="i-lucide-tags" class="size-3.5 shrink-0" />
           <span class="font-medium">Label conflicts</span>
         </div>
-        <span class="min-w-0 truncate text-xs text-toned">
+        <span class="editor-status-message">
           {{ regionLabelConflictCount }} region{{ regionLabelConflictCount === 1 ? '' : 's' }} use
           {{ regionLabelConflictGroups.length }} mapping{{ regionLabelConflictGroups.length === 1 ? '' : 's' }}
           outside {{ canvasLabelSet?.name }}.
@@ -2532,7 +2532,7 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
           color="neutral"
           variant="outline"
           icon="i-lucide-wand-sparkles"
-          class="h-6 shrink-0 rounded-full px-2 text-[11px]"
+          class="editor-status-button"
           label="Resolve labels"
           @click="openLabelConflictResolver"
         />
@@ -3318,8 +3318,8 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
 </template>
 
 <style scoped>
-/* One inset system keeps the single-row capsule and its controls concentric. */
-.editor-read-only-pill {
+/* Shared sizing keeps badges and controls aligned as status pills wrap. */
+.editor-status-pill {
   --pill-padding: 4px;
   --pill-gap: 4px;
   --pill-border: 1px;
@@ -3342,17 +3342,17 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
   pointer-events: auto;
 }
 
-.editor-read-only-status,
-.editor-read-only-button {
+.editor-status-badge,
+.editor-status-button {
   box-sizing: border-box;
   flex-shrink: 0;
-  height: var(--pill-control-height);
+  min-height: var(--pill-control-height);
   border: var(--pill-border) solid var(--ui-border-accented);
   border-radius: var(--pill-control-radius);
 }
 
-.editor-read-only-status,
-.editor-read-only-button {
+.editor-status-badge,
+.editor-status-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3366,12 +3366,19 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
   white-space: nowrap;
 }
 
-.editor-read-only-status {
+.editor-status-badge {
   color: var(--ui-text-highlighted);
   font-weight: 600;
 }
 
-.editor-read-only-helper {
+.editor-status-badge-error {
+  border-color: transparent;
+  background: var(--ui-color-error-600);
+  color: white;
+}
+
+.editor-status-message {
+  flex: 1 1 8rem;
   min-width: 0;
   padding-inline: var(--pill-padding);
   color: var(--ui-text-muted);
@@ -3380,7 +3387,7 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
   overflow-wrap: anywhere;
 }
 
-.editor-read-only-actions {
+.editor-status-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -3433,23 +3440,23 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
   color: var(--dv-activegroup-visiblepanel-tab-color, var(--ui-text-highlighted));
 }
 
-.editor-read-only-button {
+.editor-status-button {
   box-shadow: none;
   transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
-.editor-read-only-button:focus-visible,
+.editor-status-button:focus-visible,
 .editor-read-only-tabs :deep([data-slot="trigger"]:focus-visible) {
   outline: 2px solid var(--ui-primary);
   outline-offset: 2px;
 }
 
-.editor-read-only-button:active:not(:disabled) {
+.editor-status-button:active:not(:disabled) {
   transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .editor-read-only-button:hover:not(:disabled) {
+  .editor-status-button:hover:not(:disabled) {
     border-color: var(--ui-text-dimmed);
     background: var(--ui-bg-elevated);
     color: var(--ui-text-highlighted);
@@ -3466,13 +3473,13 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .editor-read-only-button,
+  .editor-status-button,
   .editor-read-only-tabs :deep([data-slot="trigger"]),
   .editor-read-only-tabs :deep([data-slot="indicator"]) {
     transition: none;
   }
 
-  .editor-read-only-button:active:not(:disabled) {
+  .editor-status-button:active:not(:disabled) {
     transform: none;
   }
 }
