@@ -1,6 +1,6 @@
 import { reserveRasterMemory, releaseRasterMemory } from '@/services/editor/raster-memory'
 import { loadEditorImage, type EditorImageOptions } from '@/services/editor/editor-image'
-import { ThickLineRenderer } from '@/webgl/editor/thick-line-renderer'
+import { ThickLineRenderer, type LineData } from '@/webgl/editor/thick-line-renderer'
 import { DashedLineRenderer } from '@/webgl/editor/dashed-line-renderer'
 import { SelectionOverlayRenderer } from '@/webgl/editor/selection-overlay'
 import { ResourcePool } from '@/webgl/editor/resource-pool'
@@ -1107,8 +1107,14 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
     view: View
   ): void {
+    if (!thickLineRenderer) return
     const document = getActiveDocument()
     const frameContext = getRenderFrameContext(renderState)
+    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
+    const lineWidth = getLineWidth()
+    // A page can show thousands of outlines here (word and glyph views), so
+    // solid ones share a single draw call.
+    const solidOutlines: LineData[] = []
 
     renderState.polygons.forEach((polygon, index) => {
       if (index === renderState.selectedPolygonIndex.value) {
@@ -1132,8 +1138,20 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         polygonStyle.nodeColor = diffColor
         polygonStyle.strokeWidthMultiplier = Math.max(polygonStyle.strokeWidthMultiplier, 1.9)
       }
-      drawPolygonOutline(polygon, polygonStyle, getLineWidth(), aspectRatioScale, view, polygon.id)
+
+      if (polygonStyle.strokePattern !== 'solid') {
+        drawPolygonOutline(polygon, polygonStyle, lineWidth, aspectRatioScale, view, polygon.id)
+        return
+      }
+      solidOutlines.push({
+        points: polygon.points,
+        color: polygonStyle.strokeColor,
+        thickness: lineWidth * polygonStyle.strokeWidthMultiplier,
+        isClosed: polygon.type !== PolygonType.BASELINE
+      })
     })
+
+    thickLineRenderer.drawMultipleThickLines(solidOutlines, scale, view)
   }
 
   /**

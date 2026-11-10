@@ -37,6 +37,80 @@ interface ThickLineUniforms {
   resolution: WebGLUniformLocation | null
 }
 
+export interface LineBatchBuffers {
+  /** Interleaved position, normal, color and thickness per vertex */
+  vertices: Float32Array
+  indices: Uint32Array
+}
+
+interface LineBatch {
+  lines: LineData[]
+  geometryVersion: number
+  indexCount: number
+}
+
+const BATCH_VERTEX_COMPONENTS = WEBGL_LINE_GEOMETRY.POSITION_COMPONENTS
+  + WEBGL_LINE_GEOMETRY.NORMAL_COMPONENTS
+  + WEBGL_LINE_GEOMETRY.COLOR_COMPONENTS
+  + 1
+
+function isSameLine(a: LineData, b: LineData): boolean {
+  return a.points === b.points
+    && a.isClosed === b.isClosed
+    && a.thickness === b.thickness
+    && a.color[0] === b.color[0]
+    && a.color[1] === b.color[1]
+    && a.color[2] === b.color[2]
+    && a.color[3] === b.color[3]
+}
+
+/**
+ * The same shaders draw one line (color and thickness as uniforms) or a batch
+ * of lines (color and thickness per vertex).
+ */
+function createLineProgram(gl: WebGL2RenderingContext, batched: boolean): WebGLProgram {
+  const vsSource = `#version ${WEBGL_GLSL.VERSION} ${WEBGL_GLSL.ES_SUFFIX}
+      in vec2 a_position;
+      in vec2 a_normal;
+      ${batched ? 'in vec4 a_color; in float a_thickness; out vec4 v_color;' : 'uniform float u_thickness;'}
+      uniform vec2 u_scale;
+      uniform vec2 u_offset;
+      uniform float u_zoom;
+      uniform vec2 u_rotation;
+      uniform float u_canvasAspect;
+      uniform vec2 u_resolution;
+
+      void main() {
+        vec2 pos = (a_position * u_zoom) + u_offset;
+        vec2 scaled = pos * u_scale;
+        vec2 clip = vec2(
+          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
+          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
+        );
+
+        vec2 pixelSize = ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_PIXEL_SCALE)} / u_resolution;
+        vec2 offset = a_normal * ${batched ? 'a_thickness' : 'u_thickness'} * pixelSize * ${glslFloatLiteral(WEBGL_GLSL.HALF)};
+        vec2 clipOffset = vec2(
+          offset.x * u_rotation.x - (offset.y * u_rotation.y) / u_canvasAspect,
+          offset.x * u_rotation.y * u_canvasAspect + offset.y * u_rotation.x
+        );
+
+        gl_Position = vec4(clip + clipOffset, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
+        ${batched ? 'v_color = a_color;' : ''}
+      }`
+
+  const fsSource = `#version ${WEBGL_GLSL.VERSION} ${WEBGL_GLSL.ES_SUFFIX}
+      precision mediump float;
+      ${batched ? 'in vec4 v_color;' : 'uniform vec4 u_color;'}
+      out vec4 outColor;
+
+      void main() {
+        outColor = ${batched ? 'v_color' : 'u_color'};
+      }`
+
+  return createProgram(gl, vsSource, fsSource)
+}
+
 /**
  * Thick line renderer for WebGL - renders lines with configurable thickness
  */
@@ -51,6 +125,13 @@ export class ThickLineRenderer {
   private normalAttribute = -1
   private uniforms: ThickLineUniforms | null = null
   private geometryCache = new Map<string, CachedLineGeometry>()
+  private geometryVersion = 0
+  private batchProgram: WebGLProgram | null = null
+  private batchVao: WebGLVertexArrayObject | null = null
+  private batchVertexBuffer: WebGLBuffer | null = null
+  private batchIndexBuffer: WebGLBuffer | null = null
+  private batchUniforms: ThickLineUniforms | null = null
+  private batch: LineBatch | null = null
   private initialized = false
 
   constructor(gl: WebGL2RenderingContext, uniformState = new UniformStateCache(gl)) {
@@ -64,62 +145,55 @@ export class ThickLineRenderer {
   init(): void {
     if (this.initialized) return
 
-    const vsSource = `#version ${WEBGL_GLSL.VERSION} ${WEBGL_GLSL.ES_SUFFIX}
-      in vec2 a_position;
-      in vec2 a_normal;
-      uniform vec2 u_scale;
-      uniform vec2 u_offset;
-      uniform float u_zoom;
-      uniform vec2 u_rotation;
-      uniform float u_canvasAspect;
-      uniform float u_thickness;
-      uniform vec2 u_resolution;
-
-      void main() {
-        vec2 pos = (a_position * u_zoom) + u_offset;
-        vec2 scaled = pos * u_scale;
-        vec2 clip = vec2(
-          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
-          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
-        );
-
-        vec2 pixelSize = ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_PIXEL_SCALE)} / u_resolution;
-        vec2 offset = a_normal * u_thickness * pixelSize * ${glslFloatLiteral(WEBGL_GLSL.HALF)};
-        vec2 clipOffset = vec2(
-          offset.x * u_rotation.x - (offset.y * u_rotation.y) / u_canvasAspect,
-          offset.x * u_rotation.y * u_canvasAspect + offset.y * u_rotation.x
-        );
-
-        gl_Position = vec4(clip + clipOffset, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
-      }`
-
-    const fsSource = `#version ${WEBGL_GLSL.VERSION} ${WEBGL_GLSL.ES_SUFFIX}
-      precision mediump float;
-      uniform vec4 u_color;
-      out vec4 outColor;
-
-      void main() {
-        outColor = u_color;
-      }`
-
-    this.program = createProgram(this.gl, vsSource, fsSource)
+    this.program = createLineProgram(this.gl, false)
+    this.batchProgram = createLineProgram(this.gl, true)
     this.setupBuffers()
-    this.cacheUniformLocations()
+    this.setupBatchBuffers()
+    this.uniforms = this.getUniformLocations(this.program)
+    this.batchUniforms = this.getUniformLocations(this.batchProgram)
     this.initialized = true
   }
 
-  private cacheUniformLocations(): void {
-    if (!this.program) return
-    this.uniforms = {
-      scale: this.uniformState.getLocation(this.program, 'u_scale'),
-      offset: this.uniformState.getLocation(this.program, 'u_offset'),
-      zoom: this.uniformState.getLocation(this.program, 'u_zoom'),
-      rotation: this.uniformState.getLocation(this.program, 'u_rotation'),
-      canvasAspect: this.uniformState.getLocation(this.program, 'u_canvasAspect'),
-      color: this.uniformState.getLocation(this.program, 'u_color'),
-      thickness: this.uniformState.getLocation(this.program, 'u_thickness'),
-      resolution: this.uniformState.getLocation(this.program, 'u_resolution')
+  private getUniformLocations(program: WebGLProgram): ThickLineUniforms {
+    return {
+      scale: this.uniformState.getLocation(program, 'u_scale'),
+      offset: this.uniformState.getLocation(program, 'u_offset'),
+      zoom: this.uniformState.getLocation(program, 'u_zoom'),
+      rotation: this.uniformState.getLocation(program, 'u_rotation'),
+      canvasAspect: this.uniformState.getLocation(program, 'u_canvasAspect'),
+      color: this.uniformState.getLocation(program, 'u_color'),
+      thickness: this.uniformState.getLocation(program, 'u_thickness'),
+      resolution: this.uniformState.getLocation(program, 'u_resolution')
     }
+  }
+
+  private setupBatchBuffers(): void {
+    if (!this.batchProgram) return
+    const gl = this.gl
+    const stride = BATCH_VERTEX_COMPONENTS * WEBGL_BUFFER_LAYOUT.FLOAT_BYTES
+
+    this.batchVao = gl.createVertexArray()
+    this.batchVertexBuffer = gl.createBuffer()
+    this.batchIndexBuffer = gl.createBuffer()
+    gl.bindVertexArray(this.batchVao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.batchVertexBuffer)
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.batchIndexBuffer)
+
+    let offset = 0
+    const attributes: Array<[string, number]> = [
+      ['a_position', WEBGL_LINE_GEOMETRY.POSITION_COMPONENTS],
+      ['a_normal', WEBGL_LINE_GEOMETRY.NORMAL_COMPONENTS],
+      ['a_color', WEBGL_LINE_GEOMETRY.COLOR_COMPONENTS],
+      ['a_thickness', 1]
+    ]
+    for (const [name, components] of attributes) {
+      const location = gl.getAttribLocation(this.batchProgram, name)
+      gl.enableVertexAttribArray(location)
+      gl.vertexAttribPointer(location, components, gl.FLOAT, false, stride, offset * WEBGL_BUFFER_LAYOUT.FLOAT_BYTES)
+      offset += components
+    }
+
+    gl.bindVertexArray(null)
   }
 
   /**
@@ -169,6 +243,18 @@ export class ThickLineRenderer {
     const uniforms = this.uniforms
     if (!uniforms) return
 
+    this.setTransformUniforms(uniforms, aspectRatioScale, view)
+    this.uniformState.uniform4f(
+      uniforms.color,
+      color[0] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+      color[1] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+      color[2] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+      color[3] ?? WEBGL_DEFAULTS.ALPHA_CHANNEL
+    )
+    this.uniformState.uniform1f(uniforms.thickness, thickness)
+  }
+
+  private setTransformUniforms(uniforms: ThickLineUniforms, aspectRatioScale: Scale, view: View): void {
     this.uniformState.uniform2f(uniforms.scale, aspectRatioScale.scaleX, aspectRatioScale.scaleY)
     this.uniformState.uniform2f(uniforms.offset, view.offsetX, view.offsetY)
     this.uniformState.uniform1f(uniforms.zoom, view.zoom)
@@ -184,15 +270,6 @@ export class ThickLineRenderer {
       ? aspectRatioScale.rotationAspect!
       : fallbackAspect
     this.uniformState.uniform1f(uniforms.canvasAspect, rotationAspect)
-
-    this.uniformState.uniform4f(
-      uniforms.color,
-      color[0] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-      color[1] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-      color[2] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
-      color[3] ?? WEBGL_DEFAULTS.ALPHA_CHANNEL
-    )
-    this.uniformState.uniform1f(uniforms.thickness, thickness)
     this.uniformState.uniform2f(uniforms.resolution, this.gl.canvas.width, this.gl.canvas.height)
   }
 
@@ -377,41 +454,73 @@ export class ThickLineRenderer {
   }
 
   /**
-   * Draws multiple thick lines with different colors
-   * @param lineData - Array of line objects: { points, color, thickness, isClosed }
+   * Expand lines into one vertex and index buffer. Each line keeps the
+   * triangles its triangle strip would produce, so a batch renders the same
+   * pixels as drawing the lines one by one.
+   */
+  buildLineBatchBuffers(lines: LineData[]): LineBatchBuffers {
+    const vertices: number[] = []
+    const indices: number[] = []
+
+    for (const line of lines) {
+      const { positions, normals } = this.generateThickLineVertices(line.points, line.isClosed)
+      const firstVertex = vertices.length / BATCH_VERTEX_COMPONENTS
+      const vertexCount = positions.length / WEBGL_LINE_GEOMETRY.POSITION_COMPONENTS
+
+      for (let vertex = 0; vertex < vertexCount; vertex++) {
+        vertices.push(
+          positions[vertex * 2]!, positions[vertex * 2 + 1]!,
+          normals[vertex * 2]!, normals[vertex * 2 + 1]!,
+          line.color[0] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+          line.color[1] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+          line.color[2] ?? WEBGL_DEFAULTS.COLOR_CHANNEL,
+          line.color[3] ?? WEBGL_DEFAULTS.ALPHA_CHANNEL,
+          line.thickness
+        )
+      }
+      for (let vertex = 0; vertex + 2 < vertexCount; vertex++) {
+        indices.push(firstVertex + vertex, firstVertex + vertex + 1, firstVertex + vertex + 2)
+      }
+    }
+
+    return { vertices: new Float32Array(vertices), indices: new Uint32Array(indices) }
+  }
+
+  /**
+   * Draws many thick lines in one draw call. The buffers are reused until a
+   * line's points array, color, thickness or closing changes, or geometry is
+   * invalidated.
+   * @param lines - Lines to draw, in paint order
    * @param aspectRatioScale - Scale object with scaleX, scaleY
    * @param view - View transformation with offsetX, offsetY, zoom
    */
-  drawMultipleThickLines(lineData: LineData[], aspectRatioScale: Scale, view: View): void {
-    if (!this.initialized || !this.program) return
+  drawMultipleThickLines(lines: LineData[], aspectRatioScale: Scale, view: View): void {
+    if (!this.initialized || !this.batchProgram || !this.batchUniforms || lines.length === 0) return
+    const gl = this.gl
 
-    this.gl.useProgram(this.program)
-    this.gl.bindVertexArray(this.vao)
+    gl.useProgram(this.batchProgram)
+    gl.bindVertexArray(this.batchVao)
 
-    for (const line of lineData) {
-      const { positions, normals } = this.generateThickLineVertices(line.points, line.isClosed)
-
-      if (positions.length === 0) continue
-
-      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer)
-      this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.DYNAMIC_DRAW)
-
-      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.normalBuffer)
-      this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(normals), this.gl.DYNAMIC_DRAW)
-
-      this.setUniforms(line.color, line.thickness, aspectRatioScale, view)
-
-      this.gl.drawArrays(
-        this.gl.TRIANGLE_STRIP,
-        0,
-        positions.length / WEBGL_LINE_GEOMETRY.POSITION_COMPONENTS
-      )
+    const batch = this.batch
+    const isCurrent = batch !== null
+      && batch.geometryVersion === this.geometryVersion
+      && batch.lines.length === lines.length
+      && lines.every((line, index) => isSameLine(line, batch.lines[index]!))
+    if (!isCurrent) {
+      const { vertices, indices } = this.buildLineBatchBuffers(lines)
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.batchVertexBuffer)
+      gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.DYNAMIC_DRAW)
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.DYNAMIC_DRAW)
+      this.batch = { lines, geometryVersion: this.geometryVersion, indexCount: indices.length }
     }
 
-    this.gl.bindVertexArray(null)
+    this.setTransformUniforms(this.batchUniforms, aspectRatioScale, view)
+    gl.drawElements(gl.TRIANGLES, this.batch!.indexCount, gl.UNSIGNED_INT, 0)
+    gl.bindVertexArray(null)
   }
 
   invalidateGeometry(cacheKey: string): void {
+    this.geometryVersion++
     for (const [key, entry] of this.geometryCache) {
       if (entry.cacheKey === cacheKey) {
         this.deleteCachedGeometry(entry)
@@ -430,6 +539,7 @@ export class ThickLineRenderer {
   }
 
   clearGeometryCache(): void {
+    this.geometryVersion++
     for (const entry of this.geometryCache.values()) {
       this.deleteCachedGeometry(entry)
     }
@@ -460,6 +570,17 @@ export class ThickLineRenderer {
       this.gl.deleteProgram(this.program)
       this.program = null
     }
+
+    this.gl.deleteBuffer(this.batchVertexBuffer)
+    this.gl.deleteBuffer(this.batchIndexBuffer)
+    this.gl.deleteVertexArray(this.batchVao)
+    this.gl.deleteProgram(this.batchProgram)
+    this.batchVertexBuffer = null
+    this.batchIndexBuffer = null
+    this.batchVao = null
+    this.batchProgram = null
+    this.batchUniforms = null
+    this.batch = null
 
     this.initialized = false
     this.uniforms = null
