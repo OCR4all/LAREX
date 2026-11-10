@@ -15,6 +15,7 @@ const compiled = transpileModule(compileScript(descriptor, { id: 'dataset-integr
 }).outputText
 const dependencies: Record<string, unknown> = {
   'vue': Vue,
+  '@/components/action/start-button.vue': { default: {} },
   '@/utils/action-run-status': actionRunStatus,
   '@/utils/api-error': apiError,
   '@/utils/action-input-requirements': inputRequirements,

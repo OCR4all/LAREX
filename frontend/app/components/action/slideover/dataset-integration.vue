@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ActionStartButton from '@/components/action/start-button.vue'
 import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import type { ActionDefinition, ActionParameterChoice, ActionParameterValue, ActionRun, ActionRunDetail, IntegrationInputItem, IntegrationInputResponse, StartActionRunResponse } from '@/types/action'
 import { actionParameterChoices, actionParameterDefaultValue, coerceActionParameterInput, hasAllowedActionParameterValue, isBlankActionParameterValue } from '@/utils/action-parameter-values'
@@ -420,14 +421,13 @@ onMounted(load)
         >
           Close
         </UButton>
-        <UButton
-          icon="i-lucide-plug"
+        <ActionStartButton
           :disabled="!canStart"
           :loading="starting"
           @click="start"
         >
           Start Action
-        </UButton>
+        </ActionStartButton>
       </div>
     </template>
   </UiResponsiveSlideover>

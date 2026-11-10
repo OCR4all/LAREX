@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ActionStartButton from '@/components/action/start-button.vue'
 import { actionRunStatusLabel, actionRunStatusColor, canRetryActionRun, actionRunCountsLabel } from '@/utils/action-run-status'
 import { extractApiErrorDetails } from '@/utils/api-error'
 import { annotationLevelLabels, retainedImpactPages, reviewedActionConfiguration } from '@/utils/action-impact'
@@ -1748,24 +1749,23 @@ function close() {
         >
           Back
         </UButton>
-        <UButton
+        <ActionStartButton
           v-if="impact"
-          icon="i-lucide-play"
           :loading="starting"
           :disabled="includedImpactPages.length === 0 || starting"
           @click="confirmReviewedRun"
         >
           {{ reviewRetryRunId ? 'Retry' : 'Start' }} Action on {{ includedImpactPages.length }} pages
-        </UButton>
-        <UButton
+        </ActionStartButton>
+        <ActionStartButton
           v-else-if="view === 'configure'"
-          icon="i-lucide-play"
           :loading="starting || impactLoading"
+          :loading-label="impactLoading ? 'Reviewing pages…' : 'Starting Action…'"
           :disabled="!canStart || impactLoading"
           @click="startRun"
         >
           Start Action
-        </UButton>
+        </ActionStartButton>
       </div>
     </template>
   </UiResponsiveSlideover>

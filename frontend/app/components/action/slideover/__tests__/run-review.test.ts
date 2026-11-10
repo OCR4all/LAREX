@@ -40,6 +40,7 @@ const renderBulkSelector = compileControl(bulkSelector)
 const renderPageImageList = compileControl(pageList)
 const dependencies: Record<string, unknown> = {
   'vue': Vue,
+  '@/components/action/start-button.vue': { default: {} },
   '@/utils/action-run-status': actionRunStatus,
   '@/utils/api-error': apiError,
   '@/utils/action-impact': impactHelpers,
