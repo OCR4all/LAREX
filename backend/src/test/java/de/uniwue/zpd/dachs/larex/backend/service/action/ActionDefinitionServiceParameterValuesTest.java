@@ -180,6 +180,96 @@ class ActionDefinitionServiceParameterValuesTest {
     }
 
     @Test
+    void passesProviderDefaultsThroughAndIgnoresUnknownChoiceFields() {
+        when(httpResponse.statusCode()).thenReturn(200);
+        when(httpResponse.body()).thenAnswer(ignored -> choicesResponse("""
+                {"value": "model-a", "label": "Model A", "futureField": {"nested": true}},
+                {"value": "model-b", "label": "Model B", "default": true},
+                {"value": "model-c", "label": "Model C", "default": false}
+                """));
+
+        ActionDto.ParameterValuesResponse response = service.discoverParameterValues(definition);
+
+        assertThat(response.values().get("models"))
+                .extracting(choice -> choice.value(), choice -> choice.defaultChoice())
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("model-a", null),
+                        org.assertj.core.groups.Tuple.tuple("model-b", true),
+                        org.assertj.core.groups.Tuple.tuple("model-c", null));
+        assertThat(new ObjectMapper().writeValueAsString(response.values().get("models").getFirst()))
+                .doesNotContain("default");
+    }
+
+    @Test
+    void appliesProviderDefaultsOnlyToParametersTheCallerLeftUnset() {
+        when(httpResponse.statusCode()).thenReturn(200);
+        when(httpResponse.body()).thenAnswer(ignored -> choicesResponse("""
+                {"value": "model-a", "label": "Model A"},
+                {"value": "model-b", "label": "Model B", "default": true}
+                """));
+
+        Map<String, Object> offeredYamlDefault = new java.util.LinkedHashMap<>(Map.of("model", "model-a"));
+        service.resolveAllowedParameterValues(definition, offeredYamlDefault, java.util.Set.of("model"));
+        assertThat(offeredYamlDefault).containsEntry("model", "model-a");
+
+        definition.setParsedJson(dynamicDefinitionJson().replace("\"default\": \"model-a\",", "\"default\": \"gone\","));
+        Map<String, Object> staleYamlDefault = new java.util.LinkedHashMap<>(Map.of("model", "gone"));
+        service.resolveAllowedParameterValues(definition, staleYamlDefault, java.util.Set.of("model"));
+        assertThat(staleYamlDefault).containsEntry("model", "model-b");
+
+        definition.setParsedJson(dynamicDefinitionJson().replace("\"default\": \"model-a\",", ""));
+        Map<String, Object> noYamlDefault = new java.util.LinkedHashMap<>(Map.of("model", ""));
+        service.resolveAllowedParameterValues(definition, noYamlDefault, java.util.Set.of("model"));
+        assertThat(noYamlDefault).containsEntry("model", "model-b");
+
+        Map<String, Object> explicit = new java.util.LinkedHashMap<>(Map.of("model", "forged"));
+        assertThatThrownBy(() -> service.resolveAllowedParameterValues(definition, explicit, java.util.Set.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Action parameter model must be one of its allowed values");
+    }
+
+    @Test
+    void allowsSeveralProviderDefaultsOnlyForMultipleParameters() {
+        when(httpResponse.statusCode()).thenReturn(200);
+        when(httpResponse.body()).thenAnswer(ignored -> choicesResponse("""
+                {"value": "model-a", "label": "Model A", "default": true},
+                {"value": "model-b", "label": "Model B", "default": true},
+                {"value": "model-c", "label": "Model C"}
+                """));
+
+        assertThatThrownBy(() -> service.discoverParameterValues(definition))
+                .isInstanceOf(ActionParameterValueDiscoveryException.class)
+                .hasMessageContaining("marked more than one default for single-value parameter model");
+
+        definition.setParsedJson(dynamicDefinitionJson()
+                .replace("\"default\": \"model-a\",", "\"multiple\": true,"));
+        Map<String, Object> parameters = new java.util.LinkedHashMap<>(Map.of("model", java.util.List.of()));
+        service.resolveAllowedParameterValues(definition, parameters, java.util.Set.of("model"));
+        assertThat(parameters).containsEntry("model", java.util.List.of("model-a", "model-b"));
+    }
+
+    @Test
+    void rejectsDefaultFlagsOnStaticChoices() {
+        ActionDto.ValidationResponse response = service.validateYaml(
+                validStaticYaml().replace("label: Two", "label: Two\n          default: true"), null);
+
+        assertThat(response.diagnostics()).extracting(ActionDto.ValidationDiagnostic::message)
+                .contains("default is only supported for provider choices; use parameters.iterations.default");
+    }
+
+    private String choicesResponse(String choices) {
+        return """
+                {
+                  "status": "ok",
+                  "protocolVersion": 1,
+                  "requestId": "%s",
+                  "processorId": "processor-v1",
+                  "values": {"models": [%s]}
+                }
+                """.formatted(requestId.get(), choices);
+    }
+
+    @Test
     void rejectsMismatchedOrInvalidDiscoveryResponses() {
         when(httpResponse.statusCode()).thenReturn(200);
         when(httpResponse.body()).thenAnswer(ignored -> successfulResponse("other", "model-a"));

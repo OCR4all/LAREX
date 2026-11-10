@@ -2,7 +2,7 @@
 import ActionStartButton from '@/components/action/start-button.vue'
 import { isTerminalActionRun, actionRunStatusLabel, actionRunStatusColor } from '@/utils/action-run-status'
 import type { ActionDefinition, ActionParameterChoice, ActionParameterValue, ActionRun, ActionRunDetail, IntegrationInputItem, IntegrationInputResponse, StartActionRunResponse } from '@/types/action'
-import { actionParameterChoices, actionParameterDefaultValue, coerceActionParameterInput, hasAllowedActionParameterValue, isBlankActionParameterValue } from '@/utils/action-parameter-values'
+import { actionParameterChoices, actionParameterDefaultValue, applyDiscoveredActionParameterDefaults, coerceActionParameterInput, hasAllowedActionParameterValue, isBlankActionParameterValue } from '@/utils/action-parameter-values'
 import { actionImageSelectionValues, actionInputLevelForTarget, compatibleActionImages, actionImageVariantOptions, selectableActionImages, defaultActionImageVariants } from '@/utils/action-input-requirements'
 import { extractApiErrorDetails } from '@/utils/api-error'
 
@@ -118,7 +118,9 @@ watch(processor, async (value) => {
   discovering.value = true
   try {
     const response = await $fetch<{ values: Record<string, ActionParameterChoice[]> }>(`${baseUrl.value}/processors/${value.id}/parameter-values`)
-    if (sequence === discoverySequence) discovered.value = response.values
+    if (sequence !== discoverySequence) return
+    discovered.value = response.values
+    applyDiscoveredActionParameterDefaults(value.parameters, parameters.value, discovered.value)
   } catch (cause) {
     if (sequence === discoverySequence) discoveryError.value = extractApiErrorDetails(cause, 'Could not load parameter choices').message
   } finally {

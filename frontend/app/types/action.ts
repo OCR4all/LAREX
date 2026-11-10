@@ -103,6 +103,7 @@ export type ActionParameterValue = ActionParameterScalar | ActionParameterScalar
 export interface ActionParameterChoice {
   value: ActionParameterScalar
   label: string
+  default?: boolean | null
 }
 
 export interface ActionAllowedValues {

@@ -3,6 +3,8 @@ import {
   actionParameterChoices,
   actionParameterDefaultValue,
   allowedActionParameterValue,
+  applyDiscoveredActionParameterDefaults,
+  initialActionParameterValue,
   isBlankActionParameterValue,
   actionParameterLabel,
   coerceActionParameterInput,
@@ -40,6 +42,40 @@ describe('Action parameter values', () => {
     expect(hasAllowedActionParameterValue(definition, 'a', discovered)).toBe(false)
     expect(allowedActionParameterValue(definition, ['a', 'gone'], discovered)).toEqual(['a'])
     expect(allowedActionParameterValue({ type: 'string', allowedValues: { provider: 'models' } }, 'gone', discovered)).toBeUndefined()
+  })
+
+  it('prefers an offered YAML default over the provider default', () => {
+    const provider = { allowedValues: { provider: 'models' } }
+    const discovered = { models: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B', default: true }] }
+
+    expect(initialActionParameterValue({ ...provider, default: 'a' }, discovered)).toBe('a')
+    expect(initialActionParameterValue({ ...provider, default: 'gone' }, discovered)).toBe('b')
+    expect(initialActionParameterValue(provider, discovered)).toBe('b')
+    expect(initialActionParameterValue({ ...provider, default: 'gone' }, { models: [{ value: 'a', label: 'A' }] })).toBe('gone')
+    expect(initialActionParameterValue({ allowedValues: { values: discovered.models }, default: 'a' }, {})).toBe('a')
+  })
+
+  it('uses every marked provider default for multiple parameters and none when single is ambiguous', () => {
+    const discovered = { models: [{ value: 'a', label: 'A', default: true }, { value: 'b', label: 'B', default: true }] }
+
+    expect(initialActionParameterValue({ multiple: true, allowedValues: { provider: 'models' } }, discovered)).toEqual(['a', 'b'])
+    expect(initialActionParameterValue({ multiple: true, default: ['a'], allowedValues: { provider: 'models' } }, discovered)).toEqual(['a'])
+    expect(initialActionParameterValue({ allowedValues: { provider: 'models' } }, discovered)).toBe('')
+  })
+
+  it('applies discovered defaults only to values that were not changed', () => {
+    const definitions = {
+      untouched: { allowedValues: { provider: 'models' } },
+      chosen: { allowedValues: { provider: 'models' } },
+      free: { type: 'string' as const }
+    }
+    const values = { untouched: '', chosen: 'a', free: '' }
+
+    applyDiscoveredActionParameterDefaults(definitions, values, {
+      models: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B', default: true }]
+    })
+
+    expect(values).toEqual({ untouched: 'b', chosen: 'a', free: '' })
   })
 
   it('treats empty strings and empty lists as blank', () => {

@@ -3536,6 +3536,11 @@ public class ActionRunService {
             }
             resolved.put(ActionRunPayloadService.IMAGE_VARIANT_SELECTION_PARAMETER_KEY, normalized);
         }
+        Set<String> defaultedKeys = new LinkedHashSet<>(definitions.keySet());
+        if (requestedParameters != null) {
+            defaultedKeys.removeAll(requestedParameters.keySet());
+        }
+        definitionService.resolveAllowedParameterValues(definition, resolved, defaultedKeys);
         for (Map.Entry<String, ActionDefinitionDocument.Parameter> entry : definitions.entrySet()) {
             if (Boolean.TRUE.equals(entry.getValue().required())) {
                 Object value = resolved.get(entry.getKey());
@@ -3546,7 +3551,6 @@ public class ActionRunService {
                 }
             }
         }
-        definitionService.validateAllowedParameterValues(definition, resolved);
         if (!imageRequirement.imageTypes().isEmpty()) {
             resolved.put(ActionRunPayloadService.IMAGE_REQUIREMENT_PARAMETER_KEY, imageRequirement);
         }

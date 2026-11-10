@@ -51,7 +51,7 @@ onBeforeUnmount(() => {
   generation++
 })
 function value(key: string) {
-  return props.step.parameters[key] ?? actionParameterDefaultValue(props.processor.parameters[key]!)
+  return props.step.parameters[key] ?? initialActionParameterValue(props.processor.parameters[key]!, discovered.value)
 }
 function inputValue(key: string): string {
   const current = value(key)

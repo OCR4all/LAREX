@@ -5,7 +5,9 @@ import { actionParameterDefaultValue } from './action-parameter-values'
 export function createWorkflowStep(processor: ActionDefinition): ActionWorkflowStep {
   return {
     processorDefinitionId: processor.id,
-    parameters: Object.fromEntries(Object.entries(processor.parameters).map(([key, definition]) => [key, actionParameterDefaultValue(definition)])),
+    parameters: Object.fromEntries(Object.entries(processor.parameters)
+      .filter(([, definition]) => !definition.allowedValues?.provider)
+      .map(([key, definition]) => [key, actionParameterDefaultValue(definition)])),
     imageVariantSelection: null
   }
 }

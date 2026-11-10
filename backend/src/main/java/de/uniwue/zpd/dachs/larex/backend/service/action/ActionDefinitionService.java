@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.TokenStreamLocation;
@@ -737,6 +739,12 @@ public class ActionDefinitionService {
 
     public void validateAllowedParameterValues(ActionProcessorDefinition definition,
                                                Map<String, Object> parameters) {
+        resolveAllowedParameterValues(definition, parameters, Set.of());
+    }
+
+    public void resolveAllowedParameterValues(ActionProcessorDefinition definition,
+                                              Map<String, Object> parameters,
+                                              Set<String> defaultedKeys) {
         ActionDefinitionDocument document = readParsedDocument(definition);
         if (document.parameters() == null || document.parameters().isEmpty()) {
             return;
@@ -759,6 +767,10 @@ public class ActionDefinitionService {
             if (choices.isEmpty()) {
                 throw new ActionParameterValueDiscoveryException(
                         "No allowed values are currently available for Action parameter " + entry.getKey());
+            }
+            if (defaultedKeys.contains(entry.getKey()) && allowed.values() == null) {
+                providerDefaultValue(parameter, parameters.get(entry.getKey()), choices)
+                        .ifPresent(value -> parameters.put(entry.getKey(), value));
             }
             Object value = parameters.get(entry.getKey());
             if (parameter.allowsMultiple()) {
@@ -794,6 +806,7 @@ public class ActionDefinitionService {
             requestPayload.put("requestId", requestId);
             requestPayload.put("processorId", definition.getProcessorKey());
             requestPayload.put("providers", List.copyOf(providers));
+            requestPayload.put("capabilities", Map.of("parameterChoiceDefaults", true));
             String body = jsonMapper.writeValueAsString(requestPayload);
             Map<String, String> authHeaders = endpointAuthService.buildDispatchHeaders(
                     document.endpoint().auth(),
@@ -826,7 +839,11 @@ public class ActionDefinitionService {
             ProcessorParameterValuesResponse parsed = jsonMapper.readValue(
                     response.body(), ProcessorParameterValuesResponse.class);
             validateParameterValuesResponse(definition, requestId, providers, parsed);
-            return parsed.values();
+            Map<String, List<ActionDefinitionDocument.ParameterChoice>> values = new LinkedHashMap<>();
+            parsed.values().forEach((provider, choices) -> values.put(provider, choices.stream()
+                    .map(choice -> choice == null ? null : choice.toParameterChoice())
+                    .toList()));
+            return values;
         } catch (ActionParameterValueDiscoveryException e) {
             throw e;
         } catch (InterruptedException e) {
@@ -836,6 +853,39 @@ public class ActionDefinitionService {
             throw new ActionParameterValueDiscoveryException(
                     "Could not discover Action parameter values: " + e.getMessage(), e);
         }
+    }
+
+    private java.util.Optional<Object> providerDefaultValue(ActionDefinitionDocument.Parameter parameter,
+                                                            Object configuredDefault,
+                                                            List<ActionDefinitionDocument.ParameterChoice> choices) {
+        if (parameter.defaultValue() != null && isAllowedParameterValue(parameter, configuredDefault, choices)) {
+            return java.util.Optional.empty();
+        }
+        String type = parameterType(parameter);
+        List<Object> marked = choices.stream()
+                .filter(ActionDefinitionDocument.ParameterChoice::markedDefault)
+                .map(ActionDefinitionDocument.ParameterChoice::value)
+                .map(value -> {
+                    if (!(value instanceof Number number)) {
+                        return value;
+                    }
+                    return "integer".equals(type) ? (Object) number.intValue() : (Object) number.doubleValue();
+                })
+                .toList();
+        if (marked.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(parameter.allowsMultiple() ? marked : marked.getFirst());
+    }
+
+    private boolean isAllowedParameterValue(ActionDefinitionDocument.Parameter parameter,
+                                            Object value,
+                                            List<ActionDefinitionDocument.ParameterChoice> choices) {
+        if (parameter.allowsMultiple()) {
+            return value instanceof List<?> values && values.stream().allMatch(item -> choices.stream()
+                    .anyMatch(choice -> parameterValuesEqual(parameter, item, choice.value())));
+        }
+        return choices.stream().anyMatch(choice -> parameterValuesEqual(parameter, value, choice.value()));
     }
 
     private void validateParameterValuesResponse(ActionProcessorDefinition definition,
@@ -877,6 +927,7 @@ public class ActionDefinitionService {
                 continue;
             }
             Set<String> seen = new LinkedHashSet<>();
+            int markedDefaults = 0;
             for (ActionDefinitionDocument.ParameterChoice choice : values.getOrDefault(allowed.provider(), List.of())) {
                 if (choice == null
                         || choice.label() == null
@@ -896,6 +947,14 @@ public class ActionDefinitionService {
                     throw new ActionParameterValueDiscoveryException(
                             "Provider " + allowed.provider() + " returned duplicate values");
                 }
+                if (choice.markedDefault()) {
+                    markedDefaults++;
+                }
+            }
+            if (markedDefaults > 1 && !parameter.allowsMultiple()) {
+                throw new ActionParameterValueDiscoveryException(
+                        "Provider " + allowed.provider() + " marked more than one default for single-value parameter "
+                                + entry.getKey());
             }
         }
     }
@@ -1116,13 +1175,24 @@ public class ActionDefinitionService {
             Map<String, Boolean> capabilities
     ) {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record ProcessorParameterValuesResponse(
             String status,
             Integer protocolVersion,
             String requestId,
             String processorId,
-            Map<String, List<ActionDefinitionDocument.ParameterChoice>> values
+            Map<String, List<ProcessorParameterChoice>> values
     ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record ProcessorParameterChoice(Object value,
+                                            String label,
+                                            @JsonProperty("default") Boolean defaultChoice) {
+        private ActionDefinitionDocument.ParameterChoice toParameterChoice() {
+            return new ActionDefinitionDocument.ParameterChoice(
+                    value, label, Boolean.TRUE.equals(defaultChoice) ? Boolean.TRUE : null);
+        }
+    }
 
     private ActionProcessorDefinition requireDefinition(String definitionId) {
         return definitionRepository.findById(definitionId)
@@ -1558,6 +1628,10 @@ public class ActionDefinitionService {
             }
             if (choice.label() == null || choice.label().isBlank() || choice.label().length() > 256) {
                 diagnostics.add(error(choicePath + ".label", "label must contain 1 to 256 characters"));
+            }
+            if (choice.defaultChoice() != null) {
+                diagnostics.add(error(choicePath + ".default",
+                        "default is only supported for provider choices; use parameters." + key + ".default"));
             }
             String valueError = parameterChoiceValueError(parameter, choice.value());
             if (valueError != null) {

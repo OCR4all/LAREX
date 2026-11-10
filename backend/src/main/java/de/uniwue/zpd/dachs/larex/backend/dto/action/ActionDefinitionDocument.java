@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.dto.action;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
@@ -130,5 +131,17 @@ public record ActionDefinitionDocument(
     public record AllowedValues(List<ParameterChoice> values, String provider) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record ParameterChoice(Object value, String label) {}
+    public record ParameterChoice(Object value,
+                                  String label,
+                                  @JsonProperty("default")
+                                  @JsonInclude(JsonInclude.Include.NON_NULL)
+                                  Boolean defaultChoice) {
+        public ParameterChoice(Object value, String label) {
+            this(value, label, null);
+        }
+
+        public boolean markedDefault() {
+            return Boolean.TRUE.equals(defaultChoice);
+        }
+    }
 }

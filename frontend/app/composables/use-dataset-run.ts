@@ -6,7 +6,7 @@ import {
   defaultActionImageVariants,
   selectableActionImages
 } from '@/utils/action-input-requirements'
-import { actionParameterDefaultValue, actionParameterLabel, isBlankActionParameterValue } from '@/utils/action-parameter-values'
+import { actionParameterDefaultValue, actionParameterLabel, applyDiscoveredActionParameterDefaults, isBlankActionParameterValue } from '@/utils/action-parameter-values'
 import { extractApiErrorMessage } from '@/utils/api-error'
 import type {
   ActionDefinitionResponse,
@@ -279,7 +279,9 @@ export function useDatasetRun(options: {
       const response = await $fetch<{ values?: Record<string, ActionParameterChoice[]> }>(
         `/api/workspaces/${requestWorkspaceId}/actions/${kind}/processors/${processorId}/parameter-values`
       )
-      if (requestSequence === parameterRequestSequence) parameterChoices.value = response.values ?? {}
+      if (requestSequence !== parameterRequestSequence) return
+      parameterChoices.value = response.values ?? {}
+      applyDiscoveredActionParameterDefaults(selectedProcessor.value?.parameters ?? {}, parameters.value, parameterChoices.value)
     } catch {
       // Parameters without discovered choices stay editable as plain inputs.
     }

@@ -51,7 +51,6 @@ export function hasAllowedActionParameterValue(
   return isAllowedChoice(choices, value)
 }
 
-/** Keeps only the selections that are still offered, or `undefined` when a single value is no longer offered. */
 export function allowedActionParameterValue(
   definition: ActionParameterDefinition,
   value: unknown,
@@ -62,6 +61,37 @@ export function allowedActionParameterValue(
     return Array.isArray(value) ? value.filter(item => isAllowedChoice(choices, item)) : []
   }
   return isAllowedChoice(choices, value) ? value as ActionParameterScalar : undefined
+}
+
+export function initialActionParameterValue(
+  definition: ActionParameterDefinition,
+  discoveredValues: Record<string, ActionParameterChoice[]>
+): ActionParameterValue | '' {
+  const fallback = actionParameterDefaultValue(definition)
+  if (!definition.allowedValues?.provider) return fallback
+  const configured = definition.defaultValue ?? definition.default
+  if (configured !== undefined && configured !== null
+    && hasAllowedActionParameterValue(definition, fallback, discoveredValues)) {
+    return fallback
+  }
+  const marked = actionParameterChoices(definition, discoveredValues)
+    .filter(choice => choice.default === true)
+    .map(choice => choice.value)
+  if (definition.multiple) return marked.length ? marked : fallback
+  return marked.length === 1 ? marked[0]! : fallback
+}
+
+export function applyDiscoveredActionParameterDefaults(
+  definitions: Record<string, ActionParameterDefinition>,
+  values: Record<string, ActionParameterValue | '' | undefined>,
+  discoveredValues: Record<string, ActionParameterChoice[]>,
+  isUnchanged: (key: string, definition: ActionParameterDefinition) => boolean
+    = (key, definition) => JSON.stringify(values[key]) === JSON.stringify(actionParameterDefaultValue(definition))
+) {
+  for (const [key, definition] of Object.entries(definitions)) {
+    if (!definition.allowedValues?.provider || !isUnchanged(key, definition)) continue
+    values[key] = initialActionParameterValue(definition, discoveredValues)
+  }
 }
 
 export function isBlankActionParameterValue(value: unknown): boolean {

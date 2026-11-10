@@ -9,6 +9,7 @@ import {
   actionParameterChoices,
   actionParameterDefaultValue,
   allowedActionParameterValue,
+  applyDiscoveredActionParameterDefaults,
   coerceActionParameterInput,
   hasAllowedActionParameterValue
 } from '@/utils/action-parameter-values'
@@ -88,6 +89,7 @@ const discoveredParameterValues = ref<Record<string, ActionParameterChoice[]>>({
 const parameterDiscoveryLoading = ref(false)
 const parameterDiscoveryError = ref<string | null>(null)
 const parameterFieldErrors = reactive<Record<string, string>>({})
+const editedParameterKeys = new Set<string>()
 let parameterDiscoveryRequest = 0
 const scope = ref<'all' | 'selection'>(props.targetSelection || (props.pageIds?.length ?? 0) > 0 ? 'selection' : 'all')
 const actionSearch = ref('')
@@ -675,6 +677,7 @@ async function clearRunHistory() {
 }
 
 function resetParameters() {
+  editedParameterKeys.clear()
   Object.keys(parameterValues).forEach((key) => {
     Reflect.deleteProperty(parameterValues, key)
   })
@@ -713,6 +716,7 @@ function updateAllowedParameterValue(
 ) {
   const isScalar = (item: unknown) => typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean'
   if (Array.isArray(value) ? !value.every(isScalar) : !isScalar(value)) return
+  editedParameterKeys.add(key)
   parameterValues[key] = value as ActionParameterValue
   if (hasAllowedActionParameterValue(definition, value, discoveredParameterValues.value)) {
     Reflect.deleteProperty(parameterFieldErrors, key)
@@ -735,6 +739,12 @@ async function refreshParameterValues() {
     )
     if (request !== parameterDiscoveryRequest) return
     discoveredParameterValues.value = response.values
+    applyDiscoveredActionParameterDefaults(
+      selectedProcessor.value.processor.parameters,
+      parameterValues,
+      discoveredParameterValues.value,
+      key => !editedParameterKeys.has(key)
+    )
     for (const entry of parameterEntries.value) {
       if (!entry.definition.allowedValues) continue
       const choices = allowedChoices(entry.definition)
