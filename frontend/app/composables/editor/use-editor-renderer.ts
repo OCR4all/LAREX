@@ -1,3 +1,4 @@
+import { toRaw } from 'vue'
 import { setCursor } from '@/utils/editor/cursor-manager'
 import { computeAutoParentPreview } from '@/utils/editor/auto-parent-utils'
 import type { View, AspectRatioScale, Point } from '@/models/editor'
@@ -134,8 +135,9 @@ export function useEditorRenderer(
     )
 
     const renderState: WebGLRenderState = {
-      polygons,
-      polylines,
+      // A frame reads every shape several times and never tracks dependencies.
+      polygons: toRaw(polygons),
+      polylines: toRaw(polylines),
       hideBaselines: hideBaselines?.value ?? false,
       labelConflictIds: labelConflictIds?.value ?? [],
       hoveredPolygonIndex: polygonEditing.hoveredPolygonIndex,

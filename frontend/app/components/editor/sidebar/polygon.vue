@@ -60,7 +60,6 @@ interface PolygonSidebarProps {
   selectedPolylineId?: string | null
   hiddenPolygonIds?: string[]
   hiddenPolylineIds?: string[]
-  hoveredPolygonId?: string | null
   document?: PcGts | null
   page?: Page | null
   accordionPanels?: string[]
@@ -78,7 +77,6 @@ const props = withDefaults(defineProps<PolygonSidebarProps>(), {
   selectedPolylineId: null,
   hiddenPolygonIds: () => [],
   hiddenPolylineIds: () => [],
-  hoveredPolygonId: null,
   document: null,
   page: null,
   accordionPanels: () => [],
@@ -540,7 +538,6 @@ watch(() => props.collapsed, (collapsed) => {
                   :regions="regions"
                   :selected-polygon-ids="selectedPolygonIds"
                   :selected-polyline-ids="selectedPolylineIds"
-                  :hovered-polygon-id="hoveredPolygonId"
                   :hidden-polygon-ids="hiddenPolygonIds"
                   :hidden-polyline-ids="hiddenPolylineIds"
                   :expanded-regions="expandedRegions"
@@ -624,7 +621,6 @@ watch(() => props.collapsed, (collapsed) => {
             :regions="regions"
             :selected-polygon-ids="selectedPolygonIds"
             :selected-polyline-ids="selectedPolylineIds"
-            :hovered-polygon-id="hoveredPolygonId"
             :hidden-polygon-ids="hiddenPolygonIds"
             :hidden-polyline-ids="hiddenPolylineIds"
             :expanded-regions="expandedRegions"

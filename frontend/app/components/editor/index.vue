@@ -35,6 +35,7 @@ import { createPolygonElementLabel, createPolylineElementLabel } from '@/utils/e
 import { isTypingTarget } from '@/utils/editor/keyboard-shortcut-target'
 import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
 import { findRegionRecursive } from '@/utils/editor/pcgts-editor-primitives'
+import { reconcileShapes } from '@/utils/editor/reconcile-shapes'
 
 const CommentsLabelsOverlay = LazyEditorCommentsLabelsOverlay
 const ElementLabelsOverlay = LazyEditorElementLabelsOverlay
@@ -319,11 +320,13 @@ const {
 // The projection getters track document coordinates themselves. Watch the
 // returned arrays for membership without traversing all projected points again.
 watch(() => editorStore.regionsByCanvasId(props.canvasId), (newRegions) => {
-  polygons.splice(0, polygons.length, ...(newRegions || []))
+  // The visibility service caches hierarchies per polygon object, and
+  // unchanged polygons keep their object across document edits.
+  if (reconcileShapes(polygons, newRegions || [])) visibilityService.clearCache()
 }, { immediate: true, deep: 1 })
 
 watch(() => editorStore.baselinesByCanvasId(props.canvasId), (newBaselines) => {
-  polylines.splice(0, polylines.length, ...(newBaselines || []))
+  reconcileShapes(polylines, newBaselines || [])
 }, { immediate: true, deep: 1 })
 
 canvasControls.polygons = polygons

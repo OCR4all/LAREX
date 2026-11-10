@@ -2,6 +2,7 @@
 import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
 import type { FlatStructureRow, TreeItemData } from '@/components/editor/sidebar/structure-tree'
 import { buildChildrenByParentId, flattenStructureRows } from '@/components/editor/sidebar/structure-tree'
+import { getEditorSession } from '@/session/editor/editor-session'
 
 const props = defineProps<{
   polygons: TreeItemData[]
@@ -9,7 +10,6 @@ const props = defineProps<{
   regions: TreeItemData[]
   selectedPolygonIds: string[]
   selectedPolylineIds: string[]
-  hoveredPolygonId?: string | null
   hiddenPolygonIds: string[]
   hiddenPolylineIds: string[]
   expandedRegions: Set<string>
@@ -30,6 +30,14 @@ const emit = defineEmits<{
 }>()
 
 const ROW_HEIGHT_PX = 36
+
+const editorStore = useEditorStore()
+// Not a prop: the canvas hover changes on most mouse moves, and passing it
+// down would re-render every sidebar panel on the way.
+const hoveredPolygonId = computed(() => {
+  const canvasId = editorStore.activeCanvasId
+  return canvasId ? getEditorSession(canvasId)?.controls.value?.hoveredPolygonId?.value ?? null : null
+})
 
 const selectedPolygonIdSet = computed(() => new Set(props.selectedPolygonIds))
 const selectedPolylineIdSet = computed(() => new Set(props.selectedPolylineIds))

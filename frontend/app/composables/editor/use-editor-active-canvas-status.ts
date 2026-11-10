@@ -31,6 +31,12 @@ type StatusPageSummary = {
   otherRegions: number
 }
 
+type ShapeIndex = {
+  polygonById: Map<string, RenderablePolygon>
+  polylineById: Map<string, RenderablePolyline>
+  childCountById: Map<string, number>
+}
+
 type EditorActiveCanvasStatusOptions = {
   resolveCanvasAnnotationContext: (canvasId: string) => { mode?: 'PROJECT' | 'DATASET_LINK' | 'DATASET_COPY' | null } | null | undefined
 }
@@ -90,39 +96,40 @@ export function useEditorActiveCanvasStatus(options: EditorActiveCanvasStatusOpt
   const activePolygonsForSidebar = computed<TreeItemData[]>(() => activePolygons.value as unknown as TreeItemData[])
   const activePolylinesForSidebar = computed<TreeItemData[]>(() => activePolylines.value as unknown as TreeItemData[])
 
-  const activeHoveredEntity = computed<StatusEntityInfo | null>(() => {
-    const polygons = activePolygons.value
-    const polylines = activePolylines.value
-
-    if (activeHoveredPolylineId.value) {
-      const polyline = polylines.find(item => item.id === activeHoveredPolylineId.value)
-      return polyline ? buildEntityFromPolyline(polyline, polygons, polylines, editorStore.labelSet) : null
+  // Indexed once per shape change, so hover and selection updates don't rescan the page.
+  const activeShapeIndex = computed<ShapeIndex>(() => {
+    const index: ShapeIndex = { polygonById: new Map(), polylineById: new Map(), childCountById: new Map() }
+    const countChild = (parentId: string | undefined) => {
+      if (parentId) index.childCountById.set(parentId, (index.childCountById.get(parentId) ?? 0) + 1)
     }
 
-    if (activeHoveredPolygonId.value) {
-      const polygon = polygons.find(item => item.id === activeHoveredPolygonId.value)
-      return polygon ? buildEntityFromPolygon(polygon, polygons, polylines, editorStore.labelSet) : null
+    for (const polygon of activePolygons.value) {
+      if (!index.polygonById.has(polygon.id)) index.polygonById.set(polygon.id, polygon)
+      countChild(polygon.parentId)
+    }
+    for (const polyline of activePolylines.value) {
+      if (!index.polylineById.has(polyline.id)) index.polylineById.set(polyline.id, polyline)
+      countChild(polyline.parentId)
+    }
+    return index
+  })
+
+  function buildEntity(polygonId: string | null, polylineId: string | null): StatusEntityInfo | null {
+    if (polylineId) {
+      const polyline = activeShapeIndex.value.polylineById.get(polylineId)
+      return polyline ? buildEntityFromPolyline(polyline, activeShapeIndex.value, editorStore.labelSet) : null
+    }
+
+    if (polygonId) {
+      const polygon = activeShapeIndex.value.polygonById.get(polygonId)
+      return polygon ? buildEntityFromPolygon(polygon, activeShapeIndex.value, editorStore.labelSet) : null
     }
 
     return null
-  })
+  }
 
-  const activeSelectedEntity = computed<StatusEntityInfo | null>(() => {
-    const polygons = activePolygons.value
-    const polylines = activePolylines.value
-
-    if (activeSelectedPolylineId.value) {
-      const polyline = polylines.find(item => item.id === activeSelectedPolylineId.value)
-      return polyline ? buildEntityFromPolyline(polyline, polygons, polylines, editorStore.labelSet) : null
-    }
-
-    if (activeSelectedPolygonId.value) {
-      const polygon = polygons.find(item => item.id === activeSelectedPolygonId.value)
-      return polygon ? buildEntityFromPolygon(polygon, polygons, polylines, editorStore.labelSet) : null
-    }
-
-    return null
-  })
+  const activeHoveredEntity = computed(() => buildEntity(activeHoveredPolygonId.value, activeHoveredPolylineId.value))
+  const activeSelectedEntity = computed(() => buildEntity(activeSelectedPolygonId.value, activeSelectedPolylineId.value))
 
   const activePageId = computed(() => {
     const canvasId = activeCanvasId.value
@@ -283,17 +290,6 @@ function getBounds(points?: { x: number, y: number }[]): { width: number, height
   }
 }
 
-function getChildCount(id: string, polygons: RenderablePolygon[], polylines: RenderablePolyline[]): number {
-  let count = 0
-  for (const polygon of polygons) {
-    if (polygon.parentId === id) count += 1
-  }
-  for (const polyline of polylines) {
-    if (polyline.parentId === id) count += 1
-  }
-  return count
-}
-
 const TEXT_ELEMENT_TYPE_NAMES: Partial<Record<string, 'TextLine' | 'Word' | 'Glyph'>> = {
   [PolygonType.TEXTLINE]: 'TextLine',
   [PolygonType.WORD]: 'Word',
@@ -302,8 +298,7 @@ const TEXT_ELEMENT_TYPE_NAMES: Partial<Record<string, 'TextLine' | 'Word' | 'Gly
 
 function buildEntityFromPolygon(
   polygon: RenderablePolygon,
-  polygons: RenderablePolygon[],
-  polylines: RenderablePolyline[],
+  shapes: ShapeIndex,
   labelSet?: LabelSet | null
 ): StatusEntityInfo {
   const textElementType = TEXT_ELEMENT_TYPE_NAMES[polygon.type?.toLowerCase() ?? '']
@@ -315,7 +310,7 @@ function buildEntityFromPolygon(
     : resolveRegionLabelDisplayName(labelSet?.labels, polygon, polygon.label || polygon.regionSubtype)
 
   const bounds = getBounds(polygon.points)
-  const childCount = getChildCount(polygon.id, polygons, polylines)
+  const childCount = shapes.childCountById.get(polygon.id) ?? 0
 
   return {
     regionType,
@@ -330,8 +325,7 @@ function buildEntityFromPolygon(
 
 function buildEntityFromPolyline(
   polyline: RenderablePolyline,
-  polygons: RenderablePolygon[],
-  polylines: RenderablePolyline[],
+  shapes: ShapeIndex,
   labelSet?: LabelSet | null
 ): StatusEntityInfo {
   const regionType = polyline.type === PolygonType.BASELINE || polyline.type === 'baseline' ? 'Baseline' : 'Polyline'
@@ -339,7 +333,7 @@ function buildEntityFromPolyline(
 
   if (!label || label === 'baseline') {
     if (polyline.parentId) {
-      const parentPolygon = polygons.find(polygon => polygon.id === polyline.parentId)
+      const parentPolygon = shapes.polygonById.get(polyline.parentId)
       label = parentPolygon
         ? resolveRegionLabelDisplayName(labelSet?.labels, parentPolygon, parentPolygon.label || parentPolygon.regionSubtype || parentPolygon.id)
         : undefined
@@ -347,7 +341,7 @@ function buildEntityFromPolyline(
   }
 
   const bounds = getBounds(polyline.points)
-  const childCount = getChildCount(polyline.id, polygons, polylines)
+  const childCount = shapes.childCountById.get(polyline.id) ?? 0
 
   return {
     regionType,

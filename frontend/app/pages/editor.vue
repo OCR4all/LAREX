@@ -1625,7 +1625,6 @@ const {
   activeControls,
   activeSelectedPolygonId,
   activeSelectedPolylineId,
-  activeHoveredPolygonId,
   activePolygons,
   activePolylines,
   activePolygonsForSidebar,
@@ -3234,7 +3233,6 @@ const {
         :selected-polyline-id="activeSelectedPolylineId ?? undefined"
         :hidden-polygon-ids="activeHiddenPolygonIds"
         :hidden-polyline-ids="activeHiddenPolylineIds"
-        :hovered-polygon-id="activeHoveredPolygonId ?? undefined"
         :commander="commanderForSidebar"
         :document="activeDocument"
         :page="activePage"

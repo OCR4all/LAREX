@@ -1,10 +1,12 @@
 import { getCurrentScope, onScopeDispose, type WatchStopHandle } from 'vue'
 
 /**
- * Watch array membership separately from each shape. A point edit should only
- * traverse that shape, and a reorder should only update the affected indices.
+ * Watch array membership separately from each shape's points. A point edit
+ * should only traverse that shape, and a reorder should only update the
+ * affected indices. Other shape fields are not watched: they only change when
+ * the document projection replaces the shape object.
  */
-export function watchShapes<T extends { id: string }>(
+export function watchShapes<T extends { id: string, points: unknown[] }>(
   shapes: T[],
   onChange: (shape: T, index: number) => void,
   onRemove: (shape: T) => void = () => {}
@@ -31,7 +33,7 @@ export function watchShapes<T extends { id: string }>(
 
       existing?.stop()
       const entry = { shape, index, stop: () => {} }
-      entry.stop = watch(shape, () => onChange(shape, entry.index), { deep: true })
+      entry.stop = watch(() => shape.points, () => onChange(shape, entry.index), { deep: true })
       entries.set(shape.id, entry)
       onChange(shape, index)
     })
