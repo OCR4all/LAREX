@@ -201,6 +201,7 @@ async function save() {
               multiple
               :filter-fields="['label', 'description']"
               :search-input="{ placeholder: 'Search tags…' }"
+              :content="{ side: 'top', avoidCollisions: false }"
               :disabled="saving"
               placeholder="Select tags…"
               size="sm"
