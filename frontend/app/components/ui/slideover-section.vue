@@ -9,7 +9,7 @@ defineProps<{
 <template>
   <UCard variant="subtle" class="bg-elevated/20 dark:bg-elevated/50">
     <template #header>
-      <div class="flex items-start gap-3">
+      <div class="flex items-center gap-3">
         <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accented shadow-xs ring ring-inset ring-white/10 dark:shadow-black/40 dark:ring-white/20">
           <UIcon :name="icon" class="size-4 text-muted" />
         </div>

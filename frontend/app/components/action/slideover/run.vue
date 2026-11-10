@@ -359,8 +359,17 @@ function compatibleImageCount(page: ActionRunPageSummary) {
     : page.imageCount
 }
 const scopeItems = computed(() => [
-  { label: `All pages (${props.pages?.length ?? 0})`, value: 'all', icon: 'i-lucide-files', disabled: navigationBusy.value },
-  { label: `Selected pages (${selectedPageIds.value.length})`, value: 'selection', icon: 'i-lucide-check-square', disabled: navigationBusy.value || !hasSelection.value }
+  {
+    label: `All pages (${props.pages?.length ?? 0})`,
+    description: 'Include every page in this project.',
+    value: 'all'
+  },
+  {
+    label: `Selected pages (${selectedPageIds.value.length})`,
+    description: hasSelection.value ? 'Include only the current page selection.' : 'Select pages in the project first.',
+    value: 'selection',
+    disabled: !hasSelection.value
+  }
 ])
 const imageVariantOptions = computed(() => actionImageVariantOptions([...imageChoicesByPageId.value.values()].flatMap(choices => choices.selectable)))
 const perPageImageRows = computed(() => scopedPages.value.map(page => ({
@@ -1359,15 +1368,15 @@ function close() {
               <p v-if="props.targetSelection" class="text-sm">
                 {{ targetSummary }}
               </p>
-              <UTabs
+              <URadioGroup
                 v-else
                 v-model="scope"
                 :items="scopeItems"
-                variant="pill"
-                color="neutral"
-                :content="false"
-                :ui="{ trigger: 'px-2 sm:px-3', leadingIcon: 'hidden sm:block' }"
-                class="w-full"
+                variant="card"
+                orientation="horizontal"
+                :ui="{ fieldset: 'grid gap-2 sm:grid-cols-2' }"
+                :disabled="navigationBusy"
+                aria-label="Pages to include"
               />
               <UAlert
                 v-for="warning in scopeWarnings"
