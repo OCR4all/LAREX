@@ -103,6 +103,7 @@ const actionTableColumns = [
   { id: 'actions', header: '', enableHiding: false, meta: { class: { th: 'w-12', td: 'w-12' } } }
 ]
 const imageVariantMode = ref<'global' | 'perPage'>('global')
+const perPageImagesOpen = ref(false)
 const selectedImageVariants = ref<string[]>([])
 const fallbackImage = ref(false)
 const pageImageVariants = reactive<Record<string, string[]>>({})
@@ -331,11 +332,26 @@ watch([view, () => Boolean(impact.value)], async () => {
   heading?.focus()
 })
 const automaticImages = ref(false)
+// Page metadata only depends on the scope and Action, not on the current
+// selections. Reuse it for validation, defaults, summaries, and visible rows.
+const imageChoicesByPageId = computed(() => {
+  const requirement = selectedProcessor.value?.processor.inputs?.images
+  return new Map(scopedPages.value.map((page) => {
+    const compatible = compatibleActionImages(page.imageVariants ?? [], requirement)
+    const selectable = selectableActionImages(page.imageVariants ?? [], requirement, selectedProcessorRequiresImages.value)
+    return [page.id, {
+      compatible,
+      selectable,
+      options: actionImageVariantOptions(selectable),
+      variants: new Set(compatible.map(image => image.variant?.trim()).filter((variant): variant is string => Boolean(variant)))
+    }]
+  }))
+})
 function compatiblePageImages(page: ActionRunPageSummary) {
-  return compatibleActionImages(page.imageVariants ?? [], selectedProcessor.value?.processor.inputs?.images)
+  return imageChoicesByPageId.value.get(page.id)?.compatible ?? []
 }
 function selectablePageImages(page: ActionRunPageSummary) {
-  return selectableActionImages(page.imageVariants ?? [], selectedProcessor.value?.processor.inputs?.images, selectedProcessorRequiresImages.value)
+  return imageChoicesByPageId.value.get(page.id)?.selectable ?? []
 }
 function compatibleImageCount(page: ActionRunPageSummary) {
   return selectedProcessor.value?.processor.inputs?.images.imageTypes?.length
@@ -346,15 +362,27 @@ const scopeItems = computed(() => [
   { label: `All pages (${props.pages?.length ?? 0})`, value: 'all', icon: 'i-lucide-files', disabled: navigationBusy.value },
   { label: `Selected pages (${selectedPageIds.value.length})`, value: 'selection', icon: 'i-lucide-check-square', disabled: navigationBusy.value || !hasSelection.value }
 ])
-const imageVariantOptions = computed(() => actionImageVariantOptions(scopedPages.value.flatMap(selectablePageImages)))
-const imageVariantByPageId = computed(() => {
-  const result: Record<string, Set<string>> = {}
-  for (const page of scopedPages.value) {
-    result[page.id] = new Set(compatiblePageImages(page)
-      .map(image => image.variant?.trim())
-      .filter((variant): variant is string => Boolean(variant)))
-  }
-  return result
+const imageVariantOptions = computed(() => actionImageVariantOptions([...imageChoicesByPageId.value.values()].flatMap(choices => choices.selectable)))
+const perPageImageRows = computed(() => scopedPages.value.map(page => ({
+  id: page.id,
+  name: page.name,
+  options: imageVariantOptionsForPage(page),
+  hasCompatibleImages: compatiblePageImages(page).length > 0
+})))
+function pageImageVariantsDiffer(pageId: string) {
+  if (imageVariantMode.value !== 'perPage') return false
+  const variants = pageImageVariants[pageId] ?? []
+  return variants.length !== selectedImageVariants.value.length
+    || variants.some(variant => !selectedImageVariants.value.includes(variant))
+}
+const differingImageVariantPages = computed(() => imageVariantMode.value === 'global'
+  ? []
+  : scopedPages.value.filter(page => imageVariantOptionsForPage(page).length > 0 && pageImageVariantsDiffer(page.id)))
+const imageVariantDescription = computed(() => {
+  const count = differingImageVariantPages.value.length
+  if (count === 1) return '1 page uses different variants from the global selection.'
+  if (count > 1) return `${count} pages use different variants from the global selection.`
+  return 'Applies to all pages where available. Choose variants per page to override it.'
 })
 const imageSelectionReady = computed(() => {
   if (automaticImages.value || !selectedProcessorRequiresImages.value || imageVariantOptions.value.length === 0) return true
@@ -367,9 +395,9 @@ const pagesMissingSelectedVariant = computed(() => {
   if (automaticImages.value || !selectedProcessorAcceptsImages.value) return []
   return scopedPages.value.filter((page) => {
     if (compatibleImageCount(page) <= 0) return false
-    const available = imageVariantByPageId.value[page.id] ?? new Set<string>()
+    const available = imageChoicesByPageId.value.get(page.id)?.variants
     const wanted = imageVariantMode.value === 'global' ? selectedImageVariants.value : pageImageVariants[page.id]
-    return Boolean(wanted?.length) && !wanted?.some(variant => available.has(variant))
+    return Boolean(wanted?.length) && !wanted?.some(variant => available?.has(variant))
   })
 })
 const submittedImageVariantSelection = computed<ActionImageVariantSelection | null>(() => {
@@ -401,9 +429,9 @@ const incompatibleScopedPages = computed(() => scopedPages.value.filter((page) =
   if (selectedProcessorRequiresXml.value && page.xmlFileCount <= 0) return true
   if (automaticImages.value || !selectedProcessorAcceptsImages.value) return false
 
-  const available = imageVariantByPageId.value[page.id] ?? new Set<string>()
+  const available = imageChoicesByPageId.value.get(page.id)?.variants
   const wanted = imageVariantMode.value === 'global' ? selectedImageVariants.value : pageImageVariants[page.id]
-  if (!wanted?.length || wanted.some(variant => available.has(variant))) return false
+  if (!wanted?.length || wanted.some(variant => available?.has(variant))) return false
   return !fallbackImage.value || compatibleImageCount(page) <= 0
 }))
 const hasCompatiblePages = computed(() =>
@@ -437,7 +465,10 @@ const canStart = computed(() =>
 )
 
 watch([
-  selectedProcessorId, scope, parameterValues, submittedImageVariantSelection
+  // Watch the small configuration inputs, not the derived submission: rebuilding
+  // every page's payload on each bulk assignment makes updates quadratic.
+  selectedProcessorId, scope, parameterValues, selectedImageVariants,
+  imageVariantMode, fallbackImage, automaticImages
 ], resetReview, { deep: true, flush: 'sync' })
 watch([
   () => props.targetSelection, () => props.pageIds, () => props.pages
@@ -458,6 +489,7 @@ watch(() => actionRunsStore.runsArray, (trackedRuns) => {
 }, { deep: false })
 
 watch(selectedProcessorId, () => {
+  perPageImagesOpen.value = false
   const typed = Boolean(selectedProcessor.value?.processor.inputs?.images.imageTypes?.length)
   automaticImages.value = typed && (!selectedProcessorRequiresImages.value || !imageVariantOptions.value.length)
   if (typed && selectedProcessorRequiresImages.value) {
@@ -531,7 +563,40 @@ function reconcileImageVariantSelection() {
 }
 
 function imageVariantOptionsForPage(page: ActionRunPageSummary) {
-  return actionImageVariantOptions(selectablePageImages(page))
+  return imageChoicesByPageId.value.get(page.id)?.options ?? []
+}
+
+function selectGlobalImageVariants(value: unknown) {
+  selectedImageVariants.value = actionImageSelectionValues(value, selectedImageVariants.value, selectedProcessorRequiresImages.value)
+  resetPageImageVariantsToGlobal()
+  imageVariantMode.value = perPageImagesOpen.value ? 'perPage' : 'global'
+}
+
+function resetPageImageVariantsToGlobal() {
+  for (const page of scopedPages.value) {
+    const available = imageVariantOptionsForPage(page).map(option => option.value)
+    const matching = selectedImageVariants.value.filter(variant => available.includes(variant))
+    if (matching.length || !selectedImageVariants.value.length) {
+      pageImageVariants[page.id] = matching
+    } else {
+      const retained = (pageImageVariants[page.id] ?? []).filter(variant => available.includes(variant))
+      pageImageVariants[page.id] = retained.length ? retained : available.slice(0, 1)
+    }
+  }
+}
+
+function setPerPageImagesOpen(open: boolean) {
+  if (open && imageVariantMode.value === 'global') {
+    resetPageImageVariantsToGlobal()
+    imageVariantMode.value = 'perPage'
+  }
+  perPageImagesOpen.value = open
+}
+
+function selectPageImageVariants(pageId: string, value: unknown) {
+  resetReview()
+  pageImageVariants[pageId] = actionImageSelectionValues(value, pageImageVariants[pageId], selectedProcessorRequiresImages.value)
+  imageVariantMode.value = 'perPage'
 }
 
 async function loadProcessors() {
@@ -1339,7 +1404,7 @@ function close() {
                   <UFormField
                     label="Image variants"
                     :required="selectedProcessorRequiresImages"
-                    :description="imageVariantMode === 'perPage' ? 'Using separate variants for each page.' : selectedProcessorRequiresImages ? 'At least one image variant must remain selected.' : undefined"
+                    :description="imageVariantDescription"
                     :error="!imageSelectionReady && imageVariantMode === 'global' ? 'Select at least one image variant.' : undefined"
                   >
                     <USelectMenu
@@ -1347,62 +1412,38 @@ function close() {
                       :multiple="multipleImages"
                       :items="imageVariantOptions"
                       value-key="value"
-                      :disabled="navigationBusy || imageVariantMode === 'perPage' || automaticImages"
+                      :placeholder="multipleImages ? 'Choose variants for all pages' : 'Choose a variant for all pages'"
+                      :disabled="navigationBusy || automaticImages"
                       class="w-full"
-                      @update:model-value="selectedImageVariants = actionImageSelectionValues($event, selectedImageVariants, selectedProcessorRequiresImages)"
+                      @update:model-value="selectGlobalImageVariants"
                     />
                   </UFormField>
                   <USwitch v-model="fallbackImage" label="Use another compatible image if unavailable" :disabled="navigationBusy || automaticImages" />
                   <UCollapsible
                     v-if="!automaticImages"
-                    :open="imageVariantMode === 'perPage'"
+                    :open="perPageImagesOpen"
                     :disabled="navigationBusy"
-                    @update:open="imageVariantMode = $event ? 'perPage' : 'global'"
+                    @update:open="setPerPageImagesOpen"
                   >
                     <UButton
                       color="primary"
                       variant="link"
-                      :icon="imageVariantMode === 'perPage' ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                      :icon="perPageImagesOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
                       class="px-0"
                     >
                       Choose variants per page
                     </UButton>
                     <template #content>
-                      <div class="space-y-2">
-                        <div
-                          v-for="page in scopedPages"
-                          :key="page.id"
-                          class="grid gap-2 rounded-sm border border-default p-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,18rem)] sm:items-center"
-                        >
-                          <div class="min-w-0">
-                            <p class="truncate text-sm font-medium">
-                              {{ page.name }}
-                            </p>
-                            <p class="truncate text-xs text-muted">
-                              {{ imageVariantOptionsForPage(page).length }} variant{{ imageVariantOptionsForPage(page).length === 1 ? '' : 's' }}
-                            </p>
-                          </div>
-                          <UFormField
-                            v-if="imageVariantOptionsForPage(page).length > 0"
-                            :error="selectedProcessorRequiresImages && !pageImageVariants[page.id]?.length ? 'Select at least one image variant.' : undefined"
-                          >
-                            <USelectMenu
-                              :model-value="multipleImages ? pageImageVariants[page.id] : pageImageVariants[page.id]?.[0]"
-                              :multiple="multipleImages"
-                              :items="imageVariantOptionsForPage(page)"
-                              value-key="value"
-                              class="w-full"
-                              searchable
-                              searchable-placeholder="Filter variants..."
-                              :disabled="navigationBusy"
-                              @update:model-value="pageImageVariants[page.id] = actionImageSelectionValues($event, pageImageVariants[page.id], selectedProcessorRequiresImages)"
-                            />
-                          </UFormField>
-                          <UBadge v-else color="warning" variant="soft">
-                            {{ compatiblePageImages(page).length ? 'Automatic selection' : 'No matching images' }}
-                          </UBadge>
-                        </div>
-                      </div>
+                      <ActionImageVariantPageList
+                        v-if="perPageImagesOpen"
+                        :rows="perPageImageRows"
+                        :selected-variants="pageImageVariants"
+                        :global-variants="selectedImageVariants"
+                        :multiple="multipleImages"
+                        :required="selectedProcessorRequiresImages"
+                        :disabled="navigationBusy"
+                        @select="selectPageImageVariants"
+                      />
                     </template>
                   </UCollapsible>
                 </template>

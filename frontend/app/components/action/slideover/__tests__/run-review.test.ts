@@ -2,7 +2,7 @@ import { useTablePagination } from '@/composables/use-table-pagination'
 import * as actionRunStatus from '@/utils/action-run-status'
 import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { compileScript, parse } from 'vue/compiler-sfc'
+import { compileScript, compileTemplate, parse } from 'vue/compiler-sfc'
 import { ModuleKind, transpileModule } from 'typescript'
 import * as Vue from 'vue'
 import * as apiError from '@/utils/api-error'
@@ -14,9 +14,30 @@ import type { ActionDefinition, ActionRun, ActionRunImpact, ExecutableActionProc
 // Compile the production setup script without mounting Nuxt or touching project data.
 // Requests are mocked; these tests exercise the actual review/start/retry state machine.
 const descriptor = parse(readFileSync(new URL('../run.vue', import.meta.url), 'utf8')).descriptor
-const compiled = transpileModule(compileScript(descriptor, { id: 'run-review-test' }).content, {
+const script = compileScript(descriptor, { id: 'run-review-test' })
+const compiled = transpileModule(script.content, {
   compilerOptions: { module: ModuleKind.CommonJS }
 }).outputText
+// Render the production bulk selector with the real setup state. This also checks
+// disabled bindings and update handlers, which setup-only tests cannot exercise.
+const template = descriptor.template!.content
+const bulkItemsOffset = template.indexOf(':items="imageVariantOptions"')
+const bulkSelector = template.slice(template.lastIndexOf('<USelectMenu', bulkItemsOffset), template.indexOf('/>', bulkItemsOffset) + 2)
+const pageListOffset = template.indexOf('<ActionImageVariantPageList')
+const pageList = template.slice(pageListOffset, template.indexOf('/>', pageListOffset) + 2)
+function compileControl(source: string) {
+  const controlTemplate = compileTemplate({
+    id: 'run-review-control-test', filename: 'run.vue', source,
+    compilerOptions: { bindingMetadata: script.bindings }
+  })
+  const controlExports: { render?: (...args: unknown[]) => Vue.VNode } = {}
+  new Function('require', 'exports', transpileModule(controlTemplate.code, {
+    compilerOptions: { module: ModuleKind.CommonJS }
+  }).outputText)(() => ({ ...Vue, resolveComponent: (name: string) => name }), controlExports)
+  return (setup: ReviewSetup) => controlExports.render!({}, [], {}, Vue.proxyRefs(setup), {}, {})
+}
+const renderBulkSelector = compileControl(bulkSelector)
+const renderPageImageList = compileControl(pageList)
 const dependencies: Record<string, unknown> = {
   'vue': Vue,
   '@/utils/action-run-status': actionRunStatus,
@@ -40,6 +61,13 @@ interface ReviewSetup {
   selectedImageVariants: Vue.Ref<string[]>
   pageImageVariants: Record<string, string[]>
   imageVariantMode: Vue.Ref<'global' | 'perPage'>
+  perPageImagesOpen: Vue.Ref<boolean>
+  perPageImageRows: Vue.ComputedRef<unknown[]>
+  imageVariantDescription: Vue.ComputedRef<string>
+  differingImageVariantPages: Vue.ComputedRef<unknown[]>
+  pageImageVariantsDiffer: (pageId: string) => boolean
+  setPerPageImagesOpen: (open: boolean) => void
+  selectPageImageVariants: (pageId: string, value: unknown) => void
   fallbackImage: Vue.Ref<boolean>
   scopeWarnings: Vue.ComputedRef<Array<{ title: string }>>
   imageWarnings: Vue.ComputedRef<Array<{ title: string }>>
@@ -164,6 +192,164 @@ describe('Action run review flow', () => {
     expect(typedSetup.imageWarnings.value[0]?.title).toContain('accepted type')
   })
 
+  it.each([false, true])('lets a bulk color selection replace per-page variants for multiple pages (multiple images: %s)', async (multiple) => {
+    const images = scope.run(() => exportsObject.default!.setup({
+      workspaceId: 'workspace', projectId: 'project', pageIds: ['one', 'two'],
+      pages: ['one', 'two'].map(id => ({
+        id, name: id, imageCount: 2, xmlFileCount: 0, imageVariants: [
+          { id: `${id}-color`, fileName: `${id}_iiif.jpg`, variant: 'iiif.jpg', imageType: 'COLOR' },
+          { id: `${id}-binary`, fileName: `${id}_sbb.bin.png`, variant: 'sbb-bin', imageType: 'BINARY' }
+        ]
+      }))
+    }, { expose: () => {}, emit }))!
+    images.processors.value = [{ assignmentId: null, executable: true, blockedReason: null,
+      processor: { ...processor, acceptsImages: true, inputs: {
+        images: { level: 'REQUIRED', requiredForTargets: [], multiple },
+        xml: { level: 'NONE', requiredForTargets: [] }
+      } } }]
+    images.selectAction(images.processors.value[0]!)
+    await Vue.nextTick()
+    expect(images.perPageImagesOpen.value).toBe(false)
+    expect(renderPageImageList(images).type).toBe(Vue.Comment)
+    images.selectedImageVariants.value = ['sbb-bin']
+    images.imageVariantMode.value = 'perPage'
+    images.pageImageVariants.one = ['sbb-bin']
+    images.pageImageVariants.two = ['sbb-bin']
+
+    const selector = renderBulkSelector(images)
+    expect(selector.props!.items).toEqual([
+      { value: 'iiif.jpg', label: 'iiif.jpg · color' },
+      { value: 'sbb-bin', label: 'sbb-bin · binary' }
+    ])
+    expect(selector.props!.disabled).toBe(false)
+    expect(selector.props!['model-value']).toEqual(multiple ? ['sbb-bin'] : 'sbb-bin')
+    selector.props!['onUpdate:modelValue'](multiple ? ['iiif.jpg'] : 'iiif.jpg')
+    await Vue.nextTick()
+    expect(images.imageVariantMode.value).toBe('global')
+    expect(images.submittedImageVariantSelection.value).toEqual({
+      mode: 'GLOBAL', variants: ['iiif.jpg'], fallbackImage: false
+    })
+    expect(images.canStart.value).toBe(true)
+    expect(renderBulkSelector(images).props!['model-value']).toEqual(multiple ? ['iiif.jpg'] : 'iiif.jpg')
+    fetch.mockResolvedValueOnce(preview)
+    await images.startRun()
+    expect(fetch.mock.calls[0]![1].body.imageVariantSelection).toEqual({
+      mode: 'GLOBAL', variants: ['iiif.jpg'], fallbackImage: false
+    })
+
+    // Opening per-page settings inherits the latest global choice, even if the
+    // cached per-page choices previously used another variant.
+    images.pageImageVariants.one = ['sbb-bin']
+    images.setPerPageImagesOpen(true)
+    expect(images.perPageImagesOpen.value).toBe(true)
+    expect(renderPageImageList(images).props!.rows).toBe(images.perPageImageRows.value)
+    expect(images.pageImageVariants).toEqual({ one: ['iiif.jpg'], two: ['iiif.jpg'] })
+    expect(images.differingImageVariantPages.value).toHaveLength(0)
+    expect(renderBulkSelector(images).props!['model-value']).toEqual(multiple ? ['iiif.jpg'] : 'iiif.jpg')
+
+    images.selectPageImageVariants('two', multiple ? ['sbb-bin'] : 'sbb-bin')
+    expect(images.selectedImageVariants.value).toEqual(['iiif.jpg'])
+    expect(images.pageImageVariantsDiffer('one')).toBe(false)
+    expect(images.pageImageVariantsDiffer('two')).toBe(true)
+    expect(images.imageVariantDescription.value).toBe('1 page uses different variants from the global selection.')
+    expect(renderBulkSelector(images).props!['model-value']).toEqual(multiple ? ['iiif.jpg'] : 'iiif.jpg')
+    const overrides = { mode: 'PER_PAGE', pageVariantLists: { one: ['iiif.jpg'], two: ['sbb-bin'] }, fallbackImage: false }
+    expect(images.submittedImageVariantSelection.value).toEqual(overrides)
+
+    images.setPerPageImagesOpen(false)
+    expect(images.perPageImagesOpen.value).toBe(false)
+    expect(images.submittedImageVariantSelection.value).toEqual(overrides)
+    images.setPerPageImagesOpen(true)
+    expect(images.pageImageVariants.two).toEqual(['sbb-bin'])
+    fetch.mockResolvedValueOnce(preview)
+    await images.startRun()
+    expect(fetch.mock.calls[1]![1].body.imageVariantSelection).toEqual(overrides)
+    expect(images.impact.value).not.toBeNull()
+    images.selectPageImageVariants('two', multiple ? ['iiif.jpg'] : 'iiif.jpg')
+    expect(images.impact.value).toBeNull()
+    images.selectPageImageVariants('two', multiple ? ['sbb-bin'] : 'sbb-bin')
+
+    // A new global choice updates the visible rows and clears the differences.
+    renderBulkSelector(images).props!['onUpdate:modelValue'](multiple ? ['sbb-bin'] : 'sbb-bin')
+    expect(images.perPageImagesOpen.value).toBe(true)
+    expect(images.pageImageVariants).toEqual({ one: ['sbb-bin'], two: ['sbb-bin'] })
+    expect(images.differingImageVariantPages.value).toHaveLength(0)
+    expect(images.imageVariantDescription.value).toContain('Applies to all pages where available.')
+
+    if (multiple) {
+      renderBulkSelector(images).props!['onUpdate:modelValue'](['sbb-bin', 'iiif.jpg'])
+      images.selectPageImageVariants('one', ['iiif.jpg', 'sbb-bin'])
+      expect(images.pageImageVariantsDiffer('one')).toBe(false)
+    }
+    images.impactLoading.value = true
+    expect(renderBulkSelector(images).props!.disabled).toBe(true)
+    images.impactLoading.value = false
+    images.automaticImages.value = true
+    expect(renderBulkSelector(images).props!.disabled).toBe(true)
+  })
+
+  it('inherits available global variants and marks pages that need a different variant', async () => {
+    const images = scope.run(() => exportsObject.default!.setup({
+      workspaceId: 'workspace', projectId: 'project',
+      pages: [
+        { id: 'color', name: 'Color', imageCount: 1, xmlFileCount: 0,
+          imageVariants: [{ id: 'color-image', fileName: 'color.jpg', variant: 'original', imageType: 'COLOR' }] },
+        { id: 'binary', name: 'Binary', imageCount: 1, xmlFileCount: 0,
+          imageVariants: [{ id: 'binary-image', fileName: 'binary.png', variant: 'sbb-bin', imageType: 'BINARY' }] }
+      ]
+    }, { expose: () => {}, emit }))!
+    images.processors.value = [{ assignmentId: null, executable: true, blockedReason: null,
+      processor: { ...processor, acceptsImages: true, inputs: {
+        images: { level: 'REQUIRED', requiredForTargets: [] }, xml: { level: 'NONE', requiredForTargets: [] }
+      } } }]
+    images.selectAction(images.processors.value[0]!)
+    await Vue.nextTick()
+    renderBulkSelector(images).props!['onUpdate:modelValue']('original')
+    images.setPerPageImagesOpen(true)
+    expect(images.selectedImageVariants.value).toEqual(['original'])
+    expect(images.pageImageVariants).toEqual({ color: ['original'], binary: ['sbb-bin'] })
+    expect(images.pageImageVariantsDiffer('color')).toBe(false)
+    expect(images.pageImageVariantsDiffer('binary')).toBe(true)
+    expect(images.canStart.value).toBe(true)
+    expect(images.submittedImageVariantSelection.value).toEqual({
+      mode: 'PER_PAGE', pageVariantLists: { color: ['original'], binary: ['sbb-bin'] }, fallbackImage: false
+    })
+  })
+
+  it.each([300, 10000])('updates %i per-page selections without rescanning every page for each assignment', async (count) => {
+    let pageReads = 0
+    const images = scope.run(() => exportsObject.default!.setup({
+      workspaceId: 'workspace', projectId: 'project',
+      pages: Array.from({ length: count }, (_, index) => ({
+        get id() {
+          pageReads++
+          return `page-${index}`
+        },
+        name: `Page ${index}`, imageCount: 2, xmlFileCount: 0,
+        imageVariants: ['original', 'binary'].map(variant => ({
+          id: `${index}-${variant}`, fileName: `${index}-${variant}.png`, variant
+        }))
+      }))
+    }, { expose: () => {}, emit }))!
+    images.processors.value = [{ assignmentId: null, executable: true, blockedReason: null,
+      processor: { ...processor, acceptsImages: true, inputs: {
+        images: { level: 'REQUIRED', requiredForTargets: [] }, xml: { level: 'NONE', requiredForTargets: [] }
+      } } }]
+    images.selectAction(images.processors.value[0]!)
+    await Vue.nextTick()
+    images.setPerPageImagesOpen(true)
+    await Vue.nextTick()
+    const rows = images.perPageImageRows.value
+    pageReads = 0
+    renderBulkSelector(images).props!['onUpdate:modelValue']('original')
+    await Vue.nextTick()
+    expect(images.pageImageVariants[`page-${count - 1}`]).toEqual(['original'])
+    expect(pageReads).toBeLessThan(count * 30)
+    expect(images.perPageImageRows.value).toBe(rows)
+    images.selectPageImageVariants(`page-${count - 1}`, 'binary')
+    expect(images.perPageImageRows.value).toBe(rows)
+  })
+
   it('selects a confirmed required type by default and switches defaults when the Action changes', async () => {
     const typedSetup = scope.run(() => exportsObject.default!.setup({
       workspaceId: 'workspace', projectId: 'project', pages: [
@@ -212,6 +398,7 @@ describe('Action run review flow', () => {
     typedSetup.selectAction(typedSetup.processors.value[0]!)
     await Vue.nextTick()
     expect(typedSetup.imageVariantMode.value).toBe('perPage')
+    expect(typedSetup.perPageImagesOpen.value).toBe(false)
     expect(typedSetup.pageImageVariants).toEqual({ one: ['ocropus'], two: ['sbb'] })
     expect(typedSetup.incompatibleScopedPages.value).toHaveLength(0)
     expect(typedSetup.canStart.value).toBe(true)
