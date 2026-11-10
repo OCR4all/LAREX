@@ -533,7 +533,7 @@ async def test_mock_ocr_provider_marks_its_default_vocabulary() -> None:
     assert response.status_code == 200
     choices = response.json()["values"]["mockOcrVocabularies"]
     assert [choice["value"] for choice in choices] == ["historical", "latin", "numbers"]
-    assert [choice["value"] for choice in choices if choice.get("default")] in ([], ["historical"])
+    assert [choice["value"] for choice in choices if choice.get("default")] == ["historical"]
 
 
 @pytest.mark.asyncio
