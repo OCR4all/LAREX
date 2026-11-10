@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ActionStartButton from '@/components/action/start-button.vue'
+import ActionModalSkippedPages from '@/components/action/modal/skipped-pages.vue'
 import { actionRunStatusLabel, actionRunStatusColor, canRetryActionRun, actionRunCountsLabel } from '@/utils/action-run-status'
 import { extractApiErrorDetails } from '@/utils/api-error'
 import { annotationLevelLabels, retainedImpactPages, reviewedActionConfiguration } from '@/utils/action-impact'
@@ -65,6 +66,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const overlay = useOverlay()
 const actionRunsStore = useActionRunsStore()
 
 const processors = ref<ExecutableActionProcessorResponse[]>([])
@@ -861,9 +863,16 @@ async function submitReviewedRun(submission: ReviewedSubmission, enqueueIfBusy =
     if (submission.skippedPages.length) {
       toast.add({
         title: `${submission.skippedPages.length} page${submission.skippedPages.length === 1 ? '' : 's'} skipped`,
-        description: submission.skippedPages.slice(0, 3).map(page => `${page.name || page.pageId}: ${page.reason}`).join('\n'),
+        orientation: 'horizontal',
         color: 'warning',
-        icon: 'i-lucide-skip-forward'
+        icon: 'i-lucide-skip-forward',
+        actions: [{
+          label: 'View details',
+          icon: 'i-lucide-info',
+          color: 'neutral',
+          variant: 'outline',
+          onClick: () => overlay.create(ActionModalSkippedPages, { destroyOnClose: true }).open({ pages: submission.skippedPages })
+        }]
       })
     }
     changed.value = true

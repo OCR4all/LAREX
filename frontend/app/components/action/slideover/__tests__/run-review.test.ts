@@ -38,9 +38,11 @@ function compileControl(source: string) {
 }
 const renderBulkSelector = compileControl(bulkSelector)
 const renderPageImageList = compileControl(pageList)
+const skippedPagesModal = {}
 const dependencies: Record<string, unknown> = {
   'vue': Vue,
   '@/components/action/start-button.vue': { default: {} },
+  '@/components/action/modal/skipped-pages.vue': { default: skippedPagesModal },
   '@/utils/action-run-status': actionRunStatus,
   '@/utils/api-error': apiError,
   '@/utils/action-impact': impactHelpers,
@@ -131,6 +133,8 @@ const processor: ActionDefinition = {
 describe('Action run review flow', () => {
   const fetch = vi.fn()
   const addToast = vi.fn()
+  const openDetails = vi.fn()
+  const createOverlay = vi.fn(() => ({ open: openDetails }))
   const emit = vi.fn()
   let scope: Vue.EffectScope
   let setup: ReviewSetup
@@ -140,6 +144,7 @@ describe('Action run review flow', () => {
     vi.stubGlobal('useTablePagination', useTablePagination)
     vi.stubGlobal('$fetch', fetch)
     vi.stubGlobal('useToast', () => ({ add: addToast }))
+    vi.stubGlobal('useOverlay', () => ({ create: createOverlay }))
     vi.stubGlobal('useActionRunsStore', () => ({ runsArray: [], upsertRun: vi.fn() }))
     vi.stubGlobal('onMounted', () => {})
     scope = Vue.effectScope()
@@ -793,7 +798,9 @@ describe('Action run review flow', () => {
 
     expect(fetch.mock.calls[1]![1].body.pageIds).toEqual(['safe'])
     expect(fetch.mock.calls[1]![1].body.targetSelection.pages.map((page: { pageId: string }) => page.pageId)).toEqual(['safe'])
-    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: '1 page skipped', description: expect.stringContaining('locked') }))
+    expect(addToast).toHaveBeenCalledWith(expect.objectContaining({ title: '1 page skipped' }))
+    addToast.mock.calls[0]![0].actions[0].onClick()
+    expect(openDetails).toHaveBeenCalledWith({ pages: [{ pageId: 'affected', name: 'Affected', reason: 'Page is locked: Under review' }] })
   })
 
   it('explains when every selected page is locked and does not submit a run', async () => {
@@ -873,6 +880,29 @@ describe('Action run review flow', () => {
     schedule()
     await Vue.nextTick()
     expect(fetch.mock.calls[2]![1].body).toMatchObject({ pageIds: ['safe'], enqueueIfBusy: true, parameters: {} })
+  })
+
+  it('keeps the skipped-pages toast compact and opens every reason after the run panel closes', async () => {
+    const skippedPages = Array.from({ length: 24 }, (_, index) => ({
+      pageId: `skipped-${index}`, name: `a_1509-ShipOfFools-Barclay_kalli_gt4histocr_${index}`,
+      reason: 'Required image input or selected image variant is missing; accepted types: [COLOR, GRAYSCALE]'
+    }))
+    fetch.mockResolvedValueOnce({ ...preview, skippedPages })
+      .mockResolvedValueOnce({ run: { id: 'started' } })
+    await setup.startRun()
+    await setup.confirmReviewedRun()
+
+    const toast = addToast.mock.calls[0]![0]
+    expect(toast).toMatchObject({ title: '24 pages skipped', orientation: 'horizontal', color: 'warning' })
+    expect(toast.description).toBeUndefined()
+    expect(emit).toHaveBeenCalledWith('close', true)
+    expect(createOverlay).not.toHaveBeenCalled()
+
+    setup.resetReview()
+    toast.actions[0].onClick()
+    expect(toast.actions[0].label).toBe('View details')
+    expect(createOverlay).toHaveBeenCalledWith(dependencies['@/components/action/modal/skipped-pages.vue'], { destroyOnClose: true })
+    expect(openDetails).toHaveBeenCalledWith({ pages: skippedPages })
   })
 
   it('reviews retries and excludes skipped as well as unchecked pages', async () => {
