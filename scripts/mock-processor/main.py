@@ -21,6 +21,7 @@ from larex_actions import (
     EvaluationTableColumn,
     EvaluationTableRow,
     PageResultRejected,
+    ParameterChoice,
     RunReportsUnsupported,
 )
 from larex_actions.fastapi import create_larex_action_app
@@ -54,6 +55,28 @@ def integer_parameter(parameters: dict, key: str, default: int, minimum: int, ma
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or int(value) != value or not minimum <= value <= maximum:
         raise ValueError(f"{key} must be an integer between {minimum} and {maximum}")
     return int(value)
+
+
+OCR_VOCABULARIES = {
+    "historical": ("Historical documents", "archive page history manuscript letter reading example document ink paper book text"),
+    "latin": ("Latin filler text", "lorem ipsum dolor sit amet consectetur adipiscing elit sed tempor incididunt labore"),
+    "numbers": ("Numbers", "one two three four five six seven eight nine ten eleven twelve"),
+}
+DEFAULT_OCR_VOCABULARY = "historical"
+
+
+def discover_ocr_vocabularies() -> list[ParameterChoice]:
+    return [
+        ParameterChoice(value=key, label=label, default=key == DEFAULT_OCR_VOCABULARY)
+        for key, (label, _) in OCR_VOCABULARIES.items()
+    ]
+
+
+def ocr_words(parameters: dict) -> list[str]:
+    selected = parameters.get("vocabularies") or [DEFAULT_OCR_VOCABULARY]
+    if not isinstance(selected, list) or any(not isinstance(key, str) or key not in OCR_VOCABULARIES for key in selected):
+        raise ValueError(f"vocabularies must be a list of: {', '.join(OCR_VOCABULARIES)}")
+    return [word for key in selected for word in OCR_VOCABULARIES[key][1].split()]
 
 
 def binarize(content: bytes, threshold: int) -> bytes:
@@ -131,7 +154,7 @@ def transform_xml(operation: str, content: bytes | None, parameters: dict, *, im
             raise ValueError("No text line found. Run Mock Single Text Line first.")
         count = integer_parameter(parameters, "wordCount", 8, 1, 100)
         rng = random.Random(integer_parameter(parameters, "seed", 42, 0, 2147483647))
-        words = "archive page history manuscript letter reading example document ink paper book text".split()
+        words = ocr_words(parameters)
         # Region-level transcriptions would otherwise disagree with the new line text.
         for region in page.iter():
             if region.tag.endswith("Region"):
@@ -650,6 +673,7 @@ for operation, processor_id in (("binarize", "mock-binarization"), ("region", "m
         handler=workflow_mock_handler(operation),
         route_prefixes=("",),
         processor_capabilities={"customFileResults": False},
+        parameter_value_providers={"mockOcrVocabularies": discover_ocr_vocabularies} if operation == "ocr" else None,
     ))
 app.mount(
     "/training",

@@ -191,6 +191,10 @@ class ActionWorkflowIntegrationTest {
         assertThat(definitions.readOverwriteDeclarations(region).get(ActionProcessorDefinition.ActionTarget.PAGE)).contains(ActionDto.AnnotationLevel.REGIONS);
         assertThat(definitions.readOverwriteDeclarations(line).get(ActionProcessorDefinition.ActionTarget.PAGE)).contains(ActionDto.AnnotationLevel.TEXT_LINES);
         assertThat(definitions.readOverwriteDeclarations(ocr).get(ActionProcessorDefinition.ActionTarget.PAGE)).contains(ActionDto.AnnotationLevel.TEXT);
+        var vocabularies = definitions.readParsedDocument(ocr).parameters().get("vocabularies");
+        assertThat(vocabularies.allowsMultiple()).isTrue();
+        assertThat(vocabularies.defaultValue()).isNull();
+        assertThat(vocabularies.allowedValues().provider()).isEqualTo("mockOcrVocabularies");
     }
 
     @Test

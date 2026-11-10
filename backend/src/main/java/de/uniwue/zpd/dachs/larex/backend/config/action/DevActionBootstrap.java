@@ -228,6 +228,12 @@ public class DevActionBootstrap implements ApplicationRunner {
                   min: 0
                   max: 2147483647
                   description: Change the seed to generate different sample text.
+                vocabularies:
+                  type: string
+                  multiple: true
+                  description: Word lists to draw sample text from. The processor marks its default.
+                  allowedValues:
+                    provider: mockOcrVocabularies
                 """);
     }
 
@@ -249,6 +255,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                   url: %s
                   healthUrl: %s
                   preflightUrl: %s
+                  parameterValuesUrl: %s
                   timeoutSeconds: 30
                   auth:
                     type: hmac
@@ -274,6 +281,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                 replaceEndpoint(processor.getEndpointUrl(), prefix + "/dispatch"),
                 replaceEndpoint(processor.getHealthUrl(), prefix + "/health"),
                 replaceEndpoint(processor.getPreflightUrl(), prefix + "/preflight"),
+                replaceEndpoint(processor.getEndpointUrl(), prefix + "/parameter-values"),
                 imageTypes, requiredXml ? "required" : operation.equals("region") ? "optional" : "none",
                 outputs.indent(2).stripTrailing(), parameters.indent(2).stripTrailing());
         upsertDevAction(key, processor.isEnabled(), yaml);

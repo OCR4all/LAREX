@@ -511,6 +511,31 @@ def test_workflow_mocks_reject_missing_prerequisites_and_invalid_parameters() ->
             main.integer_parameter({"threshold": invalid}, "threshold", 128, 0, 255)
 
 
+def test_mock_ocr_draws_words_from_selected_vocabularies() -> None:
+    assert main.ocr_words({}) == main.ocr_words({"vocabularies": []}) == main.ocr_words({"vocabularies": ["historical"]})
+    assert main.ocr_words({"vocabularies": ["numbers", "latin"]})[:2] == ["one", "two"]
+    assert "lorem" in main.ocr_words({"vocabularies": ["numbers", "latin"]})
+    with pytest.raises(ValueError, match="vocabularies"):
+        main.ocr_words({"vocabularies": ["unknown"]})
+    with pytest.raises(ValueError, match="vocabularies"):
+        main.ocr_words({"vocabularies": "historical"})
+
+
+@pytest.mark.asyncio
+async def test_mock_ocr_provider_marks_its_default_vocabulary() -> None:
+    path = "/workflow/ocr/parameter-values"
+    body, headers = signed_request({
+        "protocolVersion": 1, "requestId": "vocabularies-test", "processorId": "mock-random-ocr",
+        "providers": ["mockOcrVocabularies"], "capabilities": {"parameterChoiceDefaults": True},
+    }, path)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://mock") as client:
+        response = await client.post(path, content=body, headers=headers)
+    assert response.status_code == 200
+    choices = response.json()["values"]["mockOcrVocabularies"]
+    assert [choice["value"] for choice in choices] == ["historical", "latin", "numbers"]
+    assert [choice["value"] for choice in choices if choice.get("default")] in ([], ["historical"])
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("operation", ["binarize", "region", "line", "ocr"])
 async def test_workflow_mock_routes_publish_matching_processor_ids(operation: str) -> None:
