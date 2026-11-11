@@ -48,6 +48,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import tools.jackson.core.type.TypeReference;
@@ -66,6 +67,7 @@ public class ActionDefinitionService {
     private static final int MAX_PARAMETER_VALUE_RESPONSE_BYTES = 1_048_576;
     private static final TypeReference<List<ActionTarget>> ACTION_TARGET_LIST = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {};
+    private static final String OUTPUT_VARIANT_PATTERN = "[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}";
     private static final Set<String> INPUT_REQUIREMENT_FIELDS = Set.of("level", "requiredForTargets", "multiple", "imageTypes");
 
     private final ActionProcessorDefinitionRepository definitionRepository;
@@ -577,6 +579,7 @@ public class ActionDefinitionService {
                     outputsImages,
                     outputsXml,
                     outputsFiles,
+                    outputImageVariants(document),
                     trainingSplits,
                     evaluation,
                     document.parameters() == null ? Map.of() : document.parameters(),
@@ -687,6 +690,7 @@ public class ActionDefinitionService {
                 definition.isOutputsImages(),
                 definition.isOutputsXml(),
                 definition.isOutputsFiles(),
+                outputImageVariants(document),
                 definition.isEnabled(),
                 definition.isGlobalAvailable(),
                 definition.getCreated(),
@@ -1355,7 +1359,38 @@ public class ActionDefinitionService {
         if (!enabled) {
             return;
         }
-        requirePattern(output.variant(), path + ".variant", "[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}", diagnostics);
+        if (output.variant() != null && output.variants() != null) {
+            diagnostics.add(error(path, "Declare either variant or variants, not both"));
+            return;
+        }
+        if (output.variants() == null) {
+            requirePattern(output.variant(), path + ".variant", OUTPUT_VARIANT_PATTERN, diagnostics);
+            return;
+        }
+        if (output.variants().isEmpty()) {
+            diagnostics.add(error(path + ".variants", "variants must list at least one variant"));
+            return;
+        }
+        Set<String> seen = new LinkedHashSet<>();
+        for (int index = 0; index < output.variants().size(); index++) {
+            String variantPath = path + ".variants[" + index + "]";
+            String variant = requirePattern(output.variants().get(index), variantPath, OUTPUT_VARIANT_PATTERN, diagnostics);
+            if (variant != null && !seen.add(variant)) {
+                diagnostics.add(error(variantPath, "Duplicate output image variant: " + variant));
+            }
+        }
+    }
+
+    public List<String> readOutputImageVariants(ActionProcessorDefinition definition) {
+        return outputImageVariants(readParsedDocument(definition));
+    }
+
+    private List<String> outputImageVariants(ActionDefinitionDocument document) {
+        var images = document.outputs() == null ? null : document.outputs().images();
+        if (images == null || !Boolean.TRUE.equals(images.enabled())) {
+            return List.of();
+        }
+        return images.declaredVariants().stream().filter(Objects::nonNull).map(String::trim).distinct().toList();
     }
 
     private List<ActionTarget> parseTargets(List<String> rawTargets,

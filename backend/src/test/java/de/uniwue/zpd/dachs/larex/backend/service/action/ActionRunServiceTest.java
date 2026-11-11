@@ -1535,6 +1535,7 @@ class ActionRunServiceTest {
             xml.setId("xml-result");
             return xml;
         });
+        when(definitionService.readOutputImageVariants(definition)).thenReturn(List.of("processed"));
         when(pageImageRepository.findByPageIdAndVariant(page.getId(), "processed")).thenReturn(List.of());
         when(pageImageRepository.save(any(PageImage.class))).thenAnswer(invocation -> {
             PageImage image = invocation.getArgument(0);
@@ -1576,6 +1577,84 @@ class ActionRunServiceTest {
         verify(pageImageRepository).save(any(PageImage.class));
         verify(pageFilterIndexService).indexPageFromXml(page);
         verify(transactionManager).commit(transactionStatus);
+    }
+
+    @Test
+    void incrementalPageImportsSeveralImageVariants() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("binarizer");
+        definition.setOutputsImages(true);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        Page page = page("page-1", project, run);
+        recordPageResults(run);
+        when(definitionService.readOutputImageVariants(definition)).thenReturn(List.of("binary", "grayscale"));
+        when(pageRepository.findByIdAndProjectId(page.getId(), project.getId())).thenReturn(Optional.of(page));
+        when(pageImageRepository.findByPageIdAndVariant(eq(page.getId()), anyString())).thenReturn(List.of());
+        List<PageImage> savedImages = new ArrayList<>();
+        when(pageImageRepository.save(any(PageImage.class))).thenAnswer(invocation -> {
+            PageImage image = invocation.getArgument(0);
+            image.setId("image-" + image.getVariant());
+            savedImages.add(image);
+            return image;
+        });
+        when(fileStorageService.storeMultipartFile(any(), eq(WORKSPACE_ID), eq(project.getId()), eq(StoredFileType.IMG), eq(OWNER_ID)))
+                .thenAnswer(invocation -> {
+                    var file = (org.springframework.web.multipart.MultipartFile) invocation.getArgument(0);
+                    return new HierarchicalFileStorageService.StoredFileDescriptor("stored-" + file.getOriginalFilename(),
+                            "img/" + file.getOriginalFilename(), file.getOriginalFilename(), "image/png", "png", 32, "checksum", StoredFileType.IMG);
+                });
+
+        LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile> files = new LinkedMultiValueMap<>();
+        files.add("binary", new MockMultipartFile("binary", "page.bin.png", "image/png", pngBytes()));
+        files.add("gray", new MockMultipartFile("gray", "page.nrm.png", "image/png", pngBytes()));
+        ActionDto.ResultManifest manifest = new ActionDto.ResultManifest(1, "running", null, page.getId(), List.of(
+                new ActionDto.ResultFile("binary", page.getId(), "image", "binary", "page.bin.png"),
+                new ActionDto.ResultFile("gray", page.getId(), "image", "grayscale", "page.nrm.png")
+        ), List.of());
+
+        ActionDto.RunResponse response = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET, manifest, files);
+
+        assertThat(response.completedPageIds()).containsExactly(page.getId());
+        assertThat(savedImages).extracting(PageImage::getVariant).containsExactly("binary", "grayscale");
+        assertThat(savedImages).extracting(PageImage::getFileName).containsExactly("page.bin.png", "page.nrm.png");
+    }
+
+    @Test
+    void imageResultsRejectDuplicateAndUndeclaredVariants() throws Exception {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionProcessorDefinition definition = definition("binarizer");
+        definition.setOutputsImages(true);
+        ActionRun run = run(definition, project, OWNER_ID, ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        recordPageResults(run);
+        when(definitionService.readOutputImageVariants(definition)).thenReturn(List.of("binary", "grayscale"));
+
+        LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile> files = new LinkedMultiValueMap<>();
+        files.add("a", new MockMultipartFile("a", "a.png", "image/png", pngBytes()));
+        files.add("b", new MockMultipartFile("b", "b.png", "image/png", pngBytes()));
+
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "running", null, "page-1", List.of(
+                        new ActionDto.ResultFile("a", "page-1", "image", "binary", "a.png"),
+                        new ActionDto.ResultFile("b", "page-1", "image", "binary", "b.png")), List.of()), files))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Duplicate image result variant binary");
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "running", null, "page-1", List.of(
+                        new ActionDto.ResultFile("a", "page-1", "image", "deskewed", "a.png")), List.of()), files))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("deskewed is not declared");
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "running", null, "page-1", List.of(
+                        new ActionDto.ResultFile("a", "page-1", "image", null, "a.png")), List.of()), files))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must name one of the declared variants");
+        verify(pageImageRepository, never()).save(any(PageImage.class));
+    }
+
+    private static byte[] pngBytes() throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), "png", bytes);
+        return bytes.toByteArray();
     }
 
     private List<ActionRunPageResult> recordPageResults(ActionRun run) {

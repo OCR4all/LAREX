@@ -71,7 +71,12 @@ public record ActionDefinitionDocument(
     public record OutputTarget(Boolean enabled, Map<String, List<String>> overwrites) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record ImageOutputTarget(Boolean enabled, String variant) {}
+    public record ImageOutputTarget(Boolean enabled, String variant, List<String> variants) {
+        public List<String> declaredVariants() {
+            if (variants != null) return variants;
+            return variant == null ? List.of() : List.of(variant);
+        }
+    }
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record FileOutputTarget(Boolean enabled) {}

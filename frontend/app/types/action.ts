@@ -71,6 +71,7 @@ export interface ActionDefinitionPreview {
   acceptsImages: boolean
   acceptsXml: boolean
   outputsImages: boolean
+  outputImageVariants?: string[]
   outputsXml: boolean
   outputsFiles: boolean
   overwrites: ActionOverwriteDeclarations
@@ -134,6 +135,7 @@ export interface ActionDefinition {
   acceptsImages: boolean
   acceptsXml: boolean
   outputsImages: boolean
+  outputImageVariants?: string[]
   outputsXml: boolean
   outputsFiles: boolean
   overwrites: ActionOverwriteDeclarations
@@ -449,7 +451,7 @@ outputs:
     enabled: true
   images:
     enabled: true
-    variant: action-copy
+    variants: [action-copy]
 
 concurrency:
   maxActiveRuns: 1

@@ -74,7 +74,10 @@ function inputLabels(processor: ActionDefinitionResponse) {
 
 function outputLabels(processor: ActionDefinitionResponse) {
   const outputs: string[] = []
-  if (processor.outputsImages) outputs.push('Images')
+  if (processor.outputsImages) {
+    const variants = processor.outputImageVariants ?? []
+    outputs.push(variants.length > 0 ? `Images (${variants.join(', ')})` : 'Images')
+  }
   if (processor.outputsXml) outputs.push('PAGE XML')
   if (processor.outputsFiles) outputs.push('Files')
   return outputs.length > 0 ? outputs : ['No LAREX outputs']

@@ -135,6 +135,42 @@ class ActionDefinitionServicePreflightTest {
     }
 
     @Test
+    void declaresSeveralOutputImageVariants() {
+        when(endpointAuthService.normalizeAuthType(any())).thenReturn("hmac");
+        when(endpointAuthService.hasSecret("processor-v1")).thenReturn(true);
+        String yaml = """
+                version: 1
+                id: binarizer
+                name: Binarizer
+                endpoint:
+                  url: http://processor.localhost/dispatch
+                  auth: {type: hmac, secretRef: processor-v1}
+                inputs:
+                  images: {level: required}
+                outputs:
+                  images: %s
+                """;
+        var valid = service.validateYaml(yaml.formatted("{enabled: true, variants: [binary, grayscale]}"), null);
+        assertThat(valid.diagnostics()).isEmpty();
+        assertThat(valid.preview().outputImageVariants()).containsExactly("binary", "grayscale");
+        assertThat(service.validateYaml(yaml.formatted("{enabled: true, variant: binary}"), null).preview().outputImageVariants())
+                .containsExactly("binary");
+        for (String invalid : java.util.List.of(
+                "{enabled: true, variants: []}",
+                "{enabled: true, variants: [binary, binary]}",
+                "{enabled: true, variants: [binary, 'not valid']}",
+                "{enabled: true, variant: binary, variants: [grayscale]}",
+                "{enabled: true}")) {
+            assertThat(service.validateYaml(yaml.formatted(invalid), null).diagnostics())
+                    .as(invalid)
+                    .anyMatch(diagnostic -> diagnostic.path().startsWith("outputs.images"));
+        }
+        var stored = new ActionProcessorDefinition();
+        stored.setParsedJson("{\"outputs\":{\"images\":{\"enabled\":true,\"variant\":\"legacy\"}}}");
+        assertThat(service.readOutputImageVariants(stored)).containsExactly("legacy");
+    }
+
+    @Test
     void performsSignedPreflightAndValidatesProtocolIdentityAndCapabilities() throws Exception {
         when(httpResponse.statusCode()).thenReturn(200);
         when(httpResponse.body()).thenAnswer(ignored -> successfulResponse("processor-v1", true));

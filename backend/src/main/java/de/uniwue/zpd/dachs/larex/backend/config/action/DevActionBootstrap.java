@@ -184,7 +184,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                     enabled: true
                   images:
                     enabled: true
-                    variant: action-copy
+                    variants: [action-copy]
                   files:
                     enabled: true
 
@@ -202,7 +202,7 @@ public class DevActionBootstrap implements ApplicationRunner {
 
     private void bootstrapWorkflowMocks(DevProcessor processor) {
         upsertWorkflowMock(processor, "binarize", "mock-binarization", "Mock Binarization",
-                "Thresholds a color or grayscale image into the binary binarized variant.", "[COLOR, GRAYSCALE]", false, "[]", """
+                "Thresholds a color or grayscale image into the binarized variant and adds a grayscale variant.", "[COLOR, GRAYSCALE]", false, "[]", """
                 threshold:
                   type: integer
                   default: 128
@@ -242,7 +242,7 @@ public class DevActionBootstrap implements ApplicationRunner {
                                    String overwrites, String parameters) {
         String prefix = "/workflow/" + operation;
         String outputs = operation.equals("binarize")
-                ? "images:\n  enabled: true\n  variant: binarized\n"
+                ? "images:\n  enabled: true\n  variants: [binarized, grayscale]\n"
                 : "xml:\n  enabled: true\n  overwrites:\n    PAGE: " + overwrites + "\n";
         String yaml = """
                 version: 1

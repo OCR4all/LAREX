@@ -608,7 +608,8 @@ async def test_workflow_mocks_chain_through_signed_dispatch_and_incremental_resu
                 content = parts[file["fieldName"]].get_payload(decode=True)
                 assert file["pageId"] == "page-1"
                 if file["type"] == "image":
-                    image = content
+                    if file["variant"] == "binarized":
+                        image = content
                     uploaded_variants.append(file["variant"])
                 else:
                     xml = content
@@ -634,7 +635,7 @@ async def test_workflow_mocks_chain_through_signed_dispatch_and_incremental_resu
                 response = await client.post(path, content=body, headers=headers)
                 assert response.status_code == 200
                 assert statuses[-1] == "completed", statuses
-    assert uploaded_variants == ["binarized"]
+    assert uploaded_variants == ["binarized", "grayscale"]
     assert downloaded_images == ["binarize", "region", "line", "ocr"]
     assert "original · COLOR" in selected_images[0]
     assert all("binarized · BINARY" in message for message in selected_images[1:])

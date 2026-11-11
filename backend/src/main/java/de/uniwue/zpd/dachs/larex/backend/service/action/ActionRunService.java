@@ -100,6 +100,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -2194,6 +2195,8 @@ public class ActionRunService {
     }
 
     private void validateResultAuthorization(ActionRun run, List<ActionDto.ResultFile> files, Set<String> pageIds) {
+        Set<String> imageKeys = new HashSet<>();
+        List<String> declaredVariants = null;
         for (ActionDto.ResultFile file : files) {
             String type = normalize(file.type());
             switch (type) {
@@ -2204,6 +2207,11 @@ public class ActionRunService {
                 case "image", "images" -> {
                     requireResultPageInScope(file.pageId(), pageIds);
                     if (!run.getProcessorDefinition().isOutputsImages()) throw new SecurityException("Image outputs are not declared for this processor");
+                    if (declaredVariants == null) declaredVariants = definitionService.readOutputImageVariants(run.getProcessorDefinition());
+                    String variant = resolveImageVariant(file, declaredVariants);
+                    if (!imageKeys.add(file.pageId() + "\u0000" + variant)) {
+                        throw new IllegalArgumentException("Duplicate image result variant " + variant + " for page " + file.pageId());
+                    }
                 }
                 case "file", "files" -> {
                     if (!run.getProcessorDefinition().isOutputsFiles()) throw new SecurityException("File outputs are not declared for this processor");
@@ -2578,7 +2586,7 @@ public class ActionRunService {
     private Map<String, Object> storeImageResult(ActionRun run, ActionDto.ResultFile resultFile, MultipartFile file) throws IOException {
         Page page = pageRepository.findByIdAndProjectId(resultFile.pageId(), run.getProjectId())
                 .orElseThrow(() -> new IllegalArgumentException("Page not found"));
-        String variant = normalizeVariant(resultFile.variant(), "action");
+        String variant = resolveImageVariant(resultFile, definitionService.readOutputImageVariants(run.getProcessorDefinition()));
         String originalName = chooseFileName(resultFile.fileName(), file.getOriginalFilename(), page.getName() + "-" + variant);
         var storedFile = fileStorageService.storeMultipartFile(new RenamedMultipartFile(file, originalName, file.getContentType()),
                 run.getWorkspaceId(), run.getProjectId(), StoredFileType.IMG, run.getCreatedByUserId());
@@ -4259,6 +4267,17 @@ public class ActionRunService {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String resolveImageVariant(ActionDto.ResultFile resultFile, List<String> declaredVariants) {
+        if ((resultFile.variant() == null || resultFile.variant().isBlank()) && declaredVariants.size() != 1) {
+            throw new IllegalArgumentException("Image results must name one of the declared variants: " + String.join(", ", declaredVariants));
+        }
+        String variant = normalizeVariant(resultFile.variant(), declaredVariants.isEmpty() ? null : declaredVariants.getFirst());
+        if (!declaredVariants.contains(variant)) {
+            throw new IllegalArgumentException("Image result variant " + variant + " is not declared for this processor");
+        }
+        return variant;
     }
 
     private String normalizeVariant(String value, String fallback) {

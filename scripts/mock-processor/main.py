@@ -87,6 +87,13 @@ def binarize(content: bytes, threshold: int) -> bytes:
         return output.getvalue()
 
 
+def grayscale(content: bytes) -> bytes:
+    with Image.open(BytesIO(content)) as image:
+        output = BytesIO()
+        image.convert("L").save(output, format="PNG")
+        return output.getvalue()
+
+
 def page_document(content: bytes | None, image: bytes | None = None, filename: str = "page.png") -> tuple[ElementTree.Element, ElementTree.Element, str]:
     if content:
         root = ElementTree.fromstring(content)
@@ -191,6 +198,7 @@ async def workflow_mock_run(ctx: ActionContext, operation: str) -> None:
         if operation == "binarize":
             threshold = integer_parameter(action_input.parameters, "threshold", 128, 0, 255)
             results.add_image_bytes(page_id=page.id, content=binarize(image, threshold), file_name=f"{page.id}-binarized.png", variant="binarized", mime_type="image/png")
+            results.add_image_bytes(page_id=page.id, content=grayscale(image), file_name=f"{page.id}-grayscale.png", variant="grayscale", mime_type="image/png")
         else:
             xml = await ctx.download_bytes(page.xml[0]) if page.xml else None
             content = transform_xml(operation, xml, action_input.parameters, image=image, filename=selected_image.file_name)
