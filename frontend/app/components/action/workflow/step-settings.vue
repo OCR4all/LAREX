@@ -11,6 +11,8 @@ const props = defineProps<{
   projectId?: string
   disabled?: boolean
   compact?: boolean
+  earlierVariants?: string[]
+  projectVariants?: Array<{ label: string, value: string }>
 }>()
 const imageTypeOptions = computed(() => (props.processor.inputs.images.imageTypes?.length
   ? props.processor.inputs.images.imageTypes
@@ -60,11 +62,27 @@ function inputValue(key: string): string {
 function update(key: string, next: ActionParameterValue | undefined) {
   emit('update', { ...props.step, parameters: { ...props.step.parameters, [key]: next } })
 }
-function updateImages(value: string | number) {
-  const variants = String(value).split(',').map(variant => variant.trim()).filter(Boolean)
+const multipleImages = computed(() => props.processor.inputs.images.multiple === true)
+const selectedVariants = computed(() => props.step.imageVariantSelection?.variants
+  ?? (props.step.imageVariantSelection?.variant ? [props.step.imageVariantSelection.variant] : []))
+const variantItems = computed(() => {
+  const items = new Map((props.projectVariants ?? []).map(item => [item.value, item]))
+  for (const variant of props.earlierVariants ?? []) {
+    if (!items.has(variant)) items.set(variant, { label: `${variant} · from earlier step`, value: variant })
+  }
+  for (const variant of selectedVariants.value) {
+    if (!items.has(variant)) items.set(variant, { label: variant, value: variant })
+  }
+  return [...items.values()]
+})
+function updateImages(value: string | string[] | null | undefined) {
+  const variants = [...new Set((Array.isArray(value) ? value : value ? [value] : []).map(variant => variant.trim()).filter(Boolean))]
   emit('update', { ...props.step, imageVariantSelection: variants.length
-    ? { mode: 'GLOBAL', variants, fallbackImage: false }
+    ? { mode: 'GLOBAL', variants: multipleImages.value ? variants : variants.slice(-1), fallbackImage: false }
     : null })
+}
+function createVariant(variant: string) {
+  updateImages(multipleImages.value ? [...selectedVariants.value, variant] : variant)
 }
 </script>
 
@@ -161,13 +179,21 @@ function updateImages(value: string | number) {
           @update:model-value="updateImageTypes($event)"
         />
       </UFormField>
-      <UFormField label="Image variants" :description="compact ? 'Automatic, or variants separated by commas.' : 'Separate multiple variants with commas. A later step can use a variant produced by an earlier step.'">
-        <UInput
-          :model-value="step.imageVariantSelection?.variants?.join(', ') ?? step.imageVariantSelection?.variant ?? ''"
+      <UFormField
+        :label="multipleImages ? 'Image variants' : 'Image variant'"
+        :description="compact ? 'Automatic, or pick variants.' : 'Pick variants that exist in the project or come from earlier steps, or type a variant name. Leave empty to select automatically.'"
+      >
+        <USelectMenu
+          :model-value="multipleImages ? selectedVariants : selectedVariants[0]"
+          :items="variantItems"
+          value-key="value"
+          :multiple="multipleImages"
+          create-item
           :placeholder="automaticImagePlaceholder"
           :disabled="disabled"
           class="w-full"
           @update:model-value="updateImages"
+          @create="createVariant"
         />
       </UFormField>
     </section>

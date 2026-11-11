@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ActionRunImpact, ExecutableActionProcessor } from '~/types/action'
+import type { ImageType } from '~/types/image'
 import type { ActionWorkflow, ActionWorkflowRun, ActionWorkflowStep } from '~/types/action-workflow'
 import { extractApiErrorDetails } from '~/utils/api-error'
 import { annotationLevelLabels } from '~/utils/action-impact'
@@ -12,6 +13,7 @@ const props = defineProps<{
   pageIds: string[]
   initialWorkflowId?: string
   processors: ExecutableActionProcessor[]
+  projectImages?: Array<{ variant?: string | null, imageType?: ImageType | null }>
 }>()
 const emit = defineEmits<{ started: [], busy: [value: boolean] }>()
 const store = useActionRunsStore()
@@ -206,6 +208,7 @@ onBeforeUnmount(() => {
               :selected="selectedStepIndex"
               :workspace-id="workspaceId"
               :project-id="projectId"
+              :project-images="projectImages"
               :workflow-id="selectedId"
               :disabled="busy"
               inline-settings

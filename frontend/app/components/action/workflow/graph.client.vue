@@ -3,6 +3,8 @@ import { ConnectionMode, Handle, Position, VueFlow, MarkerType, useVueFlow } fro
 import type { Node as FlowNode, Edge, NodeDragEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
+import type { ImageType } from '~/types/image'
+import { actionImageVariantOptions } from '~/utils/action-input-requirements'
 import type { ActionDefinition } from '~/types/action'
 import type { ActionWorkflowStep } from '~/types/action-workflow'
 import '@vue-flow/core/dist/style.css'
@@ -17,6 +19,7 @@ const props = defineProps<{
   inlineSettings?: boolean
   workspaceId?: string
   projectId?: string
+  projectImages?: Array<{ variant?: string | null, imageType?: ImageType | null }>
   workflowId?: string
   disabled?: boolean
 }>()
@@ -75,6 +78,11 @@ async function navigateStep(index: number) {
   await nextTick()
   const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   void fitView({ nodes: [key(index)], padding: { top: '64px', right: '24px', bottom: '24px', left: '24px' }, maxZoom: 1, duration: reducedMotion ? 0 : 240 })
+}
+const projectVariantOptions = computed(() => actionImageVariantOptions(props.projectImages ?? []))
+function earlierOutputVariants(index: number) {
+  return [...new Set(props.steps.slice(0, index).flatMap(step =>
+    props.processors.find(item => item.id === step.processorDefinitionId)?.outputImageVariants ?? []))]
 }
 const nodes = computed<FlowNode[]>(() => props.steps.map((step, index) => {
   const processor = props.processors.find(item => item.id === step.processorDefinitionId)
@@ -239,6 +247,8 @@ async function nodeDragStop({ node }: NodeDragEvent) {
                 :workflow-id="workflowId"
                 :disabled="disabled"
                 :compact="editable"
+                :earlier-variants="earlierOutputVariants(data.index)"
+                :project-variants="projectVariantOptions"
                 @update="emit('update', data.index, $event)"
               />
             </div>

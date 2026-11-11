@@ -1217,6 +1217,7 @@ function close() {
             :project-name="projectName"
             :page-ids="selectedPageIds"
             :processors="processors"
+            :project-images="(pages ?? []).flatMap(page => page.imageVariants ?? [])"
             :initial-workflow-id="selectedWorkflowId"
             @busy="workflowBusy = $event"
             @started="workflowStarted"
