@@ -48,7 +48,7 @@ const links = computed<NavigationMenuItem[]>(() => sections.map(section => ({
     :ui="{
       content: isMobile
         ? 'h-[90dvh] max-h-[90dvh] rounded-t-lg'
-        : 'max-w-5xl h-[min(48rem,calc(100dvh-4rem))]',
+        : 'w-[calc(100vw-4rem)] max-w-7xl h-[min(56rem,calc(100dvh-4rem))]',
       header: 'shrink-0',
       body: 'p-0 sm:p-0 min-h-0 flex overflow-hidden',
       description: 'sr-only'
