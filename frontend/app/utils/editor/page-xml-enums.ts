@@ -1,7 +1,3 @@
-/**
- * PAGE XML enum values extracted from frontend/pagecontent.xsd
- */
-
 export const LANGUAGE_SIMPLE_TYPE_VALUES = [
   'Abkhaz',
   'Afar',
