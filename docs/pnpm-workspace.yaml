@@ -1,3 +1,6 @@
+minimumReleaseAge: 10080
+shamefullyHoist: true
+
 allowBuilds:
   '@mongodb-js/zstd': true
   '@parcel/watcher': true

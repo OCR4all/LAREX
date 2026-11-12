@@ -1,6 +1,5 @@
 minimumReleaseAge: 10080
-minimumReleaseAgeExclude:
-  - '@maxnth/gestalt'
+shamefullyHoist: true
 
 allowBuilds:
   '@parcel/watcher': true

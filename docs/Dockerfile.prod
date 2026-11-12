@@ -5,7 +5,7 @@ WORKDIR /workspace/docs
 
 RUN corepack enable && corepack prepare pnpm@11.6.0 --activate
 
-COPY docs/package.json docs/pnpm-lock.yaml docs/pnpm-workspace.yaml docs/.npmrc ./
+COPY docs/package.json docs/pnpm-lock.yaml docs/pnpm-workspace.yaml ./
 
 RUN pnpm install --frozen-lockfile
 
