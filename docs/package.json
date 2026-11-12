@@ -1,6 +1,6 @@
 {
   "name": "docs",
-  "packageManager": "pnpm@11.6.0",
+  "packageManager": "pnpm@11.28.11",
   "engines": {
     "node": ">=22.18.0"
   },
@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "@nuxt/a11y": "1.0.0-alpha.1",
-    "better-sqlite3": "^12.10.0",
+    "better-sqlite3": "^12.11.1",
     "docus": "5.15.0",
     "fflate": "^0.8.3",
-    "nuxt": "^4.6.3"
+    "nuxt": "^4.6.4"
   }
 }
