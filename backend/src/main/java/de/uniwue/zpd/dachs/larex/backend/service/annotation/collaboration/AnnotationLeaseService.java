@@ -462,7 +462,6 @@ public class AnnotationLeaseService {
                 );
             } else {
                 PendingTakeoverRecord pending = record.pendingTakeover;
-                AnnotationCollaborationDto.UserSummary previousEditor = record.owner == null ? null : record.owner.user;
                 boolean accepted = "accept".equalsIgnoreCase(decision);
                 if (!accepted || pending.requester == null) {
                     record.epoch = advanceEpoch();
@@ -501,18 +500,6 @@ public class AnnotationLeaseService {
                                 context.pageId(),
                                 context.pageLabel(),
                                 displayName(context.user())
-                        ));
-                    }
-                    if (previousEditor != null
-                            && !previousEditor.id().equals(pending.requester.id())
-                            && !previousEditor.id().equals(context.user().id())) {
-                        queueNotification(notifications, "takeover-transferred", () -> notificationService.createCollaborationTakeoverForcedNotification(
-                                previousEditor.id(),
-                                context.projectId(),
-                                context.projectLabel(),
-                                context.pageId(),
-                                context.pageLabel(),
-                                displayName(pending.requester)
                         ));
                     }
                     result = actionResult(

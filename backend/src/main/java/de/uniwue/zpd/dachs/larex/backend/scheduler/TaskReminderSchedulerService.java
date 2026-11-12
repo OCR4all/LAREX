@@ -121,11 +121,11 @@ public class TaskReminderSchedulerService {
             if (task != null && task.getStatus() != Task.TaskStatus.COMPLETED && task.getStatus() != Task.TaskStatus.CANCELLED) {
                 notificationService.createNotification(
                         reminder.getUserId(),
-                        "Task Reminder",
-                        "Reminder for task: " + task.getTitle(),
+                        "Assignment Reminder",
+                        "Reminder for Assignment: " + task.getTitle(),
                         de.uniwue.zpd.dachs.larex.backend.entity.Notification.NotificationType.TASK_REMINDER,
                         task.getId(),
-                        "Task"
+                        "Assignment"
                 );
                 logger.info("Sent user reminder for task: {} to user: {}", task.getId(), reminder.getUserId());
             }

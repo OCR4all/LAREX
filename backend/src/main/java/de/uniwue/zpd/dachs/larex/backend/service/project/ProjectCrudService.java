@@ -238,7 +238,7 @@ public class ProjectCrudService {
         project.setReviewRequired(workspace != null ? workspace.isDefaultReviewRequired() : null);
 
         project = projectRepository.save(project);
-        notifyWorkspaceMembers(workspaceId, userId, "New project created: " + name, project.getId());
+        notifyWorkspaceMembers(workspaceId, userId, project.getId(), name, notificationService::createProjectCreatedNotification);
 
         return Optional.of(project);
     }
@@ -410,7 +410,7 @@ public class ProjectCrudService {
                 // Database cascade handles cleanup of all related data (stars, indices, recent projects, etc.)
                 projectRepository.delete(project);
 
-                notifyWorkspaceMembers(workspaceId, userId, "Project deleted: " + projectName, projectId);
+                notifyWorkspaceMembers(workspaceId, userId, projectId, projectName, notificationService::createProjectDeletedNotification);
                 workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
                 return true;
             }
@@ -435,13 +435,19 @@ public class ProjectCrudService {
         return List.of();
     }
 
-    private void notifyWorkspaceMembers(String workspaceId, String excludeUserId, String message, String projectId) {
+    @FunctionalInterface
+    private interface ProjectNotifier {
+        void notify(String userId, String projectName, String projectId);
+    }
+
+    private void notifyWorkspaceMembers(String workspaceId, String excludeUserId, String projectId, String projectName,
+                                        ProjectNotifier notifier) {
         List<WorkspaceMember> members = workspaceMemberRepository.findByWorkspaceId(workspaceId);
 
         for (WorkspaceMember member : members) {
             if (!member.getUserId().equals(excludeUserId) &&
                     member.getInvitationStatus() == WorkspaceMember.InvitationStatus.ACCEPTED) {
-                notificationService.createProjectCreatedNotification(member.getUserId(), message, projectId);
+                notifier.notify(member.getUserId(), projectName, projectId);
             }
         }
     }

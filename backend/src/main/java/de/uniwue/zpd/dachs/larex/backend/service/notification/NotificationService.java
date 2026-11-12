@@ -243,8 +243,9 @@ public class NotificationService {
 
     public void createBatchPageDeletedNotification(String userId, List<String> pageNames, String projectId, String projectName) {
         int count = pageNames.size();
-        String title = count + " Pages Deleted";
-        String message = count + " pages deleted from project: \"" + projectName + "\"";
+        String noun = count == 1 ? "Page" : "Pages";
+        String title = count + " " + noun + " Deleted";
+        String message = count + " " + noun.toLowerCase() + " deleted from project: \"" + projectName + "\"";
         createNotification(userId, title, message, Notification.NotificationType.PAGE_DELETED, projectId, "Project");
     }
 

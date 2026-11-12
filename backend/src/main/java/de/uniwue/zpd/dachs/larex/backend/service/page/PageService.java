@@ -5,12 +5,12 @@ import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepositor
 import de.uniwue.zpd.dachs.larex.backend.entity.ImageType;
 import de.uniwue.zpd.dachs.larex.backend.service.image.ImageTypeService;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
+import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
-import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -254,11 +255,9 @@ public class PageService {
 
                 page = pageRepository.save(page);
 
-                notificationService.createPageCreatedNotification(
-                        userId,
-                        "New page created: " + name,
-                        page.getId()
-                );
+                String createdPageId = page.getId();
+                forEachOtherWorkspaceMember(workspaceId, userId, memberId ->
+                        notificationService.createPageCreatedNotification(memberId, name, createdPageId));
 
                 return Optional.of(page);
             }
@@ -327,11 +326,8 @@ public class PageService {
                 pageRepository.delete(page);
 
                 if (notify) {
-                    notificationService.createPageDeletedNotification(
-                            userId,
-                            "Page deleted: " + pageName,
-                            pageId
-                    );
+                    forEachOtherWorkspaceMember(workspaceId, userId, memberId ->
+                            notificationService.createPageDeletedNotification(memberId, pageName, pageId));
                 }
 
                 workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
@@ -396,11 +392,12 @@ public class PageService {
 
         if (deletedCount > 0) {
             int notificationCount = Math.min(deletedCount, deletedPageNames.size());
-            notificationService.createBatchPageDeletedNotification(
+            List<String> notifiedPageNames = deletedPageNames.subList(0, notificationCount);
+            forEachOtherWorkspaceMember(
+                    pagesToDelete.get(0).getProject().getLibrary().getWorkspaceId(),
                     userId,
-                    deletedPageNames.subList(0, notificationCount),
-                    projectId,
-                    projectName
+                    memberId -> notificationService.createBatchPageDeletedNotification(
+                            memberId, notifiedPageNames, projectId, projectName)
             );
             pagesToDelete.stream()
                     .map(page -> page.getProject().getLibrary().getWorkspaceId())
@@ -733,22 +730,6 @@ public class PageService {
         return true;
     }
 
-    private void notifyWorkspaceMembers(String workspaceId, String excludeUserId, String message, String pageId) {
-        List<WorkspaceMember> members = workspaceMemberRepository.findByWorkspaceId(workspaceId);
-
-        for (WorkspaceMember member : members) {
-            if (!member.getUserId().equals(excludeUserId) &&
-                    member.getInvitationStatus() == WorkspaceMember.InvitationStatus.ACCEPTED) {
-
-                notificationService.createPageCreatedNotification(
-                        member.getUserId(),
-                        message,
-                        pageId
-                );
-            }
-        }
-    }
-
     private boolean isValidXmlFile(MultipartFile file) {
         String contentType = file.getContentType();
         String fileName = file.getOriginalFilename();
@@ -863,5 +844,14 @@ public class PageService {
 
         String workspaceId = page.getProject().getLibrary().getWorkspaceId();
         return workspaceAccessService.hasWorkspaceAccess(workspaceId, userId) ? xml : null;
+    }
+
+    private void forEachOtherWorkspaceMember(String workspaceId, String excludeUserId, Consumer<String> action) {
+        for (WorkspaceMember member : workspaceMemberRepository.findByWorkspaceId(workspaceId)) {
+            if (!member.getUserId().equals(excludeUserId)
+                    && member.getInvitationStatus() == WorkspaceMember.InvitationStatus.ACCEPTED) {
+                action.accept(member.getUserId());
+            }
+        }
     }
 }
