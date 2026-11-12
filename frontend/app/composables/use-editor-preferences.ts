@@ -27,6 +27,7 @@ export interface EditorPreferences {
   preventOverlapOnCreate: boolean | null
   openRegionTypeMenuOnCreate: boolean | null
   moveWithChildren: boolean | null
+  showCommentsOverlay: boolean | null
   cutMinAreaThreshold: number | null
   defaultLineWidth: string | null
   defaultVertexSize: string | null
@@ -44,6 +45,8 @@ export interface EditorPreferences {
   textModeSubmode: 'visual' | 'expert' | 'full' | null
   textlineSortOrder: TextlineSortOrder | null
   highlightUnknownCodecChars: boolean | null
+  includeWhitespaceInCodecHighlight: boolean | null
+  highlightUnknownDictionaryTokens: boolean | null
   shortcutBindings: ShortcutPreferences | null
   onboardingDashboardTourVersion: number | null
   onboardingEditorTourVersion: number | null
@@ -78,6 +81,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   preventOverlapOnCreate: null,
   openRegionTypeMenuOnCreate: null,
   moveWithChildren: null,
+  showCommentsOverlay: null,
   cutMinAreaThreshold: null,
   defaultLineWidth: null,
   defaultVertexSize: null,
@@ -95,6 +99,8 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   textModeSubmode: null,
   textlineSortOrder: null,
   highlightUnknownCodecChars: null,
+  includeWhitespaceInCodecHighlight: null,
+  highlightUnknownDictionaryTokens: null,
   shortcutBindings: null,
   onboardingDashboardTourVersion: null,
   onboardingEditorTourVersion: null,

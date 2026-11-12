@@ -158,6 +158,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
       globalSettings.value.openRegionTypeMenuOnCreate = prefs.openRegionTypeMenuOnCreate
     }
     if (prefs.moveWithChildren !== null) globalSettings.value.moveWithChildren = prefs.moveWithChildren
+    if (typeof prefs.showCommentsOverlay === 'boolean') commentsOverlay.value.visible = prefs.showCommentsOverlay
     if (prefs.cutMinAreaThreshold !== null) globalSettings.value.cutMinAreaThreshold = prefs.cutMinAreaThreshold
     if (prefs.defaultLineWidth) globalSettings.value.defaultLineWidth = prefs.defaultLineWidth as LineWidthPreset
     if (prefs.defaultVertexSize && Object.hasOwn(VERTEX_SIZE_PRESETS, prefs.defaultVertexSize)) {
@@ -202,6 +203,12 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
       canvasTextCorrectionZoom.value = Number.isFinite(parsedZoom) && parsedZoom > 0 ? parsedZoom : null
     }
     if (prefs.highlightUnknownCodecChars !== null) highlightUnknownCodecChars.value = prefs.highlightUnknownCodecChars
+    if (typeof prefs.includeWhitespaceInCodecHighlight === 'boolean') {
+      includeWhitespaceInCodecHighlight.value = prefs.includeWhitespaceInCodecHighlight
+    }
+    if (typeof prefs.highlightUnknownDictionaryTokens === 'boolean') {
+      highlightUnknownDictionaryTokens.value = prefs.highlightUnknownDictionaryTokens
+    }
 
     preferencesLoaded.value = true
   }
@@ -355,6 +362,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   function setHighlightUnknownDictionaryTokens(enabled: boolean) {
     highlightUnknownDictionaryTokens.value = enabled
+    editorPreferences.updatePreference('highlightUnknownDictionaryTokens', enabled)
   }
 
   function toggleReadingOrderOverlay() {
@@ -383,10 +391,11 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   function setCommentsOverlayVisible(visible: boolean) {
     commentsOverlay.value.visible = visible
+    editorPreferences.updatePreference('showCommentsOverlay', visible)
   }
 
   function toggleCommentsOverlay() {
-    commentsOverlay.value.visible = !commentsOverlay.value.visible
+    setCommentsOverlayVisible(!commentsOverlay.value.visible)
   }
 
   function setRelationPickerMode(mode: RelationsEditorState['pickerMode']) {
@@ -582,6 +591,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   function setIncludeWhitespaceInCodecHighlight(enabled: boolean) {
     includeWhitespaceInCodecHighlight.value = enabled
+    editorPreferences.updatePreference('includeWhitespaceInCodecHighlight', enabled)
   }
 
   function toggleIncludeWhitespaceInCodecHighlight() {

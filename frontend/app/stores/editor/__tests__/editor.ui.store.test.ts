@@ -8,7 +8,10 @@ const mocks = vi.hoisted(() => ({
   fetchedPageFocusMode: null as boolean | null,
   fetchedOpenRegionTypeMenuOnCreate: null as boolean | null,
   fetchedTextModeSubmode: null as 'visual' | 'expert' | 'full' | null,
-  fetchedTextItemLayout: null as 'side-by-side' | 'vertical' | null
+  fetchedTextItemLayout: null as 'side-by-side' | 'vertical' | null,
+  fetchedShowCommentsOverlay: null as boolean | null,
+  fetchedIncludeWhitespaceInCodecHighlight: null as boolean | null,
+  fetchedHighlightUnknownDictionaryTokens: null as boolean | null
 }))
 
 vi.mock('@/composables/use-editor-preferences', () => ({
@@ -19,7 +22,10 @@ vi.mock('@/composables/use-editor-preferences', () => ({
       pageFocusMode: mocks.fetchedPageFocusMode,
       openRegionTypeMenuOnCreate: mocks.fetchedOpenRegionTypeMenuOnCreate,
       textModeSubmode: mocks.fetchedTextModeSubmode,
-      textItemLayout: mocks.fetchedTextItemLayout
+      textItemLayout: mocks.fetchedTextItemLayout,
+      showCommentsOverlay: mocks.fetchedShowCommentsOverlay,
+      includeWhitespaceInCodecHighlight: mocks.fetchedIncludeWhitespaceInCodecHighlight,
+      highlightUnknownDictionaryTokens: mocks.fetchedHighlightUnknownDictionaryTokens
     })),
     updatePreference: mocks.updatePreference,
     updatePreferences: vi.fn()
@@ -40,6 +46,9 @@ describe('editor.ui.store preferences', () => {
     mocks.fetchedOpenRegionTypeMenuOnCreate = null
     mocks.fetchedTextModeSubmode = null
     mocks.fetchedTextItemLayout = null
+    mocks.fetchedShowCommentsOverlay = null
+    mocks.fetchedIncludeWhitespaceInCodecHighlight = null
+    mocks.fetchedHighlightUnknownDictionaryTokens = null
     mocks.updatePreference.mockReset()
   })
 
@@ -138,5 +147,26 @@ describe('editor.ui.store preferences', () => {
 
     expect(store.textModeSubmode).toBe('visual')
     expect(mocks.updatePreference).toHaveBeenCalledWith('textModeSubmode', 'visual')
+  })
+
+  it('loads and persists the canvas comments and text check toggles', async () => {
+    mocks.fetchedShowCommentsOverlay = true
+    mocks.fetchedIncludeWhitespaceInCodecHighlight = true
+    mocks.fetchedHighlightUnknownDictionaryTokens = true
+    const store = await createStore()
+
+    await store.loadPreferences()
+    expect(store.commentsOverlay.visible).toBe(true)
+    expect(store.includeWhitespaceInCodecHighlight).toBe(true)
+    expect(store.highlightUnknownDictionaryTokens).toBe(true)
+
+    store.toggleCommentsOverlay()
+    store.setIncludeWhitespaceInCodecHighlight(false)
+    store.setHighlightUnknownDictionaryTokens(false)
+
+    expect(store.commentsOverlay.visible).toBe(false)
+    expect(mocks.updatePreference).toHaveBeenCalledWith('showCommentsOverlay', false)
+    expect(mocks.updatePreference).toHaveBeenCalledWith('includeWhitespaceInCodecHighlight', false)
+    expect(mocks.updatePreference).toHaveBeenCalledWith('highlightUnknownDictionaryTokens', false)
   })
 })
