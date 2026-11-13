@@ -27,6 +27,10 @@ pids
 *.pid
 *.seed
 
+# Python caches
+__pycache__/
+*.pyc
+
 # Common JS caches and dependencies
 node_modules/
 .pnpm-store/
