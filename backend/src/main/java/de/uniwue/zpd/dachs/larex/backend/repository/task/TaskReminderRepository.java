@@ -17,4 +17,6 @@ public interface TaskReminderRepository extends JpaRepository<TaskReminder, Stri
     List<TaskReminder> findBySentFalseAndReminderTimeBefore(LocalDateTime time);
 
     void deleteByTaskId(String taskId);
+
+    void deleteByUserIdAndTaskIdIn(String userId, java.util.Collection<String> taskIds);
 }

@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.task;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.PaginatedResponse;
+import de.uniwue.zpd.dachs.larex.backend.dto.SubtaskDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.TaskDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Task;
@@ -474,6 +475,38 @@ public class TaskService {
         }
     }
 
+    public void removeMemberFromAssignments(String workspaceId, String removedUserId, String actorUserId) {
+        List<Task> tasks = taskRepository.findAssignedInWorkspace(workspaceId, removedUserId, null, true);
+        if (tasks.isEmpty()) {
+            return;
+        }
+
+        Set<String> affectedUsers = new LinkedHashSet<>();
+        affectedUsers.add(removedUserId);
+        for (Task task : tasks) {
+            List<String> remaining = task.getAssignedUserIds().stream()
+                    .filter(id -> !removedUserId.equals(id))
+                    .collect(Collectors.toCollection(ArrayList::new));
+            List<String> added = new ArrayList<>();
+            String creatorId = task.getCreatedByUserId();
+            if (remaining.isEmpty()
+                    && creatorId != null
+                    && !removedUserId.equals(creatorId)
+                    && workspaceAccessService.hasWorkspaceAccess(workspaceId, creatorId)) {
+                remaining.add(creatorId);
+                added.add(creatorId);
+            }
+            task.setAssignedUserIds(remaining);
+            taskRepository.save(task);
+            subtaskService.redistributeOpenTasks(task, Set.of(removedUserId), remaining);
+            activityService.logAssigneesChanged(task.getId(), actorUserId, added, List.of(removedUserId));
+            affectedUsers.addAll(remaining);
+        }
+
+        taskReminderRepository.deleteByUserIdAndTaskIdIn(removedUserId, tasks.stream().map(Task::getId).toList());
+        taskQueueRealtimePublisher.publishAfterCommit(affectedUsers, workspaceId);
+    }
+
     private AbstractWorkspace requireWorkspaceAccess(String workspaceId, String userId) {
         if (!workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
             throw new SecurityException("Access denied.");
@@ -516,7 +549,23 @@ public class TaskService {
         }
 
         Map<String, UserDto> users = userService.getUsersByIds(new ArrayList<>(userIds));
-        return tasks.stream().map(task -> mapTask(task, users, userId)).toList();
+        Map<String, SubtaskDto.ProgressResponse> progress = loadProgress(tasks.stream().map(Task::getId).toList());
+        return tasks.stream().map(task -> mapTask(task, users, progress, userId)).toList();
+    }
+
+    private Map<String, SubtaskDto.ProgressResponse> loadProgress(List<String> taskIds) {
+        Map<String, SubtaskDto.ProgressResponse> progress = new HashMap<>();
+        for (Object[] row : subtaskRepository.countProgressByTaskIds(taskIds)) {
+            long total = ((Number) row[1]).longValue();
+            long completed = row[2] == null ? 0 : ((Number) row[2]).longValue();
+            progress.put((String) row[0], toProgress(total, completed));
+        }
+        return progress;
+    }
+
+    private static SubtaskDto.ProgressResponse toProgress(long total, long completed) {
+        int percentage = total > 0 ? (int) Math.round((completed * 100.0) / total) : 0;
+        return new SubtaskDto.ProgressResponse(total, completed, percentage);
     }
 
     private TaskDto.Response mapTask(Task task, String userId) {
@@ -525,10 +574,10 @@ public class TaskService {
         if (task.getAssignedUserIds() != null) userIds.addAll(task.getAssignedUserIds());
         if (task.getCompletedByUserId() != null) userIds.add(task.getCompletedByUserId());
         Map<String, UserDto> users = userService.getUsersByIds(new ArrayList<>(userIds));
-        return mapTask(task, users, userId);
+        return mapTask(task, users, loadProgress(List.of(task.getId())), userId);
     }
 
-    private TaskDto.Response mapTask(Task task, Map<String, UserDto> users, String userId) {
+    private TaskDto.Response mapTask(Task task, Map<String, UserDto> users, Map<String, SubtaskDto.ProgressResponse> progress, String userId) {
         List<String> assignedUserIds = task.getAssignedUserIds() == null ? List.of() : List.copyOf(task.getAssignedUserIds());
         List<UserDto> assignedUsers = assignedUserIds.stream()
                 .map(users::get)
@@ -553,6 +602,7 @@ public class TaskService {
                 task.getWorkspaceId(),
                 task.getPageCompletion(),
                 task.getArchivedAt(),
+                progress.getOrDefault(task.getId(), toProgress(0, 0)),
                 authorizationPolicyService.resolveTaskCapabilities(task, userId)
         );
     }

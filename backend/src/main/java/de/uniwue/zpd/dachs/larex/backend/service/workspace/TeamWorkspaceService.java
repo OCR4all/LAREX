@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.workspace;
 
+import de.uniwue.zpd.dachs.larex.backend.service.task.TaskService;
+import org.springframework.context.annotation.Lazy;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.WorkspaceMemberDto;
@@ -51,6 +53,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
     private final ValidationRulesetRepository validationRulesetRepository;
     private final LabelSetInitializationService labelSetInitializationService;
     private final WorkspaceAccessService workspaceAccessService;
+    private final TaskService taskService;
 
     public TeamWorkspaceService(TeamWorkspaceRepository teamWorkspaceRepository,
                                LibraryRepository libraryRepository,
@@ -65,7 +68,8 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                                NormalizationProfileRepository normalizationProfileRepository,
                                ValidationRulesetRepository validationRulesetRepository,
                                LabelSetInitializationService labelSetInitializationService,
-                               WorkspaceAccessService workspaceAccessService) {
+                               WorkspaceAccessService workspaceAccessService,
+                               @Lazy TaskService taskService) {
         super(workspaceQueryService);
         this.teamWorkspaceRepository = teamWorkspaceRepository;
         this.libraryRepository = libraryRepository;
@@ -80,6 +84,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         this.validationRulesetRepository = validationRulesetRepository;
         this.labelSetInitializationService = labelSetInitializationService;
         this.workspaceAccessService = workspaceAccessService;
+        this.taskService = taskService;
     }
 
     /**
@@ -396,6 +401,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         Optional<WorkspaceMember> memberOpt = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, targetUserId);
         if (memberOpt.isPresent()) {
             workspaceMemberRepository.delete(memberOpt.get());
+            taskService.removeMemberFromAssignments(workspaceId, targetUserId, adminUserId);
             return true;
         }
         
@@ -425,6 +431,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         }
         
         workspaceMemberRepository.delete(memberOpt.get());
+        taskService.removeMemberFromAssignments(workspaceId, userId, userId);
         return true;
     }
 

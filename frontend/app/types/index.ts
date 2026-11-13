@@ -186,6 +186,7 @@ export interface Task {
   workspaceId: string
   pageCompletion: TaskPageCompletion
   archivedAt?: string | null
+  progress?: SubtaskProgress | null
   capabilities?: TaskCapabilities
 }
 

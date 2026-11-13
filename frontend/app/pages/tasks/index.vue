@@ -481,7 +481,7 @@ const columns: TableColumn<Task>[] = [
     id: 'progress',
     header: 'Progress',
     cell: ({ row }) => h('div', { class: 'min-w-[120px]' }, [
-      h(TaskSubtaskProgress, { taskId: row.original.id })
+      h(TaskSubtaskProgress, { progress: row.original.progress })
     ])
   },
   {

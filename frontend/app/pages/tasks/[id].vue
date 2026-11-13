@@ -320,7 +320,7 @@ function setReminderPreset(date: Date) {
 }
 
 async function createReminder() {
-  if (!canEdit.value) return
+  if (isArchived.value) return
   if (!reminderTimeInput.value) return
   isCreatingReminder.value = true
   try {
@@ -339,7 +339,7 @@ async function createReminder() {
 }
 
 async function deleteReminder(reminderId: string) {
-  if (!canEdit.value) return
+  if (isArchived.value) return
   try {
     await $fetch(`/api/tasks/${taskId.value}/reminders/${reminderId}`, { method: 'DELETE' })
     await refreshTaskCaches(taskId.value, workspaceId.value)
@@ -1044,7 +1044,7 @@ const tabItems = [
               <UiDateTimePicker
                 v-model="reminderTimeInput"
                 size="sm"
-                :disabled="isCreatingReminder || !canEdit"
+                :disabled="isCreatingReminder || isArchived"
                 placeholder="Pick reminder date and time"
               />
               <div class="flex flex-wrap gap-2">
@@ -1078,7 +1078,7 @@ const tabItems = [
                 size="xs"
                 color="primary"
                 :loading="isCreatingReminder"
-                :disabled="!reminderTimeInput || !canEdit"
+                :disabled="!reminderTimeInput || isArchived"
                 @click="createReminder"
               >
                 Add reminder
@@ -1098,7 +1098,7 @@ const tabItems = [
                   {{ formatDateTime(reminder.reminderTime) }}
                 </div>
                 <UButton
-                  v-if="canEdit"
+                  v-if="!isArchived"
                   size="xs"
                   color="neutral"
                   variant="ghost"

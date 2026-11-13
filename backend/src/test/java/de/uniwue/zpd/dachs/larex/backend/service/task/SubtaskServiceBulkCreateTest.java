@@ -146,6 +146,43 @@ class SubtaskServiceBulkCreateTest {
         verify(pageWorkflowService).recomputeForExistingPageIds(List.of("page-1"), "manager");
     }
 
+    @Test
+    void workspaceMembersWhoAreNotAssignedCanReadTasks() {
+        when(taskRepository.findById("task-1")).thenReturn(Optional.of(task()));
+        when(workspaceAccessService.hasWorkspaceAccess("workspace-1", "curator")).thenReturn(true);
+        when(subtaskRepository.findByTaskIdOrderBySortOrderAsc("task-1")).thenReturn(List.of());
+
+        assertEquals(List.of(), service.getSubtasks("task-1", "curator"));
+    }
+
+    @Test
+    void assigneesWhoLeftTheWorkspaceCanNotReadTasks() {
+        Task task = task();
+        task.setAssignedUserIds(new java.util.ArrayList<>(List.of("former-member")));
+        when(taskRepository.findById("task-1")).thenReturn(Optional.of(task));
+        when(workspaceAccessService.hasWorkspaceAccess("workspace-1", "former-member")).thenReturn(false);
+
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> service.getSubtasks("task-1", "former-member"));
+    }
+
+    @Test
+    void openTasksAreUnassignedWhenNoAssigneeRemains() {
+        Task task = task();
+        Subtask open = new Subtask("task-1", "Open", 0);
+        open.setAssignedUserId("former-member");
+        Subtask done = new Subtask("task-1", "Done", 1);
+        done.setAssignedUserId("former-member");
+        done.setCompleted(true);
+        when(subtaskRepository.findByTaskIdOrderBySortOrderAsc("task-1")).thenReturn(List.of(open, done));
+
+        service.redistributeOpenTasks(task, Set.of("former-member"), List.of());
+
+        assertEquals(null, open.getAssignedUserId());
+        assertEquals("former-member", done.getAssignedUserId());
+        verify(subtaskRepository).saveAll(List.of(open));
+    }
+
     private Task task() {
         Task task = new Task("Task", null, "creator", Task.TaskPriority.MEDIUM, "workspace-1");
         task.setId("task-1");

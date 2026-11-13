@@ -2,17 +2,11 @@
 import type { SubtaskProgress } from '~/types/index'
 
 const props = defineProps<{
-  taskId: string
+  progress?: SubtaskProgress | null
   compact?: boolean
 }>()
 
-const { data: progress } = await useFetch<SubtaskProgress>(
-  () => `/api/tasks/${props.taskId}/subtasks/progress`,
-  {
-    key: computed(() => globalKey('tasks', props.taskId, 'subtasks-progress')),
-    default: () => ({ total: 0, completed: 0, percentage: 0 })
-  }
-)
+const progress = computed(() => props.progress ?? { total: 0, completed: 0, percentage: 0 })
 
 const hasProgress = computed(() => (progress.value?.total ?? 0) > 0)
 

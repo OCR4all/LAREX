@@ -28,6 +28,7 @@ public class TaskDto {
             String workspaceId,
             Task.PageCompletion pageCompletion,
             LocalDateTime archivedAt,
+            SubtaskDto.ProgressResponse progress,
             AuthorizationCapabilitiesDto.TaskCapabilities capabilities
     ) {}
 

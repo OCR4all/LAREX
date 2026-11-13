@@ -137,7 +137,7 @@ const additionalCount = computed(() => {
           <span>{{ dueDateText }}</span>
         </div>
 
-        <TaskSubtaskProgress :task-id="task.id" compact />
+        <TaskSubtaskProgress :progress="task.progress" compact />
       </div>
     </div>
 

@@ -342,7 +342,18 @@ public class SubtaskService {
     }
 
     public void redistributeOpenTasks(Task task, Set<String> removedAssigneeIds, List<String> remainingAssigneeIds) {
-        if (removedAssigneeIds.isEmpty() || remainingAssigneeIds.isEmpty()) {
+        if (removedAssigneeIds.isEmpty()) {
+            return;
+        }
+        if (remainingAssigneeIds.isEmpty()) {
+            List<Subtask> orphaned = subtaskRepository.findByTaskIdOrderBySortOrderAsc(task.getId()).stream()
+                    .filter(subtask -> !subtask.isCompleted())
+                    .filter(subtask -> removedAssigneeIds.contains(subtask.getAssignedUserId()))
+                    .toList();
+            orphaned.forEach(subtask -> subtask.setAssignedUserId(null));
+            if (!orphaned.isEmpty()) {
+                subtaskRepository.saveAll(orphaned);
+            }
             return;
         }
 
@@ -581,15 +592,7 @@ public class SubtaskService {
     }
 
     private void verifyTaskAccess(String taskId, String userId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
-
-        boolean hasAccess = task.getCreatedByUserId().equals(userId) ||
-                (task.getAssignedUserIds() != null && task.getAssignedUserIds().contains(userId));
-
-        if (!hasAccess) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this Assignment");
-        }
+        verifyTaskAccessAndGet(taskId, userId);
     }
 
     public SubtaskDto.Response assignSubtask(String taskId, String subtaskId, String userId, SubtaskDto.AssignRequest request) {
@@ -715,10 +718,7 @@ public class SubtaskService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
 
-        boolean hasAccess = task.getCreatedByUserId().equals(userId) ||
-                (task.getAssignedUserIds() != null && task.getAssignedUserIds().contains(userId));
-
-        if (!hasAccess) {
+        if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this Assignment");
         }
 
