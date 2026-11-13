@@ -21,14 +21,14 @@ public class StorageQuotaController {
     }
 
     @GetMapping("/workspace/{workspaceId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("@workspaceSecurity.hasAccess(#workspaceId, authentication.name)")
     public ResponseEntity<StorageQuotaDto> getWorkspaceQuota(@PathVariable String workspaceId) {
         WorkspaceStorageQuota quota = quotaService.getOrCreateQuota(workspaceId);
         return ResponseEntity.ok(StorageQuotaDto.fromEntity(quota));
     }
 
     @GetMapping("/workspace/{workspaceId}/check/{fileSize}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("@workspaceSecurity.hasAccess(#workspaceId, authentication.name)")
     public ResponseEntity<Boolean> checkAvailableSpace(
             @PathVariable String workspaceId,
             @PathVariable Long fileSize) {
@@ -36,7 +36,7 @@ public class StorageQuotaController {
     }
 
     @PostMapping("/workspace/{workspaceId}/recalculate")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('GLOBAL_ADMIN')")
     public ResponseEntity<StorageQuotaDto> recalculateUsage(@PathVariable String workspaceId) {
         WorkspaceStorageQuota quota = quotaService.recalculateUsage(workspaceId);
         return ResponseEntity.ok(StorageQuotaDto.fromEntity(quota));
