@@ -1,4 +1,5 @@
 import { useTablePagination } from '@/composables/use-table-pagination'
+import { globalKey, wsKey } from '@/utils/fetch-keys'
 import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { compileScript, parse } from 'vue/compiler-sfc'
@@ -13,13 +14,12 @@ const compiled = transpileModule(compileScript(descriptor, { id: 'evaluation-res
   compilerOptions: { module: ModuleKind.CommonJS }
 }).outputText
 interface Setup {
-  load: () => Promise<void>
   downloadFile: (file: ActionOutputFile) => Promise<void>
-  detail: Vue.Ref<ActionRunDetail | null>
+  detail: Vue.ComputedRef<ActionRunDetail | null>
   fileMode: Vue.ComputedRef<boolean>
   report: Vue.ComputedRef<EvaluationReport | null>
   output: Vue.ComputedRef<unknown>
-  baselines: Vue.Ref<unknown[]>
+  baselines: Vue.ComputedRef<unknown[]>
 }
 const exportsObject: { default?: { setup: (props: unknown, context: unknown) => Promise<Setup> } } = {}
 new Function('require', 'exports', compiled)((name: string) => {
@@ -36,6 +36,7 @@ describe('Evaluation result downloads', () => {
   const downloadBlobResponse = vi.fn()
   const target = { id: 'download' }
   let setup: Setup
+  let asyncData: { handler: () => Promise<unknown>, data: Vue.Ref<unknown> }
   const file: ActionOutputFile = { id: 'file', pageId: null, fileName: 'report.pdf', mimeType: 'application/pdf', sizeBytes: 12, checksumSha256: 'checksum', created: '' }
 
   beforeEach(async () => {
@@ -47,7 +48,14 @@ describe('Evaluation result downloads', () => {
     vi.stubGlobal('useRoute', () => ({ params: { runId: 'run' } }))
     vi.stubGlobal('useToast', () => ({ add: toast }))
     vi.stubGlobal('extractApiErrorMessage', (_error: unknown, fallback: string) => fallback)
-    vi.stubGlobal('$fetch', fetchApi)
+    vi.stubGlobal('useRequestFetch', () => fetchApi)
+    vi.stubGlobal('wsKey', wsKey)
+    vi.stubGlobal('globalKey', globalKey)
+    vi.stubGlobal('onMounted', vi.fn())
+    vi.stubGlobal('useAsyncData', async (_key: unknown, handler: () => Promise<unknown>) => {
+      asyncData = { handler, data: Vue.ref(null) }
+      return { data: asyncData.data, pending: Vue.ref(false), error: Vue.ref(null) }
+    })
     vi.stubGlobal('fetch', fetchFile)
     prepareDownload.mockResolvedValue(target)
     vi.stubGlobal('useBackgroundDownloads', () => ({
@@ -57,6 +65,10 @@ describe('Evaluation result downloads', () => {
     setup = await exportsObject.default!.setup({}, { expose: () => {} })
   })
   afterEach(() => vi.unstubAllGlobals())
+
+  async function load() {
+    asyncData.data.value = await asyncData.handler()
+  }
 
   function fileDetail() {
     return {
@@ -69,7 +81,7 @@ describe('Evaluation result downloads', () => {
 
   it('loads file results without interpreting their summary as a report or requesting baselines', async () => {
     fetchApi.mockResolvedValue(fileDetail())
-    await setup.load()
+    await load()
     expect(setup.fileMode.value).toBe(true)
     expect(setup.report.value).toBeNull()
     expect(setup.baselines.value).toEqual([])
@@ -79,7 +91,7 @@ describe('Evaluation result downloads', () => {
 
   it('downloads through the dataset-scoped endpoint and existing background flow', async () => {
     fetchApi.mockResolvedValue(fileDetail())
-    await setup.load()
+    await load()
     const response = { ok: true }
     fetchFile.mockResolvedValue(response)
     await setup.downloadFile(file)
@@ -89,7 +101,7 @@ describe('Evaluation result downloads', () => {
 
   it('reports failed downloads without saving an error response', async () => {
     fetchApi.mockResolvedValue(fileDetail())
-    await setup.load()
+    await load()
     fetchFile.mockResolvedValue({ ok: false, status: 404 })
     await setup.downloadFile(file)
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Download failed', color: 'error' }))
@@ -98,7 +110,7 @@ describe('Evaluation result downloads', () => {
 
   it('keeps unavailable file results separate from structured reports', async () => {
     fetchApi.mockResolvedValue({ ...fileDetail(), evaluationOutput: null })
-    await setup.load()
+    await load()
     expect(setup.fileMode.value).toBe(true)
     expect(setup.output.value).toBeNull()
     expect(setup.report.value).toBeNull()
@@ -107,7 +119,7 @@ describe('Evaluation result downloads', () => {
   it('preserves report-mode loading and baseline selection', async () => {
     const report = { title: 'Quality', summary: [], tables: [], samples: [] }
     fetchApi.mockResolvedValueOnce({ run: { id: 'run' }, evaluationReport: report }).mockResolvedValueOnce([{ id: 'baseline' }])
-    await setup.load()
+    await load()
     expect(setup.fileMode.value).toBe(false)
     expect(setup.report.value).toEqual(report)
     expect(setup.baselines.value).toEqual([{ id: 'baseline' }])
