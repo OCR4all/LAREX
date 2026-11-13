@@ -2,7 +2,9 @@ package de.uniwue.zpd.dachs.larex.backend.repository.upload;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.UploadSessionFile;
 import de.uniwue.zpd.dachs.larex.backend.entity.UploadSessionFile.UploadFileStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -18,6 +20,10 @@ public interface UploadSessionFileRepository extends JpaRepository<UploadSession
 
     @Query("SELECT f FROM UploadSessionFile f WHERE f.id = :fileId AND f.session.id = :sessionId")
     Optional<UploadSessionFile> findByIdAndSessionId(@Param("fileId") String fileId, @Param("sessionId") String sessionId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT f FROM UploadSessionFile f WHERE f.id = :fileId AND f.session.id = :sessionId")
+    Optional<UploadSessionFile> lockByIdAndSessionId(@Param("fileId") String fileId, @Param("sessionId") String sessionId);
 
     @Query("SELECT f FROM UploadSessionFile f WHERE f.session.id = :sessionId AND f.status = :status")
     List<UploadSessionFile> findBySessionIdAndStatus(@Param("sessionId") String sessionId, @Param("status") UploadFileStatus status);

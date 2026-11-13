@@ -30,11 +30,13 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -113,9 +115,14 @@ public class ChunkedUploadService {
         }
 
         // Calculate total bytes and create session
-        long totalBytes = request.files().stream()
-                .mapToLong(UploadSessionDto.FileMetadata::fileSize)
-                .sum();
+        long totalBytes;
+        try {
+            totalBytes = request.files().stream()
+                    .mapToLong(UploadSessionDto.FileMetadata::fileSize)
+                    .reduce(0L, Math::addExact);
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException("Declared upload size is too large");
+        }
         long reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
                 workspaceId,
                 totalBytes,
@@ -182,8 +189,10 @@ public class ChunkedUploadService {
             throw new IllegalArgumentException("Upload session is not active");
         }
 
-        UploadSessionFile sessionFile = fileRepository.findByIdAndSessionId(fileId, sessionId)
+        UploadSessionFile sessionFile = fileRepository.lockByIdAndSessionId(fileId, sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("File not found in session: " + fileId));
+
+        validateChunk(sessionFile, chunkIndex, totalChunks, chunkData);
 
         // Update session status if first chunk
         if (session.getStatus() == UploadSessionStatus.PENDING) {
@@ -200,9 +209,18 @@ public class ChunkedUploadService {
         // Save chunk to temp file
         Path chunkPath = getChunkPath(sessionId, fileId, chunkIndex);
         Files.createDirectories(chunkPath.getParent());
-        chunkData.transferTo(chunkPath.toFile());
+        boolean alreadyReceived = Files.exists(chunkPath);
+        Path partialPath = chunkPath.resolveSibling(chunkPath.getFileName() + "." + UUID.randomUUID() + ".part");
+        try {
+            chunkData.transferTo(partialPath.toFile());
+            Files.move(partialPath, chunkPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(partialPath);
+        }
 
-        sessionFile.incrementChunksReceived();
+        if (!alreadyReceived) {
+            sessionFile.incrementChunksReceived();
+        }
 
         // Check if file is fully uploaded
         boolean fileComplete = sessionFile.isFullyUploaded();
@@ -511,13 +529,43 @@ public class ChunkedUploadService {
         log.debug("Reassembled file {} for session {}", sessionFile.getOriginalFileName(), session.getId());
     }
 
+    private void validateChunk(UploadSessionFile sessionFile, int chunkIndex, int totalChunks, MultipartFile chunkData) {
+        if (sessionFile.getStatus() != UploadFileStatus.PENDING && sessionFile.getStatus() != UploadFileStatus.UPLOADING) {
+            throw new IllegalArgumentException("File is no longer accepting chunks: " + sessionFile.getId());
+        }
+        int chunkCount = sessionFile.getChunkCount();
+        if (totalChunks != chunkCount) {
+            throw new IllegalArgumentException(
+                    "Expected " + chunkCount + " chunks for file " + sessionFile.getId() + " but got " + totalChunks);
+        }
+        if (chunkIndex < 0 || chunkIndex >= chunkCount) {
+            throw new IllegalArgumentException("Chunk index " + chunkIndex + " is outside 0.." + (chunkCount - 1));
+        }
+        long expectedSize = expectedChunkSize(sessionFile, chunkIndex);
+        if (chunkData.getSize() != expectedSize) {
+            throw new IllegalArgumentException("Chunk " + chunkIndex + " has " + chunkData.getSize()
+                    + " bytes but " + expectedSize + " bytes were expected");
+        }
+    }
+
+    private long expectedChunkSize(UploadSessionFile sessionFile, int chunkIndex) {
+        long chunkSize = uploadProperties.getChunkSizeBytes();
+        long offset = chunkSize * chunkIndex;
+        return Math.min(chunkSize, sessionFile.getFileSize() - offset);
+    }
+
     private Path getChunkPath(String sessionId, String fileId, int chunkIndex) {
         return Paths.get(tempDirectory, sessionId, fileId, "chunk_" + chunkIndex);
     }
 
     private int calculateChunkCount(long fileSize) {
         if (fileSize <= 0) return 1;
-        return (int) Math.ceil((double) fileSize / uploadProperties.getChunkSizeBytes());
+        long chunkSize = uploadProperties.getChunkSizeBytes();
+        long chunkCount = fileSize / chunkSize + (fileSize % chunkSize == 0 ? 0 : 1);
+        if (chunkCount > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Declared file size is too large: " + fileSize);
+        }
+        return (int) chunkCount;
     }
 
     public void cleanupSessionTempFiles(String sessionId) {
