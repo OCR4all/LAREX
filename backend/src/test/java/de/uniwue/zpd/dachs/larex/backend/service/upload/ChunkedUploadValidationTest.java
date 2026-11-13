@@ -77,6 +77,11 @@ class ChunkedUploadValidationTest {
     }
 
     @Test
+    void reportsTheServerChunkSizeToTheClient() {
+        assertThat(uploads.getSession("user", "session").chunkSizeBytes()).isEqualTo(CHUNK_SIZE);
+    }
+
+    @Test
     void rejectsChunksLargerOrSmallerThanExpected() {
         assertThatThrownBy(() -> upload(0, 3, "a".repeat(1024))).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> upload(0, 3, "aaaa")).isInstanceOf(IllegalArgumentException.class);

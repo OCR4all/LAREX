@@ -49,6 +49,7 @@ public class UploadSessionDto {
             int processingTotalItems,
             int processingProgressPercent,
             String processingCurrentFileName,
+            long chunkSizeBytes,
             List<FileResponse> files,
             String errorMessage,
             LocalDateTime created,

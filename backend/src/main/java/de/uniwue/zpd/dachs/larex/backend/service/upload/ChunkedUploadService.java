@@ -648,6 +648,7 @@ public class ChunkedUploadService {
                 session.getProcessingTotalItems(),
                 session.getProcessingProgressPercent(),
                 session.getProcessingCurrentFileName(),
+                uploadProperties.getChunkSizeBytes(),
                 fileResponses,
                 session.getErrorMessage(),
                 session.getCreated(),

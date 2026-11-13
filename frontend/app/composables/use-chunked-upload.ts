@@ -36,6 +36,7 @@ export interface UploadSession {
   processingTotalItems: number
   processingProgressPercent: number
   processingCurrentFileName?: string
+  chunkSizeBytes?: number
   files: UploadFile[]
   errorMessage?: string
   created: string
@@ -264,14 +265,15 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
       throw err
     }
     const totalChunks = uploadFile.totalChunks
+    const sliceSize = session.value.chunkSizeBytes || chunkSizeBytes
 
     for (let chunkIndex = uploadFile.chunksReceived; chunkIndex < totalChunks; chunkIndex++) {
       if (isPaused.value) {
         return
       }
 
-      const start = chunkIndex * chunkSizeBytes
-      const end = Math.min(start + chunkSizeBytes, file.size)
+      const start = chunkIndex * sliceSize
+      const end = Math.min(start + sliceSize, file.size)
       const chunk = file.slice(start, end)
 
       try {
