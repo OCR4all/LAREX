@@ -32,10 +32,8 @@ public class ImagePresentationController {
             return ResponseEntity.notFound().build();
         }
         try {
-            if (size == ImagePresentationService.Size.original) {
-                var nativeImage = presentations.nativeImage(image.getFilePath());
-                if (nativeImage.browserNative()) return PresentationResponses.nativeImage(nativeImage);
-            }
+            var nativeImage = presentations.nativeImage(image.getFilePath(), size);
+            if (nativeImage != null) return PresentationResponses.nativeImage(nativeImage);
             var presentation = presentations.get(image.getFilePath(), size);
             return PresentationResponses.ok(presentation);
         } catch (NoSuchFileException e) {

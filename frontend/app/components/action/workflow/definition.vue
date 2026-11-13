@@ -4,36 +4,18 @@ import type { ActionWorkflow } from '~/types/action-workflow'
 
 const props = defineProps<{ workflowId?: string, processors: ActionDefinition[], initialName?: string, initialDescription?: string, toolbarTarget?: string, metadataTarget?: string }>()
 const emit = defineEmits<{ saved: [workflow: ActionWorkflow], dirty: [value: boolean], busy: [value: boolean], metadata: [value: { name: string, description: string }] }>()
-const workflow = ref<ActionWorkflow | null>(null)
-const error = ref('')
-const loading = ref(true)
-let generation = 0
-async function load() {
-  const request = ++generation
-  loading.value = true
-  error.value = ''
-  if (!props.workflowId) {
-    workflow.value = null
-    loading.value = false
-    return
-  }
-  try {
-    const result = await $fetch<ActionWorkflow>(`/api/admin/actions/workflows/${props.workflowId}`)
-    if (request === generation) workflow.value = result
-  } catch (cause) {
-    if (request === generation) error.value = extractApiErrorDetails(cause, 'Could not load workflow.').message
-  } finally {
-    if (request === generation) loading.value = false
-  }
-}
+const requestFetch = useRequestFetch()
+const workflowKey = computed(() => globalKey('admin', 'action-workflows', props.workflowId ?? 'new'))
+const { data: workflow, pending: loading, error: loadError, refresh: load } = useAsyncData(
+  workflowKey,
+  () => props.workflowId ? requestFetch<ActionWorkflow>(`/api/admin/actions/workflows/${props.workflowId}`) : Promise.resolve(null),
+  { default: () => null }
+)
+const error = computed(() => loadError.value ? extractApiErrorDetails(loadError.value, 'Could not load workflow.').message : '')
 function saved(result: ActionWorkflow) {
   workflow.value = result
   emit('saved', result)
 }
-watch(() => props.workflowId, load, { immediate: true })
-onBeforeUnmount(() => {
-  generation++
-})
 </script>
 
 <template>
@@ -45,7 +27,7 @@ onBeforeUnmount(() => {
       color="error"
     >
       <template #actions>
-        <UButton label="Retry" @click="load" />
+        <UButton label="Retry" @click="load()" />
       </template>
     </UAlert>
     <USkeleton v-if="loading" class="h-96" />

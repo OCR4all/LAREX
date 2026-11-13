@@ -39,6 +39,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("net.coobird:thumbnailator:0.4.20")
 	implementation("com.twelvemonkeys.imageio:imageio-webp:3.13.1")
+	implementation("com.lopcode.vips-ffm:vips-ffm-core:1.11.1")
 	implementation("org.apache.pdfbox:pdfbox:3.0.3")
 	implementation("org.apache.pdfbox:xmpbox:3.0.3")
 	implementation("org.apache.poi:poi-ooxml:5.4.1")
@@ -59,13 +60,32 @@ dependencies {
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+val homebrewLibvips = file("/opt/homebrew/lib/libvips.dylib")
+
+fun JavaForkOptions.enableLibvips() {
+	jvmArgs("--enable-native-access=ALL-UNNAMED")
+	if (homebrewLibvips.exists()) {
+		systemProperty("vipsffm.libpath.vips.override", homebrewLibvips.path)
+		systemProperty("vipsffm.libpath.glib.override", "/opt/homebrew/lib/libglib-2.0.dylib")
+		systemProperty("vipsffm.libpath.gobject.override", "/opt/homebrew/lib/libgobject-2.0.dylib")
+	}
+}
+
 tasks.withType<Test> {
 	useJUnitPlatform()
 	maxHeapSize = "2g"
 	systemProperty("spring.config.additional-location", "optional:classpath:/application-test-overrides.yaml")
+	enableLibvips()
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
 	// Backups and imports are throughput-heavy; C1-only optimized launch makes them pathologically slow in dev.
 	optimizedLaunch.set(false)
+	enableLibvips()
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+	manifest {
+		attributes("Enable-Native-Access" to "ALL-UNNAMED")
+	}
 }

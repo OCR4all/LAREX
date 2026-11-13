@@ -39,9 +39,7 @@ const entries = ref<DictionaryEntry[]>([])
 const totalEntries = ref(0)
 const totalPages = ref(0)
 const currentPage = ref(0)
-const isLoading = ref(false)
 const isLoadingMore = ref(false)
-const hasLoaded = ref(false)
 const isAddingEntry = ref(false)
 const savingEntryIds = ref<Set<string>>(new Set())
 const deletingEntryIds = ref<Set<string>>(new Set())
@@ -102,58 +100,53 @@ const virtualRows = computed<Array<{ item: VirtualItem, entry?: DictionaryEntry 
 
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
 
-async function fetchEntries(page: number, append: boolean) {
-  if (!canLoad.value || !props.dictionaryId) {
-    entries.value = []
-    totalEntries.value = 0
-    totalPages.value = 0
-    currentPage.value = 0
-    emit('stats', { totalEntries: 0 })
-    return
-  }
-
-  if (append ? isLoadingMore.value : isLoading.value) return
-  if (append) {
-    isLoadingMore.value = true
-  } else {
-    isLoading.value = true
-  }
-
-  try {
-    const response = await $fetch<DictionaryEntryPageResponse>(
-      `/api/workspaces/${props.workspaceId}/dictionaries/${props.dictionaryId}/entries`,
-      {
-        query: {
-          page,
-          size: PAGE_SIZE,
-          search: debouncedSearch.value || undefined
-        }
-      }
-    )
-
-    const nextEntries = response.entries ?? []
-    entries.value = append
-      ? [...entries.value, ...nextEntries.filter(entry => !entries.value.some(existing => existing.id === entry.id))]
-      : nextEntries
-    totalEntries.value = response.totalEntries ?? entries.value.length
-    totalPages.value = response.totalPages ?? 0
-    currentPage.value = response.page ?? page
-    hasLoaded.value = true
-    emit('stats', { totalEntries: totalEntries.value })
-  } catch (error: unknown) {
-    toast.add({
-      title: 'Failed to load dictionary entries',
-      description: extractApiErrorMessage(error, 'Failed to load dictionary entries'),
-      color: 'error'
+const requestFetch = useRequestFetch()
+const entriesUrl = computed(() => `/api/workspaces/${props.workspaceId}/dictionaries/${props.dictionaryId}/entries`)
+const firstPageKey = computed(() => canLoad.value
+  ? wsKey(props.workspaceId, 'dictionaries', props.dictionaryId, 'entries', debouncedSearch.value)
+  : globalKey('pending', 'dictionary-entries'))
+const {
+  data: firstPage,
+  pending: isLoading,
+  status: firstPageStatus,
+  error: firstPageError,
+  refresh: refreshFirstPage
+} = useAsyncData(firstPageKey, () => canLoad.value
+  ? requestFetch<DictionaryEntryPageResponse>(entriesUrl.value, {
+      query: { page: 0, size: PAGE_SIZE, search: debouncedSearch.value || undefined }
     })
-  } finally {
-    isLoading.value = false
-    isLoadingMore.value = false
-  }
+  : Promise.resolve(null), { default: () => null })
+const hasLoaded = computed(() => firstPageStatus.value === 'success' || firstPageStatus.value === 'error')
+
+function showPage(response: DictionaryEntryPageResponse | null, append: boolean) {
+  const nextEntries = response?.entries ?? []
+  entries.value = append
+    ? [...entries.value, ...nextEntries.filter(entry => !entries.value.some(existing => existing.id === entry.id))]
+    : nextEntries
+  totalEntries.value = response?.totalEntries ?? entries.value.length
+  totalPages.value = response?.totalPages ?? 0
+  currentPage.value = response?.page ?? 0
+  emit('stats', { totalEntries: totalEntries.value })
 }
 
+function notifyLoadError(error: unknown) {
+  toast.add({
+    title: 'Failed to load dictionary entries',
+    description: extractApiErrorMessage(error, 'Failed to load dictionary entries'),
+    color: 'error'
+  })
+}
+
+watch(firstPage, response => showPage(response, false), { immediate: true })
+watch(firstPageError, (error) => {
+  if (error) notifyLoadError(error)
+})
+onMounted(() => {
+  if (firstPageError.value) notifyLoadError(firstPageError.value)
+})
+
 async function refresh(resetScroll = false) {
-  await fetchEntries(0, false)
+  await refreshFirstPage()
   await nextTick()
   rowVirtualizer.value.measure()
   if (resetScroll) {
@@ -162,14 +155,25 @@ async function refresh(resetScroll = false) {
 }
 
 async function fetchNextPage() {
-  if (!hasMore.value || !canLoad.value) return
-  await fetchEntries(currentPage.value + 1, true)
+  if (!hasMore.value || !canLoad.value || isLoadingMore.value || isLoading.value) return
+  isLoadingMore.value = true
+  try {
+    const response = await $fetch<DictionaryEntryPageResponse>(entriesUrl.value, {
+      query: { page: currentPage.value + 1, size: PAGE_SIZE, search: debouncedSearch.value || undefined }
+    })
+    showPage(response, true)
+  } catch (error: unknown) {
+    notifyLoadError(error)
+  } finally {
+    isLoadingMore.value = false
+  }
 }
 
-watch([() => props.workspaceId, () => props.dictionaryId, debouncedSearch], async () => {
+watch(firstPageKey, async () => {
   editingEntryId.value = null
-  await refresh(true)
-}, { immediate: true })
+  await nextTick()
+  scrollerRef.value?.scrollTo({ top: 0 })
+})
 
 onMounted(() => {
   if (typeof ResizeObserver === 'undefined' || !scrollerRef.value) return

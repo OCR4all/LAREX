@@ -89,10 +89,9 @@ app:
 # Storage quota configuration
 larex:
   image-presentation:
-    queue-capacity: ${LAREX_PRESENTATION_QUEUE_CAPACITY:8}
+    queue-capacity: ${LAREX_PRESENTATION_QUEUE_CAPACITY:64}
+    conversion-threads: ${LAREX_PRESENTATION_CONVERSION_THREADS:2}
     request-timeout: ${LAREX_PRESENTATION_REQUEST_TIMEOUT:45s}
-    decode-timeout: ${LAREX_PRESENTATION_DECODE_TIMEOUT:30s}
-    worker-heap-mib: ${LAREX_PRESENTATION_WORKER_HEAP_MIB:384}
     max-source-pixels: ${LAREX_PRESENTATION_MAX_SOURCE_PIXELS:500000000}
     max-source-dimension: ${LAREX_PRESENTATION_MAX_SOURCE_DIMENSION:100000}
     max-source-bytes: ${LAREX_PRESENTATION_MAX_SOURCE_BYTES:536870912}

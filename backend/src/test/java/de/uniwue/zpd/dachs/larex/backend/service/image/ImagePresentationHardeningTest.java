@@ -21,8 +21,8 @@ class ImagePresentationHardeningTest {
     private UploadPathService paths() {
         var p = new UploadDirectoryProperties(); p.setRootDirectory(root); return new UploadPathService(p);
     }
-    private ImagePresentationProperties limits(int queue, long diskBytes, Duration decodeTimeout) {
-        return new ImagePresentationProperties(queue, Duration.ofSeconds(10), decodeTimeout, 128,
+    private ImagePresentationProperties limits(int queue, long diskBytes) {
+        return new ImagePresentationProperties(queue, 1, Duration.ofSeconds(10),
                 500_000_000, 100_000, 536_870_912, diskBytes, Duration.ofDays(7), null);
     }
     private Path image(String name) throws Exception {
@@ -46,6 +46,9 @@ class ImagePresentationHardeningTest {
             assertThat(decoded.getWidth()).isEqualTo(12); assertThat(decoded.getHeight()).isEqualTo(8);
             assertThat(preview.originalWidth()).isEqualTo(nativeImage.width());
             assertThat(preview.originalHeight()).isEqualTo(nativeImage.height());
+            assertThat(new String(preview.bytes(), java.nio.charset.StandardCharsets.ISO_8859_1)).doesNotContain("Exif");
+            var previewPixels = ImageIO.read(new ByteArrayInputStream(preview.bytes()));
+            assertThat(previewPixels.getWidth()).isEqualTo(12); assertThat(previewPixels.getHeight()).isEqualTo(8);
             var stored = ImageIO.read(file.toFile());
             for (int y=0;y<8;y++) for(int x=0;x<12;x++) assertThat(decoded.getRGB(x,y)).isEqualTo(stored.getRGB(x,y));
             assertThat(Files.readAllBytes(file)).isEqualTo(original);
@@ -62,9 +65,9 @@ class ImagePresentationHardeningTest {
     }
     @Test void streamsExplicitOriginalsWithoutApplyingPreviewLimitsOrCallingTheDecoder() throws Exception {
         Path source = image("source.png");
-        var config = new ImagePresentationProperties(1, Duration.ofSeconds(10), Duration.ofSeconds(5), 128,
+        var config = new ImagePresentationProperties(1, 1, Duration.ofSeconds(10),
                 1, 1, 1, 10000, Duration.ofDays(7), null);
-        var decoder = mock(ImageDecoderProcess.class);
+        var decoder = mock(ImageDecoder.class);
         try (var service = new ClosingService(new ImagePresentationService(paths(), config, decoder))) {
             var original = service.value.nativeImage("source.png");
             var output = new ByteArrayOutputStream(); original.writeTo(output);
@@ -75,12 +78,12 @@ class ImagePresentationHardeningTest {
     }
     @Test void persistsRevisionsAndRemovesDeletedOrOversizedCacheEntries() throws Exception {
         Path file=image("source.png");
-        var decoder=mock(ImageDecoderProcess.class);
-        when(decoder.decode(any(),any(),anyInt(),any())).thenReturn(new ImagePresentationService.Presentation(new byte[16],12,8));
-        var config=limits(1,20,Duration.ofSeconds(5));
+        var decoder=mock(ImageDecoder.class);
+        when(decoder.decode(any(),anyInt(),any())).thenReturn(new ImagePresentationService.Presentation(new byte[16],12,8));
+        var config=limits(1,20);
         try(var first=new ClosingService(new ImagePresentationService(paths(),config,decoder))) { first.value.get("source.png",ImagePresentationService.Size.detail); }
         try(var second=new ClosingService(new ImagePresentationService(paths(),config,decoder))) {
-            second.value.get("source.png",ImagePresentationService.Size.detail); verify(decoder,times(1)).decode(any(),any(),anyInt(),any());
+            second.value.get("source.png",ImagePresentationService.Size.detail); verify(decoder,times(1)).decode(any(),anyInt(),any());
             second.value.get("source.png",ImagePresentationService.Size.overview);
             try(var files=Files.list(root.resolve(".presentations"))) { assertThat(files.filter(p->p.toString().endsWith(".data")).count()).isEqualTo(1); }
             Files.delete(file); second.value.pruneDisk();
@@ -89,10 +92,10 @@ class ImagePresentationHardeningTest {
     }
     @Test void rejectsExcessQueuedWorkInsteadOfBlockingUnboundedRequests() throws Exception {
         image("a.png"); image("b.png"); image("c.png");
-        var decoder=mock(ImageDecoderProcess.class); var entered=new CountDownLatch(1); var release=new CountDownLatch(1);
-        when(decoder.decode(any(),any(),anyInt(),any())).thenAnswer(call->{ entered.countDown(); release.await(5,TimeUnit.SECONDS); return new ImagePresentationService.Presentation(new byte[]{1},12,8); });
+        var decoder=mock(ImageDecoder.class); var entered=new CountDownLatch(1); var release=new CountDownLatch(1);
+        when(decoder.decode(any(),anyInt(),any())).thenAnswer(call->{ entered.countDown(); release.await(5,TimeUnit.SECONDS); return new ImagePresentationService.Presentation(new byte[]{1},12,8); });
         var callers=Executors.newFixedThreadPool(2);
-        try(var service=new ClosingService(new ImagePresentationService(paths(),limits(1,10000,Duration.ofSeconds(5)),decoder))) {
+        try(var service=new ClosingService(new ImagePresentationService(paths(),limits(1,10000),decoder))) {
             var first=callers.submit(()->service.value.get("a.png",ImagePresentationService.Size.detail)); assertThat(entered.await(2,TimeUnit.SECONDS)).isTrue();
             var second=callers.submit(()->service.value.get("b.png",ImagePresentationService.Size.detail));
             // Wait only for the second call to reach the service's pending registry.
@@ -104,28 +107,35 @@ class ImagePresentationHardeningTest {
             release.countDown(); first.get(3,TimeUnit.SECONDS); second.get(3,TimeUnit.SECONDS);
         } finally { release.countDown(); callers.shutdownNow(); }
     }
-    @Test void killsAWorkerThatExceedsItsExecutionDeadline() throws Exception {
-        Path source=image("source.png"),scratch=Files.createDirectory(root.resolve("work"));
-        assertThatThrownBy(()->new ImageDecoderProcess().decode(source,scratch,3200,limits(1,10000,Duration.ofMillis(1))))
-                .isInstanceOfSatisfying(ImagePresentationException.class,e->assertThat(e.status()).isEqualTo(504));
+    @Test void runsConfiguredConversionsInParallel() throws Exception {
+        image("a.png"); image("b.png");
+        var decoder=mock(ImageDecoder.class); var bothEntered=new CountDownLatch(2);
+        when(decoder.decode(any(),anyInt(),any())).thenAnswer(call->{ bothEntered.countDown(); assertThat(bothEntered.await(5,TimeUnit.SECONDS)).isTrue(); return new ImagePresentationService.Presentation(new byte[]{1},12,8); });
+        var config=new ImagePresentationProperties(4, 2, Duration.ofSeconds(10), 500_000_000, 100_000, 536_870_912, 10000, Duration.ofDays(7), null);
+        var callers=Executors.newFixedThreadPool(2);
+        try(var service=new ClosingService(new ImagePresentationService(paths(),config,decoder))) {
+            var first=callers.submit(()->service.value.get("a.png",ImagePresentationService.Size.detail));
+            var second=callers.submit(()->service.value.get("b.png",ImagePresentationService.Size.detail));
+            first.get(3,TimeUnit.SECONDS); second.get(3,TimeUnit.SECONDS);
+        } finally { callers.shutdownNow(); }
     }
     @Test void invalidatesChangedSourcesAndRecoversFromCorruptDiskMetadata() throws Exception {
         Path file = image("source.png");
-        var decoder = mock(ImageDecoderProcess.class);
-        when(decoder.decode(any(), any(), anyInt(), any())).thenReturn(new ImagePresentationService.Presentation(new byte[16], 12, 8));
-        var config = limits(1,  10000, Duration.ofSeconds(5));
+        var decoder = mock(ImageDecoder.class);
+        when(decoder.decode(any(), anyInt(), any())).thenReturn(new ImagePresentationService.Presentation(new byte[16], 12, 8));
+        var config = limits(1,  10000);
         try (var service = new ClosingService(new ImagePresentationService(paths(), config, decoder))) {
             service.value.get("source.png", ImagePresentationService.Size.detail);
             Files.setLastModifiedTime(file, java.nio.file.attribute.FileTime.fromMillis(Files.getLastModifiedTime(file).toMillis() + 2000));
             service.value.get("source.png", ImagePresentationService.Size.detail);
-            verify(decoder, times(2)).decode(any(), any(), anyInt(), any());
+            verify(decoder, times(2)).decode(any(), anyInt(), any());
         }
         try (var entries = Files.list(root.resolve(".presentations"))) {
             for (Path meta : entries.filter(p -> p.toString().endsWith(".meta")).toList()) Files.writeString(meta, "width=invalid\n");
         }
         try (var service = new ClosingService(new ImagePresentationService(paths(), config, decoder))) {
             service.value.get("source.png", ImagePresentationService.Size.detail);
-            verify(decoder, times(3)).decode(any(), any(), anyInt(), any());
+            verify(decoder, times(3)).decode(any(), anyInt(), any());
             service.value.pruneDisk();
             try (var entries = Files.list(root.resolve(".presentations"))) {
                 assertThat(entries.filter(p -> p.toString().endsWith(".data")).count()).isEqualTo(1);
@@ -134,9 +144,9 @@ class ImagePresentationHardeningTest {
     }
     @Test void regeneratesCorruptedDerivativeBytes() throws Exception {
         image("source.png");
-        var decoder = mock(ImageDecoderProcess.class);
-        when(decoder.decode(any(), any(), anyInt(), any())).thenReturn(new ImagePresentationService.Presentation(new byte[16], 12, 8));
-        var config = limits(1,  10000, Duration.ofSeconds(5));
+        var decoder = mock(ImageDecoder.class);
+        when(decoder.decode(any(), anyInt(), any())).thenReturn(new ImagePresentationService.Presentation(new byte[16], 12, 8));
+        var config = limits(1,  10000);
         try (var service = new ClosingService(new ImagePresentationService(paths(), config, decoder))) {
             service.value.get("source.png", ImagePresentationService.Size.detail);
         }
@@ -145,14 +155,14 @@ class ImagePresentationHardeningTest {
         }
         try (var service = new ClosingService(new ImagePresentationService(paths(), config, decoder))) {
             assertThat(service.value.get("source.png", ImagePresentationService.Size.detail).bytes()).hasSize(16);
-            verify(decoder, times(2)).decode(any(), any(), anyInt(), any());
+            verify(decoder, times(2)).decode(any(), anyInt(), any());
         }
     }
     @Test void rejectsSourceDimensionsBeforeRasterAllocation() throws Exception {
         image("source.png");
-        var config = new ImagePresentationProperties(1, Duration.ofSeconds(10), Duration.ofSeconds(5), 128,
+        var config = new ImagePresentationProperties(1, 1, Duration.ofSeconds(10),
                 50, 100, 10000, 10000, Duration.ofDays(7), null);
-        try (var service = new ClosingService(new ImagePresentationService(paths(), config, new ImageDecoderProcess()))) {
+        try (var service = new ClosingService(new ImagePresentationService(paths(), config, new ImageDecoder()))) {
             assertThatThrownBy(() -> service.value.get("source.png", ImagePresentationService.Size.detail))
                     .isInstanceOfSatisfying(ImagePresentationException.class, e -> assertThat(e.status()).isEqualTo(413));
         }

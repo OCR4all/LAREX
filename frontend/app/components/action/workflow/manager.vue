@@ -4,36 +4,23 @@ import type { ActionWorkflow } from '~/types/action-workflow'
 
 const props = defineProps<{ workspaceId?: string, processors: ActionDefinition[], embedded?: boolean }>()
 const emit = defineEmits<{ saved: [workflow: ActionWorkflow] }>()
-const workflows = ref<ActionWorkflow[]>([])
-const loading = ref(false)
 const busy = ref(false)
-const error = ref('')
+const actionError = ref('')
 const open = ref(false)
 const editing = ref<ActionWorkflow | null>(null)
 const editor = ref<{ dirty: boolean, busy: boolean } | null>(null)
 const deleteId = ref('')
-let generation = 0
+const requestFetch = useRequestFetch()
 const base = computed(() => props.workspaceId ? `/api/workspaces/${props.workspaceId}/actions/workflows` : '/api/admin/actions/workflows')
-async function load() {
-  const request = ++generation
-  loading.value = true
-  error.value = ''
-  try {
-    const result = await $fetch<ActionWorkflow[]>(base.value)
-    if (request === generation) workflows.value = result
-  } catch (cause) {
-    if (request === generation) error.value = extractApiErrorDetails(cause, 'Could not load workflows.').message
-  } finally {
-    if (request === generation) loading.value = false
-  }
+const workflowsKey = computed(() => props.workspaceId ? wsKey(props.workspaceId, 'action-workflows') : globalKey('admin', 'action-workflows'))
+const { data: workflows, pending: loading, error: loadError, refresh } = useAsyncData(workflowsKey, () => requestFetch<ActionWorkflow[]>(base.value), { default: () => [] })
+const error = computed(() => actionError.value || (loadError.value ? extractApiErrorDetails(loadError.value, 'Could not load workflows.').message : ''))
+function load() {
+  actionError.value = ''
+  return refresh()
 }
 watch(() => props.workspaceId, () => {
-  workflows.value = []
   open.value = false
-  void load()
-}, { immediate: true })
-onBeforeUnmount(() => {
-  generation++
 })
 function edit(workflow: ActionWorkflow | null) {
   editing.value = workflow
@@ -43,7 +30,7 @@ async function editById(id: string) {
   try {
     edit(await $fetch<ActionWorkflow>(`${base.value}/${id}`))
   } catch (cause) {
-    error.value = extractApiErrorDetails(cause, 'Could not load workflow.').message
+    actionError.value = extractApiErrorDetails(cause, 'Could not load workflow.').message
   }
 }
 defineExpose({ create: () => edit(null), editById, canEdit: (id: string) => workflows.value.some(workflow => workflow.id === id && !workflow.global) })
@@ -58,13 +45,13 @@ function saved(workflow: ActionWorkflow) {
 }
 async function deleteWorkflow(id: string) {
   busy.value = true
-  const request = generation
+  actionError.value = ''
   try {
     await $fetch(`${base.value}/${id}`, { method: 'DELETE' })
-    if (request === generation) workflows.value = workflows.value.filter(workflow => workflow.id !== id)
+    workflows.value = workflows.value.filter(workflow => workflow.id !== id)
     deleteId.value = ''
   } catch (cause) {
-    if (request === generation) error.value = extractApiErrorDetails(cause, 'Could not delete workflow.').message
+    actionError.value = extractApiErrorDetails(cause, 'Could not delete workflow.').message
   } finally { busy.value = false }
 }
 </script>

@@ -1,7 +1,11 @@
-FROM gradle:jdk25-corretto
+FROM gradle:jdk25-noble
 LABEL description="Development environment for Spring Boot application with hot reload"
 
 WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libvips42t64 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy build configuration
 COPY build.gradle.kts settings.gradle.kts ./

@@ -67,6 +67,9 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x backend/gradlew
 
+      - name: Install libvips
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libvips42t64
+
       - name: Run tests
         working-directory: backend
         run: ./gradlew test

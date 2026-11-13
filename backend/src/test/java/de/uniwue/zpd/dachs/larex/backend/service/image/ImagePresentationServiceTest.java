@@ -95,4 +95,37 @@ class ImagePresentationServiceTest {
         assertThat(decoded.getRGB(10, 10) & 0xffffff).isZero();
     }
 
+    @Test
+    void streamsCompactBrowserImagesThatFitTheRequestedTier() throws Exception {
+        ImageIO.write(new BufferedImage(400, 300, BufferedImage.TYPE_BYTE_BINARY), "png", directory.resolve("binary.png").toFile());
+        assertThat(service.nativeImage("binary.png", ImagePresentationService.Size.detail)).isNotNull();
+        assertThat(service.nativeImage("binary.png", ImagePresentationService.Size.thumbnail)).isNull();
+
+        var noise = new BufferedImage(200, 200, BufferedImage.TYPE_INT_RGB);
+        var random = new java.util.Random(1);
+        for (int y = 0; y < 200; y++) for (int x = 0; x < 200; x++) noise.setRGB(x, y, random.nextInt());
+        ImageIO.write(noise, "png", directory.resolve("noise.png").toFile());
+        assertThat(service.nativeImage("noise.png", ImagePresentationService.Size.detail)).isNull();
+        assertThat(service.nativeImage("noise.png", ImagePresentationService.Size.original)).isNotNull();
+
+        ImageIO.write(new BufferedImage(40, 30, BufferedImage.TYPE_BYTE_GRAY), "tiff", directory.resolve("scan.tiff").toFile());
+        assertThat(service.nativeImage("scan.tiff", ImagePresentationService.Size.detail)).isNull();
+        assertThat(service.nativeImage("scan.tiff", ImagePresentationService.Size.original)).isNull();
+
+        Files.writeString(directory.resolve("not-an-image.png"), "original content");
+        assertThat(service.nativeImage("not-an-image.png", ImagePresentationService.Size.detail)).isNull();
+        assertThatThrownBy(() -> service.nativeImage("missing.png", ImagePresentationService.Size.detail))
+                .isInstanceOf(java.nio.file.NoSuchFileException.class);
+    }
+
+    @Test
+    void convertsNonBrowserOriginalsToPng() throws Exception {
+        ImageIO.write(new BufferedImage(40, 30, BufferedImage.TYPE_BYTE_GRAY), "tiff", directory.resolve("scan.tiff").toFile());
+        var result = service.get("scan.tiff", ImagePresentationService.Size.original);
+        assertThat(result.mediaType()).isEqualTo("image/png");
+        var decoded = ImageIO.read(new ByteArrayInputStream(result.bytes()));
+        assertThat(decoded.getWidth()).isEqualTo(40);
+        assertThat(decoded.getHeight()).isEqualTo(30);
+    }
+
 }

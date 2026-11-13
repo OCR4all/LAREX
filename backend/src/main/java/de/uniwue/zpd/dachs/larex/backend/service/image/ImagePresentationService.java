@@ -30,7 +30,7 @@ public class ImagePresentationService {
     private record Job(Future<Presentation> result) {}
     private final UploadPathService paths;
     private final ImagePresentationProperties limits;
-    private final ImageDecoderProcess decoder;
+    private final ImageDecoder decoder;
     private final Path directory;
     private final ThreadPoolExecutor executor;
     private final Map<String, Job> pending = new HashMap<>();
@@ -38,19 +38,36 @@ public class ImagePresentationService {
             .weigher((String key, Presentation value) -> value.bytes().length).expireAfterAccess(Duration.ofMinutes(30)).build();
 
     public ImagePresentationService(UploadPathService paths) {
-        this(paths, ImagePresentationProperties.defaults(), new ImageDecoderProcess());
+        this(paths, ImagePresentationProperties.defaults(), new ImageDecoder());
     }
     @Autowired
-    public ImagePresentationService(UploadPathService paths, ImagePresentationProperties limits, ImageDecoderProcess decoder) {
+    public ImagePresentationService(UploadPathService paths, ImagePresentationProperties limits, ImageDecoder decoder) {
         this.paths = paths; this.limits = limits; this.decoder = decoder;
         directory = limits.cacheDirectory() == null ? paths.root().resolve(".presentations") : limits.cacheDirectory().toAbsolutePath();
-        executor = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
+        var threads = new java.util.concurrent.atomic.AtomicInteger();
+        executor = new ThreadPoolExecutor(limits.conversionThreads(), limits.conversionThreads(), 0, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(limits.queueCapacity()), runnable -> {
-                    Thread thread = new Thread(runnable, "image-presentation"); thread.setDaemon(true); return thread;
+                    Thread thread = new Thread(runnable, "image-presentation-" + threads.incrementAndGet()); thread.setDaemon(true); return thread;
                 }, new ThreadPoolExecutor.AbortPolicy());
     }
     public NativeImagePresentation nativeImage(String sourcePath) throws IOException {
         return NativeImagePresentation.open(paths.resolve(sourcePath));
+    }
+
+    public NativeImagePresentation nativeImage(String sourcePath, Size size) throws IOException {
+        Path source = paths.resolve(sourcePath);
+        NativeImagePresentation image;
+        try {
+            image = NativeImagePresentation.open(source);
+        } catch (NoSuchFileException e) {
+            throw e;
+        } catch (IOException e) {
+            return null;
+        }
+        if (!image.browserNative()) return null;
+        if (size == Size.original) return image;
+        boolean fits = image.width() <= size.maxDimension && image.height() <= size.maxDimension;
+        return fits && Files.size(source) <= (long) image.width() * image.height() / 4 ? image : null;
     }
 
     public Presentation get(String sourcePath, Size size) throws IOException {
@@ -73,17 +90,14 @@ public class ImagePresentationService {
                         var cached = readDisk(key);
                         if (cached != null) { cache.put(key, cached); cache.cleanUp(); return cached; }
                         Files.createDirectories(directory);
-                        Path scratch = Files.createTempDirectory(directory, "work-");
-                        try {
-                            var result = decoder.decode(source, scratch, size.maxDimension, limits);
-                            // Do not publish data if a source was replaced during conversion.
-                            if (!key.equals(key(source, Files.readAttributes(source, BasicFileAttributes.class), size)))
-                                throw new ImagePresentationException(409, "Image changed during conversion; please retry");
-                            writeDisk(key, result, source, attributes);
-                            cache.put(key, result);
-                            cache.cleanUp();
-                            return result;
-                        } finally { deleteTree(scratch); }
+                        var result = decoder.decode(source, size.maxDimension, limits);
+                        // Do not publish data if a source was replaced during conversion.
+                        if (!key.equals(key(source, Files.readAttributes(source, BasicFileAttributes.class), size)))
+                            throw new ImagePresentationException(409, "Image changed during conversion; please retry");
+                        writeDisk(key, result, source, attributes);
+                        cache.put(key, result);
+                        cache.cleanUp();
+                        return result;
                     }));
                     pending.put(key, job);
                 } catch (RejectedExecutionException e) {

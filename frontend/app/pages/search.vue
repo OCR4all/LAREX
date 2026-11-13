@@ -63,8 +63,6 @@ const totalProjectCount = ref(0)
 const fuzzyExpanded = ref(false)
 const suggestedQuery = ref<string | null>(null)
 const errorMessage = ref<string | null>(null)
-const hasLoaded = ref(false)
-const isLoadingInitial = ref(false)
 const isLoadingMore = ref(false)
 const hasReachedEnd = ref(false)
 
@@ -104,114 +102,77 @@ watch(searchInput, () => {
   void syncQueryInput()
 })
 
-function resetResults() {
-  loadedHits.value = []
-  totalHits.value = 0
-  totalProjectCount.value = 0
-  fuzzyExpanded.value = false
-  suggestedQuery.value = null
-  errorMessage.value = null
-  hasLoaded.value = false
-  isLoadingInitial.value = false
-  isLoadingMore.value = false
-  hasReachedEnd.value = false
+const requestFetch = useRequestFetch()
+const searchUrl = computed(() => `/api/search/workspace/${workspaceId.value}/text`)
+
+function searchRequestQuery(offset: number) {
+  return { q: searchQuery.value, limit: PAGE_SIZE, offset, view: 'hits', match: matchMode.value }
 }
 
-async function fetchSearchPage(append: boolean) {
-  if (!canSearch.value || !workspaceId.value) {
-    resetResults()
-    hasLoaded.value = true
-    return
-  }
+function searchErrorMessage(error: unknown) {
+  const cause = error as { data?: { message?: string }, message?: string } | null
+  return cause?.data?.message || cause?.message || 'Search failed.'
+}
 
+const searchKey = computed(() => canSearch.value && workspaceId.value
+  ? wsKey(workspaceId.value, 'text-search', matchMode.value, searchQuery.value)
+  : globalKey('idle', 'text-search'))
+const { data: firstPage, status: firstPageStatus, error: firstPageError } = await useAsyncData(
+  searchKey,
+  () => canSearch.value
+    ? requestFetch<WorkspaceTextSearchResponse>(searchUrl.value, { query: searchRequestQuery(0) })
+    : Promise.resolve(null),
+  { default: () => null }
+)
+const isLoadingInitial = computed(() => firstPageStatus.value === 'pending')
+const hasLoaded = computed(() => !canSearch.value || firstPageStatus.value === 'success' || firstPageStatus.value === 'error')
+
+function showSearchResponse(response: WorkspaceTextSearchResponse | null, append: boolean) {
+  const incomingHits = response?.hits ?? []
   if (append) {
-    if (isLoadingMore.value || isLoadingInitial.value) return
-    if (loadedHits.value.length >= totalHits.value && hasLoaded.value) return
-  } else if (isLoadingInitial.value) {
-    return
+    const existingKeys = new Set(loadedHits.value.map(getHitKey))
+    const uniqueIncomingHits = incomingHits.filter(hit => !existingKeys.has(getHitKey(hit)))
+    loadedHits.value = [...loadedHits.value, ...uniqueIncomingHits]
+    hasReachedEnd.value = incomingHits.length < PAGE_SIZE || uniqueIncomingHits.length === 0
+  } else {
+    loadedHits.value = incomingHits
+    hasReachedEnd.value = incomingHits.length < PAGE_SIZE
   }
+  totalHits.value = response?.totalHits ?? loadedHits.value.length
+  totalProjectCount.value = response?.totalProjectCount ?? 0
+  fuzzyExpanded.value = response?.fuzzyExpanded ?? false
+  suggestedQuery.value = response?.suggestedQuery ?? null
+  if (loadedHits.value.length >= totalHits.value) {
+    hasReachedEnd.value = true
+  }
+}
+
+watch([firstPage, firstPageError], ([response, error]) => {
+  activeLoadToken += 1
+  isLoadingMore.value = false
+  errorMessage.value = error ? searchErrorMessage(error) : null
+  showSearchResponse(error ? null : response, false)
+}, { immediate: true })
+
+async function fetchNextSearchPage() {
+  if (!canSearch.value || isLoadingMore.value || isLoadingInitial.value) return
+  if (loadedHits.value.length >= totalHits.value) return
 
   const token = activeLoadToken
-  const nextOffset = append ? loadedHits.value.length : 0
-
-  if (append) {
-    isLoadingMore.value = true
-  } else {
-    isLoadingInitial.value = true
-    errorMessage.value = null
-  }
-
+  isLoadingMore.value = true
   try {
-    const response = await $fetch<WorkspaceTextSearchResponse>(
-      `/api/search/workspace/${workspaceId.value}/text`,
-      {
-        query: {
-          q: searchQuery.value,
-          limit: PAGE_SIZE,
-          offset: nextOffset,
-          view: 'hits',
-          match: matchMode.value
-        }
-      }
-    )
-
+    const response = await $fetch<WorkspaceTextSearchResponse>(searchUrl.value, {
+      query: searchRequestQuery(loadedHits.value.length)
+    })
     if (token !== activeLoadToken) return
-
-    const incomingHits = response.hits ?? []
-    if (append) {
-      const existingKeys = new Set(loadedHits.value.map(getHitKey))
-      const uniqueIncomingHits = incomingHits.filter(hit => !existingKeys.has(getHitKey(hit)))
-      loadedHits.value = [
-        ...loadedHits.value,
-        ...uniqueIncomingHits
-      ]
-      hasReachedEnd.value = incomingHits.length < PAGE_SIZE
-        || uniqueIncomingHits.length === 0
-    } else {
-      loadedHits.value = incomingHits
-      hasReachedEnd.value = incomingHits.length < PAGE_SIZE
-    }
-
-    totalHits.value = response.totalHits ?? loadedHits.value.length
-    totalProjectCount.value = response.totalProjectCount ?? 0
-    fuzzyExpanded.value = response.fuzzyExpanded ?? false
-    suggestedQuery.value = response.suggestedQuery ?? null
-    if (loadedHits.value.length >= totalHits.value) {
-      hasReachedEnd.value = true
-    }
-    hasLoaded.value = true
-  } catch (error: any) {
+    showSearchResponse(response, true)
+  } catch (error: unknown) {
     if (token !== activeLoadToken) return
-    if (!append) {
-      loadedHits.value = []
-      totalHits.value = 0
-      totalProjectCount.value = 0
-      fuzzyExpanded.value = false
-      suggestedQuery.value = null
-      hasLoaded.value = true
-    }
-    errorMessage.value = error?.data?.message || error?.message || 'Search failed.'
+    errorMessage.value = searchErrorMessage(error)
   } finally {
-    if (token === activeLoadToken) {
-      isLoadingInitial.value = false
-      isLoadingMore.value = false
-    }
+    if (token === activeLoadToken) isLoadingMore.value = false
   }
 }
-
-function reloadSearch() {
-  activeLoadToken += 1
-  resetResults()
-  if (!canSearch.value) {
-    hasLoaded.value = true
-    return
-  }
-  void fetchSearchPage(false)
-}
-
-watch([workspaceId, searchQuery, matchMode], () => {
-  reloadSearch()
-}, { immediate: true })
 
 const clusteredGroups = computed<WorkspaceTextSearchClusterGroup[]>(() => {
   const projectMap = new Map<string, WorkspaceTextSearchClusterGroup>()
@@ -329,7 +290,7 @@ function handleScroll() {
 
   const remaining = scroller.scrollHeight - (scroller.scrollTop + scroller.clientHeight)
   if (remaining <= 600) {
-    void fetchSearchPage(true)
+    void fetchNextSearchPage()
   }
 }
 </script>
@@ -532,7 +493,7 @@ function handleScroll() {
                 color="neutral"
                 variant="outline"
                 icon="i-lucide-chevron-down"
-                @click="fetchSearchPage(true)"
+                @click="fetchNextSearchPage()"
               >
                 Load more results
               </UButton>

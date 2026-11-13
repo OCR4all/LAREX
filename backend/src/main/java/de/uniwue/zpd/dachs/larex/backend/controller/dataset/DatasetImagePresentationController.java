@@ -30,10 +30,8 @@ public class DatasetImagePresentationController {
             @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
         try {
             var context = access.resolveImageAccessContext(workspaceId, datasetId, itemId, imageId, userId);
-            if (size == ImagePresentationService.Size.original) {
-                var nativeImage = presentations.nativeImage(context.copyImage().getFilePath());
-                if (nativeImage.browserNative()) return PresentationResponses.nativeImage(nativeImage);
-            }
+            var nativeImage = presentations.nativeImage(context.copyImage().getFilePath(), size);
+            if (nativeImage != null) return PresentationResponses.nativeImage(nativeImage);
             var presentation = presentations.get(context.copyImage().getFilePath(), size);
             return PresentationResponses.ok(presentation);
         } catch (IllegalArgumentException | NoSuchFileException e) {
