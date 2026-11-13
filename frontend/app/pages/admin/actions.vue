@@ -1228,7 +1228,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
 <template>
   <UDashboardPanel id="admin-actions" :ui="{ body: 'p-0 sm:p-0' }">
     <template #header>
-      <UDashboardNavbar title="Actions" :ui="{ right: 'gap-2' }">
+      <UDashboardNavbar title="Action Catalog" :ui="{ right: 'gap-2' }">
         <template #right>
           <UButton
             icon="i-lucide-workflow"

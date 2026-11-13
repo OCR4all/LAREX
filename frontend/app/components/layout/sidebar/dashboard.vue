@@ -85,8 +85,8 @@ const adminNavigation = computed<NavigationMenuItem[]>(() => {
     { label: 'Errors', icon: 'i-lucide-bug', to: '/admin/errors' }
   ])
   const actionChildren = withActive([
-    { label: 'Actions', icon: 'i-lucide-circle-play', to: '/admin/actions' },
-    { label: 'Action Runs', icon: 'i-lucide-list-ordered', to: '/admin/action-runs' }
+    { label: 'Catalog', icon: 'i-lucide-library', to: '/admin/actions' },
+    { label: 'Runs', icon: 'i-lucide-list-ordered', to: '/admin/action-runs' }
   ])
   const dataManagementChildren = withActive([
     { label: 'Quotas', icon: 'i-lucide-hard-drive', to: '/admin/quotas' },
