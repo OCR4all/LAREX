@@ -696,6 +696,7 @@ function handleEditorCanvasContextMenu(event: MouseEvent): void {
 watch(contextMenuOpen, (open) => {
   if (!open) {
     editorCommands.closeContextMenu()
+    refreshHoverAtLastPointer()
   }
 })
 
@@ -1600,11 +1601,20 @@ function handleEditorDoubleClick(event: MouseEvent) {
   editorInteractions.onDoubleClick(event)
 }
 
+let lastPointerPosition: { clientX: number, clientY: number } | null = null
+
+function refreshHoverAtLastPointer(): void {
+  if (!lastPointerPosition || isCanvasInteractionBlocked.value) return
+  editorInteractions.onMouseMove(new MouseEvent('mousemove', lastPointerPosition))
+}
+
 function handleEditorMouseMove(event: MouseEvent) {
   if (isCanvasInteractionBlocked.value) {
     editorInteractions.cancelMarquee()
     return
   }
+  lastPointerPosition = { clientX: event.clientX, clientY: event.clientY }
+  if (contextMenuOpen.value) return
   editorInteractions.onMouseMove(event)
 }
 
