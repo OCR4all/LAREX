@@ -4,7 +4,9 @@
 
 Please do not open public issues for security vulnerabilities.
 
-Report security issues privately by contacting the maintainers directly and include:
+Report security issues privately through GitHub's
+[private vulnerability reporting](https://github.com/OCR4all/larex/security/advisories/new)
+and include:
 
 - A clear description of the issue
 - Affected versions and environments
