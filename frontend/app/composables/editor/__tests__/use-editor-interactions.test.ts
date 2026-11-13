@@ -376,7 +376,7 @@ describe('useEditorInteractions', () => {
     })
     harness.canvasControls.viewMode.value = viewMode
 
-    click(harness, 50)
+    click(harness, 50, true)
     expect(harness.selectedPolygonIds.value).toEqual(['a'])
     click(harness, 150, true)
     expect(harness.selectedPolygonIds.value).toEqual(['a', 'b'])
@@ -388,24 +388,15 @@ describe('useEditorInteractions', () => {
     expect(harness.interactions.isMarqueeSelecting.value).toBe(false)
   })
 
-  it('adds sibling textlines after drilling into a region', async () => {
-    const harness = await createHarness('select', {
-      realEditing: true,
-      polygons: [
-        { id: 'parent', type: 'region', points: [
-          { x: -0.9, y: -0.9 }, { x: 0.9, y: -0.9 }, { x: 0.9, y: 0.9 }, { x: -0.9, y: 0.9 }
-        ] },
-        ...siblingPolygons('textline', 'parent')
-      ]
-    })
-    click(harness, 50)
+  it('ignores Shift-clicks on siblings that are not hoverable below the active polygon', async () => {
+    const harness = await createHarness('select', { realEditing: true, polygons: siblingPolygons() })
     click(harness, 50)
     expect(harness.selectedPolygonIds.value).toEqual(['a'])
     click(harness, 150, true)
-    expect(harness.selectedPolygonIds.value).toEqual(['a', 'b'])
+    expect(harness.selectedPolygonIds.value).toEqual(['a'])
     click(harness, 50, true)
-    expect(harness.selectedPolygonIds.value).toEqual(['b'])
-    expect(harness.selectedPolygonIndex.value).toBe(0)
+    expect(harness.selectedPolygonIds.value).toEqual([])
+    expect(harness.selectedPolygonIndex.value).toBe(-1)
   })
 
   it('starts a selection with Shift-click and preserves it on empty or hidden polygons', async () => {

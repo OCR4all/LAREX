@@ -93,15 +93,6 @@ export function useEditorInteractions(
 
   const normalizeViewMode = normalizeLayoutViewMode
 
-  function getPolygonSelectionContexts(activeIndex: number): number[] {
-    // Additive selection includes children, the active polygon, and its siblings.
-    const activePolygon = polygons[activeIndex]
-    const parentIndex = activePolygon?.parentId
-      ? polygons.findIndex(polygon => polygon.id === activePolygon.parentId)
-      : -1
-    return Array.from(new Set([activeIndex, parentIndex]))
-  }
-
   function pointInRect(p: Point, rect: { minX: number, maxX: number, minY: number, maxY: number }): boolean {
     return p.x >= rect.minX && p.x <= rect.maxX && p.y >= rect.minY && p.y <= rect.maxY
   }
@@ -131,7 +122,6 @@ export function useEditorInteractions(
       nodePolygonId: selectedPolylineIndex.value < 0
         ? polygons[effectiveSelectedPolygonIndex]?.id
         : undefined,
-      polygonSelectionContexts: getPolygonSelectionContexts(effectiveSelectedPolygonIndex),
       selectedPolylineIndex: -1,
       viewMode
     }
@@ -220,13 +210,15 @@ export function useEditorInteractions(
 
         if (hiddenPolygonIdSet.value.has(poly.id)) continue
 
-        const selectable = marqueeContext.polygonSelectionContexts.some(contextIndex => visibilityService.shouldBeSelectablePolygon(poly, {
-          selectedPolygonIndex: contextIndex,
+        const selectable = visibilityService.shouldShowPolygonHover(poly, {
+          selectedPolygonIndex: marqueeContext.selectedPolygonIndex,
+          selectedPolylineIndex: marqueeContext.selectedPolylineIndex,
           allPolygons: polygons,
+          allPolylines: polylines,
           viewMode,
           hiddenPolygonIds: hiddenPolygonIdSet.value,
           hiddenPolylineIds: hiddenPolylineIdSet.value
-        }))
+        })
         if (!selectable) continue
         if (allPointsInRect(poly.points, worldRect)) {
           polygonIds.push(poly.id)
@@ -281,18 +273,17 @@ export function useEditorInteractions(
   }
 
   function getShiftClickedPolygonIndex(point: Point, viewMode: ViewMode | undefined): number {
-    for (const contextIndex of getPolygonSelectionContexts(selectedPolygonIndex.value)) {
-      const clickedIndex = getVisiblePolygonAtPoint(
-        polygons,
-        point,
-        contextIndex,
-        canvasControls.spatialIndex,
-        viewMode,
-        hiddenPolygonIdSet.value
-      )
-      if (clickedIndex >= 0) return clickedIndex
-    }
-    return -1
+    return getHoverablePolygonAtPoint(
+      polygons,
+      point,
+      selectedPolygonIndex.value,
+      selectedPolylineIndex.value,
+      polylines,
+      canvasControls.spatialIndex,
+      viewMode,
+      hiddenPolygonIdSet.value,
+      hiddenPolylineIdSet.value
+    )
   }
 
   function replaceSelectionFromCurrentIndices(viewMode: ViewMode | undefined): void {
