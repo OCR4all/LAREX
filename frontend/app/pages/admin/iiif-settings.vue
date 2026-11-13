@@ -230,19 +230,6 @@ const toolbarRefresh = useRefreshFeedback(() => refresh())
             </p>
           </template>
         </UCard>
-
-        <UCard>
-          <template #header>
-            <h2 class="font-semibold text-highlighted">
-              Preview behavior
-            </h2>
-          </template>
-          <p class="text-sm leading-6 text-muted">
-            IIIF previews use a dedicated worker queue and do not probe every remote image.
-            Storage preflight uses a 10 MB estimate per importable canvas. Preview metadata
-            bypasses fixed download pacing but honors an active remote-server cooldown.
-          </p>
-        </UCard>
       </div>
     </template>
   </UDashboardPanel>
