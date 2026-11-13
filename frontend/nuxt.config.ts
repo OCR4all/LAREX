@@ -46,6 +46,14 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    '/**': {
+      headers: {
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'SAMEORIGIN',
+        'Content-Security-Policy': 'frame-ancestors \'self\'',
+        'Referrer-Policy': 'strict-origin-when-cross-origin'
+      }
+    },
     '/editor': {
       ssr: false
     }
