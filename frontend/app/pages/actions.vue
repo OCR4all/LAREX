@@ -50,50 +50,6 @@ const processors = computed(() => [
 const loading = computed(() => processingRequest.pending.value || trainingRequest.pending.value || evaluationRequest.pending.value)
 const error = computed(() => processingRequest.error.value || trainingRequest.error.value || evaluationRequest.error.value)
 
-const actionKindMeta: Record<ActionKind, { label: string, icon: string, class: string }> = {
-  PROCESSING: {
-    label: 'Processing',
-    icon: 'i-lucide-play',
-    class: 'bg-sky-500/10 text-sky-700 ring-sky-500/25 dark:text-sky-300'
-  },
-  TRAINING: {
-    label: 'Training',
-    icon: 'i-lucide-brain-circuit',
-    class: 'bg-violet-500/10 text-violet-700 ring-violet-500/25 dark:text-violet-300'
-  },
-  EVALUATION: {
-    label: 'Evaluation',
-    icon: 'i-lucide-chart-no-axes-combined',
-    class: 'bg-orange-500/10 text-orange-700 ring-orange-500/25 dark:text-orange-300'
-  },
-  INTEGRATION: {
-    label: 'Integration',
-    icon: 'i-lucide-plug',
-    class: 'bg-teal-500/10 text-teal-700 ring-teal-500/25 dark:text-teal-300'
-  }
-}
-
-function actionKindDetails(kind?: ActionKind) {
-  return actionKindMeta[kind ?? 'PROCESSING']
-}
-
-const actionScopeMeta = {
-  global: {
-    label: 'Global',
-    icon: 'i-lucide-globe',
-    class: 'bg-navy-500/10 text-navy-700 ring-navy-500/25 dark:text-navy-300'
-  },
-  workspace: {
-    label: 'Workspace',
-    icon: 'i-lucide-layers',
-    class: 'bg-slate-500/10 text-slate-700 ring-slate-500/25 dark:text-slate-300'
-  }
-}
-
-function actionScopeDetails(processor: ActionDefinitionResponse) {
-  return processor.global ? actionScopeMeta.global : actionScopeMeta.workspace
-}
-
 function targetLabel(target: ActionTarget) {
   return target.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, character => character.toUpperCase())
 }
@@ -324,14 +280,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshProcessors())
           </p>
         </template>
         <template #kind-cell="{ row }">
-          <UBadge
-            color="neutral"
-            variant="subtle"
-            :icon="actionKindDetails(row.original.kind).icon"
-            :class="actionKindDetails(row.original.kind).class"
-          >
-            {{ actionKindDetails(row.original.kind).label }}
-          </UBadge>
+          <ActionKindBadge :kind="row.original.kind" />
         </template>
         <template #tags-cell="{ row }">
           <div v-if="row.original.tags.length" class="flex flex-wrap gap-1">
@@ -347,14 +296,7 @@ const toolbarRefresh = useRefreshFeedback(() => refreshProcessors())
           <span v-else>—</span>
         </template>
         <template #scope-cell="{ row }">
-          <UBadge
-            color="neutral"
-            variant="subtle"
-            :icon="actionScopeDetails(row.original).icon"
-            :class="actionScopeDetails(row.original).class"
-          >
-            {{ actionScopeDetails(row.original).label }}
-          </UBadge>
+          <ActionScopeBadge :global="row.original.global" />
         </template>
         <template #targets-cell="{ row }">
           <span class="whitespace-normal">

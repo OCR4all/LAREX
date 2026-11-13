@@ -406,12 +406,10 @@ async function saveEdit() {
             </div>
           </template>
           <template #kind-cell="{ row }">
-            <span class="capitalize">{{ row.original.processor.workflowId ? 'Workflow' : row.original.processor.kind.toLowerCase() }}</span>
+            <ActionKindBadge :kind="row.original.processor.kind" :workflow="!!row.original.processor.workflowId" />
           </template>
           <template #availability-cell="{ row }">
-            <UBadge color="neutral" variant="soft">
-              {{ row.original.processor.global ? 'Global' : 'Workspace' }}
-            </UBadge>
+            <ActionScopeBadge :global="row.original.processor.global" />
           </template>
           <template #scope-cell="{ row }">
             <p class="min-w-36 max-w-64 whitespace-normal break-words">
@@ -420,14 +418,19 @@ async function saveEdit() {
           </template>
           <template #role-cell="{ row }">
             <div class="flex min-w-32 flex-col items-start gap-1">
-              <ActionExecuteRoleBadge :role="row.original.processor.executeRole" />
+              <ActionExecuteRoleBadge :role="row.original.processor.executeRole" size="md" />
               <span v-if="row.original.executeRoleOverride" class="text-xs text-muted">
                 Changed for this workspace
               </span>
             </div>
           </template>
           <template #status-cell="{ row }">
-            <UBadge :color="row.original.enabled ? 'success' : 'neutral'" variant="soft">
+            <UBadge
+              :color="row.original.enabled ? 'success' : 'neutral'"
+              :icon="row.original.enabled ? 'i-lucide-circle-check' : 'i-lucide-circle-pause'"
+              variant="subtle"
+              class="shrink-0"
+            >
               {{ row.original.enabled ? 'Enabled' : 'Disabled' }}
             </UBadge>
           </template>
@@ -580,12 +583,10 @@ async function saveEdit() {
               </div>
             </template>
             <template #kind-cell="{ row }">
-              <span class="capitalize">{{ row.original.workflowId ? 'Workflow' : row.original.kind.toLowerCase() }}</span>
+              <ActionKindBadge :kind="row.original.kind" :workflow="!!row.original.workflowId" />
             </template>
             <template #availability-cell="{ row }">
-              <UBadge color="neutral" variant="soft">
-                {{ row.original.global ? 'Global' : 'Workspace' }}
-              </UBadge>
+              <ActionScopeBadge :global="row.original.global" />
             </template>
           </AppTable>
         </div>

@@ -1266,9 +1266,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
             <UBadge variant="soft" :color="selectedDefinition.enabled ? 'success' : 'neutral'">
               {{ selectedDefinition.enabled ? 'Enabled' : 'Disabled' }}
             </UBadge>
-            <UBadge v-if="selectedDefinition.global" variant="soft" color="primary">
-              Global
-            </UBadge>
+            <ActionScopeBadge v-if="selectedDefinition.global" global />
             <span class="truncate text-sm text-muted">{{ selectedDefinition.processorKey }}</span>
           </div>
           <span v-else class="text-sm text-muted">Unsaved Action</span>
@@ -1317,9 +1315,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                       Choose which workspaces may enable this Action. Curators/admins must activate it in each workspace.
                     </p>
                   </div>
-                  <UBadge variant="soft" :color="selectedDefinition.global ? 'primary' : 'neutral'">
-                    {{ selectedDefinition.global ? 'Global' : 'Workspace' }}
-                  </UBadge>
+                  <ActionScopeBadge :global="selectedDefinition.global" />
                 </div>
 
                 <div v-if="isDraftSelected" class="rounded-sm border border-default p-3 text-sm text-muted">
@@ -1593,14 +1589,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                 />
                 <span class="sr-only">{{ definition.enabled ? 'Enabled' : 'Disabled' }}</span>
               </span>
-              <UBadge
-                v-if="definition.global"
-                size="sm"
-                variant="soft"
-                color="primary"
-              >
-                Global
-              </UBadge>
+              <ActionScopeBadge v-if="definition.global" global size="sm" />
               <UBadge
                 v-if="draftDefinition?.id === definition.id"
                 size="sm"
