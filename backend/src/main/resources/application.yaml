@@ -57,8 +57,10 @@ spring:
           auth: ${MAIL_SMTP_AUTH:false}
           ssl:
             enable: ${MAIL_SMTP_SSL_ENABLE:false}
+            checkserveridentity: true
           starttls:
             enable: ${MAIL_SMTP_STARTTLS:false}
+            required: ${MAIL_SMTP_STARTTLS:false}
 
 keycloak:
   resource-client-id: larex-backend

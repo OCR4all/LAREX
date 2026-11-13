@@ -1,6 +1,6 @@
 plugins {
 	java
-	id("org.springframework.boot") version "4.0.6"
+	id("org.springframework.boot") version "4.0.9"
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -17,6 +17,8 @@ java {
 repositories {
 	mavenCentral()
 }
+
+extra["httpcore5.version"] = "5.4.4"
 
 dependencies {
 	implementation("com.maxnth:page4j-dla:2.0.2")
