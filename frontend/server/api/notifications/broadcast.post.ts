@@ -28,6 +28,8 @@ function isPrivateOrLoopbackIp(ip: string): boolean {
   return Number.isFinite(secondOctet) && secondOctet >= 16 && secondOctet <= 31
 }
 
+const MAX_BRIDGE_PAYLOAD_BYTES = 1024 * 1024
+
 function signBridgePayload(secret: string, timestamp: string, payload: string): string {
   return createHmac('sha256', secret)
     .update(`${timestamp}.${payload}`)
@@ -46,16 +48,11 @@ export default defineEventHandler(async (event) => {
   const runtimeConfig = useRuntimeConfig(event)
   const timestamp = getHeader(event, 'x-larex-notification-bridge-timestamp')
   const signature = getHeader(event, 'x-larex-notification-bridge-signature')
-  const rawBody = await readRawBody(event, 'utf8')
   // Use the socket peer: forwarding headers are client-controlled and must not satisfy the IP checks.
   // Only `nuxt dev` runs Nitro behind an internal proxy without a socket peer, so fall back there.
   const requestIp = getRequestIP(event)
     ?? (import.meta.dev ? getRequestIP(event, { xForwardedFor: true }) : null)
     ?? null
-
-  if (!rawBody) {
-    throw createError({ statusCode: 400, statusMessage: 'Missing notification bridge payload' })
-  }
 
   const allowedIps = normalizeAllowedIps(runtimeConfig.notificationBridgeAllowedIps)
   if (allowedIps.length > 0) {
@@ -77,6 +74,19 @@ export default defineEventHandler(async (event) => {
   if (!Number.isFinite(timestampMs) || Math.abs(now - timestampMs) > runtimeConfig.notificationBridgeMaxSkewMs) {
     console.warn('[notification-bridge] Rejected request with stale timestamp', { requestIp, timestamp })
     throw createError({ statusCode: 401, statusMessage: 'Stale notification bridge request' })
+  }
+
+  const contentLength = getHeader(event, 'content-length')
+  if (!contentLength || !/^\d+$/.test(contentLength)) {
+    throw createError({ statusCode: 411, statusMessage: 'Notification bridge payload length required' })
+  }
+  if (Number(contentLength) > MAX_BRIDGE_PAYLOAD_BYTES) {
+    throw createError({ statusCode: 413, statusMessage: 'Notification bridge payload too large' })
+  }
+
+  const rawBody = await readRawBody(event, 'utf8')
+  if (!rawBody) {
+    throw createError({ statusCode: 400, statusMessage: 'Missing notification bridge payload' })
   }
 
   const expectedSignature = signBridgePayload(runtimeConfig.notificationBridgeSecret, timestamp, rawBody)
