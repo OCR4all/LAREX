@@ -125,7 +125,7 @@ const { data: tasks, status: tasksStatus } = await useFetch<Task[]>(
   }
 )
 
-const { data: taskQueue, status: taskQueueStatus, refresh: refreshTaskQueue } = await useFetch<EditorQueue | null>(
+const { data: taskQueue, refresh: refreshTaskQueue } = await useFetch<EditorQueue | null>(
   () => selectedWorkspace.value ? `/api/workspaces/${selectedWorkspace.value}/tasks/assigned-to-me/queue` : '',
   {
     key: computed(() => selectedWorkspace.value
@@ -562,7 +562,7 @@ function openCreate() {
 }
 
 async function openTaskQueue() {
-  if (!selectedWorkspace.value || !assignedToMe.value || !hasQueuedTasks.value) return
+  if (!selectedWorkspace.value || !hasQueuedTasks.value) return
   isOpeningTaskQueue.value = true
   editorSessionStore.startFocusedWork(selectedWorkspace.value)
   try {
@@ -602,21 +602,20 @@ const viewModeItems = computed(() => [
       <UDashboardNavbar title="Assignments">
         <template #right>
           <UButton
-            v-if="selectedWorkspace && assignedToMe"
-            label="Open Task Queue (Editor)"
-            color="primary"
+            v-if="selectedWorkspace && hasQueuedTasks"
+            :label="`Open Task Queue (${taskQueue?.openAssignedSubtaskCount})`"
+            color="neutral"
+            variant="outline"
             icon="i-lucide-list-checks"
-            :loading="isOpeningTaskQueue || taskQueueStatus === 'pending'"
-            :disabled="!hasQueuedTasks || taskQueueStatus === 'pending'"
+            :loading="isOpeningTaskQueue"
             @click="openTaskQueue"
           />
           <UButton
-            v-if="selectedWorkspace && canReviewPages"
+            v-if="selectedWorkspace && canReviewPages && reviewablePageCount > 0"
             :label="`Open Review Queue (${reviewablePageCount})`"
-            color="primary"
+            color="neutral"
+            variant="outline"
             icon="i-lucide-eye"
-            :loading="isLoadingReviewQueue"
-            :disabled="reviewablePageCount === 0"
             @click="openReviewQueue"
           />
           <UButton

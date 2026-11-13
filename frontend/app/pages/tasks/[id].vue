@@ -512,14 +512,6 @@ async function handleDelete() {
 const actionItems = computed<DropdownMenuItem[]>(() => {
   const items: DropdownMenuItem[] = []
 
-  if (canPause.value) {
-    items.push({
-      label: isPaused.value ? 'Resume assignment' : 'Pause assignment',
-      icon: isPaused.value ? 'i-lucide-circle-play' : 'i-lucide-circle-pause',
-      onSelect: () => setLifecycleFlag('paused', !isPaused.value)
-    })
-  }
-
   if (canArchive.value) {
     items.push({
       label: isArchived.value ? 'Unarchive assignment' : 'Archive assignment',
@@ -613,6 +605,16 @@ const tabItems = [
                 </h1>
               </div>
               <div class="flex flex-wrap items-center justify-end gap-2">
+                <UButton
+                  v-if="canPause"
+                  :label="isPaused ? 'Resume' : 'Pause'"
+                  :icon="isPaused ? 'i-lucide-circle-play' : 'i-lucide-circle-pause'"
+                  color="neutral"
+                  variant="outline"
+                  size="xs"
+                  :loading="pendingLifecycleAction === 'paused'"
+                  @click="setLifecycleFlag('paused', !isPaused)"
+                />
                 <UBadge
                   :color="statusMeta.color"
                   :icon="statusMeta.icon"
