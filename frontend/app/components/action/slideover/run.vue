@@ -1316,7 +1316,7 @@ function close() {
               </template>
               <template #type-cell="{ row }">
                 <UBadge
-                  :color="row.original.processor.workflowId ? 'secondary' : 'info'"
+                  :color="row.original.processor.workflowId ? 'neutral' : 'info'"
                   :icon="row.original.processor.workflowId ? 'i-lucide-workflow' : 'i-lucide-circle-play'"
                   variant="subtle"
                 >
