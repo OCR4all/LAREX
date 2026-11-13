@@ -51,6 +51,7 @@ class TaskServiceDeleteTest {
     @Mock PageWorkflowService pageWorkflowService;
     @Mock PageRepository pageRepository;
     @Mock TaskQueueRealtimePublisher taskQueueRealtimePublisher;
+    @Mock TaskProgressService taskProgressService;
     @Mock TaskActivityService taskActivityService;
 
     private TaskService service;
@@ -75,6 +76,7 @@ class TaskServiceDeleteTest {
                 pageWorkflowService,
                 pageRepository,
                 taskQueueRealtimePublisher,
+                taskProgressService,
                 taskActivityService
         );
     }

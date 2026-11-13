@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.page;
 
+import de.uniwue.zpd.dachs.larex.backend.service.task.TaskProgressService;
 import de.uniwue.zpd.dachs.larex.backend.dto.PageMoveDto.*;
 import de.uniwue.zpd.dachs.larex.backend.entity.*;
 import de.uniwue.zpd.dachs.larex.backend.exception.*;
@@ -32,6 +33,7 @@ class PageMoveServiceTest {
     @Mock SubtaskRepository subtasks;
     @Mock WorkspaceQuotaRefreshService quota;
     @Mock de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepository datasetItems;
+    @Mock TaskProgressService taskProgress;
     PageMoveService service;
     Project source;
     Project destination;
@@ -62,7 +64,7 @@ class PageMoveServiceTest {
         lenient().when(pages.findByProjectId("destination")).thenReturn(destinationPages);
         lenient().when(pages.findByProjectIdForUpdate("destination")).thenReturn(destinationPages);
         service = new PageMoveService(projects, pages, access, new PageOrderService(pages, projects, access),
-                leases, files, taskLinks, subtasks, quota, datasetItems);
+                leases, files, taskLinks, subtasks, quota, datasetItems, taskProgress);
     }
 
     @Test

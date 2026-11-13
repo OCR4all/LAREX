@@ -1,22 +1,18 @@
 import type { TaskStatus } from '~/types/index'
 
-const taskOverviewStatuses: Array<TaskStatus | 'ALL'> = [
-  'ALL',
-  'OPEN',
-  'IN_PROGRESS',
-  'COMPLETED',
-  'CANCELLED'
-]
+const taskOverviewStatuses: Array<TaskStatus | 'ALL'> = ['ALL', ...TASK_STATUSES]
 
-const assignedToMeValues = ['true', 'false'] as const
+const booleanValues = ['true', 'false'] as const
 
 export function useTaskOverviewRefresh() {
   async function refreshTaskOverview(workspaceId?: string | null) {
     if (!workspaceId) return
 
     const overviewKeys = taskOverviewStatuses.flatMap(status =>
-      assignedToMeValues.map(assignedToMe =>
-        wsKey(workspaceId, 'tasks', 'list', status, assignedToMe)
+      booleanValues.flatMap(assignedToMe =>
+        booleanValues.map(includeArchived =>
+          wsKey(workspaceId, 'tasks', 'list', status, assignedToMe, includeArchived)
+        )
       )
     )
 

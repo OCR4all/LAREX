@@ -118,7 +118,7 @@ public class TaskReminderSchedulerService {
         for (TaskReminder reminder : pendingReminders) {
             Task task = taskRepository.findById(reminder.getTaskId()).orElse(null);
 
-            if (task != null && task.getStatus() != Task.TaskStatus.COMPLETED && task.getStatus() != Task.TaskStatus.CANCELLED) {
+            if (task != null && task.getStatus() != Task.TaskStatus.COMPLETED && task.isActive()) {
                 notificationService.createNotification(
                         reminder.getUserId(),
                         "Assignment Reminder",

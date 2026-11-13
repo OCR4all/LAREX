@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
-import type { Task, TaskPriority, TaskStatus, UserProfile, WorkspaceMember } from '~/types/index'
+import type { Task, TaskPriority, UserProfile, WorkspaceMember } from '~/types/index'
 import type { SelectedTaskPage } from './link-items.vue'
 import { LazyTaskSlideoverLinkItems } from '#components'
 
@@ -38,7 +38,6 @@ const schema = z.object({
     z.string().trim().min(1, { error: 'Title is required' }).max(255, { error: 'Title is too long' })
   ),
   description: z.string().optional(),
-  status: z.enum(['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']),
   dueDate: z.string().optional(),
   pageCompletion: z.enum(['NONE', 'DONE', 'REVIEW'])
@@ -55,7 +54,6 @@ const pageCompletionOptions = [
 const state = reactive<Partial<Schema>>({
   title: '',
   description: '',
-  status: 'OPEN',
   priority: 'MEDIUM',
   dueDate: '',
   pageCompletion: 'NONE'
@@ -63,13 +61,6 @@ const state = reactive<Partial<Schema>>({
 
 const assignedUserIds = ref<string[]>([])
 const assignedUsers = ref<UserProfile[]>([])
-
-const statusItems = [
-  { label: 'Open', value: 'OPEN' as const },
-  { label: 'In progress', value: 'IN_PROGRESS' as const },
-  { label: 'Completed', value: 'COMPLETED' as const },
-  { label: 'Cancelled', value: 'CANCELLED' as const }
-]
 
 const priorityItems = [
   { label: 'Low', value: 'LOW' as const },
@@ -136,7 +127,6 @@ function removeAssignee(userId: string) {
 function applyTaskToState(task: Task) {
   state.title = task.title
   state.description = task.description || ''
-  state.status = task.status
   state.priority = task.priority
   state.dueDate = toLocalDateTimeInput(task.dueDate)
   state.pageCompletion = task.pageCompletion ?? 'NONE'
@@ -214,7 +204,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       dueDate,
       assignedUserIds: props.isAdmin ? assignedUserIds.value : [props.currentUserId],
       pageCompletion: props.isAdmin ? event.data.pageCompletion : 'NONE',
-      status: event.data.status as TaskStatus,
       pageIds: selectedPages.value.map(page => page.pageId)
     }
 
@@ -234,30 +223,23 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     }
 
     const taskId = taskLocal.value.id
-    const updated = canEditTaskDetails.value
-      ? await $fetch<Task>(`/api/tasks/${taskId}`, {
-          method: 'PUT',
-          body: {
-            title: payload.title,
-            description: payload.description,
-            priority: payload.priority,
-            dueDate: payload.dueDate,
-            pageCompletion: payload.pageCompletion
-          }
-        })
-      : taskLocal.value
+    if (canEditTaskDetails.value) {
+      await $fetch<Task>(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        body: {
+          title: payload.title,
+          description: payload.description,
+          priority: payload.priority,
+          dueDate: payload.dueDate,
+          pageCompletion: payload.pageCompletion
+        }
+      })
+    }
 
     if (props.isAdmin) {
       await $fetch<Task>(`/api/tasks/${taskId}/assignees`, {
         method: 'PUT',
         body: { assignedUserIds: assignedUserIds.value }
-      })
-    }
-
-    if (event.data.status !== updated.status) {
-      await $fetch<Task>(`/api/tasks/${taskId}/status`, {
-        method: 'PUT',
-        body: { status: event.data.status as TaskStatus }
       })
     }
 
@@ -308,7 +290,7 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
         <UiSlideoverSection
           v-if="isEditing || creationStep === 1"
           title="Assignment Details"
-          description="Core assignment information, status, priority, and due date."
+          description="Core assignment information, priority, and due date."
           icon="i-lucide-clipboard-list"
         >
           <div class="space-y-4">
@@ -331,15 +313,6 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
             </UFormField>
 
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <UFormField label="Status" name="status">
-                <USelect
-                  v-model="state.status"
-                  data-tour="task-form-status"
-                  :items="statusItems"
-                  value-key="value"
-                  :disabled="isSubmitting"
-                />
-              </UFormField>
               <UFormField label="Priority" name="priority">
                 <USelect
                   v-model="state.priority"
@@ -348,15 +321,14 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
                   :disabled="isSubmitting || !canEditTaskDetails"
                 />
               </UFormField>
+              <UFormField label="Due date" name="dueDate">
+                <UiDateTimePicker
+                  v-model="state.dueDate"
+                  :disabled="isSubmitting || !canEditTaskDetails"
+                  placeholder="Select due date"
+                />
+              </UFormField>
             </div>
-
-            <UFormField label="Due date" name="dueDate">
-              <UiDateTimePicker
-                v-model="state.dueDate"
-                :disabled="isSubmitting || !canEditTaskDetails"
-                placeholder="Select due date"
-              />
-            </UFormField>
 
             <UFormField
               v-if="isAdmin"

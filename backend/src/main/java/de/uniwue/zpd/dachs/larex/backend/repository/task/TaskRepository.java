@@ -16,56 +16,64 @@ import java.util.List;
 @Repository
 public interface TaskRepository extends JpaRepository<Task, String> {
 
-    List<Task> findByWorkspaceId(String workspaceId);
-    Page<Task> findByWorkspaceId(String workspaceId, Pageable pageable);
+    @Query("""
+        SELECT t FROM Task t
+        WHERE t.workspaceId = :workspaceId
+          AND (:status IS NULL OR t.status = :status)
+          AND (:includeArchived = true OR t.archivedAt IS NULL)
+        """)
+    List<Task> findInWorkspace(@Param("workspaceId") String workspaceId,
+                               @Param("status") Task.TaskStatus status,
+                               @Param("includeArchived") boolean includeArchived);
 
-    List<Task> findByWorkspaceIdAndStatus(String workspaceId, Task.TaskStatus status);
-    Page<Task> findByWorkspaceIdAndStatus(String workspaceId, Task.TaskStatus status, Pageable pageable);
+    @Query("""
+        SELECT t FROM Task t
+        WHERE t.workspaceId = :workspaceId
+          AND (:status IS NULL OR t.status = :status)
+          AND (:includeArchived = true OR t.archivedAt IS NULL)
+        """)
+    Page<Task> findInWorkspace(@Param("workspaceId") String workspaceId,
+                               @Param("status") Task.TaskStatus status,
+                               @Param("includeArchived") boolean includeArchived,
+                               Pageable pageable);
 
-    @Query("SELECT t FROM Task t WHERE t.workspaceId = :workspaceId AND :userId MEMBER OF t.assignedUserIds")
-    List<Task> findByWorkspaceIdAndAssignedUserId(@Param("workspaceId") String workspaceId, @Param("userId") String userId);
+    @Query("""
+        SELECT t FROM Task t
+        WHERE t.workspaceId = :workspaceId
+          AND :userId MEMBER OF t.assignedUserIds
+          AND (:status IS NULL OR t.status = :status)
+          AND (:includeArchived = true OR t.archivedAt IS NULL)
+        """)
+    List<Task> findAssignedInWorkspace(@Param("workspaceId") String workspaceId,
+                                       @Param("userId") String userId,
+                                       @Param("status") Task.TaskStatus status,
+                                       @Param("includeArchived") boolean includeArchived);
 
-    @Query("SELECT t FROM Task t WHERE t.workspaceId = :workspaceId AND :userId MEMBER OF t.assignedUserIds")
-    Page<Task> findByWorkspaceIdAndAssignedUserId(@Param("workspaceId") String workspaceId, @Param("userId") String userId, Pageable pageable);
+    @Query("""
+        SELECT t FROM Task t
+        WHERE t.workspaceId = :workspaceId
+          AND :userId MEMBER OF t.assignedUserIds
+          AND (:status IS NULL OR t.status = :status)
+          AND (:includeArchived = true OR t.archivedAt IS NULL)
+        """)
+    Page<Task> findAssignedInWorkspace(@Param("workspaceId") String workspaceId,
+                                       @Param("userId") String userId,
+                                       @Param("status") Task.TaskStatus status,
+                                       @Param("includeArchived") boolean includeArchived,
+                                       Pageable pageable);
 
-    @Query("SELECT t FROM Task t WHERE t.workspaceId = :workspaceId AND :userId MEMBER OF t.assignedUserIds AND t.status = :status")
-    List<Task> findByWorkspaceIdAndAssignedUserIdAndStatus(@Param("workspaceId") String workspaceId, @Param("userId") String userId, @Param("status") Task.TaskStatus status);
-
-    @Query("SELECT t FROM Task t WHERE t.workspaceId = :workspaceId AND :userId MEMBER OF t.assignedUserIds AND t.status = :status")
-    Page<Task> findByWorkspaceIdAndAssignedUserIdAndStatus(@Param("workspaceId") String workspaceId, @Param("userId") String userId, @Param("status") Task.TaskStatus status, Pageable pageable);
-    
     List<Task> findByCreatedByUserId(String createdByUserId);
     
-    @Query("SELECT t FROM Task t WHERE :userId MEMBER OF t.assignedUserIds")
-    List<Task> findByAssignedUserId(@Param("userId") String userId);
-    
-    @Query("SELECT t FROM Task t WHERE :userId MEMBER OF t.assignedUserIds AND t.status = :status")
-    List<Task> findByAssignedUserIdAndStatus(@Param("userId") String userId, @Param("status") Task.TaskStatus status);
+    @Query("SELECT t FROM Task t WHERE :userId MEMBER OF t.assignedUserIds AND t.archivedAt IS NULL")
+    List<Task> findUnarchivedByAssignedUserId(@Param("userId") String userId);
 
     @Query("SELECT t FROM Task t WHERE t.dueDate IS NOT NULL AND t.dueDate BETWEEN :start AND :end " +
-           "AND t.status NOT IN ('COMPLETED', 'CANCELLED')")
+           "AND t.status NOT IN ('COMPLETED', 'PAUSED') AND t.archivedAt IS NULL")
     List<Task> findTasksDueBetween(@Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
 
     @Query("SELECT t FROM Task t WHERE t.dueDate IS NOT NULL AND t.dueDate < :now " +
-           "AND t.status NOT IN ('COMPLETED', 'CANCELLED')")
+           "AND t.status NOT IN ('COMPLETED', 'PAUSED') AND t.archivedAt IS NULL")
     List<Task> findOverdueTasks(@Param("now") java.time.LocalDateTime now);
-
-    @Modifying
-    @Query("""
-        UPDATE Task t
-        SET t.status = :status,
-            t.completedAt = :completedAt,
-            t.completedByUserId = :completedByUserId
-        WHERE t.workspaceId = :workspaceId
-          AND t.id IN :taskIds
-        """)
-    int bulkUpdateStatusInWorkspace(
-            @Param("workspaceId") String workspaceId,
-            @Param("taskIds") Collection<String> taskIds,
-            @Param("status") Task.TaskStatus status,
-            @Param("completedAt") LocalDateTime completedAt,
-            @Param("completedByUserId") String completedByUserId
-    );
 
     @Modifying
     @Query("""

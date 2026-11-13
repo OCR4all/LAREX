@@ -233,12 +233,13 @@ public class AuthorizationPolicyService {
         String workspaceId = task.getWorkspaceId();
         boolean canAccessWorkspace = canAccessWorkspace(workspaceId, userId);
         if (!canAccessWorkspace) {
-            return new AuthorizationCapabilitiesDto.TaskCapabilities(false, false, false, false);
+            return new AuthorizationCapabilitiesDto.TaskCapabilities(false, false, false, false, false);
         }
 
         boolean canManageTasks = canManageTasks(workspaceId, userId);
 
         return new AuthorizationCapabilitiesDto.TaskCapabilities(
+                canManageTasks,
                 canManageTasks,
                 canManageTasks,
                 canManageTasks,

@@ -46,10 +46,10 @@ public class BulkTaskService {
         this.subtaskService = subtaskService;
     }
 
-    public BulkTaskDto.BulkOperationResponse bulkUpdateStatus(
+    public BulkTaskDto.BulkOperationResponse bulkSetArchived(
             String workspaceId,
             String userId,
-            BulkTaskDto.BulkStatusRequest request
+            BulkTaskDto.BulkArchivedRequest request
     ) {
         verifyWorkspaceAccess(workspaceId, userId);
 
@@ -60,35 +60,20 @@ public class BulkTaskService {
 
         List<String> failedTaskIds = new ArrayList<>();
         List<String> errors = new ArrayList<>();
-        Map<String, Task> taskById = preloadTasksInWorkspace(workspaceId, taskIds, failedTaskIds, errors);
-        List<String> targetTaskIds = taskIds.stream().filter(taskById::containsKey).toList();
-
-        if (targetTaskIds.isEmpty()) {
-            return new BulkTaskDto.BulkOperationResponse(
-                    0,
-                    failedTaskIds.size(),
-                    failedTaskIds,
-                    errors
-            );
-        }
+        Map<String, Task> taskById = preloadTasksInWorkspace(workspaceId, taskIds, failedTaskIds, errors, true);
 
         int successCount = 0;
-        for (String taskId : targetTaskIds) {
+        for (String taskId : taskIds.stream().filter(taskById::containsKey).toList()) {
             try {
-                taskStatusTransactionService.updateStatus(taskId, userId, request.status());
+                taskStatusTransactionService.setArchived(taskId, userId, request.archived());
                 successCount++;
             } catch (RuntimeException e) {
                 failedTaskIds.add(taskId);
-                errors.add("Task " + taskId + ": " + (e.getMessage() == null ? "status update failed" : e.getMessage()));
+                errors.add("Assignment " + taskId + ": " + (e.getMessage() == null ? "update failed" : e.getMessage()));
             }
         }
 
-        return new BulkTaskDto.BulkOperationResponse(
-                successCount,
-                failedTaskIds.size(),
-                failedTaskIds,
-                errors
-        );
+        return new BulkTaskDto.BulkOperationResponse(successCount, failedTaskIds.size(), failedTaskIds, errors);
     }
 
     public BulkTaskDto.BulkOperationResponse bulkUpdatePriority(
@@ -105,7 +90,7 @@ public class BulkTaskService {
 
         List<String> failedTaskIds = new ArrayList<>();
         List<String> errors = new ArrayList<>();
-        Map<String, Task> taskById = preloadTasksInWorkspace(workspaceId, taskIds, failedTaskIds, errors);
+        Map<String, Task> taskById = preloadTasksInWorkspace(workspaceId, taskIds, failedTaskIds, errors, false);
         List<String> targetTaskIds = taskIds.stream().filter(taskById::containsKey).toList();
 
         if (targetTaskIds.isEmpty()) {
@@ -183,7 +168,7 @@ public class BulkTaskService {
         Set<String> usersToRemove = request.removeUserIds() != null ? new HashSet<>(request.removeUserIds()) : new HashSet<>();
         Set<String> queueUsers = new LinkedHashSet<>(usersToAdd);
         queueUsers.addAll(usersToRemove);
-        Map<String, Task> taskById = preloadTasksInWorkspace(workspaceId, taskIds, failedTaskIds, errors);
+        Map<String, Task> taskById = preloadTasksInWorkspace(workspaceId, taskIds, failedTaskIds, errors, false);
         List<Task> tasksToSave = new ArrayList<>();
         List<AssigneeChange> assigneeChanges = new ArrayList<>();
 
@@ -291,7 +276,7 @@ public class BulkTaskService {
 
         List<String> failedTaskIds = new ArrayList<>();
         List<String> errors = new ArrayList<>();
-        Map<String, Task> taskById = preloadTasksInWorkspace(workspaceId, taskIds, failedTaskIds, errors);
+        Map<String, Task> taskById = preloadTasksInWorkspace(workspaceId, taskIds, failedTaskIds, errors, true);
         List<String> targetTaskIds = taskIds.stream().filter(taskById::containsKey).toList();
         if (targetTaskIds.isEmpty()) {
             return new BulkTaskDto.BulkOperationResponse(
@@ -337,7 +322,8 @@ public class BulkTaskService {
             String workspaceId,
             List<String> taskIds,
             List<String> failedTaskIds,
-            List<String> errors
+            List<String> errors,
+            boolean allowArchived
     ) {
         Map<String, Task> taskById = new HashMap<>();
         for (Task task : taskRepository.findAllById(taskIds)) {
@@ -354,6 +340,12 @@ public class BulkTaskService {
             if (!workspaceId.equals(task.getWorkspaceId())) {
                 failedTaskIds.add(taskId);
                 errors.add("Assignment does not belong to workspace: " + taskId);
+                taskById.remove(taskId);
+                continue;
+            }
+            if (!allowArchived && task.isArchived()) {
+                failedTaskIds.add(taskId);
+                errors.add("Archived Assignments can't be changed: " + task.getTitle());
                 taskById.remove(taskId);
             }
         }

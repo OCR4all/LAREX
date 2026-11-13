@@ -27,12 +27,11 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageWorkflowEventReposi
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.SubtaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.PageWorkflowPublisher;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.TaskQueueRealtimePublisher;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
-import de.uniwue.zpd.dachs.larex.backend.service.task.TaskActivityService;
+import de.uniwue.zpd.dachs.larex.backend.service.task.TaskProgressService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import java.util.List;
 import java.util.Optional;
@@ -57,11 +56,10 @@ class PageWorkflowServiceTest {
     @Mock ProjectRepository projectRepository;
     @Mock TaskPageLinkRepository taskPageLinkRepository;
     @Mock SubtaskRepository subtaskRepository;
-    @Mock TaskRepository taskRepository;
     @Mock PageWorkflowEventRepository eventRepository;
     @Mock AuthorizationPolicyService authorizationPolicyService;
     @Mock AnnotationLeaseService annotationLeaseService;
-    @Mock TaskActivityService taskActivityService;
+    @Mock TaskProgressService taskProgressService;
     @Mock TaskQueueRealtimePublisher taskQueueRealtimePublisher;
     @Mock PageWorkflowPublisher pageWorkflowPublisher;
     @Mock UserService userService;
@@ -73,9 +71,9 @@ class PageWorkflowServiceTest {
     @BeforeEach
     void setUp() {
         service = new PageWorkflowService(pageRepository, projectRepository, taskPageLinkRepository,
-                subtaskRepository, taskRepository, eventRepository, authorizationPolicyService,
-                annotationLeaseService, taskActivityService, taskQueueRealtimePublisher,
-                pageWorkflowPublisher, userService);
+                subtaskRepository, eventRepository, authorizationPolicyService,
+                annotationLeaseService, taskQueueRealtimePublisher,
+                pageWorkflowPublisher, userService, taskProgressService);
         project = new Project();
         project.setId(PROJECT);
         project.setLibrary(new Library(WORKSPACE, "Workspace"));
@@ -185,10 +183,7 @@ class PageWorkflowServiceTest {
         subtask.setTaskId("task-1");
         subtask.setCompleted(true);
         subtask.setAssignedUserId("assignee-1");
-        Task task = task(Task.TaskStatus.COMPLETED, Task.PageCompletion.NONE);
-        task.setId("task-1");
         when(subtaskRepository.findCompletedOnActiveAssignments(List.of("page-1"))).thenReturn(List.of(subtask));
-        when(taskRepository.findAllById(any())).thenReturn(List.of(task));
 
         transition(Action.REQUEST_CHANGES, "Line 3 is wrong", CURATOR);
 
@@ -196,8 +191,7 @@ class PageWorkflowServiceTest {
         assertTrue(page.isChangesRequested());
         assertFalse(subtask.isCompleted());
         assertNull(subtask.getCompletedAt());
-        assertEquals(Task.TaskStatus.IN_PROGRESS, task.getStatus());
-        verify(taskActivityService).logStatusChanged("task-1", CURATOR, Task.TaskStatus.COMPLETED, Task.TaskStatus.IN_PROGRESS);
+        verify(taskProgressService).recompute(Set.of("task-1"), CURATOR);
         verify(taskQueueRealtimePublisher).publishAfterCommit(Set.of("assignee-1"), WORKSPACE);
         verify(pageWorkflowPublisher).publish(eq(project), anyList(), eq(Action.REQUEST_CHANGES), eq(CURATOR),
                 eq("Line 3 is wrong"), eq(new java.util.LinkedHashSet<>(List.of(EDITOR, "assignee-1"))));
@@ -393,8 +387,19 @@ class PageWorkflowServiceTest {
     }
 
     @Test
-    void cancelledAssignmentsDoNotParticipate() {
-        progress(task(Task.TaskStatus.CANCELLED, Task.PageCompletion.REVIEW), true);
+    void pausedAssignmentsDoNotParticipate() {
+        progress(task(Task.TaskStatus.PAUSED, Task.PageCompletion.REVIEW), true);
+
+        service.recomputeForPageIds(List.of("page-1"));
+
+        assertEquals(Page.WorkflowState.OPEN, page.getWorkflowState());
+    }
+
+    @Test
+    void archivedAssignmentsDoNotParticipate() {
+        Task task = task(Task.TaskStatus.COMPLETED, Task.PageCompletion.REVIEW);
+        task.setArchivedAt(java.time.LocalDateTime.now());
+        progress(task, true);
 
         service.recomputeForPageIds(List.of("page-1"));
 

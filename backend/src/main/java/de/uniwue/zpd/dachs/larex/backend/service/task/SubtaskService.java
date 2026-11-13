@@ -49,6 +49,7 @@ public class SubtaskService {
     private final WorkspaceQueryService workspaceQueryService;
     private final TaskQueueRealtimePublisher taskQueueRealtimePublisher;
     private final PageWorkflowService pageWorkflowService;
+    private final TaskProgressService taskProgressService;
 
     public SubtaskService(
             SubtaskRepository subtaskRepository,
@@ -61,7 +62,8 @@ public class SubtaskService {
             WorkspaceAccessService workspaceAccessService,
             WorkspaceQueryService workspaceQueryService,
             TaskQueueRealtimePublisher taskQueueRealtimePublisher,
-            PageWorkflowService pageWorkflowService
+            PageWorkflowService pageWorkflowService,
+            TaskProgressService taskProgressService
     ) {
         this.subtaskRepository = subtaskRepository;
         this.taskPageLinkRepository = taskPageLinkRepository;
@@ -74,6 +76,7 @@ public class SubtaskService {
         this.workspaceQueryService = workspaceQueryService;
         this.taskQueueRealtimePublisher = taskQueueRealtimePublisher;
         this.pageWorkflowService = pageWorkflowService;
+        this.taskProgressService = taskProgressService;
     }
 
     public EditorQueueDto.Response getAssignedEditorQueue(String workspaceId, String userId) {
@@ -235,6 +238,7 @@ public class SubtaskService {
         subtask = subtaskRepository.save(subtask);
 
         activityService.logSubtaskAdded(taskId, userId, request.title());
+        taskProgressService.recompute(taskId, userId);
         publishQueueChange(task, subtask.getAssignedUserId());
 
         return toResponse(subtask, task);
@@ -322,6 +326,7 @@ public class SubtaskService {
         }
 
         saved.forEach(subtask -> activityService.logSubtaskAdded(taskId, userId, subtask.getTitle()));
+        taskProgressService.recompute(taskId, userId);
         publishQueueChange(task, saved.stream().map(Subtask::getAssignedUserId).toList());
         return toResponses(saved, Map.of(task.getId(), task));
     }
@@ -417,6 +422,7 @@ public class SubtaskService {
         if (task.affectsPageState() && subtask.getPageId() != null) {
             pageWorkflowService.recomputeForExistingPageIds(List.of(subtask.getPageId()), userId);
         }
+        taskProgressService.recompute(taskId, userId);
         publishQueueChange(task, subtask.getAssignedUserId());
         return toResponse(subtask, task);
     }
@@ -467,6 +473,7 @@ public class SubtaskService {
         removeDerivedLinkIfUnused(task, pageId, userId);
 
         activityService.logSubtaskDeleted(taskId, userId, title);
+        taskProgressService.recompute(taskId, userId);
         publishQueueChange(task, subtask.getAssignedUserId());
     }
 
@@ -500,6 +507,7 @@ public class SubtaskService {
         if (task.affectsPageState()) {
             recomputeLinkedPageStates(toComplete, userId);
         }
+        taskProgressService.recompute(taskId, userId);
         publishQueueChange(task, toComplete.stream().map(Subtask::getAssignedUserId).filter(Objects::nonNull).toList());
 
         return new SubtaskDto.BulkResponse(affected);
@@ -531,6 +539,7 @@ public class SubtaskService {
         for (Subtask subtask : subtasks) {
             activityService.logSubtaskDeleted(taskId, userId, subtask.getTitle());
         }
+        taskProgressService.recompute(taskId, userId);
         publishQueueChange(task, subtasks.stream().map(Subtask::getAssignedUserId).filter(Objects::nonNull).toList());
 
         return new SubtaskDto.BulkResponse(affected);
@@ -724,12 +733,13 @@ public class SubtaskService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
 
+        requireNotArchived(task);
         if (authorizationPolicyService.canManageTasks(task.getWorkspaceId(), userId)) {
             return task;
         }
 
         boolean assignedEditor = workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)
-                && (task.getStatus() == Task.TaskStatus.OPEN || task.getStatus() == Task.TaskStatus.IN_PROGRESS)
+                && task.isActive()
                 && task.getAssignedUserIds() != null
                 && task.getAssignedUserIds().contains(userId)
                 && subtasks.size() == requestedCount
@@ -749,8 +759,15 @@ public class SubtaskService {
         if (!authorizationPolicyService.canManageTasks(task.getWorkspaceId(), userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Assignment management access required");
         }
+        requireNotArchived(task);
 
         return task;
+    }
+
+    static void requireNotArchived(Task task) {
+        if (task.isArchived()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Archived Assignments can't be changed. Unarchive it first.");
+        }
     }
 
     private SubtaskDto.Response toResponse(Subtask subtask) {

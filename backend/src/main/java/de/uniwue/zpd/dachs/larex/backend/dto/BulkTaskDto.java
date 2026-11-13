@@ -9,12 +9,11 @@ import java.util.List;
 
 public class BulkTaskDto {
 
-    public record BulkStatusRequest(
+    public record BulkArchivedRequest(
             @NotEmpty(message = "Task IDs are required")
             @Size(max = 200, message = "Cannot bulk operate on more than 200 tasks")
             List<String> taskIds,
-            @NotNull(message = "Status is required")
-            Task.TaskStatus status
+            boolean archived
     ) {}
 
     public record BulkPriorityRequest(

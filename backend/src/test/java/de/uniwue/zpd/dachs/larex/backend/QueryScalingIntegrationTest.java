@@ -263,22 +263,22 @@ class QueryScalingIntegrationTest {
     }
 
     @Test
-    void bulkTaskUpdateStatementCountStaysBoundedForMissingIds() {
+    void bulkTaskArchiveStatementCountStaysBoundedForMissingIds() {
         String userId = "bulk-user";
         WorkspaceFixture fixture = createPersonalWorkspaceFixture(userId, "bulk");
 
         List<String> smallIds = randomIds(8);
-        long smallCount = measurePreparedStatements(() -> bulkTaskService.bulkUpdateStatus(
+        long smallCount = measurePreparedStatements(() -> bulkTaskService.bulkSetArchived(
                 fixture.workspaceId(),
                 userId,
-                new BulkTaskDto.BulkStatusRequest(smallIds, Task.TaskStatus.OPEN)
+                new BulkTaskDto.BulkArchivedRequest(smallIds, true)
         ));
 
         List<String> largeIds = randomIds(120);
-        long largeCount = measurePreparedStatements(() -> bulkTaskService.bulkUpdateStatus(
+        long largeCount = measurePreparedStatements(() -> bulkTaskService.bulkSetArchived(
                 fixture.workspaceId(),
                 userId,
-                new BulkTaskDto.BulkStatusRequest(largeIds, Task.TaskStatus.OPEN)
+                new BulkTaskDto.BulkArchivedRequest(largeIds, true)
         ));
 
         assertThat(largeCount).isLessThanOrEqualTo(smallCount + 1);

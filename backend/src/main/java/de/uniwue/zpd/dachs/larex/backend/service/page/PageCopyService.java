@@ -72,7 +72,7 @@ public class PageCopyService {
         long reservation = quota.reserveBytesOrThrow(workspaceId, files.copiedAssetBytes(sourceIds), "page-copy");
         var changes = files.enlist(sourceProjectId, request.destinationProjectId());
         // Physical overwrite cleanup runs only after commit; failures restore destination records and files.
-        if (!overwrittenIds.isEmpty()) transfers.deleteOverwritten(overwrittenIds, changes);
+        if (!overwrittenIds.isEmpty()) transfers.deleteOverwritten(overwrittenIds, changes, userId);
         copies.replaceAll((id, page) -> pages.save(page));
         files.duplicateAssets(copies, workspaceId, request.destinationProjectId(), userId, changes);
         pages.flush();

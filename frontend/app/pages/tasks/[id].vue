@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Task, TaskStatus, TaskComment, TaskActivityLog, TaskLinks, Subtask, SubtaskProgress, TaskReminder, UserProfile, WorkspaceMember } from '~/types/index'
+import type { Task, TaskComment, TaskActivityLog, TaskLinks, Subtask, SubtaskProgress, TaskReminder, UserProfile, WorkspaceMember } from '~/types/index'
 import { isPast, format, addHours, addDays, set } from 'date-fns'
 import type { BreadcrumbItem, DropdownMenuItem } from '@nuxt/ui'
 import { LazyTaskSlideoverEdit, LazyUiDeleteSlideover, LazyTaskSlideoverLinkItems } from '#components'
@@ -158,17 +158,13 @@ watch(subtasks, (items) => {
 const { user } = useUserSession()
 const currentUserId = computed(() => user.value?.id || '')
 
-const canEdit = computed(() => allow(taskCapabilities.value.canEdit))
-const canAssignOthers = computed(() => allow(taskCapabilities.value.canAssignOthers))
-
-const statusColor = (status: TaskStatus) => {
-  switch (status) {
-    case 'OPEN': return 'neutral'
-    case 'IN_PROGRESS': return 'info'
-    case 'COMPLETED': return 'success'
-    case 'CANCELLED': return 'error'
-  }
-}
+const isArchived = computed(() => isTaskArchived(task.value))
+const isPaused = computed(() => task.value?.status === 'PAUSED')
+const canEdit = computed(() => !isArchived.value && allow(taskCapabilities.value.canEdit))
+const canAssignOthers = computed(() => !isArchived.value && allow(taskCapabilities.value.canAssignOthers))
+const canPause = computed(() => !isArchived.value && allow(taskCapabilities.value.canPause))
+const canArchive = computed(() => allow(taskCapabilities.value.canArchive))
+const statusMeta = computed(() => getTaskStatusMeta(task.value?.status))
 
 const priorityColor = (priority: Task['priority']) => {
   switch (priority) {
@@ -181,7 +177,7 @@ const priorityColor = (priority: Task['priority']) => {
 
 const isOverdue = computed(() => {
   if (!task.value?.dueDate) return false
-  if (task.value.status === 'COMPLETED' || task.value.status === 'CANCELLED') return false
+  if (task.value.status === 'COMPLETED' || isPaused.value || isArchived.value) return false
   return isPast(normalizeLocalDateTimeInput(task.value.dueDate)!)
 })
 
@@ -356,27 +352,29 @@ const sortedReminders = computed(() => {
   return [...(reminders.value ?? [])].sort((a, b) => normalizeLocalDateTimeInput(a.reminderTime)!.getTime() - normalizeLocalDateTimeInput(b.reminderTime)!.getTime())
 })
 
-const updatingTaskStatus = ref<TaskStatus | null>(null)
+const pendingLifecycleAction = ref<'paused' | 'archived' | null>(null)
 
-async function updateStatus(newStatus: TaskStatus) {
-  if (!allow(taskCapabilities.value.canUpdateStatus)) return
-  if (!task.value || task.value.status === newStatus) return
-  if (updatingTaskStatus.value) return
+async function setLifecycleFlag(flag: 'paused' | 'archived', value: boolean) {
+  if (!task.value || pendingLifecycleAction.value) return
+  if (flag === 'paused' && !canPause.value) return
+  if (flag === 'archived' && !canArchive.value) return
 
-  updatingTaskStatus.value = newStatus
+  pendingLifecycleAction.value = flag
   try {
-    const updated = await $fetch<Task>(`/api/tasks/${taskId.value}/status`, {
+    const updated = await $fetch<Task>(`/api/tasks/${taskId.value}/${flag}`, {
       method: 'PUT',
-      body: { status: newStatus }
+      body: { [flag]: value }
     })
     task.value = updated
     await refreshTaskCaches(taskId.value, workspaceId.value)
+    await refreshTaskOverview(workspaceId.value)
     await refreshLinkedProjectCaches()
     await refreshActivity()
-  } catch (err: any) {
-    toast.add({ title: 'Failed to update status', description: err?.data?.message, color: 'error' })
+  } catch (error: unknown) {
+    const action = flag === 'paused' ? (value ? 'pause' : 'resume') : (value ? 'archive' : 'unarchive')
+    toast.add({ title: `Failed to ${action} Assignment`, description: extractApiErrorMessage(error, 'An error occurred'), color: 'error' })
   } finally {
-    updatingTaskStatus.value = null
+    pendingLifecycleAction.value = null
   }
 }
 
@@ -480,7 +478,11 @@ async function openPageTaskPicker() {
 
 async function updateSubtasks(items: Subtask[]) {
   subtasks.value = items
-  await refreshLinks()
+  await Promise.all([
+    refreshLinks(),
+    refreshTaskCaches(taskId.value, workspaceId.value),
+    refreshActivity()
+  ])
 }
 
 async function handleDelete() {
@@ -509,6 +511,22 @@ async function handleDelete() {
 
 const actionItems = computed<DropdownMenuItem[]>(() => {
   const items: DropdownMenuItem[] = []
+
+  if (canPause.value) {
+    items.push({
+      label: isPaused.value ? 'Resume assignment' : 'Pause assignment',
+      icon: isPaused.value ? 'i-lucide-circle-play' : 'i-lucide-circle-pause',
+      onSelect: () => setLifecycleFlag('paused', !isPaused.value)
+    })
+  }
+
+  if (canArchive.value) {
+    items.push({
+      label: isArchived.value ? 'Unarchive assignment' : 'Archive assignment',
+      icon: isArchived.value ? 'i-lucide-archive-restore' : 'i-lucide-archive',
+      onSelect: () => setLifecycleFlag('archived', !isArchived.value)
+    })
+  }
 
   if (allow(taskCapabilities.value.canDelete)) {
     items.push({
@@ -548,7 +566,7 @@ const tabItems = [
             @click="openEditSlideover"
           />
           <UButton
-            v-if="task && canEdit && actionItems.length === 1"
+            v-if="task && actionItems.length === 1"
             :label="actionItems[0]?.label"
             :icon="actionItems[0]?.icon"
             :color="actionItems[0]?.color || 'neutral'"
@@ -557,7 +575,7 @@ const tabItems = [
             :disabled="actionItems[0]?.disabled"
             @click="actionItems[0]?.onSelect?.($event)"
           />
-          <UDropdownMenu v-else-if="task && canEdit && actionItems.length > 1" :items="actionItems" :content="{ align: 'end' }">
+          <UDropdownMenu v-else-if="task && actionItems.length > 1" :items="actionItems" :content="{ align: 'end' }">
             <UButton
               color="neutral"
               variant="ghost"
@@ -595,8 +613,22 @@ const tabItems = [
                 </h1>
               </div>
               <div class="flex flex-wrap items-center justify-end gap-2">
-                <UBadge :color="statusColor(task.status)" variant="subtle" size="sm">
-                  {{ task.status.replace('_', ' ') }}
+                <UBadge
+                  :color="statusMeta.color"
+                  :icon="statusMeta.icon"
+                  variant="subtle"
+                  size="sm"
+                >
+                  {{ statusMeta.label }}
+                </UBadge>
+                <UBadge
+                  v-if="isArchived"
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  icon="i-lucide-archive"
+                >
+                  Archived
                 </UBadge>
                 <UBadge :color="priorityColor(task.priority)" variant="outline" size="sm">
                   {{ task.priority }}
@@ -621,44 +653,36 @@ const tabItems = [
             <p v-else class="mt-3 text-sm italic text-muted">
               No description provided
             </p>
-            <div class="mt-4 flex flex-wrap gap-2">
-              <UButton
-                v-if="allow(taskCapabilities.canUpdateStatus) && task.status !== 'IN_PROGRESS'"
-                color="info"
-                variant="soft"
-                size="sm"
-                icon="i-lucide-play"
-                :loading="updatingTaskStatus === 'IN_PROGRESS'"
-                :disabled="updatingTaskStatus !== null"
-                @click="updateStatus('IN_PROGRESS')"
-              >
-                Start Progress
-              </UButton>
-              <UButton
-                v-if="allow(taskCapabilities.canUpdateStatus) && task.status !== 'COMPLETED'"
-                color="success"
-                variant="soft"
-                size="sm"
-                icon="i-lucide-check"
-                :loading="updatingTaskStatus === 'COMPLETED'"
-                :disabled="updatingTaskStatus !== null"
-                @click="updateStatus('COMPLETED')"
-              >
-                Mark Complete
-              </UButton>
-              <UButton
-                v-if="allow(taskCapabilities.canUpdateStatus) && (task.status === 'COMPLETED' || task.status === 'IN_PROGRESS')"
-                color="neutral"
-                variant="soft"
-                size="sm"
-                icon="i-lucide-rotate-ccw"
-                :loading="updatingTaskStatus === 'OPEN'"
-                :disabled="updatingTaskStatus !== null"
-                @click="updateStatus('OPEN')"
-              >
-                Reopen
-              </UButton>
-            </div>
+            <UAlert
+              v-if="isArchived"
+              class="mt-4"
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-archive"
+              title="This Assignment is archived"
+              description="It is hidden from the Assignments list, its Tasks are out of the queues and it can't be changed."
+              :actions="canArchive ? [{ label: 'Unarchive', icon: 'i-lucide-archive-restore', color: 'neutral', variant: 'outline', loading: pendingLifecycleAction === 'archived', onClick: () => setLifecycleFlag('archived', false) }] : []"
+            />
+            <UAlert
+              v-else-if="isPaused"
+              class="mt-4"
+              color="warning"
+              variant="subtle"
+              icon="i-lucide-circle-pause"
+              title="This Assignment is paused"
+              description="Its Tasks are out of the queues, page states aren't synced and reminders are off until it is resumed."
+              :actions="canPause ? [{ label: 'Resume', icon: 'i-lucide-circle-play', color: 'warning', variant: 'outline', loading: pendingLifecycleAction === 'paused', onClick: () => setLifecycleFlag('paused', false) }] : []"
+            />
+            <UAlert
+              v-else-if="task.status === 'COMPLETED' && canArchive"
+              class="mt-4"
+              color="success"
+              variant="subtle"
+              icon="i-lucide-circle-check"
+              title="All Tasks are done"
+              description="Archive this Assignment to move it out of the list. You can unarchive it at any time."
+              :actions="[{ label: 'Archive', icon: 'i-lucide-archive', color: 'success', variant: 'outline', loading: pendingLifecycleAction === 'archived', onClick: () => setLifecycleFlag('archived', true) }]"
+            />
           </section>
 
           <section class="overflow-hidden rounded-xl border border-default bg-elevated/50 shadow-xs">
@@ -674,7 +698,15 @@ const tabItems = [
 
             <div class="p-4">
               <div v-if="activeTab === 'subtasks'">
+                <fieldset v-if="isArchived" disabled class="contents">
+                  <TaskDetailSubtasks
+                    :task-id="taskId"
+                    :subtasks="subtasks ?? []"
+                    :task-assignees="task?.assignedUsers ?? []"
+                  />
+                </fieldset>
                 <TaskDetailSubtasks
+                  v-else
                   :task-id="taskId"
                   :subtasks="subtasks ?? []"
                   :task-assignees="task?.assignedUsers ?? []"

@@ -1,7 +1,5 @@
 package de.uniwue.zpd.dachs.larex.backend.service.task;
 
-import de.uniwue.zpd.dachs.larex.backend.dto.TaskDto;
-import de.uniwue.zpd.dachs.larex.backend.entity.Task;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,8 +14,8 @@ public class TaskStatusTransactionService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void updateStatus(String taskId, String userId, Task.TaskStatus status) {
-        taskService.updateTaskStatus(taskId, userId, new TaskDto.UpdateStatusRequest(status));
+    public void setArchived(String taskId, String userId, boolean archived) {
+        taskService.setArchived(taskId, userId, archived);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

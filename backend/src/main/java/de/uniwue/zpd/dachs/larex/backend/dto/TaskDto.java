@@ -27,6 +27,7 @@ public class TaskDto {
             String completedByUserId,
             String workspaceId,
             Task.PageCompletion pageCompletion,
+            LocalDateTime archivedAt,
             AuthorizationCapabilitiesDto.TaskCapabilities capabilities
     ) {}
 
@@ -57,8 +58,6 @@ public class TaskDto {
 
             Task.PageCompletion pageCompletion,
 
-            Task.TaskStatus status,
-
             @Size(max = 10000, message = "Cannot select more than 10000 pages")
             List<String> pageIds
     ) {}
@@ -77,9 +76,12 @@ public class TaskDto {
             Task.PageCompletion pageCompletion
     ) {}
 
-    public record UpdateStatusRequest(
-            @NotNull(message = "Status is required")
-            Task.TaskStatus status
+    public record UpdatePausedRequest(
+            boolean paused
+    ) {}
+
+    public record UpdateArchivedRequest(
+            boolean archived
     ) {}
 
     public record UpdateDueDateRequest(

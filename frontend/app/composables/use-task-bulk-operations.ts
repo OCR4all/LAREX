@@ -1,4 +1,4 @@
-import type { TaskStatus, TaskPriority, BulkOperationResponse } from '~/types/index'
+import type { TaskPriority, BulkOperationResponse } from '~/types/index'
 
 export function useTaskBulkOperations(workspaceId: MaybeRef<string | undefined>) {
   const toast = useToast()
@@ -6,23 +6,23 @@ export function useTaskBulkOperations(workspaceId: MaybeRef<string | undefined>)
 
   const resolvedWorkspaceId = computed(() => toValue(workspaceId))
 
-  async function bulkUpdateStatus(taskIds: string[], status: TaskStatus): Promise<BulkOperationResponse | null> {
+  async function bulkSetArchived(taskIds: string[], archived: boolean): Promise<BulkOperationResponse | null> {
     if (!resolvedWorkspaceId.value || taskIds.length === 0) return null
 
     isLoading.value = true
     try {
       const response = await $fetch<BulkOperationResponse>(
-        `/api/workspaces/${resolvedWorkspaceId.value}/tasks/bulk/status`,
+        `/api/workspaces/${resolvedWorkspaceId.value}/tasks/bulk/archived`,
         {
           method: 'PUT',
-          body: { taskIds, status }
+          body: { taskIds, archived }
         }
       )
 
-      showResultToast(response, 'status update')
+      showResultToast(response, archived ? 'archive' : 'unarchive')
       return response
     } catch (err: any) {
-      toast.add({ title: 'Bulk status update failed', description: err?.data?.message, color: 'error' })
+      toast.add({ title: archived ? 'Bulk archive failed' : 'Bulk unarchive failed', description: err?.data?.message, color: 'error' })
       return null
     } finally {
       isLoading.value = false
@@ -126,7 +126,7 @@ export function useTaskBulkOperations(workspaceId: MaybeRef<string | undefined>)
 
   return {
     isLoading: readonly(isLoading),
-    bulkUpdateStatus,
+    bulkSetArchived,
     bulkUpdatePriority,
     bulkUpdateAssignees,
     bulkDelete

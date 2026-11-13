@@ -207,7 +207,7 @@ const tours: OnboardingTourDefinition[] = [
         element: '[data-tour="task-form-title"]',
         popover: {
           title: 'Assignment Basics',
-          description: 'Set title, description, status, priority, and due date. No changes are saved during this tour.',
+          description: 'Set title, description, priority, and due date. Status follows the progress of its Tasks. No changes are saved during this tour.',
           side: 'left',
           align: 'start'
         }

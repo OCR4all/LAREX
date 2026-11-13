@@ -14,12 +14,11 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageWorkflowEventReposi
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.SubtaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.PageWorkflowPublisher;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.TaskQueueRealtimePublisher;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
-import de.uniwue.zpd.dachs.larex.backend.service.task.TaskActivityService;
+import de.uniwue.zpd.dachs.larex.backend.service.task.TaskProgressService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -43,39 +42,36 @@ public class PageWorkflowService {
     private final ProjectRepository projectRepository;
     private final TaskPageLinkRepository taskPageLinkRepository;
     private final SubtaskRepository subtaskRepository;
-    private final TaskRepository taskRepository;
     private final PageWorkflowEventRepository eventRepository;
     private final AuthorizationPolicyService authorizationPolicyService;
     private final AnnotationLeaseService annotationLeaseService;
-    private final TaskActivityService taskActivityService;
     private final TaskQueueRealtimePublisher taskQueueRealtimePublisher;
     private final PageWorkflowPublisher pageWorkflowPublisher;
     private final UserService userService;
+    private final TaskProgressService taskProgressService;
 
     public PageWorkflowService(PageRepository pageRepository,
                                ProjectRepository projectRepository,
                                TaskPageLinkRepository taskPageLinkRepository,
                                SubtaskRepository subtaskRepository,
-                               TaskRepository taskRepository,
                                PageWorkflowEventRepository eventRepository,
                                AuthorizationPolicyService authorizationPolicyService,
                                AnnotationLeaseService annotationLeaseService,
-                               TaskActivityService taskActivityService,
                                TaskQueueRealtimePublisher taskQueueRealtimePublisher,
                                PageWorkflowPublisher pageWorkflowPublisher,
-                               UserService userService) {
+                               UserService userService,
+                               TaskProgressService taskProgressService) {
         this.pageRepository = pageRepository;
         this.projectRepository = projectRepository;
         this.taskPageLinkRepository = taskPageLinkRepository;
         this.subtaskRepository = subtaskRepository;
-        this.taskRepository = taskRepository;
         this.eventRepository = eventRepository;
         this.authorizationPolicyService = authorizationPolicyService;
         this.annotationLeaseService = annotationLeaseService;
-        this.taskActivityService = taskActivityService;
         this.taskQueueRealtimePublisher = taskQueueRealtimePublisher;
         this.pageWorkflowPublisher = pageWorkflowPublisher;
         this.userService = userService;
+        this.taskProgressService = taskProgressService;
     }
 
     public List<Page> transition(String projectId,
@@ -255,7 +251,7 @@ public class PageWorkflowService {
                     && row[0] instanceof String pageId
                     && row[1] instanceof Task task
                     && row[2] instanceof Boolean completed
-                    && task.getStatus() != Task.TaskStatus.CANCELLED) {
+                    && task.isActive()) {
                 PageTaskProgress progress = progressByPageId
                         .computeIfAbsent(pageId, ignored -> new LinkedHashMap<>())
                         .computeIfAbsent(task, PageTaskProgress::new);
@@ -336,15 +332,7 @@ public class PageWorkflowService {
                 assignees.add(subtask.getAssignedUserId());
             }
         }
-        for (Task task : taskRepository.findAllById(taskIds)) {
-            if (task.getStatus() == Task.TaskStatus.COMPLETED) {
-                task.setStatus(Task.TaskStatus.IN_PROGRESS);
-                task.setCompletedAt(null);
-                task.setCompletedByUserId(null);
-                taskRepository.save(task);
-                taskActivityService.logStatusChanged(task.getId(), userId, Task.TaskStatus.COMPLETED, Task.TaskStatus.IN_PROGRESS);
-            }
-        }
+        taskProgressService.recompute(taskIds, userId);
         taskQueueRealtimePublisher.publishAfterCommit(assignees, workspaceId);
         return assignees;
     }

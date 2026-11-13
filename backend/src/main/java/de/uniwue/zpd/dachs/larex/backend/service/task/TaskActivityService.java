@@ -65,6 +65,18 @@ public class TaskActivityService {
         activityLogRepository.save(log);
     }
 
+    public void logStatusDerived(String taskId, String userId, Task.TaskStatus oldStatus, Task.TaskStatus newStatus) {
+        activityLogRepository.save(new TaskActivityLog(
+                taskId, userId, TaskActivityLog.ActivityType.STATUS_DERIVED,
+                oldStatus.name(), newStatus.name()
+        ));
+    }
+
+    public void logArchivedChanged(String taskId, String userId, boolean archived) {
+        activityLogRepository.save(new TaskActivityLog(taskId, userId,
+                archived ? TaskActivityLog.ActivityType.ARCHIVED : TaskActivityLog.ActivityType.UNARCHIVED));
+    }
+
     public void logTitleChanged(String taskId, String userId, String oldTitle, String newTitle) {
         TaskActivityLog log = new TaskActivityLog(
                 taskId, userId, TaskActivityLog.ActivityType.TITLE_CHANGED,

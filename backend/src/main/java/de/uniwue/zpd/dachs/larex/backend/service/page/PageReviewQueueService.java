@@ -87,7 +87,7 @@ public class PageReviewQueueService {
             tasksByPageId.put(page.getId(), linksByPageId.getOrDefault(page.getId(), List.of()).stream()
                     .map(link -> tasksById.get(link.getTaskId()))
                     .filter(Objects::nonNull)
-                    .filter(task -> task.getStatus() != Task.TaskStatus.CANCELLED)
+                    .filter(Task::isActive)
                     .toList());
         }
 

@@ -53,7 +53,10 @@ public class TaskActivityLog {
         SUBTASK_COMPLETED,
         SUBTASK_DELETED,
         LINK_ADDED,
-        LINK_REMOVED
+        LINK_REMOVED,
+        STATUS_DERIVED,
+        ARCHIVED,
+        UNARCHIVED
     }
 
     public TaskActivityLog() {}

@@ -104,8 +104,27 @@ function getActivityIcon(type: TaskActivityType): string {
       return 'i-lucide-link'
     case 'LINK_REMOVED':
       return 'i-lucide-unlink'
+    case 'STATUS_DERIVED':
+      return 'i-lucide-refresh-cw'
+    case 'ARCHIVED':
+      return 'i-lucide-archive'
+    case 'UNARCHIVED':
+      return 'i-lucide-archive-restore'
     default:
       return 'i-lucide-activity'
+  }
+}
+
+function describeDerivedStatus(status?: string | null) {
+  switch (status) {
+    case 'COMPLETED':
+      return 'Completed automatically: all Tasks are done'
+    case 'IN_PROGRESS':
+      return 'Moved to In progress: work on its Tasks has started'
+    case 'OPEN':
+      return 'Moved back to Open: no Tasks are done'
+    default:
+      return `Status changed to ${getTaskStatusMeta(status).label}`
   }
 }
 
@@ -130,7 +149,15 @@ function getActivityDescription(log: TaskActivityLog): string {
     case 'DESCRIPTION_CHANGED':
       return `${name} updated the description`
     case 'STATUS_CHANGED':
-      return `${name} changed status from ${log.oldValue?.replace('_', ' ')} to ${log.newValue?.replace('_', ' ')}`
+      if (log.newValue === 'PAUSED') return `${name} paused this Assignment`
+      if (log.oldValue === 'PAUSED') return `${name} resumed this Assignment`
+      return `${name} changed status from ${getTaskStatusMeta(log.oldValue).label} to ${getTaskStatusMeta(log.newValue).label}`
+    case 'STATUS_DERIVED':
+      return describeDerivedStatus(log.newValue)
+    case 'ARCHIVED':
+      return `${name} archived this Assignment`
+    case 'UNARCHIVED':
+      return `${name} unarchived this Assignment`
     case 'PRIORITY_CHANGED':
       return `${name} changed priority from ${log.oldValue} to ${log.newValue}`
     case 'DUE_DATE_CHANGED':

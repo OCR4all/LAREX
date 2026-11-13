@@ -40,12 +40,12 @@ describe('authorization composables', () => {
   it('useResourceCapabilities defaults task mutations to hidden when capabilities are missing', async () => {
     const { useResourceCapabilities } = await import('../use-resource-capabilities')
 
-    const task = ref<{ capabilities?: { canUpdateStatus?: boolean } } | null>({
-      capabilities: { canUpdateStatus: true }
+    const task = ref<{ capabilities?: { canArchive?: boolean } } | null>({
+      capabilities: { canArchive: true }
     })
 
     const caps = useResourceCapabilities(task, 'task')
-    expect(caps.value.canUpdateStatus).toBe(true)
+    expect(caps.value.canArchive).toBe(true)
     expect(caps.value.canEdit).toBe(false)
     expect(caps.value.canDelete).toBe(false)
     expect(caps.value.canAssignOthers).toBe(false)

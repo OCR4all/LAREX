@@ -52,6 +52,7 @@ public class TaskController {
             @PathVariable String workspaceId,
             @RequestParam(value = "status", required = false) Task.TaskStatus status,
             @RequestParam(value = "assignedToMe", defaultValue = "false") boolean assignedToMe,
+            @RequestParam(value = "includeArchived", defaultValue = "false") boolean includeArchived,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size,
             @RequestParam(value = "sort", required = false, defaultValue = "updated") String sort,
@@ -59,10 +60,10 @@ public class TaskController {
     ) {
         if (page != null && size != null) {
             PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, sort));
-            PaginatedResponse<TaskDto.Response> tasks = taskService.listWorkspaceTasksPaginated(workspaceId, userId, status, assignedToMe, pageable);
+            PaginatedResponse<TaskDto.Response> tasks = taskService.listWorkspaceTasksPaginated(workspaceId, userId, status, assignedToMe, includeArchived, pageable);
             return ResponseEntity.ok(tasks);
         }
-        List<TaskDto.Response> tasks = taskService.listWorkspaceTasks(workspaceId, userId, status, assignedToMe);
+        List<TaskDto.Response> tasks = taskService.listWorkspaceTasks(workspaceId, userId, status, assignedToMe, includeArchived);
         return ResponseEntity.ok(tasks);
     }
 
@@ -95,14 +96,22 @@ public class TaskController {
         return ResponseEntity.ok(updated);
     }
 
-    @PutMapping("/tasks/{taskId}/status")
-    public ResponseEntity<TaskDto.Response> updateTaskStatus(
+    @PutMapping("/tasks/{taskId}/paused")
+    public ResponseEntity<TaskDto.Response> updateTaskPaused(
             @PathVariable String taskId,
-            @Valid @RequestBody TaskDto.UpdateStatusRequest request,
+            @Valid @RequestBody TaskDto.UpdatePausedRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId
     ) {
-        TaskDto.Response updated = taskService.updateTaskStatus(taskId, userId, request);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(taskService.setPaused(taskId, userId, request.paused()));
+    }
+
+    @PutMapping("/tasks/{taskId}/archived")
+    public ResponseEntity<TaskDto.Response> updateTaskArchived(
+            @PathVariable String taskId,
+            @Valid @RequestBody TaskDto.UpdateArchivedRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId
+    ) {
+        return ResponseEntity.ok(taskService.setArchived(taskId, userId, request.archived()));
     }
 
     @PutMapping("/tasks/{taskId}/due-date")
@@ -136,14 +145,13 @@ public class TaskController {
 
     // ==================== BULK OPERATIONS ====================
 
-    @PutMapping("/workspaces/{workspaceId}/tasks/bulk/status")
-    public ResponseEntity<BulkTaskDto.BulkOperationResponse> bulkUpdateStatus(
+    @PutMapping("/workspaces/{workspaceId}/tasks/bulk/archived")
+    public ResponseEntity<BulkTaskDto.BulkOperationResponse> bulkSetArchived(
             @PathVariable String workspaceId,
-            @Valid @RequestBody BulkTaskDto.BulkStatusRequest request,
+            @Valid @RequestBody BulkTaskDto.BulkArchivedRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId
     ) {
-        BulkTaskDto.BulkOperationResponse response = bulkTaskService.bulkUpdateStatus(workspaceId, userId, request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(bulkTaskService.bulkSetArchived(workspaceId, userId, request));
     }
 
     @PutMapping("/workspaces/{workspaceId}/tasks/bulk/priority")

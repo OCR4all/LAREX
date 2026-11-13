@@ -7,7 +7,6 @@ const { formatDateTime } = useLocalDateTimeFormatter()
 
 const props = defineProps<{
   task: Task
-  isUpdating?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -57,7 +56,7 @@ const priorityLabel = computed(() => {
 
 const isOverdue = computed(() => {
   if (!props.task.dueDate) return false
-  if (props.task.status === 'COMPLETED' || props.task.status === 'CANCELLED') return false
+  if (props.task.status === 'COMPLETED' || props.task.status === 'PAUSED' || isTaskArchived(props.task)) return false
   return isPast(normalizeLocalDateTimeInput(props.task.dueDate)!)
 })
 
@@ -80,19 +79,23 @@ const additionalCount = computed(() => {
 <template>
   <div
     class="group relative cursor-pointer overflow-hidden rounded-xl border border-default bg-default shadow-xs transition duration-200 hover:-translate-y-0.5 hover:border-accented hover:shadow-md"
-    :class="{ 'opacity-60': isUpdating }"
     @click="emit('click', task)"
   >
-    <div v-if="isUpdating" class="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-default/70 backdrop-blur-[1px]">
-      <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
-    </div>
-
     <div class="p-4">
       <div class="flex items-start justify-between gap-3">
         <h4 class="line-clamp-2 text-base font-semibold leading-5 text-highlighted">
           {{ task.title }}
         </h4>
         <div class="flex shrink-0 items-center gap-1">
+          <UBadge
+            v-if="isTaskArchived(task)"
+            color="neutral"
+            variant="outline"
+            size="xs"
+            icon="i-lucide-archive"
+          >
+            Archived
+          </UBadge>
           <UBadge
             :color="priorityColor"
             variant="subtle"

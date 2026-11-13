@@ -27,7 +27,8 @@ public interface SubtaskRepository extends JpaRepository<Subtask, String> {
         WHERE s.pageId IN :pageIds
           AND s.completed = true
           AND t.pageCompletion <> 'NONE'
-          AND t.status <> 'CANCELLED'
+          AND t.status <> 'PAUSED'
+          AND t.archivedAt IS NULL
         """)
     List<Subtask> findCompletedAffectingPageState(@Param("pageIds") Collection<String> pageIds);
 
@@ -35,12 +36,24 @@ public interface SubtaskRepository extends JpaRepository<Subtask, String> {
         SELECT s FROM Subtask s JOIN Task t ON s.taskId = t.id
         WHERE s.pageId IN :pageIds
           AND s.completed = true
-          AND t.status <> 'CANCELLED'
+          AND t.status <> 'PAUSED'
+          AND t.archivedAt IS NULL
         """)
     List<Subtask> findCompletedOnActiveAssignments(@Param("pageIds") Collection<String> pageIds);
 
     @Query("SELECT COALESCE(MAX(s.sortOrder), -1) + 1 FROM Subtask s WHERE s.taskId = :taskId")
     int getNextSortOrder(@Param("taskId") String taskId);
+
+    @Query("""
+        SELECT s.taskId, COUNT(s), SUM(CASE WHEN s.completed = true THEN 1 ELSE 0 END)
+        FROM Subtask s
+        WHERE s.taskId IN :taskIds
+        GROUP BY s.taskId
+        """)
+    List<Object[]> countProgressByTaskIds(@Param("taskIds") Collection<String> taskIds);
+
+    @Query("SELECT DISTINCT s.taskId FROM Subtask s WHERE s.pageId IN :pageIds")
+    List<String> findTaskIdsByPageIdIn(@Param("pageIds") Collection<String> pageIds);
 
     @Query("SELECT COUNT(s) FROM Subtask s WHERE s.taskId = :taskId")
     long countByTaskId(@Param("taskId") String taskId);
@@ -63,6 +76,7 @@ public interface SubtaskRepository extends JpaRepository<Subtask, String> {
           AND s.completed = false
           AND s.pageId IS NOT NULL
           AND t.status IN ('OPEN', 'IN_PROGRESS')
+          AND t.archivedAt IS NULL
         """)
     List<Subtask> findOpenAssignedForEditorQueue(
             @Param("workspaceId") String workspaceId,
@@ -77,6 +91,7 @@ public interface SubtaskRepository extends JpaRepository<Subtask, String> {
           AND s.completed = false
           AND s.pageId IS NOT NULL
           AND t.status IN ('OPEN', 'IN_PROGRESS')
+          AND t.archivedAt IS NULL
         """)
     List<Subtask> findOpenAssignedInWorkspaces(
             @Param("workspaceIds") Collection<String> workspaceIds,

@@ -58,6 +58,12 @@ public class Task {
     @Column(name = "workspace_id", nullable = false)
     private String workspaceId;
 
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
+
+    @Column(name = "archived_by_user_id")
+    private String archivedByUserId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "page_completion", nullable = false, length = 32)
     private PageCompletion pageCompletion = PageCompletion.NONE;
@@ -72,7 +78,7 @@ public class Task {
         OPEN,
         IN_PROGRESS,
         COMPLETED,
-        CANCELLED
+        PAUSED
     }
 
     public enum TaskPriority {
@@ -203,6 +209,34 @@ public class Task {
 
     public void setPageCompletion(PageCompletion pageCompletion) {
         this.pageCompletion = pageCompletion == null ? PageCompletion.NONE : pageCompletion;
+    }
+
+    public LocalDateTime getArchivedAt() {
+        return archivedAt;
+    }
+
+    public void setArchivedAt(LocalDateTime archivedAt) {
+        this.archivedAt = archivedAt;
+    }
+
+    public String getArchivedByUserId() {
+        return archivedByUserId;
+    }
+
+    public void setArchivedByUserId(String archivedByUserId) {
+        this.archivedByUserId = archivedByUserId;
+    }
+
+    public boolean isArchived() {
+        return archivedAt != null;
+    }
+
+    public boolean isPaused() {
+        return status == TaskStatus.PAUSED;
+    }
+
+    public boolean isActive() {
+        return !isPaused() && !isArchived();
     }
 
     public boolean affectsPageState() {

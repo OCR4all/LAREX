@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Task, TaskStatus } from '~/types/index'
+import type { Task } from '~/types/index'
 
 const props = withDefaults(defineProps<{
   tasks?: Task[]
@@ -8,20 +8,12 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  'refresh': []
   'task-click': [task: Task]
   'task-delete': [task: Task]
 }>()
 
 const tasksRef = computed(() => props.tasks ?? [])
-const { columns, updateTaskStatus, isUpdating } = useTaskKanban(tasksRef)
-
-async function onTaskMoved(taskId: string, newStatus: TaskStatus) {
-  const success = await updateTaskStatus(taskId, newStatus)
-  if (success) {
-    emit('refresh')
-  }
-}
+const { columns } = useTaskKanban(tasksRef)
 </script>
 
 <template>
@@ -32,8 +24,6 @@ async function onTaskMoved(taskId: string, newStatus: TaskStatus) {
       :key="column.id"
       :title="column.title"
       :tasks="column.tasks"
-      :is-updating="isUpdating"
-      @task-moved="onTaskMoved"
       @task-click="emit('task-click', $event)"
       @task-delete="emit('task-delete', $event)"
     />

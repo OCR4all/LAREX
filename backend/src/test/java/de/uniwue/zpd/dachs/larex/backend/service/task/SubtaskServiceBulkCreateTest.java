@@ -53,6 +53,7 @@ class SubtaskServiceBulkCreateTest {
     @Mock WorkspaceQueryService workspaceQueryService;
     @Mock TaskQueueRealtimePublisher taskQueueRealtimePublisher;
     @Mock PageWorkflowService pageWorkflowService;
+    @Mock TaskProgressService taskProgressService;
 
     private SubtaskService service;
 
@@ -69,7 +70,8 @@ class SubtaskServiceBulkCreateTest {
                 workspaceAccessService,
                 workspaceQueryService,
                 taskQueueRealtimePublisher,
-                pageWorkflowService
+                pageWorkflowService,
+                taskProgressService
         );
     }
 

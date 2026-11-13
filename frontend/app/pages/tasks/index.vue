@@ -42,6 +42,11 @@ if (route.query.view === 'review') {
 }
 
 const statusFilter = ref<TaskStatus | 'ALL'>('ALL')
+const showArchived = useCookie<boolean>('larex-tasks-show-archived', {
+  default: () => false,
+  maxAge: 60 * 60 * 24 * 365,
+  sameSite: 'lax'
+})
 const assignedToMe = ref(true)
 const q = ref('')
 const isOpeningTaskQueue = ref(false)
@@ -69,6 +74,14 @@ const activeTaskFilters = computed(() => {
     })
   }
 
+  if (showArchived.value) {
+    filters.push({
+      key: 'showArchived',
+      label: 'Including archived',
+      clear: () => { showArchived.value = false }
+    })
+  }
+
   if (assignedToMe.value) {
     filters.push({
       key: 'assignedToMe',
@@ -83,16 +96,20 @@ const activeTaskFilters = computed(() => {
 function clearTaskFilters() {
   q.value = ''
   statusFilter.value = 'ALL'
+  showArchived.value = false
   assignedToMe.value = false
 }
 
 const tasksKey = computed(() => {
   if (!selectedWorkspace.value) return globalKey('pending', 'tasks', 'list')
-  return wsKey(selectedWorkspace.value, 'tasks', 'list', statusFilter.value, String(assignedToMe.value))
+  return wsKey(selectedWorkspace.value, 'tasks', 'list', statusFilter.value, String(assignedToMe.value), String(showArchived.value))
 })
 
 const tasksQuery = computed(() => {
-  const query: { assignedToMe: boolean, status?: TaskStatus } = { assignedToMe: assignedToMe.value }
+  const query: { assignedToMe: boolean, includeArchived: boolean, status?: TaskStatus } = {
+    assignedToMe: assignedToMe.value,
+    includeArchived: showArchived.value
+  }
   if (statusFilter.value !== 'ALL') query.status = statusFilter.value
   return query
 })
@@ -101,7 +118,7 @@ const { data: tasks, status: tasksStatus } = await useFetch<Task[]>(
   () => `/api/workspaces/${selectedWorkspace.value}/tasks`,
   {
     key: tasksKey,
-    watch: [selectedWorkspace, statusFilter, assignedToMe],
+    watch: [selectedWorkspace, statusFilter, assignedToMe, showArchived],
     query: tasksQuery,
     default: () => [],
     immediate: !!selectedWorkspace.value
@@ -205,16 +222,19 @@ const canBulkDeleteSelected = computed(() =>
   selectedTasksCount.value > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canDelete))
 )
 
-const canBulkStatusSelected = computed(() =>
-  selectedTasksCount.value > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canUpdateStatus))
+const canBulkArchiveSelected = computed(() =>
+  selectedTasksCount.value > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canArchive))
+)
+const selectedAllArchived = computed(() =>
+  selectedTasksCount.value > 0 && selectedTasks.value.every(task => isTaskArchived(task))
 )
 
 const canBulkPrioritySelected = computed(() =>
-  selectedTasksCount.value > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canEdit))
+  selectedTasksCount.value > 0 && selectedTasks.value.every(task => !isTaskArchived(task) && allow(getTaskCapabilities(task).canEdit))
 )
 
 const canBulkAssignSelected = computed(() =>
-  selectedTasksCount.value > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canAssignOthers))
+  selectedTasksCount.value > 0 && selectedTasks.value.every(task => !isTaskArchived(task) && allow(getTaskCapabilities(task).canAssignOthers))
 )
 
 const bulkAssignPopoverOpen = ref(false)
@@ -271,7 +291,7 @@ function isTaskSelected(taskId: string) {
 }
 
 const bulkWorkspaceId = computed(() => selectedWorkspace.value ?? undefined)
-const { isLoading: bulkLoading, bulkUpdateStatus, bulkUpdatePriority, bulkUpdateAssignees, bulkDelete } = useTaskBulkOperations(bulkWorkspaceId)
+const { isLoading: bulkLoading, bulkSetArchived, bulkUpdatePriority, bulkUpdateAssignees, bulkDelete } = useTaskBulkOperations(bulkWorkspaceId)
 
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const createTaskSlideover = overlay.create(LazyTaskSlideoverEdit)
@@ -281,20 +301,9 @@ async function refreshOverview() {
   if (selectedWorkspace.value) await refreshTaskQueue()
 }
 
-async function refreshCurrentTasksView() {
-  await refreshNuxtData(tasksKey.value)
-}
-
-const statusOptions: Array<{ label: string, value: TaskStatus, icon: string }> = [
-  { label: 'Open', value: 'OPEN', icon: 'i-lucide-circle' },
-  { label: 'In Progress', value: 'IN_PROGRESS', icon: 'i-lucide-play' },
-  { label: 'Completed', value: 'COMPLETED', icon: 'i-lucide-check-circle' },
-  { label: 'Cancelled', value: 'CANCELLED', icon: 'i-lucide-x-circle' }
-]
-
 const statusFilterOptions = [
-  { label: 'All', value: 'ALL' },
-  ...statusOptions.map(opt => ({ label: opt.label, value: opt.value }))
+  { label: 'All statuses', value: 'ALL' },
+  ...TASK_STATUSES.map(status => ({ label: TASK_STATUS_META[status].label, value: status, icon: TASK_STATUS_META[status].icon }))
 ]
 
 const priorityOptions: Array<{ label: string, value: TaskPriority }> = [
@@ -304,10 +313,10 @@ const priorityOptions: Array<{ label: string, value: TaskPriority }> = [
   { label: 'Urgent', value: 'URGENT' }
 ]
 
-async function handleBulkStatusChange(status: TaskStatus) {
-  if (!canBulkStatusSelected.value) return
+async function handleBulkArchive(archived: boolean) {
+  if (!canBulkArchiveSelected.value) return
   const ids = selectedTasks.value.map(t => t.id)
-  const result = await bulkUpdateStatus(ids, status)
+  const result = await bulkSetArchived(ids, archived)
   if (result) {
     await refreshOverview()
     clearSelection()
@@ -389,15 +398,6 @@ async function handleDeleteTask(task: Task) {
       description: extractApiErrorMessage(error, 'Could not delete the Assignment.'),
       color: 'error'
     })
-  }
-}
-
-const statusColor = (status: TaskStatus) => {
-  switch (status) {
-    case 'OPEN': return 'neutral'
-    case 'IN_PROGRESS': return 'info'
-    case 'COMPLETED': return 'success'
-    case 'CANCELLED': return 'error'
   }
 }
 
@@ -487,7 +487,14 @@ const columns: TableColumn<Task>[] = [
   {
     accessorKey: 'status',
     header: 'Status',
-    cell: ({ row }) => h(UBadge, { variant: 'subtle', size: 'sm', color: statusColor(row.original.status) }, () => row.original.status.replace('_', ' '))
+    cell: ({ row }) => {
+      const meta = getTaskStatusMeta(row.original.status)
+      const badges = [h(UBadge, { variant: 'subtle', size: 'sm', color: meta.color, icon: meta.icon }, () => meta.label)]
+      if (isTaskArchived(row.original)) {
+        badges.push(h(UBadge, { variant: 'outline', size: 'sm', color: 'neutral', icon: 'i-lucide-archive' }, () => 'Archived'))
+      }
+      return h('div', { class: 'flex items-center gap-1.5' }, badges)
+    }
   },
   {
     accessorKey: 'priority',
@@ -646,6 +653,11 @@ const viewModeItems = computed(() => [
               label="Assigned to me"
               class="ml-1"
             />
+            <USwitch
+              v-model="showArchived"
+              label="Show archived"
+              class="ml-2"
+            />
             <AppTableClearFiltersButton
               :active="activeTaskFilters.length > 0"
               @clear="clearTaskFilters"
@@ -729,20 +741,13 @@ const viewModeItems = computed(() => [
           :selected-count="selectedTasksCount"
           @clear="clearSelection"
         >
-          <UDropdownMenu
-            v-if="canBulkStatusSelected"
-            :items="statusOptions.map(opt => ({
-              label: opt.label,
-              icon: opt.icon,
-              onSelect: () => handleBulkStatusChange(opt.value)
-            }))"
-          >
-            <UiFloatingSelectionButton
-              label="Status"
-              icon="i-lucide-circle-dot"
-              :loading="bulkLoading"
-            />
-          </UDropdownMenu>
+          <UiFloatingSelectionButton
+            v-if="canBulkArchiveSelected"
+            :label="selectedAllArchived ? 'Unarchive' : 'Archive'"
+            :icon="selectedAllArchived ? 'i-lucide-archive-restore' : 'i-lucide-archive'"
+            :loading="bulkLoading"
+            @click="handleBulkArchive(!selectedAllArchived)"
+          />
 
           <UDropdownMenu
             v-if="canBulkPrioritySelected"
@@ -815,7 +820,6 @@ const viewModeItems = computed(() => [
       <div v-else>
         <TaskBoardKanban
           :tasks="filteredTasks"
-          @refresh="refreshCurrentTasksView"
           @task-click="handleTaskClick"
           @task-delete="handleDeleteTask"
         />

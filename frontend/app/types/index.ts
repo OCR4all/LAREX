@@ -165,7 +165,7 @@ export interface BulkUpdatePreferencesRequest {
   preferences: UpdatePreferenceRequest[]
 }
 
-export type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+export type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'PAUSED'
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
 
 export interface Task {
@@ -185,6 +185,7 @@ export interface Task {
   completedByUserId: string | null
   workspaceId: string
   pageCompletion: TaskPageCompletion
+  archivedAt?: string | null
   capabilities?: TaskCapabilities
 }
 
@@ -204,6 +205,9 @@ export type TaskActivityType
     | 'SUBTASK_DELETED'
     | 'LINK_ADDED'
     | 'LINK_REMOVED'
+    | 'STATUS_DERIVED'
+    | 'ARCHIVED'
+    | 'UNARCHIVED'
 
 export interface TaskActivityLog {
   id: string

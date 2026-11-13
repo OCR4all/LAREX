@@ -54,6 +54,7 @@ public class TaskService {
     private final PageWorkflowService pageWorkflowService;
     private final PageRepository pageRepository;
     private final TaskQueueRealtimePublisher taskQueueRealtimePublisher;
+    private final TaskProgressService taskProgressService;
 
     public TaskService(
             TaskRepository taskRepository,
@@ -73,6 +74,7 @@ public class TaskService {
             PageWorkflowService pageWorkflowService,
             PageRepository pageRepository,
             TaskQueueRealtimePublisher taskQueueRealtimePublisher,
+            TaskProgressService taskProgressService,
             @org.springframework.context.annotation.Lazy TaskActivityService activityService
     ) {
         this.taskRepository = taskRepository;
@@ -92,6 +94,7 @@ public class TaskService {
         this.pageWorkflowService = pageWorkflowService;
         this.pageRepository = pageRepository;
         this.taskQueueRealtimePublisher = taskQueueRealtimePublisher;
+        this.taskProgressService = taskProgressService;
         this.activityService = activityService;
     }
 
@@ -103,7 +106,7 @@ public class TaskService {
                 .map(AbstractWorkspace::getId)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
-        List<Task> assignedTasks = taskRepository.findByAssignedUserId(userId).stream()
+        List<Task> assignedTasks = taskRepository.findUnarchivedByAssignedUserId(userId).stream()
                 .filter(task -> workspaceIds.contains(task.getWorkspaceId()))
                 .sorted(Comparator.comparing(Task::getUpdated, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
@@ -164,41 +167,23 @@ public class TaskService {
                 .toList();
     }
 
-    public List<TaskDto.Response> listWorkspaceTasks(String workspaceId, String userId, Task.TaskStatus status, boolean assignedToMe) {
+    public List<TaskDto.Response> listWorkspaceTasks(String workspaceId, String userId, Task.TaskStatus status, boolean assignedToMe, boolean includeArchived) {
         requireWorkspaceAccess(workspaceId, userId);
 
-        List<Task> tasks;
-        if (assignedToMe) {
-            if (status != null) {
-                tasks = taskRepository.findByWorkspaceIdAndAssignedUserIdAndStatus(workspaceId, userId, status);
-            } else {
-                tasks = taskRepository.findByWorkspaceIdAndAssignedUserId(workspaceId, userId);
-            }
-        } else {
-            tasks = (status != null)
-                    ? taskRepository.findByWorkspaceIdAndStatus(workspaceId, status)
-                    : taskRepository.findByWorkspaceId(workspaceId);
-        }
+        List<Task> tasks = new ArrayList<>(assignedToMe
+                ? taskRepository.findAssignedInWorkspace(workspaceId, userId, status, includeArchived)
+                : taskRepository.findInWorkspace(workspaceId, status, includeArchived));
 
         tasks.sort(Comparator.comparing(Task::getUpdated).reversed());
         return mapTasks(tasks, userId);
     }
 
-    public PaginatedResponse<TaskDto.Response> listWorkspaceTasksPaginated(String workspaceId, String userId, Task.TaskStatus status, boolean assignedToMe, Pageable pageable) {
+    public PaginatedResponse<TaskDto.Response> listWorkspaceTasksPaginated(String workspaceId, String userId, Task.TaskStatus status, boolean assignedToMe, boolean includeArchived, Pageable pageable) {
         requireWorkspaceAccess(workspaceId, userId);
 
-        Page<Task> taskPage;
-        if (assignedToMe) {
-            if (status != null) {
-                taskPage = taskRepository.findByWorkspaceIdAndAssignedUserIdAndStatus(workspaceId, userId, status, pageable);
-            } else {
-                taskPage = taskRepository.findByWorkspaceIdAndAssignedUserId(workspaceId, userId, pageable);
-            }
-        } else {
-            taskPage = (status != null)
-                    ? taskRepository.findByWorkspaceIdAndStatus(workspaceId, status, pageable)
-                    : taskRepository.findByWorkspaceId(workspaceId, pageable);
-        }
+        Page<Task> taskPage = assignedToMe
+                ? taskRepository.findAssignedInWorkspace(workspaceId, userId, status, includeArchived, pageable)
+                : taskRepository.findInWorkspace(workspaceId, status, includeArchived, pageable);
 
         List<TaskDto.Response> content = mapTasks(taskPage.getContent(), userId);
         return new PaginatedResponse<>(content, taskPage.getNumber(), taskPage.getSize(), taskPage.getTotalElements(), taskPage.getTotalPages());
@@ -243,7 +228,6 @@ public class TaskService {
         task.setDueDate(request.dueDate());
         task.setAssignedUserIds(new ArrayList<>(normalizedAssignees));
         task.setPageCompletion(request.pageCompletion());
-        task.setStatus(request.status() == null ? Task.TaskStatus.OPEN : request.status());
 
         Task saved = taskRepository.save(task);
 
@@ -274,6 +258,7 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
+        SubtaskService.requireNotArchived(task);
 
         // Track changes for activity logging
         String oldTitle = task.getTitle();
@@ -328,55 +313,59 @@ public class TaskService {
         return mapTask(saved, userId);
     }
 
-    public TaskDto.Response updateTaskStatus(String taskId, String userId, TaskDto.UpdateStatusRequest request) {
+    public TaskDto.Response setPaused(String taskId, String userId, boolean paused) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
+
+        requireWorkspaceAccess(task.getWorkspaceId(), userId);
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
+        SubtaskService.requireNotArchived(task);
+
+        if (task.isPaused() == paused) {
+            return mapTask(task, userId);
+        }
+
+        Task.TaskStatus oldStatus = task.getStatus();
+        Task.TaskStatus newStatus = paused ? Task.TaskStatus.PAUSED : taskProgressService.deriveStatus(taskId);
+        task.setStatus(newStatus);
+        boolean completed = newStatus == Task.TaskStatus.COMPLETED;
+        task.setCompletedAt(completed ? LocalDateTime.now() : null);
+        task.setCompletedByUserId(completed ? userId : null);
+        taskRepository.save(task);
+        activityService.logStatusChanged(taskId, userId, oldStatus, newStatus);
+
+        afterActivityChanged(task, userId);
+        return mapTask(task, userId);
+    }
+
+    public TaskDto.Response setArchived(String taskId, String userId, boolean archived) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         requireWorkspaceAccess(task.getWorkspaceId(), userId);
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
-        Task.TaskStatus oldStatus = task.getStatus();
-        Task.TaskStatus newStatus = request.status();
-        if (oldStatus == newStatus) {
+        if (task.isArchived() == archived) {
             return mapTask(task, userId);
         }
 
-        task.setStatus(newStatus);
-        if (newStatus == Task.TaskStatus.COMPLETED) {
-            task.setCompletedAt(LocalDateTime.now());
-            task.setCompletedByUserId(userId);
-        } else {
-            task.setCompletedAt(null);
-            task.setCompletedByUserId(null);
-        }
-
+        task.setArchivedAt(archived ? LocalDateTime.now() : null);
+        task.setArchivedByUserId(archived ? userId : null);
         Task saved = taskRepository.save(task);
+        activityService.logArchivedChanged(taskId, userId, archived);
 
-        if (saved.affectsPageState()) {
-            pageWorkflowService.recomputeForPageIds(taskPageLinkRepository.findByTaskId(taskId).stream()
+        afterActivityChanged(saved, userId);
+        return mapTask(saved, userId);
+    }
+
+    private void afterActivityChanged(Task task, String userId) {
+        if (task.affectsPageState()) {
+            taskRepository.flush();
+            pageWorkflowService.recomputeForExistingPageIds(taskPageLinkRepository.findByTaskId(task.getId()).stream()
                     .map(link -> link.getPageId())
                     .toList(), userId);
         }
-
-        // Log activity
-        activityService.logStatusChanged(taskId, userId, oldStatus, newStatus);
-
-        if (newStatus == Task.TaskStatus.COMPLETED) {
-            Set<String> notifyUsers = new LinkedHashSet<>();
-            if (saved.getAssignedUserIds() != null) {
-                notifyUsers.addAll(saved.getAssignedUserIds());
-            }
-            notifyUsers.add(saved.getCreatedByUserId());
-            notifyUsers.remove(userId);
-
-            for (String notifyUserId : notifyUsers) {
-                notificationService.createTaskCompletedNotification(notifyUserId, saved.getTitle(), saved.getId());
-            }
-        }
-
-        taskQueueRealtimePublisher.publishAfterCommit(saved.getAssignedUserIds(), saved.getWorkspaceId());
-
-        return mapTask(saved, userId);
+        taskQueueRealtimePublisher.publishAfterCommit(task.getAssignedUserIds(), task.getWorkspaceId());
     }
 
     public TaskDto.Response updateTaskDueDate(String taskId, String userId, TaskDto.UpdateDueDateRequest request) {
@@ -384,6 +373,7 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
+        SubtaskService.requireNotArchived(task);
 
         LocalDateTime oldDueDate = task.getDueDate();
         task.setDueDate(request.dueDate());
@@ -409,6 +399,7 @@ public class TaskService {
 
         AbstractWorkspace workspace = requireWorkspaceAccess(task.getWorkspaceId(), userId);
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
+        SubtaskService.requireNotArchived(task);
 
         Set<String> normalizedAssignees = new LinkedHashSet<>();
         for (String assigneeId : request.assignedUserIds()) {
@@ -561,6 +552,7 @@ public class TaskService {
                 task.getCompletedByUserId(),
                 task.getWorkspaceId(),
                 task.getPageCompletion(),
+                task.getArchivedAt(),
                 authorizationPolicyService.resolveTaskCapabilities(task, userId)
         );
     }

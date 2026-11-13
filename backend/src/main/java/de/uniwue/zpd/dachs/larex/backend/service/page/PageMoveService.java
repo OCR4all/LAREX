@@ -11,6 +11,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepositor
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.SubtaskRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.task.TaskProgressService;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
@@ -38,11 +39,13 @@ public class PageMoveService {
     private final SubtaskRepository subtasks;
     private final WorkspaceQuotaRefreshService quotaRefresh;
     private final DatasetItemRepository datasetItems;
+    private final TaskProgressService taskProgress;
 
     public PageMoveService(ProjectRepository projects, PageRepository pages, WorkspaceAccessService access,
                            PageOrderService order, AnnotationLeaseService leases, PageMoveFileService files,
                            TaskPageLinkRepository taskLinks, SubtaskRepository subtasks,
-                           WorkspaceQuotaRefreshService quotaRefresh, DatasetItemRepository datasetItems) {
+                           WorkspaceQuotaRefreshService quotaRefresh, DatasetItemRepository datasetItems,
+                           TaskProgressService taskProgress) {
         this.projects = projects;
         this.pages = pages;
         this.access = access;
@@ -53,6 +56,7 @@ public class PageMoveService {
         this.subtasks = subtasks;
         this.quotaRefresh = quotaRefresh;
         this.datasetItems = datasetItems;
+        this.taskProgress = taskProgress;
     }
 
     @Transactional(readOnly = true)
@@ -80,7 +84,7 @@ public class PageMoveService {
         var changes = files.enlist(sourceProjectId, request.destinationProjectId());
         files.copyAssets(movingIds, workspaceId, request.destinationProjectId(), userId, changes);
         if (!overwrittenIds.isEmpty()) {
-            deleteOverwritten(overwrittenIds, changes);
+            deleteOverwritten(overwrittenIds, changes, userId);
         }
         List<Integer> sortOrders = order.reserveAppendSortOrders(request.destinationProjectId(), moving.size());
         for (int index = 0; index < moving.size(); index++) {
@@ -110,10 +114,13 @@ public class PageMoveService {
         return prepare(workspaceId, sourceId, request, userId, true, true);
     }
 
-    void deleteOverwritten(List<String> overwrittenIds, PageMoveFileService.Changes changes) {
+    void deleteOverwritten(List<String> overwrittenIds, PageMoveFileService.Changes changes, String userId) {
         files.collectOverwrittenAssets(overwrittenIds, changes);
+        List<String> affectedTaskIds = subtasks.findTaskIdsByPageIdIn(overwrittenIds);
         taskLinks.deleteByPageIdIn(overwrittenIds);
         subtasks.deleteByPageIdIn(overwrittenIds);
+        subtasks.flush();
+        taskProgress.recompute(affectedTaskIds, userId);
         // Asset/index/history foreign keys cascade. Tags need explicit removal for bulk deletion.
         pages.deleteTagsByPageIds(overwrittenIds);
         pages.deleteByIdIn(overwrittenIds);

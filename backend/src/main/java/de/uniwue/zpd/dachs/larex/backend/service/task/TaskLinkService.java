@@ -74,6 +74,7 @@ public class TaskLinkService {
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
+        SubtaskService.requireNotArchived(task);
 
         Project project = projectRepository.findById(request.projectId())
                 .orElseThrow(() -> new ResourceNotFoundException("Project", request.projectId()));
@@ -102,6 +103,7 @@ public class TaskLinkService {
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
         workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
+        SubtaskService.requireNotArchived(task);
 
         TaskProjectLink link = projectLinkRepository.findByTaskIdAndProjectId(taskId, projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Link", taskId + "-" + projectId));
