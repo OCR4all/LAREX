@@ -30,7 +30,7 @@ For a deployment or wizard bundle, run from the extracted bundle root:
 
 ```bash
 (cd config/keycloak && sha256sum --check theme.jar.sha256)
-bash scripts/verify-keycloak-theme.sh
+bash scripts/operations/verify-keycloak-theme.sh
 ```
 
 On macOS use `shasum -a 256 --check` instead of `sha256sum --check`.

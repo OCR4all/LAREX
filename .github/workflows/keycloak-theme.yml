@@ -35,12 +35,12 @@ jobs:
           pnpm run build-keycloak-theme
       - name: Audit and package theme
         run: |
-          node --experimental-strip-types scripts/package-keycloak-theme.mts \
+          node --experimental-strip-types scripts/keycloak-theme/package-keycloak-theme.mts \
             keycloak-theme/dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar \
             config/keycloak "$(cat VERSION)" "$GITHUB_SHA"
-          node --experimental-strip-types --test scripts/test-keycloak-theme.mjs
+          node --experimental-strip-types --test scripts/keycloak-theme/test-keycloak-theme.mjs
       - name: Verify official Keycloak loads the mounted theme
-        run: bash scripts/test-keycloak-theme-container.sh
+        run: bash scripts/keycloak-theme/test-keycloak-theme-container.sh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ inputs.artifact-name }}

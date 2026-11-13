@@ -272,7 +272,7 @@ jobs:
             '.version == $version and .source.commit == $commit' config/keycloak/theme.json
 
       - name: Build administrator deployment bundle
-        run: bash ./scripts/build-deployment-package.sh "${{ needs.version.outputs.version }}" dist
+        run: bash ./scripts/release/build-deployment-package.sh "${{ needs.version.outputs.version }}" dist
 
       - name: Create immutable release manifest
         env:
@@ -281,7 +281,7 @@ jobs:
           FRONTEND_DIGEST: ${{ needs.build-and-push.outputs.frontend_digest }}
           DOCS_DIGEST: ${{ needs.build-and-push.outputs.docs_digest }}
         run: |
-          bash ./scripts/build-release-manifest.sh \
+          bash ./scripts/release/build-release-manifest.sh \
             "$RELEASE_VERSION" \
             dist \
             "$GITHUB_REPOSITORY" \
@@ -335,8 +335,8 @@ jobs:
 
       - name: Run version sync
         run: |
-          chmod +x ./scripts/version-sync.sh
-          ./scripts/version-sync.sh
+          chmod +x ./scripts/release/version-sync.sh
+          ./scripts/release/version-sync.sh
 
       - name: Check for changes
         id: changes

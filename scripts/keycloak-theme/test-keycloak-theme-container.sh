@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 THEME_PATH="${1:-$ROOT_DIR/config/keycloak/theme.jar}"
 TEST_DIRECTORY="$(mktemp -d)"
 CONTAINER_ID=''

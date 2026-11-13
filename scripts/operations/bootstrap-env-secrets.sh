@@ -2,14 +2,14 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/bootstrap-env-secrets.sh prod
-  scripts/bootstrap-env-secrets.sh prod-local
-  scripts/bootstrap-env-secrets.sh actions
+  scripts/operations/bootstrap-env-secrets.sh prod
+  scripts/operations/bootstrap-env-secrets.sh prod-local
+  scripts/operations/bootstrap-env-secrets.sh actions
 
 Creates the corresponding top-level env file from the example template if needed and
 fills in secret values for keys that are missing or still using placeholder defaults.

@@ -21,8 +21,8 @@ services:
     environment:
       LAREX_ACTIONS_PUBLIC_BASE_URL: ${LAREX_ACTIONS_PUBLIC_BASE_URL:-http://app:8080/api/v1}
       LAREX_ACTIONS_ENDPOINT_ALLOWED_ORIGINS: ${LAREX_ACTIONS_ENDPOINT_ALLOWED_ORIGINS:-http://action-kraken-segmentation:9000,http://action-kraken-layout-training:9000,http://mock-action-processor:9000}
-      LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:?Run scripts/bootstrap-env-secrets.sh actions first}
-      LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_LAYOUT_TRAINING_V1: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_LAYOUT_TRAINING_V1:?Run scripts/bootstrap-env-secrets.sh actions first}
+      LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:?Run scripts/operations/bootstrap-env-secrets.sh actions first}
+      LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_LAYOUT_TRAINING_V1: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_LAYOUT_TRAINING_V1:?Run scripts/operations/bootstrap-env-secrets.sh actions first}
       LAREX_DEV_KRAKEN_ACTION_ENABLED: ${LAREX_DEV_KRAKEN_ACTION_ENABLED:-true}
       LAREX_DEV_KRAKEN_ACTION_ENDPOINT_URL: http://action-kraken-segmentation:9000/dispatch
       LAREX_DEV_KRAKEN_ACTION_HEALTH_URL: http://action-kraken-segmentation:9000/health
@@ -39,7 +39,7 @@ services:
       - action-kraken
     image: ${LAREX_ACTION_KRAKEN_IMAGE:-ghcr.io/ocr4all/larex-action-kraken:${LAREX_ACTION_KRAKEN_IMAGE_TAG:-0.6.0}}
     environment:
-      LAREX_DISPATCH_HMAC_SECRET: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:?Run scripts/bootstrap-env-secrets.sh actions first}
+      LAREX_DISPATCH_HMAC_SECRET: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:?Run scripts/operations/bootstrap-env-secrets.sh actions first}
       LAREX_PROCESSOR_ID: kraken-segmentation
       LAREX_ALLOWED_CALLBACK_ORIGINS: ${LAREX_ACTIONS_CALLBACK_ALLOWED_ORIGINS:-http://app:8080}
       KRAKEN_DEVICE: ${KRAKEN_DEVICE:-cpu}
@@ -87,7 +87,7 @@ services:
     image: ${LAREX_ACTION_KRAKEN_IMAGE:-ghcr.io/ocr4all/larex-action-kraken:${LAREX_ACTION_KRAKEN_IMAGE_TAG:-0.6.0}}
     command: ["uvicorn", "larex_action_kraken.training:app", "--host", "0.0.0.0", "--port", "9000"]
     environment:
-      LAREX_DISPATCH_HMAC_SECRET: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_LAYOUT_TRAINING_V1:?Run scripts/bootstrap-env-secrets.sh actions first}
+      LAREX_DISPATCH_HMAC_SECRET: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_LAYOUT_TRAINING_V1:?Run scripts/operations/bootstrap-env-secrets.sh actions first}
       LAREX_PROCESSOR_ID: kraken-layout-training
       LAREX_ALLOWED_CALLBACK_ORIGINS: ${LAREX_ACTIONS_CALLBACK_ALLOWED_ORIGINS:-http://app:8080}
       KRAKEN_DEVICE: ${KRAKEN_DEVICE:-cpu}

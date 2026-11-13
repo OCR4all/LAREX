@@ -39,7 +39,7 @@ workflow.
 
 Both bundled and external Keycloak use the separately shipped theme JAR without
 replacing the official Keycloak image. Before installation, run
-`bash scripts/verify-keycloak-theme.sh` to verify GitHub release provenance.
+`bash scripts/operations/verify-keycloak-theme.sh` to verify GitHub release provenance.
 See [KEYCLOAK-THEME.md](KEYCLOAK-THEME.md) for checksums, standalone downloads,
 external container mounts, theme selection, and upgrades.
 
@@ -48,7 +48,7 @@ external container mounts, theme selection, and upgrades.
 Review `deployment/env/.env.prod.example`, then generate local secrets:
 
 ```bash
-bash scripts/bootstrap-env-secrets.sh prod
+bash scripts/operations/bootstrap-env-secrets.sh prod
 ```
 
 Start LAREX with bundled Keycloak behind an existing reverse proxy:

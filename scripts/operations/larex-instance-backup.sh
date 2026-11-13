@@ -5,7 +5,7 @@ set -Eeuo pipefail
 FORMAT_NAME="larex-instance-backup"
 FORMAT_VERSION="1.0"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 COMMAND=""
 ARCHIVE=""
@@ -55,10 +55,10 @@ Options:
   -h, --help                Show this help
 
 Examples:
-  ./scripts/larex-instance-backup.sh create --profile prod
-  ./scripts/larex-instance-backup.sh verify backups/larex-instance-*.tar.gz
-  ./scripts/larex-instance-backup.sh preflight BACKUP --profile prod
-  ./scripts/larex-instance-backup.sh restore BACKUP --profile prod --yes
+  ./scripts/operations/larex-instance-backup.sh create --profile prod
+  ./scripts/operations/larex-instance-backup.sh verify backups/larex-instance-*.tar.gz
+  ./scripts/operations/larex-instance-backup.sh preflight BACKUP --profile prod
+  ./scripts/operations/larex-instance-backup.sh restore BACKUP --profile prod --yes
 
 The default snapshot deliberately excludes environment files and secrets. Use
 --include-config only when the archive will be stored with secret-grade controls.

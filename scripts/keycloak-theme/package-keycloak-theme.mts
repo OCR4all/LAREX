@@ -69,7 +69,7 @@ export async function packageTheme(
     keycloakVersion: '26.7.4', sha256,
     source: { repository: 'ocr4all/larex', commit },
     // A local build does not have release provenance; do not imply that it does.
-    provenance: commit ? 'Verify release attestation with scripts/verify-keycloak-theme.sh' : 'local-unattested'
+    provenance: commit ? 'Verify release attestation with scripts/operations/verify-keycloak-theme.sh' : 'local-unattested'
   }
   await writeFile(join(outputDirectory, 'theme.json'), `${JSON.stringify(metadata, null, 2)}\n`)
 }
@@ -77,7 +77,7 @@ export async function packageTheme(
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [jarPath, outputDirectory, version, commit] = process.argv.slice(2)
   if (!jarPath || !outputDirectory || !version) {
-    throw new Error('Usage: node --experimental-strip-types scripts/package-keycloak-theme.mts <jar> <output-directory> <version> [source-commit]')
+    throw new Error('Usage: node --experimental-strip-types scripts/keycloak-theme/package-keycloak-theme.mts <jar> <output-directory> <version> [source-commit]')
   }
   await packageTheme(resolve(jarPath), resolve(outputDirectory), version, commit)
 }

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TEMP_PARENT="${1:-${TMPDIR:-/tmp}}"
 
 fail() {
@@ -36,7 +36,7 @@ EXTRACTED_ROOT="$TEST_ROOT/extracted"
 DIGEST="sha256:$(printf '0%.0s' {1..64})"
 COMMIT="0123456789abcdef0123456789abcdef01234567"
 
-bash "$ROOT_DIR/scripts/build-deployment-package.sh" "$VERSION" "$TEST_ROOT" >/dev/null
+bash "$ROOT_DIR/scripts/release/build-deployment-package.sh" "$VERSION" "$TEST_ROOT" >/dev/null
 
 read -r EXPECTED_ARCHIVE_SHA256 CHECKSUM_ARCHIVE < "$CHECKSUM_PATH"
 [[ "$CHECKSUM_ARCHIVE" == "$ARCHIVE_NAME" ]] \
@@ -66,7 +66,7 @@ ACTUAL_FILES="$(find "$BUNDLE_ROOT" -type f | wc -l | tr -d '[:space:]')"
 [[ -z "$(find "$BUNDLE_ROOT" -type l -print -quit)" ]] \
   || fail "Deployment bundle contains a symlink"
 
-bash "$ROOT_DIR/scripts/build-release-manifest.sh" \
+bash "$ROOT_DIR/scripts/release/build-release-manifest.sh" \
   "$VERSION" \
   "$TEST_ROOT" \
   ocr4all/larex \
@@ -95,13 +95,13 @@ jq -e --arg digest "$THEME_SHA256" \
 [[ "$(sha256_file "$BUNDLE_ROOT/config/keycloak/theme.jar")" == "$THEME_SHA256" ]] \
   || fail "Standalone and bundled theme differ"
 printf 'tampered\n' >> "$THEME_PATH"
-if bash "$ROOT_DIR/scripts/build-release-manifest.sh" \
+if bash "$ROOT_DIR/scripts/release/build-release-manifest.sh" \
   "$VERSION" "$TEST_ROOT" ocr4all/larex "$COMMIT" "$DIGEST" "$DIGEST" "$DIGEST" >/dev/null 2>&1; then
   fail "Release manifest accepted a tampered theme"
 fi
 # Even a recalculated checksum must not allow a different standalone theme.
 printf '%s  %s\n' "$(sha256_file "$THEME_PATH")" "$(basename "$THEME_PATH")" > "$THEME_PATH.sha256"
-if bash "$ROOT_DIR/scripts/build-release-manifest.sh" \
+if bash "$ROOT_DIR/scripts/release/build-release-manifest.sh" \
   "$VERSION" "$TEST_ROOT" ocr4all/larex "$COMMIT" "$DIGEST" "$DIGEST" "$DIGEST" >/dev/null 2>&1; then
   fail "Release manifest accepted differing standalone and bundled themes"
 fi
@@ -109,7 +109,7 @@ cp "$BUNDLE_ROOT/config/keycloak/theme.jar" "$THEME_PATH"
 printf '%s  %s\n' "$THEME_SHA256" "$(basename "$THEME_PATH")" > "$THEME_PATH.sha256"
 
 printf 'tampered\n' >> "$ARCHIVE_PATH"
-if bash "$ROOT_DIR/scripts/build-release-manifest.sh" \
+if bash "$ROOT_DIR/scripts/release/build-release-manifest.sh" \
   "$VERSION" \
   "$TEST_ROOT" \
   ocr4all/larex \

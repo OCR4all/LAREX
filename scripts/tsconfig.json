@@ -13,5 +13,5 @@
     "types": ["node"],
     "typeRoots": ["../keycloak-theme/node_modules/@types"]
   },
-  "include": ["*.mts"]
+  "include": ["*/*.mts"]
 }

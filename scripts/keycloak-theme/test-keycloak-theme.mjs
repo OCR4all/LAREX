@@ -46,7 +46,7 @@ test('verification restricts publisher and propagates attestation failure', asyn
     const argumentsPath = join(temporary, 'arguments')
     await writeFile(join(temporary, 'gh'), '#!/bin/sh\nprintf "%s\\n" "$@" > "$THEME_TEST_ARGUMENTS"\nexit "$THEME_TEST_EXIT"\n', { mode: 0o755 })
     for (const exitCode of ['0', '1']) {
-      const result = spawnSync('bash', ['scripts/verify-keycloak-theme.sh'], {
+      const result = spawnSync('bash', ['scripts/operations/verify-keycloak-theme.sh'], {
         env: { ...process.env, PATH: `${temporary}:${process.env.PATH}`,
           THEME_TEST_ARGUMENTS: argumentsPath, THEME_TEST_EXIT: exitCode }
       })

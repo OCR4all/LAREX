@@ -2,14 +2,14 @@
 #
 # Synchronize VERSION file to all project package files
 #
-# Usage: ./scripts/version-sync.sh [version]
+# Usage: ./scripts/release/version-sync.sh [version]
 #   If version is provided, it will update the VERSION file first
 #   Otherwise, reads the current VERSION file
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Colors for output
 RED='\033[0;31m'

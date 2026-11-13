@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VERSION="${1:-$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")}"
 OUTPUT_DIR="${2:-$ROOT_DIR/dist}"
-FILE_LIST="$ROOT_DIR/scripts/deployment-bundle-files.txt"
+FILE_LIST="$ROOT_DIR/scripts/release/deployment-bundle-files.txt"
 
 fail() {
   echo "$*" >&2

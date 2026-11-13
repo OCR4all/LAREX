@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto'
-import { packageTheme, type ThemeMetadata } from './package-keycloak-theme.mts'
+import { packageTheme, type ThemeMetadata } from '../keycloak-theme/package-keycloak-theme.mts'
 import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const scriptsDirectory = dirname(fileURLToPath(import.meta.url))
-const repositoryRoot = resolve(scriptsDirectory, '..')
+const repositoryRoot = resolve(scriptsDirectory, '../..')
 const outputDirectory = join(repositoryRoot, 'docs/public/installer-assets')
 const fileListPath = join(scriptsDirectory, 'deployment-bundle-files.txt')
 

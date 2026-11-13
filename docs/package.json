@@ -5,7 +5,7 @@
     "node": ">=22.18.0"
   },
   "scripts": {
-    "prepare:installer-assets": "node --experimental-strip-types ../scripts/stage-docs-installer-assets.mts",
+    "prepare:installer-assets": "node --experimental-strip-types ../scripts/release/stage-docs-installer-assets.mts",
     "predev": "pnpm prepare:installer-assets",
     "dev": "nuxt dev",
     "prebuild": "pnpm prepare:installer-assets",

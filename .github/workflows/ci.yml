@@ -298,7 +298,7 @@ jobs:
               ' >/dev/null
 
       - name: Build supported deployment package
-        run: bash ./scripts/test-release-artifacts.sh "$RUNNER_TEMP"
+        run: bash ./scripts/release/test-release-artifacts.sh "$RUNNER_TEMP"
 
       - name: Check for removed deployment references
         run: |

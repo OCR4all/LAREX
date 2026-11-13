@@ -12,7 +12,7 @@ import java.util.Set;
 
 /**
  * Refuses to start a production backend with publicly known placeholder or development secrets.
- * Run {@code scripts/bootstrap-env-secrets.sh prod} to generate real values.
+ * Run {@code scripts/operations/bootstrap-env-secrets.sh prod} to generate real values.
  */
 @Component
 @Profile("prod")
@@ -48,7 +48,7 @@ public class ProductionSecretsValidator implements InitializingBean {
                 "LAREX_ACTION_ENDPOINT_SECRET_ENCRYPTION_KEY", true, MIN_SHARED_SECRET_LENGTH);
         if (!problems.isEmpty()) {
             throw new IllegalStateException("Insecure production configuration: " + String.join("; ", problems)
-                    + ". Run scripts/bootstrap-env-secrets.sh prod to generate secrets.");
+                    + ". Run scripts/operations/bootstrap-env-secrets.sh prod to generate secrets.");
         }
     }
 

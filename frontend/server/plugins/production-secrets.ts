@@ -14,6 +14,6 @@ export default defineNitroPlugin(() => {
   })
 
   if (problems.length > 0) {
-    throw new Error(`Insecure production configuration: ${problems.join('; ')}. Run scripts/bootstrap-env-secrets.sh prod to generate secrets.`)
+    throw new Error(`Insecure production configuration: ${problems.join('; ')}. Run scripts/operations/bootstrap-env-secrets.sh prod to generate secrets.`)
   }
 })
