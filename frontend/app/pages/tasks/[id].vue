@@ -662,7 +662,7 @@ const tabItems = [
               variant="subtle"
               icon="i-lucide-archive"
               title="This Assignment is archived"
-              description="It is hidden from the Assignments list, its Tasks are out of the queues and it can't be changed."
+              description="It is hidden from the Assignments list and its Tasks are out of the queues. Its details and Tasks can't be changed, but you can still comment."
               :actions="canArchive ? [{ label: 'Unarchive', icon: 'i-lucide-archive-restore', color: 'neutral', variant: 'outline', loading: pendingLifecycleAction === 'archived', onClick: () => setLifecycleFlag('archived', false) }] : []"
             />
             <UAlert
@@ -721,6 +721,8 @@ const tabItems = [
                 <TaskDetailComments
                   :task-id="taskId"
                   :comments="comments ?? []"
+                  :can-comment="allow(taskCapabilities.canComment)"
+                  :can-moderate="allow(taskCapabilities.canDelete)"
                   @refresh="refreshComments"
                 />
               </div>

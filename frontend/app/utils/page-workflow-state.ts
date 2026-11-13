@@ -56,3 +56,9 @@ export function filterReviewPages(pages: ReviewQueuePage[], filters: ReviewQueue
     && (!filters.taskId || page.assignments?.some(assignment => assignment.id === filters.taskId))
   )
 }
+
+export function reviewSubmitterName(page: ReviewQueuePage) {
+  const submitter = page.submittedBy
+  if (submitter?.firstName && submitter.lastName) return `${submitter.firstName} ${submitter.lastName}`
+  return submitter?.username ?? 'Unknown'
+}

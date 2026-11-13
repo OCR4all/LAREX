@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { Task } from '~/types/index'
-import { isPast } from 'date-fns'
 
 const { formatDateTime } = useLocalDateTimeFormatter()
 
@@ -54,11 +53,7 @@ const priorityLabel = computed(() => {
   return value.charAt(0).toUpperCase() + value.slice(1)
 })
 
-const isOverdue = computed(() => {
-  if (!props.task.dueDate) return false
-  if (props.task.status === 'COMPLETED' || props.task.status === 'PAUSED' || isTaskArchived(props.task)) return false
-  return isPast(normalizeLocalDateTimeInput(props.task.dueDate)!)
-})
+const isOverdue = computed(() => isTaskOverdue(props.task))
 
 const dueDateText = computed(() => {
   if (!props.task.dueDate) return null

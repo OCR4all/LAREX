@@ -329,9 +329,13 @@ public class TaskService {
         Task.TaskStatus oldStatus = task.getStatus();
         Task.TaskStatus newStatus = paused ? Task.TaskStatus.PAUSED : taskProgressService.deriveStatus(taskId);
         task.setStatus(newStatus);
-        boolean completed = newStatus == Task.TaskStatus.COMPLETED;
-        task.setCompletedAt(completed ? LocalDateTime.now() : null);
-        task.setCompletedByUserId(completed ? userId : null);
+        if (newStatus == Task.TaskStatus.COMPLETED && task.getCompletedAt() == null) {
+            task.setCompletedAt(LocalDateTime.now());
+            task.setCompletedByUserId(userId);
+        } else if (!paused && newStatus != Task.TaskStatus.COMPLETED) {
+            task.setCompletedAt(null);
+            task.setCompletedByUserId(null);
+        }
         taskRepository.save(task);
         activityService.logStatusChanged(taskId, userId, oldStatus, newStatus);
 
@@ -550,7 +554,8 @@ public class TaskService {
 
         Map<String, UserDto> users = userService.getUsersByIds(new ArrayList<>(userIds));
         Map<String, SubtaskDto.ProgressResponse> progress = loadProgress(tasks.stream().map(Task::getId).toList());
-        return tasks.stream().map(task -> mapTask(task, users, progress, userId)).toList();
+        var capabilities = authorizationPolicyService.taskCapabilityResolver(userId);
+        return tasks.stream().map(task -> mapTask(task, users, progress, capabilities.apply(task))).toList();
     }
 
     private Map<String, SubtaskDto.ProgressResponse> loadProgress(List<String> taskIds) {
@@ -574,10 +579,12 @@ public class TaskService {
         if (task.getAssignedUserIds() != null) userIds.addAll(task.getAssignedUserIds());
         if (task.getCompletedByUserId() != null) userIds.add(task.getCompletedByUserId());
         Map<String, UserDto> users = userService.getUsersByIds(new ArrayList<>(userIds));
-        return mapTask(task, users, loadProgress(List.of(task.getId())), userId);
+        return mapTask(task, users, loadProgress(List.of(task.getId())),
+                authorizationPolicyService.resolveTaskCapabilities(task, userId));
     }
 
-    private TaskDto.Response mapTask(Task task, Map<String, UserDto> users, Map<String, SubtaskDto.ProgressResponse> progress, String userId) {
+    private TaskDto.Response mapTask(Task task, Map<String, UserDto> users, Map<String, SubtaskDto.ProgressResponse> progress,
+                                     de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto.TaskCapabilities capabilities) {
         List<String> assignedUserIds = task.getAssignedUserIds() == null ? List.of() : List.copyOf(task.getAssignedUserIds());
         List<UserDto> assignedUsers = assignedUserIds.stream()
                 .map(users::get)
@@ -603,7 +610,7 @@ public class TaskService {
                 task.getPageCompletion(),
                 task.getArchivedAt(),
                 progress.getOrDefault(task.getId(), toProgress(0, 0)),
-                authorizationPolicyService.resolveTaskCapabilities(task, userId)
+                capabilities
         );
     }
 }

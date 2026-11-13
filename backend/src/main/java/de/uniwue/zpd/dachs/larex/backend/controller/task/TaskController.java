@@ -22,6 +22,10 @@ import java.util.List;
 @RequestMapping
 public class TaskController {
 
+    private static final java.util.Set<String> SORTABLE_FIELDS = java.util.Set.of(
+            "updated", "created", "title", "priority", "status", "dueDate", "completedAt", "archivedAt");
+    private static final int MAX_PAGE_SIZE = 200;
+
     private final TaskService taskService;
     private final BulkTaskService bulkTaskService;
     private final SubtaskService subtaskService;
@@ -59,7 +63,10 @@ public class TaskController {
             @AuthenticationPrincipal(expression = "subject") String userId
     ) {
         if (page != null && size != null) {
-            PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, sort));
+            if (!SORTABLE_FIELDS.contains(sort)) {
+                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported sort field: " + sort);
+            }
+            PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, MAX_PAGE_SIZE), Sort.by(Sort.Direction.DESC, sort));
             PaginatedResponse<TaskDto.Response> tasks = taskService.listWorkspaceTasksPaginated(workspaceId, userId, status, assignedToMe, includeArchived, pageable);
             return ResponseEntity.ok(tasks);
         }

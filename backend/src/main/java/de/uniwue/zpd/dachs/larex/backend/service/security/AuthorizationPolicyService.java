@@ -230,21 +230,38 @@ public class AuthorizationPolicyService {
     }
 
     public AuthorizationCapabilitiesDto.TaskCapabilities resolveTaskCapabilities(Task task, String userId) {
-        String workspaceId = task.getWorkspaceId();
-        boolean canAccessWorkspace = canAccessWorkspace(workspaceId, userId);
-        if (!canAccessWorkspace) {
-            return new AuthorizationCapabilitiesDto.TaskCapabilities(false, false, false, false, false);
-        }
+        return taskCapabilityResolver(userId).apply(task);
+    }
 
-        boolean canManageTasks = canManageTasks(workspaceId, userId);
+    public java.util.function.Function<Task, AuthorizationCapabilitiesDto.TaskCapabilities> taskCapabilityResolver(String userId) {
+        java.util.Map<String, boolean[]> rightsByWorkspace = new java.util.HashMap<>();
+        return task -> {
+            boolean[] rights = rightsByWorkspace.computeIfAbsent(task.getWorkspaceId(), workspaceId -> {
+                boolean canAccess = canAccessWorkspace(workspaceId, userId);
+                return new boolean[]{canAccess, canAccess && canManageTasks(workspaceId, userId)};
+            });
+            if (!rights[0]) {
+                return new AuthorizationCapabilitiesDto.TaskCapabilities(false, false, false, false, false, false);
+            }
+            boolean canManageTasks = rights[1];
+            return new AuthorizationCapabilitiesDto.TaskCapabilities(
+                    canManageTasks,
+                    canManageTasks,
+                    canManageTasks,
+                    canManageTasks,
+                    canManageTasks,
+                    canManageTasks || isTaskAssignee(task, userId)
+            );
+        };
+    }
 
-        return new AuthorizationCapabilitiesDto.TaskCapabilities(
-                canManageTasks,
-                canManageTasks,
-                canManageTasks,
-                canManageTasks,
-                canManageTasks
-        );
+    public boolean canCommentOnTask(Task task, String userId) {
+        return canAccessWorkspace(task.getWorkspaceId(), userId)
+                && (canManageTasks(task.getWorkspaceId(), userId) || isTaskAssignee(task, userId));
+    }
+
+    private static boolean isTaskAssignee(Task task, String userId) {
+        return task.getAssignedUserIds() != null && task.getAssignedUserIds().contains(userId);
     }
 
     public AuthorizationCapabilitiesDto.ResourceCapabilities resolveWorkspaceResourceCapabilities(String workspaceId, String userId) {

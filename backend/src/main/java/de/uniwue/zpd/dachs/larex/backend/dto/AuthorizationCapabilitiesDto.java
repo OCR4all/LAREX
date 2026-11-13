@@ -52,7 +52,8 @@ public class AuthorizationCapabilitiesDto {
             boolean canDelete,
             boolean canAssignOthers,
             boolean canPause,
-            boolean canArchive
+            boolean canArchive,
+            boolean canComment
     ) {}
 
     public record ResourceCapabilities(

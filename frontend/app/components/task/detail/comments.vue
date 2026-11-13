@@ -4,6 +4,8 @@ import type { TaskComment } from '~/types/index'
 const props = defineProps<{
   taskId: string
   comments: TaskComment[]
+  canComment: boolean
+  canModerate: boolean
 }>()
 
 const emit = defineEmits<{
@@ -89,7 +91,7 @@ function getDisplayName(comment: TaskComment) {
 
 <template>
   <div class="space-y-4">
-    <div class="space-y-2">
+    <div v-if="canComment" class="space-y-2">
       <UTextarea
         v-model="newComment"
         placeholder="Write a comment... (use @username to mention)"
@@ -107,7 +109,7 @@ function getDisplayName(comment: TaskComment) {
       </div>
     </div>
 
-    <USeparator v-if="comments.length > 0" />
+    <USeparator v-if="canComment && comments.length > 0" />
 
     <div v-if="comments.length > 0" class="space-y-4">
       <div
@@ -161,8 +163,9 @@ function getDisplayName(comment: TaskComment) {
               {{ comment.content }}
             </p>
 
-            <div v-if="comment.userId === currentUserId" class="mt-2 flex gap-2">
+            <div v-if="comment.userId === currentUserId || canModerate" class="mt-2 flex gap-2">
               <UButton
+                v-if="comment.userId === currentUserId && canComment"
                 size="xs"
                 color="neutral"
                 variant="ghost"

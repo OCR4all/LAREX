@@ -3,6 +3,7 @@ import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import type { EditorQueue, ReviewQueue, Task, TaskStatus, TaskPriority, UserProfile, WorkspaceMember } from '~/types/index'
 import { useEditorSessionStore, type ReviewQueueFilters } from '@/stores/editor/editor.session.store'
 import { LazyUiDeleteSlideover, LazyTaskSlideoverEdit } from '#components'
+import type { TaskDueFilter } from '~/utils/task-status'
 
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
@@ -11,6 +12,7 @@ const UDropdownMenu = resolveComponent('UDropdownMenu')
 const AppAvatar = resolveComponent('AppAvatar')
 const UTooltip = resolveComponent('UTooltip')
 const TaskSubtaskProgress = resolveComponent('TaskSubtaskProgress')
+const UIcon = resolveComponent('UIcon')
 
 const route = useRoute()
 const toast = useToast()
@@ -47,7 +49,14 @@ const showArchived = useCookie<boolean>('larex-tasks-show-archived', {
   maxAge: 60 * 60 * 24 * 365,
   sameSite: 'lax'
 })
-const assignedToMe = ref(true)
+const assignedToMe = ref(false)
+const dueFilter = ref<TaskDueFilter>('ALL')
+const { formatDateTime } = useLocalDateTimeFormatter()
+const dueFilterOptions: Array<{ label: string, value: TaskDueFilter }> = [
+  { label: 'Any due date', value: 'ALL' },
+  { label: 'Overdue', value: 'OVERDUE' },
+  { label: 'Due within 7 days', value: 'DUE_SOON' }
+]
 const q = ref('')
 const isOpeningTaskQueue = ref(false)
 const reviewFilters = ref<ReviewQueueFilters>(typeof route.query.project === 'string' ? { projectId: route.query.project } : {})
@@ -74,6 +83,14 @@ const activeTaskFilters = computed(() => {
     })
   }
 
+  if (dueFilter.value !== 'ALL') {
+    filters.push({
+      key: 'due',
+      label: dueFilterOptions.find(option => option.value === dueFilter.value)?.label ?? dueFilter.value,
+      clear: () => { dueFilter.value = 'ALL' }
+    })
+  }
+
   if (showArchived.value) {
     filters.push({
       key: 'showArchived',
@@ -96,6 +113,7 @@ const activeTaskFilters = computed(() => {
 function clearTaskFilters() {
   q.value = ''
   statusFilter.value = 'ALL'
+  dueFilter.value = 'ALL'
   showArchived.value = false
   assignedToMe.value = false
 }
@@ -189,9 +207,14 @@ watch([selectedWorkspace, canReviewPages, capabilitiesPending], () => {
 usePageWorkflowRealtime((change) => {
   if (change.workspaceId === selectedWorkspace.value) void refreshReviewQueue()
 })
+useAssignmentsRealtime(selectedWorkspace, async () => {
+  await Promise.all([refreshNuxtData(tasksKey.value), refreshTaskQueue()])
+})
 
 const filteredTasks = computed(() => {
-  const source = Array.isArray(tasksSafe.value) ? tasksSafe.value : []
+  const now = new Date()
+  const source = (Array.isArray(tasksSafe.value) ? tasksSafe.value : [])
+    .filter(t => matchesTaskDueFilter(t, dueFilter.value, now))
   if (!q.value) return source
   const search = q.value.toLowerCase()
   return source.filter(t =>
@@ -502,6 +525,27 @@ const columns: TableColumn<Task>[] = [
     cell: ({ row }) => h(UBadge, { variant: 'subtle', size: 'sm', color: priorityColor(row.original.priority) }, () => row.original.priority)
   },
   {
+    accessorKey: 'dueDate',
+    header: 'Due',
+    cell: ({ row }) => {
+      if (!row.original.dueDate) return h('span', { class: 'text-sm text-muted' }, '—')
+      const overdue = isTaskOverdue(row.original)
+      return h('span', {
+        class: ['inline-flex items-center gap-1 text-sm whitespace-nowrap', overdue ? 'font-medium text-error' : 'text-muted']
+      }, [
+        overdue ? h(UIcon, { name: 'i-lucide-calendar-x-2', class: 'size-4' }) : null,
+        formatDateTime(row.original.dueDate, { day: 'numeric', month: 'short', year: 'numeric' })
+      ])
+    }
+  },
+  {
+    accessorKey: 'completedAt',
+    header: 'Completed',
+    cell: ({ row }) => row.original.completedAt
+      ? h('span', { class: 'text-sm text-muted whitespace-nowrap' }, formatDateTime(row.original.completedAt, { day: 'numeric', month: 'short', year: 'numeric' }))
+      : h('span', { class: 'text-sm text-muted' }, '—')
+  },
+  {
     accessorKey: 'assignees',
     header: 'Assignees',
     cell: ({ row }) => {
@@ -632,36 +676,51 @@ const viewModeItems = computed(() => [
 
       <UDashboardToolbar>
         <template #left>
-          <template v-if="viewMode !== 'review'">
-            <UInput
-              v-model="q"
-              data-tour="tasks-search"
-              placeholder="Search assignments..."
-              icon="i-lucide-search"
-              class="w-64"
-            />
-            <USelect
-              v-if="viewMode === 'table'"
-              v-model="statusFilter"
-              :items="statusFilterOptions"
-              value-key="value"
-              class="w-40"
-            />
-            <UCheckbox
-              v-model="assignedToMe"
-              label="Assigned to me"
-              class="ml-1"
-            />
-            <USwitch
-              v-model="showArchived"
-              label="Show archived"
-              class="ml-2"
-            />
+          <div v-if="viewMode !== 'review'" class="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div class="flex items-center gap-2">
+              <UInput
+                v-model="q"
+                data-tour="tasks-search"
+                placeholder="Search assignments..."
+                icon="i-lucide-search"
+                class="w-64"
+              />
+              <USelect
+                v-model="dueFilter"
+                :items="dueFilterOptions"
+                value-key="value"
+                icon="i-lucide-calendar-days"
+                class="w-48"
+              />
+              <USelect
+                v-if="viewMode === 'table'"
+                v-model="statusFilter"
+                :items="statusFilterOptions"
+                value-key="value"
+                class="w-40"
+              />
+            </div>
+            <USeparator orientation="vertical" class="h-5" />
+            <div class="flex items-center gap-4">
+              <USwitch
+                v-model="assignedToMe"
+                label="Assigned to me"
+              />
+              <USwitch
+                v-model="showArchived"
+                label="Show archived"
+              />
+            </div>
             <AppTableClearFiltersButton
               :active="activeTaskFilters.length > 0"
               @clear="clearTaskFilters"
             />
-          </template>
+          </div>
+          <TaskReviewQueueFilters
+            v-else
+            v-model:filters="reviewFilters"
+            :queue="reviewQueue"
+          />
         </template>
         <template #right>
           <div class="flex items-center gap-2">

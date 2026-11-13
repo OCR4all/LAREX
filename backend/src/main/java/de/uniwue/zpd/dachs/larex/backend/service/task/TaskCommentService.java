@@ -8,6 +8,7 @@ import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskCommentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class TaskCommentService {
     private final UserService userService;
     private final TaskActivityService activityService;
     private final NotificationService notificationService;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     public TaskCommentService(
             TaskCommentRepository commentRepository,
@@ -38,7 +40,8 @@ public class TaskCommentService {
             WorkspaceAccessService workspaceAccessService,
             UserService userService,
             TaskActivityService activityService,
-            NotificationService notificationService
+            NotificationService notificationService,
+            AuthorizationPolicyService authorizationPolicyService
     ) {
         this.commentRepository = commentRepository;
         this.taskRepository = taskRepository;
@@ -46,6 +49,7 @@ public class TaskCommentService {
         this.userService = userService;
         this.activityService = activityService;
         this.notificationService = notificationService;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     public List<TaskCommentDto.Response> getTaskComments(String taskId, String userId) {
@@ -64,14 +68,14 @@ public class TaskCommentService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
-        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
+        requireCommentAccess(task, userId);
 
         TaskComment comment = new TaskComment(taskId, userId, request.content().trim());
 
         // Extract @mentions
         List<String> mentionedUsernames = extractMentions(request.content());
         if (!mentionedUsernames.isEmpty()) {
-            List<String> mentionedUserIds = resolveUsernames(mentionedUsernames);
+            List<String> mentionedUserIds = resolveMentionedMembers(task, mentionedUsernames);
             comment.setMentionedUserIds(mentionedUserIds);
 
             // Send notifications to mentioned users
@@ -107,7 +111,7 @@ public class TaskCommentService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
-        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
+        requireCommentAccess(task, userId);
 
         TaskComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment", commentId));
@@ -125,7 +129,7 @@ public class TaskCommentService {
 
         // Re-extract @mentions
         List<String> mentionedUsernames = extractMentions(request.content());
-        List<String> newMentionedUserIds = mentionedUsernames.isEmpty() ? List.of() : resolveUsernames(mentionedUsernames);
+        List<String> newMentionedUserIds = mentionedUsernames.isEmpty() ? List.of() : resolveMentionedMembers(task, mentionedUsernames);
 
         // Find newly mentioned users
         Set<String> previousMentions = new HashSet<>(comment.getMentionedUserIds());
@@ -148,7 +152,9 @@ public class TaskCommentService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment", taskId));
 
-        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
+        if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
+            throw new SecurityException("Access denied.");
+        }
 
         TaskComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment", commentId));
@@ -157,8 +163,7 @@ public class TaskCommentService {
             throw new IllegalArgumentException("Comment does not belong to this task.");
         }
 
-        // Preserve author ownership for non-admin users.
-        boolean isManager = workspaceAccessService.isUserAdministrator(task.getWorkspaceId(), userId);
+        boolean isManager = authorizationPolicyService.canManageTasks(task.getWorkspaceId(), userId);
         if (!comment.getUserId().equals(userId) && !isManager) {
             throw new SecurityException("You can only delete your own comments.");
         }
@@ -178,8 +183,16 @@ public class TaskCommentService {
         return mentions;
     }
 
-    private List<String> resolveUsernames(List<String> usernames) {
-        return userService.getUserIdsByUsernames(usernames);
+    private List<String> resolveMentionedMembers(Task task, List<String> usernames) {
+        return userService.getUserIdsByUsernames(usernames).stream()
+                .filter(id -> workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), id))
+                .toList();
+    }
+
+    private void requireCommentAccess(Task task, String userId) {
+        if (!authorizationPolicyService.canCommentOnTask(task, userId)) {
+            throw new SecurityException("Only curators and the Assignment's members can comment.");
+        }
     }
 
     private List<TaskCommentDto.Response> mapComments(List<TaskComment> comments) {

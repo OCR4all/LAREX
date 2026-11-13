@@ -15,10 +15,9 @@ const emit = defineEmits<{
     v-if="active"
     type="button"
     icon="i-lucide-x"
-    color="primary"
-    variant="soft"
-    size="sm"
-    class="shrink-0"
+    color="neutral"
+    variant="ghost"
+    class="shrink-0 text-muted hover:text-highlighted"
     @click="emit('clear')"
   >
     Clear filters

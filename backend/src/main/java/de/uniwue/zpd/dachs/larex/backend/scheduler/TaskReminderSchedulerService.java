@@ -114,9 +114,15 @@ public class TaskReminderSchedulerService {
         LocalDateTime now = LocalDateTime.now();
 
         List<TaskReminder> pendingReminders = reminderRepository.findBySentFalseAndReminderTimeBefore(now);
+        if (pendingReminders.isEmpty()) {
+            return;
+        }
+        java.util.Map<String, Task> tasksById = new java.util.HashMap<>();
+        taskRepository.findAllById(pendingReminders.stream().map(TaskReminder::getTaskId).distinct().toList())
+                .forEach(task -> tasksById.put(task.getId(), task));
 
         for (TaskReminder reminder : pendingReminders) {
-            Task task = taskRepository.findById(reminder.getTaskId()).orElse(null);
+            Task task = tasksById.get(reminder.getTaskId());
 
             if (task != null && task.getStatus() != Task.TaskStatus.COMPLETED && task.isActive()) {
                 notificationService.createNotification(
@@ -131,8 +137,8 @@ public class TaskReminderSchedulerService {
             }
 
             reminder.setSent(true);
-            reminderRepository.save(reminder);
         }
+        reminderRepository.saveAll(pendingReminders);
     }
 
     private void cleanupNotifiedSet(Set<String> set) {

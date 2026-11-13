@@ -19,45 +19,10 @@ const UCheckbox = resolveComponent('UCheckbox')
 const toast = useToast()
 const pageWorkflow = usePageWorkflow()
 
-const ALL = 'all'
 const selectedPageIds = ref<Set<string>>(new Set())
 const isApplying = ref(false)
 
-function displayName(page: ReviewQueuePage) {
-  const submitter = page.submittedBy
-  if (submitter?.firstName && submitter.lastName) return `${submitter.firstName} ${submitter.lastName}`
-  return submitter?.username ?? 'Unknown'
-}
-
-function uniqueOptions(allLabel: string, entries: Array<{ value: string, label: string }>) {
-  const unique = new Map(entries.map(entry => [entry.value, entry]))
-  return [{ value: ALL, label: allLabel }, ...unique.values()]
-}
-
-function filterModel(key: keyof ReviewQueueFilters) {
-  return computed({
-    get: () => filters.value[key] ?? ALL,
-    set: (value: string) => {
-      filters.value = { ...filters.value, [key]: value === ALL ? undefined : value }
-    }
-  })
-}
-
-const projectFilter = filterModel('projectId')
-const assignmentFilter = filterModel('taskId')
-const submitterFilter = filterModel('submittedBy')
-
 const queuePages = computed(() => props.queue?.pages ?? [])
-const projectOptions = computed(() => uniqueOptions('All projects', queuePages.value.map(page => ({
-  value: page.projectId,
-  label: page.projectName
-}))))
-const assignmentOptions = computed(() => uniqueOptions('All Assignments', queuePages.value.flatMap(page =>
-  (page.assignments ?? []).map(assignment => ({ value: assignment.id, label: assignment.title }))
-)))
-const submitterOptions = computed(() => uniqueOptions('All editors', queuePages.value.flatMap(page =>
-  page.submittedByUserId ? [{ value: page.submittedByUserId, label: displayName(page) }] : []
-)))
 
 const filteredPages = computed(() => filterReviewPages(queuePages.value, filters.value))
 const selectedPages = computed(() => filteredPages.value.filter(page => selectedPageIds.value.has(page.pageId) && !page.blocked))
@@ -102,7 +67,7 @@ const columns = computed<TableColumn<ReviewQueuePage>[]>(() => [
     header: 'Assignment',
     cell: ({ row }) => row.original.assignments?.map(assignment => assignment.title).join(', ') || '—'
   },
-  { id: 'submittedBy', header: 'Submitted by', cell: ({ row }) => displayName(row.original) },
+  { id: 'submittedBy', header: 'Submitted by', cell: ({ row }) => reviewSubmitterName(row.original) },
   {
     id: 'submittedAt',
     header: 'Submitted',
@@ -153,47 +118,6 @@ async function applyToSelection(action: Extract<PageWorkflowAction, 'APPROVE' | 
 
 <template>
   <div class="space-y-4">
-    <div class="flex flex-wrap items-center gap-2">
-      <USelectMenu
-        v-model="projectFilter"
-        :items="projectOptions"
-        value-key="value"
-        class="w-52"
-      />
-      <USelectMenu
-        v-model="assignmentFilter"
-        :items="assignmentOptions"
-        value-key="value"
-        class="w-52"
-      />
-      <USelectMenu
-        v-model="submitterFilter"
-        :items="submitterOptions"
-        value-key="value"
-        class="w-52"
-      />
-
-      <div v-if="selectedPages.length" class="ml-auto flex items-center gap-2">
-        <span class="text-sm text-muted">{{ selectedPages.length }} selected</span>
-        <UButton
-          color="success"
-          variant="soft"
-          icon="i-lucide-circle-check"
-          label="Approve"
-          :loading="isApplying"
-          @click="applyToSelection('APPROVE')"
-        />
-        <UButton
-          color="warning"
-          variant="soft"
-          icon="i-lucide-message-square-warning"
-          label="Request changes"
-          :disabled="isApplying"
-          @click="applyToSelection('REQUEST_CHANGES')"
-        />
-      </div>
-    </div>
-
     <UEmpty
       v-if="!loading && filteredPages.length === 0"
       variant="naked"
@@ -213,5 +137,23 @@ async function applyToSelection(action: Extract<PageWorkflowAction, 'APPROVE' | 
     <p v-if="hiddenPageCount > 0" class="text-sm text-muted">
       Showing the first {{ queuePages.length }} of {{ queue?.totalPageCount }} pages.
     </p>
+
+    <UiFloatingSelectionMenu
+      :selected-count="selectedPages.length"
+      @clear="toggleAll(false)"
+    >
+      <UiFloatingSelectionButton
+        label="Approve"
+        icon="i-lucide-circle-check"
+        :loading="isApplying"
+        @click="applyToSelection('APPROVE')"
+      />
+      <UiFloatingSelectionButton
+        label="Request changes"
+        icon="i-lucide-message-square-warning"
+        :disabled="isApplying"
+        @click="applyToSelection('REQUEST_CHANGES')"
+      />
+    </UiFloatingSelectionMenu>
   </div>
 </template>

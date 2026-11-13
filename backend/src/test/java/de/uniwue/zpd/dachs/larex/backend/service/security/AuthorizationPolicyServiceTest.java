@@ -324,6 +324,7 @@ class AuthorizationPolicyServiceTest {
         assertTrue(curatorCaps.canAssignOthers());
         assertTrue(curatorCaps.canPause());
         assertTrue(curatorCaps.canArchive());
+        assertTrue(curatorCaps.canComment());
 
         AuthorizationCapabilitiesDto.TaskCapabilities editorCaps = service.resolveTaskCapabilities(task, "editor");
         assertFalse(editorCaps.canEdit());
@@ -331,6 +332,10 @@ class AuthorizationPolicyServiceTest {
         assertFalse(editorCaps.canAssignOthers());
         assertFalse(editorCaps.canPause());
         assertFalse(editorCaps.canArchive());
+        assertFalse(editorCaps.canComment());
+
+        task.setAssignedUserIds(new java.util.ArrayList<>(java.util.List.of("editor", "outsider")));
+        assertTrue(service.resolveTaskCapabilities(task, "editor").canComment());
 
         AuthorizationCapabilitiesDto.TaskCapabilities outsiderCaps = service.resolveTaskCapabilities(task, "outsider");
         assertFalse(outsiderCaps.canEdit());
@@ -338,6 +343,7 @@ class AuthorizationPolicyServiceTest {
         assertFalse(outsiderCaps.canAssignOthers());
         assertFalse(outsiderCaps.canPause());
         assertFalse(outsiderCaps.canArchive());
+        assertFalse(outsiderCaps.canComment());
     }
 
     @Test

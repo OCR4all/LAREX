@@ -43,6 +43,7 @@ export interface TaskCapabilities {
   canAssignOthers: boolean
   canPause: boolean
   canArchive: boolean
+  canComment: boolean
 }
 
 export interface ResourceCapabilities {
@@ -108,7 +109,8 @@ export const DEFAULT_TASK_CAPABILITIES: TaskCapabilities = {
   canDelete: false,
   canAssignOthers: false,
   canPause: false,
-  canArchive: false
+  canArchive: false,
+  canComment: false
 }
 
 export const DEFAULT_RESOURCE_CAPABILITIES: ResourceCapabilities = {
