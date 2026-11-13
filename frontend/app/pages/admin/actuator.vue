@@ -211,7 +211,7 @@ function formatBytes(bytes: number) {
   return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[unitIndex]}`
 }
 
-function formatDetailValue(value: unknown) {
+function formatDetailValue(value: unknown): string {
   if (value === null || value === undefined) {
     return '—'
   }
