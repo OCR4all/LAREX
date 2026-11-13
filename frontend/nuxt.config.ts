@@ -11,8 +11,7 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     'pinia-plugin-persistedstate/nuxt',
     '@nuxt/fonts',
-    '@nuxt/a11y',
-    '@nuxt/image'
+    '@nuxt/a11y'
   ],
   ssr: true,
 

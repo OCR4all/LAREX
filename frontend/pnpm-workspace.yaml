@@ -6,6 +6,5 @@ allowBuilds:
   '@tailwindcss/oxide': true
   esbuild: true
   maplibre-gl: true
-  sharp: true
   unrs-resolver: true
   vue-demi: true
