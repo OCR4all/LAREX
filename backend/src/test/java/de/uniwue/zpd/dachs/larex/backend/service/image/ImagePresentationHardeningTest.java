@@ -167,5 +167,34 @@ class ImagePresentationHardeningTest {
                     .isInstanceOfSatisfying(ImagePresentationException.class, e -> assertThat(e.status()).isEqualTo(413));
         }
     }
+    @ParameterizedTest @ValueSource(strings = {"svg", "pdf", "ppm"})
+    void refusesFormatsThatOnlyUntrustedLoadersCanRead(String kind) throws Exception {
+        String content = switch (kind) {
+            case "svg" -> "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"><rect width=\"10\" height=\"10\"/></svg>";
+            case "pdf" -> "%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj "
+                    + "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 10 10]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n";
+            default -> "P3\n2 2\n255\n0 0 0 255 255 255 0 0 0 255 255 255\n";
+        };
+        Files.writeString(root.resolve("disguised.png"), content);
+        try (var service = new ClosingService(new ImagePresentationService(paths()))) {
+            for (var size : new ImagePresentationService.Size[]{ImagePresentationService.Size.detail, ImagePresentationService.Size.original}) {
+                assertThatThrownBy(() -> service.value.get("disguised.png", size))
+                        .isInstanceOfSatisfying(ImagePresentationException.class, e -> assertThat(e.status()).isEqualTo(415));
+            }
+        }
+    }
+    @Test void appliesSourceLimitsToConvertedOriginals() throws Exception {
+        ImageIO.write(new BufferedImage(40, 30, BufferedImage.TYPE_BYTE_GRAY), "tiff", root.resolve("scan.tiff").toFile());
+        var pixelLimited = new ImagePresentationProperties(1, 1, Duration.ofSeconds(10),
+                1000, 100_000, 536_870_912, 10000, Duration.ofDays(7), null);
+        var byteLimited = new ImagePresentationProperties(1, 1, Duration.ofSeconds(10),
+                500_000_000, 100_000, 100, 10000, Duration.ofDays(7), null);
+        for (var config : new ImagePresentationProperties[]{pixelLimited, byteLimited}) {
+            try (var service = new ClosingService(new ImagePresentationService(paths(), config, new ImageDecoder()))) {
+                assertThatThrownBy(() -> service.value.get("scan.tiff", ImagePresentationService.Size.original))
+                        .isInstanceOfSatisfying(ImagePresentationException.class, e -> assertThat(e.status()).isEqualTo(413));
+            }
+        }
+    }
     private record ClosingService(ImagePresentationService value) implements AutoCloseable { public void close(){value.close();} }
 }

@@ -4,6 +4,7 @@ import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.VSource;
 import app.photofox.vipsffm.Vips;
 import app.photofox.vipsffm.VipsError;
+import app.photofox.vipsffm.VipsHelper;
 import app.photofox.vipsffm.VipsOption;
 import app.photofox.vipsffm.enums.VipsAccess;
 import app.photofox.vipsffm.enums.VipsSize;
@@ -31,8 +32,8 @@ public class ImageDecoder {
                 var header = VImage.newFromSource(arena, VSource.newFromFile(arena, source.toString()),
                         VipsOption.Enum("access", VipsAccess.ACCESS_SEQUENTIAL));
                 int width = header.getWidth(), height = header.getHeight();
-                if (edge != 0 && (width > limits.maxSourceDimension() || height > limits.maxSourceDimension()
-                        || (long) width * height > limits.maxSourcePixels())) {
+                if (width > limits.maxSourceDimension() || height > limits.maxSourceDimension()
+                        || (long) width * height > limits.maxSourcePixels()) {
                     throw new UncheckedIOException(new ImagePresentationException(413, "Image exceeds the configured source pixel limit"));
                 }
                 var image = edge == 0 ? header : VImage.thumbnailSource(arena, VSource.newFromFile(arena, source.toString()), edge,
@@ -63,7 +64,9 @@ public class ImageDecoder {
         if (configured) return;
         synchronized (ImageDecoder.class) {
             if (configured) return;
+            Vips.init();
             Vips.disableOperationCache();
+            VipsHelper.block_untrusted_set(true);
             configured = true;
         }
     }

@@ -73,7 +73,7 @@ public class ImagePresentationService {
     public Presentation get(String sourcePath, Size size) throws IOException {
         Path source = paths.resolve(sourcePath);
         BasicFileAttributes attributes = Files.readAttributes(source, BasicFileAttributes.class);
-        if (size != Size.original && attributes.size() > limits.maxSourceBytes()) throw new ImagePresentationException(413, "Image exceeds the configured source file limit");
+        if (attributes.size() > limits.maxSourceBytes()) throw new ImagePresentationException(413, "Image exceeds the configured source file limit");
         String key = key(source, attributes, size);
         var ready = cache.getIfPresent(key);
         if (ready != null) return ready;
@@ -124,7 +124,7 @@ public class ImagePresentationService {
     }
 
     private String key(Path source, BasicFileAttributes attributes, Size size) throws IOException {
-        String value = "stored-pixels-v4:" + limits.maxSourcePixels() + ":" + limits.maxSourceDimension() + ":" + source + ":" + attributes.size() + ":" + attributes.lastModifiedTime() + ":" + size;
+        String value = "stored-pixels-v5:" + limits.maxSourcePixels() + ":" + limits.maxSourceDimension() + ":" + source + ":" + attributes.size() + ":" + attributes.lastModifiedTime() + ":" + size;
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IOException(e); }
     }
