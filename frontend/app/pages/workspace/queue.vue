@@ -179,14 +179,14 @@ const columns = computed<TableColumn<ActionRun>[]>(() => [
   }
 ])
 
+const requestFetch = useRequestFetch()
 const { data: workspaceRunsData, pending: loading, refresh: refreshRuns } = await useAsyncData<ActionRun[]>(
-  workspaceRunsKey.value,
+  workspaceRunsKey,
   async () => {
     if (!selectedWorkspace.value) return []
-    return await $fetch<ActionRun[]>(`/api/workspaces/${selectedWorkspace.value}/actions/runs`)
+    return await requestFetch<ActionRun[]>(`/api/workspaces/${selectedWorkspace.value}/actions/runs`)
   },
   {
-    watch: [selectedWorkspace],
     default: () => []
   }
 )
