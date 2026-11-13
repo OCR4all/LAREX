@@ -290,7 +290,6 @@ final class DtoToPage4jMappingSession {
         setTextRegionTypeAttr(textRegion.getAttributes(), dto.type());
         setDoubleAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_orientation, dto.orientation());
         setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_textColour, dto.textColour());
-        setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_bgColour, dto.bgColour());
         setBooleanAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_reverseVideo, dto.reverseVideo());
         setDoubleAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_fontSize, dto.fontSize());
         setStringAttr(textRegion.getAttributes(), "fontFamily", dto.fontFamily());
@@ -777,6 +776,7 @@ final class DtoToPage4jMappingSession {
         setIntegerAttr(region.getAttributes(), DefaultXmlNames.ATTR_columns, dto.columns());
         setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_colour, dto.colour());
         setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_penColour, dto.penColour());
+        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_bgColour, dto.bgColour());
         setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_borderPresent, dto.borderPresent());
     }
 

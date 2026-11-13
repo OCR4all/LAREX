@@ -108,6 +108,56 @@ describe('page-conversion.service sparse mapping', () => {
     expect(roundTrip.regions?.[0]?.textContentVariants?.[1]?.index).toBe(0)
   })
 
+  it('preserves Coords confidence on every element and on Border and PrintSpace', () => {
+    const dto = createBaseDto()
+    const region = dto.regions![0]!
+    const line = region.textLines![0]!
+    const word = line.words![0]!
+    const glyph = word.glyphs![0]!
+    region.coords!.confidence = 0.1
+    line.coords!.confidence = 0.2
+    word.coords!.confidence = 0.3
+    glyph.coords!.confidence = 0.4
+    dto.border = { points: [[0, 0], [1, 0], [1, 1]], confidence: 0.5 }
+    dto.printSpace = { points: [[0, 0], [1, 0], [1, 1]], confidence: 0.6 }
+
+    const roundTrip = convertPcGtsToPageDto(convertPageDtoToPcGts(dto))
+    const roundTripLine = roundTrip.regions?.[0]?.textLines?.[0]
+
+    expect(roundTrip.regions?.[0]?.coords?.confidence).toBe(0.1)
+    expect(roundTripLine?.coords?.confidence).toBe(0.2)
+    expect(roundTripLine?.words?.[0]?.coords?.confidence).toBe(0.3)
+    expect(roundTripLine?.words?.[0]?.glyphs?.[0]?.coords?.confidence).toBe(0.4)
+    expect(roundTrip.border?.confidence).toBe(0.5)
+    expect(roundTrip.printSpace?.confidence).toBe(0.6)
+  })
+
+  it.each(['ImageRegion', 'TableRegion', 'ChartRegion', 'TextRegion'])('preserves bgColour on %s', (kind) => {
+    const dto = createBaseDto()
+    dto.regions = [{
+      id: 'r2',
+      kind,
+      coords: { points: [[0, 0], [1, 0], [1, 1]] },
+      bgColour: 'yellow'
+    }]
+
+    const roundTrip = convertPcGtsToPageDto(convertPageDtoToPcGts(dto))
+
+    expect(roundTrip.regions?.[0]?.bgColour).toBe('yellow')
+  })
+
+  it('preserves reading order confidence', () => {
+    const dto = createBaseDto()
+    dto.readingOrder = {
+      root: { id: 'ro', ordered: true, members: [{ type: 'regionRef', id: 'ref1', regionRef: 'r1', index: 0 }] },
+      confidence: 0.42
+    }
+
+    const roundTrip = convertPcGtsToPageDto(convertPageDtoToPcGts(dto))
+
+    expect(roundTrip.readingOrder?.confidence).toBe(0.42)
+  })
+
   it('keeps glyph text variants instead of collapsing to one value', () => {
     const dto = createBaseDto()
     const pcGts = convertPageDtoToPcGts(dto)

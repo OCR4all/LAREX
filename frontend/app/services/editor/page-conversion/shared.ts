@@ -19,14 +19,14 @@ import type {
 
 export function convertPolygonFromDto(dto?: PolygonDto): Polygon | undefined {
   if (!dto?.points) return undefined
-  return new Polygon(dto.points)
+  return new Polygon(dto.points, dto.confidence)
 }
 
 export function convertPolygonToDto(polygon?: Polygon): PolygonDto | undefined {
   if (!polygon) return undefined
   return {
     points: polygon.points,
-    confidence: undefined
+    confidence: polygon.conf
   }
 }
 

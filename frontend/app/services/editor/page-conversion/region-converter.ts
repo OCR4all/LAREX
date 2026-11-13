@@ -25,7 +25,6 @@ type RegionDtoSource = Region & Partial<{
   textContentVariants: TextContentVariant[]
   type: string
   textColour: string
-  bgColour: string
   reverseVideo: boolean
   fontSize: number
   fontFamily: string
@@ -74,6 +73,7 @@ export function convertRegionFromDto(dto: RegionDto): Region {
     columns: dto.columns,
     colour: undefinedIfBlank(dto.colour),
     penColour: undefinedIfBlank(dto.penColour),
+    bgColour: undefinedIfBlank(dto.bgColour),
     borderPresent: dto.borderPresent,
     serif: dto.serif,
     monospace: dto.monospace,
@@ -92,7 +92,6 @@ export function convertRegionFromDto(dto: RegionDto): Region {
       type: undefinedIfBlank(dto.type),
       orientation: dto.orientation,
       textColour: undefinedIfBlank(dto.textColour),
-      bgColour: undefinedIfBlank(dto.bgColour),
       reverseVideo: dto.reverseVideo,
       fontSize: dto.fontSize,
       fontFamily: undefinedIfBlank(dto.fontFamily),
@@ -142,7 +141,7 @@ export function convertRegionToDto(region: Region): RegionDto {
     type: 'type' in region ? undefinedIfBlank(regionDtoSource.type) : undefined,
     orientation: region.orientation,
     textColour: 'textColour' in region ? undefinedIfBlank(regionDtoSource.textColour) : undefined,
-    bgColour: 'bgColour' in region ? undefinedIfBlank(regionDtoSource.bgColour) : undefined,
+    bgColour: undefinedIfBlank(region.bgColour),
     reverseVideo: 'reverseVideo' in region ? regionDtoSource.reverseVideo : undefined,
     fontSize: 'fontSize' in region ? regionDtoSource.fontSize : undefined,
     fontFamily: 'fontFamily' in region ? undefinedIfBlank(regionDtoSource.fontFamily) : undefined,

@@ -261,6 +261,7 @@ export interface RegionBase {
   columns?: number
   colour?: string
   penColour?: string
+  bgColour?: string
   borderPresent?: boolean
   serif?: boolean
   monospace?: boolean

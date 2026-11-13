@@ -5,6 +5,7 @@ export type ReadingOrderNode = ReadingOrderGroup | RegionRef
 /** PAGE XML 2019: ReadingOrderType (contains exactly one group) */
 export interface ReadingOrder {
   root: ReadingOrderGroup
+  conf?: number
 }
 
 export type ReadingOrderGroup = OrderedGroup | UnorderedGroup | OrderedGroupIndexed | UnorderedGroupIndexed

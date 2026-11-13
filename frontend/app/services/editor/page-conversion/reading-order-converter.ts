@@ -66,7 +66,8 @@ export function convertReadingOrderFromDto(dto: ReadingOrderDto): ReadingOrder |
   }
 
   return {
-    root: convertGroupDto(dto.root)
+    root: convertGroupDto(dto.root),
+    conf: dto.confidence
   }
 }
 
@@ -111,6 +112,6 @@ export function convertReadingOrderToDto(ro?: ReadingOrder): ReadingOrderDto | u
 
   return {
     root: convertGroup(ro.root),
-    confidence: undefined
+    confidence: ro.conf
   }
 }

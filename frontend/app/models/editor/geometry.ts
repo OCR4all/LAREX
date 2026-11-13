@@ -7,9 +7,11 @@ import TopologyPreservingSimplifier from 'jsts/org/locationtech/jts/simplify/Top
 /** Geometry types */
 export class Polygon {
   points: [number, number][]
+  conf?: number
 
-  constructor(points: [number, number][]) {
+  constructor(points: [number, number][], conf?: number) {
     this.points = points
+    if (conf !== undefined) this.conf = conf
   }
 
   getBoundingBox(): { minX: number, minY: number, maxX: number, maxY: number } {
