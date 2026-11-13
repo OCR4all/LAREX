@@ -32,9 +32,8 @@ import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodec
 import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse } from '@/types/dictionary'
 import type { ApplySourcesResponse, NormalizePreview, NormalizationProfile, NormalizationProfileSummary, NormalizationProjectScope, NormalizeTarget } from '@/types/normalization-profile'
 import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/types/validation-ruleset'
-import UiColorTag from '@/components/ui/color-tag.vue'
 import PageWorkflowStateDropdown from '@/components/page/workflow-state-dropdown.vue'
-import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowAction, ProjectActionScope, ProjectData, ResolvedTag } from '@/types/project-page'
+import type { ConflictInfo, Page, PageIndexingStatus, PageWorkflowAction, ProjectActionScope, ProjectData } from '@/types/project-page'
 import type { UploadFile, UploadSession } from '@/composables/use-chunked-upload'
 
 type PdfPreflightResponse = {
@@ -95,7 +94,6 @@ const projectStatusKey = computed(() => wsKey(selectedWorkspace.value as string,
 const starredProjectsKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', 'starred'))
 const projectsListKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', 'list'))
 
-const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
 function getPageCollaborationSummary(pageId: string) {
   return collaborationPageSummary.getPageSummary(pageId, projectId)
 }
@@ -210,7 +208,6 @@ const {
   globalFilter,
   tagFilterOperator,
   annotationStatusFilter,
-  annotationStatusOptions,
   workflowStateFilter,
   workflowStateOptions,
   activeProjectPageFilters,
@@ -238,7 +235,6 @@ const {
   getScopedPageIds,
   uniqueTags,
   selectedTags,
-  tagOperatorOptions,
   resetFilters,
   getPageDescription
 } = useProjectPagesTable({
@@ -2017,6 +2013,8 @@ function renderPageTasksIndicator(page: Page, variant: 'icon' | 'badge' = 'icon'
   })
 }
 
+const pageCells = usePageTableCells(sort)
+
 const pageColumns = [
   {
     id: 'select',
@@ -2044,21 +2042,7 @@ const pageColumns = [
         })
       : h('div', { class: 'flex items-center justify-center gap-1' }, [
           h('span', 'Order'),
-          h(UButton, {
-            icon: sort.value.column === 'projectOrderPosition'
-              ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-              : 'i-lucide-arrow-up-down',
-            size: 'xs',
-            variant: 'ghost',
-            color: sort.value.column === 'projectOrderPosition' ? 'primary' : 'neutral',
-            onClick: () => {
-              if (sort.value.column === 'projectOrderPosition') {
-                sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-              } else {
-                sort.value = { column: 'projectOrderPosition', direction: 'asc' }
-              }
-            }
-          })
+          pageCells.sortButton('projectOrderPosition', 'asc')
         ]),
     cell: ({ row }: { row: { original: Page } }) => isPageOrderingMode.value
       ? h('div', { class: 'flex items-center justify-center gap-2' }, [
@@ -2095,24 +2079,7 @@ const pageColumns = [
   },
   {
     accessorKey: 'name',
-    header: () => h('div', { class: 'flex items-center gap-2' }, [
-      h('span', 'Name'),
-      h(UButton, {
-        icon: sort.value.column === 'name'
-          ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-          : 'i-lucide-arrow-up-down',
-        size: 'xs',
-        variant: 'ghost',
-        color: sort.value.column === 'name' ? 'primary' : 'neutral',
-        onClick: () => {
-          if (sort.value.column === 'name') {
-            sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-          } else {
-            sort.value = { column: 'name', direction: 'asc' }
-          }
-        }
-      })
-    ]),
+    header: pageCells.sortableHeader('Name', 'name'),
     cell: ({ row }: { row: { original: Page } }) => {
       const actionLockReason = actionRunsStore.getPageActionLockReason(projectId, row.original.id)
       const lockReason = resolvePageLockReason(row.original, actionLockReason)
@@ -2166,52 +2133,7 @@ const pageColumns = [
   {
     accessorKey: 'tags',
     header: 'Tags',
-    cell: ({ row }: { row: { original: Page } }) => {
-      const resolvedTags = row.original.resolvedTags as ResolvedTag[] | null
-      const tags = row.original.tags as string[]
-      if (!tags || tags.length === 0) return null
-
-      const displayTags = resolvedTags && resolvedTags.length > 0
-        ? resolvedTags.map(rt => ({ label: rt.label || rt.id, color: rt.color || DEFAULT_CUSTOM_TAG_COLOR }))
-        : tags.map(tagId => ({ label: tagId, color: DEFAULT_CUSTOM_TAG_COLOR }))
-
-      const renderTagBadge = (tag: { label: string, color: string }, index: number) => h(
-        UiColorTag,
-        {
-          key: `${tag.label}-${index}`,
-          color: tag.color,
-          variant: 'subtle',
-          size: 'sm'
-        },
-        () => tag.label
-      )
-
-      if (tags.length <= 2) {
-        return h('div', { class: 'flex flex-wrap gap-1' },
-          displayTags.map((tag, index) => renderTagBadge(tag, index))
-        )
-      }
-
-      const visibleTags = displayTags.slice(0, 2)
-      const hiddenTags = displayTags.slice(2)
-
-      return h('div', { class: 'flex flex-wrap gap-1' }, [
-        ...visibleTags.map((tag, index) => renderTagBadge(tag, index)),
-        h(UPopover, { mode: 'hover' }, {
-          default: () => h(UBadge, {
-            'color': 'primary',
-            'variant': 'subtle',
-            'size': 'sm',
-            'tabindex': 0,
-            'class': 'cursor-help',
-            'aria-label': `Show all ${displayTags.length} tags`
-          }, () => `+${hiddenTags.length}`),
-          content: () => h('div', { class: 'p-2 flex flex-col gap-1' },
-            displayTags.map((tag, index) => renderTagBadge(tag, index))
-          )
-        })
-      ])
-    }
+    cell: ({ row }: { row: { original: Page } }) => pageCells.tagsCell(row.original)
   },
   {
     accessorKey: 'workflowState',
@@ -2274,24 +2196,7 @@ const pageColumns = [
   },
   {
     accessorKey: 'imageCount',
-    header: () => h('div', { class: 'flex items-center justify-center gap-2' }, [
-      h('span', 'Images'),
-      h(UButton, {
-        icon: sort.value.column === 'imageCount'
-          ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-          : 'i-lucide-arrow-up-down',
-        size: 'xs',
-        variant: 'ghost',
-        color: sort.value.column === 'imageCount' ? 'primary' : 'neutral',
-        onClick: () => {
-          if (sort.value.column === 'imageCount') {
-            sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-          } else {
-            sort.value = { column: 'imageCount', direction: 'desc' }
-          }
-        }
-      })
-    ]),
+    header: pageCells.sortableHeader('Images', 'imageCount', { initialDirection: 'desc', align: 'center' }),
     meta: {
       label: 'Images',
       class: {
@@ -2330,24 +2235,7 @@ const pageColumns = [
   },
   {
     accessorKey: 'updated',
-    header: () => h('div', { class: 'flex items-center gap-2' }, [
-      h('span', 'Updated'),
-      h(UButton, {
-        icon: sort.value.column === 'updated'
-          ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-          : 'i-lucide-arrow-up-down',
-        size: 'xs',
-        variant: 'ghost',
-        color: sort.value.column === 'updated' ? 'primary' : 'neutral',
-        onClick: () => {
-          if (sort.value.column === 'updated') {
-            sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-          } else {
-            sort.value = { column: 'updated', direction: 'desc' }
-          }
-        }
-      })
-    ])
+    header: pageCells.sortableHeader('Updated', 'updated', { initialDirection: 'desc' })
   },
   {
     id: 'actions',
@@ -2700,86 +2588,14 @@ const toolbarRefresh = useRefreshFeedback(() => refreshPagesData({ manual: true 
 
       <UDashboardToolbar v-if="project">
         <template #left>
-          <UInput
-            v-model="globalFilter"
-            icon="i-lucide-search"
-            placeholder="Search pages..."
-            class="w-64"
-            size="md"
-          >
-            <template v-if="globalFilter" #trailing>
-              <UButton
-                color="neutral"
-                variant="link"
-                icon="i-lucide-x"
-                :padded="false"
-                @click="globalFilter = ''"
-              />
-            </template>
-          </UInput>
-
-          <USelectMenu
-            v-model="selectedTags"
-            :items="uniqueTags"
-            value-key="value"
-            placeholder="Filter by tag"
-            multiple
-            class="w-48"
-          >
-            <template #leading>
-              <UIcon name="i-lucide-tag" />
-            </template>
-            <template #item="{ item }">
-              <div class="flex items-center justify-between w-full gap-2">
-                <div class="flex items-center gap-2">
-                  <UIcon
-                    v-if="selectedTags.includes(item.value)"
-                    name="i-lucide-check"
-                    class="text-primary w-4 h-4"
-                  />
-                  <span v-else class="w-4 h-4" />
-                  <span>{{ item.label }}</span>
-                </div>
-                <UBadge variant="solid" color="neutral" size="xs">
-                  {{ item.count }}
-                </UBadge>
-              </div>
-            </template>
-          </USelectMenu>
-
-          <USelectMenu
-            v-if="selectedTags.length > 1"
-            v-model="tagFilterOperator"
-            :items="tagOperatorOptions"
-            value-key="value"
-            class="w-36"
-          >
-            <template #leading>
-              <UIcon name="i-lucide-git-merge" />
-            </template>
-          </USelectMenu>
-
-          <USelectMenu
-            v-model="annotationStatusFilter"
-            :items="annotationStatusOptions"
-            value-key="value"
-            class="w-40"
-          >
-            <template #leading>
-              <UIcon name="i-lucide-file-text" />
-            </template>
-          </USelectMenu>
-          <USelectMenu
-            v-model="workflowStateFilter"
-            :items="workflowStateOptions"
-            value-key="value"
-            class="w-40"
-          >
-            <template #leading>
-              <UIcon name="i-lucide-list-checks" />
-            </template>
-          </USelectMenu>
-          <AppTableClearFiltersButton
+          <PageTableFilters
+            v-model:search="globalFilter"
+            v-model:tags="selectedTags"
+            v-model:tag-operator="tagFilterOperator"
+            v-model:annotation-status="annotationStatusFilter"
+            v-model:workflow-state="workflowStateFilter"
+            :tag-options="uniqueTags"
+            :workflow-state-options="workflowStateOptions"
             :active="activeProjectPageFilters.length > 0"
             @clear="resetFilters"
           />

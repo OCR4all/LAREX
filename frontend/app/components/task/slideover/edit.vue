@@ -159,9 +159,23 @@ async function loadTaskById(taskId: string) {
 }
 
 async function choosePages() {
-  const instance = pagePicker.open({ workspaceId: props.workspaceId })
+  const instance = pagePicker.open({ workspaceId: props.workspaceId, initialSelection: selectedPages.value })
   const pages = await instance.result
   if (pages) selectedPages.value = pages
+}
+
+const selectedPagesByProject = computed(() => {
+  const groups = new Map<string, { projectId: string, projectName: string, count: number }>()
+  for (const page of selectedPages.value) {
+    const group = groups.get(page.projectId)
+    if (group) group.count++
+    else groups.set(page.projectId, { projectId: page.projectId, projectName: page.projectName, count: 1 })
+  }
+  return Array.from(groups.values()).sort((a, b) => a.projectName.localeCompare(b.projectName))
+})
+
+function removeProjectPages(projectId: string) {
+  selectedPages.value = selectedPages.value.filter(page => page.projectId !== projectId)
 }
 
 watch(() => props.task, (t) => {
@@ -466,7 +480,9 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
             <div class="flex items-center justify-between gap-3 rounded-sm border border-default bg-elevated/40 p-3">
               <div class="min-w-0">
                 <p class="text-sm font-medium">
-                  {{ selectedPages.length }} page{{ selectedPages.length === 1 ? '' : 's' }} selected
+                  {{ selectedPages.length }} page{{ selectedPages.length === 1 ? '' : 's' }} selected<template v-if="selectedPagesByProject.length > 1">
+                    from {{ selectedPagesByProject.length }} projects
+                  </template>
                 </p>
                 <p class="text-xs text-muted">
                   You can add pages later from the Assignment.
@@ -485,11 +501,21 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
               </UButton>
             </div>
 
-            <div v-if="selectedPages.length > 0" class="max-h-48 space-y-1 overflow-y-auto rounded-sm border border-default p-2">
-              <div v-for="page in selectedPages" :key="page.pageId" class="flex items-center gap-2 px-2 py-1 text-sm">
-                <UIcon name="i-lucide-file" class="size-4 shrink-0 text-muted" />
-                <span class="min-w-0 flex-1 truncate">{{ page.pageName }}</span>
-                <span class="max-w-40 truncate text-xs text-muted">{{ page.projectName }}</span>
+            <div v-if="selectedPagesByProject.length > 0" class="max-h-64 divide-y divide-default overflow-y-auto rounded-sm border border-default">
+              <div v-for="group in selectedPagesByProject" :key="group.projectId" class="flex items-center gap-2 px-3 py-2 text-sm">
+                <UIcon name="i-lucide-folder" class="size-4 shrink-0 text-muted" />
+                <span class="min-w-0 flex-1 truncate">{{ group.projectName }}</span>
+                <span class="text-xs text-muted tabular-nums">{{ group.count }} page{{ group.count === 1 ? '' : 's' }}</span>
+                <UButton
+                  type="button"
+                  icon="i-lucide-x"
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  :aria-label="`Remove pages from ${group.projectName}`"
+                  :disabled="isSubmitting"
+                  @click="removeProjectPages(group.projectId)"
+                />
               </div>
             </div>
           </div>

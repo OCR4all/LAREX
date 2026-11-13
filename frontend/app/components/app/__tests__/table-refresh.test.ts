@@ -44,7 +44,7 @@ const cases = [
   { name: 'project pages', source: projectSource, gate: 'showPagesLoadingSpinner', pending: 'pagesPending', active: true, idle: false, data: 'pages' },
   { name: 'dataset details', source: datasetSource, gate: 'pending', pending: 'pending', active: true, idle: false, data: 'dataset' },
   { name: 'evaluation results', source: evaluationSource, gate: 'loading', pending: 'loading', active: true, idle: false, data: 'detail' },
-  { name: 'task page picker', source: pagePickerSource, gate: 'pagesStatus === \'pending\'', pending: 'pagesStatus', active: 'pending', idle: 'success', data: 'pages' },
+  { name: 'task page picker', source: pagePickerSource, gate: 'isLoading && !pages', pending: 'isLoading', active: true, idle: false, data: 'pages' },
   { name: 'notification preferences', source: notificationsSource, gate: 'isLoading', pending: 'isLoading', active: true, idle: false, data: 'types', missing: [] }
 ]
 

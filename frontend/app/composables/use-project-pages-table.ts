@@ -3,7 +3,6 @@ import type { ComputedRef, Ref } from 'vue'
 import { createPageSortOrderRequest } from '@/utils/editor/page-sort'
 import type { Page, ProjectActionScope, ProjectData } from '@/types/project-page'
 
-const AUTO_CREATED_DESCRIPTION = 'Auto-created from bulk upload'
 export const PROJECT_PAGES_TABLE_ID = 'project-pages-v2'
 export const PROJECT_PAGE_ORDER_COLUMN_ID = 'projectOrderPosition'
 export const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'workflowState', 'annotationState', 'imageCount', 'updated']
@@ -45,76 +44,20 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     globalFilter,
     columnFilters,
     tagFilterOperator,
-    filteredAndSortedData: filteredAndSortedPages,
-    setColumnFilter,
-    clearColumnFilter,
-    resetAllFilters
-  } = useTableFilters(
-    pagesSafe,
-    { column: 'projectOrderPosition', direction: 'asc' },
-    PROJECT_PAGES_TABLE_ID
-  )
-
-  const annotationStatusFilter = ref<'all' | 'has_xml' | 'no_xml'>('all')
-  const annotationStatusOptions = [
-    { value: 'all', label: 'All Pages' },
-    { value: 'has_xml', label: 'With Annotation' },
-    { value: 'no_xml', label: 'Without Annotation' }
-  ]
-  const workflowStateFilter = ref<'all' | 'CHANGES_REQUESTED' | Page['workflowState']>('all')
-  const workflowStateOptions = [
-    { value: 'all', label: 'All states' },
-    ...PAGE_WORKFLOW_STATES.map(value => ({ value, label: PAGE_WORKFLOW_STATE_META[value].label })),
-    { value: 'CHANGES_REQUESTED', label: 'Changes requested' }
-  ]
-
-  const activeProjectPageFilters = computed(() => {
-    const filters: Array<{ key: string, label: string, clear: () => void }> = []
-    if (globalFilter.value) {
-      filters.push({
-        key: 'search',
-        label: `Search: ${globalFilter.value}`,
-        clear: () => { globalFilter.value = '' }
-      })
-    }
-    for (const tag of selectedTags.value) {
-      filters.push({
-        key: `tag-${tag}`,
-        label: `Tag: ${getTagLabel(tag)}`,
-        clear: () => { selectedTags.value = selectedTags.value.filter(value => value !== tag) }
-      })
-    }
-    if (annotationStatusFilter.value !== 'all') {
-      filters.push({
-        key: 'annotation',
-        label: `Annotation: ${annotationStatusOptions.find(option => option.value === annotationStatusFilter.value)?.label}`,
-        clear: () => { annotationStatusFilter.value = 'all' }
-      })
-    }
-    if (workflowStateFilter.value !== 'all') {
-      filters.push({
-        key: 'workflow-state',
-        label: `State: ${workflowStateOptions.find(option => option.value === workflowStateFilter.value)?.label}`,
-        clear: () => { workflowStateFilter.value = 'all' }
-      })
-    }
-    return filters
-  })
-
-  const filteredPages = computed(() => {
-    let result = filteredAndSortedPages.value
-    if (annotationStatusFilter.value !== 'all') {
-      result = result.filter((page) => {
-        const hasAnnotation = page.xmlFileCount > 0
-        return annotationStatusFilter.value === 'has_xml' ? hasAnnotation : !hasAnnotation
-      })
-    }
-    if (workflowStateFilter.value !== 'all') {
-      result = result.filter(page => workflowStateFilter.value === 'CHANGES_REQUESTED'
-        ? page.changesRequested
-        : page.workflowState === workflowStateFilter.value)
-    }
-    return result
+    annotationStatusFilter,
+    annotationStatusOptions,
+    workflowStateFilter,
+    workflowStateOptions,
+    activeFilters: activeProjectPageFilters,
+    hasContentFilters: hasPageOrderFilters,
+    filteredPages,
+    uniqueTags,
+    selectedTags,
+    tagOperatorOptions,
+    resetFilters
+  } = usePageTableFilters(pagesSafe, {
+    tableId: PROJECT_PAGES_TABLE_ID,
+    defaultSort: { column: 'projectOrderPosition', direction: 'asc' }
   })
 
   const selectedPageIds = ref<Set<string>>(new Set())
@@ -168,13 +111,6 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     PROJECT_PAGE_HIDEABLE_COLUMN_IDS,
     DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS
   )
-  const hasPageOrderFilters = computed(() => {
-    const tags = columnFilters.value['tags']
-    return globalFilter.value.trim().length > 0
-      || (Array.isArray(tags) && tags.length > 0)
-      || annotationStatusFilter.value !== 'all'
-      || workflowStateFilter.value !== 'all'
-  })
   const canEditProjectPageOrder = computed(() =>
     options.canManageProjects.value && !options.project.value?.locked
   )
@@ -321,66 +257,8 @@ export function useProjectPagesTable(options: ProjectPagesTableOptions) {
     return scope === 'selection' ? Array.from(selectedPageIds.value) : []
   }
 
-  const uniqueTags = computed(() => {
-    if (!options.pages.value) return []
-    const tagCounts = new Map<string, number>()
-    const tagLabels = new Map<string, string>()
-    options.pages.value.forEach((page) => {
-      page.resolvedTags?.forEach((tag) => {
-        tagLabels.set(tag.id, tag.label || tag.id)
-      })
-      page.tags.forEach((tag) => {
-        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
-      })
-    })
-    return Array.from(tagCounts.entries())
-      .sort((a, b) => getTagLabel(a[0], tagLabels).localeCompare(getTagLabel(b[0], tagLabels)))
-      .map(([tag, count]) => ({ label: getTagLabel(tag, tagLabels), value: tag, count }))
-  })
-
-  const selectedTags = computed({
-    get: () => {
-      const tags = columnFilters.value['tags']
-      return Array.isArray(tags) ? tags : []
-    },
-    set: (value: string[]) => {
-      if (value.length === 0) {
-        clearColumnFilter('tags')
-      } else {
-        setColumnFilter('tags', value)
-      }
-    }
-  })
-
-  const tagOperatorOptions = [
-    { label: 'Match any (OR)', value: 'or' },
-    { label: 'Match all (AND)', value: 'and' }
-  ]
-
-  function resetFilters() {
-    resetAllFilters()
-    annotationStatusFilter.value = 'all'
-    workflowStateFilter.value = 'all'
-  }
-
-  function getTagLabel(tagId: string, labels = currentTagLabels.value) {
-    return labels.get(tagId) || tagId
-  }
-
-  const currentTagLabels = computed(() => {
-    const labels = new Map<string, string>()
-    options.pages.value?.forEach((page) => {
-      page.resolvedTags?.forEach((tag) => {
-        labels.set(tag.id, tag.label || tag.id)
-      })
-    })
-    return labels
-  })
-
   function getPageDescription(page: Page) {
-    const description = page.description?.trim()
-    if (!description || description === AUTO_CREATED_DESCRIPTION) return ''
-    return page.description
+    return getPageDisplayDescription(page)
   }
 
   return {
