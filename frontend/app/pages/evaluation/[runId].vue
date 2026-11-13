@@ -12,11 +12,22 @@ const workspaceStore = useWorkspaceStore()
 const toast = useToast()
 const workspaceId = computed(() => workspaceStore.selectedWorkspaceId)
 const runId = computed(() => String(route.params.runId))
-const detail = ref<ActionRunDetail | null>(null)
-const baselines = ref<ActionRun[]>([])
+const requestFetch = useRequestFetch()
+const resultsKey = computed(() => workspaceId.value
+  ? wsKey(workspaceId.value, 'evaluation-runs', runId.value)
+  : globalKey('pending', 'evaluation-runs', runId.value))
+const { data: results, pending: loading, error: loadError } = await useAsyncData(resultsKey, async () => {
+  if (!workspaceId.value) return null
+  const runDetail = await requestFetch<ActionRunDetail>(`/api/workspaces/${workspaceId.value}/actions/runs/${runId.value}`)
+  const runBaselines = runDetail.evaluationOutputMode === 'FILES'
+    ? []
+    : await requestFetch<ActionRun[]>(`/api/workspaces/${workspaceId.value}/actions/evaluation/runs/${runId.value}/baselines`)
+  return { detail: runDetail, baselines: runBaselines }
+}, { default: () => null })
+const detail = computed(() => results.value?.detail ?? null)
+const baselines = computed(() => results.value?.baselines ?? [])
 const baselineId = ref<string>()
 const comparison = ref<{ metrics: Array<{ key: string, currentValue: unknown, baselineValue: unknown, delta: number, direction: string, state: string }>, currentReport: EvaluationReport, baselineReport: EvaluationReport } | null>(null)
-const loading = ref(true)
 const compareLoading = ref(false)
 const tableSearch = ref<Record<string, string>>({})
 const tablePages = ref<Record<string, number>>({})
@@ -133,23 +144,16 @@ function metricDelta(metric: EvaluationMetric) {
   const value = Math.abs(match.delta) < 1e-12 ? 'Neutral' : `${match.delta > 0 ? '+' : ''}${metric.format === 'PERCENT' ? (match.delta * 100).toFixed(2) + ' pp' : match.delta.toFixed(4)}`
   return { value, state: match.state }
 }
-async function load() {
-  if (!workspaceId.value) return
-  loading.value = true
-  try {
-    detail.value = await $fetch<ActionRunDetail>(`/api/workspaces/${workspaceId.value}/actions/runs/${runId.value}`)
-    baselines.value = fileMode.value ? [] : await $fetch<ActionRun[]>(`/api/workspaces/${workspaceId.value}/actions/evaluation/runs/${runId.value}/baselines`)
-  } catch (error: unknown) { toast.add({ title: 'Could not load evaluation results', description: error instanceof Error ? error.message : undefined, color: 'error' }) } finally { loading.value = false }
+function notifyLoadError() {
+  if (loadError.value) toast.add({ title: 'Could not load evaluation results', description: loadError.value.message, color: 'error' })
 }
+watch(loadError, notifyLoadError)
+onMounted(notifyLoadError)
 async function compare() {
   if (!baselineId.value) { comparison.value = null; return }
   compareLoading.value = true
   try { comparison.value = await $fetch(`/api/workspaces/${workspaceId.value}/actions/evaluation/runs/${runId.value}/compare`, { query: { baselineRunId: baselineId.value } }) as typeof comparison.value } catch (error: unknown) { toast.add({ title: 'Could not compare evaluations', description: error instanceof Error ? error.message : undefined, color: 'error' }) } finally { compareLoading.value = false }
 }
-watch([workspaceId, runId], () => {
-  detail.value = null
-  void load()
-}, { immediate: true })
 </script>
 
 <template>
