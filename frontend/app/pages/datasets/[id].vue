@@ -549,9 +549,11 @@ const itemColumns = computed<TableColumn<DatasetTableRow>[]>(() => [
     id: 'mode',
     header: createSortableHeader('Mode', 'modeLabel', sort, UButton),
     cell: ({ row }) => h(UBadge, {
-      color: row.original.mode === 'COPY' ? 'neutral' : 'primary',
-      variant: 'soft'
-    }, () => row.original.modeLabel)
+      color: row.original.mode === 'COPY' ? 'secondary' : 'info',
+      variant: 'subtle',
+      icon: row.original.mode === 'COPY' ? 'i-lucide-snowflake' : 'i-lucide-link',
+      label: row.original.modeLabel
+    })
   },
   {
     id: 'split',
