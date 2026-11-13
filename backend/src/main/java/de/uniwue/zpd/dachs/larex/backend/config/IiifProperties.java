@@ -19,6 +19,10 @@ public class IiifProperties {
     @Max(10_737_418_240L)
     private long maxImageDownloadBytes = 536_870_912L;
 
+    @Min(1_048_576)
+    @Max(1_073_741_824)
+    private long maxManifestBytes = 67_108_864L;
+
     @Valid
     private ExecutorPoolProperties previewAsync = new ExecutorPoolProperties(2, 4, 100);
 
@@ -53,6 +57,14 @@ public class IiifProperties {
 
     public void setMaxImageDownloadBytes(long maxImageDownloadBytes) {
         this.maxImageDownloadBytes = maxImageDownloadBytes;
+    }
+
+    public long getMaxManifestBytes() {
+        return maxManifestBytes;
+    }
+
+    public void setMaxManifestBytes(long maxManifestBytes) {
+        this.maxManifestBytes = maxManifestBytes;
     }
 
     public ExecutorPoolProperties getPreviewAsync() {

@@ -6,6 +6,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import de.uniwue.zpd.dachs.larex.backend.config.IiifProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifImportDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.IiifImportJob;
 import de.uniwue.zpd.dachs.larex.backend.entity.IiifImportJobItem;
@@ -32,6 +33,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -97,6 +99,7 @@ public class IiifImportService {
     private final JobRealtimePublisher jobRealtimePublisher;
     private final HttpClient httpClient;
     private final IiifRemoteUrlGuard urlGuard;
+    private final long maxManifestBytes;
     private final Cache<String, IiifPreviewSession> previewCache;
     private final Cache<String, IiifPreviewJobState> previewJobCache;
 
@@ -113,7 +116,8 @@ public class IiifImportService {
                              ObjectMapper objectMapper,
                              @Qualifier("iiifPreviewTaskExecutor") TaskExecutor previewTaskExecutor,
                              JobRealtimePublisher jobRealtimePublisher,
-                             IiifRemoteUrlGuard urlGuard) {
+                             IiifRemoteUrlGuard urlGuard,
+                             IiifProperties iiifProperties) {
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -128,6 +132,7 @@ public class IiifImportService {
         this.previewTaskExecutor = previewTaskExecutor;
         this.jobRealtimePublisher = jobRealtimePublisher;
         this.urlGuard = urlGuard;
+        this.maxManifestBytes = iiifProperties.getMaxManifestBytes();
         this.httpClient = IiifRemoteUrlGuard.clientBuilder()
                 .connectTimeout(HTTP_TIMEOUT)
                 .build();
@@ -1313,7 +1318,7 @@ public class IiifImportService {
         try {
             for (int attempt = 0; attempt < MAX_HTTP_ATTEMPTS; attempt++) {
                 iiifRemoteRequestThrottler.awaitPreviewRequestSlot(url);
-                HttpResponse<byte[]> response = urlGuard.send(
+                HttpResponse<InputStream> response = urlGuard.send(
                         httpClient,
                         new URI(url),
                         uri -> HttpRequest.newBuilder()
@@ -1323,9 +1328,11 @@ public class IiifImportService {
                                 .header("Accept", acceptHeader)
                                 .header("User-Agent", "LAREX IIIF Import")
                                 .build(),
-                        HttpResponse.BodyHandlers.ofByteArray());
-                if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                    return response.body();
+                        HttpResponse.BodyHandlers.ofInputStream());
+                try (InputStream body = response.body()) {
+                    if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                        return readManifestBody(response, body);
+                    }
                 }
                 if (iiifRemoteRequestThrottler.isRateLimitResponse(response.statusCode(), response.headers())
                         && attempt < MAX_HTTP_ATTEMPTS - 1) {
@@ -1349,6 +1356,22 @@ public class IiifImportService {
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Invalid IIIF manifest URL");
         }
+    }
+
+    private byte[] readManifestBody(HttpResponse<InputStream> response, InputStream body) throws IOException {
+        long contentLength = response.headers().firstValueAsLong("content-length").orElse(-1L);
+        if (contentLength > maxManifestBytes) {
+            throw new IllegalArgumentException(manifestTooLargeMessage());
+        }
+        byte[] bytes = body.readNBytes(Math.toIntExact(Math.min(maxManifestBytes + 1, Integer.MAX_VALUE - 8)));
+        if (bytes.length > maxManifestBytes) {
+            throw new IllegalArgumentException(manifestTooLargeMessage());
+        }
+        return bytes;
+    }
+
+    private String manifestTooLargeMessage() {
+        return "The IIIF manifest is larger than the allowed " + (maxManifestBytes / 1_048_576) + " MiB.";
     }
 
     private String buildManifestFetchStatusMessage(int statusCode) {

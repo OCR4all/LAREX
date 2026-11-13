@@ -224,6 +224,8 @@ larex:
     download-min-interval-ms: ${LAREX_IIIF_DOWNLOAD_MIN_INTERVAL_MS:100}
     # Hard cap for one streamed IIIF image response (default: 512 MiB).
     max-image-download-bytes: ${LAREX_IIIF_MAX_IMAGE_DOWNLOAD_BYTES:536870912}
+    # Hard cap for one IIIF manifest or collection response (default: 64 MiB).
+    max-manifest-bytes: ${LAREX_IIIF_MAX_MANIFEST_BYTES:67108864}
     # Allow manifest/image URLs that resolve to loopback or private network addresses.
     # Keep disabled unless your IIIF servers are only reachable on an internal network.
     allow-private-network-hosts: ${LAREX_IIIF_ALLOW_PRIVATE_NETWORK_HOSTS:false}

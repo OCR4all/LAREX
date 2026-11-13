@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.importer;
 
 import tools.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.config.IiifProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifImportDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.IiifImportJob;
 import de.uniwue.zpd.dachs.larex.backend.entity.IiifImportJobItem;
@@ -80,6 +81,7 @@ class IiifImportServiceTest {
     @Mock
     private JobRealtimePublisher jobRealtimePublisher;
 
+    private final IiifProperties iiifProperties = new IiifProperties();
     private IiifImportService service;
     private Project project;
 
@@ -99,7 +101,8 @@ class IiifImportServiceTest {
                 new ObjectMapper(),
                 previewTaskExecutor,
                 jobRealtimePublisher,
-                new IiifRemoteUrlGuard(true)
+                new IiifRemoteUrlGuard(true),
+                iiifProperties
         );
         lenient().when(pageOrderService.reserveAppendSortOrders(any(), anyInt())).thenAnswer(invocation -> {
             int count = invocation.getArgument(1);
