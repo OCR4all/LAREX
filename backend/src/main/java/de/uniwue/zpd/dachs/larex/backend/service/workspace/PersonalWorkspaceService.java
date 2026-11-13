@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.workspace;
 
+import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.PersonalWorkspace;
@@ -148,37 +149,43 @@ public class PersonalWorkspaceService extends AbstractWorkspaceService {
 
             Codec codec = null;
             if (codecId != null && !codecId.trim().isEmpty()) {
-                codec = codecRepository.findById(codecId).orElse(null);
+                codec = codecRepository.findByIdAndLibraryWorkspaceId(codecId, workspaceId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Codec", codecId));
             }
             workspace.setCodec(codec);
 
             LabelSet labelSet = null;
             if (labelSetId != null && !labelSetId.trim().isEmpty()) {
-                labelSet = labelSetRepository.findById(labelSetId).orElse(null);
+                labelSet = labelSetRepository.findByIdAndWorkspaceId(labelSetId, workspaceId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Label set", labelSetId));
             }
             workspace.setLabelSet(labelSet);
 
             ControlledDictionary dictionary = null;
             if (dictionaryId != null && !dictionaryId.trim().isEmpty()) {
-                dictionary = dictionaryRepository.findById(dictionaryId).orElse(null);
+                dictionary = dictionaryRepository.findByIdAndLibraryWorkspaceId(dictionaryId, workspaceId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Dictionary", dictionaryId));
             }
             workspace.setDictionary(dictionary);
 
             TagSet tagSet = null;
             if (tagSetId != null && !tagSetId.trim().isEmpty()) {
-                tagSet = tagSetRepository.findById(tagSetId).orElse(null);
+                tagSet = tagSetRepository.findByIdAndWorkspaceId(tagSetId, workspaceId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Tag set", tagSetId));
             }
             workspace.setTagSet(tagSet);
 
             NormalizationProfile normalizationProfile = null;
             if (normalizationProfileId != null && !normalizationProfileId.trim().isEmpty()) {
-                normalizationProfile = normalizationProfileRepository.findById(normalizationProfileId).orElse(null);
+                normalizationProfile = normalizationProfileRepository.findByIdAndWorkspaceId(normalizationProfileId, workspaceId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Normalization profile", normalizationProfileId));
             }
             workspace.setNormalizationProfile(normalizationProfile);
 
             ValidationRuleset validationRuleset = null;
             if (validationRulesetId != null && !validationRulesetId.trim().isEmpty()) {
-                validationRuleset = validationRulesetRepository.findById(validationRulesetId).orElse(null);
+                validationRuleset = validationRulesetRepository.findByIdAndWorkspaceId(validationRulesetId, workspaceId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Validation ruleset", validationRulesetId));
             }
             workspace.setValidationRuleset(validationRuleset);
 
