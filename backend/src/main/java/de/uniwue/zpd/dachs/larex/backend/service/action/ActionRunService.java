@@ -1030,10 +1030,8 @@ public class ActionRunService {
                 .orElseThrow(() -> new IllegalArgumentException("Dataset not found"));
         List<ActionRun> runs = runRepository.findByWorkspaceIdAndDatasetIdAndKindOrderByCreatedDesc(
                 workspaceId, datasetId, ActionRun.Kind.TRAINING, PageRequest.of(0, runHistoryLimit(limit)));
-        Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
         Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
         return runs.stream()
-                .filter(run -> !dismissedRunIds.contains(run.getId()))
                 .map(run -> responseMapper.toRunResponse(run, null, userId, queuePositions, Map.of()))
                 .toList();
     }
@@ -1045,11 +1043,19 @@ public class ActionRunService {
                 .orElseThrow(() -> new IllegalArgumentException("Dataset not found"));
         List<ActionRun> runs = runRepository.findByWorkspaceIdAndDatasetIdAndKindOrderByCreatedDesc(
                 workspaceId, datasetId, ActionRun.Kind.EVALUATION, PageRequest.of(0, runHistoryLimit(limit)));
-        Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
         Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
         return runs.stream()
-                .filter(run -> run.getKind() == ActionRun.Kind.EVALUATION)
-                .filter(run -> !dismissedRunIds.contains(run.getId()))
+                .map(run -> responseMapper.toRunResponse(run, null, userId, queuePositions, Map.of()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.RunResponse> listWorkspaceRunsOfKind(String workspaceId, ActionRun.Kind kind, String userId, int limit) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        List<ActionRun> runs = runRepository.findByWorkspaceIdAndKindOrderByCreatedDesc(
+                workspaceId, kind, PageRequest.of(0, runHistoryLimit(limit)));
+        Map<String, Integer> queuePositions = responseMapper.queuePositionsByRunId(runs);
+        return runs.stream()
                 .map(run -> responseMapper.toRunResponse(run, null, userId, queuePositions, Map.of()))
                 .toList();
     }

@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.controller.action;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionPublicBaseUrlService;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionRunService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -227,6 +228,22 @@ public class ActionProjectController {
             @RequestParam(defaultValue = "200") int limit,
             @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.ok(actionRunService.listEvaluationRuns(workspaceId, datasetId, userId, limit));
+    }
+
+    @GetMapping("/training/runs")
+    public ResponseEntity<List<ActionDto.RunResponse>> listWorkspaceTrainingRuns(
+            @PathVariable String workspaceId,
+            @RequestParam(defaultValue = "200") int limit,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listWorkspaceRunsOfKind(workspaceId, ActionRun.Kind.TRAINING, userId, limit));
+    }
+
+    @GetMapping("/evaluation/runs")
+    public ResponseEntity<List<ActionDto.RunResponse>> listWorkspaceEvaluationRuns(
+            @PathVariable String workspaceId,
+            @RequestParam(defaultValue = "200") int limit,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listWorkspaceRunsOfKind(workspaceId, ActionRun.Kind.EVALUATION, userId, limit));
     }
 
     @GetMapping("/evaluation/runs/{runId}/baselines")

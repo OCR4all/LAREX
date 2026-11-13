@@ -13,10 +13,9 @@ const runsKey = computed(() => workspaceId.value
   ? wsKey(workspaceId.value, 'evaluation-runs', 'list')
   : globalKey('pending', 'evaluation-runs', 'list'))
 const { data: runs, pending: loading, error: loadError, refresh: loadRuns } = await useFetch<ActionRun[]>(
-  () => `/api/workspaces/${workspaceId.value}/actions/runs`,
+  () => `/api/workspaces/${workspaceId.value}/actions/evaluation/runs`,
   {
     key: runsKey,
-    transform: allRuns => allRuns.filter(run => run.kind === 'EVALUATION'),
     default: () => [],
     immediate: !!workspaceId.value
   }

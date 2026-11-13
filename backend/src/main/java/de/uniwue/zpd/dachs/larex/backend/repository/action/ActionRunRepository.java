@@ -71,6 +71,13 @@ public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
     List<ActionRun> findByWorkspaceIdOrderByCreatedDesc(String workspaceId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"processorDefinition"})
+    List<ActionRun> findByWorkspaceIdAndKindOrderByCreatedDesc(
+            String workspaceId,
+            ActionRun.Kind kind,
+            Pageable pageable
+    );
+
+    @EntityGraph(attributePaths = {"processorDefinition"})
     List<ActionRun> findByWorkspaceIdAndStatusIn(String workspaceId, Collection<Status> statuses);
 
     List<ActionRun> findByWorkspaceIdAndProjectIdAndStatusIn(String workspaceId, String projectId, Collection<Status> statuses);

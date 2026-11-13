@@ -2413,6 +2413,24 @@ class ActionRunServiceTest {
     }
 
     @Test
+    void evaluationRunListingKeepsRunsDismissedFromTheQueue() {
+        Project project = project("project-eval", WORKSPACE_ID, "Project");
+        ActionProcessorDefinition definition = definition("processor-evaluation-list");
+        ActionRun evaluation = run(definition, project, OWNER_ID, ActionRun.Status.COMPLETED, LockMode.PAGES, List.of("page-1"));
+        evaluation.setKind(ActionRun.Kind.EVALUATION);
+        when(runRepository.findByWorkspaceIdAndKindOrderByCreatedDesc(
+                eq(WORKSPACE_ID), eq(ActionRun.Kind.EVALUATION), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(List.of(evaluation));
+        when(runDismissalRepository.findRunIdsByUserIdAndRunIds(anyString(), anyCollection()))
+                .thenReturn(Set.of(evaluation.getId()));
+
+        List<ActionDto.RunResponse> runs = service.listWorkspaceRunsOfKind(WORKSPACE_ID, ActionRun.Kind.EVALUATION, CURATOR_ID, 200);
+
+        assertThat(runs).extracting(ActionDto.RunResponse::id).containsExactly(evaluation.getId());
+        verify(workspaceAccessService).requireWorkspaceAccess(WORKSPACE_ID, CURATOR_ID);
+    }
+
+    @Test
     void alreadyDispatchedRunCanCompleteAfterDefinitionAndScopeAreDisabled() throws Exception {
         Project project = project("project", WORKSPACE_ID, "Project");
         ActionProcessorDefinition definition = definition("revoked-running");
