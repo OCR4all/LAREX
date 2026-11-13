@@ -26,6 +26,7 @@ import de.uniwue.zpd.dachs.larex.backend.exception.ActionScopeLockedException;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionWorkspaceExecuteRoleRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunDismissalRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunLogEventRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunPageResultRepository;
@@ -233,7 +234,7 @@ class ActionRunServiceTest {
                 definitionRepository,
                 assignmentRepository,
                 availabilityRepository,
-                new ActionWorkspaceActivationService(availabilityRepository, assignmentRepository),
+                new ActionWorkspaceActivationService(availabilityRepository, assignmentRepository, mock(ActionWorkspaceExecuteRoleRepository.class)),
                 runRepository,
                 runDismissalRepository,
                 logEventRepository,

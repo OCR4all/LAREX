@@ -5,6 +5,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorWorkspaceAvailability;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionWorkspaceExecuteRoleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,7 +29,7 @@ class ActionWorkspaceActivationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ActionWorkspaceActivationService(availability, assignments);
+        service = new ActionWorkspaceActivationService(availability, assignments, mock(ActionWorkspaceExecuteRoleRepository.class));
         definition = new ActionProcessorDefinition();
         definition.setId("action");
         definition.setEnabled(true);

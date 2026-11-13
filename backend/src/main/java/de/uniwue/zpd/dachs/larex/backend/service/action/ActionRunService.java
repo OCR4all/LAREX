@@ -292,7 +292,7 @@ public class ActionRunService {
                 .forEach(definition -> available.putIfAbsent(definition.getId(), definition));
         return available.values().stream()
                 .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
-                .map(definitionService::toDefinitionResponse)
+                .map(definition -> definitionService.toDefinitionResponse(definition, workspaceId))
                 .toList();
     }
 
@@ -302,7 +302,8 @@ public class ActionRunService {
         List<ActionProcessorAssignment> assignments = projectId == null || projectId.isBlank()
                 ? assignmentRepository.findByWorkspaceIdAndProjectIdIsNullOrderByCreatedAsc(workspaceId)
                 : assignmentRepository.findByWorkspaceIdAndProjectIdOrderByCreatedAsc(workspaceId, projectId);
-        return assignments.stream().map(this::toAssignmentResponse).toList();
+        Map<String, ExecuteRole> overrides = activationService.executeRoleOverrides(workspaceId);
+        return assignments.stream().map(assignment -> toAssignmentResponse(assignment, overrides)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -313,8 +314,9 @@ public class ActionRunService {
         if (projectId != null) {
             throw new IllegalArgumentException("allScopes cannot be combined with projectId");
         }
+        Map<String, ExecuteRole> overrides = activationService.executeRoleOverrides(workspaceId);
         return assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(workspaceId).stream()
-                .map(this::toAssignmentResponse).toList();
+                .map(assignment -> toAssignmentResponse(assignment, overrides)).toList();
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -361,7 +363,29 @@ public class ActionRunService {
         actionAuditService.record("ACTION_ACTIVATION_UPDATE", "SUCCESS", userId, definitionId, null,
                 workspaceId, null, Map.of("scope", request.scope().name(), "projectIds", projectIds,
                         "enabled", request.enabled()));
-        return result.stream().map(this::toAssignmentResponse).toList();
+        Map<String, ExecuteRole> overrides = activationService.executeRoleOverrides(workspaceId);
+        return result.stream().map(assignment -> toAssignmentResponse(assignment, overrides)).toList();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public List<ActionDto.AssignmentResponse> updateExecuteRole(String workspaceId, String definitionId,
+                                                                ActionDto.ExecuteRoleRequest request, String userId) {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (definition.isWorkflow()) {
+            throw new IllegalArgumentException("Workflows follow the strictest role of their steps");
+        }
+        List<ActionProcessorAssignment> assignments = assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(workspaceId)
+                .stream().filter(assignment -> assignment.getProcessorDefinition().getId().equals(definitionId)).toList();
+        if (assignments.isEmpty()) {
+            throw new IllegalArgumentException("Add the Action to this workspace before changing who can run it");
+        }
+        activationService.setExecuteRoleOverride(definitionId, workspaceId, request.executeRole(), userId);
+        actionAuditService.record("ACTION_EXECUTE_ROLE_UPDATE", "SUCCESS", userId, definitionId, null,
+                workspaceId, null, Map.of("executeRole", request.executeRole() == null ? "DEFAULT" : request.executeRole().name()));
+        Map<String, ExecuteRole> overrides = activationService.executeRoleOverrides(workspaceId);
+        return assignments.stream().map(assignment -> toAssignmentResponse(assignment, overrides)).toList();
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -372,6 +396,7 @@ public class ActionRunService {
         List<ActionProcessorAssignment> assignments = assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(workspaceId)
                 .stream().filter(assignment -> assignment.getProcessorDefinition().getId().equals(definitionId)).toList();
         assignmentRepository.deleteAll(assignments);
+        activationService.setExecuteRoleOverride(definitionId, workspaceId, null, userId);
         actionAuditService.record("ACTION_ACTIVATION_DELETE", "SUCCESS", userId, definitionId, null,
                 workspaceId, null, Map.of("assignmentCount", assignments.size()));
     }
@@ -481,7 +506,7 @@ public class ActionRunService {
                 .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.TRAINING)
                 .filter(definition -> canExecute(definition, workspaceId, userId))
                 .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
-                .map(definitionService::toDefinitionResponse)
+                .map(definition -> definitionService.toDefinitionResponse(definition, workspaceId))
                 .toList();
     }
 
@@ -492,7 +517,7 @@ public class ActionRunService {
                 .filter(definition -> definition.getActionKind() == ActionProcessorDefinition.ActionKind.EVALUATION)
                 .filter(definition -> canExecute(definition, workspaceId, userId))
                 .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
-                .map(definitionService::toDefinitionResponse)
+                .map(definition -> definitionService.toDefinitionResponse(definition, workspaceId))
                 .toList();
     }
 
@@ -504,7 +529,7 @@ public class ActionRunService {
                 .filter(definition -> !definition.isWorkflow())
                 .filter(definition -> canExecute(definition, workspaceId, userId))
                 .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
-                .map(definitionService::toDefinitionResponse)
+                .map(definition -> definitionService.toDefinitionResponse(definition, workspaceId))
                 .toList();
     }
 
@@ -3181,17 +3206,13 @@ public class ActionRunService {
 
     /** Whether the user holds the role the definition needs. Workflows need the strictest role of their steps. */
     boolean canExecute(ActionProcessorDefinition definition, String workspaceId, String userId) {
-        return requiredExecuteRole(definition) == ExecuteRole.EDITOR
+        return definitionService.effectiveExecuteRole(definition, workspaceId) == ExecuteRole.EDITOR
                 ? workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)
                 : workspaceAccessService.canManageProjects(workspaceId, userId);
     }
 
-    private ExecuteRole requiredExecuteRole(ActionProcessorDefinition definition) {
-        return definition.isWorkflow() ? definitionService.effectiveExecuteRole(definition) : definition.getExecuteRole();
-    }
-
-    private String curatorAccessRequiredReason(ActionProcessorDefinition definition) {
-        List<String> steps = definition.isWorkflow() ? definitionService.curatorOnlyStepLabels(definition) : List.of();
+    private String curatorAccessRequiredReason(ActionProcessorDefinition definition, String workspaceId) {
+        List<String> steps = definition.isWorkflow() ? definitionService.curatorOnlyStepLabels(definition, workspaceId) : List.of();
         return steps.isEmpty() ? "Curator access is required" : "Curator access is required for " + String.join(", ", steps);
     }
 
@@ -3239,7 +3260,7 @@ public class ActionRunService {
                 .filter(definition -> definitionService.readTargetTypes(definition).contains(ActionTarget.PAGE))
                 .filter(definition -> canExecute(definition, workspaceId, userId))
                 .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
-                .map(definitionService::toDefinitionResponse).toList();
+                .map(definition -> definitionService.toDefinitionResponse(definition, workspaceId)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -3478,12 +3499,19 @@ public class ActionRunService {
     }
 
     private ActionDto.AssignmentResponse toAssignmentResponse(ActionProcessorAssignment assignment) {
+        return toAssignmentResponse(assignment, activationService.executeRoleOverrides(assignment.getWorkspaceId()));
+    }
+
+    private ActionDto.AssignmentResponse toAssignmentResponse(ActionProcessorAssignment assignment,
+                                                              Map<String, ExecuteRole> overrides) {
+        ActionProcessorDefinition definition = assignment.getProcessorDefinition();
         return new ActionDto.AssignmentResponse(
                 assignment.getId(),
                 assignment.getWorkspaceId(),
                 assignment.getProjectId(),
                 assignment.isEnabled(),
-                definitionService.toDefinitionResponse(assignment.getProcessorDefinition())
+                overrides.get(definition.getId()),
+                definitionService.toDefinitionResponse(definition, overrides)
         );
     }
 
@@ -3494,20 +3522,20 @@ public class ActionRunService {
                                                                        String userId) {
         boolean executable = true;
         String blockedReason = null;
-        ExecuteRole requiredRole = requiredExecuteRole(definition);
+        ExecuteRole requiredRole = definitionService.effectiveExecuteRole(definition, workspaceId);
         if (project.isLocked() && definition.getActionKind() == ActionProcessorDefinition.ActionKind.PROCESSING) {
             executable = false;
             blockedReason = project.getLockedReason() == null ? "Project is locked" : project.getLockedReason();
         } else if (requiredRole == ExecuteRole.CURATOR && !workspaceAccessService.canManageProjects(workspaceId, userId)) {
             executable = false;
-            blockedReason = curatorAccessRequiredReason(definition);
+            blockedReason = curatorAccessRequiredReason(definition, workspaceId);
         } else if (requiredRole == ExecuteRole.EDITOR && !workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
             executable = false;
             blockedReason = "Workspace access is required";
         }
         return new ActionDto.ExecutableProcessorResponse(
                 assignment == null ? null : assignment.getId(),
-                definitionService.toDefinitionResponse(definition),
+                definitionService.toDefinitionResponse(definition, workspaceId),
                 executable,
                 blockedReason
         );

@@ -43,6 +43,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -279,20 +280,33 @@ public class ActionDefinitionService {
      * step's Action changes its {@code access.execute}.
      */
     public ExecuteRole effectiveExecuteRole(ActionProcessorDefinition definition) {
-        if (!definition.isWorkflow()) return definition.getExecuteRole();
+        return effectiveExecuteRole(definition, Collections.<String, ExecuteRole>emptyMap());
+    }
+
+    public ExecuteRole effectiveExecuteRole(ActionProcessorDefinition definition, String workspaceId) {
+        return effectiveExecuteRole(definition, activationService.executeRoleOverrides(workspaceId));
+    }
+
+    private ExecuteRole effectiveExecuteRole(ActionProcessorDefinition definition, Map<String, ExecuteRole> overrides) {
+        if (!definition.isWorkflow()) return overrides.getOrDefault(definition.getId(), definition.getExecuteRole());
         return workflowStepDefinitions(definition).stream()
-                .anyMatch(step -> step != null && step.getExecuteRole() == ExecuteRole.CURATOR)
+                .anyMatch(step -> step != null && effectiveExecuteRole(step, overrides) == ExecuteRole.CURATOR)
                 ? ExecuteRole.CURATOR : ExecuteRole.EDITOR;
     }
 
+    private ExecuteRole defaultExecuteRole(ActionProcessorDefinition definition, Map<String, ExecuteRole> overrides) {
+        return definition.isWorkflow() ? effectiveExecuteRole(definition, overrides) : definition.getExecuteRole();
+    }
+
     /** Human-readable labels such as {@code "step 2 (Layout analysis)"} for the curator-only steps of a workflow. */
-    public List<String> curatorOnlyStepLabels(ActionProcessorDefinition workflow) {
+    public List<String> curatorOnlyStepLabels(ActionProcessorDefinition workflow, String workspaceId) {
         if (!workflow.isWorkflow()) return List.of();
+        Map<String, ExecuteRole> overrides = activationService.executeRoleOverrides(workspaceId);
         List<ActionProcessorDefinition> steps = workflowStepDefinitions(workflow);
         List<String> labels = new ArrayList<>();
         for (int index = 0; index < steps.size(); index++) {
             ActionProcessorDefinition step = steps.get(index);
-            if (step != null && step.getExecuteRole() == ExecuteRole.CURATOR) {
+            if (step != null && effectiveExecuteRole(step, overrides) == ExecuteRole.CURATOR) {
                 labels.add("step " + (index + 1) + " (" + step.getName() + ")");
             }
         }
@@ -668,6 +682,14 @@ public class ActionDefinitionService {
     }
 
     public ActionDto.DefinitionResponse toDefinitionResponse(ActionProcessorDefinition definition) {
+        return toDefinitionResponse(definition, Collections.<String, ExecuteRole>emptyMap());
+    }
+
+    public ActionDto.DefinitionResponse toDefinitionResponse(ActionProcessorDefinition definition, String workspaceId) {
+        return toDefinitionResponse(definition, activationService.executeRoleOverrides(workspaceId));
+    }
+
+    public ActionDto.DefinitionResponse toDefinitionResponse(ActionProcessorDefinition definition, Map<String, ExecuteRole> overrides) {
         ActionDto.InputRequirements inputRequirements = readInputRequirements(definition);
         ActionDefinitionDocument document = readParsedDocument(definition);
         return new ActionDto.DefinitionResponse(
@@ -680,7 +702,8 @@ public class ActionDefinitionService {
                 definition.getEndpointUrl(),
                 definition.getEndpointTimeoutSeconds(),
                 definition.getActionKind(),
-                effectiveExecuteRole(definition),
+                effectiveExecuteRole(definition, overrides),
+                defaultExecuteRole(definition, overrides),
                 definition.getLockMode(),
                 document.tags(),
                 readTargetTypes(definition),

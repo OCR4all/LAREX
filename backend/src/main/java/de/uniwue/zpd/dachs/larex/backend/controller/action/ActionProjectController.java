@@ -59,6 +59,15 @@ public class ActionProjectController {
         return ResponseEntity.ok(actionRunService.updateActivation(workspaceId, processorDefinitionId, request, userId));
     }
 
+    @PutMapping("/processors/{processorDefinitionId}/execute-role")
+    public ResponseEntity<List<ActionDto.AssignmentResponse>> updateExecuteRole(
+            @PathVariable String workspaceId,
+            @PathVariable String processorDefinitionId,
+            @RequestBody ActionDto.ExecuteRoleRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.updateExecuteRole(workspaceId, processorDefinitionId, request, userId));
+    }
+
     @DeleteMapping("/processors/{processorDefinitionId}/activation")
     public ResponseEntity<Void> removeActivation(
             @PathVariable String workspaceId,

@@ -168,6 +168,7 @@ public class ActionDto {
             int endpointTimeoutSeconds,
             ActionKind kind,
             ExecuteRole executeRole,
+            ExecuteRole defaultExecuteRole,
             LockMode lockMode,
             List<String> tags,
             List<ActionTarget> targets,
@@ -222,7 +223,12 @@ public class ActionDto {
             String workspaceId,
             String projectId,
             boolean enabled,
+            ExecuteRole executeRoleOverride,
             DefinitionResponse processor
+    ) {}
+
+    public record ExecuteRoleRequest(
+            ExecuteRole executeRole
     ) {}
 
     public record ExecutableProcessorResponse(

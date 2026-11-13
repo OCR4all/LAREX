@@ -4,8 +4,10 @@ import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorAssignment;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionWorkspaceExecuteRoleRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionDefinitionService;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionRunService;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionWorkspaceActivationService;
@@ -41,6 +43,7 @@ class ActionWorkspaceActivationIntegrationTest {
     @Autowired ActionWorkspaceActivationService activation;
     @Autowired ActionProcessorDefinitionRepository definitionRepository;
     @Autowired ActionProcessorAssignmentRepository assignmentRepository;
+    @Autowired ActionWorkspaceExecuteRoleRepository executeRoleRepository;
     @Autowired PlatformTransactionManager transactionManager;
     @Autowired JdbcTemplate jdbc;
     @MockitoBean GlobalAdminService globalAdmin;
@@ -83,6 +86,61 @@ class ActionWorkspaceActivationIntegrationTest {
     }
 
     @Test
+    void workspaceExecuteRoleOverridesApplyOnlyToTheirWorkspace() {
+        ActionProcessorDefinition definition = definition(true);
+        String overridden = UUID.randomUUID().toString();
+        String untouched = UUID.randomUUID().toString();
+        actions.assignProcessor(overridden, new ActionDto.AssignmentRequest(definition.getId(), null, true), "curator");
+        actions.assignProcessor(untouched, new ActionDto.AssignmentRequest(definition.getId(), null, true), "curator");
+
+        List<ActionDto.AssignmentResponse> updated = actions.updateExecuteRole(overridden, definition.getId(),
+                new ActionDto.ExecuteRoleRequest(ExecuteRole.EDITOR), "curator");
+        assertThat(updated).singleElement().satisfies(assignment -> {
+            assertThat(assignment.executeRoleOverride()).isEqualTo(ExecuteRole.EDITOR);
+            assertThat(assignment.processor().executeRole()).isEqualTo(ExecuteRole.EDITOR);
+            assertThat(assignment.processor().defaultExecuteRole()).isEqualTo(ExecuteRole.CURATOR);
+        });
+        assertThat(definitions.effectiveExecuteRole(definition, overridden)).isEqualTo(ExecuteRole.EDITOR);
+        assertThat(definitions.effectiveExecuteRole(definition, untouched)).isEqualTo(ExecuteRole.CURATOR);
+        assertThat(definitions.getDefinition(definition.getId()).executeRole()).isEqualTo(ExecuteRole.CURATOR);
+
+        actions.updateExecuteRole(overridden, definition.getId(), new ActionDto.ExecuteRoleRequest(null), "curator");
+        assertThat(definitions.effectiveExecuteRole(definition, overridden)).isEqualTo(ExecuteRole.CURATOR);
+    }
+
+    @Test
+    void executeRoleOverridesRequireActivationAndAreRemovedWithIt() {
+        ActionProcessorDefinition definition = definition(true);
+        String workspace = UUID.randomUUID().toString();
+        assertThatThrownBy(() -> actions.updateExecuteRole(workspace, definition.getId(),
+                new ActionDto.ExecuteRoleRequest(ExecuteRole.EDITOR), "curator"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        actions.assignProcessor(workspace, new ActionDto.AssignmentRequest(definition.getId(), null, true), "curator");
+        actions.updateExecuteRole(workspace, definition.getId(), new ActionDto.ExecuteRoleRequest(ExecuteRole.EDITOR), "curator");
+        actions.removeActivation(workspace, definition.getId(), "curator");
+        assertThat(executeRoleRepository.findByProcessorDefinitionId(definition.getId())).isEmpty();
+    }
+
+    @Test
+    void executeRoleOverridesAreRemovedWhenWorkspaceLosesAvailabilityOrDefinitionIsDeleted() {
+        ActionProcessorDefinition definition = definition(false);
+        String workspace = UUID.randomUUID().toString();
+        String availabilityId = definitions.assignWorkspaceAvailability(definition.getId(),
+                new ActionDto.WorkspaceAvailabilityRequest(workspace, true), "admin").id();
+        actions.assignProcessor(workspace, new ActionDto.AssignmentRequest(definition.getId(), null, true), "curator");
+        actions.updateExecuteRole(workspace, definition.getId(), new ActionDto.ExecuteRoleRequest(ExecuteRole.EDITOR), "curator");
+        definitions.removeWorkspaceAvailability(definition.getId(), availabilityId);
+        assertThat(executeRoleRepository.findByProcessorDefinitionId(definition.getId())).isEmpty();
+
+        ActionProcessorDefinition deleted = definition(true);
+        actions.assignProcessor(workspace, new ActionDto.AssignmentRequest(deleted.getId(), null, true), "curator");
+        actions.updateExecuteRole(workspace, deleted.getId(), new ActionDto.ExecuteRoleRequest(ExecuteRole.EDITOR), "curator");
+        definitions.deleteDefinition(deleted.getId());
+        assertThat(executeRoleRepository.findByProcessorDefinitionId(deleted.getId())).isEmpty();
+    }
+
+    @Test
     void projectAssignmentsApplyOnlyToTheirProject() {
         ActionProcessorDefinition definition = definition(true);
         String workspace = UUID.randomUUID().toString();
@@ -105,7 +163,8 @@ class ActionWorkspaceActivationIntegrationTest {
         definitions.setGlobalAvailable(definition.getId(), false, "admin");
         assertThat(assignmentRepository.findByDefinitionIds(List.of(definition.getId())))
                 .extracting(ActionProcessorAssignment::getWorkspaceId).containsExactly(allowed);
-        assertThat(actions.listAvailableDefinitions(excluded, "curator")).isEmpty();
+        assertThat(actions.listAvailableDefinitions(excluded, "curator"))
+                .extracting(ActionDto.DefinitionResponse::id).doesNotContain(definition.getId());
         assertThatThrownBy(() -> actions.assignProcessor(excluded,
                 new ActionDto.AssignmentRequest(definition.getId(), null, true), "curator"))
                 .isInstanceOf(SecurityException.class);

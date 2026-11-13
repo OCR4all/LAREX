@@ -366,7 +366,7 @@ public class ActionWorkflowService {
         // have been demoted, or the step's Action may have become curator-only, since the workflow started.
         var processor = requireProcessor(step.processorDefinitionId());
         if (!actions.canExecute(processor, run.getWorkspaceId(), run.getCreatedByUserId())) {
-            String role = processor.getExecuteRole() == ActionProcessorDefinition.ExecuteRole.CURATOR ? "curator access" : "workspace access";
+            String role = definitions.effectiveExecuteRole(processor, run.getWorkspaceId()) == ActionProcessorDefinition.ExecuteRole.CURATOR ? "curator access" : "workspace access";
             finish(run, "FAILED", "Step " + (stepIds.size() + 1) + " (" + processor.getName() + ") requires " + role
                     + ", which the user who started this workflow no longer has. No later steps were started.");
             return;

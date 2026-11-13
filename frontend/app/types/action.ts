@@ -128,6 +128,7 @@ export interface ActionDefinition {
   endpointTimeoutSeconds: number
   kind: ActionKind
   executeRole: ActionExecuteRole
+  defaultExecuteRole?: ActionExecuteRole
   lockMode: ActionLockMode
   tags: string[]
   targets: ActionTarget[]
@@ -154,11 +155,16 @@ export interface ActionActivationRequest {
   enabled: boolean
 }
 
+export interface ActionExecuteRoleRequest {
+  executeRole: ActionExecuteRole | null
+}
+
 export interface ActionAssignment {
   id: string
   workspaceId: string
   projectId: string | null
   enabled: boolean
+  executeRoleOverride?: ActionExecuteRole | null
   processor: ActionDefinition
 }
 

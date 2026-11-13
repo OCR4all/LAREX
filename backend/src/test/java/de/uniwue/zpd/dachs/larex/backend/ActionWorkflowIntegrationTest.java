@@ -376,6 +376,26 @@ class ActionWorkflowIntegrationTest {
     }
 
     @Test
+    void workflowRoleFollowsWorkspaceOverridesOfItsStepsButCannotBeOverriddenItself() {
+        Fixture f = fixture(false);
+        setRole(f.first, ExecuteRole.EDITOR);
+        setRole(f.second, ExecuteRole.CURATOR);
+        when(access.canManageProjects(f.workspace, "editor")).thenReturn(false);
+        String action = f.workflow.processorDefinitionId();
+        assertThat(executable(f, action, "editor").executable()).isFalse();
+
+        actions.updateExecuteRole(f.workspace, f.second, new ActionDto.ExecuteRoleRequest(ExecuteRole.EDITOR), "owner");
+        assertThat(executable(f, action, "editor").executable()).isTrue();
+        assertThat(executable(f, action, "editor").processor().executeRole()).isEqualTo(ExecuteRole.EDITOR);
+        assertThat(definitions.getDefinition(action).executeRole()).isEqualTo(ExecuteRole.CURATOR);
+        assertThat(workflows.start(f.workspace, f.project, request(f), "editor", "url").stepRunIds()).hasSize(1);
+
+        assertThatThrownBy(() -> actions.updateExecuteRole(f.workspace, action,
+                new ActionDto.ExecuteRoleRequest(ExecuteRole.CURATOR), "owner"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void workflowRoleFollowsTheCurrentStepsEvenWhenTheSavedSnapshotIsStale() {
         Fixture f = fixture(false);
         setRole(f.first, ExecuteRole.EDITOR);

@@ -45,6 +45,12 @@ describe('workspace Action table', () => {
     expect(filterWorkspaceActions(scoped, '', 'b')).toHaveLength(0)
   })
 
+  it('carries the workspace role override onto the row', () => {
+    expect(groupWorkspaceActions([assignment(null)])[0]!.executeRoleOverride).toBeNull()
+    expect(groupWorkspaceActions([{ ...assignment('a'), executeRoleOverride: 'EDITOR' }, assignment('b')])[0]!.executeRoleOverride)
+      .toBe('EDITOR')
+  })
+
   it('excludes configured Actions including disabled and project-only assignments from Add', () => {
     expect(unconfiguredActions([processor], [assignment('a', false)])).toEqual([])
     expect(unconfiguredActions([processor], [])).toEqual([processor])

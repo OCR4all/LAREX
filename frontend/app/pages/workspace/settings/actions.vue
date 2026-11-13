@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { ActionActivationRequest, ActionAssignmentResponse, ActionDefinitionResponse } from '~/types/action'
+import type { ActionActivationRequest, ActionAssignmentResponse, ActionDefinitionResponse, ActionExecuteRole, ActionExecuteRoleRequest } from '~/types/action'
 import type { WorkspaceActionRow } from '~/utils/workspace-action-activation'
 
 const workspaceStore = useWorkspaceStore()
@@ -28,6 +28,7 @@ const editRow = ref<WorkspaceActionRow | null>(null)
 const editOpen = ref(false)
 const editScope = ref<ActionActivationRequest['scope']>('WORKSPACE')
 const editProjectIds = ref<string[]>([])
+const editRole = ref<ActionExecuteRole | 'DEFAULT'>('DEFAULT')
 const editError = ref('')
 const pendingIds = ref<string[]>([])
 const removingIds = ref<string[]>([])
@@ -51,6 +52,7 @@ const columns: TableColumn<WorkspaceActionRow>[] = [
   { id: 'kind', header: 'Kind' },
   { id: 'availability', header: 'Availability' },
   { id: 'scope', header: 'Activation scope' },
+  { id: 'role', header: 'Who can run' },
   { id: 'status', header: 'Status' },
   { id: 'controls', header: '' }
 ]
@@ -61,10 +63,23 @@ const addColumns: TableColumn<ActionDefinitionResponse>[] = [
   { id: 'availability', header: 'Availability' }
 ]
 const scopeOptions = [{ label: 'Entire workspace', value: 'WORKSPACE' }, { label: 'Selected projects', value: 'PROJECTS' }]
+const roleOptions = computed(() => [
+  { label: `Default (${roleLabel(editRow.value ? defaultRole(editRow.value) : 'CURATOR')})`, description: 'As declared by the Action definition.', value: 'DEFAULT' },
+  { label: 'Editors and curators', value: 'EDITOR' },
+  { label: 'Curators only', value: 'CURATOR' }
+])
 
 function message(error: unknown) {
   const response = error as { data?: { statusMessage?: string, data?: { message?: string } } }
   return response?.data?.data?.message || response?.data?.statusMessage || 'Please try again.'
+}
+
+function roleLabel(role: ActionExecuteRole) {
+  return role === 'CURATOR' ? 'Curators only' : 'Editors and curators'
+}
+
+function defaultRole(row: WorkspaceActionRow): ActionExecuteRole {
+  return row.processor.defaultExecuteRole ?? row.processor.executeRole
 }
 
 function scopeLabel(row: WorkspaceActionRow) {
@@ -113,6 +128,7 @@ function reset() {
   editRow.value = null
   editProjectIds.value = []
   editScope.value = 'WORKSPACE'
+  editRole.value = 'DEFAULT'
   editError.value = ''
   pendingIds.value = []
   removingIds.value = []
@@ -171,32 +187,29 @@ async function addActions() {
   }
 }
 
-function openScope(row: WorkspaceActionRow) {
+function openEdit(row: WorkspaceActionRow) {
   editRow.value = row
   editScope.value = row.scope
   editProjectIds.value = [...row.projectIds]
+  editRole.value = row.executeRoleOverride ?? 'DEFAULT'
   editError.value = ''
   editOpen.value = true
 }
 
-async function updateActivation(row: WorkspaceActionRow, request: ActionActivationRequest, editing = false) {
+async function updateActivation(row: WorkspaceActionRow, request: ActionActivationRequest) {
   const workspaceId = selectedWorkspace.value
   if (!workspaceId || !canManage.value || pendingIds.value.includes(row.id)) return
   const version = generation
   pendingIds.value = [...pendingIds.value, row.id]
-  editError.value = ''
   try {
     const result = await $fetch<ActionAssignmentResponse[]>(`/api/workspaces/${workspaceId}/actions/processors/${row.id}/activation`, {
       method: 'PUT', body: request
     })
     if (version !== generation) return
     assignments.value = [...assignments.value.filter(assignment => assignment.processor.id !== row.id), ...result]
-    if (editing) editOpen.value = false
-    toast.add({ title: editing ? 'Activation scope saved' : request.enabled ? 'Action enabled' : 'Action disabled', color: 'success' })
+    toast.add({ title: request.enabled ? 'Action enabled' : 'Action disabled', color: 'success' })
   } catch (error) {
-    if (version !== generation) return
-    if (editing) editError.value = message(error)
-    else toast.add({ title: 'Could not update Action', description: message(error), color: 'error' })
+    if (version === generation) toast.add({ title: 'Could not update Action', description: message(error), color: 'error' })
   } finally {
     if (version === generation) pendingIds.value = pendingIds.value.filter(id => id !== row.id)
   }
@@ -228,13 +241,40 @@ async function removeAction(row: WorkspaceActionRow) {
   }
 }
 
-function saveScope() {
-  if (!editRow.value || (editScope.value === 'PROJECTS' && !editProjectIds.value.length)) return
-  void updateActivation(editRow.value, {
-    scope: editScope.value,
-    projectIds: editScope.value === 'WORKSPACE' ? [] : editProjectIds.value,
-    enabled: editRow.value.enabled
-  }, true)
+async function saveEdit() {
+  const row = editRow.value
+  const workspaceId = selectedWorkspace.value
+  if (!row || !workspaceId || !canManage.value || pendingIds.value.includes(row.id)) return
+  if (editScope.value === 'PROJECTS' && !editProjectIds.value.length) return
+  const version = generation
+  pendingIds.value = [...pendingIds.value, row.id]
+  editError.value = ''
+  try {
+    const result = await $fetch<ActionAssignmentResponse[]>(`/api/workspaces/${workspaceId}/actions/processors/${row.id}/activation`, {
+      method: 'PUT',
+      body: {
+        scope: editScope.value,
+        projectIds: editScope.value === 'WORKSPACE' ? [] : editProjectIds.value,
+        enabled: row.enabled
+      } satisfies ActionActivationRequest
+    })
+    if (version !== generation) return
+    assignments.value = [...assignments.value.filter(assignment => assignment.processor.id !== row.id), ...result]
+    const executeRole = editRole.value === 'DEFAULT' ? null : editRole.value
+    if (!row.processor.workflowId && executeRole !== row.executeRoleOverride) {
+      await $fetch<ActionAssignmentResponse[]>(`/api/workspaces/${workspaceId}/actions/processors/${row.id}/execute-role`, {
+        method: 'PUT', body: { executeRole } satisfies ActionExecuteRoleRequest
+      })
+      if (version !== generation) return
+      void loadActions()
+    }
+    editOpen.value = false
+    toast.add({ title: 'Action settings saved', color: 'success' })
+  } catch (error) {
+    if (version === generation) editError.value = message(error)
+  } finally {
+    if (version === generation) pendingIds.value = pendingIds.value.filter(id => id !== row.id)
+  }
 }
 </script>
 
@@ -378,6 +418,14 @@ function saveScope() {
               {{ scopeLabel(row.original) }}
             </p>
           </template>
+          <template #role-cell="{ row }">
+            <div class="flex min-w-32 flex-col items-start gap-1">
+              <ActionExecuteRoleBadge :role="row.original.processor.executeRole" />
+              <span v-if="row.original.executeRoleOverride" class="text-xs text-muted">
+                Changed for this workspace
+              </span>
+            </div>
+          </template>
           <template #status-cell="{ row }">
             <UBadge :color="row.original.enabled ? 'success' : 'neutral'" variant="soft">
               {{ row.original.enabled ? 'Enabled' : 'Disabled' }}
@@ -385,15 +433,15 @@ function saveScope() {
           </template>
           <template #controls-cell="{ row }">
             <div class="flex items-center justify-end gap-1">
-              <UTooltip text="Edit scope">
+              <UTooltip text="Edit scope and access">
                 <UButton
                   icon="i-lucide-pencil"
-                  :aria-label="`Edit scope for ${row.original.processor.name}`"
+                  :aria-label="`Edit scope and access for ${row.original.processor.name}`"
                   color="neutral"
                   variant="ghost"
                   size="sm"
                   :disabled="pendingIds.includes(row.original.id)"
-                  @click="openScope(row.original)"
+                  @click="openEdit(row.original)"
                 />
               </UTooltip>
               <UTooltip :text="row.original.enabled ? 'Disable Action' : 'Enable Action'">
@@ -442,11 +490,11 @@ function saveScope() {
                 </div>
                 <div class="min-w-0 space-y-2">
                   <dt class="text-xs font-medium text-muted opacity-70">
-                    Execution role
+                    Default role
                   </dt>
                   <dd>
                     <UBadge color="neutral" variant="soft">
-                      {{ row.original.processor.executeRole === 'CURATOR' ? 'Curator' : 'Editor' }}
+                      {{ defaultRole(row.original) === 'CURATOR' ? 'Curator' : 'Editor' }}
                     </UBadge>
                   </dd>
                 </div>
@@ -563,7 +611,7 @@ function saveScope() {
 
     <UModal
       v-model:open="editOpen"
-      title="Edit activation scope"
+      title="Edit scope and access"
       :description="editRow?.processor.name"
       :dismissible="!editRow || !pendingIds.includes(editRow.id)"
       :close="!editRow || !pendingIds.includes(editRow.id)"
@@ -572,7 +620,7 @@ function saveScope() {
         <div v-if="editRow" class="space-y-4">
           <UAlert
             v-if="editError"
-            title="Could not save scope"
+            title="Could not save changes"
             :description="editError"
             color="error"
           />
@@ -591,6 +639,16 @@ function saveScope() {
               class="w-full"
             />
           </UFormField>
+          <USeparator />
+          <UFormField v-if="!editRow.processor.workflowId" label="Who can run this Action">
+            <URadioGroup v-model="editRole" :items="roleOptions" :disabled="pendingIds.includes(editRow.id)" />
+          </UFormField>
+          <UFormField v-else label="Who can run this workflow">
+            <div class="flex flex-wrap items-center gap-2">
+              <ActionExecuteRoleBadge :role="editRow.processor.executeRole" />
+              <span class="text-sm text-muted">Follows the strictest role among its steps. Change a step's Action to change this.</span>
+            </div>
+          </UFormField>
         </div>
       </template>
       <template #footer>
@@ -603,10 +661,10 @@ function saveScope() {
             @click="editOpen = false"
           />
           <UButton
-            label="Save scope"
+            label="Save"
             :loading="!!editRow && pendingIds.includes(editRow.id)"
             :disabled="!editRow || (editScope === 'PROJECTS' && !editProjectIds.length)"
-            @click="saveScope"
+            @click="saveEdit"
           />
         </div>
       </template>

@@ -1,4 +1,4 @@
-import type { ActionAssignmentResponse, ActionDefinitionResponse } from '~/types/action'
+import type { ActionAssignmentResponse, ActionDefinitionResponse, ActionExecuteRole } from '~/types/action'
 
 export interface WorkspaceActionRow {
   id: string
@@ -7,6 +7,7 @@ export interface WorkspaceActionRow {
   enabled: boolean
   scope: 'WORKSPACE' | 'PROJECTS'
   projectIds: string[]
+  executeRoleOverride: ActionExecuteRole | null
 }
 
 export function groupWorkspaceActions(assignments: ActionAssignmentResponse[]): WorkspaceActionRow[] {
@@ -26,7 +27,8 @@ export function groupWorkspaceActions(assignments: ActionAssignmentResponse[]): 
       assignments: group,
       enabled: enabledAssignments.length > 0,
       scope: workspaceWide ? 'WORKSPACE' as const : 'PROJECTS' as const,
-      projectIds: workspaceWide ? [] : [...new Set(relevant.flatMap(assignment => assignment.projectId ? [assignment.projectId] : []))]
+      projectIds: workspaceWide ? [] : [...new Set(relevant.flatMap(assignment => assignment.projectId ? [assignment.projectId] : []))],
+      executeRoleOverride: group.find(assignment => assignment.executeRoleOverride)?.executeRoleOverride ?? null
     }
   })
 }

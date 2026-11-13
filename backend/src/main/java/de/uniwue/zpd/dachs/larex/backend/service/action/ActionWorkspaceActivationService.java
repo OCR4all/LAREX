@@ -1,13 +1,18 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorAssignment;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionWorkspaceExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionWorkspaceExecuteRoleRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -17,11 +22,14 @@ import java.util.stream.Collectors;
 public class ActionWorkspaceActivationService {
     private final ActionProcessorWorkspaceAvailabilityRepository availabilityRepository;
     private final ActionProcessorAssignmentRepository assignmentRepository;
+    private final ActionWorkspaceExecuteRoleRepository executeRoleRepository;
 
     public ActionWorkspaceActivationService(ActionProcessorWorkspaceAvailabilityRepository availabilityRepository,
-                                            ActionProcessorAssignmentRepository assignmentRepository) {
+                                            ActionProcessorAssignmentRepository assignmentRepository,
+                                            ActionWorkspaceExecuteRoleRepository executeRoleRepository) {
         this.availabilityRepository = availabilityRepository;
         this.assignmentRepository = assignmentRepository;
+        this.executeRoleRepository = executeRoleRepository;
     }
 
     public boolean isEligible(ActionProcessorDefinition definition, String workspaceId) {
@@ -77,5 +85,29 @@ public class ActionWorkspaceActivationService {
                 .filter(assignment -> !eligibleWorkspaces.contains(assignment.getWorkspaceId()))
                 .toList();
         assignmentRepository.deleteAll(revoked);
+        executeRoleRepository.deleteAll(executeRoleRepository.findByProcessorDefinitionId(definition.getId()).stream()
+                .filter(role -> !eligibleWorkspaces.contains(role.getWorkspaceId()))
+                .toList());
+    }
+
+    public Map<String, ExecuteRole> executeRoleOverrides(String workspaceId) {
+        if (workspaceId == null) return Collections.emptyMap();
+        return executeRoleRepository.findByWorkspaceId(workspaceId).stream()
+                .collect(Collectors.toMap(ActionWorkspaceExecuteRole::getProcessorDefinitionId, ActionWorkspaceExecuteRole::getExecuteRole));
+    }
+
+    @Transactional
+    public void setExecuteRoleOverride(String definitionId, String workspaceId, ExecuteRole role, String userId) {
+        var existing = executeRoleRepository.findByProcessorDefinitionIdAndWorkspaceId(definitionId, workspaceId);
+        if (role == null) {
+            existing.ifPresent(executeRoleRepository::delete);
+            return;
+        }
+        ActionWorkspaceExecuteRole override = existing.orElseGet(ActionWorkspaceExecuteRole::new);
+        override.setProcessorDefinitionId(definitionId);
+        override.setWorkspaceId(workspaceId);
+        override.setExecuteRole(role);
+        if (override.getCreatedByUserId() == null) override.setCreatedByUserId(userId);
+        executeRoleRepository.save(override);
     }
 }
