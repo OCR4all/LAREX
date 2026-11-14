@@ -1159,9 +1159,12 @@ export function useEditorCollaboration() {
     if (!targetRoom) return
 
     targetRoom.viewerSync.latestPersistedRevision = payload.persistedRevision
-    if (payload.sourceUserId === currentUserId.value) {
+    const roomCanvases = Array.from(roomCanvasIds.get(payload.roomKey) ?? [])
+    const savedHere = payload.persistedRevision === room.viewerSync.persistedRevision
+      || roomCanvases.some(canvasId => editorStore.canvases?.[canvasId]?.isSavingAnnotations === true)
+    if (payload.sourceUserId === currentUserId.value && savedHere) {
       acceptPersistedRevisionForRoom(payload.roomKey, payload.persistedRevision)
-      for (const canvasId of roomCanvasIds.get(payload.roomKey) ?? []) flushCanvasToRoom(canvasId, true)
+      for (const canvasId of roomCanvases) flushCanvasToRoom(canvasId, true)
       return
     } else if (payload.persistedRevision !== targetRoom.viewerSync.persistedRevision) {
       targetRoom.viewerSync.resyncRequired = true

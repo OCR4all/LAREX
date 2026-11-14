@@ -192,6 +192,31 @@ describe('persisted editor document reloads', () => {
     expect(editor.content().custom).toBe('current live edit')
   })
 
+  it('leaves a save from another tab of the same user to a resync instead of publishing this stale document', async () => {
+    const snapshotsBefore = editor.send.mock.calls.filter(([message]) => message.type === 'SNAPSHOT_UPDATE').length
+    editor.receive({ type: 'COLLAB_REVISION_CHANGED', payload: {
+      roomKey, persistedRevision: 'revision-2', sourceUserId: user.id
+    } })
+    await editor.settle()
+
+    const room = editor.collaboration.getRoomForCanvas(canvasId)
+    expect(room?.viewerSync.persistedRevision).toBe('revision-1')
+    expect(room?.viewerSync.resyncRequired).toBe(true)
+    expect(editor.send.mock.calls.filter(([message]) => message.type === 'SNAPSHOT_UPDATE')).toHaveLength(snapshotsBefore)
+  })
+
+  it('accepts a same-user revision while this tab is saving', async () => {
+    editor.store.canvases[canvasId]!.isSavingAnnotations = true
+    editor.receive({ type: 'COLLAB_REVISION_CHANGED', payload: {
+      roomKey, persistedRevision: 'revision-2', sourceUserId: user.id
+    } })
+    await editor.settle()
+
+    const room = editor.collaboration.getRoomForCanvas(canvasId)
+    expect(room?.viewerSync.persistedRevision).toBe('revision-2')
+    expect(room?.viewerSync.resyncRequired).toBe(false)
+  })
+
   it.each(['navigation', 'reload'] as const)('rejects a delayed %s response and keeps it out of the annotation cache', async (kind) => {
     const stale = deferred<PageDto>()
     const implementation = editor.fetch.getMockImplementation()!
