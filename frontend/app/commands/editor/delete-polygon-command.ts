@@ -1,6 +1,6 @@
 import type { Command, CommandContext } from './types'
 import { PcGts } from '@/models/editor'
-import type { Glyph, Region, TextLine, TextRegion, ReadingOrder, Relation, Word } from '@/models/editor'
+import type { Glyph, Region, TextLine, TextRegion, ReadingOrder, Relation, Word, Border } from '@/models/editor'
 import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
@@ -15,7 +15,6 @@ import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { cloneRelations, removeRelationsReferencingIds } from '@/utils/editor/relations'
 import { cloneReadingOrder, removeIdsFromReadingOrder } from './reading-order-utils'
 import { getPageFrame, pageFrameKindForId, setPageFrame, type PageFrameKind } from '@/utils/editor/page-frame'
-import type { Border } from '@/models/editor'
 
 export interface DeletePolygonCommandData {
   polygonId: string // Region, text line, word or glyph ID to delete
