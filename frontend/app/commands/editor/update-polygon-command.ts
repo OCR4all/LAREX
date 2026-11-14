@@ -5,7 +5,7 @@ import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cac
 import { toPlainPoints } from './utils'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
-  findPolygonCoordsRecursive,
+  findPolygonCoords,
   rebuildSpatialIndexFromPcGts
 } from '@/utils/editor/pcgts-editor-primitives'
 
@@ -29,7 +29,7 @@ export class UpdatePolygonCommand implements Command {
     const pcGts = session?.document.value
     if (!session || !pcGts) return
 
-    const coords = findPolygonCoordsRecursive(pcGts.page.regions, this.polygonId)
+    const coords = findPolygonCoords(pcGts.page, this.polygonId)
     if (!coords) return
 
     if (this.originalPoints === null) {
@@ -55,7 +55,7 @@ export class UpdatePolygonCommand implements Command {
     const pcGts = session?.document.value
     if (!session || !pcGts) return
 
-    const coords = findPolygonCoordsRecursive(pcGts.page.regions, this.polygonId)
+    const coords = findPolygonCoords(pcGts.page, this.polygonId)
     if (!coords) return
     coords.points = [...this.originalPoints]
 

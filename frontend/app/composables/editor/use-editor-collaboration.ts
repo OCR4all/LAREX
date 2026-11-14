@@ -189,6 +189,8 @@ function hasSnapshotAnnotationPayload(snapshot: CollaborationPageSnapshot | null
     || Object.keys(snapshot.textLines).length > 0
     || Object.keys(snapshot.relations).length > 0
     || Boolean(snapshot.readingOrder)
+    || Boolean(snapshot.page.border)
+    || Boolean(snapshot.page.printSpace)
 }
 
 function roomHasRemoteParticipants(

@@ -15,6 +15,7 @@ import type { Commander } from '@/commands/editor/commander'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 import type { LayoutViewMode, TextModeSubmode, ToolbarLayout, VirtualKeyboardMode } from '@/stores/editor/types'
 import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
+import { isPageFrameType, type PageFrameKind } from '@/utils/editor/page-frame'
 
 const editorStore = useEditorStore()
 const uiStore = useEditorUiStore()
@@ -442,6 +443,16 @@ const modeViewOptions = computed<ModeViewOption[]>(() => [
     kbds: getTooltipProps('glyphView').kbds
   },
   {
+    value: `layout:${VIEW_MODES.FRAME}`,
+    mode: 'layout',
+    modeLabel: 'Layout',
+    view: VIEW_MODES.FRAME,
+    label: 'Page frame',
+    description: 'Edit the page Border and PrintSpace.',
+    icon: 'i-lucide-frame',
+    kbds: getTooltipProps('frameView').kbds
+  },
+  {
     value: 'text:visual',
     mode: 'text',
     modeLabel: 'Text',
@@ -612,7 +623,7 @@ function cancelActionWand() {
   }
 }
 
-type ToolEntry = 'region' | 'textline' | 'word' | 'glyph' | 'baseline'
+type ToolEntry = 'region' | 'textline' | 'word' | 'glyph' | 'baseline' | PageFrameKind
 type PolygonToolEntry = Exclude<ToolEntry, 'baseline'>
 
 function canActivateEntry(entry: ToolEntry) {
@@ -621,6 +632,7 @@ function canActivateEntry(entry: ToolEntry) {
   if (entry === 'textline') return canCreateTextline.value
   if (entry === 'word') return canCreateWord.value
   if (entry === 'glyph') return canCreateGlyph.value
+  if (isPageFrameType(entry)) return true
   return canCreateBaseline.value
 }
 
@@ -630,7 +642,9 @@ const preferredShapeByEntry = reactive<Record<PolygonToolEntry, ShapeOption>>({
   region: 'rectangle',
   textline: 'rectangle',
   word: 'rectangle',
-  glyph: 'rectangle'
+  glyph: 'rectangle',
+  border: 'rectangle',
+  printspace: 'rectangle'
 })
 
 function getPrimaryShapeForEntry(entry: ToolEntry): ShapeOption {
@@ -659,7 +673,9 @@ const CREATE_TOOL_ENTRIES: Array<{ entry: ToolEntry, label: string, tag: string,
   { entry: 'textline', label: 'Text line', tag: 'Line', unavailableHint: 'Select a text region or use the Text lines view' },
   { entry: 'word', label: 'Word', tag: 'Word', unavailableHint: 'Select a text line or use the Words view' },
   { entry: 'glyph', label: 'Glyph', tag: 'Glyph', unavailableHint: 'Select a word or use the Glyphs view' },
-  { entry: 'baseline', label: 'Baseline', tag: 'Base', unavailableHint: 'Select a text line without a baseline or use the Baselines view' }
+  { entry: 'baseline', label: 'Baseline', tag: 'Base', unavailableHint: 'Select a text line without a baseline or use the Baselines view' },
+  { entry: PolygonType.BORDER, label: 'Border', tag: 'Border', unavailableHint: '' },
+  { entry: PolygonType.PRINT_SPACE, label: 'Print space', tag: 'Print', unavailableHint: '' }
 ]
 
 const SHAPE_LABELS: Record<ShapeOption, string> = {
@@ -693,8 +709,11 @@ const activeCreateEntry = computed<ToolEntry | null>(() => {
  */
 const primaryCreateEntry = computed<ToolEntry>(() => {
   if (activeCreateEntry.value) return activeCreateEntry.value
-  if (canActivateEntry(lastCreateEntry.value)) return lastCreateEntry.value
-  return CREATE_TOOL_ENTRIES.find(item => canActivateEntry(item.entry))?.entry ?? lastCreateEntry.value
+  const inFrameView = selectedViewMode.value === VIEW_MODES.FRAME
+  const candidates = CREATE_TOOL_ENTRIES.filter(item => isPageFrameType(item.entry) === inFrameView)
+  const last = candidates.find(item => item.entry === lastCreateEntry.value)
+  if (last && canActivateEntry(last.entry)) return last.entry
+  return candidates.find(item => canActivateEntry(item.entry))?.entry ?? candidates[0]!.entry
 })
 
 const primaryCreateTool = computed(() => {

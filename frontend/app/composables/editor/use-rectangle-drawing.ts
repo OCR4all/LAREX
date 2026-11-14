@@ -1,6 +1,8 @@
 import type { Commander } from '@/commands'
-import { CreatePolygonCommand, CreateTextElementAutoParentCommand, CreateTextlineAutoParentCommand } from '@/commands'
+import { CreatePolygonCommand, CreateTextElementAutoParentCommand, CreateTextlineAutoParentCommand, SetPageFrameCommand } from '@/commands'
 import { PolygonType } from '@/models/editor'
+import { isPageFrameType } from '@/utils/editor/page-frame'
+import { calculatePolygonArea } from '@/utils/editor/polygon-clipping'
 import type { PolygonType as PolygonTypeType, Point, ImageSize, View, AspectRatioScale } from '@/models/editor'
 import type { RenderablePolygon } from '@/types/editor/rendering'
 import { getEditorSession } from '@/session/editor/editor-session'
@@ -163,6 +165,26 @@ export function useRectangleDrawing(
       regionType: regionType?.value,
       viewMode: viewMode?.value
     })
+
+    if (isPageFrameType(currentType)) {
+      if (calculatePolygonArea(previewPoints) <= 0) {
+        clearDrawing()
+        return false
+      }
+      const session = getEditorSession(canvasId)
+      const result = commander.execute(
+        new SetPageFrameCommand({ kind: currentType, points: [...previewPoints] }),
+        session ? { canvasId, session } : undefined
+      )
+      if (autoSelect?.value && result?.created) {
+        setTimeout(() => {
+          const idx = polygons.findIndex(p => p.id === result.id)
+          if (idx >= 0) selectedPolygonIndex.value = idx
+        }, 0)
+      }
+      clearDrawing()
+      return true
+    }
 
     const isTextlineViewMode = viewMode?.value === 'textline'
     const isCreatingTextline = currentType === PolygonType.TEXTLINE

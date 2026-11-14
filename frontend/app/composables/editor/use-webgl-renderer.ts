@@ -25,6 +25,7 @@ import { BASELINE_STYLE, RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, R
 import { WEBGL_CORE, WEBGL_GEOMETRY } from '@/webgl/editor/webgl-constants'
 import type { RenderablePolygon, WebGLRenderState } from '@/types/editor/rendering'
 import { createScopedLogger } from '@/services/editor/logger-service'
+import { isPageFrameType } from '@/utils/editor/page-frame'
 
 const log = createScopedLogger('WebGLRenderer')
 
@@ -737,7 +738,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     }
 
     if (!polygonToHover) return
-    if (hiddenPolygonIds?.has(polygonToHover.id)) return
+    if (hiddenPolygonIds?.has(polygonToHover.id) || isPageFrameType(polygonToHover.type)) return
 
     const polygonIndex = polygons.findIndex(p => p.id === polygonToHover!.id)
     if (polygonIndex === selectedPolygonIndex.value) return
@@ -885,7 +886,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     if (!viewMode || viewMode === 'default') return
 
     const hasSelection = renderState.selectedPolygonIndex.value >= 0 || renderState.selectedPolylineIndex.value >= 0
-    if (hasSelection) return
+    if (hasSelection && viewMode !== 'frame') return
 
     const document = getActiveDocument()
     const { visibility } = getRenderFrameContext(renderState)
@@ -900,6 +901,62 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       const polygonStyle = getResolvedPolygonStyle(polygon, { renderPhase: 'background' }, document)
       drawPolygonOutline(polygon, polygonStyle, getLineWidth(), aspectRatioScale, view, polygon.id)
     })
+  }
+
+  function drawPageFrameMask(
+    renderState: RenderState,
+    aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
+    view: View,
+    triangulatePolygon: (points: Point[]) => number[]
+  ): void {
+    if (!selectionOverlayRenderer) return
+
+    if (renderState.pageFrameDraftPoints) {
+      selectionOverlayRenderer.renderOutsideMask(renderState.pageFrameDraftPoints, RENDER_ALPHA.PAGE_FRAME_DRAFT_DIM, aspectRatioScale, view, triangulatePolygon)
+      return
+    }
+
+    if (normalizeViewMode(renderState.viewMode) !== 'frame') return
+    const { hiddenPolygonIds } = getRenderFrameContext(renderState)
+    for (const polygon of renderState.polygons) {
+      if (!isPageFrameType(polygon.type) || hiddenPolygonIds.has(polygon.id)) continue
+      selectionOverlayRenderer.renderOutsideMask(polygon.points, RENDER_ALPHA.PAGE_FRAME_DIM, aspectRatioScale, view, triangulatePolygon)
+    }
+  }
+
+  function drawPageFrames(
+    renderState: RenderState,
+    aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
+    view: View
+  ): void {
+    if (!thickLineRenderer || !gl) return
+    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
+    const viewMode = normalizeViewMode(renderState.viewMode)
+    const inFrameView = viewMode === 'frame'
+    const showAsContext = (viewMode === undefined || viewMode === 'default') && editorUiStore.globalSettings.showPageFramesInHierarchy
+    const { hiddenPolygonIds } = getRenderFrameContext(renderState)
+    const lineWidth = getLineWidth()
+    const selectedId = renderState.polygons[renderState.selectedPolygonIndex.value]?.id
+    const hoveredId = editorUiStore.temporaryHoverPolygonId
+      ?? renderState.polygons[renderState.hoveredPolygonIndex.value]?.id
+    const lines: LineData[] = []
+
+    for (const polygon of renderState.polygons) {
+      if (!isPageFrameType(polygon.type) || hiddenPolygonIds.has(polygon.id)) continue
+      const { strokeColor } = getResolvedPolygonStyle(polygon)
+      const isHovered = polygon.id === hoveredId && polygon.id !== selectedId
+      if (!inFrameView && !showAsContext && !isHovered) continue
+      const color = inFrameView || isHovered ? strokeColor : withAlpha(strokeColor, RENDER_ALPHA.PAGE_FRAME_CONTEXT)
+      if (!inFrameView || isHovered) {
+        lines.push({ points: polygon.points, color, thickness: lineWidth * (isHovered ? 2 : 1), isClosed: true })
+      }
+    }
+
+    if (lines.length === 0) return
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    thickLineRenderer.drawMultipleThickLines(lines, scale, view)
+    gl.disable(gl.BLEND)
   }
 
   /**
@@ -1798,6 +1855,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     gl.clear(gl.COLOR_BUFFER_BIT)
 
     drawImage(aspectRatioScale, view)
+    drawPageFrameMask(renderState, aspectRatioScale, view, triangulatePolygon)
 
     drawAutoParentIndicator(renderState, aspectRatioScale, view, triangulatePolygon)
 
@@ -1856,6 +1914,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     drawActionProcessingTargets(renderState, aspectRatioScale, view, triangulatePolygon)
 
     drawNonSelectedPolygonOutlines(renderState, aspectRatioScale, view)
+    drawPageFrames(renderState, aspectRatioScale, view)
     drawMultiSelectedPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)
     drawMultiSelectedPolygonOutlines(renderState, aspectRatioScale, view)
 
@@ -1868,7 +1927,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       }
     }
 
-    if (overlayPolygonIndex >= 0) {
+    if (overlayPolygonIndex >= 0 && !isPageFrameType(renderState.polygons[overlayPolygonIndex]?.type)) {
       drawMultiLevelSelectionOverlay(
         renderState.polygons,
         { value: overlayPolygonIndex } as Ref<number>,

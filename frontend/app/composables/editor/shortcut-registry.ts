@@ -163,6 +163,31 @@ export const SHORTCUT_DEFINITIONS = {
     defaultBindings: ['b']
   },
 
+  borderPolygon: {
+    description: 'Border (Polygon)',
+    group: 'tools',
+    scope: 'global',
+    defaultBindings: []
+  },
+  borderRectangle: {
+    description: 'Border (Rectangle)',
+    group: 'tools',
+    scope: 'global',
+    defaultBindings: []
+  },
+  printspacePolygon: {
+    description: 'Print space (Polygon)',
+    group: 'tools',
+    scope: 'global',
+    defaultBindings: []
+  },
+  printspaceRectangle: {
+    description: 'Print space (Rectangle)',
+    group: 'tools',
+    scope: 'global',
+    defaultBindings: []
+  },
+
   cutLine: {
     description: 'Cut line',
     group: 'tools',
@@ -211,6 +236,12 @@ export const SHORTCUT_DEFINITIONS = {
     group: 'view',
     scope: 'global',
     defaultBindings: ['meta_5']
+  },
+  frameView: {
+    description: 'Layout · Page frame',
+    group: 'view',
+    scope: 'global',
+    defaultBindings: ['meta_alt_p']
   },
   textCanvasView: {
     description: 'Text · Canvas',

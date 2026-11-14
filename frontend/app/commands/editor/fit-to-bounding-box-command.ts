@@ -3,7 +3,7 @@ import { PcGts } from '@/models/editor'
 import { Polygon } from '@/models/editor/geometry'
 import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
-import { findPolygonCoordsRecursive, rebuildSpatialIndexFromPcGts, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
+import { findPolygonCoords, rebuildSpatialIndexFromPcGts, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
 
 export interface FitToBoundingBoxCommandData {
   elementId: string
@@ -53,7 +53,7 @@ export class FitToBoundingBoxCommand implements Command {
   }
 
   private getCoords(pcGts: PcGts): Polygon | null {
-    return findPolygonCoordsRecursive(pcGts.page.regions, this.data.elementId, this.data.elementType)
+    return findPolygonCoords(pcGts.page, this.data.elementId, this.data.elementType)
   }
 
   private finalize(ctx: CommandContext, pcGts: PcGts): void {

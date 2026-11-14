@@ -4,6 +4,8 @@ import type { Commander } from '@/commands'
 import { DeleteSelectedElementsCommand } from '@/commands/editor/delete-selected-elements-command'
 import { DRAWING_MODES, type DrawingMode, VIEW_MODES } from '@/composables/editor/use-canvas-control'
 import type { ViewMode } from '@/types/editor/rendering'
+import { PolygonType } from '@/models/editor'
+import { isPageFrameType, type PageFrameKind } from '@/utils/editor/page-frame'
 import {
   SHORTCUT_DEFINITIONS,
   SHORTCUT_HELP_GROUPS,
@@ -51,7 +53,7 @@ export interface KeyboardShortcutsOptions {
   viewMode: Ref<ViewMode>
   selectedPolygonIds: Ref<string[]>
   selectedPolylineIds: Ref<string[]>
-  polygons: Ref<{ id: string }[]> | ComputedRef<{ id: string }[]>
+  polygons: Ref<{ id: string, type?: string }[]> | ComputedRef<{ id: string, type?: string }[]>
   polylines: Ref<{ id: string }[]> | ComputedRef<{ id: string }[]>
   selectedPolygonIndex: Ref<number>
   selectedPolylineIndex: Ref<number>
@@ -75,7 +77,7 @@ export interface KeyboardShortcutsOptions {
     deleteSelected?: () => void
     toggleShortcutsHelp?: () => void
     mergeSelected?: () => void
-    setRegionType?: (type: 'region' | 'textline' | 'word' | 'glyph' | 'baseline') => void
+    setRegionType?: (type: 'region' | 'textline' | 'word' | 'glyph' | 'baseline' | PageFrameKind) => void
     setCutMode?: (mode: 'line' | 'polygon' | 'rectangle') => void
     setUiMode?: (mode: 'layout' | 'text') => void
     setLayoutViewMode?: (mode: ViewMode) => void
@@ -153,6 +155,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     polylines,
     selectedPolygonIndex,
     selectedPolylineIndex,
+    viewMode,
     callbacks
   } = options
 
@@ -218,13 +221,18 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     const isPolygonSelected = selectedPolygonIndex.value >= 0
     const isPolylineSelected = selectedPolylineIndex.value >= 0
 
-    if (isPolygonSelected) {
-      const currentIndex = selectedPolygonIndex.value
-      const nextIndex = direction === 'next'
-        ? Math.min(currentIndex + 1, polygons.value.length - 1)
-        : Math.max(currentIndex - 1, 0)
+    const step = direction === 'next' ? 1 : -1
+    const inFrameView = viewMode.value === VIEW_MODES.FRAME
+    const findNavigablePolygonIndex = (startIndex: number): number => {
+      for (let index = startIndex; index >= 0 && index < polygons.value.length; index += step) {
+        if (isPageFrameType(polygons.value[index]?.type) === inFrameView) return index
+      }
+      return -1
+    }
 
-      if (nextIndex !== currentIndex) {
+    if (isPolygonSelected) {
+      const nextIndex = findNavigablePolygonIndex(selectedPolygonIndex.value + step)
+      if (nextIndex >= 0) {
         callbacks.selectPolygonByIndex(nextIndex)
         return true
       }
@@ -244,8 +252,9 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
       return false
     }
 
-    if (polygons.value.length > 0) {
-      callbacks.selectPolygonByIndex(direction === 'next' ? 0 : polygons.value.length - 1)
+    const firstIndex = findNavigablePolygonIndex(direction === 'next' ? 0 : polygons.value.length - 1)
+    if (firstIndex >= 0) {
+      callbacks.selectPolygonByIndex(firstIndex)
       return true
     }
 
@@ -324,6 +333,14 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         callbacks.setRegionType?.('baseline')
         callbacks.setDrawingMode(DRAWING_MODES.POLYLINE)
         return true
+      case 'borderPolygon':
+      case 'borderRectangle':
+      case 'printspacePolygon':
+      case 'printspaceRectangle':
+        if (isInputFocused()) return false
+        callbacks.setRegionType?.(commandId.startsWith('border') ? PolygonType.BORDER : PolygonType.PRINT_SPACE)
+        callbacks.setDrawingMode(commandId.endsWith('Polygon') ? DRAWING_MODES.POLYGON : DRAWING_MODES.RECTANGLE)
+        return true
       case 'cutLine':
         if (isInputFocused()) return false
         callbacks.setCutMode?.('line')
@@ -355,6 +372,11 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         if (isBlockedByTyping()) return false
         if (callbacks.setLayoutViewMode) callbacks.setLayoutViewMode(VIEW_MODES.GLYPH)
         else callbacks.setViewMode(VIEW_MODES.GLYPH)
+        return true
+      case 'frameView':
+        if (isBlockedByTyping()) return false
+        if (callbacks.setLayoutViewMode) callbacks.setLayoutViewMode(VIEW_MODES.FRAME)
+        else callbacks.setViewMode(VIEW_MODES.FRAME)
         return true
       case 'baselineView':
         if (isBlockedByTyping()) return false

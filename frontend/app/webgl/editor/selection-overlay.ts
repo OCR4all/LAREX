@@ -153,7 +153,8 @@ export class SelectionOverlayRenderer {
     if (rootIndex !== undefined) {
       const rootPolygon = polygons[rootIndex]
       if (rootPolygon && rootPolygon.points.length >= WEBGL_GEOMETRY.MIN_POLYGON_POINTS) {
-        this.renderRootRing(rootPolygon, fullscreenVertices, triangulatePolygon, 0, maxDepth)
+        const rootOpacity = calculateOpacityForLevel(0, maxDepth, RENDER_ALPHA.SELECTION_OVERLAY_MAX, RENDER_ALPHA.SELECTION_OVERLAY_MIN)
+        this.renderRootRing(rootPolygon.points, fullscreenVertices, triangulatePolygon, rootOpacity)
       }
     }
 
@@ -178,20 +179,40 @@ export class SelectionOverlayRenderer {
     disableBlending(this.gl)
   }
 
-  /**
-   * Renders the outermost ring (outside root polygon)
-   * @param rootPolygon - The root polygon
-   * @param fullscreenVertices - Vertices for fullscreen rectangle
-   * @param triangulatePolygon - Function to triangulate polygon points
-   * @param level - Current hierarchy level
-   * @param maxDepth - Maximum hierarchy depth
-   */
+  renderOutsideMask(
+    points: Point[],
+    opacity: number,
+    aspectRatioScale: Scale | { value: Scale },
+    view: View,
+    triangulatePolygon: (points: Point[]) => number[]
+  ): void {
+    if (!this.program || points.length < WEBGL_GEOMETRY.MIN_POLYGON_POINTS) return
+
+    enableBlending(this.gl)
+    setupStencilBuffer(this.gl)
+    this.gl.useProgram(this.program)
+    this.gl.bindVertexArray(this.vao)
+
+    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
+    this.setTransformUniforms(scale, view)
+    this.uniformState.uniform1i(this.uniformState.getLocation(this.program, 'u_skipTransform'), 0)
+
+    const fullscreenVertices = new Float32Array(createFullscreenRect().flatMap(p => [p.x, p.y]))
+    this.renderRootRing(points, fullscreenVertices, triangulatePolygon, opacity)
+
+    this.gl.colorMask(true, true, true, true)
+    this.gl.stencilFunc(this.gl.ALWAYS, WEBGL_STENCIL.REF_CLEAR, WEBGL_STENCIL.MASK_ALL_BITS)
+    this.gl.stencilOp(this.gl.KEEP, this.gl.KEEP, this.gl.KEEP)
+    disableStencilBuffer(this.gl)
+    disableBlending(this.gl)
+    this.gl.bindVertexArray(null)
+  }
+
   private renderRootRing(
-    rootPolygon: Polygon,
+    rootPoints: Point[],
     fullscreenVertices: Float32Array,
     triangulatePolygon: (points: Point[]) => number[],
-    level: number,
-    maxDepth: number
+    opacity: number
   ): void {
     if (!this.program || !this.buffer) return
 
@@ -200,9 +221,9 @@ export class SelectionOverlayRenderer {
     this.gl.stencilOp(this.gl.KEEP, this.gl.KEEP, this.gl.REPLACE)
     this.gl.colorMask(false, false, false, false)
 
-    const triangleIndices = triangulatePolygon(rootPolygon.points)
+    const triangleIndices = triangulatePolygon(rootPoints)
     if (triangleIndices.length >= WEBGL_GEOMETRY.MIN_TRIANGLE_INDEX_COUNT) {
-      const fillVertices = triangulateToVertices(rootPolygon.points, triangleIndices)
+      const fillVertices = triangulateToVertices(rootPoints, triangleIndices)
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer)
       this.gl.bufferData(this.gl.ARRAY_BUFFER, fillVertices, this.gl.DYNAMIC_DRAW)
       this.gl.drawArrays(this.gl.TRIANGLES, 0, fillVertices.length / WEBGL_BUFFER_LAYOUT.VEC2_COMPONENTS)
@@ -212,9 +233,8 @@ export class SelectionOverlayRenderer {
     this.gl.stencilFunc(this.gl.EQUAL, WEBGL_STENCIL.REF_CLEAR, WEBGL_STENCIL.MASK_ALL_BITS)
     this.gl.stencilOp(this.gl.KEEP, this.gl.KEEP, this.gl.KEEP)
 
-    const rootOpacity = calculateOpacityForLevel(level, maxDepth, RENDER_ALPHA.SELECTION_OVERLAY_MAX, RENDER_ALPHA.SELECTION_OVERLAY_MIN)
     const overlayBlack = RENDER_COLORS.OVERLAY_BLACK
-    this.setColorUniform([overlayBlack[0], overlayBlack[1], overlayBlack[2], rootOpacity])
+    this.setColorUniform([overlayBlack[0], overlayBlack[1], overlayBlack[2], opacity])
 
     this.uniformState.uniform1i(this.uniformState.getLocation(this.program, 'u_skipTransform'), 1)
 

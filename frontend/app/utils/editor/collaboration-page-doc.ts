@@ -100,6 +100,8 @@ export function isSnapshotEmpty(snapshot: CollaborationPageSnapshot | null | und
     && Object.keys(snapshot.relations).length === 0
     && snapshot.rootRegionIds.length === 0
     && !snapshot.readingOrder
+    && !snapshot.page.border
+    && !snapshot.page.printSpace
 }
 
 export function snapshotFromPageDto(page: PageDto): CollaborationPageSnapshot {

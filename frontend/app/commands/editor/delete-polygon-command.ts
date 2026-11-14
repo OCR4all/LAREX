@@ -14,6 +14,8 @@ import {
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { cloneRelations, removeRelationsReferencingIds } from '@/utils/editor/relations'
 import { cloneReadingOrder, removeIdsFromReadingOrder } from './reading-order-utils'
+import { getPageFrame, pageFrameKindForId, setPageFrame, type PageFrameKind } from '@/utils/editor/page-frame'
+import type { Border } from '@/models/editor'
 
 export interface DeletePolygonCommandData {
   polygonId: string // Region, text line, word or glyph ID to delete
@@ -26,6 +28,7 @@ export class DeletePolygonCommand implements Command {
   private deletedTextLine: { textLine: TextLine, parentTextRegion: TextRegion, index: number } | null = null
   private deletedWord: { word: Word, parentTextLine: TextLine, index: number } | null = null
   private deletedGlyph: { glyph: Glyph, parentWord: Word, index: number } | null = null
+  private deletedPageFrame: { kind: PageFrameKind, frame: Border } | null = null
   private previousRelations: Relation[] | undefined
   private previousReadingOrder?: ReadingOrder
   private relationsModified = false
@@ -39,6 +42,17 @@ export class DeletePolygonCommand implements Command {
     const session = ctx?.session
     const pcGts = session?.document.value
     if (!session || !pcGts) return
+
+    const frameKind = pageFrameKindForId(this.polygonId)
+    if (frameKind) {
+      const frame = getPageFrame(pcGts.page, frameKind)
+      if (!frame) return
+      this.deletedPageFrame = { kind: frameKind, frame }
+      setPageFrame(pcGts.page, frameKind, undefined)
+      if (ctx?.canvasId) invalidateMultiplePolygonGeometry(ctx.canvasId, [this.polygonId])
+      this.commit(session, pcGts)
+      return
+    }
 
     const polygonIdsToInvalidate = collectDescendantPolygonIds(pcGts, this.polygonId)
     if (ctx?.canvasId && polygonIdsToInvalidate.length) {
@@ -87,6 +101,12 @@ export class DeletePolygonCommand implements Command {
     const pcGts = session?.document.value
     if (!session || !pcGts) return
 
+    if (this.deletedPageFrame) {
+      setPageFrame(pcGts.page, this.deletedPageFrame.kind, this.deletedPageFrame.frame)
+      this.commit(session, pcGts)
+      return
+    }
+
     if (this.deletedRegion) {
       const { region, parent, index } = this.deletedRegion
       const siblings = parent ? (parent.regions ?? []) : pcGts.page.regions
@@ -128,6 +148,12 @@ export class DeletePolygonCommand implements Command {
 
   getDescription(): string {
     return `Delete polygon`
+  }
+
+  private commit(session: NonNullable<CommandContext['session']>, pcGts: PcGts): void {
+    session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
+    rebuildSpatialIndexFromPcGts(session)
+    visibilityService.clearCache()
   }
 
   private deleteTextElement(pcGts: PcGts): boolean {

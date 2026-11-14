@@ -19,7 +19,7 @@ export interface PreviewPoint {
   y: number | null
 }
 
-export type ViewMode = 'default' | 'textline' | 'word' | 'glyph' | 'baseline'
+export type ViewMode = 'default' | 'textline' | 'word' | 'glyph' | 'baseline' | 'frame'
 
 export interface RenderablePolygon {
   id: string
@@ -125,6 +125,7 @@ export interface WebGLRenderState {
   previewPoint: PreviewPoint
   polylinePreviewPoint?: PreviewPoint
   rectanglePreviewPoints?: Point[]
+  pageFrameDraftPoints?: Point[]
 
   cutLinePoints?: Point[]
   cutPolygonPoints?: Point[]

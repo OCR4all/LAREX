@@ -5,7 +5,7 @@ import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geom
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
   findGlyphRecursive,
-  findPolygonCoordsRecursive,
+  findPolygonCoords,
   findRegionRecursive,
   findTextLineRecursive,
   findWordRecursive,
@@ -14,6 +14,7 @@ import {
   baselineIdForTextLineId,
   textLineIdFromBaselineId
 } from '@/utils/editor/pcgts-editor-primitives'
+import { getPageFrame, pageFrameKindForId, type PageFrameKind } from '@/utils/editor/page-frame'
 
 export interface MoveElementCommandData {
   elementId: string
@@ -24,7 +25,7 @@ export interface MoveElementCommandData {
 
 interface SavedPoints {
   id: string
-  type: 'region' | 'textline' | 'word' | 'glyph' | 'baseline'
+  type: 'region' | 'textline' | 'word' | 'glyph' | 'baseline' | PageFrameKind
   points: [number, number][]
 }
 
@@ -62,6 +63,15 @@ export class MoveElementCommand implements Command {
   }
 
   private movePolygon(pcGts: PcGts): void {
+    const frameKind = pageFrameKindForId(this.elementId)
+    if (frameKind) {
+      const frame = getPageFrame(pcGts.page, frameKind)
+      if (!frame) return
+      this.savedPoints.push({ id: this.elementId, type: frameKind, points: [...frame.coords.points] })
+      frame.coords.points = this.applyDelta(frame.coords.points)
+      return
+    }
+
     const textLineHit = findTextLineRecursive(pcGts.page.regions, this.elementId)
     if (textLineHit) {
       this.saveAndMoveTextLine(textLineHit)
@@ -197,7 +207,7 @@ export class MoveElementCommand implements Command {
           hit.textLine.baseline.points.points = [...saved.points]
         }
       } else {
-        const coords = findPolygonCoordsRecursive(pcGts.page.regions, saved.id, saved.type)
+        const coords = findPolygonCoords(pcGts.page, saved.id, saved.type)
         if (coords) {
           coords.points = [...saved.points]
         }

@@ -23,6 +23,7 @@ const TYPING_SAFE_COMMANDS = new Set<ShortcutCommandId>([
   'baselineView',
   'wordView',
   'glyphView',
+  'frameView',
   'textCanvasView',
   'textListView',
   'textFullView',

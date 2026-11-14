@@ -11,7 +11,7 @@ export interface AnnotationLoadError {
 }
 
 export type UiMode = 'layout' | 'text'
-export type LayoutViewMode = 'default' | 'textline' | 'word' | 'glyph' | 'baseline'
+export type LayoutViewMode = 'default' | 'textline' | 'word' | 'glyph' | 'baseline' | 'frame'
 export type LineWidthPreset = 'thin' | 'light' | 'normal' | 'medium' | 'bold' | 'extraBold'
 export type VertexSizePreset = 'tiny' | 'small' | 'normal' | 'large' | 'extraLarge'
 export type UiModeScope = 'global' | 'per-canvas'
@@ -109,6 +109,7 @@ export interface GlobalSettings {
   autoSelect: boolean
   /** Show a light label-colored fill behind region and textline polygons. */
   showPolygonLabelFill: boolean
+  showPageFramesInHierarchy: boolean
   /** When creating regions/textlines, subtract overlaps from visible existing polygons. */
   preventOverlapOnCreate: boolean
   /** Open the region type picker immediately after creating a region. */

@@ -1,6 +1,7 @@
 import { toRaw } from 'vue'
 import { setCursor } from '@/utils/editor/cursor-manager'
 import { computeAutoParentPreview } from '@/utils/editor/auto-parent-utils'
+import { isPageFrameType } from '@/utils/editor/page-frame'
 import type { View, AspectRatioScale, Point } from '@/models/editor'
 import type {
   MouseInteraction,
@@ -117,6 +118,16 @@ export function useEditorRenderer(
 
   const normalizeViewMode = normalizeLayoutViewMode
 
+  function getPageFrameDraftPoints(): Point[] | undefined {
+    if (!isPageFrameType(regionType.value)) return undefined
+    if (rectangleDrawing.previewPoints.length >= 4) return [...rectangleDrawing.previewPoints]
+    const previewPoint = toPointOrNull(polygonDrawing.previewPoint)
+    const draft = previewPoint
+      ? [...polygonDrawing.currentPolygonPoints, previewPoint]
+      : [...polygonDrawing.currentPolygonPoints]
+    return draft.length >= 3 ? draft : undefined
+  }
+
   /**
    * Render the current editor state to WebGL
    */
@@ -153,6 +164,7 @@ export function useEditorRenderer(
       previewPoint: polygonDrawing.previewPoint,
       polylinePreviewPoint: polylineDrawing.previewPoint,
       rectanglePreviewPoints: rectangleDrawing.previewPoints,
+      pageFrameDraftPoints: getPageFrameDraftPoints(),
       hoveredNodeIndex: polygonEditing.hoveredNodeIndex,
       selectedPolygonNodes: polygonEditing.selectedNodes?.value,
       previewNodePosition: toPointOrNull(polygonEditing.previewNodePosition),
@@ -262,6 +274,7 @@ export function useEditorRenderer(
       () => editorUiStore.temporaryHoverPolygonId,
       () => editorUiStore.temporaryHoverPolylineId,
       () => editorUiStore.globalSettings.defaultVertexSize,
+      () => editorUiStore.globalSettings.showPageFramesInHierarchy,
       () => editorUiStore.confidenceHeatmap,
       view,
       polygonDrawing.currentPolygonPoints,

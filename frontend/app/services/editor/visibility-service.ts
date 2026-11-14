@@ -5,6 +5,7 @@
 
 import type { Point } from '@/models/editor'
 import type { ViewMode } from '@/types/editor/rendering'
+import { isPageFrameType } from '@/utils/editor/page-frame'
 
 export interface BaseElement {
   id: string
@@ -48,7 +49,7 @@ const POLYGON_TYPE_DEPTH: Record<string, number> = {
   glyph: 3
 }
 
-const LAYOUT_VIEW_MODES: ReadonlySet<string> = new Set<ViewMode>(['default', 'textline', 'word', 'glyph', 'baseline'])
+const LAYOUT_VIEW_MODES: ReadonlySet<string> = new Set<ViewMode>(['default', 'textline', 'word', 'glyph', 'baseline', 'frame'])
 
 /** Narrow an arbitrary view mode string to a known layout view mode. */
 export function normalizeLayoutViewMode(raw: string | undefined): ViewMode | undefined {
@@ -69,6 +70,18 @@ export function getViewModePolygonType(viewMode: string | undefined): 'textline'
  */
 export class VisibilityService {
   private hierarchyCache = new WeakMap<Polygon, HierarchyInfo>()
+
+  private resolvePageFrameVisibility(polygon: Polygon, context: VisibilityContext, purpose: 'show' | 'outline' | 'interact'): boolean | undefined {
+    const isFrame = isPageFrameType(polygon.type)
+    const inFrameView = context.viewMode === 'frame'
+    if (!isFrame && !inFrameView) return undefined
+    if (!isFrame || !inFrameView) return false
+    if (this.isPolygonHidden(polygon.id, context)) return false
+    if (purpose === 'show') return true
+    const selectedPolygon = context.allPolygons[context.selectedPolygonIndex]
+    if (purpose === 'interact') return !selectedPolygon
+    return selectedPolygon?.id !== polygon.id
+  }
 
   private isPolygonHidden(polygonId: string, context: VisibilityContext): boolean {
     return context.hiddenPolygonIds?.has(polygonId) ?? false
@@ -93,6 +106,8 @@ export class VisibilityService {
     const { selectedPolygonIndex, selectedPolylineIndex, viewMode } = context
 
     if (this.isPolygonHidden(polygon.id, context)) return false
+    if (isPageFrameType(polygon.type)) return false
+    if (viewMode === 'frame') return !polygon.parentId
 
     const hasSelection = selectedPolygonIndex >= 0 || (selectedPolylineIndex !== undefined && selectedPolylineIndex >= 0)
 
@@ -116,6 +131,9 @@ export class VisibilityService {
     if (context.temporaryHoverPolygonId === polygon.id) return true
 
     if (this.isPolygonHidden(polygon.id, context)) return false
+
+    const frameVisibility = this.resolvePageFrameVisibility(polygon, context, 'show')
+    if (frameVisibility !== undefined) return frameVisibility
 
     const hasSelection = selectedPolygonIndex >= 0 || (selectedPolylineIndex !== undefined && selectedPolylineIndex >= 0)
 
@@ -167,6 +185,9 @@ export class VisibilityService {
 
     if (this.isPolygonHidden(polygon.id, context)) return false
 
+    const frameVisibility = this.resolvePageFrameVisibility(polygon, context, 'interact')
+    if (frameVisibility !== undefined) return frameVisibility
+
     const hasSelection = selectedPolygonIndex >= 0 || (selectedPolylineIndex !== undefined && selectedPolylineIndex >= 0)
 
     if (!hasSelection && viewMode && viewMode !== 'default') {
@@ -204,6 +225,7 @@ export class VisibilityService {
     if (context.temporaryHoverPolylineId === polyline.id) return true
 
     if (this.isPolylineHidden(polyline.id, context)) return false
+    if (viewMode === 'frame') return false
 
     const hasSelection = selectedPolygonIndex >= 0 || (selectedPolylineIndex !== undefined && selectedPolylineIndex >= 0)
 
@@ -247,6 +269,7 @@ export class VisibilityService {
     const { selectedPolygonIndex, selectedPolylineIndex, allPolygons, allPolylines, viewMode } = context
 
     if (this.isPolylineHidden(polyline.id, context)) return false
+    if (viewMode === 'frame') return false
 
     const hasSelection = selectedPolygonIndex >= 0 || (selectedPolylineIndex !== undefined && selectedPolylineIndex >= 0)
 
@@ -292,6 +315,9 @@ export class VisibilityService {
 
     if (this.isPolygonHidden(polygon.id, context)) return false
 
+    const frameVisibility = this.resolvePageFrameVisibility(polygon, context, 'outline')
+    if (frameVisibility !== undefined) return frameVisibility
+
     const hasSelection = selectedPolygonIndex >= 0 && selectedPolygonIndex < allPolygons.length
 
     if (!hasSelection && viewMode && viewMode !== 'default') {
@@ -329,6 +355,9 @@ export class VisibilityService {
     const { selectedPolygonIndex, allPolygons, viewMode } = context
 
     if (this.isPolygonHidden(polygon.id, context)) return false
+
+    const frameVisibility = this.resolvePageFrameVisibility(polygon, context, 'interact')
+    if (frameVisibility !== undefined) return frameVisibility
 
     const hasSelection = selectedPolygonIndex >= 0 && selectedPolygonIndex < allPolygons.length
 

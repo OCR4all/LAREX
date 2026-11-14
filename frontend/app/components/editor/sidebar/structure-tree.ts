@@ -18,6 +18,8 @@ export interface FlatStructureRow {
 }
 
 const TYPE_ORDER: Record<string, number> = {
+  BORDER: -2,
+  PRINTSPACE: -1,
   REGION: 0,
   TEXTLINE: 1,
   BASELINE: 2,
@@ -45,7 +47,9 @@ export function getTreeItemDisplayType(item: TreeItemData): string {
     TEXTLINE: 'TextLine',
     WORD: 'Word',
     GLYPH: 'Glyph',
-    BASELINE: 'Baseline'
+    BASELINE: 'Baseline',
+    BORDER: 'Border',
+    PRINTSPACE: 'PrintSpace'
   }
 
   const type = item.type?.trim()

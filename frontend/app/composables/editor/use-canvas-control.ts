@@ -9,6 +9,7 @@ import { getOrCreateSessionCommander } from '@/session/editor/canvas-commander'
 import type { EditorCanvasControls, SetViewModeOptions } from '@/types/editor/canvas-controls'
 import type { ViewMode } from '@/types/editor/rendering'
 import { resolvePageLockReason } from '@/utils/page-lock'
+import { isPageFrameType } from '@/utils/editor/page-frame'
 
 export const DRAWING_MODES = {
   SELECT: 'select',
@@ -28,7 +29,8 @@ export const VIEW_MODES = {
   TEXTLINE: 'textline',
   WORD: 'word',
   GLYPH: 'glyph',
-  BASELINE: 'baseline'
+  BASELINE: 'baseline',
+  FRAME: 'frame'
 } as const satisfies Record<string, ViewMode>
 
 export interface HistoryState {
@@ -244,6 +246,23 @@ export function useCanvasControl(canvasId: string): EditorCanvasControls {
       editorUiStore.setLastLayoutViewMode(value)
     }
   }
+
+  watch(regionType, (type) => {
+    const inFrameView = viewMode.value === VIEW_MODES.FRAME
+    if (isPageFrameType(type) && !inFrameView) {
+      setViewMode(VIEW_MODES.FRAME)
+    } else if (!isPageFrameType(type) && inFrameView) {
+      setViewMode(VIEW_MODES.DEFAULT)
+    }
+  })
+
+  watch(viewMode, (mode) => {
+    if ((mode === VIEW_MODES.FRAME) === isPageFrameType(regionType.value)) return
+    if (drawingMode.value === DRAWING_MODES.POLYGON || drawingMode.value === DRAWING_MODES.RECTANGLE) {
+      drawingMode.value = DRAWING_MODES.SELECT
+    }
+    if (isPageFrameType(regionType.value)) regionType.value = PolygonType.REGION
+  })
 
   const isDrawingMode: ComputedRef<boolean> = computed(() => drawingMode.value !== DRAWING_MODES.SELECT && drawingMode.value !== DRAWING_MODES.MOVE)
   const isMoveMode: ComputedRef<boolean> = computed(() => drawingMode.value === DRAWING_MODES.MOVE)

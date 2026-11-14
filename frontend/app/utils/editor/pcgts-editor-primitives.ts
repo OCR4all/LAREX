@@ -1,6 +1,7 @@
-import type { Glyph, PcGts, Region, TextLine, TextRegion, Word } from '@/models/editor'
+import type { Glyph, Page, PcGts, Region, TextLine, TextRegion, Word } from '@/models/editor'
 import { PolygonType, isTextRegion } from '@/models/editor'
 import type { Polygon } from '@/models/editor/geometry'
+import { PAGE_FRAME_KINDS, PAGE_FRAME_LABELS, getPageFrame, isPageFrameType, pageFrameIdForKind, pageFrameKindForId, type PageFrameKind } from '@/utils/editor/page-frame'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { EditorSession } from '@/session/editor/editor-session'
 
@@ -114,10 +115,25 @@ function collectFromRegions(
   }
 }
 
+function collectPageFrames(page: Page, outPolygons: RenderablePolygon[]): void {
+  for (const kind of PAGE_FRAME_KINDS) {
+    const frame = getPageFrame(page, kind)
+    if (!frame || frame.coords.points.length < 3) continue
+    outPolygons.push({
+      id: pageFrameIdForKind(kind),
+      type: kind,
+      label: PAGE_FRAME_LABELS[kind],
+      points: tuplesToPoints(frame.coords.points),
+      confidence: frame.coords.conf
+    })
+  }
+}
+
 export function collectRenderablePolygonsFromPcGts(pcGts: PcGts): RenderablePolygon[] {
   const polygons: RenderablePolygon[] = []
   const polylines: RenderablePolyline[] = []
   collectFromRegions(pcGts.page.regions, polygons, polylines)
+  collectPageFrames(pcGts.page, polygons)
   return polygons
 }
 
@@ -332,11 +348,18 @@ export function toPolygonElementType(type: string | undefined): PolygonElementTy
   return 'region'
 }
 
+export function findPolygonCoords(page: Page, id: string, type?: PolygonElementType | PageFrameKind): Polygon | null {
+  const frameKind = pageFrameKindForId(id)
+  if (frameKind) return getPageFrame(page, frameKind)?.coords ?? null
+  if (isPageFrameType(type)) return null
+  return findPolygonCoordsRecursive(page.regions, id, type)
+}
+
 /**
  * Resolve the Coords polygon of any region, text line, word or glyph by ID.
  * Pass the element type when known to skip the lookups for other kinds.
  */
-export function findPolygonCoordsRecursive(regions: Region[], id: string, type?: PolygonElementType): Polygon | null {
+function findPolygonCoordsRecursive(regions: Region[], id: string, type?: PolygonElementType): Polygon | null {
   if (!type || type === 'region') {
     const region = findRegionRecursive(regions, id)?.region
     if (region) return region.coords

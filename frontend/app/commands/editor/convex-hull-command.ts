@@ -4,7 +4,7 @@ import type { Polygon } from '@/models/editor/geometry'
 import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import { computeConvexHull } from '@/utils/editor/convex-hull'
-import { findPolygonCoordsRecursive, rebuildSpatialIndexFromPcGts, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
+import { findPolygonCoords, rebuildSpatialIndexFromPcGts, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
 
 export interface ConvexHullCommandData {
   elementId: string
@@ -48,7 +48,7 @@ export class ConvexHullCommand implements Command {
   }
 
   private getCoords(pcGts: PcGts): Polygon | null {
-    return findPolygonCoordsRecursive(pcGts.page.regions, this.data.elementId, this.data.elementType)
+    return findPolygonCoords(pcGts.page, this.data.elementId, this.data.elementType)
   }
 
   private finalize(ctx: CommandContext, pcGts: PcGts): void {

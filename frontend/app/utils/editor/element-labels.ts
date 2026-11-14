@@ -12,7 +12,9 @@ const DEFAULT_LINE_LABEL_COLOR = '#3B82F6'
 const TEXT_ELEMENT_LABELS: Partial<Record<string, { elementType: string, backgroundColor: string }>> = {
   [PolygonType.TEXTLINE]: { elementType: 'TextLine', backgroundColor: DEFAULT_LINE_LABEL_COLOR },
   [PolygonType.WORD]: { elementType: 'Word', backgroundColor: '#00B899' },
-  [PolygonType.GLYPH]: { elementType: 'Glyph', backgroundColor: '#FF731A' }
+  [PolygonType.GLYPH]: { elementType: 'Glyph', backgroundColor: '#FF731A' },
+  [PolygonType.BORDER]: { elementType: 'Page frame', backgroundColor: '#00CCE6' },
+  [PolygonType.PRINT_SPACE]: { elementType: 'Page frame', backgroundColor: '#1FAD4A' }
 }
 
 function averagePoint(points: Point[]): Point | null {

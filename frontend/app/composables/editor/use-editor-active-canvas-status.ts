@@ -11,7 +11,7 @@ import type { LabelSet } from '@/models/editor/labels'
 import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
 
 type StatusEntityInfo = {
-  regionType: RegionKind | 'TextLine' | 'Word' | 'Glyph' | 'Baseline' | 'Polyline'
+  regionType: RegionKind | 'TextLine' | 'Word' | 'Glyph' | 'Border' | 'PrintSpace' | 'Baseline' | 'Polyline'
   subtype?: string
   id: string
   label?: string
@@ -290,10 +290,12 @@ function getBounds(points?: { x: number, y: number }[]): { width: number, height
   }
 }
 
-const TEXT_ELEMENT_TYPE_NAMES: Partial<Record<string, 'TextLine' | 'Word' | 'Glyph'>> = {
+const TEXT_ELEMENT_TYPE_NAMES: Partial<Record<string, 'TextLine' | 'Word' | 'Glyph' | 'Border' | 'PrintSpace'>> = {
   [PolygonType.TEXTLINE]: 'TextLine',
   [PolygonType.WORD]: 'Word',
-  [PolygonType.GLYPH]: 'Glyph'
+  [PolygonType.GLYPH]: 'Glyph',
+  [PolygonType.BORDER]: 'Border',
+  [PolygonType.PRINT_SPACE]: 'PrintSpace'
 }
 
 function buildEntityFromPolygon(

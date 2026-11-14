@@ -24,6 +24,7 @@ export interface EditorPreferences {
   constrainToParent: boolean | null
   autoSelect: boolean | null
   showPolygonLabelFill: boolean | null
+  showPageFramesInHierarchy: boolean | null
   preventOverlapOnCreate: boolean | null
   openRegionTypeMenuOnCreate: boolean | null
   moveWithChildren: boolean | null
@@ -78,6 +79,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   constrainToParent: null,
   autoSelect: null,
   showPolygonLabelFill: null,
+  showPageFramesInHierarchy: null,
   preventOverlapOnCreate: null,
   openRegionTypeMenuOnCreate: null,
   moveWithChildren: null,

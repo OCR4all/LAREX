@@ -33,6 +33,7 @@ import { findRegionLabelConflicts } from '@/utils/editor/region-label-conflicts'
 import { WORLD_COORD_THRESHOLD } from '@/utils/editor/editor-constants'
 import { createPolygonElementLabel, createPolylineElementLabel } from '@/utils/editor/element-labels'
 import { isTypingTarget } from '@/utils/editor/keyboard-shortcut-target'
+import { isPageFrameId } from '@/utils/editor/page-frame'
 import { resolveRegionLabelDisplayName } from '@/utils/editor/page-label-mapping'
 import { findRegionRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { reconcileShapes } from '@/utils/editor/reconcile-shapes'
@@ -1206,6 +1207,10 @@ function handleSelectPolygon(polygonId: string | null, options?: SelectionFocusO
     stateActions.clearSelection()
     syncCanvasSelection(null, null)
     return
+  }
+  const targetIsFrame = isPageFrameId(polygonId)
+  if (targetIsFrame !== (canvasControls.viewMode?.value === VIEW_MODES.FRAME)) {
+    canvasControls.setViewMode?.(targetIsFrame ? VIEW_MODES.FRAME : VIEW_MODES.DEFAULT)
   }
   const index = stateActions.selectPolygonById(polygonId)
   if (index >= 0) {

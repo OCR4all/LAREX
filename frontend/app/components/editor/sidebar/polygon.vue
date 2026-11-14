@@ -4,6 +4,7 @@ import { PolygonType, type ReadingOrder } from '@/models/editor'
 import type { Region, TextRegion } from '@/models/editor/region'
 import type { Glyph, TextLine, Word } from '@/models/editor/text'
 import { findGlyphRecursive, findWordRecursive, toPolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
+import { PAGE_FRAME_LABELS, isPageFrameType } from '@/utils/editor/page-frame'
 import type { AvailableItem } from '@/components/editor/reading-order'
 import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
 import type { RenderablePolyline } from '@/types/editor/rendering'
@@ -159,9 +160,10 @@ function handleCollapsedPopoverOpenUpdate(slot: string, open: boolean) {
   }
 }
 
-const regions = computed(() =>
-  props.polygons.filter(polygon => polygon.type === PolygonType.REGION && !polygon.parentId)
-)
+const regions = computed(() => [
+  ...props.polygons.filter(polygon => isPageFrameType(polygon.type)),
+  ...props.polygons.filter(polygon => polygon.type === PolygonType.REGION && !polygon.parentId)
+])
 
 const parentMap = computed(() => {
   const map = new Map<string, string | undefined>()
@@ -420,7 +422,9 @@ async function deletePolygon(polygonId: string): Promise<void> {
     : polygon.label || polygon.id
 
   const hasChildren = props.polygons.some(p => p.parentId === polygonId)
-  const elementLabel = DELETE_ELEMENT_LABELS[toPolygonElementType(polygon.type)]
+  const elementLabel = isPageFrameType(polygon.type)
+    ? PAGE_FRAME_LABELS[polygon.type]
+    : DELETE_ELEMENT_LABELS[toPolygonElementType(polygon.type)]
   const instance = confirmModal.open({
     title: hasChildren ? `Delete ${elementLabel} and Children?` : `Delete ${elementLabel}?`,
     description: hasChildren

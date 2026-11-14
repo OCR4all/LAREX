@@ -67,6 +67,7 @@ import { useEditorLayoutState } from '@/composables/editor/use-editor-layout-sta
 import { UpdateReadingOrderCommand } from '@/commands'
 import type { ReadingOrder } from '@/models/editor'
 import { resolveAdjacentPageId } from '@/utils/editor/page-navigation'
+import { isPageFrameType, type PageFrameKind } from '@/utils/editor/page-frame'
 import { convertPageDtoToPcGts, convertPcGtsToPageDto } from '@/services/editor/page-conversion.service'
 
 definePageMeta({ layout: 'editor' })
@@ -2079,7 +2080,10 @@ if (import.meta.client) {
       selectAll: () => {
         const controls = activeControls.value
         if (!controls) return
-        const allPolygonIds = (controls.polygons ?? []).map(p => p.id)
+        const inFrameView = controls.viewMode?.value === VIEW_MODES.FRAME
+        const allPolygonIds = (controls.polygons ?? [])
+          .filter(p => isPageFrameType(p.type) === inFrameView)
+          .map(p => p.id)
         if (controls.selectedPolygonIds) {
           controls.selectedPolygonIds.value = allPolygonIds
         }
@@ -2103,7 +2107,7 @@ if (import.meta.client) {
         editorUiStore.toggleRightCollapsed()
       },
       mergeSelected: handleMergeSelected,
-      setRegionType: (type: 'region' | 'textline' | 'word' | 'glyph' | 'baseline') => {
+      setRegionType: (type: 'region' | 'textline' | 'word' | 'glyph' | 'baseline' | PageFrameKind) => {
         const controls = activeControls.value
         if (!controls?.regionType) return
         controls.regionType.value = type

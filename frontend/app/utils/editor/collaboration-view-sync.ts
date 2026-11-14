@@ -11,7 +11,7 @@ export type CollaborationSelectionResolution
     | { status: 'missing', kind: 'region' | 'baseline', id: string }
 
 export function isCollaborationCanvasViewMode(value: unknown): value is CollaborationCanvasViewMode {
-  return value === 'default' || value === 'textline' || value === 'word' || value === 'glyph' || value === 'baseline'
+  return value === 'default' || value === 'textline' || value === 'word' || value === 'glyph' || value === 'baseline' || value === 'frame'
 }
 
 export function normalizeCollaborationViewport(value: unknown): CollaborationViewport | null {

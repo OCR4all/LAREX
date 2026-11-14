@@ -36,6 +36,8 @@ export { DuplicateElementCommand, type DuplicateElementCommandData } from './dup
 
 export { MoveElementCommand, type MoveElementCommandData } from './move-element-command'
 
+export { SetPageFrameCommand, type SetPageFrameCommandData } from './set-page-frame-command'
+
 export { MergeElementsCommand, type MergeElementsCommandData } from './merge-elements-command'
 
 export {

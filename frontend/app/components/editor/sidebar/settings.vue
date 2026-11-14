@@ -117,6 +117,13 @@ onBeforeUnmount(() => {
           @update:model-value="toggleSetting(() => editorUiStore.togglePolygonLabelFill())"
         />
       </div>
+      <div class="flex items-center justify-between gap-3">
+        <span class="text-sm">Show Border & Print Space in Hierarchy</span>
+        <USwitch
+          :model-value="editorUiStore.globalSettings.showPageFramesInHierarchy"
+          @update:model-value="toggleSetting(() => editorUiStore.toggleShowPageFramesInHierarchy())"
+        />
+      </div>
       <div class="flex items-center justify-between">
         <span class="text-sm">Prevent Overlap</span>
         <USwitch

@@ -234,10 +234,10 @@ export function deserializeDocument(json: string, fallbackCreator: string, _imag
     imageYResolution: raw?.page?.imageYResolution,
     imageResolutionUnit: raw?.page?.imageResolutionUnit,
     border: raw?.page?.border
-      ? { coords: new Polygon(raw.page.border.coords?.points ?? []) }
+      ? { coords: new Polygon(raw.page.border.coords?.points ?? [], raw.page.border.coords?.conf) }
       : undefined,
     printSpace: raw?.page?.printSpace
-      ? { coords: new Polygon(raw.page.printSpace.coords?.points ?? []) }
+      ? { coords: new Polygon(raw.page.printSpace.coords?.points ?? [], raw.page.printSpace.coords?.conf) }
       : undefined,
     readingOrder: raw?.page?.readingOrder,
     regions: Array.isArray(raw?.page?.regions) ? raw.page.regions.map(rehydrateRegion) : []

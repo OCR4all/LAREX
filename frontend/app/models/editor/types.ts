@@ -24,7 +24,9 @@ export const PolygonType = {
   TEXTLINE: 'textline',
   WORD: 'word',
   GLYPH: 'glyph',
-  BASELINE: 'baseline'
+  BASELINE: 'baseline',
+  BORDER: 'border',
+  PRINT_SPACE: 'printspace'
 } as const
 
 export type PolygonType = typeof PolygonType[keyof typeof PolygonType]

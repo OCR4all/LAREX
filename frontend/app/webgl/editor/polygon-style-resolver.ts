@@ -24,11 +24,13 @@ export interface ResolvePolygonRenderStyleOptions {
   renderPhase?: PolygonRenderPhase
 }
 
-/** Fixed stroke colors for text elements; regions are colored by their label instead. */
+/** Fixed stroke colors for text elements and page frames; regions are colored by their label instead. */
 const TEXT_ELEMENT_STROKE_COLORS: Partial<Record<string, RGBA>> = {
   [PolygonType.TEXTLINE]: RENDER_COLORS.SELECTED_BLUE,
   [PolygonType.WORD]: RENDER_COLORS.WORD_TEAL,
-  [PolygonType.GLYPH]: RENDER_COLORS.GLYPH_ORANGE
+  [PolygonType.GLYPH]: RENDER_COLORS.GLYPH_ORANGE,
+  [PolygonType.BORDER]: RENDER_COLORS.BORDER_CYAN,
+  [PolygonType.PRINT_SPACE]: RENDER_COLORS.PRINT_SPACE_GREEN
 }
 
 export function withAlpha(color: RGBA, alpha: number): RGBA {

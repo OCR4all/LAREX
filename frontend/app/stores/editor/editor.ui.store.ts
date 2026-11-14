@@ -39,6 +39,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     constrainToParent: true,
     autoSelect: false,
     showPolygonLabelFill: true,
+    showPageFramesInHierarchy: true,
     preventOverlapOnCreate: false,
     openRegionTypeMenuOnCreate: true,
     cutMinAreaThreshold: 0.0001,
@@ -153,6 +154,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.constrainToParent !== null) globalSettings.value.constrainToParent = prefs.constrainToParent
     if (prefs.autoSelect !== null) globalSettings.value.autoSelect = prefs.autoSelect
     if (prefs.showPolygonLabelFill !== null) globalSettings.value.showPolygonLabelFill = prefs.showPolygonLabelFill
+    if (typeof prefs.showPageFramesInHierarchy === 'boolean') globalSettings.value.showPageFramesInHierarchy = prefs.showPageFramesInHierarchy
     if (prefs.preventOverlapOnCreate !== null) globalSettings.value.preventOverlapOnCreate = prefs.preventOverlapOnCreate
     if (typeof prefs.openRegionTypeMenuOnCreate === 'boolean') {
       globalSettings.value.openRegionTypeMenuOnCreate = prefs.openRegionTypeMenuOnCreate
@@ -305,6 +307,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
       constrainToParent: globalSettings.value.constrainToParent,
       autoSelect: globalSettings.value.autoSelect,
       showPolygonLabelFill: globalSettings.value.showPolygonLabelFill,
+      showPageFramesInHierarchy: globalSettings.value.showPageFramesInHierarchy,
       preventOverlapOnCreate: globalSettings.value.preventOverlapOnCreate,
       openRegionTypeMenuOnCreate: globalSettings.value.openRegionTypeMenuOnCreate,
       cutMinAreaThreshold: globalSettings.value.cutMinAreaThreshold
@@ -329,6 +332,11 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   function togglePolygonLabelFill() {
     globalSettings.value.showPolygonLabelFill = !globalSettings.value.showPolygonLabelFill
     editorPreferences.updatePreference('showPolygonLabelFill', globalSettings.value.showPolygonLabelFill)
+  }
+
+  function toggleShowPageFramesInHierarchy() {
+    globalSettings.value.showPageFramesInHierarchy = !globalSettings.value.showPageFramesInHierarchy
+    editorPreferences.updatePreference('showPageFramesInHierarchy', globalSettings.value.showPageFramesInHierarchy)
   }
 
   function togglePreventOverlapOnCreate() {
@@ -738,6 +746,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     toggleConstrainToParent,
     toggleAutoSelect,
     togglePolygonLabelFill,
+    toggleShowPageFramesInHierarchy,
     togglePreventOverlapOnCreate,
     toggleOpenRegionTypeMenuOnCreate,
     toggleMoveWithChildren,

@@ -114,6 +114,10 @@ export const RENDER_ALPHA = {
   /** Alpha used for selection overlay maximum opacity */
   SELECTION_OVERLAY_MAX: 0.7,
 
+  PAGE_FRAME_DRAFT_DIM: 0.55,
+  PAGE_FRAME_DIM: 0.45,
+  PAGE_FRAME_CONTEXT: 0.6,
+
   /** Alpha used for selection overlay minimum opacity */
   SELECTION_OVERLAY_MIN: 0.4,
 
@@ -143,6 +147,8 @@ export const RENDER_COLORS = {
   SELECTED_BLUE: [0.2, 0.6, 1.0, 1.0] as RGBA,
   WORD_TEAL: [0.0, 0.72, 0.6, 1.0] as RGBA,
   GLYPH_ORANGE: [1.0, 0.45, 0.1, 1.0] as RGBA,
+  BORDER_CYAN: [0.0, 0.8, 0.9, 1.0] as RGBA,
+  PRINT_SPACE_GREEN: [0.12, 0.68, 0.29, 1.0] as RGBA,
   PREVIEW_PINK: [1.0, 0.4, 0.8, 1.0] as RGBA,
 
   HOVER_FILL_YELLOW: [1.0, 0.8, 0.1, 0.5] as RGBA,

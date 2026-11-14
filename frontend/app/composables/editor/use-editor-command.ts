@@ -15,6 +15,7 @@ import { createScopedLogger } from '@/services/editor/logger-service'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
 import { toPolygonElementType, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
+import { isPageFrameType } from '@/utils/editor/page-frame'
 
 const log = createScopedLogger('EditorCommand')
 
@@ -660,12 +661,15 @@ export function useEditorCommand(
       })
     }
 
-    menuItems.push(
-      {
+    if (!selectedPolygons.some(p => isPageFrameType(p.type))) {
+      menuItems.push({
         id: 'duplicate-selection',
         label: `Duplicate ${formatElementCount(totalCount, 'Element')}`,
         icon: 'i-lucide-copy'
-      },
+      })
+    }
+
+    menuItems.push(
       {
         id: 'delete-selection',
         label: `Delete ${formatElementCount(totalCount, 'Element')}`,
@@ -751,12 +755,15 @@ export function useEditorCommand(
       })
     }
 
-    menuItems.push(
-      {
+    if (!isPageFrameType(polygon.type)) {
+      menuItems.push({
         id: 'duplicate',
         label: 'Duplicate',
         icon: 'i-lucide-copy'
-      },
+      })
+    }
+
+    menuItems.push(
       {
         id: 'shape-tools',
         label: 'Shape Tools',
