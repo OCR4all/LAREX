@@ -15,3 +15,9 @@ dist
 
 # PAGE XML
 /schema/
+
+# Tests
+coverage
+test-results
+playwright-report
+e2e/.auth

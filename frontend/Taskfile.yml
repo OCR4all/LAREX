@@ -39,10 +39,21 @@ tasks:
       - pnpm typecheck
 
   test:
-    desc: Run tests (lint + typecheck)
+    desc: Run lint, typecheck and unit tests
     cmds:
       - task: lint
       - task: typecheck
+      - pnpm test
+
+  test:coverage:
+    desc: Run unit tests with a coverage report in coverage/
+    cmds:
+      - pnpm test:coverage
+
+  test:e2e:
+    desc: Run Playwright journeys against E2E_BASE_URL (default http://larex.localhost)
+    cmds:
+      - pnpm test:e2e
 
   clean:
     desc: Clean build artifacts and dependencies

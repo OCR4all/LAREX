@@ -449,10 +449,9 @@ tasks:
       - task: docs:test
 
   test:frontend:
-    desc: Run frontend lint and typecheck
+    desc: Run frontend lint, typecheck and unit tests
     cmds:
-      - task: frontend:lint
-      - task: frontend:typecheck
+      - task: frontend:test
 
   # ============================================================================
   # Building

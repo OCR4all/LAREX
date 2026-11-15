@@ -28,6 +28,11 @@ tasks:
     cmds:
       - ./gradlew test
 
+  test:coverage:
+    desc: Run tests with a JaCoCo report in build/reports/jacoco
+    cmds:
+      - ./gradlew test jacocoTestReport
+
   test:verbose:
     desc: Run tests with verbose output
     cmds:

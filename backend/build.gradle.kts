@@ -1,5 +1,6 @@
 plugins {
 	java
+	jacoco
 	id("org.springframework.boot") version "4.0.9"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -76,6 +77,17 @@ tasks.withType<Test> {
 	maxHeapSize = "2g"
 	systemProperty("spring.config.additional-location", "optional:classpath:/application-test-overrides.yaml")
 	enableLibvips()
+}
+
+jacoco {
+	toolVersion = "0.8.14"
+}
+
+tasks.jacocoTestReport {
+	reports {
+		xml.required = true
+		html.required = true
+	}
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
