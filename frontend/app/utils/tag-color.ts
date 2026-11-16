@@ -10,6 +10,8 @@ export interface HSL {
   l: number
 }
 
+export const DEFAULT_TAG_COLOR = '#6b7280'
+
 export type TagVariant = 'solid' | 'subtle' | 'outline'
 
 export interface TagColorStyles {

@@ -4,8 +4,6 @@ import type { PageData } from '@/stores/editor/types'
 
 type VariantItem = { label: string, value: string }
 
-const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
-
 const props = defineProps<{
   page: PageData
   currentPageId: string | null
@@ -77,20 +75,19 @@ const displayTags = computed(() => {
   if (resolvedTags && resolvedTags.length > 0) {
     return resolvedTags.map(tag => ({
       label: tag.label || tag.id,
-      color: tag.color || DEFAULT_CUSTOM_TAG_COLOR
+      color: tag.color
     }))
   }
 
   const rawTags = props.page.tags ?? []
   return rawTags.map(tagId => ({
     label: tagId,
-    color: DEFAULT_CUSTOM_TAG_COLOR
+    color: null
   }))
 })
 
-const maxVisibleTagDots = 4
-const visibleTagDots = computed(() => displayTags.value.slice(0, maxVisibleTagDots))
-const hiddenTagDotCount = computed(() => Math.max(0, displayTags.value.length - maxVisibleTagDots))
+const firstTag = computed(() => displayTags.value[0] ?? null)
+const hiddenTagCount = computed(() => Math.max(0, displayTags.value.length - 1))
 const collaborationSummary = computed(() => pageSummaries.getPageSummary(props.page.id, props.page.projectId))
 const currentUserId = computed(() => {
   const value = user.value as { id?: string, sub?: string } | null | undefined
@@ -320,14 +317,17 @@ async function handleCopyPageId() {
             :ui="{ content: `${tooltipUi.content} p-2` }"
           >
             <template #default>
-              <div class="flex shrink-0 items-center gap-1 rounded-md border border-neutral-200 bg-neutral-50 px-1.5 py-1 dark:border-neutral-800 dark:bg-neutral-900">
-                <span
-                  v-for="tag in visibleTagDots"
-                  :key="tag.label"
-                  class="size-1.5 rounded-full"
-                  :style="{ backgroundColor: tag.color }"
-                />
-                <span v-if="hiddenTagDotCount > 0" class="ml-0.5 text-[9px] text-neutral-500 dark:text-neutral-400">+{{ hiddenTagDotCount }}</span>
+              <div class="flex min-w-0 max-w-24 shrink items-center gap-1">
+                <UiColorTag
+                  v-if="firstTag"
+                  :color="firstTag.color"
+                  variant="subtle"
+                  size="sm"
+                  class="min-w-0"
+                >
+                  <span class="truncate">{{ firstTag.label }}</span>
+                </UiColorTag>
+                <span v-if="hiddenTagCount > 0" class="shrink-0 text-[10px] tabular-nums text-neutral-500 dark:text-neutral-400">+{{ hiddenTagCount }}</span>
               </div>
             </template>
             <template #content>
@@ -338,7 +338,6 @@ async function handleCopyPageId() {
                   :color="tag.color"
                   variant="subtle"
                   size="sm"
-                  dot
                 >
                   {{ tag.label }}
                 </UiColorTag>

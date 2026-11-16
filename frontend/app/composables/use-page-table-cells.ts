@@ -3,8 +3,6 @@ import type { TableSort } from '@/composables/use-table-filters'
 import type { Page } from '@/types/project-page'
 import UiColorTag from '@/components/ui/color-tag.vue'
 
-const DEFAULT_TAG_COLOR = '#2563eb'
-
 export function usePageTableCells(sort: Ref<TableSort>) {
   const UBadge = resolveComponent('UBadge')
   const UButton = resolveComponent('UButton')
@@ -48,10 +46,10 @@ export function usePageTableCells(sort: Ref<TableSort>) {
     if (!tags || tags.length === 0) return null
 
     const displayTags = page.resolvedTags && page.resolvedTags.length > 0
-      ? page.resolvedTags.map(tag => ({ label: tag.label || tag.id, color: tag.color || DEFAULT_TAG_COLOR }))
-      : tags.map(tagId => ({ label: tagId, color: DEFAULT_TAG_COLOR }))
+      ? page.resolvedTags.map(tag => ({ label: tag.label || tag.id, color: tag.color }))
+      : tags.map(tagId => ({ label: tagId, color: null }))
 
-    const renderTagBadge = (tag: { label: string, color: string }, index: number) => h(
+    const renderTagBadge = (tag: { label: string, color: string | null }, index: number) => h(
       UiColorTag,
       { key: `${tag.label}-${index}`, color: tag.color, variant: 'subtle', size: 'sm' },
       () => tag.label
@@ -65,7 +63,7 @@ export function usePageTableCells(sort: Ref<TableSort>) {
       ...displayTags.slice(0, 2).map(renderTagBadge),
       h(UPopover, { mode: 'hover' }, {
         default: () => h(UBadge, {
-          'color': 'primary',
+          'color': 'neutral',
           'variant': 'subtle',
           'size': 'sm',
           'tabindex': 0,

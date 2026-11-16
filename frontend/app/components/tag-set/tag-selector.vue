@@ -115,10 +115,9 @@ const isLoading = computed(() => tagSetStatus.value === 'pending')
 
           <div class="flex-1 min-w-0">
             <UiColorTag
-              :color="item.color || '#6b7280'"
+              :color="item.color"
               variant="subtle"
               size="sm"
-              dot
             >
               {{ item.label }}
             </UiColorTag>
@@ -141,10 +140,9 @@ const isLoading = computed(() => tagSetStatus.value === 'pending')
       <UiColorTag
         v-for="tagId in selectedTags"
         :key="tagId"
-        :color="getTagDetails(tagId)?.color || '#6b7280'"
+        :color="getTagDetails(tagId)?.color"
         variant="subtle"
         size="sm"
-        dot
         :removable="!disabled"
         @remove="selectedTags = selectedTags.filter(t => t !== tagId)"
       >

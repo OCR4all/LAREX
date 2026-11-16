@@ -120,7 +120,6 @@ type ResolvedTag = {
   color: string | null
 }
 
-const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
 const DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'pageCount', 'completionPercentage', 'updated']
 
 type ProjectListItem = {
@@ -395,11 +394,11 @@ const columns: TableColumn<ProjectListItem>[] = [
         return null
       }
 
-      const displayTags: Array<{ label: string, color: string }> = resolvedTags && resolvedTags.length > 0
-        ? resolvedTags.map((rt: ResolvedTag) => ({ label: rt.label || rt.id, color: rt.color || DEFAULT_CUSTOM_TAG_COLOR }))
-        : rawTags.map(tagId => ({ label: tagId, color: DEFAULT_CUSTOM_TAG_COLOR }))
+      const displayTags: Array<{ label: string, color: string | null }> = resolvedTags && resolvedTags.length > 0
+        ? resolvedTags.map((rt: ResolvedTag) => ({ label: rt.label || rt.id, color: rt.color ?? null }))
+        : rawTags.map(tagId => ({ label: tagId, color: null }))
 
-      const renderTagBadge = (tag: { label: string, color: string }, index: number) => h(
+      const renderTagBadge = (tag: { label: string, color: string | null }, index: number) => h(
         UiColorTag,
         {
           key: `${tag.label}-${index}`,
@@ -412,7 +411,7 @@ const columns: TableColumn<ProjectListItem>[] = [
 
       if (displayTags.length <= 3) {
         return h('div', { class: 'flex flex-wrap gap-1' },
-          displayTags.map((tag: { label: string, color: string }, index: number) => renderTagBadge(tag, index))
+          displayTags.map((tag: { label: string, color: string | null }, index: number) => renderTagBadge(tag, index))
         )
       }
 
@@ -420,17 +419,17 @@ const columns: TableColumn<ProjectListItem>[] = [
       const hiddenTags = displayTags.slice(2)
 
       return h('div', { class: 'flex flex-wrap items-center gap-1' }, [
-        ...visibleTags.map((tag: { label: string, color: string }, index: number) => renderTagBadge(tag, index)),
+        ...visibleTags.map((tag: { label: string, color: string | null }, index: number) => renderTagBadge(tag, index)),
         h(UPopover, { mode: 'hover' }, {
           default: () => h(UButton, {
             variant: 'soft',
-            color: 'primary',
+            color: 'neutral',
             size: 'sm',
             class: 'h-[22px]'
           }, () => `+${hiddenTags.length}`),
 
           content: () => h('div', { class: 'p-2 flex flex-col gap-1' },
-            hiddenTags.map((tag: { label: string, color: string }, index: number) => renderTagBadge(tag, index))
+            hiddenTags.map((tag: { label: string, color: string | null }, index: number) => renderTagBadge(tag, index))
           )
         })
       ])

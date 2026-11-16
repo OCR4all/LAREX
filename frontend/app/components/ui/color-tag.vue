@@ -1,15 +1,14 @@
 <script setup lang="ts">
 interface ColorTagProps {
-  color: string
+  color?: string | null
   variant?: TagVariant
-  dot?: boolean
   removable?: boolean
   size?: 'sm' | 'md' | 'lg'
 }
 
 const props = withDefaults(defineProps<ColorTagProps>(), {
+  color: null,
   variant: 'subtle',
-  dot: false,
   removable: false,
   size: 'md'
 })
@@ -18,11 +17,10 @@ const emit = defineEmits<{
   remove: []
 }>()
 
-const safeColor = computed(() => isValidHex(props.color) ? props.color : '#6b7280')
+const safeColor = computed(() => props.color && isValidHex(props.color) ? props.color : DEFAULT_TAG_COLOR)
 const normalizedHex = computed(() => safeColor.value.startsWith('#') ? safeColor.value : `#${safeColor.value}`)
 const lightTagStyles = computed(() => getTagColors(normalizedHex.value, props.variant, false))
 const darkTagStyles = computed(() => getTagColors(normalizedHex.value, props.variant, true))
-const dotColor = computed(() => props.variant === 'solid' ? lightTagStyles.value.color : normalizedHex.value)
 const tagStyleVars = computed(() => ({
   '--tag-bg-light': lightTagStyles.value.backgroundColor,
   '--tag-bg-dark': darkTagStyles.value.backgroundColor,
@@ -47,16 +45,6 @@ function handleRemove(e: MouseEvent) {
     ]"
     :style="tagStyleVars"
   >
-    <span
-      v-if="dot"
-      aria-hidden="true"
-      :class="[
-        'shrink-0 rounded-full',
-        size === 'sm' ? 'w-1.5 h-1.5' : size === 'lg' ? 'w-2.5 h-2.5' : 'w-2 h-2'
-      ]"
-      :style="{ backgroundColor: dotColor }"
-    />
-
     <slot />
 
     <button

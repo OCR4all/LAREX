@@ -52,10 +52,6 @@ const tagItems = computed(() => {
   return items
 })
 
-function tagColor(color: string | null) {
-  return color && isValidHex(color) ? (color.startsWith('#') ? color : `#${color}`) : undefined
-}
-
 async function loadTags() {
   loadError.value = null
   tagNodes.value = []
@@ -113,15 +109,14 @@ async function save() {
       :delay-duration="300"
       :content="{ side: 'top' }"
     >
-      <UBadge
-        color="neutral"
+      <UiColorTag
+        :color="tag.color"
         variant="subtle"
-        size="xs"
-        class="h-5 max-w-28 gap-1 px-1.5 py-0 text-[11px]"
+        size="sm"
+        class="h-5 max-w-28 py-0"
       >
-        <UIcon name="i-lucide-circle" class="size-1.5 shrink-0 fill-current text-dimmed" :style="{ color: tagColor(tag.color) }" />
         <span class="truncate">{{ tag.label }}</span>
-      </UBadge>
+      </UiColorTag>
     </UTooltip>
 
     <UTooltip
@@ -143,17 +138,15 @@ async function save() {
       </UBadge>
       <template #content>
         <div class="flex max-h-60 flex-wrap gap-1 overflow-y-auto">
-          <UBadge
+          <UiColorTag
             v-for="tag in overflowTags"
             :key="tag.id"
-            color="neutral"
+            :color="tag.color"
             variant="subtle"
-            size="md"
-            class="gap-1.5 rounded-sm py-0.5 whitespace-normal break-words"
+            class="whitespace-normal break-words"
           >
-            <UIcon name="i-lucide-circle" class="size-2 shrink-0 fill-current text-dimmed" :style="{ color: tagColor(tag.color) }" />
             {{ tag.label }}
-          </UBadge>
+          </UiColorTag>
         </div>
       </template>
     </UTooltip>
@@ -207,8 +200,10 @@ async function save() {
               size="sm"
               class="w-full"
             >
-              <template #item-leading="{ item }">
-                <UIcon name="i-lucide-circle" class="size-2 shrink-0 self-center fill-current text-dimmed" :style="{ color: tagColor(item.color) }" />
+              <template #item-label="{ item }">
+                <UiColorTag :color="item.color" variant="subtle" size="sm" class="max-w-full">
+                  <span class="truncate">{{ item.label }}</span>
+                </UiColorTag>
               </template>
             </USelectMenu>
             <UInputTags
@@ -224,27 +219,17 @@ async function save() {
           </UFormField>
 
           <div v-if="tagSetId && !loading && !loadError && draft.length" class="flex max-h-40 flex-wrap gap-1 overflow-y-auto">
-            <UBadge
+            <UiColorTag
               v-for="id in draft"
               :key="id"
-              color="neutral"
+              :color="tagItems.find(item => item.value === id)?.color"
               variant="subtle"
-              size="md"
-              class="max-w-full gap-1.5 rounded-sm py-0.5"
+              :removable="!saving"
+              class="max-w-full"
+              @remove="draft = draft.filter(tag => tag !== id)"
             >
               <span class="truncate">{{ tagItems.find(item => item.value === id)?.label || id }}</span>
-              <UButton
-                icon="i-lucide-x"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                class="size-3.5 shrink-0 p-0"
-                :ui="{ leadingIcon: 'size-3' }"
-                :aria-label="`Remove ${tagItems.find(item => item.value === id)?.label || id}`"
-                :disabled="saving"
-                @click="draft = draft.filter(tag => tag !== id)"
-              />
-            </UBadge>
+            </UiColorTag>
           </div>
 
           <UAlert

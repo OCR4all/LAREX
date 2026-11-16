@@ -105,7 +105,6 @@ const descendantCount = computed(() => {
                 :color="tag.color"
                 :variant="tag.id === activeTag.id ? 'solid' : 'subtle'"
                 size="sm"
-                dot
               >
                 {{ tag.title }}
               </UiColorTag>
@@ -133,7 +132,6 @@ const descendantCount = computed(() => {
               :color="child.color"
               variant="subtle"
               size="sm"
-              dot
               class="min-w-0"
             >
               {{ child.title }}
@@ -163,32 +161,6 @@ const descendantCount = computed(() => {
             </UiColorTag>
             <UiColorTag :color="activeTag.color" variant="outline" size="sm">
               Outline
-            </UiColorTag>
-          </div>
-          <div class="flex flex-wrap gap-1.5">
-            <UiColorTag
-              :color="activeTag.color"
-              variant="solid"
-              size="sm"
-              dot
-            >
-              Solid Dot
-            </UiColorTag>
-            <UiColorTag
-              :color="activeTag.color"
-              variant="subtle"
-              size="sm"
-              dot
-            >
-              Subtle Dot
-            </UiColorTag>
-            <UiColorTag
-              :color="activeTag.color"
-              variant="outline"
-              size="sm"
-              dot
-            >
-              Outline Dot
             </UiColorTag>
           </div>
         </div>

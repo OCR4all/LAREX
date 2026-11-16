@@ -77,7 +77,6 @@ const contextMenuItems = computed(() => [
           :color="tag.color"
           variant="subtle"
           size="sm"
-          dot
           class="flex-1 min-w-0"
         >
           <span class="block truncate" :class="isActive ? 'font-medium' : ''">{{ tag.title }}</span>
