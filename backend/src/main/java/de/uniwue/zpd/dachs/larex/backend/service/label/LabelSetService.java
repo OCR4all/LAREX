@@ -135,7 +135,8 @@ public class LabelSetService {
             }
             LabelSetDto.PageRegionType normalizedRegionType = pageXml.regionType();
             if (normalizedRegionType == null && "custom".equals(normalizedCustomSubType)) {
-                normalizedRegionType = LabelSetDto.PageRegionType.UnknownRegion;
+                normalizedRegionType = LabelSetDto.PageRegionType.CustomRegion;
+                normalizedCustomSubType = "";
             }
             String normalizedCustomKey = "structure";
             String normalizedCustomData = "";

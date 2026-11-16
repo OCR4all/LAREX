@@ -116,8 +116,8 @@ class LabelSetServiceTest {
                 .get("mapping")
                 .get("pageXml");
 
-        assertEquals("UnknownRegion", pageXml.get("regionType").asText());
-        assertEquals("custom", pageXml.get("customSubType").asText());
+        assertEquals("CustomRegion", pageXml.get("regionType").asText());
+        assertEquals("", pageXml.get("customSubType").asText());
         assertEquals("structure", pageXml.get("customKey").asText());
         assertEquals("", pageXml.get("customData").asText());
     }

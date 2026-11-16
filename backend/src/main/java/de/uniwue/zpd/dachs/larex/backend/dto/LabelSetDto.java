@@ -81,8 +81,10 @@ public class LabelSetDto {
                 ChemRegion,
                 MusicRegion,
                 AdvertRegion,
+                FormRegion,
                 NoiseRegion,
-                UnknownRegion
+                UnknownRegion,
+                CustomRegion
         }
 
         @JsonIgnoreProperties(ignoreUnknown = false)

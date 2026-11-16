@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import type { PageRegionType, PageTextType } from '@/types/label-set'
+import { allowedRegionSubtypes, pageXmlCompatibility, regionTypeHasSubtype } from '@/utils/page-xml-compatibility'
 
 const props = defineProps<{
   isSystem?: boolean
 }>()
 const {
   activeLabel, PRESET_COLORS, PAGE_REGIONS, PAGE_TEXT_TYPES,
-  getErrors
+  getErrors, getWarnings
 } = useLabelBuilder()
 const currentLabel = computed(() => activeLabel.value)
 
 const errors = computed(() => getErrors(currentLabel.value))
+const warnings = computed(() => getWarnings(currentLabel.value))
+const subtypeOptions = computed(() => allowedRegionSubtypes(currentLabel.value?.mapping.pageXml.regionType))
+const compatibility = computed(() => pageXmlCompatibility(currentLabel.value?.mapping.pageXml))
 
 const fieldError = (...codes: string[]): string | undefined => {
   return errors.value.find(error => codes.includes(error.code))?.message
@@ -20,6 +24,16 @@ function updateRegionType(regionType: string) {
   if (!currentLabel.value || !PAGE_REGIONS.includes(regionType)) return
 
   applyPageRegionTypeChange(currentLabel.value.mapping.pageXml, regionType as PageRegionType)
+}
+
+function updateSubtype(subtype: string | null) {
+  if (!currentLabel.value) return
+  currentLabel.value.mapping.pageXml.customSubType = subtype ?? ''
+}
+
+function removeSubtype() {
+  if (!currentLabel.value) return
+  currentLabel.value.mapping.pageXml.customSubType = ''
 }
 
 function updateTextType(textType: string | null) {
@@ -125,9 +139,23 @@ function updateTextType(textType: string | null) {
             </div>
           </template>
           <UFormField
-            v-else-if="currentLabel.mapping.pageXml.regionType"
+            v-else-if="subtypeOptions"
             label="Subtype"
-            description="Optional PAGE region type value."
+            :error="fieldError('duplicatePageMapping', 'invalidSubType')"
+          >
+            <USelectMenu
+              :model-value="currentLabel.mapping.pageXml.customSubType || undefined"
+              :items="[...subtypeOptions]"
+              variant="outline"
+              clear
+              :disabled="props.isSystem"
+              @update:model-value="updateSubtype"
+            />
+          </UFormField>
+          <UFormField
+            v-else-if="currentLabel.mapping.pageXml.regionType === 'CustomRegion'"
+            label="Type"
+            description="Optional free value for the CustomRegion type attribute."
             :error="fieldError('duplicatePageMapping')"
           >
             <UInput
@@ -138,6 +166,30 @@ function updateTextType(textType: string | null) {
             />
           </UFormField>
         </div>
+        <UAlert
+          v-for="warning in warnings"
+          :key="warning.code"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          :description="warning.message"
+          :actions="props.isSystem || regionTypeHasSubtype(currentLabel.mapping.pageXml.regionType) ? [] : [{ label: 'Remove subtype', color: 'warning', variant: 'outline', onClick: removeSubtype }]"
+        />
+        <UAlert
+          v-if="compatibility"
+          color="neutral"
+          variant="subtle"
+          icon="i-lucide-history"
+          :title="`Available since PAGE XML ${compatibility.since}`"
+        >
+          <template #description>
+            <ul class="list-disc space-y-1 pl-4">
+              <li v-for="note in compatibility.olderExports" :key="note">
+                {{ note }}
+              </li>
+            </ul>
+          </template>
+        </UAlert>
       </div>
 
       <div class="space-y-4 rounded-lg border border-default bg-default p-5">

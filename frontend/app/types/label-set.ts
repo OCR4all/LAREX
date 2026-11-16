@@ -17,8 +17,10 @@ export type PageRegionType
     | 'ChemRegion'
     | 'MusicRegion'
     | 'AdvertRegion'
+    | 'FormRegion'
     | 'NoiseRegion'
     | 'UnknownRegion'
+    | 'CustomRegion'
 
 export type PageTextType
   = | ''

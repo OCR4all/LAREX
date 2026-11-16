@@ -1,5 +1,6 @@
 import { CANONICAL_PAGE_CUSTOM_KEY, type LabelDefinition, type LabelSetCreateOrUpdateRequest, type PageRegionType, type PageTextType } from '@/types/label-set'
 import { createCanonicalRegionMappingSignatureFromLabel } from '@/utils/editor/page-label-mapping'
+import { allowedRegionSubtypes } from '@/utils/page-xml-compatibility'
 
 export interface LabelSetImportIssue {
   level: 'error' | 'warning'
@@ -42,7 +43,7 @@ interface PreviewOptions {
 const PAGE_REGIONS = new Set<PageRegionType>([
   'TextRegion', 'ImageRegion', 'LineDrawingRegion', 'GraphicRegion', 'TableRegion',
   'ChartRegion', 'MapRegion', 'SeparatorRegion', 'MathsRegion', 'ChemRegion',
-  'MusicRegion', 'AdvertRegion', 'NoiseRegion', 'UnknownRegion'
+  'MusicRegion', 'AdvertRegion', 'FormRegion', 'NoiseRegion', 'UnknownRegion', 'CustomRegion'
 ])
 const PAGE_TEXT_TYPES = new Set<PageTextType>([
   '', 'paragraph', 'heading', 'caption', 'header', 'footer', 'page-number',
@@ -162,6 +163,10 @@ function inspectLabelSetPayload(
     if (textType && !PAGE_TEXT_TYPES.has(textType)) labelIssues.push(`PAGE text subtype "${textType}" is invalid`)
     if (regionType !== 'TextRegion' && textType) labelIssues.push('non-text regions cannot define a text subtype')
     if (regionType === 'TextRegion' && textType === 'custom' && !customSubType.trim()) labelIssues.push('custom TextRegion requires a custom subtype')
+    const allowedSubtypes = allowedRegionSubtypes(regionType)
+    if (customSubType.trim() && allowedSubtypes && !allowedSubtypes.includes(customSubType.trim())) {
+      labelIssues.push(`"${customSubType.trim()}" is not a PAGE XML ${regionType} type`)
+    }
     if (importedCustomKey.trim() !== CANONICAL_PAGE_CUSTOM_KEY) {
       issues.push({
         level: 'warning',

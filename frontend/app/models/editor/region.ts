@@ -34,6 +34,7 @@ export const ALL_REGION_KINDS: RegionKind[] = [
   'ChemRegion',
   'MusicRegion',
   'AdvertRegion',
+  'FormRegion',
   'NoiseRegion',
   'UnknownRegion',
   'CustomRegion'

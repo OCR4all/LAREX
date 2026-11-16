@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.label;
 
+import com.maxnth.page4j.model.value.ChartType;
+import com.maxnth.page4j.model.value.GraphicsType;
 import de.uniwue.zpd.dachs.larex.backend.dto.LabelSetDto;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -165,6 +167,12 @@ public class LabelSetDefinitionValidator {
             throw new IllegalArgumentException("Label '" + label.name() + "' (region) must not specify pageXml.textType for non-TextRegion");
         }
 
+        String subType = pageXml.customSubType().trim();
+        if (!subType.isEmpty() && !validRegionSubType(pageXml.regionType(), subType)) {
+            throw new IllegalArgumentException("Label '" + label.name() + "' has invalid pageXml.customSubType for "
+                    + pageXml.regionType() + ": " + subType);
+        }
+
         if (label.hasText() && pageXml.regionType() != LabelSetDto.PageRegionType.TextRegion) {
             throw new IllegalArgumentException("Label '" + label.name() + "' hasText=true requires pageXml.regionType=TextRegion");
         }
@@ -179,6 +187,20 @@ public class LabelSetDefinitionValidator {
         }
         if (pageXml.customData() != null && !pageXml.customData().isBlank()) {
             throw new IllegalArgumentException("Label '" + label.name() + "' must not specify additional pageXml.customData properties");
+        }
+    }
+
+    private boolean validRegionSubType(LabelSetDto.PageRegionType regionType, String subType) {
+        try {
+            switch (regionType) {
+                case GraphicRegion -> GraphicsType.fromXml(subType);
+                case ChartRegion -> ChartType.fromXml(subType);
+                default -> {
+                }
+            }
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
         }
     }
 

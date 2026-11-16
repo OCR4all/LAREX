@@ -12,6 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LabelSetDefinitionValidatorTest {
 
@@ -213,6 +214,34 @@ class LabelSetDefinitionValidatorTest {
         );
 
         assertDoesNotThrow(() -> validator.validate(request));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "GraphicRegion, decoration",
+            "ChartRegion, pie",
+            "CustomRegion, anything goes",
+            "FormRegion, ''",
+            "CustomRegion, ''"
+    })
+    void validate_acceptsSubtypesThePageSchemaAllows(LabelSetDto.PageRegionType regionType, String subType) {
+        LabelSetDto.Label label = createRegionLabel("label-1", "Label 1", regionType, null, subType, "structure", "");
+
+        assertDoesNotThrow(() -> validator.validate(new LabelSetDto.CreateOrUpdateRequest(
+                new LabelSetDto.Meta("Test Label Set", "", List.of(), false), List.of(label))));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "GraphicRegion, flower",
+            "ChartRegion, donut"
+    })
+    void validate_rejectsSubtypesOutsideThePageSchemaValues(LabelSetDto.PageRegionType regionType, String subType) {
+        LabelSetDto.Label label = createRegionLabel("label-1", "Label 1", regionType, null, subType, "structure", "");
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> validator.validate(
+                new LabelSetDto.CreateOrUpdateRequest(new LabelSetDto.Meta("Test Label Set", "", List.of(), false), List.of(label))));
+        assertTrue(error.getMessage().contains("invalid pageXml.customSubType"), error.getMessage());
     }
 
     private static LabelSetDto.CreateOrUpdateRequest createRequest(

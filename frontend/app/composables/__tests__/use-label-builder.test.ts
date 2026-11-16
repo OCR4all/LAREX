@@ -306,4 +306,30 @@ describe('PAGE mapping field changes', () => {
     expect(pageXml.customData).toBe('')
     expect(pageXml.customSubType).toBe('article')
   })
+
+  it('rejects graphic and chart subtypes the PAGE schema does not define', () => {
+    const builder = createLabelBuilder()
+    const graphic = label('graphic')
+    graphic.hasText = false
+    graphic.mapping.pageXml = { regionType: 'GraphicRegion', customSubType: 'flower', customKey: 'structure', customData: '' }
+    builder.labels.value = [graphic]
+
+    expect(builder.getErrors(graphic).map(error => error.code)).toContain('invalidSubType')
+
+    graphic.mapping.pageXml.customSubType = 'decoration'
+    expect(builder.getErrors(graphic).map(error => error.code)).not.toContain('invalidSubType')
+  })
+
+  it('warns when the region type cannot store a subtype', () => {
+    const builder = createLabelBuilder()
+    const legacyCustom = label('legacy-custom')
+    legacyCustom.mapping.pageXml = { regionType: 'UnknownRegion', customSubType: 'custom', customKey: 'structure', customData: '' }
+    const custom = label('custom')
+    custom.mapping.pageXml = { regionType: 'CustomRegion', customSubType: 'custom', customKey: 'structure', customData: '' }
+    builder.labels.value = [legacyCustom, custom]
+
+    expect(builder.getWarnings(legacyCustom).map(warning => warning.code)).toEqual(['subTypeNotStored'])
+    expect(builder.getWarnings(custom)).toEqual([])
+    expect(builder.getErrors(legacyCustom)).toEqual([])
+  })
 })

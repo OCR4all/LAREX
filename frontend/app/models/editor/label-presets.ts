@@ -49,7 +49,7 @@ function createMapping(pageRegionType: string | null, textType: string | null = 
  * PAGE XML Standard Label Set
  *
  * Provides labels matching the PAGE XML schema region types.
- * Includes all 14 region types + CustomRegion and TextRegion subtypes.
+ * Includes every PAGE XML region type and the TextRegion subtypes.
  */
 export function createPageXmlLabelSet(): LabelSet {
   const labels: LabelDefinition[] = []
@@ -104,14 +104,17 @@ export function createPageXmlLabelSet(): LabelSet {
   addLabel('advert-region', 'Advertisement Region', '#E91E63', 'Advertisement content', false, null,
     createMapping('AdvertRegion'))
 
+  addLabel('form-region', 'Form Region', '#FFC107', 'Form or form-like content', false, null,
+    createMapping('FormRegion'))
+
   addLabel('noise-region', 'Noise Region', '#F44336', 'Noise or artifact (scanner noise, etc.)', false, null,
     createMapping('NoiseRegion'))
 
   addLabel('unknown-region', 'Unknown Region', '#757575', 'Region of unknown type', false, null,
     createMapping('UnknownRegion'))
 
-  addLabel('custom-region', 'Custom Region', '#00BFA5', 'Custom region type for content not covered by standard types', false, null,
-    createMapping('UnknownRegion', null, 'custom'))
+  addLabel('custom-region', 'Custom Region', '#00BFA5', 'Custom region type for content not covered by standard PAGE XML types', false, null,
+    createMapping('CustomRegion'))
 
   const textSubtypes = [
     { id: 'paragraph', name: 'Paragraph', desc: 'Body text paragraph' },

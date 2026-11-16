@@ -7,9 +7,10 @@ import {
   type PageTextType
 } from '~/types/label-set'
 import { createCanonicalRegionMappingSignatureFromLabel } from '@/utils/editor/page-label-mapping'
+import { allowedRegionSubtypes, regionTypeHasSubtype } from '@/utils/page-xml-compatibility'
 
 const PRESET_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#64748b']
-const PAGE_REGIONS = ['TextRegion', 'ImageRegion', 'LineDrawingRegion', 'GraphicRegion', 'TableRegion', 'ChartRegion', 'MapRegion', 'SeparatorRegion', 'MathsRegion', 'ChemRegion', 'MusicRegion', 'AdvertRegion', 'NoiseRegion', 'UnknownRegion']
+const PAGE_REGIONS = ['TextRegion', 'ImageRegion', 'LineDrawingRegion', 'GraphicRegion', 'TableRegion', 'ChartRegion', 'MapRegion', 'SeparatorRegion', 'MathsRegion', 'ChemRegion', 'MusicRegion', 'AdvertRegion', 'FormRegion', 'NoiseRegion', 'UnknownRegion', 'CustomRegion']
 const PAGE_TEXT_TYPES = ['paragraph', 'heading', 'caption', 'header', 'footer', 'page-number', 'drop-capital', 'credit', 'floating', 'signature-mark', 'catch-word', 'marginalia', 'footnote', 'footnote-continued', 'endnote', 'TOC-entry', 'list-label', 'other', 'custom']
 
 export type EditablePageXmlMapping = {
@@ -601,7 +602,31 @@ export function createLabelBuilder() {
       })
     }
 
+    const subtype = (pageXml.customSubType || '').trim()
+    const allowedSubtypes = allowedRegionSubtypes(pageXml.regionType)
+    if (subtype && allowedSubtypes && !allowedSubtypes.includes(subtype)) {
+      errors.push({
+        code: 'invalidSubType',
+        message: `"${subtype}" is not a PAGE XML ${pageXml.regionType} type. Choose one from the list.`
+      })
+    }
+
     return errors
+  }
+
+  const getWarnings = (label: BuilderEntry | null | undefined) => {
+    const warnings: { code: string, message: string }[] = []
+    if (!label || isGroupMeta(label)) return warnings
+
+    const pageXml = label.mapping.pageXml
+    const subtype = (pageXml.customSubType || '').trim()
+    if (subtype && pageXml.regionType && !regionTypeHasSubtype(pageXml.regionType)) {
+      warnings.push({
+        code: 'subTypeNotStored',
+        message: `PAGE XML ${pageXml.regionType} has no type attribute, so the subtype "${subtype}" is not saved with the region and the label stops matching after a reload. Remove it, or use CustomRegion for a free type.`
+      })
+    }
+    return warnings
   }
 
   const hasError = (l: BuilderEntry | null | undefined, c: string) => getErrors(l).some(e => e.code === c)
@@ -643,7 +668,7 @@ export function createLabelBuilder() {
     meta, labels, activeLabel, searchQuery, filteredLabels,
     PRESET_COLORS, PAGE_REGIONS, PAGE_TEXT_TYPES,
     createLabel, deleteLabel, deleteSelectedLabels, selectLabel, setDefaultLabel, createMapping,
-    getErrors, hasError, totalErrors, optimizeColors,
+    getErrors, getWarnings, hasError, totalErrors, optimizeColors,
     selectedLabelIds, toggleSelection, selectLabelRange, clearSelection, selectedLabels, canGroup,
     groupSelectedLabels, dissolveGroup, moveSelectedToGroup, mergeGroups,
     moveLabel, moveLabelByOffset, moveGroup, moveGroupByOffset,

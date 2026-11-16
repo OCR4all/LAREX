@@ -13,6 +13,7 @@ export const LEGACY_PAGE_REGION_KINDS = new Set<string>([
   'ChemRegion',
   'MusicRegion',
   'AdvertRegion',
+  'FormRegion',
   'NoiseRegion',
   'UnknownRegion',
   'CustomRegion'

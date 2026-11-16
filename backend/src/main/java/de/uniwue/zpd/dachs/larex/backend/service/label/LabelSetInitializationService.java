@@ -92,14 +92,11 @@ public class LabelSetInitializationService {
         // TextRegion goes in "Text" group
         labels.add(createRegionLabel(counter++, LabelSetDto.PageRegionType.TextRegion, "Text"));
 
-        // Other regions have no group
         for (LabelSetDto.PageRegionType regionType : LabelSetDto.PageRegionType.values()) {
             if (regionType != LabelSetDto.PageRegionType.TextRegion) {
                 labels.add(createRegionLabel(counter++, regionType, null));
             }
         }
-
-        labels.add(createCustomRegionLabel(counter++));
 
         // TextRegion subtypes go in "Text" group
         int textIndex = 0;
@@ -112,6 +109,10 @@ public class LabelSetInitializationService {
     }
 
     private LabelSetDto.Label createRegionLabel(int id, LabelSetDto.PageRegionType regionType, String group) {
+        return createRegionLabel("page-region-" + id, regionType, group);
+    }
+
+    private LabelSetDto.Label createRegionLabel(String id, LabelSetDto.PageRegionType regionType, String group) {
         boolean hasText = isTextCapableRegion(regionType);
         String name = getRegionDisplayName(regionType);
         String description = getRegionDescription(regionType);
@@ -128,7 +129,7 @@ public class LabelSetInitializationService {
         LabelSetDto.Mapping mapping = new LabelSetDto.Mapping(pageXml);
 
         return new LabelSetDto.Label(
-                "page-region-" + id,
+                id,
                 LabelSetDto.LabelScope.REGION,
                 name,
                 description,
@@ -167,9 +168,10 @@ public class LabelSetInitializationService {
                 if (desiredCustomSubType == null) {
                     desiredCustomSubType = EMPTY_CUSTOM_SUBTYPE;
                 }
-                if (regionType == null
+                if ((regionType == null || regionType == LabelSetDto.PageRegionType.UnknownRegion)
                         && "custom".equals(desiredCustomSubType)) {
-                    desiredRegionType = LabelSetDto.PageRegionType.UnknownRegion;
+                    desiredRegionType = LabelSetDto.PageRegionType.CustomRegion;
+                    desiredCustomSubType = EMPTY_CUSTOM_SUBTYPE;
                 }
 
                 if (desiredRegionType == LabelSetDto.PageRegionType.TextRegion) {
@@ -184,11 +186,6 @@ public class LabelSetInitializationService {
                     }
                 } else if (desiredRegionType != null) {
                     desiredColor = getRegionColor(desiredRegionType);
-                } else if ("custom".equals(pageXml.customSubType())) {
-                    desiredColor = getCustomRegionColor();
-                }
-                if (desiredRegionType == LabelSetDto.PageRegionType.UnknownRegion && "custom".equals(desiredCustomSubType)) {
-                    desiredColor = getCustomRegionColor();
                 }
 
                 boolean mappingChanged = pageXml.regionType() != desiredRegionType
@@ -224,6 +221,8 @@ public class LabelSetInitializationService {
                 }
             }
 
+            changed |= addMissingRegionLabels(updatedLabels);
+
             if (changed) {
                 LabelSetDto.CreateOrUpdateRequest updatedRequest = new LabelSetDto.CreateOrUpdateRequest(request.meta(), updatedLabels);
                 labelSet.setDefinition(objectMapper.valueToTree(updatedRequest));
@@ -232,36 +231,41 @@ public class LabelSetInitializationService {
         }
     }
 
+    private boolean addMissingRegionLabels(List<LabelSetDto.Label> labels) {
+        java.util.Set<LabelSetDto.PageRegionType> present = java.util.EnumSet.noneOf(LabelSetDto.PageRegionType.class);
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        for (LabelSetDto.Label label : labels) {
+            ids.add(label.id());
+            if (label.mapping() != null && label.mapping().pageXml() != null && label.mapping().pageXml().regionType() != null) {
+                present.add(label.mapping().pageXml().regionType());
+            }
+        }
+        int insertAt = 0;
+        for (int i = 0; i < labels.size(); i++) {
+            if (labels.get(i).id().startsWith("page-region-")) {
+                insertAt = i + 1;
+            }
+        }
+        boolean added = false;
+        for (LabelSetDto.PageRegionType regionType : LabelSetDto.PageRegionType.values()) {
+            if (present.contains(regionType)) {
+                continue;
+            }
+            int number = labels.size() + 1;
+            while (ids.contains("page-region-" + number)) {
+                number++;
+            }
+            String id = "page-region-" + number;
+            ids.add(id);
+            labels.add(insertAt++, createRegionLabel(id, regionType, null));
+            added = true;
+        }
+        return added;
+    }
+
     private boolean equalsString(String left, String right) {
         if (left == null) return right == null;
         return left.equals(right);
-    }
-
-    private LabelSetDto.Label createCustomRegionLabel(int id) {
-        String name = "Custom Region";
-        String description = "Custom region type for content not covered by standard PAGE XML types";
-
-        LabelSetDto.PageXml pageXml = new LabelSetDto.PageXml(
-                LabelSetDto.PageRegionType.UnknownRegion,
-                null,
-                "custom",
-                "structure",
-                ""
-        );
-
-        LabelSetDto.Mapping mapping = new LabelSetDto.Mapping(pageXml);
-
-        return new LabelSetDto.Label(
-                "page-region-" + id,
-                LabelSetDto.LabelScope.REGION,
-                name,
-                description,
-                getCustomRegionColor(),
-                false,
-                false,
-                null,
-                mapping
-        );
     }
 
     private LabelSetDto.Label createTextRegionSubtypeLabel(int id, String textType, String group, String color) {
@@ -309,8 +313,10 @@ public class LabelSetInitializationService {
             case ChemRegion -> "Chemistry Region";
             case MusicRegion -> "Music Region";
             case AdvertRegion -> "Advertisement Region";
+            case FormRegion -> "Form Region";
             case NoiseRegion -> "Noise Region";
             case UnknownRegion -> "Unknown Region";
+            case CustomRegion -> "Custom Region";
         };
     }
 
@@ -328,8 +334,10 @@ public class LabelSetInitializationService {
             case ChemRegion -> "Chemical formulas";
             case MusicRegion -> "Musical notations";
             case AdvertRegion -> "Advertisement content";
+            case FormRegion -> "Form or form-like content";
             case NoiseRegion -> "Noise or artifact (scanner noise, etc.)";
             case UnknownRegion -> "Region of unknown type";
+            case CustomRegion -> "Custom region type for content not covered by standard PAGE XML types";
         };
     }
 
@@ -347,8 +355,10 @@ public class LabelSetInitializationService {
             case ChemRegion -> "#00BCD4";
             case MusicRegion -> "#CDDC39";
             case AdvertRegion -> "#E91E63";
+            case FormRegion -> "#FFC107";
             case NoiseRegion -> "#F44336";
             case UnknownRegion -> "#757575";
+            case CustomRegion -> getCustomRegionColor();
         };
     }
 
