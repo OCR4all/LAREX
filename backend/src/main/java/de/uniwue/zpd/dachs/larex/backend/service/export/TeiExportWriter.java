@@ -1,8 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.export;
 
+import com.maxnth.page4j.pagexml.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
-import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -35,6 +35,7 @@ import org.w3c.dom.Element;
 public class TeiExportWriter {
 
     private static final String PAGE2TEI_XSLT_RESOURCE_PATH = "/xslt/page2tei-0.xsl";
+    private static final PageXmlVersion PAGE2TEI_VERSION = PageXmlVersion.V2019_07_15;
 
     private final AnnotationProcessingService annotationProcessingService;
 
@@ -138,11 +139,7 @@ public class TeiExportWriter {
                 ExportPage page = pages.get(i);
                 String xmlFileName = String.format(Locale.ROOT, "page-%04d.xml", i + 1);
                 Path xmlPath = xmlDir.resolve(xmlFileName);
-                String pageXml = annotationProcessingService.exportAnnotationToXml(
-                        page.pageDto(),
-                        XmlSchema.PAGE_XML,
-                        page.pageXml() == null ? null : page.pageXml().getId()
-                );
+                String pageXml = annotationProcessingService.exportAnnotationToPageXml(page.pageDto(), PAGE2TEI_VERSION);
                 Files.writeString(xmlPath, pageXml, StandardCharsets.UTF_8);
                 pageRefs.add(new Page2TeiPageRef(i + 1, xmlPath.toUri().toString()));
             }

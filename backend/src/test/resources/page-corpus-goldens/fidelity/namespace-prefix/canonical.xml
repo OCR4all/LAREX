@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       pcGtsId="prefixed"
+       xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd">
+   <Metadata>
+      <Creator>prefix test</Creator>
+      <Created>2026-01-01T00:00:00</Created>
+      <LastChange>2026-01-01T00:00:00</LastChange>
+      <MetadataItem name="layout-analysis" type="processingStep" value="test">
+         <Labels>
+            <Label type="version" value="1.0"/>
+         </Labels>
+      </MetadataItem>
+   </Metadata>
+   <Page imageFilename="page.png" imageHeight="100" imageWidth="100">
+      <AlternativeImage comments="binarized" filename="page.bin.png"/>
+      <ReadingOrder>
+         <OrderedGroup id="ro">
+            <RegionRefIndexed index="0" regionRef="r1"/>
+         </OrderedGroup>
+      </ReadingOrder>
+      <TextRegion id="r1" type="paragraph">
+         <Coords points="10,10 90,10 90,40 10,40"/>
+         <TextLine id="r1_l1">
+            <Coords points="10,10 90,10 90,20 10,20"/>
+            <Baseline points="10,18 90,18"/>
+            <Word id="r1_l1_w1">
+               <Coords points="10,10 40,10 40,20 10,20"/>
+               <TextEquiv conf="0.9">
+                  <Unicode>Hello</Unicode>
+               </TextEquiv>
+            </Word>
+            <TextEquiv>
+               <Unicode>Hello</Unicode>
+            </TextEquiv>
+         </TextLine>
+      </TextRegion>
+   </Page>
+</PcGts>

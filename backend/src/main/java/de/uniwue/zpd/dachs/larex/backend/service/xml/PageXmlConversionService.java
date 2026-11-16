@@ -29,7 +29,8 @@ public class PageXmlConversionService {
 
     private static final Logger log = LoggerFactory.getLogger(PageXmlConversionService.class);
 
-    public static final String PRIMARY_PAGE_VERSION = "2019-07-15";
+    public static final PageXmlVersion PRIMARY_VERSION = PageXmlVersion.V2024_07_15;
+    public static final String PRIMARY_PAGE_VERSION = PRIMARY_VERSION.date();
     private static final Pattern VERSION_PATTERN = Pattern.compile("(\\d{4}-\\d{2}-\\d{2})");
 
     private static final Set<String> SUPPORTED_EXPORT_VERSIONS = Set.of(
@@ -38,7 +39,8 @@ public class PageXmlConversionService {
             "2016-07-15",
             "2017-07-15",
             "2018-07-15",
-            "2019-07-15"
+            "2019-07-15",
+            "2024-07-15"
     );
 
     public List<String> getSupportedExportVersions() {
@@ -71,7 +73,7 @@ public class PageXmlConversionService {
 
     public boolean isOlderThanPrimary(String version) {
         return pageXmlVersion(version)
-                .map(parsed -> parsed.compareTo(pageXmlVersion(PRIMARY_PAGE_VERSION).orElseThrow()) < 0)
+                .map(parsed -> parsed.compareTo(PRIMARY_VERSION) < 0)
                 .orElse(false);
     }
 

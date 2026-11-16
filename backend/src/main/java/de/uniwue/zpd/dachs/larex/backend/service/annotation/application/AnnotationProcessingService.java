@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.application;
 
+import com.maxnth.page4j.pagexml.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
@@ -183,6 +184,10 @@ public class AnnotationProcessingService {
     /**
      * Export PageDto to XML file.
      */
+    public String exportAnnotationToPageXml(PageDto pageDto, PageXmlVersion version) throws IOException {
+        return pageXmlExporter.exportToString(pageDto, version);
+    }
+
     public String exportAnnotationToXml(PageDto pageDto, XmlSchema targetSchema,
                                        String originalXmlId) throws IOException {
 
@@ -245,6 +250,7 @@ public class AnnotationProcessingService {
 
                 long newSize = Files.size(xmlPath);
                 xml.setFileSize(newSize);
+                xml.setSchemaVersion(writeResult.schemaVersion());
                 pageXmlRepository.save(xml);
                 try {
                     annotationReadCache.put(xmlId, xmlPath, saveReadyPageDto);

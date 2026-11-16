@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd">
+   <Metadata>
+      <Creator>larex-corpus</Creator>
+      <Created>2026-01-02T10:00:00</Created>
+      <LastChange>2026-01-02T10:00:00</LastChange>
+   </Metadata>
+   <Page imageFilename="0001.png" imageHeight="3508" imageWidth="2480">
+      <ReadingOrder>
+         <OrderedGroup id="ro_1">
+            <RegionRefIndexed index="0" regionRef="r_a1b2"/>
+            <RegionRefIndexed index="1" regionRef="r_c3d4"/>
+         </OrderedGroup>
+      </ReadingOrder>
+      <TextRegion id="r_a1b2" type="heading">
+         <Coords points="200,200 2280,200 2280,400 200,400"/>
+         <TextLine id="l_e5f6">
+            <Coords points="210,210 2270,210 2270,390 210,390"/>
+            <Baseline points="210,380 2270,380"/>
+            <TextEquiv>
+               <Unicode>Kapitel I.</Unicode>
+            </TextEquiv>
+         </TextLine>
+      </TextRegion>
+      <TextRegion id="r_c3d4" type="paragraph">
+         <Coords points="200,500 2280,500 2280,3300 200,3300"/>
+      </TextRegion>
+      <SeparatorRegion id="s_1">
+         <Coords points="200,450 2280,450 2280,460 200,460"/>
+      </SeparatorRegion>
+   </Page>
+</PcGts>

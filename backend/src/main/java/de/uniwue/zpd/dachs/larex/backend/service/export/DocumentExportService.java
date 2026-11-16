@@ -351,7 +351,7 @@ public class DocumentExportService {
                 null,
                 List.of(),
                 null,
-                "2019-07-15"
+                PageXmlConversionService.PRIMARY_PAGE_VERSION
         );
     }
 

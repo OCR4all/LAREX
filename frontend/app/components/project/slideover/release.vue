@@ -11,14 +11,13 @@ import type {
   ProjectReleaseSpreadsheetProfile
 } from '@/types/project-package-release'
 import type { Page } from '@/types/project-page'
+import { PAGE_XML_PRIMARY_VERSION } from '@/utils/project-export'
 
 type ExportDialogResult = {
   targetPageXmlVersion: string
   includeXmlHistory: boolean
   embeddedOutputs: ProjectPackageEmbeddedOutputRequest[]
 }
-
-const PAGE_XML_PRIMARY_VERSION = '2019-07-15'
 
 const props = withDefaults(defineProps<{
   projectId: string
@@ -166,7 +165,7 @@ async function confirmLegacyPageXmlVersion(): Promise<boolean> {
 
   const confirmation = confirmSlideover.open({
     title: 'Confirm Legacy PAGE XML Export',
-    message: 'Releasing with an older PAGE XML schema may drop PAGE 2019-only data. Continue anyway?',
+    message: 'Releasing with an older PAGE XML schema may drop data that only PAGE 2024 can hold. Continue anyway?',
     confirmLabel: 'Release anyway',
     confirmColor: 'warning',
     confirmIcon: 'i-lucide-triangle-alert'

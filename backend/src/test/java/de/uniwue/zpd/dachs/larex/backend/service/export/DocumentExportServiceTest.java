@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.export;
 
+import com.maxnth.page4j.pagexml.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PointDto;
@@ -327,7 +328,7 @@ class DocumentExportServiceTest {
                 null
         );
         when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(dto);
-        when(annotationProcessingService.exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.PAGE_XML), eq("xml-page-1")))
+        when(annotationProcessingService.exportAnnotationToPageXml(any(PageDto.class), eq(PageXmlVersion.V2019_07_15)))
                 .thenReturn("""
                         <PcGts xmlns=\"http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15\">
                           <Page imageFilename=\"alpha.png\" imageWidth=\"400\" imageHeight=\"200\">

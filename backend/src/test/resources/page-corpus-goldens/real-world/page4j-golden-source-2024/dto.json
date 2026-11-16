@@ -1,0 +1,609 @@
+{
+  "imageFilename" : "page.png",
+  "imageWidth" : 1000,
+  "imageHeight" : 2000,
+  "metadata" : {
+    "creator" : "page4j",
+    "created" : "2020-01-02T03:04:05",
+    "lastChange" : "2021-06-07T08:09:10",
+    "comments" : "Golden fixture",
+    "externalRef" : "ext-42",
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "metaAttr",
+        "description" : "a meta attribute",
+        "type" : "xsd:string",
+        "value" : "meta"
+      } ]
+    },
+    "items" : [ {
+      "type" : "processingStep",
+      "name" : "binarization",
+      "value" : "otsu",
+      "labels" : [ {
+        "externalModel" : "steps",
+        "prefix" : "p",
+        "labels" : [ {
+          "value" : "step-label",
+          "type" : "kind",
+          "comments" : "label comment"
+        } ]
+      } ]
+    } ]
+  },
+  "pcGtsId" : "gts1",
+  "type" : "content",
+  "primaryLanguage" : "German",
+  "readingDirection" : "left-to-right",
+  "confidence" : 0.75,
+  "border" : {
+    "points" : [ [ -0.98, 0.99 ], [ 0.98, 0.99 ], [ 0.98, -0.99 ], [ -0.98, -0.99 ] ]
+  },
+  "printSpace" : {
+    "points" : [ [ -0.9, 0.95 ], [ 0.8999999999999999, 0.95 ], [ 0.8999999999999999, -0.95 ], [ -0.9, -0.95 ] ]
+  },
+  "regions" : [ {
+    "id" : "r1",
+    "kind" : "TextRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.9 ], [ 0.8, 0.9 ], [ 0.8, 0.7 ], [ -0.8, 0.7 ] ],
+      "confidence" : 0.8
+    },
+    "textLines" : [ {
+      "id" : "l1",
+      "coords" : {
+        "points" : [ [ -0.8, 0.9 ], [ 0.8, 0.9 ], [ 0.8, 0.8 ], [ -0.8, 0.8 ] ]
+      },
+      "baseline" : {
+        "points" : [ [ -0.8, 0.81 ], [ 0.8, 0.81 ] ],
+        "confidence" : 0.6
+      },
+      "textContentVariants" : [ {
+        "unicode" : "Grüße & <text>",
+        "confidence" : 0.85,
+        "index" : 0,
+        "dataType" : "xsd:string",
+        "comments" : "main"
+      }, {
+        "unicode" : "Grusse",
+        "confidence" : 0.4,
+        "index" : 1
+      } ],
+      "words" : [ {
+        "id" : "w1",
+        "coords" : {
+          "points" : [ [ -0.8, 0.9 ], [ -0.4, 0.9 ], [ -0.4, 0.8 ], [ -0.8, 0.8 ] ]
+        },
+        "textContentVariants" : [ {
+          "unicode" : "Grüße",
+          "plainText" : "Gruesse",
+          "confidence" : 0.9
+        } ],
+        "glyphs" : [ {
+          "id" : "g1",
+          "coords" : {
+            "points" : [ [ -0.8, 0.9 ], [ -0.7, 0.9 ], [ -0.7, 0.8 ], [ -0.8, 0.8 ] ]
+          },
+          "textContentVariants" : [ {
+            "unicode" : "G",
+            "confidence" : 0.95
+          } ],
+          "alternativeImages" : [ {
+            "filename" : "g1.png"
+          } ],
+          "labels" : [ {
+            "externalModel" : "glyphs",
+            "labels" : [ {
+              "value" : "glyph-label"
+            } ]
+          } ],
+          "userDefined" : {
+            "attributes" : [ {
+              "name" : "glyphAttr",
+              "type" : "xsd:string",
+              "value" : "glyph"
+            } ]
+          },
+          "textStyle" : {
+            "italic" : true
+          },
+          "graphemes" : {
+            "elements" : [ {
+              "kind" : "grapheme",
+              "id" : "gr1",
+              "index" : 0,
+              "charType" : "base",
+              "coords" : {
+                "points" : [ [ -0.8, 0.9 ], [ -0.7, 0.9 ], [ -0.7, 0.8 ], [ -0.8, 0.8 ] ]
+              },
+              "textContentVariants" : [ {
+                "unicode" : "G"
+              } ]
+            }, {
+              "kind" : "nonPrintingChar",
+              "id" : "gr2",
+              "index" : 1,
+              "textContentVariants" : [ {
+                "unicode" : " "
+              } ]
+            }, {
+              "kind" : "graphemeGroup",
+              "id" : "gr3",
+              "index" : 2,
+              "textContentVariants" : [ {
+                "unicode" : "ü"
+              } ],
+              "members" : [ {
+                "kind" : "grapheme",
+                "id" : "gr4",
+                "index" : 0,
+                "charType" : "base",
+                "coords" : {
+                  "points" : [ [ -0.78, 0.88 ], [ -0.72, 0.88 ], [ -0.72, 0.8 ], [ -0.78, 0.8 ] ]
+                },
+                "textContentVariants" : [ {
+                  "unicode" : "u"
+                } ]
+              }, {
+                "kind" : "grapheme",
+                "id" : "gr5",
+                "index" : 1,
+                "charType" : "combining",
+                "coords" : {
+                  "points" : [ [ -0.78, 0.9 ], [ -0.72, 0.9 ], [ -0.72, 0.88 ], [ -0.78, 0.88 ] ]
+                },
+                "textContentVariants" : [ {
+                  "unicode" : "¨"
+                } ]
+              } ]
+            } ]
+          },
+          "ligature" : false,
+          "symbol" : false,
+          "script" : "Latn - Latin",
+          "text" : "G"
+        } ],
+        "alternativeImages" : [ {
+          "filename" : "w1.png"
+        } ],
+        "labels" : [ {
+          "externalModel" : "words",
+          "labels" : [ {
+            "value" : "word-label"
+          } ]
+        } ],
+        "userDefined" : {
+          "attributes" : [ {
+            "name" : "wordAttr",
+            "type" : "xsd:string",
+            "value" : "word"
+          } ]
+        },
+        "textStyle" : {
+          "underlined" : true,
+          "underlineStyle" : "singleLine"
+        },
+        "language" : "German",
+        "custom" : "word-custom",
+        "orientation" : 0.25,
+        "text" : "Grüße"
+      } ],
+      "alternativeImages" : [ {
+        "filename" : "l1.png"
+      } ],
+      "labels" : [ {
+        "externalModel" : "lines",
+        "labels" : [ {
+          "value" : "line-label"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "lineAttr",
+          "type" : "xsd:string",
+          "value" : "line"
+        } ]
+      },
+      "textStyle" : {
+        "fontFamily" : "Arial",
+        "textColour" : "black"
+      },
+      "primaryLanguage" : "German",
+      "production" : "printed",
+      "custom" : "line-custom",
+      "comments" : "line comment",
+      "orientation" : 0.5,
+      "mirrored" : "not-mirrored",
+      "secondaryLanguage" : "Latin",
+      "ascentLine" : {
+        "points" : [ [ -0.8, 0.895 ], [ 0.8, 0.895 ] ],
+        "confidence" : 0.5
+      },
+      "meanLine" : {
+        "points" : [ [ -0.8, 0.87 ], [ 0.8, 0.87 ] ]
+      },
+      "descentLine" : {
+        "points" : [ [ -0.8, 0.802 ], [ 0.8, 0.802 ] ]
+      },
+      "text" : "Grüße & <text>"
+    }, {
+      "id" : "l2",
+      "coords" : {
+        "points" : [ [ -0.8, 0.8 ], [ 0.8, 0.8 ], [ 0.8, 0.7 ], [ -0.8, 0.7 ] ]
+      },
+      "textContentVariants" : [ {
+        "unicode" : ""
+      } ],
+      "text" : ""
+    } ],
+    "textContentVariants" : [ {
+      "unicode" : "Grüße & <text>",
+      "confidence" : 0.7
+    } ],
+    "alternativeImages" : [ {
+      "filename" : "r1.png"
+    } ],
+    "labels" : [ {
+      "externalModel" : "regions",
+      "labels" : [ {
+        "value" : "region-label"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "regionAttr",
+        "type" : "xsd:float",
+        "value" : "1.25"
+      } ]
+    },
+    "textStyle" : {
+      "serif" : true,
+      "fontSize" : 14.5,
+      "bgColour" : "white"
+    },
+    "type" : "heading",
+    "orientation" : 1.5,
+    "leading" : 3,
+    "align" : "left",
+    "readingDirection" : "left-to-right",
+    "textLineOrder" : "top-to-bottom",
+    "indented" : true,
+    "primaryLanguage" : "German",
+    "primaryScript" : "Latn - Latin",
+    "secondaryScript" : "Grek - Greek",
+    "production" : "printed",
+    "custom" : "region-custom",
+    "comments" : "region comment",
+    "mirrored" : "not-mirrored",
+    "customScripts" : "Latn",
+    "text" : "Grüße & <text>",
+    "textRegion" : true
+  }, {
+    "id" : "r2",
+    "kind" : "ImageRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.6 ], [ 0.0, 0.6 ], [ 0.0, 0.19999999999999996 ], [ -0.8, 0.19999999999999996 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "white"
+    },
+    "orientation" : 0.0,
+    "bgColour" : "white",
+    "embText" : true,
+    "colourDepth" : "colour",
+    "nestedRegions" : [ {
+      "id" : "r3",
+      "kind" : "TextRegion",
+      "coords" : {
+        "points" : [ [ -0.76, 0.30000000000000004 ], [ -0.040000000000000036, 0.30000000000000004 ], [ -0.040000000000000036, 0.21999999999999997 ], [ -0.76, 0.21999999999999997 ] ]
+      },
+      "textContentVariants" : [ {
+        "unicode" : "Nested caption"
+      } ],
+      "type" : "caption",
+      "text" : "Nested caption",
+      "textRegion" : true
+    } ],
+    "textRegion" : false
+  }, {
+    "id" : "r4",
+    "kind" : "TableRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.09999999999999998 ], [ 0.8, 0.09999999999999998 ], [ 0.8, -0.10000000000000009 ], [ -0.8, -0.10000000000000009 ] ]
+    },
+    "grid" : {
+      "rows" : [ {
+        "index" : 0,
+        "points" : {
+          "points" : [ [ -0.8, 0.09999999999999998 ], [ 0.0, 0.09999999999999998 ], [ 0.8, 0.09999999999999998 ] ]
+        }
+      }, {
+        "index" : 1,
+        "points" : {
+          "points" : [ [ -0.8, -0.10000000000000009 ], [ 0.0, -0.10000000000000009 ], [ 0.8, -0.10000000000000009 ] ]
+        }
+      } ],
+      "addPoints" : [ {
+        "row" : 0,
+        "col" : 0,
+        "top" : "300,905"
+      }, {
+        "row" : 0,
+        "col" : 1,
+        "left" : "495,1000",
+        "top" : "700,905"
+      } ]
+    },
+    "lineSeparators" : true,
+    "rows" : 1,
+    "columns" : 2,
+    "nestedRegions" : [ {
+      "id" : "r5",
+      "kind" : "TextRegion",
+      "coords" : {
+        "points" : [ [ -0.8, 0.09999999999999998 ], [ 0.0, 0.09999999999999998 ], [ 0.0, -0.10000000000000009 ], [ -0.8, -0.10000000000000009 ] ]
+      },
+      "textContentVariants" : [ {
+        "unicode" : "Cell"
+      } ],
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 0,
+          "columnIndex" : 0,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "type" : "paragraph",
+      "text" : "Cell",
+      "textRegion" : true
+    }, {
+      "id" : "r6",
+      "kind" : "TextRegion",
+      "coords" : {
+        "points" : [ [ 0.0, 0.09999999999999998 ], [ 0.8, 0.09999999999999998 ], [ 0.8, -0.10000000000000009 ], [ 0.0, -0.10000000000000009 ] ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 0,
+          "columnIndex" : 1
+        }
+      },
+      "type" : "paragraph",
+      "textRegion" : true
+    } ],
+    "textRegion" : false
+  }, {
+    "id" : "r7",
+    "kind" : "GraphicRegion",
+    "coords" : {
+      "points" : [ [ 0.19999999999999996, 0.6 ], [ 0.8, 0.6 ], [ 0.8, 0.5 ], [ 0.19999999999999996, 0.5 ] ]
+    },
+    "type" : "logo",
+    "numColours" : 3,
+    "embText" : false,
+    "textRegion" : false
+  }, {
+    "id" : "r8",
+    "kind" : "LineDrawingRegion",
+    "coords" : {
+      "points" : [ [ 0.19999999999999996, 0.48 ], [ 0.8, 0.48 ], [ 0.8, 0.4 ], [ 0.19999999999999996, 0.4 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "white"
+    },
+    "bgColour" : "white",
+    "penColour" : "black",
+    "textRegion" : false
+  }, {
+    "id" : "r9",
+    "kind" : "ChartRegion",
+    "coords" : {
+      "points" : [ [ 0.19999999999999996, 0.38 ], [ 0.8, 0.38 ], [ 0.8, 0.30000000000000004 ], [ 0.19999999999999996, 0.30000000000000004 ] ]
+    },
+    "type" : "bar",
+    "numColours" : 2,
+    "textRegion" : false
+  }, {
+    "id" : "r10",
+    "kind" : "SeparatorRegion",
+    "coords" : {
+      "points" : [ [ 0.10000000000000009, 0.6 ], [ 0.1200000000000001, 0.6 ], [ 0.1200000000000001, 0.19999999999999996 ], [ 0.10000000000000009, 0.19999999999999996 ] ]
+    },
+    "orientation" : 90.0,
+    "colour" : "black",
+    "textRegion" : false
+  }, {
+    "id" : "r11",
+    "kind" : "MathsRegion",
+    "coords" : {
+      "points" : [ [ -0.8, -0.19999999999999996 ], [ -0.19999999999999996, -0.19999999999999996 ], [ -0.19999999999999996, -0.30000000000000004 ], [ -0.8, -0.30000000000000004 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "white"
+    },
+    "bgColour" : "white",
+    "textRegion" : false
+  }, {
+    "id" : "r12",
+    "kind" : "ChemRegion",
+    "coords" : {
+      "points" : [ [ -0.16000000000000003, -0.19999999999999996 ], [ 0.3999999999999999, -0.19999999999999996 ], [ 0.3999999999999999, -0.30000000000000004 ], [ -0.16000000000000003, -0.30000000000000004 ] ]
+    },
+    "textRegion" : false
+  }, {
+    "id" : "r13",
+    "kind" : "MusicRegion",
+    "coords" : {
+      "points" : [ [ 0.43999999999999995, -0.19999999999999996 ], [ 0.8, -0.19999999999999996 ], [ 0.8, -0.30000000000000004 ], [ 0.43999999999999995, -0.30000000000000004 ] ]
+    },
+    "textRegion" : false
+  }, {
+    "id" : "r14",
+    "kind" : "AdvertRegion",
+    "coords" : {
+      "points" : [ [ -0.8, -0.3999999999999999 ], [ -0.19999999999999996, -0.3999999999999999 ], [ -0.19999999999999996, -0.5 ], [ -0.8, -0.5 ] ]
+    },
+    "textRegion" : false
+  }, {
+    "id" : "r15",
+    "kind" : "NoiseRegion",
+    "coords" : {
+      "points" : [ [ -0.16000000000000003, -0.3999999999999999 ], [ 0.0, -0.3999999999999999 ], [ 0.0, -0.5 ], [ -0.16000000000000003, -0.5 ] ]
+    },
+    "textRegion" : false
+  }, {
+    "id" : "r16",
+    "kind" : "UnknownRegion",
+    "coords" : {
+      "points" : [ [ 0.040000000000000036, -0.3999999999999999 ], [ 0.19999999999999996, -0.3999999999999999 ], [ 0.19999999999999996, -0.5 ], [ 0.040000000000000036, -0.5 ] ]
+    },
+    "textRegion" : false
+  }, {
+    "id" : "r17",
+    "kind" : "CustomRegion",
+    "coords" : {
+      "points" : [ [ 0.24, -0.3999999999999999 ], [ 0.8, -0.3999999999999999 ], [ 0.8, -0.5 ], [ 0.24, -0.5 ] ]
+    },
+    "type" : "stamp",
+    "textRegion" : false
+  }, {
+    "id" : "r18",
+    "kind" : "MapRegion",
+    "coords" : {
+      "points" : [ [ -0.8, -0.6000000000000001 ], [ -0.19999999999999996, -0.6000000000000001 ], [ -0.19999999999999996, -0.7 ], [ -0.8, -0.7 ] ]
+    },
+    "orientation" : 2.0,
+    "textRegion" : false
+  }, {
+    "id" : "r19",
+    "kind" : "FormRegion",
+    "coords" : {
+      "points" : [ [ -0.16000000000000003, -0.6000000000000001 ], [ 0.8, -0.6000000000000001 ], [ 0.8, -0.7 ], [ -0.16000000000000003, -0.7 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "white"
+    },
+    "bgColour" : "white",
+    "comments" : "a form",
+    "mirrored" : "horizontally",
+    "textRegion" : false
+  } ],
+  "readingOrder" : {
+    "root" : {
+      "id" : "ro1",
+      "ordered" : true,
+      "caption" : "Main order",
+      "members" : [ {
+        "type" : "regionRef",
+        "regionRef" : "r1",
+        "index" : 0
+      }, {
+        "type" : "nestedGroup",
+        "group" : {
+          "id" : "ro2",
+          "ordered" : false,
+          "index" : 1,
+          "caption" : "Figures",
+          "regionRef" : "r2",
+          "members" : [ {
+            "type" : "regionRef",
+            "regionRef" : "r3"
+          }, {
+            "type" : "nestedGroup",
+            "group" : {
+              "id" : "ro3",
+              "ordered" : true,
+              "members" : [ {
+                "type" : "regionRef",
+                "regionRef" : "r4",
+                "index" : 0
+              }, {
+                "type" : "regionRef",
+                "regionRef" : "r5",
+                "index" : 1
+              } ]
+            }
+          } ]
+        }
+      }, {
+        "type" : "regionRef",
+        "regionRef" : "r6",
+        "index" : 2
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "groupAttr",
+          "type" : "xsd:integer",
+          "value" : "7"
+        } ]
+      },
+      "labels" : [ {
+        "externalModel" : "groups",
+        "labels" : [ {
+          "value" : "group-label"
+        } ]
+      } ]
+    },
+    "confidence" : 0.9
+  },
+  "alternativeImages" : [ {
+    "filename" : "page.bin.png",
+    "comments" : "binarized",
+    "confidence" : 0.5
+  } ],
+  "labels" : [ {
+    "externalModel" : "pages",
+    "externalId" : "page-ext",
+    "comments" : "page labels",
+    "labels" : [ {
+      "value" : "page-label"
+    } ]
+  } ],
+  "userDefined" : {
+    "attributes" : [ {
+      "name" : "pageAttr",
+      "type" : "xsd:boolean",
+      "value" : "true"
+    } ]
+  },
+  "textStyle" : {
+    "fontFamily" : "Times",
+    "fontSize" : 12.0,
+    "bold" : true
+  },
+  "layers" : {
+    "layers" : [ {
+      "id" : "layer1",
+      "zIndex" : 1,
+      "caption" : "Top",
+      "regionRefs" : [ "r1", "r2" ]
+    } ]
+  },
+  "relations" : {
+    "relations" : [ {
+      "id" : "rel1",
+      "type" : "link",
+      "sourceRegionRef" : "r1",
+      "targetRegionRef" : "r2",
+      "custom" : "rel-custom",
+      "comments" : "rel comment",
+      "labels" : [ {
+        "externalModel" : "relations",
+        "labels" : [ {
+          "value" : "relation-label"
+        } ]
+      } ]
+    } ]
+  },
+  "formatVersion" : "2024-07-15",
+  "comments" : "page comment",
+  "customLanguages" : "Latin,Greek",
+  "dimensions" : {
+    "width" : 1000,
+    "height" : 2000
+  },
+  "regionCount" : 16,
+  "textLineCount" : 2
+}

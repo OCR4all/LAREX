@@ -10,7 +10,7 @@
 # This is a ratchet: an unlisted difference fails the test, and so does a listed one that no longer
 # occurs. LAREX_UPDATE_GOLDENS=true rewrites this file; review every changed line.
 
-coverage/2009-03-16.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2009-03-16 http://schema.primaresearch.org/PAGE/gts/pagecontent/2009-03-16/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2009-03-16.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2009-03-16 http://schema.primaresearch.org/PAGE/gts/pagecontent/2009-03-16/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/Border[1]/Coords[1]/@points "1,1 1,1"
 coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Border[1]/Coords[1]/Point[1]
 coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/PrintSpace[1]/Coords[1]/@points "1,1 1,1"
@@ -56,7 +56,7 @@ coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/FrameRegion[
 coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/UnknownRegion[@id='unk40']/Coords[1]/@points "1,1 1,1"
 coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/UnknownRegion[@id='unk40']/Coords[1]/Point[1]
 
-coverage/2010-01-12.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-01-12 http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-01-12/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2010-01-12.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-01-12 http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-01-12/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/Border[1]/Coords[1]/@points "1,1 1,1"
 coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Border[1]/Coords[1]/Point[1]
 coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/PrintSpace[1]/Coords[1]/@points "1,1 1,1"
@@ -102,7 +102,7 @@ coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/FrameRegion[
 coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/UnknownRegion[@id='unk40']/Coords[1]/@points "1,1 1,1"
 coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/UnknownRegion[@id='unk40']/Coords[1]/Point[1]
 
-coverage/2010-03-19.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-03-19 http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-03-19/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2010-03-19.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-03-19 http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-03-19/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/Border[1]/Coords[1]/@points "1,1 1,1"
 coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Border[1]/Coords[1]/Point[1]
 coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/PrintSpace[1]/Coords[1]/@points "1,1 1,1"
@@ -144,7 +144,7 @@ coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/FrameRegion[
 coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/UnknownRegion[@id='unk39']/Coords[1]/@points "1,1 1,1"
 coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/UnknownRegion[@id='unk39']/Coords[1]/Point[1]
 
-coverage/2013-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2013-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 coverage/2013-07-15.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[@id='relation_1']
 coverage/2013-07-15.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[1]
 coverage/2013-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/@primaryScript "Arabic" -> "Arab - Arabic"
@@ -152,22 +152,45 @@ coverage/2013-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion
 coverage/2013-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/TextRegion[@id='tex13']/@primaryScript "Arabic" -> "Arab - Arabic"
 coverage/2013-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/TextRegion[@id='tex13']/@secondaryScript "Arabic" -> "Arab - Arabic"
 
-coverage/2016-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2016-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2016-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2016-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2016-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2016-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 coverage/2016-07-15.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[@id='relation_1']
 coverage/2016-07-15.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[1]
 
-coverage/2017-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2017-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 coverage/2017-07-15.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[@id='relation_1']
 coverage/2017-07-15.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[1]
 
-coverage/2018-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2018-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2018-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2018-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2018-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2018-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 
-coverage/2024-07-15.xml | FAILED ingest
+coverage/2019-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 
-fidelity/number-formatting.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@imageXResolution "300" -> "300.0"
-fidelity/number-formatting.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@imageYResolution "300" -> "300.0"
-fidelity/number-formatting.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@orientation "0" -> "0.0"
-fidelity/number-formatting.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/@orientation "0" -> "0.0"
+fidelity/empty-plain-text.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+
+fidelity/grapheme-group.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+
+fidelity/labels-repeated.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+
+fidelity/metadata-without-comments.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+
+fidelity/namespace-prefix.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+
+fidelity/number-formatting.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+fidelity/number-formatting.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@imageXResolution "300" -> "300.0"
+fidelity/number-formatting.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@imageYResolution "300" -> "300.0"
+fidelity/number-formatting.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@orientation "0" -> "0.0"
+fidelity/number-formatting.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/@orientation "0" -> "0.0"
+
+fidelity/reading-order-index.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+
+fidelity/relation-to-grapheme.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+
+fidelity/relation-without-type.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+
+fidelity/relations-same-pair.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+
+fidelity/timestamps.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+
+fidelity/whitespace-references.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 
 invalid/custom-region-type.xml | FAILED ingest
 
@@ -175,23 +198,23 @@ invalid/duplicate-id.xml | FAILED ingest
 
 invalid/unknown-content.xml | FAILED ingest
 
-larex/form-region-2024.xml | FAILED ingest
+larex/form-region-2024.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 
-larex/nested-regions.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+larex/nested-regions.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 
-larex/reading-order-attributes.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+larex/reading-order-attributes.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 
-larex/relations-to-text-objects.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+larex/relations-to-text-objects.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 
-larex/sparse-larex-export.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+larex/sparse-larex-export.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 
-larex/table.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+larex/table.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 
-larex/text-equivs.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
-larex/text-equivs.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/TextLine[@id='r1l2']/TextEquiv[1]/@conf "0" -> "0.0"
+larex/text-equivs.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
+larex/text-equivs.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/TextLine[@id='r1l2']/TextEquiv[1]/@conf "0" -> "0.0"
 
-larex/text-style.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+larex/text-style.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 
-larex/whitespace-and-empty-values.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+larex/whitespace-and-empty-values.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"
 
-real-world/page4j-golden-source-2024.xml | FAILED ingest
+real-world/page4j-document.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd"

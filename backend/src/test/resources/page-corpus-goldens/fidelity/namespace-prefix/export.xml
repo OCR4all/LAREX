@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15"
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        pcGtsId="prefixed"
-       xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd">
+       xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd">
    <Metadata>
       <Creator>prefix test</Creator>
       <Created>2026-01-01T00:00:00</Created>

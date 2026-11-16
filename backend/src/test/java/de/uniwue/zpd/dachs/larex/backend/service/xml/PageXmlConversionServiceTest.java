@@ -31,14 +31,14 @@ class PageXmlConversionServiceTest {
     @Test
     void convertFileInPlace_primarySource_isNoOp() throws Exception {
         Path xmlPath = tempDir.resolve("current.xml");
-        Files.writeString(xmlPath, exported2019Xml(), StandardCharsets.UTF_8);
+        Files.writeString(xmlPath, pageXml("2024-07-15"), StandardCharsets.UTF_8);
 
         PageXmlConversionService.ConversionOutcome outcome =
                 service.convertFileInPlace(xmlPath, PageXmlConversionService.PRIMARY_PAGE_VERSION);
 
         assertFalse(outcome.converted());
-        assertEquals("2019-07-15", outcome.sourceVersion());
-        assertEquals("2019-07-15", service.detectPageVersion(xmlPath));
+        assertEquals("2024-07-15", outcome.sourceVersion());
+        assertEquals("2024-07-15", service.detectPageVersion(xmlPath));
     }
 
     @Test
@@ -105,7 +105,7 @@ class PageXmlConversionServiceTest {
     }
 
     @Test
-    void convertFileInPlace_legacy2017_convertsTo2019WithoutEmptyAttributes() throws Exception {
+    void convertFileInPlace_legacy2017_convertsToPrimaryWithoutEmptyAttributes() throws Exception {
         Path xmlPath = tempDir.resolve("legacy-2017.xml");
         Files.writeString(xmlPath, exported2017Xml(), StandardCharsets.UTF_8);
 
@@ -114,12 +114,12 @@ class PageXmlConversionServiceTest {
 
         assertTrue(outcome.converted());
         assertEquals("2017-07-15", outcome.sourceVersion());
-        assertEquals("2019-07-15", outcome.targetVersion());
-        assertEquals("2019-07-15", service.detectPageVersion(xmlPath));
+        assertEquals("2024-07-15", outcome.targetVersion());
+        assertEquals("2024-07-15", service.detectPageVersion(xmlPath));
 
         String convertedXml = Files.readString(xmlPath, StandardCharsets.UTF_8);
         assertNotNull(convertedXml);
-        assertTrue(convertedXml.contains("pagecontent/2019-07-15"));
+        assertTrue(convertedXml.contains("pagecontent/2024-07-15"));
         assertFalse(convertedXml.contains("=\"\""));
     }
 

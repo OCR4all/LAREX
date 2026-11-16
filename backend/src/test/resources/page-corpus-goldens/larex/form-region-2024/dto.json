@@ -1,0 +1,61 @@
+{
+  "imageFilename" : "page.png",
+  "imageWidth" : 1000,
+  "imageHeight" : 1500,
+  "metadata" : {
+    "creator" : "larex-corpus",
+    "created" : "2026-01-02T10:00:00",
+    "lastChange" : "2026-01-02T10:00:00"
+  },
+  "regions" : [ {
+    "id" : "f1",
+    "kind" : "FormRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.8666666666666667 ], [ 0.8, 0.8666666666666667 ], [ 0.8, 0.19999999999999996 ], [ -0.8, 0.19999999999999996 ] ]
+    },
+    "nestedRegions" : [ {
+      "id" : "f1t1",
+      "kind" : "TextRegion",
+      "coords" : {
+        "points" : [ [ -0.78, 0.8533333333333333 ], [ -0.020000000000000018, 0.8533333333333333 ], [ -0.020000000000000018, 0.6133333333333333 ], [ -0.78, 0.6133333333333333 ] ]
+      },
+      "textLines" : [ {
+        "id" : "f1t1l1",
+        "coords" : {
+          "points" : [ [ -0.76, 0.84 ], [ -0.040000000000000036, 0.84 ], [ -0.040000000000000036, 0.76 ], [ -0.76, 0.76 ] ]
+        },
+        "textContentVariants" : [ {
+          "unicode" : "Name:"
+        } ],
+        "text" : "Name:"
+      } ],
+      "text" : "Name:",
+      "textRegion" : true
+    }, {
+      "id" : "f1f1",
+      "kind" : "FormRegion",
+      "coords" : {
+        "points" : [ [ 0.020000000000000018, 0.8533333333333333 ], [ 0.78, 0.8533333333333333 ], [ 0.78, 0.21333333333333337 ], [ 0.020000000000000018, 0.21333333333333337 ] ]
+      },
+      "nestedRegions" : [ {
+        "id" : "f1f1g1",
+        "kind" : "GraphicRegion",
+        "coords" : {
+          "points" : [ [ 0.040000000000000036, 0.84 ], [ 0.76, 0.84 ], [ 0.76, 0.22666666666666668 ], [ 0.040000000000000036, 0.22666666666666668 ] ]
+        },
+        "type" : "handwritten-annotation",
+        "textRegion" : false
+      } ],
+      "textRegion" : false
+    } ],
+    "mirrored" : "horizontally",
+    "textRegion" : false
+  } ],
+  "formatVersion" : "2024-07-15",
+  "dimensions" : {
+    "width" : 1000,
+    "height" : 1500
+  },
+  "regionCount" : 1,
+  "textLineCount" : 0
+}

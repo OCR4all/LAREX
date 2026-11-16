@@ -1575,6 +1575,7 @@ class ActionRunServiceTest {
         assertThat(response.completedPageIds()).containsExactly(page.getId());
         assertThat(run.getResultSummaryJson()).contains("xml-result", "image-result");
         verify(pageXmlRepository).save(any(PageXml.class));
+        verify(pageXmlCanonicalizationService).canonicalizeAtIngest(any(PageXml.class), eq(OWNER_ID), eq("LAREX Action " + run.getId()), eq(false));
         verify(pageImageRepository).save(any(PageImage.class));
         verify(pageFilterIndexService).indexPageFromXml(page);
         verify(transactionManager).commit(transactionStatus);

@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter;
 
+import com.maxnth.page4j.convert.PageConverter;
 import com.maxnth.page4j.model.Page;
 import com.maxnth.page4j.pagexml.PageWriteException;
 import com.maxnth.page4j.pagexml.PageXmlVersion;
@@ -7,6 +8,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.DtoToPage4jMapper;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.PageDtoMappingException;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlPrettyPrinter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +24,7 @@ import java.util.List;
 public class AnnotationToPageXmlExporter {
 
     private static final Logger log = LoggerFactory.getLogger(AnnotationToPageXmlExporter.class);
-    private static final PageXmlVersion VERSION = PageXmlVersion.V2019_07_15;
+    private static final PageXmlVersion VERSION = PageXmlConversionService.PRIMARY_VERSION;
     private static final String VALIDATION_FAILED = "PAGE XML validation failed before persistence";
 
     private final DtoToPage4jMapper mapper;
@@ -36,9 +38,14 @@ public class AnnotationToPageXmlExporter {
     }
 
     public String exportToString(PageDto pageDto, PageXml originalXml) throws IOException {
+        return exportToString(pageDto, VERSION);
+    }
+
+    public String exportToString(PageDto pageDto, PageXmlVersion target) throws IOException {
         long startedAt = System.nanoTime();
         try {
-            byte[] xml = write(preparePage(pageDto));
+            Page page = preparePage(pageDto);
+            byte[] xml = target == VERSION ? write(page) : write(PageConverter.convert(page, target).page(), target);
             if (log.isDebugEnabled()) {
                 log.debug("Exported PAGE XML in {} ms ({} bytes)", (System.nanoTime() - startedAt) / 1_000_000, xml.length);
             }
@@ -85,8 +92,12 @@ public class AnnotationToPageXmlExporter {
     }
 
     private static byte[] write(Page page) throws IOException {
+        return write(page, VERSION);
+    }
+
+    private static byte[] write(Page page, PageXmlVersion version) throws IOException {
         try {
-            byte[] xml = com.maxnth.page4j.pagexml.PageXml.create().write(page, VERSION);
+            byte[] xml = com.maxnth.page4j.pagexml.PageXml.create().write(page, version);
             return PageXmlPrettyPrinter.prettyPrint(new String(xml, StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8);
         } catch (PageWriteException e) {
             e.problems().forEach(problem -> log.error("PAGE writer validation error: {}", problem));

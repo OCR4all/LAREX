@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PreparedDownloadTarget } from '@/composables/use-background-downloads'
 import type { ImageVariantSelection, Page } from '@/types/project-page'
+import { PAGE_XML_PRIMARY_VERSION } from '@/utils/project-export'
 
 type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
 type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
@@ -45,15 +46,14 @@ type ExportDialogResult = {
   downloadTarget?: PreparedDownloadTarget
 }
 
-const PAGE_XML_PRIMARY_VERSION = '2019-07-15'
-
 const versionOptions = [
   { label: 'PAGE XML 2010-03-19', value: '2010-03-19' },
   { label: 'PAGE XML 2013-07-15', value: '2013-07-15' },
   { label: 'PAGE XML 2016-07-15', value: '2016-07-15' },
   { label: 'PAGE XML 2017-07-15', value: '2017-07-15' },
   { label: 'PAGE XML 2018-07-15', value: '2018-07-15' },
-  { label: 'PAGE XML 2019-07-15', value: '2019-07-15' }
+  { label: 'PAGE XML 2019-07-15', value: '2019-07-15' },
+  { label: 'PAGE XML 2024-07-15', value: '2024-07-15' }
 ]
 
 const pageFormatOptions: Array<{ label: string, value: ExportFormat }> = [
@@ -399,7 +399,7 @@ async function closeWithResult() {
           variant="soft"
           icon="i-lucide-triangle-alert"
           title="Legacy export can lose data"
-          description="Older PAGE XML schemas do not support all 2019 features."
+          description="Older PAGE XML schemas do not support all PAGE 2024 features."
         />
 
         <UCheckbox

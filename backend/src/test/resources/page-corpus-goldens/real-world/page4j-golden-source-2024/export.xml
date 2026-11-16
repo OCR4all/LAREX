@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       pcGtsId="gts1"
+       xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd">
+   <Metadata externalRef="ext-42">
+      <Creator>page4j</Creator>
+      <Created>2020-01-02T03:04:05</Created>
+      <LastChange>2021-06-07T08:09:10</LastChange>
+      <Comments>Golden fixture</Comments>
+      <UserDefined>
+         <UserAttribute description="a meta attribute"
+                        name="metaAttr"
+                        type="xsd:string"
+                        value="meta"/>
+      </UserDefined>
+      <MetadataItem name="binarization" type="processingStep" value="otsu">
+         <Labels externalModel="steps" prefix="p">
+            <Label comments="label comment" type="kind" value="step-label"/>
+         </Labels>
+      </MetadataItem>
+   </Metadata>
+   <Page comments="page comment"
+         conf="0.75"
+         customLanguages="Latin,Greek"
+         imageFilename="page.png"
+         imageHeight="2000"
+         imageWidth="1000"
+         primaryLanguage="German"
+         readingDirection="left-to-right"
+         type="content">
+      <AlternativeImage comments="binarized" conf="0.5" filename="page.bin.png"/>
+      <Border>
+         <Coords points="10,10 990,10 990,1990 10,1990"/>
+      </Border>
+      <PrintSpace>
+         <Coords points="50,50 950,50 950,1950 50,1950"/>
+      </PrintSpace>
+      <ReadingOrder conf="0.9">
+         <OrderedGroup caption="Main order" id="ro1">
+            <UserDefined>
+               <UserAttribute name="groupAttr" type="xsd:integer" value="7"/>
+            </UserDefined>
+            <Labels externalModel="groups">
+               <Label value="group-label"/>
+            </Labels>
+            <RegionRefIndexed index="0" regionRef="r1"/>
+            <UnorderedGroupIndexed caption="Figures" id="ro2" index="1" regionRef="r2">
+               <RegionRef regionRef="r3"/>
+               <OrderedGroup id="ro3">
+                  <RegionRefIndexed index="0" regionRef="r4"/>
+                  <RegionRefIndexed index="1" regionRef="r5"/>
+               </OrderedGroup>
+            </UnorderedGroupIndexed>
+            <RegionRefIndexed index="2" regionRef="r6"/>
+         </OrderedGroup>
+      </ReadingOrder>
+      <Layers>
+         <Layer caption="Top" id="layer1" zIndex="1">
+            <RegionRef regionRef="r1"/>
+            <RegionRef regionRef="r2"/>
+         </Layer>
+      </Layers>
+      <Relations>
+         <Relation comments="rel comment"
+                   custom="rel-custom"
+                   id="rel1"
+                   type="link">
+            <Labels externalModel="relations">
+               <Label value="relation-label"/>
+            </Labels>
+            <SourceRegionRef regionRef="r1"/>
+            <TargetRegionRef regionRef="r2"/>
+         </Relation>
+      </Relations>
+      <TextStyle bold="true" fontFamily="Times" fontSize="12.0"/>
+      <UserDefined>
+         <UserAttribute name="pageAttr" type="xsd:boolean" value="true"/>
+      </UserDefined>
+      <Labels comments="page labels" externalId="page-ext" externalModel="pages">
+         <Label value="page-label"/>
+      </Labels>
+      <TextRegion align="left"
+                  comments="region comment"
+                  custom="region-custom"
+                  customScripts="Latn"
+                  id="r1"
+                  indented="true"
+                  leading="3"
+                  mirrored="not-mirrored"
+                  orientation="1.5"
+                  primaryLanguage="German"
+                  primaryScript="Latn - Latin"
+                  production="printed"
+                  readingDirection="left-to-right"
+                  secondaryScript="Grek - Greek"
+                  textLineOrder="top-to-bottom"
+                  type="heading">
+         <AlternativeImage filename="r1.png"/>
+         <Coords conf="0.8" points="100,100 900,100 900,300 100,300"/>
+         <UserDefined>
+            <UserAttribute name="regionAttr" type="xsd:float" value="1.25"/>
+         </UserDefined>
+         <Labels externalModel="regions">
+            <Label value="region-label"/>
+         </Labels>
+         <TextLine comments="line comment"
+                   custom="line-custom"
+                   id="l1"
+                   mirrored="not-mirrored"
+                   orientation="0.5"
+                   primaryLanguage="German"
+                   production="printed"
+                   secondaryLanguage="Latin">
+            <AlternativeImage filename="l1.png"/>
+            <Coords points="100,100 900,100 900,200 100,200"/>
+            <AscentLine conf="0.5" points="100,105 900,105"/>
+            <MeanLine points="100,130 900,130"/>
+            <Baseline conf="0.6" points="100,190 900,190"/>
+            <DescentLine points="100,198 900,198"/>
+            <Word custom="word-custom"
+                  id="w1"
+                  language="German"
+                  orientation="0.25">
+               <AlternativeImage filename="w1.png"/>
+               <Coords points="100,100 300,100 300,200 100,200"/>
+               <Glyph id="g1" ligature="false" script="Latn - Latin" symbol="false">
+                  <AlternativeImage filename="g1.png"/>
+                  <Coords points="100,100 150,100 150,200 100,200"/>
+                  <Graphemes>
+                     <Grapheme charType="base" id="gr1" index="0">
+                        <TextEquiv>
+                           <Unicode>G</Unicode>
+                        </TextEquiv>
+                        <Coords points="100,100 150,100 150,200 100,200"/>
+                     </Grapheme>
+                     <NonPrintingChar id="gr2" index="1">
+                        <TextEquiv>
+                           <Unicode> </Unicode>
+                        </TextEquiv>
+                     </NonPrintingChar>
+                     <GraphemeGroup id="gr3" index="2">
+                        <TextEquiv>
+                           <Unicode>ü</Unicode>
+                        </TextEquiv>
+                        <Grapheme charType="base" id="gr4" index="0">
+                           <TextEquiv>
+                              <Unicode>u</Unicode>
+                           </TextEquiv>
+                           <Coords points="110,120 140,120 140,200 110,200"/>
+                        </Grapheme>
+                        <Grapheme charType="combining" id="gr5" index="1">
+                           <TextEquiv>
+                              <Unicode>¨</Unicode>
+                           </TextEquiv>
+                           <Coords points="110,100 140,100 140,120 110,120"/>
+                        </Grapheme>
+                     </GraphemeGroup>
+                  </Graphemes>
+                  <TextEquiv conf="0.95">
+                     <Unicode>G</Unicode>
+                  </TextEquiv>
+                  <TextStyle italic="true"/>
+                  <UserDefined>
+                     <UserAttribute name="glyphAttr" type="xsd:string" value="glyph"/>
+                  </UserDefined>
+                  <Labels externalModel="glyphs">
+                     <Label value="glyph-label"/>
+                  </Labels>
+               </Glyph>
+               <TextEquiv conf="0.9">
+                  <PlainText>Gruesse</PlainText>
+                  <Unicode>Grüße</Unicode>
+               </TextEquiv>
+               <TextStyle underlineStyle="singleLine" underlined="true"/>
+               <UserDefined>
+                  <UserAttribute name="wordAttr" type="xsd:string" value="word"/>
+               </UserDefined>
+               <Labels externalModel="words">
+                  <Label value="word-label"/>
+               </Labels>
+            </Word>
+            <TextEquiv comments="main" conf="0.85" dataType="xsd:string" index="0">
+               <Unicode>Grüße &amp; &lt;text&gt;</Unicode>
+            </TextEquiv>
+            <TextEquiv conf="0.4" index="1">
+               <Unicode>Grusse</Unicode>
+            </TextEquiv>
+            <TextStyle fontFamily="Arial" textColour="black"/>
+            <UserDefined>
+               <UserAttribute name="lineAttr" type="xsd:string" value="line"/>
+            </UserDefined>
+            <Labels externalModel="lines">
+               <Label value="line-label"/>
+            </Labels>
+         </TextLine>
+         <TextLine id="l2">
+            <Coords points="100,200 900,200 900,300 100,300"/>
+            <TextEquiv>
+               <Unicode/>
+            </TextEquiv>
+         </TextLine>
+         <TextEquiv conf="0.7">
+            <Unicode>Grüße &amp; &lt;text&gt;</Unicode>
+         </TextEquiv>
+         <TextStyle bgColour="white" fontSize="14.5" serif="true"/>
+      </TextRegion>
+      <ImageRegion bgColour="white"
+                   colourDepth="colour"
+                   embText="true"
+                   id="r2"
+                   orientation="0.0">
+         <Coords points="100,400 500,400 500,800 100,800"/>
+         <TextRegion id="r3" type="caption">
+            <Coords points="120,700 480,700 480,780 120,780"/>
+            <TextEquiv>
+               <Unicode>Nested caption</Unicode>
+            </TextEquiv>
+         </TextRegion>
+      </ImageRegion>
+      <TableRegion columns="2" id="r4" lineSeparators="true" rows="1">
+         <Coords points="100,900 900,900 900,1100 100,1100"/>
+         <TextRegion id="r5" type="paragraph">
+            <Coords points="100,900 500,900 500,1100 100,1100"/>
+            <Roles>
+               <TableCellRole colSpan="1"
+                              columnIndex="0"
+                              header="true"
+                              rowIndex="0"
+                              rowSpan="1"/>
+            </Roles>
+            <TextEquiv>
+               <Unicode>Cell</Unicode>
+            </TextEquiv>
+         </TextRegion>
+         <TextRegion id="r6" type="paragraph">
+            <Coords points="500,900 900,900 900,1100 500,1100"/>
+            <Roles>
+               <TableCellRole columnIndex="1" rowIndex="0"/>
+            </Roles>
+         </TextRegion>
+         <Grid>
+            <GridPoints index="0" points="100,900 500,900 900,900"/>
+            <GridPoints index="1" points="100,1100 500,1100 900,1100"/>
+            <AddPoints col="0" row="0" top="300,905"/>
+            <AddPoints col="1" left="495,1000" row="0" top="700,905"/>
+         </Grid>
+      </TableRegion>
+      <GraphicRegion embText="false" id="r7" numColours="3" type="logo">
+         <Coords points="600,400 900,400 900,500 600,500"/>
+      </GraphicRegion>
+      <LineDrawingRegion bgColour="white" id="r8" penColour="black">
+         <Coords points="600,520 900,520 900,600 600,600"/>
+      </LineDrawingRegion>
+      <ChartRegion id="r9" numColours="2" type="bar">
+         <Coords points="600,620 900,620 900,700 600,700"/>
+      </ChartRegion>
+      <SeparatorRegion colour="black" id="r10" orientation="90.0">
+         <Coords points="550,400 560,400 560,800 550,800"/>
+      </SeparatorRegion>
+      <MathsRegion bgColour="white" id="r11">
+         <Coords points="100,1200 400,1200 400,1300 100,1300"/>
+      </MathsRegion>
+      <ChemRegion id="r12">
+         <Coords points="420,1200 700,1200 700,1300 420,1300"/>
+      </ChemRegion>
+      <MusicRegion id="r13">
+         <Coords points="720,1200 900,1200 900,1300 720,1300"/>
+      </MusicRegion>
+      <AdvertRegion id="r14">
+         <Coords points="100,1400 400,1400 400,1500 100,1500"/>
+      </AdvertRegion>
+      <NoiseRegion id="r15">
+         <Coords points="420,1400 500,1400 500,1500 420,1500"/>
+      </NoiseRegion>
+      <UnknownRegion id="r16">
+         <Coords points="520,1400 600,1400 600,1500 520,1500"/>
+      </UnknownRegion>
+      <CustomRegion id="r17" type="stamp">
+         <Coords points="620,1400 900,1400 900,1500 620,1500"/>
+      </CustomRegion>
+      <MapRegion id="r18" orientation="2.0">
+         <Coords points="100,1600 400,1600 400,1700 100,1700"/>
+      </MapRegion>
+      <FormRegion bgColour="white"
+                  comments="a form"
+                  id="r19"
+                  mirrored="horizontally">
+         <Coords points="420,1600 900,1600 900,1700 420,1700"/>
+      </FormRegion>
+   </Page>
+</PcGts>

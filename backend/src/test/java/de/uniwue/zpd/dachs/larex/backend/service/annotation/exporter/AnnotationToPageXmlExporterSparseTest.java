@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.exporter;
 
+import com.maxnth.page4j.pagexml.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PointDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
@@ -9,7 +10,9 @@ import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToPageXmlExporter;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.DtoToPage4jMapper;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.Page4jToDtoMapper;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.PageDtoMappingException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -18,7 +21,7 @@ import org.junit.jupiter.params.provider.EmptySource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,6 +30,22 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AnnotationToPageXmlExporterSparseTest {
+
+    @Test
+    void export_writesPage2024AndDowngradesOnRequest() throws Exception {
+        AnnotationToPageXmlExporter exporter = new AnnotationToPageXmlExporter(new DtoToPage4jMapper());
+        PageDto dto = new PageXmlToAnnotationParser(new Page4jToDtoMapper())
+            .parse(Path.of("src/test/resources/page-corpus/larex/form-region-2024.xml"), null);
+
+        String current = exporter.export(dto, null);
+        String legacy = exporter.exportToString(dto, PageXmlVersion.V2019_07_15);
+
+        assertTrue(current.contains("pagecontent/2024-07-15"), current);
+        assertTrue(current.contains("<FormRegion"), current);
+        assertTrue(legacy.contains("pagecontent/2019-07-15"), legacy);
+        assertFalse(legacy.contains("FormRegion"), legacy);
+        assertTrue(legacy.contains("<TextRegion"), legacy);
+    }
 
     @ParameterizedTest
     @NullSource

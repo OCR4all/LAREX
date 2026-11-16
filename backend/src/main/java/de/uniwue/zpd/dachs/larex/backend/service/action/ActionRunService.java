@@ -2424,7 +2424,7 @@ public class ActionRunService {
         }
 
         pageXml = pageXmlRepository.save(pageXml);
-        pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, run.getCreatedByUserId(), "LAREX Action " + run.getId());
+        pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, run.getCreatedByUserId(), "LAREX Action " + run.getId(), false);
         workspaceQuotaRefreshService.scheduleUsageRefresh(run.getWorkspaceId());
         return Map.of("type", "xml", "pageId", page.getId(), "fileId", pageXml.getId(), "variant", pageXml.getVariant());
     }

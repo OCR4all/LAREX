@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd">
+   <Metadata>
+      <Creator>larex-corpus</Creator>
+      <Created>2026-01-02T10:00:00</Created>
+      <LastChange>2026-01-02T10:00:00</LastChange>
+   </Metadata>
+   <Page imageFilename="page.png" imageHeight="1500" imageWidth="1000">
+      <ReadingOrder conf="0.9">
+         <OrderedGroup caption="Root"
+                       comments="root comment"
+                       continuation="true"
+                       custom="readingOrder {index:0;}"
+                       id="ro-root"
+                       regionRef="r1"
+                       type="article">
+            <UserDefined>
+               <UserAttribute name="source" type="xsd:string" value="ocr"/>
+            </UserDefined>
+            <Labels externalId="ro-1" externalModel="ro-model" prefix="ro">
+               <Label comments="label comment" type="role" value="main"/>
+            </Labels>
+            <RegionRefIndexed index="0" regionRef="r1"/>
+            <UnorderedGroupIndexed caption="Marginalia" id="ro-side" index="1" type="other">
+               <RegionRef regionRef="r3"/>
+               <RegionRef regionRef="r2"/>
+            </UnorderedGroupIndexed>
+         </OrderedGroup>
+      </ReadingOrder>
+      <Layers>
+         <Layer caption="Front" id="layer-front" zIndex="2">
+            <RegionRef regionRef="r2"/>
+         </Layer>
+         <Layer id="layer-back" zIndex="0">
+            <RegionRef regionRef="r1"/>
+            <RegionRef regionRef="r3"/>
+         </Layer>
+      </Layers>
+      <TextRegion id="r1">
+         <Coords points="100,100 900,100 900,300 100,300"/>
+      </TextRegion>
+      <TextRegion id="r2" type="marginalia">
+         <Coords points="10,100 90,100 90,300 10,300"/>
+      </TextRegion>
+      <TextRegion id="r3" type="marginalia">
+         <Coords points="910,100 990,100 990,300 910,300"/>
+      </TextRegion>
+   </Page>
+</PcGts>

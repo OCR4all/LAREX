@@ -5,7 +5,7 @@ import com.maxnth.page4j.pagexml.PageXmlVersion;
 
 public final class PageXmlVersionGate {
 
-    public static final PageXmlVersion NEWEST_READABLE = PageXmlVersion.V2019_07_15;
+    public static final PageXmlVersion NEWEST_READABLE = PageXmlVersion.V2024_07_15;
 
     private PageXmlVersionGate() {}
 

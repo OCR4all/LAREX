@@ -7,7 +7,7 @@ import type {
   TextLevel
 } from '@/types/project-page'
 
-export const PAGE_XML_PRIMARY_VERSION = '2019-07-15'
+export const PAGE_XML_PRIMARY_VERSION = '2024-07-15'
 
 export function normalizePageXmlVersion(value: unknown): string {
   if (typeof value === 'string') {

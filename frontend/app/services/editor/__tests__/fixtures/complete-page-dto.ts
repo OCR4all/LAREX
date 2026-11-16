@@ -319,7 +319,7 @@ export function completePageDto(): PageDto {
     readingDirection: 'left-to-right',
     textLineOrder: 'top-to-bottom',
     confidence: 0.97,
-    formatVersion: '2019-07-15',
+    formatVersion: '2024-07-15',
     comments: 'page comment',
     customLanguages: 'page languages',
     customScripts: 'page scripts',

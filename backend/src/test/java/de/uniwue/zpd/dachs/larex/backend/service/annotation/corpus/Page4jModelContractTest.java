@@ -110,7 +110,7 @@ class Page4jModelContractTest {
         Path file = workDirectory.resolve(document.replace('/', '_'));
         Files.copy(PageCorpus.DOCUMENTS.resolve(document), file);
         PageXmlVersion version = PageXml.create().read(Files.readAllBytes(file)).version();
-        if (version.compareTo(PageXmlVersion.V2019_07_15) < 0) {
+        if (version.compareTo(PageXmlConversionService.PRIMARY_VERSION) < 0) {
             conversionService.convertFileInPlace(file, PageXmlConversionService.PRIMARY_PAGE_VERSION);
         }
         return PageXml.create().read(Files.readAllBytes(file));

@@ -66,7 +66,7 @@ class PageXmlCanonicalizationServiceTest {
     @ValueSource(strings = {"UTF-8", "UTF-16", "UTF-16LE", "UTF-16BE"})
     void canonicalizeAtIngest_primaryPageXml_isNoOpWithoutSnapshot(String encoding) throws Exception {
         Path xmlPath = tempDir.resolve("primary.xml");
-        String xml = compact2019Xml().replace("UTF-8", encoding)
+        String xml = compactPrimaryXml().replace("UTF-8", encoding)
                 .replace("<PcGts", "<!-- <Example/> -->\n<PcGts")
                 .replace("tester", "Tést");
         Files.writeString(xmlPath, xml, Charset.forName(encoding));
@@ -93,7 +93,7 @@ class PageXmlCanonicalizationServiceTest {
 
         assertFalse(outcome.converted());
         assertFalse(outcome.snapshotCreated());
-        assertEquals("2019-07-15", pageXml.getSchemaVersion());
+        assertEquals("2024-07-15", pageXml.getSchemaVersion());
         String persistedXml = Files.readString(xmlPath, StandardCharsets.UTF_8);
         assertTrue(persistedXml.contains("\n   <Metadata>\n      <Creator>Tést</Creator>"));
         assertTrue(persistedXml.contains("encoding=\"UTF-8\""));
@@ -102,10 +102,11 @@ class PageXmlCanonicalizationServiceTest {
         verify(pageXmlRepository).save(pageXml);
     }
 
-    @Test
-    void canonicalizeAtIngest_legacyPageXml_convertsAndCreatesSnapshot() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"2017-07-15", "2019-07-15"})
+    void canonicalizeAtIngest_olderPageXml_upgradesTo2024AndCreatesSnapshot(String version) throws Exception {
         Path xmlPath = tempDir.resolve("legacy.xml");
-        Files.writeString(xmlPath, exported2017Xml(), StandardCharsets.UTF_8);
+        Files.writeString(xmlPath, pageXml(version), StandardCharsets.UTF_8);
 
         PageXml pageXml = new PageXml();
         pageXml.setId("xml-legacy");
@@ -125,22 +126,53 @@ class PageXmlCanonicalizationServiceTest {
         PageXmlCanonicalizationService.CanonicalizationOutcome outcome =
                 service.canonicalizeAtIngest(pageXml, "user-1", "async chunked upload");
 
-        assertEquals("2017-07-15", outcome.sourceVersion());
-        assertEquals("2019-07-15", outcome.targetVersion());
+        assertEquals(version, outcome.sourceVersion());
+        assertEquals("2024-07-15", outcome.targetVersion());
         assertEquals(true, outcome.converted());
         assertEquals(true, outcome.snapshotCreated());
-        assertEquals("2019-07-15", pageXml.getSchemaVersion());
+        assertEquals("2024-07-15", pageXml.getSchemaVersion());
+        assertTrue(Files.readString(xmlPath, StandardCharsets.UTF_8).contains("pagecontent/2024-07-15"));
         verify(pageXmlVersionService).createVersion(
                 eq("xml-legacy"),
                 eq("user-1"),
-                eq("Auto-snapshot before PAGE XML canonicalization from 2017-07-15 to 2019-07-15 (async chunked upload)")
+                eq("Auto-snapshot before PAGE XML canonicalization from " + version + " to 2024-07-15 (async chunked upload)")
         );
         verify(pageXmlRepository).save(pageXml);
     }
 
-    private String compact2019Xml() {
+    @Test
+    void canonicalizeAtIngest_withoutSnapshot_upgradesWithoutCreatingAVersion() throws Exception {
+        Path xmlPath = tempDir.resolve("action-result.xml");
+        Files.writeString(xmlPath, pageXml("2019-07-15"), StandardCharsets.UTF_8);
+
+        PageXml pageXml = new PageXml();
+        pageXml.setId("xml-action");
+        pageXml.setFilePath("action-result.xml");
+        pageXml.setSchema(XmlSchema.PAGE_XML);
+
+        when(hierarchicalFileStorageService.resolveUploadPath("action-result.xml")).thenReturn(xmlPath);
+        when(pageXmlRepository.save(pageXml)).thenReturn(pageXml);
+
+        PageXmlCanonicalizationService service = new PageXmlCanonicalizationService(
+                new PageXmlConversionService(),
+                pageXmlVersionService,
+                pageXmlRepository,
+                hierarchicalFileStorageService
+        );
+
+        PageXmlCanonicalizationService.CanonicalizationOutcome outcome =
+                service.canonicalizeAtIngest(pageXml, "user-1", "LAREX Action run-1", false);
+
+        assertTrue(outcome.converted());
+        assertFalse(outcome.snapshotCreated());
+        assertEquals("2024-07-15", pageXml.getSchemaVersion());
+        assertTrue(Files.readString(xmlPath, StandardCharsets.UTF_8).contains("pagecontent/2024-07-15"));
+        verify(pageXmlVersionService, never()).createVersion(any(), any(), any());
+    }
+
+    private String compactPrimaryXml() {
         return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
-                + "<PcGts xmlns=\"http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15\">"
+                + "<PcGts xmlns=\"http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15\">"
                 + "<Metadata><Creator>tester</Creator><Created>2026-03-05T10:00:00</Created>"
                 + "<LastChange>2026-03-05T10:00:00</LastChange></Metadata>"
                 + "<Page imageFilename=\"img.png\" imageWidth=\"1000\" imageHeight=\"1000\"/></PcGts>";

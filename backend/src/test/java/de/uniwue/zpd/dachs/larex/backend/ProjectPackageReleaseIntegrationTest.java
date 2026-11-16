@@ -11,6 +11,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.ProjectPackageRelease;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
@@ -212,7 +213,7 @@ class ProjectPackageReleaseIntegrationTest {
                 importedPages.stream().map(Page::getName).toList());
         for (Page importedPage : importedPages) {
             PageXml importedXml = pageXmlRepository.findByPage_Id(importedPage.getId()).orElseThrow();
-            assertEquals("2019-07-15", importedXml.getSchemaVersion());
+            assertEquals(PageXmlConversionService.PRIMARY_PAGE_VERSION, importedXml.getSchemaVersion());
             assertTrue(pageXmlVersionRepository.findByPageXml_IdOrderByVersionNumberDesc(importedXml.getId()).isEmpty());
         }
     }
