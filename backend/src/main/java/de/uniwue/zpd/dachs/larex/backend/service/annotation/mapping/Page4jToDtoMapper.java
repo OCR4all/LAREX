@@ -121,7 +121,7 @@ final class Page4jToDtoMappingSession {
             toMetadataDto(page.metadata()),
             text(page.pcGtsId()),
             xml(page.type()),
-            text(page.custom()),
+            page.custom(),
             page.orientation(),
             xml(page.primaryLanguage()),
             xml(page.secondaryLanguage()),
@@ -148,16 +148,16 @@ final class Page4jToDtoMappingSession {
         if (metadata == null) {
             return null;
         }
-        String creator = text(metadata.creator());
+        String creator = metadata.creator();
         String created = xml(metadata.created());
         String lastChange = xml(metadata.lastChange());
-        String comments = text(metadata.comments());
-        String externalRef = text(metadata.externalRef());
+        String comments = metadata.comments();
+        String externalRef = metadata.externalRef();
         UserDefinedDto userDefined = toUserDefinedDto(metadata.userAttributes());
         List<MetadataItemDto> items = list(metadata.metadataItems(), item -> new MetadataItemDto(
             xml(item.type()),
-            text(item.name()),
-            text(item.value()),
+            item.name(),
+            item.value(),
             xml(item.date()),
             toLabelsDtos(item.labels())
         ));
@@ -317,8 +317,8 @@ final class Page4jToDtoMappingSession {
             null,
             region.regions().isEmpty() ? null : region.regions().stream().map(this::toRegionDto).toList(),
             null,
-            text(region.custom()),
-            text(region.comments()),
+            region.custom(),
+            region.comments(),
             region.continuation()
         );
     }
@@ -372,8 +372,8 @@ final class Page4jToDtoMappingSession {
             xml(line.production()),
             null,
             line.index(),
-            text(line.custom()),
-            text(line.comments())
+            line.custom(),
+            line.comments()
         );
     }
 
@@ -403,8 +403,8 @@ final class Page4jToDtoMappingSession {
             xml(word.readingDirection()),
             xml(word.production()),
             null,
-            text(word.custom()),
-            text(word.comments())
+            word.custom(),
+            word.comments()
         );
     }
 
@@ -433,35 +433,35 @@ final class Page4jToDtoMappingSession {
             xml(glyph.script()),
             xml(glyph.production()),
             null,
-            text(glyph.custom()),
-            text(glyph.comments())
+            glyph.custom(),
+            glyph.comments()
         );
     }
 
     private GraphemeElementDto toGraphemeElementDto(GraphemeElement element) {
         return switch (element) {
             case Grapheme g -> new GraphemeElementDto(
-                "grapheme", g.id(), g.index(), xml(g.charType()), g.ligature(), text(g.custom()), text(g.comments()),
+                "grapheme", g.id(), g.index(), xml(g.charType()), g.ligature(), g.custom(), g.comments(),
                 toPolygonDto(g.coords()), toTextContentVariantDtos(g.textEquivs()), null, null);
             case NonPrintingChar n -> new GraphemeElementDto(
-                "nonPrintingChar", n.id(), n.index(), xml(n.charType()), n.ligature(), text(n.custom()), text(n.comments()),
+                "nonPrintingChar", n.id(), n.index(), xml(n.charType()), n.ligature(), n.custom(), n.comments(),
                 null, toTextContentVariantDtos(n.textEquivs()), null, null);
             case GraphemeGroup group -> new GraphemeElementDto(
-                "graphemeGroup", group.id(), group.index(), xml(group.charType()), group.ligature(), text(group.custom()),
-                text(group.comments()), null, toTextContentVariantDtos(group.textEquivs()), null,
+                "graphemeGroup", group.id(), group.index(), xml(group.charType()), group.ligature(), group.custom(),
+                group.comments(), null, toTextContentVariantDtos(group.textEquivs()), null,
                 list(group.graphemes(), this::toGraphemeElementDto));
         };
     }
 
     private List<TextContentVariantDto> toTextContentVariantDtos(List<TextEquiv> textEquivs) {
         return list(textEquivs, equiv -> new TextContentVariantDto(
-            text(equiv.unicode()),
-            text(equiv.plainText()),
+            equiv.unicode(),
+            equiv.plainText(),
             equiv.conf(),
             equiv.index(),
             xml(equiv.dataType()),
-            text(equiv.dataTypeDetails()),
-            text(equiv.comments())
+            equiv.dataTypeDetails(),
+            equiv.comments()
         ));
     }
 
@@ -502,11 +502,11 @@ final class Page4jToDtoMappingSession {
         }
         return switch (group) {
             case OrderedGroup g -> new ReadingOrderDto.GroupDto(
-                g.id(), true, index, text(g.caption()), xml(g.type()), text(g.regionRef()), members, g.continuation(),
-                toUserDefinedDto(g.userAttributes()), toLabelsDtos(g.labels()), text(g.custom()), text(g.comments()));
+                g.id(), true, index, g.caption(), xml(g.type()), text(g.regionRef()), members, g.continuation(),
+                toUserDefinedDto(g.userAttributes()), toLabelsDtos(g.labels()), g.custom(), g.comments());
             case com.maxnth.page4j.model.UnorderedGroup g -> new ReadingOrderDto.GroupDto(
-                g.id(), false, index, text(g.caption()), xml(g.type()), text(g.regionRef()), members, g.continuation(),
-                toUserDefinedDto(g.userAttributes()), toLabelsDtos(g.labels()), text(g.custom()), text(g.comments()));
+                g.id(), false, index, g.caption(), xml(g.type()), text(g.regionRef()), members, g.continuation(),
+                toUserDefinedDto(g.userAttributes()), toLabelsDtos(g.labels()), g.custom(), g.comments());
         };
     }
 
@@ -514,7 +514,7 @@ final class Page4jToDtoMappingSession {
         List<LayerDto> dtos = list(layers, layer -> new LayerDto(
             layer.id(),
             layer.zIndex(),
-            text(layer.caption()),
+            layer.caption(),
             layer.regionRefs().isEmpty() ? null : List.copyOf(layer.regionRefs())
         ));
         return dtos != null ? new LayersDto(dtos) : null;
@@ -526,33 +526,33 @@ final class Page4jToDtoMappingSession {
             xml(relation.type()),
             relation.sourceRegionRef(),
             relation.targetRegionRef(),
-            text(relation.custom()),
-            text(relation.comments()),
+            relation.custom(),
+            relation.comments(),
             toLabelsDtos(relation.labels())
         ));
         return dtos != null ? new RelationsDto(dtos) : null;
     }
 
     private List<AlternativeImageDto> toAlternativeImageDtos(List<AlternativeImage> images) {
-        return list(images, image -> new AlternativeImageDto(text(image.filename()), text(image.comments()), image.conf()));
+        return list(images, image -> new AlternativeImageDto(text(image.filename()), image.comments(), image.conf()));
     }
 
     private List<LabelsDto> toLabelsDtos(List<LabelGroup> groups) {
         return list(groups, group -> new LabelsDto(
-            text(group.externalModel()),
-            text(group.externalId()),
-            text(group.prefix()),
-            text(group.comments()),
-            list(group.labels(), (Label label) -> new LabelDto(text(label.value()), text(label.type()), text(label.comments())))
+            group.externalModel(),
+            group.externalId(),
+            group.prefix(),
+            group.comments(),
+            list(group.labels(), (Label label) -> new LabelDto(label.value(), label.type(), label.comments()))
         ));
     }
 
     private UserDefinedDto toUserDefinedDto(List<UserAttribute> attributes) {
         List<UserAttributeDto> dtos = list(attributes, attribute -> new UserAttributeDto(
             text(attribute.name()),
-            text(attribute.description()),
+            attribute.description(),
             xml(attribute.type()),
-            text(attribute.value())
+            attribute.value()
         ));
         return dtos != null ? new UserDefinedDto(dtos) : null;
     }
@@ -562,7 +562,7 @@ final class Page4jToDtoMappingSession {
             return null;
         }
         TextStyleDto dto = new TextStyleDto(
-            text(style.fontFamily()),
+            style.fontFamily(),
             style.serif(),
             style.monospace(),
             style.fontSize(),

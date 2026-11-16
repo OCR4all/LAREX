@@ -98,4 +98,23 @@ describe('useRelationsVisualization', () => {
     expect(renderData.value.labels[0]?.isSelected).toBe(true)
     expect(renderData.value.segments).toHaveLength(1)
   })
+
+  it('draws relations whose endpoints are text lines, words or glyphs', () => {
+    const square = (x: number) => [{ x, y: 0 }, { x: x + 10, y: 0 }, { x: x + 10, y: 10 }, { x, y: 10 }]
+    const relations = ref<Relation[]>([
+      { id: 'line-word', type: 'link', sourceRegionRef: 'l1', targetRegionRef: 'w1' },
+      { id: 'glyph-region', type: 'join', sourceRegionRef: 'g1', targetRegionRef: 'r1' }
+    ])
+    const polygons = computed<RenderablePolygon[]>(() => [
+      { id: 'r1', type: 'region', points: square(0) },
+      { id: 'l1', type: 'textline', parentId: 'r1', points: square(20) },
+      { id: 'w1', type: 'word', parentId: 'l1', points: square(40) },
+      { id: 'g1', type: 'glyph', parentId: 'w1', points: square(60) }
+    ])
+
+    const { renderData } = useRelationsVisualization(relations, polygons, ref<string | null>(null))
+
+    expect(renderData.value.labels.map(label => label.relationId)).toEqual(['line-word', 'glyph-region'])
+    expect(renderData.value.segments[0]).toMatchObject({ from: { x: 25, y: 5 }, to: { x: 45, y: 5 } })
+  })
 })

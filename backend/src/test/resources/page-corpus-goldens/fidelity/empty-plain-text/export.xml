@@ -13,6 +13,7 @@
       <TextRegion id="r1">
          <Coords points="100,100 400,100 400,200 100,200"/>
          <TextEquiv>
+            <PlainText/>
             <Unicode>x</Unicode>
          </TextEquiv>
       </TextRegion>

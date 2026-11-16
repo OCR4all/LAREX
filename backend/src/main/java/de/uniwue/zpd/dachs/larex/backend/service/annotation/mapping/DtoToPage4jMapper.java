@@ -155,7 +155,7 @@ final class DtoToPage4jMappingSession {
             .imageYResolution(dto.imageYResolution())
             .imageResolutionUnit(value(dto.imageResolutionUnit(), ResolutionUnit::fromXml, "Page imageResolutionUnit"))
             .type(value(dto.type(), PageType::fromXml, "Page type"))
-            .custom(normalize(dto.custom()))
+            .custom(dto.custom())
             .orientation(dto.orientation())
             .primaryLanguage(language(dto.primaryLanguage(), "Page primaryLanguage"))
             .secondaryLanguage(language(dto.secondaryLanguage(), "Page secondaryLanguage"))
@@ -328,13 +328,13 @@ final class DtoToPage4jMappingSession {
     }
 
     private Metadata toMetadata(MetadataDto metadata) {
-        String creator = metadata != null ? normalize(metadata.creator()) : null;
+        String creator = metadata != null ? metadata.creator() : null;
         return new Metadata(
-            metadata != null ? normalize(metadata.externalRef()) : null,
+            metadata != null ? metadata.externalRef() : null,
             creator != null ? creator : "",
             timestamp(metadata != null ? metadata.created() : null, "created"),
             timestamp(metadata != null ? metadata.lastChange() : null, "lastChange"),
-            metadata != null ? normalize(metadata.comments()) : null,
+            metadata != null ? metadata.comments() : null,
             metadata != null ? toUserAttributes(metadata.userDefined()) : List.of(),
             metadata != null ? each(metadata.items(), this::toMetadataItem) : List.of()
         );
@@ -354,10 +354,10 @@ final class DtoToPage4jMappingSession {
 
     private MetadataItem toMetadataItem(MetadataItemDto item) {
         String date = normalize(item.date());
-        String value = normalize(item.value());
+        String value = item.value();
         return new MetadataItem(
             value(item.type(), MetadataItemType::fromXml, "MetadataItem type"),
-            normalize(item.name()),
+            item.name(),
             value != null ? value : "",
             date != null ? value(date, PageDateTime::parse, "MetadataItem date") : null,
             toLabelGroups(item.labels())
@@ -368,8 +368,8 @@ final class DtoToPage4jMappingSession {
         String id = idOf(region);
         String context = (region.kind() != null ? region.kind().name() : "Region") + " '" + id + "'";
         Polygon coords = requiredPolygon(region.coords(), context);
-        String custom = normalize(region.custom());
-        String comments = normalize(region.comments());
+        String custom = region.custom();
+        String comments = region.comments();
         List<AlternativeImage> alternativeImages = toAlternativeImages(region.alternativeImages());
         List<UserAttribute> userAttributes = toUserAttributes(region.userDefined());
         List<LabelGroup> labels = toLabelGroups(region.labels());
@@ -580,8 +580,8 @@ final class DtoToPage4jMappingSession {
             .secondaryScript(value(line.secondaryScript(), Script::fromXml, context + " secondaryScript"))
             .readingDirection(value(line.readingDirection(), ReadingDirection::fromXml, context + " readingDirection"))
             .production(value(line.production(), Production::fromXml, context + " production"))
-            .custom(normalize(line.custom()))
-            .comments(normalize(line.comments()))
+            .custom(line.custom())
+            .comments(line.comments())
             .index(line.index())
             .alternativeImages(toAlternativeImages(line.alternativeImages()))
             .coords(requiredPolygon(line.coords(), context))
@@ -606,8 +606,8 @@ final class DtoToPage4jMappingSession {
             .secondaryScript(value(word.secondaryScript(), Script::fromXml, context + " secondaryScript"))
             .readingDirection(value(word.readingDirection(), ReadingDirection::fromXml, context + " readingDirection"))
             .production(value(word.production(), Production::fromXml, context + " production"))
-            .custom(normalize(word.custom()))
-            .comments(normalize(word.comments()))
+            .custom(word.custom())
+            .comments(word.comments())
             .alternativeImages(toAlternativeImages(word.alternativeImages()))
             .coords(requiredPolygon(word.coords(), context))
             .glyphs(each(word.glyphs(), this::toGlyph))
@@ -629,8 +629,8 @@ final class DtoToPage4jMappingSession {
             .symbol(glyph.symbol())
             .script(value(glyph.script(), Script::fromXml, context + " script"))
             .production(value(glyph.production(), Production::fromXml, context + " production"))
-            .custom(normalize(glyph.custom()))
-            .comments(normalize(glyph.comments()))
+            .custom(glyph.custom())
+            .comments(glyph.comments())
             .alternativeImages(toAlternativeImages(glyph.alternativeImages()))
             .coords(requiredPolygon(glyph.coords(), context))
             .graphemes(glyph.graphemes() != null ? toGraphemeElements(glyph.graphemes().elements(), false) : List.of())
@@ -664,8 +664,8 @@ final class DtoToPage4jMappingSession {
         String context = kind + " '" + id + "'";
         int index = element.index() != null ? element.index() : position;
         CharType charType = value(element.charType(), CharType::fromXml, context + " charType");
-        String custom = normalize(element.custom());
-        String comments = normalize(element.comments());
+        String custom = element.custom();
+        String comments = element.comments();
         List<TextEquiv> textEquivs = toTextEquivs(element.textContentVariants(), context);
         return switch (kind) {
             case "graphemeGroup" -> {
@@ -714,7 +714,7 @@ final class DtoToPage4jMappingSession {
             return null;
         }
         TextStyle textStyle = new TextStyle(
-            normalize(style.fontFamily()),
+            style.fontFamily(),
             style.serif(),
             style.monospace(),
             style.fontSize(),
@@ -748,8 +748,8 @@ final class DtoToPage4jMappingSession {
             variant.index(),
             variant.confidence(),
             hasText(variant.dataType()) ? value(variant.dataType(), TextDataType::fromXml, context + " TextEquiv dataType") : null,
-            hasText(variant.dataTypeDetails()) ? variant.dataTypeDetails() : null,
-            hasText(variant.comments()) ? variant.comments() : null,
+            variant.dataTypeDetails(),
+            variant.comments(),
             variant.plainText(),
             variant.unicode() != null ? variant.unicode() : ""
         ));
@@ -791,10 +791,10 @@ final class DtoToPage4jMappingSession {
             log.warn("Dropping regionRef to missing element '{}' of {}", regionRef, context);
             regionRef = null;
         }
-        String caption = hasText(group.caption()) ? group.caption() : null;
+        String caption = group.caption();
         GroupType type = value(group.groupType(), GroupType::fromXml, context + " type");
-        String custom = normalize(group.custom());
-        String comments = normalize(group.comments());
+        String custom = group.custom();
+        String comments = group.comments();
         List<UserAttribute> userAttributes = toUserAttributes(group.userDefined());
         List<LabelGroup> labels = toLabelGroups(group.labels());
         return group.ordered()
@@ -828,7 +828,7 @@ final class DtoToPage4jMappingSession {
                 log.warn("Dropping Layer '{}' on save because it references no existing element", id);
                 continue;
             }
-            result.add(new Layer(id, layer.zIndex() != null ? layer.zIndex() : i, hasText(layer.caption()) ? layer.caption() : null, regionRefs));
+            result.add(new Layer(id, layer.zIndex() != null ? layer.zIndex() : i, layer.caption(), regionRefs));
         }
         return result;
     }
@@ -851,8 +851,8 @@ final class DtoToPage4jMappingSession {
             result.add(new Relation(
                 idOf(relation),
                 relationType(relation.type()),
-                normalize(relation.custom()),
-                normalize(relation.comments()),
+                relation.custom(),
+                relation.comments(),
                 toLabelGroups(relation.labels()),
                 source,
                 target
@@ -865,7 +865,7 @@ final class DtoToPage4jMappingSession {
         List<AlternativeImage> result = new ArrayList<>();
         forEach(images, image -> {
             if (hasText(image.filename())) {
-                result.add(new AlternativeImage(image.filename(), normalize(image.comments()), image.confidence()));
+                result.add(new AlternativeImage(image.filename(), image.comments(), image.confidence()));
             }
         });
         return result;
@@ -875,15 +875,15 @@ final class DtoToPage4jMappingSession {
         return each(groups, group -> {
             List<Label> labels = new ArrayList<>();
             forEach(group.labels(), (LabelDto label) -> {
-                if (hasText(label.value())) {
-                    labels.add(new Label(label.value(), normalize(label.type()), normalize(label.comments())));
+                if (label.value() != null) {
+                    labels.add(new Label(label.value(), label.type(), label.comments()));
                 }
             });
             return new LabelGroup(
-                normalize(group.externalModel()),
-                normalize(group.externalId()),
-                normalize(group.prefix()),
-                normalize(group.comments()),
+                group.externalModel(),
+                group.externalId(),
+                group.prefix(),
+                group.comments(),
                 labels
             );
         });
@@ -899,10 +899,10 @@ final class DtoToPage4jMappingSession {
                 return;
             }
             result.add(new UserAttribute(
-                attribute.name().trim(),
-                normalize(attribute.description()),
+                attribute.name(),
+                attribute.description(),
                 userAttributeType(attribute.type()),
-                attribute.value() != null ? attribute.value().trim() : ""
+                attribute.value()
             ));
         });
         return result;
@@ -957,35 +957,50 @@ final class DtoToPage4jMappingSession {
         if (normalized == null) {
             return null;
         }
-        return value(coerceLanguage(normalized), Language::fromXml, context);
+        Language language = pageLanguage(normalized);
+        if (language == null) {
+            language = isoLanguage(normalized);
+        }
+        if (language == null) {
+            throw new PageDtoMappingException(context + ": '" + normalized + "' is not a PAGE XML language");
+        }
+        return language;
     }
 
-    private static String coerceLanguage(String value) {
-        String normalized = value.replace('_', '-');
-        if (normalized.matches("^[A-Za-z]{2,3}([_-][A-Za-z]{2})?$")) {
-            Locale locale = Locale.forLanguageTag(normalized.toLowerCase(Locale.ROOT));
-            String display = locale.getDisplayLanguage(Locale.ENGLISH);
-            if (display != null && !display.isBlank() && !"und".equalsIgnoreCase(display)) {
-                return display;
+    private static Language pageLanguage(String value) {
+        for (Language language : Language.values()) {
+            if (language.xmlValue().equals(value)) {
+                return language;
             }
         }
+        for (Language language : Language.values()) {
+            if (language.xmlValue().equalsIgnoreCase(value)) {
+                return language;
+            }
+        }
+        return null;
+    }
+
+    private static Language isoLanguage(String value) {
+        if (!value.matches("^[A-Za-z]{2,3}([_-][A-Za-z]{2})?$")) {
+            return null;
+        }
+        String code = value.replace('_', '-').toLowerCase(Locale.ROOT).split("-")[0];
         for (String iso2 : Locale.getISOLanguages()) {
             Locale locale = Locale.forLanguageTag(iso2);
-            String display = locale.getDisplayLanguage(Locale.ENGLISH);
-            if (display == null || display.isBlank()) {
-                continue;
-            }
-            if (display.equalsIgnoreCase(value)) {
-                return display;
-            }
-            try {
-                if (locale.getISO3Language().equalsIgnoreCase(value)) {
-                    return display;
-                }
-            } catch (RuntimeException ignored) {
+            if (iso2.equals(code) || iso3(locale).equals(code)) {
+                return pageLanguage(locale.getDisplayLanguage(Locale.ENGLISH));
             }
         }
-        return value;
+        return null;
+    }
+
+    private static String iso3(Locale locale) {
+        try {
+            return locale.getISO3Language();
+        } catch (RuntimeException e) {
+            return "";
+        }
     }
 
     private static <T> T value(String raw, Function<String, T> fromXml, String context) {

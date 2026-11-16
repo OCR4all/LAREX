@@ -444,20 +444,22 @@ watch(selectedRelation, (relation) => {
         </div>
 
         <UFormField label="Custom">
-          <UTextarea
+          <EditorSidebarMetadataFreeTextField
             :model-value="draft.custom"
+            multiline
             :rows="2"
             :disabled="readOnly"
-            @update:model-value="value => updateDraftField('custom', value ?? '')"
+            @update:model-value="value => updateDraftField('custom', value)"
           />
         </UFormField>
 
         <UFormField label="Comments">
-          <UTextarea
+          <EditorSidebarMetadataFreeTextField
             :model-value="draft.comments"
+            multiline
             :rows="2"
             :disabled="readOnly"
-            @update:model-value="value => updateDraftField('comments', value ?? '')"
+            @update:model-value="value => updateDraftField('comments', value)"
           />
         </UFormField>
 
@@ -578,20 +580,22 @@ watch(selectedRelation, (relation) => {
         </p>
 
         <UFormField label="Custom">
-          <UTextarea
+          <EditorSidebarMetadataFreeTextField
             :model-value="selectedDraft.custom"
+            multiline
             :rows="2"
             :disabled="readOnly"
-            @update:model-value="value => updateSelectedDraftField('custom', value ?? '')"
+            @update:model-value="value => updateSelectedDraftField('custom', value)"
           />
         </UFormField>
 
         <UFormField label="Comments">
-          <UTextarea
+          <EditorSidebarMetadataFreeTextField
             :model-value="selectedDraft.comments"
+            multiline
             :rows="2"
             :disabled="readOnly"
-            @update:model-value="value => updateSelectedDraftField('comments', value ?? '')"
+            @update:model-value="value => updateSelectedDraftField('comments', value)"
           />
         </UFormField>
 

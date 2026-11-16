@@ -20,6 +20,7 @@ import {
   convertTextStyleToDto,
   convertUserDefinedFromDto,
   convertUserDefinedToDto,
+  freeText,
   undefinedIfBlank
 } from './page-conversion/shared'
 import { convertMetadataFromDto, convertMetadataToDto } from './page-conversion/metadata-converter'
@@ -49,7 +50,7 @@ export function convertPageDtoToPcGts(dto: PageDto): PcGts {
     layers: convertLayersFromDto(dto.layers),
     relations: convertRelationsFromDto(dto.relations),
     regions: dto.regions?.map(convertRegionFromDto) ?? [],
-    custom: undefinedIfBlank(dto.custom),
+    custom: freeText(dto.custom),
     orientation: dto.orientation,
     type: undefinedIfBlank(dto.type) as Page['type'],
     primaryLanguage: undefinedIfBlank(dto.primaryLanguage),
@@ -75,7 +76,7 @@ export function convertPcGtsToPageDto(pcGts: PcGts): PageDto {
     metadata: convertMetadataToDto(pcGts.metadata),
     pcGtsId: pcGts.pcGtsId,
     type: undefinedIfBlank(pcGts.page.type),
-    custom: undefinedIfBlank(pcGts.page.custom),
+    custom: freeText(pcGts.page.custom),
     orientation: pcGts.page.orientation,
     primaryLanguage: undefinedIfBlank(pcGts.page.primaryLanguage),
     secondaryLanguage: undefinedIfBlank(pcGts.page.secondaryLanguage),

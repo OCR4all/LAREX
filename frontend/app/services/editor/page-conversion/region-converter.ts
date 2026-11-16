@@ -11,6 +11,7 @@ import {
   convertTextStyleToDto,
   convertUserDefinedFromDto,
   convertUserDefinedToDto,
+  freeText,
   undefinedIfBlank
 } from './shared'
 import {
@@ -60,8 +61,8 @@ export function convertRegionFromDto(dto: RegionDto): Region {
         }
       : undefined,
     textStyle: convertTextStyleFromDto(dto.textStyle),
-    custom: undefinedIfBlank(dto.custom),
-    comments: undefinedIfBlank(dto.comments),
+    custom: freeText(dto.custom),
+    comments: freeText(dto.comments),
     continuation: dto.continuation,
     confidence: dto.confidence,
     numColours: dto.numColours,
@@ -94,7 +95,7 @@ export function convertRegionFromDto(dto: RegionDto): Region {
       textColour: undefinedIfBlank(dto.textColour),
       reverseVideo: dto.reverseVideo,
       fontSize: dto.fontSize,
-      fontFamily: undefinedIfBlank(dto.fontFamily),
+      fontFamily: freeText(dto.fontFamily),
       leading: dto.leading,
       kerning: dto.kerning,
       readingDirection: undefinedIfBlank(dto.readingDirection),
@@ -144,7 +145,7 @@ export function convertRegionToDto(region: Region): RegionDto {
     bgColour: undefinedIfBlank(region.bgColour),
     reverseVideo: 'reverseVideo' in region ? regionDtoSource.reverseVideo : undefined,
     fontSize: 'fontSize' in region ? regionDtoSource.fontSize : undefined,
-    fontFamily: 'fontFamily' in region ? undefinedIfBlank(regionDtoSource.fontFamily) : undefined,
+    fontFamily: 'fontFamily' in region ? freeText(regionDtoSource.fontFamily) : undefined,
     serif: region.serif,
     monospace: region.monospace,
     xHeight: region.xHeight,
@@ -173,8 +174,8 @@ export function convertRegionToDto(region: Region): RegionDto {
     penColour: undefinedIfBlank(region.penColour),
     borderPresent: region.borderPresent,
     nestedRegions: region.regions?.map(convertRegionToDto),
-    custom: undefinedIfBlank(region.custom),
-    comments: undefinedIfBlank(region.comments),
+    custom: freeText(region.custom),
+    comments: freeText(region.comments),
     continuation: region.continuation,
     confidence: region.confidence
   }

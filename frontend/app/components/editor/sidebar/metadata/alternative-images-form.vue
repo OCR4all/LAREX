@@ -12,7 +12,7 @@ const images = defineModel<AlternativeImageFormState[]>({ required: true })
         type="button"
         size="xs"
         variant="soft"
-        @click="() => { images.push({ filename: '', comments: '', confidence: undefined }) }"
+        @click="() => { images.push({ filename: '', comments: undefined, confidence: undefined }) }"
       >
         Add
       </UButton>
@@ -37,7 +37,12 @@ const images = defineModel<AlternativeImageFormState[]>({ required: true })
         />
       </UFormField>
       <UFormField label="Comments">
-        <UTextarea v-model="image.comments" placeholder="Comments..." :rows="2" />
+        <EditorSidebarMetadataFreeTextField
+          v-model="image.comments"
+          placeholder="Comments"
+          multiline
+          :rows="2"
+        />
       </UFormField>
       <UButton
         type="button"

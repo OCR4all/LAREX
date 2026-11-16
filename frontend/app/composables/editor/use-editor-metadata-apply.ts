@@ -86,6 +86,15 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
     return undefined
   }
 
+  function rawString(value: unknown): string | undefined {
+    if (typeof value === 'string') return value
+    if (value && typeof value === 'object' && 'value' in value) {
+      const nested = (value as { value?: unknown }).value
+      if (typeof nested === 'string') return nested
+    }
+    return undefined
+  }
+
   function normalizeAlternativeImagesFromForm(images?: Array<{ filename?: string, comments?: string, confidence?: number }>): AlternativeImage[] | undefined {
     if (!images?.length) return undefined
     const normalized = images.reduce<AlternativeImage[]>((acc, image) => {
@@ -94,7 +103,7 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
 
       acc.push({
         filename,
-        comments: normalizeOptionalMetadataString(image.comments),
+        comments: rawString(image.comments),
         confidence: image.confidence
       })
       return acc
@@ -114,16 +123,16 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
       .map((group) => {
         const labels = (group.labels ?? [])
           .map(label => ({
-            value: normalizeOptionalMetadataString(label.value),
-            type: normalizeOptionalMetadataString(label.type),
-            comments: normalizeOptionalMetadataString(label.comments)
+            value: rawString(label.value),
+            type: rawString(label.type),
+            comments: rawString(label.comments)
           }))
-          .filter(label => typeof label.value === 'string' && label.value.length > 0) as Array<{ value: string, type?: string, comments?: string }>
-        const externalModel = normalizeOptionalMetadataString(group.externalModel)
-        const externalId = normalizeOptionalMetadataString(group.externalId)
-        const prefix = normalizeOptionalMetadataString(group.prefix)
-        const comments = normalizeOptionalMetadataString(group.comments)
-        if (!externalModel && !externalId && !prefix && !comments && labels.length === 0) return undefined
+          .filter(label => label.value !== undefined) as Array<{ value: string, type?: string, comments?: string }>
+        const externalModel = rawString(group.externalModel)
+        const externalId = rawString(group.externalId)
+        const prefix = rawString(group.prefix)
+        const comments = rawString(group.comments)
+        if ([externalModel, externalId, prefix, comments].every(value => value === undefined) && labels.length === 0) return undefined
         return {
           externalModel,
           externalId,
@@ -145,12 +154,12 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
     if (!attributes?.length) return undefined
     const normalized = attributes
       .map(attribute => ({
-        name: normalizeOptionalMetadataString(attribute.name),
-        description: normalizeOptionalMetadataString(attribute.description),
+        name: rawString(attribute.name),
+        description: rawString(attribute.description),
         type: attribute.type,
-        value: normalizeOptionalMetadataString(attribute.value)
+        value: rawString(attribute.value)
       }))
-      .filter(attribute => attribute.name || attribute.description || attribute.type || attribute.value)
+      .filter(attribute => typeof attribute.name === 'string' && attribute.name.trim().length > 0)
     return normalized.length > 0 ? { attributes: normalized } : undefined
   }
 
@@ -171,11 +180,11 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
     const normalized = items
       .map((item) => {
         const type = item.type
-        const name = normalizeOptionalMetadataString(item.name)
-        const value = normalizeOptionalMetadataString(item.value)
+        const name = rawString(item.name)
+        const value = rawString(item.value)
         const date = normalizeOptionalMetadataString(item.date)
         const labels = normalizeLabelsFromForm(item.labels)
-        if (!type && !name && !value && !date && !labels) return undefined
+        if (!type && name === undefined && value === undefined && !date && !labels) return undefined
         return {
           type,
           name,
@@ -212,7 +221,7 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
   }): TextStyleAttributes | undefined {
     if (!style) return undefined
     const normalized: TextStyleAttributes = {
-      fontFamily: normalizeOptionalMetadataString(style.fontFamily),
+      fontFamily: rawString(style.fontFamily),
       serif: style.serif,
       monospace: style.monospace,
       fontSize: style.fontSize,
@@ -303,8 +312,8 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
         const metadata = options.activeDocument.value?.metadata
         if (!metadata) break
         metadata.creator = payload.data.creator
-        metadata.comments = payload.data.comments || undefined
-        metadata.externalRef = payload.data.externalRef || undefined
+        metadata.comments = payload.data.comments
+        metadata.externalRef = payload.data.externalRef
         metadata.userDefined = normalizeUserDefinedFromForm(payload.data.userDefinedAttributes)
         metadata.items = normalizeMetadataItemsFromForm(payload.data.items)
         updated = true
@@ -315,7 +324,7 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
         page.imageXResolution = payload.data.imageXResolution
         page.imageYResolution = payload.data.imageYResolution
         page.imageResolutionUnit = payload.data.imageResolutionUnit
-        page.custom = payload.data.custom || undefined
+        page.custom = payload.data.custom
         page.orientation = payload.data.orientation
         page.type = payload.data.type
         page.primaryLanguage = normalizeOptionalMetadataString(payload.data.primaryLanguage)
@@ -336,8 +345,8 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
         const region = findRegionById(regions, payload.elementId)
         if (!region || region.kind !== 'TextRegion') break
         const textRegion = region as TextRegion
-        textRegion.custom = payload.data.custom || undefined
-        textRegion.comments = payload.data.comments || undefined
+        textRegion.custom = payload.data.custom
+        textRegion.comments = payload.data.comments
         textRegion.continuation = payload.data.continuation
         textRegion.orientation = payload.data.orientation
         textRegion.type = payload.data.type || undefined
@@ -362,8 +371,8 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
       case 'genericRegion': {
         const region = findRegionById(regions, payload.elementId)
         if (!region) break
-        region.custom = payload.data.custom || undefined
-        region.comments = payload.data.comments || undefined
+        region.custom = payload.data.custom
+        region.comments = payload.data.comments
         region.continuation = payload.data.continuation
         region.orientation = payload.data.orientation
         region.numColours = payload.data.numColours
@@ -400,8 +409,8 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
         textLine.secondaryScript = normalizeOptionalMetadataString(payload.data.secondaryScript)
         textLine.readingDirection = payload.data.readingDirection
         textLine.production = payload.data.production
-        textLine.custom = payload.data.custom || undefined
-        textLine.comments = payload.data.comments || undefined
+        textLine.custom = payload.data.custom
+        textLine.comments = payload.data.comments
         textLine.index = payload.data.index
         textLine.alternativeImages = normalizeAlternativeImagesFromForm(payload.data.alternativeImages)
         textLine.labels = normalizeLabelsFromForm(payload.data.labels)
@@ -418,8 +427,8 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
         word.secondaryScript = normalizeOptionalMetadataString(payload.data.secondaryScript)
         word.readingDirection = payload.data.readingDirection
         word.production = payload.data.production
-        word.custom = payload.data.custom || undefined
-        word.comments = payload.data.comments || undefined
+        word.custom = payload.data.custom
+        word.comments = payload.data.comments
         word.alternativeImages = normalizeAlternativeImagesFromForm(payload.data.alternativeImages)
         word.labels = normalizeLabelsFromForm(payload.data.labels)
         word.userDefined = normalizeUserDefinedFromForm(payload.data.userDefinedAttributes)
@@ -434,8 +443,8 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
         glyph.production = payload.data.production
         glyph.ligature = payload.data.ligature
         glyph.symbol = payload.data.symbol
-        glyph.custom = payload.data.custom || undefined
-        glyph.comments = payload.data.comments || undefined
+        glyph.custom = payload.data.custom
+        glyph.comments = payload.data.comments
         glyph.alternativeImages = normalizeAlternativeImagesFromForm(payload.data.alternativeImages)
         glyph.labels = normalizeLabelsFromForm(payload.data.labels)
         glyph.userDefined = normalizeUserDefinedFromForm(payload.data.userDefinedAttributes)

@@ -16,7 +16,7 @@ const attributes = defineModel<UserAttributeFormState[]>({ required: true })
         type="button"
         size="xs"
         variant="soft"
-        @click="() => { attributes.push({ name: '', description: '', type: undefined, value: '' }) }"
+        @click="() => { attributes.push({ name: undefined, description: undefined, type: undefined, value: undefined }) }"
       >
         Add
       </UButton>
@@ -31,13 +31,13 @@ const attributes = defineModel<UserAttributeFormState[]>({ required: true })
         <UInput v-model="attribute.name" placeholder="Attribute name" />
       </UFormField>
       <UFormField label="Description">
-        <UInput v-model="attribute.description" placeholder="Description" />
+        <EditorSidebarMetadataFreeTextField v-model="attribute.description" placeholder="Description" />
       </UFormField>
       <UFormField label="Type">
         <USelect v-model="attribute.type" :items="typeOptions" placeholder="Select type" />
       </UFormField>
       <UFormField label="Value">
-        <UInput v-model="attribute.value" placeholder="Value" />
+        <EditorSidebarMetadataFreeTextField v-model="attribute.value" placeholder="Value" />
       </UFormField>
       <UButton
         type="button"

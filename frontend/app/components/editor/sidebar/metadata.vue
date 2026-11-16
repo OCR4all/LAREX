@@ -153,6 +153,11 @@ const canEdit = computed(() => currentContext.value !== null && !props.readOnly)
 
 const formatDate = (dateStr?: string) => formatDateTime(dateStr) || '—'
 
+function formatFreeText(value?: string): string {
+  if (value === undefined) return '—'
+  return value === '' ? '(empty)' : value
+}
+
 function formatConfidence(value?: number): string {
   if (value === undefined || value === null) return '—'
   return `${(value * 100).toFixed(1)}%`
@@ -511,11 +516,11 @@ watch(() => props.readOnly, (readOnly) => {
             </UFormField>
 
             <UFormField label="Comments" name="comments">
-              <UTextarea v-model="documentFormState.comments" placeholder="Comments..." :rows="3" />
+              <EditorSidebarMetadataFreeTextField v-model="documentFormState.comments" placeholder="Comments" multiline :rows="3" />
             </UFormField>
 
             <UFormField label="External Reference" name="externalRef">
-              <UInput v-model="documentFormState.externalRef" placeholder="URL or reference" />
+              <EditorSidebarMetadataFreeTextField v-model="documentFormState.externalRef" placeholder="URL or reference" />
             </UFormField>
 
             <EditorSidebarMetadataUserAttributesForm
@@ -669,7 +674,7 @@ watch(() => props.readOnly, (readOnly) => {
             </UFormField>
 
             <UFormField label="Custom" name="custom">
-              <UInput v-model="pageFormState.custom" placeholder="Custom data" />
+              <EditorSidebarMetadataFreeTextField v-model="pageFormState.custom" placeholder="Custom data" />
             </UFormField>
 
             <EditorSidebarMetadataAlternativeImagesForm v-model="pageFormState.alternativeImages" />
@@ -877,11 +882,11 @@ watch(() => props.readOnly, (readOnly) => {
             </UFormField>
 
             <UFormField label="Comments" name="comments">
-              <UTextarea v-model="textRegionFormState.comments" placeholder="Comments..." :rows="2" />
+              <EditorSidebarMetadataFreeTextField v-model="textRegionFormState.comments" placeholder="Comments" multiline :rows="2" />
             </UFormField>
 
             <UFormField label="Custom" name="custom">
-              <UInput v-model="textRegionFormState.custom" placeholder="Custom data" />
+              <EditorSidebarMetadataFreeTextField v-model="textRegionFormState.custom" placeholder="Custom data" />
             </UFormField>
 
             <EditorSidebarMetadataAlternativeImagesForm v-model="textRegionFormState.alternativeImages" />
@@ -993,11 +998,11 @@ watch(() => props.readOnly, (readOnly) => {
             </UFormField>
 
             <UFormField label="Comments" name="comments">
-              <UTextarea v-model="genericRegionFormState.comments" placeholder="Comments..." :rows="2" />
+              <EditorSidebarMetadataFreeTextField v-model="genericRegionFormState.comments" placeholder="Comments" multiline :rows="2" />
             </UFormField>
 
             <UFormField label="Custom" name="custom">
-              <UInput v-model="genericRegionFormState.custom" placeholder="Custom data" />
+              <EditorSidebarMetadataFreeTextField v-model="genericRegionFormState.custom" placeholder="Custom data" />
             </UFormField>
 
             <UFormField label="Orientation" name="orientation">
@@ -1248,11 +1253,11 @@ watch(() => props.readOnly, (readOnly) => {
             </UFormField>
 
             <UFormField label="Comments" name="comments">
-              <UTextarea v-model="textLineFormState.comments" placeholder="Comments..." :rows="2" />
+              <EditorSidebarMetadataFreeTextField v-model="textLineFormState.comments" placeholder="Comments" multiline :rows="2" />
             </UFormField>
 
             <UFormField label="Custom" name="custom">
-              <UInput v-model="textLineFormState.custom" placeholder="Custom data" />
+              <EditorSidebarMetadataFreeTextField v-model="textLineFormState.custom" placeholder="Custom data" />
             </UFormField>
 
             <EditorSidebarMetadataAlternativeImagesForm v-model="textLineFormState.alternativeImages" />
@@ -1383,11 +1388,11 @@ watch(() => props.readOnly, (readOnly) => {
             </UFormField>
 
             <UFormField label="Comments" name="comments">
-              <UTextarea v-model="wordFormState.comments" placeholder="Comments..." :rows="2" />
+              <EditorSidebarMetadataFreeTextField v-model="wordFormState.comments" placeholder="Comments" multiline :rows="2" />
             </UFormField>
 
             <UFormField label="Custom" name="custom">
-              <UInput v-model="wordFormState.custom" placeholder="Custom data" />
+              <EditorSidebarMetadataFreeTextField v-model="wordFormState.custom" placeholder="Custom data" />
             </UFormField>
 
             <EditorSidebarMetadataAlternativeImagesForm v-model="wordFormState.alternativeImages" />
@@ -1445,11 +1450,11 @@ watch(() => props.readOnly, (readOnly) => {
             </div>
 
             <UFormField label="Comments" name="comments">
-              <UTextarea v-model="glyphFormState.comments" placeholder="Comments..." :rows="2" />
+              <EditorSidebarMetadataFreeTextField v-model="glyphFormState.comments" placeholder="Comments" multiline :rows="2" />
             </UFormField>
 
             <UFormField label="Custom" name="custom">
-              <UInput v-model="glyphFormState.custom" placeholder="Custom data" />
+              <EditorSidebarMetadataFreeTextField v-model="glyphFormState.custom" placeholder="Custom data" />
             </UFormField>
 
             <EditorSidebarMetadataAlternativeImagesForm v-model="glyphFormState.alternativeImages" />
@@ -1549,10 +1554,10 @@ watch(() => props.readOnly, (readOnly) => {
                 <span class="text-muted">Confidence</span><span>{{ formatConfidence(selectedElement.confidence) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted">Comments</span><span>{{ selectedElement.comments || '—' }}</span>
+                <span class="text-muted">Comments</span><span>{{ formatFreeText(selectedElement.comments) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ selectedElement.custom || '—' }}</span>
+                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ formatFreeText(selectedElement.custom) }}</span>
               </div>
             </div>
           </template>
@@ -1582,10 +1587,10 @@ watch(() => props.readOnly, (readOnly) => {
                 <span class="text-muted">Confidence</span><span>{{ formatConfidence(selectedElement.confidence) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted">Comments</span><span>{{ selectedElement.comments || '—' }}</span>
+                <span class="text-muted">Comments</span><span>{{ formatFreeText(selectedElement.comments) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ selectedElement.custom || '—' }}</span>
+                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ formatFreeText(selectedElement.custom) }}</span>
               </div>
             </div>
           </template>
@@ -1618,10 +1623,10 @@ watch(() => props.readOnly, (readOnly) => {
                 <span class="text-muted">Production</span><span>{{ selectedElement.production || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted">Comments</span><span>{{ selectedElement.comments || '—' }}</span>
+                <span class="text-muted">Comments</span><span>{{ formatFreeText(selectedElement.comments) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ selectedElement.custom || '—' }}</span>
+                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ formatFreeText(selectedElement.custom) }}</span>
               </div>
             </div>
           </template>
@@ -1685,10 +1690,10 @@ watch(() => props.readOnly, (readOnly) => {
                 <span class="text-muted">Continuation</span><span>{{ formatBoolean(selectedElement.continuation) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted">Comments</span><span>{{ selectedElement.comments || '—' }}</span>
+                <span class="text-muted">Comments</span><span>{{ formatFreeText(selectedElement.comments) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ selectedElement.custom || '—' }}</span>
+                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ formatFreeText(selectedElement.custom) }}</span>
               </div>
             </div>
           </template>
@@ -1742,7 +1747,7 @@ watch(() => props.readOnly, (readOnly) => {
                 <span class="text-muted">Confidence</span><span>{{ formatConfidence(page.conf) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ page.custom || '—' }}</span>
+                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ formatFreeText(page.custom) }}</span>
               </div>
             </div>
 
@@ -1754,7 +1759,7 @@ watch(() => props.readOnly, (readOnly) => {
                 </div>
                 <div class="space-y-1.5 text-sm mt-2">
                   <div class="flex justify-between">
-                    <span class="text-muted">Creator</span><span>{{ document.metadata.creator || '—' }}</span>
+                    <span class="text-muted">Creator</span><span>{{ formatFreeText(document.metadata.creator) }}</span>
                   </div>
                   <div class="flex justify-between">
                     <span class="text-muted">Created</span><span>{{ formatDate(document.metadata.created) }}</span>
@@ -1763,10 +1768,10 @@ watch(() => props.readOnly, (readOnly) => {
                     <span class="text-muted">Last Change</span><span>{{ formatDate(document.metadata.lastChange) }}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted">Comments</span><span>{{ document.metadata.comments || '—' }}</span>
+                    <span class="text-muted">Comments</span><span>{{ formatFreeText(document.metadata.comments) }}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted">External Ref</span><span class="truncate ml-2">{{ document.metadata.externalRef || '—' }}</span>
+                    <span class="text-muted">External Ref</span><span class="truncate ml-2">{{ formatFreeText(document.metadata.externalRef) }}</span>
                   </div>
                 </div>
               </div>

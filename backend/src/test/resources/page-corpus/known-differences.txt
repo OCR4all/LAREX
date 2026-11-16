@@ -164,8 +164,6 @@ coverage/2018-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocatio
 
 coverage/2024-07-15.xml | FAILED ingest
 
-fidelity/empty-plain-text.xml | save: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='r1']/TextEquiv[1]/PlainText[1]
-
 fidelity/number-formatting.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@imageXResolution "300" -> "300.0"
 fidelity/number-formatting.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@imageYResolution "300" -> "300.0"
 fidelity/number-formatting.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@orientation "0" -> "0.0"
@@ -176,6 +174,8 @@ invalid/custom-region-type.xml | FAILED ingest
 invalid/duplicate-id.xml | FAILED ingest
 
 invalid/unknown-content.xml | FAILED ingest
+
+larex/nested-regions.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
 
 larex/reading-order-attributes.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
 
@@ -191,15 +191,5 @@ larex/text-equivs.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id
 larex/text-style.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
 
 larex/whitespace-and-empty-values.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
-larex/whitespace-and-empty-values.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Metadata[1]/@externalRef " ext-1 " -> "ext-1"
-larex/whitespace-and-empty-values.xml | save: CHANGED_TEXT /PcGts[1]/Metadata[1]/Creator[1] " someone " -> "someone"
-larex/whitespace-and-empty-values.xml | save: CHANGED_TEXT /PcGts[1]/Metadata[1]/Comments[1] "  two leading, one trailing " -> "two leading, one trailing"
-larex/whitespace-and-empty-values.xml | save: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/@custom ""
-larex/whitespace-and-empty-values.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/@comments "trailing " -> "trailing"
-larex/whitespace-and-empty-values.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/@custom " padded custom " -> "padded custom"
-larex/whitespace-and-empty-values.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/UserDefined[1]/UserAttribute[1]/@value " spaced value " -> "spaced value"
-larex/whitespace-and-empty-values.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/Labels[1]/Label[1]/@type " t " -> "t"
-
-real-world/page4j-document.xml | save: MISSING_ELEMENT /PcGts[1]/Metadata[1]/Comments[1]
 
 real-world/page4j-golden-source-2024.xml | FAILED ingest

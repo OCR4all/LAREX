@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+  <Metadata>
+    <Creator>larex-corpus</Creator>
+    <Created>2026-01-02T10:00:00</Created>
+    <LastChange>2026-01-02T10:00:00</LastChange>
+  </Metadata>
+  <Page imageFilename="page.png" imageWidth="1000" imageHeight="1500">
+    <AdvertRegion id="a0">
+      <Coords points="100,100 900,100 900,200 100,200"/>
+      <TextRegion id="a0t">
+        <Coords points="110,110 490,110 490,190 110,190"/>
+      </TextRegion>
+      <ImageRegion id="a0i">
+        <Coords points="510,110 890,110 890,190 510,190"/>
+      </ImageRegion>
+    </AdvertRegion>
+    <ChartRegion id="c1">
+      <Coords points="100,210 900,210 900,310 100,310"/>
+      <TextRegion id="c1t">
+        <Coords points="110,220 490,220 490,300 110,300"/>
+      </TextRegion>
+      <ImageRegion id="c1i">
+        <Coords points="510,220 890,220 890,300 510,300"/>
+      </ImageRegion>
+    </ChartRegion>
+    <ChemRegion id="c2">
+      <Coords points="100,320 900,320 900,420 100,420"/>
+      <TextRegion id="c2t">
+        <Coords points="110,330 490,330 490,410 110,410"/>
+      </TextRegion>
+      <ImageRegion id="c2i">
+        <Coords points="510,330 890,330 890,410 510,410"/>
+      </ImageRegion>
+    </ChemRegion>
+    <CustomRegion id="c3">
+      <Coords points="100,430 900,430 900,530 100,530"/>
+      <TextRegion id="c3t">
+        <Coords points="110,440 490,440 490,520 110,520"/>
+      </TextRegion>
+      <ImageRegion id="c3i">
+        <Coords points="510,440 890,440 890,520 510,520"/>
+      </ImageRegion>
+    </CustomRegion>
+    <ImageRegion id="i4">
+      <Coords points="100,540 900,540 900,640 100,640"/>
+      <TextRegion id="i4t">
+        <Coords points="110,550 490,550 490,630 110,630"/>
+      </TextRegion>
+      <ImageRegion id="i4i">
+        <Coords points="510,550 890,550 890,630 510,630"/>
+      </ImageRegion>
+    </ImageRegion>
+    <LineDrawingRegion id="l5">
+      <Coords points="100,650 900,650 900,750 100,750"/>
+      <TextRegion id="l5t">
+        <Coords points="110,660 490,660 490,740 110,740"/>
+      </TextRegion>
+      <ImageRegion id="l5i">
+        <Coords points="510,660 890,660 890,740 510,740"/>
+      </ImageRegion>
+    </LineDrawingRegion>
+    <MapRegion id="m6">
+      <Coords points="100,760 900,760 900,860 100,860"/>
+      <TextRegion id="m6t">
+        <Coords points="110,770 490,770 490,850 110,850"/>
+      </TextRegion>
+      <ImageRegion id="m6i">
+        <Coords points="510,770 890,770 890,850 510,850"/>
+      </ImageRegion>
+    </MapRegion>
+    <MathsRegion id="m7">
+      <Coords points="100,870 900,870 900,970 100,970"/>
+      <TextRegion id="m7t">
+        <Coords points="110,880 490,880 490,960 110,960"/>
+      </TextRegion>
+      <ImageRegion id="m7i">
+        <Coords points="510,880 890,880 890,960 510,960"/>
+      </ImageRegion>
+    </MathsRegion>
+    <MusicRegion id="m8">
+      <Coords points="100,980 900,980 900,1080 100,1080"/>
+      <TextRegion id="m8t">
+        <Coords points="110,990 490,990 490,1070 110,1070"/>
+      </TextRegion>
+      <ImageRegion id="m8i">
+        <Coords points="510,990 890,990 890,1070 510,1070"/>
+      </ImageRegion>
+    </MusicRegion>
+    <NoiseRegion id="n9">
+      <Coords points="100,1090 900,1090 900,1190 100,1190"/>
+      <TextRegion id="n9t">
+        <Coords points="110,1100 490,1100 490,1180 110,1180"/>
+      </TextRegion>
+      <ImageRegion id="n9i">
+        <Coords points="510,1100 890,1100 890,1180 510,1180"/>
+      </ImageRegion>
+    </NoiseRegion>
+    <SeparatorRegion id="s10">
+      <Coords points="100,1200 900,1200 900,1300 100,1300"/>
+      <TextRegion id="s10t">
+        <Coords points="110,1210 490,1210 490,1290 110,1290"/>
+      </TextRegion>
+      <ImageRegion id="s10i">
+        <Coords points="510,1210 890,1210 890,1290 510,1290"/>
+      </ImageRegion>
+    </SeparatorRegion>
+    <UnknownRegion id="u11">
+      <Coords points="100,1310 900,1310 900,1410 100,1410"/>
+      <TextRegion id="u11t">
+        <Coords points="110,1320 490,1320 490,1400 110,1400"/>
+      </TextRegion>
+      <ImageRegion id="u11i">
+        <Coords points="510,1320 890,1320 890,1400 510,1400"/>
+      </ImageRegion>
+    </UnknownRegion>
+  </Page>
+</PcGts>

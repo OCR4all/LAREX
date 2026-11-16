@@ -9,6 +9,7 @@
     "comments" : "  two leading, one trailing ",
     "externalRef" : " ext-1 "
   },
+  "custom" : "",
   "regions" : [ {
     "id" : "r1",
     "kind" : "TextRegion",
@@ -20,7 +21,10 @@
       "coords" : {
         "points" : [ [ -0.78, 0.8533333333333333 ], [ 0.78, 0.8533333333333333 ], [ 0.78, 0.7466666666666666 ], [ -0.78, 0.7466666666666666 ] ]
       },
-      "textContentVariants" : [ { } ]
+      "textContentVariants" : [ {
+        "unicode" : ""
+      } ],
+      "text" : ""
     }, {
       "id" : "r1l2",
       "coords" : {
@@ -45,7 +49,8 @@
         "value" : " spaced value "
       }, {
         "name" : "empty",
-        "type" : "xsd:string"
+        "type" : "xsd:string",
+        "value" : ""
       } ]
     },
     "custom" : " padded custom ",

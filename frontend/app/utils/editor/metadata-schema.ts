@@ -15,6 +15,7 @@ export const userAttributeTypeEnum = z.enum(['xsd:string', 'xsd:integer', 'xsd:b
 export const metadataItemTypeEnum = z.enum(['author', 'imageProperties', 'processingStep', 'other'])
 
 const optionalString = z.string().optional().transform(val => val?.trim() || undefined)
+const freeTextString = z.string().optional()
 const optionalEnumValue = <TValues extends readonly [string, ...string[]]>(values: TValues) => z.preprocess((value) => {
   if (value === undefined || value === null) return undefined
   if (typeof value === 'string') {
@@ -40,34 +41,34 @@ const optionalInteger = optionalCoercedNumber(z.number().int())
 const optionalBoolean = z.boolean().optional()
 
 export const labelSchema = z.object({
-  value: optionalString,
-  type: optionalString,
-  comments: optionalString
+  value: freeTextString,
+  type: freeTextString,
+  comments: freeTextString
 })
 
 export const labelsSchema = z.object({
-  externalModel: optionalString,
-  externalId: optionalString,
-  prefix: optionalString,
-  comments: optionalString,
+  externalModel: freeTextString,
+  externalId: freeTextString,
+  prefix: freeTextString,
+  comments: freeTextString,
   labels: z.array(labelSchema).default([])
 })
 
 export const alternativeImageSchema = z.object({
   filename: optionalString,
-  comments: optionalString,
+  comments: freeTextString,
   confidence: optionalCoercedNumber(z.number().min(0).max(1))
 })
 
 export const userAttributeSchema = z.object({
-  name: optionalString,
-  description: optionalString,
+  name: freeTextString,
+  description: freeTextString,
   type: userAttributeTypeEnum.optional(),
-  value: optionalString
+  value: freeTextString
 })
 
 export const textStyleSchema = z.object({
-  fontFamily: optionalString,
+  fontFamily: freeTextString,
   serif: optionalBoolean,
   monospace: optionalBoolean,
   fontSize: optionalNumber,
@@ -91,8 +92,8 @@ export const textStyleSchema = z.object({
 
 export const metadataItemSchema = z.object({
   type: metadataItemTypeEnum.optional(),
-  name: optionalString,
-  value: optionalString,
+  name: freeTextString,
+  value: freeTextString,
   date: optionalString,
   labels: z.array(labelsSchema).default([])
 })
@@ -180,7 +181,7 @@ function createAlternativeImageFormState(image?: {
 }): AlternativeImageFormState {
   return {
     filename: image?.filename ?? '',
-    comments: image?.comments ?? '',
+    comments: image?.comments,
     confidence: image?.confidence
   }
 }
@@ -191,9 +192,9 @@ function createLabelFormState(label?: {
   comments?: string
 }): LabelFormState {
   return {
-    value: label?.value ?? '',
-    type: label?.type ?? '',
-    comments: label?.comments ?? ''
+    value: label?.value,
+    type: label?.type,
+    comments: label?.comments
   }
 }
 
@@ -209,10 +210,10 @@ function createLabelsFormState(group?: {
   }>
 }): LabelsFormState {
   return {
-    externalModel: group?.externalModel ?? '',
-    externalId: group?.externalId ?? '',
-    prefix: group?.prefix ?? '',
-    comments: group?.comments ?? '',
+    externalModel: group?.externalModel,
+    externalId: group?.externalId,
+    prefix: group?.prefix,
+    comments: group?.comments,
     labels: (group?.labels ?? []).map(createLabelFormState)
   }
 }
@@ -224,10 +225,10 @@ function createUserAttributeFormState(attribute?: {
   value?: string
 }): UserAttributeFormState {
   return {
-    name: attribute?.name ?? '',
-    description: attribute?.description ?? '',
+    name: attribute?.name,
+    description: attribute?.description,
     type: attribute?.type,
-    value: attribute?.value ?? ''
+    value: attribute?.value
   }
 }
 
@@ -250,8 +251,8 @@ function createMetadataItemFormState(item?: {
 }): MetadataItemFormState {
   return {
     type: item?.type,
-    name: item?.name ?? '',
-    value: item?.value ?? '',
+    name: item?.name,
+    value: item?.value,
     date: item?.date ?? '',
     labels: (item?.labels ?? []).map(createLabelsFormState)
   }
@@ -261,11 +262,11 @@ function createMetadataItemFormState(item?: {
  * Schema for document-level Metadata (MetadataType)
  */
 export const documentMetadataSchema = z.object({
-  creator: optionalString,
+  creator: freeTextString,
   created: z.string(), // Read-only
   lastChange: z.string(), // Read-only, auto-updated
-  comments: optionalString,
-  externalRef: optionalString,
+  comments: freeTextString,
+  externalRef: freeTextString,
   userDefinedAttributes: z.array(userAttributeSchema).default([]),
   items: z.array(metadataItemSchema).default([])
 })
@@ -282,7 +283,7 @@ export const pageMetadataSchema = z.object({
   imageXResolution: optionalNumber,
   imageYResolution: optionalNumber,
   imageResolutionUnit: resolutionUnitEnum.optional(),
-  custom: optionalString,
+  custom: freeTextString,
   orientation: optionalCoercedNumber(z.number().min(-180).max(180)),
   type: pageTypeEnum.optional(),
   primaryLanguage: optionalLanguage,
@@ -306,8 +307,8 @@ export type PageMetadataFormState = z.infer<typeof pageMetadataSchema>
 export const textRegionMetadataSchema = z.object({
   id: z.string(), // Read-only
   kind: z.string(), // Read-only
-  custom: optionalString,
-  comments: optionalString,
+  custom: freeTextString,
+  comments: freeTextString,
   continuation: z.boolean().optional(),
   orientation: z.coerce.number().min(-180).max(180).optional(),
   type: optionalString, // TextTypeSimpleType - paragraph, heading, etc.
@@ -338,8 +339,8 @@ export const genericRegionMetadataSchema = z.object({
   id: z.string(), // Read-only
   kind: z.string(), // Read-only
   type: optionalString, // Subtype for GraphicRegion, ChartRegion, etc.
-  custom: optionalString,
-  comments: optionalString,
+  custom: freeTextString,
+  comments: freeTextString,
   continuation: z.boolean().optional(),
   orientation: optionalCoercedNumber(z.number().min(-180).max(180)),
   numColours: optionalInteger,
@@ -374,8 +375,8 @@ export const textLineMetadataSchema = z.object({
   secondaryScript: optionalScript,
   readingDirection: readingDirectionEnum.optional(),
   production: productionEnum.optional(),
-  custom: optionalString,
-  comments: optionalString,
+  custom: freeTextString,
+  comments: freeTextString,
   index: optionalCoercedNumber(z.number().int().min(0)),
   alternativeImages: z.array(alternativeImageSchema).default([]),
   labels: z.array(labelsSchema).default([]),
@@ -395,8 +396,8 @@ export const wordMetadataSchema = z.object({
   secondaryScript: optionalScript,
   readingDirection: readingDirectionEnum.optional(),
   production: productionEnum.optional(),
-  custom: optionalString,
-  comments: optionalString,
+  custom: freeTextString,
+  comments: freeTextString,
   alternativeImages: z.array(alternativeImageSchema).default([]),
   labels: z.array(labelsSchema).default([]),
   userDefinedAttributes: z.array(userAttributeSchema).default([]),
@@ -414,8 +415,8 @@ export const glyphMetadataSchema = z.object({
   production: productionEnum.optional(),
   ligature: optionalBoolean,
   symbol: optionalBoolean,
-  custom: optionalString,
-  comments: optionalString,
+  custom: freeTextString,
+  comments: freeTextString,
   alternativeImages: z.array(alternativeImageSchema).default([]),
   labels: z.array(labelsSchema).default([]),
   userDefinedAttributes: z.array(userAttributeSchema).default([]),
@@ -466,11 +467,11 @@ export function createDocumentMetadataFormState(metadata: {
   }>
 }): DocumentMetadataFormState {
   return {
-    creator: metadata.creator ?? '',
+    creator: metadata.creator,
     created: metadata.created ?? '',
     lastChange: metadata.lastChange ?? '',
-    comments: metadata.comments ?? '',
-    externalRef: metadata.externalRef ?? '',
+    comments: metadata.comments,
+    externalRef: metadata.externalRef,
     userDefinedAttributes: (metadata.userDefined?.attributes ?? []).map(attribute => createUserAttributeFormState(attribute)),
     items: (metadata.items ?? []).map(item => createMetadataItemFormState(item))
   }
@@ -547,7 +548,7 @@ export function createPageMetadataFormState(page: {
     imageXResolution: page.imageXResolution,
     imageYResolution: page.imageYResolution,
     imageResolutionUnit: page.imageResolutionUnit,
-    custom: page.custom ?? '',
+    custom: page.custom,
     orientation: page.orientation,
     type: page.type,
     primaryLanguage: normalizeLanguageValue(page.primaryLanguage),
@@ -633,8 +634,8 @@ export function createTextRegionMetadataFormState(region: {
   return {
     id: region.id,
     kind: region.kind,
-    custom: region.custom ?? '',
-    comments: region.comments ?? '',
+    custom: region.custom,
+    comments: region.comments,
     continuation: region.continuation,
     orientation: region.orientation,
     type: region.type ?? '',
@@ -758,8 +759,8 @@ export function createGenericRegionMetadataFormState(region: {
     id: region.id,
     kind: region.kind,
     type: region.type ?? '',
-    custom: region.custom ?? '',
-    comments: region.comments ?? '',
+    custom: region.custom,
+    comments: region.comments,
     continuation: region.continuation,
     orientation: region.orientation,
     numColours: region.numColours,
@@ -847,8 +848,8 @@ export function createTextLineMetadataFormState(textLine: {
     secondaryScript: normalizeScriptValue(textLine.secondaryScript),
     readingDirection: textLine.readingDirection as TextLineMetadataFormState['readingDirection'],
     production: textLine.production as TextLineMetadataFormState['production'],
-    custom: textLine.custom ?? '',
-    comments: textLine.comments ?? '',
+    custom: textLine.custom,
+    comments: textLine.comments,
     index: textLine.index,
     alternativeImages: (textLine.alternativeImages ?? []).map(image => createAlternativeImageFormState(image)),
     labels: (textLine.labels ?? []).map(group => createLabelsFormState(group)),
@@ -867,8 +868,8 @@ function createTextElementMetadataFormState(element: TextElementMetadataSource) 
   return {
     id: element.id,
     production: element.production as WordMetadataFormState['production'],
-    custom: element.custom ?? '',
-    comments: element.comments ?? '',
+    custom: element.custom,
+    comments: element.comments,
     alternativeImages: (element.alternativeImages ?? []).map(image => createAlternativeImageFormState(image)),
     labels: (element.labels ?? []).map(group => createLabelsFormState(group)),
     userDefinedAttributes: (element.userDefined?.attributes ?? []).map(attribute => createUserAttributeFormState(attribute)),

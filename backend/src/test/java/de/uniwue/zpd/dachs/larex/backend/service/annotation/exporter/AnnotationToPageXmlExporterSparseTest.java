@@ -10,16 +10,20 @@ import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToPageXmlExporter;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.DtoToPage4jMapper;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.PageDtoMappingException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EmptySource;
 import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AnnotationToPageXmlExporterSparseTest {
@@ -203,6 +207,43 @@ class AnnotationToPageXmlExporterSparseTest {
 
     private PageDto createPageDto(RegionDto region) {
         return createPageDtoWithMetadata(region, null, "tester", null, null);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "English, English",
+        "Ewe, Ewe",
+        "Ido, Ido",
+        "Lao, Lao",
+        "Twi, Twi",
+        "german, German",
+        "de, German",
+        "de-DE, German",
+        "de_AT, German",
+        "deu, German",
+        "fr, French"
+    })
+    void export_writesPageLanguagesUnchangedAndMapsIsoCodesToPageNames(String input, String expected) throws Exception {
+        AnnotationToPageXmlExporter exporter = new AnnotationToPageXmlExporter(new DtoToPage4jMapper());
+        PageDto dto = createPageDtoWithMetadata(textRegionWithLines(List.of(), null), input, "creator-a", null, null);
+
+        String xml = exporter.export(dto, null);
+
+        assertTrue(xml.contains("primaryLanguage=\"" + expected + "\""), xml);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Klingon", "xx", "tlh"})
+    void export_rejectsLanguagesThatAreNotPageValues(String input) {
+        AnnotationToPageXmlExporter exporter = new AnnotationToPageXmlExporter(new DtoToPage4jMapper());
+        PageDto dto = createPageDtoWithMetadata(textRegionWithLines(List.of(), null), input, "creator-a", null, null);
+
+        Exception error = assertThrows(Exception.class, () -> exporter.export(dto, null));
+        Throwable cause = error;
+        while (cause != null && !(cause instanceof PageDtoMappingException)) {
+            cause = cause.getCause();
+        }
+        assertTrue(cause != null && cause.getMessage().contains("'" + input + "' is not a PAGE XML language"), String.valueOf(error));
     }
 
     private PageDto createPageDtoWithMetadata(

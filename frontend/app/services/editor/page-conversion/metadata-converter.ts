@@ -6,16 +6,17 @@ import {
   convertLabelsToDto,
   convertUserDefinedFromDto,
   convertUserDefinedToDto,
+  freeText,
   undefinedIfBlank
 } from './shared'
 
 export function convertMetadataFromDto(dto?: MetadataDto): Metadata {
   return new Metadata({
-    creator: undefinedIfBlank(dto?.creator),
+    creator: freeText(dto?.creator),
     created: dto?.created,
     lastChange: dto?.lastChange,
-    comments: undefinedIfBlank(dto?.comments),
-    externalRef: undefinedIfBlank(dto?.externalRef),
+    comments: freeText(dto?.comments),
+    externalRef: freeText(dto?.externalRef),
     userDefined: convertUserDefinedFromDto(dto?.userDefined),
     items: convertMetadataItemsFromDto(dto?.items)
   })
@@ -23,11 +24,11 @@ export function convertMetadataFromDto(dto?: MetadataDto): Metadata {
 
 export function convertMetadataToDto(metadata: Metadata): MetadataDto | undefined {
   const dto: MetadataDto = {
-    creator: undefinedIfBlank(metadata.creator),
+    creator: freeText(metadata.creator),
     created: undefinedIfBlank(metadata.created),
     lastChange: undefinedIfBlank(metadata.lastChange),
-    comments: undefinedIfBlank(metadata.comments),
-    externalRef: undefinedIfBlank(metadata.externalRef),
+    comments: freeText(metadata.comments),
+    externalRef: freeText(metadata.externalRef),
     userDefined: convertUserDefinedToDto(metadata.userDefined),
     items: convertMetadataItemsToDto(metadata.items)
   }
@@ -38,7 +39,7 @@ function convertMetadataItemsFromDto(items?: MetadataItemDto[]): MetadataItem[] 
   if (!items?.length) return undefined
   return items.map(item => ({
     type: item.type as MetadataItem['type'],
-    name: undefinedIfBlank(item.name),
+    name: freeText(item.name),
     value: item.value ?? '',
     date: undefinedIfBlank(item.date),
     labels: convertLabelsFromDto(item.labels)
@@ -49,7 +50,7 @@ function convertMetadataItemsToDto(items?: MetadataItem[]): MetadataItemDto[] | 
   if (!items?.length) return undefined
   return items.map(item => ({
     type: item.type,
-    name: undefinedIfBlank(item.name),
+    name: freeText(item.name),
     value: item.value,
     date: undefinedIfBlank(item.date),
     labels: convertLabelsToDto(item.labels)

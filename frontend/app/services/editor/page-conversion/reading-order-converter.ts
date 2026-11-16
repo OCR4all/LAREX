@@ -9,6 +9,7 @@ import {
   convertLabelsToDto,
   convertUserDefinedFromDto,
   convertUserDefinedToDto,
+  freeText,
   undefinedIfBlank
 } from './shared'
 
@@ -54,11 +55,11 @@ export function convertReadingOrderFromDto(dto: ReadingOrderDto): ReadingOrder |
       id: groupDto.id ?? 'group-root',
       index: groupDto.index,
       regionRef: groupDto.regionRef,
-      caption: undefinedIfBlank(groupDto.caption),
+      caption: freeText(groupDto.caption),
       groupType: undefinedIfBlank(groupDto.groupType),
       continuation: groupDto.continuation,
-      custom: undefinedIfBlank(groupDto.custom),
-      comments: undefinedIfBlank(groupDto.comments),
+      custom: freeText(groupDto.custom),
+      comments: freeText(groupDto.comments),
       userDefined: convertUserDefinedFromDto(groupDto.userDefined),
       labels: convertLabelsFromDto(groupDto.labels),
       elements
@@ -98,15 +99,15 @@ export function convertReadingOrderToDto(ro?: ReadingOrder): ReadingOrderDto | u
       id: group.id,
       ordered,
       index: group.index,
-      caption: undefinedIfBlank(group.caption),
+      caption: freeText(group.caption),
       groupType: undefinedIfBlank(group.groupType),
       regionRef: group.regionRef,
       members,
       continuation: group.continuation,
       userDefined: convertUserDefinedToDto(group.userDefined),
       labels: convertLabelsToDto(group.labels),
-      custom: undefinedIfBlank(group.custom),
-      comments: undefinedIfBlank(group.comments)
+      custom: freeText(group.custom),
+      comments: freeText(group.comments)
     }
   }
 

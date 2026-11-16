@@ -1,6 +1,6 @@
 import type { Relation } from '@/models/editor'
 import type { RelationsDto } from '@/types/page-dto'
-import { convertLabelsFromDto, convertLabelsToDto, undefinedIfBlank } from './shared'
+import { convertLabelsFromDto, convertLabelsToDto, freeText, undefinedIfBlank } from './shared'
 
 export function convertRelationsFromDto(dto?: RelationsDto): Relation[] | undefined {
   if (!dto?.relations?.length) return undefined
@@ -9,8 +9,8 @@ export function convertRelationsFromDto(dto?: RelationsDto): Relation[] | undefi
     type: undefinedIfBlank(relation.type),
     sourceRegionRef: undefinedIfBlank(relation.sourceRegionRef),
     targetRegionRef: undefinedIfBlank(relation.targetRegionRef),
-    custom: undefinedIfBlank(relation.custom),
-    comments: undefinedIfBlank(relation.comments),
+    custom: freeText(relation.custom),
+    comments: freeText(relation.comments),
     labels: convertLabelsFromDto(relation.labels)
   }))
 }
@@ -23,8 +23,8 @@ export function convertRelationsToDto(relations?: Relation[]): RelationsDto | un
       type: undefinedIfBlank(relation.type),
       sourceRegionRef: undefinedIfBlank(relation.sourceRegionRef),
       targetRegionRef: undefinedIfBlank(relation.targetRegionRef),
-      custom: undefinedIfBlank(relation.custom),
-      comments: undefinedIfBlank(relation.comments),
+      custom: freeText(relation.custom),
+      comments: freeText(relation.comments),
       labels: convertLabelsToDto(relation.labels)
     }))
   }

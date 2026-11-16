@@ -16,7 +16,8 @@
       "points" : [ [ -0.8, 0.8 ], [ -0.19999999999999996, 0.8 ], [ -0.19999999999999996, 0.6 ], [ -0.8, 0.6 ] ]
     },
     "textContentVariants" : [ {
-      "unicode" : "x"
+      "unicode" : "x",
+      "plainText" : ""
     } ],
     "text" : "x",
     "textRegion" : true

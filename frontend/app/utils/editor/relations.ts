@@ -1,3 +1,4 @@
+import { isTextRegion } from '@/models/editor'
 import type { Labels, Relation, Region } from '@/models/editor'
 import type { LabelsFormState } from '@/utils/editor/metadata-schema'
 
@@ -13,8 +14,8 @@ export interface RelationDraftState {
   type: string
   sourceRegionRef: string
   targetRegionRef: string
-  custom: string
-  comments: string
+  custom?: string
+  comments?: string
   labels: LabelsFormState[]
 }
 
@@ -24,8 +25,8 @@ export function createEmptyRelationDraft(): RelationDraftState {
     type: 'link',
     sourceRegionRef: '',
     targetRegionRef: '',
-    custom: '',
-    comments: '',
+    custom: undefined,
+    comments: undefined,
     labels: []
   }
 }
@@ -45,8 +46,8 @@ export function relationToDraft(relation?: Relation | null): RelationDraftState 
     type: relation.type ?? 'link',
     sourceRegionRef: relation.sourceRegionRef ?? '',
     targetRegionRef: relation.targetRegionRef ?? '',
-    custom: relation.custom ?? '',
-    comments: relation.comments ?? '',
+    custom: relation.custom,
+    comments: relation.comments,
     labels: (relation.labels ?? []).map(group => ({
       externalModel: group.externalModel,
       externalId: group.externalId,
@@ -67,24 +68,28 @@ export function normalizeOptionalRelationString(value: string | null | undefined
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+function rawRelationString(value: string | null | undefined): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
 function normalizeRelationLabels(labelGroups?: Array<Partial<LabelsFormState> | Partial<Labels>>): Labels[] | undefined {
   if (!labelGroups?.length) return undefined
 
   const normalized = labelGroups.map((group) => {
     const labels = (group.labels ?? [])
       .map(label => ({
-        value: normalizeOptionalRelationString(label.value) ?? '',
-        type: normalizeOptionalRelationString(label.type),
-        comments: normalizeOptionalRelationString(label.comments)
+        value: rawRelationString(label.value),
+        type: rawRelationString(label.type),
+        comments: rawRelationString(label.comments)
       }))
-      .filter(label => label.value.length > 0)
+      .filter((label): label is { value: string, type: string | undefined, comments: string | undefined } => label.value !== undefined)
 
-    const externalModel = normalizeOptionalRelationString(group.externalModel)
-    const externalId = normalizeOptionalRelationString(group.externalId)
-    const prefix = normalizeOptionalRelationString(group.prefix)
-    const comments = normalizeOptionalRelationString(group.comments)
+    const externalModel = rawRelationString(group.externalModel)
+    const externalId = rawRelationString(group.externalId)
+    const prefix = rawRelationString(group.prefix)
+    const comments = rawRelationString(group.comments)
 
-    if (!externalModel && !externalId && !prefix && !comments && labels.length === 0) {
+    if ([externalModel, externalId, prefix, comments].every(value => value === undefined) && labels.length === 0) {
       return undefined
     }
 
@@ -106,8 +111,8 @@ export function normalizeRelation(relation: Partial<RelationDraftState> | Partia
     type: normalizeOptionalRelationString(relation.type),
     sourceRegionRef: normalizeOptionalRelationString(relation.sourceRegionRef),
     targetRegionRef: normalizeOptionalRelationString(relation.targetRegionRef),
-    custom: normalizeOptionalRelationString(relation.custom),
-    comments: normalizeOptionalRelationString(relation.comments),
+    custom: rawRelationString(relation.custom),
+    comments: rawRelationString(relation.comments),
     labels: normalizeRelationLabels(relation.labels)
   }
 }
@@ -167,14 +172,31 @@ export function removeRelationsReferencingIds(relations: Relation[] | undefined,
   return filtered.length > 0 ? cloneRelations(filtered) : undefined
 }
 
-export function filterRelationsByExistingRegionIds(relations: Relation[] | undefined, validRegionIds: Set<string>): Relation[] | undefined {
-  if (!relations?.length) return undefined
+export function collectContentObjectIds(regions: Region[] | undefined): Set<string> {
+  const ids = new Set<string>()
 
-  const filtered = relations.filter((relation) => {
-    const source = normalizeOptionalRelationString(relation.sourceRegionRef)
-    const target = normalizeOptionalRelationString(relation.targetRegionRef)
-    return Boolean(source && target && validRegionIds.has(source) && validRegionIds.has(target))
-  })
+  function visit(items: Region[] | undefined) {
+    for (const region of items ?? []) {
+      ids.add(region.id)
+      if (isTextRegion(region)) {
+        for (const line of region.textLines ?? []) {
+          ids.add(line.id)
+          for (const word of line.words ?? []) {
+            ids.add(word.id)
+            for (const glyph of word.glyphs ?? []) ids.add(glyph.id)
+          }
+        }
+      }
+      visit(region.regions)
+    }
+  }
 
-  return filtered.length > 0 ? cloneRelations(filtered) : undefined
+  visit(regions)
+  return ids
+}
+
+export function removeRelationsToVanishedIds(relations: Relation[] | undefined, before: Region[] | undefined, after: Region[] | undefined): Relation[] | undefined {
+  const remaining = collectContentObjectIds(after)
+  const vanished = new Set([...collectContentObjectIds(before)].filter(id => !remaining.has(id)))
+  return removeRelationsReferencingIds(relations, vanished)
 }

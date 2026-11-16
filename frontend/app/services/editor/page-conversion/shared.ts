@@ -30,6 +30,18 @@ export function convertPolygonToDto(polygon?: Polygon): PolygonDto | undefined {
   }
 }
 
+export function freeText(value?: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object' && 'value' in value) {
+    return freeText((value as { value?: unknown }).value)
+  }
+  return undefined
+}
+
+export function hasValue(value?: unknown): boolean {
+  return freeText(value) !== undefined
+}
+
 export function undefinedIfBlank(value?: unknown): string | undefined {
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -47,7 +59,7 @@ export function convertAlternativeImagesFromDto(images?: AlternativeImageDto[]):
     .filter(img => typeof img.filename === 'string' && img.filename.length > 0)
     .map(img => ({
       filename: img.filename,
-      comments: undefinedIfBlank(img.comments),
+      comments: freeText(img.comments),
       confidence: img.confidence
     }))
   return converted.length > 0 ? converted : undefined
@@ -59,7 +71,7 @@ export function convertAlternativeImagesToDto(images?: AlternativeImage[]): Alte
     .filter(img => typeof img.filename === 'string' && img.filename.length > 0)
     .map(img => ({
       filename: img.filename,
-      comments: undefinedIfBlank(img.comments),
+      comments: freeText(img.comments),
       confidence: img.confidence
     }))
   return converted.length > 0 ? converted : undefined
@@ -68,16 +80,16 @@ export function convertAlternativeImagesToDto(images?: AlternativeImage[]): Alte
 export function convertLabelsFromDto(groups?: LabelsDto[]): Labels[] | undefined {
   if (!groups?.length) return undefined
   const converted = groups.map(group => ({
-    externalModel: undefinedIfBlank(group.externalModel),
-    externalId: undefinedIfBlank(group.externalId),
-    prefix: undefinedIfBlank(group.prefix),
-    comments: undefinedIfBlank(group.comments),
+    externalModel: freeText(group.externalModel),
+    externalId: freeText(group.externalId),
+    prefix: freeText(group.prefix),
+    comments: freeText(group.comments),
     labels: group.labels
-      ?.filter(label => undefinedIfBlank(label.value))
+      ?.filter(label => hasValue(label.value))
       .map(label => ({
-        value: label.value?.trim() ?? '',
-        type: undefinedIfBlank(label.type),
-        comments: undefinedIfBlank(label.comments)
+        value: label.value ?? '',
+        type: freeText(label.type),
+        comments: freeText(label.comments)
       }))
   }))
   return converted.length > 0 ? converted : undefined
@@ -86,16 +98,16 @@ export function convertLabelsFromDto(groups?: LabelsDto[]): Labels[] | undefined
 export function convertLabelsToDto(groups?: Labels[]): LabelsDto[] | undefined {
   if (!groups?.length) return undefined
   const converted = groups.map(group => ({
-    externalModel: undefinedIfBlank(group.externalModel),
-    externalId: undefinedIfBlank(group.externalId),
-    prefix: undefinedIfBlank(group.prefix),
-    comments: undefinedIfBlank(group.comments),
+    externalModel: freeText(group.externalModel),
+    externalId: freeText(group.externalId),
+    prefix: freeText(group.prefix),
+    comments: freeText(group.comments),
     labels: group.labels
-      ?.filter(label => undefinedIfBlank(label.value))
+      ?.filter(label => hasValue(label.value))
       .map(label => ({
-        value: label.value?.trim(),
-        type: undefinedIfBlank(label.type),
-        comments: undefinedIfBlank(label.comments)
+        value: label.value,
+        type: freeText(label.type),
+        comments: freeText(label.comments)
       }))
   }))
   return converted.length > 0 ? converted : undefined
@@ -104,12 +116,12 @@ export function convertLabelsToDto(groups?: Labels[]): LabelsDto[] | undefined {
 export function convertUserDefinedFromDto(userDefined?: UserDefinedDto): UserDefined | undefined {
   if (!userDefined?.attributes?.length) return undefined
   const attributes = userDefined.attributes
-    .filter(attr => undefinedIfBlank(attr.name))
+    .filter(attr => freeText(attr.name))
     .map(attr => ({
-      name: undefinedIfBlank(attr.name),
-      description: undefinedIfBlank(attr.description),
+      name: freeText(attr.name),
+      description: freeText(attr.description),
       type: attr.type,
-      value: undefinedIfBlank(attr.value)
+      value: freeText(attr.value)
     })) as UserAttribute[]
   return attributes.length > 0 ? { attributes } : undefined
 }
@@ -117,12 +129,12 @@ export function convertUserDefinedFromDto(userDefined?: UserDefinedDto): UserDef
 export function convertUserDefinedToDto(userDefined?: UserDefined): UserDefinedDto | undefined {
   if (!userDefined?.attributes?.length) return undefined
   const attributes = userDefined.attributes
-    .filter(attr => undefinedIfBlank(attr.name))
+    .filter(attr => freeText(attr.name))
     .map(attr => ({
-      name: undefinedIfBlank(attr.name),
-      description: undefinedIfBlank(attr.description),
+      name: freeText(attr.name),
+      description: freeText(attr.description),
       type: attr.type,
-      value: undefinedIfBlank(attr.value)
+      value: freeText(attr.value)
     })) as UserAttributeDto[]
   return attributes.length > 0 ? { attributes } : undefined
 }
@@ -130,7 +142,7 @@ export function convertUserDefinedToDto(userDefined?: UserDefined): UserDefinedD
 export function convertTextStyleFromDto(style?: TextStyleDto): TextStyleAttributes | undefined {
   if (!style) return undefined
   const converted: TextStyleAttributes = {
-    fontFamily: undefinedIfBlank(style.fontFamily),
+    fontFamily: freeText(style.fontFamily),
     serif: style.serif,
     monospace: style.monospace,
     fontSize: style.fontSize,
@@ -157,7 +169,7 @@ export function convertTextStyleFromDto(style?: TextStyleDto): TextStyleAttribut
 export function convertTextStyleToDto(style?: TextStyleAttributes): TextStyleDto | undefined {
   if (!style) return undefined
   const converted: TextStyleDto = {
-    fontFamily: undefinedIfBlank(style.fontFamily),
+    fontFamily: freeText(style.fontFamily),
     serif: style.serif,
     monospace: style.monospace,
     fontSize: style.fontSize,
@@ -186,7 +198,7 @@ export function convertLayersFromDto(dto?: LayersDto): Layer[] | undefined {
   return dto.layers.map(layer => ({
     id: undefinedIfBlank(layer.id),
     zIndex: layer.zIndex,
-    caption: undefinedIfBlank(layer.caption),
+    caption: freeText(layer.caption),
     regionRefs: layer.regionRefs ?? []
   }))
 }
@@ -197,7 +209,7 @@ export function convertLayersToDto(layers?: Layer[]): LayersDto | undefined {
     layers: layers.map(layer => ({
       id: undefinedIfBlank(layer.id),
       zIndex: layer.zIndex,
-      caption: undefinedIfBlank(layer.caption),
+      caption: freeText(layer.caption),
       regionRefs: layer.regionRefs ?? []
     }))
   }

@@ -122,4 +122,37 @@ describe('CutElementsCommand', () => {
     expect(region?.coords.points).toEqual(originalParentPoints)
     expect(region?.regions).toHaveLength(2)
   })
+
+  it('keeps relations between text lines that the cut leaves in place', () => {
+    const cutLine = createTextLine('tl-1')
+    const keptLine = new TextLine({
+      id: 'tl-2',
+      coords: new Polygon([[100, 600], [900, 600], [900, 700], [100, 700]])
+    })
+    const parentRegion = createTestTextRegion({
+      id: 'parent',
+      points: [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 1000 }, { x: 0, y: 1000 }],
+      textLines: [cutLine, keptLine]
+    })
+    const doc = createTestDocument({
+      regions: [parentRegion],
+      relations: [
+        { id: 'rel-kept', type: 'link', sourceRegionRef: 'tl-2', targetRegionRef: 'parent' },
+        { id: 'rel-cut', type: 'link', sourceRegionRef: 'tl-1', targetRegionRef: 'tl-2' }
+      ]
+    })
+    const { session, getDocument } = createMockSession(doc)
+
+    new CutElementsCommand({
+      mode: 'rectangle',
+      targetElementIds: ['tl-1'],
+      cutPoints: [{ x: 450, y: 150 }, { x: 550, y: 150 }, { x: 550, y: 350 }, { x: 450, y: 350 }]
+    }).execute(createTestContext(session))
+
+    const region = getDocument()?.page.regions[0]
+    const lineIds = region && isTextRegion(region) ? region.textLines?.map(line => line.id) : []
+    const relationIds = getDocument()?.page.relations?.map(relation => relation.id)
+    expect(relationIds).toContain('rel-kept')
+    expect(relationIds?.includes('rel-cut')).toBe(lineIds?.includes('tl-1'))
+  })
 })

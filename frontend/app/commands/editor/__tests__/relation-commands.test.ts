@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { Polygon, TextLine } from '@/models/editor'
 import { Commander } from '../commander'
 import { DeletePolygonCommand } from '../delete-polygon-command'
 import { MergeElementsCommand } from '../merge-elements-command'
@@ -168,6 +169,25 @@ describe('Relation commands', () => {
 
     command.undo(ctx)
     expect(getDocument()?.page.relations?.[0]?.id).toBe('rel-delete-cleanup')
+  })
+
+  it('removes relations to a deleted text line and restores them on undo', () => {
+    const line = new TextLine({ id: 'l1', coords: new Polygon([[110, 110], [390, 110], [390, 190], [110, 190]]) })
+    const r1 = createTestTextRegion({ id: 'r1', textLines: [line] })
+    const doc = createTestDocument({
+      regions: [r1],
+      relations: [createTestRelation({ id: 'rel-line', sourceRegionRef: 'l1', targetRegionRef: 'r1' })]
+    })
+    const { session, getDocument } = createMockSession(doc)
+    const ctx = createTestContext(session)
+
+    const command = new DeletePolygonCommand({ polygonId: 'l1' })
+    command.execute(ctx)
+
+    expect(getDocument()?.page.relations).toBeUndefined()
+
+    command.undo(ctx)
+    expect(getDocument()?.page.relations?.[0]?.id).toBe('rel-line')
   })
 
   it('removes dangling relations when merged regions disappear', () => {

@@ -2,21 +2,24 @@
 <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd">
-   <Metadata externalRef="ext-1">
-      <Creator>someone</Creator>
+   <Metadata externalRef=" ext-1 ">
+      <Creator> someone </Creator>
       <Created>2026-01-02T10:00:00</Created>
       <LastChange>2026-01-02T10:00:00</LastChange>
-      <Comments>two leading, one trailing</Comments>
+      <Comments>  two leading, one trailing </Comments>
    </Metadata>
-   <Page imageFilename="page.png" imageHeight="1500" imageWidth="1000">
-      <TextRegion comments="trailing" custom="padded custom" id="r1">
+   <Page custom=""
+         imageFilename="page.png"
+         imageHeight="1500"
+         imageWidth="1000">
+      <TextRegion comments="trailing " custom=" padded custom " id="r1">
          <Coords points="100,100 900,100 900,300 100,300"/>
          <UserDefined>
-            <UserAttribute name="note" type="xsd:string" value="spaced value"/>
+            <UserAttribute name="note" type="xsd:string" value=" spaced value "/>
             <UserAttribute name="empty" type="xsd:string" value=""/>
          </UserDefined>
          <Labels externalModel="model">
-            <Label type="t" value=" v "/>
+            <Label type=" t " value=" v "/>
          </Labels>
          <TextLine id="r1l1">
             <Coords points="110,110 890,110 890,190 110,190"/>

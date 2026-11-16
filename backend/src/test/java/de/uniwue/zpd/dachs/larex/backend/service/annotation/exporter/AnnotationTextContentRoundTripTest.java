@@ -63,7 +63,7 @@ class AnnotationTextContentRoundTripTest {
                         assertEquals(expected.get(i).comments(), actual.get(i).comments());
                         assertEquals(expected.get(i).plainText(), actual.get(i).plainText());
                         String unicode = expected.get(i).unicode();
-                        assertEquals("".equals(unicode) ? null : unicode, actual.get(i).unicode());
+                        assertEquals(unicode == null ? "" : unicode, actual.get(i).unicode());
                     }
                 }
             }

@@ -26,7 +26,7 @@ import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geom
 import {
   cloneRelations,
   collectRegionIds,
-  filterRelationsByExistingRegionIds
+  removeRelationsToVanishedIds
 } from '@/utils/editor/relations'
 import { insertIntoReadingOrderAfter, removeIdsFromReadingOrder } from './reading-order-utils'
 
@@ -218,9 +218,10 @@ export class CutElementsCommand implements Command {
       removeIdsFromReadingOrder(pcGts.page.readingOrder?.root?.elements, removedIds)
     }
 
-    pcGts.page.relations = filterRelationsByExistingRegionIds(
+    pcGts.page.relations = removeRelationsToVanishedIds(
       pcGts.page.relations,
-      collectRegionIds(pcGts.page.regions)
+      this.undoSnapshot.regions,
+      pcGts.page.regions
     )
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)

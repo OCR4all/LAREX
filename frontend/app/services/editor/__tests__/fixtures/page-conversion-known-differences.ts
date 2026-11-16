@@ -236,6 +236,9 @@ export const BACKEND_GOLDEN_DIFFERENCES: Record<string, string[]> = {
   'fidelity/whitespace-references': [
     'formatVersion: "2019-07-15" -> absent'
   ],
+  'larex/nested-regions': [
+    'formatVersion: "2019-07-15" -> absent'
+  ],
   'larex/reading-order-attributes': [
     'readingOrder.root.members[0].id: absent -> "ref-r1"',
     'readingOrder.root.members[1].group.members[0].id: absent -> "ref-r3"',
@@ -262,20 +265,9 @@ export const BACKEND_GOLDEN_DIFFERENCES: Record<string, string[]> = {
     'formatVersion: "2019-07-15" -> absent'
   ],
   'larex/whitespace-and-empty-values': [
-    'metadata.creator: " someone " -> "someone"',
-    'metadata.comments: "  two leading, one trailing " -> "two leading, one trailing"',
-    'metadata.externalRef: " ext-1 " -> "ext-1"',
-    'regions[0].textLines[0].textContentVariants[0].unicode: absent -> ""',
-    'regions[0].labels[0].labels[0].value: " v " -> "v"',
-    'regions[0].labels[0].labels[0].type: " t " -> "t"',
-    'regions[0].userDefined.attributes[0].value: " spaced value " -> "spaced value"',
-    'regions[0].custom: " padded custom " -> "padded custom"',
-    'regions[0].comments: "trailing " -> "trailing"',
     'formatVersion: "2019-07-15" -> absent'
   ],
   'real-world/page4j-document': [
-    'regions[0].textLines[0].textContentVariants[0].unicode: absent -> ""',
-    'regions[1].textLines[0].textContentVariants[0].unicode: absent -> ""',
     'readingOrder.root.members[0].id: absent -> "ref-r2"',
     'readingOrder.root.members[1].id: absent -> "ref-r1"',
     'readingOrder.root.members[2].id: absent -> "ref-r3"',

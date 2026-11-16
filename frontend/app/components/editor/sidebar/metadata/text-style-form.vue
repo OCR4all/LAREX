@@ -8,7 +8,7 @@ const textStyle = defineModel<TextStyleFormState>({ required: true })
   <div class="space-y-2 rounded-md border border-default p-3">
     <span class="text-sm font-medium">Text Style</span>
     <UFormField label="Font Family">
-      <UInput v-model="textStyle.fontFamily" placeholder="Font family" />
+      <EditorSidebarMetadataFreeTextField v-model="textStyle.fontFamily" placeholder="Font family" />
     </UFormField>
     <div class="grid grid-cols-2 gap-2">
       <UFormField label="Font Size">

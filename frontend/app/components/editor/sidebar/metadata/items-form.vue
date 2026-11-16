@@ -16,7 +16,7 @@ const items = defineModel<MetadataItemFormState[]>({ required: true })
         type="button"
         size="xs"
         variant="soft"
-        @click="() => { items.push({ type: undefined, name: '', value: '', date: '', labels: [] }) }"
+        @click="() => { items.push({ type: undefined, name: undefined, value: undefined, date: '', labels: [] }) }"
       >
         Add
       </UButton>
@@ -31,7 +31,7 @@ const items = defineModel<MetadataItemFormState[]>({ required: true })
         <USelect v-model="item.type" :items="itemTypeOptions" placeholder="Select type" />
       </UFormField>
       <UFormField label="Name">
-        <UInput v-model="item.name" placeholder="Name" />
+        <EditorSidebarMetadataFreeTextField v-model="item.name" placeholder="Name" />
       </UFormField>
       <UFormField label="Value">
         <UTextarea v-model="item.value" placeholder="Value" :rows="2" />

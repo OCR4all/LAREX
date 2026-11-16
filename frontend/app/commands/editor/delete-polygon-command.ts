@@ -77,13 +77,10 @@ export class DeletePolygonCommand implements Command {
       }
     }
 
-    this.relationsModified = false
-    if (this.deletedRegion) {
-      this.previousRelations = cloneRelations(pcGts.page.relations)
-      const nextRelations = removeRelationsReferencingIds(pcGts.page.relations, idsToRemove)
-      this.relationsModified = JSON.stringify(this.previousRelations ?? []) !== JSON.stringify(nextRelations ?? [])
-      pcGts.page.relations = nextRelations
-    }
+    this.previousRelations = cloneRelations(pcGts.page.relations)
+    const nextRelations = removeRelationsReferencingIds(pcGts.page.relations, idsToRemove)
+    this.relationsModified = JSON.stringify(this.previousRelations ?? []) !== JSON.stringify(nextRelations ?? [])
+    pcGts.page.relations = nextRelations
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)

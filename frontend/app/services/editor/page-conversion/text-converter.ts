@@ -17,6 +17,7 @@ import {
   convertTextStyleToDto,
   convertUserDefinedFromDto,
   convertUserDefinedToDto,
+  freeText,
   undefinedIfBlank
 } from './shared'
 
@@ -52,8 +53,8 @@ function convertGraphemeElementsFromDto(elements?: GraphemeElementDto[]): Graphe
     index: element.index,
     charType: undefinedIfBlank(element.charType),
     ligature: element.ligature,
-    custom: undefinedIfBlank(element.custom),
-    comments: undefinedIfBlank(element.comments),
+    custom: freeText(element.custom),
+    comments: freeText(element.comments),
     coords: convertPolygonFromDto(element.coords),
     textContentVariants: element.textContentVariants?.map(convertTextContentVariantFromDto),
     labels: convertLabelsFromDto(element.labels),
@@ -69,8 +70,8 @@ function convertGraphemeElementsToDto(elements?: GraphemeElement[]): GraphemeEle
     index: element.index,
     charType: undefinedIfBlank(element.charType),
     ligature: element.ligature,
-    custom: undefinedIfBlank(element.custom),
-    comments: undefinedIfBlank(element.comments),
+    custom: freeText(element.custom),
+    comments: freeText(element.comments),
     coords: convertPolygonToDto(element.coords),
     textContentVariants: element.textContentVariants?.map(convertTextContentVariantToDto),
     labels: convertLabelsToDto(element.labels),
@@ -91,8 +92,8 @@ function convertGlyphFromDto(dto: GlyphDto): Glyph {
     undefinedIfBlank(dto.production) as Glyph['production'],
     dto.confidence,
     undefined,
-    undefinedIfBlank(dto.custom),
-    undefinedIfBlank(dto.comments),
+    freeText(dto.custom),
+    freeText(dto.comments),
     convertAlternativeImagesFromDto(dto.alternativeImages),
     convertLabelsFromDto(dto.labels),
     convertUserDefinedFromDto(dto.userDefined),
@@ -118,8 +119,8 @@ function convertGlyphToDto(glyph: Glyph): GlyphDto {
     script: undefinedIfBlank(glyph.script),
     production: undefinedIfBlank(glyph.production),
     confidence: glyph.confidence,
-    custom: undefinedIfBlank(glyph.custom),
-    comments: undefinedIfBlank(glyph.comments)
+    custom: freeText(glyph.custom),
+    comments: freeText(glyph.comments)
   }
 }
 
@@ -139,8 +140,8 @@ function convertWordFromDto(dto: WordDto): Word {
     undefinedIfBlank(dto.readingDirection),
     undefined,
     undefinedIfBlank(dto.production),
-    undefinedIfBlank(dto.custom),
-    undefinedIfBlank(dto.comments),
+    freeText(dto.custom),
+    freeText(dto.comments),
     convertAlternativeImagesFromDto(dto.alternativeImages),
     convertLabelsFromDto(dto.labels),
     convertUserDefinedFromDto(dto.userDefined),
@@ -165,8 +166,8 @@ function convertWordToDto(word: Word): WordDto {
     readingDirection: undefinedIfBlank(word.readingDirection),
     production: undefinedIfBlank(word.production),
     confidence: word.confidence,
-    custom: undefinedIfBlank(word.custom),
-    comments: undefinedIfBlank(word.comments)
+    custom: freeText(word.custom),
+    comments: freeText(word.comments)
   }
 }
 
@@ -186,8 +187,8 @@ export function convertTextLineFromDto(dto: TextLineDto): TextLine {
     secondaryScript: undefinedIfBlank(dto.secondaryScript),
     readingDirection: undefinedIfBlank(dto.readingDirection) as TextLine['readingDirection'],
     production: undefinedIfBlank(dto.production) as TextLine['production'],
-    custom: undefinedIfBlank(dto.custom),
-    comments: undefinedIfBlank(dto.comments),
+    custom: freeText(dto.custom),
+    comments: freeText(dto.comments),
     index: dto.index,
     confidence: dto.confidence
   })
@@ -223,8 +224,8 @@ export function convertTextLineToDto(line: TextLine): TextLineDto {
     secondaryScript: undefinedIfBlank(line.secondaryScript),
     readingDirection: undefinedIfBlank(line.readingDirection),
     production: undefinedIfBlank(line.production),
-    custom: undefinedIfBlank(line.custom),
-    comments: undefinedIfBlank(line.comments),
+    custom: freeText(line.custom),
+    comments: freeText(line.comments),
     index: line.index,
     confidence: line.confidence
   }
