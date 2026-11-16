@@ -229,31 +229,32 @@ public class AnnotationProcessingService {
         Path xmlPath = Paths.get(uploadDir, xml.getFilePath());
         XmlSchema schema = xml.getSchema();
 
-        // Create a version snapshot of the current file before overwriting
-        long versionStartedAt = System.nanoTime();
-        try {
-            pageXmlVersionService.createVersion(xmlId, userId, "Saved from annotation editor");
-        } catch (Exception e) {
-            throw new IOException("Failed to create version before save for XML " + xmlId, e);
-        }
-        long versionMs = (System.nanoTime() - versionStartedAt) / 1_000_000;
-
         PageDto saveReadyPageDto = enrichMetadataForSave(pageDto, userId, initializeCreator);
-        annotationReadCache.evict(xmlId);
 
         if (schema == XmlSchema.PAGE_XML) {
             long writeStartedAt = System.nanoTime();
             Path tempPath = Files.createTempFile(xmlPath.getParent(), xmlPath.getFileName().toString(), ".tmp");
             try {
                 PageXmlWriteResult writeResult = pageXmlExporter.writeValidated(saveReadyPageDto, xml, tempPath);
+
+                long versionStartedAt = System.nanoTime();
+                try {
+                    pageXmlVersionService.createVersion(xmlId, userId, "Saved from annotation editor");
+                } catch (Exception e) {
+                    throw new IOException("Failed to create version before save for XML " + xmlId, e);
+                }
+                long versionMs = (System.nanoTime() - versionStartedAt) / 1_000_000;
+
+                annotationReadCache.evict(xmlId);
                 replaceAtomically(tempPath, xmlPath);
+                PageDto written = writeResult.written();
 
                 long newSize = Files.size(xmlPath);
                 xml.setFileSize(newSize);
                 xml.setSchemaVersion(writeResult.schemaVersion());
                 pageXmlRepository.save(xml);
                 try {
-                    annotationReadCache.put(xmlId, xmlPath, saveReadyPageDto);
+                    annotationReadCache.put(xmlId, xmlPath, written);
                 } catch (IOException e) {
                     log.warn("Saved XML {} but failed to warm annotation cache: {}", xmlId, e.getMessage());
                 }
@@ -263,7 +264,7 @@ public class AnnotationProcessingService {
                             xmlId,
                             xml.getPage().getId(),
                             xml.getPage().getProject() != null ? xml.getPage().getProject().getId() : null,
-                            saveReadyPageDto
+                            written
                     ));
                     if (xml.getPage().getProject() != null && xml.getPage().getProject().getLibrary() != null) {
                         workspaceQuotaRefreshService.scheduleUsageRefresh(xml.getPage().getProject().getLibrary().getWorkspaceId());
@@ -333,12 +334,12 @@ public class AnnotationProcessingService {
             createdXml = pageXmlRepository.save(createdXml);
 
             Path xmlPath = Paths.get(uploadDir, createdXml.getFilePath());
-            annotationReadCache.put(createdXml.getId(), xmlPath, saveReadyPageDto);
+            annotationReadCache.put(createdXml.getId(), xmlPath, writeResult.written());
             applicationEventPublisher.publishEvent(new AnnotationSavedEvent(
                     createdXml.getId(),
                     page.getId(),
                     projectId,
-                    saveReadyPageDto
+                    writeResult.written()
             ));
             workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
             return createdXml;

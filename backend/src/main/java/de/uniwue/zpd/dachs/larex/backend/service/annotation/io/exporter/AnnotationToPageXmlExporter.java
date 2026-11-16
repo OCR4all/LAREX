@@ -7,6 +7,7 @@ import com.maxnth.page4j.pagexml.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.DtoToPage4jMapper;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.Page4jToDtoMapper;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.PageDtoMappingException;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlPrettyPrinter;
@@ -28,6 +29,7 @@ public class AnnotationToPageXmlExporter {
     private static final String VALIDATION_FAILED = "PAGE XML validation failed before persistence";
 
     private final DtoToPage4jMapper mapper;
+    private final Page4jToDtoMapper toDto = new Page4jToDtoMapper();
 
     public AnnotationToPageXmlExporter(DtoToPage4jMapper mapper) {
         this.mapper = mapper;
@@ -59,13 +61,14 @@ public class AnnotationToPageXmlExporter {
     public PageXmlWriteResult writeValidated(PageDto pageDto, PageXml originalXml, Path target) throws IOException {
         long startedAt = System.nanoTime();
         try {
-            byte[] xml = write(preparePage(pageDto));
+            Page page = preparePage(pageDto);
+            byte[] xml = write(page);
             Files.write(target, xml);
             if (log.isDebugEnabled()) {
                 log.debug("Wrote validated PAGE XML to {} in {} ms ({} bytes)",
                         target, (System.nanoTime() - startedAt) / 1_000_000, xml.length);
             }
-            return new PageXmlWriteResult(xml.length, List.of(), VERSION.date());
+            return new PageXmlWriteResult(xml.length, List.of(), VERSION.date(), toDto.toDto(page, VERSION));
         } catch (IOException e) {
             log.error("Failed to write PAGE XML to {}: {}", target, e.getMessage());
             throw new IOException("Failed to write PAGE XML to " + target, e);

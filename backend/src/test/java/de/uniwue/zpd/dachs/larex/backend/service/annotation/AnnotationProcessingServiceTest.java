@@ -146,7 +146,25 @@ class AnnotationProcessingServiceTest {
 
         assertThrows(IOException.class, () -> service.saveAnnotationToXml("xml-1", pageDto(), "user-1"));
 
-        verify(pageXmlExporter, never()).writeValidated(any(), any(), any());
+        assertEquals("<PcGts/>", Files.readString(tempDir.resolve(pageXml.getFilePath())));
+        verify(applicationEventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void saveAnnotationToXml_rejectedWriteCreatesNoVersion() throws Exception {
+        AnnotationProcessingService service = service();
+        PageXml pageXml = pageXml("annotations/page.xml");
+        Path xmlPath = prepareXmlPath(pageXml.getFilePath(), "<PcGts/>");
+
+        when(pageXmlRepository.findById("xml-1")).thenReturn(Optional.of(pageXml));
+        when(pageXmlExporter.writeValidated(any(), eq(pageXml), any(Path.class)))
+                .thenThrow(new IOException("PAGE XML validation failed before persistence"));
+
+        assertThrows(IOException.class, () -> service.saveAnnotationToXml("xml-1", pageDto(), "user-1"));
+
+        assertEquals("<PcGts/>", Files.readString(xmlPath));
+        verify(pageXmlVersionService, never()).createVersion(any(), any(), any());
+        verify(annotationReadCache, never()).evict(any());
         verify(applicationEventPublisher, never()).publishEvent(any());
     }
 
@@ -155,6 +173,7 @@ class AnnotationProcessingServiceTest {
         AnnotationProcessingService service = service();
         PageXml pageXml = pageXml("annotations/page.xml");
         Path xmlPath = prepareXmlPath(pageXml.getFilePath(), "<PcGts/>");
+        PageDto written = pageDto("as written");
 
         when(pageXmlRepository.findById("xml-1")).thenReturn(Optional.of(pageXml));
         when(userService.getUserById("user-1")).thenReturn(Optional.of(new UserDto("user-1", "tester", null, null, null, null)));
@@ -162,7 +181,7 @@ class AnnotationProcessingServiceTest {
         doAnswer(invocation -> {
             Path tempPath = invocation.getArgument(2);
             Files.writeString(tempPath, "<PcGts><Page imageFilename=\"img.png\" imageWidth=\"1000\" imageHeight=\"1500\"/></PcGts>");
-            return new PageXmlWriteResult(Files.size(tempPath), List.of(), "2019-07-15");
+            return new PageXmlWriteResult(Files.size(tempPath), List.of(), "2024-07-15", written);
         }).when(pageXmlExporter).writeValidated(any(), eq(pageXml), any(Path.class));
 
         service.saveAnnotationToXml("xml-1", pageDto(), "user-1");
@@ -170,9 +189,12 @@ class AnnotationProcessingServiceTest {
         assertEquals("<PcGts><Page imageFilename=\"img.png\" imageWidth=\"1000\" imageHeight=\"1500\"/></PcGts>",
                 Files.readString(xmlPath));
         verify(annotationReadCache).evict("xml-1");
-        verify(annotationReadCache).put(eq("xml-1"), eq(xmlPath), any(PageDto.class));
+        verify(pageXmlVersionService).createVersion("xml-1", "user-1", "Saved from annotation editor");
+        verify(annotationReadCache).put("xml-1", xmlPath, written);
         verify(pageXmlRepository).save(pageXml);
-        verify(applicationEventPublisher).publishEvent(any(AnnotationSavedEvent.class));
+        ArgumentCaptor<AnnotationSavedEvent> event = ArgumentCaptor.forClass(AnnotationSavedEvent.class);
+        verify(applicationEventPublisher).publishEvent(event.capture());
+        assertSame(written, event.getValue().pageDto());
         verify(workspaceQuotaRefreshService).scheduleUsageRefresh("ws-1");
     }
 
@@ -201,7 +223,7 @@ class AnnotationProcessingServiceTest {
         when(userService.getUserById("user-1"))
                 .thenReturn(Optional.of(new UserDto("user-1", "tester", null, null, null, null)));
         when(pageXmlExporter.writeValidated(any(PageDto.class), isNull(), any(Path.class)))
-                .thenReturn(new PageXmlWriteResult(10L, List.of(), "2019-07-15"));
+                .thenReturn(new PageXmlWriteResult(10L, List.of(), "2024-07-15", pageDto()));
         when(hierarchicalFileStorageService.storeFromPath(
                 any(Path.class),
                 eq("Page 1.xml"),

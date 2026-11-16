@@ -136,6 +136,7 @@ final class DtoToPage4jMappingSession {
     private final Map<Object, String> ids = new IdentityHashMap<>();
     private final Set<String> knownIds = new HashSet<>();
     private final Set<String> claimedIds = new HashSet<>();
+    private final Map<String, String> repairedIds = new HashMap<>();
     private final Map<String, Integer> idCounters = new HashMap<>();
     private String pcGtsId;
 
@@ -309,6 +310,9 @@ final class DtoToPage4jMappingSession {
         } while (knownIds.contains(generated) || claimedIds.contains(generated));
         claimedIds.add(generated);
         ids.put(owner, generated);
+        if (id != null && !isValidId(id)) {
+            repairedIds.putIfAbsent(id, generated);
+        }
         log.warn("Repaired {} ID '{}' on save as '{}'", id == null || id.isBlank() ? "missing" : isValidId(id) ? "duplicate" : "invalid", id, generated);
     }
 
@@ -316,21 +320,31 @@ final class DtoToPage4jMappingSession {
         return ids.get(owner);
     }
 
+    private String resolve(String ref) {
+        if (!hasText(ref)) {
+            return null;
+        }
+        return knownIds.contains(ref) ? ref : repairedIds.get(ref);
+    }
+
     private static boolean isValidId(String id) {
-        if (id == null || id.isEmpty()) {
+        if (id == null || id.isEmpty() || !isNameStartChar(id.codePointAt(0))) {
             return false;
         }
-        char first = id.charAt(0);
-        if (!(Character.isLetter(first) || first == '_')) {
-            return false;
-        }
-        for (int i = 0; i < id.length(); i++) {
-            char c = id.charAt(i);
-            if (Character.isWhitespace(c) || c == ':') {
-                return false;
-            }
-        }
-        return true;
+        return id.codePoints().allMatch(c -> isNameStartChar(c) || isNameChar(c));
+    }
+
+    private static boolean isNameStartChar(int c) {
+        return c >= 'A' && c <= 'Z' || c == '_' || c >= 'a' && c <= 'z'
+            || c >= 0xC0 && c <= 0xD6 || c >= 0xD8 && c <= 0xF6 || c >= 0xF8 && c <= 0x2FF
+            || c >= 0x370 && c <= 0x37D || c >= 0x37F && c <= 0x1FFF || c >= 0x200C && c <= 0x200D
+            || c >= 0x2070 && c <= 0x218F || c >= 0x2C00 && c <= 0x2FEF || c >= 0x3001 && c <= 0xD7FF
+            || c >= 0xF900 && c <= 0xFDCF || c >= 0xFDF0 && c <= 0xFFFD || c >= 0x10000 && c <= 0xEFFFF;
+    }
+
+    private static boolean isNameChar(int c) {
+        return c == '-' || c == '.' || c >= '0' && c <= '9' || c == 0xB7
+            || c >= 0x300 && c <= 0x36F || c >= 0x203F && c <= 0x2040;
     }
 
     private Metadata toMetadata(MetadataDto metadata) {
@@ -812,7 +826,8 @@ final class DtoToPage4jMappingSession {
         if (readingOrder == null || readingOrder.root() == null) {
             return null;
         }
-        return new ReadingOrder(readingOrder.confidence(), toGroup(readingOrder.root()));
+        Group root = toGroup(readingOrder.root());
+        return root != null ? new ReadingOrder(readingOrder.confidence(), root) : null;
     }
 
     private Group toGroup(ReadingOrderDto.GroupDto group) {
@@ -822,27 +837,32 @@ final class DtoToPage4jMappingSession {
         forEach(group.members(), member -> {
             switch (member) {
                 case ReadingOrderDto.RegionRefDto ref -> {
-                    String target = ref.regionRef();
-                    if (!hasText(target)) {
+                    if (!hasText(ref.regionRef())) {
                         return;
                     }
-                    if (!knownIds.contains(target)) {
-                        log.warn("Dropping reading order reference to missing element '{}' in {}", target, context);
+                    String target = resolve(ref.regionRef());
+                    if (target == null) {
+                        log.warn("Dropping reading order reference to missing element '{}' in {}", ref.regionRef(), context);
                         return;
                     }
                     members.add(new RegionRef(target));
                 }
                 case ReadingOrderDto.NestedGroupDto nested -> {
-                    if (nested.group() != null) {
-                        members.add(toGroup(nested.group()));
+                    Group child = nested.group() != null ? toGroup(nested.group()) : null;
+                    if (child != null) {
+                        members.add(child);
                     }
                 }
             }
         });
-        String regionRef = hasText(group.regionRef()) ? group.regionRef() : null;
-        if (regionRef != null && !knownIds.contains(regionRef)) {
-            log.warn("Dropping regionRef to missing element '{}' of {}", regionRef, context);
-            regionRef = null;
+        if (members.isEmpty()) {
+            log.warn("Dropping {} on save because it has no members", context);
+            knownIds.remove(id);
+            return null;
+        }
+        String regionRef = resolve(group.regionRef());
+        if (hasText(group.regionRef()) && regionRef == null) {
+            log.warn("Dropping regionRef to missing element '{}' of {}", group.regionRef(), context);
         }
         String caption = group.caption();
         GroupType type = value(group.groupType(), GroupType::fromXml, context + " type");
@@ -871,11 +891,12 @@ final class DtoToPage4jMappingSession {
                 if (!hasText(ref)) {
                     return;
                 }
-                if (!knownIds.contains(ref)) {
+                String target = resolve(ref);
+                if (target == null) {
                     log.warn("Dropping layer reference to missing element '{}' in Layer '{}'", ref, id);
                     return;
                 }
-                regionRefs.add(ref);
+                regionRefs.add(target);
             });
             if (regionRefs.isEmpty()) {
                 log.warn("Dropping Layer '{}' on save because it references no existing element", id);
@@ -895,10 +916,11 @@ final class DtoToPage4jMappingSession {
             if (relation == null) {
                 continue;
             }
-            String source = relation.sourceRegionRef();
-            String target = relation.targetRegionRef();
-            if (!hasText(source) || !hasText(target) || !knownIds.contains(source) || !knownIds.contains(target)) {
-                log.warn("Dropping relation '{}' between missing elements '{}' and '{}'", relation.id(), source, target);
+            String source = resolve(relation.sourceRegionRef());
+            String target = resolve(relation.targetRegionRef());
+            if (source == null || target == null) {
+                log.warn("Dropping relation '{}' between missing elements '{}' and '{}'",
+                    relation.id(), relation.sourceRegionRef(), relation.targetRegionRef());
                 continue;
             }
             result.add(new Relation(
