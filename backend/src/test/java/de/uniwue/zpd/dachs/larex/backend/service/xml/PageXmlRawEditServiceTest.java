@@ -54,7 +54,7 @@ class PageXmlRawEditServiceTest {
     @Mock
     private PageFilterIndexService pageFilterIndexService;
     @Mock
-    private PageXmlValidationService pageXmlValidationService;
+    private PageXmlEditorCheck pageXmlEditorCheck;
     @Mock
     private WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     @Mock
@@ -74,7 +74,7 @@ class PageXmlRawEditServiceTest {
                 "2019-07-15",
                 "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15"
         );
-        when(pageXmlValidationService.validatePageXml("<new/>")).thenReturn(invalid);
+        when(pageXmlEditorCheck.validate("<new/>")).thenReturn(invalid);
 
         PageXmlTextDto.XmlValidationResult result = service.saveXmlText(
                 "project-1",
@@ -120,7 +120,7 @@ class PageXmlRawEditServiceTest {
                   <Page imageFilename="img.png" imageWidth="1000" imageHeight="1000"/>
                 </PcGts>
                 """;
-        when(pageXmlValidationService.validatePageXml(xml)).thenReturn(valid);
+        when(pageXmlEditorCheck.validate(xml)).thenReturn(valid);
 
         PageXmlTextDto.XmlValidationResult result = service.saveXmlText(
                 "project-1",
@@ -162,7 +162,7 @@ class PageXmlRawEditServiceTest {
                 "user-1"
         ));
 
-        verify(pageXmlValidationService, never()).validatePageXml(anyString());
+        verify(pageXmlEditorCheck, never()).validate(anyString());
         verify(pageXmlVersionService, never()).createVersion(any(), any(), any());
         verify(pageXmlRepository, never()).save(any());
     }
@@ -179,15 +179,15 @@ class PageXmlRawEditServiceTest {
 
         assertThrows(AccessDeniedException.class, () -> service.saveXmlText(
                 "project-1", "page-1", "xml-1", "<new/>", null, "user-1"));
-        verify(pageXmlValidationService, never()).validatePageXml(anyString());
+        verify(pageXmlEditorCheck, never()).validate(anyString());
 
         when(authorizationPolicyService.canReviewPages("ws-1", "user-1")).thenReturn(true);
-        when(pageXmlValidationService.validatePageXml(anyString())).thenReturn(new PageXmlTextDto.XmlValidationResult(
+        when(pageXmlEditorCheck.validate(anyString())).thenReturn(new PageXmlTextDto.XmlValidationResult(
                 false, List.of(), null, null));
 
         service.saveXmlText("project-1", "page-1", "xml-1", "<new/>", null, "user-1");
 
-        verify(pageXmlValidationService).validatePageXml(anyString());
+        verify(pageXmlEditorCheck).validate(anyString());
     }
 
     private PageXmlRawEditService service() {
@@ -200,10 +200,10 @@ class PageXmlRawEditServiceTest {
                 pageXmlVersionService,
                 annotationReadCache,
                 pageFilterIndexService,
-                pageXmlValidationService,
                 workspaceQuotaRefreshService,
                 authorizationPolicyService,
-                new UploadPathService(uploadDirectoryProperties)
+                new UploadPathService(uploadDirectoryProperties),
+                pageXmlEditorCheck
         );
     }
 

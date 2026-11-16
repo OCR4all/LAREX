@@ -31,6 +31,10 @@ public class PageXmlToAnnotationParser {
         return mapper.toDto(read(xmlPath, readBytes(xmlPath)), PageXmlConversionService.PRIMARY_VERSION);
     }
 
+    public PageDto parse(byte[] xml) throws IOException {
+        return mapper.toDto(read("PAGE XML text", xml), PageXmlConversionService.PRIMARY_VERSION);
+    }
+
     public PageXmlParseResult parseWithAttributes(Path xmlPath, PageXml pageXml) throws IOException {
         byte[] bytes = readBytes(xmlPath);
         PageDto dto = mapper.toDto(read(xmlPath, bytes), PageXmlConversionService.PRIMARY_VERSION);
@@ -44,7 +48,7 @@ public class PageXmlToAnnotationParser {
         return Files.readAllBytes(xmlPath);
     }
 
-    private static Page read(Path xmlPath, byte[] bytes) throws IOException {
+    private static Page read(Object source, byte[] bytes) throws IOException {
         long startedAt = System.nanoTime();
         try {
             PageXmlReadResult result = PageXmlVersionGate.requireReadable(com.maxnth.page4j.pagexml.PageXml.create().read(bytes));
@@ -52,11 +56,11 @@ public class PageXmlToAnnotationParser {
                     ? result.page()
                     : PageConverter.convert(result.page(), PageXmlConversionService.PRIMARY_VERSION).page();
             if (log.isDebugEnabled()) {
-                log.debug("Read PAGE XML {} in {} ms", xmlPath, (System.nanoTime() - startedAt) / 1_000_000);
+                log.debug("Read PAGE XML {} in {} ms", source, (System.nanoTime() - startedAt) / 1_000_000);
             }
             return page;
         } catch (Exception e) {
-            throw new IOException("Failed to parse PAGE XML file: " + xmlPath + ": " + e.getMessage(), e);
+            throw new IOException("Failed to parse PAGE XML file: " + source + ": " + e.getMessage(), e);
         }
     }
 

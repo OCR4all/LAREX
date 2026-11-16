@@ -307,7 +307,7 @@ async function saveXml() {
       applyDiagnostics(result)
       toast.add({
         title: 'Save blocked',
-        description: 'XML is invalid against PAGE XSD. Fix validation errors and try again.',
+        description: 'The XML has errors, so it was not saved. Fix the errors listed and try again.',
         color: 'warning'
       })
       return

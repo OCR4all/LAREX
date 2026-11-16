@@ -30,10 +30,10 @@ public class PageXmlRawEditService {
     private final PageXmlVersionService pageXmlVersionService;
     private final AnnotationReadCache annotationReadCache;
     private final PageFilterIndexService pageFilterIndexService;
-    private final PageXmlValidationService pageXmlValidationService;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     private final AuthorizationPolicyService authorizationPolicyService;
     private final UploadPathService uploadPathService;
+    private final PageXmlEditorCheck pageXmlEditorCheck;
 
     public PageXmlRawEditService(
             PageService pageService,
@@ -41,19 +41,19 @@ public class PageXmlRawEditService {
             PageXmlVersionService pageXmlVersionService,
             AnnotationReadCache annotationReadCache,
             PageFilterIndexService pageFilterIndexService,
-            PageXmlValidationService pageXmlValidationService,
             WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
             AuthorizationPolicyService authorizationPolicyService,
-            UploadPathService uploadPathService) {
+            UploadPathService uploadPathService,
+            PageXmlEditorCheck pageXmlEditorCheck) {
         this.pageService = pageService;
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlVersionService = pageXmlVersionService;
         this.annotationReadCache = annotationReadCache;
         this.pageFilterIndexService = pageFilterIndexService;
-        this.pageXmlValidationService = pageXmlValidationService;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
         this.authorizationPolicyService = authorizationPolicyService;
         this.uploadPathService = uploadPathService;
+        this.pageXmlEditorCheck = pageXmlEditorCheck;
     }
 
     public PageXmlTextDto.XmlTextResponse getXmlText(String projectId, String pageId, String xmlId, String userId) throws IOException {
@@ -64,7 +64,7 @@ public class PageXmlRawEditService {
         }
 
         String xml = Files.readString(xmlPath, StandardCharsets.UTF_8);
-        PageXmlTextDto.XmlValidationResult validation = pageXmlValidationService.validatePageXml(xml);
+        PageXmlTextDto.XmlValidationResult validation = validate(xml);
 
         return new PageXmlTextDto.XmlTextResponse(
                 pageXml.getId(),
@@ -75,7 +75,11 @@ public class PageXmlRawEditService {
     }
 
     public PageXmlTextDto.XmlValidationResult validateXmlText(String xmlText) {
-        return pageXmlValidationService.validatePageXml(xmlText);
+        return validate(xmlText);
+    }
+
+    private PageXmlTextDto.XmlValidationResult validate(String xmlText) {
+        return pageXmlEditorCheck.validate(xmlText);
     }
 
     public void assertPageXmlAccess(String projectId, String pageId, String xmlId, String userId) {
@@ -98,7 +102,7 @@ public class PageXmlRawEditService {
             throw new IOException("XML file not found on disk: " + xmlPath);
         }
 
-        PageXmlTextDto.XmlValidationResult validation = pageXmlValidationService.validatePageXml(xmlText);
+        PageXmlTextDto.XmlValidationResult validation = validate(xmlText);
         if (!validation.valid()) {
             return validation;
         }

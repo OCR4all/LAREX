@@ -22,7 +22,7 @@ describe('readExportWarnings', () => {
       [EXPORT_WARNINGS_HEADER]: 'FormRegion%20%27f1%27%3A%20changed%0AGr%C3%B6%C3%9Fe%3A%20%C3%A4%2B%C3%B6%20100%25'
     })
 
-    expect(readExportWarnings(headers)).toEqual(["FormRegion 'f1': changed", 'Größe: ä+ö 100%'])
+    expect(readExportWarnings(headers)).toEqual(['FormRegion \'f1\': changed', 'Größe: ä+ö 100%'])
   })
 
   it('returns nothing without the header or for a malformed value', () => {

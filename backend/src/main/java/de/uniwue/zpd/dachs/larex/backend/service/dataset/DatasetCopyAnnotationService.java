@@ -19,7 +19,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshSe
 import de.uniwue.zpd.dachs.larex.backend.service.version.DatasetItemCopyXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlPrettyPrinter;
-import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlEditorCheck;
 import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +51,7 @@ public class DatasetCopyAnnotationService {
     private final AnnotationToPageXmlExporter pageXmlExporter;
     private final AnnotationReadCache annotationReadCache;
     private final DatasetItemCopyXmlVersionService copyXmlVersionService;
-    private final PageXmlValidationService pageXmlValidationService;
+    private final PageXmlEditorCheck pageXmlEditorCheck;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
 
     @Value("${file.upload-dir}")
@@ -66,7 +66,7 @@ public class DatasetCopyAnnotationService {
                                         AnnotationToPageXmlExporter pageXmlExporter,
                                         AnnotationReadCache annotationReadCache,
                                         DatasetItemCopyXmlVersionService copyXmlVersionService,
-                                        PageXmlValidationService pageXmlValidationService,
+                                        PageXmlEditorCheck pageXmlEditorCheck,
                                         WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
         this.datasetRepository = datasetRepository;
         this.datasetItemRepository = datasetItemRepository;
@@ -77,7 +77,7 @@ public class DatasetCopyAnnotationService {
         this.pageXmlExporter = pageXmlExporter;
         this.annotationReadCache = annotationReadCache;
         this.copyXmlVersionService = copyXmlVersionService;
-        this.pageXmlValidationService = pageXmlValidationService;
+        this.pageXmlEditorCheck = pageXmlEditorCheck;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
     }
 
@@ -288,7 +288,7 @@ public class DatasetCopyAnnotationService {
         }
 
         String xml = Files.readString(context.xmlPath(), StandardCharsets.UTF_8);
-        PageXmlTextDto.XmlValidationResult validation = pageXmlValidationService.validatePageXml(xml);
+        PageXmlTextDto.XmlValidationResult validation = pageXmlEditorCheck.validate(xml);
 
         return new PageXmlTextDto.XmlTextResponse(
                 context.copyXml().getId(),
@@ -307,7 +307,7 @@ public class DatasetCopyAnnotationService {
     }
 
     public PageXmlTextDto.XmlValidationResult validateXmlText(String xmlText) {
-        return pageXmlValidationService.validatePageXml(xmlText);
+        return pageXmlEditorCheck.validate(xmlText);
     }
 
     @Transactional
@@ -326,7 +326,7 @@ public class DatasetCopyAnnotationService {
             throw new IOException("COPY XML file not found on disk: " + context.xmlPath());
         }
 
-        PageXmlTextDto.XmlValidationResult validation = pageXmlValidationService.validatePageXml(xmlText);
+        PageXmlTextDto.XmlValidationResult validation = pageXmlEditorCheck.validate(xmlText);
         if (!validation.valid()) {
             return validation;
         }
