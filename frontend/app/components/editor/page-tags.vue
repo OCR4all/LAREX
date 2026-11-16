@@ -201,7 +201,12 @@ async function save() {
               class="w-full"
             >
               <template #item-label="{ item }">
-                <UiColorTag :color="item.color" variant="subtle" size="sm" class="max-w-full">
+                <UiColorTag
+                  :color="item.color"
+                  variant="subtle"
+                  size="sm"
+                  class="max-w-full"
+                >
                   <span class="truncate">{{ item.label }}</span>
                 </UiColorTag>
               </template>

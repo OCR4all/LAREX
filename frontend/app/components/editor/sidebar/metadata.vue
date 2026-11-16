@@ -516,7 +516,12 @@ watch(() => props.readOnly, (readOnly) => {
             </UFormField>
 
             <UFormField label="Comments" name="comments">
-              <EditorSidebarMetadataFreeTextField v-model="documentFormState.comments" placeholder="Comments" multiline :rows="3" />
+              <EditorSidebarMetadataFreeTextField
+                v-model="documentFormState.comments"
+                placeholder="Comments"
+                multiline
+                :rows="3"
+              />
             </UFormField>
 
             <UFormField label="External Reference" name="externalRef">
@@ -882,7 +887,12 @@ watch(() => props.readOnly, (readOnly) => {
             </UFormField>
 
             <UFormField label="Comments" name="comments">
-              <EditorSidebarMetadataFreeTextField v-model="textRegionFormState.comments" placeholder="Comments" multiline :rows="2" />
+              <EditorSidebarMetadataFreeTextField
+                v-model="textRegionFormState.comments"
+                placeholder="Comments"
+                multiline
+                :rows="2"
+              />
             </UFormField>
 
             <UFormField label="Custom" name="custom">
@@ -998,7 +1008,12 @@ watch(() => props.readOnly, (readOnly) => {
             </UFormField>
 
             <UFormField label="Comments" name="comments">
-              <EditorSidebarMetadataFreeTextField v-model="genericRegionFormState.comments" placeholder="Comments" multiline :rows="2" />
+              <EditorSidebarMetadataFreeTextField
+                v-model="genericRegionFormState.comments"
+                placeholder="Comments"
+                multiline
+                :rows="2"
+              />
             </UFormField>
 
             <UFormField label="Custom" name="custom">
@@ -1253,7 +1268,12 @@ watch(() => props.readOnly, (readOnly) => {
             </UFormField>
 
             <UFormField label="Comments" name="comments">
-              <EditorSidebarMetadataFreeTextField v-model="textLineFormState.comments" placeholder="Comments" multiline :rows="2" />
+              <EditorSidebarMetadataFreeTextField
+                v-model="textLineFormState.comments"
+                placeholder="Comments"
+                multiline
+                :rows="2"
+              />
             </UFormField>
 
             <UFormField label="Custom" name="custom">
@@ -1388,7 +1408,12 @@ watch(() => props.readOnly, (readOnly) => {
             </UFormField>
 
             <UFormField label="Comments" name="comments">
-              <EditorSidebarMetadataFreeTextField v-model="wordFormState.comments" placeholder="Comments" multiline :rows="2" />
+              <EditorSidebarMetadataFreeTextField
+                v-model="wordFormState.comments"
+                placeholder="Comments"
+                multiline
+                :rows="2"
+              />
             </UFormField>
 
             <UFormField label="Custom" name="custom">
@@ -1450,7 +1475,12 @@ watch(() => props.readOnly, (readOnly) => {
             </div>
 
             <UFormField label="Comments" name="comments">
-              <EditorSidebarMetadataFreeTextField v-model="glyphFormState.comments" placeholder="Comments" multiline :rows="2" />
+              <EditorSidebarMetadataFreeTextField
+                v-model="glyphFormState.comments"
+                placeholder="Comments"
+                multiline
+                :rows="2"
+              />
             </UFormField>
 
             <UFormField label="Custom" name="custom">
