@@ -3,19 +3,46 @@ import type { TableColumn } from '@nuxt/ui'
 import type { ActionActivationRequest, ActionAssignmentResponse, ActionDefinitionResponse, ActionExecuteRole, ActionExecuteRoleRequest } from '~/types/action'
 import type { WorkspaceActionRow } from '~/utils/workspace-action-activation'
 
+interface WorkspaceActionSettings {
+  definitions: ActionDefinitionResponse[]
+  assignments: ActionAssignmentResponse[]
+  projects: Array<{ id: string, name: string }>
+}
+
 const workspaceStore = useWorkspaceStore()
 const toast = useToast()
-const { allow } = useActionVisibility()
+const requestFetch = useRequestFetch()
 const selectedWorkspace = computed(() => workspaceStore.selectedWorkspaceId)
-const { capabilities } = useWorkspaceCapabilities(selectedWorkspace)
-const canManage = computed(() => workspaceStore.currentWorkspace?.isPersonal === true || allow(capabilities.value.canManageProjects))
+
+const canManage = computed(() => workspaceStore.currentWorkspace?.isPersonal === true || workspaceStore.canManageProjects)
+
+const emptySettings = (): WorkspaceActionSettings => ({ definitions: [], assignments: [], projects: [] })
+const settingsKey = computed(() => selectedWorkspace.value
+  ? wsKey(selectedWorkspace.value, 'workspace-action-settings')
+  : globalKey('pending', 'workspace-action-settings'))
+
+const { data: settings, status, error: loadFailure, refresh: refreshSettings } = useLazyAsyncData<WorkspaceActionSettings>(settingsKey, async () => {
+  const workspaceId = selectedWorkspace.value
+  if (!workspaceId || !canManage.value) return emptySettings()
+  const [definitions, assignments, projects] = await Promise.all([
+    requestFetch<ActionDefinitionResponse[]>(`/api/workspaces/${workspaceId}/actions/processors/available`),
+    requestFetch<ActionAssignmentResponse[]>(`/api/workspaces/${workspaceId}/actions/assignments`, { query: { allScopes: true } }),
+    requestFetch<Array<{ id: string, name: string }>>(`/api/workspaces/${workspaceId}/projects`)
+  ])
+  return { definitions, assignments, projects }
+}, { default: emptySettings, watch: [canManage] })
+
+const definitions = computed(() => settings.value.definitions)
+const projects = computed(() => settings.value.projects)
+const assignments = computed({
+  get: () => settings.value.assignments,
+  set: (value: ActionAssignmentResponse[]) => { settings.value = { ...settings.value, assignments: value } }
+})
+const loading = computed(() => status.value === 'pending')
+const loadActions = () => refreshSettings()
+const loadError = computed(() => loadFailure.value ? extractApiErrorMessage(loadFailure.value, 'Please try again.') : '')
 
 const workflowBuilder = ref<{ create: () => void, editById: (id: string) => Promise<void>, canEdit: (id: string) => boolean } | null>(null)
-const definitions = ref<ActionDefinitionResponse[]>([])
-const assignments = ref<ActionAssignmentResponse[]>([])
-const projects = ref<Array<{ id: string, name: string }>>([])
-const loading = ref(true)
-const loadError = ref('')
 const search = ref('')
 const projectFilter = ref('ALL')
 const expanded = ref<Record<string, boolean>>({})
@@ -33,8 +60,6 @@ const editError = ref('')
 const pendingIds = ref<string[]>([])
 const removingIds = ref<string[]>([])
 let generation = 0
-let loadSequence = 0
-let mounted = false
 
 const rows = computed(() => groupWorkspaceActions(assignments.value))
 const filteredRows = computed(() => filterWorkspaceActions(rows.value, search.value, projectFilter.value === 'ALL' ? '' : projectFilter.value))
@@ -87,35 +112,9 @@ function scopeLabel(row: WorkspaceActionRow) {
   return row.projectIds.map(id => projects.value.find(project => project.id === id)?.name ?? 'Unavailable project').join(', ')
 }
 
-async function loadActions() {
-  const workspaceId = selectedWorkspace.value
-  if (!workspaceId || !canManage.value) return
-  const version = generation
-  const sequence = ++loadSequence
-  loading.value = true
-  loadError.value = ''
-  try {
-    const [loadedDefinitions, loadedAssignments, loadedProjects] = await Promise.all([
-      $fetch<ActionDefinitionResponse[]>(`/api/workspaces/${workspaceId}/actions/processors/available`),
-      $fetch<ActionAssignmentResponse[]>(`/api/workspaces/${workspaceId}/actions/assignments`, { query: { allScopes: true } }),
-      $fetch<Array<{ id: string, name: string }>>(`/api/workspaces/${workspaceId}/projects`)
-    ])
-    if (version !== generation || sequence !== loadSequence) return
-    definitions.value = loadedDefinitions
-    assignments.value = loadedAssignments
-    projects.value = loadedProjects
-  } catch (error) {
-    if (version === generation && sequence === loadSequence) loadError.value = message(error)
-  } finally {
-    if (version === generation && sequence === loadSequence) loading.value = false
-  }
-}
-
 function reset() {
   generation++
-  definitions.value = []
-  assignments.value = []
-  projects.value = []
+  settings.value = emptySettings()
   search.value = ''
   projectFilter.value = 'ALL'
   expanded.value = {}
@@ -132,18 +131,9 @@ function reset() {
   editError.value = ''
   pendingIds.value = []
   removingIds.value = []
-  loading.value = !!selectedWorkspace.value && canManage.value
-  loadError.value = ''
 }
 
-onMounted(() => {
-  mounted = true
-  void loadActions()
-})
-watch([selectedWorkspace, canManage], () => {
-  reset()
-  if (mounted) void loadActions()
-})
+watch([selectedWorkspace, canManage], reset)
 onBeforeUnmount(() => {
   generation++
 })
