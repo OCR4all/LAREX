@@ -150,10 +150,12 @@ public class DocumentExportService {
         String contentType = pageXml.getMimeType() == null || pageXml.getMimeType().isBlank()
                 ? DocumentExportDto.ExportFormat.PAGE_XML.getContentType()
                 : pageXml.getMimeType();
+        PageXmlConversionService.ExportedXml exported = pageXmlConversionService.exportFileToVersion(xmlPath, normalizedTarget);
         return new StreamingDocumentExportResult(
                 fileName,
                 contentType,
-                outputStream -> pageXmlConversionService.writeFileToVersion(xmlPath, normalizedTarget, outputStream)
+                outputStream -> outputStream.write(exported.xml()),
+                exported.warnings()
         );
     }
 
@@ -439,8 +441,12 @@ public class DocumentExportService {
     public record StreamingDocumentExportResult(
             String fileName,
             String contentType,
-            ExportWriter writer
+            ExportWriter writer,
+            List<String> warnings
     ) {
+        public StreamingDocumentExportResult(String fileName, String contentType, ExportWriter writer) {
+            this(fileName, contentType, writer, List.of());
+        }
     }
 
     @FunctionalInterface

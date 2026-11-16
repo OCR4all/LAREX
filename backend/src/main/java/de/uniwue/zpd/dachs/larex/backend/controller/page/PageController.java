@@ -19,6 +19,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.PageTextConfidenceStatsSer
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageWorkflowService;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchPreviewService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
+import de.uniwue.zpd.dachs.larex.backend.service.export.ExportWarningsHeader;
 import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.task.SubtaskService;
@@ -592,6 +593,7 @@ public class PageController {
         headers.setContentDisposition(ContentDisposition.attachment()
                 .filename(exportResult.fileName())
                 .build());
+        ExportWarningsHeader.add(headers, exportResult.warnings());
         StreamingResponseBody body = exportResult.writer()::write;
 
         return ResponseEntity.ok()
@@ -1099,8 +1101,10 @@ public class PageController {
             StreamingResponseBody body;
             if (xml.getSchema() == XmlSchema.PAGE_XML) {
                 String normalizedTarget = pageXmlConversionService.normalizeTargetVersion(targetPageXmlVersion);
-                body = outputStream ->
-                        pageXmlConversionService.writeFileToVersion(filePath, normalizedTarget, outputStream);
+                PageXmlConversionService.ExportedXml exported =
+                        pageXmlConversionService.exportFileToVersion(filePath, normalizedTarget);
+                ExportWarningsHeader.add(headers, exported.warnings());
+                body = outputStream -> outputStream.write(exported.xml());
             } else {
                 body = outputStream -> Files.copy(filePath, outputStream);
             }
@@ -1111,6 +1115,9 @@ public class PageController {
         } catch (IllegalArgumentException e) {
             log.warn("Failed to export XML {}: {}", xmlId, e.getMessage());
             return ResponseEntity.badRequest().build();
+        } catch (IOException e) {
+            log.error("I/O failure while exporting XML {}", xmlId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

@@ -81,7 +81,7 @@ export function useProjectExportDialog(exportTargetSlideover: ExportTargetSlideo
 
     const confirmation = confirmSlideover.open({
       title: 'Confirm Legacy PAGE XML Export',
-      message: 'Exporting to an older PAGE XML schema may drop data that only PAGE 2024 can hold. Continue anyway?',
+      message: 'Exporting to an older PAGE XML schema may drop data that only PAGE 2024 can hold. LAREX lists every change it makes: in a notice for single pages, and in the archive for projects. Continue anyway?',
       confirmLabel: 'Export anyway',
       confirmColor: 'warning',
       confirmIcon: 'i-lucide-triangle-alert'

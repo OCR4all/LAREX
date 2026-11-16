@@ -9,6 +9,18 @@ import type {
 
 export const PAGE_XML_PRIMARY_VERSION = '2024-07-15'
 
+export const EXPORT_WARNINGS_HEADER = 'X-Export-Warnings'
+
+export function readExportWarnings(headers: Headers): string[] {
+  const value = headers.get(EXPORT_WARNINGS_HEADER)
+  if (!value) return []
+  try {
+    return decodeURIComponent(value).split('\n').filter(line => line.length > 0)
+  } catch {
+    return []
+  }
+}
+
 export function normalizePageXmlVersion(value: unknown): string {
   if (typeof value === 'string') {
     const trimmed = value.trim()

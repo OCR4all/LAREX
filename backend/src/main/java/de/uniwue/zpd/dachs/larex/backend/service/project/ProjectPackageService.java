@@ -1139,7 +1139,7 @@ public class ProjectPackageService {
         List<String> warnings = new ArrayList<>(exportWarnings);
         if (legacyTarget) {
             warnings.add("Export target PAGE XML " + targetPageXmlVersion
-                    + " may lose data because older PAGE schemas do not support all PAGE 2019 features.");
+                    + " may lose data because older PAGE schemas do not support all PAGE " + PageXmlConversionService.PRIMARY_PAGE_VERSION + " features. Changes made on export are listed below.");
             warnings.add("Version history snapshots in page history directories are preserved as-is and are not downconverted; "
                     + "snapshot versions may differ from the selected export target.");
         }

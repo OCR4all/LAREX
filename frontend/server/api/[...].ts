@@ -110,7 +110,7 @@ export default defineEventHandler(async (event) => {
       if (contentRange) setHeader(event, 'Content-Range', contentRange)
       if (acceptRanges) setHeader(event, 'Accept-Ranges', acceptRanges)
       if (etag) setHeader(event, 'ETag', etag)
-      for (const name of ['X-Original-Width', 'X-Original-Height']) {
+      for (const name of ['X-Original-Width', 'X-Original-Height', 'X-Export-Warnings']) {
         const value = response.headers.get(name)
         if (value) setHeader(event, name, value)
       }

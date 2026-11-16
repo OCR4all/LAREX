@@ -105,6 +105,42 @@ class PageXmlConversionServiceTest {
     }
 
     @Test
+    void exportToOlderVersionReportsEachChangeGroupedByWhatChanged() throws Exception {
+        Path source = tempDir.resolve("page.xml");
+        Files.writeString(source, page2024WithNewFeatures());
+
+        PageXmlConversionService.ExportedXml exported = service.exportFileToVersion(source, "2019-07-15");
+
+        assertTrue(new String(exported.xml(), StandardCharsets.UTF_8).contains("pagecontent/2019-07-15"));
+        assertEquals(java.util.List.of(
+                "removed attribute orientation, not supported in PAGE 2019-07-15: TextLine 'l1', TextLine 'l2', TextLine 'l3' and 2 more",
+                "FormRegion 'f1': changed to CustomRegion of type 'form', FormRegion is not supported in PAGE 2019-07-15"
+        ), exported.warnings());
+    }
+
+    @Test
+    void exportToPrimaryVersionReportsNothing() throws Exception {
+        Path source = tempDir.resolve("page.xml");
+        Files.writeString(source, page2024WithNewFeatures());
+
+        PageXmlConversionService.ExportedXml exported = service.exportFileToVersion(source, "2024-07-15");
+
+        assertEquals(Files.readString(source), new String(exported.xml(), StandardCharsets.UTF_8));
+        assertTrue(exported.warnings().isEmpty());
+    }
+
+    @Test
+    void upgradingOnExportReportsNothing() throws Exception {
+        Path source = tempDir.resolve("page.xml");
+        Files.writeString(source, exported2017Xml());
+
+        PageXmlConversionService.ExportedXml exported = service.exportFileToVersion(source, "2024-07-15");
+
+        assertTrue(new String(exported.xml(), StandardCharsets.UTF_8).contains("pagecontent/2024-07-15"));
+        assertTrue(exported.warnings().isEmpty());
+    }
+
+    @Test
     void convertFileInPlace_legacy2017_convertsToPrimaryWithoutEmptyAttributes() throws Exception {
         Path xmlPath = tempDir.resolve("legacy-2017.xml");
         Files.writeString(xmlPath, exported2017Xml(), StandardCharsets.UTF_8);
@@ -121,6 +157,35 @@ class PageXmlConversionServiceTest {
         assertNotNull(convertedXml);
         assertTrue(convertedXml.contains("pagecontent/2024-07-15"));
         assertFalse(convertedXml.contains("=\"\""));
+    }
+
+    private String page2024WithNewFeatures() {
+        StringBuilder lines = new StringBuilder();
+        for (int index = 1; index <= 5; index++) {
+            lines.append("""
+                          <TextLine id="l%d" orientation="0.5">
+                            <Coords points="10,%d 90,%d 90,%d 10,%d"/>
+                          </TextLine>
+                    """.formatted(index, index * 10, index * 10, index * 10 + 5, index * 10 + 5));
+        }
+        return """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15">
+                  <Metadata>
+                    <Creator>tester</Creator>
+                    <Created>2026-03-05T10:00:00</Created>
+                    <LastChange>2026-03-05T10:00:00</LastChange>
+                  </Metadata>
+                  <Page imageFilename="img.png" imageWidth="1000" imageHeight="1000">
+                    <TextRegion id="r1">
+                      <Coords points="5,5 95,5 95,95 5,95"/>
+                %s    </TextRegion>
+                    <FormRegion id="f1">
+                      <Coords points="200,200 300,200 300,300 200,300"/>
+                    </FormRegion>
+                  </Page>
+                </PcGts>
+                """.formatted(lines);
     }
 
     private String exported2019Xml() throws Exception {

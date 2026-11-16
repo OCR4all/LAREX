@@ -63,7 +63,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -850,7 +849,7 @@ class DocumentExportServiceTest {
     }
 
     @Test
-    void exportPagePageXml_usesConversionService() throws Exception {
+    void exportPagePageXml_usesConversionServiceAndKeepsItsWarnings() throws Exception {
         Path xmlPath = tempDir.resolve("alpha.xml");
         Files.writeString(xmlPath, "<PcGts/>", StandardCharsets.UTF_8);
 
@@ -860,20 +859,21 @@ class DocumentExportServiceTest {
 
         when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
         when(pageXmlConversionService.normalizeTargetVersion("2017-07-15")).thenReturn("2017-07-15");
-        doAnswer(invocation -> {
-            invocation.<java.io.OutputStream>getArgument(2).write("<converted/>".getBytes(StandardCharsets.UTF_8));
-            return null;
-        }).when(pageXmlConversionService).writeFileToVersion(eq(xmlPath), eq("2017-07-15"), any());
+        when(pageXmlConversionService.exportFileToVersion(xmlPath, "2017-07-15")).thenReturn(
+                new PageXmlConversionService.ExportedXml("<converted/>".getBytes(StandardCharsets.UTF_8), List.of("FormRegion 'f1': changed")));
 
-        DocumentExportService.DocumentExportResult result = service.exportPage(
+        DocumentExportService.StreamingDocumentExportResult result = service.exportPageStream(
                 "project-1",
                 "page-1",
                 "user-1",
                 new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PAGE_XML, "2017-07-15", null, null, null, null, null, null, null)
         );
+        java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+        result.writer().write(output);
 
         assertEquals("Alpha.xml", result.fileName());
-        assertEquals("<converted/>", new String(result.bytes(), StandardCharsets.UTF_8));
+        assertEquals("<converted/>", output.toString(StandardCharsets.UTF_8));
+        assertEquals(List.of("FormRegion 'f1': changed"), result.warnings());
     }
 
     private Project project(String id, String name) {

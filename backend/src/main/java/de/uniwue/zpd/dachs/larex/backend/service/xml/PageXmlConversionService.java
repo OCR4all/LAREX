@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
 import com.maxnth.page4j.convert.Conversion;
+import com.maxnth.page4j.convert.ConversionMessage;
 import com.maxnth.page4j.convert.PageConverter;
 import com.maxnth.page4j.model.Page;
 import com.maxnth.page4j.pagexml.PageXml;
@@ -17,8 +18,11 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -114,6 +118,16 @@ public class PageXmlConversionService {
         return outputStream.toByteArray();
     }
 
+    public ExportedXml exportFileToVersion(Path xmlPath, String targetVersion) throws IOException {
+        List<String> warnings = new ArrayList<>();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        writeFileToVersion(xmlPath, targetVersion, outputStream, warnings::add);
+        return new ExportedXml(outputStream.toByteArray(), List.copyOf(warnings));
+    }
+
+    public record ExportedXml(byte[] xml, List<String> warnings) {
+    }
+
     public void writeFileToVersion(Path xmlPath, String targetVersion, OutputStream outputStream) throws IOException {
         writeFileToVersion(xmlPath, targetVersion, outputStream, warning -> {});
     }
@@ -134,6 +148,9 @@ public class PageXmlConversionService {
                     tempPath = Files.createTempFile(xmlPath.getParent(), xmlPath.getFileName().toString(), ".tmp-export");
                     Files.write(tempPath, converted.xml());
                     exportPath = tempPath;
+                    if (normalizedTarget.compareTo(read.version().date()) < 0) {
+                        describeChanges(converted.changes()).forEach(onWarning);
+                    }
                 }
             } catch (IOException error) {
                 String warning = "Exported original PAGE XML without conversion to " + normalizedTarget
@@ -170,7 +187,7 @@ public class PageXmlConversionService {
             List<String> messages = conversion.messages().stream()
                     .map(message -> message.kind() + ": " + message.message())
                     .toList();
-            return new Converted(PageXml.create().write(conversion.page(), target), messages);
+            return new Converted(PageXml.create().write(conversion.page(), target), messages, conversion.messages());
         } catch (IOException | RuntimeException e) {
             throw new IOException("Could not convert to target XML schema format " + targetVersion + ": " + e.getMessage(), e);
         }
@@ -180,7 +197,29 @@ public class PageXmlConversionService {
         return Arrays.stream(PageXmlVersion.values()).filter(version -> version.date().equals(date)).findFirst();
     }
 
-    private record Converted(byte[] xml, List<String> messages) {}
+    private record Converted(byte[] xml, List<String> messages, List<ConversionMessage> changes) {}
+
+    static List<String> describeChanges(List<ConversionMessage> changes) {
+        Map<String, List<String>> subjectsByChange = new LinkedHashMap<>();
+        for (ConversionMessage change : changes) {
+            String message = change.message();
+            int separator = message.indexOf(": ");
+            String subject = separator < 0 ? "" : message.substring(0, separator);
+            String what = separator < 0 ? message : message.substring(separator + 2);
+            subjectsByChange.computeIfAbsent(what, ignored -> new ArrayList<>()).add(subject);
+        }
+        List<String> lines = new ArrayList<>();
+        subjectsByChange.forEach((what, subjects) -> {
+            if (subjects.size() == 1) {
+                lines.add(subjects.getFirst().isEmpty() ? what : subjects.getFirst() + ": " + what);
+                return;
+            }
+            String named = String.join(", ", subjects.subList(0, Math.min(3, subjects.size())));
+            String more = subjects.size() > 3 ? " and " + (subjects.size() - 3) + " more" : "";
+            lines.add(what + ": " + named + more);
+        });
+        return lines;
+    }
 
     private void replaceAtomically(Path tempPath, Path targetPath) throws IOException {
         try {

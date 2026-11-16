@@ -7,7 +7,8 @@ import type {
   ProjectData
 } from '@/types/project-page'
 import {
-  formatProjectExportExtension as formatExtension
+  formatProjectExportExtension as formatExtension,
+  readExportWarnings
 } from '@/utils/project-export'
 
 type SlideoverInstance<T> = {
@@ -298,6 +299,8 @@ export function useProjectExports(options: ProjectExportsOptions) {
         return
       }
 
+      const selectedVersion = targetPageXmlVersion ?? PAGE_XML_PRIMARY_VERSION
+      let warnings: string[] = []
       await backgroundDownloads.runBackgroundJob({
         title: 'Exporting PAGE XML',
         subtitle: page.name,
@@ -306,16 +309,27 @@ export function useProjectExports(options: ProjectExportsOptions) {
         icon: 'i-lucide-file-code',
         task: async (job) => {
           const xmlId = xmlFiles[0]!.id
-          const selectedVersion = targetPageXmlVersion ?? PAGE_XML_PRIMARY_VERSION
           const query = new URLSearchParams({ targetPageXmlVersion: selectedVersion })
           const response = await fetch(`/api/projects/${options.projectId}/pages/xml/${xmlId}/export?${query.toString()}`)
           if (!response.ok) {
             throw new Error(`Export failed (${response.status})`)
           }
+          warnings = readExportWarnings(response.headers)
 
           await backgroundDownloads.downloadBlobResponse(response, `${page.name}.xml`, job, downloadTarget)
         }
       })
+
+      if (warnings.length) {
+        toast.add({
+          title: `Exported with changes for PAGE ${selectedVersion}`,
+          description: warnings.join('\n'),
+          color: 'warning',
+          icon: 'i-lucide-triangle-alert',
+          duration: 0,
+          ui: { description: 'whitespace-pre-line break-words' }
+        })
+      }
 
       if (xmlFiles.length > 1) {
         toast.add({
