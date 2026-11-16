@@ -5,12 +5,14 @@ import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlVersionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXmlVersion;
+import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlVersionRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.events.PageXmlVersionCreatedEvent;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlPrettyPrinter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +44,7 @@ public class PageXmlVersionService {
     private final UserService userService;
     private final VersioningProperties versioningProperties;
     private final UploadPathService uploadPathService;
+    private final PageXmlConversionService pageXmlConversionService;
 
     public PageXmlVersionService(PageXmlVersionRepository versionRepository,
                                  PageXmlRepository pageXmlRepository,
@@ -49,7 +52,8 @@ public class PageXmlVersionService {
                                  WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
                                  UserService userService,
                                  VersioningProperties versioningProperties,
-                                 UploadPathService uploadPathService) {
+                                 UploadPathService uploadPathService,
+                                 PageXmlConversionService pageXmlConversionService) {
         this.versionRepository = versionRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.applicationEventPublisher = applicationEventPublisher;
@@ -57,6 +61,7 @@ public class PageXmlVersionService {
         this.userService = userService;
         this.versioningProperties = versioningProperties;
         this.uploadPathService = uploadPathService;
+        this.pageXmlConversionService = pageXmlConversionService;
     }
 
     @Transactional
@@ -169,6 +174,9 @@ public class PageXmlVersionService {
         Path canonicalPath = uploadPathService.resolve(xml.getFilePath());
 
         Files.copy(versionPath, canonicalPath, StandardCopyOption.REPLACE_EXISTING);
+        if (xml.getSchema() == XmlSchema.PAGE_XML) {
+            pageXmlConversionService.upgradeToPrimaryInPlace(canonicalPath).ifPresent(xml::setSchemaVersion);
+        }
         PageXmlPrettyPrinter.prettyPrint(canonicalPath);
 
         // Update file size on the PageXml entity

@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -97,6 +98,16 @@ public class PageXmlConversionService {
         return new ConversionOutcome(sourceVersion, normalizedTarget, true, converted.messages());
     }
 
+    public Optional<String> upgradeToPrimaryInPlace(Path xmlPath) {
+        try {
+            convertFileInPlace(xmlPath, PRIMARY_PAGE_VERSION);
+            return Optional.of(PRIMARY_PAGE_VERSION);
+        } catch (IOException e) {
+            log.warn("Kept {} unconverted because it could not be read as PAGE XML: {}", xmlPath, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
     public byte[] convertFileToVersion(Path xmlPath, String targetVersion) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         writeFileToVersion(xmlPath, targetVersion, outputStream);
@@ -165,7 +176,7 @@ public class PageXmlConversionService {
         }
     }
 
-    private static java.util.Optional<PageXmlVersion> pageXmlVersion(String date) {
+    private static Optional<PageXmlVersion> pageXmlVersion(String date) {
         return Arrays.stream(PageXmlVersion.values()).filter(version -> version.date().equals(date)).findFirst();
     }
 

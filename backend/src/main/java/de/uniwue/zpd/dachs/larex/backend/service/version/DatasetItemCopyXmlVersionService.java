@@ -10,6 +10,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyXmlVe
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlPrettyPrinter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,19 +39,22 @@ public class DatasetItemCopyXmlVersionService {
     private final UserService userService;
     private final VersioningProperties versioningProperties;
     private final UploadPathService uploadPathService;
+    private final PageXmlConversionService pageXmlConversionService;
 
     public DatasetItemCopyXmlVersionService(DatasetItemCopyXmlVersionRepository versionRepository,
                                             DatasetItemCopyFileRepository copyFileRepository,
                                             WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
                                             UserService userService,
                                             VersioningProperties versioningProperties,
-                                            UploadPathService uploadPathService) {
+                                            UploadPathService uploadPathService,
+                                            PageXmlConversionService pageXmlConversionService) {
         this.versionRepository = versionRepository;
         this.copyFileRepository = copyFileRepository;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
         this.userService = userService;
         this.versioningProperties = versioningProperties;
         this.uploadPathService = uploadPathService;
+        this.pageXmlConversionService = pageXmlConversionService;
     }
 
     @Transactional
@@ -141,6 +145,7 @@ public class DatasetItemCopyXmlVersionService {
         Path canonicalPath = resolvePath(copyXmlFile.getFilePath());
 
         Files.copy(versionPath, canonicalPath, StandardCopyOption.REPLACE_EXISTING);
+        pageXmlConversionService.upgradeToPrimaryInPlace(canonicalPath);
         PageXmlPrettyPrinter.prettyPrint(canonicalPath);
 
         long newSize = Files.size(canonicalPath);

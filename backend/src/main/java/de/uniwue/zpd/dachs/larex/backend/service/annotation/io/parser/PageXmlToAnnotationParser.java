@@ -1,9 +1,12 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser;
 
+import com.maxnth.page4j.convert.PageConverter;
+import com.maxnth.page4j.model.Page;
 import com.maxnth.page4j.pagexml.PageXmlReadResult;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.Page4jToDtoMapper;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlVersionGate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,12 +28,12 @@ public class PageXmlToAnnotationParser {
     }
 
     public PageDto parse(Path xmlPath, PageXml pageXml) throws IOException {
-        return mapper.toDto(read(xmlPath, readBytes(xmlPath)));
+        return mapper.toDto(read(xmlPath, readBytes(xmlPath)), PageXmlConversionService.PRIMARY_VERSION);
     }
 
     public PageXmlParseResult parseWithAttributes(Path xmlPath, PageXml pageXml) throws IOException {
         byte[] bytes = readBytes(xmlPath);
-        PageDto dto = mapper.toDto(read(xmlPath, bytes));
+        PageDto dto = mapper.toDto(read(xmlPath, bytes), PageXmlConversionService.PRIMARY_VERSION);
         return new PageXmlParseResult(dto, PageXmlAttributeScanner.scan(bytes));
     }
 
@@ -41,14 +44,17 @@ public class PageXmlToAnnotationParser {
         return Files.readAllBytes(xmlPath);
     }
 
-    private static PageXmlReadResult read(Path xmlPath, byte[] bytes) throws IOException {
+    private static Page read(Path xmlPath, byte[] bytes) throws IOException {
         long startedAt = System.nanoTime();
         try {
             PageXmlReadResult result = PageXmlVersionGate.requireReadable(com.maxnth.page4j.pagexml.PageXml.create().read(bytes));
+            Page page = result.version() == PageXmlConversionService.PRIMARY_VERSION
+                    ? result.page()
+                    : PageConverter.convert(result.page(), PageXmlConversionService.PRIMARY_VERSION).page();
             if (log.isDebugEnabled()) {
                 log.debug("Read PAGE XML {} in {} ms", xmlPath, (System.nanoTime() - startedAt) / 1_000_000);
             }
-            return result;
+            return page;
         } catch (Exception e) {
             throw new IOException("Failed to parse PAGE XML file: " + xmlPath + ": " + e.getMessage(), e);
         }
