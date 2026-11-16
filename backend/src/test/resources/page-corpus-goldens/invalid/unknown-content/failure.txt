@@ -1,0 +1,3 @@
+ingest: java.io.IOException: Failed to parse PAGE XML file: <work>/page.xml: 10:35: cvc-complex-type.3.2.2: Attribute 'foo' is not allowed to appear in element 'TextRegion'. (and 1 more)
+  caused by: com.maxnth.page4j.pagexml.PageReadException: 10:35: cvc-complex-type.3.2.2: Attribute 'foo' is not allowed to appear in element 'TextRegion'. (and 1 more)
+  caused by: org.xml.sax.SAXParseException; lineNumber: 10; columnNumber: 35; cvc-complex-type.3.2.2: Attribute 'foo' is not allowed to appear in element 'TextRegion'.

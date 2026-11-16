@@ -1,0 +1,117 @@
+{
+  "imageFilename" : "page.png",
+  "imageWidth" : 1000,
+  "imageHeight" : 1500,
+  "metadata" : {
+    "creator" : "larex-corpus",
+    "created" : "2026-01-02T10:00:00",
+    "lastChange" : "2026-01-02T10:00:00"
+  },
+  "regions" : [ {
+    "id" : "t1",
+    "kind" : "TableRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.8666666666666667 ], [ 0.8, 0.8666666666666667 ], [ 0.8, 0.33333333333333337 ], [ -0.8, 0.33333333333333337 ] ]
+    },
+    "grid" : {
+      "rows" : [ {
+        "index" : 0,
+        "points" : {
+          "points" : [ [ -0.8, 0.8666666666666667 ], [ -0.19999999999999996, 0.8666666666666667 ], [ 0.30000000000000004, 0.8666666666666667 ], [ 0.8, 0.8666666666666667 ] ]
+        }
+      }, {
+        "index" : 1,
+        "points" : {
+          "points" : [ [ -0.8, 0.6 ], [ -0.19999999999999996, 0.6 ], [ 0.30000000000000004, 0.6 ], [ 0.8, 0.6 ] ]
+        }
+      }, {
+        "index" : 2,
+        "points" : {
+          "points" : [ [ -0.8, 0.33333333333333337 ], [ -0.19999999999999996, 0.33333333333333337 ], [ 0.30000000000000004, 0.33333333333333337 ], [ 0.8, 0.33333333333333337 ] ]
+        }
+      } ]
+    },
+    "embText" : false,
+    "lineColour" : "black",
+    "lineSeparators" : true,
+    "rows" : 2,
+    "columns" : 3,
+    "nestedRegions" : [ {
+      "id" : "t1c00",
+      "kind" : "TextRegion",
+      "coords" : {
+        "points" : [ [ -0.8, 0.8666666666666667 ], [ -0.19999999999999996, 0.8666666666666667 ], [ -0.19999999999999996, 0.6 ], [ -0.8, 0.6 ] ]
+      },
+      "textLines" : [ {
+        "id" : "t1c00l1",
+        "coords" : {
+          "points" : [ [ -0.78, 0.8533333333333333 ], [ -0.21999999999999997, 0.8533333333333333 ], [ -0.21999999999999997, 0.7466666666666666 ], [ -0.78, 0.7466666666666666 ] ]
+        },
+        "textContentVariants" : [ {
+          "unicode" : "Name"
+        } ],
+        "text" : "Name"
+      } ],
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 0,
+          "columnIndex" : 0,
+          "header" : true
+        }
+      },
+      "text" : "Name",
+      "textRegion" : true
+    }, {
+      "id" : "t1c01",
+      "kind" : "TextRegion",
+      "coords" : {
+        "points" : [ [ -0.19999999999999996, 0.8666666666666667 ], [ 0.8, 0.8666666666666667 ], [ 0.8, 0.6 ], [ -0.19999999999999996, 0.6 ] ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 0,
+          "columnIndex" : 1,
+          "colSpan" : 2,
+          "header" : true
+        }
+      },
+      "textRegion" : true
+    }, {
+      "id" : "t1c10",
+      "kind" : "TextRegion",
+      "coords" : {
+        "points" : [ [ -0.8, 0.6 ], [ -0.19999999999999996, 0.6 ], [ -0.19999999999999996, 0.33333333333333337 ], [ -0.8, 0.33333333333333337 ] ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 0,
+          "rowSpan" : 1,
+          "colSpan" : 1
+        }
+      },
+      "textRegion" : true
+    }, {
+      "id" : "t1c11",
+      "kind" : "ImageRegion",
+      "coords" : {
+        "points" : [ [ -0.19999999999999996, 0.6 ], [ 0.30000000000000004, 0.6 ], [ 0.30000000000000004, 0.33333333333333337 ], [ -0.19999999999999996, 0.33333333333333337 ] ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1
+        }
+      },
+      "textRegion" : false
+    } ],
+    "textRegion" : false
+  } ],
+  "formatVersion" : "2019-07-15",
+  "dimensions" : {
+    "width" : 1000,
+    "height" : 1500
+  },
+  "regionCount" : 1,
+  "textLineCount" : 0
+}

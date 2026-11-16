@@ -1,0 +1,3 @@
+ingest: java.io.IOException: Failed to parse PAGE XML file: <work>/page.xml: 13:25: cvc-id.2: There are multiple occurrences of ID value 'r1'. (and 1 more)
+  caused by: com.maxnth.page4j.pagexml.PageReadException: 13:25: cvc-id.2: There are multiple occurrences of ID value 'r1'. (and 1 more)
+  caused by: org.xml.sax.SAXParseException; lineNumber: 13; columnNumber: 25; cvc-id.2: There are multiple occurrences of ID value 'r1'.

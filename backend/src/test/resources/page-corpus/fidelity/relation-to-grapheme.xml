@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" pcGtsId="gts1">
+  <Metadata>
+    <Creator>page4j</Creator>
+    <Created>2020-01-02T03:04:05Z</Created>
+    <LastChange>2020-01-02T03:04:05Z</LastChange>
+    <Comments>fixture</Comments>
+  </Metadata>
+  <Page imageFilename="page.png" imageWidth="1000" imageHeight="1000">
+    <Relations>
+      <Relation id="rel1" type="link">
+        <SourceRegionRef regionRef="r1"/>
+        <TargetRegionRef regionRef="gr1"/>
+      </Relation>
+    </Relations>
+    <TextRegion id="r1">
+      <Coords points="100,100 400,100 400,200 100,200"/>
+      <TextLine id="l1">
+        <Coords points="100,100 400,100 400,200 100,200"/>
+        <Word id="w1">
+          <Coords points="100,100 200,100 200,200 100,200"/>
+          <Glyph id="g1">
+            <Coords points="100,100 150,100 150,200 100,200"/>
+            <Graphemes>
+              <Grapheme id="gr1" index="0">
+                <TextEquiv>
+                  <Unicode>a</Unicode>
+                </TextEquiv>
+                <Coords points="100,100 150,100 150,200 100,200"/>
+              </Grapheme>
+            </Graphemes>
+          </Glyph>
+        </Word>
+      </TextLine>
+    </TextRegion>
+  </Page>
+</PcGts>

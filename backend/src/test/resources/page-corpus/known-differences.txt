@@ -1,0 +1,205 @@
+# Differences the PAGE XML pipeline produces for the documents in this folder (see PageCorpusTest).
+# Format: <document> | <stage>: <difference>
+#
+# ingest: the stored file after upload canonicalisation, compared with the uploaded document
+#         (element namespaces are ignored when the version changes).
+# save:   the file the editor writes after loading the stored file without edits, compared with
+#         the stored file.
+# FAILED <stage>: the stage threw; the message is in page-corpus-goldens/<document>/failure.txt.
+#
+# This is a ratchet: an unlisted difference fails the test, and so does a listed one that no longer
+# occurs. LAREX_UPDATE_GOLDENS=true rewrites this file; review every changed line.
+
+coverage/2009-03-16.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2009-03-16 http://schema.primaresearch.org/PAGE/gts/pagecontent/2009-03-16/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/Border[1]/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Border[1]/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/PrintSpace[1]/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/PrintSpace[1]/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/ReadingOrder[1]/UnorderedGroup[@id='readingOrder']
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ReadingOrder[1]/RegionRef[1]
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ReadingOrder[1]/OrderedGroup[@id='ord2']
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ReadingOrder[1]/UnorderedGroup[@id='uno11']
+coverage/2009-03-16.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@bgColour "black"
+coverage/2009-03-16.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@fontSize "0.5"
+coverage/2009-03-16.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@kerning "1"
+coverage/2009-03-16.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@primaryScript "Arabic" -> "Arab - Arabic"
+coverage/2009-03-16.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@reverseVideo "true"
+coverage/2009-03-16.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@secondaryScript "Arabic" -> "Arab - Arabic"
+coverage/2009-03-16.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@textColour "black"
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex13']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Word[@id='wor15']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Word[@id='wor15']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Word[@id='wor15']/Glyph[@id='gly16']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Word[@id='wor15']/Glyph[@id='gly16']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextStyle[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/ImageRegion[@id='ima17']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ImageRegion[@id='ima17']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/LineDrawingRegion[@id='lin18']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/LineDrawingRegion[@id='lin18']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/GraphicRegion[@id='gra19']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/GraphicRegion[@id='gra19']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TableRegion[@id='tab20']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TableRegion[@id='tab20']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/ChartRegion[@id='cha21']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ChartRegion[@id='cha21']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/SeparatorRegion[@id='sep22']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/SeparatorRegion[@id='sep22']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/MathsRegion[@id='mat23']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/MathsRegion[@id='mat23']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/NoiseRegion[@id='noi24']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/NoiseRegion[@id='noi24']/Coords[1]/Point[1]
+coverage/2009-03-16.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/GraphicRegion[@id='fra25']
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/FrameRegion[@id='fra25']
+coverage/2009-03-16.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/UnknownRegion[@id='unk40']/Coords[1]/@points "1,1 1,1"
+coverage/2009-03-16.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/UnknownRegion[@id='unk40']/Coords[1]/Point[1]
+
+coverage/2010-01-12.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-01-12 http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-01-12/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/Border[1]/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Border[1]/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/PrintSpace[1]/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/PrintSpace[1]/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/ReadingOrder[1]/UnorderedGroup[@id='readingOrder']
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ReadingOrder[1]/RegionRef[1]
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ReadingOrder[1]/OrderedGroup[@id='ord2']
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ReadingOrder[1]/UnorderedGroup[@id='uno11']
+coverage/2010-01-12.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@bgColour "black"
+coverage/2010-01-12.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@fontSize "0.5"
+coverage/2010-01-12.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@kerning "1"
+coverage/2010-01-12.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@primaryScript "Arabic" -> "Arab - Arabic"
+coverage/2010-01-12.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@reverseVideo "true"
+coverage/2010-01-12.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@secondaryScript "Arabic" -> "Arab - Arabic"
+coverage/2010-01-12.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/@textColour "black"
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex13']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Word[@id='wor15']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Word[@id='wor15']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Word[@id='wor15']/Glyph[@id='gly16']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextLine[@id='tex14']/Word[@id='wor15']/Glyph[@id='gly16']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex13']/TextStyle[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/ImageRegion[@id='ima17']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ImageRegion[@id='ima17']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/LineDrawingRegion[@id='lin18']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/LineDrawingRegion[@id='lin18']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/GraphicRegion[@id='gra19']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/GraphicRegion[@id='gra19']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TableRegion[@id='tab20']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TableRegion[@id='tab20']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/ChartRegion[@id='cha21']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ChartRegion[@id='cha21']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/SeparatorRegion[@id='sep22']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/SeparatorRegion[@id='sep22']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/MathsRegion[@id='mat23']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/MathsRegion[@id='mat23']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/NoiseRegion[@id='noi24']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/NoiseRegion[@id='noi24']/Coords[1]/Point[1]
+coverage/2010-01-12.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/GraphicRegion[@id='fra25']
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/FrameRegion[@id='fra25']
+coverage/2010-01-12.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/UnknownRegion[@id='unk40']/Coords[1]/@points "1,1 1,1"
+coverage/2010-01-12.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/UnknownRegion[@id='unk40']/Coords[1]/Point[1]
+
+coverage/2010-03-19.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-03-19 http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-03-19/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/Border[1]/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Border[1]/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/PrintSpace[1]/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/PrintSpace[1]/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/@bgColour "black"
+coverage/2010-03-19.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/@fontSize "0.5"
+coverage/2010-03-19.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/@kerning "1"
+coverage/2010-03-19.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/@primaryScript "Arabic" -> "Arab - Arabic"
+coverage/2010-03-19.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/@reverseVideo "true"
+coverage/2010-03-19.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/@secondaryScript "Arabic" -> "Arab - Arabic"
+coverage/2010-03-19.xml | ingest: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/@textColour "black"
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex12']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/TextLine[@id='tex13']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex12']/TextLine[@id='tex13']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/TextLine[@id='tex13']/Word[@id='wor14']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex12']/TextLine[@id='tex13']/Word[@id='wor14']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/TextLine[@id='tex13']/Word[@id='wor14']/Glyph[@id='gly15']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex12']/TextLine[@id='tex13']/Word[@id='wor14']/Glyph[@id='gly15']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='tex12']/TextStyle[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/ImageRegion[@id='ima16']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ImageRegion[@id='ima16']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/LineDrawingRegion[@id='lin17']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/LineDrawingRegion[@id='lin17']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/GraphicRegion[@id='gra18']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/GraphicRegion[@id='gra18']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/TableRegion[@id='tab19']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/TableRegion[@id='tab19']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/ChartRegion[@id='cha20']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/ChartRegion[@id='cha20']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/SeparatorRegion[@id='sep21']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/SeparatorRegion[@id='sep21']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/MathsRegion[@id='mat22']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/MathsRegion[@id='mat22']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/NoiseRegion[@id='noi23']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/NoiseRegion[@id='noi23']/Coords[1]/Point[1]
+coverage/2010-03-19.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/GraphicRegion[@id='fra24']
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/FrameRegion[@id='fra24']
+coverage/2010-03-19.xml | ingest: EXTRA_ATTRIBUTE /PcGts[1]/Page[1]/UnknownRegion[@id='unk39']/Coords[1]/@points "1,1 1,1"
+coverage/2010-03-19.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/UnknownRegion[@id='unk39']/Coords[1]/Point[1]
+
+coverage/2013-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2013-07-15.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[@id='relation_1']
+coverage/2013-07-15.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[1]
+coverage/2013-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/@primaryScript "Arabic" -> "Arab - Arabic"
+coverage/2013-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/@secondaryScript "Arabic" -> "Arab - Arabic"
+coverage/2013-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/TextRegion[@id='tex13']/@primaryScript "Arabic" -> "Arab - Arabic"
+coverage/2013-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='tex12']/TextRegion[@id='tex13']/@secondaryScript "Arabic" -> "Arab - Arabic"
+
+coverage/2016-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2016-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2016-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2016-07-15.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[@id='relation_1']
+coverage/2016-07-15.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[1]
+
+coverage/2017-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2017-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+coverage/2017-07-15.xml | ingest: EXTRA_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[@id='relation_1']
+coverage/2017-07-15.xml | ingest: MISSING_ELEMENT /PcGts[1]/Page[1]/Relations[1]/Relation[1]
+
+coverage/2018-07-15.xml | ingest: CHANGED_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2018-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2018-07-15/pagecontent.xsd" -> "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+
+coverage/2024-07-15.xml | FAILED ingest
+
+fidelity/empty-plain-text.xml | save: MISSING_ELEMENT /PcGts[1]/Page[1]/TextRegion[@id='r1']/TextEquiv[1]/PlainText[1]
+
+fidelity/number-formatting.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@imageXResolution "300" -> "300.0"
+fidelity/number-formatting.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@imageYResolution "300" -> "300.0"
+fidelity/number-formatting.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/@orientation "0" -> "0.0"
+fidelity/number-formatting.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/@orientation "0" -> "0.0"
+
+invalid/custom-region-type.xml | FAILED ingest
+
+invalid/duplicate-id.xml | FAILED ingest
+
+invalid/unknown-content.xml | FAILED ingest
+
+larex/reading-order-attributes.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+
+larex/relations-to-text-objects.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+
+larex/sparse-larex-export.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+
+larex/table.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+
+larex/text-equivs.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+larex/text-equivs.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/TextLine[@id='r1l2']/TextEquiv[1]/@conf "0" -> "0.0"
+
+larex/text-style.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+
+larex/whitespace-and-empty-values.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
+larex/whitespace-and-empty-values.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Metadata[1]/@externalRef " ext-1 " -> "ext-1"
+larex/whitespace-and-empty-values.xml | save: CHANGED_TEXT /PcGts[1]/Metadata[1]/Creator[1] " someone " -> "someone"
+larex/whitespace-and-empty-values.xml | save: CHANGED_TEXT /PcGts[1]/Metadata[1]/Comments[1] "  two leading, one trailing " -> "two leading, one trailing"
+larex/whitespace-and-empty-values.xml | save: MISSING_ATTRIBUTE /PcGts[1]/Page[1]/@custom ""
+larex/whitespace-and-empty-values.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/@comments "trailing " -> "trailing"
+larex/whitespace-and-empty-values.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/@custom " padded custom " -> "padded custom"
+larex/whitespace-and-empty-values.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/UserDefined[1]/UserAttribute[1]/@value " spaced value " -> "spaced value"
+larex/whitespace-and-empty-values.xml | save: CHANGED_ATTRIBUTE /PcGts[1]/Page[1]/TextRegion[@id='r1']/Labels[1]/Label[1]/@type " t " -> "t"
+
+real-world/page4j-document.xml | save: MISSING_ELEMENT /PcGts[1]/Metadata[1]/Comments[1]
+
+real-world/page4j-golden-source-2024.xml | FAILED ingest

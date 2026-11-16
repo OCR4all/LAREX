@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       pcGtsId="gts1"
+       xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd">
+   <Metadata>
+      <Creator>page4j</Creator>
+      <Created>2020-01-02T03:04:05Z</Created>
+      <LastChange>2020-01-02T03:04:05Z</LastChange>
+      <Comments>fixture</Comments>
+   </Metadata>
+   <Page imageFilename="page.png" imageHeight="1000" imageWidth="1000">
+      <ReadingOrder>
+         <OrderedGroup id="ro1">
+            <RegionRefIndexed index="0" regionRef="r1"/>
+            <RegionRefIndexed index="1" regionRef="r2"/>
+            <OrderedGroupIndexed id="ro2" index="2">
+               <RegionRefIndexed index="0" regionRef="r3"/>
+            </OrderedGroupIndexed>
+         </OrderedGroup>
+      </ReadingOrder>
+      <TextRegion id="r1">
+         <Coords points="100,100 400,100 400,200 100,200"/>
+      </TextRegion>
+      <TextRegion id="r2">
+         <Coords points="100,300 400,300 400,400 100,400"/>
+      </TextRegion>
+      <TextRegion id="r3">
+         <Coords points="100,500 400,500 400,600 100,600"/>
+      </TextRegion>
+   </Page>
+</PcGts>

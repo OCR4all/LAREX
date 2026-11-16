@@ -33,7 +33,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlAttributeIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlParseResult;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlPresenceIndex;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlAttributeScanner;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
 import de.uniwue.zpd.dachs.larex.backend.util.TextIndexDefaultsUtil;
 import org.springframework.beans.factory.annotation.Value;
@@ -156,14 +156,14 @@ public class PageFilterIndexService {
             return;
         }
 
-        PageXmlPresenceIndex presenceIndex = pageXmlRepository.findByPage_Id(page.getId())
+        Set<PageXmlAttributeScanner.AttributeOccurrence> attributeOccurrences = pageXmlRepository.findByPage_Id(page.getId())
             .filter(xml -> xml.getSchema() == de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema.PAGE_XML)
-            .map(xml -> PageXmlPresenceIndex.fromPath(Paths.get(uploadDir, xml.getFilePath())))
-            .orElseGet(PageXmlPresenceIndex::empty);
-        indexPage(page, pageDto, presenceIndex);
+            .map(xml -> PageXmlAttributeScanner.scan(Paths.get(uploadDir, xml.getFilePath())))
+            .orElseGet(Set::of);
+        indexPage(page, pageDto, attributeOccurrences);
     }
 
-    private void indexPage(Page page, PageDto pageDto, PageXmlPresenceIndex presenceIndex) {
+    private void indexPage(Page page, PageDto pageDto, Set<PageXmlAttributeScanner.AttributeOccurrence> attributeOccurrences) {
 
         log.debug("Indexing page {} with {} regions", page.getId(), pageDto.getRegionCount());
 
@@ -223,7 +223,7 @@ public class PageFilterIndexService {
             }
         }
 
-        for (PageXmlPresenceIndex.AttributeOccurrence occurrence : presenceIndex.attributeOccurrences()) {
+        for (PageXmlAttributeScanner.AttributeOccurrence occurrence : attributeOccurrences) {
             xmlAttributeIndices.add(new PageXmlAttributeIndex(
                 page,
                 occurrence.elementName(),
@@ -287,8 +287,8 @@ public class PageFilterIndexService {
         PageXml xml = headXml.get();
         try {
             log.debug("Attempting to parse PageXml {} (schema: {})", xml.getId(), xml.getSchema());
-            PageXmlParseResult parseResult = annotationProcessingService.parseXmlToAnnotationWithPresence(xml.getId());
-            indexPage(page, parseResult.pageDto(), parseResult.presenceIndex());
+            PageXmlParseResult parseResult = annotationProcessingService.parseXmlToAnnotationWithAttributes(xml.getId());
+            indexPage(page, parseResult.pageDto(), parseResult.attributeOccurrences());
             log.info("Successfully indexed page {} from PageXml {}", page.getId(), xml.getId());
         } catch (IOException e) {
             log.warn("Failed to parse XML {} for page {}: {}", xml.getId(), page.getId(), e.getMessage());

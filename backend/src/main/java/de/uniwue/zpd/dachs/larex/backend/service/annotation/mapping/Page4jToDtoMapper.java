@@ -1,107 +1,102 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping;
 
-import com.maxnth.page4j.basic.labels.HasLabels;
-import com.maxnth.page4j.basic.labels.Label;
-import com.maxnth.page4j.basic.labels.LabelGroup;
-import com.maxnth.page4j.basic.labels.Labels;
-import com.maxnth.page4j.basic.variable.BooleanValue;
-import com.maxnth.page4j.basic.variable.DoubleValue;
-import com.maxnth.page4j.basic.variable.DoubleVariable;
-import com.maxnth.page4j.basic.variable.IntegerValue;
-import com.maxnth.page4j.basic.variable.IntegerVariable;
-import com.maxnth.page4j.basic.variable.StringValue;
-import com.maxnth.page4j.basic.variable.StringVariable;
-import com.maxnth.page4j.basic.variable.Variable;
-import com.maxnth.page4j.basic.variable.VariableMap;
-import com.maxnth.page4j.dla.page.AlternativeImage;
-import com.maxnth.page4j.dla.page.Page;
-import com.maxnth.page4j.dla.page.io.xml.DefaultXmlNames;
-import com.maxnth.page4j.dla.page.io.xml.XmlSourceMetadata;
-import com.maxnth.page4j.dla.page.layout.PageLayout;
-import com.maxnth.page4j.dla.page.layout.logical.ContentObjectRelation;
-import com.maxnth.page4j.dla.page.layout.logical.Group;
-import com.maxnth.page4j.dla.page.layout.logical.GroupMember;
-import com.maxnth.page4j.dla.page.layout.logical.Layer;
-import com.maxnth.page4j.dla.page.layout.logical.Layers;
-import com.maxnth.page4j.dla.page.layout.logical.ReadingOrder;
-import com.maxnth.page4j.dla.page.layout.logical.RegionRef;
-import com.maxnth.page4j.dla.page.layout.logical.Relations;
-import com.maxnth.page4j.dla.page.layout.physical.AttributeContainer;
-import com.maxnth.page4j.dla.page.layout.physical.Region;
-import com.maxnth.page4j.dla.page.layout.physical.impl.TableGrid;
-import com.maxnth.page4j.dla.page.layout.physical.impl.TableRegion;
-import com.maxnth.page4j.dla.page.layout.physical.role.RegionRole;
-import com.maxnth.page4j.dla.page.layout.physical.shared.RoleType;
-import com.maxnth.page4j.dla.page.layout.physical.text.LowLevelTextContainer;
-import com.maxnth.page4j.dla.page.layout.physical.text.LowLevelTextObject;
-import com.maxnth.page4j.dla.page.layout.physical.text.TextContent;
-import com.maxnth.page4j.dla.page.layout.physical.text.TextContentVariants;
-import com.maxnth.page4j.dla.page.layout.physical.text.graphemes.GraphemeElement;
-import com.maxnth.page4j.dla.page.layout.physical.text.graphemes.GraphemeGroup;
-import com.maxnth.page4j.dla.page.layout.physical.text.graphemes.NonPrintingCharacter;
-import com.maxnth.page4j.dla.page.layout.physical.text.impl.Glyph;
-import com.maxnth.page4j.dla.page.layout.physical.text.impl.TextLine;
-import com.maxnth.page4j.dla.page.layout.physical.text.impl.TextRegion;
-import com.maxnth.page4j.dla.page.layout.physical.text.impl.Word;
-import com.maxnth.page4j.dla.page.metadata.MetaData;
-import com.maxnth.page4j.dla.page.metadata.MetadataItem;
-import com.maxnth.page4j.maths.geometry.Point;
-import com.maxnth.page4j.maths.geometry.Polygon;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.AlternativeImageDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GlyphDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GraphemeElementDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GraphemesDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridPointsDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelsDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.LayerDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.LayersDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataItemDto;
+import com.maxnth.page4j.geometry.Point;
+import com.maxnth.page4j.geometry.Polygon;
+import com.maxnth.page4j.model.AdvertRegion;
+import com.maxnth.page4j.model.AlternativeImage;
+import com.maxnth.page4j.model.ChartRegion;
+import com.maxnth.page4j.model.ChemRegion;
+import com.maxnth.page4j.model.CustomRegion;
+import com.maxnth.page4j.model.FormRegion;
+import com.maxnth.page4j.model.FrameRegion;
+import com.maxnth.page4j.model.Glyph;
+import com.maxnth.page4j.model.Grapheme;
+import com.maxnth.page4j.model.GraphemeElement;
+import com.maxnth.page4j.model.GraphemeGroup;
+import com.maxnth.page4j.model.GraphicRegion;
+import com.maxnth.page4j.model.Grid;
+import com.maxnth.page4j.model.GridPoints;
+import com.maxnth.page4j.model.Group;
+import com.maxnth.page4j.model.GroupMember;
+import com.maxnth.page4j.model.ImageRegion;
+import com.maxnth.page4j.model.Label;
+import com.maxnth.page4j.model.LabelGroup;
+import com.maxnth.page4j.model.Layer;
+import com.maxnth.page4j.model.LineDrawingRegion;
+import com.maxnth.page4j.model.MapRegion;
+import com.maxnth.page4j.model.MathsRegion;
+import com.maxnth.page4j.model.Metadata;
+import com.maxnth.page4j.model.MetadataItem;
+import com.maxnth.page4j.model.MusicRegion;
+import com.maxnth.page4j.model.NoiseRegion;
+import com.maxnth.page4j.model.NonPrintingChar;
+import com.maxnth.page4j.model.OrderedGroup;
+import com.maxnth.page4j.model.Page;
+import com.maxnth.page4j.model.ReadingOrder;
+import com.maxnth.page4j.model.Region;
+import com.maxnth.page4j.model.RegionRef;
+import com.maxnth.page4j.model.Relation;
+import com.maxnth.page4j.model.SeparatorRegion;
+import com.maxnth.page4j.model.TableCellRole;
+import com.maxnth.page4j.model.TableRegion;
+import com.maxnth.page4j.model.TextEquiv;
+import com.maxnth.page4j.model.TextLine;
+import com.maxnth.page4j.model.TextRegion;
+import com.maxnth.page4j.model.TextStyle;
+import com.maxnth.page4j.model.UnknownRegion;
+import com.maxnth.page4j.model.UserAttribute;
+import com.maxnth.page4j.model.Word;
+import com.maxnth.page4j.model.value.Colour;
+import com.maxnth.page4j.model.value.XmlValue;
+import com.maxnth.page4j.pagexml.PageXmlReadResult;
+import com.maxnth.page4j.pagexml.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PointDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.readingorder.ReadingOrderDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.AlternativeImageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridPointsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.LayerDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.LayersDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.RelationDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.RelationsDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.RolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.TableCellRoleDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.style.TextStyleDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataItemDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.UserAttributeDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.UserDefinedDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.readingorder.ReadingOrderDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.style.TextStyleDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GlyphDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GraphemeElementDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GraphemesDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.WordDto;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlPresenceIndex;
 import de.uniwue.zpd.dachs.larex.backend.util.CoordinateUtils;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import javax.xml.namespace.QName;
 import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
 
 @Component
 public class Page4jToDtoMapper {
 
-    public PageDto toDto(Page page) {
-        return toDto(page, null);
+    public PageDto toDto(PageXmlReadResult read) {
+        return toDto(read.page(), read.version());
     }
 
-    public PageDto toDto(Page page, PageXmlPresenceIndex presenceIndex) {
-        return toDto(page, presenceIndex, null);
-    }
-
-    public PageDto toDto(Page page, PageXmlPresenceIndex presenceIndex, XmlSourceMetadata sourceMetadata) {
+    public PageDto toDto(Page page, PageXmlVersion version) {
         if (page == null) {
             return null;
         }
-
-        return new Page4jToDtoMappingSession(page.getLayout(), presenceIndex, sourceMetadata).toDto(page);
+        return new Page4jToDtoMappingSession(page.imageWidth(), page.imageHeight()).toDto(page, version);
     }
 }
 
@@ -109,876 +104,538 @@ final class Page4jToDtoMappingSession {
 
     private final int imageWidth;
     private final int imageHeight;
-    private final PageXmlPresenceIndex presenceIndex;
-    private final Map<String, List<Integer>> readingOrderIndices;
 
-    Page4jToDtoMappingSession(PageLayout layout, PageXmlPresenceIndex presenceIndex, XmlSourceMetadata sourceMetadata) {
-        this.imageWidth = layout.getWidth();
-        this.imageHeight = layout.getHeight();
-        this.presenceIndex = presenceIndex;
-        this.readingOrderIndices = collectReadingOrderIndices(sourceMetadata);
+    Page4jToDtoMappingSession(int imageWidth, int imageHeight) {
+        this.imageWidth = imageWidth;
+        this.imageHeight = imageHeight;
     }
 
-    /** page4j 2.0.2 retains group members in XML order, discarding their @index. */
-    private static Map<String, List<Integer>> collectReadingOrderIndices(XmlSourceMetadata metadata) {
-        Map<String, List<Integer>> indices = new HashMap<>();
-        if (metadata == null) return indices;
-
-        for (var element : metadata.elements()) {
-            if (element.parentIndex() == null) continue;
-            var parent = metadata.elements().get(element.parentIndex());
-            String parentName = parent.name().getLocalPart();
-            if (!"OrderedGroup".equals(parentName) && !"OrderedGroupIndexed".equals(parentName)) continue;
-            switch (element.name().getLocalPart()) {
-                case "RegionRef", "RegionRefIndexed", "OrderedGroup", "OrderedGroupIndexed", "UnorderedGroup", "UnorderedGroupIndexed" -> {
-                    String groupId = parent.attributes().get(new QName("id"));
-                    String sourceIndex = element.attributes().get(new QName("index"));
-                    int index = Integer.MAX_VALUE;
-                    try {
-                        if (sourceIndex != null) {
-                            int parsed = Integer.parseInt(sourceIndex.trim());
-                            if (parsed >= 0) index = parsed;
-                        }
-                    } catch (NumberFormatException ignored) {
-                        // Keep missing/invalid indices in stable source order after indexed members.
-                    }
-                    if (groupId != null) indices.computeIfAbsent(groupId, ignored -> new ArrayList<>()).add(index);
-                }
-                default -> { }
-            }
-        }
-        return indices;
-    }
-
-    private static String nullIfEmpty(String value) {
-        return (value == null || value.isBlank()) ? null : value;
-    }
-
-    PageDto toDto(Page page) {
-        PageLayout layout = page.getLayout();
-
+    PageDto toDto(Page page, PageXmlVersion version) {
         return new PageDto(
-            page.getImageFilename(),
-            layout.getWidth(),
-            layout.getHeight(),
-            getIntegerAttr(page, DefaultXmlNames.ATTR_imageXResolution),
-            getIntegerAttr(page, "imageYResolution"),
-            getStringAttr(page, "imageResolutionUnit"),
-            toMetadataDto(page.getMetaData()),
-            page.getGtsId() != null ? page.getGtsId().toString() : null,
-            getStringAttr(page, DefaultXmlNames.ATTR_type),
-            getStringAttr(page, DefaultXmlNames.ATTR_custom),
-            getDoubleAttr(page, DefaultXmlNames.ATTR_orientation),
-            getStringAttr(page, DefaultXmlNames.ATTR_primaryLanguage),
-            getStringAttr(page, DefaultXmlNames.ATTR_secondaryLanguage),
-            getStringAttr(page, DefaultXmlNames.ATTR_primaryScript),
-            getStringAttr(page, DefaultXmlNames.ATTR_secondaryScript),
-            getStringAttr(page, DefaultXmlNames.ATTR_readingDirection),
-            getStringAttr(page, DefaultXmlNames.ATTR_textLineOrder),
-            getDoubleAttr(page, DefaultXmlNames.ATTR_conf),
-            toBorderPolygonDto(layout),
-            toPrintSpacePolygonDto(layout),
-            toRegionDtos(layout),
-            toReadingOrderDto(layout.getReadingOrder()),
-            toAlternativeImageDtos(page.getAlternativeImages()),
-            toLabelsDtos(page.getLabels()),
-            toUserDefinedDto(page.getUserDefinedAttributes(false)),
-            toTextStyleDto(page),
-            toLayersDto(layout.getLayers()),
-            toRelationsDto(layout.getRelations()),
-            page.getFormatVersion() != null ? page.getFormatVersion().toString() : null
+            page.imageFilename(),
+            page.imageWidth(),
+            page.imageHeight(),
+            page.imageXResolution(),
+            page.imageYResolution(),
+            xml(page.imageResolutionUnit()),
+            toMetadataDto(page.metadata()),
+            text(page.pcGtsId()),
+            xml(page.type()),
+            text(page.custom()),
+            page.orientation(),
+            xml(page.primaryLanguage()),
+            xml(page.secondaryLanguage()),
+            xml(page.primaryScript()),
+            xml(page.secondaryScript()),
+            xml(page.readingDirection()),
+            xml(page.textLineOrder()),
+            page.conf(),
+            toPolygonDto(page.border()),
+            toPolygonDto(page.printSpace()),
+            page.regions().stream().map(this::toRegionDto).toList(),
+            toReadingOrderDto(page.readingOrder()),
+            toAlternativeImageDtos(page.alternativeImages()),
+            toLabelsDtos(page.labels()),
+            toUserDefinedDto(page.userAttributes()),
+            toTextStyleDto(page.textStyle()),
+            toLayersDto(page.layers()),
+            toRelationsDto(page.relations()),
+            version != null ? version.date() : null
         );
     }
 
-    private MetadataDto toMetadataDto(MetaData metaData) {
-        if (metaData == null) {
+    private MetadataDto toMetadataDto(Metadata metadata) {
+        if (metadata == null) {
             return null;
         }
-
-        String creator = isMetadataFieldPresent("creator") ? nullIfEmpty(metaData.getCreator()) : null;
-        String created = isMetadataFieldPresent("created") ? nullIfEmpty(metaData.getFormattedCreationTime()) : null;
-        String lastChange = isMetadataFieldPresent("lastChange") ? nullIfEmpty(metaData.getFormattedLastModificationTime()) : null;
-        String comments = isMetadataFieldPresent("comments") ? nullIfEmpty(metaData.getComments()) : null;
-        String externalRef = isMetadataFieldPresent("externalRef") ? nullIfEmpty(metaData.getExternalRef()) : null;
-        UserDefinedDto userDefined = toUserDefinedDto(metaData.getUserDefinedAttributes(false));
-        List<MetadataItemDto> items = toMetadataItemDtos(metaData.getMetadataItems());
-        if (creator == null
-            && created == null
-            && lastChange == null
-            && comments == null
-            && externalRef == null
-            && userDefined == null
-            && (items == null || items.isEmpty())) {
+        String creator = text(metadata.creator());
+        String created = xml(metadata.created());
+        String lastChange = xml(metadata.lastChange());
+        String comments = text(metadata.comments());
+        String externalRef = text(metadata.externalRef());
+        UserDefinedDto userDefined = toUserDefinedDto(metadata.userAttributes());
+        List<MetadataItemDto> items = list(metadata.metadataItems(), item -> new MetadataItemDto(
+            xml(item.type()),
+            text(item.name()),
+            text(item.value()),
+            xml(item.date()),
+            toLabelsDtos(item.labels())
+        ));
+        if (creator == null && created == null && lastChange == null && comments == null
+            && externalRef == null && userDefined == null && items == null) {
             return null;
         }
         return new MetadataDto(creator, created, lastChange, comments, externalRef, userDefined, items);
     }
 
-    private List<MetadataItemDto> toMetadataItemDtos(List<MetadataItem> items) {
-        if (items == null || items.isEmpty()) {
-            return null;
-        }
-        List<MetadataItemDto> dtos = new ArrayList<>();
-        for (MetadataItem item : items) {
-            if (item == null) {
-                continue;
-            }
-            dtos.add(new MetadataItemDto(
-                getStringAttr(item, DefaultXmlNames.ATTR_type),
-                getStringAttr(item, DefaultXmlNames.ATTR_name),
-                getStringAttr(item, DefaultXmlNames.ATTR_value),
-                getStringAttr(item, DefaultXmlNames.ATTR_date),
-                toLabelsDtos(item.getLabels())
-            ));
-        }
-        return dtos.isEmpty() ? null : dtos;
-    }
-
-    private PolygonDto toBorderPolygonDto(PageLayout layout) {
-        if (layout.getBorder() == null || layout.getBorder().getCoords() == null) {
-            return null;
-        }
-        return toPolygonDto(layout.getBorder().getCoords());
-    }
-
-    private PolygonDto toPrintSpacePolygonDto(PageLayout layout) {
-        if (layout.getPrintSpace() == null || layout.getPrintSpace().getCoords() == null) {
-            return null;
-        }
-        return toPolygonDto(layout.getPrintSpace().getCoords());
-    }
-
-    private List<RegionDto> toRegionDtos(PageLayout layout) {
-        List<RegionDto> regions = new ArrayList<>();
-        for (int i = 0; i < layout.getRegionCount(); i++) {
-            regions.add(toRegionDto(layout.getRegion(i)));
-        }
-        return regions;
-    }
-
     private RegionDto toRegionDto(Region region) {
-        if (region == null) {
-            return null;
-        }
-
-        List<TextLineDto> textLines = null;
-        List<TextContentVariantDto> textContentVariants = null;
-        if (region instanceof TextRegion textRegion) {
-            textLines = toTextLineDtos(textRegion);
-            textContentVariants = toTextContentVariantDtos(textRegion);
-        }
-
-        List<RegionDto> nestedRegions = null;
-        if (region.getRegionCount() > 0) {
-            nestedRegions = new ArrayList<>();
-            for (int i = 0; i < region.getRegionCount(); i++) {
-                nestedRegions.add(toRegionDto(region.getRegion(i)));
+        RegionFields fields = new RegionFields();
+        switch (region) {
+            case TextRegion r -> {
+                fields.kind = RegionKind.TextRegion;
+                fields.textLines = list(r.textLines(), this::toTextLineDto);
+                fields.textContentVariants = toTextContentVariantDtos(r.textEquivs());
+                fields.textStyle = toTextStyleDto(r.textStyle());
+                fields.type = xml(r.type());
+                fields.orientation = r.orientation();
+                fields.leading = r.leading();
+                fields.align = xml(r.align());
+                fields.readingDirection = xml(r.readingDirection());
+                fields.readingOrientation = r.readingOrientation();
+                fields.textLineOrder = xml(r.textLineOrder());
+                fields.indented = r.indented();
+                fields.primaryLanguage = xml(r.primaryLanguage());
+                fields.secondaryLanguage = xml(r.secondaryLanguage());
+                fields.primaryScript = xml(r.primaryScript());
+                fields.secondaryScript = xml(r.secondaryScript());
+                fields.production = xml(r.production());
             }
+            case ImageRegion r -> {
+                fields.kind = RegionKind.ImageRegion;
+                fields.orientation = r.orientation();
+                fields.colourDepth = xml(r.colourDepth());
+                fields.backgroundColour(r.bgColour());
+                fields.embText = r.embText();
+            }
+            case LineDrawingRegion r -> {
+                fields.kind = RegionKind.LineDrawingRegion;
+                fields.orientation = r.orientation();
+                fields.penColour = xml(r.penColour());
+                fields.backgroundColour(r.bgColour());
+                fields.embText = r.embText();
+            }
+            case GraphicRegion r -> {
+                fields.kind = RegionKind.GraphicRegion;
+                fields.orientation = r.orientation();
+                fields.type = xml(r.type());
+                fields.numColours = r.numColours();
+                fields.embText = r.embText();
+            }
+            case TableRegion r -> {
+                fields.kind = RegionKind.TableRegion;
+                fields.orientation = r.orientation();
+                fields.rows = r.rows();
+                fields.columns = r.columns();
+                fields.lineColour = xml(r.lineColour());
+                fields.backgroundColour(r.bgColour());
+                fields.lineSeparators = r.lineSeparators();
+                fields.embText = r.embText();
+                fields.grid = toGridDto(r.grid());
+            }
+            case ChartRegion r -> {
+                fields.kind = RegionKind.ChartRegion;
+                fields.orientation = r.orientation();
+                fields.type = xml(r.type());
+                fields.numColours = r.numColours();
+                fields.backgroundColour(r.bgColour());
+                fields.embText = r.embText();
+            }
+            case MapRegion r -> {
+                fields.kind = RegionKind.MapRegion;
+                fields.orientation = r.orientation();
+            }
+            case SeparatorRegion r -> {
+                fields.kind = RegionKind.SeparatorRegion;
+                fields.orientation = r.orientation();
+                fields.colour = xml(r.colour());
+            }
+            case MathsRegion r -> {
+                fields.kind = RegionKind.MathsRegion;
+                fields.orientation = r.orientation();
+                fields.backgroundColour(r.bgColour());
+            }
+            case ChemRegion r -> {
+                fields.kind = RegionKind.ChemRegion;
+                fields.orientation = r.orientation();
+                fields.backgroundColour(r.bgColour());
+            }
+            case MusicRegion r -> {
+                fields.kind = RegionKind.MusicRegion;
+                fields.orientation = r.orientation();
+                fields.backgroundColour(r.bgColour());
+            }
+            case AdvertRegion r -> {
+                fields.kind = RegionKind.AdvertRegion;
+                fields.orientation = r.orientation();
+                fields.backgroundColour(r.bgColour());
+            }
+            case NoiseRegion ignored -> fields.kind = RegionKind.NoiseRegion;
+            case UnknownRegion ignored -> fields.kind = RegionKind.UnknownRegion;
+            case CustomRegion r -> {
+                fields.kind = RegionKind.CustomRegion;
+                fields.type = text(r.type());
+            }
+            case FormRegion r -> throw unsupported(r.id(), "FormRegion");
+            case FrameRegion r -> throw unsupported(r.id(), "FrameRegion");
         }
 
         return new RegionDto(
-            region.getId() != null ? region.getId().toString() : null,
-            RegionKind.fromPage4jName(region.getType().getName()),
-            toPolygonDto(region.getCoords()),
-            textLines,
-            textContentVariants,
-            toAlternativeImageDtos(region.getAlternativeImages()),
-            toLabelsDtos(region.getLabels()),
-            toUserDefinedDto(region.getUserDefinedAttributes(false)),
-            toRolesDto(region),
-            toGridDto(region),
-            toTextStyleDto(region),
-            getStringAttr(region, DefaultXmlNames.ATTR_type),
-            getDoubleAttr(region, DefaultXmlNames.ATTR_orientation),
-            getStringAttr(region, DefaultXmlNames.ATTR_textColour),
-            getStringAttr(region, DefaultXmlNames.ATTR_bgColour),
-            getBooleanAttr(region, DefaultXmlNames.ATTR_reverseVideo),
-            getDoubleAttr(region, DefaultXmlNames.ATTR_fontSize),
-            getStringAttr(region, "fontFamily"),
-            getBooleanAttr(region, "serif"),
-            getBooleanAttr(region, "monospace"),
-            getIntegerAttr(region, DefaultXmlNames.ATTR_xHeight),
-            getIntegerAttr(region, DefaultXmlNames.ATTR_leading),
-            getIntegerAttr(region, DefaultXmlNames.ATTR_kerning),
-            getStringAttr(region, "align"),
-            getIntegerAttr(region, DefaultXmlNames.ATTR_textColourRgb),
-            getIntegerAttr(region, "bgColourRgb"),
-            getStringAttr(region, DefaultXmlNames.ATTR_readingDirection),
-            getDoubleAttr(region, DefaultXmlNames.ATTR_readingOrientation),
-            getStringAttr(region, DefaultXmlNames.ATTR_textLineOrder),
-            getBooleanAttr(region, DefaultXmlNames.ATTR_indented),
-            getStringAttr(region, DefaultXmlNames.ATTR_primaryLanguage),
-            getStringAttr(region, DefaultXmlNames.ATTR_secondaryLanguage),
-            getStringAttr(region, DefaultXmlNames.ATTR_primaryScript),
-            getStringAttr(region, DefaultXmlNames.ATTR_secondaryScript),
-            getStringAttr(region, "production"),
-            getIntegerAttr(region, DefaultXmlNames.ATTR_numColours),
-            getBooleanAttr(region, DefaultXmlNames.ATTR_embText),
-            getStringAttr(region, DefaultXmlNames.ATTR_colourDepth),
-            getStringAttr(region, DefaultXmlNames.ATTR_lineColour),
-            getBooleanAttr(region, DefaultXmlNames.ATTR_lineSeparators),
-            getIntegerAttr(region, DefaultXmlNames.ATTR_rows),
-            getIntegerAttr(region, DefaultXmlNames.ATTR_columns),
-            getStringAttr(region, DefaultXmlNames.ATTR_colour),
-            getStringAttr(region, DefaultXmlNames.ATTR_penColour),
-            getBooleanAttr(region, DefaultXmlNames.ATTR_borderPresent),
-            nestedRegions,
-            getDoubleAttr(region, DefaultXmlNames.ATTR_conf),
-            getStringAttr(region, DefaultXmlNames.ATTR_custom),
-            getStringAttr(region, DefaultXmlNames.ATTR_comments),
-            getBooleanAttr(region, DefaultXmlNames.ATTR_continuation)
+            region.id(),
+            fields.kind,
+            toPolygonDto(region.coords()),
+            fields.textLines,
+            fields.textContentVariants,
+            toAlternativeImageDtos(region.alternativeImages()),
+            toLabelsDtos(region.labels()),
+            toUserDefinedDto(region.userAttributes()),
+            toRolesDto(region.tableCellRole()),
+            fields.grid,
+            fields.textStyle,
+            fields.type,
+            fields.orientation,
+            null,
+            fields.bgColour,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            fields.leading,
+            null,
+            fields.align,
+            null,
+            null,
+            fields.readingDirection,
+            fields.readingOrientation,
+            fields.textLineOrder,
+            fields.indented,
+            fields.primaryLanguage,
+            fields.secondaryLanguage,
+            fields.primaryScript,
+            fields.secondaryScript,
+            fields.production,
+            fields.numColours,
+            fields.embText,
+            fields.colourDepth,
+            fields.lineColour,
+            fields.lineSeparators,
+            fields.rows,
+            fields.columns,
+            fields.colour,
+            fields.penColour,
+            null,
+            region.regions().isEmpty() ? null : region.regions().stream().map(this::toRegionDto).toList(),
+            null,
+            text(region.custom()),
+            text(region.comments()),
+            region.continuation()
         );
     }
 
-    private RolesDto toRolesDto(Region region) {
-        if (region == null || !region.hasRole(RoleType.TableCellRole)) {
-            return null;
-        }
-        RegionRole role = region.getRole(RoleType.TableCellRole);
+    private static IllegalArgumentException unsupported(String id, String element) {
+        return new IllegalArgumentException(element + " '" + id + "' is not supported by the editor yet");
+    }
+
+    private RolesDto toRolesDto(TableCellRole role) {
         if (role == null) {
             return null;
         }
-        return new RolesDto(new TableCellRoleDto(
-            getIntegerAttr(role, DefaultXmlNames.ATTR_rowIndex),
-            getIntegerAttr(role, DefaultXmlNames.ATTR_columnIndex),
-            getIntegerAttr(role, DefaultXmlNames.ATTR_rowSpan),
-            getIntegerAttr(role, DefaultXmlNames.ATTR_colSpan),
-            getBooleanAttr(role, DefaultXmlNames.ATTR_header)
-        ));
+        return new RolesDto(new TableCellRoleDto(role.rowIndex(), role.columnIndex(), role.rowSpan(), role.colSpan(), role.header()));
     }
 
-    private GridDto toGridDto(Region region) {
-        if (!(region instanceof TableRegion tableRegion) || tableRegion.getGrid() == null) {
+    private GridDto toGridDto(Grid grid) {
+        if (grid == null) {
             return null;
         }
-        TableGrid grid = tableRegion.getGrid();
         List<GridPointsDto> rows = new ArrayList<>();
-        for (int i = 0; i < grid.getRows().size(); i++) {
-            TableGrid.TableGridRow row = grid.getRows().get(i);
-            rows.add(new GridPointsDto(i, toPolygonDto(row.getCoords())));
+        for (GridPoints row : grid.gridPoints()) {
+            rows.add(new GridPointsDto(row.index(), toPolygonDto(row.points())));
         }
         return rows.isEmpty() ? null : new GridDto(rows);
     }
 
-    private List<TextLineDto> toTextLineDtos(TextRegion textRegion) {
-        if (!textRegion.hasTextObjects()) {
-            return null;
-        }
-        List<TextLineDto> lines = new ArrayList<>();
-        for (int i = 0; i < textRegion.getTextObjectCount(); i++) {
-            if (textRegion.getTextObject(i) instanceof TextLine textLine) {
-                lines.add(toTextLineDto(textLine));
-            }
-        }
-        return lines.isEmpty() ? null : lines;
-    }
-
-    private TextLineDto toTextLineDto(TextLine textLine) {
+    private TextLineDto toTextLineDto(TextLine line) {
         return new TextLineDto(
-            textLine.getId() != null ? textLine.getId().toString() : null,
-            toPolygonDto(textLine.getCoords()),
-            toPolygonDto(textLine.getBaseline()),
-            toTextContentVariantDtos(textLine),
-            toWordDtos(textLine),
-            toAlternativeImageDtos(textLine.getAlternativeImages()),
-            toLabelsDtos(textLine.getLabels()),
-            toUserDefinedDto(textLine.getUserDefinedAttributes(false)),
-            toTextStyleDto(textLine),
-            getBooleanAttr(textLine, DefaultXmlNames.ATTR_bold),
-            getBooleanAttr(textLine, DefaultXmlNames.ATTR_italic),
-            getBooleanAttr(textLine, DefaultXmlNames.ATTR_underlined),
-            getStringAttr(textLine, DefaultXmlNames.ATTR_underlineStyle),
-            getBooleanAttr(textLine, DefaultXmlNames.ATTR_subscript),
-            getBooleanAttr(textLine, DefaultXmlNames.ATTR_superscript),
-            getBooleanAttr(textLine, DefaultXmlNames.ATTR_strikethrough),
-            getBooleanAttr(textLine, DefaultXmlNames.ATTR_smallCaps),
-            getBooleanAttr(textLine, DefaultXmlNames.ATTR_letterSpaced),
-            getStringAttr(textLine, DefaultXmlNames.ATTR_primaryLanguage),
-            getStringAttr(textLine, DefaultXmlNames.ATTR_primaryScript),
-            getStringAttr(textLine, DefaultXmlNames.ATTR_secondaryScript),
-            getStringAttr(textLine, DefaultXmlNames.ATTR_readingDirection),
-            getStringAttr(textLine, "production"),
-            getDoubleAttr(textLine, DefaultXmlNames.ATTR_conf),
-            getIntegerAttr(textLine, DefaultXmlNames.ATTR_index),
-            getStringAttr(textLine, DefaultXmlNames.ATTR_custom),
-            getStringAttr(textLine, DefaultXmlNames.ATTR_comments)
+            line.id(),
+            toPolygonDto(line.coords()),
+            toPolygonDto(line.baseline()),
+            toTextContentVariantDtos(line.textEquivs()),
+            list(line.words(), this::toWordDto),
+            toAlternativeImageDtos(line.alternativeImages()),
+            toLabelsDtos(line.labels()),
+            toUserDefinedDto(line.userAttributes()),
+            toTextStyleDto(line.textStyle()),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            xml(line.primaryLanguage()),
+            xml(line.primaryScript()),
+            xml(line.secondaryScript()),
+            xml(line.readingDirection()),
+            xml(line.production()),
+            null,
+            line.index(),
+            text(line.custom()),
+            text(line.comments())
         );
-    }
-
-    private List<WordDto> toWordDtos(TextLine textLine) {
-        if (!textLine.hasTextObjects()) {
-            return null;
-        }
-        List<WordDto> words = new ArrayList<>();
-        for (int i = 0; i < textLine.getTextObjectCount(); i++) {
-            if (textLine.getTextObject(i) instanceof Word word) {
-                words.add(toWordDto(word));
-            }
-        }
-        return words.isEmpty() ? null : words;
     }
 
     private WordDto toWordDto(Word word) {
-        String script = getStringAttr(word, DefaultXmlNames.ATTR_script);
-        String primaryScript = getStringAttr(word, DefaultXmlNames.ATTR_primaryScript);
-        String secondaryScript = getStringAttr(word, DefaultXmlNames.ATTR_secondaryScript);
         return new WordDto(
-            word.getId() != null ? word.getId().toString() : null,
-            toPolygonDto(word.getCoords()),
-            toTextContentVariantDtos(word),
-            toGlyphDtos(word),
-            toAlternativeImageDtos(word.getAlternativeImages()),
-            toLabelsDtos(word.getLabels()),
-            toUserDefinedDto(word.getUserDefinedAttributes(false)),
-            toTextStyleDto(word),
-            getBooleanAttr(word, DefaultXmlNames.ATTR_bold),
-            getBooleanAttr(word, DefaultXmlNames.ATTR_italic),
-            getBooleanAttr(word, DefaultXmlNames.ATTR_underlined),
-            getStringAttr(word, DefaultXmlNames.ATTR_underlineStyle),
-            getBooleanAttr(word, DefaultXmlNames.ATTR_subscript),
-            getBooleanAttr(word, DefaultXmlNames.ATTR_superscript),
-            getBooleanAttr(word, DefaultXmlNames.ATTR_strikethrough),
-            getBooleanAttr(word, DefaultXmlNames.ATTR_smallCaps),
-            getBooleanAttr(word, DefaultXmlNames.ATTR_letterSpaced),
-            getStringAttr(word, DefaultXmlNames.ATTR_language),
-            primaryScript != null ? primaryScript : script,
-            secondaryScript,
-            script,
-            getStringAttr(word, DefaultXmlNames.ATTR_readingDirection),
-            getStringAttr(word, "production"),
-            getDoubleAttr(word, DefaultXmlNames.ATTR_conf),
-            getStringAttr(word, DefaultXmlNames.ATTR_custom),
-            getStringAttr(word, DefaultXmlNames.ATTR_comments)
+            word.id(),
+            toPolygonDto(word.coords()),
+            toTextContentVariantDtos(word.textEquivs()),
+            list(word.glyphs(), this::toGlyphDto),
+            toAlternativeImageDtos(word.alternativeImages()),
+            toLabelsDtos(word.labels()),
+            toUserDefinedDto(word.userAttributes()),
+            toTextStyleDto(word.textStyle()),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            xml(word.language()),
+            xml(word.primaryScript()),
+            xml(word.secondaryScript()),
+            null,
+            xml(word.readingDirection()),
+            xml(word.production()),
+            null,
+            text(word.custom()),
+            text(word.comments())
         );
-    }
-
-    private List<GlyphDto> toGlyphDtos(Word word) {
-        if (!word.hasTextObjects()) {
-            return null;
-        }
-        List<GlyphDto> glyphs = new ArrayList<>();
-        for (int i = 0; i < word.getTextObjectCount(); i++) {
-            if (word.getTextObject(i) instanceof Glyph glyph) {
-                glyphs.add(toGlyphDto(glyph));
-            }
-        }
-        return glyphs.isEmpty() ? null : glyphs;
     }
 
     private GlyphDto toGlyphDto(Glyph glyph) {
+        List<GraphemeElementDto> graphemes = list(glyph.graphemes(), this::toGraphemeElementDto);
         return new GlyphDto(
-            glyph.getId() != null ? glyph.getId().toString() : null,
-            toPolygonDto(glyph.getCoords()),
-            toTextContentVariantDtos(glyph),
-            toAlternativeImageDtos(glyph.getAlternativeImages()),
-            toLabelsDtos(glyph.getLabels()),
-            toUserDefinedDto(glyph.getUserDefinedAttributes(false)),
-            toTextStyleDto(glyph),
-            toGraphemesDto(glyph),
-            getBooleanAttr(glyph, DefaultXmlNames.ATTR_bold),
-            getBooleanAttr(glyph, DefaultXmlNames.ATTR_italic),
-            getBooleanAttr(glyph, DefaultXmlNames.ATTR_underlined),
-            getStringAttr(glyph, DefaultXmlNames.ATTR_underlineStyle),
-            getBooleanAttr(glyph, DefaultXmlNames.ATTR_subscript),
-            getBooleanAttr(glyph, DefaultXmlNames.ATTR_superscript),
-            getBooleanAttr(glyph, DefaultXmlNames.ATTR_strikethrough),
-            getBooleanAttr(glyph, DefaultXmlNames.ATTR_smallCaps),
-            getBooleanAttr(glyph, DefaultXmlNames.ATTR_letterSpaced),
-            getBooleanAttr(glyph, DefaultXmlNames.ATTR_ligature),
-            getBooleanAttr(glyph, DefaultXmlNames.ATTR_symbol),
-            getStringAttr(glyph, DefaultXmlNames.ATTR_script),
-            getStringAttr(glyph, "production"),
-            getDoubleAttr(glyph, DefaultXmlNames.ATTR_conf),
-            getStringAttr(glyph, DefaultXmlNames.ATTR_custom),
-            getStringAttr(glyph, DefaultXmlNames.ATTR_comments)
+            glyph.id(),
+            toPolygonDto(glyph.coords()),
+            toTextContentVariantDtos(glyph.textEquivs()),
+            toAlternativeImageDtos(glyph.alternativeImages()),
+            toLabelsDtos(glyph.labels()),
+            toUserDefinedDto(glyph.userAttributes()),
+            toTextStyleDto(glyph.textStyle()),
+            graphemes != null ? new GraphemesDto(graphemes) : null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            glyph.ligature(),
+            glyph.symbol(),
+            xml(glyph.script()),
+            xml(glyph.production()),
+            null,
+            text(glyph.custom()),
+            text(glyph.comments())
         );
-    }
-
-    private GraphemesDto toGraphemesDto(Glyph glyph) {
-        if (glyph == null || !glyph.hasGraphemes()) {
-            return null;
-        }
-        List<GraphemeElementDto> elements = new ArrayList<>();
-        for (GraphemeElement element : glyph.getGraphemes()) {
-            GraphemeElementDto dto = toGraphemeElementDto(element);
-            if (dto != null) {
-                elements.add(dto);
-            }
-        }
-        return elements.isEmpty() ? null : new GraphemesDto(elements);
     }
 
     private GraphemeElementDto toGraphemeElementDto(GraphemeElement element) {
-        if (element == null) {
-            return null;
-        }
-
-        String kind = "grapheme";
-        PolygonDto coords = null;
-        List<GraphemeElementDto> members = null;
-        List<LabelsDto> labels = null;
-
-        if (element instanceof com.maxnth.page4j.dla.page.layout.physical.text.graphemes.Grapheme grapheme) {
-            coords = toPolygonDto(grapheme.getCoords());
-            labels = toLabelsDtos(grapheme.getLabels());
-            kind = "grapheme";
-        } else if (element instanceof NonPrintingCharacter) {
-            kind = "nonPrintingChar";
-        } else if (element instanceof GraphemeGroup group) {
-            kind = "graphemeGroup";
-            if (group.getSize() > 0) {
-                members = new ArrayList<>();
-                for (GraphemeElement member : group.getGraphemes()) {
-                    GraphemeElementDto memberDto = toGraphemeElementDto(member);
-                    if (memberDto != null) {
-                        members.add(memberDto);
-                    }
-                }
-            }
-        }
-
-        return new GraphemeElementDto(
-            element.getType() != null ? kind : null,
-            element.getId() != null ? element.getId().toString() : null,
-            getIntegerAttr(element, DefaultXmlNames.ATTR_index),
-            getStringAttr(element, DefaultXmlNames.ATTR_charType),
-            getBooleanAttr(element, DefaultXmlNames.ATTR_ligature),
-            getStringAttr(element, DefaultXmlNames.ATTR_custom),
-            getStringAttr(element, DefaultXmlNames.ATTR_comments),
-            coords,
-            toTextContentVariantDtos(element),
-            labels,
-            members
-        );
+        return switch (element) {
+            case Grapheme g -> new GraphemeElementDto(
+                "grapheme", g.id(), g.index(), xml(g.charType()), g.ligature(), text(g.custom()), text(g.comments()),
+                toPolygonDto(g.coords()), toTextContentVariantDtos(g.textEquivs()), null, null);
+            case NonPrintingChar n -> new GraphemeElementDto(
+                "nonPrintingChar", n.id(), n.index(), xml(n.charType()), n.ligature(), text(n.custom()), text(n.comments()),
+                null, toTextContentVariantDtos(n.textEquivs()), null, null);
+            case GraphemeGroup group -> new GraphemeElementDto(
+                "graphemeGroup", group.id(), group.index(), xml(group.charType()), group.ligature(), text(group.custom()),
+                text(group.comments()), null, toTextContentVariantDtos(group.textEquivs()), null,
+                list(group.graphemes(), this::toGraphemeElementDto));
+        };
     }
 
-    private List<TextContentVariantDto> toTextContentVariantDtos(TextContentVariants textObject) {
-        if (textObject == null || textObject.getTextContentVariantCount() == 0) {
-            return null;
-        }
-        String ownerId = null;
-        if (textObject instanceof Region region && region.getId() != null) {
-            ownerId = region.getId().toString();
-        } else if (textObject instanceof LowLevelTextObject lowLevelTextObject && lowLevelTextObject.getId() != null) {
-            ownerId = lowLevelTextObject.getId().toString();
-        } else if (textObject instanceof GraphemeElement graphemeElement && graphemeElement.getId() != null) {
-            ownerId = graphemeElement.getId().toString();
-        }
-
-        List<TextContentVariantDto> variants = new ArrayList<>();
-        for (int i = 0; i < textObject.getTextContentVariantCount(); i++) {
-            TextContent tc = textObject.getTextContentVariant(i);
-            variants.add(new TextContentVariantDto(
-                nullIfEmpty(tc.getText()),
-                nullIfEmpty(tc.getPlainText()),
-                getTextEquivConfidence(tc, ownerId, i),
-                getIntegerAttr(tc, DefaultXmlNames.ATTR_index),
-                nullIfEmpty(tc.getDataType()),
-                nullIfEmpty(tc.getDataTypeDetails()),
-                nullIfEmpty(tc.getComments())
-            ));
-        }
-        return variants;
-    }
-
-    private Double getTextEquivConfidence(TextContent textContent, String ownerId, int textEquivPosition) {
-        if (presenceIndex != null && ownerId != null && !presenceIndex.hasTextEquivConfidenceForElementId(ownerId, textEquivPosition)) {
-            return null;
-        }
-        return getDoubleAttr(textContent, DefaultXmlNames.ATTR_conf);
+    private List<TextContentVariantDto> toTextContentVariantDtos(List<TextEquiv> textEquivs) {
+        return list(textEquivs, equiv -> new TextContentVariantDto(
+            text(equiv.unicode()),
+            text(equiv.plainText()),
+            equiv.conf(),
+            equiv.index(),
+            xml(equiv.dataType()),
+            text(equiv.dataTypeDetails()),
+            text(equiv.comments())
+        ));
     }
 
     private PolygonDto toPolygonDto(Polygon polygon) {
-        if (polygon == null || polygon.getSize() == 0) {
+        if (polygon == null || polygon.isEmpty()) {
             return null;
         }
-        List<PointDto> points = new ArrayList<>();
-        for (int i = 0; i < polygon.getSize(); i++) {
-            Point point = polygon.getPoint(i);
+        List<PointDto> points = new ArrayList<>(polygon.size());
+        for (Point point : polygon.points()) {
             points.add(new PointDto(
-                CoordinateUtils.pixelToWorldX(point.x, imageWidth),
-                CoordinateUtils.pixelToWorldY(point.y, imageHeight)
+                CoordinateUtils.pixelToWorldX(point.x(), imageWidth),
+                CoordinateUtils.pixelToWorldY(point.y(), imageHeight)
             ));
         }
-        return new PolygonDto(points, polygon.getConfidence());
+        return new PolygonDto(points, polygon.confidence());
     }
 
     private ReadingOrderDto toReadingOrderDto(ReadingOrder readingOrder) {
-        if (readingOrder == null || readingOrder.getRoot() == null) {
+        if (readingOrder == null) {
             return null;
         }
-        return new ReadingOrderDto(toGroupDto(readingOrder.getRoot(), null), readingOrder.getConfidence());
+        return new ReadingOrderDto(toGroupDto(readingOrder.group(), null), readingOrder.conf());
     }
 
     private ReadingOrderDto.GroupDto toGroupDto(Group group, Integer index) {
-        if (group == null) {
-            return null;
-        }
-
+        boolean ordered = group instanceof OrderedGroup;
         List<ReadingOrderDto.GroupMemberDto> members = new ArrayList<>();
-        String groupId = group.getId() != null ? group.getId().toString() : null;
-        List<Integer> sourceIndices = readingOrderIndices.get(groupId);
-        for (int i = 0; i < group.getSize(); i++) {
-            GroupMember member = group.getMember(i);
-            Integer memberIndex = group.isOrdered()
-                ? sourceIndices != null && i < sourceIndices.size() ? sourceIndices.get(i) : i
-                : null;
-            if (member instanceof RegionRef regionRef) {
-                members.add(new ReadingOrderDto.RegionRefDto(
-                    null,
-                    regionRef.getRegionId() != null ? regionRef.getRegionId().toString() : null,
-                    memberIndex
-                ));
-            } else if (member instanceof Group childGroup) {
-                members.add(new ReadingOrderDto.NestedGroupDto(toGroupDto(childGroup, memberIndex)));
+        List<GroupMember> groupMembers = switch (group) {
+            case OrderedGroup g -> g.members();
+            case com.maxnth.page4j.model.UnorderedGroup g -> g.members();
+        };
+        for (int i = 0; i < groupMembers.size(); i++) {
+            Integer memberIndex = ordered ? i : null;
+            switch (groupMembers.get(i)) {
+                case RegionRef ref -> members.add(new ReadingOrderDto.RegionRefDto(null, ref.regionRef(), memberIndex));
+                case Group child -> members.add(new ReadingOrderDto.NestedGroupDto(toGroupDto(child, memberIndex)));
             }
         }
-
-        if (group.isOrdered()) {
-            members.sort(Comparator.comparingInt(member -> switch (member) {
-                case ReadingOrderDto.RegionRefDto ref -> ref.index();
-                case ReadingOrderDto.NestedGroupDto nested -> nested.group().index();
-            }));
-        }
-
-        return new ReadingOrderDto.GroupDto(
-            group.getId() != null ? group.getId().toString() : null,
-            group.isOrdered(),
-            index,
-            getStringAttr(group, DefaultXmlNames.ATTR_caption),
-            getStringAttr(group, DefaultXmlNames.ATTR_type),
-            group.getRegionRef() != null ? group.getRegionRef().toString() : null,
-            members,
-            getBooleanAttr(group, DefaultXmlNames.ATTR_continuation),
-            toUserDefinedDto(group.getUserDefinedAttributes()),
-            toLabelsDtos(group.getLabels()),
-            getStringAttr(group, DefaultXmlNames.ATTR_custom),
-            getStringAttr(group, DefaultXmlNames.ATTR_comments)
-        );
+        return switch (group) {
+            case OrderedGroup g -> new ReadingOrderDto.GroupDto(
+                g.id(), true, index, text(g.caption()), xml(g.type()), text(g.regionRef()), members, g.continuation(),
+                toUserDefinedDto(g.userAttributes()), toLabelsDtos(g.labels()), text(g.custom()), text(g.comments()));
+            case com.maxnth.page4j.model.UnorderedGroup g -> new ReadingOrderDto.GroupDto(
+                g.id(), false, index, text(g.caption()), xml(g.type()), text(g.regionRef()), members, g.continuation(),
+                toUserDefinedDto(g.userAttributes()), toLabelsDtos(g.labels()), text(g.custom()), text(g.comments()));
+        };
     }
 
-    private LayersDto toLayersDto(Layers layers) {
-        if (layers == null || layers.getSize() == 0) {
-            return null;
-        }
-        List<LayerDto> layerDtos = new ArrayList<>();
-        for (int i = 0; i < layers.getSize(); i++) {
-            Layer layer = layers.getLayer(i);
-            if (layer == null) {
-                continue;
-            }
-            List<String> regionRefs = new ArrayList<>();
-            for (int m = 0; m < layer.getSize(); m++) {
-                GroupMember member = layer.getMember(m);
-                if (member instanceof RegionRef ref && ref.getRegionId() != null) {
-                    regionRefs.add(ref.getRegionId().toString());
-                }
-            }
-            layerDtos.add(new LayerDto(
-                layer.getId() != null ? layer.getId().toString() : null,
-                layer.getZIndex(),
-                getStringAttr(layer, DefaultXmlNames.ATTR_caption),
-                regionRefs.isEmpty() ? null : regionRefs
-            ));
-        }
-        return layerDtos.isEmpty() ? null : new LayersDto(layerDtos);
+    private LayersDto toLayersDto(List<Layer> layers) {
+        List<LayerDto> dtos = list(layers, layer -> new LayerDto(
+            layer.id(),
+            layer.zIndex(),
+            text(layer.caption()),
+            layer.regionRefs().isEmpty() ? null : List.copyOf(layer.regionRefs())
+        ));
+        return dtos != null ? new LayersDto(dtos) : null;
     }
 
-    private RelationsDto toRelationsDto(Relations relations) {
-        if (relations == null || relations.isEmpty()) {
-            return null;
-        }
-        List<RelationDto> relationDtos = relations.exportRelations().stream()
-            .filter(relation -> relation != null)
-            .sorted(Comparator.comparing(relation -> relation.getId() != null ? relation.getId().toString() : ""))
-            .map(relation -> new RelationDto(
-                relation.getId() != null ? relation.getId().toString() : null,
-                relation.getRelationType() != null ? relation.getRelationType().toString() : null,
-                relation.getObject1() != null && relation.getObject1().getId() != null ? relation.getObject1().getId().toString() : null,
-                relation.getObject2() != null && relation.getObject2().getId() != null ? relation.getObject2().getId().toString() : null,
-                nullIfEmpty(relation.getCustomField()),
-                nullIfEmpty(relation.getComments()),
-                toLabelsDtos(relation.getLabels())
-            ))
-            .toList();
-        return relationDtos.isEmpty() ? null : new RelationsDto(relationDtos);
+    private RelationsDto toRelationsDto(List<Relation> relations) {
+        List<RelationDto> dtos = list(relations, relation -> new RelationDto(
+            relation.id(),
+            xml(relation.type()),
+            relation.sourceRegionRef(),
+            relation.targetRegionRef(),
+            text(relation.custom()),
+            text(relation.comments()),
+            toLabelsDtos(relation.labels())
+        ));
+        return dtos != null ? new RelationsDto(dtos) : null;
     }
 
     private List<AlternativeImageDto> toAlternativeImageDtos(List<AlternativeImage> images) {
-        if (images == null || images.isEmpty()) {
-            return null;
-        }
-        List<AlternativeImageDto> dtos = new ArrayList<>();
-        for (AlternativeImage image : images) {
-            if (image == null) {
-                continue;
-            }
-            dtos.add(new AlternativeImageDto(
-                nullIfEmpty(image.getFilename()),
-                nullIfEmpty(image.getComments()),
-                image.getConfidence()
-            ));
-        }
-        return dtos.isEmpty() ? null : dtos;
+        return list(images, image -> new AlternativeImageDto(text(image.filename()), text(image.comments()), image.conf()));
     }
 
-    private List<LabelsDto> toLabelsDtos(Labels labels) {
-        if (labels == null || labels.getGroups() == null || labels.getGroups().isEmpty()) {
-            return null;
-        }
-        List<LabelsDto> groups = new ArrayList<>();
-        for (Map.Entry<String, LabelGroup> entry : labels.getGroups().entrySet()) {
-            LabelGroup group = entry.getValue();
-            if (group == null) {
-                continue;
-            }
-            List<LabelDto> groupLabels = new ArrayList<>();
-            for (Label label : group.getLabels()) {
-                if (label == null) {
-                    continue;
-                }
-                groupLabels.add(new LabelDto(
-                    nullIfEmpty(label.getValue()),
-                    nullIfEmpty(label.getType()),
-                    nullIfEmpty(label.getComments())
-                ));
-            }
-            groups.add(new LabelsDto(
-                nullIfEmpty(group.getExternalModel()),
-                nullIfEmpty(group.getExternalId()),
-                nullIfEmpty(group.getPrefix()),
-                nullIfEmpty(group.getComments()),
-                groupLabels.isEmpty() ? null : groupLabels
-            ));
-        }
-        return groups.isEmpty() ? null : groups;
+    private List<LabelsDto> toLabelsDtos(List<LabelGroup> groups) {
+        return list(groups, group -> new LabelsDto(
+            text(group.externalModel()),
+            text(group.externalId()),
+            text(group.prefix()),
+            text(group.comments()),
+            list(group.labels(), (Label label) -> new LabelDto(text(label.value()), text(label.type()), text(label.comments())))
+        ));
     }
 
-    private UserDefinedDto toUserDefinedDto(VariableMap attributes) {
-        if (attributes == null || attributes.getSize() == 0) {
-            return null;
-        }
-        List<UserAttributeDto> userAttributes = new ArrayList<>();
-        for (int i = 0; i < attributes.getSize(); i++) {
-            Variable variable = attributes.get(i);
-            if (variable == null) {
-                continue;
-            }
-            userAttributes.add(new UserAttributeDto(
-                nullIfEmpty(variable.getName()),
-                nullIfEmpty(variable.getDescription()),
-                toUserAttributeType(variable),
-                variable.getValue() != null ? nullIfEmpty(variable.getValue().toString()) : null
-            ));
-        }
-        return userAttributes.isEmpty() ? null : new UserDefinedDto(userAttributes);
+    private UserDefinedDto toUserDefinedDto(List<UserAttribute> attributes) {
+        List<UserAttributeDto> dtos = list(attributes, attribute -> new UserAttributeDto(
+            text(attribute.name()),
+            text(attribute.description()),
+            xml(attribute.type()),
+            text(attribute.value())
+        ));
+        return dtos != null ? new UserDefinedDto(dtos) : null;
     }
 
-    private String toUserAttributeType(Variable variable) {
-        if (variable instanceof StringVariable) {
-            return "xsd:string";
-        }
-        if (variable instanceof IntegerVariable) {
-            return "xsd:integer";
-        }
-        if (variable instanceof DoubleVariable) {
-            return "xsd:float";
-        }
-        if (variable instanceof com.maxnth.page4j.basic.variable.BooleanVariable) {
-            return "xsd:boolean";
-        }
-        return null;
-    }
-
-    private TextStyleDto toTextStyleDto(AttributeContainer container) {
-        if (container == null) {
+    private TextStyleDto toTextStyleDto(TextStyle style) {
+        if (style == null) {
             return null;
         }
-        TextStyleDto style = new TextStyleDto(
-            getStringAttr(container, "fontFamily"),
-            getBooleanAttr(container, "serif"),
-            getBooleanAttr(container, "monospace"),
-            getDoubleAttr(container, DefaultXmlNames.ATTR_fontSize),
-            getIntegerAttr(container, DefaultXmlNames.ATTR_xHeight),
-            getIntegerAttr(container, DefaultXmlNames.ATTR_kerning),
-            getStringAttr(container, DefaultXmlNames.ATTR_textColour),
-            getIntegerAttr(container, DefaultXmlNames.ATTR_textColourRgb),
-            getStringAttr(container, DefaultXmlNames.ATTR_bgColour),
-            getIntegerAttr(container, "bgColourRgb"),
-            getBooleanAttr(container, DefaultXmlNames.ATTR_reverseVideo),
-            getBooleanAttr(container, DefaultXmlNames.ATTR_bold),
-            getBooleanAttr(container, DefaultXmlNames.ATTR_italic),
-            getBooleanAttr(container, DefaultXmlNames.ATTR_underlined),
-            getStringAttr(container, DefaultXmlNames.ATTR_underlineStyle),
-            getBooleanAttr(container, DefaultXmlNames.ATTR_subscript),
-            getBooleanAttr(container, DefaultXmlNames.ATTR_superscript),
-            getBooleanAttr(container, DefaultXmlNames.ATTR_strikethrough),
-            getBooleanAttr(container, DefaultXmlNames.ATTR_smallCaps),
-            getBooleanAttr(container, DefaultXmlNames.ATTR_letterSpaced)
+        TextStyleDto dto = new TextStyleDto(
+            text(style.fontFamily()),
+            style.serif(),
+            style.monospace(),
+            style.fontSize(),
+            style.xHeight(),
+            style.kerning(),
+            xml(style.textColour()),
+            style.textColourRgb(),
+            xml(style.bgColour()),
+            style.bgColourRgb(),
+            style.reverseVideo(),
+            style.bold(),
+            style.italic(),
+            style.underlined(),
+            xml(style.underlineStyle()),
+            style.subscript(),
+            style.superscript(),
+            style.strikethrough(),
+            style.smallCaps(),
+            style.letterSpaced()
         );
-        return isEmpty(style) ? null : style;
+        return dto.equals(TextStyles.EMPTY) ? null : dto;
     }
 
-    private boolean isEmpty(TextStyleDto style) {
-        return style.fontFamily() == null
-            && style.serif() == null
-            && style.monospace() == null
-            && style.fontSize() == null
-            && style.xHeight() == null
-            && style.kerning() == null
-            && style.textColour() == null
-            && style.textColourRgb() == null
-            && style.bgColour() == null
-            && style.bgColourRgb() == null
-            && style.reverseVideo() == null
-            && style.bold() == null
-            && style.italic() == null
-            && style.underlined() == null
-            && style.underlineStyle() == null
-            && style.subscript() == null
-            && style.superscript() == null
-            && style.strikethrough() == null
-            && style.smallCaps() == null
-            && style.letterSpaced() == null;
+    private static <T, R> List<R> list(List<T> source, Function<T, R> mapper) {
+        if (source == null || source.isEmpty()) {
+            return null;
+        }
+        return source.stream().map(mapper).toList();
     }
 
-    private String getStringAttr(Object obj, String attrName) {
-        if (!isAttributePresent(obj, attrName)) {
-            return null;
-        }
-        VariableMap attrs = getAttributes(obj);
-        if (attrs == null) {
-            return null;
-        }
-        Variable variable = attrs.get(attrName);
-        if (variable == null || variable.getValue() == null) {
-            return null;
-        }
-        if (variable.getValue() instanceof StringValue value) {
-            return nullIfEmpty(value.val);
-        }
-        return nullIfEmpty(variable.getValue().toString());
+    private static String xml(XmlValue value) {
+        return value != null ? text(value.xmlValue()) : null;
     }
 
-    private Double getDoubleAttr(Object obj, String attrName) {
-        if (!isAttributePresent(obj, attrName)) {
-            return null;
-        }
-        VariableMap attrs = getAttributes(obj);
-        if (attrs == null) {
-            return null;
-        }
-        Variable variable = attrs.get(attrName);
-        if (variable == null || variable.getValue() == null) {
-            return null;
-        }
-        if (variable.getValue() instanceof DoubleValue value) {
-            return value.val;
-        }
-        if (variable.getValue() instanceof IntegerValue value) {
-            return (double) value.val;
-        }
-        if (variable.getValue() instanceof StringValue value) {
-            try {
-                return Double.parseDouble(value.val);
-            } catch (Exception ignored) {
-                return null;
+    private static String text(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private static final class RegionFields {
+        RegionKind kind;
+        List<TextLineDto> textLines;
+        List<TextContentVariantDto> textContentVariants;
+        GridDto grid;
+        TextStyleDto textStyle;
+        String type;
+        Double orientation;
+        String bgColour;
+        Integer leading;
+        String align;
+        String readingDirection;
+        Double readingOrientation;
+        String textLineOrder;
+        Boolean indented;
+        String primaryLanguage;
+        String secondaryLanguage;
+        String primaryScript;
+        String secondaryScript;
+        String production;
+        Integer numColours;
+        Boolean embText;
+        String colourDepth;
+        String lineColour;
+        Boolean lineSeparators;
+        Integer rows;
+        Integer columns;
+        String colour;
+        String penColour;
+
+        void backgroundColour(Colour colour) {
+            bgColour = xml(colour);
+            if (bgColour != null) {
+                textStyle = TextStyles.withBackground(bgColour);
             }
         }
-        return null;
-    }
-
-    private Boolean getBooleanAttr(Object obj, String attrName) {
-        if (!isAttributePresent(obj, attrName)) {
-            return null;
-        }
-        VariableMap attrs = getAttributes(obj);
-        if (attrs == null) {
-            return null;
-        }
-        Variable variable = attrs.get(attrName);
-        if (variable == null || variable.getValue() == null) {
-            return null;
-        }
-        if (variable.getValue() instanceof BooleanValue value) {
-            return value.val;
-        }
-        if (variable.getValue() instanceof StringValue value) {
-            return Boolean.parseBoolean(value.val);
-        }
-        return null;
-    }
-
-    private Integer getIntegerAttr(Object obj, String attrName) {
-        if (!isAttributePresent(obj, attrName)) {
-            return null;
-        }
-        VariableMap attrs = getAttributes(obj);
-        if (attrs == null) {
-            return null;
-        }
-        Variable variable = attrs.get(attrName);
-        if (variable == null || variable.getValue() == null) {
-            return null;
-        }
-        if (variable.getValue() instanceof IntegerValue value) {
-            return value.val;
-        }
-        if (variable.getValue() instanceof StringValue value) {
-            try {
-                return Integer.parseInt(value.val);
-            } catch (Exception ignored) {
-                return null;
-            }
-        }
-        return null;
-    }
-
-    private VariableMap getAttributes(Object obj) {
-        if (obj instanceof AttributeContainer container) {
-            return container.getAttributes();
-        }
-        return null;
-    }
-
-    private boolean isAttributePresent(Object obj, String attrName) {
-        if (presenceIndex == null || attrName == null) {
-            return true;
-        }
-        if (obj instanceof Page) {
-            return presenceIndex.hasPageAttribute(attrName);
-        }
-        String elementId = getElementId(obj);
-        if (elementId != null) {
-            return presenceIndex.hasAttributeForElementId(elementId, attrName);
-        }
-        return true;
-    }
-
-    private String getElementId(Object obj) {
-        if (obj instanceof Region region && region.getId() != null) {
-            return region.getId().toString();
-        }
-        if (obj instanceof LowLevelTextObject textObject && textObject.getId() != null) {
-            return textObject.getId().toString();
-        }
-        if (obj instanceof Group group && group.getId() != null) {
-            return group.getId().toString();
-        }
-        return null;
-    }
-
-    private boolean isMetadataFieldPresent(String field) {
-        if (presenceIndex == null) {
-            return true;
-        }
-        return switch (field) {
-            case "creator" -> presenceIndex.hasMetadataCreator();
-            case "created" -> presenceIndex.hasMetadataCreated();
-            case "lastChange" -> presenceIndex.hasMetadataLastChange();
-            case "comments" -> presenceIndex.hasMetadataComments();
-            case "externalRef" -> presenceIndex.hasMetadataExternalRef();
-            default -> false;
-        };
     }
 }

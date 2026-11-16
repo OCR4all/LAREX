@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+  <Metadata>
+    <Creator>larex-corpus</Creator>
+    <Created>2026-01-02T10:00:00</Created>
+    <LastChange>2026-01-02T10:00:00</LastChange>
+  </Metadata>
+  <Page imageFilename="page.png" imageWidth="1000" imageHeight="1500">
+    <Relations>
+      <Relation id="rel-z" type="link">
+        <SourceRegionRef regionRef="img1"/>
+        <TargetRegionRef regionRef="r1l1"/>
+      </Relation>
+      <Relation id="rel-m" type="join" custom="structure {type:caption;}">
+        <SourceRegionRef regionRef="r1l1w1"/>
+        <TargetRegionRef regionRef="r1l1w1g1"/>
+      </Relation>
+      <Relation id="rel-a" type="link" comments="region to region">
+        <SourceRegionRef regionRef="r1"/>
+        <TargetRegionRef regionRef="img1"/>
+      </Relation>
+    </Relations>
+    <TextRegion id="r1">
+      <Coords points="100,100 900,100 900,300 100,300"/>
+      <TextLine id="r1l1">
+        <Coords points="110,110 890,110 890,190 110,190"/>
+        <Baseline points="110,180 890,180"/>
+        <Word id="r1l1w1">
+          <Coords points="110,110 300,110 300,190 110,190"/>
+          <Glyph id="r1l1w1g1">
+            <Coords points="110,110 150,110 150,190 110,190"/>
+            <TextEquiv><Unicode>A</Unicode></TextEquiv>
+          </Glyph>
+          <TextEquiv><Unicode>Ab</Unicode></TextEquiv>
+        </Word>
+        <TextEquiv><Unicode>Ab</Unicode></TextEquiv>
+      </TextLine>
+    </TextRegion>
+    <ImageRegion id="img1">
+      <Coords points="100,400 500,400 500,800 100,800"/>
+    </ImageRegion>
+  </Page>
+</PcGts>

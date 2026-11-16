@@ -1,94 +1,116 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping;
 
-import com.maxnth.page4j.basic.ident.IdRegister;
-import com.maxnth.page4j.basic.labels.HasLabels;
-import com.maxnth.page4j.basic.labels.LabelImpl;
-import com.maxnth.page4j.basic.labels.LabelGroup;
-import com.maxnth.page4j.basic.labels.Labels;
-import com.maxnth.page4j.basic.variable.BooleanVariable;
-import com.maxnth.page4j.basic.variable.IntegerVariable;
-import com.maxnth.page4j.basic.variable.StringValue;
-import com.maxnth.page4j.basic.variable.StringVariable;
-import com.maxnth.page4j.basic.variable.Variable;
-import com.maxnth.page4j.basic.variable.VariableMap;
-import com.maxnth.page4j.basic.variable.VariableValue;
-import com.maxnth.page4j.dla.page.AlternativeImage;
-import com.maxnth.page4j.dla.page.Page;
-import com.maxnth.page4j.dla.page.io.xml.DefaultXmlNames;
-import com.maxnth.page4j.dla.page.io.xml.PageXmlInputOutput;
-import com.maxnth.page4j.dla.page.layout.GeometricObjectImpl;
-import com.maxnth.page4j.dla.page.layout.PageLayout;
-import com.maxnth.page4j.dla.page.layout.logical.ContentObjectRelation;
-import com.maxnth.page4j.dla.page.layout.logical.Group;
-import com.maxnth.page4j.dla.page.layout.logical.GroupMember;
-import com.maxnth.page4j.dla.page.layout.logical.Layer;
-import com.maxnth.page4j.dla.page.layout.logical.Layers;
-import com.maxnth.page4j.dla.page.layout.logical.ReadingOrder;
-import com.maxnth.page4j.dla.page.layout.logical.Relations;
-import com.maxnth.page4j.dla.page.layout.physical.ContentObject;
-import com.maxnth.page4j.dla.page.layout.physical.Region;
-import com.maxnth.page4j.dla.page.layout.physical.impl.TableGrid;
-import com.maxnth.page4j.dla.page.layout.physical.impl.TableRegion;
-import com.maxnth.page4j.dla.page.layout.physical.role.RegionRole;
-import com.maxnth.page4j.dla.page.layout.physical.shared.ContentType;
-import com.maxnth.page4j.dla.page.layout.physical.shared.LowLevelTextType;
-import com.maxnth.page4j.dla.page.layout.physical.shared.RegionType;
-import com.maxnth.page4j.dla.page.layout.physical.shared.RoleType;
-import com.maxnth.page4j.dla.page.layout.physical.text.LowLevelTextContainer;
-import com.maxnth.page4j.dla.page.layout.physical.text.LowLevelTextObject;
-import com.maxnth.page4j.dla.page.layout.physical.text.TextContent;
-import com.maxnth.page4j.dla.page.layout.physical.text.TextContentVariants;
-import com.maxnth.page4j.dla.page.layout.physical.text.graphemes.Grapheme;
-import com.maxnth.page4j.dla.page.layout.physical.text.graphemes.GraphemeElement;
-import com.maxnth.page4j.dla.page.layout.physical.text.graphemes.GraphemeGroup;
-import com.maxnth.page4j.dla.page.layout.physical.text.impl.Glyph;
-import com.maxnth.page4j.dla.page.layout.physical.text.impl.TextLine;
-import com.maxnth.page4j.dla.page.layout.physical.text.impl.TextRegion;
-import com.maxnth.page4j.dla.page.layout.physical.text.impl.Word;
-import com.maxnth.page4j.dla.page.metadata.MetaData;
-import com.maxnth.page4j.dla.page.metadata.MetadataItem;
-import com.maxnth.page4j.maths.geometry.Polygon;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.AlternativeImageDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GlyphDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GraphemeElementDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GraphemesDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridPointsDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelsDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.LayerDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.LayersDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataItemDto;
+import com.maxnth.page4j.geometry.Point;
+import com.maxnth.page4j.geometry.Polygon;
+import com.maxnth.page4j.model.AdvertRegionBuilder;
+import com.maxnth.page4j.model.AlternativeImage;
+import com.maxnth.page4j.model.ChartRegionBuilder;
+import com.maxnth.page4j.model.ChemRegionBuilder;
+import com.maxnth.page4j.model.CustomRegionBuilder;
+import com.maxnth.page4j.model.GlyphBuilder;
+import com.maxnth.page4j.model.Glyph;
+import com.maxnth.page4j.model.Grapheme;
+import com.maxnth.page4j.model.GraphemeElement;
+import com.maxnth.page4j.model.GraphemeGroup;
+import com.maxnth.page4j.model.GraphicRegionBuilder;
+import com.maxnth.page4j.model.Grid;
+import com.maxnth.page4j.model.GridPoints;
+import com.maxnth.page4j.model.Group;
+import com.maxnth.page4j.model.GroupMember;
+import com.maxnth.page4j.model.ImageRegionBuilder;
+import com.maxnth.page4j.model.InvalidPageException;
+import com.maxnth.page4j.model.Label;
+import com.maxnth.page4j.model.LabelGroup;
+import com.maxnth.page4j.model.Layer;
+import com.maxnth.page4j.model.LineDrawingRegionBuilder;
+import com.maxnth.page4j.model.MapRegionBuilder;
+import com.maxnth.page4j.model.MathsRegionBuilder;
+import com.maxnth.page4j.model.Metadata;
+import com.maxnth.page4j.model.MetadataItem;
+import com.maxnth.page4j.model.MusicRegionBuilder;
+import com.maxnth.page4j.model.NoiseRegionBuilder;
+import com.maxnth.page4j.model.NonPrintingChar;
+import com.maxnth.page4j.model.OrderedGroup;
+import com.maxnth.page4j.model.Page;
+import com.maxnth.page4j.model.ReadingOrder;
+import com.maxnth.page4j.model.Region;
+import com.maxnth.page4j.model.RegionRef;
+import com.maxnth.page4j.model.Relation;
+import com.maxnth.page4j.model.SeparatorRegionBuilder;
+import com.maxnth.page4j.model.TableCellRole;
+import com.maxnth.page4j.model.TableRegionBuilder;
+import com.maxnth.page4j.model.TextEquiv;
+import com.maxnth.page4j.model.TextLine;
+import com.maxnth.page4j.model.TextLineBuilder;
+import com.maxnth.page4j.model.TextRegionBuilder;
+import com.maxnth.page4j.model.TextStyle;
+import com.maxnth.page4j.model.UnknownRegionBuilder;
+import com.maxnth.page4j.model.UnorderedGroup;
+import com.maxnth.page4j.model.UserAttribute;
+import com.maxnth.page4j.model.Word;
+import com.maxnth.page4j.model.WordBuilder;
+import com.maxnth.page4j.model.value.Align;
+import com.maxnth.page4j.model.value.CharType;
+import com.maxnth.page4j.model.value.ChartType;
+import com.maxnth.page4j.model.value.Colour;
+import com.maxnth.page4j.model.value.ColourDepth;
+import com.maxnth.page4j.model.value.GraphicsType;
+import com.maxnth.page4j.model.value.GroupType;
+import com.maxnth.page4j.model.value.Language;
+import com.maxnth.page4j.model.value.MetadataItemType;
+import com.maxnth.page4j.model.value.PageDateTime;
+import com.maxnth.page4j.model.value.PageType;
+import com.maxnth.page4j.model.value.Production;
+import com.maxnth.page4j.model.value.ReadingDirection;
+import com.maxnth.page4j.model.value.RelationType;
+import com.maxnth.page4j.model.value.ResolutionUnit;
+import com.maxnth.page4j.model.value.Script;
+import com.maxnth.page4j.model.value.TextDataType;
+import com.maxnth.page4j.model.value.TextLineOrder;
+import com.maxnth.page4j.model.value.TextType;
+import com.maxnth.page4j.model.value.UnderlineStyle;
+import com.maxnth.page4j.model.value.UserAttributeType;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PointDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.readingorder.ReadingOrderDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.AlternativeImageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridPointsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.LayerDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.LayersDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.RelationDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.RelationsDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.TableCellRoleDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.style.TextStyleDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataItemDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.UserAttributeDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.UserDefinedDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.readingorder.ReadingOrderDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.style.TextStyleDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GlyphDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GraphemeElementDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.WordDto;
 import de.uniwue.zpd.dachs.larex.backend.util.CoordinateUtils;
-import java.lang.reflect.Field;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
-import org.springframework.stereotype.Component;
+import java.util.function.Function;
 
 @Component
 public class DtoToPage4jMapper {
@@ -97,1017 +119,923 @@ public class DtoToPage4jMapper {
         if (dto == null) {
             return null;
         }
-
-        return new DtoToPage4jMappingSession(dto.imageWidth(), dto.imageHeight()).toPage4j(dto);
+        return new DtoToPage4jMappingSession(dto).toPage4j();
     }
 }
 
 final class DtoToPage4jMappingSession {
 
-    private static final DateTimeFormatter ISO_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final Logger log = LoggerFactory.getLogger(DtoToPage4jMapper.class);
 
+    private final PageDto dto;
     private final int imageWidth;
     private final int imageHeight;
+    private final Map<Object, String> ids = new IdentityHashMap<>();
+    private final Set<String> knownIds = new HashSet<>();
+    private final Set<String> claimedIds = new HashSet<>();
+    private final Map<String, Integer> idCounters = new HashMap<>();
+    private String pcGtsId;
 
-    DtoToPage4jMappingSession(int imageWidth, int imageHeight) {
-        this.imageWidth = imageWidth;
-        this.imageHeight = imageHeight;
+    DtoToPage4jMappingSession(PageDto dto) {
+        this.dto = dto;
+        this.imageWidth = dto.imageWidth();
+        this.imageHeight = dto.imageHeight();
     }
 
-    Page toPage4j(PageDto dto) {
-        Page page = new Page(PageXmlInputOutput.getLatestSchemaModel());
-        page.setImageFilename(dto.imageFilename());
+    Page toPage4j() {
+        assignIds();
 
-        PageLayout layout = page.getLayout();
-        layout.setSize(dto.imageWidth(), dto.imageHeight());
+        Page.Builder page = Page.builder()
+            .pcGtsId(pcGtsId)
+            .metadata(toMetadata(dto.metadata()))
+            .imageFilename(dto.imageFilename() != null ? dto.imageFilename() : "")
+            .imageWidth(dto.imageWidth())
+            .imageHeight(dto.imageHeight())
+            .imageXResolution(dto.imageXResolution())
+            .imageYResolution(dto.imageYResolution())
+            .imageResolutionUnit(value(dto.imageResolutionUnit(), ResolutionUnit::fromXml, "Page imageResolutionUnit"))
+            .type(value(dto.type(), PageType::fromXml, "Page type"))
+            .custom(normalize(dto.custom()))
+            .orientation(dto.orientation())
+            .primaryLanguage(language(dto.primaryLanguage(), "Page primaryLanguage"))
+            .secondaryLanguage(language(dto.secondaryLanguage(), "Page secondaryLanguage"))
+            .primaryScript(value(dto.primaryScript(), Script::fromXml, "Page primaryScript"))
+            .secondaryScript(value(dto.secondaryScript(), Script::fromXml, "Page secondaryScript"))
+            .readingDirection(value(dto.readingDirection(), ReadingDirection::fromXml, "Page readingDirection"))
+            .textLineOrder(value(dto.textLineOrder(), TextLineOrder::fromXml, "Page textLineOrder"))
+            .conf(dto.confidence())
+            .alternativeImages(toAlternativeImages(dto.alternativeImages()))
+            .border(toPolygon(dto.border()))
+            .printSpace(toPolygon(dto.printSpace()))
+            .textStyle(toTextStyle(dto.textStyle(), "Page"))
+            .userAttributes(toUserAttributes(dto.userDefined()))
+            .labels(toLabelGroups(dto.labels()))
+            .regions(each(dto.regions(), this::toRegion))
+            .readingOrder(toReadingOrder(dto.readingOrder()))
+            .layers(toLayers(dto.layers()))
+            .relations(toRelations(dto.relations()));
 
-        if (dto.metadata() != null) {
-            setMetadata(page.getMetaData(), dto.metadata());
+        try {
+            return page.build();
+        } catch (InvalidPageException e) {
+            throw new PageDtoMappingException("Invalid page: " + e.getMessage(), e);
         }
+    }
 
-        if (dto.pcGtsId() != null) {
-            try {
-                page.setGtsId(dto.pcGtsId());
-            } catch (IdRegister.InvalidIdException ignored) {
-            }
-        }
-
-        setPageAttributes(page, dto);
-        applyAlternativeImages(page.getAlternativeImages(), dto.alternativeImages());
-        setLabels(page, dto.labels());
-        page.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
-        applyTextStyle(page.getAttributes(), dto.textStyle());
-
-        if (dto.border() != null) {
-            layout.setBorder(new GeometricObjectImpl(toPolygon(dto.border())));
-        }
-        if (dto.printSpace() != null) {
-            layout.setPrintSpace(new GeometricObjectImpl(toPolygon(dto.printSpace())));
-        }
-
-        if (dto.regions() != null) {
-            for (RegionDto regionDto : dto.regions()) {
-                addRegion(layout, null, regionDto);
-            }
-        }
-
+    private void assignIds() {
+        reserve(dto.pcGtsId());
+        forEach(dto.regions(), this::reserveRegion);
         if (dto.readingOrder() != null) {
-            setReadingOrder(layout, dto.readingOrder());
+            reserveGroup(dto.readingOrder().root());
         }
         if (dto.layers() != null) {
-            setLayers(layout, dto.layers());
+            forEach(dto.layers().layers(), layer -> reserve(layer.id()));
         }
         if (dto.relations() != null) {
-            setRelations(layout, dto.relations());
+            forEach(dto.relations().relations(), relation -> reserve(relation.id()));
         }
 
-        prunePageAttributes(page, dto);
-        removeEmptyStringAttributes(page);
-        return page;
+        if (isValidId(dto.pcGtsId())) {
+            pcGtsId = dto.pcGtsId();
+            claimedIds.add(pcGtsId);
+        } else if (dto.pcGtsId() != null) {
+            log.warn("Dropping invalid pcGtsId '{}' on save", dto.pcGtsId());
+        }
+        forEach(dto.regions(), this::claimRegion);
+        if (dto.readingOrder() != null) {
+            claimGroup(dto.readingOrder().root());
+        }
+        if (dto.layers() != null) {
+            forEach(dto.layers().layers(), layer -> claim(layer, layer.id(), "layer"));
+        }
+        if (dto.relations() != null) {
+            forEach(dto.relations().relations(), relation -> {
+                if (relation.id() != null) {
+                    claim(relation, relation.id(), "rel");
+                }
+            });
+        }
+        knownIds.addAll(claimedIds);
     }
 
-    private void setMetadata(MetaData metaData, MetadataDto dto) {
-        metaData.setCreator(normalizeNullable(dto.creator()));
-        if (hasText(dto.created())) {
+    private void reserve(String id) {
+        if (isValidId(id)) {
+            knownIds.add(id);
+        }
+    }
+
+    private void reserveRegion(RegionDto region) {
+        reserve(region.id());
+        forEach(region.textLines(), line -> {
+            reserve(line.id());
+            forEach(line.words(), word -> {
+                reserve(word.id());
+                forEach(word.glyphs(), glyph -> {
+                    reserve(glyph.id());
+                    if (glyph.graphemes() != null) {
+                        forEach(glyph.graphemes().elements(), this::reserveGrapheme);
+                    }
+                });
+            });
+        });
+        forEach(region.nestedRegions(), this::reserveRegion);
+    }
+
+    private void reserveGrapheme(GraphemeElementDto element) {
+        reserve(element.id());
+        forEach(element.members(), this::reserveGrapheme);
+    }
+
+    private void reserveGroup(ReadingOrderDto.GroupDto group) {
+        if (group == null) {
+            return;
+        }
+        reserve(group.id());
+        forEach(group.members(), member -> {
+            if (member instanceof ReadingOrderDto.NestedGroupDto nested) {
+                reserveGroup(nested.group());
+            }
+        });
+    }
+
+    private void claimRegion(RegionDto region) {
+        claim(region, region.id(), "r");
+        forEach(region.textLines(), line -> {
+            claim(line, line.id(), "l");
+            forEach(line.words(), word -> {
+                claim(word, word.id(), "w");
+                forEach(word.glyphs(), glyph -> {
+                    claim(glyph, glyph.id(), "g");
+                    if (glyph.graphemes() != null) {
+                        forEach(glyph.graphemes().elements(), this::claimGrapheme);
+                    }
+                });
+            });
+        });
+        forEach(region.nestedRegions(), this::claimRegion);
+    }
+
+    private void claimGrapheme(GraphemeElementDto element) {
+        claim(element, element.id(), "gr");
+        forEach(element.members(), this::claimGrapheme);
+    }
+
+    private void claimGroup(ReadingOrderDto.GroupDto group) {
+        if (group == null) {
+            return;
+        }
+        claim(group, group.id(), "ro");
+        forEach(group.members(), member -> {
+            if (member instanceof ReadingOrderDto.NestedGroupDto nested) {
+                claimGroup(nested.group());
+            }
+        });
+    }
+
+    private void claim(Object owner, String id, String prefix) {
+        if (isValidId(id) && claimedIds.add(id)) {
+            ids.put(owner, id);
+            return;
+        }
+        String generated;
+        do {
+            generated = prefix + idCounters.merge(prefix, 1, Integer::sum);
+        } while (knownIds.contains(generated) || claimedIds.contains(generated));
+        claimedIds.add(generated);
+        ids.put(owner, generated);
+        log.warn("Repaired {} ID '{}' on save as '{}'", id == null || id.isBlank() ? "missing" : isValidId(id) ? "duplicate" : "invalid", id, generated);
+    }
+
+    private String idOf(Object owner) {
+        return ids.get(owner);
+    }
+
+    private static boolean isValidId(String id) {
+        if (id == null || id.isEmpty()) {
+            return false;
+        }
+        char first = id.charAt(0);
+        if (!(Character.isLetter(first) || first == '_')) {
+            return false;
+        }
+        for (int i = 0; i < id.length(); i++) {
+            char c = id.charAt(i);
+            if (Character.isWhitespace(c) || c == ':') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Metadata toMetadata(MetadataDto metadata) {
+        String creator = metadata != null ? normalize(metadata.creator()) : null;
+        return new Metadata(
+            metadata != null ? normalize(metadata.externalRef()) : null,
+            creator != null ? creator : "",
+            timestamp(metadata != null ? metadata.created() : null, "created"),
+            timestamp(metadata != null ? metadata.lastChange() : null, "lastChange"),
+            metadata != null ? normalize(metadata.comments()) : null,
+            metadata != null ? toUserAttributes(metadata.userDefined()) : List.of(),
+            metadata != null ? each(metadata.items(), this::toMetadataItem) : List.of()
+        );
+    }
+
+    private static PageDateTime timestamp(String value, String field) {
+        String normalized = normalize(value);
+        if (normalized != null) {
             try {
-                LocalDateTime ldt = LocalDateTime.parse(dto.created().trim(), ISO_FORMAT);
-                metaData.setCreationTime(Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant()));
-            } catch (DateTimeParseException ignored) {
+                return PageDateTime.parse(normalized);
+            } catch (IllegalArgumentException e) {
+                log.warn("Replacing unparseable Metadata {} '{}' with the current time", field, normalized);
             }
         }
-        if (hasText(dto.lastChange())) {
-            try {
-                LocalDateTime ldt = LocalDateTime.parse(dto.lastChange().trim(), ISO_FORMAT);
-                metaData.setLastModifiedTime(Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant()));
-            } catch (DateTimeParseException ignored) {
-            }
-        }
-        metaData.setComments(normalizeNullable(dto.comments()));
-        metaData.setExternalRef(normalizeNullable(dto.externalRef()));
-        metaData.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
-
-        if (dto.items() != null) {
-            for (MetadataItemDto itemDto : dto.items()) {
-                if (itemDto == null) {
-                    continue;
-                }
-                MetadataItem item = metaData.addMetadataItem();
-                setStringAttr(item.getAttributes(), DefaultXmlNames.ATTR_type, itemDto.type());
-                setStringAttr(item.getAttributes(), DefaultXmlNames.ATTR_name, itemDto.name());
-                setStringAttr(item.getAttributes(), DefaultXmlNames.ATTR_value, itemDto.value());
-                setStringAttr(item.getAttributes(), DefaultXmlNames.ATTR_date, itemDto.date());
-                setLabels(item, itemDto.labels());
-            }
-        }
+        return PageDateTime.now();
     }
 
-    private void addRegion(PageLayout layout, Region parent, RegionDto dto) {
-        if (dto == null) {
-            return;
-        }
-        Region region = parent == null
-            ? layout.createRegion(toRegionType(dto.kind()), dto.id())
-            : layout.createRegion(toRegionType(dto.kind()), dto.id(), parent);
-
-        if (dto.coords() != null) {
-            region.setCoords(toPolygon(dto.coords()));
-        }
-
-        setRegionCommonAttributes(region, dto);
-        applyAlternativeImages(region.getAlternativeImages(), dto.alternativeImages());
-        setLabels(region, dto.labels());
-        region.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
-        applyTextStyle(region.getAttributes(), dto.textStyle());
-        setRoles(region, dto.tableCellRoleFromRoles());
-        setGrid(region, dto.grid());
-
-        if (region instanceof TextRegion textRegion) {
-            setTextRegionAttributes(textRegion, dto);
-            if (dto.textLines() != null) {
-                for (TextLineDto lineDto : dto.textLines()) {
-                    addTextLine(textRegion, lineDto);
-                }
-            }
-            setTextContentVariants(textRegion, dto.textContentVariants());
-        }
-
-        pruneRegionAttributes(region, dto);
-
-        if (dto.nestedRegions() != null) {
-            for (RegionDto nested : dto.nestedRegions()) {
-                addRegion(layout, region, nested);
-            }
-        }
-
+    private MetadataItem toMetadataItem(MetadataItemDto item) {
+        String date = normalize(item.date());
+        String value = normalize(item.value());
+        return new MetadataItem(
+            value(item.type(), MetadataItemType::fromXml, "MetadataItem type"),
+            normalize(item.name()),
+            value != null ? value : "",
+            date != null ? value(date, PageDateTime::parse, "MetadataItem date") : null,
+            toLabelGroups(item.labels())
+        );
     }
 
-    private void setRoles(Region region, TableCellRoleDto roleDto) {
-        if (region == null || roleDto == null) {
-            return;
-        }
-        RegionRole role = region.addRole(RoleType.TableCellRole);
-        if (role == null) {
-            return;
-        }
-        setIntegerAttr(role.getAttributes(), DefaultXmlNames.ATTR_rowIndex, roleDto.rowIndex());
-        setIntegerAttr(role.getAttributes(), DefaultXmlNames.ATTR_columnIndex, roleDto.columnIndex());
-        setIntegerAttr(role.getAttributes(), DefaultXmlNames.ATTR_rowSpan, roleDto.rowSpan());
-        setIntegerAttr(role.getAttributes(), DefaultXmlNames.ATTR_colSpan, roleDto.colSpan());
-        setBooleanAttr(role.getAttributes(), DefaultXmlNames.ATTR_header, roleDto.header());
-    }
+    private Region toRegion(RegionDto region) {
+        String id = idOf(region);
+        String context = (region.kind() != null ? region.kind().name() : "Region") + " '" + id + "'";
+        Polygon coords = requiredPolygon(region.coords(), context);
+        String custom = normalize(region.custom());
+        String comments = normalize(region.comments());
+        List<AlternativeImage> alternativeImages = toAlternativeImages(region.alternativeImages());
+        List<UserAttribute> userAttributes = toUserAttributes(region.userDefined());
+        List<LabelGroup> labels = toLabelGroups(region.labels());
+        TableCellRole role = toTableCellRole(region.tableCellRoleFromRoles(), context);
+        List<Region> regions = each(region.nestedRegions(), this::toRegion);
+        RegionKind kind = region.kind() != null ? region.kind() : RegionKind.UnknownRegion;
 
-    private void setGrid(Region region, GridDto gridDto) {
-        if (!(region instanceof TableRegion tableRegion) || gridDto == null) {
-            return;
-        }
-        TableGrid grid = new TableGrid();
-        tableRegion.setGrid(grid);
-
-        if (gridDto.rows() == null || gridDto.rows().isEmpty()) {
-            return;
-        }
-
-        List<GridPointsDto> rows = new ArrayList<>(gridDto.rows());
-        rows.sort(Comparator.comparing(r -> r.index() != null ? r.index() : Integer.MAX_VALUE));
-        try {
-            Field rowsField = TableGrid.class.getDeclaredField("rows");
-            rowsField.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            List<TableGrid.TableGridRow> rowList = (List<TableGrid.TableGridRow>) rowsField.get(grid);
-            for (GridPointsDto rowDto : rows) {
-                if (rowDto == null) {
-                    continue;
-                }
-                TableGrid.TableGridRow row = new TableGrid.TableGridRow();
-                row.setCoords(toPolygon(rowDto.points()));
-                rowList.add(row);
-            }
-        } catch (ReflectiveOperationException ignored) {
-        }
-    }
-
-    private void setTextRegionAttributes(TextRegion textRegion, RegionDto dto) {
-        setTextRegionTypeAttr(textRegion.getAttributes(), dto.type());
-        setDoubleAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_orientation, dto.orientation());
-        setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_textColour, dto.textColour());
-        setBooleanAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_reverseVideo, dto.reverseVideo());
-        setDoubleAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_fontSize, dto.fontSize());
-        setStringAttr(textRegion.getAttributes(), "fontFamily", dto.fontFamily());
-        setBooleanAttr(textRegion.getAttributes(), "serif", dto.serif());
-        setBooleanAttr(textRegion.getAttributes(), "monospace", dto.monospace());
-        setIntegerAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_xHeight, dto.xHeight());
-        setIntegerAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_leading, dto.leading());
-        setIntegerAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_kerning, dto.kerning());
-        setStringAttr(textRegion.getAttributes(), "align", dto.align());
-        setIntegerAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_textColourRgb, dto.textColourRgb());
-        setIntegerAttr(textRegion.getAttributes(), "bgColourRgb", dto.bgColourRgb());
-        setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
-        setDoubleAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_readingOrientation, dto.readingOrientation());
-        setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_textLineOrder, dto.textLineOrder());
-        setBooleanAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_indented, dto.indented());
-        setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_primaryLanguage, dto.primaryLanguage());
-        setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_secondaryLanguage, dto.secondaryLanguage());
-        setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
-        setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
-        setStringAttr(textRegion.getAttributes(), "production", dto.production());
-        applyTextStyle(textRegion.getAttributes(), dto.textStyle());
-    }
-
-    private void setTextRegionTypeAttr(VariableMap attributes, String value) {
-        if (attributes == null) {
-            return;
-        }
-        String normalized = normalizeNullable(value);
-        if (normalized != null && "custom".equalsIgnoreCase(normalized)) {
-            normalized = "other";
-        }
-        if (normalized == null) {
-            removeAttribute(attributes, DefaultXmlNames.ATTR_type);
-            return;
-        }
-        Variable variable = findVariable(attributes, DefaultXmlNames.ATTR_type);
-        if (variable == null) {
-            return;
-        }
-        variable.parseValue(normalized);
-    }
-
-    private void addTextLine(TextRegion textRegion, TextLineDto dto) {
-        if (dto == null) {
-            return;
-        }
-        TextLine textLine = textRegion.createTextLine(dto.id());
-        if (dto.coords() != null) {
-            textLine.setCoords(toPolygon(dto.coords()));
-        }
-        if (dto.baseline() != null) {
-            textLine.setBaseline(toPolygon(dto.baseline()));
-        }
-
-        setTextContentVariants(textLine, dto.textContentVariants());
-        applyAlternativeImages(textLine.getAlternativeImages(), dto.alternativeImages());
-        setLabels(textLine, dto.labels());
-        textLine.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
-
-        applyTextStyle(textLine.getAttributes(), dto.textStyle());
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
-        setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
-        setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_primaryLanguage, dto.primaryLanguage());
-        setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
-        setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
-        setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
-        setStringAttr(textLine.getAttributes(), "production", dto.production());
-        setDoubleAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_conf, dto.confidence());
-        setIntegerAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_index, dto.index());
-        setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
-        setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
-
-        pruneTextLineAttributes(textLine, dto);
-
-        if (dto.words() != null) {
-            for (WordDto wordDto : dto.words()) {
-                addWord(textLine, wordDto);
-            }
-        }
-    }
-
-    private void addWord(TextLine textLine, WordDto dto) {
-        if (dto == null) {
-            return;
-        }
-        Word word = textLine.createWord(dto.id());
-        if (dto.coords() != null) {
-            word.setCoords(toPolygon(dto.coords()));
-        }
-
-        setTextContentVariants(word, dto.textContentVariants());
-        applyAlternativeImages(word.getAlternativeImages(), dto.alternativeImages());
-        setLabels(word, dto.labels());
-        word.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
-        applyTextStyle(word.getAttributes(), dto.textStyle());
-
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
-        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
-        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_language, dto.language());
-        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
-        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
-        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_script, firstNonBlank(dto.script(), dto.primaryScript()));
-        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
-        setStringAttr(word.getAttributes(), "production", dto.production());
-        setDoubleAttr(word.getAttributes(), DefaultXmlNames.ATTR_conf, dto.confidence());
-        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
-        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
-
-        pruneWordAttributes(word, dto);
-
-        if (dto.glyphs() != null) {
-            for (GlyphDto glyphDto : dto.glyphs()) {
-                addGlyph(word, glyphDto);
-            }
-        }
-    }
-
-    private void addGlyph(Word word, GlyphDto dto) {
-        if (dto == null) {
-            return;
-        }
-        Glyph glyph = word.createGlyph(dto.id());
-        if (dto.coords() != null) {
-            glyph.setCoords(toPolygon(dto.coords()));
-        }
-
-        setTextContentVariants(glyph, dto.textContentVariants());
-        applyAlternativeImages(glyph.getAlternativeImages(), dto.alternativeImages());
-        setLabels(glyph, dto.labels());
-        glyph.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
-        applyTextStyle(glyph.getAttributes(), dto.textStyle());
-
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
-        setStringAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_ligature, dto.ligature());
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_symbol, dto.symbol());
-        setStringAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_script, dto.script());
-        setStringAttr(glyph.getAttributes(), "production", dto.production());
-        setDoubleAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_conf, dto.confidence());
-        setStringAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
-        setStringAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
-
-        addGraphemes(glyph, dto.graphemes());
-        pruneGlyphAttributes(glyph, dto);
-    }
-
-    private void addGraphemes(Glyph glyph, GraphemesDto graphemesDto) {
-        if (glyph == null || graphemesDto == null || graphemesDto.elements() == null) {
-            return;
-        }
-        List<GraphemeElementDto> elements = new ArrayList<>(graphemesDto.elements());
-        elements.sort(Comparator.comparing(e -> e.index() != null ? e.index() : Integer.MAX_VALUE));
-        for (GraphemeElementDto dto : elements) {
-            addGraphemeElement(glyph, null, dto);
-        }
-    }
-
-    private void addGraphemeElement(Glyph glyph, GraphemeGroup parentGroup, GraphemeElementDto dto) {
-        if (glyph == null || dto == null) {
-            return;
-        }
-        LowLevelTextType type = toGraphemeType(dto.kind());
-        GraphemeElement element = glyph.createGraphemeElement(dto.id(), type, parentGroup);
-        if (element == null) {
-            return;
-        }
-
-        setIntegerAttr(element.getAttributes(), DefaultXmlNames.ATTR_index, dto.index());
-        setStringAttr(element.getAttributes(), DefaultXmlNames.ATTR_charType, dto.charType());
-        setBooleanAttr(element.getAttributes(), DefaultXmlNames.ATTR_ligature, dto.ligature());
-        setStringAttr(element.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
-        setStringAttr(element.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
-        setTextContentVariants(element, dto.textContentVariants());
-
-        if (element instanceof Grapheme grapheme) {
-            if (dto.coords() != null) {
-                grapheme.setCoords(toPolygon(dto.coords()));
-            }
-            setLabels(grapheme, dto.labels());
-        }
-
-        if (element instanceof GraphemeGroup group && dto.members() != null) {
-            List<GraphemeElementDto> members = new ArrayList<>(dto.members());
-            members.sort(Comparator.comparing(e -> e.index() != null ? e.index() : Integer.MAX_VALUE));
-            for (GraphemeElementDto member : members) {
-                addGraphemeElement(glyph, group, member);
-            }
-        }
-    }
-
-    private LowLevelTextType toGraphemeType(String kind) {
-        if ("graphemeGroup".equals(kind)) {
-            return LowLevelTextType.GraphemeGroup;
-        }
-        if ("nonPrintingChar".equals(kind)) {
-            return LowLevelTextType.NonPrintingCharacter;
-        }
-        return LowLevelTextType.Grapheme;
-    }
-
-    private void setTextContentVariants(TextContentVariants textObj, List<TextContentVariantDto> variants) {
-        if (textObj == null || variants == null || variants.isEmpty()) {
-            return;
-        }
-
-        for (TextContentVariantDto variant : variants) {
-            TextContent textContent = textObj.addTextContentVariant();
-            if (variant.unicode() != null) textContent.setText(variant.unicode());
-            if (variant.plainText() != null) textContent.setPlainText(variant.plainText());
-            if (variant.confidence() != null) textContent.setConfidence(variant.confidence());
-            if (hasText(variant.dataType())) textContent.setDataType(variant.dataType());
-            if (hasText(variant.dataTypeDetails())) textContent.setDataTypeDetails(variant.dataTypeDetails());
-            if (hasText(variant.comments())) textContent.setComments(variant.comments());
-            setTextContentIndex(textContent, variant.index());
-        }
-    }
-
-    private void setTextContentIndex(TextContent tc, Integer index) {
-        if (tc == null || tc.getAttributes() == null) return;
-        Variable indexVar = findVariable(tc.getAttributes(), DefaultXmlNames.ATTR_index);
-        if (index == null) {
-            removeAttribute(tc.getAttributes(), DefaultXmlNames.ATTR_index);
-            return;
-        }
-        if (indexVar == null) {
-            indexVar = new IntegerVariable(DefaultXmlNames.ATTR_index);
-            tc.getAttributes().add(indexVar);
-        }
-        try {
-            indexVar.setValue(VariableValue.of(index));
-        } catch (Variable.WrongVariableTypeException ignored) {
-        }
-    }
-
-    private void setReadingOrder(PageLayout layout, ReadingOrderDto dto) {
-        if (dto == null || dto.root() == null) {
-            return;
-        }
-        ReadingOrder readingOrder = layout.createReadingOrder();
-        if (dto.confidence() != null) {
-            readingOrder.setConfidence(dto.confidence());
-        }
-        populateGroup(readingOrder.getRoot(), dto.root());
-    }
-
-    private void populateGroup(Group group, ReadingOrderDto.GroupDto dto) {
-        if (group == null || dto == null) {
-            return;
-        }
-
-        group.setOrdered(dto.ordered());
-        if (hasText(dto.caption())) {
-            group.setCaption(dto.caption());
-        }
-        if (hasText(dto.regionRef())) {
-            group.setRegionRef(dto.regionRef());
-        }
-        setStringAttr(group.getAttributes(), DefaultXmlNames.ATTR_type, dto.groupType());
-        setBooleanAttr(group.getAttributes(), DefaultXmlNames.ATTR_continuation, dto.continuation());
-        setStringAttr(group.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
-        setStringAttr(group.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
-        group.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
-        setLabels(group, dto.labels());
-
-        if (dto.members() != null) {
-            for (ReadingOrderDto.GroupMemberDto member : dto.members()) {
-                if (member instanceof ReadingOrderDto.RegionRefDto refDto) {
-                    if (hasText(refDto.regionRef())) {
-                        group.addRegionRef(refDto.regionRef());
-                    }
-                } else if (member instanceof ReadingOrderDto.NestedGroupDto nestedDto) {
-                    try {
-                        Group child = group.createChildGroup();
-                        populateGroup(child, nestedDto.group());
-                    } catch (Exception ignored) {
-                    }
-                }
-            }
-        }
-
-        pruneGroupAttributes(group, dto);
-    }
-
-    private void setLayers(PageLayout layout, LayersDto dto) {
-        if (dto == null || dto.layers() == null || dto.layers().isEmpty()) {
-            return;
-        }
-        Layers layers = layout.createLayers();
-        layers.setManageZIndexes(false);
-        for (LayerDto layerDto : dto.layers()) {
-            if (layerDto == null) {
-                continue;
-            }
-            Layer layer = layers.createLayer(true);
-            if (layer == null) {
-                continue;
-            }
-            if (hasText(layerDto.id())) {
-                try {
-                    layer.setId(layerDto.id());
-                } catch (Exception ignored) {
-                }
-            }
-            if (layerDto.zIndex() != null) {
-                layer.setZIndex(layerDto.zIndex());
-            }
-            if (hasText(layerDto.caption())) {
-                layer.setCaption(layerDto.caption());
-            }
-            if (layerDto.regionRefs() != null) {
-                for (String regionRef : layerDto.regionRefs()) {
-                    if (hasText(regionRef)) {
-                        layer.addRegionRef(regionRef);
-                    }
-                }
-            }
-        }
-        layers.sort();
-    }
-
-    private void setRelations(PageLayout layout, RelationsDto dto) {
-        if (dto == null || dto.relations() == null || dto.relations().isEmpty()) {
-            return;
-        }
-        Relations relations = layout.getRelations();
-        for (RelationDto relationDto : dto.relations()) {
-            if (relationDto == null) {
-                continue;
-            }
-            Region source = findRegion(layout, relationDto.sourceRegionRef());
-            Region target = findRegion(layout, relationDto.targetRegionRef());
-            if (source == null || target == null) {
-                continue;
-            }
-            ContentObjectRelation relation = relations.addRelation(
-                source,
-                target,
-                toRelationType(relationDto.type()),
-                relationDto.id()
-            );
-            if (relation == null) {
-                continue;
-            }
-            relation.setCustomField(normalizeNullable(relationDto.custom()));
-            relation.setComments(normalizeNullable(relationDto.comments()));
-            setLabels(relation, relationDto.labels());
-        }
-    }
-
-    private Region findRegion(PageLayout layout, String id) {
-        if (layout == null || !hasText(id)) {
-            return null;
-        }
-        Region direct = layout.getRegion(id);
-        if (direct != null) {
-            return direct;
-        }
-        for (int i = 0; i < layout.getRegionCount(); i++) {
-            Region nested = findRegion(layout.getRegion(i), id);
-            if (nested != null) {
-                return nested;
-            }
-        }
-        return null;
-    }
-
-    private Region findRegion(Region parent, String id) {
-        if (parent == null || !hasText(id)) {
-            return null;
-        }
-        if (parent.getId() != null && id.equals(parent.getId().toString())) {
-            return parent;
-        }
-        for (int i = 0; i < parent.getRegionCount(); i++) {
-            Region found = findRegion(parent.getRegion(i), id);
-            if (found != null) {
-                return found;
-            }
-        }
-        return null;
-    }
-
-    private ContentObjectRelation.RelationType toRelationType(String type) {
-        if ("join".equalsIgnoreCase(type)) {
-            return ContentObjectRelation.RelationType.Join;
-        }
-        if ("ParentChildRelation".equalsIgnoreCase(type)) {
-            return ContentObjectRelation.RelationType.ParentChildRelation;
-        }
-        return ContentObjectRelation.RelationType.Link;
-    }
-
-    private Polygon toPolygon(PolygonDto dto) {
-        if (dto == null || dto.points() == null || dto.points().isEmpty()) {
-            return null;
-        }
-        Polygon polygon = new Polygon();
-        for (PointDto point : dto.points()) {
-            int x = CoordinateUtils.worldToPixelX(point.x(), imageWidth);
-            int y = CoordinateUtils.worldToPixelY(point.y(), imageHeight);
-            polygon.addPoint(x, y);
-        }
-        if (dto.confidence() != null) {
-            polygon.setConfidence(dto.confidence());
-        }
-        return polygon;
-    }
-
-    private RegionType toRegionType(RegionKind kind) {
-        if (kind == null) {
-            return RegionType.UnknownRegion;
-        }
         return switch (kind) {
-            case TextRegion -> RegionType.TextRegion;
-            case ImageRegion -> RegionType.ImageRegion;
-            case LineDrawingRegion -> RegionType.LineDrawingRegion;
-            case GraphicRegion -> RegionType.GraphicRegion;
-            case TableRegion -> RegionType.TableRegion;
-            case ChartRegion -> RegionType.ChartRegion;
-            case MapRegion -> RegionType.MapRegion;
-            case SeparatorRegion -> RegionType.SeparatorRegion;
-            case MathsRegion -> RegionType.MathsRegion;
-            case ChemRegion -> RegionType.ChemRegion;
-            case MusicRegion -> RegionType.MusicRegion;
-            case AdvertRegion -> RegionType.AdvertRegion;
-            case NoiseRegion -> RegionType.NoiseRegion;
-            case UnknownRegion -> RegionType.UnknownRegion;
-            case CustomRegion -> RegionType.CustomRegion;
+            case TextRegion -> TextRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .type(textType(region.type(), context))
+                .leading(region.leading())
+                .readingDirection(value(region.readingDirection(), ReadingDirection::fromXml, context + " readingDirection"))
+                .textLineOrder(value(region.textLineOrder(), TextLineOrder::fromXml, context + " textLineOrder"))
+                .readingOrientation(region.readingOrientation())
+                .indented(region.indented())
+                .align(value(region.align(), Align::fromXml, context + " align"))
+                .primaryLanguage(language(region.primaryLanguage(), context + " primaryLanguage"))
+                .secondaryLanguage(language(region.secondaryLanguage(), context + " secondaryLanguage"))
+                .primaryScript(value(region.primaryScript(), Script::fromXml, context + " primaryScript"))
+                .secondaryScript(value(region.secondaryScript(), Script::fromXml, context + " secondaryScript"))
+                .production(value(region.production(), Production::fromXml, context + " production"))
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .textLines(each(region.textLines(), this::toTextLine))
+                .textEquivs(toTextEquivs(region.textContentVariants(), context))
+                .textStyle(toTextStyle(region.textStyle() != null ? region.textStyle() : flatRegionStyle(region), context))
+                .build();
+            case ImageRegion -> ImageRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .colourDepth(value(region.colourDepth(), ColourDepth::fromXml, context + " colourDepth"))
+                .bgColour(regionBackground(region, context))
+                .embText(region.embText())
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case LineDrawingRegion -> LineDrawingRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .penColour(value(region.penColour(), Colour::fromXml, context + " penColour"))
+                .bgColour(regionBackground(region, context))
+                .embText(region.embText())
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case GraphicRegion -> GraphicRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .type(value(region.type(), GraphicsType::fromXml, context + " type"))
+                .numColours(region.numColours())
+                .embText(region.embText())
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case TableRegion -> TableRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .rows(region.rows())
+                .columns(region.columns())
+                .lineColour(value(region.lineColour(), Colour::fromXml, context + " lineColour"))
+                .bgColour(regionBackground(region, context))
+                .lineSeparators(region.lineSeparators())
+                .embText(region.embText())
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .grid(toGrid(region.grid(), context))
+                .build();
+            case ChartRegion -> ChartRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .type(value(region.type(), ChartType::fromXml, context + " type"))
+                .numColours(region.numColours())
+                .bgColour(regionBackground(region, context))
+                .embText(region.embText())
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case MapRegion -> MapRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case SeparatorRegion -> SeparatorRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .colour(value(region.colour(), Colour::fromXml, context + " colour"))
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case MathsRegion -> MathsRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .bgColour(regionBackground(region, context))
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case ChemRegion -> ChemRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .bgColour(regionBackground(region, context))
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case MusicRegion -> MusicRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .bgColour(regionBackground(region, context))
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case AdvertRegion -> AdvertRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .bgColour(regionBackground(region, context))
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case NoiseRegion -> NoiseRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case UnknownRegion -> UnknownRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case CustomRegion -> CustomRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .type(normalize(region.type()))
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
         };
     }
 
-    private void setPageAttributes(Page page, PageDto dto) {
-        setIntegerAttr(page.getAttributes(), DefaultXmlNames.ATTR_imageXResolution, dto.imageXResolution());
-        setIntegerAttr(page.getAttributes(), "imageYResolution", dto.imageYResolution());
-        setStringAttr(page.getAttributes(), "imageResolutionUnit", dto.imageResolutionUnit());
-        setStringAttr(page.getAttributes(), DefaultXmlNames.ATTR_type, dto.type());
-        setStringAttr(page.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
-        setDoubleAttr(page.getAttributes(), DefaultXmlNames.ATTR_orientation, dto.orientation());
-        setStringAttr(page.getAttributes(), DefaultXmlNames.ATTR_primaryLanguage, dto.primaryLanguage());
-        setStringAttr(page.getAttributes(), DefaultXmlNames.ATTR_secondaryLanguage, dto.secondaryLanguage());
-        setStringAttr(page.getAttributes(), DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
-        setStringAttr(page.getAttributes(), DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
-        setStringAttr(page.getAttributes(), DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
-        setStringAttr(page.getAttributes(), DefaultXmlNames.ATTR_textLineOrder, dto.textLineOrder());
-        setDoubleAttr(page.getAttributes(), DefaultXmlNames.ATTR_conf, dto.confidence());
+    private TextType textType(String type, String context) {
+        String normalized = normalize(type);
+        if (normalized != null && "custom".equalsIgnoreCase(normalized)) {
+            normalized = "other";
+        }
+        return value(normalized, TextType::fromXml, context + " type");
     }
 
-    private void setRegionCommonAttributes(Region region, RegionDto dto) {
-        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
-        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
-        setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_continuation, dto.continuation());
-        setDoubleAttr(region.getAttributes(), DefaultXmlNames.ATTR_conf, dto.confidence());
-        if (!(region instanceof TextRegion)) {
-            setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_type, dto.type());
-        }
-        setDoubleAttr(region.getAttributes(), DefaultXmlNames.ATTR_orientation, dto.orientation());
-        setIntegerAttr(region.getAttributes(), DefaultXmlNames.ATTR_numColours, dto.numColours());
-        setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_embText, dto.embText());
-        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_colourDepth, dto.colourDepth());
-        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_lineColour, dto.lineColour());
-        setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_lineSeparators, dto.lineSeparators());
-        setIntegerAttr(region.getAttributes(), DefaultXmlNames.ATTR_rows, dto.rows());
-        setIntegerAttr(region.getAttributes(), DefaultXmlNames.ATTR_columns, dto.columns());
-        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_colour, dto.colour());
-        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_penColour, dto.penColour());
-        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_bgColour, dto.bgColour());
-        setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_borderPresent, dto.borderPresent());
+    private Colour regionBackground(RegionDto region, String context) {
+        String bgColour = region.textStyle() != null ? region.textStyle().bgColour() : region.bgColour();
+        return value(bgColour, Colour::fromXml, context + " bgColour");
     }
 
-    private void applyAlternativeImages(List<AlternativeImage> target, List<AlternativeImageDto> source) {
-        if (target == null) {
-            return;
+    private static TextStyleDto flatRegionStyle(RegionDto region) {
+        return new TextStyleDto(
+            region.fontFamily(),
+            region.serif(),
+            region.monospace(),
+            region.fontSize(),
+            region.xHeight(),
+            region.kerning(),
+            region.textColour(),
+            region.textColourRgb(),
+            region.bgColour(),
+            region.bgColourRgb(),
+            region.reverseVideo(),
+            null, null, null, null, null, null, null, null, null
+        );
+    }
+
+    private TableCellRole toTableCellRole(TableCellRoleDto role, String context) {
+        if (role == null) {
+            return null;
         }
-        target.clear();
+        if (role.rowIndex() == null || role.columnIndex() == null) {
+            throw new PageDtoMappingException(context + " TableCellRole needs rowIndex and columnIndex");
+        }
+        return new TableCellRole(role.rowIndex(), role.columnIndex(), role.rowSpan(), role.colSpan(), role.header());
+    }
+
+    private Grid toGrid(GridDto grid, String context) {
+        if (grid == null || grid.rows() == null || grid.rows().isEmpty()) {
+            return null;
+        }
+        List<GridPointsDto> rows = grid.rows().stream()
+            .filter(row -> row != null && toPolygon(row.points()) != null)
+            .sorted(Comparator.comparing(row -> row.index() != null ? row.index() : Integer.MAX_VALUE))
+            .toList();
+        if (rows.isEmpty()) {
+            return null;
+        }
+        boolean keepIndexes = rows.stream().allMatch(row -> row.index() != null)
+            && rows.stream().map(GridPointsDto::index).distinct().count() == rows.size();
+        List<GridPoints> points = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            GridPointsDto row = rows.get(i);
+            points.add(new GridPoints(keepIndexes ? row.index() : i, toPolygon(row.points())));
+        }
+        return new Grid(points, List.of());
+    }
+
+    private TextLine toTextLine(TextLineDto line) {
+        String id = idOf(line);
+        String context = "TextLine '" + id + "'";
+        return TextLineBuilder.builder()
+            .id(id)
+            .primaryLanguage(language(line.primaryLanguage(), context + " primaryLanguage"))
+            .primaryScript(value(line.primaryScript(), Script::fromXml, context + " primaryScript"))
+            .secondaryScript(value(line.secondaryScript(), Script::fromXml, context + " secondaryScript"))
+            .readingDirection(value(line.readingDirection(), ReadingDirection::fromXml, context + " readingDirection"))
+            .production(value(line.production(), Production::fromXml, context + " production"))
+            .custom(normalize(line.custom()))
+            .comments(normalize(line.comments()))
+            .index(line.index())
+            .alternativeImages(toAlternativeImages(line.alternativeImages()))
+            .coords(requiredPolygon(line.coords(), context))
+            .baseline(toPolygon(line.baseline()))
+            .words(each(line.words(), this::toWord))
+            .textEquivs(toTextEquivs(line.textContentVariants(), context))
+            .textStyle(toTextStyle(withFlags(line.textStyle(), line.bold(), line.italic(), line.underlined(),
+                line.underlineStyle(), line.subscript(), line.superscript(), line.strikethrough(), line.smallCaps(),
+                line.letterSpaced()), context))
+            .userAttributes(toUserAttributes(line.userDefined()))
+            .labels(toLabelGroups(line.labels()))
+            .build();
+    }
+
+    private Word toWord(WordDto word) {
+        String id = idOf(word);
+        String context = "Word '" + id + "'";
+        return WordBuilder.builder()
+            .id(id)
+            .language(language(word.language(), context + " language"))
+            .primaryScript(value(word.primaryScript(), Script::fromXml, context + " primaryScript"))
+            .secondaryScript(value(word.secondaryScript(), Script::fromXml, context + " secondaryScript"))
+            .readingDirection(value(word.readingDirection(), ReadingDirection::fromXml, context + " readingDirection"))
+            .production(value(word.production(), Production::fromXml, context + " production"))
+            .custom(normalize(word.custom()))
+            .comments(normalize(word.comments()))
+            .alternativeImages(toAlternativeImages(word.alternativeImages()))
+            .coords(requiredPolygon(word.coords(), context))
+            .glyphs(each(word.glyphs(), this::toGlyph))
+            .textEquivs(toTextEquivs(word.textContentVariants(), context))
+            .textStyle(toTextStyle(withFlags(word.textStyle(), word.bold(), word.italic(), word.underlined(),
+                word.underlineStyle(), word.subscript(), word.superscript(), word.strikethrough(), word.smallCaps(),
+                word.letterSpaced()), context))
+            .userAttributes(toUserAttributes(word.userDefined()))
+            .labels(toLabelGroups(word.labels()))
+            .build();
+    }
+
+    private Glyph toGlyph(GlyphDto glyph) {
+        String id = idOf(glyph);
+        String context = "Glyph '" + id + "'";
+        return GlyphBuilder.builder()
+            .id(id)
+            .ligature(glyph.ligature())
+            .symbol(glyph.symbol())
+            .script(value(glyph.script(), Script::fromXml, context + " script"))
+            .production(value(glyph.production(), Production::fromXml, context + " production"))
+            .custom(normalize(glyph.custom()))
+            .comments(normalize(glyph.comments()))
+            .alternativeImages(toAlternativeImages(glyph.alternativeImages()))
+            .coords(requiredPolygon(glyph.coords(), context))
+            .graphemes(glyph.graphemes() != null ? toGraphemeElements(glyph.graphemes().elements(), false) : List.of())
+            .textEquivs(toTextEquivs(glyph.textContentVariants(), context))
+            .textStyle(toTextStyle(withFlags(glyph.textStyle(), glyph.bold(), glyph.italic(), glyph.underlined(),
+                glyph.underlineStyle(), glyph.subscript(), glyph.superscript(), glyph.strikethrough(), glyph.smallCaps(),
+                glyph.letterSpaced()), context))
+            .userAttributes(toUserAttributes(glyph.userDefined()))
+            .labels(toLabelGroups(glyph.labels()))
+            .build();
+    }
+
+    private List<GraphemeElement> toGraphemeElements(List<GraphemeElementDto> elements, boolean inGroup) {
+        if (elements == null || elements.isEmpty()) {
+            return List.of();
+        }
+        List<GraphemeElementDto> sorted = elements.stream()
+            .filter(element -> element != null)
+            .sorted(Comparator.comparing(element -> element.index() != null ? element.index() : Integer.MAX_VALUE))
+            .toList();
+        List<GraphemeElement> result = new ArrayList<>();
+        for (int i = 0; i < sorted.size(); i++) {
+            result.add(toGraphemeElement(sorted.get(i), i, inGroup));
+        }
+        return result;
+    }
+
+    private GraphemeElement toGraphemeElement(GraphemeElementDto element, int position, boolean inGroup) {
+        String id = idOf(element);
+        String kind = element.kind() != null ? element.kind() : "grapheme";
+        String context = kind + " '" + id + "'";
+        int index = element.index() != null ? element.index() : position;
+        CharType charType = value(element.charType(), CharType::fromXml, context + " charType");
+        String custom = normalize(element.custom());
+        String comments = normalize(element.comments());
+        List<TextEquiv> textEquivs = toTextEquivs(element.textContentVariants(), context);
+        return switch (kind) {
+            case "graphemeGroup" -> {
+                if (inGroup) {
+                    throw new PageDtoMappingException(context + " is nested in another grapheme group");
+                }
+                yield new GraphemeGroup(id, index, element.ligature(), charType, custom, comments, textEquivs,
+                    toGraphemeElements(element.members(), true));
+            }
+            case "nonPrintingChar" -> new NonPrintingChar(id, index, element.ligature(), charType, custom, comments, textEquivs);
+            default -> new Grapheme(id, index, element.ligature(), charType, custom, comments, textEquivs,
+                requiredPolygon(element.coords(), context));
+        };
+    }
+
+    private TextStyleDto withFlags(TextStyleDto style, Boolean bold, Boolean italic, Boolean underlined,
+                                   String underlineStyle, Boolean subscript, Boolean superscript,
+                                   Boolean strikethrough, Boolean smallCaps, Boolean letterSpaced) {
+        TextStyleDto base = style != null ? style : TextStyles.EMPTY;
+        return new TextStyleDto(
+            base.fontFamily(),
+            base.serif(),
+            base.monospace(),
+            base.fontSize(),
+            base.xHeight(),
+            base.kerning(),
+            base.textColour(),
+            base.textColourRgb(),
+            base.bgColour(),
+            base.bgColourRgb(),
+            base.reverseVideo(),
+            firstNonNull(bold, base.bold()),
+            firstNonNull(italic, base.italic()),
+            firstNonNull(underlined, base.underlined()),
+            firstNonBlank(underlineStyle, base.underlineStyle()),
+            firstNonNull(subscript, base.subscript()),
+            firstNonNull(superscript, base.superscript()),
+            firstNonNull(strikethrough, base.strikethrough()),
+            firstNonNull(smallCaps, base.smallCaps()),
+            firstNonNull(letterSpaced, base.letterSpaced())
+        );
+    }
+
+    private TextStyle toTextStyle(TextStyleDto style, String context) {
+        if (style == null) {
+            return null;
+        }
+        TextStyle textStyle = new TextStyle(
+            normalize(style.fontFamily()),
+            style.serif(),
+            style.monospace(),
+            style.fontSize(),
+            style.xHeight(),
+            style.kerning(),
+            value(style.textColour(), Colour::fromXml, context + " TextStyle textColour"),
+            style.textColourRgb(),
+            value(style.bgColour(), Colour::fromXml, context + " TextStyle bgColour"),
+            style.bgColourRgb(),
+            style.reverseVideo(),
+            style.bold(),
+            style.italic(),
+            style.underlined(),
+            value(style.underlineStyle(), UnderlineStyle::fromXml, context + " TextStyle underlineStyle"),
+            style.subscript(),
+            style.superscript(),
+            style.strikethrough(),
+            style.smallCaps(),
+            style.letterSpaced()
+        );
+        return textStyle.equals(EMPTY_TEXT_STYLE) ? null : textStyle;
+    }
+
+    private static final TextStyle EMPTY_TEXT_STYLE = new TextStyle(
+        null, null, null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null, null, null
+    );
+
+    private List<TextEquiv> toTextEquivs(List<TextContentVariantDto> variants, String context) {
+        return each(variants, variant -> new TextEquiv(
+            variant.index(),
+            variant.confidence(),
+            hasText(variant.dataType()) ? value(variant.dataType(), TextDataType::fromXml, context + " TextEquiv dataType") : null,
+            hasText(variant.dataTypeDetails()) ? variant.dataTypeDetails() : null,
+            hasText(variant.comments()) ? variant.comments() : null,
+            variant.plainText(),
+            variant.unicode() != null ? variant.unicode() : ""
+        ));
+    }
+
+    private ReadingOrder toReadingOrder(ReadingOrderDto readingOrder) {
+        if (readingOrder == null || readingOrder.root() == null) {
+            return null;
+        }
+        return new ReadingOrder(readingOrder.confidence(), toGroup(readingOrder.root()));
+    }
+
+    private Group toGroup(ReadingOrderDto.GroupDto group) {
+        String id = idOf(group);
+        String context = "Group '" + id + "'";
+        List<GroupMember> members = new ArrayList<>();
+        forEach(group.members(), member -> {
+            switch (member) {
+                case ReadingOrderDto.RegionRefDto ref -> {
+                    String target = ref.regionRef();
+                    if (!hasText(target)) {
+                        return;
+                    }
+                    if (!knownIds.contains(target)) {
+                        log.warn("Dropping reading order reference to missing element '{}' in {}", target, context);
+                        return;
+                    }
+                    members.add(new RegionRef(target));
+                }
+                case ReadingOrderDto.NestedGroupDto nested -> {
+                    if (nested.group() != null) {
+                        members.add(toGroup(nested.group()));
+                    }
+                }
+            }
+        });
+        String regionRef = hasText(group.regionRef()) ? group.regionRef() : null;
+        if (regionRef != null && !knownIds.contains(regionRef)) {
+            log.warn("Dropping regionRef to missing element '{}' of {}", regionRef, context);
+            regionRef = null;
+        }
+        String caption = hasText(group.caption()) ? group.caption() : null;
+        GroupType type = value(group.groupType(), GroupType::fromXml, context + " type");
+        String custom = normalize(group.custom());
+        String comments = normalize(group.comments());
+        List<UserAttribute> userAttributes = toUserAttributes(group.userDefined());
+        List<LabelGroup> labels = toLabelGroups(group.labels());
+        return group.ordered()
+            ? new OrderedGroup(id, regionRef, caption, type, group.continuation(), custom, comments, userAttributes, labels, members)
+            : new UnorderedGroup(id, regionRef, caption, type, group.continuation(), custom, comments, userAttributes, labels, members);
+    }
+
+    private List<Layer> toLayers(LayersDto layers) {
+        if (layers == null || layers.layers() == null) {
+            return List.of();
+        }
+        List<Layer> result = new ArrayList<>();
+        for (int i = 0; i < layers.layers().size(); i++) {
+            LayerDto layer = layers.layers().get(i);
+            if (layer == null) {
+                continue;
+            }
+            String id = idOf(layer);
+            List<String> regionRefs = new ArrayList<>();
+            forEach(layer.regionRefs(), ref -> {
+                if (!hasText(ref)) {
+                    return;
+                }
+                if (!knownIds.contains(ref)) {
+                    log.warn("Dropping layer reference to missing element '{}' in Layer '{}'", ref, id);
+                    return;
+                }
+                regionRefs.add(ref);
+            });
+            if (regionRefs.isEmpty()) {
+                log.warn("Dropping Layer '{}' on save because it references no existing element", id);
+                continue;
+            }
+            result.add(new Layer(id, layer.zIndex() != null ? layer.zIndex() : i, hasText(layer.caption()) ? layer.caption() : null, regionRefs));
+        }
+        return result;
+    }
+
+    private List<Relation> toRelations(RelationsDto relations) {
+        if (relations == null || relations.relations() == null) {
+            return List.of();
+        }
+        List<Relation> result = new ArrayList<>();
+        for (RelationDto relation : relations.relations()) {
+            if (relation == null) {
+                continue;
+            }
+            String source = relation.sourceRegionRef();
+            String target = relation.targetRegionRef();
+            if (!hasText(source) || !hasText(target) || !knownIds.contains(source) || !knownIds.contains(target)) {
+                log.warn("Dropping relation '{}' between missing elements '{}' and '{}'", relation.id(), source, target);
+                continue;
+            }
+            result.add(new Relation(
+                idOf(relation),
+                relationType(relation.type()),
+                normalize(relation.custom()),
+                normalize(relation.comments()),
+                toLabelGroups(relation.labels()),
+                source,
+                target
+            ));
+        }
+        return result;
+    }
+
+    private List<AlternativeImage> toAlternativeImages(List<AlternativeImageDto> images) {
+        List<AlternativeImage> result = new ArrayList<>();
+        forEach(images, image -> {
+            if (hasText(image.filename())) {
+                result.add(new AlternativeImage(image.filename(), normalize(image.comments()), image.confidence()));
+            }
+        });
+        return result;
+    }
+
+    private List<LabelGroup> toLabelGroups(List<LabelsDto> groups) {
+        return each(groups, group -> {
+            List<Label> labels = new ArrayList<>();
+            forEach(group.labels(), (LabelDto label) -> {
+                if (hasText(label.value())) {
+                    labels.add(new Label(label.value(), normalize(label.type()), normalize(label.comments())));
+                }
+            });
+            return new LabelGroup(
+                normalize(group.externalModel()),
+                normalize(group.externalId()),
+                normalize(group.prefix()),
+                normalize(group.comments()),
+                labels
+            );
+        });
+    }
+
+    private List<UserAttribute> toUserAttributes(UserDefinedDto userDefined) {
+        List<UserAttribute> result = new ArrayList<>();
+        if (userDefined == null) {
+            return result;
+        }
+        forEach(userDefined.attributes(), (UserAttributeDto attribute) -> {
+            if (!hasText(attribute.name())) {
+                return;
+            }
+            result.add(new UserAttribute(
+                attribute.name().trim(),
+                normalize(attribute.description()),
+                userAttributeType(attribute.type()),
+                attribute.value() != null ? attribute.value().trim() : ""
+            ));
+        });
+        return result;
+    }
+
+    private static RelationType relationType(String type) {
+        String normalized = normalize(type);
+        if (normalized == null) {
+            return null;
+        }
+        return "join".equalsIgnoreCase(normalized) ? RelationType.JOIN : RelationType.LINK;
+    }
+
+    private static UserAttributeType userAttributeType(String type) {
+        String normalized = normalize(type);
+        if ("xsd:integer".equals(normalized)) {
+            return UserAttributeType.XSD_INTEGER;
+        }
+        if ("xsd:float".equals(normalized)) {
+            return UserAttributeType.XSD_FLOAT;
+        }
+        if ("xsd:boolean".equals(normalized)) {
+            return UserAttributeType.XSD_BOOLEAN;
+        }
+        return UserAttributeType.XSD_STRING;
+    }
+
+    private Polygon requiredPolygon(PolygonDto polygon, String context) {
+        Polygon result = toPolygon(polygon);
+        if (result == null) {
+            throw new PageDtoMappingException(context + " has no coordinates");
+        }
+        return result;
+    }
+
+    private Polygon toPolygon(PolygonDto polygon) {
+        if (polygon == null || polygon.points() == null || polygon.points().isEmpty()) {
+            return null;
+        }
+        List<Point> points = new ArrayList<>(polygon.points().size());
+        for (PointDto point : polygon.points()) {
+            points.add(new Point(
+                Math.max(0, CoordinateUtils.worldToPixelX(point.x(), imageWidth)),
+                Math.max(0, CoordinateUtils.worldToPixelY(point.y(), imageHeight))
+            ));
+        }
+        return new Polygon(points, polygon.confidence());
+    }
+
+    private static Language language(String value, String context) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return null;
+        }
+        return value(coerceLanguage(normalized), Language::fromXml, context);
+    }
+
+    private static String coerceLanguage(String value) {
+        String normalized = value.replace('_', '-');
+        if (normalized.matches("^[A-Za-z]{2,3}([_-][A-Za-z]{2})?$")) {
+            Locale locale = Locale.forLanguageTag(normalized.toLowerCase(Locale.ROOT));
+            String display = locale.getDisplayLanguage(Locale.ENGLISH);
+            if (display != null && !display.isBlank() && !"und".equalsIgnoreCase(display)) {
+                return display;
+            }
+        }
+        for (String iso2 : Locale.getISOLanguages()) {
+            Locale locale = Locale.forLanguageTag(iso2);
+            String display = locale.getDisplayLanguage(Locale.ENGLISH);
+            if (display == null || display.isBlank()) {
+                continue;
+            }
+            if (display.equalsIgnoreCase(value)) {
+                return display;
+            }
+            try {
+                if (locale.getISO3Language().equalsIgnoreCase(value)) {
+                    return display;
+                }
+            } catch (RuntimeException ignored) {
+            }
+        }
+        return value;
+    }
+
+    private static <T> T value(String raw, Function<String, T> fromXml, String context) {
+        String normalized = normalize(raw);
+        if (normalized == null) {
+            return null;
+        }
+        try {
+            return fromXml.apply(normalized);
+        } catch (IllegalArgumentException e) {
+            throw new PageDtoMappingException(context + ": " + e.getMessage(), e);
+        }
+    }
+
+    private static <T, R> List<R> each(List<T> source, Function<T, R> mapper) {
+        if (source == null || source.isEmpty()) {
+            return List.of();
+        }
+        List<R> result = new ArrayList<>(source.size());
+        for (T item : source) {
+            if (item != null) {
+                result.add(mapper.apply(item));
+            }
+        }
+        return result;
+    }
+
+    private static <T> void forEach(List<T> source, java.util.function.Consumer<T> action) {
         if (source == null) {
             return;
         }
-        for (AlternativeImageDto dto : source) {
-            if (dto == null || !hasText(dto.filename())) {
-                continue;
+        for (T item : source) {
+            if (item != null) {
+                action.accept(item);
             }
-            AlternativeImage image = new AlternativeImage(dto.filename());
-            image.setComments(normalizeNullable(dto.comments()));
-            image.setConfidence(dto.confidence());
-            target.add(image);
         }
     }
 
-    private void setLabels(HasLabels target, List<LabelsDto> labelGroups) {
-        if (target == null) {
-            return;
-        }
-        if (labelGroups == null || labelGroups.isEmpty()) {
-            target.setLabels(null);
-            return;
-        }
-        Labels labels = new Labels();
-        for (LabelsDto groupDto : labelGroups) {
-            if (groupDto == null) {
-                continue;
-            }
-            LabelGroup group = new LabelGroup(normalizeNullable(groupDto.externalModel()));
-            group.setExternalId(normalizeNullable(groupDto.externalId()));
-            group.setPrefix(normalizeNullable(groupDto.prefix()));
-            group.setComments(normalizeNullable(groupDto.comments()));
-            if (groupDto.labels() != null) {
-                for (LabelDto labelDto : groupDto.labels()) {
-                    if (labelDto == null || !hasText(labelDto.value())) {
-                        continue;
-                    }
-                    LabelImpl label = new LabelImpl(labelDto.value(), group.getExternalModel());
-                    label.setType(normalizeNullable(labelDto.type()));
-                    label.setComments(normalizeNullable(labelDto.comments()));
-                    group.addLabel(label);
-                }
-            }
-            labels.addGroup(group);
-        }
-        target.setLabels(labels);
-    }
-
-    private VariableMap toVariableMap(UserDefinedDto dto) {
-        if (dto == null || dto.attributes() == null || dto.attributes().isEmpty()) {
-            return null;
-        }
-        VariableMap map = new VariableMap();
-        for (UserAttributeDto attr : dto.attributes()) {
-            if (attr == null || !hasText(attr.name())) {
-                continue;
-            }
-            Variable variable = createUserVariable(attr);
-            if (hasText(attr.description())) {
-                variable.setDescription(attr.description().trim());
-            }
-            if (hasText(attr.value())) {
-                variable.parseValue(attr.value().trim());
-            }
-            map.add(variable);
-        }
-        return map.getSize() == 0 ? null : map;
-    }
-
-    private Variable createUserVariable(UserAttributeDto attr) {
-        String type = normalizeNullable(attr.type());
-        String name = attr.name().trim();
-        if ("xsd:integer".equals(type)) {
-            return new com.maxnth.page4j.basic.variable.IntegerVariable(name);
-        }
-        if ("xsd:float".equals(type)) {
-            return new com.maxnth.page4j.basic.variable.DoubleVariable(name);
-        }
-        if ("xsd:boolean".equals(type)) {
-            return new BooleanVariable(name);
-        }
-        return new StringVariable(name);
-    }
-
-    private void applyTextStyle(VariableMap attributes, TextStyleDto style) {
-        if (attributes == null || style == null) {
-            return;
-        }
-        setStringAttr(attributes, "fontFamily", style.fontFamily());
-        setBooleanAttr(attributes, "serif", style.serif());
-        setBooleanAttr(attributes, "monospace", style.monospace());
-        setDoubleAttr(attributes, DefaultXmlNames.ATTR_fontSize, style.fontSize());
-        setIntegerAttr(attributes, DefaultXmlNames.ATTR_xHeight, style.xHeight());
-        setIntegerAttr(attributes, DefaultXmlNames.ATTR_kerning, style.kerning());
-        setStringAttr(attributes, DefaultXmlNames.ATTR_textColour, style.textColour());
-        setIntegerAttr(attributes, DefaultXmlNames.ATTR_textColourRgb, style.textColourRgb());
-        setStringAttr(attributes, DefaultXmlNames.ATTR_bgColour, style.bgColour());
-        setIntegerAttr(attributes, "bgColourRgb", style.bgColourRgb());
-        setBooleanAttr(attributes, DefaultXmlNames.ATTR_reverseVideo, style.reverseVideo());
-        setBooleanAttr(attributes, DefaultXmlNames.ATTR_bold, style.bold());
-        setBooleanAttr(attributes, DefaultXmlNames.ATTR_italic, style.italic());
-        setBooleanAttr(attributes, DefaultXmlNames.ATTR_underlined, style.underlined());
-        setStringAttr(attributes, DefaultXmlNames.ATTR_underlineStyle, style.underlineStyle());
-        setBooleanAttr(attributes, DefaultXmlNames.ATTR_subscript, style.subscript());
-        setBooleanAttr(attributes, DefaultXmlNames.ATTR_superscript, style.superscript());
-        setBooleanAttr(attributes, DefaultXmlNames.ATTR_strikethrough, style.strikethrough());
-        setBooleanAttr(attributes, DefaultXmlNames.ATTR_smallCaps, style.smallCaps());
-        setBooleanAttr(attributes, DefaultXmlNames.ATTR_letterSpaced, style.letterSpaced());
-    }
-
-    private void prunePageAttributes(Page page, PageDto dto) {
-        Set<String> allowed = new HashSet<>();
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_imageXResolution, dto.imageXResolution());
-        addAllowedIfPresent(allowed, "imageYResolution", dto.imageYResolution());
-        addAllowedIfPresent(allowed, "imageResolutionUnit", dto.imageResolutionUnit());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_type, dto.type());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_custom, dto.custom());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_orientation, dto.orientation());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryLanguage, dto.primaryLanguage());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryLanguage, dto.secondaryLanguage());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textLineOrder, dto.textLineOrder());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_conf, dto.confidence());
-        if (dto.textStyle() != null) {
-            addTextStyleAllowed(allowed, dto.textStyle());
-        }
-        pruneAttributes(page.getAttributes(), allowed);
-    }
-
-    private void pruneRegionAttributes(Region region, RegionDto dto) {
-        Set<String> allowed = new HashSet<>();
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_custom, dto.custom());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_comments, dto.comments());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_continuation, dto.continuation());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_conf, dto.confidence());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_type, dto.type());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_orientation, dto.orientation());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_numColours, dto.numColours());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_embText, dto.embText());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_colourDepth, dto.colourDepth());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_lineColour, dto.lineColour());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_lineSeparators, dto.lineSeparators());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_rows, dto.rows());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_columns, dto.columns());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_colour, dto.colour());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_penColour, dto.penColour());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_borderPresent, dto.borderPresent());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textColour, dto.textColour());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bgColour, dto.bgColour());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_reverseVideo, dto.reverseVideo());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_fontSize, dto.fontSize());
-        addAllowedIfPresent(allowed, "fontFamily", dto.fontFamily());
-        addAllowedIfPresent(allowed, "serif", dto.serif());
-        addAllowedIfPresent(allowed, "monospace", dto.monospace());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_xHeight, dto.xHeight());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_leading, dto.leading());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_kerning, dto.kerning());
-        addAllowedIfPresent(allowed, "align", dto.align());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textColourRgb, dto.textColourRgb());
-        addAllowedIfPresent(allowed, "bgColourRgb", dto.bgColourRgb());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_readingOrientation, dto.readingOrientation());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textLineOrder, dto.textLineOrder());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_indented, dto.indented());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryLanguage, dto.primaryLanguage());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryLanguage, dto.secondaryLanguage());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
-        addAllowedIfPresent(allowed, "production", dto.production());
-        if (dto.textStyle() != null) {
-            addTextStyleAllowed(allowed, dto.textStyle());
-        }
-        pruneAttributes(region.getAttributes(), allowed);
-    }
-
-    private void pruneTextLineAttributes(TextLine textLine, TextLineDto dto) {
-        Set<String> allowed = new HashSet<>();
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryLanguage, dto.primaryLanguage());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
-        addAllowedIfPresent(allowed, "production", dto.production());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_conf, dto.confidence());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_index, dto.index());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_custom, dto.custom());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_comments, dto.comments());
-        if (dto.textStyle() != null) {
-            addTextStyleAllowed(allowed, dto.textStyle());
-        }
-        pruneAttributes(textLine.getAttributes(), allowed);
-    }
-
-    private void pruneWordAttributes(Word word, WordDto dto) {
-        Set<String> allowed = new HashSet<>();
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_language, dto.language());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_script, firstNonBlank(dto.script(), dto.primaryScript()));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
-        addAllowedIfPresent(allowed, "production", dto.production());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_conf, dto.confidence());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_custom, dto.custom());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_comments, dto.comments());
-        if (dto.textStyle() != null) {
-            addTextStyleAllowed(allowed, dto.textStyle());
-        }
-        pruneAttributes(word.getAttributes(), allowed);
-    }
-
-    private void pruneGlyphAttributes(Glyph glyph, GlyphDto dto) {
-        Set<String> allowed = new HashSet<>();
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_ligature, dto.ligature());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_symbol, dto.symbol());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_script, dto.script());
-        addAllowedIfPresent(allowed, "production", dto.production());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_conf, dto.confidence());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_custom, dto.custom());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_comments, dto.comments());
-        if (dto.textStyle() != null) {
-            addTextStyleAllowed(allowed, dto.textStyle());
-        }
-        pruneAttributes(glyph.getAttributes(), allowed);
-    }
-
-    private void pruneGroupAttributes(Group group, ReadingOrderDto.GroupDto dto) {
-        Set<String> allowed = new HashSet<>();
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_caption, dto.caption());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_type, dto.groupType());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_continuation, dto.continuation());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_custom, dto.custom());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_comments, dto.comments());
-        pruneAttributes(group.getAttributes(), allowed);
-    }
-
-    private void addTextStyleAllowed(Set<String> allowed, TextStyleDto style) {
-        addAllowedIfPresent(allowed, "fontFamily", style.fontFamily());
-        addAllowedIfPresent(allowed, "serif", style.serif());
-        addAllowedIfPresent(allowed, "monospace", style.monospace());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_fontSize, style.fontSize());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_xHeight, style.xHeight());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_kerning, style.kerning());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textColour, style.textColour());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textColourRgb, style.textColourRgb());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bgColour, style.bgColour());
-        addAllowedIfPresent(allowed, "bgColourRgb", style.bgColourRgb());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_reverseVideo, style.reverseVideo());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bold, style.bold());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_italic, style.italic());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlined, style.underlined());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlineStyle, style.underlineStyle());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_subscript, style.subscript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_superscript, style.superscript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_strikethrough, style.strikethrough());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_smallCaps, style.smallCaps());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_letterSpaced, style.letterSpaced());
-    }
-
-    private <T> T firstNonNull(T first, T second) {
+    private static <T> T firstNonNull(T first, T second) {
         return first != null ? first : second;
     }
 
-    private String firstNonBlank(String first, String second) {
-        if (first != null && !first.isBlank()) {
+    private static String firstNonBlank(String first, String second) {
+        if (hasText(first)) {
             return first;
         }
-        return (second != null && !second.isBlank()) ? second : null;
+        return hasText(second) ? second : null;
     }
 
-    private void addAllowedIfPresent(Set<String> allowed, String attrName, Object value) {
-        if (allowed == null || attrName == null || value == null) {
-            return;
-        }
-        if (value instanceof String text && text.isBlank()) {
-            return;
-        }
-        allowed.add(attrName);
-    }
-
-    private void pruneAttributes(VariableMap attributes, Set<String> allowed) {
-        if (attributes == null) {
-            return;
-        }
-        for (int i = attributes.getSize() - 1; i >= 0; i--) {
-            Variable variable = attributes.get(i);
-            if (variable == null || variable.getName() == null) {
-                attributes.remove(i);
-                continue;
-            }
-            if (allowed == null || !allowed.contains(variable.getName())) {
-                attributes.remove(i);
-            }
-        }
-    }
-
-    private String normalizeNullable(String value) {
+    private static String normalize(String value) {
         if (value == null) {
             return null;
         }
@@ -1115,230 +1043,7 @@ final class DtoToPage4jMappingSession {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private void setStringAttr(VariableMap attributes, String attrName, String value) {
-        if (attributes == null) {
-            return;
-        }
-        String normalized = normalizeNullable(value);
-        if (normalized == null) {
-            removeAttribute(attributes, attrName);
-            return;
-        }
-        Variable variable = findVariable(attributes, attrName);
-        if (variable == null) {
-            return;
-        }
-        variable.parseValue(coerceStringValue(attrName, normalized));
-    }
-
-    private void setBooleanAttr(VariableMap attributes, String attrName, Boolean value) {
-        if (attributes == null) {
-            return;
-        }
-        if (value == null) {
-            removeAttribute(attributes, attrName);
-            return;
-        }
-        Variable variable = findVariable(attributes, attrName);
-        if (variable == null) {
-            return;
-        }
-        variable.parseValue(Boolean.toString(value));
-    }
-
-    private void setIntegerAttr(VariableMap attributes, String attrName, Integer value) {
-        if (attributes == null) {
-            return;
-        }
-        if (value == null) {
-            removeAttribute(attributes, attrName);
-            return;
-        }
-        Variable variable = findVariable(attributes, attrName);
-        if (variable == null) {
-            return;
-        }
-        variable.parseValue(Integer.toString(value));
-    }
-
-    private void setDoubleAttr(VariableMap attributes, String attrName, Double value) {
-        if (attributes == null) {
-            return;
-        }
-        if (value == null) {
-            removeAttribute(attributes, attrName);
-            return;
-        }
-        Variable variable = findVariable(attributes, attrName);
-        if (variable == null) {
-            return;
-        }
-        variable.parseValue(Double.toString(value));
-    }
-
-    private Variable findVariable(VariableMap attributes, String attrName) {
-        if (attributes == null || attrName == null) {
-            return null;
-        }
-        Variable byName = attributes.get(attrName);
-        if (byName != null) {
-            return byName;
-        }
-        for (int i = 0; i < attributes.getSize(); i++) {
-            Variable variable = attributes.get(i);
-            if (variable != null && attrName.equals(variable.getName())) {
-                return variable;
-            }
-        }
-        return null;
-    }
-
-    private String coerceStringValue(String attrName, String value) {
-        if (value == null) {
-            return null;
-        }
-
-        if (DefaultXmlNames.ATTR_primaryLanguage.equals(attrName)
-            || DefaultXmlNames.ATTR_secondaryLanguage.equals(attrName)
-            || DefaultXmlNames.ATTR_language.equals(attrName)) {
-            return coerceLanguageValue(value);
-        }
-        return value;
-    }
-
-    private String coerceLanguageValue(String value) {
-        String trimmed = value.trim();
-        if (trimmed.isEmpty()) {
-            return trimmed;
-        }
-
-        String normalized = trimmed.replace('_', '-');
-        String lower = normalized.toLowerCase(Locale.ROOT);
-        if (normalized.matches("^[A-Za-z]{2,3}([_-][A-Za-z]{2})?$")) {
-            Locale locale = Locale.forLanguageTag(lower);
-            String display = locale.getDisplayLanguage(Locale.ENGLISH);
-            if (display != null && !display.isBlank() && !"und".equalsIgnoreCase(display)) {
-                return display;
-            }
-        }
-
-        for (String iso2 : Locale.getISOLanguages()) {
-            Locale locale = Locale.forLanguageTag(iso2);
-            String display = locale.getDisplayLanguage(Locale.ENGLISH);
-            if (display == null || display.isBlank()) {
-                continue;
-            }
-            if (display.equalsIgnoreCase(trimmed)) {
-                return display;
-            }
-            try {
-                String iso3 = locale.getISO3Language();
-                if (iso3 != null && iso3.equalsIgnoreCase(trimmed)) {
-                    return display;
-                }
-            } catch (Exception ignored) {
-            }
-        }
-        return trimmed;
-    }
-
-    private void removeAttribute(VariableMap attributes, String attrName) {
-        if (attributes == null || attrName == null) {
-            return;
-        }
-        for (int i = attributes.getSize() - 1; i >= 0; i--) {
-            Variable variable = attributes.get(i);
-            if (variable != null && attrName.equals(variable.getName())) {
-                attributes.remove(i);
-            }
-        }
-    }
-
     private static boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
-    }
-
-    private void removeEmptyStringAttributes(Page page) {
-        if (page == null) {
-            return;
-        }
-        removeEmptyStringAttributes(page.getAttributes());
-
-        PageLayout layout = page.getLayout();
-        if (layout != null) {
-            for (int i = 0; i < layout.getRegionCount(); i++) {
-                sanitizeRegion(layout.getRegion(i));
-            }
-            ReadingOrder readingOrder = layout.getReadingOrder();
-            if (readingOrder != null && readingOrder.getRoot() != null) {
-                sanitizeGroup(readingOrder.getRoot());
-            }
-        }
-    }
-
-    private void sanitizeGroup(Group group) {
-        removeEmptyStringAttributes(group.getAttributes());
-        for (int i = 0; i < group.getSize(); i++) {
-            GroupMember member = group.getMember(i);
-            if (member instanceof Group child) {
-                sanitizeGroup(child);
-            }
-        }
-    }
-
-    private void sanitizeRegion(Region region) {
-        if (region == null) {
-            return;
-        }
-        removeEmptyStringAttributes(region.getAttributes());
-        if (region instanceof TextContentVariants variants) {
-            sanitizeTextContentVariants(variants);
-        }
-        if (region instanceof LowLevelTextContainer container && container.hasTextObjects()) {
-            for (int i = 0; i < container.getTextObjectCount(); i++) {
-                sanitizeTextObject(container.getTextObject(i));
-            }
-        }
-        for (int i = 0; i < region.getRegionCount(); i++) {
-            sanitizeRegion(region.getRegion(i));
-        }
-    }
-
-    private void sanitizeTextObject(LowLevelTextObject textObject) {
-        removeEmptyStringAttributes(textObject.getAttributes());
-        if (textObject instanceof TextContentVariants variants) {
-            sanitizeTextContentVariants(variants);
-        }
-        if (textObject instanceof LowLevelTextContainer container && container.hasTextObjects()) {
-            for (int i = 0; i < container.getTextObjectCount(); i++) {
-                sanitizeTextObject(container.getTextObject(i));
-            }
-        }
-    }
-
-    private void sanitizeTextContentVariants(TextContentVariants variants) {
-        for (int i = 0; i < variants.getTextContentVariantCount(); i++) {
-            TextContent textContent = variants.getTextContentVariant(i);
-            if (textContent != null) {
-                removeEmptyStringAttributes(textContent.getAttributes());
-            }
-        }
-    }
-
-    private void removeEmptyStringAttributes(VariableMap attributes) {
-        if (attributes == null) {
-            return;
-        }
-        for (int i = attributes.getSize() - 1; i >= 0; i--) {
-            Variable variable = attributes.get(i);
-            if (variable == null || variable.getValue() == null) {
-                continue;
-            }
-            if (variable.getValue() instanceof StringValue stringValue) {
-                if (stringValue.val == null || stringValue.val.isBlank()) {
-                    attributes.remove(i);
-                }
-            }
-        }
     }
 }

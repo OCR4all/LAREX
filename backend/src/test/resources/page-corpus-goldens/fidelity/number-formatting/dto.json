@@ -1,0 +1,32 @@
+{
+  "imageFilename" : "page.png",
+  "imageWidth" : 1000,
+  "imageHeight" : 1000,
+  "imageXResolution" : 300.0,
+  "imageYResolution" : 300.0,
+  "imageResolutionUnit" : "PPI",
+  "metadata" : {
+    "creator" : "page4j",
+    "created" : "2020-01-02T03:04:05Z",
+    "lastChange" : "2020-01-02T03:04:05Z",
+    "comments" : "fixture"
+  },
+  "pcGtsId" : "gts1",
+  "orientation" : 0.0,
+  "regions" : [ {
+    "id" : "r1",
+    "kind" : "TextRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.8 ], [ -0.19999999999999996, 0.8 ], [ -0.19999999999999996, 0.6 ], [ -0.8, 0.6 ] ]
+    },
+    "orientation" : 0.0,
+    "textRegion" : true
+  } ],
+  "formatVersion" : "2019-07-15",
+  "dimensions" : {
+    "width" : 1000,
+    "height" : 1000
+  },
+  "regionCount" : 1,
+  "textLineCount" : 0
+}

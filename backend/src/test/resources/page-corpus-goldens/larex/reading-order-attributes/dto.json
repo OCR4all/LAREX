@@ -1,0 +1,104 @@
+{
+  "imageFilename" : "page.png",
+  "imageWidth" : 1000,
+  "imageHeight" : 1500,
+  "metadata" : {
+    "creator" : "larex-corpus",
+    "created" : "2026-01-02T10:00:00",
+    "lastChange" : "2026-01-02T10:00:00"
+  },
+  "regions" : [ {
+    "id" : "r1",
+    "kind" : "TextRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.8666666666666667 ], [ 0.8, 0.8666666666666667 ], [ 0.8, 0.6 ], [ -0.8, 0.6 ] ]
+    },
+    "textRegion" : true
+  }, {
+    "id" : "r2",
+    "kind" : "TextRegion",
+    "coords" : {
+      "points" : [ [ -0.98, 0.8666666666666667 ], [ -0.8200000000000001, 0.8666666666666667 ], [ -0.8200000000000001, 0.6 ], [ -0.98, 0.6 ] ]
+    },
+    "type" : "marginalia",
+    "textRegion" : true
+  }, {
+    "id" : "r3",
+    "kind" : "TextRegion",
+    "coords" : {
+      "points" : [ [ 0.8200000000000001, 0.8666666666666667 ], [ 0.98, 0.8666666666666667 ], [ 0.98, 0.6 ], [ 0.8200000000000001, 0.6 ] ]
+    },
+    "type" : "marginalia",
+    "textRegion" : true
+  } ],
+  "readingOrder" : {
+    "root" : {
+      "id" : "ro-root",
+      "ordered" : true,
+      "caption" : "Root",
+      "groupType" : "article",
+      "regionRef" : "r1",
+      "members" : [ {
+        "type" : "regionRef",
+        "regionRef" : "r1",
+        "index" : 0
+      }, {
+        "type" : "nestedGroup",
+        "group" : {
+          "id" : "ro-side",
+          "ordered" : false,
+          "index" : 1,
+          "caption" : "Marginalia",
+          "groupType" : "other",
+          "members" : [ {
+            "type" : "regionRef",
+            "regionRef" : "r3"
+          }, {
+            "type" : "regionRef",
+            "regionRef" : "r2"
+          } ]
+        }
+      } ],
+      "continuation" : true,
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "source",
+          "type" : "xsd:string",
+          "value" : "ocr"
+        } ]
+      },
+      "labels" : [ {
+        "externalModel" : "ro-model",
+        "externalId" : "ro-1",
+        "prefix" : "ro",
+        "labels" : [ {
+          "value" : "main",
+          "type" : "role",
+          "comments" : "label comment"
+        } ]
+      } ],
+      "custom" : "readingOrder {index:0;}",
+      "comments" : "root comment"
+    },
+    "confidence" : 0.9
+  },
+  "layers" : {
+    "layers" : [ {
+      "id" : "layer-front",
+      "zIndex" : 2,
+      "caption" : "Front",
+      "regionRefs" : [ "r2" ]
+    }, {
+      "id" : "layer-back",
+      "zIndex" : 0,
+      "regionRefs" : [ "r1", "r3" ]
+    } ]
+  },
+  "formatVersion" : "2019-07-15",
+  "dimensions" : {
+    "width" : 1000,
+    "height" : 1500
+  },
+  "regionCount" : 3,
+  "textLineCount" : 0
+}

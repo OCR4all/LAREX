@@ -17,12 +17,23 @@ java {
 
 repositories {
 	mavenCentral()
+	maven("https://central.sonatype.com/repository/maven-snapshots/") {
+		content { includeModule("com.maxnth", "page4j") }
+	}
 }
+
+val pageAudit: SourceSet by sourceSets.creating {
+	compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+	runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+}
+
+configurations[pageAudit.implementationConfigurationName].extendsFrom(configurations.implementation.get())
+configurations[pageAudit.runtimeOnlyConfigurationName].extendsFrom(configurations.runtimeOnly.get())
 
 extra["httpcore5.version"] = "5.4.4"
 
 dependencies {
-	implementation("com.maxnth:page4j-dla:2.0.2")
+	implementation("com.maxnth:page4j:1.0.0-20261115.200710-2")
 	implementation("com.github.ben-manes.caffeine:caffeine:3.2.3")
 
 	implementation("org.springframework.boot:spring-boot-starter-cache")
@@ -94,6 +105,20 @@ tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
 	// Backups and imports are throughput-heavy; C1-only optimized launch makes them pathologically slow in dev.
 	optimizedLaunch.set(false)
 	enableLibvips()
+}
+
+tasks.register<JavaExec>("pageAudit") {
+	group = "verification"
+	description = "Loads and saves every PAGE XML file under a directory without changing it and reports what LAREX and the strict page4j reader would change (-Pdir=<path> [-Preport=<file>] [-Pbaseline=<file>])"
+	classpath = pageAudit.runtimeClasspath
+	mainClass = "de.uniwue.zpd.dachs.larex.backend.pageaudit.PageXmlStorageAudit"
+	javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+	maxHeapSize = "2g"
+	args(listOfNotNull(
+		providers.gradleProperty("dir").orNull,
+		providers.gradleProperty("report").orNull?.let { "--report=$it" },
+		providers.gradleProperty("baseline").orNull?.let { "--baseline=$it" }
+	))
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {

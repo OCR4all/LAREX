@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd">
+   <Metadata>
+      <Creator>larex-corpus</Creator>
+      <Created>2026-01-02T10:00:00</Created>
+      <LastChange>2026-01-02T10:00:00</LastChange>
+   </Metadata>
+   <Page imageFilename="page.png" imageHeight="1500" imageWidth="1000">
+      <TableRegion columns="3"
+                   embText="false"
+                   id="t1"
+                   lineColour="black"
+                   lineSeparators="true"
+                   rows="2">
+         <Coords points="100,100 900,100 900,500 100,500"/>
+         <TextRegion id="t1c00">
+            <Coords points="100,100 400,100 400,300 100,300"/>
+            <Roles>
+               <TableCellRole columnIndex="0" header="true" rowIndex="0"/>
+            </Roles>
+            <TextLine id="t1c00l1">
+               <Coords points="110,110 390,110 390,190 110,190"/>
+               <TextEquiv>
+                  <Unicode>Name</Unicode>
+               </TextEquiv>
+            </TextLine>
+         </TextRegion>
+         <TextRegion id="t1c01">
+            <Coords points="400,100 900,100 900,300 400,300"/>
+            <Roles>
+               <TableCellRole colSpan="2" columnIndex="1" header="true" rowIndex="0"/>
+            </Roles>
+         </TextRegion>
+         <TextRegion id="t1c10">
+            <Coords points="100,300 400,300 400,500 100,500"/>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="0" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </TextRegion>
+         <ImageRegion id="t1c11">
+            <Coords points="400,300 650,300 650,500 400,500"/>
+            <Roles>
+               <TableCellRole columnIndex="1" rowIndex="1"/>
+            </Roles>
+         </ImageRegion>
+         <Grid>
+            <GridPoints index="0" points="100,100 400,100 650,100 900,100"/>
+            <GridPoints index="1" points="100,300 400,300 650,300 900,300"/>
+            <GridPoints index="2" points="100,500 400,500 650,500 900,500"/>
+         </Grid>
+      </TableRegion>
+   </Page>
+</PcGts>

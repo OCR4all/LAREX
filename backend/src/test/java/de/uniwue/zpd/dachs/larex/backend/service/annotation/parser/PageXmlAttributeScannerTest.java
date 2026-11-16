@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.parser;
 
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlPresenceIndex;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlAttributeScanner;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlAttributeScanner.AttributeOccurrence;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -13,13 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class PageXmlPresenceIndexTest {
+class PageXmlAttributeScannerTest {
 
     @TempDir
     Path tempDir;
 
     @Test
-    void fromPath_tracksSparsePresenceWithoutMaterializingDefaults() throws Exception {
+    void scan_reportsEverySourceAttributeVerbatimWithoutSchemaDefaults() throws Exception {
         Path xmlPath = tempDir.resolve("page.xml");
         Files.writeString(xmlPath, """
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -48,29 +49,16 @@ class PageXmlPresenceIndexTest {
                 </PcGts>
                 """);
 
-        PageXmlPresenceIndex index = PageXmlPresenceIndex.fromPath(xmlPath);
-
-        assertTrue(index.hasMetadataCreator());
-        assertTrue(index.hasMetadataCreated());
-        assertTrue(index.hasMetadataComments());
-        assertFalse(index.hasMetadataLastChange());
-        assertTrue(index.hasMetadataExternalRef());
-        assertTrue(index.hasPageAttribute("readingDirection"));
-        assertTrue(index.hasTextRegionType("r1"));
-        assertTrue(index.hasAttributeForElementId("r1", "continuation"));
-        assertFalse(index.hasTextEquivConfidenceForElementId("tl1", 0));
-        assertTrue(index.hasTextEquivConfidenceForElementId("tl1", 1));
-
-        Set<PageXmlPresenceIndex.AttributeOccurrence> attributes = index.attributeOccurrences();
-        assertTrue(attributes.contains(new PageXmlPresenceIndex.AttributeOccurrence("Page", "imageFilename", "img.png")));
-        assertTrue(attributes.contains(new PageXmlPresenceIndex.AttributeOccurrence("Page", "href", "source.tif")));
-        assertTrue(attributes.contains(new PageXmlPresenceIndex.AttributeOccurrence("TextRegion", "comments", "  keep spacing  ")));
-        assertTrue(attributes.contains(new PageXmlPresenceIndex.AttributeOccurrence("Coords", "points", "0,0 10,0 10,10 0,10")));
-        assertTrue(attributes.contains(new PageXmlPresenceIndex.AttributeOccurrence("TextEquiv", "conf", "0.91")));
-        assertTrue(attributes.contains(new PageXmlPresenceIndex.AttributeOccurrence("OrderedGroup", "caption", "logical")));
+        Set<AttributeOccurrence> attributes = PageXmlAttributeScanner.scan(xmlPath);
+        assertTrue(attributes.contains(new AttributeOccurrence("Page", "imageFilename", "img.png")));
+        assertTrue(attributes.contains(new AttributeOccurrence("Page", "href", "source.tif")));
+        assertTrue(attributes.contains(new AttributeOccurrence("TextRegion", "comments", "  keep spacing  ")));
+        assertTrue(attributes.contains(new AttributeOccurrence("Coords", "points", "0,0 10,0 10,10 0,10")));
+        assertTrue(attributes.contains(new AttributeOccurrence("TextEquiv", "conf", "0.91")));
+        assertTrue(attributes.contains(new AttributeOccurrence("OrderedGroup", "caption", "logical")));
         assertEquals(1, attributes.stream()
-            .filter(attribute -> attribute.equals(new PageXmlPresenceIndex.AttributeOccurrence("TextLine", "comments", "duplicate")))
+            .filter(attribute -> attribute.equals(new AttributeOccurrence("TextLine", "comments", "duplicate")))
             .count());
-        assertFalse(attributes.contains(new PageXmlPresenceIndex.AttributeOccurrence("Page", "orientation", "0")));
+        assertFalse(attributes.contains(new AttributeOccurrence("Page", "orientation", "0")));
     }
 }

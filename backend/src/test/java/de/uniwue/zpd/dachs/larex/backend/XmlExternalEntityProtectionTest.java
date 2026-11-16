@@ -1,19 +1,17 @@
 package de.uniwue.zpd.dachs.larex.backend;
 
-import com.maxnth.page4j.dla.page.io.FileInput;
-import com.maxnth.page4j.dla.page.io.xml.PageXmlInputOutput;
-import com.maxnth.page4j.dla.page.io.xml.XmlPageReadResult;
-import com.maxnth.page4j.dla.page.layout.physical.text.TextObject;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.Page4jToDtoMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Guards against a page4j version whose PAGE XML reader resolves external entities (XXE). */
 class XmlExternalEntityProtectionTest {
 
     @Test
@@ -30,16 +28,13 @@ class XmlExternalEntityProtectionTest {
                 </PcGts>
                 """.formatted(secret.toUri()));
 
-        XmlPageReadResult result = PageXmlInputOutput.getReader().readWithSourceMetadata(new FileInput(xml.toFile()));
-
-        if (result != null) {
-            var layout = result.page().getLayout();
-            for (int index = 0; index < layout.getRegionCount(); index++) {
-                if (layout.getRegion(index) instanceof TextObject text) {
-                    // page4j skips the unresolved entity, which can leave the text empty (null).
-                    assertThat(Objects.toString(text.getText(), "")).doesNotContain("SECRET-CANARY");
-                }
-            }
+        PageDto dto;
+        try {
+            dto = new PageXmlToAnnotationParser(new Page4jToDtoMapper()).parse(xml, null);
+        } catch (IOException e) {
+            assertThat(e).hasStackTraceContaining("PAGE XML").hasMessageNotContaining("SECRET-CANARY");
+            return;
         }
+        assertThat(dto.regions()).allSatisfy(region -> assertThat(String.valueOf(region.getText())).doesNotContain("SECRET-CANARY"));
     }
 }

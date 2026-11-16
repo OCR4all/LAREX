@@ -1,12 +1,16 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.mapper;
 
-import com.maxnth.page4j.dla.page.Page;
-import com.maxnth.page4j.dla.page.io.xml.PageXmlInputOutput;
-import com.maxnth.page4j.dla.page.layout.physical.shared.RegionType;
-import com.maxnth.page4j.maths.geometry.Polygon;
+import com.maxnth.page4j.geometry.Point;
+import com.maxnth.page4j.geometry.Polygon;
+import com.maxnth.page4j.model.Metadata;
+import com.maxnth.page4j.model.Page;
+import com.maxnth.page4j.model.TextRegionBuilder;
+import com.maxnth.page4j.model.value.PageDateTime;
+import com.maxnth.page4j.pagexml.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.DtoToPage4jMapper;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.Page4jToDtoMapper;
 import de.uniwue.zpd.dachs.larex.backend.util.CoordinateUtils;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -66,33 +70,35 @@ class AnnotationMapperThreadSafetyTest {
             startBarrier.await();
 
             for (int iteration = 0; iteration < 250; iteration++) {
-                var dto = toDtoMapper.toDto(source);
+                var dto = toDtoMapper.toDto(source, PageXmlVersion.V2019_07_15);
                 var mappedPoint = dto.regions().getFirst().coords().points().getFirst();
 
                 assertEquals(CoordinateUtils.pixelToWorldX(pointX, imageWidth), mappedPoint.x());
                 assertEquals(CoordinateUtils.pixelToWorldY(pointY, imageHeight), mappedPoint.y());
 
                 Page roundTripped = toPage4jMapper.toPage4j(dto);
-                var roundTrippedPoint = roundTripped.getLayout().getRegion(0).getCoords().getPoint(0);
-                assertEquals(pointX, roundTrippedPoint.x);
-                assertEquals(pointY, roundTrippedPoint.y);
+                var roundTrippedPoint = roundTripped.regions().getFirst().coords().points().getFirst();
+                assertEquals(pointX, roundTrippedPoint.x());
+                assertEquals(pointY, roundTrippedPoint.y());
             }
             return null;
         };
     }
 
-    private Page page(int imageWidth, int imageHeight, int pointX, int pointY) throws Exception {
-        Page page = new Page(PageXmlInputOutput.getLatestSchemaModel());
-        page.setImageFilename("image.png");
-        page.getLayout().setSize(imageWidth, imageHeight);
-
-        var region = page.getLayout().createRegion(RegionType.TextRegion, "r1");
-        Polygon polygon = new Polygon();
-        polygon.addPoint(pointX, pointY);
-        polygon.addPoint(pointX + 10, pointY);
-        polygon.addPoint(pointX + 10, pointY + 10);
-        polygon.addPoint(pointX, pointY + 10);
-        region.setCoords(polygon);
-        return page;
+    private Page page(int imageWidth, int imageHeight, int pointX, int pointY) {
+        return Page.builder()
+            .metadata(new Metadata(null, "", PageDateTime.now(), PageDateTime.now(), null, List.of(), List.of()))
+            .imageFilename("image.png")
+            .imageWidth(imageWidth)
+            .imageHeight(imageHeight)
+            .regions(List.of(TextRegionBuilder.builder()
+                .id("r1")
+                .coords(Polygon.of(
+                    new Point(pointX, pointY),
+                    new Point(pointX + 10, pointY),
+                    new Point(pointX + 10, pointY + 10),
+                    new Point(pointX, pointY + 10)))
+                .build()))
+            .build();
     }
 }

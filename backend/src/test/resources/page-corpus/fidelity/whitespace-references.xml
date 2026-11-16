@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd" pcGtsId="gts1">
+  <Metadata>
+    <Creator>page4j</Creator>
+    <Created>2020-01-02T03:04:05Z</Created>
+    <LastChange>2020-01-02T03:04:05Z</LastChange>
+    <Comments>fixture</Comments>
+  </Metadata>
+  <Page imageFilename="page.png" imageWidth="1000" imageHeight="1000">
+    <TextRegion id="r1" custom="a&#9;b" comments="line1&#10;line2&#13;line3">
+      <Coords points="100,100 400,100 400,200 100,200"/>
+      <TextEquiv>
+        <Unicode>one&#13;
+two</Unicode>
+      </TextEquiv>
+    </TextRegion>
+  </Page>
+</PcGts>

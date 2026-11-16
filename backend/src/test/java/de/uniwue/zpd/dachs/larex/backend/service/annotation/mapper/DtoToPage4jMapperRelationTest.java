@@ -1,7 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.mapper;
 
-import com.maxnth.page4j.dla.page.Page;
-import com.maxnth.page4j.dla.page.layout.logical.ContentObjectRelation;
+import com.maxnth.page4j.model.Page;
+import com.maxnth.page4j.model.Relation;
+import com.maxnth.page4j.model.value.RelationType;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PointDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
@@ -79,18 +80,16 @@ class DtoToPage4jMapperRelationTest {
         Page page = mapper.toPage4j(dto);
 
         assertNotNull(page);
-        var relations = page.getLayout().getRelations().exportRelations();
-        assertEquals(1, relations.size());
+        assertEquals(1, page.relations().size());
 
-        ContentObjectRelation relation = relations.iterator().next();
-        assertEquals("rel-1", relation.getId().toString());
-        assertEquals(ContentObjectRelation.RelationType.Join, relation.getRelationType());
-        assertEquals("r1", relation.getObject1().getId().toString());
-        assertEquals("r2", relation.getObject2().getId().toString());
-        assertEquals("custom-field", relation.getCustomField());
-        assertEquals("relation-comment", relation.getComments());
-        assertNotNull(relation.getLabels());
-        assertEquals("caption", relation.getLabels().getGroups().values().iterator().next().getLabels().get(0).getValue());
+        Relation relation = page.relations().getFirst();
+        assertEquals("rel-1", relation.id());
+        assertEquals(RelationType.JOIN, relation.type());
+        assertEquals("r1", relation.sourceRegionRef());
+        assertEquals("r2", relation.targetRegionRef());
+        assertEquals("custom-field", relation.custom());
+        assertEquals("relation-comment", relation.comments());
+        assertEquals("caption", relation.labels().getFirst().labels().getFirst().value());
     }
 
     private RegionDto region(String id, double offsetX) {

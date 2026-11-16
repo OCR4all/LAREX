@@ -1,28 +1,24 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.mapper;
 
-import com.maxnth.page4j.basic.labels.LabelGroup;
-import com.maxnth.page4j.basic.labels.LabelImpl;
-import com.maxnth.page4j.basic.labels.Labels;
-import com.maxnth.page4j.basic.variable.VariableValue;
-import com.maxnth.page4j.dla.page.Page;
-import com.maxnth.page4j.dla.page.io.xml.DefaultXmlNames;
-import com.maxnth.page4j.dla.page.io.xml.PageXmlInputOutput;
-import com.maxnth.page4j.dla.page.layout.logical.ContentObjectRelation;
-import com.maxnth.page4j.dla.page.layout.physical.shared.RegionType;
-import com.maxnth.page4j.dla.page.layout.physical.text.TextContent;
-import com.maxnth.page4j.dla.page.layout.physical.text.impl.TextLine;
-import com.maxnth.page4j.dla.page.layout.physical.text.impl.TextRegion;
-import com.maxnth.page4j.maths.geometry.Polygon;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlPresenceIndex;
+import com.maxnth.page4j.geometry.Point;
+import com.maxnth.page4j.geometry.Polygon;
+import com.maxnth.page4j.model.Label;
+import com.maxnth.page4j.model.LabelGroup;
+import com.maxnth.page4j.model.Metadata;
+import com.maxnth.page4j.model.Page;
+import com.maxnth.page4j.model.Relation;
+import com.maxnth.page4j.model.TextEquiv;
+import com.maxnth.page4j.model.TextLineBuilder;
+import com.maxnth.page4j.model.TextRegion;
+import com.maxnth.page4j.model.TextRegionBuilder;
+import com.maxnth.page4j.model.value.PageDateTime;
+import com.maxnth.page4j.model.value.RelationType;
+import com.maxnth.page4j.model.value.TextType;
+import com.maxnth.page4j.pagexml.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.Page4jToDtoMapper;
 import org.junit.jupiter.api.Test;
 
-
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.Date;
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,153 +26,97 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 class Page4jToDtoMapperTest {
 
+    private final Page4jToDtoMapper mapper = new Page4jToDtoMapper();
+
     @Test
-    void toDto_omitsDefaultedTextRegionTypeAndMetadataWithoutPresence() throws Exception {
-        Page page = createPageWithTextRegion();
-        page.getMetaData().setCreationTime(new Date(0L));
-        page.getMetaData().setLastModifiedTime(new Date(0L));
+    void toDto_leavesAbsentAttributesAbsent() {
+        var dto = mapper.toDto(page(List.of(region("r1", 0).build()), List.of()), PageXmlVersion.V2019_07_15);
 
-        Page4jToDtoMapper mapper = new Page4jToDtoMapper();
-        var dto = mapper.toDto(page, PageXmlPresenceIndex.empty());
-
-        assertNotNull(dto);
-        assertNotNull(dto.regions());
         assertEquals(1, dto.regions().size());
         assertNull(dto.regions().get(0).type());
         assertNull(dto.regions().get(0).continuation());
-        assertNull(dto.metadata());
+        assertNull(dto.regions().get(0).textStyle());
+        assertEquals("2019-07-15", dto.formatVersion());
     }
 
     @Test
-    void toDto_keepsMetadataAndTextRegionTypeWhenPresentInSourceXml() throws Exception {
-        Page page = createPageWithTextRegion();
-        page.getMetaData().setCreator("tester");
-        page.getMetaData().setComments("comment");
-        page.getMetaData().setExternalRef("ext");
-        page.getMetaData().setCreationTime(Date.from(LocalDateTime.of(2025, 1, 1, 10, 15).atZone(ZoneId.systemDefault()).toInstant()));
-        page.getMetaData().setLastModifiedTime(Date.from(LocalDateTime.of(2025, 1, 1, 11, 30).atZone(ZoneId.systemDefault()).toInstant()));
+    void toDto_keepsMetadataAndTextRegionTypeWhenPresent() {
+        Page page = page(List.of(region("r1", 0).type(TextType.PARAGRAPH).continuation(false).build()), List.of())
+            .withMetadata(new Metadata("ext", "tester", PageDateTime.parse("2025-01-01T10:15:00"),
+                PageDateTime.parse("2025-01-01T11:30:00+01:00"), "comment", List.of(), List.of()));
 
-        PageXmlPresenceIndex presence = new PageXmlPresenceIndex(
-            Set.of(),
-            Map.of("r1", Set.of("id", "type", "continuation")),
-            true,
-            true,
-            true,
-            true,
-            true,
-            Set.of("r1"),
-            Map.of(),
-            Set.of()
-        );
+        var dto = mapper.toDto(page, PageXmlVersion.V2019_07_15);
 
-        Page4jToDtoMapper mapper = new Page4jToDtoMapper();
-        var dto = mapper.toDto(page, presence);
-
-        assertNotNull(dto);
         assertEquals("paragraph", dto.regions().get(0).type());
         assertEquals(false, dto.regions().get(0).continuation());
-        assertNotNull(dto.metadata());
         assertEquals("tester", dto.metadata().creator());
         assertEquals("comment", dto.metadata().comments());
         assertEquals("ext", dto.metadata().externalRef());
+        assertEquals("2025-01-01T10:15:00", dto.metadata().created());
+        assertEquals("2025-01-01T11:30:00+01:00", dto.metadata().lastChange());
     }
 
     @Test
-    void toDto_keepsMissingTextEquivConfidenceAsNull() throws Exception {
-        Page page = createPageWithTextRegion();
-        TextRegion textRegion = (TextRegion) page.getLayout().getRegion(0);
-        TextLine textLine = textRegion.createTextLine("tl1");
-        textLine.setText("without-conf");
-        TextContent withConfidence = textLine.addTextContentVariant();
-        withConfidence.setText("with-conf");
-        withConfidence.setConfidence(0.87);
+    void toDto_keepsMissingTextEquivConfidenceAsNull() {
+        TextRegion region = region("r1", 0)
+            .textLines(List.of(TextLineBuilder.builder()
+                .id("tl1")
+                .coords(rectangle(0))
+                .textEquivs(List.of(
+                    new TextEquiv(null, null, null, null, null, null, "without-conf"),
+                    new TextEquiv(null, 0.87, null, null, null, null, "with-conf")))
+                .build()))
+            .build();
 
-        PageXmlPresenceIndex presence = new PageXmlPresenceIndex(
-            Set.of(),
-            Map.of(),
-            false,
-            false,
-            false,
-            false,
-            false,
-            Set.of(),
-            Map.of("tl1", Set.of(1)),
-            Set.of()
-        );
-        Page4jToDtoMapper mapper = new Page4jToDtoMapper();
-        var dto = mapper.toDto(page, presence);
+        var variants = mapper.toDto(page(List.of(region), List.of()), PageXmlVersion.V2019_07_15)
+            .regions().get(0).textLines().get(0).textContentVariants();
 
-        assertNotNull(dto);
-        assertNotNull(dto.regions());
-        assertNotNull(dto.regions().get(0).textLines());
-        assertNotNull(dto.regions().get(0).textLines().get(0).textContentVariants());
-        assertEquals(2, dto.regions().get(0).textLines().get(0).textContentVariants().size());
-        assertNull(dto.regions().get(0).textLines().get(0).textContentVariants().get(0).confidence());
-        assertEquals(0.87, dto.regions().get(0).textLines().get(0).textContentVariants().get(1).confidence());
+        assertEquals(2, variants.size());
+        assertNull(variants.get(0).confidence());
+        assertEquals(0.87, variants.get(1).confidence());
     }
 
     @Test
-    void toDto_exportsRelationsWithFieldsAndLabels() throws Exception {
-        Page page = createPageWithTextRegion();
-        TextRegion source = (TextRegion) page.getLayout().getRegion(0);
+    void toDto_exportsRelationsWithFieldsAndLabelsInDocumentOrder() {
+        Page page = page(
+            List.of(region("r1", 0).build(), region("r2", 200).build()),
+            List.of(
+                new Relation("rel-2", RelationType.JOIN, "custom-field", "relation-comment",
+                    List.of(new LabelGroup("model-a", null, null, null, List.of(new Label("caption", "semantic", "label-comment")))),
+                    "r1", "r2"),
+                new Relation("rel-1", RelationType.LINK, null, null, List.of(), "r2", "r1")));
 
-        TextRegion target = (TextRegion) page.getLayout().createRegion(RegionType.TextRegion, "r2");
-        Polygon polygon = new Polygon();
-        polygon.addPoint(200, 0);
-        polygon.addPoint(300, 0);
-        polygon.addPoint(300, 100);
-        polygon.addPoint(200, 100);
-        target.setCoords(polygon);
-        target.getAttributes().get(DefaultXmlNames.ATTR_type).setValue(VariableValue.of("paragraph"));
+        var relations = mapper.toDto(page, PageXmlVersion.V2019_07_15).relations().relations();
 
-        ContentObjectRelation relation = page.getLayout().getRelations().addRelation(
-            source,
-            target,
-            ContentObjectRelation.RelationType.Join,
-            "rel-1"
-        );
-        assertNotNull(relation);
-        relation.setCustomField("custom-field");
-        relation.setComments("relation-comment");
-        Labels labels = new Labels();
-        LabelGroup group = new LabelGroup("model-a");
-        LabelImpl label = new LabelImpl("caption", group.getExternalModel());
-        label.setType("semantic");
-        label.setComments("label-comment");
-        group.addLabel(label);
-        labels.addGroup(group);
-        relation.setLabels(labels);
-
-        Page4jToDtoMapper mapper = new Page4jToDtoMapper();
-        var dto = mapper.toDto(page, PageXmlPresenceIndex.empty());
-
-        assertNotNull(dto.relations());
-        assertEquals(1, dto.relations().relations().size());
-        assertEquals("rel-1", dto.relations().relations().get(0).id());
-        assertEquals("join", dto.relations().relations().get(0).type());
-        assertEquals("r1", dto.relations().relations().get(0).sourceRegionRef());
-        assertEquals("r2", dto.relations().relations().get(0).targetRegionRef());
-        assertEquals("custom-field", dto.relations().relations().get(0).custom());
-        assertEquals("relation-comment", dto.relations().relations().get(0).comments());
-        assertNotNull(dto.relations().relations().get(0).labels());
-        assertEquals("caption", dto.relations().relations().get(0).labels().get(0).labels().get(0).value());
+        assertEquals(2, relations.size());
+        assertEquals("rel-2", relations.get(0).id());
+        assertEquals("join", relations.get(0).type());
+        assertEquals("r1", relations.get(0).sourceRegionRef());
+        assertEquals("r2", relations.get(0).targetRegionRef());
+        assertEquals("custom-field", relations.get(0).custom());
+        assertEquals("relation-comment", relations.get(0).comments());
+        assertNotNull(relations.get(0).labels());
+        assertEquals("caption", relations.get(0).labels().get(0).labels().get(0).value());
+        assertEquals("rel-1", relations.get(1).id());
+        assertEquals("link", relations.get(1).type());
     }
 
-    private Page createPageWithTextRegion() throws Exception {
-        Page page = new Page(PageXmlInputOutput.getLatestSchemaModel());
-        page.setImageFilename("image.png");
-        page.getLayout().setSize(1200, 1800);
+    private static Page page(List<TextRegion> regions, List<Relation> relations) {
+        return Page.builder()
+            .metadata(new Metadata(null, "", PageDateTime.parse("2020-01-01T00:00:00"), PageDateTime.parse("2020-01-01T00:00:00"), null, List.of(), List.of()))
+            .imageFilename("image.png")
+            .imageWidth(1200)
+            .imageHeight(1800)
+            .regions(regions)
+            .relations(relations)
+            .build();
+    }
 
-        TextRegion textRegion = (TextRegion) page.getLayout().createRegion(RegionType.TextRegion, "r1");
-        Polygon polygon = new Polygon();
-        polygon.addPoint(0, 0);
-        polygon.addPoint(100, 0);
-        polygon.addPoint(100, 100);
-        polygon.addPoint(0, 100);
-        textRegion.setCoords(polygon);
-        textRegion.getAttributes().get(DefaultXmlNames.ATTR_type).setValue(VariableValue.of("paragraph"));
-        textRegion.getAttributes().get(DefaultXmlNames.ATTR_continuation).setValue(VariableValue.of(false));
+    private static TextRegionBuilder region(String id, int offsetX) {
+        return TextRegionBuilder.builder().id(id).coords(rectangle(offsetX));
+    }
 
-        return page;
+    private static Polygon rectangle(int offsetX) {
+        return Polygon.of(new Point(offsetX, 0), new Point(offsetX + 100, 0), new Point(offsetX + 100, 100), new Point(offsetX, 100));
     }
 }

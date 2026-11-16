@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+  <Metadata>
+    <Creator>larex-corpus</Creator>
+    <Created>2026-01-02T10:00:00</Created>
+    <LastChange>2026-01-02T10:00:00</LastChange>
+  </Metadata>
+  <Page imageFilename="page.png" imageWidth="1000" imageHeight="1500">
+    <TextRegion id="r1" type="paragraph" leading="12" align="justify" indented="true">
+      <Coords points="100,100 900,100 900,300 100,300"/>
+      <TextLine id="r1l1">
+        <Coords points="110,110 890,110 890,190 110,190"/>
+        <Word id="r1l1w1">
+          <Coords points="110,110 300,110 300,190 110,190"/>
+          <Glyph id="r1l1w1g1" ligature="true">
+            <Coords points="110,110 150,110 150,190 110,190"/>
+            <TextStyle superscript="true"/>
+          </Glyph>
+          <TextStyle bold="true" underlined="true" underlineStyle="doubleLine"/>
+        </Word>
+        <TextStyle italic="true" smallCaps="false"/>
+      </TextLine>
+      <TextStyle fontFamily="Fraktur" serif="true" fontSize="11.5" xHeight="20" kerning="1" textColour="black" bgColour="white" reverseVideo="false" letterSpaced="true"/>
+    </TextRegion>
+    <TextRegion id="r2" type="heading">
+      <Coords points="100,400 900,400 900,500 100,500"/>
+      <TextStyle textColourRgb="16711680" bgColourRgb="255"/>
+    </TextRegion>
+  </Page>
+</PcGts>

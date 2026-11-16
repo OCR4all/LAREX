@@ -1,0 +1,86 @@
+{
+  "imageFilename" : "page.png",
+  "imageWidth" : 1000,
+  "imageHeight" : 1500,
+  "metadata" : {
+    "creator" : "larex-corpus",
+    "created" : "2026-01-02T10:00:00",
+    "lastChange" : "2026-01-02T10:00:00"
+  },
+  "regions" : [ {
+    "id" : "r1",
+    "kind" : "TextRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.8666666666666667 ], [ 0.8, 0.8666666666666667 ], [ 0.8, 0.6 ], [ -0.8, 0.6 ] ]
+    },
+    "textLines" : [ {
+      "id" : "r1l1",
+      "coords" : {
+        "points" : [ [ -0.78, 0.8533333333333333 ], [ 0.78, 0.8533333333333333 ], [ 0.78, 0.7466666666666666 ], [ -0.78, 0.7466666666666666 ] ]
+      },
+      "baseline" : {
+        "points" : [ [ -0.78, 0.76 ], [ 0.78, 0.76 ] ]
+      },
+      "textContentVariants" : [ {
+        "unicode" : "Ab"
+      } ],
+      "words" : [ {
+        "id" : "r1l1w1",
+        "coords" : {
+          "points" : [ [ -0.78, 0.8533333333333333 ], [ -0.4, 0.8533333333333333 ], [ -0.4, 0.7466666666666666 ], [ -0.78, 0.7466666666666666 ] ]
+        },
+        "textContentVariants" : [ {
+          "unicode" : "Ab"
+        } ],
+        "glyphs" : [ {
+          "id" : "r1l1w1g1",
+          "coords" : {
+            "points" : [ [ -0.78, 0.8533333333333333 ], [ -0.7, 0.8533333333333333 ], [ -0.7, 0.7466666666666666 ], [ -0.78, 0.7466666666666666 ] ]
+          },
+          "textContentVariants" : [ {
+            "unicode" : "A"
+          } ],
+          "text" : "A"
+        } ],
+        "text" : "Ab"
+      } ],
+      "text" : "Ab"
+    } ],
+    "text" : "Ab",
+    "textRegion" : true
+  }, {
+    "id" : "img1",
+    "kind" : "ImageRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.4666666666666667 ], [ 0.0, 0.4666666666666667 ], [ 0.0, -0.06666666666666665 ], [ -0.8, -0.06666666666666665 ] ]
+    },
+    "textRegion" : false
+  } ],
+  "relations" : {
+    "relations" : [ {
+      "id" : "rel-z",
+      "type" : "link",
+      "sourceRegionRef" : "img1",
+      "targetRegionRef" : "r1l1"
+    }, {
+      "id" : "rel-m",
+      "type" : "join",
+      "sourceRegionRef" : "r1l1w1",
+      "targetRegionRef" : "r1l1w1g1",
+      "custom" : "structure {type:caption;}"
+    }, {
+      "id" : "rel-a",
+      "type" : "link",
+      "sourceRegionRef" : "r1",
+      "targetRegionRef" : "img1",
+      "comments" : "region to region"
+    } ]
+  },
+  "formatVersion" : "2019-07-15",
+  "dimensions" : {
+    "width" : 1000,
+    "height" : 1500
+  },
+  "regionCount" : 2,
+  "textLineCount" : 1
+}

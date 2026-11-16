@@ -1,11 +1,11 @@
 package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
-import com.maxnth.page4j.dla.page.Page;
-import com.maxnth.page4j.dla.page.layout.converter.ConversionMessage;
-import com.maxnth.page4j.dla.page.io.xml.PageXmlInputOutput;
-import com.maxnth.page4j.io.FormatModel;
-import com.maxnth.page4j.io.UnsupportedFormatVersionException;
-import com.maxnth.page4j.io.xml.XmlFormatVersion;
+import com.maxnth.page4j.convert.Conversion;
+import com.maxnth.page4j.convert.PageConverter;
+import com.maxnth.page4j.model.Page;
+import com.maxnth.page4j.pagexml.PageXml;
+import com.maxnth.page4j.pagexml.PageXmlReadResult;
+import com.maxnth.page4j.pagexml.PageXmlVersion;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,12 +17,12 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 @Service
 public class PageXmlConversionService {
@@ -30,7 +30,6 @@ public class PageXmlConversionService {
     private static final Logger log = LoggerFactory.getLogger(PageXmlConversionService.class);
 
     public static final String PRIMARY_PAGE_VERSION = "2019-07-15";
-    private static final XmlFormatVersion PRIMARY_FORMAT_VERSION = new XmlFormatVersion(PRIMARY_PAGE_VERSION);
     private static final Pattern VERSION_PATTERN = Pattern.compile("(\\d{4}-\\d{2}-\\d{2})");
 
     private static final Set<String> SUPPORTED_EXPORT_VERSIONS = Set.of(
@@ -67,36 +66,33 @@ public class PageXmlConversionService {
     }
 
     public String detectPageVersion(Path xmlPath) throws IOException {
-        Page page = readPage(xmlPath);
-        return extractVersion(page.getFormatVersion() != null ? page.getFormatVersion().toString() : null);
+        return readPage(xmlPath).version().date();
     }
 
     public boolean isOlderThanPrimary(String version) {
-        try {
-            return new XmlFormatVersion(version).isOlderThan(PRIMARY_FORMAT_VERSION);
-        } catch (Exception e) {
-            return false;
-        }
+        return pageXmlVersion(version)
+                .map(parsed -> parsed.compareTo(pageXmlVersion(PRIMARY_PAGE_VERSION).orElseThrow()) < 0)
+                .orElse(false);
     }
 
     public ConversionOutcome convertFileInPlace(Path xmlPath, String targetVersion) throws IOException {
         String normalizedTarget = normalizeTargetVersion(targetVersion);
-        Page page = readPage(xmlPath);
-        String sourceVersion = extractVersion(page.getFormatVersion() != null ? page.getFormatVersion().toString() : null);
+        PageXmlReadResult read = readPage(xmlPath);
+        String sourceVersion = read.version().date();
 
         if (normalizedTarget.equals(sourceVersion)) {
             return new ConversionOutcome(sourceVersion, normalizedTarget, false, List.of());
         }
 
-        List<String> messages = convertPageToVersion(page, normalizedTarget);
+        Converted converted = convert(read, normalizedTarget);
         Path tempPath = Files.createTempFile(xmlPath.getParent(), xmlPath.getFileName().toString(), ".tmp");
         try {
-            writePage(page, tempPath, normalizedTarget);
+            Files.write(tempPath, converted.xml());
             replaceAtomically(tempPath, xmlPath);
         } finally {
             Files.deleteIfExists(tempPath);
         }
-        return new ConversionOutcome(sourceVersion, normalizedTarget, true, messages);
+        return new ConversionOutcome(sourceVersion, normalizedTarget, true, converted.messages());
     }
 
     public byte[] convertFileToVersion(Path xmlPath, String targetVersion) throws IOException {
@@ -119,12 +115,11 @@ public class PageXmlConversionService {
         try {
             Path exportPath = xmlPath;
             try {
-                Page page = readPage(xmlPath);
-                String sourceVersion = extractVersion(page.getFormatVersion() != null ? page.getFormatVersion().toString() : null);
-                if (!normalizedTarget.equals(sourceVersion)) {
-                    convertPageToVersion(page, normalizedTarget);
+                PageXmlReadResult read = readPage(xmlPath);
+                if (!normalizedTarget.equals(read.version().date())) {
+                    Converted converted = convert(read, normalizedTarget);
                     tempPath = Files.createTempFile(xmlPath.getParent(), xmlPath.getFileName().toString(), ".tmp-export");
-                    writePage(page, tempPath, normalizedTarget);
+                    Files.write(tempPath, converted.xml());
                     exportPath = tempPath;
                 }
             } catch (IOException error) {
@@ -143,49 +138,36 @@ public class PageXmlConversionService {
         }
     }
 
-    private Page readPage(Path xmlPath) throws IOException {
+    private PageXmlReadResult readPage(Path xmlPath) throws IOException {
         if (!Files.exists(xmlPath)) {
             throw new IOException("XML file not found: " + xmlPath);
         }
         try {
-            Page page = PageXmlInputOutput.readPage(xmlPath.toString());
-            if (page == null) {
-                throw new IOException("Failed to parse PAGE XML file: " + xmlPath + " (parser returned null)");
-            }
-            return page;
-        } catch (UnsupportedFormatVersionException e) {
-            throw new IOException("Unsupported PAGE XML schema version in file: " + xmlPath, e);
-        } catch (Exception e) {
-            throw new IOException("Failed to parse PAGE XML file: " + xmlPath, e);
+            return PageXmlVersionGate.requireReadable(PageXml.create().read(Files.readAllBytes(xmlPath)));
+        } catch (IOException | RuntimeException e) {
+            throw new IOException("Failed to parse PAGE XML file: " + xmlPath + ": " + e.getMessage(), e);
         }
     }
 
-    private List<String> convertPageToVersion(Page page, String targetVersion) throws IOException {
+    private Converted convert(PageXmlReadResult read, String targetVersion) throws IOException {
+        PageXmlVersion target = pageXmlVersion(targetVersion)
+                .orElseThrow(() -> new IOException("Unsupported PAGE XML target version during conversion: " + targetVersion));
         try {
-            FormatModel targetModel = PageXmlInputOutput.getInstance().getFormatModel(new XmlFormatVersion(targetVersion));
-            List<ConversionMessage> messages = page.setFormatVersion(targetModel);
-            if (messages == null || messages.isEmpty()) {
-                return List.of();
-            }
-            return messages.stream()
-                    .map(message -> message.type() + ": " + message.text())
-                    .collect(Collectors.toList());
-        } catch (UnsupportedFormatVersionException e) {
-            throw new IOException("Unsupported PAGE XML target version during conversion: " + targetVersion, e);
-        } catch (Exception e) {
-            throw new IOException("Could not convert to target XML schema format " + targetVersion, e);
+            Conversion conversion = PageConverter.convert(read.page(), target);
+            List<String> messages = conversion.messages().stream()
+                    .map(message -> message.kind() + ": " + message.message())
+                    .toList();
+            return new Converted(PageXml.create().write(conversion.page(), target), messages);
+        } catch (IOException | RuntimeException e) {
+            throw new IOException("Could not convert to target XML schema format " + targetVersion + ": " + e.getMessage(), e);
         }
     }
 
-    private void writePage(Page page, Path outputPath, String targetVersion) throws IOException {
-        try {
-            if (!PageXmlInputOutput.writePage(page, outputPath.toString(), true)) {
-                throw new IOException("Error writing target PAGE XML file for version " + targetVersion);
-            }
-        } catch (Exception e) {
-            throw new IOException("Could not save target PAGE XML file: " + outputPath, e);
-        }
+    private static java.util.Optional<PageXmlVersion> pageXmlVersion(String date) {
+        return Arrays.stream(PageXmlVersion.values()).filter(version -> version.date().equals(date)).findFirst();
     }
+
+    private record Converted(byte[] xml, List<String> messages) {}
 
     private void replaceAtomically(Path tempPath, Path targetPath) throws IOException {
         try {
@@ -193,17 +175,6 @@ public class PageXmlConversionService {
         } catch (AtomicMoveNotSupportedException e) {
             Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
         }
-    }
-
-    private String extractVersion(String rawVersion) {
-        if (rawVersion == null || rawVersion.isBlank()) {
-            return PRIMARY_PAGE_VERSION;
-        }
-        Matcher matcher = VERSION_PATTERN.matcher(rawVersion);
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
-        return rawVersion.trim();
     }
 
     public record ConversionOutcome(

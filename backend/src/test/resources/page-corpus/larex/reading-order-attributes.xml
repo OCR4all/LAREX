@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+  <Metadata>
+    <Creator>larex-corpus</Creator>
+    <Created>2026-01-02T10:00:00</Created>
+    <LastChange>2026-01-02T10:00:00</LastChange>
+  </Metadata>
+  <Page imageFilename="page.png" imageWidth="1000" imageHeight="1500">
+    <ReadingOrder conf="0.9">
+      <OrderedGroup id="ro-root" caption="Root" type="article" continuation="true" custom="readingOrder {index:0;}" comments="root comment" regionRef="r1">
+        <UserDefined>
+          <UserAttribute name="source" type="xsd:string" value="ocr"/>
+        </UserDefined>
+        <Labels externalModel="ro-model" externalId="ro-1" prefix="ro">
+          <Label value="main" type="role" comments="label comment"/>
+        </Labels>
+        <RegionRefIndexed index="0" regionRef="r1"/>
+        <UnorderedGroupIndexed id="ro-side" index="1" caption="Marginalia" type="other">
+          <RegionRef regionRef="r3"/>
+          <RegionRef regionRef="r2"/>
+        </UnorderedGroupIndexed>
+      </OrderedGroup>
+    </ReadingOrder>
+    <Layers>
+      <Layer id="layer-front" zIndex="2" caption="Front">
+        <RegionRef regionRef="r2"/>
+      </Layer>
+      <Layer id="layer-back" zIndex="0">
+        <RegionRef regionRef="r1"/>
+        <RegionRef regionRef="r3"/>
+      </Layer>
+    </Layers>
+    <TextRegion id="r1">
+      <Coords points="100,100 900,100 900,300 100,300"/>
+    </TextRegion>
+    <TextRegion id="r2" type="marginalia">
+      <Coords points="10,100 90,100 90,300 10,300"/>
+    </TextRegion>
+    <TextRegion id="r3" type="marginalia">
+      <Coords points="910,100 990,100 990,300 910,300"/>
+    </TextRegion>
+  </Page>
+</PcGts>

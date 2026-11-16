@@ -166,11 +166,7 @@ public class AnnotationProcessingService {
         return parseXmlToAnnotation(headXml.getId());
     }
 
-    /**
-     * Parse the current PAGE XML while retaining exact source attribute presence for indexing.
-     * This intentionally bypasses the DTO-only cache because the cache does not contain presence metadata.
-     */
-    public PageXmlParseResult parseXmlToAnnotationWithPresence(String xmlId) throws IOException {
+    public PageXmlParseResult parseXmlToAnnotationWithAttributes(String xmlId) throws IOException {
         PageXml xml = pageXmlRepository.findById(xmlId)
                 .orElseThrow(() -> new IllegalArgumentException("XML file not found: " + xmlId));
         if (xml.getSchema() != XmlSchema.PAGE_XML) {
@@ -181,7 +177,7 @@ public class AnnotationProcessingService {
         if (!Files.exists(xmlPath)) {
             throw new IOException("XML file not found on disk: " + xmlPath);
         }
-        return pageXmlParser.parseWithPresence(xmlPath, xml);
+        return pageXmlParser.parseWithAttributes(xmlPath, xml);
     }
 
     /**

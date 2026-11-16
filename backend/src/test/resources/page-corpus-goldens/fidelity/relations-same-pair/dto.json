@@ -1,0 +1,47 @@
+{
+  "imageFilename" : "page.png",
+  "imageWidth" : 1000,
+  "imageHeight" : 1000,
+  "metadata" : {
+    "creator" : "page4j",
+    "created" : "2020-01-02T03:04:05Z",
+    "lastChange" : "2020-01-02T03:04:05Z",
+    "comments" : "fixture"
+  },
+  "pcGtsId" : "gts1",
+  "regions" : [ {
+    "id" : "r1",
+    "kind" : "TextRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.8 ], [ -0.19999999999999996, 0.8 ], [ -0.19999999999999996, 0.6 ], [ -0.8, 0.6 ] ]
+    },
+    "textRegion" : true
+  }, {
+    "id" : "r2",
+    "kind" : "TextRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.4 ], [ -0.19999999999999996, 0.4 ], [ -0.19999999999999996, 0.19999999999999996 ], [ -0.8, 0.19999999999999996 ] ]
+    },
+    "textRegion" : true
+  } ],
+  "relations" : {
+    "relations" : [ {
+      "id" : "rel1",
+      "type" : "link",
+      "sourceRegionRef" : "r1",
+      "targetRegionRef" : "r2"
+    }, {
+      "id" : "rel2",
+      "type" : "join",
+      "sourceRegionRef" : "r1",
+      "targetRegionRef" : "r2"
+    } ]
+  },
+  "formatVersion" : "2019-07-15",
+  "dimensions" : {
+    "width" : 1000,
+    "height" : 1000
+  },
+  "regionCount" : 2,
+  "textLineCount" : 0
+}

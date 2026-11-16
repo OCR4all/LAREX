@@ -1,0 +1,78 @@
+{
+  "imageFilename" : "page.png",
+  "imageWidth" : 100,
+  "imageHeight" : 100,
+  "metadata" : {
+    "creator" : "prefix test",
+    "created" : "2026-01-01T00:00:00",
+    "lastChange" : "2026-01-01T00:00:00",
+    "items" : [ {
+      "type" : "processingStep",
+      "name" : "layout-analysis",
+      "value" : "test",
+      "labels" : [ {
+        "labels" : [ {
+          "value" : "1.0",
+          "type" : "version"
+        } ]
+      } ]
+    } ]
+  },
+  "pcGtsId" : "prefixed",
+  "regions" : [ {
+    "id" : "r1",
+    "kind" : "TextRegion",
+    "coords" : {
+      "points" : [ [ -0.8, 0.8 ], [ 0.8, 0.8 ], [ 0.8, 0.19999999999999996 ], [ -0.8, 0.19999999999999996 ] ]
+    },
+    "textLines" : [ {
+      "id" : "r1_l1",
+      "coords" : {
+        "points" : [ [ -0.8, 0.8 ], [ 0.8, 0.8 ], [ 0.8, 0.6 ], [ -0.8, 0.6 ] ]
+      },
+      "baseline" : {
+        "points" : [ [ -0.8, 0.64 ], [ 0.8, 0.64 ] ]
+      },
+      "textContentVariants" : [ {
+        "unicode" : "Hello"
+      } ],
+      "words" : [ {
+        "id" : "r1_l1_w1",
+        "coords" : {
+          "points" : [ [ -0.8, 0.8 ], [ -0.19999999999999996, 0.8 ], [ -0.19999999999999996, 0.6 ], [ -0.8, 0.6 ] ]
+        },
+        "textContentVariants" : [ {
+          "unicode" : "Hello",
+          "confidence" : 0.9
+        } ],
+        "text" : "Hello"
+      } ],
+      "text" : "Hello"
+    } ],
+    "type" : "paragraph",
+    "text" : "Hello",
+    "textRegion" : true
+  } ],
+  "readingOrder" : {
+    "root" : {
+      "id" : "ro",
+      "ordered" : true,
+      "members" : [ {
+        "type" : "regionRef",
+        "regionRef" : "r1",
+        "index" : 0
+      } ]
+    }
+  },
+  "alternativeImages" : [ {
+    "filename" : "page.bin.png",
+    "comments" : "binarized"
+  } ],
+  "formatVersion" : "2019-07-15",
+  "dimensions" : {
+    "width" : 100,
+    "height" : 100
+  },
+  "regionCount" : 1,
+  "textLineCount" : 1
+}

@@ -26,9 +26,9 @@ public record PageDto(
     /** Image height in pixels */
     int imageHeight,
     /** Image X resolution */
-    Integer imageXResolution,
+    Double imageXResolution,
     /** Image Y resolution */
-    Integer imageYResolution,
+    Double imageYResolution,
     /** Resolution unit (PPI, PPCM, etc.) */
     String imageResolutionUnit,
     
@@ -90,8 +90,8 @@ public record PageDto(
         String imageFilename,
         int imageWidth,
         int imageHeight,
-        Integer imageXResolution,
-        Integer imageYResolution,
+        Double imageXResolution,
+        Double imageYResolution,
         String imageResolutionUnit,
         MetadataDto metadata,
         String pcGtsId,
