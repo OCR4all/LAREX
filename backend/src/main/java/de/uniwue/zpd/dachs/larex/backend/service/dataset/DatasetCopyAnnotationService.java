@@ -13,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToPageXmlExporter;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.PageXmlWriteResult;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
@@ -197,23 +198,26 @@ public class DatasetCopyAnnotationService {
             throw new IOException("COPY XML file not found on disk: " + context.xmlPath());
         }
 
-        copyXmlVersionService.createVersion(context.copyXml(), userId, "Saved from annotation editor");
-        copyXmlVersionService.pruneOldVersions(context.copyXml().getId());
-
         String cacheKey = annotationCacheKey(context);
-        annotationReadCache.evict(cacheKey);
-
         Path tempPath = Files.createTempFile(context.xmlPath().getParent(), context.xmlPath().getFileName().toString(), ".tmp");
         try {
-            pageXmlExporter.writeValidated(pageDto, toPseudoPageXml(context), tempPath);
+            PageXmlWriteResult writeResult = pageXmlExporter.writeValidated(pageDto, toPseudoPageXml(context), tempPath);
+            try {
+                copyXmlVersionService.createVersion(context.copyXml(), userId, "Saved from annotation editor");
+            } catch (Exception e) {
+                throw new IOException("Failed to create version before save for COPY XML " + context.copyXml().getId(), e);
+            }
+
+            annotationReadCache.evict(cacheKey);
             replaceAtomically(tempPath, context.xmlPath());
 
             long newSize = Files.size(context.xmlPath());
             context.copyXml().setFileSize(newSize);
             datasetItemRepository.save(context.item());
+            copyXmlVersionService.pruneOldVersions(context.copyXml().getId());
 
             try {
-                annotationReadCache.put(cacheKey, context.xmlPath(), pageDto);
+                annotationReadCache.put(cacheKey, context.xmlPath(), writeResult.written());
             } catch (IOException e) {
                 log.warn("Saved COPY XML {} but failed to warm annotation cache: {}", context.copyXml().getId(), e.getMessage());
             }
