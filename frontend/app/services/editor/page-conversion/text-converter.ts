@@ -1,7 +1,8 @@
-import { Glyph, Polyline, TextContentVariant, TextLine, Word, type GraphemeElement } from '@/models/editor'
+import { Glyph, Polyline, TextContentVariant, TextLine, Word, type Baseline, type GraphemeElement } from '@/models/editor'
 import type {
   GlyphDto,
   GraphemeElementDto,
+  PolygonDto,
   TextContentVariantDto,
   TextLineDto,
   WordDto
@@ -98,7 +99,8 @@ function convertGlyphFromDto(dto: GlyphDto): Glyph {
     convertLabelsFromDto(dto.labels),
     convertUserDefinedFromDto(dto.userDefined),
     convertTextStyleFromDto(dto.textStyle),
-    dto.graphemes ? { elements: convertGraphemeElementsFromDto(dto.graphemes.elements) } : undefined
+    dto.graphemes ? { elements: convertGraphemeElementsFromDto(dto.graphemes.elements) } : undefined,
+    { orientation: dto.orientation, mirrored: undefinedIfBlank(dto.mirrored), customScript: freeText(dto.customScript) }
   )
 }
 
@@ -120,7 +122,10 @@ function convertGlyphToDto(glyph: Glyph): GlyphDto {
     production: undefinedIfBlank(glyph.production),
     confidence: glyph.confidence,
     custom: freeText(glyph.custom),
-    comments: freeText(glyph.comments)
+    comments: freeText(glyph.comments),
+    orientation: glyph.orientation,
+    mirrored: undefinedIfBlank(glyph.mirrored),
+    customScript: freeText(glyph.customScript)
   }
 }
 
@@ -145,7 +150,13 @@ function convertWordFromDto(dto: WordDto): Word {
     convertAlternativeImagesFromDto(dto.alternativeImages),
     convertLabelsFromDto(dto.labels),
     convertUserDefinedFromDto(dto.userDefined),
-    convertTextStyleFromDto(dto.textStyle)
+    convertTextStyleFromDto(dto.textStyle),
+    {
+      orientation: dto.orientation,
+      mirrored: undefinedIfBlank(dto.mirrored),
+      customLanguages: freeText(dto.customLanguages),
+      customScripts: freeText(dto.customScripts)
+    }
   )
 }
 
@@ -167,15 +178,27 @@ function convertWordToDto(word: Word): WordDto {
     production: undefinedIfBlank(word.production),
     confidence: word.confidence,
     custom: freeText(word.custom),
-    comments: freeText(word.comments)
+    comments: freeText(word.comments),
+    orientation: word.orientation,
+    mirrored: undefinedIfBlank(word.mirrored),
+    customLanguages: freeText(word.customLanguages),
+    customScripts: freeText(word.customScripts)
   }
+}
+
+function guideLineFromDto(dto?: PolygonDto): Baseline | undefined {
+  return dto ? { points: new Polyline(dto.points), conf: dto.confidence } : undefined
+}
+
+function guideLineToDto(line?: Baseline): PolygonDto | undefined {
+  return line?.points ? { points: line.points.points, confidence: line.conf } : undefined
 }
 
 export function convertTextLineFromDto(dto: TextLineDto): TextLine {
   return new TextLine({
     id: dto.id,
     coords: convertPolygonFromDto(dto.coords)!,
-    baseline: dto.baseline ? { points: new Polyline(dto.baseline.points), conf: dto.baseline.confidence } : undefined,
+    baseline: guideLineFromDto(dto.baseline),
     textContentVariants: dto.textContentVariants?.map(convertTextContentVariantFromDto),
     words: dto.words?.map(convertWordFromDto),
     alternativeImages: convertAlternativeImagesFromDto(dto.alternativeImages),
@@ -190,7 +213,15 @@ export function convertTextLineFromDto(dto: TextLineDto): TextLine {
     custom: freeText(dto.custom),
     comments: freeText(dto.comments),
     index: dto.index,
-    confidence: dto.confidence
+    confidence: dto.confidence,
+    orientation: dto.orientation,
+    mirrored: undefinedIfBlank(dto.mirrored),
+    secondaryLanguage: undefinedIfBlank(dto.secondaryLanguage),
+    customLanguages: freeText(dto.customLanguages),
+    customScripts: freeText(dto.customScripts),
+    ascentLine: guideLineFromDto(dto.ascentLine),
+    meanLine: guideLineFromDto(dto.meanLine),
+    descentLine: guideLineFromDto(dto.descentLine)
   })
 }
 
@@ -198,12 +229,7 @@ export function convertTextLineToDto(line: TextLine): TextLineDto {
   return {
     id: line.id,
     coords: convertPolygonToDto(line.coords),
-    baseline: line.baseline?.points
-      ? {
-          points: line.baseline.points.points,
-          confidence: line.baseline.conf
-        }
-      : undefined,
+    baseline: guideLineToDto(line.baseline),
     textContentVariants: line.textContentVariants?.map(convertTextContentVariantToDto),
     words: line.words?.map(convertWordToDto),
     alternativeImages: convertAlternativeImagesToDto(line.alternativeImages),
@@ -227,6 +253,14 @@ export function convertTextLineToDto(line: TextLine): TextLineDto {
     custom: freeText(line.custom),
     comments: freeText(line.comments),
     index: line.index,
-    confidence: line.confidence
+    confidence: line.confidence,
+    orientation: line.orientation,
+    mirrored: undefinedIfBlank(line.mirrored),
+    secondaryLanguage: undefinedIfBlank(line.secondaryLanguage),
+    customLanguages: freeText(line.customLanguages),
+    customScripts: freeText(line.customScripts),
+    ascentLine: guideLineToDto(line.ascentLine),
+    meanLine: guideLineToDto(line.meanLine),
+    descentLine: guideLineToDto(line.descentLine)
   }
 }

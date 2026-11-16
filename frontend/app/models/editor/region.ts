@@ -18,6 +18,7 @@ export type RegionKind
     | 'NoiseRegion'
     | 'UnknownRegion'
     | 'CustomRegion'
+    | 'FormRegion'
 
 /** All PAGE XML region kinds */
 export const ALL_REGION_KINDS: RegionKind[] = [
@@ -220,11 +221,19 @@ export interface Roles {
   }
 }
 
+export interface GridAddPoints {
+  row?: number
+  col?: number
+  left?: string
+  top?: string
+}
+
 export interface Grid {
   rows?: Array<{
     index?: number
     points: Polygon
   }>
+  addPoints?: GridAddPoints[]
 }
 
 /** PAGE XML 2019: RegionType (abstract) */
@@ -250,6 +259,7 @@ export interface RegionBase {
   comments?: string
   /** @continuation */
   continuation?: boolean
+  mirrored?: string
   /** @conf */
   confidence?: number
   numColours?: number
@@ -289,6 +299,8 @@ export interface TextRegion extends RegionBase {
   primaryScript?: string
   secondaryScript?: string
   production?: string
+  customLanguages?: string
+  customScripts?: string
 }
 
 export interface GraphicRegion extends RegionBase {

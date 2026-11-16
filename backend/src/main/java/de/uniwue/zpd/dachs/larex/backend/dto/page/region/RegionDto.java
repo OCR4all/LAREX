@@ -125,7 +125,10 @@ public record RegionDto(
     /** Comments */
     String comments,
     /** Continuation flag */
-    Boolean continuation
+    Boolean continuation,
+    String mirrored,
+    String customLanguages,
+    String customScripts
 ) {
     public RegionDto(
         String id,
@@ -207,7 +210,10 @@ public record RegionDto(
             confidence,
             custom,
             comments,
-            continuation
+            continuation,
+            null,
+            null,
+            null
         );
     }
 

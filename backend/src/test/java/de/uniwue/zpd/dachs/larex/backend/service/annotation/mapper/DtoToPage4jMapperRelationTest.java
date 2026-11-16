@@ -75,6 +75,9 @@ class DtoToPage4jMapperRelationTest {
                     null
                 )
             )),
+            null,
+            null,
+            null,
             null
         );
         Page page = mapper.toPage4j(dto);

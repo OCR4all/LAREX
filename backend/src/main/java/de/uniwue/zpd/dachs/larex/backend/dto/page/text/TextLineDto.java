@@ -56,7 +56,15 @@ public record TextLineDto(
     Double confidence,
     Integer index,
     String custom,
-    String comments
+    String comments,
+    Double orientation,
+    String mirrored,
+    String secondaryLanguage,
+    String customLanguages,
+    String customScripts,
+    PolygonDto ascentLine,
+    PolygonDto meanLine,
+    PolygonDto descentLine
 ) {
     public TextLineDto(
         String id,
@@ -110,7 +118,15 @@ public record TextLineDto(
             confidence,
             index,
             custom,
-            comments
+            comments,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
         );
     }
 

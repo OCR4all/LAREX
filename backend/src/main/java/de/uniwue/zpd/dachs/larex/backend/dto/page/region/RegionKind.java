@@ -28,7 +28,8 @@ public enum RegionKind {
     AdvertRegion,
     NoiseRegion,
     UnknownRegion,
-    CustomRegion;
+    CustomRegion,
+    FormRegion;
 
     /**
      * Convert from page4j RegionType name.

@@ -638,7 +638,10 @@ public class NormalizationProfileService {
                         pageDto.textStyle(),
                         pageDto.layers(),
                         pageDto.relations(),
-                        pageDto.formatVersion()
+                        pageDto.formatVersion(),
+                        pageDto.comments(),
+                        pageDto.customLanguages(),
+                        pageDto.customScripts()
                 ),
                 changedRowCount
         );
@@ -725,7 +728,10 @@ public class NormalizationProfileService {
                         region.confidence(),
                         region.custom(),
                         region.comments(),
-                        region.continuation()
+                        region.continuation(),
+                        region.mirrored(),
+                        region.customLanguages(),
+                        region.customScripts()
                 ),
                 changedRowCount
         );
@@ -768,7 +774,15 @@ public class NormalizationProfileService {
                         textLine.confidence(),
                         textLine.index(),
                         textLine.custom(),
-                        textLine.comments()
+                        textLine.comments(),
+                        textLine.orientation(),
+                        textLine.mirrored(),
+                        textLine.secondaryLanguage(),
+                        textLine.customLanguages(),
+                        textLine.customScripts(),
+                        textLine.ascentLine(),
+                        textLine.meanLine(),
+                        textLine.descentLine()
                 ),
                 variants.changedRowCount()
         );

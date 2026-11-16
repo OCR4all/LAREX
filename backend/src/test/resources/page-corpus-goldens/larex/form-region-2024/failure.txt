@@ -1,0 +1,2 @@
+ingest: java.io.IOException: Failed to parse PAGE XML file: <work>/page.xml: PAGE XML 2024-07-15 is not supported yet; LAREX reads PAGE XML up to 2019-07-15
+  caused by: java.lang.IllegalArgumentException: PAGE XML 2024-07-15 is not supported yet; LAREX reads PAGE XML up to 2019-07-15

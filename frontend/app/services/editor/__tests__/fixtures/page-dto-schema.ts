@@ -3,6 +3,7 @@ import type {
   GlyphDto,
   GraphemeElementDto,
   GraphemesDto,
+  GridAddPointsDto,
   GridDto,
   GridPointsDto,
   GroupDto,
@@ -33,7 +34,7 @@ import type {
 type DtoName
   = | 'PageDto' | 'MetadataDto' | 'MetadataItemDto' | 'PolygonDto' | 'AlternativeImageDto' | 'LabelsDto' | 'LabelDto'
     | 'UserDefinedDto' | 'UserAttributeDto' | 'TextStyleDto' | 'RegionDto' | 'RolesDto' | 'TableCellRoleDto' | 'GridDto'
-    | 'GridPointsDto' | 'TextLineDto' | 'WordDto' | 'GlyphDto' | 'GraphemesDto' | 'GraphemeElementDto'
+    | 'GridPointsDto' | 'GridAddPointsDto' | 'TextLineDto' | 'WordDto' | 'GlyphDto' | 'GraphemesDto' | 'GraphemeElementDto'
     | 'TextContentVariantDto' | 'ReadingOrderDto' | 'GroupDto' | 'GroupMemberDto' | 'RegionRefDto' | 'NestedGroupDto'
     | 'LayersDto' | 'LayerDto' | 'RelationsDto' | 'RelationDto'
 
@@ -47,7 +48,7 @@ const FIELDS = {
     textLineOrder: true, confidence: true, border: 'PolygonDto', printSpace: 'PolygonDto', regions: 'RegionDto',
     readingOrder: 'ReadingOrderDto', alternativeImages: 'AlternativeImageDto', labels: 'LabelsDto',
     userDefined: 'UserDefinedDto', textStyle: 'TextStyleDto', layers: 'LayersDto', relations: 'RelationsDto',
-    formatVersion: true
+    formatVersion: true, comments: true, customLanguages: true, customScripts: true
   } satisfies Fields<PageDto>,
   MetadataDto: {
     creator: true, created: true, lastChange: true, comments: true, externalRef: true, userDefined: 'UserDefinedDto',
@@ -80,13 +81,14 @@ const FIELDS = {
     primaryScript: true, secondaryScript: true, production: true, numColours: true, embText: true, colourDepth: true,
     lineColour: true, lineSeparators: true, rows: true, columns: true, colour: true, penColour: true,
     borderPresent: true, nestedRegions: 'RegionDto', confidence: true, custom: true, comments: true,
-    continuation: true
+    continuation: true, mirrored: true, customLanguages: true, customScripts: true
   } satisfies Fields<RegionDto>,
   RolesDto: { tableCellRole: 'TableCellRoleDto' } satisfies Fields<RolesDto>,
   TableCellRoleDto: {
     rowIndex: true, columnIndex: true, rowSpan: true, colSpan: true, header: true
   } satisfies Fields<TableCellRoleDto>,
-  GridDto: { rows: 'GridPointsDto' } satisfies Fields<GridDto>,
+  GridDto: { rows: 'GridPointsDto', addPoints: 'GridAddPointsDto' } satisfies Fields<GridDto>,
+  GridAddPointsDto: { row: true, col: true, left: true, top: true } satisfies Fields<GridAddPointsDto>,
   GridPointsDto: { index: true, points: 'PolygonDto' } satisfies Fields<GridPointsDto>,
   TextLineDto: {
     id: true, coords: 'PolygonDto', baseline: 'PolygonDto', textContentVariants: 'TextContentVariantDto',
@@ -94,19 +96,23 @@ const FIELDS = {
     textStyle: 'TextStyleDto', bold: true, italic: true, underlined: true, underlineStyle: true, subscript: true,
     superscript: true, strikethrough: true, smallCaps: true, letterSpaced: true, primaryLanguage: true,
     primaryScript: true, secondaryScript: true, readingDirection: true, production: true, custom: true,
-    comments: true, index: true, confidence: true
+    comments: true, index: true, confidence: true, orientation: true, mirrored: true, secondaryLanguage: true,
+    customLanguages: true, customScripts: true, ascentLine: 'PolygonDto', meanLine: 'PolygonDto',
+    descentLine: 'PolygonDto'
   } satisfies Fields<TextLineDto>,
   WordDto: {
     id: true, coords: 'PolygonDto', textContentVariants: 'TextContentVariantDto', glyphs: 'GlyphDto',
     alternativeImages: 'AlternativeImageDto', labels: 'LabelsDto', userDefined: 'UserDefinedDto',
     textStyle: 'TextStyleDto', language: true, primaryScript: true, secondaryScript: true, script: true,
-    readingDirection: true, production: true, confidence: true, custom: true, comments: true
+    readingDirection: true, production: true, confidence: true, custom: true, comments: true, orientation: true,
+    mirrored: true, customLanguages: true, customScripts: true
   } satisfies Fields<WordDto>,
   GlyphDto: {
     id: true, coords: 'PolygonDto', textContentVariants: 'TextContentVariantDto',
     alternativeImages: 'AlternativeImageDto', labels: 'LabelsDto', userDefined: 'UserDefinedDto',
     textStyle: 'TextStyleDto', graphemes: 'GraphemesDto', ligature: true, symbol: true, script: true,
-    production: true, confidence: true, custom: true, comments: true
+    production: true, confidence: true, custom: true, comments: true, orientation: true, mirrored: true,
+    customScript: true
   } satisfies Fields<GlyphDto>,
   GraphemesDto: { elements: 'GraphemeElementDto' } satisfies Fields<GraphemesDto>,
   GraphemeElementDto: {

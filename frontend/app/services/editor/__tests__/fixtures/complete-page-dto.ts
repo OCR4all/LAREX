@@ -142,6 +142,9 @@ const textRegion: RegionDto = {
   primaryScript: 'Latf - Latin (Fraktur variant)',
   secondaryScript: 'Latn - Latin',
   production: 'printed',
+  mirrored: 'horizontally',
+  customLanguages: 'r-text languages',
+  customScripts: 'r-text scripts',
   textContentVariants: variants('r-text'),
   textLines: [
     {
@@ -171,6 +174,14 @@ const textRegion: RegionDto = {
       comments: 'l1 comment',
       index: 0,
       confidence: 0.88,
+      orientation: 2.5,
+      mirrored: 'vertically',
+      secondaryLanguage: 'Latin',
+      customLanguages: 'l1 languages',
+      customScripts: 'l1 scripts',
+      ascentLine: { points: [[-0.85, -0.95], [-0.7, -0.95]], confidence: 0.62 },
+      meanLine: { points: [[-0.85, -0.93], [-0.7, -0.93]] },
+      descentLine: { points: [[-0.85, -0.88], [-0.7, -0.88]], confidence: 0.63 },
       words: [
         {
           id: 'w1',
@@ -189,6 +200,10 @@ const textRegion: RegionDto = {
           confidence: 0.77,
           custom: 'w1 custom',
           comments: 'w1 comment',
+          orientation: -3,
+          mirrored: 'other',
+          customLanguages: 'w1 languages',
+          customScripts: 'w1 scripts',
           glyphs: [
             {
               id: 'gl1',
@@ -208,6 +223,9 @@ const textRegion: RegionDto = {
               confidence: 0.91,
               custom: 'gl1 custom',
               comments: 'gl1 comment',
+              orientation: 1,
+              mirrored: 'not-mirrored',
+              customScript: 'gl1 script',
               graphemes: {
                 elements: [
                   {
@@ -273,6 +291,10 @@ const tableRegion: RegionDto = {
     rows: [
       { index: 0, points: { points: [[0.2, 0.2], [0.4, 0.2], [0.6, 0.2]] } },
       { index: 1, points: { points: [[0.2, 0.1], [0.4, 0.1], [0.6, 0.1]] } }
+    ],
+    addPoints: [
+      { row: 0, col: 1, left: '495,1000', top: '700,905 710,905' },
+      { row: 1, col: 0, top: 'free text' }
     ]
   },
   nestedRegions: [tableCell]
@@ -298,6 +320,9 @@ export function completePageDto(): PageDto {
     textLineOrder: 'top-to-bottom',
     confidence: 0.97,
     formatVersion: '2019-07-15',
+    comments: 'page comment',
+    customLanguages: 'page languages',
+    customScripts: 'page scripts',
     metadata: {
       creator: 'LAREX',
       created: '2026-01-02T10:00:00',
@@ -325,7 +350,7 @@ export function completePageDto(): PageDto {
     regions: [
       textRegion,
       tableRegion,
-      { ...regionBase('r-image', 'ImageRegion', 0.5), colourDepth: 'colour', bgColour: 'grey', embText: true },
+      { ...regionBase('r-image', 'ImageRegion', 0.5), colourDepth: 'colour', bgColour: 'grey', embText: true, mirrored: 'horizontally' },
       { ...regionBase('r-drawing', 'LineDrawingRegion', 0.55), penColour: 'red', bgColour: 'white', embText: false },
       { ...regionBase('r-graphic', 'GraphicRegion', 0.6), type: 'stamp', numColours: 3, embText: true },
       { ...regionBase('r-chart', 'ChartRegion', 0.65), type: 'pie', numColours: 4, bgColour: 'white', embText: false },
@@ -337,7 +362,8 @@ export function completePageDto(): PageDto {
       regionBase('r-map', 'MapRegion', 0.8),
       regionBase('r-noise', 'NoiseRegion', 0.82),
       regionBase('r-unknown', 'UnknownRegion', 0.84),
-      { ...regionBase('r-custom', 'CustomRegion', 0.86), type: 'decoration' }
+      { ...regionBase('r-custom', 'CustomRegion', 0.86), type: 'decoration' },
+      { ...regionBase('r-form', 'FormRegion', 0.88), mirrored: 'vertically', bgColour: 'white' }
     ],
     readingOrder: {
       confidence: 0.42,

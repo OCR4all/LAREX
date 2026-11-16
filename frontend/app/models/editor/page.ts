@@ -38,6 +38,9 @@ export class Page {
   regions: import('./region').Region[]
 
   custom?: string
+  comments?: string
+  customLanguages?: string
+  customScripts?: string
   orientation?: number
   type?: 'front-cover' | 'back-cover' | 'title' | 'table-of-contents' | 'index' | 'content' | 'blank' | 'other'
   primaryLanguage?: string
@@ -66,6 +69,9 @@ export class Page {
     relations?: Relation[]
     regions?: import('./region').Region[]
     custom?: string
+    comments?: string
+    customLanguages?: string
+    customScripts?: string
     orientation?: number
     type?: 'front-cover' | 'back-cover' | 'title' | 'table-of-contents' | 'index' | 'content' | 'blank' | 'other'
     primaryLanguage?: string
@@ -93,6 +99,9 @@ export class Page {
     this.relations = params.relations
     this.regions = params.regions ?? []
     this.custom = params.custom
+    this.comments = params.comments
+    this.customLanguages = params.customLanguages
+    this.customScripts = params.customScripts
     this.orientation = params.orientation
     this.type = params.type
     this.primaryLanguage = params.primaryLanguage

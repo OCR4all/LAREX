@@ -84,7 +84,10 @@ public record PageDto(
     
     // Format version
     /** PAGE XML format version used */
-    String formatVersion
+    String formatVersion,
+    String comments,
+    String customLanguages,
+    String customScripts
 ) {
     public PageDto(
         String imageFilename,
@@ -140,7 +143,10 @@ public record PageDto(
             null,
             null,
             null,
-            formatVersion
+            formatVersion,
+            null,
+            null,
+            null
         );
     }
 
@@ -186,7 +192,10 @@ public record PageDto(
             textStyle,
             layers,
             relations,
-            formatVersion
+            formatVersion,
+            comments,
+            customLanguages,
+            customScripts
         );
     }
 

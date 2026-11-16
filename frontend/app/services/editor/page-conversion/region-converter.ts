@@ -41,6 +41,8 @@ type RegionDtoSource = Region & Partial<{
   primaryScript: string
   secondaryScript: string
   production: string
+  customLanguages: string
+  customScripts: string
 }>
 
 export function convertRegionFromDto(dto: RegionDto): Region {
@@ -57,6 +59,12 @@ export function convertRegionFromDto(dto: RegionDto): Region {
           rows: dto.grid.rows?.map(row => ({
             index: row.index,
             points: convertPolygonFromDto(row.points) ?? new Polygon([])
+          })),
+          addPoints: dto.grid.addPoints?.map(points => ({
+            row: points.row,
+            col: points.col,
+            left: freeText(points.left),
+            top: freeText(points.top)
           }))
         }
       : undefined,
@@ -64,6 +72,7 @@ export function convertRegionFromDto(dto: RegionDto): Region {
     custom: freeText(dto.custom),
     comments: freeText(dto.comments),
     continuation: dto.continuation,
+    mirrored: undefinedIfBlank(dto.mirrored),
     confidence: dto.confidence,
     numColours: dto.numColours,
     embText: dto.embText,
@@ -107,7 +116,9 @@ export function convertRegionFromDto(dto: RegionDto): Region {
       secondaryLanguage: undefinedIfBlank(dto.secondaryLanguage),
       primaryScript: undefinedIfBlank(dto.primaryScript),
       secondaryScript: undefinedIfBlank(dto.secondaryScript),
-      production: undefinedIfBlank(dto.production)
+      production: undefinedIfBlank(dto.production),
+      customLanguages: freeText(dto.customLanguages),
+      customScripts: freeText(dto.customScripts)
     } as TextRegion
   }
 
@@ -135,6 +146,12 @@ export function convertRegionToDto(region: Region): RegionDto {
           rows: region.grid.rows?.map(row => ({
             index: row.index,
             points: convertPolygonToDto(row.points)
+          })),
+          addPoints: region.grid.addPoints?.map(points => ({
+            row: points.row,
+            col: points.col,
+            left: freeText(points.left),
+            top: freeText(points.top)
           }))
         }
       : undefined,
@@ -177,6 +194,9 @@ export function convertRegionToDto(region: Region): RegionDto {
     custom: freeText(region.custom),
     comments: freeText(region.comments),
     continuation: region.continuation,
-    confidence: region.confidence
+    confidence: region.confidence,
+    mirrored: undefinedIfBlank(region.mirrored),
+    customLanguages: 'customLanguages' in region ? freeText(regionDtoSource.customLanguages) : undefined,
+    customScripts: 'customScripts' in region ? freeText(regionDtoSource.customScripts) : undefined
   }
 }

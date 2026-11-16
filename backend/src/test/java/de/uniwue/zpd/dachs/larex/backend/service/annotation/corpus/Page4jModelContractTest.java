@@ -39,25 +39,8 @@ class Page4jModelContractTest {
     private static final Set<String> DERIVED_PAGE_FIELDS = Set.of("objects", "parents");
 
     private static final String PRE_2019 = "PAGE 2009-03-16 to 2010-03-19 only; ingest converts it to a GraphicRegion of type frame";
-    private static final String V2024 = "PAGE 2024 only (M3)";
 
     private static final Map<String, String> NOT_REPRESENTABLE = Map.ofEntries(
-        entry("AdvertRegion.mirrored", V2024),
-        entry("ChartRegion.mirrored", V2024),
-        entry("ChemRegion.mirrored", V2024),
-        entry("FormRegion.alternativeImages", V2024),
-        entry("FormRegion.bgColour", V2024),
-        entry("FormRegion.comments", V2024),
-        entry("FormRegion.continuation", V2024),
-        entry("FormRegion.coords", V2024),
-        entry("FormRegion.custom", V2024),
-        entry("FormRegion.id", V2024),
-        entry("FormRegion.labels", V2024),
-        entry("FormRegion.mirrored", V2024),
-        entry("FormRegion.orientation", V2024),
-        entry("FormRegion.regions", V2024),
-        entry("FormRegion.tableCellRole", V2024),
-        entry("FormRegion.userAttributes", V2024),
         entry("FrameRegion.alternativeImages", PRE_2019),
         entry("FrameRegion.bgColour", PRE_2019),
         entry("FrameRegion.borderPresent", PRE_2019),
@@ -69,40 +52,7 @@ class Page4jModelContractTest {
         entry("FrameRegion.labels", PRE_2019),
         entry("FrameRegion.regions", PRE_2019),
         entry("FrameRegion.tableCellRole", PRE_2019),
-        entry("FrameRegion.userAttributes", PRE_2019),
-        entry("Glyph.customScript", V2024),
-        entry("Glyph.mirrored", V2024),
-        entry("Glyph.orientation", V2024),
-        entry("GraphicRegion.mirrored", V2024),
-        entry("Grid.addPoints", V2024),
-        entry("GridAddPoints.col", V2024),
-        entry("GridAddPoints.left", V2024),
-        entry("GridAddPoints.row", V2024),
-        entry("GridAddPoints.top", V2024),
-        entry("ImageRegion.mirrored", V2024),
-        entry("LineDrawingRegion.mirrored", V2024),
-        entry("MapRegion.mirrored", V2024),
-        entry("MathsRegion.mirrored", V2024),
-        entry("MusicRegion.mirrored", V2024),
-        entry("Page.comments", V2024),
-        entry("Page.customLanguages", V2024),
-        entry("Page.customScripts", V2024),
-        entry("TableRegion.mirrored", V2024),
-        entry("TextLine.ascentLine", V2024),
-        entry("TextLine.customLanguages", V2024),
-        entry("TextLine.customScripts", V2024),
-        entry("TextLine.descentLine", V2024),
-        entry("TextLine.meanLine", V2024),
-        entry("TextLine.mirrored", V2024),
-        entry("TextLine.orientation", V2024),
-        entry("TextLine.secondaryLanguage", V2024),
-        entry("TextRegion.customLanguages", V2024),
-        entry("TextRegion.customScripts", V2024),
-        entry("TextRegion.mirrored", V2024),
-        entry("Word.customLanguages", V2024),
-        entry("Word.customScripts", V2024),
-        entry("Word.mirrored", V2024),
-        entry("Word.orientation", V2024)
+        entry("FrameRegion.userAttributes", PRE_2019)
     );
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
@@ -123,13 +73,13 @@ class Page4jModelContractTest {
         collectComponents(Page.class, components, new java.util.HashSet<>());
 
         for (String document : PageCorpus.documents()) {
-            Page original = readable(document);
-            if (original == null) {
+            PageXmlReadResult read = readable(document);
+            if (read == null) {
                 continue;
             }
-            PageDto dto = toDto.toDto(original, PageXmlVersion.V2019_07_15);
+            PageDto dto = toDto.toDto(read.page(), read.version());
             PageDto reloaded = JSON.readValue(JSON.writeValueAsString(dto), PageDto.class);
-            compareObject(original, toPage.toPage4j(reloaded), document, true);
+            compareObject(read.page(), toPage.toPage4j(reloaded), document, true);
         }
 
         SortedMap<String, String> unexpected = new TreeMap<>();
@@ -153,21 +103,17 @@ class Page4jModelContractTest {
         assertEquals(new TreeMap<>(), stale, "Stale NOT_REPRESENTABLE entries");
     }
 
-    private Page readable(String document) throws Exception {
+    private PageXmlReadResult readable(String document) throws Exception {
         if (document.startsWith("invalid/")) {
             return null;
         }
         Path file = workDirectory.resolve(document.replace('/', '_'));
         Files.copy(PageCorpus.DOCUMENTS.resolve(document), file);
         PageXmlVersion version = PageXml.create().read(Files.readAllBytes(file)).version();
-        if (version.compareTo(PageXmlVersion.V2019_07_15) > 0) {
-            return null;
-        }
-        if (version != PageXmlVersion.V2019_07_15) {
+        if (version.compareTo(PageXmlVersion.V2019_07_15) < 0) {
             conversionService.convertFileInPlace(file, PageXmlConversionService.PRIMARY_PAGE_VERSION);
         }
-        PageXmlReadResult read = PageXml.create().read(Files.readAllBytes(file));
-        return read.page();
+        return PageXml.create().read(Files.readAllBytes(file));
     }
 
     private String status(String component) {

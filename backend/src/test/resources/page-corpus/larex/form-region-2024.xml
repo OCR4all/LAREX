@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15">
+  <Metadata>
+    <Creator>larex-corpus</Creator>
+    <Created>2026-01-02T10:00:00</Created>
+    <LastChange>2026-01-02T10:00:00</LastChange>
+  </Metadata>
+  <Page imageFilename="page.png" imageWidth="1000" imageHeight="1500">
+    <FormRegion id="f1" mirrored="horizontally">
+      <Coords points="100,100 900,100 900,600 100,600"/>
+      <TextRegion id="f1t1">
+        <Coords points="110,110 490,110 490,290 110,290"/>
+        <TextLine id="f1t1l1">
+          <Coords points="120,120 480,120 480,180 120,180"/>
+          <TextEquiv><Unicode>Name:</Unicode></TextEquiv>
+        </TextLine>
+      </TextRegion>
+      <FormRegion id="f1f1">
+        <Coords points="510,110 890,110 890,590 510,590"/>
+        <GraphicRegion id="f1f1g1" type="handwritten-annotation">
+          <Coords points="520,120 880,120 880,580 520,580"/>
+        </GraphicRegion>
+      </FormRegion>
+    </FormRegion>
+  </Page>
+</PcGts>

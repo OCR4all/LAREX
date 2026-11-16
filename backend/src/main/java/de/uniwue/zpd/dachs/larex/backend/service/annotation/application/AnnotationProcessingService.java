@@ -426,7 +426,10 @@ public class AnnotationProcessingService {
             dto.textStyle(),
             dto.layers(),
             dto.relations(),
-            dto.formatVersion()
+            dto.formatVersion(),
+            dto.comments(),
+            dto.customLanguages(),
+            dto.customScripts()
         );
     }
 

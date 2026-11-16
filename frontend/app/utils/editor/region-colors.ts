@@ -22,7 +22,8 @@ export const REGION_KIND_COLORS: Record<RegionKind, string> = {
   AdvertRegion: '#CDDC39', // Lime
   NoiseRegion: '#9E9E9E', // Grey
   UnknownRegion: '#757575', // Dark Grey
-  CustomRegion: '#00BFA5' // Teal accent
+  CustomRegion: '#00BFA5', // Teal accent
+  FormRegion: '#FFC107' // Amber
 }
 
 /** Colors for TextRegion subtypes (TextTypeSimpleType) */
@@ -162,7 +163,8 @@ export function getRegionKindIcon(kind: RegionKind): string {
     AdvertRegion: 'lucide:megaphone',
     NoiseRegion: 'lucide:alert-triangle',
     UnknownRegion: 'lucide:help-circle',
-    CustomRegion: 'lucide:tag'
+    CustomRegion: 'lucide:tag',
+    FormRegion: 'lucide:clipboard-list'
   }
   return icons[kind] || 'lucide:square'
 }

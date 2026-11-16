@@ -55,7 +55,11 @@ public record WordDto(
     String production,
     Double confidence,
     String custom,
-    String comments
+    String comments,
+    Double orientation,
+    String mirrored,
+    String customLanguages,
+    String customScripts
 ) {
     public WordDto(
         String id,
@@ -105,7 +109,11 @@ public record WordDto(
             production,
             confidence,
             custom,
-            comments
+            comments,
+            null,
+            null,
+            null,
+            null
         );
     }
 

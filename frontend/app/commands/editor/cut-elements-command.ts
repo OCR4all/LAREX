@@ -5,6 +5,7 @@ import { Polygon as PolygonGeometry, Polyline as PolylineGeometry } from '@/mode
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
   collectRenderablePolygonsFromPcGts,
+  collectRenderablePolylinesFromPcGts,
   findGlyphRecursive,
   findRegionRecursive,
   findTextLineRecursive,
@@ -68,6 +69,23 @@ interface PlacedPiece<T> {
   points: Point[]
 }
 
+const GUIDE_LINE_KEYS = ['ascentLine', 'meanLine', 'baseline', 'descentLine'] as const
+
+type GuideLines = Partial<Record<typeof GUIDE_LINE_KEYS[number], Point[]>>
+
+function polylinePointsById(pcGts: PcGts): Map<string, string> {
+  return new Map(collectRenderablePolylinesFromPcGts(pcGts).map(line => [line.id, JSON.stringify(line.points)]))
+}
+
+function guideLinesOf(line: TextLine): GuideLines {
+  const result: GuideLines = {}
+  for (const key of GUIDE_LINE_KEYS) {
+    const points = line[key]?.points?.points?.map(([x, y]) => ({ x, y }))
+    if (points && points.length >= 2) result[key] = points
+  }
+  return result
+}
+
 /**
  * Command for cutting regions, textlines, words, glyphs and baselines using line, polygon, or rectangle shapes.
  *
@@ -117,6 +135,7 @@ export class CutElementsCommand implements Command {
     }
 
     const allPolygons = collectRenderablePolygonsFromPcGts(pcGts)
+    const polylinesBefore = polylinePointsById(pcGts)
 
     this.affectedPolygonIds = []
 
@@ -206,6 +225,11 @@ export class CutElementsCommand implements Command {
       cutCount += result.cutCount
       deletedCount += result.deletedCount
       createdCount += result.createdCount
+    }
+
+    const polylinesAfter = polylinePointsById(pcGts)
+    for (const id of new Set([...polylinesBefore.keys(), ...polylinesAfter.keys()])) {
+      if (polylinesBefore.get(id) !== polylinesAfter.get(id)) this.affectedPolygonIds.push(id)
     }
 
     if (ctx?.canvasId && this.affectedPolygonIds.length > 0) {
@@ -362,8 +386,7 @@ export class CutElementsCommand implements Command {
       const words = this.detachWords(textLine)
       const linePieces: Array<PlacedPiece<TextLine>> = []
 
-      const originalBaseline = textLine.baseline
-      const baselinePoints = originalBaseline?.points?.points?.map(p => ({ x: p[0], y: p[1] })) ?? []
+      const guideLines = guideLinesOf(textLine)
 
       if (textLineCutResult.pieces.length === 0) {
         const bestRegion = this.findBestMatchingRegion(textLinePoints, regionPieces)
@@ -385,14 +408,7 @@ export class CutElementsCommand implements Command {
 
             textLine.coords = new PolygonGeometry(piece.map(p => [p.x, p.y] as [number, number]))
 
-            if (baselinePoints.length >= 2) {
-              const clippedBaseline = clipPolylineToPolygon(baselinePoints, piece)
-              if (clippedBaseline.length >= 2) {
-                textLine.baseline = { points: new PolylineGeometry(clippedBaseline.map(p => [p.x, p.y] as [number, number])) }
-              } else {
-                delete textLine.baseline
-              }
-            }
+            this.clipGuideLines(textLine, guideLines, piece)
 
             const clippedTextLine = this.clipTextLineToParent(textLine, bestRegion.points)
             if (clippedTextLine) {
@@ -419,14 +435,7 @@ export class CutElementsCommand implements Command {
             textLine.coords = new PolygonGeometry(piece.map(p => [p.x, p.y] as [number, number]))
           }
 
-          if (baselinePoints.length >= 2) {
-            const clippedBaseline = clipPolylineToPolygon(baselinePoints, piece)
-            if (clippedBaseline.length >= 2) {
-              textLineToUse.baseline = { points: new PolylineGeometry(clippedBaseline.map(p => [p.x, p.y] as [number, number])) }
-            } else {
-              delete textLineToUse.baseline
-            }
-          }
+          this.clipGuideLines(textLineToUse, guideLines, piece)
 
           const clippedTextLine = this.clipTextLineToParent(textLineToUse, bestRegion.points)
           if (clippedTextLine) {
@@ -540,7 +549,7 @@ export class CutElementsCommand implements Command {
   private distributeIntersectionTextLines(lines: TextLine[], parents: Array<{ region: Region, points: Point[] }>): void {
     for (const line of lines) {
       const points = line.coords.points.map(([x, y]) => ({ x, y }))
-      const baseline = line.baseline?.points.points.map(([x, y]) => ({ x, y }))
+      const guideLines = guideLinesOf(line)
       const words = this.detachWords(line)
       const linePieces: Array<PlacedPiece<TextLine>> = []
       let usedOriginal = false
@@ -551,14 +560,7 @@ export class CutElementsCommand implements Command {
           const result = usedOriginal ? this.cloneTextLine(line, this.generateId(), piece) : line
           usedOriginal = true
           result.coords = new PolygonGeometry(piece.map(p => [p.x, p.y]))
-          if (baseline) {
-            const clipped = clipPolylineToPolygon(baseline, piece)
-            if (clipped.length >= 2) {
-              result.baseline = { points: new PolylineGeometry(clipped.map(p => [p.x, p.y])) }
-            } else {
-              delete result.baseline
-            }
-          }
+          this.clipGuideLines(result, guideLines, piece)
           parent.region.textLines ??= []
           parent.region.textLines.push(result)
           linePieces.push({ element: result, points: piece })
@@ -590,8 +592,7 @@ export class CutElementsCommand implements Command {
       return { cutCount: 0, deletedCount: 0, createdCount: 0 }
     }
 
-    const originalBaseline = textLine.baseline
-    const baselinePoints = originalBaseline?.points?.points?.map(p => ({ x: p[0], y: p[1] })) ?? []
+    const guideLines = guideLinesOf(textLine)
     const words = this.detachWords(textLine)
 
     if (cutResult.pieces.length === 1) {
@@ -600,14 +601,7 @@ export class CutElementsCommand implements Command {
         textLine.coords = new PolygonGeometry(piece.map(p => [p.x, p.y] as [number, number]))
         this.distributeWords(words, [{ element: textLine, points: piece }])
 
-        if (baselinePoints.length >= 2) {
-          const clippedBaseline = clipPolylineToPolygon(baselinePoints, piece)
-          if (clippedBaseline.length >= 2) {
-            textLine.baseline = { points: new PolylineGeometry(clippedBaseline.map(p => [p.x, p.y] as [number, number])) }
-          } else {
-            delete textLine.baseline
-          }
-        }
+        this.clipGuideLines(textLine, guideLines, piece)
       }
       return { cutCount: 1, deletedCount: 0, createdCount: 0 }
     }
@@ -629,24 +623,10 @@ export class CutElementsCommand implements Command {
         textLine.coords = new PolygonGeometry(piece.points.map(p => [p.x, p.y] as [number, number]))
         linePieces.push({ element: textLine, points: piece.points })
 
-        if (baselinePoints.length >= 2) {
-          const clippedBaseline = clipPolylineToPolygon(baselinePoints, piece.points)
-          if (clippedBaseline.length >= 2) {
-            textLine.baseline = { points: new PolylineGeometry(clippedBaseline.map(p => [p.x, p.y] as [number, number])) }
-          } else {
-            delete textLine.baseline
-          }
-        }
+        this.clipGuideLines(textLine, guideLines, piece.points)
       } else {
         const newTextLine = this.cloneTextLine(textLine, this.generateId(), piece.points)
-        if (this.intersect) delete newTextLine.baseline
-
-        if (baselinePoints.length >= 2) {
-          const clippedBaseline = clipPolylineToPolygon(baselinePoints, piece.points)
-          if (clippedBaseline.length >= 2) {
-            newTextLine.baseline = { points: new PolylineGeometry(clippedBaseline.map(p => [p.x, p.y] as [number, number])) }
-          }
-        }
+        this.clipGuideLines(newTextLine, guideLines, piece.points)
 
         siblings.push(newTextLine)
         linePieces.push({ element: newTextLine, points: piece.points })
@@ -882,6 +862,19 @@ export class CutElementsCommand implements Command {
     return textLine
   }
 
+  private clipGuideLines(target: TextLine, guideLines: GuideLines, piece: Point[]): void {
+    for (const key of GUIDE_LINE_KEYS) {
+      const points = guideLines[key]
+      if (!points) continue
+      const clipped = clipPolylineToPolygon(points, piece)
+      if (clipped.length >= 2) {
+        target[key] = { points: new PolylineGeometry(clipped.map(p => [p.x, p.y] as [number, number])) }
+      } else {
+        delete target[key]
+      }
+    }
+  }
+
   /**
    * Clip all textlines in a region to fit within the region bounds
    */
@@ -897,15 +890,7 @@ export class CutElementsCommand implements Command {
       if (textLinePoints.length > 0) {
         const centroid = this.calculateCentroid(textLinePoints)
         if (isPointInPolygon(centroid, regionPoints) || doPolygonsIntersect(textLinePoints, regionPoints)) {
-          if (textLine.baseline?.points) {
-            const baselinePoints = textLine.baseline.points.points.map(p => ({ x: p[0], y: p[1] }))
-            const clippedBaseline = clipPolylineToPolygon(baselinePoints, textLinePoints)
-            if (clippedBaseline.length >= 2) {
-              textLine.baseline = { points: new PolylineGeometry(clippedBaseline.map(p => [p.x, p.y] as [number, number])) }
-            } else {
-              delete textLine.baseline
-            }
-          }
+          this.clipGuideLines(textLine, guideLinesOf(textLine), textLinePoints)
           validTextLines.push(textLine)
         }
       }

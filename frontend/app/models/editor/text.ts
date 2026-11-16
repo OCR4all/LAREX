@@ -32,6 +32,14 @@ export class TextLine {
   custom?: string
   comments?: string
   index?: number
+  orientation?: number
+  mirrored?: string
+  secondaryLanguage?: string
+  customLanguages?: string
+  customScripts?: string
+  ascentLine?: Baseline
+  meanLine?: Baseline
+  descentLine?: Baseline
 
   constructor(params: {
     id: string
@@ -54,6 +62,14 @@ export class TextLine {
     custom?: string
     comments?: string
     index?: number
+    orientation?: number
+    mirrored?: string
+    secondaryLanguage?: string
+    customLanguages?: string
+    customScripts?: string
+    ascentLine?: Baseline
+    meanLine?: Baseline
+    descentLine?: Baseline
   }) {
     this.id = params.id
     this.coords = params.coords
@@ -75,6 +91,14 @@ export class TextLine {
     this.custom = params.custom
     this.comments = params.comments
     this.index = params.index
+    this.orientation = params.orientation
+    this.mirrored = params.mirrored
+    this.secondaryLanguage = params.secondaryLanguage
+    this.customLanguages = params.customLanguages
+    this.customScripts = params.customScripts
+    this.ascentLine = params.ascentLine
+    this.meanLine = params.meanLine
+    this.descentLine = params.descentLine
   }
 
   getText(): string {
@@ -119,6 +143,10 @@ export class Word {
   userDefined?: UserDefined
   textStyle?: TextStyleAttributes
   metadata?: Record<string, unknown>
+  orientation?: number
+  mirrored?: string
+  customLanguages?: string
+  customScripts?: string
 
   constructor(
     id: string,
@@ -140,7 +168,8 @@ export class Word {
     alternativeImages?: AlternativeImage[],
     labels?: Labels[],
     userDefined?: UserDefined,
-    textStyle?: TextStyleAttributes
+    textStyle?: TextStyleAttributes,
+    extra?: Pick<Word, 'orientation' | 'mirrored' | 'customLanguages' | 'customScripts'>
   ) {
     this.id = id
     this.coords = coords
@@ -162,6 +191,10 @@ export class Word {
     this.labels = labels
     this.userDefined = userDefined
     this.textStyle = textStyle
+    this.orientation = extra?.orientation
+    this.mirrored = extra?.mirrored
+    this.customLanguages = extra?.customLanguages
+    this.customScripts = extra?.customScripts
   }
 
   /** Build a word from named fields, e.g. when cloning a (possibly plain-object) word. */
@@ -186,7 +219,8 @@ export class Word {
       fields.alternativeImages,
       fields.labels,
       fields.userDefined,
-      fields.textStyle
+      fields.textStyle,
+      { orientation: fields.orientation, mirrored: fields.mirrored, customLanguages: fields.customLanguages, customScripts: fields.customScripts }
     )
   }
 
@@ -211,7 +245,8 @@ export class Word {
       this.alternativeImages,
       this.labels,
       this.userDefined,
-      this.textStyle
+      this.textStyle,
+      { orientation: this.orientation, mirrored: this.mirrored, customLanguages: this.customLanguages, customScripts: this.customScripts }
     )
   }
 
@@ -257,6 +292,9 @@ export class Glyph {
   textStyle?: TextStyleAttributes
   graphemes?: Graphemes
   metadata?: Record<string, unknown>
+  orientation?: number
+  mirrored?: string
+  customScript?: string
 
   constructor(
     id: string,
@@ -275,7 +313,8 @@ export class Glyph {
     labels?: Labels[],
     userDefined?: UserDefined,
     textStyle?: TextStyleAttributes,
-    graphemes?: Graphemes
+    graphemes?: Graphemes,
+    extra?: Pick<Glyph, 'orientation' | 'mirrored' | 'customScript'>
   ) {
     this.id = id
     this.coords = coords
@@ -294,6 +333,9 @@ export class Glyph {
     this.userDefined = userDefined
     this.textStyle = textStyle
     this.graphemes = graphemes
+    this.orientation = extra?.orientation
+    this.mirrored = extra?.mirrored
+    this.customScript = extra?.customScript
   }
 
   /** Build a glyph from named fields, e.g. when cloning a (possibly plain-object) glyph. */
@@ -315,7 +357,8 @@ export class Glyph {
       fields.labels,
       fields.userDefined,
       fields.textStyle,
-      fields.graphemes
+      fields.graphemes,
+      { orientation: fields.orientation, mirrored: fields.mirrored, customScript: fields.customScript }
     )
   }
 

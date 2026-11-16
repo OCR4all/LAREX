@@ -156,4 +156,32 @@ describe('MoveElementCommand', () => {
       [190, 130]
     ])
   })
+
+  it('moves ascent, mean and descent lines with their text line and restores them on undo', () => {
+    const textLine = createTextLineWithBaseline('tl-1')
+    textLine.ascentLine = { points: new Polyline([[110, 105], [190, 105]]) }
+    textLine.meanLine = { points: new Polyline([[110, 115], [190, 115]]) }
+    textLine.descentLine = { points: new Polyline([[110, 140], [190, 140]]) }
+    const region = createTestTextRegion({ id: 'r1', textLines: [textLine] })
+    const { session } = createMockSession(createTestDocument({ regions: [region] }))
+    const ctx = createTestContext(session)
+    const commander = new Commander()
+
+    commander.execute(new MoveElementCommand({
+      elementId: 'r1',
+      elementType: 'polygon',
+      delta: { x: 10, y: 20 },
+      moveWithChildren: true
+    }), ctx)
+
+    expect(textLine.ascentLine.points.points).toEqual([[120, 125], [200, 125]])
+    expect(textLine.meanLine.points.points).toEqual([[120, 135], [200, 135]])
+    expect(textLine.descentLine.points.points).toEqual([[120, 160], [200, 160]])
+
+    commander.undo(ctx)
+
+    expect(textLine.ascentLine.points.points).toEqual([[110, 105], [190, 105]])
+    expect(textLine.meanLine.points.points).toEqual([[110, 115], [190, 115]])
+    expect(textLine.descentLine.points.points).toEqual([[110, 140], [190, 140]])
+  })
 })

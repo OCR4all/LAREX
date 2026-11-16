@@ -54,6 +54,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PointDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.AlternativeImageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridAddPointsDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.GridPointsDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.LayerDto;
@@ -140,7 +141,10 @@ final class Page4jToDtoMappingSession {
             toTextStyleDto(page.textStyle()),
             toLayersDto(page.layers()),
             toRelationsDto(page.relations()),
-            version != null ? version.date() : null
+            version != null ? version.date() : null,
+            page.comments(),
+            page.customLanguages(),
+            page.customScripts()
         );
     }
 
@@ -178,6 +182,7 @@ final class Page4jToDtoMappingSession {
                 fields.textStyle = toTextStyleDto(r.textStyle());
                 fields.type = xml(r.type());
                 fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
                 fields.leading = r.leading();
                 fields.align = xml(r.align());
                 fields.readingDirection = xml(r.readingDirection());
@@ -186,13 +191,16 @@ final class Page4jToDtoMappingSession {
                 fields.indented = r.indented();
                 fields.primaryLanguage = xml(r.primaryLanguage());
                 fields.secondaryLanguage = xml(r.secondaryLanguage());
+                fields.customLanguages = r.customLanguages();
                 fields.primaryScript = xml(r.primaryScript());
                 fields.secondaryScript = xml(r.secondaryScript());
+                fields.customScripts = r.customScripts();
                 fields.production = xml(r.production());
             }
             case ImageRegion r -> {
                 fields.kind = RegionKind.ImageRegion;
                 fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
                 fields.colourDepth = xml(r.colourDepth());
                 fields.backgroundColour(r.bgColour());
                 fields.embText = r.embText();
@@ -200,6 +208,7 @@ final class Page4jToDtoMappingSession {
             case LineDrawingRegion r -> {
                 fields.kind = RegionKind.LineDrawingRegion;
                 fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
                 fields.penColour = xml(r.penColour());
                 fields.backgroundColour(r.bgColour());
                 fields.embText = r.embText();
@@ -207,6 +216,7 @@ final class Page4jToDtoMappingSession {
             case GraphicRegion r -> {
                 fields.kind = RegionKind.GraphicRegion;
                 fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
                 fields.type = xml(r.type());
                 fields.numColours = r.numColours();
                 fields.embText = r.embText();
@@ -214,6 +224,7 @@ final class Page4jToDtoMappingSession {
             case TableRegion r -> {
                 fields.kind = RegionKind.TableRegion;
                 fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
                 fields.rows = r.rows();
                 fields.columns = r.columns();
                 fields.lineColour = xml(r.lineColour());
@@ -225,6 +236,7 @@ final class Page4jToDtoMappingSession {
             case ChartRegion r -> {
                 fields.kind = RegionKind.ChartRegion;
                 fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
                 fields.type = xml(r.type());
                 fields.numColours = r.numColours();
                 fields.backgroundColour(r.bgColour());
@@ -233,6 +245,7 @@ final class Page4jToDtoMappingSession {
             case MapRegion r -> {
                 fields.kind = RegionKind.MapRegion;
                 fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
             }
             case SeparatorRegion r -> {
                 fields.kind = RegionKind.SeparatorRegion;
@@ -242,21 +255,25 @@ final class Page4jToDtoMappingSession {
             case MathsRegion r -> {
                 fields.kind = RegionKind.MathsRegion;
                 fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
                 fields.backgroundColour(r.bgColour());
             }
             case ChemRegion r -> {
                 fields.kind = RegionKind.ChemRegion;
                 fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
                 fields.backgroundColour(r.bgColour());
             }
             case MusicRegion r -> {
                 fields.kind = RegionKind.MusicRegion;
                 fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
                 fields.backgroundColour(r.bgColour());
             }
             case AdvertRegion r -> {
                 fields.kind = RegionKind.AdvertRegion;
                 fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
                 fields.backgroundColour(r.bgColour());
             }
             case NoiseRegion ignored -> fields.kind = RegionKind.NoiseRegion;
@@ -265,7 +282,12 @@ final class Page4jToDtoMappingSession {
                 fields.kind = RegionKind.CustomRegion;
                 fields.type = text(r.type());
             }
-            case FormRegion r -> throw unsupported(r.id(), "FormRegion");
+            case FormRegion r -> {
+                fields.kind = RegionKind.FormRegion;
+                fields.orientation = r.orientation();
+                fields.mirrored = xml(r.mirrored());
+                fields.backgroundColour(r.bgColour());
+            }
             case FrameRegion r -> throw unsupported(r.id(), "FrameRegion");
         }
 
@@ -319,7 +341,10 @@ final class Page4jToDtoMappingSession {
             null,
             region.custom(),
             region.comments(),
-            region.continuation()
+            region.continuation(),
+            fields.mirrored,
+            fields.customLanguages,
+            fields.customScripts
         );
     }
 
@@ -342,7 +367,9 @@ final class Page4jToDtoMappingSession {
         for (GridPoints row : grid.gridPoints()) {
             rows.add(new GridPointsDto(row.index(), toPolygonDto(row.points())));
         }
-        return rows.isEmpty() ? null : new GridDto(rows);
+        List<GridAddPointsDto> addPoints = list(grid.addPoints(),
+            points -> new GridAddPointsDto(points.row(), points.col(), points.left(), points.top()));
+        return rows.isEmpty() && addPoints == null ? null : new GridDto(rows, addPoints);
     }
 
     private TextLineDto toTextLineDto(TextLine line) {
@@ -373,7 +400,15 @@ final class Page4jToDtoMappingSession {
             null,
             line.index(),
             line.custom(),
-            line.comments()
+            line.comments(),
+            line.orientation(),
+            xml(line.mirrored()),
+            xml(line.secondaryLanguage()),
+            line.customLanguages(),
+            line.customScripts(),
+            toPolygonDto(line.ascentLine()),
+            toPolygonDto(line.meanLine()),
+            toPolygonDto(line.descentLine())
         );
     }
 
@@ -404,7 +439,11 @@ final class Page4jToDtoMappingSession {
             xml(word.production()),
             null,
             word.custom(),
-            word.comments()
+            word.comments(),
+            word.orientation(),
+            xml(word.mirrored()),
+            word.customLanguages(),
+            word.customScripts()
         );
     }
 
@@ -434,7 +473,10 @@ final class Page4jToDtoMappingSession {
             xml(glyph.production()),
             null,
             glyph.custom(),
-            glyph.comments()
+            glyph.comments(),
+            glyph.orientation(),
+            xml(glyph.mirrored()),
+            glyph.customScript()
         );
     }
 
@@ -630,6 +672,9 @@ final class Page4jToDtoMappingSession {
         Integer columns;
         String colour;
         String penColour;
+        String mirrored;
+        String customLanguages;
+        String customScripts;
 
         void backgroundColour(Colour colour) {
             bgColour = xml(colour);

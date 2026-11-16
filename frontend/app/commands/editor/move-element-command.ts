@@ -23,9 +23,11 @@ export interface MoveElementCommandData {
   moveWithChildren?: boolean
 }
 
+const GUIDE_LINES = ['ascentLine', 'meanLine', 'descentLine'] as const
+
 interface SavedPoints {
   id: string
-  type: 'region' | 'textline' | 'word' | 'glyph' | 'baseline' | PageFrameKind
+  type: 'region' | 'textline' | 'word' | 'glyph' | 'baseline' | typeof GUIDE_LINES[number] | PageFrameKind
   points: [number, number][]
 }
 
@@ -132,6 +134,13 @@ export class MoveElementCommand implements Command {
       textLine.baseline.points.points = this.applyDelta(textLine.baseline.points.points)
     }
 
+    for (const key of GUIDE_LINES) {
+      const line = textLine[key]
+      if (!line) continue
+      this.savedPoints.push({ id: textLine.id, type: key, points: [...line.points.points] })
+      line.points.points = this.applyDelta(line.points.points)
+    }
+
     for (const word of textLine.words ?? []) {
       this.saveAndMoveWord(word, true)
     }
@@ -205,6 +214,11 @@ export class MoveElementCommand implements Command {
         const hit = findTextLineRecursive(pcGts.page.regions, textLineId)
         if (hit?.textLine.baseline) {
           hit.textLine.baseline.points.points = [...saved.points]
+        }
+      } else if (saved.type === 'ascentLine' || saved.type === 'meanLine' || saved.type === 'descentLine') {
+        const line = findTextLineRecursive(pcGts.page.regions, saved.id)?.textLine[saved.type]
+        if (line) {
+          line.points.points = [...saved.points]
         }
       } else {
         const coords = findPolygonCoords(pcGts.page, saved.id, saved.type)

@@ -155,7 +155,10 @@ public class ActionResultPageMergeService {
                 source.textStyle(),
                 source.layers(),
                 source.relations(),
-                source.formatVersion()
+                source.formatVersion(),
+                source.comments(),
+                source.customLanguages(),
+                source.customScripts()
         );
     }
 
@@ -210,7 +213,10 @@ public class ActionResultPageMergeService {
                 source.confidence(),
                 source.custom(),
                 source.comments(),
-                source.continuation()
+                source.continuation(),
+                source.mirrored(),
+                source.customLanguages(),
+                source.customScripts()
         );
     }
 }

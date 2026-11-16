@@ -111,6 +111,9 @@ export interface GlyphDto {
   confidence?: number
   custom?: string
   comments?: string
+  orientation?: number
+  mirrored?: string
+  customScript?: string
 }
 
 export interface WordDto {
@@ -131,6 +134,10 @@ export interface WordDto {
   confidence?: number
   custom?: string
   comments?: string
+  orientation?: number
+  mirrored?: string
+  customLanguages?: string
+  customScripts?: string
 }
 
 export interface TextLineDto {
@@ -161,6 +168,14 @@ export interface TextLineDto {
   comments?: string
   index?: number
   confidence?: number
+  orientation?: number
+  mirrored?: string
+  secondaryLanguage?: string
+  customLanguages?: string
+  customScripts?: string
+  ascentLine?: PolygonDto
+  meanLine?: PolygonDto
+  descentLine?: PolygonDto
 }
 
 export interface TableCellRoleDto {
@@ -180,8 +195,16 @@ export interface GridPointsDto {
   points?: PolygonDto
 }
 
+export interface GridAddPointsDto {
+  row?: number
+  col?: number
+  left?: string
+  top?: string
+}
+
 export interface GridDto {
   rows?: GridPointsDto[]
+  addPoints?: GridAddPointsDto[]
 }
 
 export interface RegionDto {
@@ -235,6 +258,9 @@ export interface RegionDto {
   custom?: string
   comments?: string
   continuation?: boolean
+  mirrored?: string
+  customLanguages?: string
+  customScripts?: string
 }
 
 export type GroupMemberDto = RegionRefDto | NestedGroupDto
@@ -336,4 +362,7 @@ export interface PageDto {
   layers?: LayersDto
   relations?: RelationsDto
   formatVersion?: string
+  comments?: string
+  customLanguages?: string
+  customScripts?: string
 }

@@ -7,6 +7,7 @@ import com.maxnth.page4j.model.AlternativeImage;
 import com.maxnth.page4j.model.ChartRegionBuilder;
 import com.maxnth.page4j.model.ChemRegionBuilder;
 import com.maxnth.page4j.model.CustomRegionBuilder;
+import com.maxnth.page4j.model.FormRegionBuilder;
 import com.maxnth.page4j.model.GlyphBuilder;
 import com.maxnth.page4j.model.Glyph;
 import com.maxnth.page4j.model.Grapheme;
@@ -14,6 +15,7 @@ import com.maxnth.page4j.model.GraphemeElement;
 import com.maxnth.page4j.model.GraphemeGroup;
 import com.maxnth.page4j.model.GraphicRegionBuilder;
 import com.maxnth.page4j.model.Grid;
+import com.maxnth.page4j.model.GridAddPoints;
 import com.maxnth.page4j.model.GridPoints;
 import com.maxnth.page4j.model.Group;
 import com.maxnth.page4j.model.GroupMember;
@@ -58,6 +60,7 @@ import com.maxnth.page4j.model.value.GraphicsType;
 import com.maxnth.page4j.model.value.GroupType;
 import com.maxnth.page4j.model.value.Language;
 import com.maxnth.page4j.model.value.MetadataItemType;
+import com.maxnth.page4j.model.value.Mirrored;
 import com.maxnth.page4j.model.value.PageDateTime;
 import com.maxnth.page4j.model.value.PageType;
 import com.maxnth.page4j.model.value.Production;
@@ -156,11 +159,14 @@ final class DtoToPage4jMappingSession {
             .imageResolutionUnit(value(dto.imageResolutionUnit(), ResolutionUnit::fromXml, "Page imageResolutionUnit"))
             .type(value(dto.type(), PageType::fromXml, "Page type"))
             .custom(dto.custom())
+            .comments(dto.comments())
             .orientation(dto.orientation())
             .primaryLanguage(language(dto.primaryLanguage(), "Page primaryLanguage"))
             .secondaryLanguage(language(dto.secondaryLanguage(), "Page secondaryLanguage"))
+            .customLanguages(dto.customLanguages())
             .primaryScript(value(dto.primaryScript(), Script::fromXml, "Page primaryScript"))
             .secondaryScript(value(dto.secondaryScript(), Script::fromXml, "Page secondaryScript"))
+            .customScripts(dto.customScripts())
             .readingDirection(value(dto.readingDirection(), ReadingDirection::fromXml, "Page readingDirection"))
             .textLineOrder(value(dto.textLineOrder(), TextLineOrder::fromXml, "Page textLineOrder"))
             .conf(dto.confidence())
@@ -376,11 +382,13 @@ final class DtoToPage4jMappingSession {
         TableCellRole role = toTableCellRole(region.tableCellRoleFromRoles(), context);
         List<Region> regions = each(region.nestedRegions(), this::toRegion);
         RegionKind kind = region.kind() != null ? region.kind() : RegionKind.UnknownRegion;
+        Mirrored mirrored = value(region.mirrored(), Mirrored::fromXml, context + " mirrored");
 
         return switch (kind) {
             case TextRegion -> TextRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
                 .orientation(region.orientation())
+                .mirrored(mirrored)
                 .type(textType(region.type(), context))
                 .leading(region.leading())
                 .readingDirection(value(region.readingDirection(), ReadingDirection::fromXml, context + " readingDirection"))
@@ -390,8 +398,10 @@ final class DtoToPage4jMappingSession {
                 .align(value(region.align(), Align::fromXml, context + " align"))
                 .primaryLanguage(language(region.primaryLanguage(), context + " primaryLanguage"))
                 .secondaryLanguage(language(region.secondaryLanguage(), context + " secondaryLanguage"))
+                .customLanguages(region.customLanguages())
                 .primaryScript(value(region.primaryScript(), Script::fromXml, context + " primaryScript"))
                 .secondaryScript(value(region.secondaryScript(), Script::fromXml, context + " secondaryScript"))
+                .customScripts(region.customScripts())
                 .production(value(region.production(), Production::fromXml, context + " production"))
                 .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
                 .tableCellRole(role).regions(regions)
@@ -402,6 +412,7 @@ final class DtoToPage4jMappingSession {
             case ImageRegion -> ImageRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
                 .orientation(region.orientation())
+                .mirrored(mirrored)
                 .colourDepth(value(region.colourDepth(), ColourDepth::fromXml, context + " colourDepth"))
                 .bgColour(regionBackground(region, context))
                 .embText(region.embText())
@@ -411,6 +422,7 @@ final class DtoToPage4jMappingSession {
             case LineDrawingRegion -> LineDrawingRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
                 .orientation(region.orientation())
+                .mirrored(mirrored)
                 .penColour(value(region.penColour(), Colour::fromXml, context + " penColour"))
                 .bgColour(regionBackground(region, context))
                 .embText(region.embText())
@@ -420,6 +432,7 @@ final class DtoToPage4jMappingSession {
             case GraphicRegion -> GraphicRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
                 .orientation(region.orientation())
+                .mirrored(mirrored)
                 .type(value(region.type(), GraphicsType::fromXml, context + " type"))
                 .numColours(region.numColours())
                 .embText(region.embText())
@@ -429,6 +442,7 @@ final class DtoToPage4jMappingSession {
             case TableRegion -> TableRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
                 .orientation(region.orientation())
+                .mirrored(mirrored)
                 .rows(region.rows())
                 .columns(region.columns())
                 .lineColour(value(region.lineColour(), Colour::fromXml, context + " lineColour"))
@@ -442,6 +456,7 @@ final class DtoToPage4jMappingSession {
             case ChartRegion -> ChartRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
                 .orientation(region.orientation())
+                .mirrored(mirrored)
                 .type(value(region.type(), ChartType::fromXml, context + " type"))
                 .numColours(region.numColours())
                 .bgColour(regionBackground(region, context))
@@ -452,6 +467,7 @@ final class DtoToPage4jMappingSession {
             case MapRegion -> MapRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
                 .orientation(region.orientation())
+                .mirrored(mirrored)
                 .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
                 .tableCellRole(role).regions(regions)
                 .build();
@@ -465,6 +481,7 @@ final class DtoToPage4jMappingSession {
             case MathsRegion -> MathsRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
                 .orientation(region.orientation())
+                .mirrored(mirrored)
                 .bgColour(regionBackground(region, context))
                 .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
                 .tableCellRole(role).regions(regions)
@@ -472,6 +489,7 @@ final class DtoToPage4jMappingSession {
             case ChemRegion -> ChemRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
                 .orientation(region.orientation())
+                .mirrored(mirrored)
                 .bgColour(regionBackground(region, context))
                 .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
                 .tableCellRole(role).regions(regions)
@@ -479,6 +497,7 @@ final class DtoToPage4jMappingSession {
             case MusicRegion -> MusicRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
                 .orientation(region.orientation())
+                .mirrored(mirrored)
                 .bgColour(regionBackground(region, context))
                 .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
                 .tableCellRole(role).regions(regions)
@@ -486,6 +505,7 @@ final class DtoToPage4jMappingSession {
             case AdvertRegion -> AdvertRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
                 .orientation(region.orientation())
+                .mirrored(mirrored)
                 .bgColour(regionBackground(region, context))
                 .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
                 .tableCellRole(role).regions(regions)
@@ -497,6 +517,14 @@ final class DtoToPage4jMappingSession {
                 .build();
             case UnknownRegion -> UnknownRegionBuilder.builder()
                 .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
+                .tableCellRole(role).regions(regions)
+                .build();
+            case FormRegion -> FormRegionBuilder.builder()
+                .id(id).custom(custom).comments(comments).continuation(region.continuation())
+                .orientation(region.orientation())
+                .mirrored(mirrored)
+                .bgColour(regionBackground(region, context))
                 .alternativeImages(alternativeImages).coords(coords).userAttributes(userAttributes).labels(labels)
                 .tableCellRole(role).regions(regions)
                 .build();
@@ -550,15 +578,25 @@ final class DtoToPage4jMappingSession {
     }
 
     private Grid toGrid(GridDto grid, String context) {
-        if (grid == null || grid.rows() == null || grid.rows().isEmpty()) {
+        if (grid == null) {
             return null;
+        }
+        List<GridAddPoints> addPoints = new ArrayList<>();
+        forEach(grid.addPoints(), points -> {
+            if (points.row() == null || points.col() == null) {
+                throw new PageDtoMappingException(context + " AddPoints needs row and col");
+            }
+            addPoints.add(new GridAddPoints(points.row(), points.col(), points.left(), points.top()));
+        });
+        if (grid.rows() == null || grid.rows().isEmpty()) {
+            return addPoints.isEmpty() ? null : new Grid(List.of(), addPoints);
         }
         List<GridPointsDto> rows = grid.rows().stream()
             .filter(row -> row != null && toPolygon(row.points()) != null)
             .sorted(Comparator.comparing(row -> row.index() != null ? row.index() : Integer.MAX_VALUE))
             .toList();
         if (rows.isEmpty()) {
-            return null;
+            return addPoints.isEmpty() ? null : new Grid(List.of(), addPoints);
         }
         boolean keepIndexes = rows.stream().allMatch(row -> row.index() != null)
             && rows.stream().map(GridPointsDto::index).distinct().count() == rows.size();
@@ -567,7 +605,7 @@ final class DtoToPage4jMappingSession {
             GridPointsDto row = rows.get(i);
             points.add(new GridPoints(keepIndexes ? row.index() : i, toPolygon(row.points())));
         }
-        return new Grid(points, List.of());
+        return new Grid(points, addPoints);
     }
 
     private TextLine toTextLine(TextLineDto line) {
@@ -575,9 +613,14 @@ final class DtoToPage4jMappingSession {
         String context = "TextLine '" + id + "'";
         return TextLineBuilder.builder()
             .id(id)
+            .orientation(line.orientation())
+            .mirrored(value(line.mirrored(), Mirrored::fromXml, context + " mirrored"))
             .primaryLanguage(language(line.primaryLanguage(), context + " primaryLanguage"))
+            .secondaryLanguage(language(line.secondaryLanguage(), context + " secondaryLanguage"))
+            .customLanguages(line.customLanguages())
             .primaryScript(value(line.primaryScript(), Script::fromXml, context + " primaryScript"))
             .secondaryScript(value(line.secondaryScript(), Script::fromXml, context + " secondaryScript"))
+            .customScripts(line.customScripts())
             .readingDirection(value(line.readingDirection(), ReadingDirection::fromXml, context + " readingDirection"))
             .production(value(line.production(), Production::fromXml, context + " production"))
             .custom(line.custom())
@@ -585,7 +628,10 @@ final class DtoToPage4jMappingSession {
             .index(line.index())
             .alternativeImages(toAlternativeImages(line.alternativeImages()))
             .coords(requiredPolygon(line.coords(), context))
+            .ascentLine(toPolygon(line.ascentLine()))
+            .meanLine(toPolygon(line.meanLine()))
             .baseline(toPolygon(line.baseline()))
+            .descentLine(toPolygon(line.descentLine()))
             .words(each(line.words(), this::toWord))
             .textEquivs(toTextEquivs(line.textContentVariants(), context))
             .textStyle(toTextStyle(withFlags(line.textStyle(), line.bold(), line.italic(), line.underlined(),
@@ -601,9 +647,13 @@ final class DtoToPage4jMappingSession {
         String context = "Word '" + id + "'";
         return WordBuilder.builder()
             .id(id)
+            .orientation(word.orientation())
+            .mirrored(value(word.mirrored(), Mirrored::fromXml, context + " mirrored"))
             .language(language(word.language(), context + " language"))
+            .customLanguages(word.customLanguages())
             .primaryScript(value(word.primaryScript(), Script::fromXml, context + " primaryScript"))
             .secondaryScript(value(word.secondaryScript(), Script::fromXml, context + " secondaryScript"))
+            .customScripts(word.customScripts())
             .readingDirection(value(word.readingDirection(), ReadingDirection::fromXml, context + " readingDirection"))
             .production(value(word.production(), Production::fromXml, context + " production"))
             .custom(word.custom())
@@ -625,9 +675,12 @@ final class DtoToPage4jMappingSession {
         String context = "Glyph '" + id + "'";
         return GlyphBuilder.builder()
             .id(id)
+            .orientation(glyph.orientation())
+            .mirrored(value(glyph.mirrored(), Mirrored::fromXml, context + " mirrored"))
             .ligature(glyph.ligature())
             .symbol(glyph.symbol())
             .script(value(glyph.script(), Script::fromXml, context + " script"))
+            .customScript(glyph.customScript())
             .production(value(glyph.production(), Production::fromXml, context + " production"))
             .custom(glyph.custom())
             .comments(glyph.comments())

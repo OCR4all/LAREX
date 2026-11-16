@@ -175,6 +175,8 @@ invalid/duplicate-id.xml | FAILED ingest
 
 invalid/unknown-content.xml | FAILED ingest
 
+larex/form-region-2024.xml | FAILED ingest
+
 larex/nested-regions.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"
 
 larex/reading-order-attributes.xml | save: EXTRA_ATTRIBUTE /PcGts[1]/@xsi:schemaLocation "http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15/pagecontent.xsd"

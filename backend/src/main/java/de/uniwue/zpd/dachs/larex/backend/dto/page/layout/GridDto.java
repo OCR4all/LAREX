@@ -14,5 +14,6 @@ import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GridDto(
-    List<GridPointsDto> rows
+    List<GridPointsDto> rows,
+    List<GridAddPointsDto> addPoints
 ) {}

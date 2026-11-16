@@ -52,7 +52,10 @@ public record GlyphDto(
     String production,
     Double confidence,
     String custom,
-    String comments
+    String comments,
+    Double orientation,
+    String mirrored,
+    String customScript
 ) {
     public GlyphDto(
         String id,
@@ -99,7 +102,10 @@ public record GlyphDto(
             production,
             confidence,
             custom,
-            comments
+            comments,
+            null,
+            null,
+            null
         );
     }
 
