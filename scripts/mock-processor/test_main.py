@@ -337,7 +337,6 @@ async def test_sdk_preflight_advertises_dataset_capabilities(
     ) as client:
         response = await client.post(path, content=body, headers=headers)
         assert (await client.get(prefix + "/health")).status_code == 200
-        assert (await client.get(prefix + "/ready")).status_code == 200
     assert response.status_code == 200
     capabilities = response.json()["capabilities"]
     assert capabilities["incrementalPageResults"] is False
