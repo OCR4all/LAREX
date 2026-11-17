@@ -461,6 +461,44 @@ class DocumentExportServiceTest {
     }
 
     @Test
+    void exportPagePdf_fallsBackForGlyphsMissingFromThePrimaryFont() throws Exception {
+        Path imagePath = tempDir.resolve("images/script-sample.png");
+        Files.createDirectories(imagePath.getParent());
+        ImageIO.write(new BufferedImage(400, 200, BufferedImage.TYPE_INT_RGB), "png", imagePath.toFile());
+
+        Project project = project("project-1", "Demo Project");
+        Page page = page(project, "page-1", "Alpha", "alpha.xml", "images/script-sample.png");
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(pageDto(
+                "script-sample.png",
+                List.of(textRegion("r1", List.of(
+                        textLine("l1", "Latin привет", 0, simpleBaseline(10, 30, 140, 30)),
+                        textLine("l2", "\u057E\u0561\u0580 tail", 1, simpleBaseline(10, 80, 140, 80)),
+                        textLine("l3", "\u05E9\u05DC\u05D5\u05DD \u10E1\u10D0\u10E5 \uD800\uDF30\uD800\uDF31", 2, simpleBaseline(10, 130, 140, 130))
+                ))),
+                null
+        ));
+
+        DocumentExportService.DocumentExportResult result = service.exportPage(
+                "project-1",
+                "page-1",
+                "user-1",
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PDF, null, null, null, null, null, null, null, null)
+        );
+
+        try (var pdf = Loader.loadPDF(result.bytes())) {
+            String extracted = new PDFTextStripper().getText(pdf);
+            assertTrue(extracted.contains("Latin привет"));
+            assertTrue(extracted.contains("\u057E\u0561\u0580 tail"));
+            assertTrue(extracted.contains("\u10E1\u10D0\u10E5"));
+            assertTrue(extracted.contains("\uD800\uDF30\uD800\uDF31"));
+            assertTrue(extracted.contains("\u05E9") && extracted.contains("\u05DD"));
+        }
+    }
+
+    @Test
     void exportPagePdf_rendersWordsAtTheirOwnPositions() throws Exception {
         Path imagePath = tempDir.resolve("images/word-sample.png");
         Files.createDirectories(imagePath.getParent());

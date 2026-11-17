@@ -12,7 +12,9 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.imageio.ImageIO;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
@@ -31,7 +33,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class PdfExportWriter {
 
-    private static final String PDF_FONT_RESOURCE_PATH = "/fonts/Junicode.ttf";
+    private static final List<String> PDF_FONT_RESOURCE_PATHS = List.of(
+            "/fonts/Junicode.ttf",
+            "/fonts/NotoSans-Regular.ttf",
+            "/fonts/NotoSansArmenian-Regular.ttf",
+            "/fonts/NotoSansHebrew-Regular.ttf",
+            "/fonts/NotoSansGeorgian-Regular.ttf",
+            "/fonts/NotoSansCoptic-Regular.ttf",
+            "/fonts/NotoSansEthiopic-Regular.ttf",
+            "/fonts/NotoSansGothic-Regular.ttf",
+            "/fonts/NotoSansOldItalic-Regular.ttf",
+            "/fonts/NotoSansMath-Regular.ttf",
+            "/fonts/NotoSansSymbols-Regular.ttf",
+            "/fonts/NotoSansSymbols2-Regular.ttf"
+    );
     private static final String PDF_A_ICC_RESOURCE_PATH = "/color/sRGB.icc";
 
     private static final float TEXT_FONT_SIZE = 11f;
@@ -55,7 +70,7 @@ public class PdfExportWriter {
                        DocumentExportDto.PdfProfile pdfProfile) throws IOException {
         DocumentExportDto.PdfProfile resolvedProfile = resolvePdfProfile(pdfProfile);
         try (PDDocument document = new PDDocument()) {
-            PDFont font = loadPdfFont(document);
+            FontChain font = new FontChain(document);
 
             for (ExportPage exportPage : pages) {
                 switch (resolvedProfile) {
@@ -74,7 +89,7 @@ public class PdfExportWriter {
     }
 
     private void addPage(PDDocument document,
-                         PDFont font,
+                         FontChain font,
                          ExportPage exportPage,
                          boolean drawImage,
                          boolean drawText,
@@ -160,15 +175,19 @@ public class PdfExportWriter {
     }
 
     private void renderText(PDPageContentStream contentStream,
-                            PDFont font,
+                            FontChain font,
                             ExportPage exportPage,
                             PDRectangle pageSize) throws IOException {
-        List<String> lines = collectTextLines(exportPage);
+        List<String> lines = new ArrayList<>();
+        for (String line : collectTextLines(exportPage)) {
+            String renderable = font.dropUnsupported(line).trim();
+            if (!renderable.isEmpty()) {
+                lines.add(renderable);
+            }
+        }
         if (lines.isEmpty()) {
             return;
         }
-
-        contentStream.setFont(font, TEXT_FONT_SIZE);
 
         float maxWidth = pageSize.getWidth() - 2 * TEXT_MARGIN;
         List<String> wrapped = wrapLines(font, lines, maxWidth);
@@ -177,7 +196,10 @@ public class PdfExportWriter {
         contentStream.beginText();
         contentStream.newLineAtOffset(TEXT_MARGIN, y);
         for (String line : wrapped) {
-            contentStream.showText(line);
+            for (FontRun run : font.runs(line)) {
+                contentStream.setFont(run.font(), TEXT_FONT_SIZE);
+                contentStream.showText(run.text());
+            }
             contentStream.newLineAtOffset(0, -TEXT_LINE_LEADING);
         }
         contentStream.endText();
@@ -209,7 +231,7 @@ public class PdfExportWriter {
         }
     }
 
-    private List<String> wrapLines(PDFont font, List<String> lines, float maxWidth) throws IOException {
+    private List<String> wrapLines(FontChain font, List<String> lines, float maxWidth) throws IOException {
         if (maxWidth <= 0f) {
             return lines;
         }
@@ -237,8 +259,12 @@ public class PdfExportWriter {
         return wrapped;
     }
 
-    private float textWidth(PDFont font, String text) throws IOException {
-        return font.getStringWidth(text) / 1000f * TEXT_FONT_SIZE;
+    private float textWidth(FontChain font, String text) throws IOException {
+        float width = 0f;
+        for (FontRun run : font.runs(text)) {
+            width += run.font().getStringWidth(run.text());
+        }
+        return width / 1000f * TEXT_FONT_SIZE;
     }
 
     private BufferedImage readImage(Path imagePath) throws IOException {
@@ -248,12 +274,84 @@ public class PdfExportWriter {
         return ImageIO.read(imagePath.toFile());
     }
 
-    private PDType0Font loadPdfFont(PDDocument document) throws IOException {
-        try (InputStream inputStream = PdfExportWriter.class.getResourceAsStream(PDF_FONT_RESOURCE_PATH)) {
-            if (inputStream == null) {
-                throw new IOException("Bundled PDF font not found: " + PDF_FONT_RESOURCE_PATH);
+    private record FontRun(PDFont font, String text) {
+    }
+
+    private static final class FontChain {
+
+        private final PDDocument document;
+        private final PDFont[] fonts = new PDFont[PDF_FONT_RESOURCE_PATHS.size()];
+        private final Map<Integer, PDFont> fontByCodePoint = new HashMap<>();
+
+        private FontChain(PDDocument document) {
+            this.document = document;
+        }
+
+        String dropUnsupported(String text) throws IOException {
+            StringBuilder kept = new StringBuilder(text.length());
+            for (int offset = 0; offset < text.length(); ) {
+                int codePoint = text.codePointAt(offset);
+                if (fontFor(codePoint) != null) {
+                    kept.appendCodePoint(codePoint);
+                }
+                offset += Character.charCount(codePoint);
             }
-            return PDType0Font.load(document, inputStream, true);
+            return kept.toString();
+        }
+
+        List<FontRun> runs(String text) throws IOException {
+            List<FontRun> runs = new ArrayList<>();
+            PDFont current = null;
+            StringBuilder buffer = new StringBuilder();
+            for (int offset = 0; offset < text.length(); ) {
+                int codePoint = text.codePointAt(offset);
+                offset += Character.charCount(codePoint);
+                PDFont font = fontFor(codePoint);
+                if (font == null) {
+                    continue;
+                }
+                if (font != current && buffer.length() > 0) {
+                    runs.add(new FontRun(current, buffer.toString()));
+                    buffer.setLength(0);
+                }
+                current = font;
+                buffer.appendCodePoint(codePoint);
+            }
+            if (buffer.length() > 0) {
+                runs.add(new FontRun(current, buffer.toString()));
+            }
+            return runs;
+        }
+
+        private PDFont fontFor(int codePoint) throws IOException {
+            if (fontByCodePoint.containsKey(codePoint)) {
+                return fontByCodePoint.get(codePoint);
+            }
+            String character = new String(Character.toChars(codePoint));
+            PDFont match = null;
+            for (int index = 0; index < fonts.length && match == null; index++) {
+                PDFont candidate = font(index);
+                try {
+                    candidate.encode(character);
+                    match = candidate;
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+            fontByCodePoint.put(codePoint, match);
+            return match;
+        }
+
+        private PDFont font(int index) throws IOException {
+            if (fonts[index] == null) {
+                String path = PDF_FONT_RESOURCE_PATHS.get(index);
+                try (InputStream inputStream = PdfExportWriter.class.getResourceAsStream(path)) {
+                    if (inputStream == null) {
+                        throw new IOException("Bundled PDF font not found: " + path);
+                    }
+                    fonts[index] = PDType0Font.load(document, inputStream, true);
+                }
+            }
+            return fonts[index];
         }
     }
 
