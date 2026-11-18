@@ -271,6 +271,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorResponse);
     }
 
+    @ExceptionHandler(ActionRunFailedException.class)
+    public ResponseEntity<ErrorResponseDto> handleActionRunFailed(
+            ActionRunFailedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDto(
+                HttpStatus.CONFLICT.value(), "Action run failed", ex.getMessage(),
+                request.getRequestURI(), "ACTION_RUN_FAILED"));
+    }
+
     @ExceptionHandler(PageMoveConflictException.class)
     public ResponseEntity<ErrorResponseDto> handlePageMoveConflictException(
             PageMoveConflictException ex, HttpServletRequest request) {

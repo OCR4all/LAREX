@@ -22,6 +22,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
+import de.uniwue.zpd.dachs.larex.backend.exception.ActionRunFailedException;
 import de.uniwue.zpd.dachs.larex.backend.exception.ActionScopeLockedException;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
@@ -2193,6 +2194,53 @@ class ActionRunServiceTest {
                 new ActionDto.ResultManifest(1, "failed", "Failed", null, List.of(), List.of()), new LinkedMultiValueMap<>());
         assertThat(result.status()).isEqualTo(ActionRun.Status.FAILED);
         verify(actionOutputService).discardDraft(run.getId());
+    }
+
+    @Test
+    void resultUploadToFailedRunIsRejectedWithTheFailureReason() {
+        ActionRun run = fileEvaluationRun();
+        run.setStatus(ActionRun.Status.FAILED);
+        run.setErrorMessage("Action heartbeat timed out");
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        var file = new ActionDto.ResultFile("csv", null, "file", null, "metrics.csv");
+        var files = new LinkedMultiValueMap<String, org.springframework.web.multipart.MultipartFile>();
+        files.add("csv", new MockMultipartFile("csv", "metrics.csv", "text/csv", "score,1".getBytes()));
+
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "completed", "Done", null, List.of(file), List.of()), files))
+                .isInstanceOf(ActionRunFailedException.class)
+                .hasMessage("This Action run has already failed and no longer accepts results: Action heartbeat timed out");
+        verifyNoInteractions(actionOutputService);
+        verify(runRepository, never()).save(any());
+    }
+
+    @Test
+    void incrementalPageResultToFailedRunIsRejected() {
+        Project project = project("project-1", WORKSPACE_ID, "Project A");
+        ActionRun run = run(definition("processor-incremental"), project, OWNER_ID, ActionRun.Status.FAILED,
+                LockMode.PAGES, List.of("page-1"));
+        run.setStatusMessage("Action heartbeat timed out");
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+
+        assertThatThrownBy(() -> service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "running", "Page ready", "page-1", List.of(), List.of()),
+                new LinkedMultiValueMap<>()))
+                .isInstanceOf(ActionRunFailedException.class)
+                .hasMessageContaining("Action heartbeat timed out");
+        verify(pageResultRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void repeatedFailureReportToFailedRunIsStillAccepted() throws Exception {
+        ActionRun run = fileEvaluationRun();
+        run.setStatus(ActionRun.Status.FAILED);
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+
+        var result = service.receiveResults(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.ResultManifest(1, "failed", "Failed", null, List.of(), List.of()), new LinkedMultiValueMap<>());
+
+        assertThat(result.status()).isEqualTo(ActionRun.Status.FAILED);
+        verify(runRepository, never()).save(any());
     }
 
     @Test

@@ -32,6 +32,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.exception.ActionConcurrencyLimitException;
 import de.uniwue.zpd.dachs.larex.backend.exception.ActionScopeLockedException;
 import de.uniwue.zpd.dachs.larex.backend.exception.ActionPageResultRejectedException;
+import de.uniwue.zpd.dachs.larex.backend.exception.ActionRunFailedException;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.PageOutcome;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto.PageOutcomeStatus;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
@@ -1771,6 +1772,9 @@ public class ActionRunService {
                                                 ActionDto.ResultManifest manifest,
                                                 MultiValueMap<String, MultipartFile> files) throws IOException {
         ActionRun run = authenticateResultRunForUpdate(runId, authorizationHeader);
+        if (run.getStatus() == Status.FAILED && !"failed".equals(requestedResultStatus(manifest))) {
+            throw new ActionRunFailedException(failedRunResultMessage(run));
+        }
         if (run.getStatus().isTerminal() && run.getStatus() != Status.CANCELLED) {
             metrics.recordTerminalResultReplay();
             return responseMapper.toRunResponse(run);
@@ -1789,9 +1793,7 @@ public class ActionRunService {
         if (!resultPatches.isEmpty()) {
             throw new IllegalArgumentException("Result patches are no longer supported; return PAGE XML as an XML result file");
         }
-        String resultStatus = manifest.status() == null || manifest.status().isBlank()
-                ? "completed"
-                : normalize(manifest.status());
+        String resultStatus = requestedResultStatus(manifest);
         if (!Set.of("running", "completed", "failed").contains(resultStatus)) {
             throw new IllegalArgumentException("Unsupported Action result status: " + manifest.status());
         }
@@ -1858,6 +1860,18 @@ public class ActionRunService {
         }
 
         return receiveLegacyBulkResults(run, manifest, resultFiles, files, pageIdSet, resultStatus, report);
+    }
+
+    private String requestedResultStatus(ActionDto.ResultManifest manifest) {
+        return manifest.status() == null || manifest.status().isBlank() ? "completed" : normalize(manifest.status());
+    }
+
+    private String failedRunResultMessage(ActionRun run) {
+        String reason = run.getErrorMessage() == null || run.getErrorMessage().isBlank()
+                ? run.getStatusMessage()
+                : run.getErrorMessage();
+        String message = "This Action run has already failed and no longer accepts results";
+        return reason == null || reason.isBlank() ? message : message + ": " + limit(reason, 1000);
     }
 
     private ActionDto.RunResponse receiveEvaluationFiles(ActionRun run, ActionDto.ResultManifest manifest,
