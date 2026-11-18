@@ -1,0 +1,947 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       pcGtsId="pcg1"
+       xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd">
+   <Metadata externalRef="text">
+      <Creator>text</Creator>
+      <Created>2024-01-02T03:04:05</Created>
+      <LastChange>2024-01-02T03:04:05</LastChange>
+      <Comments>text</Comments>
+      <UserDefined>
+         <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+      </UserDefined>
+   </Metadata>
+   <Page custom="text"
+         imageFilename="text"
+         imageHeight="1"
+         imageWidth="1"
+         primaryLanguage="Abkhaz"
+         primaryScript="Adlm - Adlam"
+         readingDirection="left-to-right"
+         secondaryLanguage="Abkhaz"
+         secondaryScript="Adlm - Adlam"
+         textLineOrder="top-to-bottom"
+         type="front-cover">
+      <AlternativeImage comments="text" filename="text"/>
+      <Border>
+         <Coords points="0,0 10,0 10,10 0,10"/>
+      </Border>
+      <PrintSpace>
+         <Coords points="0,0 10,0 10,10 0,10"/>
+      </PrintSpace>
+      <ReadingOrder>
+         <OrderedGroup caption="text"
+                       comments="text"
+                       continuation="true"
+                       custom="text"
+                       id="ord2"
+                       regionRef="tex12"
+                       type="paragraph">
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <RegionRefIndexed index="0" regionRef="tex12"/>
+            <OrderedGroupIndexed caption="text"
+                                 comments="text"
+                                 continuation="true"
+                                 custom="text"
+                                 id="ord3"
+                                 index="1"
+                                 regionRef="tex12"
+                                 type="paragraph">
+               <UserDefined>
+                  <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+               </UserDefined>
+               <RegionRefIndexed index="0" regionRef="tex12"/>
+               <OrderedGroupIndexed caption="text"
+                                    comments="text"
+                                    continuation="true"
+                                    custom="text"
+                                    id="ord4"
+                                    index="1"
+                                    regionRef="tex12"
+                                    type="paragraph">
+                  <UserDefined>
+                     <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+                  </UserDefined>
+                  <RegionRefIndexed index="0" regionRef="tex12"/>
+               </OrderedGroupIndexed>
+               <UnorderedGroupIndexed caption="text"
+                                      comments="text"
+                                      continuation="true"
+                                      custom="text"
+                                      id="uno5"
+                                      index="2"
+                                      regionRef="tex12"
+                                      type="paragraph">
+                  <UserDefined>
+                     <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+                  </UserDefined>
+                  <RegionRef regionRef="tex12"/>
+                  <OrderedGroup caption="text"
+                                comments="text"
+                                continuation="true"
+                                custom="text"
+                                id="ord6"
+                                regionRef="tex12"
+                                type="paragraph">
+                     <UserDefined>
+                        <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+                     </UserDefined>
+                     <RegionRefIndexed index="0" regionRef="tex12"/>
+                  </OrderedGroup>
+                  <UnorderedGroup caption="text"
+                                  comments="text"
+                                  continuation="true"
+                                  custom="text"
+                                  id="uno7"
+                                  regionRef="tex12"
+                                  type="paragraph">
+                     <UserDefined>
+                        <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+                     </UserDefined>
+                     <RegionRef regionRef="tex12"/>
+                     <OrderedGroup caption="text"
+                                   comments="text"
+                                   continuation="true"
+                                   custom="text"
+                                   id="ord8"
+                                   regionRef="tex12"
+                                   type="paragraph">
+                        <UserDefined>
+                           <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+                        </UserDefined>
+                        <RegionRefIndexed index="0" regionRef="tex12"/>
+                     </OrderedGroup>
+                     <UnorderedGroup caption="text"
+                                     comments="text"
+                                     continuation="true"
+                                     custom="text"
+                                     id="uno9"
+                                     regionRef="tex12"
+                                     type="paragraph">
+                        <UserDefined>
+                           <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+                        </UserDefined>
+                        <RegionRef regionRef="tex12"/>
+                     </UnorderedGroup>
+                  </UnorderedGroup>
+               </UnorderedGroupIndexed>
+            </OrderedGroupIndexed>
+            <UnorderedGroupIndexed caption="text"
+                                   comments="text"
+                                   continuation="true"
+                                   custom="text"
+                                   id="uno10"
+                                   index="2"
+                                   regionRef="tex12"
+                                   type="paragraph">
+               <UserDefined>
+                  <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+               </UserDefined>
+               <RegionRef regionRef="tex12"/>
+            </UnorderedGroupIndexed>
+         </OrderedGroup>
+      </ReadingOrder>
+      <Layers>
+         <Layer caption="text" id="lay11" zIndex="1">
+            <RegionRef regionRef="tex12"/>
+         </Layer>
+      </Layers>
+      <Relations>
+         <Relation comments="text" custom="text" id="relation_1" type="link">
+            <SourceRegionRef regionRef="tex12"/>
+            <TargetRegionRef regionRef="tex12"/>
+         </Relation>
+      </Relations>
+      <UserDefined>
+         <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+      </UserDefined>
+      <TextRegion align="left"
+                  comments="text"
+                  continuation="true"
+                  custom="text"
+                  id="tex12"
+                  indented="true"
+                  leading="1"
+                  orientation="0.5"
+                  primaryLanguage="Abkhaz"
+                  primaryScript="Adlm - Adlam"
+                  production="printed"
+                  readingDirection="left-to-right"
+                  readingOrientation="0.5"
+                  secondaryLanguage="Abkhaz"
+                  secondaryScript="Adlm - Adlam"
+                  textLineOrder="top-to-bottom"
+                  type="paragraph">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+         <TextRegion align="left"
+                     comments="text"
+                     continuation="true"
+                     custom="text"
+                     id="tex13"
+                     indented="true"
+                     leading="1"
+                     orientation="0.5"
+                     primaryLanguage="Abkhaz"
+                     primaryScript="Adlm - Adlam"
+                     production="printed"
+                     readingDirection="left-to-right"
+                     readingOrientation="0.5"
+                     secondaryLanguage="Abkhaz"
+                     secondaryScript="Adlm - Adlam"
+                     textLineOrder="top-to-bottom"
+                     type="paragraph">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+            <TextLine comments="text"
+                      custom="text"
+                      id="tex14"
+                      primaryLanguage="Abkhaz"
+                      primaryScript="Adlm - Adlam"
+                      production="printed"
+                      readingDirection="left-to-right"
+                      secondaryScript="Adlm - Adlam">
+               <Coords points="0,0 10,0 10,10 0,10"/>
+               <Baseline points="0,0 10,0 10,10 0,10"/>
+               <Word comments="text"
+                     custom="text"
+                     id="wor15"
+                     language="Abkhaz"
+                     primaryScript="Adlm - Adlam"
+                     production="printed"
+                     readingDirection="left-to-right"
+                     secondaryScript="Adlm - Adlam">
+                  <Coords points="0,0 10,0 10,10 0,10"/>
+                  <Glyph comments="text"
+                         custom="text"
+                         id="gly16"
+                         ligature="true"
+                         production="printed"
+                         script="Adlm - Adlam"
+                         symbol="true">
+                     <Coords points="0,0 10,0 10,10 0,10"/>
+                     <Graphemes>
+                        <Grapheme charType="base"
+                                  comments="text"
+                                  custom="text"
+                                  id="gra17"
+                                  index="0"
+                                  ligature="true">
+                           <TextEquiv comments="text"
+                                      conf="0.5"
+                                      dataType="xsd:decimal"
+                                      dataTypeDetails="text"
+                                      index="0">
+                              <PlainText>text</PlainText>
+                              <Unicode>text</Unicode>
+                           </TextEquiv>
+                           <Coords points="0,0 10,0 10,10 0,10"/>
+                        </Grapheme>
+                        <NonPrintingChar charType="base"
+                                         comments="text"
+                                         custom="text"
+                                         id="non18"
+                                         index="1"
+                                         ligature="true">
+                           <TextEquiv comments="text"
+                                      conf="0.5"
+                                      dataType="xsd:decimal"
+                                      dataTypeDetails="text"
+                                      index="0">
+                              <PlainText>text</PlainText>
+                              <Unicode>text</Unicode>
+                           </TextEquiv>
+                        </NonPrintingChar>
+                        <GraphemeGroup charType="base"
+                                       comments="text"
+                                       custom="text"
+                                       id="gra19"
+                                       index="2"
+                                       ligature="true">
+                           <TextEquiv comments="text"
+                                      conf="0.5"
+                                      dataType="xsd:decimal"
+                                      dataTypeDetails="text"
+                                      index="0">
+                              <PlainText>text</PlainText>
+                              <Unicode>text</Unicode>
+                           </TextEquiv>
+                           <Grapheme charType="base"
+                                     comments="text"
+                                     custom="text"
+                                     id="gra20"
+                                     index="1"
+                                     ligature="true">
+                              <TextEquiv comments="text"
+                                         conf="0.5"
+                                         dataType="xsd:decimal"
+                                         dataTypeDetails="text"
+                                         index="0">
+                                 <PlainText>text</PlainText>
+                                 <Unicode>text</Unicode>
+                              </TextEquiv>
+                              <Coords points="0,0 10,0 10,10 0,10"/>
+                           </Grapheme>
+                           <NonPrintingChar charType="base"
+                                            comments="text"
+                                            custom="text"
+                                            id="non21"
+                                            index="2"
+                                            ligature="true">
+                              <TextEquiv comments="text"
+                                         conf="0.5"
+                                         dataType="xsd:decimal"
+                                         dataTypeDetails="text"
+                                         index="0">
+                                 <PlainText>text</PlainText>
+                                 <Unicode>text</Unicode>
+                              </TextEquiv>
+                           </NonPrintingChar>
+                        </GraphemeGroup>
+                     </Graphemes>
+                     <TextEquiv comments="text"
+                                conf="0.5"
+                                dataType="xsd:decimal"
+                                dataTypeDetails="text"
+                                index="0">
+                        <PlainText>text</PlainText>
+                        <Unicode>text</Unicode>
+                     </TextEquiv>
+                     <TextStyle bgColour="black"
+                                bgColourRgb="1"
+                                bold="true"
+                                fontFamily="text"
+                                fontSize="0.5"
+                                italic="true"
+                                kerning="1"
+                                letterSpaced="true"
+                                monospace="true"
+                                reverseVideo="true"
+                                serif="true"
+                                smallCaps="true"
+                                strikethrough="true"
+                                subscript="true"
+                                superscript="true"
+                                textColour="black"
+                                textColourRgb="1"
+                                underlined="true"
+                                xHeight="1"/>
+                     <UserDefined>
+                        <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+                     </UserDefined>
+                  </Glyph>
+                  <TextEquiv comments="text"
+                             conf="0.5"
+                             dataType="xsd:decimal"
+                             dataTypeDetails="text"
+                             index="0">
+                     <PlainText>text</PlainText>
+                     <Unicode>text</Unicode>
+                  </TextEquiv>
+                  <TextStyle bgColour="black"
+                             bgColourRgb="1"
+                             bold="true"
+                             fontFamily="text"
+                             fontSize="0.5"
+                             italic="true"
+                             kerning="1"
+                             letterSpaced="true"
+                             monospace="true"
+                             reverseVideo="true"
+                             serif="true"
+                             smallCaps="true"
+                             strikethrough="true"
+                             subscript="true"
+                             superscript="true"
+                             textColour="black"
+                             textColourRgb="1"
+                             underlined="true"
+                             xHeight="1"/>
+                  <UserDefined>
+                     <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+                  </UserDefined>
+               </Word>
+               <TextEquiv comments="text"
+                          conf="0.5"
+                          dataType="xsd:decimal"
+                          dataTypeDetails="text"
+                          index="0">
+                  <PlainText>text</PlainText>
+                  <Unicode>text</Unicode>
+               </TextEquiv>
+               <TextStyle bgColour="black"
+                          bgColourRgb="1"
+                          bold="true"
+                          fontFamily="text"
+                          fontSize="0.5"
+                          italic="true"
+                          kerning="1"
+                          letterSpaced="true"
+                          monospace="true"
+                          reverseVideo="true"
+                          serif="true"
+                          smallCaps="true"
+                          strikethrough="true"
+                          subscript="true"
+                          superscript="true"
+                          textColour="black"
+                          textColourRgb="1"
+                          underlined="true"
+                          xHeight="1"/>
+               <UserDefined>
+                  <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+               </UserDefined>
+            </TextLine>
+            <TextEquiv comments="text"
+                       conf="0.5"
+                       dataType="xsd:decimal"
+                       dataTypeDetails="text"
+                       index="0">
+               <PlainText>text</PlainText>
+               <Unicode>text</Unicode>
+            </TextEquiv>
+            <TextStyle bgColour="black"
+                       bgColourRgb="1"
+                       bold="true"
+                       fontFamily="text"
+                       fontSize="0.5"
+                       italic="true"
+                       kerning="1"
+                       letterSpaced="true"
+                       monospace="true"
+                       reverseVideo="true"
+                       serif="true"
+                       smallCaps="true"
+                       strikethrough="true"
+                       subscript="true"
+                       superscript="true"
+                       textColour="black"
+                       textColourRgb="1"
+                       underlined="true"
+                       xHeight="1"/>
+         </TextRegion>
+         <ImageRegion bgColour="black"
+                      colourDepth="bilevel"
+                      comments="text"
+                      continuation="true"
+                      custom="text"
+                      embText="true"
+                      id="ima22"
+                      orientation="0.5">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </ImageRegion>
+         <LineDrawingRegion bgColour="black"
+                            comments="text"
+                            continuation="true"
+                            custom="text"
+                            embText="true"
+                            id="lin23"
+                            orientation="0.5"
+                            penColour="black">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </LineDrawingRegion>
+         <GraphicRegion comments="text"
+                        continuation="true"
+                        custom="text"
+                        embText="true"
+                        id="gra24"
+                        numColours="1"
+                        orientation="0.5"
+                        type="logo">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </GraphicRegion>
+         <TableRegion bgColour="black"
+                      columns="1"
+                      comments="text"
+                      continuation="true"
+                      custom="text"
+                      embText="true"
+                      id="tab25"
+                      lineColour="black"
+                      lineSeparators="true"
+                      orientation="0.5"
+                      rows="1">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </TableRegion>
+         <ChartRegion bgColour="black"
+                      comments="text"
+                      continuation="true"
+                      custom="text"
+                      embText="true"
+                      id="cha26"
+                      numColours="1"
+                      orientation="0.5"
+                      type="bar">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </ChartRegion>
+         <SeparatorRegion colour="black"
+                          comments="text"
+                          continuation="true"
+                          custom="text"
+                          id="sep27"
+                          orientation="0.5">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </SeparatorRegion>
+         <MathsRegion bgColour="black"
+                      comments="text"
+                      continuation="true"
+                      custom="text"
+                      id="mat28"
+                      orientation="0.5">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </MathsRegion>
+         <ChemRegion bgColour="black"
+                     comments="text"
+                     continuation="true"
+                     custom="text"
+                     id="che29"
+                     orientation="0.5">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </ChemRegion>
+         <MusicRegion bgColour="black"
+                      comments="text"
+                      continuation="true"
+                      custom="text"
+                      id="mus30"
+                      orientation="0.5">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </MusicRegion>
+         <AdvertRegion bgColour="black"
+                       comments="text"
+                       continuation="true"
+                       custom="text"
+                       id="adv31"
+                       orientation="0.5">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </AdvertRegion>
+         <NoiseRegion comments="text" continuation="true" custom="text" id="noi32">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </NoiseRegion>
+         <UnknownRegion comments="text" continuation="true" custom="text" id="unk33">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+            <Roles>
+               <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+            </Roles>
+         </UnknownRegion>
+         <TextLine comments="text"
+                   custom="text"
+                   id="tex34"
+                   primaryLanguage="Abkhaz"
+                   primaryScript="Adlm - Adlam"
+                   production="printed"
+                   readingDirection="left-to-right"
+                   secondaryScript="Adlm - Adlam">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <Baseline points="0,0 10,0 10,10 0,10"/>
+            <Word comments="text"
+                  custom="text"
+                  id="wor35"
+                  language="Abkhaz"
+                  primaryScript="Adlm - Adlam"
+                  production="printed"
+                  readingDirection="left-to-right"
+                  secondaryScript="Adlm - Adlam">
+               <Coords points="0,0 10,0 10,10 0,10"/>
+               <Glyph comments="text"
+                      custom="text"
+                      id="gly36"
+                      ligature="true"
+                      production="printed"
+                      script="Adlm - Adlam"
+                      symbol="true">
+                  <Coords points="0,0 10,0 10,10 0,10"/>
+                  <Graphemes>
+                     <Grapheme charType="base"
+                               comments="text"
+                               custom="text"
+                               id="gra37"
+                               index="0"
+                               ligature="true">
+                        <TextEquiv comments="text"
+                                   conf="0.5"
+                                   dataType="xsd:decimal"
+                                   dataTypeDetails="text"
+                                   index="0">
+                           <PlainText>text</PlainText>
+                           <Unicode>text</Unicode>
+                        </TextEquiv>
+                        <Coords points="0,0 10,0 10,10 0,10"/>
+                     </Grapheme>
+                  </Graphemes>
+                  <TextEquiv comments="text"
+                             conf="0.5"
+                             dataType="xsd:decimal"
+                             dataTypeDetails="text"
+                             index="0">
+                     <PlainText>text</PlainText>
+                     <Unicode>text</Unicode>
+                  </TextEquiv>
+                  <TextStyle bgColour="black"
+                             bgColourRgb="1"
+                             bold="true"
+                             fontFamily="text"
+                             fontSize="0.5"
+                             italic="true"
+                             kerning="1"
+                             letterSpaced="true"
+                             monospace="true"
+                             reverseVideo="true"
+                             serif="true"
+                             smallCaps="true"
+                             strikethrough="true"
+                             subscript="true"
+                             superscript="true"
+                             textColour="black"
+                             textColourRgb="1"
+                             underlined="true"
+                             xHeight="1"/>
+                  <UserDefined>
+                     <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+                  </UserDefined>
+               </Glyph>
+               <TextEquiv comments="text"
+                          conf="0.5"
+                          dataType="xsd:decimal"
+                          dataTypeDetails="text"
+                          index="0">
+                  <PlainText>text</PlainText>
+                  <Unicode>text</Unicode>
+               </TextEquiv>
+               <TextStyle bgColour="black"
+                          bgColourRgb="1"
+                          bold="true"
+                          fontFamily="text"
+                          fontSize="0.5"
+                          italic="true"
+                          kerning="1"
+                          letterSpaced="true"
+                          monospace="true"
+                          reverseVideo="true"
+                          serif="true"
+                          smallCaps="true"
+                          strikethrough="true"
+                          subscript="true"
+                          superscript="true"
+                          textColour="black"
+                          textColourRgb="1"
+                          underlined="true"
+                          xHeight="1"/>
+               <UserDefined>
+                  <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+               </UserDefined>
+            </Word>
+            <TextEquiv comments="text"
+                       conf="0.5"
+                       dataType="xsd:decimal"
+                       dataTypeDetails="text"
+                       index="0">
+               <PlainText>text</PlainText>
+               <Unicode>text</Unicode>
+            </TextEquiv>
+            <TextStyle bgColour="black"
+                       bgColourRgb="1"
+                       bold="true"
+                       fontFamily="text"
+                       fontSize="0.5"
+                       italic="true"
+                       kerning="1"
+                       letterSpaced="true"
+                       monospace="true"
+                       reverseVideo="true"
+                       serif="true"
+                       smallCaps="true"
+                       strikethrough="true"
+                       subscript="true"
+                       superscript="true"
+                       textColour="black"
+                       textColourRgb="1"
+                       underlined="true"
+                       xHeight="1"/>
+            <UserDefined>
+               <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+            </UserDefined>
+         </TextLine>
+         <TextEquiv comments="text"
+                    conf="0.5"
+                    dataType="xsd:decimal"
+                    dataTypeDetails="text"
+                    index="0">
+            <PlainText>text</PlainText>
+            <Unicode>text</Unicode>
+         </TextEquiv>
+         <TextStyle bgColour="black"
+                    bgColourRgb="1"
+                    bold="true"
+                    fontFamily="text"
+                    fontSize="0.5"
+                    italic="true"
+                    kerning="1"
+                    letterSpaced="true"
+                    monospace="true"
+                    reverseVideo="true"
+                    serif="true"
+                    smallCaps="true"
+                    strikethrough="true"
+                    subscript="true"
+                    superscript="true"
+                    textColour="black"
+                    textColourRgb="1"
+                    underlined="true"
+                    xHeight="1"/>
+      </TextRegion>
+      <ImageRegion bgColour="black"
+                   colourDepth="bilevel"
+                   comments="text"
+                   continuation="true"
+                   custom="text"
+                   embText="true"
+                   id="ima38"
+                   orientation="0.5">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </ImageRegion>
+      <LineDrawingRegion bgColour="black"
+                         comments="text"
+                         continuation="true"
+                         custom="text"
+                         embText="true"
+                         id="lin39"
+                         orientation="0.5"
+                         penColour="black">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </LineDrawingRegion>
+      <GraphicRegion comments="text"
+                     continuation="true"
+                     custom="text"
+                     embText="true"
+                     id="gra40"
+                     numColours="1"
+                     orientation="0.5"
+                     type="logo">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </GraphicRegion>
+      <TableRegion bgColour="black"
+                   columns="1"
+                   comments="text"
+                   continuation="true"
+                   custom="text"
+                   embText="true"
+                   id="tab41"
+                   lineColour="black"
+                   lineSeparators="true"
+                   orientation="0.5"
+                   rows="1">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </TableRegion>
+      <ChartRegion bgColour="black"
+                   comments="text"
+                   continuation="true"
+                   custom="text"
+                   embText="true"
+                   id="cha42"
+                   numColours="1"
+                   orientation="0.5"
+                   type="bar">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </ChartRegion>
+      <SeparatorRegion colour="black"
+                       comments="text"
+                       continuation="true"
+                       custom="text"
+                       id="sep43"
+                       orientation="0.5">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </SeparatorRegion>
+      <MathsRegion bgColour="black"
+                   comments="text"
+                   continuation="true"
+                   custom="text"
+                   id="mat44"
+                   orientation="0.5">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </MathsRegion>
+      <ChemRegion bgColour="black"
+                  comments="text"
+                  continuation="true"
+                  custom="text"
+                  id="che45"
+                  orientation="0.5">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </ChemRegion>
+      <MusicRegion bgColour="black"
+                   comments="text"
+                   continuation="true"
+                   custom="text"
+                   id="mus46"
+                   orientation="0.5">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </MusicRegion>
+      <AdvertRegion bgColour="black"
+                    comments="text"
+                    continuation="true"
+                    custom="text"
+                    id="adv47"
+                    orientation="0.5">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </AdvertRegion>
+      <NoiseRegion comments="text" continuation="true" custom="text" id="noi48">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </NoiseRegion>
+      <UnknownRegion comments="text" continuation="true" custom="text" id="unk49">
+         <Coords points="0,0 10,0 10,10 0,10"/>
+         <UserDefined>
+            <UserAttribute description="text" name="text" type="xsd:string" value="text"/>
+         </UserDefined>
+         <Roles>
+            <TableCellRole colSpan="1" columnIndex="1" rowIndex="1" rowSpan="1"/>
+         </Roles>
+      </UnknownRegion>
+   </Page>
+</PcGts>

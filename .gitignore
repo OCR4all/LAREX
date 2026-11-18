@@ -38,6 +38,8 @@ node_modules/
 .npm/
 .nyc_output/
 coverage/
+!/backend/src/test/resources/page-corpus/coverage/
+!/backend/src/test/resources/page-corpus-goldens/coverage/
 /docs/public/installer-assets/
 
 # Environment files (real config only)

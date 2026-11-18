@@ -1,0 +1,40 @@
+CHANGED: Page, Border: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: Page, PrintSpace: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: TextRegion 'tex13': changed primaryScript 'Arabic' to 'Arab - Arabic', 'Arabic' is not supported in PAGE 2024-07-15
+CHANGED: TextRegion 'tex13': changed secondaryScript 'Arabic' to 'Arab - Arabic', 'Arabic' is not supported in PAGE 2024-07-15
+CHANGED: TextRegion 'tex13', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: TextLine 'tex14', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: Word 'wor15', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: Glyph 'gly16', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: ImageRegion 'ima17', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: LineDrawingRegion 'lin18', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: GraphicRegion 'gra19', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: TableRegion 'tab20', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: ChartRegion 'cha21', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: SeparatorRegion 'sep22', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: MathsRegion 'mat23', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: NoiseRegion 'noi24', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: FrameRegion 'fra25': changed to GraphicRegion of type 'frame', FrameRegion is not supported in PAGE 2024-07-15
+REMOVED: FrameRegion 'fra25': removed attribute bgColour, which GraphicRegion does not have
+REMOVED: FrameRegion 'fra25': removed attribute borderPresent, which GraphicRegion does not have
+CHANGED: GraphicRegion 'fra25', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: TextRegion 'tex26': changed primaryScript 'Arabic' to 'Arab - Arabic', 'Arabic' is not supported in PAGE 2024-07-15
+CHANGED: TextRegion 'tex26': changed secondaryScript 'Arabic' to 'Arab - Arabic', 'Arabic' is not supported in PAGE 2024-07-15
+CHANGED: TextRegion 'tex26', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: TextLine 'tex27', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: Word 'wor28', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: Glyph 'gly29', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: ImageRegion 'ima30', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: LineDrawingRegion 'lin31', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: GraphicRegion 'gra32', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: TableRegion 'tab33', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: ChartRegion 'cha34', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: SeparatorRegion 'sep35', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: MathsRegion 'mat36', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: NoiseRegion 'noi37', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: FrameRegion 'fra38': changed to GraphicRegion of type 'frame', FrameRegion is not supported in PAGE 2024-07-15
+REMOVED: FrameRegion 'fra38': removed attribute bgColour, which GraphicRegion does not have
+REMOVED: FrameRegion 'fra38': removed attribute borderPresent, which GraphicRegion does not have
+CHANGED: GraphicRegion 'fra38', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: UnknownRegion 'unk39', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two
+CHANGED: UnknownRegion 'unk40', Coords: repeated the point, '1,1 1,1', PAGE 2024-07-15 requires at least two

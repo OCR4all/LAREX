@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       pcGtsId="pcg1"
+       xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2024-07-15/pagecontent.xsd">
+   <Metadata>
+      <Creator>text</Creator>
+      <Created>2024-01-02T03:04:05</Created>
+      <LastChange>2024-01-02T03:04:05</LastChange>
+      <Comments>text</Comments>
+   </Metadata>
+   <Page imageFilename="text" imageHeight="1" imageWidth="1">
+      <Border>
+         <Coords points="1,1 1,1"/>
+      </Border>
+      <PrintSpace>
+         <Coords points="1,1 1,1"/>
+      </PrintSpace>
+      <ReadingOrder>
+         <UnorderedGroup id="readingOrder">
+            <RegionRef regionRef="tex13"/>
+            <OrderedGroup id="ord2">
+               <RegionRefIndexed index="0" regionRef="tex13"/>
+               <OrderedGroupIndexed id="ord3" index="1">
+                  <RegionRefIndexed index="0" regionRef="tex13"/>
+                  <OrderedGroupIndexed id="ord4" index="1">
+                     <RegionRefIndexed index="0" regionRef="tex13"/>
+                  </OrderedGroupIndexed>
+                  <UnorderedGroupIndexed id="uno5" index="2">
+                     <RegionRef regionRef="tex13"/>
+                     <OrderedGroup id="ord6">
+                        <RegionRefIndexed index="0" regionRef="tex13"/>
+                     </OrderedGroup>
+                     <UnorderedGroup id="uno7">
+                        <RegionRef regionRef="tex13"/>
+                        <OrderedGroup id="ord8">
+                           <RegionRefIndexed index="0" regionRef="tex13"/>
+                        </OrderedGroup>
+                        <UnorderedGroup id="uno9">
+                           <RegionRef regionRef="tex13"/>
+                        </UnorderedGroup>
+                     </UnorderedGroup>
+                  </UnorderedGroupIndexed>
+               </OrderedGroupIndexed>
+               <UnorderedGroupIndexed id="uno10" index="2">
+                  <RegionRef regionRef="tex13"/>
+               </UnorderedGroupIndexed>
+            </OrderedGroup>
+            <UnorderedGroup id="uno11">
+               <RegionRef regionRef="tex13"/>
+            </UnorderedGroup>
+         </UnorderedGroup>
+      </ReadingOrder>
+      <Layers>
+         <Layer id="lay12" zIndex="1">
+            <RegionRef regionRef="tex13"/>
+         </Layer>
+      </Layers>
+      <TextRegion id="tex13"
+                  indented="true"
+                  leading="1"
+                  orientation="0.5"
+                  primaryLanguage="Afrikaans"
+                  primaryScript="Arab - Arabic"
+                  readingDirection="left-to-right"
+                  readingOrientation="0.5"
+                  secondaryLanguage="Afrikaans"
+                  secondaryScript="Arab - Arabic"
+                  type="paragraph">
+         <Coords points="1,1 1,1"/>
+         <TextLine id="tex14">
+            <Coords points="1,1 1,1"/>
+            <Word id="wor15">
+               <Coords points="1,1 1,1"/>
+               <Glyph id="gly16" ligature="true" symbol="true">
+                  <Coords points="1,1 1,1"/>
+                  <TextEquiv>
+                     <PlainText>text</PlainText>
+                     <Unicode>text</Unicode>
+                  </TextEquiv>
+               </Glyph>
+               <TextEquiv>
+                  <PlainText>text</PlainText>
+                  <Unicode>text</Unicode>
+               </TextEquiv>
+            </Word>
+            <TextEquiv>
+               <PlainText>text</PlainText>
+               <Unicode>text</Unicode>
+            </TextEquiv>
+         </TextLine>
+         <TextEquiv>
+            <PlainText>text</PlainText>
+            <Unicode>text</Unicode>
+         </TextEquiv>
+         <TextStyle bgColour="black"
+                    fontSize="0.5"
+                    kerning="1"
+                    reverseVideo="true"
+                    textColour="black"/>
+      </TextRegion>
+      <ImageRegion bgColour="black"
+                   colourDepth="bilevel"
+                   embText="true"
+                   id="ima17"
+                   orientation="0.5">
+         <Coords points="1,1 1,1"/>
+      </ImageRegion>
+      <LineDrawingRegion bgColour="black"
+                         embText="true"
+                         id="lin18"
+                         orientation="0.5"
+                         penColour="black">
+         <Coords points="1,1 1,1"/>
+      </LineDrawingRegion>
+      <GraphicRegion embText="true"
+                     id="gra19"
+                     numColours="1"
+                     orientation="0.5"
+                     type="logo">
+         <Coords points="1,1 1,1"/>
+      </GraphicRegion>
+      <TableRegion bgColour="black"
+                   columns="1"
+                   embText="true"
+                   id="tab20"
+                   lineColour="black"
+                   lineSeparators="true"
+                   orientation="0.5"
+                   rows="1">
+         <Coords points="1,1 1,1"/>
+      </TableRegion>
+      <ChartRegion bgColour="black"
+                   embText="true"
+                   id="cha21"
+                   numColours="1"
+                   orientation="0.5"
+                   type="bar">
+         <Coords points="1,1 1,1"/>
+      </ChartRegion>
+      <SeparatorRegion colour="black" id="sep22" orientation="0.5">
+         <Coords points="1,1 1,1"/>
+      </SeparatorRegion>
+      <MathsRegion bgColour="black" id="mat23" orientation="0.5">
+         <Coords points="1,1 1,1"/>
+      </MathsRegion>
+      <NoiseRegion id="noi24">
+         <Coords points="1,1 1,1"/>
+      </NoiseRegion>
+      <GraphicRegion id="fra25" type="frame">
+         <Coords points="1,1 1,1"/>
+         <TextRegion id="tex26"
+                     indented="true"
+                     leading="1"
+                     orientation="0.5"
+                     primaryLanguage="Afrikaans"
+                     primaryScript="Arab - Arabic"
+                     readingDirection="left-to-right"
+                     readingOrientation="0.5"
+                     secondaryLanguage="Afrikaans"
+                     secondaryScript="Arab - Arabic"
+                     type="paragraph">
+            <Coords points="1,1 1,1"/>
+            <TextLine id="tex27">
+               <Coords points="1,1 1,1"/>
+               <Word id="wor28">
+                  <Coords points="1,1 1,1"/>
+                  <Glyph id="gly29" ligature="true" symbol="true">
+                     <Coords points="1,1 1,1"/>
+                     <TextEquiv>
+                        <PlainText>text</PlainText>
+                        <Unicode>text</Unicode>
+                     </TextEquiv>
+                  </Glyph>
+                  <TextEquiv>
+                     <PlainText>text</PlainText>
+                     <Unicode>text</Unicode>
+                  </TextEquiv>
+               </Word>
+               <TextEquiv>
+                  <PlainText>text</PlainText>
+                  <Unicode>text</Unicode>
+               </TextEquiv>
+            </TextLine>
+            <TextEquiv>
+               <PlainText>text</PlainText>
+               <Unicode>text</Unicode>
+            </TextEquiv>
+            <TextStyle bgColour="black"
+                       fontSize="0.5"
+                       kerning="1"
+                       reverseVideo="true"
+                       textColour="black"/>
+         </TextRegion>
+         <ImageRegion bgColour="black"
+                      colourDepth="bilevel"
+                      embText="true"
+                      id="ima30"
+                      orientation="0.5">
+            <Coords points="1,1 1,1"/>
+         </ImageRegion>
+         <LineDrawingRegion bgColour="black"
+                            embText="true"
+                            id="lin31"
+                            orientation="0.5"
+                            penColour="black">
+            <Coords points="1,1 1,1"/>
+         </LineDrawingRegion>
+         <GraphicRegion embText="true"
+                        id="gra32"
+                        numColours="1"
+                        orientation="0.5"
+                        type="logo">
+            <Coords points="1,1 1,1"/>
+         </GraphicRegion>
+         <TableRegion bgColour="black"
+                      columns="1"
+                      embText="true"
+                      id="tab33"
+                      lineColour="black"
+                      lineSeparators="true"
+                      orientation="0.5"
+                      rows="1">
+            <Coords points="1,1 1,1"/>
+         </TableRegion>
+         <ChartRegion bgColour="black"
+                      embText="true"
+                      id="cha34"
+                      numColours="1"
+                      orientation="0.5"
+                      type="bar">
+            <Coords points="1,1 1,1"/>
+         </ChartRegion>
+         <SeparatorRegion colour="black" id="sep35" orientation="0.5">
+            <Coords points="1,1 1,1"/>
+         </SeparatorRegion>
+         <MathsRegion bgColour="black" id="mat36" orientation="0.5">
+            <Coords points="1,1 1,1"/>
+         </MathsRegion>
+         <NoiseRegion id="noi37">
+            <Coords points="1,1 1,1"/>
+         </NoiseRegion>
+         <GraphicRegion id="fra38" type="frame">
+            <Coords points="1,1 1,1"/>
+         </GraphicRegion>
+         <UnknownRegion id="unk39">
+            <Coords points="1,1 1,1"/>
+         </UnknownRegion>
+      </GraphicRegion>
+      <UnknownRegion id="unk40">
+         <Coords points="1,1 1,1"/>
+      </UnknownRegion>
+   </Page>
+</PcGts>

@@ -1,0 +1,793 @@
+{
+  "imageFilename" : "text",
+  "imageWidth" : 1,
+  "imageHeight" : 1,
+  "metadata" : {
+    "creator" : "text",
+    "created" : "2024-01-02T03:04:05",
+    "lastChange" : "2024-01-02T03:04:05",
+    "comments" : "text"
+  },
+  "pcGtsId" : "pcg1",
+  "type" : "front-cover",
+  "custom" : "text",
+  "border" : {
+    "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+  },
+  "printSpace" : {
+    "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+  },
+  "regions" : [ {
+    "id" : "tex12",
+    "kind" : "TextRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "textLines" : [ {
+      "id" : "tex29",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "baseline" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "textContentVariants" : [ {
+        "unicode" : "text",
+        "plainText" : "text",
+        "confidence" : 0.5
+      } ],
+      "words" : [ {
+        "id" : "wor30",
+        "coords" : {
+          "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+        },
+        "textContentVariants" : [ {
+          "unicode" : "text",
+          "plainText" : "text",
+          "confidence" : 0.5
+        } ],
+        "glyphs" : [ {
+          "id" : "gly31",
+          "coords" : {
+            "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+          },
+          "textContentVariants" : [ {
+            "unicode" : "text",
+            "plainText" : "text",
+            "confidence" : 0.5
+          } ],
+          "textStyle" : {
+            "fontFamily" : "text",
+            "serif" : true,
+            "monospace" : true,
+            "fontSize" : 0.5,
+            "kerning" : 1,
+            "textColour" : "black",
+            "bgColour" : "black",
+            "reverseVideo" : true,
+            "bold" : true,
+            "italic" : true,
+            "underlined" : true,
+            "subscript" : true,
+            "superscript" : true,
+            "strikethrough" : true,
+            "smallCaps" : true,
+            "letterSpaced" : true
+          },
+          "ligature" : true,
+          "symbol" : true,
+          "production" : "printed",
+          "custom" : "text",
+          "comments" : "text",
+          "text" : "text"
+        } ],
+        "textStyle" : {
+          "fontFamily" : "text",
+          "serif" : true,
+          "monospace" : true,
+          "fontSize" : 0.5,
+          "kerning" : 1,
+          "textColour" : "black",
+          "bgColour" : "black",
+          "reverseVideo" : true,
+          "bold" : true,
+          "italic" : true,
+          "underlined" : true,
+          "subscript" : true,
+          "superscript" : true,
+          "strikethrough" : true,
+          "smallCaps" : true,
+          "letterSpaced" : true
+        },
+        "language" : "Abkhaz",
+        "production" : "printed",
+        "custom" : "text",
+        "comments" : "text",
+        "text" : "text"
+      } ],
+      "textStyle" : {
+        "fontFamily" : "text",
+        "serif" : true,
+        "monospace" : true,
+        "fontSize" : 0.5,
+        "kerning" : 1,
+        "textColour" : "black",
+        "bgColour" : "black",
+        "reverseVideo" : true,
+        "bold" : true,
+        "italic" : true,
+        "underlined" : true,
+        "subscript" : true,
+        "superscript" : true,
+        "strikethrough" : true,
+        "smallCaps" : true,
+        "letterSpaced" : true
+      },
+      "primaryLanguage" : "Abkhaz",
+      "production" : "printed",
+      "custom" : "text",
+      "comments" : "text",
+      "text" : "text"
+    } ],
+    "textContentVariants" : [ {
+      "unicode" : "text",
+      "plainText" : "text",
+      "confidence" : 0.5
+    } ],
+    "textStyle" : {
+      "fontFamily" : "text",
+      "serif" : true,
+      "monospace" : true,
+      "fontSize" : 0.5,
+      "kerning" : 1,
+      "textColour" : "black",
+      "bgColour" : "black",
+      "reverseVideo" : true,
+      "bold" : true,
+      "italic" : true,
+      "underlined" : true,
+      "subscript" : true,
+      "superscript" : true,
+      "strikethrough" : true,
+      "smallCaps" : true,
+      "letterSpaced" : true
+    },
+    "type" : "paragraph",
+    "orientation" : 0.5,
+    "leading" : 1,
+    "align" : "left",
+    "readingDirection" : "left-to-right",
+    "readingOrientation" : 0.5,
+    "indented" : true,
+    "primaryLanguage" : "Abkhaz",
+    "secondaryLanguage" : "Abkhaz",
+    "primaryScript" : "Arab - Arabic",
+    "secondaryScript" : "Arab - Arabic",
+    "production" : "printed",
+    "nestedRegions" : [ {
+      "id" : "tex13",
+      "kind" : "TextRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "textLines" : [ {
+        "id" : "tex14",
+        "coords" : {
+          "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+        },
+        "baseline" : {
+          "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+        },
+        "textContentVariants" : [ {
+          "unicode" : "text",
+          "plainText" : "text",
+          "confidence" : 0.5
+        } ],
+        "words" : [ {
+          "id" : "wor15",
+          "coords" : {
+            "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+          },
+          "textContentVariants" : [ {
+            "unicode" : "text",
+            "plainText" : "text",
+            "confidence" : 0.5
+          } ],
+          "glyphs" : [ {
+            "id" : "gly16",
+            "coords" : {
+              "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+            },
+            "textContentVariants" : [ {
+              "unicode" : "text",
+              "plainText" : "text",
+              "confidence" : 0.5
+            } ],
+            "textStyle" : {
+              "fontFamily" : "text",
+              "serif" : true,
+              "monospace" : true,
+              "fontSize" : 0.5,
+              "kerning" : 1,
+              "textColour" : "black",
+              "bgColour" : "black",
+              "reverseVideo" : true,
+              "bold" : true,
+              "italic" : true,
+              "underlined" : true,
+              "subscript" : true,
+              "superscript" : true,
+              "strikethrough" : true,
+              "smallCaps" : true,
+              "letterSpaced" : true
+            },
+            "ligature" : true,
+            "symbol" : true,
+            "production" : "printed",
+            "custom" : "text",
+            "comments" : "text",
+            "text" : "text"
+          } ],
+          "textStyle" : {
+            "fontFamily" : "text",
+            "serif" : true,
+            "monospace" : true,
+            "fontSize" : 0.5,
+            "kerning" : 1,
+            "textColour" : "black",
+            "bgColour" : "black",
+            "reverseVideo" : true,
+            "bold" : true,
+            "italic" : true,
+            "underlined" : true,
+            "subscript" : true,
+            "superscript" : true,
+            "strikethrough" : true,
+            "smallCaps" : true,
+            "letterSpaced" : true
+          },
+          "language" : "Abkhaz",
+          "production" : "printed",
+          "custom" : "text",
+          "comments" : "text",
+          "text" : "text"
+        } ],
+        "textStyle" : {
+          "fontFamily" : "text",
+          "serif" : true,
+          "monospace" : true,
+          "fontSize" : 0.5,
+          "kerning" : 1,
+          "textColour" : "black",
+          "bgColour" : "black",
+          "reverseVideo" : true,
+          "bold" : true,
+          "italic" : true,
+          "underlined" : true,
+          "subscript" : true,
+          "superscript" : true,
+          "strikethrough" : true,
+          "smallCaps" : true,
+          "letterSpaced" : true
+        },
+        "primaryLanguage" : "Abkhaz",
+        "production" : "printed",
+        "custom" : "text",
+        "comments" : "text",
+        "text" : "text"
+      } ],
+      "textContentVariants" : [ {
+        "unicode" : "text",
+        "plainText" : "text",
+        "confidence" : 0.5
+      } ],
+      "textStyle" : {
+        "fontFamily" : "text",
+        "serif" : true,
+        "monospace" : true,
+        "fontSize" : 0.5,
+        "kerning" : 1,
+        "textColour" : "black",
+        "bgColour" : "black",
+        "reverseVideo" : true,
+        "bold" : true,
+        "italic" : true,
+        "underlined" : true,
+        "subscript" : true,
+        "superscript" : true,
+        "strikethrough" : true,
+        "smallCaps" : true,
+        "letterSpaced" : true
+      },
+      "type" : "paragraph",
+      "orientation" : 0.5,
+      "leading" : 1,
+      "align" : "left",
+      "readingDirection" : "left-to-right",
+      "readingOrientation" : 0.5,
+      "indented" : true,
+      "primaryLanguage" : "Abkhaz",
+      "secondaryLanguage" : "Abkhaz",
+      "primaryScript" : "Arab - Arabic",
+      "secondaryScript" : "Arab - Arabic",
+      "production" : "printed",
+      "custom" : "text",
+      "comments" : "text",
+      "text" : "text",
+      "textRegion" : true
+    }, {
+      "id" : "ima17",
+      "kind" : "ImageRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "embText" : true,
+      "colourDepth" : "bilevel",
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    }, {
+      "id" : "lin18",
+      "kind" : "LineDrawingRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "embText" : true,
+      "penColour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    }, {
+      "id" : "gra19",
+      "kind" : "GraphicRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "type" : "logo",
+      "orientation" : 0.5,
+      "numColours" : 1,
+      "embText" : true,
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    }, {
+      "id" : "tab20",
+      "kind" : "TableRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "embText" : true,
+      "lineColour" : "black",
+      "lineSeparators" : true,
+      "rows" : 1,
+      "columns" : 1,
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    }, {
+      "id" : "cha21",
+      "kind" : "ChartRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "type" : "bar",
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "numColours" : 1,
+      "embText" : true,
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    }, {
+      "id" : "sep22",
+      "kind" : "SeparatorRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "orientation" : 0.5,
+      "colour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    }, {
+      "id" : "mat23",
+      "kind" : "MathsRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    }, {
+      "id" : "che24",
+      "kind" : "ChemRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    }, {
+      "id" : "mus25",
+      "kind" : "MusicRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    }, {
+      "id" : "adv26",
+      "kind" : "AdvertRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    }, {
+      "id" : "noi27",
+      "kind" : "NoiseRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    }, {
+      "id" : "unk28",
+      "kind" : "UnknownRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+      },
+      "custom" : "text",
+      "comments" : "text",
+      "textRegion" : false
+    } ],
+    "custom" : "text",
+    "comments" : "text",
+    "text" : "text",
+    "textRegion" : true
+  }, {
+    "id" : "ima32",
+    "kind" : "ImageRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "embText" : true,
+    "colourDepth" : "bilevel",
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  }, {
+    "id" : "lin33",
+    "kind" : "LineDrawingRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "embText" : true,
+    "penColour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  }, {
+    "id" : "gra34",
+    "kind" : "GraphicRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "type" : "logo",
+    "orientation" : 0.5,
+    "numColours" : 1,
+    "embText" : true,
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  }, {
+    "id" : "tab35",
+    "kind" : "TableRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "embText" : true,
+    "lineColour" : "black",
+    "lineSeparators" : true,
+    "rows" : 1,
+    "columns" : 1,
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  }, {
+    "id" : "cha36",
+    "kind" : "ChartRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "type" : "bar",
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "numColours" : 1,
+    "embText" : true,
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  }, {
+    "id" : "sep37",
+    "kind" : "SeparatorRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "orientation" : 0.5,
+    "colour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  }, {
+    "id" : "mat38",
+    "kind" : "MathsRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  }, {
+    "id" : "che39",
+    "kind" : "ChemRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  }, {
+    "id" : "mus40",
+    "kind" : "MusicRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  }, {
+    "id" : "adv41",
+    "kind" : "AdvertRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  }, {
+    "id" : "noi42",
+    "kind" : "NoiseRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  }, {
+    "id" : "unk43",
+    "kind" : "UnknownRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+    },
+    "custom" : "text",
+    "comments" : "text",
+    "textRegion" : false
+  } ],
+  "readingOrder" : {
+    "root" : {
+      "id" : "ord2",
+      "ordered" : true,
+      "caption" : "text",
+      "members" : [ {
+        "type" : "regionRef",
+        "regionRef" : "tex12",
+        "index" : 0
+      }, {
+        "type" : "nestedGroup",
+        "group" : {
+          "id" : "ord3",
+          "ordered" : true,
+          "index" : 1,
+          "caption" : "text",
+          "members" : [ {
+            "type" : "regionRef",
+            "regionRef" : "tex12",
+            "index" : 0
+          }, {
+            "type" : "nestedGroup",
+            "group" : {
+              "id" : "ord4",
+              "ordered" : true,
+              "index" : 1,
+              "caption" : "text",
+              "members" : [ {
+                "type" : "regionRef",
+                "regionRef" : "tex12",
+                "index" : 0
+              } ]
+            }
+          }, {
+            "type" : "nestedGroup",
+            "group" : {
+              "id" : "uno5",
+              "ordered" : false,
+              "index" : 2,
+              "caption" : "text",
+              "members" : [ {
+                "type" : "regionRef",
+                "regionRef" : "tex12"
+              }, {
+                "type" : "nestedGroup",
+                "group" : {
+                  "id" : "ord6",
+                  "ordered" : true,
+                  "caption" : "text",
+                  "members" : [ {
+                    "type" : "regionRef",
+                    "regionRef" : "tex12",
+                    "index" : 0
+                  } ]
+                }
+              }, {
+                "type" : "nestedGroup",
+                "group" : {
+                  "id" : "uno7",
+                  "ordered" : false,
+                  "caption" : "text",
+                  "members" : [ {
+                    "type" : "regionRef",
+                    "regionRef" : "tex12"
+                  }, {
+                    "type" : "nestedGroup",
+                    "group" : {
+                      "id" : "ord8",
+                      "ordered" : true,
+                      "caption" : "text",
+                      "members" : [ {
+                        "type" : "regionRef",
+                        "regionRef" : "tex12",
+                        "index" : 0
+                      } ]
+                    }
+                  }, {
+                    "type" : "nestedGroup",
+                    "group" : {
+                      "id" : "uno9",
+                      "ordered" : false,
+                      "caption" : "text",
+                      "members" : [ {
+                        "type" : "regionRef",
+                        "regionRef" : "tex12"
+                      } ]
+                    }
+                  } ]
+                }
+              } ]
+            }
+          } ]
+        }
+      }, {
+        "type" : "nestedGroup",
+        "group" : {
+          "id" : "uno10",
+          "ordered" : false,
+          "index" : 2,
+          "caption" : "text",
+          "members" : [ {
+            "type" : "regionRef",
+            "regionRef" : "tex12"
+          } ]
+        }
+      } ]
+    }
+  },
+  "alternativeImages" : [ {
+    "filename" : "text",
+    "comments" : "text"
+  } ],
+  "layers" : {
+    "layers" : [ {
+      "id" : "lay11",
+      "zIndex" : 1,
+      "caption" : "text",
+      "regionRefs" : [ "tex12" ]
+    } ]
+  },
+  "relations" : {
+    "relations" : [ {
+      "id" : "relation_1",
+      "type" : "link",
+      "sourceRegionRef" : "tex12",
+      "targetRegionRef" : "tex12",
+      "custom" : "text",
+      "comments" : "text"
+    } ]
+  },
+  "formatVersion" : "2024-07-15",
+  "dimensions" : {
+    "width" : 1,
+    "height" : 1
+  },
+  "regionCount" : 13,
+  "textLineCount" : 1
+}

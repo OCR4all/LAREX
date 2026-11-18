@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-01-12" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-01-12 http://schema.primaresearch.org/PAGE/gts/pagecontent/2010-01-12/pagecontent.xsd" pcGtsId="pcg1">
+  <Metadata>
+    <Creator>text</Creator>
+    <Created>2024-01-02T03:04:05</Created>
+    <LastChange>2024-01-02T03:04:05</LastChange>
+    <Comments>text</Comments>
+  </Metadata>
+  <Page imageFilename="text" imageWidth="1" imageHeight="1">
+    <Border>
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+    </Border>
+    <PrintSpace>
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+    </PrintSpace>
+    <ReadingOrder>
+      <RegionRef regionRef="tex13"/>
+      <OrderedGroup id="ord2">
+        <RegionRefIndexed index="0" regionRef="tex13"/>
+        <OrderedGroupIndexed id="ord3" index="1">
+          <RegionRefIndexed index="0" regionRef="tex13"/>
+          <OrderedGroupIndexed id="ord4" index="1">
+            <RegionRefIndexed index="0" regionRef="tex13"/>
+          </OrderedGroupIndexed>
+          <UnorderedGroupIndexed id="uno5" index="2">
+            <RegionRef regionRef="tex13"/>
+            <OrderedGroup id="ord6">
+              <RegionRefIndexed index="0" regionRef="tex13"/>
+            </OrderedGroup>
+            <UnorderedGroup id="uno7">
+              <RegionRef regionRef="tex13"/>
+              <OrderedGroup id="ord8">
+                <RegionRefIndexed index="0" regionRef="tex13"/>
+              </OrderedGroup>
+              <UnorderedGroup id="uno9">
+                <RegionRef regionRef="tex13"/>
+              </UnorderedGroup>
+            </UnorderedGroup>
+          </UnorderedGroupIndexed>
+        </OrderedGroupIndexed>
+        <UnorderedGroupIndexed id="uno10" index="2">
+          <RegionRef regionRef="tex13"/>
+        </UnorderedGroupIndexed>
+      </OrderedGroup>
+      <UnorderedGroup id="uno11">
+        <RegionRef regionRef="tex13"/>
+      </UnorderedGroup>
+    </ReadingOrder>
+    <Layers>
+      <Layer id="lay12" zIndex="1">
+        <RegionRef regionRef="tex13"/>
+      </Layer>
+    </Layers>
+    <TextRegion id="tex13" orientation="0.5" type="paragraph" textColour="black" bgColour="black" reverseVideo="true" fontSize="0.5" leading="1" kerning="1" readingDirection="left-to-right" readingOrientation="0.5" indented="true" primaryLanguage="Afrikaans" secondaryLanguage="Afrikaans" primaryScript="Arabic" secondaryScript="Arabic">
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+      <TextLine id="tex14">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+        <Word id="wor15">
+          <Coords>
+            <Point x="1" y="1"/>
+          </Coords>
+          <Glyph id="gly16" ligature="true" symbol="true">
+            <Coords>
+              <Point x="1" y="1"/>
+            </Coords>
+            <TextEquiv>
+              <PlainText>text</PlainText>
+              <Unicode>text</Unicode>
+            </TextEquiv>
+          </Glyph>
+          <TextEquiv>
+            <PlainText>text</PlainText>
+            <Unicode>text</Unicode>
+          </TextEquiv>
+        </Word>
+        <TextEquiv>
+          <PlainText>text</PlainText>
+          <Unicode>text</Unicode>
+        </TextEquiv>
+      </TextLine>
+      <TextEquiv>
+        <PlainText>text</PlainText>
+        <Unicode>text</Unicode>
+      </TextEquiv>
+    </TextRegion>
+    <ImageRegion id="ima17" orientation="0.5" colourDepth="bilevel" bgColour="black" embText="true">
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+    </ImageRegion>
+    <LineDrawingRegion id="lin18" orientation="0.5" penColour="black" bgColour="black" embText="true">
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+    </LineDrawingRegion>
+    <GraphicRegion id="gra19" orientation="0.5" type="logo" numColours="1" embText="true">
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+    </GraphicRegion>
+    <TableRegion id="tab20" orientation="0.5" rows="1" columns="1" lineColour="black" bgColour="black" lineSeparators="true" embText="true">
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+    </TableRegion>
+    <ChartRegion id="cha21" orientation="0.5" type="bar" numColours="1" bgColour="black" embText="true">
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+    </ChartRegion>
+    <SeparatorRegion id="sep22" orientation="0.5" colour="black">
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+    </SeparatorRegion>
+    <MathsRegion id="mat23" orientation="0.5" bgColour="black">
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+    </MathsRegion>
+    <NoiseRegion id="noi24">
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+    </NoiseRegion>
+    <FrameRegion id="fra25" bgColour="black" borderPresent="true">
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+      <TextRegion id="tex26" orientation="0.5" type="paragraph" textColour="black" bgColour="black" reverseVideo="true" fontSize="0.5" leading="1" kerning="1" readingDirection="left-to-right" readingOrientation="0.5" indented="true" primaryLanguage="Afrikaans" secondaryLanguage="Afrikaans" primaryScript="Arabic" secondaryScript="Arabic">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+        <TextLine id="tex27">
+          <Coords>
+            <Point x="1" y="1"/>
+          </Coords>
+          <Word id="wor28">
+            <Coords>
+              <Point x="1" y="1"/>
+            </Coords>
+            <Glyph id="gly29" ligature="true" symbol="true">
+              <Coords>
+                <Point x="1" y="1"/>
+              </Coords>
+              <TextEquiv>
+                <PlainText>text</PlainText>
+                <Unicode>text</Unicode>
+              </TextEquiv>
+            </Glyph>
+            <TextEquiv>
+              <PlainText>text</PlainText>
+              <Unicode>text</Unicode>
+            </TextEquiv>
+          </Word>
+          <TextEquiv>
+            <PlainText>text</PlainText>
+            <Unicode>text</Unicode>
+          </TextEquiv>
+        </TextLine>
+        <TextEquiv>
+          <PlainText>text</PlainText>
+          <Unicode>text</Unicode>
+        </TextEquiv>
+      </TextRegion>
+      <ImageRegion id="ima30" orientation="0.5" colourDepth="bilevel" bgColour="black" embText="true">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+      </ImageRegion>
+      <LineDrawingRegion id="lin31" orientation="0.5" penColour="black" bgColour="black" embText="true">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+      </LineDrawingRegion>
+      <GraphicRegion id="gra32" orientation="0.5" type="logo" numColours="1" embText="true">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+      </GraphicRegion>
+      <TableRegion id="tab33" orientation="0.5" rows="1" columns="1" lineColour="black" bgColour="black" lineSeparators="true" embText="true">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+      </TableRegion>
+      <ChartRegion id="cha34" orientation="0.5" type="bar" numColours="1" bgColour="black" embText="true">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+      </ChartRegion>
+      <SeparatorRegion id="sep35" orientation="0.5" colour="black">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+      </SeparatorRegion>
+      <MathsRegion id="mat36" orientation="0.5" bgColour="black">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+      </MathsRegion>
+      <NoiseRegion id="noi37">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+      </NoiseRegion>
+      <FrameRegion id="fra38" bgColour="black" borderPresent="true">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+      </FrameRegion>
+      <UnknownRegion id="unk39">
+        <Coords>
+          <Point x="1" y="1"/>
+        </Coords>
+      </UnknownRegion>
+    </FrameRegion>
+    <UnknownRegion id="unk40">
+      <Coords>
+        <Point x="1" y="1"/>
+      </Coords>
+    </UnknownRegion>
+  </Page>
+</PcGts>

@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2016-07-15" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2016-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2016-07-15/pagecontent.xsd" pcGtsId="pcg1">
+  <Metadata externalRef="text">
+    <Creator>text</Creator>
+    <Created>2024-01-02T03:04:05</Created>
+    <LastChange>2024-01-02T03:04:05</LastChange>
+    <Comments>text</Comments>
+  </Metadata>
+  <Page imageFilename="text" imageWidth="1" imageHeight="1" custom="text" type="front-cover" primaryLanguage="Abkhaz" secondaryLanguage="Abkhaz" primaryScript="Adlm - Adlam" secondaryScript="Adlm - Adlam" readingDirection="left-to-right" textLineOrder="top-to-bottom">
+    <AlternativeImage filename="text" comments="text"/>
+    <Border>
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </Border>
+    <PrintSpace>
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </PrintSpace>
+    <ReadingOrder>
+      <OrderedGroup id="ord2" caption="text">
+        <RegionRefIndexed index="0" regionRef="tex12"/>
+        <OrderedGroupIndexed id="ord3" index="1" caption="text">
+          <RegionRefIndexed index="0" regionRef="tex12"/>
+          <OrderedGroupIndexed id="ord4" index="1" caption="text">
+            <RegionRefIndexed index="0" regionRef="tex12"/>
+          </OrderedGroupIndexed>
+          <UnorderedGroupIndexed id="uno5" index="2" caption="text">
+            <RegionRef regionRef="tex12"/>
+            <OrderedGroup id="ord6" caption="text">
+              <RegionRefIndexed index="0" regionRef="tex12"/>
+            </OrderedGroup>
+            <UnorderedGroup id="uno7" caption="text">
+              <RegionRef regionRef="tex12"/>
+              <OrderedGroup id="ord8" caption="text">
+                <RegionRefIndexed index="0" regionRef="tex12"/>
+              </OrderedGroup>
+              <UnorderedGroup id="uno9" caption="text">
+                <RegionRef regionRef="tex12"/>
+              </UnorderedGroup>
+            </UnorderedGroup>
+          </UnorderedGroupIndexed>
+        </OrderedGroupIndexed>
+        <UnorderedGroupIndexed id="uno10" index="2" caption="text">
+          <RegionRef regionRef="tex12"/>
+        </UnorderedGroupIndexed>
+      </OrderedGroup>
+    </ReadingOrder>
+    <Layers>
+      <Layer id="lay11" zIndex="1" caption="text">
+        <RegionRef regionRef="tex12"/>
+      </Layer>
+    </Layers>
+    <Relations>
+      <Relation type="link" custom="text" comments="text">
+        <RegionRef regionRef="tex12"/>
+        <RegionRef regionRef="tex12"/>
+      </Relation>
+    </Relations>
+    <TextRegion id="tex12" custom="text" comments="text" orientation="0.5" type="paragraph" leading="1" readingDirection="left-to-right" textLineOrder="top-to-bottom" readingOrientation="0.5" indented="true" align="left" primaryLanguage="Abkhaz" secondaryLanguage="Abkhaz" primaryScript="Adlm - Adlam" secondaryScript="Adlm - Adlam" production="printed">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+      <TextRegion id="tex13" custom="text" comments="text" orientation="0.5" type="paragraph" leading="1" readingDirection="left-to-right" textLineOrder="top-to-bottom" readingOrientation="0.5" indented="true" align="left" primaryLanguage="Abkhaz" secondaryLanguage="Abkhaz" primaryScript="Adlm - Adlam" secondaryScript="Adlm - Adlam" production="printed">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+        <TextLine id="tex14" primaryLanguage="Abkhaz" primaryScript="Adlm - Adlam" secondaryScript="Adlm - Adlam" readingDirection="left-to-right" production="printed" custom="text" comments="text">
+          <Coords points="0,0 10,0 10,10 0,10"/>
+          <Baseline points="0,0 10,0 10,10 0,10"/>
+          <Word id="wor15" language="Abkhaz" primaryScript="Adlm - Adlam" secondaryScript="Adlm - Adlam" readingDirection="left-to-right" production="printed" custom="text" comments="text">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <Glyph id="gly16" ligature="true" symbol="true" script="Adlm - Adlam" production="printed" custom="text" comments="text">
+              <Coords points="0,0 10,0 10,10 0,10"/>
+              <TextEquiv index="0" conf="0.5" dataType="xsd:decimal" dataTypeDetails="text" comments="text">
+                <PlainText>text</PlainText>
+                <Unicode>text</Unicode>
+              </TextEquiv>
+              <TextStyle fontFamily="text" serif="true" monospace="true" fontSize="0.5" xHeight="1" kerning="1" textColour="black" bgColour="black" reverseVideo="true" bold="true" italic="true" underlined="true" subscript="true" superscript="true" strikethrough="true" smallCaps="true" letterSpaced="true"/>
+            </Glyph>
+            <TextEquiv index="0" conf="0.5" dataType="xsd:decimal" dataTypeDetails="text" comments="text">
+              <PlainText>text</PlainText>
+              <Unicode>text</Unicode>
+            </TextEquiv>
+            <TextStyle fontFamily="text" serif="true" monospace="true" fontSize="0.5" xHeight="1" kerning="1" textColour="black" bgColour="black" reverseVideo="true" bold="true" italic="true" underlined="true" subscript="true" superscript="true" strikethrough="true" smallCaps="true" letterSpaced="true"/>
+          </Word>
+          <TextEquiv index="0" conf="0.5" dataType="xsd:decimal" dataTypeDetails="text" comments="text">
+            <PlainText>text</PlainText>
+            <Unicode>text</Unicode>
+          </TextEquiv>
+          <TextStyle fontFamily="text" serif="true" monospace="true" fontSize="0.5" xHeight="1" kerning="1" textColour="black" bgColour="black" reverseVideo="true" bold="true" italic="true" underlined="true" subscript="true" superscript="true" strikethrough="true" smallCaps="true" letterSpaced="true"/>
+        </TextLine>
+        <TextEquiv index="0" conf="0.5" dataType="xsd:decimal" dataTypeDetails="text" comments="text">
+          <PlainText>text</PlainText>
+          <Unicode>text</Unicode>
+        </TextEquiv>
+        <TextStyle fontFamily="text" serif="true" monospace="true" fontSize="0.5" xHeight="1" kerning="1" textColour="black" bgColour="black" reverseVideo="true" bold="true" italic="true" underlined="true" subscript="true" superscript="true" strikethrough="true" smallCaps="true" letterSpaced="true"/>
+      </TextRegion>
+      <ImageRegion id="ima17" custom="text" comments="text" orientation="0.5" colourDepth="bilevel" bgColour="black" embText="true">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </ImageRegion>
+      <LineDrawingRegion id="lin18" custom="text" comments="text" orientation="0.5" penColour="black" bgColour="black" embText="true">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </LineDrawingRegion>
+      <GraphicRegion id="gra19" custom="text" comments="text" orientation="0.5" type="logo" numColours="1" embText="true">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </GraphicRegion>
+      <TableRegion id="tab20" custom="text" comments="text" orientation="0.5" rows="1" columns="1" lineColour="black" bgColour="black" lineSeparators="true" embText="true">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </TableRegion>
+      <ChartRegion id="cha21" custom="text" comments="text" orientation="0.5" type="bar" numColours="1" bgColour="black" embText="true">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </ChartRegion>
+      <SeparatorRegion id="sep22" custom="text" comments="text" orientation="0.5" colour="black">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </SeparatorRegion>
+      <MathsRegion id="mat23" custom="text" comments="text" orientation="0.5" bgColour="black">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </MathsRegion>
+      <ChemRegion id="che24" custom="text" comments="text" orientation="0.5" bgColour="black">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </ChemRegion>
+      <MusicRegion id="mus25" custom="text" comments="text" orientation="0.5" bgColour="black">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </MusicRegion>
+      <AdvertRegion id="adv26" custom="text" comments="text" orientation="0.5" bgColour="black">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </AdvertRegion>
+      <NoiseRegion id="noi27" custom="text" comments="text">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </NoiseRegion>
+      <UnknownRegion id="unk28" custom="text" comments="text">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+      </UnknownRegion>
+      <TextLine id="tex29" primaryLanguage="Abkhaz" primaryScript="Adlm - Adlam" secondaryScript="Adlm - Adlam" readingDirection="left-to-right" production="printed" custom="text" comments="text">
+        <Coords points="0,0 10,0 10,10 0,10"/>
+        <Baseline points="0,0 10,0 10,10 0,10"/>
+        <Word id="wor30" language="Abkhaz" primaryScript="Adlm - Adlam" secondaryScript="Adlm - Adlam" readingDirection="left-to-right" production="printed" custom="text" comments="text">
+          <Coords points="0,0 10,0 10,10 0,10"/>
+          <Glyph id="gly31" ligature="true" symbol="true" script="Adlm - Adlam" production="printed" custom="text" comments="text">
+            <Coords points="0,0 10,0 10,10 0,10"/>
+            <TextEquiv index="0" conf="0.5" dataType="xsd:decimal" dataTypeDetails="text" comments="text">
+              <PlainText>text</PlainText>
+              <Unicode>text</Unicode>
+            </TextEquiv>
+            <TextStyle fontFamily="text" serif="true" monospace="true" fontSize="0.5" xHeight="1" kerning="1" textColour="black" bgColour="black" reverseVideo="true" bold="true" italic="true" underlined="true" subscript="true" superscript="true" strikethrough="true" smallCaps="true" letterSpaced="true"/>
+          </Glyph>
+          <TextEquiv index="0" conf="0.5" dataType="xsd:decimal" dataTypeDetails="text" comments="text">
+            <PlainText>text</PlainText>
+            <Unicode>text</Unicode>
+          </TextEquiv>
+          <TextStyle fontFamily="text" serif="true" monospace="true" fontSize="0.5" xHeight="1" kerning="1" textColour="black" bgColour="black" reverseVideo="true" bold="true" italic="true" underlined="true" subscript="true" superscript="true" strikethrough="true" smallCaps="true" letterSpaced="true"/>
+        </Word>
+        <TextEquiv index="0" conf="0.5" dataType="xsd:decimal" dataTypeDetails="text" comments="text">
+          <PlainText>text</PlainText>
+          <Unicode>text</Unicode>
+        </TextEquiv>
+        <TextStyle fontFamily="text" serif="true" monospace="true" fontSize="0.5" xHeight="1" kerning="1" textColour="black" bgColour="black" reverseVideo="true" bold="true" italic="true" underlined="true" subscript="true" superscript="true" strikethrough="true" smallCaps="true" letterSpaced="true"/>
+      </TextLine>
+      <TextEquiv index="0" conf="0.5" dataType="xsd:decimal" dataTypeDetails="text" comments="text">
+        <PlainText>text</PlainText>
+        <Unicode>text</Unicode>
+      </TextEquiv>
+      <TextStyle fontFamily="text" serif="true" monospace="true" fontSize="0.5" xHeight="1" kerning="1" textColour="black" bgColour="black" reverseVideo="true" bold="true" italic="true" underlined="true" subscript="true" superscript="true" strikethrough="true" smallCaps="true" letterSpaced="true"/>
+    </TextRegion>
+    <ImageRegion id="ima32" custom="text" comments="text" orientation="0.5" colourDepth="bilevel" bgColour="black" embText="true">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </ImageRegion>
+    <LineDrawingRegion id="lin33" custom="text" comments="text" orientation="0.5" penColour="black" bgColour="black" embText="true">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </LineDrawingRegion>
+    <GraphicRegion id="gra34" custom="text" comments="text" orientation="0.5" type="logo" numColours="1" embText="true">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </GraphicRegion>
+    <TableRegion id="tab35" custom="text" comments="text" orientation="0.5" rows="1" columns="1" lineColour="black" bgColour="black" lineSeparators="true" embText="true">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </TableRegion>
+    <ChartRegion id="cha36" custom="text" comments="text" orientation="0.5" type="bar" numColours="1" bgColour="black" embText="true">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </ChartRegion>
+    <SeparatorRegion id="sep37" custom="text" comments="text" orientation="0.5" colour="black">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </SeparatorRegion>
+    <MathsRegion id="mat38" custom="text" comments="text" orientation="0.5" bgColour="black">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </MathsRegion>
+    <ChemRegion id="che39" custom="text" comments="text" orientation="0.5" bgColour="black">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </ChemRegion>
+    <MusicRegion id="mus40" custom="text" comments="text" orientation="0.5" bgColour="black">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </MusicRegion>
+    <AdvertRegion id="adv41" custom="text" comments="text" orientation="0.5" bgColour="black">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </AdvertRegion>
+    <NoiseRegion id="noi42" custom="text" comments="text">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </NoiseRegion>
+    <UnknownRegion id="unk43" custom="text" comments="text">
+      <Coords points="0,0 10,0 10,10 0,10"/>
+    </UnknownRegion>
+  </Page>
+</PcGts>

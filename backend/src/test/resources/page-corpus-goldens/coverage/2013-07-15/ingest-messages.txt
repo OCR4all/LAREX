@@ -1,0 +1,5 @@
+ADDED: Relation 'tex12' -> 'tex12': added ID 'relation_1', required in PAGE 2024-07-15
+CHANGED: TextRegion 'tex12': changed primaryScript 'Arabic' to 'Arab - Arabic', 'Arabic' is not supported in PAGE 2024-07-15
+CHANGED: TextRegion 'tex12': changed secondaryScript 'Arabic' to 'Arab - Arabic', 'Arabic' is not supported in PAGE 2024-07-15
+CHANGED: TextRegion 'tex13': changed primaryScript 'Arabic' to 'Arab - Arabic', 'Arabic' is not supported in PAGE 2024-07-15
+CHANGED: TextRegion 'tex13': changed secondaryScript 'Arabic' to 'Arab - Arabic', 'Arabic' is not supported in PAGE 2024-07-15

@@ -1,0 +1,2497 @@
+{
+  "imageFilename" : "text",
+  "imageWidth" : 1,
+  "imageHeight" : 1,
+  "imageXResolution" : 0.5,
+  "imageYResolution" : 0.5,
+  "imageResolutionUnit" : "PPI",
+  "metadata" : {
+    "creator" : "text",
+    "created" : "2024-01-02T03:04:05",
+    "lastChange" : "2024-01-02T03:04:05",
+    "comments" : "text",
+    "externalRef" : "text",
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "items" : [ {
+      "type" : "author",
+      "name" : "text",
+      "value" : "text",
+      "date" : "2024-01-02T03:04:05",
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ]
+    } ]
+  },
+  "pcGtsId" : "pcg1",
+  "type" : "front-cover",
+  "custom" : "text",
+  "primaryLanguage" : "Abkhaz",
+  "secondaryLanguage" : "Abkhaz",
+  "primaryScript" : "Adlm - Adlam",
+  "secondaryScript" : "Adlm - Adlam",
+  "readingDirection" : "left-to-right",
+  "textLineOrder" : "top-to-bottom",
+  "confidence" : 0.5,
+  "border" : {
+    "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+    "confidence" : 0.5
+  },
+  "printSpace" : {
+    "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+    "confidence" : 0.5
+  },
+  "regions" : [ {
+    "id" : "tex13",
+    "kind" : "TextRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "textLines" : [ {
+      "id" : "tex36",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "baseline" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "textContentVariants" : [ {
+        "unicode" : "text",
+        "plainText" : "text",
+        "confidence" : 0.5,
+        "index" : 0,
+        "dataType" : "xsd:decimal",
+        "dataTypeDetails" : "text",
+        "comments" : "text"
+      } ],
+      "words" : [ {
+        "id" : "wor37",
+        "coords" : {
+          "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+          "confidence" : 0.5
+        },
+        "textContentVariants" : [ {
+          "unicode" : "text",
+          "plainText" : "text",
+          "confidence" : 0.5,
+          "index" : 0,
+          "dataType" : "xsd:decimal",
+          "dataTypeDetails" : "text",
+          "comments" : "text"
+        } ],
+        "glyphs" : [ {
+          "id" : "gly38",
+          "coords" : {
+            "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+            "confidence" : 0.5
+          },
+          "textContentVariants" : [ {
+            "unicode" : "text",
+            "plainText" : "text",
+            "confidence" : 0.5,
+            "index" : 0,
+            "dataType" : "xsd:decimal",
+            "dataTypeDetails" : "text",
+            "comments" : "text"
+          } ],
+          "alternativeImages" : [ {
+            "filename" : "text",
+            "comments" : "text",
+            "confidence" : 0.5
+          } ],
+          "labels" : [ {
+            "externalModel" : "text",
+            "externalId" : "text",
+            "prefix" : "text",
+            "comments" : "text",
+            "labels" : [ {
+              "value" : "text",
+              "type" : "text",
+              "comments" : "text"
+            } ]
+          } ],
+          "userDefined" : {
+            "attributes" : [ {
+              "name" : "text",
+              "description" : "text",
+              "type" : "xsd:string",
+              "value" : "text"
+            } ]
+          },
+          "textStyle" : {
+            "fontFamily" : "text",
+            "serif" : true,
+            "monospace" : true,
+            "fontSize" : 0.5,
+            "xHeight" : 1,
+            "kerning" : 1,
+            "textColour" : "black",
+            "textColourRgb" : 1,
+            "bgColour" : "black",
+            "bgColourRgb" : 1,
+            "reverseVideo" : true,
+            "bold" : true,
+            "italic" : true,
+            "underlined" : true,
+            "subscript" : true,
+            "superscript" : true,
+            "strikethrough" : true,
+            "smallCaps" : true,
+            "letterSpaced" : true
+          },
+          "graphemes" : {
+            "elements" : [ {
+              "kind" : "grapheme",
+              "id" : "gra39",
+              "index" : 0,
+              "charType" : "base",
+              "ligature" : true,
+              "custom" : "text",
+              "comments" : "text",
+              "coords" : {
+                "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+                "confidence" : 0.5
+              },
+              "textContentVariants" : [ {
+                "unicode" : "text",
+                "plainText" : "text",
+                "confidence" : 0.5,
+                "index" : 0,
+                "dataType" : "xsd:decimal",
+                "dataTypeDetails" : "text",
+                "comments" : "text"
+              } ]
+            } ]
+          },
+          "ligature" : true,
+          "symbol" : true,
+          "script" : "Adlm - Adlam",
+          "production" : "printed",
+          "custom" : "text",
+          "comments" : "text",
+          "text" : "text"
+        } ],
+        "alternativeImages" : [ {
+          "filename" : "text",
+          "comments" : "text",
+          "confidence" : 0.5
+        } ],
+        "labels" : [ {
+          "externalModel" : "text",
+          "externalId" : "text",
+          "prefix" : "text",
+          "comments" : "text",
+          "labels" : [ {
+            "value" : "text",
+            "type" : "text",
+            "comments" : "text"
+          } ]
+        } ],
+        "userDefined" : {
+          "attributes" : [ {
+            "name" : "text",
+            "description" : "text",
+            "type" : "xsd:string",
+            "value" : "text"
+          } ]
+        },
+        "textStyle" : {
+          "fontFamily" : "text",
+          "serif" : true,
+          "monospace" : true,
+          "fontSize" : 0.5,
+          "xHeight" : 1,
+          "kerning" : 1,
+          "textColour" : "black",
+          "textColourRgb" : 1,
+          "bgColour" : "black",
+          "bgColourRgb" : 1,
+          "reverseVideo" : true,
+          "bold" : true,
+          "italic" : true,
+          "underlined" : true,
+          "subscript" : true,
+          "superscript" : true,
+          "strikethrough" : true,
+          "smallCaps" : true,
+          "letterSpaced" : true
+        },
+        "language" : "Abkhaz",
+        "primaryScript" : "Adlm - Adlam",
+        "secondaryScript" : "Adlm - Adlam",
+        "readingDirection" : "left-to-right",
+        "production" : "printed",
+        "custom" : "text",
+        "comments" : "text",
+        "text" : "text"
+      } ],
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "textStyle" : {
+        "fontFamily" : "text",
+        "serif" : true,
+        "monospace" : true,
+        "fontSize" : 0.5,
+        "xHeight" : 1,
+        "kerning" : 1,
+        "textColour" : "black",
+        "textColourRgb" : 1,
+        "bgColour" : "black",
+        "bgColourRgb" : 1,
+        "reverseVideo" : true,
+        "bold" : true,
+        "italic" : true,
+        "underlined" : true,
+        "subscript" : true,
+        "superscript" : true,
+        "strikethrough" : true,
+        "smallCaps" : true,
+        "letterSpaced" : true
+      },
+      "primaryLanguage" : "Abkhaz",
+      "primaryScript" : "Adlm - Adlam",
+      "secondaryScript" : "Adlm - Adlam",
+      "readingDirection" : "left-to-right",
+      "production" : "printed",
+      "index" : 0,
+      "custom" : "text",
+      "comments" : "text",
+      "text" : "text"
+    } ],
+    "textContentVariants" : [ {
+      "unicode" : "text",
+      "plainText" : "text",
+      "confidence" : 0.5,
+      "index" : 1,
+      "dataType" : "xsd:decimal",
+      "dataTypeDetails" : "text",
+      "comments" : "text"
+    } ],
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "textStyle" : {
+      "fontFamily" : "text",
+      "serif" : true,
+      "monospace" : true,
+      "fontSize" : 0.5,
+      "xHeight" : 1,
+      "kerning" : 1,
+      "textColour" : "black",
+      "textColourRgb" : 1,
+      "bgColour" : "black",
+      "bgColourRgb" : 1,
+      "reverseVideo" : true,
+      "bold" : true,
+      "italic" : true,
+      "underlined" : true,
+      "subscript" : true,
+      "superscript" : true,
+      "strikethrough" : true,
+      "smallCaps" : true,
+      "letterSpaced" : true
+    },
+    "type" : "paragraph",
+    "orientation" : 0.5,
+    "leading" : 1,
+    "align" : "left",
+    "readingDirection" : "left-to-right",
+    "readingOrientation" : 0.5,
+    "textLineOrder" : "top-to-bottom",
+    "indented" : true,
+    "primaryLanguage" : "Abkhaz",
+    "secondaryLanguage" : "Abkhaz",
+    "primaryScript" : "Adlm - Adlam",
+    "secondaryScript" : "Adlm - Adlam",
+    "production" : "printed",
+    "nestedRegions" : [ {
+      "id" : "tex14",
+      "kind" : "TextRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "textLines" : [ {
+        "id" : "tex15",
+        "coords" : {
+          "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+          "confidence" : 0.5
+        },
+        "baseline" : {
+          "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+          "confidence" : 0.5
+        },
+        "textContentVariants" : [ {
+          "unicode" : "text",
+          "plainText" : "text",
+          "confidence" : 0.5,
+          "index" : 0,
+          "dataType" : "xsd:decimal",
+          "dataTypeDetails" : "text",
+          "comments" : "text"
+        } ],
+        "words" : [ {
+          "id" : "wor16",
+          "coords" : {
+            "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+            "confidence" : 0.5
+          },
+          "textContentVariants" : [ {
+            "unicode" : "text",
+            "plainText" : "text",
+            "confidence" : 0.5,
+            "index" : 0,
+            "dataType" : "xsd:decimal",
+            "dataTypeDetails" : "text",
+            "comments" : "text"
+          } ],
+          "glyphs" : [ {
+            "id" : "gly17",
+            "coords" : {
+              "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+              "confidence" : 0.5
+            },
+            "textContentVariants" : [ {
+              "unicode" : "text",
+              "plainText" : "text",
+              "confidence" : 0.5,
+              "index" : 0,
+              "dataType" : "xsd:decimal",
+              "dataTypeDetails" : "text",
+              "comments" : "text"
+            } ],
+            "alternativeImages" : [ {
+              "filename" : "text",
+              "comments" : "text",
+              "confidence" : 0.5
+            } ],
+            "labels" : [ {
+              "externalModel" : "text",
+              "externalId" : "text",
+              "prefix" : "text",
+              "comments" : "text",
+              "labels" : [ {
+                "value" : "text",
+                "type" : "text",
+                "comments" : "text"
+              } ]
+            } ],
+            "userDefined" : {
+              "attributes" : [ {
+                "name" : "text",
+                "description" : "text",
+                "type" : "xsd:string",
+                "value" : "text"
+              } ]
+            },
+            "textStyle" : {
+              "fontFamily" : "text",
+              "serif" : true,
+              "monospace" : true,
+              "fontSize" : 0.5,
+              "xHeight" : 1,
+              "kerning" : 1,
+              "textColour" : "black",
+              "textColourRgb" : 1,
+              "bgColour" : "black",
+              "bgColourRgb" : 1,
+              "reverseVideo" : true,
+              "bold" : true,
+              "italic" : true,
+              "underlined" : true,
+              "subscript" : true,
+              "superscript" : true,
+              "strikethrough" : true,
+              "smallCaps" : true,
+              "letterSpaced" : true
+            },
+            "graphemes" : {
+              "elements" : [ {
+                "kind" : "grapheme",
+                "id" : "gra18",
+                "index" : 0,
+                "charType" : "base",
+                "ligature" : true,
+                "custom" : "text",
+                "comments" : "text",
+                "coords" : {
+                  "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+                  "confidence" : 0.5
+                },
+                "textContentVariants" : [ {
+                  "unicode" : "text",
+                  "plainText" : "text",
+                  "confidence" : 0.5,
+                  "index" : 0,
+                  "dataType" : "xsd:decimal",
+                  "dataTypeDetails" : "text",
+                  "comments" : "text"
+                } ]
+              }, {
+                "kind" : "nonPrintingChar",
+                "id" : "non19",
+                "index" : 1,
+                "charType" : "base",
+                "ligature" : true,
+                "custom" : "text",
+                "comments" : "text",
+                "textContentVariants" : [ {
+                  "unicode" : "text",
+                  "plainText" : "text",
+                  "confidence" : 0.5,
+                  "index" : 0,
+                  "dataType" : "xsd:decimal",
+                  "dataTypeDetails" : "text",
+                  "comments" : "text"
+                } ]
+              }, {
+                "kind" : "graphemeGroup",
+                "id" : "gra20",
+                "index" : 2,
+                "charType" : "base",
+                "ligature" : true,
+                "custom" : "text",
+                "comments" : "text",
+                "textContentVariants" : [ {
+                  "unicode" : "text",
+                  "plainText" : "text",
+                  "confidence" : 0.5,
+                  "index" : 0,
+                  "dataType" : "xsd:decimal",
+                  "dataTypeDetails" : "text",
+                  "comments" : "text"
+                } ],
+                "members" : [ {
+                  "kind" : "grapheme",
+                  "id" : "gra21",
+                  "index" : 1,
+                  "charType" : "base",
+                  "ligature" : true,
+                  "custom" : "text",
+                  "comments" : "text",
+                  "coords" : {
+                    "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+                    "confidence" : 0.5
+                  },
+                  "textContentVariants" : [ {
+                    "unicode" : "text",
+                    "plainText" : "text",
+                    "confidence" : 0.5,
+                    "index" : 0,
+                    "dataType" : "xsd:decimal",
+                    "dataTypeDetails" : "text",
+                    "comments" : "text"
+                  } ]
+                }, {
+                  "kind" : "nonPrintingChar",
+                  "id" : "non22",
+                  "index" : 2,
+                  "charType" : "base",
+                  "ligature" : true,
+                  "custom" : "text",
+                  "comments" : "text",
+                  "textContentVariants" : [ {
+                    "unicode" : "text",
+                    "plainText" : "text",
+                    "confidence" : 0.5,
+                    "index" : 0,
+                    "dataType" : "xsd:decimal",
+                    "dataTypeDetails" : "text",
+                    "comments" : "text"
+                  } ]
+                } ]
+              } ]
+            },
+            "ligature" : true,
+            "symbol" : true,
+            "script" : "Adlm - Adlam",
+            "production" : "printed",
+            "custom" : "text",
+            "comments" : "text",
+            "text" : "text"
+          } ],
+          "alternativeImages" : [ {
+            "filename" : "text",
+            "comments" : "text",
+            "confidence" : 0.5
+          } ],
+          "labels" : [ {
+            "externalModel" : "text",
+            "externalId" : "text",
+            "prefix" : "text",
+            "comments" : "text",
+            "labels" : [ {
+              "value" : "text",
+              "type" : "text",
+              "comments" : "text"
+            } ]
+          } ],
+          "userDefined" : {
+            "attributes" : [ {
+              "name" : "text",
+              "description" : "text",
+              "type" : "xsd:string",
+              "value" : "text"
+            } ]
+          },
+          "textStyle" : {
+            "fontFamily" : "text",
+            "serif" : true,
+            "monospace" : true,
+            "fontSize" : 0.5,
+            "xHeight" : 1,
+            "kerning" : 1,
+            "textColour" : "black",
+            "textColourRgb" : 1,
+            "bgColour" : "black",
+            "bgColourRgb" : 1,
+            "reverseVideo" : true,
+            "bold" : true,
+            "italic" : true,
+            "underlined" : true,
+            "subscript" : true,
+            "superscript" : true,
+            "strikethrough" : true,
+            "smallCaps" : true,
+            "letterSpaced" : true
+          },
+          "language" : "Abkhaz",
+          "primaryScript" : "Adlm - Adlam",
+          "secondaryScript" : "Adlm - Adlam",
+          "readingDirection" : "left-to-right",
+          "production" : "printed",
+          "custom" : "text",
+          "comments" : "text",
+          "text" : "text"
+        } ],
+        "alternativeImages" : [ {
+          "filename" : "text",
+          "comments" : "text",
+          "confidence" : 0.5
+        } ],
+        "labels" : [ {
+          "externalModel" : "text",
+          "externalId" : "text",
+          "prefix" : "text",
+          "comments" : "text",
+          "labels" : [ {
+            "value" : "text",
+            "type" : "text",
+            "comments" : "text"
+          } ]
+        } ],
+        "userDefined" : {
+          "attributes" : [ {
+            "name" : "text",
+            "description" : "text",
+            "type" : "xsd:string",
+            "value" : "text"
+          } ]
+        },
+        "textStyle" : {
+          "fontFamily" : "text",
+          "serif" : true,
+          "monospace" : true,
+          "fontSize" : 0.5,
+          "xHeight" : 1,
+          "kerning" : 1,
+          "textColour" : "black",
+          "textColourRgb" : 1,
+          "bgColour" : "black",
+          "bgColourRgb" : 1,
+          "reverseVideo" : true,
+          "bold" : true,
+          "italic" : true,
+          "underlined" : true,
+          "subscript" : true,
+          "superscript" : true,
+          "strikethrough" : true,
+          "smallCaps" : true,
+          "letterSpaced" : true
+        },
+        "primaryLanguage" : "Abkhaz",
+        "primaryScript" : "Adlm - Adlam",
+        "secondaryScript" : "Adlm - Adlam",
+        "readingDirection" : "left-to-right",
+        "production" : "printed",
+        "index" : 0,
+        "custom" : "text",
+        "comments" : "text",
+        "text" : "text"
+      } ],
+      "textContentVariants" : [ {
+        "unicode" : "text",
+        "plainText" : "text",
+        "confidence" : 0.5,
+        "index" : 1,
+        "dataType" : "xsd:decimal",
+        "dataTypeDetails" : "text",
+        "comments" : "text"
+      } ],
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "textStyle" : {
+        "fontFamily" : "text",
+        "serif" : true,
+        "monospace" : true,
+        "fontSize" : 0.5,
+        "xHeight" : 1,
+        "kerning" : 1,
+        "textColour" : "black",
+        "textColourRgb" : 1,
+        "bgColour" : "black",
+        "bgColourRgb" : 1,
+        "reverseVideo" : true,
+        "bold" : true,
+        "italic" : true,
+        "underlined" : true,
+        "subscript" : true,
+        "superscript" : true,
+        "strikethrough" : true,
+        "smallCaps" : true,
+        "letterSpaced" : true
+      },
+      "type" : "paragraph",
+      "orientation" : 0.5,
+      "leading" : 1,
+      "align" : "left",
+      "readingDirection" : "left-to-right",
+      "readingOrientation" : 0.5,
+      "textLineOrder" : "top-to-bottom",
+      "indented" : true,
+      "primaryLanguage" : "Abkhaz",
+      "secondaryLanguage" : "Abkhaz",
+      "primaryScript" : "Adlm - Adlam",
+      "secondaryScript" : "Adlm - Adlam",
+      "production" : "printed",
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "text" : "text",
+      "textRegion" : true
+    }, {
+      "id" : "ima23",
+      "kind" : "ImageRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "embText" : true,
+      "colourDepth" : "bilevel",
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "lin24",
+      "kind" : "LineDrawingRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "embText" : true,
+      "penColour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "gra25",
+      "kind" : "GraphicRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "type" : "logo",
+      "orientation" : 0.5,
+      "numColours" : 1,
+      "embText" : true,
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "tab26",
+      "kind" : "TableRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "grid" : {
+        "rows" : [ {
+          "index" : 0,
+          "points" : {
+            "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+          }
+        }, {
+          "index" : 1,
+          "points" : {
+            "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+          }
+        } ]
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "embText" : true,
+      "lineColour" : "black",
+      "lineSeparators" : true,
+      "rows" : 1,
+      "columns" : 1,
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "cha27",
+      "kind" : "ChartRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "type" : "bar",
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "numColours" : 1,
+      "embText" : true,
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "sep28",
+      "kind" : "SeparatorRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "orientation" : 0.5,
+      "colour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "mat29",
+      "kind" : "MathsRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "che30",
+      "kind" : "ChemRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "mus31",
+      "kind" : "MusicRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "adv32",
+      "kind" : "AdvertRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "textStyle" : {
+        "bgColour" : "black"
+      },
+      "orientation" : 0.5,
+      "bgColour" : "black",
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "noi33",
+      "kind" : "NoiseRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "unk34",
+      "kind" : "UnknownRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    }, {
+      "id" : "cus35",
+      "kind" : "CustomRegion",
+      "coords" : {
+        "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+        "confidence" : 0.5
+      },
+      "alternativeImages" : [ {
+        "filename" : "text",
+        "comments" : "text",
+        "confidence" : 0.5
+      } ],
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "roles" : {
+        "tableCellRole" : {
+          "rowIndex" : 1,
+          "columnIndex" : 1,
+          "rowSpan" : 1,
+          "colSpan" : 1,
+          "header" : true
+        }
+      },
+      "type" : "text",
+      "custom" : "text",
+      "comments" : "text",
+      "continuation" : true,
+      "textRegion" : false
+    } ],
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "text" : "text",
+    "textRegion" : true
+  }, {
+    "id" : "ima40",
+    "kind" : "ImageRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "embText" : true,
+    "colourDepth" : "bilevel",
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "lin41",
+    "kind" : "LineDrawingRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "embText" : true,
+    "penColour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "gra42",
+    "kind" : "GraphicRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "type" : "logo",
+    "orientation" : 0.5,
+    "numColours" : 1,
+    "embText" : true,
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "tab43",
+    "kind" : "TableRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "grid" : {
+      "rows" : [ {
+        "index" : 0,
+        "points" : {
+          "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+        }
+      }, {
+        "index" : 1,
+        "points" : {
+          "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ]
+        }
+      } ]
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "embText" : true,
+    "lineColour" : "black",
+    "lineSeparators" : true,
+    "rows" : 1,
+    "columns" : 1,
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "cha44",
+    "kind" : "ChartRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "type" : "bar",
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "numColours" : 1,
+    "embText" : true,
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "map45",
+    "kind" : "MapRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "orientation" : 0.5,
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "sep46",
+    "kind" : "SeparatorRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "orientation" : 0.5,
+    "colour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "mat47",
+    "kind" : "MathsRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "che48",
+    "kind" : "ChemRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "mus49",
+    "kind" : "MusicRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "adv50",
+    "kind" : "AdvertRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "textStyle" : {
+      "bgColour" : "black"
+    },
+    "orientation" : 0.5,
+    "bgColour" : "black",
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "noi51",
+    "kind" : "NoiseRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "unk52",
+    "kind" : "UnknownRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  }, {
+    "id" : "cus53",
+    "kind" : "CustomRegion",
+    "coords" : {
+      "points" : [ [ -1.0, 1.0 ], [ 19.0, 1.0 ], [ 19.0, -19.0 ], [ -1.0, -19.0 ] ],
+      "confidence" : 0.5
+    },
+    "alternativeImages" : [ {
+      "filename" : "text",
+      "comments" : "text",
+      "confidence" : 0.5
+    } ],
+    "labels" : [ {
+      "externalModel" : "text",
+      "externalId" : "text",
+      "prefix" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "value" : "text",
+        "type" : "text",
+        "comments" : "text"
+      } ]
+    } ],
+    "userDefined" : {
+      "attributes" : [ {
+        "name" : "text",
+        "description" : "text",
+        "type" : "xsd:string",
+        "value" : "text"
+      } ]
+    },
+    "roles" : {
+      "tableCellRole" : {
+        "rowIndex" : 1,
+        "columnIndex" : 1,
+        "rowSpan" : 1,
+        "colSpan" : 1,
+        "header" : true
+      }
+    },
+    "type" : "text",
+    "custom" : "text",
+    "comments" : "text",
+    "continuation" : true,
+    "textRegion" : false
+  } ],
+  "readingOrder" : {
+    "root" : {
+      "id" : "ord2",
+      "ordered" : true,
+      "caption" : "text",
+      "groupType" : "paragraph",
+      "regionRef" : "tex13",
+      "members" : [ {
+        "type" : "regionRef",
+        "regionRef" : "tex13",
+        "index" : 0
+      }, {
+        "type" : "nestedGroup",
+        "group" : {
+          "id" : "ord3",
+          "ordered" : true,
+          "index" : 1,
+          "caption" : "text",
+          "groupType" : "paragraph",
+          "regionRef" : "tex13",
+          "members" : [ {
+            "type" : "regionRef",
+            "regionRef" : "tex13",
+            "index" : 0
+          }, {
+            "type" : "nestedGroup",
+            "group" : {
+              "id" : "ord4",
+              "ordered" : true,
+              "index" : 1,
+              "caption" : "text",
+              "groupType" : "paragraph",
+              "regionRef" : "tex13",
+              "members" : [ {
+                "type" : "regionRef",
+                "regionRef" : "tex13",
+                "index" : 0
+              } ],
+              "continuation" : true,
+              "userDefined" : {
+                "attributes" : [ {
+                  "name" : "text",
+                  "description" : "text",
+                  "type" : "xsd:string",
+                  "value" : "text"
+                } ]
+              },
+              "labels" : [ {
+                "externalModel" : "text",
+                "externalId" : "text",
+                "prefix" : "text",
+                "comments" : "text",
+                "labels" : [ {
+                  "value" : "text",
+                  "type" : "text",
+                  "comments" : "text"
+                } ]
+              } ],
+              "custom" : "text",
+              "comments" : "text"
+            }
+          }, {
+            "type" : "nestedGroup",
+            "group" : {
+              "id" : "uno5",
+              "ordered" : false,
+              "index" : 2,
+              "caption" : "text",
+              "groupType" : "paragraph",
+              "regionRef" : "tex13",
+              "members" : [ {
+                "type" : "regionRef",
+                "regionRef" : "tex13"
+              }, {
+                "type" : "nestedGroup",
+                "group" : {
+                  "id" : "ord6",
+                  "ordered" : true,
+                  "caption" : "text",
+                  "groupType" : "paragraph",
+                  "regionRef" : "tex13",
+                  "members" : [ {
+                    "type" : "regionRef",
+                    "regionRef" : "tex13",
+                    "index" : 0
+                  } ],
+                  "continuation" : true,
+                  "userDefined" : {
+                    "attributes" : [ {
+                      "name" : "text",
+                      "description" : "text",
+                      "type" : "xsd:string",
+                      "value" : "text"
+                    } ]
+                  },
+                  "labels" : [ {
+                    "externalModel" : "text",
+                    "externalId" : "text",
+                    "prefix" : "text",
+                    "comments" : "text",
+                    "labels" : [ {
+                      "value" : "text",
+                      "type" : "text",
+                      "comments" : "text"
+                    } ]
+                  } ],
+                  "custom" : "text",
+                  "comments" : "text"
+                }
+              }, {
+                "type" : "nestedGroup",
+                "group" : {
+                  "id" : "uno7",
+                  "ordered" : false,
+                  "caption" : "text",
+                  "groupType" : "paragraph",
+                  "regionRef" : "tex13",
+                  "members" : [ {
+                    "type" : "regionRef",
+                    "regionRef" : "tex13"
+                  }, {
+                    "type" : "nestedGroup",
+                    "group" : {
+                      "id" : "ord8",
+                      "ordered" : true,
+                      "caption" : "text",
+                      "groupType" : "paragraph",
+                      "regionRef" : "tex13",
+                      "members" : [ {
+                        "type" : "regionRef",
+                        "regionRef" : "tex13",
+                        "index" : 0
+                      } ],
+                      "continuation" : true,
+                      "userDefined" : {
+                        "attributes" : [ {
+                          "name" : "text",
+                          "description" : "text",
+                          "type" : "xsd:string",
+                          "value" : "text"
+                        } ]
+                      },
+                      "labels" : [ {
+                        "externalModel" : "text",
+                        "externalId" : "text",
+                        "prefix" : "text",
+                        "comments" : "text",
+                        "labels" : [ {
+                          "value" : "text",
+                          "type" : "text",
+                          "comments" : "text"
+                        } ]
+                      } ],
+                      "custom" : "text",
+                      "comments" : "text"
+                    }
+                  }, {
+                    "type" : "nestedGroup",
+                    "group" : {
+                      "id" : "uno9",
+                      "ordered" : false,
+                      "caption" : "text",
+                      "groupType" : "paragraph",
+                      "regionRef" : "tex13",
+                      "members" : [ {
+                        "type" : "regionRef",
+                        "regionRef" : "tex13"
+                      } ],
+                      "continuation" : true,
+                      "userDefined" : {
+                        "attributes" : [ {
+                          "name" : "text",
+                          "description" : "text",
+                          "type" : "xsd:string",
+                          "value" : "text"
+                        } ]
+                      },
+                      "labels" : [ {
+                        "externalModel" : "text",
+                        "externalId" : "text",
+                        "prefix" : "text",
+                        "comments" : "text",
+                        "labels" : [ {
+                          "value" : "text",
+                          "type" : "text",
+                          "comments" : "text"
+                        } ]
+                      } ],
+                      "custom" : "text",
+                      "comments" : "text"
+                    }
+                  } ],
+                  "continuation" : true,
+                  "userDefined" : {
+                    "attributes" : [ {
+                      "name" : "text",
+                      "description" : "text",
+                      "type" : "xsd:string",
+                      "value" : "text"
+                    } ]
+                  },
+                  "labels" : [ {
+                    "externalModel" : "text",
+                    "externalId" : "text",
+                    "prefix" : "text",
+                    "comments" : "text",
+                    "labels" : [ {
+                      "value" : "text",
+                      "type" : "text",
+                      "comments" : "text"
+                    } ]
+                  } ],
+                  "custom" : "text",
+                  "comments" : "text"
+                }
+              } ],
+              "continuation" : true,
+              "userDefined" : {
+                "attributes" : [ {
+                  "name" : "text",
+                  "description" : "text",
+                  "type" : "xsd:string",
+                  "value" : "text"
+                } ]
+              },
+              "labels" : [ {
+                "externalModel" : "text",
+                "externalId" : "text",
+                "prefix" : "text",
+                "comments" : "text",
+                "labels" : [ {
+                  "value" : "text",
+                  "type" : "text",
+                  "comments" : "text"
+                } ]
+              } ],
+              "custom" : "text",
+              "comments" : "text"
+            }
+          } ],
+          "continuation" : true,
+          "userDefined" : {
+            "attributes" : [ {
+              "name" : "text",
+              "description" : "text",
+              "type" : "xsd:string",
+              "value" : "text"
+            } ]
+          },
+          "labels" : [ {
+            "externalModel" : "text",
+            "externalId" : "text",
+            "prefix" : "text",
+            "comments" : "text",
+            "labels" : [ {
+              "value" : "text",
+              "type" : "text",
+              "comments" : "text"
+            } ]
+          } ],
+          "custom" : "text",
+          "comments" : "text"
+        }
+      }, {
+        "type" : "nestedGroup",
+        "group" : {
+          "id" : "uno10",
+          "ordered" : false,
+          "index" : 2,
+          "caption" : "text",
+          "groupType" : "paragraph",
+          "regionRef" : "tex13",
+          "members" : [ {
+            "type" : "regionRef",
+            "regionRef" : "tex13"
+          } ],
+          "continuation" : true,
+          "userDefined" : {
+            "attributes" : [ {
+              "name" : "text",
+              "description" : "text",
+              "type" : "xsd:string",
+              "value" : "text"
+            } ]
+          },
+          "labels" : [ {
+            "externalModel" : "text",
+            "externalId" : "text",
+            "prefix" : "text",
+            "comments" : "text",
+            "labels" : [ {
+              "value" : "text",
+              "type" : "text",
+              "comments" : "text"
+            } ]
+          } ],
+          "custom" : "text",
+          "comments" : "text"
+        }
+      } ],
+      "continuation" : true,
+      "userDefined" : {
+        "attributes" : [ {
+          "name" : "text",
+          "description" : "text",
+          "type" : "xsd:string",
+          "value" : "text"
+        } ]
+      },
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ],
+      "custom" : "text",
+      "comments" : "text"
+    },
+    "confidence" : 0.5
+  },
+  "alternativeImages" : [ {
+    "filename" : "text",
+    "comments" : "text",
+    "confidence" : 0.5
+  } ],
+  "labels" : [ {
+    "externalModel" : "text",
+    "externalId" : "text",
+    "prefix" : "text",
+    "comments" : "text",
+    "labels" : [ {
+      "value" : "text",
+      "type" : "text",
+      "comments" : "text"
+    } ]
+  } ],
+  "userDefined" : {
+    "attributes" : [ {
+      "name" : "text",
+      "description" : "text",
+      "type" : "xsd:string",
+      "value" : "text"
+    } ]
+  },
+  "layers" : {
+    "layers" : [ {
+      "id" : "lay11",
+      "zIndex" : 1,
+      "caption" : "text",
+      "regionRefs" : [ "tex13" ]
+    } ]
+  },
+  "relations" : {
+    "relations" : [ {
+      "id" : "rel12",
+      "type" : "link",
+      "sourceRegionRef" : "tex13",
+      "targetRegionRef" : "tex13",
+      "custom" : "text",
+      "comments" : "text",
+      "labels" : [ {
+        "externalModel" : "text",
+        "externalId" : "text",
+        "prefix" : "text",
+        "comments" : "text",
+        "labels" : [ {
+          "value" : "text",
+          "type" : "text",
+          "comments" : "text"
+        } ]
+      } ]
+    } ]
+  },
+  "formatVersion" : "2024-07-15",
+  "dimensions" : {
+    "width" : 1,
+    "height" : 1
+  },
+  "regionCount" : 15,
+  "textLineCount" : 1
+}
