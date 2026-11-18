@@ -34,6 +34,23 @@ public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
     @Query("SELECT r FROM ActionRun r WHERE r.id = :id")
     Optional<ActionRun> findWithProcessorDefinitionById(@Param("id") String id);
 
+    interface HeartbeatState {
+        String getSecretHash();
+
+        LocalDateTime getSecretExpiresAt();
+
+        Status getStatus();
+
+        LocalDateTime getLastHeartbeatAt();
+
+        boolean getCancelRequested();
+    }
+
+    @Query("SELECT r.secretHash AS secretHash, r.secretExpiresAt AS secretExpiresAt, r.status AS status, "
+            + "r.lastHeartbeatAt AS lastHeartbeatAt, r.cancelRequested AS cancelRequested "
+            + "FROM ActionRun r WHERE r.id = :id")
+    Optional<HeartbeatState> findHeartbeatStateById(@Param("id") String id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = {"processorDefinition"})
     @Query("SELECT r FROM ActionRun r WHERE r.id = :id")

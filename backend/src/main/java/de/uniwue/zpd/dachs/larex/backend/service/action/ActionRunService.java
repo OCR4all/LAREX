@@ -120,6 +120,7 @@ public class ActionRunService {
 
     private static final Logger log = LoggerFactory.getLogger(ActionRunService.class);
     private static final int ACTION_PROTOCOL_VERSION = 1;
+    static final Duration HEARTBEAT_COALESCE_WINDOW = Duration.ofSeconds(5);
     private static final int DEFAULT_RUN_HISTORY_LIMIT = 200;
     private static final int MAX_RUN_HISTORY_LIMIT = 1000;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -1431,7 +1432,7 @@ public class ActionRunService {
     public void reconcileStaleRuns() {
         LocalDateTime now = LocalDateTime.now();
         expireDispatchingRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getDispatchMinutes())));
-        expireHeartbeatRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getHeartbeatMinutes())));
+        expireHeartbeatRuns(now.minus(heartbeatTimeout()));
         expireCancellationRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getCancellationMinutes())));
         pruneTerminalRuns(now.minusDays(Math.max(1, actionProperties.getRetention().getTerminalDays())));
         dispatchQueuedRunsAsync();
@@ -1666,10 +1667,23 @@ public class ActionRunService {
     }
 
     public ActionDto.HeartbeatResponse heartbeat(String runId, String authorizationHeader, ActionDto.HeartbeatRequest request) {
+        if (isLivenessOnlyHeartbeat(request)) {
+            var state = runRepository.findHeartbeatStateById(runId).orElse(null);
+            if (state != null) {
+                requireValidRunSecret(extractBearerToken(authorizationHeader), state.getSecretHash(),
+                        state.getStatus(), state.getSecretExpiresAt());
+                if (heartbeatRecentlyRecorded(state)) {
+                    return new ActionDto.HeartbeatResponse(state.getCancelRequested());
+                }
+            }
+        }
         ActionRun run = authenticateRunForUpdate(runId, authorizationHeader);
         if (run.getStatus().isTerminal()) {
             return new ActionDto.HeartbeatResponse(run.isCancelRequested());
         }
+        Status previousStatus = run.getStatus();
+        int previousProgress = run.getProgressPercent();
+        String previousStatusMessage = run.getStatusMessage();
         if (run.getStatus() != Status.CANCEL_REQUESTED
                 && run.getStatus() != Status.CANCELLED
                 && run.getStatus() != Status.IMPORTING_RESULTS) {
@@ -1719,15 +1733,36 @@ public class ActionRunService {
                     run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                     Map.of("error", limit(Objects.toString(redactProcessorSecrets(request.errorMessage()), ""), 1000)));
         }
-        if ((isDatasetAction(run) || run.getKind() == ActionRun.Kind.INTEGRATION) && !terminalStatuses().contains(run.getStatus())) {
+        if (!terminalStatuses().contains(run.getStatus())) {
             run.setSecretExpiresAt(LocalDateTime.now().plusMinutes(definitionService.defaultTokenTtlMinutes()));
         }
         runRepository.save(run);
-        publishActionRunUpdatedAfterCommit(run);
+        if (run.getStatus() != previousStatus
+                || run.getProgressPercent() != previousProgress
+                || !Objects.equals(run.getStatusMessage(), previousStatusMessage)
+                || request.runReport() != null
+                || (request.log() != null && !request.log().isBlank())) {
+            publishActionRunUpdatedAfterCommit(run);
+        }
         if (run.getStatus() == Status.FAILED || run.getStatus() == Status.CANCELLED) {
             dispatchQueuedRunsAfterCommit();
         }
         return new ActionDto.HeartbeatResponse(run.isCancelRequested());
+    }
+
+    private static boolean isLivenessOnlyHeartbeat(ActionDto.HeartbeatRequest request) {
+        return request.progressPercent() == null
+                && request.statusMessage() == null
+                && (request.log() == null || request.log().isBlank())
+                && request.runReport() == null
+                && request.errorMessage() == null
+                && (request.status() == null || "running".equalsIgnoreCase(request.status()));
+    }
+
+    private static boolean heartbeatRecentlyRecorded(ActionRunRepository.HeartbeatState state) {
+        return Set.of(Status.RUNNING, Status.CANCEL_REQUESTED, Status.IMPORTING_RESULTS).contains(state.getStatus())
+                && state.getLastHeartbeatAt() != null
+                && state.getLastHeartbeatAt().isAfter(LocalDateTime.now().minus(HEARTBEAT_COALESCE_WINDOW));
     }
 
     @Transactional(rollbackFor = Exception.class, noRollbackFor = ActionPageResultRejectedException.class)
@@ -2900,6 +2935,7 @@ public class ActionRunService {
         payload.put("secret", rawSecret);
         payload.put("pullUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/input");
         payload.put("heartbeatUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/heartbeat");
+        payload.put("heartbeatTimeoutSeconds", heartbeatTimeout().toSeconds());
         payload.put("resultUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/results");
 
         definitionService.requireEndpointUrlAllowed(definition.getEndpointUrl());
@@ -3330,6 +3366,10 @@ public class ActionRunService {
         }
     }
 
+    private Duration heartbeatTimeout() {
+        return Duration.ofMinutes(Math.max(1, actionProperties.getTimeout().getHeartbeatMinutes()));
+    }
+
     private void expireHeartbeatRuns(LocalDateTime cutoff) {
         List<ActionRun> stale = runRepository.findByStatusInAndLastHeartbeatAtBefore(
                 List.of(Status.RUNNING, Status.IMPORTING_RESULTS),
@@ -3479,16 +3519,23 @@ public class ActionRunService {
                 ? runRepository.findWithProcessorDefinitionByIdForUpdate(runId)
                 : runRepository.findWithProcessorDefinitionById(runId))
                 .orElseThrow(() -> new SecurityException("Invalid Action run secret"));
-        if (!Objects.equals(run.getSecretHash(), sha256(rawToken))) {
+        requireValidRunSecret(rawToken, run.getSecretHash(), run.getStatus(), run.getSecretExpiresAt());
+        return run;
+    }
+
+    private void requireValidRunSecret(String rawToken, String secretHash, Status status, LocalDateTime secretExpiresAt) {
+        if (rawToken == null) {
+            throw new SecurityException("Missing Action run secret");
+        }
+        if (!Objects.equals(secretHash, sha256(rawToken))) {
             throw new SecurityException("Invalid Action run secret");
         }
-        if (terminalStatuses().contains(run.getStatus())) {
+        if (terminalStatuses().contains(status)) {
             throw new SecurityException("Action run secret has expired");
         }
-        if (run.getSecretExpiresAt() == null || !run.getSecretExpiresAt().isAfter(LocalDateTime.now())) {
+        if (secretExpiresAt == null || !secretExpiresAt.isAfter(LocalDateTime.now())) {
             throw new SecurityException("Action run secret has expired");
         }
-        return run;
     }
 
     private void expireRunSecret(ActionRun run) {

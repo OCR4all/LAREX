@@ -54,7 +54,10 @@ import java.util.function.Supplier;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Import(TestcontainersConfiguration.class)
@@ -185,6 +188,42 @@ class ActionRunCancellationIntegrationTest {
         assertThat(pages.findById(f.page()).orElseThrow().isLocked()).isFalse();
         assertThat(projects.findById(f.project()).orElseThrow().isLocked()).isFalse();
         assertThatThrownBy(() -> heartbeat(f)).isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    void livenessHeartbeatWithinCoalesceWindowNeitherWaitsForRowLockNorWrites() throws Exception {
+        Fixture f = fixture(Status.RUNNING, ActionRun.Kind.PROCESSING);
+        heartbeat(f);
+        LocalDateTime recorded = persisted(f).getLastHeartbeatAt();
+        cancel(f, Route.WORKSPACE);
+        clearInvocations(realtime);
+        var locked = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var holder = executor.submit(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                runs.findWithProcessorDefinitionByIdForUpdate(f.id()).orElseThrow();
+                locked.countDown();
+                await(release);
+            }));
+            try {
+                await(locked);
+                var response = executor.submit(() -> livenessHeartbeat(f)).get(5, TimeUnit.SECONDS);
+                assertThat(response.cancelRequested()).isTrue();
+            } finally {
+                release.countDown();
+            }
+            holder.get(10, TimeUnit.SECONDS);
+        }
+        assertThat(persisted(f).getLastHeartbeatAt()).isEqualTo(recorded);
+        verify(realtime, never()).publishRunUpdated(any());
+        assertThatThrownBy(() -> actions.heartbeat(f.id(), "Bearer wrong",
+                new ActionDto.HeartbeatRequest(null, null, null, null, null, null)))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    private ActionDto.HeartbeatResponse livenessHeartbeat(Fixture f) {
+        return actions.heartbeat(f.id(), "Bearer " + f.secret(),
+                new ActionDto.HeartbeatRequest(null, null, null, null, "running", null));
     }
 
     private Object cancel(Fixture f, Route route) {

@@ -70,10 +70,12 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.LinkedMultiValueMap;
 
+import com.sun.net.httpserver.HttpServer;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -85,6 +87,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -287,6 +290,7 @@ class ActionRunServiceTest {
                 anyCollection(), eq(ActionRun.Status.QUEUED))).thenReturn(List.of());
         lenient().when(pageResultRepository.findByRunIdAndPageId(anyString(), anyString())).thenReturn(Optional.empty());
         lenient().when(pageResultRepository.findByRunIdOrderByCreatedAsc(anyString())).thenReturn(List.of());
+        lenient().when(definitionService.defaultTokenTtlMinutes()).thenReturn(1440);
         lenient().when(pageOrderService.sortPages(anyCollection())).thenAnswer(invocation -> List.copyOf(invocation.getArgument(0)));
         lenient().when(definitionService.readInputRequirements(any(ActionProcessorDefinition.class)))
                 .thenAnswer(invocation -> {
@@ -1839,6 +1843,179 @@ class ActionRunServiceTest {
                 new ActionDto.HeartbeatRequest(25, null, null, null, "running", null));
 
         assertThat(run.getProgressPercent()).isEqualTo(70);
+    }
+
+    @Test
+    void livenessHeartbeatWithinCoalesceWindowSkipsLockWriteAndPublish() {
+        ActionRun run = run(definition("processor-coalesce"), project("project-1", WORKSPACE_ID, "Project A"), OWNER_ID,
+                ActionRun.Status.CANCEL_REQUESTED, LockMode.NONE, List.of());
+        run.setCancelRequested(true);
+        run.setLastHeartbeatAt(LocalDateTime.now().minusSeconds(1));
+        when(runRepository.findHeartbeatStateById(run.getId())).thenReturn(Optional.of(heartbeatState(run)));
+
+        ActionDto.HeartbeatResponse response = service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.HeartbeatRequest(null, null, null, null, "running", null));
+
+        assertThat(response.cancelRequested()).isTrue();
+        verify(runRepository, never()).findWithProcessorDefinitionByIdForUpdate(anyString());
+        verify(runRepository, never()).save(any());
+        verifyNoInteractions(realtimePublisher);
+    }
+
+    @Test
+    void livenessHeartbeatWithinCoalesceWindowStillRejectsInvalidSecrets() {
+        ActionRun run = run(definition("processor-coalesce-auth"), project("project-1", WORKSPACE_ID, "Project A"), OWNER_ID,
+                ActionRun.Status.RUNNING, LockMode.NONE, List.of());
+        run.setLastHeartbeatAt(LocalDateTime.now().minusSeconds(1));
+        when(runRepository.findHeartbeatStateById(run.getId())).thenReturn(Optional.of(heartbeatState(run)));
+        ActionDto.HeartbeatRequest request = new ActionDto.HeartbeatRequest(null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> service.heartbeat(run.getId(), "Bearer wrong-secret", request))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Invalid");
+        assertThatThrownBy(() -> service.heartbeat(run.getId(), null, request))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("Missing");
+        run.setSecretExpiresAt(LocalDateTime.now().minusMinutes(1));
+        when(runRepository.findHeartbeatStateById(run.getId())).thenReturn(Optional.of(heartbeatState(run)));
+        assertThatThrownBy(() -> service.heartbeat(run.getId(), "Bearer " + RUN_SECRET, request))
+                .isInstanceOf(SecurityException.class)
+                .hasMessageContaining("expired");
+        verify(runRepository, never()).findWithProcessorDefinitionByIdForUpdate(anyString());
+    }
+
+    @Test
+    void livenessHeartbeatAfterCoalesceWindowRecordsLivenessWithoutPublishing() {
+        ActionRun run = run(definition("processor-liveness"), project("project-1", WORKSPACE_ID, "Project A"), OWNER_ID,
+                ActionRun.Status.RUNNING, LockMode.NONE, List.of());
+        LocalDateTime previousHeartbeat = LocalDateTime.now().minus(ActionRunService.HEARTBEAT_COALESCE_WINDOW).minusSeconds(1);
+        run.setLastHeartbeatAt(previousHeartbeat);
+        when(runRepository.findHeartbeatStateById(run.getId())).thenReturn(Optional.of(heartbeatState(run)));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ActionDto.HeartbeatResponse response = service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.HeartbeatRequest(null, null, null, null, "running", null));
+
+        assertThat(response.cancelRequested()).isFalse();
+        assertThat(run.getLastHeartbeatAt()).isAfter(previousHeartbeat);
+        verify(runRepository).save(run);
+        verify(realtimePublisher, never()).publishRunUpdated(any());
+    }
+
+    @Test
+    void heartbeatPublishesRunUpdatesOnlyForVisibleChanges() {
+        ActionRun run = run(definition("processor-visible"), project("project-1", WORKSPACE_ID, "Project A"), OWNER_ID,
+                ActionRun.Status.RUNNING, LockMode.NONE, List.of());
+        run.setProgressPercent(40);
+        run.setStatusMessage("Working");
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.HeartbeatRequest(40, "Working", null, null, "running", null));
+        verify(realtimePublisher, never()).publishRunUpdated(any());
+
+        service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.HeartbeatRequest(41, "Working", null, null, "running", null));
+        verify(realtimePublisher, times(1)).publishRunUpdated(run);
+
+        service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.HeartbeatRequest(41, "Working", "Loaded model", "INFO", "running", null));
+        verify(realtimePublisher, times(2)).publishRunUpdated(run);
+
+        service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.HeartbeatRequest(41, "Training", null, null, "running", null));
+        verify(realtimePublisher, times(3)).publishRunUpdated(run);
+    }
+
+    @Test
+    void heartbeatExtendsRunSecretForProjectProcessingRuns() {
+        ActionRun run = run(definition("processor-long-running"), project("project-1", WORKSPACE_ID, "Project A"), OWNER_ID,
+                ActionRun.Status.RUNNING, LockMode.PAGES, List.of("page-1"));
+        run.setSecretExpiresAt(LocalDateTime.now().plusMinutes(5));
+        when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+        when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.heartbeat(run.getId(), "Bearer " + RUN_SECRET,
+                new ActionDto.HeartbeatRequest(10, "Training epoch 1", null, null, "running", null));
+
+        assertThat(run.getKind()).isEqualTo(ActionRun.Kind.PROCESSING);
+        assertThat(run.getSecretExpiresAt()).isAfter(LocalDateTime.now().plusHours(23));
+    }
+
+    @Test
+    void dispatchAdvertisesHeartbeatTimeout() throws Exception {
+        actionProperties.getTimeout().setHeartbeatMinutes(45);
+        AtomicReference<String> body = new AtomicReference<>();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/dispatch", exchange -> {
+            body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            exchange.sendResponseHeaders(202, -1);
+            exchange.close();
+        });
+        server.start();
+        ActionRun run = fileEvaluationRun();
+        try {
+            run.setStatus(ActionRun.Status.DISPATCHING);
+            ActionProcessorDefinition definition = run.getProcessorDefinition();
+            definition.setEndpointUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/dispatch");
+            when(runRepository.findProcessorDefinitionIdById(run.getId())).thenReturn(Optional.of(definition.getId()));
+            when(definitionRepository.findByIdForUpdate(definition.getId())).thenReturn(Optional.of(definition));
+            when(runRepository.findWithProcessorDefinitionByIdForUpdate(run.getId())).thenReturn(Optional.of(run));
+            when(runRepository.findById(run.getId())).thenReturn(Optional.of(run));
+            when(runRepository.save(any(ActionRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(definitionService.readParsedDocument(definition))
+                    .thenReturn(parsedDefinition(definition.getProcessorKey(), "WORKSPACE"));
+            when(endpointAuthService.buildDispatchHeaders(any(), any(), any(), any(), any(), any())).thenReturn(Map.of());
+            doAnswer(invocation -> {
+                org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+                return callback.doInTransaction(transactionStatus);
+            }).when(transactionTemplate).execute(any());
+
+            ReflectionTestUtils.invokeMethod(service, "dispatch", run.getId(), "secret", "http://app/api", 1, 1);
+        } finally {
+            server.stop(0);
+        }
+
+        assertThat(run.getStatus()).isEqualTo(ActionRun.Status.RUNNING);
+        var payload = objectMapper.readTree(body.get());
+        assertThat(payload.get("protocolVersion").asInt()).isEqualTo(1);
+        assertThat(payload.get("heartbeatTimeoutSeconds").asLong()).isEqualTo(2700);
+    }
+
+    private ActionRunRepository.HeartbeatState heartbeatState(ActionRun run) {
+        String secretHash = run.getSecretHash();
+        LocalDateTime secretExpiresAt = run.getSecretExpiresAt();
+        ActionRun.Status status = run.getStatus();
+        LocalDateTime lastHeartbeatAt = run.getLastHeartbeatAt();
+        boolean cancelRequested = run.isCancelRequested();
+        return new ActionRunRepository.HeartbeatState() {
+            @Override
+            public String getSecretHash() {
+                return secretHash;
+            }
+
+            @Override
+            public LocalDateTime getSecretExpiresAt() {
+                return secretExpiresAt;
+            }
+
+            @Override
+            public ActionRun.Status getStatus() {
+                return status;
+            }
+
+            @Override
+            public LocalDateTime getLastHeartbeatAt() {
+                return lastHeartbeatAt;
+            }
+
+            @Override
+            public boolean getCancelRequested() {
+                return cancelRequested;
+            }
+        };
     }
 
     @Test
