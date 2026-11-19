@@ -175,22 +175,21 @@ async function prettyPrintEditorXml() {
   const view = editorView
   const sourceDocument = view.state.doc
   const sourceXml = sourceDocument.toString()
-  const cursorOffset = view.state.selection.main.head
   formatting.value = true
 
   try {
-    const result = await prettyPrintXml(sourceXml, cursorOffset)
+    const formatted = await prettyPrintXml(sourceXml)
     if (editorView !== view || view.state.doc !== sourceDocument) return
-    if (result.formatted === sourceXml) return
+    if (formatted === sourceXml) return
 
     view.dispatch({
       changes: {
         from: 0,
         to: sourceDocument.length,
-        insert: result.formatted
+        insert: formatted
       },
       selection: {
-        anchor: result.cursorOffset
+        anchor: 0
       },
       scrollIntoView: true
     })

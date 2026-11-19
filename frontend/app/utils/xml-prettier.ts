@@ -1,21 +1,20 @@
-import type { CursorOptions } from 'prettier'
-import { formatWithCursor } from 'prettier/standalone'
+import type { Options } from 'prettier'
+import { format } from 'prettier/standalone'
 import xmlPlugin from '@prettier/plugin-xml'
 
-type XmlPrettierOptions = CursorOptions & {
+type XmlPrettierOptions = Options & {
   xmlWhitespaceSensitivity: 'preserve'
 }
 
-export async function prettyPrintXml(xml: string, cursorOffset = 0) {
+export async function prettyPrintXml(xml: string) {
   const options: XmlPrettierOptions = {
     parser: 'xml',
     plugins: [xmlPlugin],
-    cursorOffset,
     tabWidth: 2,
     useTabs: false,
     endOfLine: 'lf',
     xmlWhitespaceSensitivity: 'preserve'
   }
 
-  return formatWithCursor(xml, options)
+  return format(xml, options)
 }
