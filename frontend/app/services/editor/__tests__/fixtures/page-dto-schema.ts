@@ -88,7 +88,7 @@ const FIELDS = {
     rowIndex: true, columnIndex: true, rowSpan: true, colSpan: true, header: true
   } satisfies Fields<TableCellRoleDto>,
   GridDto: { rows: 'GridPointsDto', addPoints: 'GridAddPointsDto' } satisfies Fields<GridDto>,
-  GridAddPointsDto: { row: true, col: true, left: true, top: true } satisfies Fields<GridAddPointsDto>,
+  GridAddPointsDto: { row: true, col: true, left: true, top: true, leftPoints: 'PolygonDto', topPoints: 'PolygonDto' } satisfies Fields<GridAddPointsDto>,
   GridPointsDto: { index: true, points: 'PolygonDto' } satisfies Fields<GridPointsDto>,
   TextLineDto: {
     id: true, coords: 'PolygonDto', baseline: 'PolygonDto', textContentVariants: 'TextContentVariantDto',

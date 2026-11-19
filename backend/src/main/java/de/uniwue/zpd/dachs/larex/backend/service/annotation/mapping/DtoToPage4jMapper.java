@@ -591,6 +591,11 @@ final class DtoToPage4jMappingSession {
         return new TableCellRole(role.rowIndex(), role.columnIndex(), role.rowSpan(), role.colSpan(), role.header());
     }
 
+    private String addPointsText(PolygonDto points, String text) {
+        Polygon polygon = toPolygon(points);
+        return polygon == null ? text : GridPointsText.format(polygon);
+    }
+
     private Grid toGrid(GridDto grid, String context) {
         if (grid == null) {
             return null;
@@ -600,7 +605,11 @@ final class DtoToPage4jMappingSession {
             if (points.row() == null || points.col() == null) {
                 throw new PageDtoMappingException(context + " AddPoints needs row and col");
             }
-            addPoints.add(new GridAddPoints(points.row(), points.col(), points.left(), points.top()));
+            addPoints.add(new GridAddPoints(
+                points.row(),
+                points.col(),
+                addPointsText(points.leftPoints(), points.left()),
+                addPointsText(points.topPoints(), points.top())));
         });
         if (grid.rows() == null || grid.rows().isEmpty()) {
             return addPoints.isEmpty() ? null : new Grid(List.of(), addPoints);

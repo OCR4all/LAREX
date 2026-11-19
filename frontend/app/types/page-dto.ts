@@ -200,6 +200,8 @@ export interface GridAddPointsDto {
   col?: number
   left?: string
   top?: string
+  leftPoints?: PolygonDto
+  topPoints?: PolygonDto
 }
 
 export interface GridDto {

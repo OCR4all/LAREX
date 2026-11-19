@@ -64,7 +64,9 @@ export function convertRegionFromDto(dto: RegionDto): Region {
             row: points.row,
             col: points.col,
             left: freeText(points.left),
-            top: freeText(points.top)
+            top: freeText(points.top),
+            leftPoints: convertPolygonFromDto(points.leftPoints),
+            topPoints: convertPolygonFromDto(points.topPoints)
           }))
         }
       : undefined,
@@ -151,7 +153,9 @@ export function convertRegionToDto(region: Region): RegionDto {
             row: points.row,
             col: points.col,
             left: freeText(points.left),
-            top: freeText(points.top)
+            top: freeText(points.top),
+            leftPoints: convertPolygonToDto(points.leftPoints),
+            topPoints: convertPolygonToDto(points.topPoints)
           }))
         }
       : undefined,

@@ -15,6 +15,7 @@ import com.maxnth.page4j.model.GraphemeElement;
 import com.maxnth.page4j.model.GraphemeGroup;
 import com.maxnth.page4j.model.GraphicRegion;
 import com.maxnth.page4j.model.Grid;
+import com.maxnth.page4j.model.GridAddPoints;
 import com.maxnth.page4j.model.GridPoints;
 import com.maxnth.page4j.model.Group;
 import com.maxnth.page4j.model.GroupMember;
@@ -359,6 +360,18 @@ final class Page4jToDtoMappingSession {
         return new RolesDto(new TableCellRoleDto(role.rowIndex(), role.columnIndex(), role.rowSpan(), role.colSpan(), role.header()));
     }
 
+    private GridAddPointsDto toGridAddPointsDto(GridAddPoints points) {
+        Polygon left = GridPointsText.parse(points.left());
+        Polygon top = GridPointsText.parse(points.top());
+        return new GridAddPointsDto(
+            points.row(),
+            points.col(),
+            left == null ? points.left() : null,
+            top == null ? points.top() : null,
+            left == null ? null : toPolygonDto(left),
+            top == null ? null : toPolygonDto(top));
+    }
+
     private GridDto toGridDto(Grid grid) {
         if (grid == null) {
             return null;
@@ -367,8 +380,7 @@ final class Page4jToDtoMappingSession {
         for (GridPoints row : grid.gridPoints()) {
             rows.add(new GridPointsDto(row.index(), toPolygonDto(row.points())));
         }
-        List<GridAddPointsDto> addPoints = list(grid.addPoints(),
-            points -> new GridAddPointsDto(points.row(), points.col(), points.left(), points.top()));
+        List<GridAddPointsDto> addPoints = list(grid.addPoints(), this::toGridAddPointsDto);
         return rows.isEmpty() && addPoints == null ? null : new GridDto(rows, addPoints);
     }
 

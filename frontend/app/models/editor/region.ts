@@ -227,6 +227,8 @@ export interface GridAddPoints {
   col?: number
   left?: string
   top?: string
+  leftPoints?: Polygon
+  topPoints?: Polygon
 }
 
 export interface Grid {

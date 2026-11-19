@@ -293,8 +293,8 @@ const tableRegion: RegionDto = {
       { index: 1, points: { points: [[0.2, 0.1], [0.4, 0.1], [0.6, 0.1]] } }
     ],
     addPoints: [
-      { row: 0, col: 1, left: '495,1000', top: '700,905 710,905' },
-      { row: 1, col: 0, top: 'free text' }
+      { row: 0, col: 1, leftPoints: { points: [[0.25, 0.4]] }, topPoints: { points: [[0.35, 0.18], [0.36, 0.18]] } },
+      { row: 1, col: 0, left: 'text', top: 'free text' }
     ]
   },
   nestedRegions: [tableCell]
