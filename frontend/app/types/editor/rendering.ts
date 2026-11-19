@@ -165,6 +165,7 @@ export interface WebGLRenderState {
   bufferPreview?: {
     polygonId: string
     points: Point[]
+    lines?: Point[][]
   }
 
   confidenceHeatmap?: ConfidenceHeatmapSettings

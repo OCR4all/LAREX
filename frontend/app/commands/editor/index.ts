@@ -80,3 +80,7 @@ export {
 } from './utils'
 
 export { ConstrainToParentCommand } from './constrain-to-parent-command'
+
+export { CreateTableGridCommand, type CreateTableGridCommandData } from './create-table-grid-command'
+export { BuildTableFromRegionsCommand, type BuildTableFromRegionsCommandData } from './build-table-from-regions-command'
+export { AssignTextLinesToCellsCommand, type AssignTextLinesToCellsCommandData } from './assign-text-lines-to-cells-command'

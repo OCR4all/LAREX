@@ -9,7 +9,7 @@ import { useEditorCanvasCollaborationDisplay } from '@/composables/editor/use-ed
 import { useEditorFollowMode } from '@/composables/editor/use-editor-follow-mode'
 import { useEditorSelectionSync } from '@/composables/editor/use-editor-selection-sync'
 import { CORRECTION_FONT_MAX, CORRECTION_FONT_MIN, useCanvasTextCorrection } from '@/composables/editor/use-canvas-text-correction'
-import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
+import type { ContextMenuItem as EditorContextMenuItem, TableGridOptions } from '@/composables/editor/use-editor-command'
 import { normalizeRelation } from '@/utils/editor/relations'
 import { getEditorSession, useEditorSession, usePageVisibilityState } from '@/session/editor/editor-session'
 import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
@@ -466,7 +466,10 @@ const aspectRatioScale = computed(() => {
 const pendingCreatedRegionTypeMenuId = ref<string | null>(null)
 
 function handleRegionCreated(regionId: string, event: MouseEvent): void {
-  if (!openRegionTypeMenuOnCreate.value) return
+  if (!openRegionTypeMenuOnCreate.value) {
+    void nextTick().then(() => editorCommands.openTableGridForNewTable(regionId))
+    return
+  }
 
   const clientX = event.clientX
   const clientY = event.clientY
@@ -709,6 +712,16 @@ const bufferSlideoverRef = ref<{ previewPoints: { x: number, y: number }[] | nul
 const bufferPreviewPoints = computed(() => bufferSlideoverRef.value?.previewPoints ?? null)
 const bufferPreviewPolygonId = computed(() => editorCommands.pendingBufferPolygon.value?.id ?? null)
 
+const tableGridSlideoverRef = ref<{ previewLines: { x: number, y: number }[][] | null } | null>(null)
+
+function handleTableGridClose(result: TableGridOptions | null) {
+  if (result) {
+    editorCommands.applyTableGrid(result)
+  } else {
+    editorCommands.cancelTableGrid()
+  }
+}
+
 const propertiesTarget = computed(() => editorCommands.pendingPropertiesTarget.value)
 const propertiesInReadingOrder = computed(() => {
   const target = propertiesTarget.value
@@ -932,6 +945,9 @@ watch(isCanvasWritable, (writable) => {
 })
 
 const bufferPreviewForRenderer = computed(() => {
+  const tableGrid = editorCommands.pendingTableGrid.value
+  const lines = tableGridSlideoverRef.value?.previewLines
+  if (tableGrid && lines) return { polygonId: tableGrid.polygon.id, points: [], lines }
   const polygonId = bufferPreviewPolygonId.value
   const points = bufferPreviewPoints.value
   if (!polygonId || !points) return null
@@ -3317,6 +3333,15 @@ watch([() => props.src, () => canvasState.value?.originalImage], ([newSrc], [old
         :constrain-to-image="constrainToImage"
         :constrain-to-parent="constrainToParent"
         @close="handleBufferClose"
+      />
+
+      <LazyEditorSlideoverTableGrid
+        v-if="editorCommands.pendingTableGrid.value"
+        :key="editorCommands.pendingTableGrid.value.polygon.id"
+        ref="tableGridSlideoverRef"
+        :polygon="editorCommands.pendingTableGrid.value.polygon"
+        :text-line-count="editorCommands.pendingTableGrid.value.textLineCount"
+        @close="handleTableGridClose"
       />
 
       <LazyEditorSlideoverProperties

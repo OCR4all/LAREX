@@ -1,12 +1,12 @@
 import type { Commander } from '@/commands'
 import type { CommandContext } from '@/commands/editor/types'
-import { ConstrainToParentCommand, DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand, CompoundCommand } from '@/commands'
+import { ConstrainToParentCommand, DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand, CompoundCommand, CreateTableGridCommand, BuildTableFromRegionsCommand, AssignTextLinesToCellsCommand } from '@/commands'
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { ActionTargetSelection } from '@/types/action'
-import type { ReadingOrder, ReadingOrderNode, ReadingOrderGroup, RegionRef, RegionKind } from '@/models/editor'
-import { ALL_REGION_KINDS, ALL_TEXT_REGION_SUBTYPES, ALL_GRAPHIC_REGION_SUBTYPES, ALL_CHART_REGION_SUBTYPES, canContainTextLines, PolygonType } from '@/models/editor'
+import type { ReadingOrder, ReadingOrderNode, ReadingOrderGroup, Region, RegionRef, RegionKind } from '@/models/editor'
+import { ALL_REGION_KINDS, ALL_TEXT_REGION_SUBTYPES, ALL_GRAPHIC_REGION_SUBTYPES, ALL_CHART_REGION_SUBTYPES, canContainTextLines, isTextRegion, PolygonType } from '@/models/editor'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import type { LabelDefinition } from '@/models/editor/labels'
 import { getRegionKindDisplayName, getRegionKindIcon } from '@/utils/editor/region-colors'
@@ -14,7 +14,8 @@ import { clearLarexRegionLabelMetadata, findRegionLabelDefinitionForRegion, reso
 import { createScopedLogger } from '@/services/editor/logger-service'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
-import { toPolygonElementType, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
+import { findRegionRecursive, toPolygonElementType, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
+import { readTableCells } from '@/utils/editor/table/table-model'
 import { isPageFrameType } from '@/utils/editor/page-frame'
 
 const log = createScopedLogger('EditorCommand')
@@ -69,6 +70,18 @@ export interface ContextMenuTarget {
   type: ContextMenuTargetType
   element: RenderablePolygon | RenderablePolyline | null
   selection?: ContextMenuSelection
+}
+
+export interface TableGridOptions {
+  rows: number
+  columns: number
+  headerRows: number
+  moveTextLines: boolean
+}
+
+export interface PendingTableGrid {
+  polygon: RenderablePolygon
+  textLineCount: number
 }
 
 export interface ContextMenuState {
@@ -344,6 +357,83 @@ export function useEditorCommand(
     pendingBufferPolygon.value = null
   }
 
+  const pendingTableGrid = ref<PendingTableGrid | null>(null)
+
+  function findSessionRegion(regionId: string): Region | undefined {
+    const regions = getEditorSession(canvasId)?.document.value?.page?.regions
+    return regions ? findRegionRecursive(regions, regionId)?.region : undefined
+  }
+
+  function tableCellCount(regionId: string): number {
+    const region = findSessionRegion(regionId)
+    return region?.kind === 'TableRegion' ? readTableCells(region).length : 0
+  }
+
+  function openTableGrid(regionId: string, polygon?: RenderablePolygon): void {
+    const region = findSessionRegion(regionId)
+    const target = polygon ?? polygons.find(p => p.id === regionId)
+    if (!region || !target || tableCellCount(regionId) > 0) return
+    pendingTableGrid.value = {
+      polygon: target,
+      textLineCount: isTextRegion(region) ? region.textLines?.length ?? 0 : 0
+    }
+  }
+
+  function openTableGridForNewTable(regionId: string): void {
+    if (findSessionRegion(regionId)?.kind === 'TableRegion') openTableGrid(regionId)
+  }
+
+  function showTableError(title: string, error: unknown): void {
+    useToast().add({
+      title,
+      description: error instanceof Error ? error.message : undefined,
+      color: 'error'
+    })
+  }
+
+  function applyTableGrid(options: TableGridOptions): void {
+    const pending = pendingTableGrid.value
+    if (!pending) return
+    pendingTableGrid.value = null
+    try {
+      commander.execute(new CreateTableGridCommand({ regionId: pending.polygon.id, ...options }), getCommandContext())
+    } catch (error) {
+      showTableError('Could not create table grid', error)
+    }
+  }
+
+  function cancelTableGrid(): void {
+    pendingTableGrid.value = null
+  }
+
+  function canBuildTableFromSelection(polygonsInSelection: RenderablePolygon[]): boolean {
+    if (polygonsInSelection.length < 2) return false
+    if (polygonsInSelection.some(p => p.type !== PolygonType.REGION || p.regionKind === 'TableRegion')) return false
+    return new Set(polygonsInSelection.map(p => p.parentId ?? null)).size === 1
+  }
+
+  function buildTableFromSelection(selection: ContextMenuSelection): void {
+    try {
+      const result = commander.execute(new BuildTableFromRegionsCommand({ regionIds: selection.polygonIds }), getCommandContext())
+      if (result) {
+        clearSelectionRefs()
+        clearHoverAndSelectionCallback()
+      }
+    } catch (error) {
+      showTableError('Could not build table', error)
+    }
+  }
+
+  function assignTextLinesToCells(tableId: string): void {
+    const { moved } = commander.execute(new AssignTextLinesToCellsCommand({ tableId }), getCommandContext())
+    useToast().add({
+      title: moved > 0
+        ? `Moved ${moved} text line${moved === 1 ? '' : 's'} into table cells`
+        : 'All text lines are already in their cells',
+      color: moved > 0 ? 'success' : 'neutral'
+    })
+  }
+
   function closeProperties(): void {
     pendingPropertiesTarget.value = null
   }
@@ -599,6 +689,14 @@ export function useEditorCommand(
         submenu: regionTypeSubmenu
       })
 
+      if (canBuildTableFromSelection(selectedPolygons)) {
+        menuItems.push({
+          id: 'build-table-from-selection',
+          label: 'Build Table from Selection',
+          icon: 'i-lucide-table'
+        })
+      }
+
       const session = getEditorSession(canvasId)
       const readingOrder = session?.document.value?.page?.readingOrder
       const selectedRegionIds = selectedPolygons.map(p => p.id)
@@ -682,6 +780,15 @@ export function useEditorCommand(
     contextMenuVisible.value = true
   }
 
+  function tableMenuItems(polygon: RenderablePolygon): ContextMenuItem[] {
+    if (polygon.regionKind !== 'TableRegion') {
+      return polygon.tableCell ? [] : [{ id: 'convert-to-table', label: 'Convert to Table...', icon: 'i-lucide-table' }]
+    }
+    return tableCellCount(polygon.id) === 0
+      ? [{ id: 'create-table-grid', label: 'Create Table Grid...', icon: 'i-lucide-grid-3x3' }]
+      : [{ id: 'assign-lines-to-cells', label: 'Assign Text Lines to Cells', icon: 'i-lucide-table-properties' }]
+  }
+
   /**
    * Show context menu for a polygon at the given screen position
    */
@@ -720,6 +827,7 @@ export function useEditorCommand(
         label: polygon.comments?.trim() ? 'Edit comment' : 'Add comment',
         icon: 'i-lucide-message-square'
       })
+      menuItems.push(...tableMenuItems(polygon))
     }
 
     const session = getEditorSession(canvasId)
@@ -1102,6 +1210,9 @@ export function useEditorCommand(
         case 'merge-selection':
           await mergeSelection(selection)
           break
+        case 'build-table-from-selection':
+          buildTableFromSelection(selection)
+          break
         case 'add-selection-to-reading-order':
           updateSelectionReadingOrder(selection, 'add')
           break
@@ -1172,6 +1283,7 @@ export function useEditorCommand(
       }
 
       commander.execute(changeKindCommand, commandCtx)
+      if (newKind === 'TableRegion' && polygon.regionKind !== 'TableRegion') openTableGrid(polygon.id, polygon)
       return
     }
 
@@ -1202,6 +1314,7 @@ export function useEditorCommand(
         }
 
         commander.execute(changeKindCommand, commandCtx)
+        if (parsed.newKind === 'TableRegion' && polygon.regionKind !== 'TableRegion') openTableGrid(polygon.id, polygon)
       }
       return
     }
@@ -1301,6 +1414,13 @@ export function useEditorCommand(
         if (target.type === 'polygon') {
           pendingBufferPolygon.value = target.element as RenderablePolygon
         }
+        break
+      case 'convert-to-table':
+      case 'create-table-grid':
+        if (target.type === 'polygon') openTableGrid(target.element!.id, target.element as RenderablePolygon)
+        break
+      case 'assign-lines-to-cells':
+        if (target.type === 'polygon') assignTextLinesToCells(target.element!.id)
         break
     }
   }
@@ -1497,6 +1617,12 @@ export function useEditorCommand(
     pendingBufferPolygon,
     applyBuffer,
     cancelBuffer,
+
+    pendingTableGrid,
+    openTableGrid,
+    openTableGridForNewTable,
+    applyTableGrid,
+    cancelTableGrid,
 
     pendingPropertiesTarget,
     closeProperties,

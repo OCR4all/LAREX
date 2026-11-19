@@ -91,7 +91,7 @@ export function useEditorRenderer(
   isCutPolygonMode?: Ref<boolean>,
   isCutRectangleMode?: Ref<boolean>,
   moveInteraction?: { isMoving: () => boolean, state: { isInvalid: boolean, elementId: string | null } },
-  bufferPreview?: Ref<{ polygonId: string, points: Point[] } | null>,
+  bufferPreview?: Ref<{ polygonId: string, points: Point[], lines?: Point[][] } | null>,
   actionProcessingTargets?: Ref<ActionProcessingRenderTarget | null>,
   diffHighlights?: Ref<WebGLRenderState['diffHighlights'] | undefined>,
   labelConflictIds?: Ref<string[]>,

@@ -1115,24 +1115,20 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   ): void {
     if (!renderState.bufferPreview || !fillRenderer || !thickLineRenderer) return
 
-    const { points } = renderState.bufferPreview
-    if (points.length < 3) return
-
+    const { points, lines } = renderState.bufferPreview
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
 
-    const triangleIndices = triangulatePolygon(points)
-    if (triangleIndices.length >= 3) {
-      fillRenderer.drawFill(points, triangleIndices, [0.2, 0.6, 1.0, 0.3], scale, view)
+    if (points.length >= 3) {
+      const triangleIndices = triangulatePolygon(points)
+      if (triangleIndices.length >= 3) {
+        fillRenderer.drawFill(points, triangleIndices, [0.2, 0.6, 1.0, 0.3], scale, view)
+      }
+      thickLineRenderer.drawThickLine(points, [0.2, 0.6, 1.0, 1.0], 2.0, true, scale, view)
     }
 
-    thickLineRenderer.drawThickLine(
-      points,
-      [0.2, 0.6, 1.0, 1.0],
-      2.0,
-      true,
-      scale,
-      view
-    )
+    for (const line of lines ?? []) {
+      if (line.length >= 2) thickLineRenderer.drawThickLine(line, [0.2, 0.6, 1.0, 1.0], 2.0, false, scale, view)
+    }
   }
 
   function drawActionProcessingTargets(

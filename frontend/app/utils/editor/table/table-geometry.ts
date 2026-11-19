@@ -29,7 +29,7 @@ export function interpolateGrid(
       const u = c / columns
       const x = (1 - u) * (1 - v) * topLeft[0] + u * (1 - v) * topRight[0] + u * v * bottomRight[0] + (1 - u) * v * bottomLeft[0]
       const y = (1 - u) * (1 - v) * topLeft[1] + u * (1 - v) * topRight[1] + u * v * bottomRight[1] + (1 - u) * v * bottomLeft[1]
-      line.push([Math.round(x), Math.round(y)])
+      line.push([x, y])
     }
     grid.push(line)
   }
