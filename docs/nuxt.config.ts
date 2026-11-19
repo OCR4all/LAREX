@@ -21,6 +21,10 @@ export default defineNuxtConfig({
     }
   },
 
+  routeRules: {
+    '/actions/processor-sdk': { redirect: { to: '/actions/processor-sdk/overview', statusCode: 301 } }
+  },
+
   compatibilityDate: '2025-07-22',
 
   vite: {

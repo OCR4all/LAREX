@@ -27,7 +27,7 @@ The repository's CI runs the same build. The generated site is in `.output/`. Co
 | --- | --- |
 | `content/01.getting-started/` | Orientation, first-project tutorial, concepts, and installation entry point. |
 | `content/02.user-guide/` | Product workflows, toolkit, and in-app administration. |
-| `content/03.actions/` | Action execution, authoring, contracts, security, and purpose-specific guides. |
+| `content/03.actions/` | Action execution, authoring, contracts, security, and purpose-specific guides. `05.processor-sdk/` is the Python SDK guide; the SDK repository's README links here instead of duplicating it. |
 | `content/04.deployment/` | Production setup, configuration, and operation. |
 | `content/05.development/` | Contributor environment and commands. |
 | `content/06.troubleshooting/` | Technical diagnosis for operators and developers. |
