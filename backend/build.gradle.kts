@@ -1,7 +1,7 @@
 plugins {
 	java
 	jacoco
-	id("org.springframework.boot") version "4.0.9"
+	id("org.springframework.boot") version "4.1.2"
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -22,7 +22,7 @@ repositories {
 	}
 }
 
-val pageAudit: SourceSet by sourceSets.creating {
+val pageAudit: SourceSet = sourceSets.create("pageAudit") {
 	compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
 	runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output
 }
@@ -30,11 +30,9 @@ val pageAudit: SourceSet by sourceSets.creating {
 configurations[pageAudit.implementationConfigurationName].extendsFrom(configurations.implementation.get())
 configurations[pageAudit.runtimeOnlyConfigurationName].extendsFrom(configurations.runtimeOnly.get())
 
-extra["httpcore5.version"] = "5.4.4"
-
 dependencies {
 	implementation("com.maxnth:page4j:1.0.0-20261115.200710-2")
-	implementation("com.github.ben-manes.caffeine:caffeine:3.2.3")
+	implementation("com.github.ben-manes.caffeine:caffeine:3.3.1")
 
 	implementation("org.springframework.boot:spring-boot-starter-cache")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -47,27 +45,25 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-websocket")
 	implementation("tools.jackson.dataformat:jackson-dataformat-yaml")
-    implementation("org.keycloak:keycloak-admin-client:26.0.12")
+    implementation("org.keycloak:keycloak-admin-client:26.0.13")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-	implementation("net.coobird:thumbnailator:0.4.20")
-	implementation("com.twelvemonkeys.imageio:imageio-webp:3.13.1")
+	implementation("net.coobird:thumbnailator:0.4.21")
+	implementation("com.twelvemonkeys.imageio:imageio-webp:3.15.3")
 	implementation("com.lopcode.vips-ffm:vips-ffm-core:1.11.1")
-	implementation("org.apache.pdfbox:pdfbox:3.0.3")
-	implementation("org.apache.pdfbox:xmpbox:3.0.3")
-	implementation("org.apache.poi:poi-ooxml:5.4.1")
-	implementation("net.sf.saxon:Saxon-HE:12.5")
+	implementation("org.apache.pdfbox:pdfbox:3.0.8")
+	implementation("org.apache.pdfbox:xmpbox:3.0.8")
+	implementation("org.apache.poi:poi-ooxml:5.5.1")
+	implementation("net.sf.saxon:Saxon-HE:12.10")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
 	runtimeOnly("org.flywaydb:flyway-database-postgresql")
 	runtimeOnly("org.postgresql:postgresql")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.springframework.boot:spring-boot-testcontainers")
-	testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
-	testImplementation("com.tngtech.archunit:archunit-junit5:1.4.2")
+	testImplementation("com.tngtech.archunit:archunit-junit5:1.5.1")
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 	testImplementation("org.testcontainers:testcontainers-postgresql")
-	testImplementation("com.github.dasniko:testcontainers-keycloak:3.4.0")
 	annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
@@ -91,7 +87,7 @@ tasks.withType<Test> {
 }
 
 jacoco {
-	toolVersion = "0.8.14"
+	toolVersion = "0.8.16"
 }
 
 tasks.jacocoTestReport {

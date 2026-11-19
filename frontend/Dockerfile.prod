@@ -1,6 +1,6 @@
-FROM ghcr.io/pnpm/pnpm:11.1.1@sha256:18bcf6373f2ca9b74f13d939951f02b4514ec10a6f548fec8cfe28eb02cc4b4f AS base
+FROM ghcr.io/pnpm/pnpm:11.28.11@sha256:c275f6692ae80eef331789698ddfa534153301a909c6a4eb80c5022bda03a4a3 AS base
 
-RUN pnpm runtime set node 22.23.4 -g
+RUN pnpm runtime set node 22.23.5 -g
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ COPY . .
 ARG VERSION
 RUN NUXT_PUBLIC_APP_VERSION="$VERSION" NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}" pnpm build
 
-FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS runner
+FROM node:22.23.5-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a AS runner
 
 RUN apk upgrade --no-cache \
     && rm -rf /usr/local/lib/node_modules /opt/yarn-* \

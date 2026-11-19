@@ -57,7 +57,7 @@ class UserServiceKeycloakIntegrationTest {
     private static final String SERVICE_CLIENT_SECRET = "it-secret";
 
     @Container
-    private static final GenericContainer<?> KEYCLOAK = new GenericContainer<>("quay.io/keycloak/keycloak:26.8.2-0")
+    private static final GenericContainer<?> KEYCLOAK = new GenericContainer<>("quay.io/keycloak/keycloak:26.8.2-3")
             .withEnv("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")
             .withEnv("KC_BOOTSTRAP_ADMIN_PASSWORD", "admin")
             .withCommand("start-dev")

@@ -40,7 +40,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:18.7-alpine
         env:
           POSTGRES_USER: larex_user
           POSTGRES_PASSWORD: larex_password
