@@ -45,6 +45,17 @@ function imageTypeLabel(type: ImageType | null | undefined) {
   return imageTypeLabels[type ?? 'UNKNOWN']
 }
 
+const imageTypeOrder: Record<ImageType, number> = {
+  COLOR: 0,
+  GRAYSCALE: 1,
+  BINARY: 2,
+  UNKNOWN: 3
+}
+
+function sortByImageType(images: PageImage[]) {
+  return [...images].sort((a, b) => imageTypeOrder[a.imageType ?? 'UNKNOWN'] - imageTypeOrder[b.imageType ?? 'UNKNOWN'])
+}
+
 const props = defineProps<Props>()
 const emit = defineEmits<{ close: [boolean] }>()
 const attrs = useAttrs()
@@ -455,9 +466,9 @@ async function fetchPageImages() {
   exitSelectionMode()
 
   try {
-    const response = await $fetch<PageImage[]>(
+    const response = sortByImageType(await $fetch<PageImage[]>(
       `/api/projects/${props.projectId}/pages/${page.id}/images`
-    )
+    ))
     if (requestId !== pageImageRequestId) return
     pageImages.value = response
     imageStates.value = {}
