@@ -4,7 +4,7 @@ import type { Region, TextLine, TextRegion } from '@/models/editor'
 import { findRegionRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { assignToShapes, centroid } from '@/utils/editor/table/table-builder'
 import { isPointInPolygon } from '@/utils/editor/hit-detection'
-import { commitDocument, shapePoints } from './table-command-utils'
+import { commitDocument, compareLinesTopToBottom, shapePoints } from './table-command-utils'
 
 export interface AssignTextLinesToCellsCommandData {
   tableId: string
@@ -26,12 +26,6 @@ function collectOutsideLines(regions: Region[], outline: { x: number, y: number 
     }
     collectOutsideLines(region.regions ?? [], outline, out)
   }
-}
-
-function topToBottom(a: TextLine, b: TextLine): number {
-  const [ax, ay] = centroid(shapePoints(a))
-  const [bx, by] = centroid(shapePoints(b))
-  return by - ay || ax - bx
 }
 
 export class AssignTextLinesToCellsCommand implements Command<{ moved: number }> {
@@ -85,7 +79,7 @@ export class AssignTextLinesToCellsCommand implements Command<{ moved: number }>
       target.textLines = [...(target.textLines ?? []), line]
       receivers.add(target)
     }
-    for (const cell of receivers) cell.textLines = [...cell.textLines!].sort(topToBottom)
+    for (const cell of receivers) cell.textLines = [...cell.textLines!].sort(compareLinesTopToBottom)
 
     commitDocument(session, pcGts)
     return { moved: moving.length }

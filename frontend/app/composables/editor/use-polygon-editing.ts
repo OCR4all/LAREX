@@ -1,6 +1,6 @@
 import type { UnwrapNestedRefs } from 'vue'
 import type { Commander } from '@/commands'
-import { ConstrainToParentCommand, UpdatePolygonCommand } from '@/commands'
+import { ConstrainToParentCommand, TableGridPointCommand, UpdatePolygonCommand } from '@/commands'
 import type { Point, View, AspectRatioScale, ImageSize } from '@/models/editor'
 import type { RenderablePolygon } from '@/types/editor/rendering'
 import { normalizeLayoutViewMode } from '@/services/editor/visibility-service'
@@ -17,6 +17,9 @@ import {
 } from '@/utils/editor/hit-detection'
 import { clampToWorldBounds, getImageBounds } from '@/utils/editor/coordinates'
 import { areAllPointsWithinParentBounds } from '@/utils/editor/parent-constraint-utils'
+import { findRegionRecursive } from '@/utils/editor/pcgts-editor-primitives'
+import { buildTableModel } from '@/utils/editor/table/table-model'
+import { gridHasPoint, insertGridAddPoint } from '@/utils/editor/table/table-structure'
 
 export interface HoveredEdgeInfo {
   polygonIndex: number
@@ -38,6 +41,14 @@ export interface PolygonDraggedNodeInfo {
 export interface DragOriginalPosition {
   polygonId: string
   originalPoints: Point[]
+}
+
+interface LinkedTableDrag {
+  tableId: string
+  from: Point
+  inserted: boolean
+  nodes: { points: Point[], index: number }[]
+  originals: { points: Point[], original: Point[] }[]
 }
 
 /**
@@ -94,6 +105,27 @@ export function usePolygonEditing(
     resetEdgeHover()
   }
 
+  function deleteTableGridNodes(polygon: RenderablePolygon, nodeIndices: number[]): boolean {
+    const tableId = tableIdOf(polygon)
+    const model = tableId ? gridTableModel(tableId) : undefined
+    if (!tableId || !model) return false
+    const points = nodeIndices.map(index => polygon.points[index]).filter((point): point is Point => !!point)
+    if (points.length === 0 || !points.every(point => gridHasPoint(model, [point.x, point.y]))) return false
+    try {
+      commander.execute(new TableGridPointCommand({ tableId, edit: { kind: 'remove', points } }), getCommandContext())
+      clearNodeSelection()
+      hoveredNodeIndex.value = -1
+      resetEdgeHover()
+    } catch (error) {
+      useToast().add({
+        title: 'Cannot delete selected nodes',
+        description: error instanceof Error ? error.message : undefined,
+        color: 'warning'
+      })
+    }
+    return true
+  }
+
   /** Returns true even when deletion is blocked, so Delete never falls through to the polygon. */
   function deleteSelectedNodes(selectedPolygonIndex: number): boolean {
     const selection = selectedNodes.value
@@ -103,6 +135,7 @@ export function usePolygonEditing(
     if (draggedNodeInfo.isDragging) return true
 
     const selectedIndices = new Set(selection.nodeIndices)
+    if (deleteTableGridNodes(polygon, selection.nodeIndices)) return true
     const points = polygon.points.filter((_, index) => !selectedIndices.has(index))
     let deletionError: string | null = null
     if (points.length < 3) {
@@ -143,6 +176,83 @@ export function usePolygonEditing(
 
   const isInvalidPosition = ref<boolean>(false)
   let blockedByParentBounds = false
+  let linkedTableDrag: LinkedTableDrag | null = null
+
+  function tableIdOf(polygon: RenderablePolygon): string | undefined {
+    return polygon.tableCell?.tableId ?? (polygon.regionKind === 'TableRegion' ? polygon.id : undefined)
+  }
+
+  function gridTableModel(tableId: string) {
+    const regions = getEditorSession(canvasId)?.document.value?.page?.regions
+    const table = regions ? findRegionRecursive(regions, tableId)?.region : undefined
+    return table?.kind === 'TableRegion' ? buildTableModel(table) : undefined
+  }
+
+  function linkedTablePointLists(tableId: string): Point[][] {
+    return polygons
+      .filter(candidate => candidate.id === tableId || candidate.tableCell?.tableId === tableId)
+      .flatMap(candidate => [candidate.points, ...(candidate.tableGridLines ?? [])])
+  }
+
+  function isOnSegment(point: Point, from: Point, to: Point): boolean {
+    const dx = to.x - from.x
+    const dy = to.y - from.y
+    const lengthSquared = dx * dx + dy * dy
+    if (lengthSquared === 0) return false
+    const t = ((point.x - from.x) * dx + (point.y - from.y) * dy) / lengthSquared
+    if (t <= 0 || t >= 1) return false
+    return Math.hypot(from.x + dx * t - point.x, from.y + dy * t - point.y) <= 1e-6
+  }
+
+  function findLinkedTableDrag(polygon: RenderablePolygon, nodeIndex: number): LinkedTableDrag | null {
+    const tableId = tableIdOf(polygon)
+    const dragged = polygon.points[nodeIndex]
+    if (!tableId || !dragged) return null
+    const model = gridTableModel(tableId)
+    if (!model || !gridHasPoint(model, [dragged.x, dragged.y])) return null
+
+    const from = { ...dragged }
+    const same = (point: Point) => Math.abs(point.x - from.x) <= 1e-9 && Math.abs(point.y - from.y) <= 1e-9
+    const drag: LinkedTableDrag = { tableId, from, inserted: false, nodes: [], originals: [] }
+    for (const points of linkedTablePointLists(tableId)) {
+      points.forEach((point, index) => {
+        if (same(point) && !(points === polygon.points && index === nodeIndex)) drag.nodes.push({ points, index })
+      })
+    }
+    return drag
+  }
+
+  function startTableInsertion(polygon: RenderablePolygon, insertIndex: number, at: Point): LinkedTableDrag | null {
+    const tableId = tableIdOf(polygon)
+    if (!tableId) return null
+    const model = gridTableModel(tableId)
+    if (!model || !insertGridAddPoint(model, [at.x, at.y], [at.x, at.y])) return null
+
+    const drag: LinkedTableDrag = { tableId, from: { ...at }, inserted: true, nodes: [], originals: [] }
+    for (const points of linkedTablePointLists(tableId)) {
+      if (points === polygon.points) continue
+      const closed = polygons.some(candidate => candidate.points === points)
+      const edgeCount = closed ? points.length : points.length - 1
+      for (let index = 0; index < edgeCount; index++) {
+        if (!isOnSegment(at, points[index]!, points[(index + 1) % points.length]!)) continue
+        drag.originals.push({ points, original: [...points] })
+        points.splice(index + 1, 0, { ...at })
+        drag.nodes.push({ points, index: index + 1 })
+        break
+      }
+    }
+    polygon.points.splice(insertIndex, 0, { ...at })
+    return drag
+  }
+
+  function restoreLinkedTableNodes(drag: LinkedTableDrag): void {
+    for (const node of drag.nodes) node.points[node.index] = { ...drag.from }
+    for (const { points, original } of drag.originals) points.splice(0, points.length, ...original)
+  }
+
+  function moveLinkedTableNodes(point: Point): void {
+    for (const node of linkedTableDrag?.nodes ?? []) node.points[node.index] = { ...point }
+  }
 
   // Geometry replacements (including undo/redo) invalidate node indices.
   watch(() => {
@@ -259,6 +369,7 @@ export function usePolygonEditing(
           draggedNodeInfo.polygonIndex = selectedPolygonIndex.value
           draggedNodeInfo.nodeIndex = nodeIndex
           draggedNodeInfo.isDragging = true
+          linkedTableDrag = findLinkedTableDrag(polygon, nodeIndex)
           return true
         }
       }
@@ -270,6 +381,18 @@ export function usePolygonEditing(
 
       if (polyIndex >= 0 && polyIndex < polygons.length) {
         const polygon = polygons[polyIndex]
+        const tablePoint: Point = { x: previewNodePosition.x ?? 0, y: previewNodePosition.y ?? 0 }
+        const originalPoints = polygon ? [...polygon.points] : []
+        const tableInsertion = polygon ? startTableInsertion(polygon, edgeStartIndex + 1, tablePoint) : null
+        if (polygon && tableInsertion) {
+          linkedTableDrag = tableInsertion
+          selectedNodes.value = { polygonId: polygon.id, nodeIndices: [edgeStartIndex + 1] }
+          draggedNodeInfo.polygonIndex = polyIndex
+          draggedNodeInfo.nodeIndex = edgeStartIndex + 1
+          draggedNodeInfo.isDragging = true
+          dragOriginalPosition.value = { polygonId: polygon.id, originalPoints }
+          return true
+        }
         if (polygon) {
           const newPoints = [...polygon.points]
           const insertIndex = edgeStartIndex + 1
@@ -328,7 +451,7 @@ export function usePolygonEditing(
       isInvalidPosition.value = wouldIntersect
 
       let violatesParentConstraints = false
-      if (constrainToParent?.value && !wouldIntersect) {
+      if (constrainToParent?.value && !wouldIntersect && polygon.parentId !== linkedTableDrag?.tableId) {
         if (polygon.parentId) {
           const parentPolygon = polygons.find(p => p.id === polygon.parentId)
 
@@ -348,6 +471,7 @@ export function usePolygonEditing(
 
       if (!wouldIntersect && !violatesParentConstraints) {
         polygon.points[nodeIndex] = { ...constrainedPoint }
+        moveLinkedTableNodes(constrainedPoint)
       }
     }
 
@@ -398,7 +522,22 @@ export function usePolygonEditing(
         })
       }
       blockedByParentBounds = false
-      if (dragOriginalPosition.value && !isInvalidPosition.value) {
+      const tableDrag = linkedTableDrag
+      linkedTableDrag = null
+      if (tableDrag && dragOriginalPosition.value) {
+        const polygon = polygons[draggedNodeInfo.polygonIndex]
+        const dropped = polygon?.points[draggedNodeInfo.nodeIndex]
+        const to = dropped && !isInvalidPosition.value ? { ...dropped } : { ...tableDrag.from }
+        restoreLinkedTableNodes(tableDrag)
+        if (polygon) polygon.points = [...dragOriginalPosition.value.originalPoints]
+        const moved = to.x !== tableDrag.from.x || to.y !== tableDrag.from.y
+        if (tableDrag.inserted || moved) {
+          const edit = tableDrag.inserted
+            ? { kind: 'insert' as const, at: tableDrag.from, to }
+            : { kind: 'move' as const, from: tableDrag.from, to }
+          commander.execute(new TableGridPointCommand({ tableId: tableDrag.tableId, edit }), getCommandContext())
+        }
+      } else if (dragOriginalPosition.value && !isInvalidPosition.value) {
         const polygon = polygons[draggedNodeInfo.polygonIndex]
         if (polygon && polygon.points.some((point, index) => {
           const original = dragOriginalPosition.value?.originalPoints[index]
@@ -435,6 +574,10 @@ export function usePolygonEditing(
       if (polygon) {
         polygon.points = dragOriginalPosition.value.originalPoints.map(point => ({ ...point }))
       }
+    }
+    if (linkedTableDrag) {
+      restoreLinkedTableNodes(linkedTableDrag)
+      linkedTableDrag = null
     }
 
     hoveredNodeIndex.value = -1

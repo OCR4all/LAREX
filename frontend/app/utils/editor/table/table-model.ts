@@ -153,6 +153,8 @@ export function applyTableModel(table: Region, model: TableModel): string[] {
   table.columns = model.columns
 
   if (model.grid) {
+    const outline = cellPolygonFromGrid(model.grid.points, model.grid.addPoints, { row: 0, col: 0, rowSpan: model.rows, colSpan: model.columns })
+    table.coords = new Polygon(outline, table.coords.conf)
     table.grid = {
       rows: model.grid.points.map((line, index) => ({ index, points: new Polygon(line.map(([x, y]) => [x, y])) })),
       addPoints: model.grid.addPoints.length > 0

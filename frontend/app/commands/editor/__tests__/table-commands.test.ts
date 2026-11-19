@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Polygon, TextLine } from '@/models/editor'
 import type { Region, TextRegion } from '@/models/editor'
 import { buildTableModel } from '@/utils/editor/table/table-model'
@@ -6,7 +6,12 @@ import { validateTable } from '@/utils/editor/table/table-validation'
 import { AssignTextLinesToCellsCommand } from '../assign-text-lines-to-cells-command'
 import { BuildTableFromRegionsCommand } from '../build-table-from-regions-command'
 import { CreateTableGridCommand } from '../create-table-grid-command'
-import { createMockSession, createTestContext, createTestDocument, findRegionById } from './test-utils'
+import { TableStructureCommand } from '../table-structure-command'
+import { TableGridPointCommand } from '../table-grid-point-command'
+import { CreateGridFromCellsCommand } from '../create-grid-from-cells-command'
+import { createMockSession, createTestContext, createTestDocument, createTestReadingOrder, findRegionById } from './test-utils'
+
+vi.mock('@/stores/editor/editor.ui.store', () => ({ useEditorUiStore: () => ({ bumpReadingOrderVersion: vi.fn() }) }))
 
 function rect(left: number, top: number, right: number, bottom: number): [number, number][] {
   return [[left, top], [right, top], [right, bottom], [left, bottom]]
@@ -151,5 +156,110 @@ describe('AssignTextLinesToCellsCommand', () => {
     expect(lineIds(region(getDocument, cellIds[0]!))).toEqual(['l2', 'l3'])
     expect(lineIds(region(getDocument, cellIds[3]!))).toEqual([])
     expect(lineIds(region(getDocument, 'loose'))).toEqual(['l1', 'far'])
+  })
+})
+
+describe('TableStructureCommand', () => {
+  function gridTable(rows: number, columns: number) {
+    const mock = setup([textRegion('t', rect(0, rows * 10, columns * 10, 0))])
+    const { cellIds } = new CreateTableGridCommand({ regionId: 't', rows, columns }).execute(mock.ctx)!
+    return { ...mock, cellIds }
+  }
+
+  it('splits a row and moves lines below the new line into the new cells', () => {
+    const { ctx, getDocument, cellIds } = gridTable(1, 2)
+    const cell = region(getDocument, cellIds[0]!) as TextRegion
+    cell.textLines = [line('upper', 1, 9, 9, 7), line('lower', 1, 3, 9, 1)]
+
+    const { created } = new TableStructureCommand({ tableId: 't', operation: { kind: 'split-row', row: 0 } }).execute(ctx)!
+
+    const table = region(getDocument, 't')
+    expect(buildTableModel(table).rows).toBe(2)
+    expect(lineIds(region(getDocument, cellIds[0]!))).toEqual(['upper'])
+    expect(lineIds(region(getDocument, created[0]!))).toEqual(['lower'])
+    expect(validateTable(table)).toEqual([])
+  })
+
+  it('keeps the lines of merged cells and restores everything on undo', () => {
+    const { ctx, getDocument, cellIds } = gridTable(1, 2)
+    const right = region(getDocument, cellIds[1]!) as TextRegion
+    right.textLines = [line('r', 11, 8, 19, 2)]
+    const before = region(getDocument, 't')
+    const command = new TableStructureCommand({ tableId: 't', operation: { kind: 'merge-cells', cellIds } })
+
+    command.execute(ctx)
+    const table = region(getDocument, 't')
+    expect(table.regions!.map(child => child.id)).toEqual([cellIds[0]])
+    expect(lineIds(table.regions![0]!)).toEqual(['r'])
+
+    command.undo(ctx)
+    expect(region(getDocument, 't')).toBe(before)
+    expect(lineIds(region(getDocument, cellIds[1]!))).toEqual(['r'])
+  })
+
+  it('drops deleted cells from the reading order and restores them on undo', () => {
+    const { ctx, getDocument, cellIds } = gridTable(2, 1)
+    getDocument()!.page.readingOrder = createTestReadingOrder(['t', ...cellIds])
+    const command = new TableStructureCommand({ tableId: 't', operation: { kind: 'delete-row', row: 0 } })
+
+    command.execute(ctx)
+    const refs = () => JSON.stringify(getDocument()!.page.readingOrder)
+    expect(refs()).not.toContain(cellIds[0]!)
+    expect(refs()).toContain(cellIds[1]!)
+
+    command.undo(ctx)
+    expect(refs()).toContain(cellIds[0]!)
+  })
+
+  it('reuses created cell ids on redo', () => {
+    const { ctx } = gridTable(1, 1)
+    const command = new TableStructureCommand({ tableId: 't', operation: { kind: 'split-column', col: 0 } })
+    const first = command.execute(ctx)!
+    command.undo(ctx)
+    expect(command.execute(ctx)!.created).toEqual(first.created)
+  })
+})
+
+describe('TableGridPointCommand', () => {
+  function gridTable() {
+    const mock = setup([textRegion('t', rect(0, 20, 20, 0))])
+    const { cellIds } = new CreateTableGridCommand({ regionId: 't', rows: 2, columns: 2 }).execute(mock.ctx)!
+    return { ...mock, cellIds }
+  }
+
+  it('moves a shared grid point in every cell and the table outline', () => {
+    const { ctx, getDocument, cellIds } = gridTable()
+    new TableGridPointCommand({ tableId: 't', edit: { kind: 'move', from: { x: 20, y: 10 }, to: { x: 22, y: 10 } } }).execute(ctx)
+    const has = (id: string) => region(getDocument, id).coords.points.some(([x, y]) => x === 22 && y === 10)
+    expect([has('t'), has(cellIds[1]!), has(cellIds[3]!), has(cellIds[0]!)]).toEqual([true, true, true, false])
+  })
+
+  it('inserts a point on a shared edge and removes it again, but never removes corners', () => {
+    const { ctx, getDocument, cellIds } = gridTable()
+    new TableGridPointCommand({ tableId: 't', edit: { kind: 'insert', at: { x: 10, y: 15 }, to: { x: 11, y: 15 } } }).execute(ctx)
+    const has = (id: string) => region(getDocument, id).coords.points.some(([x, y]) => x === 11 && y === 15)
+    expect([has(cellIds[0]!), has(cellIds[1]!), has(cellIds[2]!)]).toEqual([true, true, false])
+
+    new TableGridPointCommand({ tableId: 't', edit: { kind: 'remove', points: [{ x: 11, y: 15 }] } }).execute(ctx)
+    expect(has(cellIds[0]!)).toBe(false)
+    expect(() => new TableGridPointCommand({ tableId: 't', edit: { kind: 'remove', points: [{ x: 10, y: 10 }] } }).execute(ctx)).toThrow()
+  })
+})
+
+describe('CreateGridFromCellsCommand', () => {
+  it('infers a grid for a table that only has cells and restores it on undo', () => {
+    const table = { id: 't', kind: 'TableRegion', coords: new Polygon(rect(0, 20, 20, 0)), regions: [
+      textRegion('a', rect(0, 20, 10, 10)), textRegion('b', rect(10, 20, 20, 10)), textRegion('c', rect(0, 10, 20, 0))
+    ] } as Region
+    const { ctx, getDocument } = setup([table])
+    const command = new CreateGridFromCellsCommand({ tableId: 't' })
+
+    command.execute(ctx)
+    const model = buildTableModel(region(getDocument, 't'))
+    expect(model.grid).toBeDefined()
+    expect(model.cells.map(cell => [cell.regionId, cell.row, cell.col, cell.colSpan])).toEqual([['a', 0, 0, 1], ['b', 0, 1, 1], ['c', 1, 0, 2]])
+
+    command.undo(ctx)
+    expect(region(getDocument, 't')).toBe(table)
   })
 })

@@ -1,10 +1,13 @@
 import { PcGts } from '@/models/editor'
 import { Polygon } from '@/models/editor/geometry'
-import type { Region, TextRegion } from '@/models/editor'
+import type { Region, TextLine, TextRegion } from '@/models/editor'
+import type { CommandContext } from './types'
+import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import type { EditorSession } from '@/session/editor/editor-session'
 import { visibilityService } from '@/services/editor/visibility-service'
 import { findRegionRecursive, rebuildSpatialIndexFromPcGts } from '@/utils/editor/pcgts-editor-primitives'
 import type { GridPoint } from '@/utils/editor/table/table-geometry'
+import { centroid } from '@/utils/editor/table/table-builder'
 
 export function newRegionId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
@@ -49,4 +52,21 @@ export function createCellRegion(id: string): TextRegion {
     textLines: [],
     textContentVariants: []
   }
+}
+
+export function invalidateRegionTrees(ctx: CommandContext | undefined, regions: Region[]): void {
+  if (!ctx?.canvasId) return
+  const ids: string[] = []
+  const visit = (region: Region) => {
+    ids.push(region.id)
+    region.regions?.forEach(visit)
+  }
+  regions.forEach(visit)
+  invalidateMultiplePolygonGeometry(ctx.canvasId, ids)
+}
+
+export function compareLinesTopToBottom(a: TextLine, b: TextLine): number {
+  const [ax, ay] = centroid(shapePoints(a))
+  const [bx, by] = centroid(shapePoints(b))
+  return by - ay || ax - bx
 }

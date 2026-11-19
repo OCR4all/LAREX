@@ -1,6 +1,6 @@
 import type { Commander } from '@/commands'
 import type { CommandContext } from '@/commands/editor/types'
-import { ConstrainToParentCommand, DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand, CompoundCommand, CreateTableGridCommand, BuildTableFromRegionsCommand, AssignTextLinesToCellsCommand } from '@/commands'
+import { ConstrainToParentCommand, DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand, CompoundCommand, CreateTableGridCommand, BuildTableFromRegionsCommand, AssignTextLinesToCellsCommand, TableStructureCommand, CreateGridFromCellsCommand } from '@/commands'
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
@@ -15,7 +15,8 @@ import { createScopedLogger } from '@/services/editor/logger-service'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
 import { findRegionRecursive, toPolygonElementType, type PolygonElementType } from '@/utils/editor/pcgts-editor-primitives'
-import { readTableCells } from '@/utils/editor/table/table-model'
+import { buildTableModel, readTableCells } from '@/utils/editor/table/table-model'
+import { canApplyTableOperation, cellsRemovedBy, type TableOperation } from '@/utils/editor/table/table-structure'
 import { isPageFrameType } from '@/utils/editor/page-frame'
 
 const log = createScopedLogger('EditorCommand')
@@ -424,6 +425,71 @@ export function useEditorCommand(
     }
   }
 
+  const tableMenuOperations = new Map<string, { tableId: string, operation: TableOperation }>()
+
+  function tableOperationItem(tableId: string, operation: TableOperation, label: string, icon: string, danger = false): ContextMenuItem {
+    const id = `table-op-${tableMenuOperations.size}`
+    tableMenuOperations.set(id, { tableId, operation })
+    const table = findSessionRegion(tableId)
+    const disabled = !table || !canApplyTableOperation(buildTableModel(table), operation)
+    return { id, label, icon, disabled, danger }
+  }
+
+  function tableCellMenuItems(polygon: RenderablePolygon): ContextMenuItem[] {
+    const cell = polygon.tableCell
+    if (!cell) return []
+    const table = findSessionRegion(cell.tableId)
+    if (!table || !buildTableModel(table).grid) return []
+    const { tableId, row, col } = cell
+    const lastRow = row + cell.rowSpan - 1
+    const lastCol = col + cell.colSpan - 1
+    const submenu = [
+      tableOperationItem(tableId, { kind: 'split-row', row }, 'Split Row', 'i-lucide-between-horizontal-start'),
+      tableOperationItem(tableId, { kind: 'split-column', col }, 'Split Column', 'i-lucide-between-vertical-start'),
+      tableOperationItem(tableId, { kind: 'merge-row-with-next', row: lastRow }, 'Merge Row with Next', 'i-lucide-fold-vertical'),
+      tableOperationItem(tableId, { kind: 'merge-column-with-next', col: lastCol }, 'Merge Column with Next', 'i-lucide-fold-horizontal'),
+      ...(cell.rowSpan > 1 || cell.colSpan > 1
+        ? [tableOperationItem(tableId, { kind: 'split-cell', cellId: polygon.id }, 'Split Cell', 'i-lucide-grid-2x2')]
+        : []),
+      tableOperationItem(tableId, { kind: 'set-header-row', row, header: !cell.header }, cell.header ? 'Unmark Header Row' : 'Mark as Header Row', 'i-lucide-heading'),
+      tableOperationItem(tableId, { kind: 'delete-row', row }, 'Delete Row', 'i-lucide-trash-2', true),
+      tableOperationItem(tableId, { kind: 'delete-column', col }, 'Delete Column', 'i-lucide-trash-2', true)
+    ]
+    return [{ id: 'table-cell', label: 'Table', icon: 'i-lucide-table', submenu }]
+  }
+
+  function selectionTableMenuItems(selected: RenderablePolygon[]): ContextMenuItem[] {
+    const tableIds = new Set(selected.map(p => p.tableCell?.tableId))
+    const [tableId] = tableIds
+    if (selected.length < 2 || tableIds.size !== 1 || !tableId) return []
+    return [tableOperationItem(tableId, { kind: 'merge-cells', cellIds: selected.map(p => p.id) }, 'Merge Cells', 'i-lucide-merge')]
+  }
+
+  async function runTableOperation(tableId: string, operation: TableOperation): Promise<void> {
+    const table = findSessionRegion(tableId)
+    if (!table) return
+    const removed = new Set(cellsRemovedBy(buildTableModel(table), operation))
+    const lineCount = (table.regions ?? [])
+      .filter(child => removed.has(child.id))
+      .reduce((sum, child) => sum + (isTextRegion(child) ? child.textLines?.length ?? 0 : 0), 0)
+    if (lineCount > 0) {
+      const confirmed = await dialogs.confirm({
+        title: operation.kind === 'delete-row' ? 'Delete Row' : 'Delete Column',
+        message: `This deletes ${removed.size} cell${removed.size === 1 ? '' : 's'} with ${lineCount} text line${lineCount === 1 ? '' : 's'}. Continue?`,
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        confirmColor: 'error'
+      })
+      if (!confirmed) return
+    }
+    try {
+      commander.execute(new TableStructureCommand({ tableId, operation }), getCommandContext())
+      if (operation.kind === 'merge-cells') clearSelectionRefs()
+    } catch (error) {
+      showTableError('Could not change the table', error)
+    }
+  }
+
   function assignTextLinesToCells(tableId: string): void {
     const { moved } = commander.execute(new AssignTextLinesToCellsCommand({ tableId }), getCommandContext())
     useToast().add({
@@ -675,6 +741,7 @@ export function useEditorCommand(
     contextMenuY.value = event.clientY
 
     const menuItems: ContextMenuItem[] = []
+    tableMenuOperations.clear()
 
     if (allRegions) {
       const { kind, subtype, custom } = getCommonRegionState(selectedPolygons)
@@ -688,6 +755,8 @@ export function useEditorCommand(
         icon: 'i-lucide-replace',
         submenu: regionTypeSubmenu
       })
+
+      menuItems.push(...selectionTableMenuItems(selectedPolygons))
 
       if (canBuildTableFromSelection(selectedPolygons)) {
         menuItems.push({
@@ -784,9 +853,16 @@ export function useEditorCommand(
     if (polygon.regionKind !== 'TableRegion') {
       return polygon.tableCell ? [] : [{ id: 'convert-to-table', label: 'Convert to Table...', icon: 'i-lucide-table' }]
     }
-    return tableCellCount(polygon.id) === 0
-      ? [{ id: 'create-table-grid', label: 'Create Table Grid...', icon: 'i-lucide-grid-3x3' }]
-      : [{ id: 'assign-lines-to-cells', label: 'Assign Text Lines to Cells', icon: 'i-lucide-table-properties' }]
+    if (tableCellCount(polygon.id) === 0) {
+      return [{ id: 'create-table-grid', label: 'Create Table Grid...', icon: 'i-lucide-grid-3x3' }]
+    }
+    const table = findSessionRegion(polygon.id)
+    return [
+      ...(table && !table.grid?.rows?.length
+        ? [{ id: 'create-grid-from-cells', label: 'Create Grid from Cells', icon: 'i-lucide-grid-3x3' }]
+        : []),
+      { id: 'assign-lines-to-cells', label: 'Assign Text Lines to Cells', icon: 'i-lucide-table-properties' }
+    ]
   }
 
   /**
@@ -810,6 +886,7 @@ export function useEditorCommand(
     contextMenuY.value = event.clientY
 
     const menuItems: ContextMenuItem[] = []
+    tableMenuOperations.clear()
 
     if (isRegion) {
       const labelSet = editorStore.labelSet
@@ -827,7 +904,7 @@ export function useEditorCommand(
         label: polygon.comments?.trim() ? 'Edit comment' : 'Add comment',
         icon: 'i-lucide-message-square'
       })
-      menuItems.push(...tableMenuItems(polygon))
+      menuItems.push(...tableMenuItems(polygon), ...tableCellMenuItems(polygon))
     }
 
     const session = getEditorSession(canvasId)
@@ -1179,6 +1256,12 @@ export function useEditorCommand(
 
     const target = contextMenuTarget.value
 
+    const tableOperation = tableMenuOperations.get(item.id)
+    if (tableOperation) {
+      await runTableOperation(tableOperation.tableId, tableOperation.operation)
+      return
+    }
+
     if (target.type === 'selection' && target.selection) {
       const selection = target.selection
 
@@ -1418,6 +1501,15 @@ export function useEditorCommand(
       case 'convert-to-table':
       case 'create-table-grid':
         if (target.type === 'polygon') openTableGrid(target.element!.id, target.element as RenderablePolygon)
+        break
+      case 'create-grid-from-cells':
+        if (target.type === 'polygon') {
+          try {
+            commander.execute(new CreateGridFromCellsCommand({ tableId: target.element!.id }), commandCtx)
+          } catch (error) {
+            showTableError('Could not create table grid', error)
+          }
+        }
         break
       case 'assign-lines-to-cells':
         if (target.type === 'polygon') assignTextLinesToCells(target.element!.id)
