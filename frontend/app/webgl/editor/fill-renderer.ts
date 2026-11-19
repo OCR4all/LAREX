@@ -159,7 +159,7 @@ export class FillRenderer {
     this.gl.bindVertexArray(null)
   }
 
-  drawLabelConflictFill(
+  drawStripedFill(
     polygonPoints: Point[],
     triangleIndices: readonly number[],
     scale: Scale,

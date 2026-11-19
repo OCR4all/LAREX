@@ -3,6 +3,7 @@ import { PolygonType, isTextRegion } from '@/models/editor'
 import type { Polygon } from '@/models/editor/geometry'
 import { PAGE_FRAME_KINDS, PAGE_FRAME_LABELS, getPageFrame, isPageFrameType, pageFrameIdForKind, pageFrameKindForId, type PageFrameKind } from '@/utils/editor/page-frame'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
+import { buildTableModel, interiorGridLines, isTableRegion, tableCellPosition } from '@/utils/editor/table/table-model'
 import type { EditorSession } from '@/session/editor/editor-session'
 
 function tuplesToPoints(points: [number, number][]): { x: number, y: number }[] {
@@ -58,12 +59,26 @@ function collectFromWords(textLine: TextLine, outPolygons: RenderablePolygon[]):
   }
 }
 
+function tableRenderFields(region: Region, parent?: Region): Pick<RenderablePolygon, 'tableCell' | 'tableGridLines'> {
+  const fields: Pick<RenderablePolygon, 'tableCell' | 'tableGridLines'> = {}
+  const cell = parent ? tableCellPosition(parent, region) : undefined
+  if (cell && parent) {
+    fields.tableCell = { tableId: parent.id, row: cell.row, col: cell.col, rowSpan: cell.rowSpan, colSpan: cell.colSpan, header: cell.header }
+  }
+  if (isTableRegion(region)) {
+    const lines = interiorGridLines(buildTableModel(region))
+    if (lines.length > 0) fields.tableGridLines = lines.map(tuplesToPoints)
+  }
+  return fields
+}
+
 function collectFromRegions(
   regions: Region[],
   outPolygons: RenderablePolygon[],
   outPolylines: RenderablePolyline[],
-  parentId?: string
+  parent?: Region
 ): void {
+  const parentId = parent?.id
   for (const region of regions) {
     const regionSubtype = region.type
 
@@ -78,7 +93,8 @@ function collectFromRegions(
       regionSubtype,
       regionCustom: region.custom,
       confidence: region.confidence,
-      textContentVariants: isTextRegion(region) ? region.textContentVariants : undefined
+      textContentVariants: isTextRegion(region) ? region.textContentVariants : undefined,
+      ...tableRenderFields(region, parent)
     })
 
     if (isTextRegion(region) && region.textLines) {
@@ -110,7 +126,7 @@ function collectFromRegions(
     }
 
     if (region.regions && region.regions.length > 0) {
-      collectFromRegions(region.regions, outPolygons, outPolylines, region.id)
+      collectFromRegions(region.regions, outPolygons, outPolylines, region)
     }
   }
 }

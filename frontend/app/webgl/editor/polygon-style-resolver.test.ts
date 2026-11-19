@@ -22,6 +22,17 @@ function makePolygon(overrides: Partial<RenderablePolygon> = {}): RenderablePoly
 }
 
 describe('resolvePolygonRenderStyle', () => {
+  it('draws tables heavier and their cells lighter than other regions', () => {
+    const tableStyle = resolvePolygonRenderStyle(makePolygon({ regionKind: 'TableRegion', label: 'TableRegion' }))
+    const cellStyle = resolvePolygonRenderStyle(makePolygon({
+      tableCell: { tableId: 't1', row: 0, col: 0, rowSpan: 1, colSpan: 1, header: false }
+    }))
+    const regionStyle = resolvePolygonRenderStyle(makePolygon())
+
+    expect(tableStyle.strokeWidthMultiplier).toBeGreaterThan(regionStyle.strokeWidthMultiplier)
+    expect(cellStyle.strokeWidthMultiplier).toBeLessThan(regionStyle.strokeWidthMultiplier)
+  })
+
   it('keeps text regions solid and region-kind derived', () => {
     const style = resolvePolygonRenderStyle(makePolygon({
       label: 'Heading',

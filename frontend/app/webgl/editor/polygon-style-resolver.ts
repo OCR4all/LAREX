@@ -52,6 +52,13 @@ function getRegionStrokeColor(
   )
 }
 
+function strokeWidthMultiplier(polygon: RenderablePolygon, isTextElement: boolean): number {
+  if (isTextElement) return 0.8
+  if (polygon.regionKind === 'TableRegion') return 1.5
+  if (polygon.tableCell) return 0.75
+  return 1
+}
+
 export function resolvePolygonRenderStyle(
   polygon: RenderablePolygon,
   options: ResolvePolygonRenderStyleOptions = {}
@@ -98,7 +105,7 @@ export function resolvePolygonRenderStyle(
   return {
     strokeColor: baseStrokeColor,
     strokePattern: 'solid',
-    strokeWidthMultiplier: isTextElement ? 0.8 : 1,
+    strokeWidthMultiplier: strokeWidthMultiplier(polygon, isTextElement),
     persistentFill,
     nodeColor: baseStrokeColor
   }

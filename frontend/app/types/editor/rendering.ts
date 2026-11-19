@@ -21,6 +21,15 @@ export interface PreviewPoint {
 
 export type ViewMode = 'default' | 'textline' | 'word' | 'glyph' | 'baseline' | 'frame'
 
+export interface TableCellPosition {
+  tableId: string
+  row: number
+  col: number
+  rowSpan: number
+  colSpan: number
+  header: boolean
+}
+
 export interface RenderablePolygon {
   id: string
   points: Point[]
@@ -38,6 +47,8 @@ export interface RenderablePolygon {
   textContentVariants?: TextContentVariantData[]
   /** Element-level confidence (PAGE @conf) */
   confidence?: number
+  tableCell?: TableCellPosition
+  tableGridLines?: Point[][]
 }
 
 export interface RenderablePolyline {

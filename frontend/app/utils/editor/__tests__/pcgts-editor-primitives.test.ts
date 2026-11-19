@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Metadata, Page, PcGts, Polygon, Polyline, TextContentVariant, TextLine, type TextRegion } from '@/models/editor'
+import { Metadata, Page, PcGts, Polygon, Polyline, TextContentVariant, TextLine, type Region, type TextRegion } from '@/models/editor'
 import {
   baselineIdForTextLineId,
   collectRenderablePolygonsFromPcGts,
@@ -67,5 +67,46 @@ describe('pcgts-editor-primitives confidence extraction', () => {
     const baseline = polylines.find(p => p.id === baselineId)
 
     expect(baseline?.confidence).toBe(0.22)
+  })
+})
+
+describe('collecting table regions', () => {
+  function tablePcGts(): PcGts {
+    const cell = (id: string, rowIndex: number, columnIndex: number, header?: boolean): TextRegion => ({
+      id,
+      kind: 'TextRegion',
+      coords: new Polygon([[0, 0], [1, 0], [1, 1]]),
+      roles: { tableCellRole: { rowIndex, columnIndex, header } },
+      regions: []
+    })
+    const table = {
+      id: 't1',
+      kind: 'TableRegion',
+      coords: new Polygon([[0, 0], [20, 0], [20, 20], [0, 20]]),
+      grid: {
+        rows: [
+          { index: 0, points: new Polygon([[0, 0], [10, 0], [20, 0]]) },
+          { index: 1, points: new Polygon([[0, 10], [10, 10], [20, 10]]) },
+          { index: 2, points: new Polygon([[0, 20], [10, 20], [20, 20]]) }
+        ]
+      },
+      regions: [cell('h', 0, 0, true), cell('b', 1, 1)]
+    } as Region
+    return new PcGts(new Metadata({ creator: 'test' }), new Page({ imageFilename: 'image.png', imageWidth: 20, imageHeight: 20, regions: [table] }))
+  }
+
+  it('marks cells with their table position', () => {
+    const polygons = collectRenderablePolygonsFromPcGts(tablePcGts())
+    expect(polygons.find(p => p.id === 'h')?.tableCell).toEqual({ tableId: 't1', row: 0, col: 0, rowSpan: 1, colSpan: 1, header: true })
+    expect(polygons.find(p => p.id === 'b')?.tableCell?.header).toBe(false)
+  })
+
+  it('gives tables their interior grid lines', () => {
+    const table = collectRenderablePolygonsFromPcGts(tablePcGts()).find(p => p.id === 't1')
+    expect(table?.tableCell).toBeUndefined()
+    expect(table?.tableGridLines).toEqual([
+      [{ x: 0, y: 10 }, { x: 10, y: 10 }, { x: 20, y: 10 }],
+      [{ x: 10, y: 0 }, { x: 10, y: 10 }, { x: 10, y: 20 }]
+    ])
   })
 })

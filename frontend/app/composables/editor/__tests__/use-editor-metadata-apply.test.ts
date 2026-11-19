@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { computed } from 'vue'
 import { useEditorMetadataApply } from '../use-editor-metadata-apply'
-import { createTextRegionMetadataFormState, textRegionMetadataSchema } from '@/utils/editor/metadata-schema'
-import type { TextRegionMetadataFormState } from '@/utils/editor/metadata-schema'
+import {
+  createGenericRegionMetadataFormState,
+  createTextRegionMetadataFormState,
+  genericRegionMetadataSchema,
+  textRegionMetadataSchema
+} from '@/utils/editor/metadata-schema'
+import type { GenericRegionMetadataFormState, TextRegionMetadataFormState } from '@/utils/editor/metadata-schema'
+import { Polygon } from '@/models/editor/geometry'
 import type { PcGts } from '@/models/editor/document'
 import type { Page } from '@/models/editor/page'
-import type { TextRegion } from '@/models/editor/region'
+import type { Region, TextRegion } from '@/models/editor/region'
 
 function setup(region: Partial<TextRegion>) {
   const textRegion = { id: 'r1', kind: 'TextRegion', ...region } as TextRegion
@@ -86,5 +92,63 @@ describe('saving the metadata form of a text region', () => {
     expect(textRegion.userDefined?.attributes).toEqual([
       { name: 'kept', description: undefined, type: 'xsd:string', value: '' }
     ])
+  })
+})
+
+describe('saving the metadata form of a table region', () => {
+  function setupTable() {
+    const cell = {
+      id: 'c1',
+      kind: 'TextRegion',
+      coords: new Polygon([[0, 0], [10, 0], [10, 10], [0, 10]]),
+      roles: { tableCellRole: { rowIndex: 0, columnIndex: 0 } }
+    } as TextRegion
+    const table = {
+      id: 't1',
+      kind: 'TableRegion',
+      coords: new Polygon([[0, 0], [20, 0], [20, 10], [0, 10]]),
+      rows: 5,
+      columns: 5,
+      grid: {
+        rows: [
+          { index: 0, points: new Polygon([[0, 0], [10, 0], [20, 0]]) },
+          { index: 1, points: new Polygon([[0, 10], [10, 10], [20, 10]]) }
+        ],
+        addPoints: [{ row: 0, col: 1, leftPoints: new Polygon([[10, 5]]), topPoints: new Polygon([[15, 1]]) }]
+      },
+      regions: [cell]
+    } as Region
+    const page = { regions: [table] } as unknown as Page
+    const { handleApplyMetadata } = useEditorMetadataApply({
+      activeCanvasId: computed(() => null),
+      activeDocument: computed(() => ({ metadata: {} }) as unknown as PcGts),
+      activePage: computed(() => page),
+      onReadingOrderUpdated: () => {}
+    })
+    function save(edit: (state: GenericRegionMetadataFormState) => void) {
+      const form = createGenericRegionMetadataFormState(table)
+      edit(form)
+      handleApplyMetadata({ target: 'genericRegion', elementId: 't1', data: genericRegionMetadataSchema.parse(form) })
+    }
+    return { table, save }
+  }
+
+  it('keeps the grid add points', () => {
+    const { table, save } = setupTable()
+
+    save((form) => {
+      form.comments = 'checked'
+    })
+
+    expect(table.grid?.addPoints).toEqual([{ row: 0, col: 1, leftPoints: new Polygon([[10, 5]]), topPoints: new Polygon([[15, 1]]) }])
+  })
+
+  it('derives rows and columns from the grid', () => {
+    const { table, save } = setupTable()
+
+    save(() => {})
+
+    expect(table.rows).toBe(1)
+    expect(table.columns).toBe(2)
   })
 })

@@ -21,11 +21,12 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { View, ImageSize, AspectRatioScale, Point, PcGts as DocumentModel } from '@/models/editor'
-import { BASELINE_STYLE, RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, VERTEX_SIZE_PRESETS, type RGBA } from '@/utils/editor/editor-constants'
+import { BASELINE_STYLE, RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, VERTEX_SIZE_PRESETS, TABLE_OVERLAY, type RGBA } from '@/utils/editor/editor-constants'
 import { WEBGL_CORE, WEBGL_GEOMETRY } from '@/webgl/editor/webgl-constants'
 import type { RenderablePolygon, WebGLRenderState } from '@/types/editor/rendering'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { isPageFrameType } from '@/utils/editor/page-frame'
+import { sharesRowOrColumn } from '@/utils/editor/table/table-geometry'
 
 const log = createScopedLogger('WebGLRenderer')
 
@@ -766,9 +767,18 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     const polygonStyle = getResolvedPolygonStyle(polygonToHover)
     const hoverColor = withAlpha(polygonStyle.strokeColor, 0.3)
 
-    if (fillRenderer) {
-      fillRenderer.drawFill(hoveredPoly, triangleIndices, hoverColor, scale, view)
+    const hoveredCell = polygonToHover.tableCell
+    if (hoveredCell) {
+      const crosshairColor = withAlpha(polygonStyle.strokeColor, TABLE_OVERLAY.CROSSHAIR_FILL_ALPHA)
+      for (const sibling of polygons) {
+        const cell = sibling.tableCell
+        if (!cell || sibling.id === polygonToHover.id || cell.tableId !== hoveredCell.tableId) continue
+        if (hiddenPolygonIds?.has(sibling.id) || !sharesRowOrColumn(cell, hoveredCell)) continue
+        fillRenderer.drawFill(sibling.points, getCachedTriangulation(sibling, triangulatePolygon), crosshairColor, scale, view)
+      }
     }
+
+    fillRenderer.drawFill(hoveredPoly, triangleIndices, hoverColor, scale, view)
   }
 
   /**
@@ -841,6 +851,51 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     })
   }
 
+  function drawTableOverlays(
+    renderState: RenderState,
+    aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
+    view: View,
+    triangulatePolygon: (points: Point[]) => number[]
+  ): void {
+    if (!fillRenderer || !dashedLineRenderer) return
+
+    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
+    const document = getActiveDocument()
+    const { visibility, hiddenPolygonIds } = getRenderFrameContext(renderState)
+    const lineWidth = getLineWidth()
+
+    for (const polygon of renderState.polygons) {
+      if (!polygon.tableCell?.header && !polygon.tableGridLines) continue
+      if (hiddenPolygonIds.has(polygon.id) || !visibilityService.shouldShowPolygon(polygon, visibility)) continue
+      const { strokeColor } = getResolvedPolygonStyle(polygon, {}, document)
+
+      if (polygon.tableCell?.header) {
+        const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
+        fillRenderer.drawStripedFill(
+          polygon.points,
+          triangleIndices,
+          scale,
+          view,
+          withAlpha(strokeColor, TABLE_OVERLAY.HEADER_FILL_ALPHA),
+          withAlpha(strokeColor, TABLE_OVERLAY.HEADER_STRIPE_ALPHA)
+        )
+      }
+
+      for (const line of polygon.tableGridLines ?? []) {
+        dashedLineRenderer.drawDashedLine(
+          line,
+          withAlpha(strokeColor, TABLE_OVERLAY.GRID_LINE_ALPHA),
+          lineWidth * TABLE_OVERLAY.GRID_LINE_WIDTH_MULTIPLIER,
+          false,
+          TABLE_OVERLAY.DASH_LENGTH,
+          TABLE_OVERLAY.GAP_LENGTH,
+          scale,
+          view
+        )
+      }
+    }
+  }
+
   function drawLabelConflictFills(
     renderState: RenderState,
     aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
@@ -857,7 +912,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       if (!visibilityService.shouldShowPolygon(polygon, visibility)) continue
 
       const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
-      fillRenderer.drawLabelConflictFill(
+      fillRenderer.drawStripedFill(
         polygon.points,
         triangleIndices,
         scale,
@@ -1911,6 +1966,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     drawDiffPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)
     drawPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)
     drawLabelConflictFills(renderState, aspectRatioScale, view, triangulatePolygon)
+    drawTableOverlays(renderState, aspectRatioScale, view, triangulatePolygon)
     drawActionProcessingTargets(renderState, aspectRatioScale, view, triangulatePolygon)
 
     drawNonSelectedPolygonOutlines(renderState, aspectRatioScale, view)

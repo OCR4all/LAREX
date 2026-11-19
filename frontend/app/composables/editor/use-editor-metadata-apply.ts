@@ -10,6 +10,7 @@ import type { Region, TextRegion } from '@/models/editor/region'
 import type { TextLine, Baseline } from '@/models/editor/text'
 import type { MetadataApplyPayload } from '@/types/editor/metadata'
 import { cloneReadingOrder } from '@/commands/editor/reading-order-utils'
+import { findParentTable, syncTableDimensions } from '@/utils/editor/table/table-model'
 
 type EditorMetadataApplyOptions = {
   activeCanvasId: ComputedRef<string | null>
@@ -394,10 +395,13 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
         const tableCellRole = normalizeTableCellRoleFromForm(payload.data.tableCellRole)
         const gridRows = normalizeGridRowsFromForm(payload.data.gridRows)
         region.roles = tableCellRole ? { tableCellRole } : undefined
-        region.grid = gridRows ? { rows: gridRows } : undefined
+        region.grid = gridRows ? { rows: gridRows, addPoints: region.grid?.addPoints } : undefined
         if ('type' in region) {
           ;(region as { type?: string }).type = payload.data.type || undefined
         }
+        syncTableDimensions(region)
+        const parentTable = findParentTable(regions, region.id)
+        if (parentTable) syncTableDimensions(parentTable)
         updated = true
         break
       }
