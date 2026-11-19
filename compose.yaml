@@ -188,6 +188,7 @@ services:
     ports:
       - "3000:3000"
     environment:
+      NUXT_HOST: 0.0.0.0
       NUXT_PUBLIC_INSTANCE_NAME: ${LAREX_INSTANCE_NAME:-LAREX Local}
       NUXT_PUBLIC_DOCUMENTATION_URL: ${NUXT_PUBLIC_DOCUMENTATION_URL:-https://docs.larex.kallimachos.de}
     volumes:
